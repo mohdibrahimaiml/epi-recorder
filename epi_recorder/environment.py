@@ -214,3 +214,24 @@ def get_environment_summary() -> str:
     lines.append(f"Working Directory: {env['working_directory']['path']}")
     
     return "\n".join(lines)
+
+
+# Backward compatibility alias
+def capture_environment(
+    include_all_env_vars: bool = False,
+    redact_env_vars: bool = True
+) -> Dict[str, Any]:
+    """
+    Alias for capture_full_environment for backward compatibility.
+    
+    Args:
+        include_all_env_vars: Whether to include all environment variables
+        redact_env_vars: Whether to redact sensitive env vars
+        
+    Returns:
+        dict: Complete environment snapshot
+    """
+    return capture_full_environment(
+        include_all_env_vars=include_all_env_vars,
+        redact_env_vars=redact_env_vars
+    )

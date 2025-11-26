@@ -215,12 +215,15 @@ try:
     from epi_core.redactor import Redactor
     
     r = Redactor()
-    sensitive = "My API key is sk-proj-abc123xyz and token is ghp_secret123"
-    redacted = r.redact_text(sensitive)
+    # Use realistic fake keys that match actual patterns
+    fake_openai = "sk-proj-" + "a" * 48  # OpenAI project key (48+ chars)
+    fake_github = "ghp_" + "b" * 36  # GitHub token (36 chars)
+    sensitive = f"My API key is {fake_openai} and token is {fake_github}"
+    redacted, count = r.redact(sensitive)
     
-    assert "sk-proj-abc123xyz" not in redacted
-    assert "ghp_secret123" not in redacted
-    assert "***REDACTED***" in redacted
+    assert fake_openai not in redacted
+    assert fake_github not in redacted
+    assert count >= 2  # Should have redacted both keys
     success()
 except Exception as e:
     fail(str(e))

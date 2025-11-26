@@ -356,9 +356,10 @@ class EpiRecorderSession:
                 )
                 
                 # Repack the ZIP with signed manifest
-                self.output_path.unlink()  # Remove old file
+                # CRITICAL: Write to temp file first to prevent data loss
+                temp_output = self.output_path.with_suffix('.epi.tmp')
                 
-                with zipfile.ZipFile(self.output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                with zipfile.ZipFile(temp_output, 'w', zipfile.ZIP_DEFLATED) as zf:
                     # Write mimetype first (uncompressed)
                     from epi_core.container import EPI_MIMETYPE
                     zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
@@ -368,6 +369,10 @@ class EpiRecorderSession:
                         if file_path.is_file() and file_path.name != "mimetype":
                             arc_name = str(file_path.relative_to(tmp_path)).replace("\\", "/")
                             zf.write(file_path, arc_name)
+                
+                # Successfully created signed file, now safely replace original
+                self.output_path.unlink()
+                temp_output.rename(self.output_path)
                 
         except Exception as e:
             # Non-fatal: log warning but continue
@@ -417,12 +422,6 @@ def _resolve_output_path(output_path: Optional[Path | str]) -> Path:
         return _auto_generate_output_path()
     
     path = Path(output_path)
-    
-    # If path has no directory component (just a filename), put it in epi-recordings/
-    if len(path.parts) == 1:
-        recordings_dir = Path(os.getenv("EPI_RECORDINGS_DIR", "epi-recordings"))
-        recordings_dir.mkdir(parents=True, exist_ok=True)
-        path = recordings_dir / path
     
     # Add .epi extension if missing
     if path.suffix != ".epi":
