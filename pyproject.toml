@@ -51,10 +51,10 @@ dev = [
 epi = "epi_cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/epi-project/epi-recorder"
-Documentation = "https://epi.dev/docs"
-Repository = "https://github.com/epi-project/epi-recorder"
-Issues = "https://github.com/epi-project/epi-recorder/issues"
+Homepage = "https://github.com/mohdibrahimaiml/EPI-V1.1"
+Documentation = "https://github.com/mohdibrahimaiml/EPI-V1.1#readme"
+Repository = "https://github.com/mohdibrahimaiml/EPI-V1.1"
+Issues = "https://github.com/mohdibrahimaiml/EPI-V1.1/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

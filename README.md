@@ -8,6 +8,7 @@ Self-contained, cryptographically verified evidence packages for AI systems.
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/status-production--ready-green.svg)](https://pypi.org/project/epi-recorder/)
 [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://pypi.org/project/epi-recorder/)
+[![GitHub](https://img.shields.io/badge/GitHub-EPI--V1.1-black.svg?logo=github)](https://github.com/mohdibrahimaiml/EPI-V1.1)
 
 ---
 
@@ -195,8 +196,8 @@ pip install epi-recorder
 ### From Source
 
 ```bash
-git clone https://github.com/your-repo/epi-recorder
-cd epi-recorder
+git clone https://github.com/mohdibrahimaiml/EPI-V1.1.git
+cd EPI-V1.1
 pip install -e .
 ```
 
@@ -462,10 +463,10 @@ epi-recorder/
 **Personal Email:** mohdibrahimaiml@outlook.com
 
 **Links:**
-- Documentation: [Coming Soon]
-- Repository: [GitHub URL]
-- Issues: [GitHub Issues URL]
-- PyPI: https://pypi.org/project/epi-recorder/
+- **GitHub Repository:** https://github.com/mohdibrahimaiml/EPI-V1.1
+- **Issues:** https://github.com/mohdibrahimaiml/EPI-V1.1/issues
+- **PyPI:** https://pypi.org/project/epi-recorder/
+- **Documentation:** [Coming Soon]
 
 ---
 
