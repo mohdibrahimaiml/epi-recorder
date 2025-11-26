@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "1.1.0"
+version = "1.1.1"
 description = "Executable Package for AI workflows - Record, Verify, and Replay AI runs"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "EPI Project", email = "contact@epi.dev"}
+    {name = "Mohd Ibrahim Afridi", email = "epitechforworld@outlook.com"}
 ]
 maintainers = [
-    {name = "EPI Project", email = "contact@epi.dev"}
+    {name = "Mohd Ibrahim Afridi", email = "epitechforworld@outlook.com"}
 ]
 keywords = ["ai", "reproducibility", "verification", "llm", "evidence", "openai", "cryptography", "workflow", "audit"]
 classifiers = [

@@ -2,7 +2,7 @@
 EPI Core - Core data structures, serialization, and container management.
 """
 
-__version__ = "1.0.0-keystone"
+__version__ = "1.1.1"
 
 from epi_core.schemas import ManifestModel, StepModel
 from epi_core.serialize import get_canonical_hash
