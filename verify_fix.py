@@ -1,31 +1,54 @@
-# Verify the notebook changes
+
 import json
+import zipfile
+import tempfile
+import os
+from pathlib import Path
+from epi_recorder.api import record
+from epi_core.container import EPIContainer
 
-with open('epi_investor_demo.ipynb', 'r', encoding='utf-8') as f:
-    nb = json.load(f)
+def test_viewer_fix():
+    print("Testing Viewer Fix...")
+    
+    # 1. Create a recording
+    output_path = Path.cwd() / "test_fix.epi"
+    if output_path.exists():
+        os.remove(output_path)
+        
+    print("Recording...")
+    with record(output_path=str(output_path), goal="Verify Security Fix"):
+        print("Hello World")
+        
+    # 2. Inspect the output
+    print(f"Created {output_path}")
+    
+    with zipfile.ZipFile(output_path, "r") as zf:
+        # Check manifest
+        manifest_data = json.loads(zf.read("manifest.json").decode("utf-8"))
+        print("\n[Manifest Check]")
+        print(f"Spec Version: {manifest_data.get('spec_version')}")
+        print(f"Public Key: {manifest_data.get('public_key')}")
+        
+        assert manifest_data.get("spec_version") == "1.1-json", "Spec version not updated"
+        assert manifest_data.get("public_key") is not None, "Public key missing in manifest"
+        
+        # Check viewer.html injection
+        viewer_html = zf.read("viewer.html").decode("utf-8")
+        print("\n[Viewer Check]")
+        
+        if "const noble =" in viewer_html:
+            print("SUCCESS: crypto.js (noble) injected")
+        else:
+            print("FAIL: crypto.js NOT injected")
+            
+        if "verifyManifestSignature(manifest)" in viewer_html:
+            print("SUCCESS: app.js updated to call verification")
+        else:
+            print("FAIL: app.js verification call missing")
 
-demo = [c for c in nb['cells'] if c.get('metadata',{}).get('id')=='demo'][0]
-src = ''.join(demo['source'])
+    # 3. Clean up
+    # os.remove(output_path)
+    print("\nTest Complete.")
 
-print("Verification Results:")
-print("-" * 50)
-if 'SEC_Evidence_Viewer.html' in src:
-    print("[OK] Viewer HTML extraction: PRESENT")
-else:
-    print("[FAIL] Viewer HTML extraction: MISSING")
-
-if 'files.download(str(viewer_html_file))' in src:
-    print("[OK] Dual download logic: PRESENT")
-else:
-    print("[FAIL] Dual download logic: MISSING")
-
-if 'DOWNLOADING 2 FILES' in src:
-    print("[OK] Updated messaging: PRESENT")
-else:
-    print("[FAIL] Updated messaging: MISSING")
-
-print("-" * 50)
-print("Demo cell preview (download section):")
-idx = src.find("# EXTRACT VIEWER")
-if idx != -1:
-    print(src[idx:idx+500])
+if __name__ == "__main__":
+    test_viewer_fix()

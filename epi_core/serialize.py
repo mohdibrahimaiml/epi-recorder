@@ -87,27 +87,56 @@ def get_canonical_hash(model: BaseModel, exclude_fields: set[str] | None = None)
         else:
             return value
     
+    # Normalize datetime and UUID fields to strings
     model_dict = normalize_value(model_dict)
     
     if exclude_fields:
         for field in exclude_fields:
             model_dict.pop(field, None)
+
+    # JSON Canonicalization for Spec v1.1+
+    # Check if model has spec_version and if it indicates JSON usage
+    # We default to CBOR for backward compatibility
     
+    use_json = False
+    
+    # Check spec_version in model or dict
+    spec_version = model_dict.get("spec_version")
+    if spec_version and (spec_version.startswith("1.1") or "json" in spec_version):
+        use_json = True
+        
+    if use_json:
+        return _get_json_canonical_hash(model_dict)
+    else:
+        return _get_cbor_canonical_hash(model_dict)
+
+
+def _get_json_canonical_hash(data: Any) -> str:
+    """Compute canonical SHA-256 hash using JSON (RFC 8785 style)."""
+    import json
+    
+    # Dump to JSON with sorted keys and no whitespace
+    json_bytes = json.dumps(
+        data,
+        sort_keys=True,
+        separators=(',', ':'),
+        ensure_ascii=False
+    ).encode("utf-8")
+    
+    return hashlib.sha256(json_bytes).hexdigest()
+
+
+def _get_cbor_canonical_hash(data: Any) -> str:
+    """Compute canonical SHA-256 hash using CBOR (Legacy v1.0)."""
     # Encode to canonical CBOR
-    # canonical=True ensures:
-    # - Keys are sorted lexicographically
-    # - Minimal encoding is used
-    # - Deterministic representation
     cbor_bytes = cbor2.dumps(
-        model_dict,
+        data,
         canonical=True,
         default=_cbor_default_encoder
     )
     
     # Compute SHA-256 hash
-    hash_obj = hashlib.sha256(cbor_bytes)
-    
-    return hash_obj.hexdigest()
+    return hashlib.sha256(cbor_bytes).hexdigest()
 
 
 def verify_hash(model: BaseModel, expected_hash: str, exclude_fields: set[str] | None = None) -> bool:

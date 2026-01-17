@@ -49,8 +49,15 @@ def test_gateway_flow():
             import json
             with open(files[0]) as f:
                 data = json.load(f)
-                assert data["content"]["message"] == "Hello Enterprise"
-                assert data["_signed"] is True
+                # UPDATED FOR BATCHING SUPPORT
+                if "items" in data:
+                    print("Detected Batch Format. Verifying item 0...")
+                    first_item = data["items"][0]
+                    assert first_item["content"]["message"] == "Hello Enterprise"
+                    assert data.get("_signed_batch") is True
+                else:
+                    assert data["content"]["message"] == "Hello Enterprise"
+                    assert data["_signed"] is True
             print("Evidence content verified")
             break
         time.sleep(0.1)

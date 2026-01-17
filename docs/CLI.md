@@ -1,8 +1,8 @@
-# EPI CLI Reference (v2.1.1)
+# EPI CLI Reference (v2.1.2)
 
 The **Evidence Packaged Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
 
-**Version:** 2.1.1  
+**Version:** 2.1.2  
 **Install:** `pip install epi-recorder`
 
 ---
@@ -62,7 +62,7 @@ $ epi record --out build.epi -- ./build_script.sh
 
 ### `epi view <file_or_name>`
 **Offline Viewer.**  
-Opens a local web server to display the `.epi` timeline. The viewer is strictly **offline-first** (no CDN dependencies) as of v2.1.1.
+Opens a local web server to display the `.epi` timeline. The viewer is strictly **offline-first** (no CDN dependencies) as of v2.1.X.
 
 **Usage:**
 ```bash

@@ -15,7 +15,7 @@
 [![Downloads](https://img.shields.io/pypi/dm/epi-recorder?color=blue&label=Downloads)](https://pypi.org/project/epi-recorder/)
 [![Stars](https://img.shields.io/github/stars/mohdibrahimaiml/EPI-V2.0.0?style=social)](https://github.com/mohdibrahimaiml/EPI-V2.0.0)
 
-[**🚀 Quick Start**](#-quick-start-30-seconds) • [**📖 Docs**](https://epilabs.org/docs) • [**💬 Community**](https://github.com/mohdibrahimaiml/EPI-V2.0.0/discussions) • [**🎥 Demo**](https://colab.research.google.com/github/mohdibrahimaiml/EPI-V2.1.0/blob/main/colab_demo.ipynb)
+[**🚀 Quick Start**](#-quick-start-30-seconds) • [**📖 Docs**](https://epilabs.org/docs) • [**💬 Community**](https://github.com/mohdibrahimaiml/EPI-V2.0.0/discussions) • [**🎥 Demo**](https://colab.research.google.com/github/mohdibrahimaiml/EPI-V2.1.2/blob/main/colab_demo.ipynb)
 
 </div>
 
@@ -34,12 +34,12 @@
 
 **Unix/Mac:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.0/main/scripts/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.2/main/scripts/install.sh | sh
 ```
 
 **Windows:**
 ```powershell
-iwr https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.0/main/scripts/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.2/main/scripts/install.ps1 -useb | iex
 ```
 
 **Manual (pip):**
@@ -437,12 +437,17 @@ Use `python -m epi_cli` instead (always works). Or run `python -m epi_cli doctor
 
 ---
 
-## 🆕 What's New in v2.1.1
+## 🆕 What's New in v2.1.2
 
 > [!IMPORTANT]
-> **Major Update:** 99% installation success rate! We solved the `epi: command not found` problem.
+> **Critical Security Update:** Implemented client-side Ed25519 signature verification in the embedded viewer. The viewer now cryptographically verifies that the standard signature matches the content and the embedded public key, preventing potential tamper attacks.
 
-### ✨ Enhanced CLI Reliability
+### 🛡️ Security & Integrity
+- **Client-Side Verification:** The HTML viewer now includes a bundled crypto library to verify signatures offline.
+- **Spec Update (v1.1-json):** Manifests now use Canonical JSON hashing and include the `public_key` for self-contained proof.
+- **Trust Badges:** UI now explicitly shows "Verified" (Green), "Unsigned" (Yellow), or "Tampered" (Red).
+
+### ✨ Enhanced CLI Reliability (v2.1.1)
 
 **1. Python Module Fallback**
 - `python -m epi_cli` now works as a 100% reliable alternative

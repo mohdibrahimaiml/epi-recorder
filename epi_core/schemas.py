@@ -18,7 +18,7 @@ class ManifestModel(BaseModel):
     """
     
     spec_version: str = Field(
-        default="1.0-keystone",
+        default="1.1-json",
         description="EPI specification version"
     )
     
@@ -45,6 +45,11 @@ class ManifestModel(BaseModel):
     file_manifest: Dict[str, str] = Field(
         default_factory=dict,
         description="Mapping of file paths to their SHA-256 hashes for integrity verification"
+    )
+    
+    public_key: Optional[str] = Field(
+        default=None,
+        description="Hex-encoded public key used for verification"
     )
     
     signature: Optional[str] = Field(

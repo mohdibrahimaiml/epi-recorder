@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "2.1.1"
-description = "Executable Package for AI workflows - Record, Verify, and Replay AI runs with automatic PATH setup"
+version = "2.1.2"
+description = "Evidence Packaged Infrastructure (.epi) for AI Evidence - Record, Verify, and Replay AI runs with automatic PATH setup"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
@@ -51,10 +51,10 @@ dev = [
 epi = "epi_cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/mohdibrahimaiml/EPI-V2.1.0"
-Documentation = "https://github.com/mohdibrahimaiml/EPI-V2.1.0#readme"
-Repository = "https://github.com/mohdibrahimaiml/EPI-V2.1.0"
-Issues = "https://github.com/mohdibrahimaiml/EPI-V2.1.0/issues"
+Homepage = "https://github.com/mohdibrahimaiml/EPI-V2.1.2"
+Documentation = "https://github.com/mohdibrahimaiml/EPI-V2.1.2#readme"
+Repository = "https://github.com/mohdibrahimaiml/EPI-V2.1.2"
+Issues = "https://github.com/mohdibrahimaiml/EPI-V2.1.2/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

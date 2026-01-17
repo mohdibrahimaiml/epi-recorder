@@ -80,6 +80,8 @@ class EPIContainer:
         # Read template and assets
         template_html = template_path.read_text(encoding="utf-8")
         app_js = app_js_path.read_text(encoding="utf-8") if app_js_path.exists() else ""
+        crypto_js_path = viewer_static_dir / "crypto.js"
+        crypto_js = crypto_js_path.read_text(encoding="utf-8") if crypto_js_path.exists() else ""
         css_styles = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
         
         # Read steps from steps.jsonl
@@ -112,10 +114,16 @@ class EPIContainer:
             f'<style>{css_styles}</style>'
         )
         
-        # Inline app.js
+        # Inline crypto.js and app.js
+        js_content = ""
+        if crypto_js:
+            js_content += f"<script>{crypto_js}</script>\n"
+        if app_js:
+            js_content += f"<script>{app_js}</script>"
+            
         html_with_js = html_with_css.replace(
             '<script src="app.js"></script>',
-            f'<script>{app_js}</script>'
+            js_content
         )
         
         return html_with_js

@@ -53,6 +53,16 @@ def sign_manifest(
         SigningError: If signing fails
     """
     try:
+        # Derive public key and add to manifest
+        public_key_obj = private_key.public_key()
+        public_key_hex = public_key_obj.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        ).hex()
+        
+        # We must update the manifest BEFORE hashing so the public key is signed
+        manifest.public_key = public_key_hex
+
         # Compute canonical hash (excluding signature field)
         manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
         hash_bytes = bytes.fromhex(manifest_hash)
