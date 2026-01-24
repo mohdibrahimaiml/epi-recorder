@@ -11,11 +11,11 @@
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/epi-recorder/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-MVP-orange.svg)](https://github.com/mohdibrahimaiml/EPI-V2.0.0)
+[![Status](https://img.shields.io/badge/Status-MVP-orange.svg)](https://github.com/mohdibrahimaiml/EPI-V2.1.2)
 [![Downloads](https://img.shields.io/pypi/dm/epi-recorder?color=blue&label=Downloads)](https://pypi.org/project/epi-recorder/)
-[![Stars](https://img.shields.io/github/stars/mohdibrahimaiml/EPI-V2.0.0?style=social)](https://github.com/mohdibrahimaiml/EPI-V2.0.0)
+[![Stars](https://img.shields.io/github/stars/mohdibrahimaiml/EPI-V2.1.2?style=social)](https://github.com/mohdibrahimaiml/EPI-V2.1.2)
 
-[**🚀 Quick Start**](#-quick-start-30-seconds) • [**📖 Docs**](https://epilabs.org/docs) • [**💬 Community**](https://github.com/mohdibrahimaiml/EPI-V2.1.3/discussions) • [**🎥 Demo**](https://colab.research.google.com/github/mohdibrahimaiml/EPI-V2.1.3/blob/main/colab_demo.ipynb)
+[**🚀 Quick Start**](#-quick-start-30-seconds) • [**📖 Docs**](https://epilabs.org/docs) • [**💬 Community**](https://github.com/mohdibrahimaiml/EPI-V2.1.2/discussions) • [**🎥 Demo**](https://colab.research.google.com/github/mohdibrahimaiml/EPI-V2.1.2/blob/main/colab_demo.ipynb)
 
 </div>
 
@@ -34,12 +34,12 @@
 
 **Unix/Mac:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.3/main/scripts/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.2/main/scripts/install.sh | sh
 ```
 
 **Windows:**
 ```powershell
-iwr https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.3/main/scripts/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/mohdibrahimaiml/EPI-V2.1.2/main/scripts/install.ps1 -useb | iex
 ```
 
 **Manual (pip):**
