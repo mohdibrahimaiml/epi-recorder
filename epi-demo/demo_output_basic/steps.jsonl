@@ -1,6 +1,0 @@
-{"kind": "session.start", "content": {"workflow_name": "Basic Demo", "session_id": "a3b23ecb-24b3-45fa-be68-e89af28fba94"}}
-{"kind": "data.loaded", "content": {"samples": 10}}
-{"kind": "llm.request", "content": {"model": "gpt-demo", "messages": [{"role": "user", "content": "Hello"}]}}
-{"kind": "llm.response", "content": {"choices": [{"text": "Hi demo"}], "tokens": 5}}
-{"kind": "artifact.captured", "content": {"path": "demo_output_basic\\output.csv", "size": 16}}
-{"kind": "session.end", "content": {"duration": 0.005561113357543945, "success": true}}

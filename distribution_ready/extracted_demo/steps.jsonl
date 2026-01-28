@@ -1,8 +1,0 @@
-{"index":0,"timestamp":"2026-01-02T12:17:36.991407","kind":"session.start","content":{"workflow_name":"SEC-Compliant Algorithmic Trade","tags":[],"timestamp":"2026-01-02T12:17:21.135982"}}
-{"index":1,"timestamp":"2026-01-02T12:17:36.994350","kind":"market.analysis","content":{"symbol":"AAPL","price":178.25,"rsi":62.5,"volume_delta":"+15%","signal":"bullish"}}
-{"index":2,"timestamp":"2026-01-02T12:17:37.996569","kind":"risk.assessment","content":{"portfolio_exposure":0.12,"max_drawdown_risk":0.032,"sharpe_ratio":1.85,"decision":"WITHIN_LIMITS"}}
-{"index":3,"timestamp":"2026-01-02T12:17:38.999032","kind":"trade.execution","content":{"action":"BUY","quantity":500,"order_type":"LIMIT","limit_price":178.2,"expected_value":89100.0,"trade_id":"TR-2026-01-0278"}}
-{"index":4,"timestamp":"2026-01-02T12:17:40.007023","kind":"compliance.validation","content":{"framework":["MiFID II","Dodd-Frank"],"wash_sale_rule":"PASS","circuit_breaker":"PASS","pre_trade_risk":"PASS"}}
-{"index":5,"timestamp":"2026-01-02T12:17:41.009848","kind":"workflow.completed","content":{"status":"success","trade_id":"TR-2026-01-0278","total_value":89100.0}}
-{"index":6,"timestamp":"2026-01-02T12:17:43.573463","kind":"environment.captured","content":{"platform":"Windows-10-10.0.26200-SP0","python_version":"3.11.9","timestamp":"2026-01-02T12:17:43.573463"}}
-{"index":7,"timestamp":"2026-01-02T12:17:43.574072","kind":"session.end","content":{"timestamp":"2026-01-02T12:17:43.574072","duration_seconds":22.43809,"success":true}}
