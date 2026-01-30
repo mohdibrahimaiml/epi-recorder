@@ -126,6 +126,10 @@ app.command(name="ls", help="List local recordings (./epi-recordings/)")(ls_comm
 from epi_cli.chat import chat as chat_command
 app.command(name="chat", help="Chat with your evidence file using AI")(chat_command)
 
+# NEW: debug command (v2.2.0 - AI-powered mistake detection)
+from epi_cli.debug import app as debug_app
+app.add_typer(debug_app, name="debug", help="Debug AI agent recordings for mistakes")
+
 # Phase 1: keys command (for manual key management)
 @app.command()
 def keys(

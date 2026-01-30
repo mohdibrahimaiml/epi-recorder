@@ -59,7 +59,7 @@ Discussions = "https://github.com/epilabs/epi-recorder/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_viewer_static*", "epi_postinstall*"]
+include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "epi_postinstall*"]
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]
