@@ -4,7 +4,7 @@
   <h1 align="center">EPI Recorder</h1>
 </p>
 
-[![Release](https://img.shields.io/github/v/release/mohdibrahimaiml/EPI-V2.1.3?label=Release&style=flat-square&color=00d4ff)](https://github.com/mohdibrahimaiml/EPI-V2.1.3/releases)
+[![Version](https://img.shields.io/pypi/v/epi-recorder?style=flat-square&color=00d4ff&label=Release)](https://pypi.org/project/epi-recorder/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://pypi.org/project/epi-recorder/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/epi-recorder?style=flat-square&color=10b981&label=Installs)](https://pypi.org/project/epi-recorder/)
