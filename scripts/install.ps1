@@ -139,9 +139,9 @@ else {
 }
 
 Write-Host "Documentation: " -NoNewline
-Write-Host "https://github.com/mohdibrahimaiml/EPI-V2.2.0" -ForegroundColor Cyan
+Write-Host "https://github.com/mohdibrahimaiml/epi-recorder" -ForegroundColor Cyan
 Write-Host "Issues: " -NoNewline
-Write-Host "https://github.com/mohdibrahimaiml/EPI-V2.2.0/issues" -ForegroundColor Cyan
+Write-Host "https://github.com/mohdibrahimaiml/epi-recorder/issues" -ForegroundColor Cyan
 Write-Host ""
 
 
