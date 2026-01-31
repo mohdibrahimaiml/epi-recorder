@@ -8,7 +8,7 @@ Thank you for your interest in contributing to EPI Recorder! We welcome contribu
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/epi-recorder
+   git clone https://github.com/mohdibrahimaiml/epi-recorder.git
    cd epi-recorder
    ```
 
@@ -174,7 +174,7 @@ We especially welcome contributions in:
 
 ## 📄 License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
 
 ---
 
