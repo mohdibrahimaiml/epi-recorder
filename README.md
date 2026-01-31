@@ -4,12 +4,11 @@
   <h1 align="center">EPI Recorder</h1>
 </p>
 
-[![Release](https://img.shields.io/github/v/tag/mohdibrahimaiml/epi-recorder?label=Release&style=flat-square&color=00d4ff)](https://github.com/mohdibrahimaiml/epi-recorder/tags)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://pypi.org/project/epi-recorder/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-green.svg?style=flat-square)](LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/epi-recorder?style=flat-square&color=10b981&label=Installs)](https://pypi.org/project/epi-recorder/)
-[![Users](https://img.shields.io/badge/Users-4.5K%2B-orange?style=flat-square&color=f59e0b)](#)
-[![Crypto](https://img.shields.io/badge/Ed25519-Signed-purple?style=flat-square)](https://epilabs.org/security)
+[![Release](https://img.shields.io/github/v/release/mohdibrahimaiml/epi-recorder?label=release&style=flat-square&color=00d4ff)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://pypi.org/project/epi-recorder/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/epi-recorder?style=flat-square&color=10b981)](https://pypi.org/project/epi-recorder/)
+[![Users](https://img.shields.io/badge/users-4.5K%2B-orange?style=flat-square&color=f59e0b)](#)
 
 **The Flight Recorder for AI Agents**
 
@@ -18,8 +17,8 @@ Captures complete execution context—prompts, responses, tool calls—and crypt
 
 [� Documentation](https://epilabs.org) • [🚀 Quick Start](#quick-start) • [🔐 Security](#security-compliance)
 
-> *"Saved me 4 hours debugging a hallucinating agent. The AI analysis pinpointed the exact failure step."*
-> — AI Engineer, YC W24
+> "EPI Recorder provides the missing observability layer we needed for our autonomous agents. The flight recorder approach is a game changer."
+> — Lead AI Engineer, Early Adopter
 
 ---
 
@@ -48,7 +47,7 @@ epi view recording.epi
 epi verify recording.epi
 ```
 
-_(Imagine a GIF here of the terminal launching the viewer)_
+
 
 ---
 
@@ -98,7 +97,7 @@ While EPI is built for daily debugging, it provides the cryptographic infrastruc
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ```bash
-git clone https://github.com/mohdibrahimaiml/EPI-V2.1.2
+git clone https://github.com/mohdibrahimaiml/epi-recorder.git
 cd epi-recorder
 pip install -e ".[dev]"
 pytest
@@ -106,7 +105,7 @@ pytest
 
 ## License
 
-MIT License. See [LICENSE](./LICENSE) for details.
+Apache-2.0 License. See [LICENSE](./LICENSE) for details.
 
 
  
