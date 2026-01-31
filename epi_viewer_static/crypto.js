@@ -515,3 +515,4 @@ async function verifyManifestSignature(manifest) {
         return { valid: false, reason: e.message };
     }
 }
+

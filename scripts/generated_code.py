@@ -9,3 +9,5 @@ def calculate_moving_average(data, window_size):
         moving_avg.append(sum(window) / window_size)
     
     return moving_avg
+
+

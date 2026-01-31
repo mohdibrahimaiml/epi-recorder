@@ -271,3 +271,5 @@ class TestVerifyReportFormatting:
             epi_file = Path(tmpdir) / "test.epi"
             
             print_trust_report(report, epi_file, verbose=True)
+
+

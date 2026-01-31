@@ -21,3 +21,5 @@ else:
     print("\n✗ TEST FAILED")
     if count == 0:
         print("  Patterns didn't match - need to check redaction patterns")
+
+

@@ -21,3 +21,5 @@ if idx != -1:
         # Show leading spaces count
         spaces = len(line) - len(line.lstrip())
         print(f"{spaces:2d}|{line}")
+
+

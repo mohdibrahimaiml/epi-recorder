@@ -166,3 +166,5 @@ class TestCLIErrors:
         result = runner.invoke(app, ["keys", "export", "--name", nonexistent_name])
         
         assert result.exit_code != 0
+
+

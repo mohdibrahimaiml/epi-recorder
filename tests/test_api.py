@@ -337,3 +337,5 @@ class TestFileArtifactErrors:
             with record(output_path) as epi:
                 with pytest.raises(FileNotFoundError):
                     epi.log_artifact(Path("nonexistent_file.txt"))
+
+

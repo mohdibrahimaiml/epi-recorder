@@ -245,3 +245,5 @@ class TestCanonicalHashing:
         
         # Verify should succeed even with different signature
         assert verify_hash(manifest, expected_hash, exclude_fields={"signature"})
+
+

@@ -158,3 +158,5 @@ def verify_hash(model: BaseModel, expected_hash: str, exclude_fields: set[str] |
     """
     actual_hash = get_canonical_hash(model, exclude_fields)
     return actual_hash == expected_hash
+
+

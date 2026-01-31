@@ -126,3 +126,4 @@ fi
 echo ""
 echo -e "${BLUE}Documentation:${NC} https://github.com/mohdibrahimaiml/EPI-V2.2.0"
 echo -e "${BLUE}Issues:${NC} https://github.com/mohdibrahimaiml/EPI-V2.2.0/issues"
+

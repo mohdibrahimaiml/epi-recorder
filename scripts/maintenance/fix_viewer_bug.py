@@ -141,3 +141,5 @@ print("  • Falls back to stdout.log if needed")
 print("  • Builds custom viewer HTML on-the-fly")
 print("  • Handles both API and CLI formats")
 print("\n✅ Demo is now bulletproof!")
+
+

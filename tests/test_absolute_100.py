@@ -339,3 +339,5 @@ class TestAbsoluteCoverageCompletion:
                 # Test both verbose modes
                 print_trust_report(report, test_file, verbose=False)
                 print_trust_report(report, test_file, verbose=True)
+
+

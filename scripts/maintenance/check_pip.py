@@ -11,3 +11,5 @@ for cell in nb['cells']:
         for line in src.split('\n'):
             if 'pip' in line.lower():
                 print(f"Found: {line}")
+
+

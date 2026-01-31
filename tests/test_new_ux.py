@@ -168,3 +168,5 @@ class TestZeroConfigContextManager:
         epi_files = list(recordings_dir.glob("my_custom_name*.epi"))
         assert len(epi_files) == 1
         assert epi_files[0].name == "my_custom_name.epi"
+
+

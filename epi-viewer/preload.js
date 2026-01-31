@@ -23,3 +23,4 @@ contextBridge.exposeInMainWorld('epiAPI', {
         ipcRenderer.on('open-file', (event, filePath) => callback(filePath));
     }
 });
+

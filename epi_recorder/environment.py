@@ -235,3 +235,5 @@ def capture_environment(
         include_all_env_vars=include_all_env_vars,
         redact_env_vars=redact_env_vars
     )
+
+

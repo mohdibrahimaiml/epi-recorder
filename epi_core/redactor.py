@@ -277,3 +277,5 @@ def get_default_redactor() -> Redactor:
             pass  # Fail silently, use defaults
     
     return Redactor(config_path=config_path if config_path.exists() else None)
+
+

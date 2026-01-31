@@ -306,3 +306,5 @@ class TestAllRemainingPaths:
         result = runner.invoke(app, ["view", "--verbose", "/totally/nonexistent/path.epi"])
         
         assert result.exit_code != 0
+
+

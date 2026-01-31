@@ -132,3 +132,5 @@ print("  3. Shows 'Signed (Ed25519)' in GREEN when signed")
 print("  4. Shows 'Unsigned' in YELLOW when not signed")
 print("\nUpload to Colab!")
 print("=" * 70)
+
+

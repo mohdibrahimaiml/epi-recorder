@@ -295,3 +295,5 @@ class TestRedactor:
             content = config_path.read_text()
             assert "[redaction]" in content
             assert "enabled" in content
+
+

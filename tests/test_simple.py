@@ -15,3 +15,5 @@ with record("test_simple.epi", workflow_name="Simple Test"):
 print("\nSuccess! File created: test_simple.epi")
 print("\nVerify with:")
 print("  python -m epi_cli.main verify test_simple.epi")
+
+

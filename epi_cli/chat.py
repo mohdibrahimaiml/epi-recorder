@@ -205,3 +205,5 @@ When answering questions:
             console.print(f"[red]Error:[/red] {e}")
             console.print("[dim]Try asking a different question.[/dim]")
             console.print()
+
+

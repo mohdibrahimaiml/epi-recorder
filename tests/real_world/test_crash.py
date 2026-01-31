@@ -16,3 +16,5 @@ with record(workflow_name="crash_test"):
     print("About to crash...")
     time.sleep(0.3)
     sys.exit(1)  # Hard kill
+
+

@@ -138,3 +138,5 @@ print("  - If UNSIGNED: '⚠ Unsigned' (yellow)")
 print("  - If SIGNED:   '✓ Signed' (green)")
 print("\nSimple and clean!")
 print("=" * 70)
+
+

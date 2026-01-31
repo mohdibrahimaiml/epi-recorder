@@ -139,3 +139,5 @@ print("  - 'Unsigned' in yellow if no signature")
 print("  - 'ED25519:DEFAULT:abc...' in GREEN if signed")
 print("\nUpload to Colab and run!")
 print("=" * 70)
+
+

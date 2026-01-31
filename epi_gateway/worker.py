@@ -140,3 +140,5 @@ class EvidenceWorker:
             
         except Exception as e:
             logger.error(f"Failed to flush batch: {e}", exc_info=True)
+
+

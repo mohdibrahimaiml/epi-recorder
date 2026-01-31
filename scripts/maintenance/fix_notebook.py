@@ -181,3 +181,5 @@ with open('epi_investor_demo_complete.ipynb', 'w', encoding='utf-8') as f:
     json.dump(nb, f, ensure_ascii=False, indent=2)
 
 print("✅ Fixed notebook saved!")
+
+

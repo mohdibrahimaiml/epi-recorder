@@ -64,3 +64,5 @@ print("\nThe viewer cell is now CORRECT - it just displays the")
 print("authentic viewer which reads the signature automatically")
 print("from the embedded manifest JSON.")
 print("=" * 70)
+
+

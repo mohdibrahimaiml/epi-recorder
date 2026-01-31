@@ -262,3 +262,5 @@ class TestSerializeEdgeCases:
         
         hash_value = get_canonical_hash(step)
         assert len(hash_value) == 64
+
+

@@ -101,3 +101,5 @@ def debug(
             import traceback
             console.print(traceback.format_exc())
         raise typer.Exit(code=3)
+
+

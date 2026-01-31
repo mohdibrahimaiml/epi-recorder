@@ -334,3 +334,4 @@ async function computeFileHash(filePath) {
         stream.on('error', reject);
     });
 }
+

@@ -136,3 +136,5 @@ print(f"Total cells: {len(nb['cells'])}")
 print(f"Code cells: {sum(1 for c in nb['cells'] if c['cell_type'] == 'code')}")
 print(f"Markdown cells: {sum(1 for c in nb['cells'] if c['cell_type'] == 'markdown')}")
 print("=" * 70)
+
+

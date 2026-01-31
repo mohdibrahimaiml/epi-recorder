@@ -24,3 +24,5 @@ with record(workflow_name="my_first_agent"):
 # ✅ Captures: LLM call, response, tokens, cost
 # ✅ Signs: Ed25519 cryptographic signature
 # ✅ Opens: Browser viewer automatically
+
+

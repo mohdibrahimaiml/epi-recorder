@@ -452,3 +452,5 @@ class TestAllErrorPaths:
                 # Test both verbose and non-verbose
                 print_trust_report(report, epi_file, verbose=False)
                 print_trust_report(report, epi_file, verbose=True)
+
+

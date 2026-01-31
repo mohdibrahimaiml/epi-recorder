@@ -244,3 +244,5 @@ def create_verification_report(
         report["trust_message"] = "Integrity compromised - do not trust"
     
     return report
+
+

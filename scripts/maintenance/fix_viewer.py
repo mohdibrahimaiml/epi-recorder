@@ -301,3 +301,5 @@ with open(NOTEBOOK_PATH, "w", encoding="utf-8") as f:
     json.dump(nb, f, indent=2, ensure_ascii=False)
 
 print(f"Successfully updated cell 'viewer' in {NOTEBOOK_PATH}")
+
+

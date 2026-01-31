@@ -38,3 +38,5 @@ else:
 print("\n" + "=" * 70)
 print("STATUS: Notebook state verified")
 print("=" * 70)
+
+

@@ -71,3 +71,5 @@ async def capture_evidence(request: CaptureRequest):
         logger.error(f"Failed to enqueue evidence: {e}")
         # Even if we fail, we try not to crash the caller, but here we must signal error
         raise HTTPException(status_code=500, detail="Internal Gateway Error")
+
+

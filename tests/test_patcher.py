@@ -307,3 +307,5 @@ class TestPatcherEdgeCases:
         step = json.loads(lines[0])
         
         assert step["content"]["level1"]["level2"]["level3"] == "value"
+
+

@@ -158,3 +158,5 @@ def ls(
     console.print(table)
     console.print()
     console.print(f"[dim]Tip: View a recording with 'epi view <name>'[/dim]")
+
+

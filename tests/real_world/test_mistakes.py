@@ -22,3 +22,5 @@ with record(workflow_name="buggy_agent") as rec:
         time.sleep(0.1)
     
     print("Buggy agent complete")
+
+

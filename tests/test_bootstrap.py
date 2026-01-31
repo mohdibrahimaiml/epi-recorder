@@ -53,3 +53,5 @@ class TestBootstrapInitialization:
             
             # Should not raise
             initialize_recording()
+
+

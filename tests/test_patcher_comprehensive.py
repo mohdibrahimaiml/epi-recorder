@@ -82,3 +82,5 @@ class TestPatchAll:
         """Test that patch_all tries to patch Gemini"""
         result = patch_all()
         assert "gemini" in result
+
+
