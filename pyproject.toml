@@ -70,9 +70,9 @@ epi = "epi_cli.main:app"
 [project.urls]
 Homepage = "https://epilabs.org"
 Documentation = "https://epilabs.org/docs"
-Repository = "https://github.com/mohdibrahimaiml/EPI-V2.1.2"
-Issues = "https://github.com/mohdibrahimaiml/EPI-V2.1.2/issues"
-Discussions = "https://github.com/mohdibrahimaiml/EPI-V2.1.2/discussions"
+Repository = "https://github.com/mohdibrahimaiml/EPI-V2.1.3"
+Issues = "https://github.com/mohdibrahimaiml/EPI-V2.1.3/issues"
+Discussions = "https://github.com/mohdibrahimaiml/EPI-V2.1.3/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]

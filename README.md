@@ -4,7 +4,7 @@
   <h1 align="center">EPI Recorder</h1>
 </p>
 
-[![Release](https://img.shields.io/github/v/release/mohdibrahimaiml/EPI-V2.1.2?style=flat-square&color=00d4ff)](https://github.com/mohdibrahimaiml/EPI-V2.1.2/releases)
+[![Release](https://img.shields.io/github/v/release/mohdibrahimaiml/EPI-V2.1.3?style=flat-square&color=00d4ff)](https://github.com/mohdibrahimaiml/EPI-V2.1.3/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Trust](https://img.shields.io/badge/Integrity-Ed25519-purple?style=flat-square)](https://epilabs.org/security)
 
