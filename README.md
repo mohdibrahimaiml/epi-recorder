@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
-  <p align="center"><strong>Verifiable Execution Evidence for AI Systems</strong></p>
+  <p align="center"><strong>Verifiable Execution Evidence for AI Systems / AI Agents</strong></p>
   <p align="center">
     <em>A portable, cryptographically sealed artifact format for AI execution records.</em>
   </p>
