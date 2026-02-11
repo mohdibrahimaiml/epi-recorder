@@ -107,7 +107,7 @@ class TestEPIContainer:
         read_manifest = EPIContainer.read_manifest(output_path)
         
         assert read_manifest.cli_command == test_command, "CLI command should match"
-        assert read_manifest.spec_version == "2.3.0", "Spec version should match"
+        assert read_manifest.spec_version == "2.4.0", "Spec version should match"
         assert len(read_manifest.file_manifest) > 0, "File manifest should be populated"
     
     def test_verify_integrity_success(self, temp_workspace, sample_files):

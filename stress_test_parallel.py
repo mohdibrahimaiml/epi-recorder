@@ -5,7 +5,7 @@ import concurrent.futures
 import threading
 
 # Configuration
-TOTAL_ITERATIONS = 500
+TOTAL_ITERATIONS = 1000
 CONCURRENT_WORKERS = 20  # Number of parallel installs
 
 # Global counters

@@ -111,8 +111,8 @@ except Exception as e:
 
 # 1.9 Version check
 try:
-    assert __version__ == "2.3.0", f"Expected 2.3.0, got {__version__}"
-    log_pass(f"Version is 2.3.0")
+    assert __version__ == "2.4.0", f"Expected 2.4.0, got {__version__}"
+    log_pass(f"Version is 2.4.0")
 except Exception as e:
     log_fail("Version check", e)
 
@@ -391,7 +391,7 @@ try:
     with zipfile.ZipFile(sample_epi, 'r') as zf:
         manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
         assert "spec_version" in manifest
-        assert manifest["spec_version"] == "2.3.0"
+        assert manifest["spec_version"] == "2.4.0"
     log_pass("manifest.json validity")
 except Exception as e:
     log_fail("manifest.json validity", e)
@@ -450,7 +450,7 @@ except Exception as e:
 try:
     manifest = EPIContainer.read_manifest(sample_epi)
     assert manifest is not None
-    assert manifest.spec_version == "2.3.0"
+    assert manifest.spec_version == "2.4.0"
     log_pass("EPIContainer.read_manifest()")
 except Exception as e:
     log_fail("EPIContainer.read_manifest()", e)
