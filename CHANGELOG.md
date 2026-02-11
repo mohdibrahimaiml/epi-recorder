@@ -45,6 +45,58 @@ After v3.0.0, the `.epi` format should be:
 
 ---
 
+## [2.4.0] – 2026-02-12
+
+### 🚀 Major Features
+
+This release adds comprehensive agent development and monitoring capabilities.
+
+#### Added
+
+**Agent Analytics Engine**
+- `AgentAnalytics` class for analyzing `.epi` files in batch
+- Performance summary: success rates, costs, duration trends
+- Error pattern detection and analysis
+- Tool usage distribution tracking
+- Period comparison (this week vs last week, etc.)
+- HTML dashboard generation (`generate_report()`)
+
+**Async/Await Support**
+- Async context manager (`async with record()`)
+- `__aenter__` and `__aexit__` methods
+- `alog_step()` async logging method
+- Non-blocking I/O using `asyncio.run_in_executor()`
+- Full backward compatibility with sync mode
+- Perfect for LangGraph, AutoGen, and async-first frameworks
+
+**LangGraph Integration**
+- `EPICheckpointSaver` class (native checkpoint backend)
+- Implements LangGraph's `BaseCheckpointSaver` interface
+- Async checkpoint methods: `aput()`, `aget()`, `alist()`
+- Smart state serialization (hashes large states >1MB)
+- Automatic capture of all state transitions
+- Integration with EPI recording sessions
+
+**Local LLM Support (Ollama)**
+- Full compatibility with Ollama's OpenAI-compatible API
+- Enables free, unlimited local testing
+- Works with DeepSeek-R1, Llama, and other Ollama models
+- Zero API costs for development and testing
+
+#### Documentation
+- Updated README with "New in v2.3.0" section
+- Comprehensive feature documentation
+- Code examples for all new features
+- Usage guides for analytics, async, LangGraph, and Ollama
+
+#### Internal
+- Created `epi_recorder/analytics/` package
+- Created `epi_recorder/integrations/` package
+- Added comprehensive test suites (15 new tests)
+- All tests passing
+
+---
+
 ## [2.3.0] – 2026-02-06
 
 ### ⚠️ Design Correction (Migration Required)

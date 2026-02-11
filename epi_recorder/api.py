@@ -5,6 +5,7 @@ Provides a context manager for recording EPI packages programmatically
 with minimal code changes.
 """
 
+import asyncio
 import functools
 import json
 import os
@@ -146,7 +147,7 @@ class EpiRecorderSession:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Exit the recording context.
+        Exit the recording context (sync version).
         
         Finalizes recording, captures environment, packs .epi file,
         and signs it if auto_sign is enabled.
@@ -209,6 +210,88 @@ class EpiRecorderSession:
             if hasattr(_thread_local, 'active_session'):
                 delattr(_thread_local, 'active_session')
     
+    # ==================== ASYNC CONTEXT MANAGER SUPPORT ====================
+    
+    async def __aenter__(self) -> "EpiRecorderSession":
+        """
+        Enter the recording context (async version).
+        
+        Identical to __enter__ but async-compatible for use with
+        'async with' statements in async agent frameworks.
+        """
+        # Reuse sync __enter__ logic (no I/O, just setup)
+        return self.__enter__()
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the recording context (async version).
+        
+        Async-compatible version of __exit__ for modern agent frameworks.
+        Uses run_in_executor for I/O operations to avoid blocking.
+        """
+        try:
+            # Capture environment snapshot BEFORE session.end
+            await asyncio.get_event_loop().run_in_executor(None, self._capture_environment)
+            
+            # Log exception if one occurred (before session.end)
+            if exc_type is not None:
+                self.log_step("session.error", {
+                    "error_type": exc_type.__name__,
+                    "error_message": str(exc_val),
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            
+            # Log session end LAST to ensure it's the final step
+            end_time = datetime.utcnow()
+            duration = (end_time - self.start_time).total_seconds()
+            
+            self.log_step("session.end", {
+                "timestamp": end_time.isoformat(),
+                "duration_seconds": duration,
+                "success": exc_type is None
+            })
+            
+            # Create manifest with metadata
+            manifest = ManifestModel(
+                created_at=self.start_time,
+                goal=self.goal,
+                notes=self.notes,
+                metrics=self.metrics,
+                approved_by=self.approved_by,
+                tags=self.metadata_tags
+            )
+            
+            # Pack into .epi file (run in executor to avoid blocking)
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                EPIContainer.pack,
+                self.temp_dir,
+                manifest,
+                self.output_path
+            )
+            
+            # CRITICAL: Windows file system flush
+            await asyncio.sleep(0.1)
+            
+            # Sign if requested (run in executor)
+            if self.auto_sign:
+                await asyncio.get_event_loop().run_in_executor(None, self._sign_epi_file)
+            
+        finally:
+            # Clean up temporary directory
+            if self.temp_dir and self.temp_dir.exists():
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    shutil.rmtree,
+                    self.temp_dir,
+                    True  # ignore_errors
+                )
+            
+            # Clear recording context
+            set_recording_context(None)
+            if hasattr(_thread_local, 'active_session'):
+                delattr(_thread_local, 'active_session')
+    
     def log_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Manually log a custom step.
@@ -228,6 +311,17 @@ class EpiRecorderSession:
             raise RuntimeError("Cannot log step outside of context manager")
         
         self.recording_context.add_step(kind, content)
+    
+    async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
+        """
+        Async version of log_step for async agent frameworks.
+        
+        Args:
+            kind: Step type
+            content: Step data as dictionary
+        """
+        # Logging is CPU-bound, not I/O-bound, so just call sync version
+        self.log_step(kind, content)
     
     def log_llm_request(self, model: str, payload: Dict[str, Any]) -> None:
         """

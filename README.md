@@ -101,6 +101,97 @@ The embedded viewer allows any recipient to:
 
 No software installation required.
 
+---
+
+## ⭐ New in v2.3.0
+
+### Async Support
+
+EPI now supports both sync and async contexts for modern agent frameworks:
+
+```python
+# Async mode (NEW!)
+async with record("agent.epi"):
+    response = await async_client.chat.completions.create(...)
+    await epi.alog_step("custom.event", {})
+```
+
+Perfect for LangGraph, AutoGen, and other async-first frameworks.
+
+### Agent Analytics Engine
+
+Analyze agent performance across multiple runs:
+
+```python
+from epi_recorder import AgentAnalytics
+
+analytics = AgentAnalytics("./production_runs")
+summary = analytics.performance_summary()
+
+print(f"Success Rate: {summary['success_rate']:.1f}%")
+print(f"Avg Cost: ${summary['avg_cost_per_run']:.3f}")
+
+# Generate HTML dashboard
+analytics.generate_report("performance.html")
+```
+
+**Features:**
+- Success rate trends over time
+- Cost analysis (daily/weekly/monthly)
+- Error pattern detection
+- Tool usage distribution
+- Period-to-period comparisons
+
+### Local LLM Support (Ollama)
+
+Test with FREE local LLMs via Ollama:
+
+```python
+from openai import OpenAI
+from epi_recorder import record, wrap_openai
+
+# Point to Ollama (OpenAI-compatible API)
+client = wrap_openai(OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama"
+))
+
+# Record just like any other LLM!
+with record("test.epi"):
+    response = client.chat.completions.create(
+        model="deepseek-r1:7b",
+        messages=[{"role": "user", "content": "Hello!"}]
+    )
+```
+
+Benefits: Zero API costs, unlimited testing, complete privacy.
+
+### LangGraph Integration
+
+Native checkpoint saver for LangGraph agents:
+
+```python
+from langgraph.graph import StateGraph
+from epi_recorder.integrations import EPICheckpointSaver
+
+graph = StateGraph(...)
+
+# Use EPI as checkpoint backend
+checkpointer = EPICheckpointSaver("my_agent.epi")
+result = graph.invoke(
+    {"messages": [...]},
+    {"configurable": {"thread_id": "1"}},
+    checkpointer=checkpointer
+)
+
+# View state transitions in .epi viewer
+# epi view my_agent.epi
+```
+
+Automatically captures:
+- All state transitions
+- Checkpoint metadata
+- Agent decision points
 
 ---
 
