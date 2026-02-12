@@ -416,7 +416,6 @@ flowchart LR
 - Team collaboration features
 - Cloud platform (optional)
 
-**[Full technical roadmap →](docs/ROADMAP.md)**
 
 ---
 
