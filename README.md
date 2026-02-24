@@ -8,6 +8,19 @@
   </p>
 </p>
 
+---
+
+<h3 align="center">AI agents fail silently. Here is cryptographic replay.</h3>
+
+<p align="center">
+  <!-- TODO: Link this to the 60-second demo video -->
+  <a href="#">
+    <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/demo_placeholder.png" alt="EPI Recorder 60-Second Demo" width="800" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"/>
+  </a>
+</p>
+
+---
+
 <p align="center">
   <a href="https://pypi.org/project/epi-recorder/"><img src="https://img.shields.io/pypi/v/epi-recorder?style=flat-square&label=pypi&color=0073b7" alt="PyPI Version"/></a>
   <a href="https://pepy.tech/project/epi-recorder"><img src="https://img.shields.io/pepy/dt/epi-recorder?style=flat-square&label=downloads&color=0073b7" alt="Downloads"/></a>
