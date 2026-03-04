@@ -126,9 +126,14 @@ def main():
             
             print("[MANIFEST] (The tamper-evident seal):")
             print(f"   Created by: {manifest.get('environment', {}).get('os', {}).get('username', 'system')}")
-            print(f"   Timestamp:  {manifest.get('created_at')}")
+            print(f"   Timestamp:  {manifest.get('created_at', 'Unknown')}")
             print(f"   Device:     {manifest.get('environment', {}).get('os', {}).get('hostname', 'unknown')}")
             print(f"   Model:      gpt-4-turbo (detected)")
+            
+            # Safely get the signing key ID using multiple possible fields
+            signing_key = manifest.get('signing_key_id') or manifest.get('key_id') or manifest.get('public_key') or 'Not Found'
+            print(f"   Signed by:  {signing_key}")
+            
             print()
             print("[Ed25519 CRYPTOGRAPHIC SIGNATURE]:")
             signature = manifest.get('signature', 'Not Signed')
@@ -212,27 +217,20 @@ def main():
     print("Running cryptographic verification on tampered file: `epi verify`")
     print("-" * 60)
     
-    # Instead of relying on the CLI wrapper which might not be set up in the venv correctly, 
-    # we'll use the core trust module to verify it directly for the demo
     try:
-        from epi_core.trust import SignatureVerifier
-        from epi_core.container import EPIContainer
-        
-        # Load the tampered EPI
-        container = EPIContainer(Path(tampered_epi))
-        manifest = container.get_manifest()
-        
-        print(f"Verifying signature for: {manifest.signing_key_id}")
-        
-        # We know it will fail because we tampered with the payload without resigning
-        # We can either let SignatureVerifier catch it or simulate the specific output
-        
-        print("\n[FAILED] VERIFICATION FAILED: [TAMPERING DETECTED]")
-        print("   Reason: Payload hash mismatch. The execution records (steps.jsonl) have been modified.")
-        print()
+        # Actually run the epi verify CLI command to prove it fails for real
+        import sys
+        result = subprocess.run(
+            [sys.executable, "-m", "epi_cli.main", "verify", tampered_epi],
+            capture_output=True,
+            text=True
+        )
+        print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+            
     except Exception as e:
-        print(f"\n[FAILED] VERIFICATION FAILED: {str(e)}")
-        print("   Reason: The execution records have been modified after signing.")
+        print(f"\n[FAILED] VERIFICATION SCRIPT ERROR: {str(e)}")
         
     print("-" * 60)
     print("\nThe tampering is instantly detected. The original evidence cannot be forged.")
@@ -249,7 +247,7 @@ def main():
     print(" ACT 5: WHY THIS MATTERS NOW")
     print("======================================================\n")
     
-    print("EU AI Act Article 12 — Effective August 2, 2026 (17 months from now):\n")
+    print("EU AI Act Article 12 — Effective August 2, 2026 (5 months from now):\n")
     print('  "High-risk AI systems shall technically allow for the')
     print('   automatic recording of events... tamper-resistant."\n')
     
