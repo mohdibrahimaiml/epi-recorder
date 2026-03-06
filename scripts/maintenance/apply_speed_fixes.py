@@ -103,7 +103,7 @@ viewer_template = r'''<!DOCTYPE html>
         <header class="bg-white shadow-sm border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                  <h1 class="text-2xl font-bold text-gray-900">EPI Viewer</h1>
-                 <p class="text-sm text-gray-500">Evidence Packaged Infrastructure for AI Workflows</p>
+                 <p class="text-sm text-gray-500">Execution Proof Infrastructure for AI Workflows</p>
             </div>
         </header>
         <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">

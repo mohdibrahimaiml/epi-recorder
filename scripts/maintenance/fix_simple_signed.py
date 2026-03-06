@@ -67,7 +67,7 @@ else:
   <div style="background:#1e293b;color:white;padding:20px;display:flex;justify-content:space-between;align-items:center">
     <div>
       <h1 style="margin:0;font-size:18px;font-weight:bold">EPI Viewer</h1>
-      <p style="margin:4px 0 0;font-size:12px;opacity:0.7">Evidence Packaged Infrastructure for AI Workflows</p>
+      <p style="margin:4px 0 0;font-size:12px;opacity:0.7">Execution Proof Infrastructure for AI Workflows</p>
     </div>
     <div style="background:rgba(255,255,255,0.1);padding:8px 16px;border-radius:6px;font-size:13px;color:{sig_color};font-weight:600">
       {sig_icon} {sig_text}

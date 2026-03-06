@@ -222,7 +222,7 @@ viewer_source = [
     "            </div>\n",
     "            \n",
     "             <div class=\"bg-slate-50 p-3 text-center border-t border-slate-200\">\n",
-    "                <p class=\"text-xs text-slate-400\">Verified by Evidence Packaged Infrastructure™</p>\n",
+    "                <p class=\"text-xs text-slate-400\">Verified by Execution Proof Infrastructure™</p>\n",
     "            </div>\n",
     "        </div>\n",
     "\n",

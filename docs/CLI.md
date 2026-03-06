@@ -1,7 +1,7 @@
 # EPI CLI Reference (v2.6.0)
 
 **Status:** Active  
-The **Evidence Packaged Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
+The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
 
 **Version:** 2.4.0  
 **Install:** `pip install epi-recorder`
