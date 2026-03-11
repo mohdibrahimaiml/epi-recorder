@@ -129,7 +129,7 @@ Dev Dependencies:
 ```python
 class ManifestModel(BaseModel):
     # Core metadata
-    epi_version: str = "2.4.0"
+    epi_version: str = "2.7.0"
     created_at: str  # ISO 8601 timestamp
     cli_command: str  # Original trigger command
     
@@ -324,6 +324,7 @@ epi run <script.py>       # Record Python script
 epi record <command>      # Record any command
 epi view <file.epi>       # Open viewer
 epi verify <file.epi>     # Verify signature
+epi associate             # Register OS double-click support
 epi ls                    # List recordings
 epi chat <file.epi>       # AI chat about evidence
 epi keys generate         # Generate keypair
@@ -646,7 +647,10 @@ epi-recorder/
 │   ├── schemas.py           # Pydantic models
 │   ├── serialize.py         # CBOR serialization
 │   ├── redactor.py          # Secret masking
-│   └── container.py         # .epi file management
+│   ├── container.py         # .epi file management
+│   └── platform/            # OS integrations
+│       ├── __init__.py
+│       └── associate.py     # OS file association
 │
 ├── epi_recorder/            # Recording mechanism
 │   ├── __init__.py

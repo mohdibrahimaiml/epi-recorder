@@ -1,15 +1,15 @@
-# EPI File Format Specification v2.6.0
+# EPI File Format Specification v2.7.0
 
 **Status:** Draft  
-**Date:** 2026-02-20  
-**Version:** 2.6.0  
+**Date:** 2026-03-11  
+**Version:** 2.7.0  
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.6.0.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.7.0.
 
 ---
 
@@ -99,7 +99,8 @@ Newline-Delimited JSON storage of events.
 
 | Version | Date | Status | Changes |
 |:---|:---|:---|:---|
-| **2.6.0** | 2026-02-20 | **Current** | Framework integrations (LiteLLM, LangChain, OTel), CI verification (GitHub Action, pytest), streaming, global install. |
+| **2.7.0** | 2026-03-11 | **Current** | Zero-friction file opening (OS-level association), double-click to view, Unicode safety fixes. |
+| **2.6.0** | 2026-02-20 | Previous | Framework integrations (LiteLLM, LangChain, OTel), CI verification (GitHub Action, pytest), streaming, global install. |
 | **2.5.0** | 2026-02-13 | Previous | Anthropic Claude wrapper, path resolution fix, enhanced parameter tracking. |
 | **2.4.0** | 2026-02-12 | Previous | Agent Analytics Engine, Async/Await support, LangGraph integration, Ollama local LLM support. |
 | **2.3.0** | 2026-02-06 | Previous | Explicit evidence capture, wrapper clients, monkey patching removal. |

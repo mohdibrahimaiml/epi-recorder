@@ -28,7 +28,7 @@ Commands:
   record --out <file.epi> -- <cmd...>
                            Advanced: record any command, exact output file.
   verify <file.epi>         Verify a recording's integrity.
-  view   <file.epi|name>    Open recording in browser (name resolves ./epi-recordings/).
+  view   <file.epi|name>    Open recording in browser or extract.
   ls                        List local recordings (./epi-recordings/).
   keys                      Manage keys (list/generate/export) - advanced.
   help                      Show this quickstart.
@@ -70,10 +70,15 @@ def main_callback(
     """
     Main callback - runs before any command.
     
-    Implements frictionless first run by auto-generating default key pair.
+    Implements frictionless first run by auto-generating default key pair
+    and registering .epi file association with the OS.
     """
     # Auto-generate default keypair if missing (frictionless first run)
     generate_default_keypair_if_missing(console_output=True)
+
+    # Auto-register .epi file association (idempotent — skips if already done)
+    from epi_core.platform.associate import register_file_association
+    register_file_association(silent=True)
 
 
 @app.command()
@@ -96,7 +101,7 @@ def show_help():
   [cyan]record[/cyan] --out <file.epi> -- <cmd...>
                            Advanced: record any command, exact output file.
   [cyan]verify[/cyan] <file.epi>         Verify a recording's integrity.
-  [cyan]view[/cyan]   <file.epi|name>    Open recording in browser (name resolves ./epi-recordings/).
+  [cyan]view[/cyan]   <file.epi|name>    Open recording in browser or extract.
   [cyan]ls[/cyan]                        List local recordings (./epi-recordings/).
   [cyan]keys[/cyan]                      Manage keys (list/generate/export) - advanced.
   [cyan]help[/cyan]                      Show this quickstart.
@@ -125,16 +130,32 @@ from epi_cli.run import run as run_command
 app.command(name="run", help="Record, auto-verify and open viewer. (Zero-config)")(run_command)
 
 # Phase 1: verify command
-from epi_cli.verify import verify_app
-app.add_typer(verify_app, name="verify", help="Verify .epi file integrity and authenticity")
+from epi_cli.verify import verify_command
+from pathlib import Path
+
+@app.command(name="verify", help="Verify .epi file integrity and authenticity")
+def verify(
+    ctx: typer.Context,
+    epi_file: str = typer.Argument(..., help="Path to .epi file to verify"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output")
+):
+    return verify_command(ctx, Path(epi_file), json_output, verbose)
 
 # Phase 2: record command (legacy/advanced)
 from epi_cli.record import app as record_app
 app.add_typer(record_app, name="record", help="Advanced: record any command, exact output file.")
 
 # Phase 3: view command
-from epi_cli.view import app as view_app
-app.add_typer(view_app, name="view", help="Open recording in browser (name resolves ./epi-recordings/)")
+from epi_cli.view import view as view_command
+import typer
+@app.command(name="view", help="Open recording in browser or extract.")
+def view(
+    ctx: typer.Context,
+    epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
+    extract: str = typer.Option(None, "--extract", help="Destination directory to extract the viewer.html and assets instead of opening browser"),
+):
+    return view_command(ctx, epi_file, extract)
 
 # NEW: ls command
 from epi_cli.ls import ls as ls_command
@@ -151,6 +172,27 @@ app.add_typer(debug_app, name="debug", help="Debug AI agent recordings for mista
 # NEW: install/uninstall commands (v2.6.0 - global auto-recording)
 from epi_cli.install import app as install_app
 app.add_typer(install_app, name="global", help="Install/uninstall EPI auto-recording globally")
+
+
+# NEW: file association commands (v2.7.0)
+@app.command()
+def associate(
+    force: bool = typer.Option(False, "--force", help="Re-register even if already done"),
+):
+    """Register .epi file type with the OS so double-clicking opens the viewer."""
+    from epi_core.platform.associate import register_file_association
+    success = register_file_association(silent=False, force=force)
+    if not success:
+        raise typer.Exit(1)
+
+
+@app.command()
+def unassociate():
+    """Remove .epi file association from the OS."""
+    from epi_core.platform.associate import unregister_file_association
+    success = unregister_file_association(silent=False)
+    if not success:
+        raise typer.Exit(1)
 
 # Phase 1: keys command (for manual key management)
 @app.command()
@@ -226,7 +268,7 @@ result = 123 * 456
 print(f"   123 * 456 = {result}")
 
 print("\\n2. Creating a file...")
-with open("epi_hello.txt", "w") as f:
+with open("epi_hello.txt", "w", encoding="utf-8") as f:
     f.write(f"Calculation result: {result}")
 print("   Saved 'epi_hello.txt'")
 
@@ -236,7 +278,7 @@ print("[OK] Done! Now check the browser!")
 '''
     import os
     if not os.path.exists(demo_filename):
-         with open(demo_filename, "w") as f:
+         with open(demo_filename, "w", encoding="utf-8") as f:
              f.write(script_content)
          console.print("[green]Created![/green]")
     else:
@@ -341,6 +383,20 @@ def doctor():
 # Entry point for CLI
 def cli_main():
     """CLI entry point (called by `epi` command)."""
+    # Fix Windows console encoding (cp1252 → utf-8) BEFORE any output
+    import sys as _sys
+    import io as _io
+    if _sys.platform == "win32":
+        try:
+            _sys.stdout = _io.TextIOWrapper(
+                _sys.stdout.buffer, encoding="utf-8", errors="replace"
+            )
+            _sys.stderr = _io.TextIOWrapper(
+                _sys.stderr.buffer, encoding="utf-8", errors="replace"
+            )
+        except Exception:
+            pass  # Already wrapped or no buffer — safe to ignore
+
     app()
 
 

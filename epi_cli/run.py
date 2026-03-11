@@ -308,7 +308,7 @@ def run(
     timeline_path = temp_workspace / "timeline.json"
     if timeline_path.exists():
         try:
-            with open(timeline_path) as f:
+            with open(timeline_path, encoding="utf-8") as f:
                 timeline_data = json.load(f)
             if not timeline_data:
                 console.print("\n[bold yellow][!] Warning: Your script ran but didn't record any steps![/bold yellow]")

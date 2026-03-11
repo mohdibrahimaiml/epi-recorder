@@ -1,9 +1,9 @@
-# EPI CLI Reference (v2.6.0)
+# EPI CLI Reference (v2.7.0)
 
 **Status:** Active  
 The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
 
-**Version:** 2.4.0  
+**Version:** 2.7.0  
 **Install:** `pip install epi-recorder`
 
 ---
@@ -16,6 +16,8 @@ The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recordi
 | `epi run <script.py>` | **Zero-Config Record.** Records, verifies, and views in one go. |
 | `epi debug <file.epi>` | **AI Bug Detection.** Finds infinite loops, hallucinations, and inefficiencies automatically. |
 | `epi view <file.epi>` | **Open Viewer.** Opens the browser timeline for a recording. |
+| `epi associate` | **File Association.** Registers `.epi` to open via double-click. |
+| `epi unassociate` | **Remove Association.** Cleans up OS file association. |
 | `epi verify <file.epi>` | **Check Integrity.** Validates signatures and hashes. |
 | `epi chat <file.epi>` | **AI Chat.** Query your evidence using Google Gemini (Natural Language). |
 | `epi ls` | **List Recordings.** Shows files in your `./epi-recordings/` folder. |
@@ -74,6 +76,19 @@ $ epi view ./epi-recordings/my_run.epi
 
 # View by name (searches ./epi-recordings)
 $ epi view my_run
+```
+
+### `epi associate` / `epi unassociate`
+**OS File Association (v2.7.0).**  
+Registers `.epi` files with Windows, macOS, or Linux so that double-clicking them in your file explorer instantly opens the EPI Viewer. *(Note: This runs automatically on your first `epi` run, so you usually only need these commands for manual troubleshooting).*
+
+**Usage:**
+```bash
+# Register file association (with optional --force flag to reinstall)
+$ epi associate
+
+# Cleanly remove file association
+$ epi unassociate
 ```
 
 ### `epi verify <file.epi>`

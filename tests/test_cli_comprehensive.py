@@ -70,8 +70,8 @@ class TestVerifyCommandVariations:
     def test_verify_keyboard_interrupt_handling(self):
         """Test verify handles interrupts gracefully."""
         # This is hard to test directly, but we can verify the code path exists
-        from epi_cli.verify import verify
-        assert callable(verify)
+        from epi_cli.verify import verify_command
+        assert callable(verify_command)
 
 
 class TestViewCommandVariations:
@@ -85,8 +85,8 @@ class TestViewCommandVariations:
             opened_urls.append(url)
             return True
         
-        import webbrowser
-        monkeypatch.setattr(webbrowser, "open", mock_open)
+        import epi_cli.view
+        monkeypatch.setattr(epi_cli.view, "_open_in_browser", mock_open)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)

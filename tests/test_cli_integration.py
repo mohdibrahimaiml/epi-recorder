@@ -123,8 +123,8 @@ class TestCLIView:
             opened_url.append(url)
             return True
         
-        import webbrowser
-        monkeypatch.setattr(webbrowser, "open", mock_open)
+        import epi_cli.view
+        monkeypatch.setattr(epi_cli.view, "_open_in_browser", mock_open)
         
         result = runner.invoke(app, ["view", str(sample_epi_file)])
         

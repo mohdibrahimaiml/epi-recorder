@@ -130,7 +130,13 @@ class EPIContainer:
             js_content
         )
         
-        return html_with_js
+        # Replace dynamic version
+        from epi_core import __version__
+        html_with_version = html_with_js.replace("EPI v2.7.0", f"EPI v{__version__}")
+        # Also replace older versions just in case the template reverts
+        html_with_version = html_with_version.replace("EPI v2.2.0", f"EPI v{__version__}")
+        
+        return html_with_version
     
     @staticmethod
     def _create_minimal_viewer(manifest: ManifestModel) -> str:

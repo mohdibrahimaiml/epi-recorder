@@ -45,6 +45,44 @@ After v3.0.0, the `.epi` format should be:
 
 ---
 
+## [2.7.0] – 2026-03-11
+
+### 🚀 Zero-Friction File Opening & Unicode Safety
+
+This release makes `.epi` files first-class OS citizens — double-clicking opens the viewer automatically — and eliminates Unicode crashes across the codebase.
+
+#### Added
+
+**Cross-Platform File Association** (`epi_core/platform/associate.py`)
+- Automatic OS-level registration of `.epi` file type at first CLI use
+- Windows: `HKEY_CURRENT_USER\Software\Classes` registry (no admin required)
+- macOS: Minimal `EPI Viewer.app` bundle with UTI declaration
+- Linux: `xdg-mime` MIME type + `.desktop` launcher
+- Idempotent: runs once, never duplicates entries
+- `epi associate` — manually (re)register file association
+- `epi unassociate` — clean removal of file association
+
+#### Fixed
+
+**Unicode Safety (Windows Critical)**
+- Windows console encoding fixed at CLI entry point (`cp1252` → `utf-8`)
+- All file I/O now uses explicit `encoding="utf-8"` (3 calls fixed in `main.py`, `run.py`)
+- All path operations use `pathlib.Path` — no string concatenation
+- `epi view` uses `webbrowser.open(path.as_uri())` — correct cross-platform method
+
+**`epi view` Robustness**
+- Stem resolution now picks most recent match by mtime when multiple files match
+- Temp directories auto-cleaned after 5 seconds via daemon thread
+- Explicit `BadZipFile` handling with clear error message
+- Warning when file lacks `.epi` extension
+- Exit code 1 on all error paths
+
+#### Internal
+- New `epi_core/platform/` package for OS integration utilities
+- `pyproject.toml` `setuptools.packages.find` includes `epi_core*` (covers new subpackage)
+
+---
+
 ## [2.6.0] – 2026-02-20
 
 ### 🚀 Framework Integrations, CI Verification & OpenTelemetry Support

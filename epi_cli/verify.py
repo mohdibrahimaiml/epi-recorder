@@ -19,22 +19,13 @@ from epi_core.container import EPIContainer
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
 from epi_cli.keys import KeyManager
 
-# Create sub-app for verify commands
-verify_app = typer.Typer(
-    name="verify",
-    help="Verify .epi file integrity and authenticity",
-    no_args_is_help=True
-)
-
 console = Console()
 
-
-@verify_app.callback(invoke_without_command=True)
-def verify(
+def verify_command(
     ctx: typer.Context,
-    epi_file: Path = typer.Argument(..., help="Path to .epi file to verify"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output")
+    epi_file: Path,
+    json_output: bool = False,
+    verbose: bool = False
 ):
     """
     Verify .epi file integrity and authenticity.

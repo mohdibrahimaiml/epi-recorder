@@ -18,7 +18,7 @@ class ManifestModel(BaseModel):
     """
     
     spec_version: str = Field(
-        default="2.6.0",
+        default="2.7.0",
         description="EPI specification version"
     )
     
@@ -128,7 +128,23 @@ class StepModel(BaseModel):
     )
     
     content: Dict[str, Any] = Field(
+        default_factory=dict,
         description="Step-specific data (command, output, prompt, response, etc.)"
+    )
+    
+    trace_id: Optional[str] = Field(
+        default=None,
+        description="Global W3C execution trace identifier"
+    )
+    
+    span_id: Optional[str] = Field(
+        default=None,
+        description="Specific W3C execution span identifier"
+    )
+    
+    parent_span_id: Optional[str] = Field(
+        default=None,
+        description="Parent W3C execution span identifier"
     )
     
     model_config = ConfigDict(
@@ -139,10 +155,10 @@ class StepModel(BaseModel):
                 "kind": "llm.request",
                 "content": {
                     "provider": "openai",
-                    "model": "gpt-4",
-                    "prompt": "Explain quantum computing",
-                    "parameters": {"temperature": 0.7}
-                }
+                    "model": "gpt-4"
+                },
+                "trace_id": "0af7651916cd43dd8448eb211c80319c",
+                "span_id": "b7ad6b7169203331"
             }
         }
     )

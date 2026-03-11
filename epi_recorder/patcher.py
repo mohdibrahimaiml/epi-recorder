@@ -51,13 +51,16 @@ class RecordingContext:
         # Create empty steps.jsonl file immediately (for tests and early access)
         self.steps_file.touch(exist_ok=True)
     
-    def add_step(self, kind: str, content: Dict[str, Any]) -> None:
+    def add_step(self, kind: str, content: Dict[str, Any], trace_id: Optional[str] = None, span_id: Optional[str] = None, parent_span_id: Optional[str] = None) -> None:
         """
         Add a step to the recording.
         
         Args:
             kind: Step type (e.g., "llm.request", "llm.response")
             content: Step content data
+            trace_id: Global W3C execution trace identifier
+            span_id: Specific W3C execution span identifier
+            parent_span_id: Parent W3C execution span identifier
         """
         # Redact if enabled
         if self.redactor:
@@ -84,7 +87,10 @@ class RecordingContext:
             index=self.step_index,
             timestamp=datetime.utcnow(),
             kind=kind,
-            content=content
+            content=content,
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_span_id=parent_span_id
         )
         
         # Write to file

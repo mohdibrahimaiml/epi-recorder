@@ -83,7 +83,20 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## 🆕 New in v2.6.0 — Framework Integrations
+## 🆕 New in v2.7.0 — Zero-Friction File Opening
+
+EPI evidence files are now first-class OS citizens.
+
+When you run `epi` for the first time, it automatically registers the `.epi` file type with your operating system (Windows, macOS, or Linux).
+
+**Simply double-click any `.epi` file to open it in the verified graphical viewer.** 
+No need to open a terminal. No cloud upload. It just works.
+
+*Want manual control?* Use `epi associate` and `epi unassociate` to manage the integration.
+
+---
+
+## Framework Integrations (v2.6.0)
 
 EPI now plugs directly into the tools you already use. **Zero refactoring required.**
 
@@ -381,6 +394,8 @@ LangGraph · LangChain · LiteLLM · AutoGen · CrewAI · OpenTelemetry · pytes
 | `epi chat <file.epi>` | Natural language querying |
 | `epi install --global` | Auto-record all Python processes |
 | `epi uninstall --global` | Remove auto-recording |
+| `epi associate` | Register OS file association for double-clicking |
+| `epi unassociate` | Remove OS file association |
 
 See **[CLI Reference](docs/CLI.md)** for full documentation.
 
@@ -390,6 +405,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.7.0** | 2026-03-11 | **Zero-friction desktop integration** — Double-click `.epi` files to open, cross-platform file association, Unicode path safety |
 | **2.6.0** | 2026-02-20 | **Framework integrations** — LiteLLM, LangChain, OpenTelemetry, pytest plugin, GitHub Action, streaming support, global install |
 | **2.5.0** | 2026-02-13 | Anthropic Claude wrapper, path resolution fix |
 | **2.4.0** | 2026-02-12 | Agent Analytics, async/await, LangGraph, Ollama |
