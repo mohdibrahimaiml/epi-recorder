@@ -155,30 +155,23 @@ class EpiStorage:
     
     def finalize(self) -> Path:
         """
-        Finalize recording and rename to final path.
-        This ensures we never have half-written files.
-        
+        Finalize recording: export steps to JSONL, close DB, clean up temp file.
+
         Returns:
-            Path to finalized database file
+            Path to finalized JSONL file
         """
-        # Add finalization metadata
+        # Add finalization metadata before exporting
         self.set_metadata('finalized_at', datetime.utcnow().isoformat())
         self.set_metadata('session_id', self.session_id)
-        
-        # Close connection
-        self.close()
-        
-        # Atomic rename (SQLite transaction guarantees consistency)
+
+        # Export to JSONL while connection is still open
         final_path = self.output_dir / "steps.jsonl"
-        
-        # Export to JSONL for backwards compatibility
-        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self.export_to_jsonl(final_path)
+
+        # Now close and clean up the temp DB
         self.close()
-        
-        # Clean up temp DB
         self.db_path.unlink(missing_ok=True)
-        
+
         return final_path
 
 

@@ -219,7 +219,7 @@ def cli_install(
     success, message = install_global()
 
     if success:
-        console.print(f"[bold green]✅ {message}[/bold green]\n")
+        console.print(f"[bold green]\\[OK] {message}[/bold green]\n")
         console.print("[bold]How to use:[/bold]")
         console.print("  1. Set [cyan]EPI_RECORD=1[/cyan] environment variable")
         console.print("  2. Set [cyan]EPI_STEPS_DIR=/path/to/steps[/cyan] for output")
@@ -228,7 +228,7 @@ def cli_install(
         console.print("  • Temporarily: set [cyan]EPI_AUTO_RECORD=0[/cyan]")
         console.print("  • Permanently: run [cyan]epi uninstall --global[/cyan]\n")
     else:
-        console.print(f"[bold red]❌ Installation failed: {message}[/bold red]")
+        console.print(f"[bold red]\\[ERROR] Installation failed: {message}[/bold red]")
         raise typer.Exit(1)
 
 
@@ -245,7 +245,7 @@ def cli_uninstall():
     success, message = uninstall_global()
 
     if success:
-        console.print(f"[bold green]✅ {message}[/bold green]\n")
+        console.print(f"[bold green]\\[OK] {message}[/bold green]\n")
     else:
-        console.print(f"[bold red]❌ Uninstall failed: {message}[/bold red]")
+        console.print(f"[bold red]\\[ERROR] Uninstall failed: {message}[/bold red]")
         raise typer.Exit(1)

@@ -20,18 +20,24 @@ def version_callback(value: bool):
 app = typer.Typer(
     name="epi",
     help="""EPI - The PDF for AI Evidence.
-    
+
 Cryptographic proof of what Autonomous AI Systems actually did.
 
 Commands:
-  run    <script.py>        Record, auto-verify and open viewer. (Zero-config)
-  record --out <file.epi> -- <cmd...>
-                           Advanced: record any command, exact output file.
-  verify <file.epi>         Verify a recording's integrity.
-  view   <file.epi|name>    Open recording in browser or extract.
-  ls                        List local recordings (./epi-recordings/).
-  keys                      Manage keys (list/generate/export) - advanced.
-  help                      Show this quickstart.
+  run        <script.py>       Record, auto-verify and open viewer. (Zero-config)
+  record     --out <file.epi> -- <cmd...>
+                               Advanced: record any command, exact output file.
+  verify     <file.epi>        Verify a recording's integrity.
+  view       <file.epi|name>   Open recording in browser or extract.
+  ls                           List local recordings (./epi-recordings/).
+  keys                         Manage keys (list/generate/export) - advanced.
+  chat       <file.epi>        Chat with evidence file using AI.
+  debug      <file.epi>        Debug AI agent recordings for mistakes.
+  global                       Install/uninstall global auto-recording.
+  associate                    Register .epi file type with the OS.
+  init                         First-time setup wizard.
+  doctor                       Self-healing system health check.
+  help                         Show this quickstart.
 
 Quickstart (first 30s):
   1) Install: pip install epi-recorder
@@ -69,12 +75,14 @@ def main_callback(
 ):
     """
     Main callback - runs before any command.
-    
+
     Implements frictionless first run by auto-generating default key pair
     and registering .epi file association with the OS.
     """
+    import sys as _sys
     # Auto-generate default keypair if missing (frictionless first run)
-    generate_default_keypair_if_missing(console_output=True)
+    # Only print welcome message when running in an interactive terminal
+    generate_default_keypair_if_missing(console_output=_sys.stdout.isatty())
 
     # Auto-register .epi file association (idempotent — skips if already done)
     from epi_core.platform.associate import register_file_association
@@ -97,14 +105,20 @@ def show_help():
 [bold]Usage:[/bold] epi <command> [options]
 
 [bold]Commands:[/bold]
-  [cyan]run[/cyan]    <script.py>        Record, auto-verify and open viewer. (Zero-config)
-  [cyan]record[/cyan] --out <file.epi> -- <cmd...>
-                           Advanced: record any command, exact output file.
-  [cyan]verify[/cyan] <file.epi>         Verify a recording's integrity.
-  [cyan]view[/cyan]   <file.epi|name>    Open recording in browser or extract.
-  [cyan]ls[/cyan]                        List local recordings (./epi-recordings/).
-  [cyan]keys[/cyan]                      Manage keys (list/generate/export) - advanced.
-  [cyan]help[/cyan]                      Show this quickstart.
+  [cyan]run[/cyan]        <script.py>       Record, auto-verify and open viewer. (Zero-config)
+  [cyan]record[/cyan]     --out <file.epi> -- <cmd...>
+                             Advanced: record any command, exact output file.
+  [cyan]verify[/cyan]     <file.epi>        Verify a recording's integrity.
+  [cyan]view[/cyan]       <file.epi|name>   Open recording in browser or extract.
+  [cyan]ls[/cyan]                           List local recordings (./epi-recordings/).
+  [cyan]keys[/cyan]                         Manage keys (list/generate/export) - advanced.
+  [cyan]chat[/cyan]       <file.epi>        Chat with evidence file using AI.
+  [cyan]debug[/cyan]      <file.epi>        Debug AI agent recordings for mistakes.
+  [cyan]global[/cyan]                       Install/uninstall global auto-recording.
+  [cyan]associate[/cyan]                    Register .epi file type with the OS.
+  [cyan]init[/cyan]                         First-time setup wizard.
+  [cyan]doctor[/cyan]                       Self-healing system health check.
+  [cyan]help[/cyan]                         Show this quickstart.
 
 [bold]Quickstart (first 30s):[/bold]
   1) Install: pip install epi-recorder
@@ -148,7 +162,6 @@ app.add_typer(record_app, name="record", help="Advanced: record any command, exa
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
-import typer
 @app.command(name="view", help="Open recording in browser or extract.")
 def view(
     ctx: typer.Context,
@@ -174,7 +187,7 @@ from epi_cli.install import app as install_app
 app.add_typer(install_app, name="global", help="Install/uninstall EPI auto-recording globally")
 
 
-# NEW: file association commands (v2.7.0)
+# NEW: file association commands (v2.7.1)
 @app.command()
 def associate(
     force: bool = typer.Option(False, "--force", help="Re-register even if already done"),
@@ -223,7 +236,7 @@ def keys(
     elif action == "export":
         try:
             public_key_b64 = key_manager.export_public_key(name)
-            console.print(f"\n[bold]Public key for '{name}':[/bold]")
+            console.print(f"\n[bold]Public key for '{name}':[/bold] [dim](base64-encoded Ed25519 raw public key, 32 bytes)[/dim]")
             console.print(f"[cyan]{public_key_b64}[/cyan]\n")
         except FileNotFoundError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -333,22 +346,28 @@ def doctor():
         if platform.system() == "Windows":
             console.print("   [cyan]→ Attempting automatic PATH fix...[/cyan]")
             try:
-                import epi_postinstall
+                import importlib.util
                 from pathlib import Path
-                
-                scripts_dir = epi_postinstall.get_scripts_dir()
-                if scripts_dir and scripts_dir.exists():
-                    console.print(f"   [dim]Scripts directory: {scripts_dir}[/dim]")
-                    
-                    if epi_postinstall.add_to_user_path_windows(scripts_dir):
-                        console.print("   [green][OK] PATH updated successfully![/green]")
-                        console.print("   [yellow][!] Please restart your terminal for changes to take effect[/yellow]")
-                        fixed += 1
+
+                if importlib.util.find_spec("epi_postinstall") is not None:
+                    import epi_postinstall
+
+                    scripts_dir = epi_postinstall.get_scripts_dir()
+                    if scripts_dir and scripts_dir.exists():
+                        console.print(f"   [dim]Scripts directory: {scripts_dir}[/dim]")
+
+                        if epi_postinstall.add_to_user_path_windows(scripts_dir):
+                            console.print("   [green][OK] PATH updated successfully![/green]")
+                            console.print("   [yellow][!] Please restart your terminal for changes to take effect[/yellow]")
+                            fixed += 1
+                        else:
+                            console.print("   [yellow][!] Could not update PATH automatically[/yellow]")
+                            console.print("   [dim]Manual fix: Use 'python -m epi_cli' instead[/dim]")
                     else:
-                        console.print("   [yellow][!] Could not update PATH automatically[/yellow]")
-                        console.print("   [dim]Manual fix: Use 'python -m epi_cli' instead[/dim]")
+                        console.print("   [red][X] Could not locate Scripts directory[/red]")
                 else:
-                    console.print("   [red][X] Could not locate Scripts directory[/red]")
+                    console.print("   [yellow][!] Auto-fix not available in this environment[/yellow]")
+                    console.print("   [dim]Workaround: Use 'python -m epi_cli' instead[/dim]")
             except Exception as e:
                 console.print(f"   [red][X] Auto-fix failed: {e}[/red]")
                 console.print("   [dim]Workaround: Use 'python -m epi_cli' instead[/dim]")

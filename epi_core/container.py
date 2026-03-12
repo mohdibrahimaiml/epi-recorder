@@ -14,7 +14,7 @@ import tempfile
 import threading
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 from epi_core.schemas import ManifestModel
 
@@ -132,7 +132,8 @@ class EPIContainer:
         
         # Replace dynamic version
         from epi_core import __version__
-        html_with_version = html_with_js.replace("EPI v2.7.0", f"EPI v{__version__}")
+        # v2.7.1: Inject version into viewer
+        html_with_version = html_with_js.replace("EPI v2.7.1", f"EPI v{__version__}")
         # Also replace older versions just in case the template reverts
         html_with_version = html_with_version.replace("EPI v2.2.0", f"EPI v{__version__}")
         
@@ -162,7 +163,8 @@ class EPIContainer:
     def pack(
         source_dir: Path,
         manifest: ManifestModel,
-        output_path: Path
+        output_path: Path,
+        signer_function: Optional[Callable[[ManifestModel], ManifestModel]] = None
     ) -> None:
         """
         Create a .epi file from a source directory.
@@ -213,12 +215,23 @@ class EPIContainer:
                     
                     files_to_pack.append((file_path, arc_name))
             
-            # Update manifest with file hashes
+            # Update manifest with file hashes.
+            # NOTE: viewer.html and manifest.json are intentionally excluded from
+            # file_manifest. viewer.html is a generated presentation layer that
+            # embeds the manifest itself (circular dependency makes hashing it
+            # impossible without a two-phase scheme). manifest.json cannot include
+            # its own hash. The evidence data (steps.jsonl, env.json, artifacts/)
+            # is fully covered. The manifest's Ed25519 signature protects integrity
+            # of the manifest fields themselves.
             manifest.file_manifest = file_manifest
-            
+
+            # Sign the manifest BEFORE baking the viewer
+            if signer_function:
+                manifest = signer_function(manifest)
+
             # Create embedded viewer with data injection
             viewer_html = EPIContainer._create_embedded_viewer(source_dir, manifest)
-            
+
             # Create ZIP file
             with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 # 1. Write mimetype FIRST and UNCOMPRESSED (per EPI spec)
@@ -227,18 +240,18 @@ class EPIContainer:
                     EPI_MIMETYPE,
                     compress_type=zipfile.ZIP_STORED  # No compression
                 )
-                
-                # 2. Write all other files
+
+                # 2. Write all evidence files
                 for file_path, arc_name in files_to_pack:
                     zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
-                
-                # 3. Write embedded viewer
+
+                # 3. Write embedded viewer (derived from manifest data, not hashed)
                 zf.writestr(
                     "viewer.html",
                     viewer_html,
                     compress_type=zipfile.ZIP_DEFLATED
                 )
-                
+
                 # 4. Write manifest.json LAST (after all files are hashed)
                 manifest_json = manifest.model_dump_json(indent=2)
                 zf.writestr(

@@ -1,5 +1,5 @@
 """
-Tests for EPI Recorder v2.7.0 features.
+Tests for EPI Recorder v2.7.1 features.
 
 Covers:
   - File association module (import-level + Windows registry on win32)
@@ -257,9 +257,9 @@ class TestVersionConsistency:
     """Ensure version is bumped consistently across all locations."""
 
     def test_epi_core_version(self):
-        """epi_core.__version__ should be 2.7.0."""
+        """epi_core.__version__ should be 2.7.1."""
         from epi_core import __version__
-        assert __version__ == "2.7.0"
+        assert __version__ == "2.7.1"
 
     def test_pyproject_version_matches(self):
         """pyproject.toml version should match epi_core.__version__."""
@@ -306,7 +306,7 @@ class TestCleanupThread:
 # ============================================================
 
 class TestReliabilityFixes:
-    """Tests for the v2.7.0 reliability edge cases (flag writes, corrupt zips, temp fallbacks)."""
+    """Tests for the v2.7.1 reliability edge cases (flag writes, corrupt zips, temp fallbacks)."""
 
     def test_needs_registration_on_version_change(self, tmp_path, monkeypatch):
         """Re-registration fires when version changes."""
@@ -356,7 +356,7 @@ class TestReliabilityFixes:
         
         epi = tmp_path / "test.epi"
         with zipfile.ZipFile(epi, "w") as zf:
-            zf.writestr("manifest.json", json.dumps({"spec_version": "2.7.0"}))
+            zf.writestr("manifest.json", json.dumps({"spec_version": "2.7.1"}))
             
         with pytest.raises(typer.Exit) as exc:
             view(MagicMock(), str(epi), extract=None)
@@ -376,3 +376,18 @@ class TestReliabilityFixes:
         assert result is not None
         assert result.exists()
         shutil.rmtree(result, ignore_errors=True)
+
+    def test_signature_roundtrip(self):
+        """Verify that sign + verify produces consistent result."""
+        from epi_core.trust import sign_manifest, verify_signature
+        from epi_core.schemas import ManifestModel
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        
+        key = Ed25519PrivateKey.generate()
+        pub_bytes = key.public_key().public_bytes_raw()
+        manifest = ManifestModel()
+        signed = sign_manifest(manifest, key, "test")
+        
+        valid, msg = verify_signature(signed, pub_bytes)
+        assert valid is True, f"Roundtrip failed: {msg}"
+

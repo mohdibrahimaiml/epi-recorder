@@ -6,6 +6,7 @@ to capture requests and responses for workflow recording.
 """
 
 import json
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -36,20 +37,15 @@ class RecordingContext:
         self.step_index = 0
         self.enable_redaction = enable_redaction
         self.redactor = get_default_redactor() if enable_redaction else None
-        
+        self._lock = threading.Lock()
+
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize SQLite storage (crash-safe, atomic)
         import uuid
         session_id = str(uuid.uuid4())[:8]
         self.storage = EpiStorage(session_id, self.output_dir)
-        
-        # Keep JSONL path for backwards compatibility
-        self.steps_file = self.output_dir / "steps.jsonl"
-        
-        # Create empty steps.jsonl file immediately (for tests and early access)
-        self.steps_file.touch(exist_ok=True)
     
     def add_step(self, kind: str, content: Dict[str, Any], trace_id: Optional[str] = None, span_id: Optional[str] = None, parent_span_id: Optional[str] = None) -> None:
         """
@@ -62,48 +58,48 @@ class RecordingContext:
             span_id: Specific W3C execution span identifier
             parent_span_id: Parent W3C execution span identifier
         """
-        # Redact if enabled
-        if self.redactor:
-            redacted_content, redaction_count = self.redactor.redact(content)
-            
-            # Add redaction step if secrets were found
-            if redaction_count > 0:
-                redaction_step = StepModel(
-                    index=self.step_index,
-                    timestamp=datetime.utcnow(),
-                    kind="security.redaction",
-                    content={
-                        "count": redaction_count,
-                        "target_step": kind
-                    }
-                )
-                self._write_step(redaction_step)
-                self.step_index += 1
-            
-            content = redacted_content
-        
-        # Create step
-        step = StepModel(
-            index=self.step_index,
-            timestamp=datetime.utcnow(),
-            kind=kind,
-            content=content,
-            trace_id=trace_id,
-            span_id=span_id,
-            parent_span_id=parent_span_id
-        )
-        
-        # Write to file
-        self._write_step(step)
-        
-        # Store in memory - REMOVED for scalability
-        # self.steps.append(step)
-        self.step_index += 1
-    
+        with self._lock:
+            # Redact if enabled
+            if self.redactor:
+                redacted_content, redaction_count = self.redactor.redact(content)
+
+                # Add redaction step if secrets were found
+                if redaction_count > 0:
+                    redaction_step = StepModel(
+                        index=self.step_index,
+                        timestamp=datetime.utcnow(),
+                        kind="security.redaction",
+                        content={
+                            "count": redaction_count,
+                            "target_step": kind
+                        }
+                    )
+                    self._write_step(redaction_step)
+                    self.step_index += 1
+
+                content = redacted_content
+
+            # Create step
+            step = StepModel(
+                index=self.step_index,
+                timestamp=datetime.utcnow(),
+                kind=kind,
+                content=content,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id
+            )
+
+            self._write_step(step)
+            self.step_index += 1
+
     def _write_step(self, step: StepModel) -> None:
-        """Write step to steps.jsonl file."""
-        with open(self.steps_file, 'a', encoding='utf-8') as f:
-            f.write(step.model_dump_json() + '\n')
+        """Write step atomically to SQLite storage."""
+        self.storage.add_step(step)
+
+    def finalize(self) -> None:
+        """Export SQLite storage to steps.jsonl and clean up."""
+        self.storage.finalize()
 
 
 import contextvars
@@ -274,9 +270,10 @@ def _patch_openai_legacy() -> bool:
     try:
         import openai
         
-        # Store original method
+        # Store original method for unpatching
         original_create = openai.ChatCompletion.create
-        
+        _original_methods["openai.ChatCompletion.create"] = original_create
+
         @wraps(original_create)
         def wrapped_create(*args, **kwargs):
             """Wrapped OpenAI chat completion (legacy) with recording."""
@@ -370,9 +367,10 @@ def patch_gemini() -> bool:
         # Get the GenerativeModel class
         GenerativeModel = genai.GenerativeModel
         
-        # Store original method
+        # Store original method for unpatching
         original_generate_content = GenerativeModel.generate_content
-        
+        _original_methods["gemini.generate_content"] = original_generate_content
+
         @wraps(original_generate_content)
         def wrapped_generate_content(self, *args, **kwargs):
             """Wrapped Gemini generate_content with recording."""
@@ -471,9 +469,10 @@ def patch_requests() -> bool:
         import requests
         from requests.sessions import Session
         
-        # Store original method
+        # Store original method for unpatching
         original_request = Session.request
-        
+        _original_methods["requests.Session.request"] = original_request
+
         @wraps(original_request)
         def wrapped_request(self, method, url, *args, **kwargs):
             """Wrapped requests.Session.request with recording."""

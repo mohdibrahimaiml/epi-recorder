@@ -101,9 +101,9 @@ def get_canonical_hash(model: BaseModel, exclude_fields: set[str] | None = None)
     use_json = False
     
     # Check spec_version in model or dict
-    spec_version = model_dict.get("spec_version")
-    if spec_version and (spec_version.startswith("1.1") or "json" in spec_version):
-        use_json = True
+    spec_version = model_dict.get("spec_version", "")
+    major_version = int(spec_version.split(".")[0]) if spec_version else 1
+    use_json = major_version >= 2  # All v2.x+ use JSON canonical hash
         
     if use_json:
         return _get_json_canonical_hash(model_dict)

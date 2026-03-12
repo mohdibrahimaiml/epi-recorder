@@ -473,23 +473,32 @@ async function verifyManifestSignature(manifest) {
     const manifestCopy = JSON.parse(JSON.stringify(manifest));
     delete manifestCopy.signature;
 
-    // Recursive canonical JSON stringify
-    const canonicalJson = (obj) => {
-        if (Array.isArray(obj)) {
-            return '[' + obj.map(canonicalJson).join(',') + ']';
-        } else if (typeof obj === 'object' && obj !== null) {
-            const keys = Object.keys(obj).sort();
-            let result = '{';
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                if (i > 0) result += ',';
-                result += JSON.stringify(key) + ':' + canonicalJson(obj[key]);
-            }
-            result += '}';
-            return result;
-        } else {
-            return JSON.stringify(obj);
+    // Normalize datetime strings to match Python's canonical form:
+    // strips microseconds and ensures Z suffix (matches epi_core/serialize.py _normalize_value)
+    const normalizeDatetime = (s) => {
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
+            let v = s.replace(/\.\d+/, ''); // strip microseconds
+            if (!v.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(v)) v += 'Z';
+            return v;
         }
+        return s;
+    };
+
+    // Recursive canonical JSON stringify (RFC 8785 style, matches Python get_canonical_hash)
+    const canonicalJson = (obj) => {
+        if (obj === null) return 'null';
+        if (typeof obj === 'string') return JSON.stringify(normalizeDatetime(obj));
+        if (typeof obj !== 'object') return JSON.stringify(obj);
+        if (Array.isArray(obj)) return '[' + obj.map(canonicalJson).join(',') + ']';
+
+        const keys = Object.keys(obj).sort();
+        let result = '{';
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            if (i > 0) result += ',';
+            result += JSON.stringify(key) + ':' + canonicalJson(obj[key]);
+        }
+        return result + '}';
     };
 
     const jsonString = canonicalJson(manifestCopy);

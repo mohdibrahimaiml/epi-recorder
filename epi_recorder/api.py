@@ -174,6 +174,10 @@ class EpiRecorderSession:
                 "success": exc_type is None
             })
             
+            # Finalize SQLite storage → export steps.jsonl before packing
+            if self.recording_context:
+                self.recording_context.finalize()
+
             # Create manifest with metadata
             manifest = ManifestModel(
                 created_at=self.start_time,
@@ -183,19 +187,14 @@ class EpiRecorderSession:
                 approved_by=self.approved_by,
                 tags=self.metadata_tags
             )
-            
+
             # Pack into .epi file
             EPIContainer.pack(
                 source_dir=self.temp_dir,
                 manifest=manifest,
                 output_path=self.output_path
             )
-            
-            # CRITICAL: Windows file system flush
-            # Allow OS to finalize file before signing
-            import time
-            time.sleep(0.1)
-            
+
             # Sign if requested
             if self.auto_sign:
                 self._sign_epi_file()
@@ -230,9 +229,11 @@ class EpiRecorderSession:
         Uses run_in_executor for I/O operations to avoid blocking.
         """
         try:
+            loop = asyncio.get_running_loop()
+
             # Capture environment snapshot BEFORE session.end
-            await asyncio.get_event_loop().run_in_executor(None, self._capture_environment)
-            
+            await loop.run_in_executor(None, self._capture_environment)
+
             # Log exception if one occurred (before session.end)
             if exc_type is not None:
                 self.log_step("session.error", {
@@ -240,17 +241,21 @@ class EpiRecorderSession:
                     "error_message": str(exc_val),
                     "timestamp": datetime.utcnow().isoformat()
                 })
-            
+
             # Log session end LAST to ensure it's the final step
             end_time = datetime.utcnow()
             duration = (end_time - self.start_time).total_seconds()
-            
+
             self.log_step("session.end", {
                 "timestamp": end_time.isoformat(),
                 "duration_seconds": duration,
                 "success": exc_type is None
             })
-            
+
+            # Finalize SQLite storage → export steps.jsonl before packing
+            if self.recording_context:
+                await loop.run_in_executor(None, self.recording_context.finalize)
+
             # Create manifest with metadata
             manifest = ManifestModel(
                 created_at=self.start_time,
@@ -260,27 +265,24 @@ class EpiRecorderSession:
                 approved_by=self.approved_by,
                 tags=self.metadata_tags
             )
-            
+
             # Pack into .epi file (run in executor to avoid blocking)
-            await asyncio.get_event_loop().run_in_executor(
+            await loop.run_in_executor(
                 None,
                 EPIContainer.pack,
                 self.temp_dir,
                 manifest,
                 self.output_path
             )
-            
-            # CRITICAL: Windows file system flush
-            await asyncio.sleep(0.1)
-            
+
             # Sign if requested (run in executor)
             if self.auto_sign:
-                await asyncio.get_event_loop().run_in_executor(None, self._sign_epi_file)
-            
+                await loop.run_in_executor(None, self._sign_epi_file)
+
         finally:
             # Clean up temporary directory
             if self.temp_dir and self.temp_dir.exists():
-                await asyncio.get_event_loop().run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                     None,
                     shutil.rmtree,
                     self.temp_dir,
@@ -671,8 +673,8 @@ class EpiRecorderSession:
                 temp_output.rename(self.output_path)
                 
         except Exception as e:
-            # Non-fatal: log warning but continue
-            print(f"Warning: Failed to sign .epi file: {e}")
+            import sys
+            print(f"Warning: Failed to sign .epi file: {e}", file=sys.stderr)
 
 
 def _auto_generate_output_path(name_hint: Optional[str] = None) -> Path:
@@ -756,7 +758,7 @@ def record(
     metrics: Optional[Dict[str, Union[float, str]]] = None,
     approved_by: Optional[str] = None,
     metadata_tags: Optional[List[str]] = None,  # Renamed to avoid conflict
-    **kwargs
+    legacy_patching: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -817,8 +819,8 @@ def record(
     # Check if this is being used as a decorator with arguments
     # If the first argument is not a path but keyword arguments are provided,
     # we need to return a decorator function
-    if output_path is None and (goal is not None or notes is not None or metrics is not None or 
-                               approved_by is not None or metadata_tags is not None):
+    if output_path is None and (workflow_name is not None or goal is not None or notes is not None or 
+                               metrics is not None or approved_by is not None or metadata_tags is not None):
         # This is a decorator with arguments, return a decorator function
         def decorator(func):
             @functools.wraps(func)
@@ -826,7 +828,7 @@ def record(
                 # Auto-generate path based on function name
                 auto_path = _auto_generate_output_path(func.__name__)
                 with EpiRecorderSession(
-                    auto_path, 
+                    auto_path,
                     workflow_name or func.__name__,
                     tags=tags,
                     auto_sign=auto_sign,
@@ -837,7 +839,7 @@ def record(
                     metrics=metrics,
                     approved_by=approved_by,
                     metadata_tags=metadata_tags,
-                    **kwargs
+                    legacy_patching=legacy_patching,
                 ):
                     return func(*args, **kwargs)
             return wrapper
@@ -852,7 +854,7 @@ def record(
             # Auto-generate path based on function name
             auto_path = _auto_generate_output_path(func.__name__)
             with EpiRecorderSession(
-                auto_path, 
+                auto_path,
                 workflow_name or func.__name__,
                 tags=tags,
                 auto_sign=auto_sign,
@@ -863,10 +865,10 @@ def record(
                 metrics=metrics,
                 approved_by=approved_by,
                 metadata_tags=metadata_tags,
-                **kwargs
+                legacy_patching=legacy_patching,
             ):
                 return func(*args, **kwargs)
-        
+
         return wrapper
     
     # Normal context manager usage
@@ -883,7 +885,7 @@ def record(
         metrics=metrics,
         approved_by=approved_by,
         metadata_tags=metadata_tags,
-        **kwargs
+        legacy_patching=legacy_patching,
     )
 
 

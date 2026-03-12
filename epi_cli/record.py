@@ -141,44 +141,24 @@ def record(
 
     # Package into .epi
     out = out if str(out).endswith(".epi") else out.with_suffix(".epi")
-    EPIContainer.pack(temp_workspace, manifest, out)
-
-    # Auto-sign manifest inside .epi (without re-packing)
+    
     signed = False
+    signer = None
     if not no_sign:
         try:
             km = KeyManager()
             priv = km.load_private_key("default")
-            
-            # Read manifest from ZIP
-            import json as _json
-            with zipfile.ZipFile(out, "r") as zf:
-                raw = zf.read("manifest.json").decode("utf-8")
-                data = _json.loads(raw)
-            
-            # Sign manifest
-            from epi_core.schemas import ManifestModel as _MM
-            from epi_core.trust import sign_manifest as _sign
-            m = _MM(**data)
-            sm = _sign(m, priv, "default")
-            signed_json = sm.model_dump_json(indent=2)
-            
-            # Replace manifest in ZIP (avoid duplicate)
-            temp_zip = out.with_suffix(".epi.tmp")
-            with zipfile.ZipFile(out, "r") as zf_in:
-                with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as zf_out:
-                    # Copy all files except manifest.json
-                    for item in zf_in.namelist():
-                        if item != "manifest.json":
-                            zf_out.writestr(item, zf_in.read(item))
-                    # Write signed manifest
-                    zf_out.writestr("manifest.json", signed_json)
-            
-            # Replace original with updated ZIP
-            temp_zip.replace(out)
-            signed = True
+            from epi_core.trust import sign_manifest
+            def signer_func(m):
+                nonlocal signed
+                signed_manifest = sign_manifest(m, priv, "default")
+                signed = True
+                return signed_manifest
+            signer = signer_func
         except Exception as e:
-            console.print(f"[yellow][WARN]  Signing failed:[/yellow] {e}")
+            console.print(f"[yellow][WARN]  Signing setup failed:[/yellow] {e}")
+
+    EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
 
     # Final output panel
     size_mb = out.stat().st_size / (1024 * 1024)

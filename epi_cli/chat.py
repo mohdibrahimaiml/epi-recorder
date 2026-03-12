@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
-import google.api_core.exceptions
+
 
 from epi_core.container import EPIContainer
 
@@ -92,12 +92,13 @@ def chat(
         console.print(f"[red]Error loading .epi file:[/red] {e}")
         raise typer.Exit(1)
     
-    # Initialize Gemini
+    # Initialize Gemini and catch missing exceptions layer
     try:
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import google.generativeai as genai
+            import google.api_core.exceptions as _goog_exc
             
         genai.configure(api_key=api_key)
         ai_model = genai.GenerativeModel(model)
@@ -189,7 +190,7 @@ When answering questions:
             console.print(Markdown(response.text))
             console.print()
             
-        except google.api_core.exceptions.ResourceExhausted:
+        except _goog_exc.ResourceExhausted:
             console.print(Panel(
                 "[yellow]API Quota Exceeded[/yellow]\n\n"
                 "You have hit the rate limit for the Gemini API (free tier).\n"
@@ -197,9 +198,9 @@ When answering questions:
                 title="[!] Rate Limit",
                 border_style="yellow"
             ))
-        except google.api_core.exceptions.NotFound:
+        except _goog_exc.NotFound:
             console.print(f"[red]Error:[/red] The model '{model}' was not found. Try using a different model with --model.")
-        except google.api_core.exceptions.InvalidArgument as e:
+        except _goog_exc.InvalidArgument as e:
             console.print(f"[red]Error:[/red] Invalid argument: {e}")
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")

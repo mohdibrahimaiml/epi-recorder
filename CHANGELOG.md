@@ -45,6 +45,28 @@ After v3.0.0, the `.epi` format should be:
 
 ---
 
+## [2.7.1] – 2026-03-12
+
+### 🛡️ Decentralized Trust & Architectural Symmetry
+
+This release stabilizes the v2.7 series by aligning decentralized verification logic across all components and hardening the file association system.
+
+#### Added
+- **Self-Healing File Association**: Registry hooks now perform real-time health checks on every CLI run. If associations are missing or broken (due to OS updates or manual deletion), they are automatically repaired silently.
+- **Embedded Public Key Verification**: `epi run` and `epi verify` now prioritize the public key embedded in the `.epi` manifest, enabling zero-config verification on air-gapped or guest machines without local keys.
+
+#### Fixed
+- **Architectural Symmetry**: aligned all cryptographic components to use **Hex** encoding for signatures (matching backend/gateway) and **Canonical JSON** for hashing v2.x manifests.
+- **SQL Integrity (Critical)**: Fixed a column index mismatch in `epi_analyzer/detector.py` that caused JSON decoding failures when loading recordings from SQLite.
+- **`epi run` Verification Logic**: Fixed a bug where `epi run` would incorrectly report successful verification for signed files even if the signer's identity wasn't embedded.
+- **Windows Encoding**: Ensured UTF-8 wrap for stdout/stderr is applied at the entry point of every CLI command.
+
+#### Internal
+- Final comprehensive audit of `epi_cli`, `epi_core`, and `epi_recorder` completed.
+- Full parity between CLI verification and GitHub Actions verification logic.
+
+---
+
 ## [2.7.0] – 2026-03-11
 
 ### 🚀 Zero-Friction File Opening & Unicode Safety

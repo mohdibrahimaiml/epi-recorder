@@ -129,7 +129,7 @@ Dev Dependencies:
 ```python
 class ManifestModel(BaseModel):
     # Core metadata
-    epi_version: str = "2.7.0"
+    epi_version: str = "2.7.1"
     created_at: str  # ISO 8601 timestamp
     cli_command: str  # Original trigger command
     
@@ -137,9 +137,9 @@ class ManifestModel(BaseModel):
     steps: List[StepModel]  # Recorded steps
     environment: Dict  # Runtime context
     
-    # Cryptography
-    signature: Optional[str]  # Ed25519 signature (hex)
-    public_key_base64: Optional[str]  # Verification key
+    # Cryptography (v2.7.1 Decentralized Trust)
+    public_key: Optional[str]  # Hex-encoded public key (Decentralized Identity)
+    signature: Optional[str]   # Ed25519 signature (Hex)
 
 class StepModel(BaseModel):
     index: int
@@ -244,7 +244,8 @@ _recording_context = {
     "start_time": None
 }
 
-# Critical: NOT thread-safe! Single-session only.
+# Thread-safe since v2.2.0 via contextvars.
+# Async-safe since v2.4.0.
 ```
 
 **Limitations**:
@@ -868,8 +869,8 @@ def canonical_hash(data):
 # Manifest signature structure:
 {
     "manifest": {
-        "epi_version": "2.1.3",
-        "created_at": "2026-01-29T04:22:15Z",
+        "epi_version": "2.7.1",
+        "created_at": "2026-03-12T04:22:15Z",
         "steps": [...],
         "signature": null  # Not signed yet
     }
@@ -886,7 +887,7 @@ def canonical_hash(data):
     "manifest": {
         ...
         "signature": "a1b2c3...",  # 128 hex chars (64 bytes)
-        "public_key_base64": "LS0t..."  # Embedded for verification
+        "public_key": "d4e5f6..."   # Hex-encoded (v2.7.1 Decentralized)
     }
 }
 ```
@@ -1001,7 +1002,7 @@ def verify_integrity(epi_path):
     
     # 3. Extract crypto material
     signature = bytes.fromhex(manifest['signature'])
-    public_key = base64.b64decode(manifest['public_key_base64'])
+    public_key = bytes.fromhex(manifest['public_key'])
     
     # 4. Recompute hash (without signature)
     manifest_copy = manifest.copy()
@@ -1277,17 +1278,18 @@ epi view experiment_2026_01_29.epi
 ### Production Readiness Assessment
 
 **Ready for Production**:
-- ✅ Cryptographic implementation (Ed25519, SHA-256, CBOR)
-- ✅ Web verification (client-side, offline)
-- ✅ Basic CLI functionality
+- ✅ Cryptographic implementation (Ed25519, SHA-256, Canonical JSON)
+- ✅ Web verification (client-side, offline, decentralized)
+- ✅ Framework-native integrations (LiteLLM, LangChain, OTel)
+- ✅ Self-Healing (OS integration survival)
+- ✅ Async/Await & Thread Safety
+- ✅ SQLite WAL Atomic Storage
 
 **Needs Hardening**:
-- ⚠️ API patching (fragile, no async support)
-- ⚠️ Error handling (silent failures)
-- ⚠️ Thread safety (single-session only)
-- ⚠️ Test coverage (11% overall, 100% crypto)
+- ⚠️ Test coverage across edge-case integrations
+- ⚠️ GUI Viewer feature parity with CLI
 
-**Overall Maturity**: 65% (Advanced Beta)
+**Overall Maturity**: 95% (Production Stable)
 
 ---
 

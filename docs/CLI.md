@@ -1,9 +1,9 @@
-# EPI CLI Reference (v2.7.0)
+# EPI CLI Reference (v2.7.1)
 
 **Status:** Active  
 The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
 
-**Version:** 2.7.0  
+**Version:** 2.7.1  
 **Install:** `pip install epi-recorder`
 
 ---
@@ -21,7 +21,7 @@ The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recordi
 | `epi verify <file.epi>` | **Check Integrity.** Validates signatures and hashes. |
 | `epi chat <file.epi>` | **AI Chat.** Query your evidence using Google Gemini (Natural Language). |
 | `epi ls` | **List Recordings.** Shows files in your `./epi-recordings/` folder. |
-| `epi doctor` | **Self-Healing.** Fixes common environment issues (paths, keys, deps). |
+| `epi doctor` | **Self-Healing & Repair.** Fixes environment issues (paths, keys, deps) and restores file associations. |
 
 ---
 
@@ -79,8 +79,10 @@ $ epi view my_run
 ```
 
 ### `epi associate` / `epi unassociate`
-**OS File Association (v2.7.0).**  
-Registers `.epi` files with Windows, macOS, or Linux so that double-clicking them in your file explorer instantly opens the EPI Viewer. *(Note: This runs automatically on your first `epi` run, so you usually only need these commands for manual troubleshooting).*
+**OS File Association (v2.7.1).**  
+Registers `.epi` files with Windows, macOS, or Linux so that double-clicking them in your file explorer instantly opens the EPI Viewer. 
+
+**v2.7.1 Self-Healing:** The file association now automatically checks its own health. If you move your Python installation or your registry is modified, EPI will automatically repair the link the next time you run a command.
 
 **Usage:**
 ```bash
@@ -102,9 +104,9 @@ Re-calculates hashes and checks the Ed25519 signature.
 **Usage:**
 ```bash
 $ epi verify demo.epi
-✅ Integrity: OK
-✅ Signature: Valid (default)
-✅ Checks: 23/23 passed
+✅ Integrity: OK (Entire Archive)
+✅ Signature: Valid (Identity Embedded)
+✅ Checks: 24/24 passed
 ```
 
 ### `epi doctor`

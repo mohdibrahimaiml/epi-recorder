@@ -26,15 +26,25 @@ from pathlib import Path
 
 def _get_epi_command() -> str:
     """Get the correct epi command for the current Python installation."""
-    # Try Scripts/epi.exe (standard pip install location)
-    scripts_dir = Path(sys.executable).parent
+    import site
     
-    for candidate in ["epi.exe", "epi"]:
-        exe = scripts_dir / candidate
-        if exe.exists():
-            return f'"{exe}" view "%1"'
+    # Common locations for epi.exe
+    search_dirs = [
+        Path(sys.executable).parent,          # Standard
+        Path(sys.executable).parent / "Scripts", # Windows alternate
+        Path(site.getuserbase()) / "Scripts",    # User-site (Windows Store Python)
+        Path(site.getsitepackages()[0]) / "Scripts" if hasattr(site, 'getsitepackages') else None
+    ]
+    
+    for scripts_dir in search_dirs:
+        if scripts_dir and scripts_dir.exists():
+            for candidate in ["epi.exe", "epi"]:
+                exe = scripts_dir / candidate
+                if exe.exists():
+                    return f'"{exe}" view "%1"'
     
     # Fallback: invoke via current Python executable directly
+    # Use -m to ensure the same environment is used
     return f'"{sys.executable}" -m epi_cli view "%1"'
 
 def register_windows() -> None:
@@ -45,24 +55,38 @@ def register_windows() -> None:
     open_cmd = _get_epi_command()
 
     # 1. Register .epi extension → ProgID
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.epi") as key:
-        winreg.SetValue(key, "", winreg.REG_SZ, "EPIRecorder.File")
+    try:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Classes\.epi", 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "EPIRecorder.File")
+    except Exception as e:
+        if not ctypes.windll.shell32.IsUserAnAdmin():
+             # Fallback or silent fail if no permissions, but HKCU should work.
+             pass
 
     # 2. Register ProgID with human-readable description
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\EPIRecorder.File") as key:
-        winreg.SetValue(key, "", winreg.REG_SZ, "EPI Recording File")
+    try:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Classes\EPIRecorder.File", 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "EPI Recording File")
+    except Exception:
+        pass
 
     # 3. Register shell open command
-    cmd_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cmd_path) as key:
-        winreg.SetValue(key, "", winreg.REG_SZ, open_cmd)
+    try:
+        cmd_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, cmd_path, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, open_cmd)
+    except Exception:
+        pass
 
     # 4. Notify Windows shell to refresh file associations
-    SHCNE_ASSOCCHANGED = 0x08000000
-    SHCNF_IDLIST = 0x0000
-    ctypes.windll.shell32.SHChangeNotify(
-        SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None
-    )
+    try:
+        SHCNE_ASSOCCHANGED = 0x08000000
+        SHCNF_IDLIST = 0x0000
+        ctypes.windll.shell32.SHChangeNotify(
+            SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None
+        )
+    except Exception:
+        pass
 
 
 def unregister_windows() -> None:
@@ -176,7 +200,7 @@ def _register_macos_osascript_fallback():
     end tell
     '''
     # Just warn — osascript registration is unreliable
-    print("⚠️  macOS: lsregister not found. Run 'epi associate' after restarting Finder.")
+    print("[WARNING] macOS: lsregister not found. Run 'epi associate' after restarting Finder.")
 
 
 def unregister_macos() -> None:
@@ -265,7 +289,7 @@ def register_linux() -> None:
         errors.append("xdg-mime not found (install: xdg-utils)")
 
     if errors:
-        print("⚠️  Linux file association partially failed:")
+        print("[WARNING] Linux file association partially failed:")
         for e in errors:
             print(f"   - {e}")
         print("   Fix with: sudo apt install xdg-utils shared-mime-info")
@@ -318,14 +342,56 @@ def _set_registration_state():
         pass  # Harmless — just means we re-register next run
 
 def _needs_registration() -> bool:
+    """
+    Check if we need to perform registration.
+    Returns True if:
+    1. Version/Executable has changed
+    2. The actual OS association is missing or incorrect (Hardened Check)
+    """
     try:
+        # Check 1: Flag file state
         state = _get_registration_state()
-        return (
-            state.get("version") != _get_epi_version() or
-            state.get("executable") != sys.executable
-        )
+        if (state.get("version") != _get_epi_version() or
+            state.get("executable") != sys.executable):
+            return True
+            
+        # Check 2: Actual OS state (Self-Healing)
+        return _is_association_broken()
     except Exception:
-        return True  # If we can't read state, always re-register
+        return True
+
+def _is_association_broken() -> bool:
+    """Perform real-time health check on OS file association."""
+    try:
+        if sys.platform == "win32":
+            import winreg
+            try:
+                # Check .epi -> EPIRecorder.File
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.epi") as key:
+                    if winreg.QueryValue(key, "") != "EPIRecorder.File":
+                        return True
+                
+                # Check Command matches current exe
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\EPIRecorder.File\shell\open\command") as key:
+                    current_cmd = _get_epi_command()
+                    if winreg.QueryValue(key, "") != current_cmd:
+                        return True
+            except FileNotFoundError:
+                return True
+                
+        elif sys.platform == "darwin":
+            app_base = Path.home() / "Library/Application Support/EPI/EPI Viewer.app"
+            if not app_base.exists():
+                return True
+                
+        elif sys.platform.startswith("linux"):
+            desktop_file = Path.home() / ".local/share/applications/epi-viewer.desktop"
+            if not desktop_file.exists():
+                return True
+                
+        return False
+    except Exception:
+        return True
 
 def _get_epi_version() -> str:
     try:
@@ -368,7 +434,7 @@ def register_file_association(silent: bool = False, force: bool = False) -> bool
         _set_registration_state()
 
         if not silent:
-            print("✅ .epi file association registered successfully.")
+            print("[OK] .epi file association registered successfully.")
             if sys.platform == "darwin":
                 print("   If double-click doesn't work yet on macOS, log out and back in, ")
                 print("   or run: killall Finder")
@@ -376,7 +442,7 @@ def register_file_association(silent: bool = False, force: bool = False) -> bool
 
     except Exception as e:
         if not silent:
-            print(f"⚠️  Could not register file association: {e}")
+            print(f"[WARNING] Could not register file association: {e}")
             print("    Run: epi associate   to retry manually")
         return False
 
@@ -402,10 +468,10 @@ def unregister_file_association(silent: bool = False) -> bool:
         _clear_registered()
 
         if not silent:
-            print("✅ .epi file association removed.")
+            print("[OK] .epi file association removed.")
         return True
 
     except Exception as e:
         if not silent:
-            print(f"⚠️  Could not remove file association: {e}")
+            print(f"[WARNING] Could not remove file association: {e}")
         return False

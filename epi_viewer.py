@@ -149,7 +149,7 @@ class EPIViewer:
             return {"valid": False, "error": str(e)}
     
     def _verify_signature(self, manifest: Dict) -> Dict[str, Any]:
-        """Verify signature format (full crypto verification requires additional library)"""
+        """Verify signature format (full crypto verification happens in specialized verify commands)"""
         try:
             signature = manifest.get('signature')
             
@@ -160,22 +160,21 @@ class EPIViewer:
                     "level": "UNSIGNED"
                 }
             
-            # Parse signature format: "ed25519:keyname:base64sig"
+            # Parse signature format: "ed25519:keyname:hexsig"
             parts = signature.split(':', 2)
             if len(parts) != 3:
                 return {"valid": False, "error": "Invalid signature format"}
             
-            algorithm, key_name, sig_b64 = parts
+            algorithm, key_name, sig_hex = parts
             
             if algorithm != 'ed25519':
                 return {"valid": False, "error": f"Unsupported algorithm: {algorithm}"}
             
-            # Validate base64 encoding
+            # Validate hex encoding
             try:
-                import base64
-                base64.b64decode(sig_b64)
+                bytes.fromhex(sig_hex)
             except Exception:
-                return {"valid": False, "error": "Invalid signature encoding"}
+                return {"valid": False, "error": "Invalid signature hex encoding"}
             
             return {
                 "valid": True,

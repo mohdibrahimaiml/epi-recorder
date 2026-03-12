@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "2.7.0"
+version = "2.7.1"
 description = "Verifiable execution evidence for AI systems. Portable, cryptographically signed artifacts."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "EPI Labs", email = "mohdibrahim@epilabs.org"}
+    {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
 ]
 maintainers = [
     {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
@@ -53,10 +53,15 @@ dependencies = [
     "cbor2>=5.6.0",
     "typer[all]>=0.12.0",
     "rich>=13.0.0",
-    "google-generativeai>=0.4.0",
 ]
 
 [project.optional-dependencies]
+ai = [
+    "google-generativeai>=0.4.0",
+]
+all = [
+    "google-generativeai>=0.4.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -66,7 +71,7 @@ dev = [
 ]
 
 [project.scripts]
-epi = "epi_cli.main:app"
+epi = "epi_cli.main:cli_main"
 
 [project.urls]
 Homepage = "https://epilabs.org"

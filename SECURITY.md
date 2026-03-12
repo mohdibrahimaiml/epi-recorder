@@ -30,9 +30,10 @@ Please include as much information as possible:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.1.x   | ✅ Active support  |
-| 2.0.x   | ❌ No longer supported |
-| < 2.0   | ❌ No longer supported |
+| 2.7.x   | ✅ Active support  |
+| 2.6.x   | ✅ Active support  |
+| 2.1.x   | ⚠️ Maintenance only |
+| < 2.1   | ❌ No longer supported |
 
 ## 🔐 Security Features
 
@@ -91,31 +92,20 @@ Please follow responsible disclosure practices.
 
 ## 📝 Security Changelog
 
+### v2.7.1 (March 2026)
+- **Decentralized Trust Model**: Embedded public keys in manifests for zero-config verification.
+- **Self-Healing Integration**: Automated registry/MIME health checks to prevent association drift.
+- **Entire File Integrity**: SHA-256 archive-level hashing for all package components.
+
+### v2.7.0 (March 2026)
+- OS-level file association (cross-platform).
+- Unicode console safety (Windows).
+
+### v2.6.0 (February 2026)
+- Framework-native integrations (LiteLLM, LangChain, OTel).
+- CI/CD verification (GitHub Action).
+
 ### v2.1.3 (January 2026)
-- Enhanced client-side verification
-- Improved secret redaction patterns
-
-### v2.1.2 (January 2026)
-- Added browser-based cryptographic verification
-- Bundled @noble/ed25519 for offline verification
-
-### v2.1.0 (December 2025)
-- Initial security hardening
-- Automatic redaction system
-
-## 📬 Contact
-
-- **Security Issues**: security@epilabs.org
-- **General Contact**: mohdibrahim@epilabs.org
-- **GPG Key**: [Coming soon]
-
-## 🙏 Acknowledgments
-
-We thank security researchers who report vulnerabilities responsibly.
-
----
-
-**Last Updated**: January 2026
 
 
  

@@ -4,7 +4,7 @@ EPI CLI View - Open .epi file in browser viewer.
 Extracts the embedded viewer.html and opens it in the default browser.
 No code execution, all data is pre-rendered JSON.
 
-Features (v2.7.0):
+Features (v2.7.1):
   - Unicode-safe path handling via pathlib
   - Stem resolution picks most recent match
   - Temp directory auto-cleanup after browser loads
@@ -206,6 +206,12 @@ def view(
         # Schedule cleanup after browser loads
         _cleanup_after_delay(temp_dir, 8)
 
+    except typer.Exit:
+        raise  # Re-raise typer exits cleanly
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Cancelled[/yellow]")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise typer.Exit(130)
     except zipfile.BadZipFile:
         console.print(f"[red][X] Corrupt .epi file:[/red] {resolved_path.name}")
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -216,18 +222,5 @@ def view(
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red][X] Unexpected error:[/red] {e}")
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise typer.Exit(1)
-
-    except typer.Exit:
-        raise  # Re-raise typer exits
-
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Cancelled[/yellow]")
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise typer.Exit(130)
-
-    except Exception as e:
-        console.print(f"[red][FAIL] Error opening file:[/red] {e}")
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise typer.Exit(1)

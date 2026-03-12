@@ -36,9 +36,9 @@ def sign_manifest(
     Sign a manifest using Ed25519 private key.
     
     The signing process:
-    1. Compute canonical CBOR hash of manifest (excluding signature field)
+    1. Compute canonical JSON hash of manifest (excluding signature field)
     2. Sign the hash with Ed25519 private key
-    3. Encode signature as base64
+    3. Encode signature as hex
     4. Return new manifest with signature field populated
     
     Args:
@@ -70,9 +70,9 @@ def sign_manifest(
         # Sign the hash
         signature_bytes = private_key.sign(hash_bytes)
         
-        # Encode as base64 with key name prefix
-        signature_b64 = base64.b64encode(signature_bytes).decode("utf-8")
-        signature_str = f"ed25519:{key_name}:{signature_b64}"
+        # Encode as hex with key name prefix
+        signature_hex = signature_bytes.hex()
+        signature_str = f"ed25519:{key_name}:{signature_hex}"
         
         # Create new manifest with signature
         manifest_dict = manifest.model_dump()
@@ -103,18 +103,18 @@ def verify_signature(
         return (False, "No signature present")
     
     try:
-        # Parse signature (format: "ed25519:keyname:base64sig")
+        # Parse signature (format: "ed25519:keyname:hexsig")
         parts = manifest.signature.split(":", 2)
         if len(parts) != 3:
             return (False, "Invalid signature format")
         
-        algorithm, key_name, signature_b64 = parts
+        algorithm, key_name, signature_hex = parts
         
         if algorithm != "ed25519":
             return (False, f"Unsupported signature algorithm: {algorithm}")
         
-        # Decode signature
-        signature_bytes = base64.b64decode(signature_b64)
+        # Decode hex-encoded signature
+        signature_bytes = bytes.fromhex(signature_hex)
         
         # Compute canonical hash (excluding signature field)
         manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
@@ -127,6 +127,7 @@ def verify_signature(
         public_key.verify(signature_bytes, hash_bytes)
         
         return (True, f"Signature valid (key: {key_name})")
+
         
     except InvalidSignature:
         return (False, "Invalid signature - data may have been tampered")
@@ -181,7 +182,7 @@ def get_signer_name(signature: Optional[str]) -> Optional[str]:
     Extract signer key name from signature string.
     
     Args:
-        signature: Signature string (format: "ed25519:keyname:base64sig")
+        signature: Signature string (format: "ed25519:keyname:hexsig")
         
     Returns:
         str: Key name, or None if signature is invalid/missing

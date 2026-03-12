@@ -114,13 +114,15 @@ class MistakeDetector:
         
         steps = []
         for row in cursor.fetchall():
-            content = json.loads(row[3]) if isinstance(row[3], str) else row[3]
+            # row: (id, step_index, timestamp, kind, content, created_at)
+            content_str = row[4]
+            content = json.loads(content_str) if isinstance(content_str, str) else content_str
             steps.append({
                 'id': row[0],
                 'index': row[1],
-                'type': row[2],
+                'type': row[3], # kind
                 'content': content,
-                'timestamp': row[4] if len(row) > 4 else None
+                'timestamp': row[2] # timestamp
             })
         
         conn.close()

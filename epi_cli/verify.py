@@ -17,7 +17,6 @@ from rich.table import Table
 
 from epi_core.container import EPIContainer
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
-from epi_cli.keys import KeyManager
 
 console = Console()
 
@@ -84,23 +83,26 @@ def verify_command(
         if manifest.signature:
             signer_name = get_signer_name(manifest.signature)
             
-            # Try to load public key
-            key_manager = KeyManager()
-            try:
-                public_key_bytes = key_manager.load_public_key(signer_name or "default")
-                signature_valid, sig_message = verify_signature(manifest, public_key_bytes)
-                
-                if verbose:
-                    if signature_valid:
-                        console.print(f"  [green][OK][/green] {sig_message}")
-                    else:
-                        console.print(f"  [red][FAIL][/red] {sig_message}")
-            
-            except FileNotFoundError:
+            # Use the embedded public key from the manifest itself for decentralized trust
+            if not manifest.public_key:
                 signature_valid = False
                 if verbose:
-                    console.print(f"  [yellow][WARN][/yellow]  Public key not found: {signer_name}")
-                    console.print("  [dim]Cannot verify signature without public key[/dim]")
+                    console.print("  [red][FAIL][/red] No public key embedded in manifest")
+            else:
+                try:
+                    public_key_bytes = bytes.fromhex(manifest.public_key)
+                    signature_valid, sig_message = verify_signature(manifest, public_key_bytes)
+                    
+                    if verbose:
+                        if signature_valid:
+                            console.print(f"  [green][OK][/green] {sig_message}")
+                        else:
+                            console.print(f"  [red][FAIL][/red] {sig_message}")
+                
+                except Exception as e:
+                    signature_valid = False
+                    if verbose:
+                        console.print(f"  [red][FAIL][/red] Invalid embedded public key: {e}")
         else:
             signature_valid = None
             if verbose:

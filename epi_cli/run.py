@@ -28,6 +28,7 @@ from rich.panel import Panel
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
+
 from epi_cli.keys import KeyManager
 from epi_recorder.environment import save_environment_snapshot
 
@@ -110,19 +111,17 @@ def _verify_recording(epi_file: Path) -> tuple[bool, str]:
         
         # Check signature
         if manifest.signature:
-            signer_name = get_signer_name(manifest.signature)
-            key_manager = KeyManager()
-            
+            if not manifest.public_key:
+                return False, "Signature error: No public key embedded in manifest"
             try:
-                public_key = key_manager.load_public_key(signer_name or "default")
-                signature_valid, msg = verify_signature(manifest, public_key)
-                
+                public_key_bytes = bytes.fromhex(manifest.public_key)
+                signature_valid, msg = verify_signature(manifest, public_key_bytes)
                 if signature_valid:
                     return True, "OK (signed & verified)"
                 else:
                     return False, f"Signature invalid: {msg}"
-            except FileNotFoundError:
-                return True, "OK (unsigned - no public key)"
+            except Exception as e:
+                return False, f"Verification error: {e}"
         else:
             return True, "OK (unsigned)"
             
@@ -299,60 +298,39 @@ def run(
         tags=tag
     )
     
+    # Auto-sign
+    signed = False
+    signer = None
+    try:
+        km = KeyManager()
+        priv = km.load_private_key("default")
+        from epi_core.trust import sign_manifest
+        def signer_func(m):
+            nonlocal signed
+            signed_manifest = sign_manifest(m, priv, "default")
+            signed = True
+            return signed_manifest
+        signer = signer_func
+    except Exception as e:
+        pass  # Non-fatal
+
     # Package into .epi
-    EPIContainer.pack(temp_workspace, manifest, out)
+    EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
     
     # --- AUTO-FIX 2: EMPTY CHECK ---
     # Check if we actually recorded anything
     import json
-    timeline_path = temp_workspace / "timeline.json"
+    timeline_path = temp_workspace / "steps.jsonl"
     if timeline_path.exists():
         try:
-            with open(timeline_path, encoding="utf-8") as f:
-                timeline_data = json.load(f)
-            if not timeline_data:
-                console.print("\n[bold yellow][!] Warning: Your script ran but didn't record any steps![/bold yellow]")
-                console.print("[dim]Did you forget to print anything? Try adding: print('Hello EPI')[/dim]\n")
+            content = timeline_path.read_text(encoding="utf-8").strip()
+            line_count = len([l for l in content.split("\n") if l.strip()])
+            if line_count <= 2:  # only session.start and session.end
+                console.print("\n[bold yellow][!] Warning: No AI steps recorded![/bold yellow]")
+                console.print("[dim]Make sure your script calls an LLM or HTTP endpoint.[/dim]\n")
         except:
             pass
     # -----------------------------
-    
-    # Auto-sign
-    signed = False
-    try:
-        km = KeyManager()
-        priv = km.load_private_key("default")
-        
-        # Extract, sign, and repack with new viewer
-        import json as _json
-        with zipfile.ZipFile(out, "r") as zf:
-            raw = zf.read("manifest.json").decode("utf-8")
-            data = _json.loads(raw)
-        
-        # Sign manifest
-        from epi_core.schemas import ManifestModel as _MM
-        from epi_core.trust import sign_manifest as _sign
-        m = _MM(**data)
-        sm = _sign(m, priv, "default")
-        signed_json = sm.model_dump_json(indent=2)
-        
-        # Regenerate viewer.html with signed manifest and steps
-        viewer_html = EPIContainer._create_embedded_viewer(temp_workspace, sm)
-        
-        # Replace manifest AND viewer in ZIP
-        temp_zip = out.with_suffix(".epi.tmp")
-        with zipfile.ZipFile(out, "r") as zf_in:
-            with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as zf_out:
-                for item in zf_in.namelist():
-                    if item not in ("manifest.json", "viewer.html"):
-                        zf_out.writestr(item, zf_in.read(item))
-                zf_out.writestr("manifest.json", signed_json)
-                zf_out.writestr("viewer.html", viewer_html)
-        
-        temp_zip.replace(out)
-        signed = True
-    except Exception:
-        pass  # Non-fatal
     
     # Verify
     verified = False
