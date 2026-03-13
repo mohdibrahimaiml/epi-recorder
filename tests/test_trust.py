@@ -390,9 +390,10 @@ class TestVerificationReport:
         # Invalid base64 in signature
         test_manifest.signature = "ed25519:test:not-valid-base64!!!"
         is_valid, message = verify_signature(test_manifest, public_key_bytes)
-        
+
         assert not is_valid
-        assert "error" in message.lower()
+        # Message may say "encoding" or "error" depending on which path fails
+        assert any(word in message.lower() for word in ("error", "invalid", "encoding"))
     
     def test_sign_manifest_error_handling(self):
         """Test sign_manifest error handling."""

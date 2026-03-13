@@ -25,27 +25,16 @@ from pathlib import Path
 # ============================================================
 
 def _get_epi_command() -> str:
-    """Get the correct epi command for the current Python installation."""
-    import site
-    
-    # Common locations for epi.exe
-    search_dirs = [
-        Path(sys.executable).parent,          # Standard
-        Path(sys.executable).parent / "Scripts", # Windows alternate
-        Path(site.getuserbase()) / "Scripts",    # User-site (Windows Store Python)
-        Path(site.getsitepackages()[0]) / "Scripts" if hasattr(site, 'getsitepackages') else None
-    ]
-    
-    for scripts_dir in search_dirs:
-        if scripts_dir and scripts_dir.exists():
-            for candidate in ["epi.exe", "epi"]:
-                exe = scripts_dir / candidate
-                if exe.exists():
-                    return f'"{exe}" view "%1"'
-    
-    # Fallback: invoke via current Python executable directly
-    # Use -m to ensure the same environment is used
-    return f'"{sys.executable}" -m epi_cli view "%1"'
+    """Get the open command for .epi files.
+
+    Uses pythonw.exe (no terminal window) with -m epi_cli view so the browser
+    opens silently — no CMD flash when the user double-clicks a .epi file.
+    pythonw.exe lives next to python.exe on every standard Windows install.
+    """
+    python_exe = Path(sys.executable)
+    pythonw = python_exe.parent / "pythonw.exe"
+    launcher = pythonw if pythonw.exists() else python_exe
+    return f'"{launcher.absolute()}" -m epi_cli view "%1"'
 
 def register_windows() -> None:
     """Register .epi file association on Windows via HKCU registry."""
@@ -392,6 +381,61 @@ def _is_association_broken() -> bool:
         return False
     except Exception:
         return True
+
+def get_association_diagnostics() -> dict:
+    """
+    Perform a deep diagnostic check of the file association.
+    Focuses on Windows 11 'UserChoice' overrides and path validity.
+    """
+    diag = {"platform": sys.platform, "status": "OK", "issues": []}
+    
+    if sys.platform == "win32":
+        import winreg
+        try:
+            # Check 1: UserChoice Override (Windows 11 Security)
+            # This is the most common reason manual/programmed associations are ignored
+            user_choice_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.epi\UserChoice"
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, user_choice_path) as key:
+                    prog_id = winreg.QueryValueEx(key, "ProgId")[0]
+                    diag["user_choice"] = prog_id
+                    if prog_id != "EPIRecorder.File":
+                        diag["status"] = "OVERRIDDEN"
+                        diag["issues"].append(f"Windows is forcing '.epi' to open with '{prog_id}' via UserChoice.")
+            except FileNotFoundError:
+                diag["user_choice"] = None
+
+            # Check 2: Extension mapping
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.epi") as key:
+                    diag["extension_progid"] = winreg.QueryValue(key, "")
+            except FileNotFoundError:
+                diag["extension_progid"] = None
+                diag["issues"].append("Registry key 'Software\Classes\.epi' is missing.")
+
+            # Check 3: Command validity
+            try:
+                cmd_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, cmd_path) as key:
+                    cmd = winreg.QueryValue(key, "")
+                    diag["registered_command"] = cmd
+                    
+                    # Extract exe path from command string (handle quotes)
+                    import re
+                    match = re.search(r'"([^"]+)"', cmd)
+                    if match:
+                        exe_path = Path(match.group(1))
+                        if not exe_path.exists():
+                            diag["issues"].append(f"Registered executable does not exist: {exe_path}")
+            except FileNotFoundError:
+                diag["registered_command"] = None
+                diag["issues"].append("Registry key 'EPIRecorder.File' command is missing.")
+
+        except Exception as e:
+            diag["status"] = "ERROR"
+            diag["issues"].append(f"Diagnostic failed: {e}")
+
+    return diag
 
 def _get_epi_version() -> str:
     try:

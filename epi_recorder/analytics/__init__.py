@@ -18,8 +18,16 @@ import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-import pandas as pd
 from collections import defaultdict, Counter
+
+# pandas and matplotlib are optional — imported lazily so that
+# `import epi_recorder` never fails on machines without them.
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None  # type: ignore[assignment]
+    PANDAS_AVAILABLE = False
 
 try:
     import matplotlib.pyplot as plt
@@ -52,10 +60,15 @@ class AgentAnalytics:
         if not self.artifact_dir.exists():
             raise ValueError(f"Directory not found: {artifact_dir}")
         
+        if not PANDAS_AVAILABLE:
+            raise ImportError(
+                "AgentAnalytics requires pandas. Install it with: pip install pandas"
+            )
+
         self.artifacts = self._load_all_artifacts()
         if not self.artifacts:
             raise ValueError(f"No .epi files found in {artifact_dir}")
-        
+
         self.df = self._to_dataframe()
     
     def _load_all_artifacts(self) -> List[Dict[str, Any]]:

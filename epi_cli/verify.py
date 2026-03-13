@@ -90,15 +90,20 @@ def verify_command(
                     console.print("  [red][FAIL][/red] No public key embedded in manifest")
             else:
                 try:
-                    public_key_bytes = bytes.fromhex(manifest.public_key)
+                    # public_key is always stored as hex in all versions
+                    try:
+                        public_key_bytes = bytes.fromhex(manifest.public_key)
+                    except ValueError:
+                        import base64
+                        public_key_bytes = base64.b64decode(manifest.public_key)
                     signature_valid, sig_message = verify_signature(manifest, public_key_bytes)
-                    
+
                     if verbose:
                         if signature_valid:
                             console.print(f"  [green][OK][/green] {sig_message}")
                         else:
                             console.print(f"  [red][FAIL][/red] {sig_message}")
-                
+
                 except Exception as e:
                     signature_valid = False
                     if verbose:
@@ -129,6 +134,8 @@ def verify_command(
         if not integrity_ok or signature_valid is False:
             raise typer.Exit(1)
     
+    except typer.Exit:
+        raise
     except KeyboardInterrupt:
         console.print("\n[yellow]Verification interrupted[/yellow]")
         raise typer.Exit(130)

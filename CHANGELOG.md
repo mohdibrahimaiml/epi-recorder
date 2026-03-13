@@ -45,6 +45,30 @@ After v3.0.0, the `.epi` format should be:
 
 ---
 
+## [2.7.2] – 2026-03-14
+
+### Bug Fixes & Reliability
+
+This patch release closes a critical verification gap for pre-v2.7.1 evidence files and hardens the CLI across the board.
+
+#### Fixed
+
+- **Legacy Signature Compatibility (Critical)**: `verify_signature()` now auto-detects encoding — it tries **Hex** first (current format) and falls back to **Base64** (pre-v2.7.1 format). Previously, any `.epi` file signed by an older version would fail verification with a cryptic error instead of a meaningful result.
+- **Browser Viewer Signature Compatibility**: `crypto.js` (inlined into every new `.epi` file) now applies the same hex-then-base64 fallback, so the built-in HTML viewer correctly verifies both old and new files.
+- **`epi associate` Exit Code**: The `associate` command incorrectly returned exit code `1` when the file association was already registered. It now prints a confirmation and exits `0`.
+- **Verbose Verify Traceback**: In `--verbose` mode, `epi verify` would print a spurious Python traceback when verification failed (e.g. tampered file). `typer.Exit` is now re-raised before the generic exception handler catches it.
+- **Analytics Import Crash**: `import epi_recorder` would crash with `ModuleNotFoundError` if `pandas` was not installed, even for users who never use analytics. Import is now lazy with a clear error on first use.
+- **Missing `wrap_anthropic` Export**: `wrap_anthropic` and `TracedAnthropic` were not exported from the top-level `epi_recorder` package despite being documented.
+- **Incorrect Google AI Studio URL**: `epi chat` help text linked to a dead URL for obtaining a Gemini API key. Fixed to `aistudio.google.com/app/apikey`.
+- **`analytics` Missing from Optional Dependencies**: `pyproject.toml` had no `analytics` extras group, so `pip install epi-recorder[analytics]` failed. Added `analytics = ["pandas>=1.5.0", "matplotlib>=3.5.0"]`.
+
+#### Internal
+
+- Extracted shared subprocess helpers (`ensure_python_command`, `build_env_for_child`) from `epi_cli/run.py` and `epi_cli/record.py` into `epi_cli/_shared.py`, eliminating duplicate code.
+- `associate` command in `main.py` now calls `_needs_registration()` before delegating to `register_file_association()` to produce the correct "already registered" message.
+
+---
+
 ## [2.7.1] – 2026-03-12
 
 ### 🛡️ Decentralized Trust & Architectural Symmetry

@@ -1,9 +1,9 @@
-# EPI CLI Reference (v2.7.1)
+# EPI CLI Reference (v2.7.2)
 
 **Status:** Active  
 The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
 
-**Version:** 2.7.1  
+**Version:** 2.7.2  
 **Install:** `pip install epi-recorder`
 
 ---
@@ -79,10 +79,10 @@ $ epi view my_run
 ```
 
 ### `epi associate` / `epi unassociate`
-**OS File Association (v2.7.1).**  
+**OS File Association (v2.7.2).**  
 Registers `.epi` files with Windows, macOS, or Linux so that double-clicking them in your file explorer instantly opens the EPI Viewer. 
 
-**v2.7.1 Self-Healing:** The file association now automatically checks its own health. If you move your Python installation or your registry is modified, EPI will automatically repair the link the next time you run a command.
+**v2.7.2 Self-Healing:** The file association now automatically checks its own health. If you move your Python installation or your registry is modified, EPI will automatically repair the link the next time you run a command.
 
 **Usage:**
 ```bash

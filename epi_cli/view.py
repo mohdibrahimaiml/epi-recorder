@@ -4,7 +4,7 @@ EPI CLI View - Open .epi file in browser viewer.
 Extracts the embedded viewer.html and opens it in the default browser.
 No code execution, all data is pre-rendered JSON.
 
-Features (v2.7.1):
+Features (v2.7.2):
   - Unicode-safe path handling via pathlib
   - Stem resolution picks most recent match
   - Temp directory auto-cleanup after browser loads

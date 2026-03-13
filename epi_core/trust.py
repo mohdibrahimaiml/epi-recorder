@@ -112,9 +112,15 @@ def verify_signature(
         
         if algorithm != "ed25519":
             return (False, f"Unsupported signature algorithm: {algorithm}")
-        
-        # Decode hex-encoded signature
-        signature_bytes = bytes.fromhex(signature_hex)
+
+        # Decode signature — hex (current format) or base64 (legacy format)
+        try:
+            signature_bytes = bytes.fromhex(signature_hex)
+        except ValueError:
+            try:
+                signature_bytes = base64.b64decode(signature_hex)
+            except Exception:
+                return (False, "Invalid signature encoding (not hex or base64)")
         
         # Compute canonical hash (excluding signature field)
         manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})

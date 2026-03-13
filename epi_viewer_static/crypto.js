@@ -511,7 +511,19 @@ async function verifyManifestSignature(manifest) {
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBytes);
         const hashArray = new Uint8Array(hashBuffer);
 
-        const sigBytes = noble.etc.hexToBytes(sigHex);
+        // Decode signature — hex (current format) or base64 (legacy format)
+        let sigBytes;
+        try {
+            sigBytes = noble.etc.hexToBytes(sigHex);
+        } catch (_hexErr) {
+            try {
+                const binary = atob(sigHex);
+                sigBytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) sigBytes[i] = binary.charCodeAt(i);
+            } catch (_b64Err) {
+                return { valid: false, reason: "Invalid signature encoding (not hex or base64)" };
+            }
+        }
 
         const isValid = await noble.verifyAsync(sigBytes, hashArray, pubKeyBytes);
 

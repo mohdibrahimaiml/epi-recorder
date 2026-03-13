@@ -257,9 +257,9 @@ class TestVersionConsistency:
     """Ensure version is bumped consistently across all locations."""
 
     def test_epi_core_version(self):
-        """epi_core.__version__ should be 2.7.1."""
+        """epi_core.__version__ should be 2.7.2."""
         from epi_core import __version__
-        assert __version__ == "2.7.1"
+        assert __version__ == "2.7.2"
 
     def test_pyproject_version_matches(self):
         """pyproject.toml version should match epi_core.__version__."""

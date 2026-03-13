@@ -29,7 +29,7 @@ Computers can crash. Power can go out. If your AI agent crashes halfway through,
 Once the program finishes, we have a pile of evidence (logs). But how do you prove you didn't edit them?
 *   **The Box:** We pack all the logs into a single file (`.epi`).
 *   **The Wax Seal:** We use a powerful mathematical tool called a **Cryptographic Signature** (Ed25519). This is like pouring hot wax over the lock of the box and stamping it with your unique ring.
-*   **Decentralized Trust (v2.7.1):** We now embed your "identity" (public key) directly inside the seal. This means anyone in the world can verify the box without ever having met you or having your keys on their computer first. It's truly zero-config.
+*   **Decentralized Trust (v2.7.2):** We now embed your "identity" (public key) directly inside the seal. This means anyone in the world can verify the box without ever having met you or having your keys on their computer first. It's truly zero-config.
 *   **Verification:** If anyone tries to open the box and change a single letter of the logs, the "wax seal" will break. The EPI Viewer checks this seal instantly. If it's broken, it yells **"TAMPERED"**. If it's intact, it confirms **"VERIFIED"**.
 
 ---
@@ -41,5 +41,5 @@ For those who want the specifics:
 *   **Patcher**: We use `unittest.mock` style wrapping on `openai`, `google.generativeai`, and `requests` / `httpx`.
 *   **Storage**: `sqlite3` in WAL (Write-Ahead Log) mode for atomic, crash-safe writes.
 *   **Format**: The `.epi` file is a standard ZIP containing JSONL logs and a standalone HTML viewer.
-*   **Security**: Ed25519 digital signatures with **Decentralized Identity** (v2.7.1).
-*   **Self-Healing**: Automatic restoration of OS file associations (registry/mime) on every execution (v2.7.1).
+*   **Security**: Ed25519 digital signatures with **Decentralized Identity** (v2.7.2).
+*   **Self-Healing**: Automatic restoration of OS file associations (registry/mime) on every execution (v2.7.2).

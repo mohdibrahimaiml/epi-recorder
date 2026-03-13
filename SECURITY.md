@@ -92,6 +92,10 @@ Please follow responsible disclosure practices.
 
 ## 📝 Security Changelog
 
+### v2.7.2 (March 2026)
+- **Legacy Signature Compatibility**: `verify_signature()` and the HTML viewer now handle both Hex (v2.7.x) and Base64 (pre-v2.7.1) encoded signatures, preventing silent verification failures on old files.
+- **Verification Integrity**: Fixed `epi verify --verbose` leaking `typer.Exit` through the generic exception handler, which produced misleading tracebacks on tampered-file detection.
+
 ### v2.7.1 (March 2026)
 - **Decentralized Trust Model**: Embedded public keys in manifests for zero-config verification.
 - **Self-Healing Integration**: Automated registry/MIME health checks to prevent association drift.

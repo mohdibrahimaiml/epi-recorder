@@ -72,13 +72,14 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## 🛡️ New in v2.7.1 — Decentralized Trust & Self-Healing
+## 🛡️ New in v2.7.2 — Verification Reliability & CLI Polish
 
-EPI is now even more robust for security-conscious environments and air-gapped systems.
+Critical bug fixes ensuring old `.epi` files verify correctly and the CLI behaves predictably in every case.
 
-- **Zero-Config Verification**: Verify any `.epi` file immediately without having previous keys or configuration. Identity is embedded directly in the evidence.
-- **Self-Healing Integration**: OS file associations now monitor their own health. If your registry or MIME settings break, `epi` heals them on the next run.
-- **Atomic Reliability**: Full audit and fixes for SQLite storage and cryptographic encoding consistency across the entire pipeline.
+- **Legacy Signature Compatibility**: `epi verify` and the built-in HTML viewer now handle both Hex (v2.7.x) and Base64 (pre-v2.7.1) encoded signatures. Old recordings no longer fail verification with cryptic errors.
+- **CLI Exit Code Fix**: `epi associate` now correctly exits `0` when the file association is already registered.
+- **Clean Verbose Output**: `epi verify --verbose` no longer prints a spurious Python traceback on tampered-file detection.
+- **Import Safety**: `import epi_recorder` no longer crashes when `pandas` is not installed.
 
 ---
 
@@ -391,6 +392,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.7.2** | 2026-03-14 | **Verification reliability & CLI polish** — Legacy signature compatibility, analytics import safety, missing exports, CLI exit code fixes |
 | **2.7.1** | 2026-03-12 | **Decentralized trust & Self-healing** — Zero-config verification, OS registry self-repair, SQL integrity fixes, cryptographic symmetry |
 | **2.7.0** | 2026-03-11 | **Zero-friction desktop integration** — Double-click `.epi` files to open, cross-platform file association, Unicode path safety |
 | **2.6.0** | 2026-02-20 | **Framework integrations** — LiteLLM, LangChain, OpenTelemetry, pytest plugin, GitHub Action, streaming support, global install |

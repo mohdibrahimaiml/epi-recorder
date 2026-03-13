@@ -76,7 +76,7 @@ def chat(
             "Set your Google AI API key:\n"
             "  [cyan]set GOOGLE_API_KEY=your-key-here[/cyan]  (Windows)\n"
             "  [cyan]export GOOGLE_API_KEY=your-key-here[/cyan]  (Mac/Linux)\n\n"
-            "Get a free key at: [link]https://makersuite.google.com/app/apikey[/link]",
+            "Get a free key at: [link]https://aistudio.google.com/app/apikey[/link]",
             title="[!] API Key Required",
             border_style="yellow"
         ))

@@ -187,13 +187,16 @@ from epi_cli.install import app as install_app
 app.add_typer(install_app, name="global", help="Install/uninstall EPI auto-recording globally")
 
 
-# NEW: file association commands (v2.7.1)
+# NEW: file association commands (v2.7.2)
 @app.command()
 def associate(
     force: bool = typer.Option(False, "--force", help="Re-register even if already done"),
 ):
     """Register .epi file type with the OS so double-clicking opens the viewer."""
-    from epi_core.platform.associate import register_file_association
+    from epi_core.platform.associate import register_file_association, _needs_registration
+    if not force and not _needs_registration():
+        console.print("[green][OK][/green] .epi file association already registered.")
+        return
     success = register_file_association(silent=False, force=force)
     if not success:
         raise typer.Exit(1)
@@ -380,8 +383,31 @@ def doctor():
         import webbrowser
         webbrowser.get()
         console.print("[green][OK][/green]")
-    except:
+    except Exception:
         console.print("[yellow][!] WARNING (Headless?)[/yellow]")
+        
+    # Check 4: File Association (Deep check)
+    console.print("4. File Association: ", end="")
+    from epi_core.platform.associate import get_association_diagnostics
+    diag = get_association_diagnostics()
+    
+    if diag["status"] == "OK":
+        if not diag.get("extension_progid"):
+             console.print("[yellow][!] NOT REGISTERED[/yellow]")
+             issues += 1
+        else:
+             console.print("[green][OK][/green]")
+    elif diag["status"] == "OVERRIDDEN":
+        console.print("[bold red][OVERRIDDEN][/bold red]")
+        console.print(f"   [yellow]→ {diag['issues'][0]}[/yellow]")
+        console.print("   [dim]Fix: Right-click any .epi file -> Open with -> Choose another app[/dim]")
+        console.print("   [dim]     Select 'EPI Viewer' and check 'Always use this app'[/dim]")
+        issues += 1
+    else:
+        console.print("[red][X] ISSUES FOUND[/red]")
+        for issue in diag["issues"]:
+            console.print(f"   [red]• {issue}[/red]")
+        issues += 1
         
     # Summary
     print()

@@ -13,13 +13,9 @@ This command:
 - Auto-signs the manifest with the default Ed25519 key
 """
 
-import os
 import shlex
-import sys
 import tempfile
 import time
-import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -29,53 +25,12 @@ from rich.panel import Panel
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
-from epi_core.trust import sign_manifest, sign_manifest_inplace
+from epi_core.trust import sign_manifest
 from epi_cli.keys import KeyManager
+from epi_cli._shared import ensure_python_command, build_env_for_child
 from epi_recorder.environment import save_environment_snapshot
 
 console = Console()
-
-
-def _ensure_python_command(cmd: List[str]) -> List[str]:
-    """
-    Ensure the command is run with Python if it looks like a Python script.
-    If the user provided `python ...`, leave as-is.
-    If the command is a .py file, prepend current Python executable.
-    """
-    if not cmd:
-        return cmd
-    first = cmd[0]
-    if first.lower().endswith('.py'):
-        return [sys.executable] + cmd
-    return cmd
-
-
-def _build_env_for_child(steps_dir: Path, enable_redaction: bool) -> dict:
-    """
-    Build environment variables for child process to enable recording via sitecustomize.
-    """
-    env = os.environ.copy()
-
-    # Indicate recording mode and where to write steps
-    env["EPI_RECORD"] = "1"
-    env["EPI_STEPS_DIR"] = str(steps_dir)
-    env["EPI_REDACT"] = "1" if enable_redaction else "0"
-
-    # Create a temporary bootstrap dir with sitecustomize.py
-    bootstrap_dir = Path(tempfile.mkdtemp(prefix="epi_bootstrap_"))
-    sitecustomize = bootstrap_dir / "sitecustomize.py"
-    sitecustomize.write_text(
-        "from epi_recorder.bootstrap import initialize_recording\n",
-        encoding="utf-8",
-    )
-
-    # Prepend bootstrap dir and project root to PYTHONPATH
-    project_root = Path(__file__).resolve().parent.parent
-    existing = env.get("PYTHONPATH", "")
-    sep = os.pathsep
-    env["PYTHONPATH"] = f"{bootstrap_dir}{sep}{project_root}{(sep + existing) if existing else ''}"
-
-    return env
 
 
 app = typer.Typer(name="record", help="Record a workflow into a .epi file")
@@ -107,7 +62,7 @@ def record(
     console.print("[dim]This advanced command is for CI/exact-control use cases.[/dim]\n")
 
     # Normalize command
-    cmd = _ensure_python_command(command)
+    cmd = ensure_python_command(command)
 
     # Prepare workspace
     temp_workspace = Path(tempfile.mkdtemp(prefix="epi_record_"))
@@ -118,7 +73,7 @@ def record(
     save_environment_snapshot(env_json, include_all_env_vars=include_all_env, redact_env_vars=True)
 
     # Build child environment and run
-    child_env = _build_env_for_child(steps_dir, enable_redaction=(not no_redact))
+    child_env = build_env_for_child(steps_dir, enable_redaction=(not no_redact))
 
     # Create stdout/stderr logs
     stdout_log = temp_workspace / "stdout.log"

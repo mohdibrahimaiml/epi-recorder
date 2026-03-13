@@ -129,7 +129,7 @@ Dev Dependencies:
 ```python
 class ManifestModel(BaseModel):
     # Core metadata
-    epi_version: str = "2.7.1"
+    epi_version: str = "2.7.2"
     created_at: str  # ISO 8601 timestamp
     cli_command: str  # Original trigger command
     
@@ -137,7 +137,7 @@ class ManifestModel(BaseModel):
     steps: List[StepModel]  # Recorded steps
     environment: Dict  # Runtime context
     
-    # Cryptography (v2.7.1 Decentralized Trust)
+    # Cryptography (v2.7.2 Decentralized Trust)
     public_key: Optional[str]  # Hex-encoded public key (Decentralized Identity)
     signature: Optional[str]   # Ed25519 signature (Hex)
 
@@ -869,7 +869,7 @@ def canonical_hash(data):
 # Manifest signature structure:
 {
     "manifest": {
-        "epi_version": "2.7.1",
+        "epi_version": "2.7.2",
         "created_at": "2026-03-12T04:22:15Z",
         "steps": [...],
         "signature": null  # Not signed yet
@@ -887,7 +887,7 @@ def canonical_hash(data):
     "manifest": {
         ...
         "signature": "a1b2c3...",  # 128 hex chars (64 bytes)
-        "public_key": "d4e5f6..."   # Hex-encoded (v2.7.1 Decentralized)
+        "public_key": "d4e5f6..."   # Hex-encoded (v2.7.2 Decentralized)
     }
 }
 ```

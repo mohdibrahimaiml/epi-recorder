@@ -30,13 +30,13 @@ class TestRecordingContext:
         """Test RecordingContext initialization."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=True)
-        
+
         assert ctx.output_dir == temp_dir
         assert ctx.enable_redaction == True
         assert ctx.step_index == 0
-        # self.steps was removed, so we check that the file exists and is empty
-        assert ctx.steps_file.exists()
-        assert ctx.steps_file.stat().st_size == 0
+        # Steps are now stored in SQLite; steps.jsonl is created on finalize()
+        assert ctx.storage is not None
+        assert ctx.storage.db_path.exists()
     
     def test_initialization_without_redaction(self):
         """Test initialization with redaction disabled."""
@@ -47,15 +47,17 @@ class TestRecordingContext:
         assert ctx.redactor is None
     
     def test_add_step_creates_file(self):
-        """Test that add_step writes to steps.jsonl."""
+        """Test that add_step writes to SQLite and finalize exports steps.jsonl."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("test.step", {"data": "value"})
-        
-        # Should have written to file
-        assert ctx.steps_file.exists()
-        content = ctx.steps_file.read_text()
+
+        # Steps are in SQLite until finalize() exports them
+        ctx.finalize()
+        steps_file = temp_dir / "steps.jsonl"
+        assert steps_file.exists()
+        content = steps_file.read_text()
         assert "test.step" in content
     
     def test_add_step_increments_index(self):
@@ -70,19 +72,26 @@ class TestRecordingContext:
         assert ctx.step_index == 2
     
     def test_add_step_stores_on_disk(self):
-        """Test that steps are stored on disk (not in memory)."""
+        """Test that steps are stored in SQLite (not in memory) and exported on finalize."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("step1", {"data": "test"})
-        
-        # Verify file content
-        lines = ctx.steps_file.read_text().strip().split('\n')
+
+        # Verify stored in SQLite
+        db_steps = ctx.storage.get_steps()
+        assert len(db_steps) == 1
+        assert db_steps[0].kind == "step1"
+        assert db_steps[0].content["data"] == "test"
+
+        # Finalize exports to JSONL
+        ctx.finalize()
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         assert len(lines) == 1
         step = json.loads(lines[0])
         assert step["kind"] == "step1"
         assert step["content"]["data"] == "test"
-        
+
         # Verify NO in-memory storage
         assert not hasattr(ctx, 'steps')
     
@@ -90,30 +99,33 @@ class TestRecordingContext:
         """Test that secrets are redacted in steps."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=True)
-        
+
         # Add step with a secret
         ctx.add_step("test.step", {
             "api_key": "sk-1234567890abcdef",
             "data": "normal data"
         })
-        
-        # Secret should be redacted in stored step
-        content = ctx.steps_file.read_text()
+
+        # Secret should be redacted in SQLite storage
+        ctx.finalize()
+        content = (temp_dir / "steps.jsonl").read_text()
         assert "[REDACTED" in content or "security.redaction" in content
     
     def test_multiple_steps_jsonl_format(self):
-        """Test that multiple steps are written in JSONL format."""
+        """Test that multiple steps are exported in JSONL format after finalize."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("step1", {"num": 1})
         ctx.add_step("step2", {"num": 2})
         ctx.add_step("step3", {"num": 3})
-        
+
+        ctx.finalize()
+
         # Read file and verify JSONL
-        lines = ctx.steps_file.read_text().strip().split('\n')
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         assert len(lines) == 3
-        
+
         # Each line should be valid JSON
         for line in lines:
             data = json.loads(line)
@@ -236,24 +248,25 @@ class TestPatcherEdgeCases:
         """Test that RecordingContext creates output directory."""
         temp_base = Path(tempfile.mkdtemp())
         non_existent = temp_base / "nested" / "directory"
-        
+
         ctx = RecordingContext(non_existent)
-        
-        # Should create the directory
+
+        # Should create the directory and SQLite DB
         assert non_existent.exists()
-        assert ctx.steps_file.exists()
+        assert ctx.storage.db_path.exists()
     
     def test_step_timestamp_is_iso_string(self):
         """Test that step timestamps are ISO strings."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("test", {})
-        
-        lines = ctx.steps_file.read_text().strip().split('\n')
+        ctx.finalize()
+
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         assert len(lines) > 0
         step = json.loads(lines[0])
-        
+
         # Should be a string in ISO format
         assert isinstance(step["timestamp"], str)
         # Should be parseable as datetime
@@ -264,14 +277,15 @@ class TestPatcherEdgeCases:
         """Test that step indices are sequential."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("step1", {})
         ctx.add_step("step2", {})
         ctx.add_step("step3", {})
-        
-        lines = ctx.steps_file.read_text().strip().split('\n')
+        ctx.finalize()
+
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         steps = [json.loads(line) for line in lines]
-        
+
         assert steps[0]["index"] == 0
         assert steps[1]["index"] == 1
         assert steps[2]["index"] == 2
@@ -280,10 +294,11 @@ class TestPatcherEdgeCases:
         """Test that empty content is valid."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         ctx.add_step("empty", {})
-        
-        lines = ctx.steps_file.read_text().strip().split('\n')
+        ctx.finalize()
+
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         assert len(lines) == 1
         step = json.loads(lines[0])
         assert step["content"] == {}
@@ -292,7 +307,7 @@ class TestPatcherEdgeCases:
         """Test that nested dictionaries are preserved."""
         temp_dir = Path(tempfile.mkdtemp())
         ctx = RecordingContext(temp_dir, enable_redaction=False)
-        
+
         nested = {
             "level1": {
                 "level2": {
@@ -300,12 +315,13 @@ class TestPatcherEdgeCases:
                 }
             }
         }
-        
+
         ctx.add_step("nested", nested)
-        
-        lines = ctx.steps_file.read_text().strip().split('\n')
+        ctx.finalize()
+
+        lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         step = json.loads(lines[0])
-        
+
         assert step["content"]["level1"]["level2"]["level3"] == "value"
 
 

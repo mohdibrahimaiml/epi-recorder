@@ -1,15 +1,15 @@
-# EPI File Format Specification v2.7.1
+# EPI File Format Specification v2.7.2
 
 **Status:** Active  
 **Date:** 2026-03-12  
-**Version:** 2.7.1  
+**Version:** 2.7.2  
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.7.1.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.7.2.
 
 ---
 
@@ -100,7 +100,8 @@ Newline-Delimited JSON storage of events.
 
 | Version | Date | Status | Changes |
 |:---|:---|:---|:---|
-| **2.7.1** | 2026-03-12 | **Current** | Decentralized Trust (embedded public keys), Self-healing OS association, Entire File Integrity (zip-wide hashing), Hex signature encoding. |
+| **2.7.2** | 2026-03-14 | **Current** | Bug fixes: legacy Base64 signature compatibility, CLI exit-code correctness, analytics import safety. No format changes from 2.7.1. |
+| **2.7.1** | 2026-03-12 | Previous | Decentralized Trust (embedded public keys), Self-healing OS association, Entire File Integrity (zip-wide hashing), Hex signature encoding. |
 | **2.7.0** | 2026-03-11 | Previous | Zero-friction file opening (OS-level association), double-click to view, Unicode safety fixes. |
 | **2.6.0** | 2026-02-20 | Previous | Framework integrations (LiteLLM, LangChain, OTel), CI verification (GitHub Action, pytest), streaming, global install. |
 | **2.5.0** | 2026-02-13 | Previous | Anthropic Claude wrapper, path resolution fix, enhanced parameter tracking. |

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "2.7.1"
+version = "2.7.2"
 description = "Verifiable execution evidence for AI systems. Portable, cryptographically signed artifacts."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -59,8 +59,14 @@ dependencies = [
 ai = [
     "google-generativeai>=0.4.0",
 ]
+analytics = [
+    "pandas>=1.5.0",
+    "matplotlib>=3.5.0",
+]
 all = [
     "google-generativeai>=0.4.0",
+    "pandas>=1.5.0",
+    "matplotlib>=3.5.0",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -68,6 +74,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "black>=24.0.0",
     "ruff>=0.3.0",
+    "pandas>=1.5.0",
 ]
 
 [project.scripts]

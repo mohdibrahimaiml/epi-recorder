@@ -11,9 +11,7 @@ This command:
 - Opens the viewer automatically
 """
 
-import os
 import shlex
-import sys
 import tempfile
 import time
 import zipfile
@@ -30,6 +28,7 @@ from epi_core.schemas import ManifestModel
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
 
 from epi_cli.keys import KeyManager
+from epi_cli._shared import ensure_python_command, build_env_for_child
 from epi_recorder.environment import save_environment_snapshot
 
 console = Console()
@@ -55,44 +54,6 @@ def _gen_auto_name(script_path: Path) -> Path:
     return DEFAULT_DIR / f"{base}_{timestamp}.epi"
 
 
-def _ensure_python_command(cmd: List[str]) -> List[str]:
-    """
-    Ensure the command is run with Python if it looks like a Python script.
-    """
-    if not cmd:
-        return cmd
-    first = cmd[0]
-    if first.lower().endswith('.py'):
-        return [sys.executable] + cmd
-    return cmd
-
-
-def _build_env_for_child(steps_dir: Path, enable_redaction: bool) -> dict:
-    """
-    Build environment variables for child process to enable recording via sitecustomize.
-    """
-    env = os.environ.copy()
-
-    # Indicate recording mode and where to write steps
-    env["EPI_RECORD"] = "1"
-    env["EPI_STEPS_DIR"] = str(steps_dir)
-    env["EPI_REDACT"] = "1" if enable_redaction else "0"
-
-    # Create a temporary bootstrap dir with sitecustomize.py
-    bootstrap_dir = Path(tempfile.mkdtemp(prefix="epi_bootstrap_"))
-    sitecustomize = bootstrap_dir / "sitecustomize.py"
-    sitecustomize.write_text(
-        "from epi_recorder.bootstrap import initialize_recording\n",
-        encoding="utf-8",
-    )
-
-    # Prepend bootstrap dir and project root to PYTHONPATH
-    project_root = Path(__file__).resolve().parent.parent
-    existing = env.get("PYTHONPATH", "")
-    sep = os.pathsep
-    env["PYTHONPATH"] = f"{bootstrap_dir}{sep}{project_root}{(sep + existing) if existing else ''}"
-
-    return env
 
 
 def _verify_recording(epi_file: Path) -> tuple[bool, str]:
@@ -248,7 +209,7 @@ def run(
     out = _gen_auto_name(script)
     
     # Normalize command
-    cmd = _ensure_python_command([str(script)])
+    cmd = ensure_python_command([str(script)])
     
     # Prepare workspace
     temp_workspace = Path(tempfile.mkdtemp(prefix="epi_record_"))
@@ -259,7 +220,7 @@ def run(
     save_environment_snapshot(env_json, include_all_env_vars=False, redact_env_vars=True)
     
     # Build child environment and run
-    child_env = _build_env_for_child(steps_dir, enable_redaction=True)
+    child_env = build_env_for_child(steps_dir, enable_redaction=True)
     
     # Create stdout/stderr logs
     stdout_log = temp_workspace / "stdout.log"
