@@ -3,13 +3,17 @@ EPI CLI Ls - List recordings in ./epi-recordings/ directory.
 
 Usage:
   epi ls
+  epi ls --sort size
+  epi ls --tag ml
+  epi ls --signed
+  epi ls --failed
 """
 
 import json
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import typer
 from rich.console import Console
@@ -28,137 +32,171 @@ def _format_metrics(metrics: Dict[str, Any]) -> str:
     """Format metrics dictionary as a compact string."""
     if not metrics:
         return ""
-    
+
     formatted = []
     for key, value in metrics.items():
         if isinstance(value, float):
-            # Format floats to 2 decimal places
             formatted.append(f"{key}={value:.2f}")
         else:
             formatted.append(f"{key}={value}")
-    
+
     return ", ".join(formatted)
 
 
 def _get_recording_info(epi_file: Path) -> dict:
     """
     Extract basic info from a recording.
-    
+
     Returns:
         Dictionary with recording metadata
     """
     try:
-        # Read manifest
         manifest = EPIContainer.read_manifest(epi_file)
-        
-        # Get file stats
+
         stats = epi_file.stat()
-        size_mb = stats.st_size / (1024 * 1024)
+        size_bytes = stats.st_size
+        size_mb = size_bytes / (1024 * 1024)
         modified = datetime.fromtimestamp(stats.st_mtime)
-        
-        # Extract CLI command if available
-        cli_command = getattr(manifest, 'cli_command', None)
-        
-        # Extract originating script from cli_command
+
+        cli_command = getattr(manifest, "cli_command", None)
+
         script = "Unknown"
         if cli_command:
             parts = cli_command.split()
-            for i, part in enumerate(parts):
-                if part.endswith('.py'):
+            for part in parts:
+                if part.endswith(".py"):
                     script = Path(part).name
                     break
-        
-        # Check signature
-        signed = "Yes" if manifest.signature else "No"
-        
-        # Quick integrity check
+
+        signed = bool(manifest.signature)
+
         integrity_ok, _ = EPIContainer.verify_integrity(epi_file)
-        status = "[OK]" if integrity_ok else "[FAIL]"
-        
-        # Extract new metadata fields
-        goal = getattr(manifest, 'goal', None)
-        metrics = getattr(manifest, 'metrics', None)
-        tags = getattr(manifest, 'tags', None)
-        
+
+        goal = getattr(manifest, "goal", None)
+        metrics = getattr(manifest, "metrics", None)
+        tags = getattr(manifest, "tags", None)
+
         return {
             "name": epi_file.name,
+            "stem": epi_file.stem,
             "script": script,
-            "size_mb": f"{size_mb:.2f}",
-            "modified": modified.strftime("%Y-%m-%d %H:%M:%S"),
+            "size_bytes": size_bytes,
+            "size_mb": size_mb,
+            "size_str": f"{size_mb:.2f} MB" if size_mb >= 0.1 else f"{size_bytes / 1024:.1f} KB",
+            "modified": modified,
+            "modified_str": modified.strftime("%Y-%m-%d %H:%M"),
             "signed": signed,
-            "status": status,
+            "integrity_ok": integrity_ok,
+            "status": "[green]OK[/green]" if integrity_ok else "[red]FAIL[/red]",
             "goal": goal or "",
             "metrics_summary": _format_metrics(metrics) if metrics else "",
-            "tags_summary": ", ".join(tags) if tags else ""
+            "tags": tags or [],
+            "tags_summary": ", ".join(tags) if tags else "",
         }
     except Exception as e:
         return {
             "name": epi_file.name,
+            "stem": epi_file.stem,
             "script": "Error",
-            "size_mb": "?",
-            "modified": "?",
-            "signed": "?",
-            "status": f"[ERR] {str(e)[:20]}",
+            "size_bytes": 0,
+            "size_mb": 0,
+            "size_str": "?",
+            "modified": datetime.min,
+            "modified_str": "?",
+            "signed": False,
+            "integrity_ok": False,
+            "status": f"[red]ERR[/red]",
             "goal": "",
             "metrics_summary": "",
-            "tags_summary": ""
+            "tags": [],
+            "tags_summary": "",
         }
 
 
 @app.callback(invoke_without_command=True)
 def ls(
     all_dirs: bool = typer.Option(False, "--all", "-a", help="Search current directory too"),
+    sort: str = typer.Option("date", "--sort", "-s", help="Sort by: date, name, size"),
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filter by tag"),
+    signed: bool = typer.Option(False, "--signed", help="Show only signed recordings"),
+    failed: bool = typer.Option(False, "--failed", help="Show only recordings that failed integrity check"),
 ):
     """
     List local recordings in ./epi-recordings/ directory.
-    
-    Shows created/verified status and originating script if available.
+
+    Filter and sort:
+      epi ls --sort size
+      epi ls --tag ml
+      epi ls --signed
+      epi ls --failed
     """
-    # Find recordings
     recordings = []
-    
-    # Check default directory
+
     if DEFAULT_DIR.exists():
         recordings.extend(DEFAULT_DIR.glob("*.epi"))
-    
-    # Optionally check current directory
+
     if all_dirs:
-        recordings.extend(Path(".").glob("*.epi"))
-    
-    # Remove duplicates
-    recordings = list(set(recordings))
-    recordings.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    
+        for f in Path(".").glob("*.epi"):
+            if f not in recordings:
+                recordings.append(f)
+
     if not recordings:
         console.print("[yellow]No recordings found[/yellow]")
         if not DEFAULT_DIR.exists():
             console.print(f"[dim]Directory {DEFAULT_DIR} does not exist yet[/dim]")
         console.print("[dim]Tip: Run 'epi run script.py' to create your first recording[/dim]")
         return
-    
+
+    # Collect info for all recordings
+    infos = [_get_recording_info(r) for r in recordings]
+
+    # Apply filters
+    if tag:
+        infos = [i for i in infos if tag in i["tags"]]
+    if signed:
+        infos = [i for i in infos if i["signed"]]
+    if failed:
+        infos = [i for i in infos if not i["integrity_ok"]]
+
+    if not infos:
+        console.print("[yellow]No recordings match the given filters.[/yellow]")
+        return
+
+    # Sort
+    sort = sort.lower()
+    if sort == "name":
+        infos.sort(key=lambda i: i["name"].lower())
+    elif sort == "size":
+        infos.sort(key=lambda i: i["size_bytes"], reverse=True)
+    else:  # date (default)
+        infos.sort(key=lambda i: i["modified"], reverse=True)
+
     # Build table
-    table = Table(title=f"EPI Recordings ({len(recordings)} found)")
+    table = Table(title=f"EPI Recordings ({len(infos)} found)")
     table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("Modified", style="dim")
-    table.add_column("Goal", style="blue", no_wrap=False)
-    table.add_column("Metrics", style="purple", no_wrap=False)
+    table.add_column("Modified", style="dim", no_wrap=True)
+    table.add_column("Size", style="dim", no_wrap=True, justify="right")
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Signed", no_wrap=True)
+    table.add_column("Goal", style="blue", no_wrap=False, max_width=30)
     table.add_column("Tags", style="green", no_wrap=False)
-    
-    for recording in recordings:
-        info = _get_recording_info(recording)
+    table.add_column("Metrics", style="purple", no_wrap=False)
+
+    for info in infos:
+        signed_str = "[green]Yes[/green]" if info["signed"] else "[dim]No[/dim]"
+        goal_str = info["goal"][:28] + "…" if len(info["goal"]) > 29 else info["goal"]
         table.add_row(
             info["name"],
-            info["modified"],
-            info["goal"][:50] + "..." if len(info["goal"]) > 50 else info["goal"],
+            info["modified_str"],
+            info["size_str"],
+            info["status"],
+            signed_str,
+            goal_str,
+            info["tags_summary"],
             info["metrics_summary"],
-            info["tags_summary"]
         )
-    
+
     console.print()
     console.print(table)
     console.print()
-    console.print(f"[dim]Tip: View a recording with 'epi view <name>'[/dim]")
-
-
-
- 
+    console.print("[dim]Tip: epi view <name>  •  epi verify <name>  •  epi ls --sort size[/dim]")

@@ -139,34 +139,39 @@ def run(
     
     # --- SMART UX 1: INTERACTIVE MODE ---
     if script is None:
-        # Find Python files in current directory
-        py_files = list(Path.cwd().glob("*.py"))
-        # Only exclude specific setup files, not everything starting with epi_
-        py_files = [f for f in py_files if f.name not in ["setup.py", "epi_setup.py"]]
-        
+        # Find Python files in current directory, sorted by most recently modified
+        py_files = sorted(
+            [f for f in Path.cwd().glob("*.py") if f.name not in ("setup.py", "epi_setup.py")],
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+
         if not py_files:
             console.print("[yellow]No Python scripts found in this directory.[/yellow]")
             console.print("Create one or specify path: epi run [path/to/script.py]")
             raise typer.Exit(1)
-            
+
         console.print("\n[bold cyan]Select a script to record:[/bold cyan]")
         for idx, f in enumerate(py_files, 1):
-            console.print(f"  [green]{idx}.[/green] {f.name}")
-            
+            mtime = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            size_kb = f.stat().st_size / 1024
+            size_str = f"{size_kb:.1f} KB"
+            console.print(f"  [green]{idx}.[/green] {f.name:<30} [dim]{mtime}  {size_str}[/dim]")
+
         from rich.prompt import Prompt
         choice = Prompt.ask("\nNumber", default="1")
-        
+
         try:
             choice_idx = int(choice) - 1
             if 0 <= choice_idx < len(py_files):
                 script = py_files[choice_idx]
             else:
-                 console.print("[red]Invalid selection.[/red]")
-                 raise typer.Exit(1)
+                console.print("[red]Invalid selection.[/red]")
+                raise typer.Exit(1)
         except ValueError:
-             console.print("[red]Invalid input.[/red]")
-             raise typer.Exit(1)
-             
+            console.print("[red]Invalid input.[/red]")
+            raise typer.Exit(1)
+
         console.print(f"[dim]Selected:[/dim] {script.name}\n")
 
     # --- SMART UX 2: TYPO FIXER ---
@@ -278,53 +283,53 @@ def run(
     # Package into .epi
     EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
     
-    # --- AUTO-FIX 2: EMPTY CHECK ---
-    # Check if we actually recorded anything
-    import json
+    # Count recorded steps and warn if suspiciously low
+    import json as _json
     timeline_path = temp_workspace / "steps.jsonl"
+    step_count = 0
     if timeline_path.exists():
         try:
             content = timeline_path.read_text(encoding="utf-8").strip()
-            line_count = len([l for l in content.split("\n") if l.strip()])
-            if line_count <= 2:  # only session.start and session.end
+            step_count = len([ln for ln in content.split("\n") if ln.strip()])
+            if step_count <= 2:  # only session.start / session.end
                 console.print("\n[bold yellow][!] Warning: No AI steps recorded![/bold yellow]")
                 console.print("[dim]Make sure your script calls an LLM or HTTP endpoint.[/dim]\n")
-        except:
+        except Exception:
             pass
-    # -----------------------------
-    
+
     # Verify
     verified = False
     verify_msg = "Skipped"
     if not no_verify:
         verified, verify_msg = _verify_recording(out)
-    
+
     # Open viewer
     viewer_opened = False
     if not no_open and rc == 0 and verified:
         viewer_opened = _open_viewer(out)
-    
-    # Print results
-    size_mb = out.stat().st_size / (1024 * 1024)
-    
+
+    # Build summary panel
+    size_bytes = out.stat().st_size
+    size_str = f"{size_bytes / (1024*1024):.2f} MB" if size_bytes >= 100_000 else f"{size_bytes / 1024:.1f} KB"
+
     lines = []
-    lines.append(f"[bold]Saved:[/bold] {out}")
-    lines.append(f"[bold]Size:[/bold] {size_mb:.2f} MB")
-    lines.append(f"[bold]Duration:[/bold] {duration}s")
-    
+    lines.append(f"[bold]Saved:[/bold]    {out.resolve()}")
+    lines.append(f"[bold]Size:[/bold]     {size_str}   [dim]({step_count} steps  •  {duration}s)[/dim]")
+
     if not no_verify:
         if verified:
             lines.append(f"[bold]Verified:[/bold] [green]{verify_msg}[/green]")
         else:
             lines.append(f"[bold]Verified:[/bold] [red]{verify_msg}[/red]")
-    
+
     if viewer_opened:
-        lines.append(f"[bold]Viewer:[/bold] [green]Opened in browser[/green]")
+        lines.append(f"[bold]Viewer:[/bold]   [green]Opened in browser[/green]")
     elif not no_open:
-        lines.append(f"[bold]Viewer:[/bold] [yellow]Could not open automatically[/yellow]")
-        lines.append(f"[dim]Open with:[/dim] epi view {out.name}")
-    
-    title = "[OK] Recording complete" if rc == 0 else "[WARN] Recording finished with errors"
+        lines.append(f"[bold]Viewer:[/bold]   [yellow]Could not open automatically[/yellow]")
+
+    lines.append(f"\n[dim]  epi view {out.stem}    epi verify {out.stem}    epi ls[/dim]")
+
+    title = "[bold green]Recording complete[/bold green]" if rc == 0 else "[bold yellow]Recording finished with errors[/bold yellow]"
     panel = Panel(
         "\n".join(lines),
         title=title,

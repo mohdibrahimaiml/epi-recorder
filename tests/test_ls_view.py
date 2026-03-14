@@ -115,13 +115,13 @@ class TestGetRecordingInfo:
         from epi_cli.ls import _get_recording_info
         epi = _make_epi(tmp_path)
         info = _get_recording_info(epi)
-        assert info["signed"] == "No"
+        assert info["signed"] is False
 
     def test_status_ok_for_valid_file(self, tmp_path):
         from epi_cli.ls import _get_recording_info
         epi = _make_epi(tmp_path)
         info = _get_recording_info(epi)
-        assert info["status"] == "[OK]"
+        assert info["integrity_ok"] is True
 
     def test_error_on_bad_file(self, tmp_path):
         from epi_cli.ls import _get_recording_info
