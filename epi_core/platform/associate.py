@@ -27,14 +27,37 @@ from pathlib import Path
 def _get_epi_command() -> str:
     """Get the open command for .epi files.
 
-    Uses pythonw.exe (no terminal window) with -m epi_cli view so the browser
-    opens silently — no CMD flash when the user double-clicks a .epi file.
-    pythonw.exe lives next to python.exe on every standard Windows install.
+    Resolution order (most reliable → least):
+    1. epi.exe in the same Scripts/ folder as the running interpreter —
+       pip-installed launchers are real 108 KB executables, not aliases.
+    2. epi.exe found anywhere on PATH via shutil.which.
+    3. pythonw.exe next to python.exe (standard CPython installs).
+       NOTE: Microsoft Store Python ships pythonw.exe as a 0-byte alias
+       that only works inside a terminal — it silently fails from Explorer.
+       We skip it if its size is 0.
+    4. python.exe fallback (will show a console window briefly).
     """
     python_exe = Path(sys.executable)
+
+    # 1. pip-installed epi.exe next to the interpreter
+    epi_exe = python_exe.parent / "epi.exe"
+    if epi_exe.exists() and epi_exe.stat().st_size > 0:
+        return f'"{epi_exe.absolute()}" view "%1"'
+
+    # 2. epi.exe anywhere on PATH
+    epi_on_path = shutil.which("epi.exe") or shutil.which("epi")
+    if epi_on_path:
+        epi_path = Path(epi_on_path)
+        if epi_path.suffix.lower() == ".exe" and epi_path.exists() and epi_path.stat().st_size > 0:
+            return f'"{epi_path.absolute()}" view "%1"'
+
+    # 3. pythonw.exe — skip if it is a 0-byte Microsoft Store alias
     pythonw = python_exe.parent / "pythonw.exe"
-    launcher = pythonw if pythonw.exists() else python_exe
-    return f'"{launcher.absolute()}" -m epi_cli view "%1"'
+    if pythonw.exists() and pythonw.stat().st_size > 0:
+        return f'"{pythonw.absolute()}" -m epi_cli view "%1"'
+
+    # 4. python.exe fallback
+    return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
 
 def register_windows() -> None:
     """Register .epi file association on Windows via HKCU registry."""
