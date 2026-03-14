@@ -92,6 +92,8 @@ def debug(
         
         console.print("\nAnalysis complete")
         
+    except typer.Exit:
+        raise
     except FileNotFoundError as e:
         console.print(f"[red]ERROR: File not found:[/red] {e}")
         raise typer.Exit(code=2)
