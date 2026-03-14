@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Viewer — Open a .epi recording</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: #f9fafb;
+  color: #111827;
+  line-height: 1.5;
+}
+
+/* ── Layout ─────────────────────────────────────────── */
+#landing  { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+#viewer   { display: none; max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+/* ── Drop zone ──────────────────────────────────────── */
+#drop-zone {
+  border: 2.5px dashed #d1d5db;
+  border-radius: 1rem;
+  padding: 3rem 4rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  max-width: 32rem;
+  width: 100%;
+  background: #fff;
+}
+#drop-zone.dragover { border-color: #6366f1; background: #eef2ff; }
+#drop-zone h2 { font-size: 1.25rem; font-weight: 700; color: #374151; margin: 0 0 .5rem; }
+#drop-zone p  { font-size: .9rem; color: #6b7280; margin: 0 0 1.25rem; }
+#drop-zone label {
+  display: inline-block;
+  background: #6366f1;
+  color: #fff;
+  font-weight: 600;
+  font-size: .875rem;
+  padding: .5rem 1.25rem;
+  border-radius: .5rem;
+  cursor: pointer;
+  transition: background .2s;
+}
+#drop-zone label:hover { background: #4f46e5; }
+#file-input { display: none; }
+
+/* ── Error banner ───────────────────────────────────── */
+#error-banner {
+  display: none;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: .5rem;
+  padding: .75rem 1rem;
+  margin-top: 1.25rem;
+  color: #b91c1c;
+  font-size: .875rem;
+  max-width: 32rem;
+  width: 100%;
+  text-align: left;
+}
+
+/* ── Header bar ─────────────────────────────────────── */
+#top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+#top-bar h1 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0; }
+#btn-open-another {
+  font-size: .8rem;
+  font-weight: 600;
+  color: #6366f1;
+  border: 1.5px solid #6366f1;
+  background: transparent;
+  border-radius: .375rem;
+  padding: .3rem .75rem;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+#btn-open-another:hover { background: #6366f1; color: #fff; }
+
+/* ── Trust badge ────────────────────────────────────── */
+#trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .8rem;
+  font-weight: 600;
+  padding: .3rem .75rem;
+  border-radius: 9999px;
+  margin-bottom: .5rem;
+}
+.badge-signed   { background: #d1fae5; color: #065f46; }
+.badge-unsigned { background: #fef3c7; color: #92400e; }
+.badge-tampered { background: #fee2e2; color: #991b1b; }
+
+/* ── Cards ──────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: .75rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.card-title {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6b7280;
+  margin: 0 0 .75rem;
+}
+.meta-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: .35rem 1rem;
+  font-size: .875rem;
+}
+.meta-label { color: #6b7280; font-weight: 500; white-space: nowrap; }
+.meta-value { color: #111827; word-break: break-all; }
+.tag-pill {
+  display: inline-block;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .1rem .5rem;
+  border-radius: 9999px;
+  margin: .1rem .1rem 0 0;
+}
+
+/* ── Timeline ───────────────────────────────────────── */
+.step-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: .75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: .75rem;
+}
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .5rem;
+}
+.step-index {
+  display: inline-flex;
+  align-items: center;
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: .1rem .5rem;
+  border-radius: .25rem;
+  margin-right: .5rem;
+}
+.step-kind { font-size: .875rem; font-weight: 600; color: #374151; }
+.step-time { font-size: .75rem; color: #9ca3af; }
+.chat-bubble {
+  max-width: 85%;
+  border-radius: .75rem;
+  padding: .6rem 1rem;
+  margin-bottom: .4rem;
+  font-size: .875rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble-user      { background: #dbeafe; color: #1e3a5f; margin-left: auto; }
+.bubble-assistant { background: #f3f4f6; color: #111827; }
+.bubble-role      { font-size: .7rem; font-weight: 700; text-transform: uppercase; margin-bottom: .25rem; opacity: .7; }
+.usage-row        { font-size: .75rem; color: #6b7280; margin-top: .6rem; }
+
+/* ── Redaction card ─────────────────────────────────── */
+.redaction-card {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: .5rem;
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  color: #92400e;
+}
+
+/* ── Spinner ────────────────────────────────────────── */
+#spinner {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  margin-top: 1.25rem;
+  font-size: .9rem;
+  color: #6b7280;
+}
+.spin {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2.5px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Footer ─────────────────────────────────────────── */
+.site-footer {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: .75rem;
+  color: #9ca3af;
+}
+.site-footer a { color: #6366f1; text-decoration: none; }
+
+/* ── Integrity callout ──────────────────────────────── */
+.integrity-ok   { background: #d1fae5; color: #065f46; border-radius: .375rem; padding: .4rem .75rem; font-size: .8rem; font-weight: 600; display: inline-block; }
+.integrity-fail { background: #fee2e2; color: #991b1b; border-radius: .375rem; padding: .4rem .75rem; font-size: .8rem; font-weight: 600; display: inline-block; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LANDING ════════════════════ -->
+<div id="landing">
+  <div style="text-align:center; margin-bottom:2rem;">
+    <div style="font-size:2.5rem; margin-bottom:.5rem;">📋</div>
+    <p style="font-size:.85rem; color:#6b7280; margin:0;">epilabs.org/viewer</p>
+  </div>
+
+  <div id="drop-zone">
+    <h2>Open a .epi recording</h2>
+    <p>Drop a file here, or click to browse.<br>Everything runs in your browser — nothing is uploaded.</p>
+    <label for="file-input">Choose .epi file</label>
+    <input type="file" id="file-input" accept=".epi">
+  </div>
+
+  <div id="error-banner"></div>
+
+  <div id="spinner">
+    <div class="spin"></div>
+    <span>Reading file…</span>
+  </div>
+
+  <div class="site-footer" style="margin-top:2.5rem;">
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder">epi-recorder</a> &nbsp;·&nbsp;
+    <a href="https://pypi.org/project/epi-recorder/">pip install epi-recorder</a>
+    &nbsp;·&nbsp; by <a href="mailto:mohd@epilabs.org">Mohd Ibrahim Afridi</a>
+  </div>
+</div>
+
+<!-- ═══════════════════ VIEWER ═════════════════════ -->
+<div id="viewer">
+
+  <div id="top-bar">
+    <div>
+      <div id="trust-badge"></div>
+      <h1 id="recording-title">Recording</h1>
+    </div>
+    <button id="btn-open-another" onclick="resetToLanding()">Open another file</button>
+  </div>
+
+  <!-- Integrity summary -->
+  <div id="integrity-callout" style="margin-bottom:1rem;"></div>
+
+  <!-- Metadata card -->
+  <div class="card" id="meta-card">
+    <div class="card-title">Recording Info</div>
+    <div class="meta-grid" id="meta-grid"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card-title" style="margin-bottom:.5rem;">Timeline</div>
+  <div id="timeline"></div>
+
+  <div class="site-footer">
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder">epi-recorder</a> &nbsp;·&nbsp;
+    <a href="https://pypi.org/project/epi-recorder/">pip install epi-recorder</a>
+    &nbsp;·&nbsp; by <a href="mailto:mohd@epilabs.org">Mohd Ibrahim Afridi</a>
+  </div>
+</div>
+
+<!-- JSZip from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<script>
+'use strict';
+
+// ── Drag & Drop + file picker ────────────────────────────────────────────────
+
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('file-input');
+const errBanner  = document.getElementById('error-banner');
+const spinner    = document.getElementById('spinner');
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+function resetToLanding() {
+  document.getElementById('landing').style.display = 'flex';
+  document.getElementById('viewer').style.display  = 'none';
+  fileInput.value = '';
+  errBanner.style.display = 'none';
+}
+
+function showError(msg) {
+  spinner.style.display  = 'none';
+  errBanner.style.display = 'block';
+  errBanner.textContent   = '⚠ ' + msg;
+}
+
+// ── File reading & parsing ───────────────────────────────────────────────────
+
+async function handleFile(file) {
+  if (!file.name.endsWith('.epi')) {
+    showError('Not a .epi file — please choose a file ending in .epi');
+    return;
+  }
+
+  errBanner.style.display = 'none';
+  spinner.style.display   = 'flex';
+
+  try {
+    const buf  = await file.arrayBuffer();
+    const zip  = await JSZip.loadAsync(buf);
+
+    const manifestFile = zip.file('manifest.json');
+    if (!manifestFile) throw new Error('manifest.json not found inside the .epi archive.');
+    const manifest = JSON.parse(await manifestFile.async('string'));
+
+    const stepsFile = zip.file('steps.jsonl');
+    let steps = [];
+    if (stepsFile) {
+      const raw = await stepsFile.async('string');
+      steps = raw.trim().split('\n').filter(Boolean).map(l => {
+        try { return JSON.parse(l); } catch { return null; }
+      }).filter(Boolean);
+    }
+
+    // Integrity check (SHA-256)
+    const integrityResult = await checkIntegrity(zip, manifest);
+
+    spinner.style.display = 'none';
+    renderViewer(file.name, manifest, steps, integrityResult);
+  } catch (err) {
+    showError('Could not read file: ' + err.message);
+  }
+}
+
+// ── Integrity (SHA-256 in browser via SubtleCrypto) ─────────────────────────
+
+async function sha256hex(arrayBuffer) {
+  const hash = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkIntegrity(zip, manifest) {
+  const fileManifest = manifest.file_manifest || {};
+  const mismatches = [];
+
+  for (const [name, expected] of Object.entries(fileManifest)) {
+    const f = zip.file(name);
+    if (!f) { mismatches.push(name + ' (missing)'); continue; }
+    const buf  = await f.async('arraybuffer');
+    const hash = await sha256hex(buf);
+    if (hash !== expected) mismatches.push(name);
+  }
+
+  return { ok: mismatches.length === 0, mismatches };
+}
+
+// ── Renderer ─────────────────────────────────────────────────────────────────
+
+function renderViewer(filename, manifest, steps, integrityResult) {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('viewer').style.display  = 'block';
+
+  document.getElementById('recording-title').textContent = filename;
+
+  renderTrustBadge(manifest, integrityResult);
+  renderIntegrityCallout(integrityResult);
+  renderMeta(manifest);
+  renderTimeline(steps);
+}
+
+function renderTrustBadge(manifest, integrity) {
+  const el = document.getElementById('trust-badge');
+  if (!integrity.ok) {
+    el.className = 'badge-tampered';
+    el.textContent = '✗ Integrity check failed';
+  } else if (manifest.signature) {
+    el.className = 'badge-signed';
+    el.textContent = '✔ Signed';
+  } else {
+    el.className = 'badge-unsigned';
+    el.textContent = '⚠ Unsigned';
+  }
+}
+
+function renderIntegrityCallout(integrity) {
+  const el = document.getElementById('integrity-callout');
+  if (integrity.ok) {
+    el.innerHTML = '<span class="integrity-ok">✔ All file hashes match — content is intact</span>';
+  } else {
+    el.innerHTML = `<span class="integrity-fail">✗ Integrity check failed: ${escapeHTML(integrity.mismatches.join(', '))} modified</span>`;
+  }
+}
+
+function renderMeta(manifest) {
+  const grid = document.getElementById('meta-grid');
+  const rows = [];
+
+  const add = (label, value) => {
+    if (value == null || value === '') return;
+    rows.push(`<span class="meta-label">${label}</span><span class="meta-value">${value}</span>`);
+  };
+
+  add('Created',    manifest.created_at ? new Date(manifest.created_at).toLocaleString() : null);
+  add('Workflow ID', manifest.workflow_id
+    ? `<span style="font-family:monospace;font-size:.8rem;">${escapeHTML(manifest.workflow_id)}</span>`
+    : null);
+  add('Command',    manifest.cli_command
+    ? `<code style="font-size:.8rem;background:#f3f4f6;padding:.1rem .3rem;border-radius:.2rem;">${escapeHTML(manifest.cli_command)}</code>`
+    : null);
+  add('Spec',       manifest.spec_version ? escapeHTML(manifest.spec_version) : null);
+
+  if (manifest.goal)        add('Goal',        escapeHTML(manifest.goal));
+  if (manifest.notes)       add('Notes',       escapeHTML(manifest.notes));
+  if (manifest.approved_by) add('Approved by', escapeHTML(manifest.approved_by));
+
+  if (manifest.tags && manifest.tags.length) {
+    const pills = manifest.tags.map(t => `<span class="tag-pill">${escapeHTML(t)}</span>`).join('');
+    add('Tags', pills);
+  }
+
+  if (manifest.metrics && Object.keys(manifest.metrics).length) {
+    const formatted = Object.entries(manifest.metrics)
+      .map(([k, v]) => `<span class="tag-pill" style="background:#dbeafe;color:#1e40af;">${escapeHTML(k)}=${typeof v === 'number' ? v.toFixed(2) : escapeHTML(String(v))}</span>`)
+      .join('');
+    add('Metrics', formatted);
+  }
+
+  if (manifest.signature) {
+    const parts = manifest.signature.split(':');
+    add('Signer',    parts.length >= 2 ? escapeHTML(parts[1]) : '—');
+    add('Signature', `<span style="font-family:monospace;font-size:.7rem;word-break:break-all;">${escapeHTML(manifest.signature)}</span>`);
+  }
+
+  grid.innerHTML = rows.join('');
+}
+
+// ── Timeline rendering ───────────────────────────────────────────────────────
+
+function renderTimeline(steps) {
+  const el = document.getElementById('timeline');
+
+  // Filter out session bookends for display
+  const visible = steps.filter(s => s.kind !== 'session.start' && s.kind !== 'session.end');
+
+  if (visible.length === 0) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:2rem;color:#6b7280;font-size:.875rem;">
+        No AI steps recorded in this file.<br>
+        <span style="font-size:.8rem;">Run a script that calls an LLM to see the timeline.</span>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = '';
+  for (const step of visible) {
+    el.appendChild(renderStep(step));
+  }
+}
+
+function renderStep(step) {
+  const { index, timestamp, kind, content = {} } = step;
+  const time = timestamp ? new Date(timestamp).toLocaleTimeString() : '';
+
+  const card = document.createElement('div');
+  card.className = 'step-card';
+
+  const header = document.createElement('div');
+  header.className = 'step-header';
+  header.innerHTML = `
+    <div>
+      <span class="step-index">#${index}</span>
+      <span class="step-kind">${escapeHTML(kind)}</span>
+    </div>
+    <span class="step-time">${time}</span>
+  `;
+  card.appendChild(header);
+
+  const body = document.createElement('div');
+  if (kind === 'llm.request') {
+    body.innerHTML = renderLLMRequest(content);
+  } else if (kind === 'llm.response') {
+    body.innerHTML = renderLLMResponse(content);
+  } else if (kind === 'security.redaction') {
+    body.innerHTML = renderRedaction(content);
+  } else {
+    body.innerHTML = `<pre style="font-size:.75rem;background:#f3f4f6;padding:.75rem;border-radius:.5rem;overflow:auto;margin:0;">${escapeHTML(JSON.stringify(content, null, 2))}</pre>`;
+  }
+  card.appendChild(body);
+  return card;
+}
+
+function renderLLMRequest(content) {
+  const messages = content.messages || [];
+  let html = '';
+  if (content.provider || content.model) {
+    html += `<div style="font-size:.75rem;color:#6b7280;margin-bottom:.5rem;">
+      <strong>${escapeHTML(content.provider || '')}</strong>${content.model ? ' &bull; <code>' + escapeHTML(content.model) + '</code>' : ''}
+    </div>`;
+  }
+  html += '<div>';
+  for (const msg of messages) {
+    const isUser = msg.role === 'user';
+    html += `
+      <div class="chat-bubble ${isUser ? 'bubble-user' : 'bubble-assistant'}">
+        <div class="bubble-role">${escapeHTML(msg.role)}</div>
+        ${escapeHTML(typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2))}
+      </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderLLMResponse(content) {
+  const choices = content.choices || [];
+  let html = '';
+  if (content.provider || content.model) {
+    html += `<div style="font-size:.75rem;color:#6b7280;margin-bottom:.5rem;">
+      <strong>${escapeHTML(content.provider || '')}</strong>${content.model ? ' &bull; <code>' + escapeHTML(content.model) + '</code>' : ''}
+    </div>`;
+  }
+  html += '<div>';
+  for (const choice of choices) {
+    const msg = choice.message || {};
+    html += `
+      <div class="chat-bubble bubble-assistant">
+        <div class="bubble-role">assistant</div>
+        ${escapeHTML(typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2))}
+        ${choice.finish_reason ? `<div style="font-size:.7rem;opacity:.6;margin-top:.3rem;">${escapeHTML(choice.finish_reason)}</div>` : ''}
+      </div>`;
+  }
+  html += '</div>';
+  if (content.usage) {
+    html += `<div class="usage-row">
+      📊 ${content.usage.total_tokens ?? '?'} tokens &nbsp;·&nbsp;
+      ⚡ ${content.latency_seconds ?? '?'}s
+    </div>`;
+  }
+  return html;
+}
+
+function renderRedaction(content) {
+  return `
+    <div class="redaction-card">
+      🔒 <strong>Secrets Redacted</strong> —
+      ${content.count ?? '?'} sensitive value(s) removed from
+      <code>${escapeHTML(content.target_step ?? '?')}</code>
+    </div>`;
+}
+
+function escapeHTML(str) {
+  if (str == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

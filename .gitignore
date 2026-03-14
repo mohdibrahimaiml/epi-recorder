@@ -110,3 +110,4 @@ spec/
 !pyproject.toml
 *.html
 !epi_viewer_static/*.html
+!web_viewer/*.html
