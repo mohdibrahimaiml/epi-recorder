@@ -411,7 +411,7 @@ def get_association_diagnostics() -> dict:
                     diag["extension_progid"] = winreg.QueryValue(key, "")
             except FileNotFoundError:
                 diag["extension_progid"] = None
-                diag["issues"].append("Registry key 'Software\Classes\.epi' is missing.")
+                diag["issues"].append(r"Registry key 'Software\Classes\.epi' is missing.")
 
             # Check 3: Command validity
             try:
