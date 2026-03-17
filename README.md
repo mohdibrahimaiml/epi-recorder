@@ -212,20 +212,12 @@ Set `EPI_AUTO_RECORD=0` to disable without uninstalling.
 
 ```mermaid
 flowchart LR
-    A[Agent Code] -->|"record()"| B(Capture Layer)
-    B -->|"Wrapper/API"| D[Recorder]
-    
-    subgraph "Crash-Safe Storage"
-        D -->|"Atomic Write"| E[(SQLite WAL)]
-    end
-    
-    E -->|Finalize| F[Packer]
-    K[Private Key] -->|"Ed25519 Sign"| F
-    
-    F -->|ZIP| G[agent.epi]
-    
-    style E fill:#f9f,stroke:#333
-    style G fill:#9f9,stroke:#333
+    A["Agent Code"] -->|"record()"| B["Capture Layer"]
+    B -->|"Wrapper/API"| C["Recorder"]
+    C -->|"Atomic Write"| D["SQLite WAL"]
+    D -->|"Finalize"| E["Packer"]
+    F["Private Key"] -->|"Ed25519 Sign"| E
+    E -->|"ZIP"| G["agent.epi"]
 ```
 
 **Design principles:**
