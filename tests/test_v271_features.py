@@ -92,12 +92,13 @@ class TestWindowsFileAssociation:
             value, _ = winreg.QueryValueEx(key, "")
             assert value == "EPI Recording File"
 
-        # Verify open command exists and contains "view"
+        # Verify open command exists and contains "%1" and either "view" directly
+        # or "wscript" (Store Python path where "view" lives in the VBS launcher).
         cmd_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, cmd_path) as key:
             value, _ = winreg.QueryValueEx(key, "")
-            assert "view" in value
-            assert '"%1"' in value
+            assert "view" in value or "wscript" in value.lower()
+            assert "%1" in value
 
         # Clean up
         unregister_windows()
@@ -257,9 +258,9 @@ class TestVersionConsistency:
     """Ensure version is bumped consistently across all locations."""
 
     def test_epi_core_version(self):
-        """epi_core.__version__ should be 2.7.2."""
+        """epi_core.__version__ should match the current release."""
         from epi_core import __version__
-        assert __version__ == "2.7.2"
+        assert __version__ == "2.8.0"
 
     def test_pyproject_version_matches(self):
         """pyproject.toml version should match epi_core.__version__."""
@@ -390,4 +391,3 @@ class TestReliabilityFixes:
         
         valid, msg = verify_signature(signed, pub_bytes)
         assert valid is True, f"Roundtrip failed: {msg}"
-

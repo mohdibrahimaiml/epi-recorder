@@ -93,24 +93,40 @@ def _verify_recording(epi_file: Path) -> tuple[bool, str]:
 def _open_viewer(epi_file: Path) -> bool:
     """
     Open the viewer for the recording.
-    
+
     Returns:
         True if opened successfully
     """
     try:
+        import shutil
+        import threading
         import webbrowser
-        
+
         # Extract viewer to temp location
         temp_dir = Path(tempfile.mkdtemp(prefix="epi_view_"))
         viewer_path = temp_dir / "viewer.html"
-        
+
         with zipfile.ZipFile(epi_file, "r") as zf:
-            if "viewer.html" in zf.namelist():
-                zf.extract("viewer.html", temp_dir)
-                file_url = viewer_path.as_uri()
-                return webbrowser.open(file_url)
-        
-        return False
+            if "viewer.html" not in zf.namelist():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return False
+            zf.extract("viewer.html", temp_dir)
+
+        file_url = viewer_path.as_uri()
+        opened = webbrowser.open(file_url)
+
+        # Clean up temp dir after browser has had time to load the file.
+        # Non-daemon so the process stays alive long enough for the browser.
+        def _cleanup():
+            import time
+            time.sleep(30)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+        t = threading.Thread(target=_cleanup, daemon=False)
+        t.start()
+
+        return opened
+
     except Exception:
         return False
 
@@ -241,14 +257,16 @@ def run(
          console.print("[green]Created your secure cryptographic identity (keys/default)[/green]")
     # -----------------------
     
+    import shutil as _shutil
     import subprocess
-    
+
     start = time.time()
     try:
         with open(stdout_log, "wb") as out_f, open(stderr_log, "wb") as err_f:
             proc = subprocess.Popen(cmd, env=child_env, stdout=out_f, stderr=err_f)
             rc = proc.wait()
     except Exception as e:
+        _shutil.rmtree(temp_workspace, ignore_errors=True)
         console.print(f"\n[bold red][FAIL] Could not execute command:[/bold red] {cmd[0]}")
         console.print(f"[dim]Error detail: {e}[/dim]")
         raise typer.Exit(1)

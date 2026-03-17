@@ -11,6 +11,8 @@ import tempfile
 import shutil
 from pathlib import Path
 
+PYTHON = f'"{sys.executable}"'
+
 
 def run_command(cmd, description, check=True):
     """Run a command and report results."""
@@ -57,20 +59,20 @@ def test_workflow():
         
         # Test 1: Check package is installed
         assert run_command(
-            "python -c \"import epi_recorder; print(f'Version: {epi_recorder.__version__}')\"",
+            f"{PYTHON} -c \"import epi_recorder; print(f'Version: {{epi_recorder.__version__}}')\"",
             "Test 1: Import epi_recorder package"
         ), "Package import failed"
         
         # Test 2: CLI is available
         if not run_command(
-            "python -m epi_cli.main --help",
+            f"{PYTHON} -m epi_cli.main --help",
             "Test 2: CLI is accessible"
         ):
             return False
         
         # Test 3: Check keys exist
         if not run_command(
-            "python -m epi_cli.main keys list",
+            f"{PYTHON} -m epi_cli.main keys list",
             "Test 3: Signing keys are available"
         ):
             return False
@@ -116,7 +118,7 @@ print(f"[OK] API recording complete: {{output_file}}")
 """)
         
         if not run_command(
-            f"python {api_test_script}",
+            f"{PYTHON} {api_test_script}",
             "Test 5: Record using Python API (recommended method)"
         ):
             return False
@@ -128,7 +130,7 @@ print(f"[OK] API recording complete: {{output_file}}")
             return False
         
         if not run_command(
-            f"python -m epi_cli.main verify {api_epi_file}",
+            f"{PYTHON} -m epi_cli.main verify {api_epi_file}",
             "Test 6: Verify API-created .epi file"
         ):
             return False
@@ -136,7 +138,7 @@ print(f"[OK] API recording complete: {{output_file}}")
         # Test 7: Record using CLI
         cli_epi_file = tmpdir / "workflow_cli.epi"
         if not run_command(
-            f"python -m epi_cli.main record --out {cli_epi_file} -- python {user_script}",
+            f"{PYTHON} -m epi_cli.main record --out {cli_epi_file} -- {PYTHON} {user_script}",
             "Test 7: Record using CLI"
         ):
             return False
@@ -147,7 +149,7 @@ print(f"[OK] API recording complete: {{output_file}}")
             return False
         
         if not run_command(
-            f"python -m epi_cli.main verify {cli_epi_file}",
+            f"{PYTHON} -m epi_cli.main verify {cli_epi_file}",
             "Test 8: Verify CLI-created .epi file"
         ):
             return False
@@ -178,7 +180,7 @@ print(f"[OK] OpenAI workflow recorded: {{output_file}}")
 """)
         
         if not run_command(
-            f"python {openai_test}",
+            f"{PYTHON} {openai_test}",
             "Test 9: Record with OpenAI-like workflow (mocked)"
         ):
             return False
@@ -206,7 +208,7 @@ print(f"[OK] Custom workflow recorded: {{output_file}}")
 """)
         
         if not run_command(
-            f"python {custom_test}",
+            f"{PYTHON} {custom_test}",
             "Test 10: Custom logging with tags"
         ):
             return False
@@ -225,10 +227,12 @@ print(f"[OK] Custom workflow recorded: {{output_file}}")
         all_verified = True
         for epi_file in epi_files:
             result = subprocess.run(
-                f"python -m epi_cli.main verify {epi_file}",
+                f"{PYTHON} -m epi_cli.main verify {epi_file}",
                 shell=True,
                 capture_output=True,
-                text=True
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode != 0:
                 print(f"[FAIL] Verification failed for {epi_file.name}")
@@ -266,7 +270,7 @@ else:
 """)
         
         if not run_command(
-            f"python {error_test}",
+            f"{PYTHON} {error_test}",
             "Test 13: Error handling (file saved even on error)"
         ):
             return False

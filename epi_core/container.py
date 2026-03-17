@@ -10,6 +10,7 @@ Implements the EPI file format specification:
 
 import hashlib
 import json
+import shutil
 import tempfile
 import threading
 import zipfile
@@ -58,6 +59,28 @@ class EPIContainer:
                 sha256.update(chunk)
         
         return sha256.hexdigest()
+
+    @staticmethod
+    def _make_temp_dir(prefix: str) -> Path:
+        """Create a temp directory with fallbacks for locked system temp paths."""
+        candidates = [
+            lambda: Path(tempfile.mkdtemp(prefix=prefix)),
+            lambda: Path.cwd() / f".{prefix}{id(object())}",
+        ]
+
+        last_error = None
+        for make in candidates:
+            try:
+                candidate = make()
+                candidate.mkdir(parents=True, exist_ok=True)
+                probe = candidate / ".epi_probe"
+                probe.write_text("ok", encoding="utf-8")
+                probe.unlink(missing_ok=True)
+                return candidate
+            except Exception as exc:
+                last_error = exc
+
+        raise last_error or RuntimeError("Could not create temporary directory")
     
     @staticmethod
     def _create_embedded_viewer(source_dir: Path, manifest: ManifestModel) -> str:
@@ -99,24 +122,62 @@ class EPIContainer:
                     except json.JSONDecodeError:
                         pass
         
+        # Read analysis.json and policy.json if present (written by FaultAnalyzer)
+        analysis_data = None
+        analysis_file = source_dir / "analysis.json"
+        if analysis_file.exists():
+            try:
+                analysis_data = json.loads(analysis_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        policy_data = None
+        policy_file = source_dir / "policy.json"
+        if policy_file.exists():
+            try:
+                policy_data = json.loads(policy_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        review_data = None
+        review_file = source_dir / "review.json"
+        if review_file.exists():
+            try:
+                review_data = json.loads(review_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
         # Create embedded data
         embedded_data = {
             "manifest": manifest.model_dump(mode="json"),
-            "steps": steps
+            "steps": steps,
+            "analysis": analysis_data,
+            "policy": policy_data,
+            "review": review_data,
         }
         
         # Inject data into template
         data_json = json.dumps(embedded_data, indent=2)
-        html_with_data = template_html.replace(
-            '<script id="epi-data" type="application/json">\n    {\n        "manifest": {},\n        "steps": []\n    }\n    </script>',
-            f'<script id="epi-data" type="application/json">{data_json}</script>'
-        )
+        start_tag = '<script id="epi-data" type="application/json">'
+        end_tag = "</script>"
+        if start_tag in template_html:
+            prefix, remainder = template_html.split(start_tag, 1)
+            _, suffix = remainder.split(end_tag, 1)
+            html_with_data = f"{prefix}{start_tag}{data_json}{end_tag}{suffix}"
+        else:
+            html_with_data = template_html
         
-        # Replaces Tailwind CDN with local CSS
-        html_with_css = html_with_data.replace(
-            '<script src="https://cdn.tailwindcss.com"></script>',
-            f'<style>{css_styles}</style>'
-        )
+        # Inline CSS regardless of whether the template uses the legacy Tailwind hook.
+        style_block = f"<style>{css_styles}</style>" if css_styles else ""
+        if '<script src="https://cdn.tailwindcss.com"></script>' in html_with_data:
+            html_with_css = html_with_data.replace(
+                '<script src="https://cdn.tailwindcss.com"></script>',
+                style_block
+            )
+        elif style_block and "</head>" in html_with_data:
+            html_with_css = html_with_data.replace("</head>", f"{style_block}\n</head>")
+        else:
+            html_with_css = html_with_data
         
         # Inline crypto.js and app.js
         js_content = ""
@@ -125,16 +186,21 @@ class EPIContainer:
         if app_js:
             js_content += f"<script>{app_js}</script>"
             
-        html_with_js = html_with_css.replace(
-            '<script src="app.js"></script>',
-            js_content
-        )
+        if '<script src="app.js"></script>' in html_with_css:
+            html_with_js = html_with_css.replace(
+                '<script src="app.js"></script>',
+                js_content
+            )
+        elif js_content and "</body>" in html_with_css:
+            html_with_js = html_with_css.replace("</body>", f"{js_content}\n</body>")
+        else:
+            html_with_js = html_with_css
         
         # Replace dynamic version
         from epi_core import __version__
-        # v2.7.2: Inject version into viewer
-        html_with_version = html_with_js.replace("EPI v2.7.2", f"EPI v{__version__}")
-        # Also replace older versions just in case the template reverts
+        html_with_version = html_with_js.replace("__EPI_VERSION__", f"v{__version__}")
+        # Backward-compatibility replacement if older templates are reintroduced.
+        html_with_version = html_with_version.replace("EPI v2.7.2", f"EPI v{__version__}")
         html_with_version = html_with_version.replace("EPI v2.2.0", f"EPI v{__version__}")
         
         return html_with_version
@@ -192,13 +258,49 @@ class EPIContainer:
         with _zip_pack_lock:
             if not source_dir.exists():
                 raise FileNotFoundError(f"Source directory not found: {source_dir}")
-            
+
             if not source_dir.is_dir():
                 raise ValueError(f"Source must be a directory: {source_dir}")
-            
+
             # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
+            # ── Fault Intelligence Layer ──────────────────────────────────────
+            # Runs BEFORE rglob so analysis.json / policy.json are hashed
+            # into file_manifest and covered by the Ed25519 signature.
+            try:
+                from epi_core.policy import load_policy
+                from epi_core.fault_analyzer import FaultAnalyzer
+
+                # Policy lives in the CWD where `epi run` was invoked,
+                # not in the temp source_dir workspace.
+                policy = load_policy()
+
+                steps_file = source_dir / "steps.jsonl"
+                steps_content = (
+                    steps_file.read_text(encoding="utf-8")
+                    if steps_file.exists() else ""
+                )
+
+                analyzer = FaultAnalyzer(policy=policy)
+                analysis = analyzer.analyze(steps_content)
+
+                (source_dir / "analysis.json").write_text(
+                    analysis.to_json(), encoding="utf-8"
+                )
+
+                if policy is not None:
+                    (source_dir / "policy.json").write_text(
+                        policy.model_dump_json(indent=2), encoding="utf-8"
+                    )
+            except Exception as _fa_err:
+                # Fault analysis must never break packing — but log to stderr
+                # so bugs in the analyzer aren't silently invisible.
+                import sys as _sys
+                print(f"[EPI] Warning: fault analysis failed ({_fa_err}), "
+                      "packing without analysis.json", file=_sys.stderr)
+            # ─────────────────────────────────────────────────────────────────
+
             # Collect all files and compute hashes
             file_manifest = {}
             files_to_pack = []
@@ -281,7 +383,7 @@ class EPIContainer:
         
         # Create temp directory if no destination specified
         if dest_dir is None:
-            dest_dir = Path(tempfile.mkdtemp(prefix="epi_unpack_"))
+            dest_dir = EPIContainer._make_temp_dir("epi_unpack_")
         else:
             dest_dir.mkdir(parents=True, exist_ok=True)
         
@@ -300,6 +402,8 @@ class EPIContainer:
                     )
             except KeyError:
                 raise ValueError("Missing mimetype file in .epi archive")
+            except UnicodeDecodeError:
+                raise ValueError("Corrupt mimetype file in .epi archive (not valid UTF-8)")
             
             # Extract all files
             zf.extractall(dest_dir)
@@ -360,8 +464,8 @@ class EPIContainer:
         mismatches = {}
         
         # Extract to temp directory for verification
-        with tempfile.TemporaryDirectory(prefix="epi_verify_") as temp_dir:
-            temp_path = Path(temp_dir)
+        temp_path = EPIContainer._make_temp_dir("epi_verify_")
+        try:
             EPIContainer.unpack(epi_path, temp_path)
             
             # Check each file in manifest
@@ -376,6 +480,8 @@ class EPIContainer:
                 
                 if actual_hash != expected_hash:
                     mismatches[filename] = f"Hash mismatch: expected {expected_hash}, got {actual_hash}"
+        finally:
+            shutil.rmtree(temp_path, ignore_errors=True)
         
         return (len(mismatches) == 0, mismatches)
 

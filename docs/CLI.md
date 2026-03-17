@@ -1,211 +1,127 @@
-# EPI CLI Reference (v2.7.2)
+# EPI CLI Reference (v2.8.0)
 
-**Status:** Active  
-The **Execution Proof Infrastructure (EPI)** CLI is the primary tool for recording, verifying, and viewing AI evidence.
-
-**Version:** 2.7.2  
-**Install:** `pip install epi-recorder`
+**Version:** 2.8.0  
+**Primary entrypoint:** `epi`
 
 ---
 
-## 🚀 Quick Reference
+## Core Commands
 
-| Command | Description |
-|:---|:---|
-| `epi init` | **Interactive Setup Wizard.** Creates keys, runs a demo, and explains the concepts. |
-| `epi run <script.py>` | **Zero-Config Record.** Records, verifies, and views in one go. |
-| `epi debug <file.epi>` | **AI Bug Detection.** Finds infinite loops, hallucinations, and inefficiencies automatically. |
-| `epi view <file.epi>` | **Open Viewer.** Opens the browser timeline for a recording. |
-| `epi associate` | **File Association.** Registers `.epi` to open via double-click. |
-| `epi unassociate` | **Remove Association.** Cleans up OS file association. |
-| `epi verify <file.epi>` | **Check Integrity.** Validates signatures and hashes. |
-| `epi chat <file.epi>` | **AI Chat.** Query your evidence using Google Gemini (Natural Language). |
-| `epi ls` | **List Recordings.** Shows files in your `./epi-recordings/` folder. |
-| `epi doctor` | **Self-Healing & Repair.** Fixes environment issues (paths, keys, deps) and restores file associations. |
-
----
-
-## 🛠️ Core Commands
-
-### `epi init`
-**The "Foolproof" Starter.**  
-Running this command launches an interactive wizard that:
-1.  Check for SSH keys (generates one if missing).
-2.  Creates a `setup_demo.py` file.
-3.  Records it (`epi run`) automatically.
-4.  Opens the result in your browser.
-
-**Usage:**
-```bash
-$ epi init
-```
-
-### `epi run <script.py>`
-**The default way to record.**  
-Wraps your python script, records all inputs/outputs/API calls, saves it to a timestamped file in `./epi-recordings/`, verifies it, and opens the viewer.
-
-**Usage:**
-```bash
-$ epi run my_agent.py
-# -> Created: ./epi-recordings/my_agent_20251215_1000.epi
-# -> Verified: ✅
-# -> Viewing...
-```
-
-### `epi record --out <file.epi> -- <command>`
-**Advanced recording.**  
-Use this when you want to control the output filename or run non-Python commands (shell scripts, etc).
-
-**Usage:**
-```bash
-# Record with specific filename
-$ epi record --out experiment_1.epi -- python agent.py
-
-# Record a shell command
-$ epi record --out build.epi -- ./build_script.sh
-```
-
-### `epi view <file_or_name>`
-**Offline Viewer.**  
-Opens a local web server to display the `.epi` timeline. The viewer is strictly **offline-first** (no CDN dependencies) as of v2.1.X.
-
-**Usage:**
-```bash
-# View by path
-$ epi view ./epi-recordings/my_run.epi
-
-# View by name (searches ./epi-recordings)
-$ epi view my_run
-```
-
-### `epi associate` / `epi unassociate`
-**OS File Association (v2.7.2).**  
-Registers `.epi` files with Windows, macOS, or Linux so that double-clicking them in your file explorer instantly opens the EPI Viewer. 
-
-**v2.7.2 Self-Healing:** The file association now automatically checks its own health. If you move your Python installation or your registry is modified, EPI will automatically repair the link the next time you run a command.
-
-**Usage:**
-```bash
-# Register file association (with optional --force flag to reinstall)
-$ epi associate
-
-# Cleanly remove file association
-$ epi unassociate
-```
-
-### `epi verify <file.epi>`
-**Cryptographic Verification.**  
-Re-calculates hashes and checks the Ed25519 signature.
-
-**Options:**
-- `--verbose`: Show individual check results (manifest, env, steps).
-- `--json`: Output machine-readable JSON (good for CI/CD).
-
-**Usage:**
-```bash
-$ epi verify demo.epi
-✅ Integrity: OK (Entire Archive)
-✅ Signature: Valid (Identity Embedded)
-✅ Checks: 24/24 passed
-```
-
-### `epi doctor`
-**System Health Check.**  
-Scans your environment for known issues (missing keys, bad paths, console encoding issues) and fixes them automatically.
-
-**Usage:**
-```bash
-$ epi doctor
-✅ Keys found
-✅ Path verified
-✅ ASCII encoding fixed
-```
-
-```
-
-### `epi debug <file.epi>`
-**AI-Powered Mistake Detection (v2.2.0).**  
-Analyzes your recording to identify common agent bugs automatically.
-
-**Detected Issues:**
-- **Infinite Loops**: Repeated tool calls with same parameters
-- **Hallucinations**: LLM responses that lead to immediate errors
-- **Inefficiencies**: Excessive token usage for simple tasks
-- **Repetitive Patterns**: Redundant work (same query multiple times)
-
-**Usage:**
-```bash
-$ epi debug agent_session.epi
-
-🔍 Analyzing 47 steps...
-
-⚠️  INFINITE LOOP detected (steps 15-22)
-    → Calling tool: search_web("fix error X") 
-    → Same query repeated 7 times
-    → Suggestion: Add error handling or retry limit
-
-⚠️  HALLUCINATION detected (step 34)
-    → LLM suggested file path that doesn't exist
-    → Led to FileNotFoundError on next step
-
-✅  No inefficiencies detected
-✅  No repetitive patterns detected
-
-Summary: 2 issues found
-```
-
-**Options:**
-- `--json`: Output to JSON for automated CI checks
-
-```
-
-### `epi chat <file.epi>`
-**Talk to your evidence.**  
-Powered by Google Gemini. This interactive command loads the evidence context and lets you ask questions like "What errors occurred?" or "Why did the AI make this decision?".
-
-**Usage:**
-```bash
-$ epi chat my_run.epi
-# -> Loading evidence...
-# -> Combined context: 1243 steps
-# -> AI: Hello! Ask me anything about this run.
-# You: Did any API calls fail?
-```
-
-**Requirements:**
-- `GOOGLE_API_KEY` environment variable must be set.
-- A `.epi` file (inputs are loaded into the LLM context).
+| Command | Purpose |
+| --- | --- |
+| `epi run <script.py>` | Record a Python workflow and produce a `.epi` artifact. |
+| `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
+| `epi view <file.epi>` | Open an artifact in the embedded viewer flow. |
+| `epi verify <file.epi>` | Verify artifact integrity and signature state. |
+| `epi analyze <file.epi>` | Show fault-analysis output without opening the viewer. |
+| `epi ls` | List local recordings. |
+| `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
+| `epi unassociate` | Remove file association support. |
+| `epi doctor` | Run self-healing diagnostics. |
+| `epi keys` | Manage signing keys. |
+| `epi policy` | Create and validate `epi_policy.json` rule files. |
+| `epi review <file.epi>` | Confirm or dismiss policy-grounded faults. |
 
 ---
 
-## 🔐 Key Management (`epi keys`)
+## `epi run <script.py>`
 
-EPI uses Ed25519 keys to sign evidence.
+The simplest way to use EPI.
 
-| Subcommand | Description |
-|:---|:---|
-| `epi keys list` | Show all keys in `~/.epi/keys/`. |
-| `epi keys generate` | Create a new keypair (default is created automatically on first run). |
-| `epi keys export --name <k>` | Export public key to verify signatures elsewhere. |
+```bash
+epi run my_agent.py
+```
+
+Typical outcome:
+- runs the script
+- records the workflow
+- seals a `.epi` artifact
+- performs analysis before sealing
 
 ---
 
-## 🐍 Python API
+## `epi view <file.epi>`
 
-For deeper integration, import `epi_recorder` in your code.
+Opens a recording using the viewer flow.
 
-```python
-from epi_recorder import record
+```bash
+epi view my_run.epi
 
-# Method 1: Decorator
-@record(goal="Test Model Accuracy")
-def main():
-    ...
-
-# Method 2: Context Manager
-with record("my_evidence.epi"):
-    agent.run()
+# View by name from ./epi-recordings
+epi view my_run
 ```
 
+---
 
- 
+## `epi associate` / `epi unassociate`
+
+Registers `.epi` files with the operating system so supported desktop environments can open them with EPI. On Windows, the packaged installer is the recommended path for reliable double-click behavior. `epi associate` remains useful as a repair or developer fallback.
+
+```bash
+epi associate
+epi unassociate
+```
+
+---
+
+## `epi verify <file.epi>`
+
+Recalculates hashes and checks the Ed25519 signature.
+
+Options:
+- `--verbose` shows detailed verification checks
+- `--json` prints machine-readable output
+
+```bash
+epi verify demo.epi
+[OK] Integrity: OK (Entire Archive)
+[OK] Signature: Valid (Identity Embedded)
+[OK] Checks: 24/24 passed
+```
+
+---
+
+## `epi doctor`
+
+Runs local diagnostics and repairs common setup issues.
+
+```bash
+epi doctor
+```
+
+---
+
+## `epi policy`
+
+Creates and validates `epi_policy.json` files that define acceptable agent behavior.
+
+In `v2.8.0`, the analyzer enforces:
+- `constraint_guard`
+- `sequence_guard`
+- `threshold_guard`
+- `prohibition_guard`
+
+```bash
+epi policy init
+epi policy validate
+epi policy show
+```
+
+---
+
+## `epi review <file.epi>`
+
+Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the artifact as `review.json` without replacing the original sealed evidence files.
+
+```bash
+epi review payment_run.epi
+epi review show payment_run.epi
+```
+
+---
+
+## Notes
+
+- For normal Windows users, use the packaged installer for the best `.epi` opening experience.
+- For developer installs from PyPI or source, `epi associate` and `epi doctor` are the main repair paths.
+- Policy and analysis results are embedded into the artifact as `policy.json` and `analysis.json` when available.

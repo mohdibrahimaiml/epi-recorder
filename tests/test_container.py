@@ -320,10 +320,32 @@ class TestEPIContainer:
         
         # Extract and check viewer.html
         extract_dir = EPIContainer.unpack(output_path)
-        viewer_html = (extract_dir / "viewer.html").read_text()
-        
+        viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+
         assert "epi-data" in viewer_html
         assert "test" in viewer_html
+
+    def test_embedded_viewer_inlines_css_and_javascript(self, temp_workspace, sample_files):
+        """Generated viewer.html must be fully self-contained for offline opening."""
+        steps_file = sample_files / "steps.jsonl"
+        steps_file.write_text(
+            '{"index": 0, "kind": "session.start", "content": {"workflow_name": "Demo"}, "timestamp": "2025-01-01T00:00:00"}\n'
+        )
+
+        output_path = temp_workspace / "test.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        extract_dir = EPIContainer.unpack(output_path)
+        viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+
+        assert "<style>" in viewer_html
+        assert ".topbar" in viewer_html
+        assert "<script>" in viewer_html
+        assert "function init()" in viewer_html
+        assert '<script src="app.js"></script>' not in viewer_html
+        assert "viewer_lite.css" not in viewer_html
     
     def test_embedded_viewer_with_invalid_json_in_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer handles invalid JSON in steps.jsonl gracefully."""

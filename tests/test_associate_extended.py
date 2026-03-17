@@ -17,6 +17,9 @@ from epi_core.platform.associate import (
     _get_epi_command,
     _get_epi_version,
     _get_registration_state,
+    _LAUNCHER_VERSION_WIN,
+    _query_reg_value,
+    _register_windows_via_reg_add,
     _set_registration_state,
     _needs_registration,
     _is_association_broken,
@@ -92,6 +95,21 @@ class TestSetRegistrationState:
 # ─────────────────────────────────────────────────────────────
 
 class TestNeedsRegistration:
+    def test_returns_true_when_windows_launcher_version_changes(self, tmp_path):
+        flag = tmp_path / ".epi" / ".flag"
+        flag.parent.mkdir(parents=True)
+        flag.write_text(json.dumps({
+            "version": _get_epi_version(),
+            "executable": sys.executable,
+            "platform": "win32",
+            "open_command": '"C:\\Program Files\\EPI Labs\\EPI Recorder\\epi.exe" view "%1"',
+            "launcher_version": _LAUNCHER_VERSION_WIN - 1,
+        }), encoding="utf-8")
+        with patch("epi_core.platform.associate._FLAG_PATH", flag), \
+             patch("epi_core.platform.associate.sys.platform", "win32"):
+            result = _needs_registration()
+        assert result is True
+
     def test_returns_true_when_version_changed(self, tmp_path):
         flag = tmp_path / ".epi" / ".flag"
         flag.parent.mkdir(parents=True)
@@ -120,9 +138,12 @@ class TestNeedsRegistration:
         flag = tmp_path / ".epi" / ".flag"
         flag.parent.mkdir(parents=True)
         version = _get_epi_version()
+        from epi_core.platform.associate import _get_epi_command
         flag.write_text(json.dumps({
             "version": version,
             "executable": sys.executable,
+            # Layer-2 check on Windows compares stored open_command vs current
+            "open_command": _get_epi_command() if sys.platform == "win32" else None,
         }), encoding="utf-8")
         with patch("epi_core.platform.associate._FLAG_PATH", flag), \
              patch("epi_core.platform.associate._is_association_broken", return_value=False):
@@ -141,6 +162,25 @@ class TestNeedsRegistration:
 # ─────────────────────────────────────────────────────────────
 
 class TestIsAssociationBroken:
+    def test_windows_hklm_association_counts_as_healthy(self):
+        snapshot = {
+            "user_choice": None,
+            "hkcu_progid": None,
+            "hklm_progid": "EPIRecorder.File",
+            "hkcu_command": None,
+            "hklm_command": '"C:\\Program Files\\EPI Labs\\EPI Recorder\\epi.exe" view "%1"',
+            "effective_scope": "HKLM",
+            "effective_progid": "EPIRecorder.File",
+            "registered_command": '"C:\\Program Files\\EPI Labs\\EPI Recorder\\epi.exe" view "%1"',
+        }
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate._get_windows_association_snapshot", return_value=snapshot), \
+             patch("epi_core.platform.associate._get_epi_command",
+                   return_value='"C:\\Program Files\\EPI Labs\\EPI Recorder\\epi.exe" view "%1"'), \
+             patch("epi_core.platform.associate.Path.exists", return_value=True):
+            result = _is_association_broken()
+        assert result is False
+
     def test_darwin_app_missing_returns_true(self):
         with patch("sys.platform", "darwin"), \
              patch("pathlib.Path.exists", return_value=False):
@@ -170,6 +210,33 @@ class TestIsAssociationBroken:
              patch("pathlib.Path.exists", side_effect=PermissionError("denied")):
             result = _is_association_broken()
         assert result is True
+
+
+class TestWindowsRegAddFallback:
+    def test_reg_add_fallback_persists_run_key(self):
+        outputs = ["The operation completed successfully."] * 6
+        with patch("epi_core.platform.associate._run_windows_reg_command", side_effect=outputs) as mock_run:
+            _register_windows_via_reg_add('"epi.exe" view "%1"', 'wscript.exe /B "heal.vbs"', '"epi.ico"')
+
+        commands = [call.args[0] for call in mock_run.call_args_list]
+        assert any(
+            cmd[:4] == ["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "EPIRecorder"]
+            and "EPIRecorder" in cmd
+            for cmd in commands
+        )
+        assert any(
+            cmd[:3] == ["add", r"HKCU\Software\Classes\EPIRecorder.File\DefaultIcon", "/ve"]
+            for cmd in commands
+        )
+
+    def test_query_reg_value_uses_reg_query_output(self):
+        process = MagicMock(stdout="HKEY_CURRENT_USER\\Software\\Classes\\.epi\n    (Default)    REG_SZ    EPIRecorder.File\n")
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.subprocess.run", return_value=process) as mock_run:
+            value = _query_reg_value("HKCU", r"Software\Classes\.epi")
+
+        assert value == "EPIRecorder.File"
+        mock_run.assert_called_once()
 
 
 # ─────────────────────────────────────────────────────────────

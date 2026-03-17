@@ -1,0 +1,851 @@
+"""
+EPI Fault Intelligence — Four-pass heuristic + policy-grounded fault analyzer.
+
+Reads steps.jsonl content, checks it against an optional EPIPolicy,
+and produces a structured analysis.json result.
+
+Design principles:
+  - Conservative: better to miss a fault than to false-positive.
+  - Deterministic: no LLM calls. Plain-English summaries are template-based.
+  - Additive: never modifies steps.jsonl. Analysis is a separate sealed artifact.
+  - Graceful: any exception inside a detection pass is caught; analysis completes.
+
+The four passes:
+  1. Error Continuation  — tool returned error, agent continued as if it succeeded.
+  2. Constraint Violation — numerical limit set at step M violated at step N.
+  3. Sequence Violation   — action B occurred before required action A (policy only).
+  4. Context Drop         — key entity identifier vanishes from the final third.
+"""
+
+import json
+import re
+from datetime import datetime, timezone
+from typing import Optional
+
+from epi_core.policy import EPIPolicy
+
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+ANALYZER_VERSION = "1.0.0"
+
+DISCLAIMER = (
+    "This analysis is probabilistic. The raw execution record in steps.jsonl "
+    "is the ground truth. Policy violations are grounded in company-defined rules. "
+    "Heuristic observations are pattern-based and require human confirmation."
+)
+
+_CONSTRAINT_KEYWORDS = {
+    "balance", "available", "available_funds", "limit", "maximum", "max",
+    "quota", "threshold", "remaining", "cap", "ceiling", "max_amount",
+    "allowed", "authorized", "credit_limit", "account_limit",
+}
+
+_COMMITMENT_KEYWORDS = {
+    "approve", "approved", "process", "processed", "execute", "executed",
+    "authorize", "authorized", "confirm", "confirmed", "commit",
+    "complete", "finalize", "submit", "issue", "disburse", "charge",
+    "transfer", "transact",
+}
+
+_ERROR_INDICATORS = {
+    "error", "exception", "failed", "failure", "timeout", "refused",
+    "denied", "unauthorized", "forbidden", "not found", "invalid",
+    "traceback", "stack trace",
+}
+
+_ERROR_KEYS = {"error", "exception", "traceback", "err", "error_message", "error_code"}
+
+_ID_KEY_PATTERNS = re.compile(
+    r"(account|customer|user|transaction|order|request|session|ref|reference|"
+    r"invoice|ticket|case|id|identifier|uuid|token)$",
+    re.IGNORECASE,
+)
+
+_ID_VALUE_PATTERNS = re.compile(
+    r"^[A-Z]{2,6}-\d{3,}$|"                           # ACC-123, TXN-9876
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|"  # UUID
+    r"^[A-Z0-9]{6,20}$",                               # TX789, CUST001
+    re.IGNORECASE,
+)
+
+
+# ── Data classes ───────────────────────────────────────────────────────────────
+
+_FAULT_CATEGORY_MAP = {
+    "POLICY_VIOLATION": "policy_violation",
+    "HEURISTIC_OBSERVATION": "heuristic_observation",
+}
+
+_REVIEW_REQUIRED_SEVERITIES = {"critical", "high"}
+
+
+class FaultFlag:
+    __slots__ = (
+        "step_index",
+        "step_number",
+        "fault_type",
+        "severity",
+        "rule_id",
+        "rule_name",
+        "plain_english",
+        "fault_chain",
+        "category",
+        "why_it_matters",
+        "review_required",
+        "raw",
+    )
+
+    def __init__(self, step_index, fault_type, severity, plain_english,
+                 rule_id=None, rule_name=None, fault_chain=None,
+                 category=None, why_it_matters=None, review_required=None):
+        self.step_index = step_index
+        self.step_number = step_index + 1
+        self.fault_type = fault_type
+        self.severity = severity
+        self.plain_english = plain_english
+        self.rule_id = rule_id
+        self.rule_name = rule_name
+        self.fault_chain = fault_chain or []
+        self.category = category or _FAULT_CATEGORY_MAP.get(fault_type, "execution_risk")
+        self.why_it_matters = why_it_matters or self._default_why_it_matters()
+        self.review_required = (
+            review_required if review_required is not None
+            else (self.fault_type == "POLICY_VIOLATION" or self.severity in _REVIEW_REQUIRED_SEVERITIES)
+        )
+        self.raw = {}
+
+    def _default_why_it_matters(self) -> str:
+        if self.fault_type == "POLICY_VIOLATION":
+            return "This run broke an explicit policy rule and should be reviewed before the outcome is trusted."
+        if self.severity in {"critical", "high"}:
+            return "This pattern suggests a potentially unsafe or non-compliant outcome and should be reviewed by a human."
+        return "This pattern may indicate degraded reasoning or missing context and should be inspected if the run matters."
+
+    def to_dict(self):
+        d = {
+            "step_index": self.step_index,
+            "step_number": self.step_number,
+            "fault_type": self.fault_type,
+            "category": self.category,
+            "severity": self.severity,
+            "plain_english": self.plain_english,
+            "why_it_matters": self.why_it_matters,
+            "review_required": self.review_required,
+            "fault_chain": self.fault_chain,
+        }
+        if self.rule_id:
+            d["rule_id"] = self.rule_id
+        if self.rule_name:
+            d["rule_name"] = self.rule_name
+        return d
+
+
+class AnalysisResult:
+    def __init__(self, policy: Optional[EPIPolicy], steps: list[dict]):
+        self.policy = policy
+        self.steps = steps
+        self.primary_fault: Optional[FaultFlag] = None
+        self.secondary_flags: list[FaultFlag] = []
+        self.analyzer_version = ANALYZER_VERSION
+        self.timestamp = datetime.now(timezone.utc).isoformat()
+
+    @property
+    def fault_detected(self) -> bool:
+        return self.primary_fault is not None
+
+    @property
+    def mode(self) -> str:
+        return "policy_grounded" if self.policy else "heuristic_only"
+
+    @property
+    def confidence(self) -> str:
+        if not self.fault_detected:
+            return "high"
+        # Confidence is high when we have a policy rule match with a clear chain
+        if self.primary_fault and self.primary_fault.rule_id and len(self.primary_fault.fault_chain) >= 2:
+            return "high"
+        if self.primary_fault and len(self.primary_fault.fault_chain) >= 1:
+            return "medium"
+        return "low"
+
+    def to_dict(self) -> dict:
+        total = len(self.steps)
+        full_data = sum(
+            1 for s in self.steps
+            if s.get("content") and isinstance(s["content"], dict) and len(s["content"]) > 0
+        )
+
+        d = {
+            "analyzer_version": self.analyzer_version,
+            "analysis_timestamp": self.timestamp,
+            "policy_used": self.policy is not None,
+            "policy_version": self.policy.policy_version if self.policy else None,
+            "mode": self.mode,
+            "fault_taxonomy_version": "1.0",
+            "coverage": {
+                "status": "complete",
+                "steps_recorded": total,
+                "steps_with_full_data": full_data,
+                "coverage_percentage": round(full_data / total * 100) if total else 0,
+            },
+            "fault_detected": self.fault_detected,
+            "confidence": self.confidence,
+            "review_required": bool(
+                (self.primary_fault and self.primary_fault.review_required)
+                or any(flag.review_required for flag in self.secondary_flags)
+            ),
+            "primary_fault": self.primary_fault.to_dict() if self.primary_fault else None,
+            "secondary_flags": [f.to_dict() for f in self.secondary_flags],
+            "summary": {
+                "headline": self._headline(),
+                "primary_category": self.primary_fault.category if self.primary_fault else None,
+                "primary_step": self.primary_fault.step_number if self.primary_fault else None,
+                "secondary_count": len(self.secondary_flags),
+            },
+            "human_review": {
+                "status": "pending",
+                "reviewed_by": None,
+                "reviewed_at": None,
+                "outcome": None,
+                "notes": None,
+            },
+            "disclaimer": DISCLAIMER,
+        }
+        return d
+
+    def _headline(self) -> str:
+        if not self.primary_fault:
+            return "No fault detected in the recorded execution."
+        if self.primary_fault.rule_id and self.primary_fault.rule_name:
+            return f"{self.primary_fault.rule_id} ({self.primary_fault.rule_name}) triggered at step {self.primary_fault.step_number}."
+        return f"{self.primary_fault.fault_type} triggered at step {self.primary_fault.step_number}."
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _flatten_values(obj, depth=0) -> list:
+    """Recursively extract all scalar values from a dict/list."""
+    if depth > 6:
+        return []
+    results = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            results.extend(_flatten_values(v, depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            results.extend(_flatten_values(item, depth + 1))
+    elif obj is not None:
+        results.append(obj)
+    return results
+
+
+def _flatten_kv(obj, prefix="", depth=0) -> list[tuple[str, object]]:
+    """Recursively extract all (key_path, value) pairs from a dict."""
+    if depth > 6:
+        return []
+    results = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else k
+            results.extend(_flatten_kv(v, path, depth + 1))
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            results.extend(_flatten_kv(item, f"{prefix}[{i}]", depth + 1))
+    else:
+        results.append((prefix, obj))
+    return results
+
+
+def _content_str(step: dict) -> str:
+    """Get a lowercase string representation of step content for keyword matching."""
+    content = step.get("content", {})
+    try:
+        return json.dumps(content, ensure_ascii=False).lower()
+    except Exception:
+        return str(content).lower()
+
+
+def _has_error(step: dict) -> bool:
+    """Determine if a step contains an error signal."""
+    kind = step.get("kind", "")
+    if kind in ("llm.error", "http.error"):
+        return True
+
+    content = step.get("content", {})
+    if not isinstance(content, dict):
+        return False
+
+    # Direct error keys
+    for key in _ERROR_KEYS:
+        if key in content:
+            return True
+
+    # status_code >= 400
+    if isinstance(content.get("status_code"), int) and content["status_code"] >= 400:
+        return True
+
+    # success == False
+    if content.get("success") is False:
+        return False  # success=False is explicit — not always a continuation error
+
+    # Text scan for error phrases in string values
+    content_text = _content_str(step)
+    for phrase in ("\"error\":", "\"exception\":", "traceback", "error occurred"):
+        if phrase in content_text:
+            return True
+
+    return False
+
+
+def _extract_numbers(content: dict) -> list[tuple[str, float]]:
+    """Extract all (key_path, numeric_value) pairs from a content dict."""
+    results = []
+    for key, val in _flatten_kv(content):
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            results.append((key, float(val)))
+    return results
+
+
+def _find_matching_numeric_field(content: dict, field_name: str) -> Optional[tuple[str, float]]:
+    """Return the first numeric field whose key path matches the requested field."""
+    field_lower = field_name.lower()
+    for key, val in _extract_numbers(content):
+        key_lower = key.lower()
+        key_leaf = key_lower.split(".")[-1].split("[")[0]
+        if field_lower == key_leaf or field_lower in key_lower:
+            return key, val
+    return None
+
+
+def _key_matches_constraints(key: str) -> bool:
+    """Return True if the key path suggests a constraint value."""
+    key_lower = key.lower()
+    return any(kw in key_lower for kw in _CONSTRAINT_KEYWORDS)
+
+
+def _key_matches_commitment(key: str) -> bool:
+    """Return True if the key path suggests a committed amount."""
+    key_lower = key.lower()
+    return any(kw in key_lower for kw in {"amount", "value", "total", "sum", "price", "cost"})
+
+
+def _content_mentions(step: dict, terms: set[str]) -> bool:
+    text = _content_str(step)
+    return any(term in text for term in terms)
+
+
+def _extract_entity_ids(steps: list[dict]) -> set[str]:
+    """Extract likely entity identifier values (account IDs, transaction IDs, etc.)."""
+    ids = set()
+    for step in steps:
+        content = step.get("content", {})
+        for key, val in _flatten_kv(content):
+            key_leaf = key.split(".")[-1].split("[")[0]
+            if _ID_KEY_PATTERNS.search(key_leaf) and isinstance(val, str) and len(val) >= 4:
+                ids.add(val)
+            elif isinstance(val, str) and _ID_VALUE_PATTERNS.match(val):
+                ids.add(val)
+    return ids
+
+
+# ── The Analyzer ──────────────────────────────────────────────────────────────
+
+class FaultAnalyzer:
+    """
+    Four-pass fault detector. Produces an AnalysisResult from steps.jsonl content.
+
+    Usage:
+        analyzer = FaultAnalyzer(policy=policy)  # policy may be None
+        result = analyzer.analyze(steps_jsonl_string)
+        analysis_json = result.to_json()
+    """
+
+    def __init__(self, policy: Optional[EPIPolicy] = None):
+        self.policy = policy
+
+    def analyze(self, steps_jsonl: str) -> AnalysisResult:
+        """
+        Run all four detection passes and return an AnalysisResult.
+
+        Args:
+            steps_jsonl: Newline-delimited JSON (one step per line).
+
+        Returns:
+            AnalysisResult — never raises.
+        """
+        steps = self._parse_steps(steps_jsonl)
+        result = AnalysisResult(policy=self.policy, steps=steps)
+
+        if not steps:
+            return result
+
+        flags: list[FaultFlag] = []
+
+        # Run passes — each is individually guarded
+        try:
+            flags.extend(self._pass1_error_continuation(steps))
+        except Exception:
+            pass
+
+        try:
+            flags.extend(self._pass2_constraint_violation(steps))
+        except Exception:
+            pass
+
+        if self.policy:
+            try:
+                flags.extend(self._pass3_sequence_violation(steps))
+            except Exception:
+                pass
+
+            try:
+                flags.extend(self._pass4_threshold_violation(steps))
+            except Exception:
+                pass
+
+            try:
+                flags.extend(self._pass5_prohibition_violation(steps))
+            except Exception:
+                pass
+
+        try:
+            flags.extend(self._pass6_context_drop(steps))
+        except Exception:
+            pass
+
+        # Rank: policy violations first, then by severity
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        policy_first = sorted(
+            flags,
+            key=lambda f: (
+                0 if f.fault_type == "POLICY_VIOLATION" else 1,
+                severity_order.get(f.severity, 9),
+                f.step_index,
+            )
+        )
+
+        if policy_first:
+            result.primary_fault = policy_first[0]
+            result.secondary_flags = policy_first[1:]
+
+        return result
+
+    # ── Parsing ───────────────────────────────────────────────────────────────
+
+    def _parse_steps(self, steps_jsonl: str) -> list[dict]:
+        steps = []
+        for i, line in enumerate(steps_jsonl.strip().splitlines()):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                # Normalise: ensure index field exists
+                if "index" not in obj:
+                    obj["index"] = i
+                steps.append(obj)
+            except json.JSONDecodeError:
+                pass
+        return steps
+
+    # ── Pass 1: Error Continuation ─────────────────────────────────────────────
+
+    def _pass1_error_continuation(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag steps where a tool returned an error and the next step continued
+        as if nothing happened (no retry, no error reference, no fallback).
+        """
+        flags = []
+        for i, step in enumerate(steps[:-1]):
+            if not _has_error(step):
+                continue
+
+            next_step = steps[i + 1]
+            next_content_str = _content_str(next_step)
+
+            # Check if next step references the error at all
+            references_error = any(
+                phrase in next_content_str
+                for phrase in ("error", "retry", "failed", "exception", "fallback", "skip")
+            )
+
+            # Check if next step is itself an error/retry (acceptable)
+            next_is_error = _has_error(next_step) or next_step.get("kind", "").endswith(".error")
+
+            if not references_error and not next_is_error:
+                step_num = step.get("index", i) + 1
+                next_num = next_step.get("index", i + 1) + 1
+                flags.append(FaultFlag(
+                    step_index=step.get("index", i),
+                    fault_type="HEURISTIC_OBSERVATION",
+                    severity="medium",
+                    plain_english=(
+                        f"Step {step_num} returned an error signal. "
+                        f"Step {next_num} continued without referencing or handling the error."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": step.get("index", i),
+                            "step_number": step_num,
+                            "role": "error_source",
+                            "detail": f"Kind: {step.get('kind', 'unknown')}",
+                        },
+                        {
+                            "step_index": next_step.get("index", i + 1),
+                            "step_number": next_num,
+                            "role": "continuation_without_handling",
+                            "detail": f"Kind: {next_step.get('kind', 'unknown')}",
+                        },
+                    ],
+                ))
+        return flags
+
+    # ── Pass 2: Constraint Violation ──────────────────────────────────────────
+
+    def _pass2_constraint_violation(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag when a numerical constraint established at step M is exceeded at step N.
+
+        Builds a constraint register incrementally. Each entry:
+            key_path → (value, step_index, keyword_context)
+        """
+        flags = []
+        constraint_register: dict[str, tuple[float, int, str]] = {}
+
+        # Also apply policy constraint_guard rules
+        policy_constraint_rules = (
+            self.policy.rules_of_type("constraint_guard") if self.policy else []
+        )
+
+        for step in steps:
+            content = step.get("content", {})
+            if not isinstance(content, dict):
+                continue
+            step_idx = step.get("index", 0)
+            step_num = step_idx + 1
+            numbers = _extract_numbers(content)
+
+            # Record constraint values
+            for key, val in numbers:
+                if _key_matches_constraints(key):
+                    key_leaf = key.split(".")[-1]
+                    constraint_register[key_leaf] = (val, step_idx, key)
+
+                    # Also check policy watch_for lists
+                    for rule in policy_constraint_rules:
+                        if rule.watch_for:
+                            for watch_term in rule.watch_for:
+                                if watch_term.lower() in key.lower():
+                                    constraint_register[f"__policy_{rule.id}_{watch_term}"] = (
+                                        val, step_idx, key
+                                    )
+
+            # Check for commitment violations against registered constraints
+            content_str_lower = _content_str(step)
+            is_commitment = _content_mentions(step, _COMMITMENT_KEYWORDS)
+            if not is_commitment:
+                continue
+
+            for key, committed_val in numbers:
+                if not _key_matches_commitment(key):
+                    continue
+
+                # Check against each registered constraint
+                for c_key, (c_val, c_step_idx, c_key_path) in constraint_register.items():
+                    # Don't compare constraint to itself
+                    if c_step_idx >= step_idx:
+                        continue
+
+                    if committed_val > c_val * 1.001:  # 0.1% tolerance for float precision
+                        c_step_num = c_step_idx + 1
+
+                        # Check if a policy rule matches
+                        rule_id = rule_name = None
+                        if c_key.startswith("__policy_"):
+                            parts = c_key.split("_")
+                            if len(parts) >= 3:
+                                rule_id = parts[2]
+                                matching = [r for r in policy_constraint_rules if r.id == rule_id]
+                                if matching:
+                                    rule_name = matching[0].name
+
+                        fault_type = "POLICY_VIOLATION" if rule_id else "HEURISTIC_OBSERVATION"
+                        severity = "critical" if rule_id else "high"
+
+                        flags.append(FaultFlag(
+                            step_index=step_idx,
+                            fault_type=fault_type,
+                            severity=severity,
+                            rule_id=rule_id,
+                            rule_name=rule_name,
+                            plain_english=(
+                                f"At step {c_step_num} the agent received a constraint value "
+                                f"of {c_val:,.2f} (field: {c_key_path.split('.')[-1]}). "
+                                f"At step {step_num} a committed value of {committed_val:,.2f} "
+                                f"exceeded this limit."
+                                + (f" Rule {rule_id} ({rule_name}) was violated." if rule_id else "")
+                            ),
+                            fault_chain=[
+                                {
+                                    "step_index": c_step_idx,
+                                    "step_number": c_step_num,
+                                    "role": "constraint_source",
+                                    "detail": f"Constraint value {c_val:,.2f} established",
+                                },
+                                {
+                                    "step_index": step_idx,
+                                    "step_number": step_num,
+                                    "role": "violation_point",
+                                    "detail": f"Committed value {committed_val:,.2f} exceeds constraint",
+                                },
+                            ],
+                        ))
+                        # One flag per commitment step — break inner loops
+                        break
+                else:
+                    continue
+                break
+
+        return flags
+
+    # ── Pass 3: Sequence Violation (policy only) ──────────────────────────────
+
+    def _pass3_sequence_violation(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag when action B occurs without action A having occurred first.
+        Only runs when policy contains sequence_guard rules.
+        """
+        if not self.policy:
+            return []
+
+        flags = []
+        sequence_rules = self.policy.rules_of_type("sequence_guard")
+
+        for rule in sequence_rules:
+            if not rule.required_before or not rule.must_call:
+                continue
+
+            required_before = rule.required_before.lower()
+            must_call = rule.must_call.lower()
+
+            for i, step in enumerate(steps):
+                kind_str = step.get("kind", "").lower()
+
+                # Only check tool.call steps for sequence violations —
+                # keywords in workflow names / messages are not action triggers.
+                is_tool_call = "tool.call" in kind_str or "tool.use" in kind_str
+                if not is_tool_call:
+                    continue
+
+                step_str = _content_str(step)
+
+                # Check if this step is the "B" action (the one that requires a predecessor)
+                b_present = required_before in step_str or required_before in kind_str
+                if not b_present:
+                    continue
+
+                # Search backwards for the "A" action
+                a_found = any(
+                    must_call in _content_str(prev) or must_call in prev.get("kind", "").lower()
+                    for prev in steps[:i]
+                )
+
+                if not a_found:
+                    step_idx = step.get("index", i)
+                    flags.append(FaultFlag(
+                        step_index=step_idx,
+                        fault_type="POLICY_VIOLATION",
+                        severity=rule.severity,
+                        rule_id=rule.id,
+                        rule_name=rule.name,
+                        plain_english=(
+                            f"At step {step_idx + 1}, action '{required_before}' was executed. "
+                            f"Rule {rule.id} ({rule.name}) requires '{must_call}' to be called "
+                            f"first. No prior '{must_call}' call was found in the execution record."
+                        ),
+                        fault_chain=[
+                            {
+                                "step_index": step_idx,
+                                "step_number": step_idx + 1,
+                                "role": "violation_point",
+                                "detail": (
+                                    f"'{required_before}' executed without prior '{must_call}'"
+                                ),
+                            },
+                        ],
+                    ))
+
+        return flags
+
+    # ── Pass 4: Context Drop ──────────────────────────────────────────────────
+
+    def _pass4_threshold_violation(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag when a value exceeds a policy threshold and the required action
+        does not appear before or at the violating step.
+        """
+        if not self.policy:
+            return []
+
+        flags = []
+        threshold_rules = self.policy.rules_of_type("threshold_guard")
+
+        for rule in threshold_rules:
+            if (
+                rule.threshold_value is None
+                or not rule.threshold_field
+                or not rule.required_action
+            ):
+                continue
+
+            for i, step in enumerate(steps):
+                content = step.get("content", {})
+                if not isinstance(content, dict):
+                    continue
+
+                matched = _find_matching_numeric_field(content, rule.threshold_field)
+                if not matched:
+                    continue
+
+                key_path, observed_value = matched
+                if observed_value <= rule.threshold_value:
+                    continue
+
+                action_found = any(
+                    rule.required_action.lower() in _content_str(prev)
+                    or rule.required_action.lower() in prev.get("kind", "").lower()
+                    for prev in steps[: i + 1]
+                )
+                if action_found:
+                    continue
+
+                step_idx = step.get("index", i)
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="POLICY_VIOLATION",
+                    severity=rule.severity,
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    plain_english=(
+                        f"At step {step_idx + 1}, field '{key_path}' had value {observed_value:,.2f}, "
+                        f"which exceeded the threshold {rule.threshold_value:,.2f}. "
+                        f"Rule {rule.id} ({rule.name}) requires '{rule.required_action}' before proceeding."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "threshold_breach",
+                            "detail": (
+                                f"Observed {observed_value:,.2f} in '{key_path}' "
+                                f"without '{rule.required_action}'"
+                            ),
+                        },
+                    ],
+                ))
+
+        return flags
+
+    def _pass5_prohibition_violation(self, steps: list[dict]) -> list[FaultFlag]:
+        """Flag when a prohibited pattern appears in the recorded content."""
+        if not self.policy:
+            return []
+
+        flags = []
+        prohibition_rules = self.policy.rules_of_type("prohibition_guard")
+
+        for rule in prohibition_rules:
+            if not rule.prohibited_pattern:
+                continue
+
+            try:
+                pattern = re.compile(rule.prohibited_pattern)
+            except re.error:
+                continue
+
+            for i, step in enumerate(steps):
+                content_text = _content_str(step)
+                match = pattern.search(content_text)
+                if not match:
+                    continue
+
+                step_idx = step.get("index", i)
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="POLICY_VIOLATION",
+                    severity=rule.severity,
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    plain_english=(
+                        f"At step {step_idx + 1}, content matched prohibited pattern "
+                        f"'{rule.prohibited_pattern}'. Rule {rule.id} ({rule.name}) was violated."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "prohibited_output",
+                            "detail": f"Matched prohibited content: {match.group(0)}",
+                        },
+                    ],
+                ))
+
+        return flags
+
+    def _pass6_context_drop(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag when entity identifiers established in the first third of execution
+        vanish completely from the final third.
+
+        Only fires when there are enough steps to make the comparison meaningful.
+        """
+        flags = []
+        if len(steps) < 6:
+            return flags
+
+        split_a = max(1, len(steps) // 3)
+        split_b = len(steps) - split_a
+
+        early_steps = steps[:split_a]
+        late_steps = steps[split_b:]
+
+        early_ids = _extract_entity_ids(early_steps)
+        if not early_ids:
+            return flags
+
+        late_str = " ".join(_content_str(s) for s in late_steps).lower()
+
+        for entity_id in early_ids:
+            if len(entity_id) < 4:
+                continue
+            if entity_id.lower() not in late_str:
+                # Find the last step where this ID appeared
+                last_seen_idx = 0
+                for j, step in enumerate(steps[:split_b]):
+                    if entity_id.lower() in _content_str(step).lower():
+                        last_seen_idx = step.get("index", j)
+
+                flags.append(FaultFlag(
+                    step_index=last_seen_idx,
+                    fault_type="HEURISTIC_OBSERVATION",
+                    severity="low",
+                    plain_english=(
+                        f"Entity identifier '{entity_id}' appeared in the early execution steps "
+                        f"but was absent from the final {split_a} steps. "
+                        f"This may indicate the agent lost track of the original context."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": last_seen_idx,
+                            "step_number": last_seen_idx + 1,
+                            "role": "last_known_reference",
+                            "detail": f"Last step where '{entity_id}' was present",
+                        },
+                    ],
+                ))
+
+        return flags

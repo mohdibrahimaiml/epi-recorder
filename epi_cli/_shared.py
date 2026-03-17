@@ -37,6 +37,12 @@ def build_env_for_child(steps_dir: Path, enable_redaction: bool) -> dict:
     env["EPI_STEPS_DIR"] = str(steps_dir)
     env["EPI_REDACT"] = "1" if enable_redaction else "0"
 
+    # Force UTF-8 I/O in the child process.
+    # On Windows the default is cp1252 which corrupts any non-ASCII output
+    # (e.g. LLM responses containing Unicode) written to stdout/stderr logs.
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"  # PEP 540 — also covers open() calls in child
+
     # Temporary sitecustomize.py bootstrap
     bootstrap_dir = Path(tempfile.mkdtemp(prefix="epi_bootstrap_"))
     (bootstrap_dir / "sitecustomize.py").write_text(

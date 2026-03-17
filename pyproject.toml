@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "2.7.2"
+version = "2.8.0"
 description = "Verifiable execution evidence for AI systems. Portable, cryptographically signed artifacts."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -93,6 +93,9 @@ include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewe
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]
+
+[tool.setuptools.package-data]
+epi_core = ["assets/*.ico"]
 
 [project.entry-points.pytest11]
 epi = "pytest_epi.plugin"

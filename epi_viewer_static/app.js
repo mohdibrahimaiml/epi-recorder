@@ -1,483 +1,599 @@
-/**
- * EPI Viewer - Static JavaScript Application
- * 
- * Renders .epi workflow timeline with zero code execution.
- * All data is loaded from embedded JSON.
- */
-
-// Load embedded data
-function loadEPIData() {
-    const dataScript = document.getElementById('epi-data');
-    if (!dataScript) {
-        console.error('EPI data not found');
+function loadJsonScript(id) {
+    const node = document.getElementById(id);
+    if (!node) {
         return null;
     }
     try {
-        return JSON.parse(dataScript.textContent);
-    } catch (e) {
-        console.error('Failed to parse EPI data:', e);
+        return JSON.parse(node.textContent || "{}");
+    } catch (error) {
+        console.error(`Failed to parse ${id}`, error);
         return null;
     }
 }
 
-// Render trust badge
-async function renderTrustBadge(manifest) {
-    const badge = document.getElementById('trust-badge');
-    if (!badge) return;
-
-    // Initial state: checking
-    badge.innerHTML = `
-        <div class="trust-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Verifying...
-        </div>
-    `;
-
-    // Check verification logic availability
-    const hasSignature = manifest.signature && manifest.signature !== "null" && manifest.signature.trim() !== "";
-
-    if (typeof window.verifyManifestSignature !== 'function') {
-        renderBadgeResult(false, 'Missing crypto lib', hasSignature);
-        return;
-    }
-
-    try {
-        const result = await window.verifyManifestSignature(manifest);
-        console.log("Verification Result:", result);
-        renderBadgeResult(result.valid, result.reason, hasSignature);
-    } catch (e) {
-        console.error("Verification error:", e);
-        renderBadgeResult(false, e.message, hasSignature);
-    }
-}
-
-function renderBadgeResult(isValid, reason, hasSignature) {
-    const badge = document.getElementById('trust-badge');
-    let badgeHTML;
-
-    if (isValid) {
-        badgeHTML = `
-            <div class="trust-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800" title="Cryptographically Verified">
-                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-                Verified
-            </div>
-        `;
-    } else if (!hasSignature) {
-        badgeHTML = `
-            <div class="trust-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                 Unsigned
-            </div>
-        `;
-    } else {
-        // Has signature but INVALID
-        badgeHTML = `
-            <div class="trust-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800" title="Hash Mismatch: ${reason}">
-                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                </svg>
-                TAMPERED
-            </div>
-        `;
-    }
-    badge.innerHTML = badgeHTML;
-}
-
-// Render metadata section
-function renderMetadata(manifest) {
-    // Create metadata section container
-    const metadataSection = document.createElement('div');
-    metadataSection.className = 'bg-blue-50 rounded-lg p-4 mb-6';
-    metadataSection.innerHTML = '<h3 class="text-lg font-semibold text-gray-900 mb-3">Recording Metadata</h3>';
-
-    const metadataContent = document.createElement('div');
-    metadataContent.className = 'space-y-3';
-
-    // Goal
-    if (manifest.goal) {
-        const goalDiv = document.createElement('div');
-        goalDiv.innerHTML = `
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Goal</div>
-            <div class="mt-1">${escapeHTML(manifest.goal)}</div>
-        `;
-        metadataContent.appendChild(goalDiv);
-    }
-
-    // Notes
-    if (manifest.notes) {
-        const notesDiv = document.createElement('div');
-        notesDiv.innerHTML = `
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Notes</div>
-            <div class="mt-1">${escapeHTML(manifest.notes)}</div>
-        `;
-        metadataContent.appendChild(notesDiv);
-    }
-
-    // Metrics
-    if (manifest.metrics && Object.keys(manifest.metrics).length > 0) {
-        const metricsDiv = document.createElement('div');
-        let metricsHtml = '<div class="text-gray-500 text-xs uppercase tracking-wide">Metrics</div><div class="mt-1 flex flex-wrap gap-2">';
-        for (const [key, value] of Object.entries(manifest.metrics)) {
-            metricsHtml += `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">${escapeHTML(key)}=${escapeHTML(String(value))}</span>`;
-        }
-        metricsHtml += '</div>';
-        metricsDiv.innerHTML = metricsHtml;
-        metadataContent.appendChild(metricsDiv);
-    }
-
-    // Approved by
-    if (manifest.approved_by) {
-        const approvedDiv = document.createElement('div');
-        approvedDiv.innerHTML = `
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Approved By</div>
-            <div class="mt-1">${escapeHTML(manifest.approved_by)}</div>
-        `;
-        metadataContent.appendChild(approvedDiv);
-    }
-
-    // Tags
-    if (manifest.tags && manifest.tags.length > 0) {
-        const tagsDiv = document.createElement('div');
-        let tagsHtml = '<div class="text-gray-500 text-xs uppercase tracking-wide">Tags</div><div class="mt-1 flex flex-wrap gap-2">';
-        for (const tag of manifest.tags) {
-            tagsHtml += `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">${escapeHTML(tag)}</span>`;
-        }
-        tagsHtml += '</div>';
-        tagsDiv.innerHTML = tagsHtml;
-        metadataContent.appendChild(tagsDiv);
-    }
-
-    // Only add metadata section if there's content to show
-    if (metadataContent.children.length > 0) {
-        metadataSection.appendChild(metadataContent);
-        // Insert at the top of main content
-        const mainContent = document.querySelector('main');
-        if (mainContent && mainContent.firstChild) {
-            mainContent.insertBefore(metadataSection, mainContent.firstChild);
-        }
-    }
-}
-
-// Render manifest summary
-function renderManifest(manifest) {
-    const summary = document.getElementById('manifest-summary');
-    if (!summary) return;
-
-    const created = new Date(manifest.created_at).toLocaleString();
-    const filesCount = Object.keys(manifest.file_manifest || {}).length;
-
-    summary.innerHTML = `
-        <div>
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Workflow ID</div>
-            <div class="font-mono text-xs mt-1 break-all">${manifest.workflow_id}</div>
-        </div>
-        <div>
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Created</div>
-            <div class="mt-1">${created}</div>
-        </div>
-        <div>
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Command</div>
-            <div class="font-mono text-xs mt-1 break-all bg-gray-50 p-2 rounded">${manifest.cli_command || 'N/A'}</div>
-        </div>
-        <div>
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Files</div>
-            <div class="mt-1">${filesCount} captured</div>
-        </div>
-        <div>
-            <div class="text-gray-500 text-xs uppercase tracking-wide">Spec Version</div>
-            <div class="mt-1 font-mono text-xs">${manifest.spec_version}</div>
-        </div>
-    `;
-}
-
-// Render a single step based on its kind
-function renderStep(step) {
-    const { index, timestamp, kind, content } = step;
-    const time = new Date(timestamp).toLocaleTimeString();
-
-    // Common wrapper
-    const wrapper = document.createElement('div');
-    wrapper.className = 'step-card px-6 py-4';
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'flex items-center justify-between mb-2';
-    header.innerHTML = `
-        <div class="flex items-center space-x-2">
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                #${index}
-            </span>
-            <span class="text-sm font-medium text-gray-900">${kind}</span>
-        </div>
-        <div class="flex items-center space-x-2">
-            <span class="text-xs text-gray-500">${time}</span>
-            <button onclick='copyStepData(${JSON.stringify(JSON.stringify(content))})' class="text-gray-400 hover:text-blue-600 transition-colors" title="Copy Raw JSON">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-            </button>
-        </div>
-    `;
-    wrapper.appendChild(header);
-
-    // Content based on kind
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'mt-3';
-
-    if (kind === 'llm.request') {
-        contentDiv.innerHTML = renderLLMRequest(content);
-    } else if (kind === 'llm.response') {
-        contentDiv.innerHTML = renderLLMResponse(content);
-    } else if (kind === 'llm.error') {
-        contentDiv.innerHTML = renderLLMError(content);
-    } else if (kind === 'http.request') {
-        contentDiv.innerHTML = renderHTTPRequest(content);
-    } else if (kind === 'http.response') {
-        contentDiv.innerHTML = renderHTTPResponse(content);
-    } else if (kind === 'http.error') {
-        contentDiv.innerHTML = renderHTTPError(content);
-    } else if (kind === 'security.redaction') {
-        contentDiv.innerHTML = renderRedaction(content);
-    } else {
-        // Generic JSON display
-        contentDiv.innerHTML = `<pre class="text-xs bg-gray-50 p-3 rounded overflow-auto">${JSON.stringify(content, null, 2)}</pre>`;
-    }
-
-    wrapper.appendChild(contentDiv);
-    return wrapper;
-}
-
-// Render LLM request
-function renderLLMRequest(content) {
-    const messages = content.messages || [];
-    let html = `
-        <div class="text-xs text-gray-600 mb-2">
-            <span class="font-medium">${content.provider}</span> • 
-            <span class="font-mono">${content.model}</span>
-        </div>
-    `;
-
-    // Render messages as chat bubbles
-    if (messages.length > 0) {
-        html += '<div class="space-y-2">';
-        for (const msg of messages) {
-            const isUser = msg.role === 'user';
-            const bgColor = isUser ? 'bg-blue-100' : 'bg-gray-100';
-            const textColor = isUser ? 'text-blue-900' : 'text-gray-900';
-            const align = isUser ? 'ml-auto' : 'mr-auto';
-
-            html += `
-                <div class="chat-bubble ${align} ${bgColor} ${textColor} rounded-lg px-4 py-2 text-sm">
-                    <div class="text-xs font-medium mb-1 uppercase">${msg.role}</div>
-                    <div class="whitespace-pre-wrap">${escapeHTML(msg.content)}</div>
-                </div>
-            `;
-        }
-        html += '</div>';
-    }
-
-    return html;
-}
-
-// Render LLM response
-function renderLLMResponse(content) {
-    const choices = content.choices || [];
-    let html = `
-        <div class="text-xs text-gray-600 mb-2">
-            <span class="font-medium">${content.provider}</span> • 
-            <span class="font-mono">${content.model}</span>
-        </div>
-    `;
-
-    // Render response messages
-    if (choices.length > 0) {
-        html += '<div class="space-y-2">';
-        for (const choice of choices) {
-            html += `
-                <div class="chat-bubble mr-auto bg-green-100 text-green-900 rounded-lg px-4 py-2 text-sm">
-                    <div class="text-xs font-medium mb-1 uppercase">Assistant</div>
-                    <div class="whitespace-pre-wrap">${formatMessageContent(choice.message.content)}</div>
-                    ${choice.finish_reason ? `<div class="text-xs text-green-700 mt-2">• ${choice.finish_reason}</div>` : ''}
-                </div>
-            `;
-        }
-        html += '</div>';
-    }
-
-    // Usage stats
-    if (content.usage) {
-        html += `
-            <div class="mt-3 text-xs text-gray-600 flex items-center space-x-4">
-                <span>📊 ${content.usage.total_tokens} tokens</span>
-                ${content.latency_seconds ? `<span>⚡ ${content.latency_seconds}s</span>` : ''}
-            </div>
-        `;
-    }
-
-    return html;
-}
-
-// Render redaction event
-function renderRedaction(content) {
-    return `
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-            <div class="flex items-center text-yellow-800">
-                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-                </svg>
-                <span class="font-medium">Secrets Redacted</span>
-            </div>
-            <div class="mt-2 text-yellow-700">
-                ${content.count} sensitive value(s) removed from <span class="font-mono text-xs">${content.target_step}</span>
-            </div>
-        </div>
-    `;
-}
-
-// Render LLM error
-function renderLLMError(content) {
-    return `
-        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-            <div class="flex items-center text-red-800">
-                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <span class="font-medium">LLM Error</span>
-            </div>
-            <div class="mt-2 text-red-700 font-mono text-xs">
-                ${escapeHTML(content.error || content.message || JSON.stringify(content))}
-            </div>
-            ${content.provider ? `<div class="mt-1 text-xs text-red-600">${content.provider} • ${content.model || 'unknown'}</div>` : ''}
-        </div>
-    `;
-}
-
-// Render HTTP request
-function renderHTTPRequest(content) {
-    return `
-        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm">
-            <div class="flex items-center text-indigo-800 mb-2">
-                <span class="font-medium px-2 py-0.5 bg-indigo-200 rounded text-xs">${content.method || 'GET'}</span>
-                <span class="ml-2 font-mono text-xs break-all">${escapeHTML(content.url || '')}</span>
-            </div>
-            ${content.headers ? `<div class="text-xs text-indigo-600">Headers: ${Object.keys(content.headers).length}</div>` : ''}
-            ${content.body ? `<pre class="mt-2 text-xs bg-indigo-100 p-2 rounded overflow-auto max-h-32">${escapeHTML(typeof content.body === 'string' ? content.body : JSON.stringify(content.body, null, 2))}</pre>` : ''}
-        </div>
-    `;
-}
-
-// Render HTTP response
-function renderHTTPResponse(content) {
-    const statusColor = (content.status_code >= 200 && content.status_code < 300) ? 'green' :
-        (content.status_code >= 400) ? 'red' : 'yellow';
-    return `
-        <div class="bg-${statusColor}-50 border border-${statusColor}-200 rounded-lg p-3 text-sm">
-            <div class="flex items-center text-${statusColor}-800 mb-2">
-                <span class="font-medium px-2 py-0.5 bg-${statusColor}-200 rounded text-xs">${content.status_code || '???'}</span>
-                <span class="ml-2 text-xs">${content.url || ''}</span>
-                ${content.latency_seconds ? `<span class="ml-auto text-xs">⚡ ${content.latency_seconds}s</span>` : ''}
-            </div>
-            ${content.body ? `<pre class="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-32">${escapeHTML(typeof content.body === 'string' ? content.body.slice(0, 500) : JSON.stringify(content.body, null, 2).slice(0, 500))}${(content.body.length > 500) ? '...' : ''}</pre>` : ''}
-        </div>
-    `;
-}
-
-// Render HTTP error
-function renderHTTPError(content) {
-    return `
-        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-            <div class="flex items-center text-red-800">
-                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <span class="font-medium">HTTP Error</span>
-            </div>
-            <div class="mt-2 text-red-700">
-                <span class="font-mono text-xs">${escapeHTML(content.url || '')}</span>
-            </div>
-            <div class="mt-1 text-red-600 text-xs">
-                ${escapeHTML(content.error || content.message || JSON.stringify(content))}
-            </div>
-        </div>
-    `;
-}
-
-// Escape HTML to prevent XSS
-function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
     return div.innerHTML;
 }
 
-// Render timeline
-function renderTimeline(steps) {
-    const timeline = document.getElementById('timeline');
-    if (!timeline) return;
-
-    if (steps.length === 0) {
-        timeline.innerHTML = `
-            <div class="px-6 py-12 text-center text-gray-500">
-                No steps recorded
-            </div>
-        `;
-        return;
+function prettyDate(value) {
+    if (!value) {
+        return "Unknown";
     }
-
-    timeline.innerHTML = '';
-    for (const step of steps) {
-        timeline.appendChild(renderStep(step));
-    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
 }
 
-// Helper: Format message content with bolding
-function formatMessageContent(text) {
-    if (!text) return '';
-    // Escape HTML first
-    let escaped = escapeHTML(text);
-    // Apply bold formatting for **text**
-    return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-}
-
-// Helper: Copy to clipboard
-window.copyStepData = function (dataStr) {
+function flattenText(value) {
+    if (value == null) {
+        return "";
+    }
+    if (typeof value === "string") {
+        return value;
+    }
     try {
-        const data = JSON.parse(dataStr); // It was doubly stringified
-        navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
-            // Visual feedback could be added here
-            console.log('Copied to clipboard');
-        });
-    } catch (e) {
-        console.error('Copy failed', e);
+        return JSON.stringify(value);
+    } catch {
+        return String(value);
     }
-};
+}
 
-// Initialize viewer
-async function init() {
-    const data = loadEPIData();
-    if (!data) {
-        document.body.innerHTML = `
-            <div class="min-h-screen flex items-center justify-center">
-                <div class="text-center">
-                    <h1 class="text-2xl font-bold text-red-600 mb-2">Failed to load EPI data</h1>
-                    <p class="text-gray-600">The embedded data could not be parsed.</p>
+function truncate(value, maxLength) {
+    const text = value == null ? "" : String(value);
+    return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}...`;
+}
+
+function formatJson(value) {
+    return JSON.stringify(value == null ? {} : value, null, 2);
+}
+
+function formatNumber(value) {
+    if (typeof value !== "number") {
+        return String(value);
+    }
+    return new Intl.NumberFormat("en-IN").format(value);
+}
+
+function formatMetricValue(label, value) {
+    if (value == null) {
+        return "Unavailable";
+    }
+    if (typeof value === "number") {
+        if (label.toLowerCase() === "amount") {
+            return formatNumber(value);
+        }
+        return String(value);
+    }
+    return String(value);
+}
+
+function summarizeStep(step) {
+    const kind = step.kind || "unknown";
+    const content = step.content || {};
+
+    if (kind === "llm.request") {
+        return `Requested model ${content.model || "unknown"} with ${Array.isArray(content.messages) ? content.messages.length : 0} message(s).`;
+    }
+    if (kind === "llm.response") {
+        return truncate(
+            content.content ||
+            (content.choices && content.choices[0] && content.choices[0].message && content.choices[0].message.content) ||
+            "LLM response recorded.",
+            190
+        );
+    }
+    if (kind === "llm.error" || kind === "http.error") {
+        return truncate(content.error || content.message || flattenText(content), 190);
+    }
+    if (kind === "http.request") {
+        return `${content.method || "GET"} ${truncate(content.url || "", 120)}`;
+    }
+    if (kind === "http.response") {
+        return `HTTP ${content.status_code || "?"} ${truncate(content.url || "", 120)}`;
+    }
+    if (kind === "DECISION" || kind.toLowerCase().includes("decision")) {
+        const decision = content.decision || "Unknown";
+        const confidence = content.confidence != null ? ` with confidence ${content.confidence}` : "";
+        return `Decision: ${decision}${confidence}.`;
+    }
+    return truncate(flattenText(content), 190) || "Recorded step.";
+}
+
+function computeTrustState(manifest, context) {
+    if (context) {
+        if (context.signature_valid === false || context.integrity_ok === false) {
+            return {
+                label: "Tampered",
+                pillClass: "status-pill status-pill--bad",
+                detailTone: "detail-card detail-card--bad",
+                detail: context.mismatches_count
+                    ? `${context.mismatches_count} mismatch(es) detected during verification.`
+                    : "Verification failed.",
+            };
+        }
+        if (!context.has_signature && context.integrity_ok) {
+            return {
+                label: "Unsigned",
+                pillClass: "status-pill status-pill--warn",
+                detailTone: "detail-card detail-card--warn",
+                detail: "The artifact is unsigned, but the sealed files still match the manifest.",
+            };
+        }
+        if (context.signature_valid && context.integrity_ok) {
+            return {
+                label: "Signed",
+                pillClass: "status-pill status-pill--good",
+                detailTone: "detail-card detail-card--good",
+                detail: context.signer
+                    ? `Signature valid and integrity intact. Key: ${context.signer}.`
+                    : "Signature valid and integrity intact.",
+            };
+        }
+    }
+
+    if (manifest && manifest.signature) {
+        return {
+            label: "Signed",
+            pillClass: "status-pill status-pill--good",
+            detailTone: "detail-card detail-card--good",
+            detail: "A signature is present on this artifact.",
+        };
+    }
+
+    return {
+        label: "Unsigned",
+        pillClass: "status-pill status-pill--warn",
+        detailTone: "detail-card detail-card--warn",
+        detail: "No signature is present on this artifact.",
+    };
+}
+
+function deriveCaseSummary(manifest, steps, trustState) {
+    const startStep = steps.find((step) => step.kind === "session.start");
+    const receivedStep = steps.find((step) => (step.kind || "").includes("received"));
+    const decisionStep = steps.find((step) => (step.kind || "").toLowerCase().includes("decision"));
+
+    const title =
+        manifest.goal ||
+        (startStep && startStep.content && startStep.content.workflow_name) ||
+        "Execution Evidence";
+
+    const subtitleParts = [];
+    if (receivedStep && receivedStep.content && receivedStep.content.applicant) {
+        subtitleParts.push(receivedStep.content.applicant);
+    }
+    if (receivedStep && receivedStep.content && receivedStep.content.source) {
+        subtitleParts.push(`Source: ${receivedStep.content.source}`);
+    }
+    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
+        subtitleParts.push(`Decision: ${decisionStep.content.decision}`);
+    }
+
+    const kpis = [
+        ["Trust", trustState.label],
+        ["Steps", steps.length],
+    ];
+
+    if (receivedStep && receivedStep.content && receivedStep.content.loan_amount != null) {
+        kpis.push(["Amount", receivedStep.content.loan_amount]);
+    }
+    if (decisionStep && decisionStep.content && decisionStep.content.confidence != null) {
+        kpis.push(["Confidence", decisionStep.content.confidence]);
+    }
+    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
+        kpis.push(["Decision", decisionStep.content.decision]);
+    }
+
+    return {
+        title,
+        subtitle: subtitleParts.join(" | "),
+        kpis,
+    };
+}
+
+function renderTrustBadge(trustState) {
+    const host = document.getElementById("trust-badge");
+    if (!host) {
+        return;
+    }
+    host.innerHTML = `<span class="${trustState.pillClass}">${escapeHtml(trustState.label)}</span>`;
+}
+
+function renderGoalBanner(manifest) {
+    const host = document.getElementById("goal-banner");
+    if (!host) {
+        return;
+    }
+    if (!manifest.goal) {
+        host.hidden = true;
+        return;
+    }
+    host.hidden = false;
+    host.innerHTML = `
+        <div class="section-label">Recording Goal</div>
+        <p class="muted-text">${escapeHtml(manifest.goal)}</p>
+    `;
+}
+
+function renderSummary(summary, analysis, policy, review) {
+    const title = document.getElementById("case-title");
+    const subtitle = document.getElementById("case-subtitle");
+    const faultBanner = document.getElementById("fault-banner");
+    const notices = document.getElementById("summary-notices");
+    const kpis = document.getElementById("case-kpis");
+
+    if (title) {
+        title.textContent = summary.title;
+    }
+    if (subtitle) {
+        subtitle.textContent = summary.subtitle || "Portable execution evidence for offline review.";
+    }
+    if (faultBanner) {
+        if (analysis && analysis.primary_fault) {
+            const severity = (analysis.primary_fault.severity || "").toLowerCase();
+            const bannerClass = severity === "critical" || severity === "high"
+                ? "fault-banner fault-banner--critical"
+                : "fault-banner fault-banner--warning";
+            faultBanner.hidden = false;
+            faultBanner.className = bannerClass;
+            faultBanner.innerHTML = `
+                <div class="section-label">Primary Fault</div>
+                <h3 class="fault-banner__title">${escapeHtml(analysis.summary && analysis.summary.headline ? analysis.summary.headline : analysis.primary_fault.plain_english || "Potential fault detected")}</h3>
+                <p class="card__subtitle">${escapeHtml(analysis.primary_fault.why_it_matters || "This execution should be reviewed before it is trusted.")}</p>
+                <div class="fault-banner__meta">
+                    <span class="status-pill ${analysis.primary_fault.review_required ? "status-pill--bad" : "status-pill--warn"}">${analysis.primary_fault.review_required ? "Human review required" : "Review recommended"}</span>
+                    <span class="meta-pill"><span class="meta-pill__label">Severity</span><span>${escapeHtml(analysis.primary_fault.severity || "unknown")}</span></span>
+                    <span class="meta-pill"><span class="meta-pill__label">Category</span><span>${escapeHtml((analysis.primary_fault.category || "execution_risk").replaceAll("_", " "))}</span></span>
+                    <span class="meta-pill"><span class="meta-pill__label">Step</span><span>${escapeHtml(String(analysis.primary_fault.step_number || "?"))}</span></span>
                 </div>
+            `;
+        } else {
+            faultBanner.hidden = true;
+        }
+    }
+    if (notices) {
+        const items = [];
+        if (!analysis) {
+            items.push("No embedded fault analysis");
+        }
+        if (!policy) {
+            items.push("No embedded policy");
+        }
+        if (!review) {
+            items.push("No human review appended");
+        }
+        notices.hidden = items.length === 0;
+        notices.innerHTML = items.map((item) => `<span class="notice-pill">${escapeHtml(item)}</span>`).join("");
+    }
+    if (kpis) {
+        kpis.innerHTML = summary.kpis.map(([label, value]) => `
+            <div class="kpi-card">
+                <div class="kpi-label">${escapeHtml(label)}</div>
+                <div class="kpi-value">${escapeHtml(formatMetricValue(label, value))}</div>
             </div>
-        `;
+        `).join("");
+    }
+}
+
+function renderTrustSummary(manifest, context, trustState, analysis, policy) {
+    const host = document.getElementById("trust-summary");
+    if (!host) {
         return;
     }
 
-    await renderTrustBadge(data.manifest);
-    renderMetadata(data.manifest);  // New metadata section
-    renderManifest(data.manifest);
-    renderTimeline(data.steps);
+    const details = [
+        ["Artifact trust", trustState.label, trustState.detailTone],
+        ["Integrity", context ? (context.integrity_ok ? "Intact" : "Compromised") : "Unknown", context && context.integrity_ok === false ? "detail-card detail-card--bad" : "detail-card"],
+        ["Signature", context ? (context.has_signature ? "Present" : "Missing") : (manifest.signature ? "Present" : "Missing"), !manifest.signature && context && !context.has_signature ? "detail-card detail-card--warn" : "detail-card"],
+        ["Analysis", analysis ? "Embedded" : "Not embedded", analysis ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
+        ["Policy", policy ? "Embedded" : "Not embedded", policy ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
+    ];
+
+    host.innerHTML = `
+        <div class="${trustState.detailTone}">
+            <div class="detail-label">Trust state</div>
+            <div class="detail-value">${escapeHtml(trustState.detail)}</div>
+        </div>
+        ${details.map(([label, value, klass]) => `
+            <div class="${klass}">
+                <div class="detail-label">${escapeHtml(label)}</div>
+                <div class="detail-value">${escapeHtml(value)}</div>
+            </div>
+        `).join("")}
+    `;
 }
 
-// Run on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+function renderManifestFacts(manifest, context) {
+    const host = document.getElementById("manifest-facts");
+    if (!host) {
+        return;
+    }
+
+    const facts = [
+        ["Workflow ID", manifest.workflow_id || "Unavailable"],
+        ["Created", prettyDate(manifest.created_at)],
+        ["Spec Version", manifest.spec_version || "Unknown"],
+        ["Files in manifest", context ? String(context.files_checked) : String(Object.keys(manifest.file_manifest || {}).length)],
+        ["Public key", manifest.public_key ? truncate(manifest.public_key, 52) : "Unavailable"],
+        ["Signature", manifest.signature ? truncate(manifest.signature, 96) : "Missing"],
+    ];
+
+    host.innerHTML = facts.map(([label, value]) => `
+        <div class="detail-card">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value ${label === "Public key" || label === "Signature" ? "mono" : ""}">${escapeHtml(value)}</div>
+        </div>
+    `).join("");
+}
+
+function renderTimelineHighlights(steps) {
+    const host = document.getElementById("timeline-highlights");
+    if (!host) {
+        return;
+    }
+    const receivedStep = steps.find((step) => (step.kind || "").includes("received"));
+    const decisionStep = steps.find((step) => (step.kind || "").toLowerCase().includes("decision"));
+    const chips = [];
+
+    if (receivedStep && receivedStep.content && receivedStep.content.applicant) {
+        chips.push(["Applicant", receivedStep.content.applicant]);
+    }
+    if (receivedStep && receivedStep.content && receivedStep.content.loan_amount != null) {
+        chips.push(["Amount", formatNumber(receivedStep.content.loan_amount)]);
+    }
+    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
+        chips.push(["Decision", decisionStep.content.decision]);
+    }
+    if (decisionStep && decisionStep.content && decisionStep.content.confidence != null) {
+        chips.push(["Confidence", decisionStep.content.confidence]);
+    }
+
+    host.innerHTML = chips.map(([label, value]) => `
+        <span class="meta-pill">
+            <span class="meta-pill__label">${escapeHtml(label)}</span>
+            <span>${escapeHtml(String(value))}</span>
+        </span>
+    `).join("");
+}
+
+function getStepBadges(step, analysis) {
+    const badges = [
+        `<span class="timeline-badge timeline-badge--step">#${escapeHtml(step.index)}</span>`,
+        `<span class="timeline-badge timeline-badge--kind">${escapeHtml(step.kind || "unknown")}</span>`,
+    ];
+
+    if (!analysis) {
+        return badges;
+    }
+
+    const primary = analysis.primary_fault;
+    const secondary = analysis.secondary_flags || [];
+    if (primary && primary.step_index === step.index) {
+        badges.push('<span class="timeline-badge timeline-badge--fault">Primary fault</span>');
+    } else if (secondary.some((item) => item.step_index === step.index)) {
+        badges.push('<span class="timeline-badge timeline-badge--warn">Secondary flag</span>');
+    }
+
+    return badges;
+}
+
+function getTimelineVariant(step, analysis) {
+    if (!analysis) {
+        return "timeline-item";
+    }
+    const primary = analysis.primary_fault;
+    const secondary = analysis.secondary_flags || [];
+    if (primary && primary.step_index === step.index) {
+        return "timeline-item timeline-item--fault";
+    }
+    if (secondary.some((item) => item.step_index === step.index)) {
+        return "timeline-item timeline-item--secondary";
+    }
+    return "timeline-item";
+}
+
+function renderTimeline(steps, analysis) {
+    const host = document.getElementById("timeline");
+    const meta = document.getElementById("timeline-meta");
+    if (!host) {
+        return;
+    }
+
+    if (meta) {
+        meta.textContent = analysis
+            ? `${steps.length} steps captured. ${analysis.fault_detected ? "Fault analysis is embedded in this artifact." : "Embedded analysis found no fault."}`
+            : `${steps.length} steps captured. Raw evidence view.`;
+    }
+
+    renderTimelineHighlights(steps);
+
+    host.innerHTML = steps.map((step) => `
+        <article class="${getTimelineVariant(step, analysis)}" data-search="${escapeHtml(`${step.kind} ${flattenText(step.content)}`.toLowerCase())}" data-kind="${escapeHtml((step.kind || "").toLowerCase())}">
+            <div class="timeline-item__top">
+                <div class="timeline-item__left">${getStepBadges(step, analysis).join("")}</div>
+                <div class="timeline-item__time">${escapeHtml(prettyDate(step.timestamp))}</div>
+            </div>
+            <p class="timeline-item__summary">${escapeHtml(summarizeStep(step))}</p>
+            <div class="timeline-item__details">
+                <details>
+                    <summary>Show raw step data</summary>
+                    <pre>${escapeHtml(formatJson(step.content || {}))}</pre>
+                </details>
+            </div>
+        </article>
+    `).join("");
+}
+
+function renderAnalysis(analysis) {
+    const card = document.getElementById("analysis-card");
+    const host = document.getElementById("analysis-summary");
+    if (!card || !host) {
+        return;
+    }
+    if (!analysis) {
+        card.hidden = true;
+        return;
+    }
+
+    card.hidden = false;
+    const items = [
+        ["Fault detected", analysis.fault_detected ? "Yes" : "No"],
+    ];
+    if (analysis.summary && analysis.summary.headline) {
+        items.push(["Headline", analysis.summary.headline]);
+    }
+    if (analysis.primary_fault) {
+        items.push(["Primary finding", analysis.primary_fault.plain_english || "Unavailable"]);
+        items.push(["Why it matters", analysis.primary_fault.why_it_matters || "Review this run before trusting the outcome."]);
+        items.push(["Review required", analysis.primary_fault.review_required ? "Yes" : "Recommended"]);
+    }
+    if (analysis.secondary_flags && analysis.secondary_flags.length) {
+        items.push(["Secondary flags", analysis.secondary_flags.length]);
+    }
+    if (analysis.disclaimer) {
+        items.push(["Disclaimer", analysis.disclaimer]);
+    }
+
+    host.innerHTML = items.map(([label, value]) => `
+        <div class="detail-card">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value">${escapeHtml(String(value))}</div>
+        </div>
+    `).join("");
+}
+
+function renderPolicy(policy) {
+    const card = document.getElementById("policy-card");
+    const host = document.getElementById("policy-summary");
+    if (!card || !host) {
+        return;
+    }
+    if (!policy || !Array.isArray(policy.rules) || !policy.rules.length) {
+        card.hidden = true;
+        return;
+    }
+
+    card.hidden = false;
+    host.innerHTML = `
+        <div class="detail-card detail-card--good">
+            <div class="detail-label">Policy</div>
+            <div class="detail-value">${escapeHtml(policy.system_name || "Unknown")} v${escapeHtml(policy.system_version || "unknown")}</div>
+        </div>
+        ${policy.rules.map((rule) => `
+            <div class="detail-card">
+                <div class="detail-label">${escapeHtml(rule.id || "Rule")}</div>
+                <div class="detail-value">${escapeHtml(rule.name || rule.type || "Unnamed rule")}</div>
+            </div>
+        `).join("")}
+    `;
+}
+
+function renderReview(review) {
+    const card = document.getElementById("review-card");
+    const host = document.getElementById("review-summary");
+    if (!card || !host) {
+        return;
+    }
+    if (!review) {
+        card.hidden = true;
+        return;
+    }
+
+    card.hidden = false;
+    const primaryReview = review.reviews && review.reviews[0] ? review.reviews[0] : null;
+    const outcome = review.outcome || (primaryReview && primaryReview.outcome) || "Reviewed";
+    const reviewer = review.reviewed_by || review.reviewer || "Unknown reviewer";
+    const reviewedAt = review.reviewed_at || review.timestamp || null;
+    const notes = review.notes || (primaryReview && primaryReview.notes) || "No review notes provided.";
+
+    host.innerHTML = `
+        <div class="detail-card detail-card--good">
+            <div class="detail-label">Outcome</div>
+            <div class="detail-value">${escapeHtml(outcome)}</div>
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">Reviewed by</div>
+            <div class="detail-value">${escapeHtml(reviewer)}</div>
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">Reviewed at</div>
+            <div class="detail-value">${escapeHtml(prettyDate(reviewedAt))}</div>
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">Notes</div>
+            <div class="detail-value">${escapeHtml(notes)}</div>
+        </div>
+    `;
+}
+
+function applyFilters() {
+    const searchInput = document.getElementById("step-search");
+    const filterInput = document.getElementById("step-filter");
+    const items = Array.from(document.querySelectorAll(".timeline-item"));
+    if (!searchInput || !filterInput || !items.length) {
+        return;
+    }
+
+    const search = searchInput.value.trim().toLowerCase();
+    const filter = filterInput.value;
+
+    items.forEach((item) => {
+        const haystack = item.getAttribute("data-search") || "";
+        const kind = item.getAttribute("data-kind") || "";
+        const flagged = item.classList.contains("timeline-item--fault") || item.classList.contains("timeline-item--secondary");
+
+        const matchesSearch = !search || haystack.includes(search);
+        let matchesFilter = true;
+
+        if (filter === "flagged") {
+            matchesFilter = flagged;
+        } else if (filter === "decision") {
+            matchesFilter = kind.includes("decision");
+        } else if (filter === "llm") {
+            matchesFilter = kind.includes("llm");
+        } else if (filter === "errors") {
+            matchesFilter = kind.includes("error");
+        }
+
+        item.style.display = matchesSearch && matchesFilter ? "" : "none";
+    });
+}
+
+function init() {
+    const data = loadJsonScript("epi-data") || {};
+    const context = loadJsonScript("epi-view-context");
+    const manifest = data.manifest || {};
+    const steps = Array.isArray(data.steps) ? data.steps : [];
+    const analysis = data.analysis || null;
+    const policy = data.policy || null;
+    const review = data.review || null;
+
+    const trustState = computeTrustState(manifest, context);
+    const summary = deriveCaseSummary(manifest, steps, trustState);
+
+    renderTrustBadge(trustState);
+    renderGoalBanner(manifest);
+    renderSummary(summary, analysis, policy, review);
+    renderTrustSummary(manifest, context, trustState, analysis, policy);
+    renderManifestFacts(manifest, context);
+    renderTimeline(steps, analysis);
+    renderAnalysis(analysis);
+    renderPolicy(policy);
+    renderReview(review);
+
+    const searchInput = document.getElementById("step-search");
+    const filterInput = document.getElementById("step-filter");
+    if (searchInput) {
+        searchInput.addEventListener("input", applyFilters);
+    }
+    if (filterInput) {
+        filterInput.addEventListener("change", applyFilters);
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
 } else {
     init();
 }
-

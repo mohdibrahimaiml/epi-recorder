@@ -4,7 +4,7 @@ EPI CLI View - Open .epi file in browser viewer.
 Extracts the embedded viewer.html and opens it in the default browser.
 No code execution, all data is pre-rendered JSON.
 
-Features (v2.7.2):
+Features (v2.8.0):
   - Unicode-safe path handling via pathlib
   - Stem resolution picks most recent match
   - Temp directory auto-cleanup after browser loads
@@ -17,10 +17,14 @@ import threading
 import time
 import webbrowser
 import zipfile
+import json
 from pathlib import Path
 
 import typer
 from rich.console import Console
+
+from epi_core.container import EPIContainer
+from epi_core.trust import create_verification_report, get_signer_name, verify_signature
 
 console = Console()
 
@@ -124,18 +128,62 @@ def _open_in_browser(viewer_path: Path):
         print(f"   Open this file manually in your browser:")
         print(f"   {viewer_path}")
 
-def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 8.0) -> None:
+def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 30.0) -> None:
     """
     Remove a temp directory after a delay (gives browser time to load).
-    
-    Runs in a daemon thread so it doesn't block CLI exit.
+
+    Uses a non-daemon thread so the process stays alive long enough for the
+    browser to fully load the HTML file before cleanup, even when launched
+    from Windows Explorer via double-click (where the process would otherwise
+    exit immediately after opening the browser).
     """
     def _do_cleanup():
         time.sleep(delay_seconds)
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-    cleanup_thread = threading.Thread(target=_do_cleanup, daemon=True)
+    cleanup_thread = threading.Thread(target=_do_cleanup, daemon=False)
     cleanup_thread.start()
+
+
+def _build_viewer_context(epi_path: Path) -> dict:
+    """Build verification context for the extracted viewer."""
+    manifest = EPIContainer.read_manifest(epi_path)
+    integrity_ok, mismatches = EPIContainer.verify_integrity(epi_path)
+
+    signature_valid = None
+    signer_name = None
+    if manifest.signature:
+        signer_name = get_signer_name(manifest.signature)
+        if manifest.public_key:
+            try:
+                public_key_bytes = bytes.fromhex(manifest.public_key)
+            except ValueError:
+                import base64
+                public_key_bytes = base64.b64decode(manifest.public_key)
+            signature_valid, _ = verify_signature(manifest, public_key_bytes)
+        else:
+            signature_valid = False
+
+    report = create_verification_report(
+        integrity_ok=integrity_ok,
+        signature_valid=signature_valid,
+        signer_name=signer_name,
+        mismatches=mismatches,
+        manifest=manifest,
+    )
+    return report
+
+
+def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
+    """Inject verification context into extracted viewer.html."""
+    html = viewer_path.read_text(encoding="utf-8")
+    context_json = json.dumps(context, indent=2)
+    script_tag = f'<script id="epi-view-context" type="application/json">{context_json}</script>'
+    if "</body>" in html:
+        html = html.replace("</body>", f"{script_tag}\n</body>")
+    else:
+        html += script_tag
+    viewer_path.write_text(html, encoding="utf-8")
 
 
 def view(
@@ -187,6 +235,8 @@ def view(
         raise typer.Exit(1)
 
     try:
+        viewer_context = _build_viewer_context(resolved_path)
+
         with zipfile.ZipFile(resolved_path, "r") as zf:
             if "viewer.html" not in zf.namelist():
                 console.print(f"[red][X] This .epi file has no viewer.html.[/red]")
@@ -200,6 +250,7 @@ def view(
             zf.extract("viewer.html", temp_dir)
 
         viewer = temp_dir / "viewer.html"
+        _inject_viewer_context(viewer, viewer_context)
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
 

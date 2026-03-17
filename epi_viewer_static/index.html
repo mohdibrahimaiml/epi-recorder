@@ -1,107 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EPI Viewer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .chat-bubble {
-            max-width: 80%;
-        }
-
-        .step-card {
-            transition: all 0.2s;
-        }
-
-        .step-card:hover {
-            transform: translateX(4px);
-        }
-
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        .trust-badge {
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-    </style>
 </head>
-
-<body class="bg-gray-50">
-    <!-- EPI Data (injected at pack time) -->
+<body>
     <script id="epi-data" type="application/json">
     {
         "manifest": {},
-        "steps": []
+        "steps": [],
+        "analysis": null,
+        "policy": null,
+        "review": null
     }
     </script>
 
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">EPI Viewer</h1>
-                        <p class="text-sm text-gray-500">Evidence Packaged Infrastructure for AI Workflows</p>
-                    </div>
-                    <div id="trust-badge"></div>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar__inner">
+                <div class="brand-block">
+                    <div class="brand-block__eyebrow">Evidence Packaged Infrastructure for AI</div>
+                    <h1 class="brand-block__title">EPI Viewer</h1>
+                    <p class="brand-block__subtitle">Portable execution evidence with integrity, trust, and optional policy-grounded analysis.</p>
                 </div>
+                <div id="trust-badge" class="trust-badge"></div>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Sidebar: Manifest Summary -->
-                <div class="lg:col-span-1">
-                    <div class="bg-white rounded-lg shadow p-6 sticky top-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Manifest</h2>
-                        <div id="manifest-summary" class="space-y-3 text-sm"></div>
-                    </div>
-                </div>
+        <main class="page">
+            <section id="goal-banner" class="goal-banner" hidden></section>
 
-                <!-- Main: Timeline -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white rounded-lg shadow">
-                        <div class="border-b border-gray-200 px-6 py-4">
-                            <h2 class="text-lg font-semibold text-gray-900">Timeline</h2>
-                            <p class="text-sm text-gray-500 mt-1">Captured workflow steps</p>
+            <div class="layout">
+                <aside class="sidebar">
+                    <article class="card">
+                        <div class="section-label">Trust</div>
+                        <h2 class="card__title">Evidence Status</h2>
+                        <div id="trust-summary" class="card-stack"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="section-label">Manifest</div>
+                        <h2 class="card__title">Quick Facts</h2>
+                        <div id="manifest-facts" class="card-stack"></div>
+                    </article>
+
+                    <article id="analysis-card" class="card" hidden>
+                        <div class="section-label">Analyzer</div>
+                        <h2 class="card__title">Fault Analysis</h2>
+                        <div id="analysis-summary" class="card-stack"></div>
+                    </article>
+
+                    <article id="policy-card" class="card" hidden>
+                        <div class="section-label">Policy</div>
+                        <h2 class="card__title">Rules In Force</h2>
+                        <div id="policy-summary" class="card-stack"></div>
+                    </article>
+
+                    <article id="review-card" class="card" hidden>
+                        <div class="section-label">Human Review</div>
+                        <h2 class="card__title">Disposition</h2>
+                        <div id="review-summary" class="card-stack"></div>
+                    </article>
+                </aside>
+
+                <section class="content">
+                    <article class="card card--summary">
+                        <div class="section-label">Overview</div>
+                        <h2 id="case-title" class="card__title">Execution Evidence</h2>
+                        <p id="case-subtitle" class="card__subtitle"></p>
+                        <div id="fault-banner" class="fault-banner" hidden></div>
+                        <div id="summary-notices" class="notice-list" hidden></div>
+                        <div id="case-kpis" class="kpi-row"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="timeline-head">
+                            <div>
+                                <div class="section-label">Execution</div>
+                                <h2 class="card__title">Timeline</h2>
+                                <p id="timeline-meta" class="card__subtitle"></p>
+                            </div>
+                            <div class="timeline-controls">
+                                <input id="step-search" class="input" type="search" placeholder="Search steps or content">
+                                <select id="step-filter" class="input">
+                                    <option value="all">All steps</option>
+                                    <option value="flagged">Flagged</option>
+                                    <option value="decision">Decision</option>
+                                    <option value="llm">LLM</option>
+                                    <option value="errors">Errors</option>
+                                </select>
+                            </div>
                         </div>
-                        <div id="timeline" class="divide-y divide-gray-200"></div>
-                    </div>
-                </div>
+
+                        <div id="timeline-highlights" class="meta-strip"></div>
+                        <div id="timeline" class="timeline-list"></div>
+                    </article>
+                </section>
             </div>
         </main>
 
-        <!-- Footer -->
-        <footer class="mt-12 bg-white border-t border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-                EPI v2.7.1 | <span class="font-mono">application/epi+zip</span>
+        <footer class="footer">
+            <div class="footer__inner">
+                <span>EPI Viewer __EPI_VERSION__</span>
+                <span>Offline artifact viewer</span>
+                <span>application/epi+zip</span>
             </div>
         </footer>
     </div>
 
     <script src="app.js"></script>
 </body>
-
 </html>
-
- 

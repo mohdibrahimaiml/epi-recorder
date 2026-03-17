@@ -75,13 +75,19 @@ class TestShowHelp:
 # associate command
 # ─────────────────────────────────────────────────────────────
 
+_DIAG_PATCH = patch("epi_cli.main._print_association_diagnostics")
+_DIAG_STUB = {"status": "OK", "issues": [], "extension_progid": "EPIRecorder.File",
+               "registered_command": '"epi.exe" view "%1"', "user_choice": None}
+
+
 class TestAssociateCommand:
     def test_skips_when_not_needed(self):
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
-             patch("epi_core.platform.associate._needs_registration", return_value=False):
-            code = _call(associate, force=False)
+             patch("epi_core.platform.associate._needs_registration", return_value=False), \
+             _DIAG_PATCH:
+            code = _call(associate, force=False, system=False, elevated=False)
         assert code == 0
 
     def test_registers_when_needed(self):
@@ -89,8 +95,9 @@ class TestAssociateCommand:
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
              patch("epi_core.platform.associate._needs_registration", return_value=True), \
-             patch("epi_core.platform.associate.register_file_association", return_value=True):
-            code = _call(associate, force=False)
+             patch("epi_core.platform.associate.register_file_association", return_value=True), \
+             _DIAG_PATCH:
+            code = _call(associate, force=False, system=False, elevated=False)
         assert code == 0
 
     def test_exits_1_on_failure(self):
@@ -98,16 +105,31 @@ class TestAssociateCommand:
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
              patch("epi_core.platform.associate._needs_registration", return_value=True), \
-             patch("epi_core.platform.associate.register_file_association", return_value=False):
-            code = _call(associate, force=False)
+             patch("epi_core.platform.associate.register_file_association", return_value=False), \
+             _DIAG_PATCH:
+            code = _call(associate, force=False, system=False, elevated=False)
         assert code == 1
 
     def test_force_flag(self):
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
-             patch("epi_core.platform.associate.register_file_association", return_value=True):
-            code = _call(associate, force=True)
+             patch("epi_core.platform.associate.register_file_association", return_value=True), \
+             _DIAG_PATCH:
+            code = _call(associate, force=True, system=False, elevated=False)
+        assert code == 0
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+    def test_system_flag_elevated_writes_hklm(self):
+        """With --system --elevated (already admin), calls register_windows_system."""
+        from epi_cli.main import associate
+        mock_console = _mock_console()
+        with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.register_windows_system") as mock_sys_reg, \
+             patch("ctypes.windll.shell32.IsUserAnAdmin", return_value=True), \
+             _DIAG_PATCH:
+            code = _call(associate, force=False, system=True, elevated=True)
+        mock_sys_reg.assert_called_once()
         assert code == 0
 
 
@@ -321,9 +343,49 @@ class TestInitCommand:
 class TestMainCallback:
     def test_no_crash(self):
         from epi_cli.main import main_callback
+        ctx = MagicMock(invoked_subcommand="run")
         with patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
-             patch("epi_core.platform.associate.register_file_association", return_value=False):
-            main_callback(version=False)
+             patch("epi_cli.main._auto_repair_windows_association") as mock_repair:
+            main_callback(ctx=ctx, version=False)
+        mock_repair.assert_called_once()
+
+
+class TestAutoRepairWindowsAssociation:
+    def test_skips_non_windows(self):
+        from epi_cli.main import _auto_repair_windows_association
+        with patch("sys.platform", "linux"), \
+             patch("epi_core.platform.associate.register_file_association") as mock_register:
+            _auto_repair_windows_association(interactive=True, command_name="run")
+        mock_register.assert_not_called()
+
+    def test_skips_associate_command(self):
+        from epi_cli.main import _auto_repair_windows_association
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.register_file_association") as mock_register:
+            _auto_repair_windows_association(interactive=True, command_name="associate")
+        mock_register.assert_not_called()
+
+    def test_warns_when_registration_still_broken(self):
+        from epi_cli.main import _auto_repair_windows_association
+        mock_console = _mock_console()
+        diag = {"status": "BROKEN", "extension_progid": None, "issues": ["missing"]}
+        with patch("epi_cli.main.console", mock_console), \
+             patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.register_file_association", return_value=False), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
+            _auto_repair_windows_association(interactive=True, command_name="run")
+        assert mock_console.print.call_count >= 3
+
+    def test_prints_success_note_for_interactive_run_commands(self):
+        from epi_cli.main import _auto_repair_windows_association
+        mock_console = _mock_console()
+        diag = {"status": "OK", "extension_progid": "EPIRecorder.File", "issues": []}
+        with patch("epi_cli.main.console", mock_console), \
+             patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.register_file_association", return_value=True), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
+            _auto_repair_windows_association(interactive=True, command_name="view")
+        mock_console.print.assert_called_once()
 
 
 # ─────────────────────────────────────────────────────────────

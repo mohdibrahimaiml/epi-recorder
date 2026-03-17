@@ -1,10 +1,10 @@
-<p align="center">
+﻿<p align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
   <p align="center"><strong>The flight recorder for AI agents</strong></p>
   <p align="center">
-    <em>Capture, seal, and verify every decision your agents make — offline, tamper-proof, forever.</em>
+    <em>Capture, seal, and verify every decision your agents make - offline, tamper-proof, forever.</em>
   </p>
 </p>
 
@@ -20,10 +20,10 @@
 
 <p align="center">
   <strong>
-    <a href="#quick-start">Quick Start</a> · 
-    <a href="docs/EPI-SPEC.md">Specification</a> · 
-    <a href="docs/CLI.md">CLI Reference</a> · 
-    <a href="CHANGELOG.md">Changelog</a> · 
+    <a href="#quick-start">Quick Start</a> Â· 
+    <a href="docs/EPI-SPEC.md">Specification</a> Â· 
+    <a href="docs/CLI.md">CLI Reference</a> Â· 
+    <a href="CHANGELOG.md">Changelog</a> Â· 
     <a href="https://epilabs.org">Website</a>
   </strong>
 </p>
@@ -36,7 +36,7 @@ Production agents fail in ways traditional logging can't capture.
 
 A LangGraph agent processes 47 steps overnight. Step 31 makes a bad decision that cascades into failure. CloudWatch logs expired. You have no idea what the agent was "thinking."
 
-**EPI captures everything** — every prompt, every response, every tool call, every state transition — sealed into a single, portable, cryptographically signed file. Open it a year later. Debug it locally. Present it in an audit. No cloud required.
+**EPI captures everything** - every prompt, every response, every tool call, every state transition - sealed into a single, portable, cryptographically signed file. Open it a year later. Debug it locally. Present it in an audit. No cloud required.
 
 ```python
 pip install epi-recorder
@@ -63,45 +63,76 @@ with record("my_agent.epi"):
 
 **What gets captured:** full prompt & response, token usage & estimated cost, timestamps & model info, complete environment snapshot, and an Ed25519 signature.
 
+### Windows double-click support
+
+`.epi` files contain an embedded offline viewer, but Windows still needs an
+installed handler application to open them by double-click. For the best
+Windows experience, use the packaged installer so `.epi` is registered as a
+first-class file type.
+
+```text
+Recommended for Windows users:
+  install epi-setup-<version>.exe
+
+Developer path:
+  pip install epi-recorder
+  epi associate --system   # or: epi associate
+```
+
 ### Inspect the results
 
 ```bash
-epi view my_agent.epi    # Opens in browser — no login, no cloud, no internet
+epi view my_agent.epi    # Opens in browser - no login, no cloud, no internet
 epi verify my_agent.epi  # Cryptographic integrity check
 ```
 
 ---
 
-## 🛡️ New in v2.7.2 — Verification Reliability & CLI Polish
+## New in v2.8.0 - Policy-Grounded Fault Analysis and Windows File UX
 
-Critical bug fixes ensuring old `.epi` files verify correctly and the CLI behaves predictably in every case.
+This release makes EPI's policy and fault-analysis story real at runtime and further hardens the `.epi` desktop experience on Windows.
 
-- **Legacy Signature Compatibility**: `epi verify` and the built-in HTML viewer now handle both Hex (v2.7.x) and Base64 (pre-v2.7.1) encoded signatures. Old recordings no longer fail verification with cryptic errors.
-- **CLI Exit Code Fix**: `epi associate` now correctly exits `0` when the file association is already registered.
-- **Clean Verbose Output**: `epi verify --verbose` no longer prints a spurious Python traceback on tampered-file detection.
-- **Import Safety**: `import epi_recorder` no longer crashes when `pandas` is not installed.
+- **Full policy rule enforcement**: `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard` are all enforced by the analyzer.
+- **Sealed policy context**: `policy.json` and `analysis.json` are embedded into the artifact so later reviewers can see both the execution and the rules active at the time.
+- **Human review flow**: `epi review` turns flagged policy violations into a practical workflow with additive `review.json` records.
+- **Windows file-opening reliability**: the `.epi` handler now uses the repaired standalone launcher path, supports a custom `.epi` icon, and keeps a self-healing repair path for developer installs.
+- **Installer-first Windows UX**: the packaged installer remains the recommended path for normal users, with `epi associate` as the developer and repair fallback.
 
----
+### Practical workflow
+
+```text
+define policy -> run agent with EPI -> open .epi -> inspect analysis -> review flagged faults
+```
+
+Key commands:
+
+```bash
+epi policy init
+epi policy validate
+epi run my_agent.py
+epi view my_agent.epi
+epi review my_agent.epi
+```
 
 ## Framework Integrations (v2.6.0)
 
 EPI now plugs directly into the tools you already use. **Zero refactoring required.**
 
-### LiteLLM — 100+ Providers in One Line
+### LiteLLM - 100+ Providers in One Line
 
 ```python
 import litellm
 from epi_recorder.integrations.litellm import EPICallback
 
-litellm.callbacks = [EPICallback()]  # That's it — all calls are now recorded
+litellm.callbacks = [EPICallback()]  # That's it - all calls are now recorded
 
 response = litellm.completion(model="gpt-4", messages=[...])
 response = litellm.completion(model="claude-3-opus", messages=[...])
 response = litellm.completion(model="ollama/llama3", messages=[...])
-# Every call → signed .epi evidence
+# Every call â†’ signed .epi evidence
 ```
 
-### LangChain — Full Event Capture
+### LangChain - Full Event Capture
 
 ```python
 from langchain_openai import ChatOpenAI
@@ -112,7 +143,7 @@ result = llm.invoke("Analyze this contract for risk...")
 # Captures: LLM calls, tool invocations, chain steps, retriever queries, agent decisions
 ```
 
-### OpenAI Streaming — Real-Time Evidence
+### OpenAI Streaming - Real-Time Evidence
 
 ```python
 from epi_recorder import record, wrap_openai
@@ -130,7 +161,7 @@ with record("stream_demo.epi"):
 # Chunks yielded in real-time, assembled response logged with full token usage
 ```
 
-### pytest Plugin — Evidence per Test
+### pytest Plugin - Evidence per Test
 
 ```bash
 pip install epi-recorder
@@ -140,13 +171,13 @@ pytest --epi --epi-dir=evidence # Custom output directory
 
 ```
 ======================== EPI Evidence Summary ========================
-  ✓ test_auth_flow.epi (signed, 12 steps)
-  ✓ test_payment.epi (signed, 8 steps)
-  ✓ test_refund.epi (signed, 6 steps)
+  âœ“ test_auth_flow.epi (signed, 12 steps)
+  âœ“ test_payment.epi (signed, 8 steps)
+  âœ“ test_refund.epi (signed, 6 steps)
 ======================================================================
 ```
 
-### GitHub Action — CI/CD Verification
+### GitHub Action - CI/CD Verification
 
 ```yaml
 # .github/workflows/verify.yml
@@ -157,16 +188,16 @@ pytest --epi --epi-dir=evidence # Custom output directory
     fail-on-tampered: true
 ```
 
-### OpenTelemetry — Bridge to Existing Infra
+### OpenTelemetry - Bridge to Existing Infra
 
 ```python
 from epi_recorder.integrations.opentelemetry import setup_epi_tracing
 
 setup_epi_tracing(service_name="my-agent")
-# All OTel spans → signed .epi files automatically
+# All OTel spans â†’ signed .epi files automatically
 ```
 
-### Global Install — Record Everything
+### Global Install - Record Everything
 
 ```bash
 epi install --global    # All Python processes now auto-record
@@ -201,11 +232,11 @@ flowchart LR
 
 | Principle | How |
 |:----------|:----|
-| **Crash-safe** | SQLite WAL — no data loss, even if agents crash mid-execution |
+| **Crash-safe** | SQLite WAL - no data loss, even if agents crash mid-execution |
 | **Explicit capture** | Evidence is intentional and reviewable in code |
 | **Cryptographic proof** | Ed25519 signatures (RFC 8032) that can't be forged or backdated |
-| **Offline-first** | Zero cloud dependency — works in air-gapped environments |
-| **Framework-native** | Plugs into LiteLLM, LangChain, OpenTelemetry, pytest — no refactoring |
+| **Offline-first** | Zero cloud dependency - works in air-gapped environments |
+| **Framework-native** | Plugs into LiteLLM, LangChain, OpenTelemetry, pytest - no refactoring |
 
 ---
 
@@ -215,11 +246,11 @@ flowchart LR
 
 | Provider | Integration | Streaming |
 |:---------|:------------|:----------|
-| **OpenAI** | `wrap_openai()` | ✅ Real-time chunk capture |
-| **Anthropic** | `wrap_anthropic()` | ✅ |
-| **Google Gemini** | Explicit API | — |
-| **Ollama** (local) | `wrap_openai()` with local endpoint | ✅ |
-| **Any HTTP LLM** | `log_llm_call()` explicit API | — |
+| **OpenAI** | `wrap_openai()` | âœ… Real-time chunk capture |
+| **Anthropic** | `wrap_anthropic()` | âœ… |
+| **Google Gemini** | Explicit API | - |
+| **Ollama** (local) | `wrap_openai()` with local endpoint | âœ… |
+| **Any HTTP LLM** | `log_llm_call()` explicit API | - |
 
 ### Framework Integrations
 
@@ -228,7 +259,7 @@ flowchart LR
 | **LiteLLM** | `EPICallback` | 100+ providers, one line |
 | **LangChain** | `EPICallbackHandler` | LLM, tools, chains, retrievers, agents |
 | **LangGraph** | `EPICheckpointSaver` | Native checkpoint backend |
-| **OpenTelemetry** | `EPISpanExporter` | Span → .epi conversion |
+| **OpenTelemetry** | `EPISpanExporter` | Span â†’ .epi conversion |
 | **pytest** | `--epi` flag | Signed evidence per test |
 | **GitHub Actions** | `verify-epi` action | CI/CD pipeline verification |
 
@@ -305,12 +336,12 @@ An `.epi` file is a self-contained ZIP archive:
 
 ```
 my_agent.epi
-├── mimetype              # "application/epi+zip"
-├── manifest.json         # Metadata + Ed25519 signature + content hashes
-├── steps.jsonl           # Execution timeline (NDJSON)
-├── environment.json      # Runtime environment snapshot
-├── *.db                  # Crash-safe SQLite storage
-└── viewer.html           # Self-contained offline viewer (opens in any browser)
+â”œâ”€â”€ mimetype              # "application/epi+zip"
+â”œâ”€â”€ manifest.json         # Metadata + Ed25519 signature + content hashes
+â”œâ”€â”€ steps.jsonl           # Execution timeline (NDJSON)
+â”œâ”€â”€ environment.json      # Runtime environment snapshot
+â”œâ”€â”€ *.db                  # Crash-safe SQLite storage
+â””â”€â”€ viewer.html           # Self-contained offline viewer (opens in any browser)
 ```
 
 | Property | Detail |
@@ -319,7 +350,11 @@ my_agent.epi
 | **Hashing** | SHA-256 content addressing |
 | **Key Storage** | Local keyring, user-controlled |
 | **Verification** | Client-side, zero external dependencies |
-| **Viewer** | Embedded HTML — works offline forever |
+| **Viewer** | Embedded HTML - works offline forever |
+
+The embedded viewer is part of the artifact, but operating systems do not
+execute code from inside a file automatically. Double-click support requires a
+registered external handler such as the Windows installer or `epi associate`.
 
 See **[EPI Specification](docs/EPI-SPEC.md)** for technical details.
 
@@ -331,14 +366,14 @@ EPI is not an observability dashboard. It's a **durable execution artifact syste
 
 | | **EPI** | LangSmith | Arize | W&B |
 |:--|:--------|:----------|:------|:----|
-| **Works offline** | ✅ Air-gapped ready | ❌ Cloud required | ❌ Cloud required | ❌ Cloud required |
-| **Tamper-proof** | ✅ Ed25519 signatures | ❌ | ❌ | ❌ |
-| **Open format** | ✅ `.epi` spec | ❌ Proprietary | ❌ Proprietary | ❌ Proprietary |
-| **Agent state** | ✅ Full checkpoints | Traces only | Predictions only | Experiments only |
-| **Compliance** | ✅ EU AI Act, FDA, SEC | Limited | Limited | Not designed |
-| **Local LLMs** | ✅ Ollama, llama.cpp | ❌ | ❌ | ❌ |
-| **CI/CD native** | ✅ GitHub Action + pytest | ❌ | ❌ | ❌ |
-| **Framework hooks** | ✅ LiteLLM, LangChain, OTel | LangChain only | ❌ | ❌ |
+| **Works offline** | âœ… Air-gapped ready | âŒ Cloud required | âŒ Cloud required | âŒ Cloud required |
+| **Tamper-proof** | âœ… Ed25519 signatures | âŒ | âŒ | âŒ |
+| **Open format** | âœ… `.epi` spec | âŒ Proprietary | âŒ Proprietary | âŒ Proprietary |
+| **Agent state** | âœ… Full checkpoints | Traces only | Predictions only | Experiments only |
+| **Compliance** | âœ… EU AI Act, FDA, SEC | Limited | Limited | Not designed |
+| **Local LLMs** | âœ… Ollama, llama.cpp | âŒ | âŒ | âŒ |
+| **CI/CD native** | âœ… GitHub Action + pytest | âŒ | âŒ | âŒ |
+| **Framework hooks** | âœ… LiteLLM, LangChain, OTel | LangChain only | âŒ | âŒ |
 | **Cost** | **Free** (MIT) | $99+/mo | Custom | $50+/mo |
 
 > **EPI complements these tools.** Use LangSmith for live traces, EPI for durable evidence.
@@ -347,25 +382,25 @@ EPI is not an observability dashboard. It's a **durable execution artifact syste
 
 ## Use Cases
 
-### 🔧 Developer Workflow
+### ðŸ”§ Developer Workflow
 
 - Debug multi-step agent failures with full decision tree visibility
 - A/B test prompts and models with side-by-side `.epi` comparison
 - Track agent performance over time (success rates, costs, errors)
 - Replay production failures locally with Ollama
-- Share `.epi` files with teammates — they open in any browser
+- Share `.epi` files with teammates - they open in any browser
 
-### 🏢 Enterprise Compliance
+### ðŸ¢ Enterprise Compliance
 
-- **EU AI Act** — tamper-evident audit trails with cryptographic proof
-- **FDA / Healthcare** — signed decision records for AI-assisted diagnostics
-- **Financial services (SEC)** — litigation-grade evidence for automated trading
-- **Data governance** — automatic PII redaction with `security.redaction` steps
-- **Air-gapped deployment** — no internet required, ever
+- **EU AI Act** - tamper-evident audit trails with cryptographic proof
+- **FDA / Healthcare** - signed decision records for AI-assisted diagnostics
+- **Financial services (SEC)** - litigation-grade evidence for automated trading
+- **Data governance** - automatic PII redaction with `security.redaction` steps
+- **Air-gapped deployment** - no internet required, ever
 
-### 🔌 Works With
+### ðŸ”Œ Works With
 
-LangGraph · LangChain · LiteLLM · AutoGen · CrewAI · OpenTelemetry · pytest · GitHub Actions · Ollama · Any Python agent
+LangGraph Â· LangChain Â· LiteLLM Â· AutoGen Â· CrewAI Â· OpenTelemetry Â· pytest Â· GitHub Actions Â· Ollama Â· Any Python agent
 
 ---
 
@@ -392,10 +427,11 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
-| **2.7.2** | 2026-03-14 | **Verification reliability & CLI polish** — Legacy signature compatibility, analytics import safety, missing exports, CLI exit code fixes |
-| **2.7.1** | 2026-03-12 | **Decentralized trust & Self-healing** — Zero-config verification, OS registry self-repair, SQL integrity fixes, cryptographic symmetry |
-| **2.7.0** | 2026-03-11 | **Zero-friction desktop integration** — Double-click `.epi` files to open, cross-platform file association, Unicode path safety |
-| **2.6.0** | 2026-02-20 | **Framework integrations** — LiteLLM, LangChain, OpenTelemetry, pytest plugin, GitHub Action, streaming support, global install |
+| **2.8.0** | 2026-03-16 | **Policy-grounded fault analysis and Windows file UX** - Enforced threshold/prohibition policy rules, sealed policy + analysis workflow, stronger `.epi` opening and icon behavior |
+| **2.7.2** | 2026-03-14 | **Verification reliability & CLI polish** - Legacy signature compatibility, analytics import safety, missing exports, CLI exit code fixes |
+| **2.7.1** | 2026-03-12 | **Decentralized trust & Self-healing** - Zero-config verification, OS registry self-repair, SQL integrity fixes, cryptographic symmetry |
+| **2.7.0** | 2026-03-11 | **Zero-friction desktop integration** - Double-click `.epi` files to open, cross-platform file association, Unicode path safety |
+| **2.6.0** | 2026-02-20 | **Framework integrations** - LiteLLM, LangChain, OpenTelemetry, pytest plugin, GitHub Action, streaming support, global install |
 | **2.5.0** | 2026-02-13 | Anthropic Claude wrapper, path resolution fix |
 | **2.4.0** | 2026-02-12 | Agent Analytics, async/await, LangGraph, Ollama |
 | **2.3.0** | 2026-02-06 | Explicit API, wrapper clients |
@@ -409,17 +445,17 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.6.0):**
-- ✅ Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
-- ✅ CI/CD verification (GitHub Action, pytest plugin)
-- ✅ OpenAI streaming support
-- ✅ Global install for automatic recording
+**Current (v2.8.0):**
+- [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
+- [Done] CI/CD verification (GitHub Action, pytest plugin)
+- [Done] OpenAI streaming support
+- [Done] Global install for automatic recording
 
 **Next:**
-- 🔜 Time-travel debugging (step through any past run)
-- 🔜 Team collaboration features
-- 🔜 Managed cloud platform (optional)
-- 🔜 VS Code extension for `.epi` file viewing
+- [Planned] Time-travel debugging (step through any past run)
+- [Planned] Team collaboration features
+- [Planned] Managed cloud platform (optional)
+- [Planned] VS Code extension for `.epi` file viewing
 
 ---
 
@@ -441,7 +477,7 @@ We're looking for teams running agents in production.
 
 **You get:** priority support, free forever, custom integrations.
 
-**[Apply for Beta Access →](https://www.epilabs.org/contact.html)**
+**[Apply for Beta Access ->](https://www.epilabs.org/contact.html)**
 
 ---
 
@@ -460,13 +496,13 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.6.0** shipped Feb 2026
+**6,500+ downloads** in 10 weeks Â· **v2.6.0** shipped Feb 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
-> — ML Engineer, Fintech
+> - ML Engineer, Fintech
 
 > *"The LangGraph integration is killer. Zero config."*
-> — AI Platform Team Lead
+> - AI Platform Team Lead
 
 ---
 
@@ -478,3 +514,4 @@ MIT License. See **[LICENSE](./LICENSE)**.
   <strong>Built by <a href="https://epilabs.org">EPI Labs</a></strong><br>
   <em>Making AI agent execution verifiable.</em>
 </p>
+

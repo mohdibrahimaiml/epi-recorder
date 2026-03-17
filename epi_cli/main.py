@@ -34,7 +34,7 @@ Commands:
   chat       <file.epi>        Chat with evidence file using AI.
   debug      <file.epi>        Debug AI agent recordings for mistakes.
   global                       Install/uninstall global auto-recording.
-  associate                    Register .epi file type with the OS.
+  associate                    Register .epi file type with the OS. (Repair/fallback)
   init                         First-time setup wizard.
   doctor                       Self-healing system health check.
   help                         Show this quickstart.
@@ -49,6 +49,8 @@ Quickstart (first 30s):
   4) Open a recording: epi view my_script_20251121_231501
 
 Tips:
+  - Windows double-click support is best via the packaged installer.
+  - `epi associate` is the manual repair/fallback path for pip installs.
   - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
   - For scripts using the API, use @record decorator or with record(): no filenames needed.
 """,
@@ -62,8 +64,35 @@ Tips:
 console = Console()
 
 
+def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
+    """Best-effort Windows association repair for pip installs on first real use."""
+    import sys as _sys
+
+    if _sys.platform != "win32":
+        return
+
+    if command_name in {"associate", "unassociate", "help", "version"}:
+        return
+
+    from epi_core.platform.associate import get_association_diagnostics, register_file_association
+
+    register_file_association(silent=True)
+
+    diag = get_association_diagnostics()
+    if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
+        if interactive and command_name in {"run", "view", "ls", "init", "doctor"}:
+            console.print("[dim].epi double-click support checked on Windows.[/dim]")
+        return
+
+    if interactive:
+        console.print("[yellow][!][/yellow] Windows .epi double-click support is not fully registered yet.")
+        console.print("[dim]Run [cyan]epi associate[/cyan] to repair the per-user association.[/dim]")
+        console.print("[dim]For the most reliable Windows experience, use the packaged installer.[/dim]")
+
+
 @app.callback()
 def main_callback(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -76,17 +105,18 @@ def main_callback(
     """
     Main callback - runs before any command.
 
-    Implements frictionless first run by auto-generating default key pair
-    and registering .epi file association with the OS.
+    Implements frictionless first run by auto-generating a default key pair.
+    For pip installs we also try to register `.epi` as a convenience, but the
+    recommended Windows double-click path is the packaged installer.
     """
     import sys as _sys
     # Auto-generate default keypair if missing (frictionless first run)
     # Only print welcome message when running in an interactive terminal
-    generate_default_keypair_if_missing(console_output=_sys.stdout.isatty())
+    interactive = _sys.stdout.isatty()
+    generate_default_keypair_if_missing(console_output=interactive)
 
     # Auto-register .epi file association (idempotent — skips if already done)
-    from epi_core.platform.associate import register_file_association
-    register_file_association(silent=True)
+    _auto_repair_windows_association(interactive=interactive, command_name=ctx.invoked_subcommand)
 
 
 @app.command()
@@ -115,7 +145,7 @@ def show_help():
   [cyan]chat[/cyan]       <file.epi>        Chat with evidence file using AI.
   [cyan]debug[/cyan]      <file.epi>        Debug AI agent recordings for mistakes.
   [cyan]global[/cyan]                       Install/uninstall global auto-recording.
-  [cyan]associate[/cyan]                    Register .epi file type with the OS.
+  [cyan]associate[/cyan]                    Register .epi file type with the OS. (Repair/fallback)
   [cyan]init[/cyan]                         First-time setup wizard.
   [cyan]doctor[/cyan]                       Self-healing system health check.
   [cyan]help[/cyan]                         Show this quickstart.
@@ -130,6 +160,8 @@ def show_help():
   4) Open a recording: [green]epi view my_script_20251121_231501[/green]
 
 [bold]Tips:[/bold]
+  - Windows double-click support is best via the packaged installer.
+  - [cyan]epi associate[/cyan] is the manual repair/fallback path for pip installs.
   - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
   - For scripts using the API, use @record decorator or with record(): no filenames needed.
 """
@@ -186,20 +218,178 @@ app.add_typer(debug_app, name="debug", help="Debug AI agent recordings for mista
 from epi_cli.install import app as install_app
 app.add_typer(install_app, name="global", help="Install/uninstall EPI auto-recording globally")
 
+# NEW: fault intelligence commands (v2.8.0)
+from epi_cli.review import app as review_app
+app.add_typer(review_app, name="review", help="Review fault analysis results for a .epi artifact")
 
-# NEW: file association commands (v2.7.2)
+from epi_cli.policy import app as policy_app
+app.add_typer(policy_app, name="policy", help="Create and validate epi_policy.json rule files")
+
+
+@app.command()
+def analyze(
+    epi_file: str = typer.Argument(..., help="Path or name of .epi file"),
+):
+    """Show fault analysis summary without opening the viewer."""
+    import zipfile
+
+    from epi_cli.view import _resolve_epi_file
+
+    try:
+        epi_path = _resolve_epi_file(epi_file)
+    except FileNotFoundError:
+        console.print(f"[red][X] File not found:[/red] {epi_file}")
+        raise typer.Exit(1)
+
+    if not zipfile.is_zipfile(epi_path):
+        console.print(f"[red][X] Not a valid .epi file.[/red]")
+        raise typer.Exit(1)
+
+    with zipfile.ZipFile(epi_path, "r") as zf:
+        if "analysis.json" not in zf.namelist():
+            console.print(f"[yellow]No analysis.json in {epi_path.name}[/yellow]")
+            console.print("[dim]This artifact predates the Fault Intelligence layer.[/dim]")
+            raise typer.Exit(0)
+        import json
+        analysis = json.loads(zf.read("analysis.json").decode("utf-8"))
+
+    fault_detected = analysis.get("fault_detected", False)
+    mode = analysis.get("mode", "unknown")
+    coverage = analysis.get("coverage", {})
+
+    if fault_detected:
+        fault = analysis["primary_fault"]
+        sev = fault.get("severity", "").upper()
+        sev_color = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "blue"}.get(sev, "white")
+        console.print(f"\n[bold red]FAULT DETECTED[/bold red] — [bold]{epi_path.name}[/bold]")
+        console.print(f"  Severity:   [{sev_color}]{sev}[/{sev_color}]")
+        console.print(f"  Type:       {fault.get('fault_type')}")
+        if fault.get("rule_id"):
+            console.print(f"  Rule:       {fault['rule_id']} — {fault.get('rule_name', '')}")
+        console.print(f"  Step:       {fault.get('step_number')}")
+        console.print(f"\n  {fault.get('plain_english', '')}")
+
+        secondary = analysis.get("secondary_flags", [])
+        if secondary:
+            console.print(f"\n  [dim]{len(secondary)} secondary flag(s) — run [cyan]epi view[/cyan] to inspect[/dim]")
+
+        console.print(f"\n  [dim]Run: [cyan]epi review {epi_path.name}[/cyan] to confirm or dismiss[/dim]\n")
+    else:
+        console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
+        console.print(f"  Mode:       {mode}")
+        console.print(f"  Steps:      {coverage.get('steps_recorded', '?')} recorded, "
+                      f"{coverage.get('coverage_percentage', '?')}% coverage\n")
+
+
+# Windows file association commands
 @app.command()
 def associate(
     force: bool = typer.Option(False, "--force", help="Re-register even if already done"),
+    system: bool = typer.Option(
+        False, "--system",
+        help="Write to HKLM (system-wide, all users). Triggers UAC admin prompt. "
+             "Permanent — survives Windows updates and Python reinstalls."
+    ),
+    elevated: bool = typer.Option(False, "--elevated", hidden=True),  # internal flag
 ):
-    """Register .epi file type with the OS so double-clicking opens the viewer."""
-    from epi_core.platform.associate import register_file_association, _needs_registration
+    """Register .epi file type with the OS so double-clicking opens the viewer.
+
+    By default writes to HKCU (current user only). Use --system for a permanent,
+    system-wide association identical to what Docker and VS Code install.
+    """
+    import sys
+    from epi_core.platform.associate import (
+        register_file_association, _needs_registration, get_association_diagnostics,
+        register_windows_system, _elevate_and_register_system,
+    )
+
+    # ── System-wide (HKLM) path ────────────────────────────────────────────
+    if system and sys.platform == "win32":
+        import ctypes
+        if elevated or ctypes.windll.shell32.IsUserAnAdmin():
+            # Already elevated — write HKLM directly
+            try:
+                register_windows_system()
+                console.print("[green][OK][/green] .epi registered system-wide (HKLM). Double-click will work for all users.")
+                _print_association_diagnostics(console)
+            except Exception as e:
+                console.print(f"[red][FAIL][/red] {e}")
+                raise typer.Exit(1)
+        else:
+            # Not admin — trigger UAC elevation and re-launch
+            console.print("[yellow]→[/yellow] Requesting administrator privileges (UAC prompt)…")
+            try:
+                _elevate_and_register_system()
+                console.print("[green][OK][/green] Elevated process launched. Check the new window for results.")
+            except Exception as e:
+                console.print(f"[red][FAIL][/red] {e}")
+                raise typer.Exit(1)
+        return
+
+    # ── Per-user (HKCU) path ───────────────────────────────────────────────
     if not force and not _needs_registration():
         console.print("[green][OK][/green] .epi file association already registered.")
+        _print_association_diagnostics(console)
         return
+
     success = register_file_association(silent=False, force=force)
+
+    # Always show post-registration diagnostics so the user can see what was written
+    _print_association_diagnostics(console)
+
+    if sys.platform == "win32":
+        console.print()
+        console.print("[dim]Tip: for a permanent system-wide association (like Docker/VS Code):[/dim]")
+        console.print("[dim]  epi associate --system[/dim]")
+        console.print("[dim]  (triggers one UAC prompt, then works forever for all users)[/dim]")
+
     if not success:
         raise typer.Exit(1)
+
+
+def _print_association_diagnostics(console):
+    """Print a summary of the current file association state."""
+    import sys
+    from epi_core.platform.associate import get_association_diagnostics
+
+    if sys.platform != "win32":
+        return
+
+    diag = get_association_diagnostics()
+    console.print()
+
+    ext_progid = diag.get("extension_progid")
+    reg_cmd = diag.get("registered_command")
+    user_choice = diag.get("user_choice")
+    assoc_scope = diag.get("association_scope")
+
+    if ext_progid == "EPIRecorder.File":
+        console.print(f"  [green]✓[/green] .epi → {ext_progid}")
+    else:
+        console.print(f"  [red]✗[/red] .epi extension key: {ext_progid or 'MISSING'}")
+
+    if reg_cmd:
+        console.print(f"  [green]✓[/green] Open command: {reg_cmd}")
+    else:
+        console.print("  [red]✗[/red] Open command: MISSING")
+
+    if assoc_scope:
+        console.print(f"  [green]âœ“[/green] Association scope: {assoc_scope}")
+
+    if user_choice:
+        if user_choice == "EPIRecorder.File":
+            console.print(f"  [green]✓[/green] UserChoice: {user_choice}")
+        else:
+            console.print(f"  [yellow]⚠[/yellow]  UserChoice override: [bold]{user_choice}[/bold]")
+            console.print("     [dim]Windows is forcing this file type to open with another app.[/dim]")
+            console.print("     [dim]Use 'Open with' → 'Choose another app' to override.[/dim]")
+    else:
+        console.print("  [dim]  UserChoice: not set (Windows will use our registration)[/dim]")
+
+    if diag.get("issues"):
+        console.print()
+        for issue in diag["issues"]:
+            console.print(f"  [yellow]![/yellow] {issue}")
 
 
 @app.command()
