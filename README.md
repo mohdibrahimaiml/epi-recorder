@@ -23,6 +23,7 @@
     <a href="#quick-start">Quick Start</a> ·
     <a href="docs/EPI-SPEC.md">Specification</a> ·
     <a href="docs/CLI.md">CLI Reference</a> ·
+    <a href="docs/POLICY.md">Policy Guide</a> ·
     <a href="CHANGELOG.md">Changelog</a> ·
     <a href="https://epilabs.org">Website</a>
   </strong>
@@ -88,6 +89,15 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
+## New in v2.8.1 - Viewer Trust Fixes and Policy Clarifications
+
+This patch release hardens the embedded viewer and trust rendering path.
+
+- **Correct viewer trust states**: the viewer now receives trust context before app initialization, so `Signed`, `Unsigned`, and `Tampered` render correctly in the main viewer flow.
+- **Current viewer embedded in new artifacts**: newly generated `.epi` files now reliably carry the updated `v2.8.x` viewer template.
+- **Policy clarity**: `epi_policy.json` behavior is now documented more clearly, including where to store it and when it is loaded.
+- **Policy compatibility improvements**: `prohibition_guard` accepts both `pattern` and `prohibited_pattern`, and `threshold_guard` supports `watch_for` as a fallback field selector.
+
 ## New in v2.8.0 - Policy-Grounded Fault Analysis and Windows File UX
 
 This release makes EPI's policy and fault-analysis story real at runtime and further hardens the `.epi` desktop experience on Windows.
@@ -113,6 +123,27 @@ epi run my_agent.py
 epi view my_agent.epi
 epi review my_agent.epi
 ```
+
+### Where `epi_policy.json` goes
+
+Today, `epi_policy.json` should live in the same working directory where you run EPI.
+
+Example:
+
+```text
+loan-underwriting/
+  underwriter.py
+  epi_policy.json
+```
+
+```bash
+cd loan-underwriting
+epi run underwriter.py
+```
+
+EPI loads that file during packing, embeds it into the artifact as `policy.json`, and writes analyzer output as `analysis.json`.
+
+See [`docs/POLICY.md`](docs/POLICY.md) for the full explanation of how policy loading and fault analysis work.
 
 ## Framework Integrations (v2.6.0)
 
@@ -419,6 +450,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.1** | 2026-03-17 | **Viewer trust fixes and policy clarifications** - Correct `Signed` / `Unsigned` / `Tampered` rendering, embed the current viewer in new artifacts, and document `epi_policy.json` more clearly |
 | **2.8.0** | 2026-03-16 | **Policy-grounded fault analysis and Windows file UX** - Enforced threshold/prohibition policy rules, sealed policy + analysis workflow, stronger `.epi` opening and icon behavior |
 | **2.7.2** | 2026-03-14 | **Verification reliability & CLI polish** - Legacy signature compatibility, analytics import safety, missing exports, CLI exit code fixes |
 | **2.7.1** | 2026-03-12 | **Decentralized trust & Self-healing** - Zero-config verification, OS registry self-repair, SQL integrity fixes, cryptographic symmetry |
@@ -437,7 +469,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.0):**
+**Current (v2.8.1):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -488,7 +520,7 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.8.0** shipped Mar 2026
+**6,500+ downloads** in 10 weeks · **v2.8.1** shipped Mar 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
 > - ML Engineer, Fintech

@@ -697,9 +697,16 @@ class FaultAnalyzer:
         for rule in threshold_rules:
             if (
                 rule.threshold_value is None
-                or not rule.threshold_field
                 or not rule.required_action
             ):
+                continue
+
+            candidate_fields = []
+            if rule.threshold_field:
+                candidate_fields.append(rule.threshold_field)
+            if rule.watch_for:
+                candidate_fields.extend(rule.watch_for)
+            if not candidate_fields:
                 continue
 
             for i, step in enumerate(steps):
@@ -707,7 +714,11 @@ class FaultAnalyzer:
                 if not isinstance(content, dict):
                     continue
 
-                matched = _find_matching_numeric_field(content, rule.threshold_field)
+                matched = None
+                for candidate in candidate_fields:
+                    matched = _find_matching_numeric_field(content, candidate)
+                    if matched:
+                        break
                 if not matched:
                     continue
 

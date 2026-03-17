@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
 class PolicyRule(BaseModel):
@@ -43,7 +43,11 @@ class PolicyRule(BaseModel):
     required_action: Optional[str] = None
 
     # prohibition_guard: pattern that must never appear in output
-    prohibited_pattern: Optional[str] = None
+    prohibited_pattern: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("prohibited_pattern", "pattern"),
+        serialization_alias="prohibited_pattern",
+    )
 
     @field_validator("watch_for", mode="before")
     @classmethod

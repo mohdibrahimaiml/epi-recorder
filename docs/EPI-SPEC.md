@@ -1,15 +1,15 @@
-# EPI File Format Specification v2.8.0
+# EPI File Format Specification v2.8.1
 
 **Status:** Active  
 **Date:** 2026-03-17  
-**Version:** 2.8.0  
+**Version:** 2.8.1  
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.8.0.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.8.1.
 
 ---
 
@@ -18,7 +18,7 @@ The **Executable Package for AI (EPI)** format provides a standardized, portable
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable ZIP-based container.
 
-### 1.2 Key Features (v2.8.0)
+### 1.2 Key Features (v2.8.1)
 - **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -53,7 +53,7 @@ signatures/                 # Optional detached signatures
 ```
 
 Older historical docs may mention `env.json` or a `viewer/` directory. In
-`v2.8.0`, the canonical layout uses `environment.json` and a root
+`v2.8.1`, the canonical layout uses `environment.json` and a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -110,7 +110,7 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v2.8.0` is the current documented layout.
+- `v2.8.1` is the current documented layout.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Double-click behavior is an operating-system integration concern, not a property of the archive alone.
 
@@ -120,6 +120,7 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **2.8.0** | 2026-03-16 | **Current** | Policy-grounded fault analysis release. Enforced `threshold_guard` and `prohibition_guard`, sealed `analysis.json`/`policy.json` workflow, and stronger Windows installer/file-opening behavior. |
+| **2.8.1** | 2026-03-17 | **Current** | Viewer trust rendering fix, current viewer embedded in new artifacts, and policy compatibility/documentation cleanup. |
+| **2.8.0** | 2026-03-16 | Previous | Policy-grounded fault analysis release. Enforced `threshold_guard` and `prohibition_guard`, sealed `analysis.json`/`policy.json` workflow, and stronger Windows installer/file-opening behavior. |
 | **2.7.2** | 2026-03-14 | Previous | Bug fixes: legacy Base64 signature compatibility, CLI exit-code correctness, analytics import safety. No format changes from 2.7.1. |
 | **2.7.0** | 2026-03-11 | Previous | Zero-friction file opening, OS-level association work, and Unicode safety fixes. |

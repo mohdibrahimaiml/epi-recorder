@@ -18,6 +18,7 @@ import time
 import webbrowser
 import zipfile
 import json
+import re
 from pathlib import Path
 
 import typer
@@ -179,10 +180,14 @@ def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     html = viewer_path.read_text(encoding="utf-8")
     context_json = json.dumps(context, indent=2)
     script_tag = f'<script id="epi-view-context" type="application/json">{context_json}</script>'
-    if "</body>" in html:
-        html = html.replace("</body>", f"{script_tag}\n</body>")
+
+    existing_pattern = r'<script id="epi-view-context" type="application/json">.*?</script>'
+    if re.search(existing_pattern, html, flags=re.DOTALL):
+        html = re.sub(existing_pattern, script_tag, html, flags=re.DOTALL)
+    elif "</head>" in html:
+        html = html.replace("</head>", f"{script_tag}\n</head>")
     else:
-        html += script_tag
+        html = f"{script_tag}\n{html}"
     viewer_path.write_text(html, encoding="utf-8")
 
 

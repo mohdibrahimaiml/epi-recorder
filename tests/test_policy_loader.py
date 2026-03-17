@@ -160,6 +160,15 @@ class TestEPIPolicy:
         rule = policy.rules_of_type("prohibition_guard")[0]
         assert rule.prohibited_pattern is not None
 
+    def test_prohibition_guard_accepts_pattern_alias(self, tmp_path):
+        policy_data = {**FULL_POLICY, "rules": [{**FULL_POLICY["rules"][3], "pattern": r"sk-[A-Za-z0-9]+", "prohibited_pattern": None}]}
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(policy_data), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        rule = policy.rules_of_type("prohibition_guard")[0]
+        assert rule.prohibited_pattern == r"sk-[A-Za-z0-9]+"
+
     def test_watch_for_string_coerced_to_list(self, tmp_path):
         policy_data = {**FULL_POLICY, "rules": [{
             **FULL_POLICY["rules"][0],

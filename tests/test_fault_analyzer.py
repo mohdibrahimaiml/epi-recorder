@@ -141,6 +141,26 @@ def _make_policy_with_threshold():
     )
 
 
+def _make_policy_with_threshold_watch_for_only():
+    return EPIPolicy(
+        system_name="test",
+        system_version="1.0",
+        policy_version="2025-01-01",
+        rules=[
+            PolicyRule(
+                id="R011",
+                name="Large Transaction Approval",
+                severity="high",
+                description="Amounts above 10k require human approval.",
+                type="threshold_guard",
+                threshold_value=10000,
+                watch_for=["amount"],
+                required_action="human_approval",
+            )
+        ],
+    )
+
+
 def _make_policy_with_prohibition():
     return EPIPolicy(
         system_name="test",
@@ -306,6 +326,15 @@ class TestPass4ThresholdViolation:
         all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
         threshold_flags = [f for f in all_flags if f and f.rule_id == "R010"]
         assert len(threshold_flags) == 0
+
+    def test_detects_threshold_violation_when_rule_uses_watch_for_only(self):
+        policy = _make_policy_with_threshold_watch_for_only()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(THRESHOLD_VIOLATION_STEPS)
+        assert result.fault_detected
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        threshold_flags = [f for f in all_flags if f and f.rule_id == "R011"]
+        assert len(threshold_flags) > 0
 
 
 class TestPass5ProhibitionViolation:

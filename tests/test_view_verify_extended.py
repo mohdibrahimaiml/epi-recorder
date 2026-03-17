@@ -132,6 +132,40 @@ class TestOpenInBrowserFallback:
         assert "Could not open" in captured.out or True  # no crash is the main check
 
 
+class TestViewerContextInjection:
+    def test_inject_replaces_placeholder_in_head(self, tmp_path):
+        from epi_cli.view import _inject_viewer_context
+
+        viewer = tmp_path / "viewer.html"
+        viewer.write_text(
+            "<html><head><script id=\"epi-view-context\" type=\"application/json\">{}</script></head>"
+            "<body><script>window.appLoaded = true;</script></body></html>",
+            encoding="utf-8",
+        )
+
+        _inject_viewer_context(viewer, {"integrity_ok": False, "signature_valid": False})
+
+        html = viewer.read_text(encoding="utf-8")
+        assert '"integrity_ok": false' in html
+        assert '"signature_valid": false' in html
+        assert html.index('id="epi-view-context"') < html.index("window.appLoaded")
+
+    def test_inject_adds_context_before_head_close_when_missing(self, tmp_path):
+        from epi_cli.view import _inject_viewer_context
+
+        viewer = tmp_path / "viewer.html"
+        viewer.write_text(
+            "<html><head></head><body><script>window.appLoaded = true;</script></body></html>",
+            encoding="utf-8",
+        )
+
+        _inject_viewer_context(viewer, {"integrity_ok": True, "signature_valid": True})
+
+        html = viewer.read_text(encoding="utf-8")
+        assert 'id="epi-view-context"' in html
+        assert html.index('id="epi-view-context"') < html.index("window.appLoaded")
+
+
 # ─────────────────────────────────────────────────────────────
 # verify_command verbose + signature paths
 # ─────────────────────────────────────────────────────────────
