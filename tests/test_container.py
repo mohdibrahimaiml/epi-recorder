@@ -348,6 +348,7 @@ class TestEPIContainer:
         assert "viewer_lite.css" not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert "Evidence Packaged Infrastructure for AI" in viewer_html
+        assert "No execution data recorded" in viewer_html
     
     def test_embedded_viewer_with_invalid_json_in_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer handles invalid JSON in steps.jsonl gracefully."""

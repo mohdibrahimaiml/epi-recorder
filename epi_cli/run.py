@@ -1,14 +1,14 @@
 """
-EPI CLI Run - Zero-config recording command.
+EPI CLI Run - Record an already-instrumented Python workflow.
 
 Usage:
   epi run script.py
 
 This command:
 - Auto-generates output filename in ./epi-recordings/
-- Records the script execution
+- Executes the script with EPI recording environment variables
 - Verifies the recording
-- Opens the viewer automatically
+- Opens the viewer automatically when meaningful evidence was captured
 """
 
 import shlex
@@ -33,7 +33,7 @@ from epi_recorder.environment import save_environment_snapshot
 
 console = Console()
 
-app = typer.Typer(name="run", help="Zero-config recording: epi run my_script.py")
+app = typer.Typer(name="run", help="Record a Python workflow that already emits EPI steps.")
 
 DEFAULT_DIR = Path("epi-recordings")
 
@@ -90,6 +90,22 @@ def _verify_recording(epi_file: Path) -> tuple[bool, str]:
         return False, f"Verification failed: {e}"
 
 
+def _count_recorded_steps(workspace: Path) -> int:
+    """Count execution steps from the live recording workspace."""
+    timeline_path = workspace / "steps.jsonl"
+    if not timeline_path.exists():
+        return 0
+
+    try:
+        content = timeline_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return 0
+
+    if not content:
+        return 0
+    return len([line for line in content.splitlines() if line.strip()])
+
+
 def _open_viewer(epi_file: Path) -> bool:
     """
     Open the viewer for the recording.
@@ -144,7 +160,7 @@ def run(
     tag: Optional[List[str]] = typer.Option(None, "--tag", help="Tags for categorizing this workflow (can be used multiple times)"),
 ):
     """
-    Zero-config recording: record + verify + view.
+    Record + verify + view for a script that already emits EPI steps.
     
     Interactive:
         epi run  (Selects script from list)
@@ -301,19 +317,15 @@ def run(
     # Package into .epi
     EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
     
-    # Count recorded steps and warn if suspiciously low
-    import json as _json
-    timeline_path = temp_workspace / "steps.jsonl"
-    step_count = 0
-    if timeline_path.exists():
-        try:
-            content = timeline_path.read_text(encoding="utf-8").strip()
-            step_count = len([ln for ln in content.split("\n") if ln.strip()])
-            if step_count <= 2:  # only session.start / session.end
-                console.print("\n[bold yellow][!] Warning: No AI steps recorded![/bold yellow]")
-                console.print("[dim]Make sure your script calls an LLM or HTTP endpoint.[/dim]\n")
-        except Exception:
-            pass
+    step_count = _count_recorded_steps(temp_workspace)
+    empty_recording = step_count == 0
+    if empty_recording:
+        console.print("\n[bold red][X] No steps recorded.[/bold red]")
+        console.print("[dim]EPI was not attached to this script, so the artifact is only useful for debugging.[/dim]")
+        console.print("[dim]Fix: use [cyan]from epi_recorder import record[/cyan] or a supported integration.[/dim]\n")
+    elif step_count <= 2:
+        console.print("\n[bold yellow][!] Warning: Very little execution data was recorded.[/bold yellow]")
+        console.print("[dim]Make sure your workflow emits meaningful EPI steps, not just setup/teardown.[/dim]\n")
 
     # Verify
     verified = False
@@ -323,7 +335,7 @@ def run(
 
     # Open viewer
     viewer_opened = False
-    if not no_open and rc == 0 and verified:
+    if not no_open and rc == 0 and verified and not empty_recording:
         viewer_opened = _open_viewer(out)
 
     # Build summary panel
@@ -332,32 +344,52 @@ def run(
 
     lines = []
     lines.append(f"[bold]Saved:[/bold]    {out.resolve()}")
-    lines.append(f"[bold]Size:[/bold]     {size_str}   [dim]({step_count} steps  •  {duration}s)[/dim]")
+    step_style = "red" if empty_recording else "yellow" if step_count <= 2 else "dim"
+    lines.append(f"[bold]Size:[/bold]     {size_str}   [{step_style}]({step_count} steps  •  {duration}s)[/{step_style}]")
+    if empty_recording:
+        lines.append("[bold red]Status:[/bold red]   Recording incomplete - no execution data was captured")
+        lines.append("[dim]Use this artifact only for debugging the failed recording path.[/dim]")
 
     if not no_verify:
         if verified:
-            lines.append(f"[bold]Verified:[/bold] [green]{verify_msg}[/green]")
+            verify_color = "yellow" if empty_recording else "green"
+            lines.append(f"[bold]Verified:[/bold] [{verify_color}]{verify_msg}[/{verify_color}]")
         else:
             lines.append(f"[bold]Verified:[/bold] [red]{verify_msg}[/red]")
 
     if viewer_opened:
         lines.append(f"[bold]Viewer:[/bold]   [green]Opened in browser[/green]")
     elif not no_open:
-        lines.append(f"[bold]Viewer:[/bold]   [yellow]Could not open automatically[/yellow]")
+        if empty_recording:
+            lines.append("[bold]Viewer:[/bold]   [yellow]Skipped - no meaningful execution data was captured[/yellow]")
+        else:
+            lines.append(f"[bold]Viewer:[/bold]   [yellow]Could not open automatically[/yellow]")
 
     lines.append(f"\n[dim]  epi view {out.stem}    epi verify {out.stem}    epi ls[/dim]")
+    if empty_recording:
+        lines.append("[dim]  Next step: instrument your script with record() and run it again.[/dim]")
 
-    title = "[bold green]Recording complete[/bold green]" if rc == 0 else "[bold yellow]Recording finished with errors[/bold yellow]"
+    if empty_recording:
+        title = "[bold red]Recording captured no execution data[/bold red]"
+        border_style = "red"
+    elif rc == 0:
+        title = "[bold green]Recording complete[/bold green]"
+        border_style = "green"
+    else:
+        title = "[bold yellow]Recording finished with errors[/bold yellow]"
+        border_style = "yellow"
     panel = Panel(
         "\n".join(lines),
         title=title,
-        border_style="green" if rc == 0 else "yellow",
+        border_style=border_style,
     )
     console.print(panel)
     
     # Exit with appropriate code
     if rc != 0:
         raise typer.Exit(rc)
+    if empty_recording:
+        raise typer.Exit(1)
     if not verified and not no_verify:
         raise typer.Exit(1)
     raise typer.Exit(0)

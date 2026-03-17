@@ -24,7 +24,7 @@ app = typer.Typer(
 Cryptographic proof of what Autonomous AI Systems actually did.
 
 Commands:
-  run        <script.py>       Record, auto-verify and open viewer. (Zero-config)
+  run        <script.py>       Record a Python workflow that already emits EPI steps.
   record     --out <file.epi> -- <cmd...>
                                Advanced: record any command, exact output file.
   verify     <file.epi>        Verify a recording's integrity.
@@ -41,18 +41,18 @@ Commands:
 
 Quickstart (first 30s):
   1) Install: pip install epi-recorder
-  2) Record (simplest): epi run my_script.py
-     -> Saved: ./epi-recordings/my_script_20251121_231501.epi
-     -> Verified: OK
-     -> Viewer: opened in browser
-  3) See recordings: epi ls
-  4) Open a recording: epi view my_script_20251121_231501
+  2) Add EPI to your script:
+     -> from epi_recorder import record
+     -> with record("my_script.epi"): ...
+  3) Run your script normally: python my_script.py
+  4) Open the artifact: epi view my_script.epi
 
 Tips:
   - Windows double-click support is best via the packaged installer.
   - `epi associate` is the manual repair/fallback path for pip installs.
+  - `epi run my_script.py` is best for scripts that already emit EPI steps.
   - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
-  - For scripts using the API, use @record decorator or with record(): no filenames needed.
+  - For guaranteed evidence capture, use @record or `with record(...)`.
 """,
     add_completion=False,
     no_args_is_help=True,
@@ -135,7 +135,7 @@ def show_help():
 [bold]Usage:[/bold] epi <command> [options]
 
 [bold]Commands:[/bold]
-  [cyan]run[/cyan]        <script.py>       Record, auto-verify and open viewer. (Zero-config)
+  [cyan]run[/cyan]        <script.py>       Record a Python workflow that already emits EPI steps.
   [cyan]record[/cyan]     --out <file.epi> -- <cmd...>
                              Advanced: record any command, exact output file.
   [cyan]verify[/cyan]     <file.epi>        Verify a recording's integrity.
@@ -152,18 +152,16 @@ def show_help():
 
 [bold]Quickstart (first 30s):[/bold]
   1) Install: pip install epi-recorder
-  2) Record (simplest): [green]epi run my_script.py[/green]
-     -> Saved: ./epi-recordings/my_script_20251121_231501.epi
-     -> Verified: OK
-     -> Viewer: opened in browser
-  3) See recordings: [green]epi ls[/green]
-  4) Open a recording: [green]epi view my_script_20251121_231501[/green]
+  2) Instrument your script: [green]from epi_recorder import record[/green]
+  3) Run it normally: [green]python my_script.py[/green]
+  4) Open the artifact: [green]epi view my_script.epi[/green]
 
 [bold]Tips:[/bold]
   - Windows double-click support is best via the packaged installer.
   - [cyan]epi associate[/cyan] is the manual repair/fallback path for pip installs.
+  - [cyan]epi run my_script.py[/cyan] is best for scripts that already emit EPI steps.
   - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
-  - For scripts using the API, use @record decorator or with record(): no filenames needed.
+  - For guaranteed evidence capture, use @record or with record(...).
 """
     console.print(help_text)
 
@@ -173,7 +171,7 @@ def show_help():
 
 # NEW: run command (zero-config) - direct import
 from epi_cli.run import run as run_command
-app.command(name="run", help="Record, auto-verify and open viewer. (Zero-config)")(run_command)
+app.command(name="run", help="Record a Python workflow that already emits EPI steps.")(run_command)
 
 # Phase 1: verify command
 from epi_cli.verify import verify_command
@@ -257,6 +255,10 @@ def analyze(
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
 
+    steps_recorded = coverage.get("steps_recorded")
+    if steps_recorded is None:
+        steps_recorded = 0
+
     if fault_detected:
         fault = analysis["primary_fault"]
         sev = fault.get("severity", "").upper()
@@ -275,10 +277,17 @@ def analyze(
 
         console.print(f"\n  [dim]Run: [cyan]epi review {epi_path.name}[/cyan] to confirm or dismiss[/dim]\n")
     else:
-        console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
-        console.print(f"  Mode:       {mode}")
-        console.print(f"  Steps:      {coverage.get('steps_recorded', '?')} recorded, "
-                      f"{coverage.get('coverage_percentage', '?')}% coverage\n")
+        if steps_recorded == 0:
+            console.print(f"\n[yellow][!][/yellow] [bold]{epi_path.name}[/bold] — No data to analyze")
+            console.print(f"  Mode:       {mode}")
+            console.print("  Steps:      0 recorded")
+            console.print("  Analysis:   Skipped meaningful fault review because no execution steps were captured")
+            console.print("\n  [dim]Fix: instrument the workflow with record() or a supported integration, then rerun it.[/dim]\n")
+        else:
+            console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
+            console.print(f"  Mode:       {mode}")
+            console.print(f"  Steps:      {steps_recorded} recorded, "
+                          f"{coverage.get('coverage_percentage', '?')}% coverage\n")
 
 
 # Windows file association commands
@@ -447,7 +456,7 @@ def init(
     no_open: bool = typer.Option(False, "--no-open", help="Don't open viewer automatically (for testing)")
 ):
     """
-    [Wizard] First-time setup wizard! Creates keys, demo script, and runs it.
+    [Wizard] First-time setup wizard. Creates keys, an instrumented demo script, and runs it.
     """
     console.print("\n[bold magenta]EPI Setup Wizard[/bold magenta]\n")
 
@@ -463,24 +472,33 @@ def init(
     console.print(f"2. [dim]Creating demo script '{demo_filename}'...[/dim]", end=" ")
     script_content = '''# Welcome to EPI!
 
-import time
+from pathlib import Path
 
-print("="*40)
+from epi_recorder import record
+
+
+output_file = Path("epi_demo.epi")
+
+print("=" * 40)
 print("   Hello from your first EPI recording!")
-print("="*40)
+print("=" * 40)
 
-print("\\n1. Doing some math...")
-result = 123 * 456
-print(f"   123 * 456 = {result}")
+with record(str(output_file), workflow_name="EPI Setup Demo", goal="Create a meaningful first EPI artifact") as epi:
+    print("\\n1. Doing some math...")
+    result = 123 * 456
+    epi.log_step("CALCULATION", {"expression": "123 * 456", "result": result})
+    print(f"   123 * 456 = {result}")
 
-print("\\n2. Creating a file...")
-with open("epi_hello.txt", "w", encoding="utf-8") as f:
-    f.write(f"Calculation result: {result}")
-print("   Saved 'epi_hello.txt'")
+    print("\\n2. Creating a file...")
+    hello_path = Path("epi_hello.txt")
+    hello_path.write_text(f"Calculation result: {result}\\n", encoding="utf-8")
+    epi.log_step("FILE_WRITE", {"path": str(hello_path), "bytes_written": hello_path.stat().st_size})
+    print("   Saved 'epi_hello.txt'")
 
-print("\\n3. Finishing up...")
-time.sleep(0.5)
-print("[OK] Done! Now check the browser!")
+    print("\\n3. Summarizing the work...")
+    epi.log_step("SUMMARY", {"status": "complete", "artifacts": [str(hello_path)]})
+
+print(f"\\n[OK] Done! Created {output_file}")
 '''
     import os
     if not os.path.exists(demo_filename):
@@ -492,18 +510,15 @@ print("[OK] Done! Now check the browser!")
 
     # 3. Running
     console.print("\n3. [bold cyan]Running the demo now...[/bold cyan]\n")
-    
-    # Call run command programmatically
-    # We use subprocess to keep it clean separate process
+
+    # Run the instrumented demo directly so the user gets a meaningful artifact.
     import subprocess
     import sys
-    cmd = [sys.executable, "-m", "epi_cli.main", "run", demo_filename]
-    if no_open:
-        cmd.append("--no-open")
-    subprocess.run(cmd)
+    subprocess.run([sys.executable, demo_filename], check=False)
 
     console.print("\n[bold green]You are all set![/bold green]")
-    console.print(f"[dim]Next time just run:[/dim] epi run {demo_filename}")
+    console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
+    console.print("[dim]Open the artifact with:[/dim] epi view epi_demo.epi")
 
 
 @app.command()

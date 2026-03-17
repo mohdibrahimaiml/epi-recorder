@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.1)
+# EPI CLI Reference (v2.8.2)
 
-**Version:** 2.8.1  
+**Version:** 2.8.2  
 **Primary entrypoint:** `epi`
 
 ---
@@ -9,7 +9,7 @@
 
 | Command | Purpose |
 | --- | --- |
-| `epi run <script.py>` | Record a Python workflow and produce a `.epi` artifact. |
+| `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open an artifact in the embedded viewer flow. |
 | `epi verify <file.epi>` | Verify artifact integrity and signature state. |
@@ -26,7 +26,7 @@
 
 ## `epi run <script.py>`
 
-The simplest way to use EPI.
+Use this when the script already emits EPI steps.
 
 ```bash
 epi run my_agent.py
@@ -34,9 +34,13 @@ epi run my_agent.py
 
 Typical outcome:
 - runs the script
-- records the workflow
+- records the workflow if EPI steps are actually emitted
 - seals a `.epi` artifact
 - performs analysis before sealing
+
+Important:
+- for guaranteed evidence capture, use `from epi_recorder import record` or a supported integration
+- if no execution steps are captured, `epi run` now exits non-zero and tells you how to fix the script
 
 ---
 
@@ -95,7 +99,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.1`, the analyzer enforces:
+In `v2.8.2`, the analyzer enforces:
 - `constraint_guard`
 - `sequence_guard`
 - `threshold_guard`

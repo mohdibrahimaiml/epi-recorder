@@ -260,7 +260,7 @@ class TestVersionConsistency:
     def test_epi_core_version(self):
         """epi_core.__version__ should match the current release."""
         from epi_core import __version__
-        assert __version__ == "2.8.1"
+        assert __version__ == "2.8.2"
 
     def test_pyproject_version_matches(self):
         """pyproject.toml version should match epi_core.__version__."""

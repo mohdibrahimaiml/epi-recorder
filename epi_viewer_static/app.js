@@ -254,6 +254,9 @@ function renderSummary(summary, analysis, policy, review) {
     }
     if (notices) {
         const items = [];
+        if (summary && summary.kpis && summary.kpis.some(([label, value]) => label === "Steps" && Number(value) === 0)) {
+            items.push("No execution data recorded — this artifact cannot support meaningful fault analysis");
+        }
         if (!analysis) {
             items.push("No embedded fault analysis");
         }

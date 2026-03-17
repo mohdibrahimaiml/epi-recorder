@@ -105,6 +105,15 @@ class TestLsCallback:
         # At minimum, "No recordings found" is printed
         mock_console.print.assert_called()
 
+    def test_empty_ls_mentions_scope(self, tmp_path):
+        from epi_cli.ls import ls
+        mock_console = _mock_console()
+        with patch("epi_cli.ls.DEFAULT_DIR", tmp_path / "nonexistent"), \
+             patch("epi_cli.ls.console", mock_console):
+            ls()
+        printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+        assert "./epi-recordings/" in printed
+
 
 # ─────────────────────────────────────────────────────────────
 # debug callback tests (mocked MistakeDetector)

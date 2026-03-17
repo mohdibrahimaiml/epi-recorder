@@ -1,6 +1,10 @@
-# Investor Demo: Policy, Fault Analysis, and Review
+# Investor Demo: 3-Minute Live Screenshare
 
-This demo is the most practical way to show EPI's policy and fault-analysis story to an investor.
+This demo is the fastest practical way to show EPI's policy, fault-analysis, and trust story to an investor.
+
+The one takeaway is:
+
+**EPI shows where the AI went wrong, proves it with portable evidence, and makes tampering obvious.**
 
 It demonstrates:
 
@@ -10,6 +14,7 @@ It demonstrates:
 - policy-grounded violations
 - heuristic observations
 - human review workflow via `epi review`
+- visible trust break when an artifact is tampered with
 
 ## What this demo triggers
 
@@ -27,7 +32,17 @@ The demo intentionally creates:
 - `epi_policy.json` - the active policy used during the run
 - `investor_fault_demo.py` - scripted workflow that produces a realistic faulty trace
 
-## How a normal user would run it
+## Demo Assets
+
+Use these assets in this order:
+
+1. reviewed investor artifact for the main story
+2. tampered artifact for the trust moment
+3. the Colab notebook only as backup
+
+For the full live talk track, see [`docs/INVESTOR-DEMO.md`](../../docs/INVESTOR-DEMO.md).
+
+## How to Produce the Main Artifact
 
 Open a terminal in this directory:
 
@@ -75,8 +90,9 @@ Expected viewer story:
 
 - the artifact opens like a document
 - the viewer shows verification state
-- the viewer shows that analysis was performed
-- the viewer shows a primary fault and secondary flags
+- the viewer shows a primary fault at the top
+- the viewer shows why it matters
+- the viewer shows human review if appended
 
 ### 4. Review the faults
 
@@ -96,15 +112,29 @@ Expected:
 epi review show investor_fault_demo.epi
 ```
 
-## What to say in the investor demo
+## Recommended Live Flow
 
-Use this narrative:
+For a live investor call:
 
-1. "The company defines expected AI behavior in `epi_policy.json`."
-2. "The workflow runs and EPI records the execution as a sealed `.epi` artifact."
-3. "Before sealing, EPI analyzes the trace against policy and writes `analysis.json`."
-4. "Later, a human reviewer confirms or dismisses the flagged faults without modifying the original evidence."
-5. "The result is a portable evidence file that contains the execution trace, the rules in effect, the machine analysis, and the human adjudication."
+1. Open the reviewed artifact first, not the code
+2. Focus on trust state, primary fault, why it matters, and human review
+3. Scroll briefly to policy, analysis, and the timeline
+4. Switch to the tampered artifact and show trust failure
+5. End with the product close, then stop
+
+Use this exact close:
+
+> For high-risk AI systems, EPI gives teams three things: what happened, what went wrong, and whether the evidence is still trustworthy.
+
+## What Not to Lead With
+
+Avoid starting with:
+
+- CLI help
+- package install
+- raw policy JSON authoring
+- long timeline scrolling
+- framework integration code
 
 ## Why this is practical
 

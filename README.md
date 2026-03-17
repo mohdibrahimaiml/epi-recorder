@@ -64,6 +64,8 @@ with record("my_agent.epi"):
 
 **What gets captured:** full prompt & response, token usage & estimated cost, timestamps & model info, complete environment snapshot, and an Ed25519 signature.
 
+For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. `epi run` is best for scripts that already emit EPI steps.
+
 ### Windows double-click support
 
 `.epi` files contain an embedded offline viewer, but Windows still needs an
@@ -88,6 +90,16 @@ epi verify my_agent.epi  # Cryptographic integrity check
 ```
 
 ---
+
+## New in v2.8.2 - Front-Door Reliability and Version Consistency
+
+This patch release hardens the default user path and cleans up release consistency.
+
+- **Honest `epi run` behavior**: if a script records `0` execution steps, `epi run` now exits non-zero and clearly explains that the script is not instrumented.
+- **Truthful analysis for empty artifacts**: `epi analyze` now reports `No data to analyze` instead of implying a clean run.
+- **Safer onboarding**: `epi init` now generates an explicitly instrumented demo using `record()` and tells users to run it with plain Python.
+- **Viewer empty-data warning**: zero-step artifacts now show a visible warning so they cannot be mistaken for meaningful evidence.
+- **Version consistency**: Python package version surfaces are aligned again across the release.
 
 ## New in v2.8.1 - Viewer Trust Fixes and Policy Clarifications
 
@@ -119,7 +131,7 @@ Key commands:
 ```bash
 epi policy init
 epi policy validate
-epi run my_agent.py
+python my_agent.py
 epi view my_agent.epi
 epi review my_agent.epi
 ```
@@ -138,7 +150,7 @@ loan-underwriting/
 
 ```bash
 cd loan-underwriting
-epi run underwriter.py
+python underwriter.py
 ```
 
 EPI loads that file during packing, embeds it into the artifact as `policy.json`, and writes analyzer output as `analysis.json`.
@@ -450,6 +462,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.2** | 2026-03-18 | **Front-door reliability and version consistency** - Fail loudly on zero-step `epi run`, report `No data to analyze` for empty artifacts, generate an instrumented `epi init` demo, and align package version surfaces |
 | **2.8.1** | 2026-03-17 | **Viewer trust fixes and policy clarifications** - Correct `Signed` / `Unsigned` / `Tampered` rendering, embed the current viewer in new artifacts, and document `epi_policy.json` more clearly |
 | **2.8.0** | 2026-03-16 | **Policy-grounded fault analysis and Windows file UX** - Enforced threshold/prohibition policy rules, sealed policy + analysis workflow, stronger `.epi` opening and icon behavior |
 | **2.7.2** | 2026-03-14 | **Verification reliability & CLI polish** - Legacy signature compatibility, analytics import safety, missing exports, CLI exit code fixes |
@@ -469,7 +482,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.1):**
+**Current (v2.8.2):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -489,6 +502,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 |:---------|:------------|
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
+| **[Investor Demo](docs/INVESTOR-DEMO.md)** | 3-minute live investor screenshare guide |
 | **[CHANGELOG](CHANGELOG.md)** | Release notes |
 | **[Contributing](CONTRIBUTING.md)** | Contribution guidelines |
 | **[Security](SECURITY.md)** | Security policy and vulnerability reporting |
@@ -520,7 +534,7 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.8.1** shipped Mar 2026
+**6,500+ downloads** in 10 weeks · **v2.8.2** shipped Mar 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
 > - ML Engineer, Fintech

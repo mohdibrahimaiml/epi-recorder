@@ -88,7 +88,7 @@ class TestVerifyRecordingEdgeCases:
 def _call_run(tmp_path, script_name="test_script.py",
               no_verify=False, no_open=False, goal=None, notes=None,
               metric=None, approved_by=None, tag=None,
-              verify_result=(True, "OK"), proc_rc=0):
+              verify_result=(True, "OK"), proc_rc=0, step_count=1):
     """Helper to call the run() function with mocked subprocess and packing."""
     from epi_cli.run import run
     script = tmp_path / script_name
@@ -108,7 +108,7 @@ def _call_run(tmp_path, script_name="test_script.py",
              patch("epi_cli.run.save_environment_snapshot"), \
              patch("epi_cli.run.build_env_for_child", return_value={}), \
              patch("epi_cli.run.EPIContainer.pack",
-                   side_effect=lambda ws, m, out, **kw: _create_fake_epi(out, ws)), \
+                   side_effect=lambda ws, m, out, **kw: _create_fake_epi(out, ws, step_count=step_count)), \
              patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
              patch("epi_cli.run._verify_recording", return_value=verify_result), \
              patch("epi_cli.run._open_viewer", return_value=True):
@@ -128,9 +128,11 @@ def _call_run(tmp_path, script_name="test_script.py",
     return exit_code
 
 
-def _create_fake_epi(out_path: Path, workspace: Path):
+def _create_fake_epi(out_path: Path, workspace: Path, step_count: int = 1):
     """Create a minimal .epi at out_path for testing."""
-    steps = b'{"index":0}\n'
+    steps = "".join(f'{{"index":{i}}}\n' for i in range(step_count)).encode("utf-8")
+    if step_count > 0:
+        (workspace / "steps.jsonl").write_bytes(steps)
     manifest = ManifestModel(
         workflow_id=uuid4(),
         created_at=datetime.utcnow(),
@@ -148,6 +150,10 @@ class TestRunFunction:
     def test_successful_run_exits_0(self, tmp_path):
         code = _call_run(tmp_path)
         assert code == 0
+
+    def test_zero_step_run_exits_1(self, tmp_path):
+        code = _call_run(tmp_path, step_count=0)
+        assert code == 1
 
     def test_no_verify_flag(self, tmp_path):
         code = _call_run(tmp_path, no_verify=True)

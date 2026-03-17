@@ -1,10 +1,10 @@
-# Release Verification Checklist for v2.8.1
+# Release Verification Checklist for v2.8.2
 
-This checklist is the minimum release gate for `epi-recorder` v2.8.1 before publishing to PyPI and GitHub.
+This checklist is the minimum release gate for `epi-recorder` v2.8.2 before publishing to PyPI and GitHub.
 
 ## Scope
 
-v2.8.1 introduces these release-critical areas:
+v2.8.2 introduces these release-critical areas:
 
 - policy-grounded fault analysis
 - Windows `.epi` opening and icon behavior
@@ -52,7 +52,7 @@ pyinstaller epi.spec --clean --noconfirm
 Expected:
 
 - `dist/epi/epi.exe` exists
-- `epi.exe --version` reports `2.8.1`
+- `epi.exe --version` reports `2.8.2`
 - bundled app includes the `.epi` icon and viewer assets
 
 ## 4. Windows Installer Verification
@@ -66,7 +66,7 @@ Build:
 Expected:
 
 - installer artifact created in `installer/windows/Output/`
-- installer filename uses `2.8.1`
+- installer filename uses `2.8.2`
 
 ## 5. Clean Windows Machine / VM Verification
 
@@ -74,7 +74,7 @@ This must be done on a clean Windows machine or VM, not a dirty dev box.
 
 ### Installer path
 
-1. Run `epi-setup-2.8.1.exe`
+1. Run `epi-setup-2.8.2.exe`
 2. Confirm install completes successfully
 3. Confirm `.epi` icon is visible in Explorer
 4. Double-click a known-good `.epi` file
@@ -129,7 +129,7 @@ Expected:
 
 Do not publish if any of these are false:
 
-- package version says `2.8.1`
+- package version says `2.8.2`
 - targeted tests pass
 - smoke test passes
 - PyInstaller bundle builds

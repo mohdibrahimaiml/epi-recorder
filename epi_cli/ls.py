@@ -23,7 +23,7 @@ from epi_core.container import EPIContainer
 
 console = Console()
 
-app = typer.Typer(name="ls", help="List local recordings (./epi-recordings/)")
+app = typer.Typer(name="ls", help="List local recordings in ./epi-recordings/ (use --all to include the current directory).")
 
 DEFAULT_DIR = Path("epi-recordings")
 
@@ -122,7 +122,7 @@ def ls(
     failed: bool = typer.Option(False, "--failed", help="Show only recordings that failed integrity check"),
 ):
     """
-    List local recordings in ./epi-recordings/ directory.
+    List local recordings in ./epi-recordings/ by default.
 
     Filter and sort:
       epi ls --sort size
@@ -144,7 +144,8 @@ def ls(
         console.print("[yellow]No recordings found[/yellow]")
         if not DEFAULT_DIR.exists():
             console.print(f"[dim]Directory {DEFAULT_DIR} does not exist yet[/dim]")
-        console.print("[dim]Tip: Run 'epi run script.py' to create your first recording[/dim]")
+        console.print("[dim]Scope: epi ls shows ./epi-recordings/ by default. Use --all to include the current directory.[/dim]")
+        console.print("[dim]Tip: Run an instrumented script with python, or use 'epi record --out demo.epi -- python my_script.py'.[/dim]")
         return
 
     # Collect info for all recordings
@@ -172,7 +173,8 @@ def ls(
         infos.sort(key=lambda i: i["modified"], reverse=True)
 
     # Build table
-    table = Table(title=f"EPI Recordings ({len(infos)} found)")
+    scope = "./epi-recordings/ + current directory" if all_dirs else "./epi-recordings/ only"
+    table = Table(title=f"EPI Recordings ({len(infos)} found • {scope})")
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Modified", style="dim", no_wrap=True)
     table.add_column("Size", style="dim", no_wrap=True, justify="right")
@@ -199,4 +201,4 @@ def ls(
     console.print()
     console.print(table)
     console.print()
-    console.print("[dim]Tip: epi view <name>  •  epi verify <name>  •  epi ls --sort size[/dim]")
+    console.print("[dim]Tip: epi view <name>  •  epi verify <name>  •  epi ls --all[/dim]")

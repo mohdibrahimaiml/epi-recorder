@@ -26,9 +26,14 @@ ENV/
 env/
 .venv
 .venv-release/
+.venv-normal-user/
 ci_check_env/
 tmp_debug_env/
 .tmp-build/
+.tmp-build2/
+.tmp-clean-release/
+.tmp-normal-user-flow/
+.tmp-normal-user-init/
 .tmp-pytest/
 .tmp-python/
 .tmp-viewer-*/

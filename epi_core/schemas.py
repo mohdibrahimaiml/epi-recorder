@@ -18,7 +18,7 @@ class ManifestModel(BaseModel):
     """
     
     spec_version: str = Field(
-        default="2.8.1",
+        default="2.8.2",
         description="EPI specification version"
     )
     

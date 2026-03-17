@@ -6,11 +6,17 @@ keys (generate/list/export/unknown), init, doctor, cli_main.
 """
 
 import sys
+import json
+import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+from uuid import uuid4
+from datetime import datetime
 
 import pytest
 import click
+
+from epi_core.schemas import ManifestModel
 
 
 def _mock_console():
@@ -317,6 +323,9 @@ class TestInitCommand:
         finally:
             os.chdir(original)
         assert (tmp_path / "my_demo.py").exists()
+        content = (tmp_path / "my_demo.py").read_text(encoding="utf-8")
+        assert "from epi_recorder import record" in content
+        assert 'record(str(output_file)' in content
 
     def test_init_skips_existing_script(self, tmp_path):
         from epi_cli.main import init
@@ -334,6 +343,71 @@ class TestInitCommand:
             os.chdir(original)
         # File content unchanged
         assert demo.read_text() == "# existing"
+
+    def test_init_runs_python_script_directly(self, tmp_path):
+        from epi_cli.main import init
+        import os
+        original = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            with patch("epi_cli.main.console", _mock_console()), \
+                 patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
+                 patch("subprocess.run") as mock_run:
+                init(demo_filename="my_demo.py", no_open=True)
+        finally:
+            os.chdir(original)
+        mock_run.assert_called_once()
+        args = mock_run.call_args.args[0]
+        assert args[0].endswith("python.exe") or args[0].endswith("python") or "python" in args[0].lower()
+        assert args[1] == "my_demo.py"
+
+
+def _write_analyzed_artifact(path: Path, steps_recorded: int) -> None:
+    steps = "".join(f'{{"index":{i},"kind":"test","content":{{}}}}\n' for i in range(steps_recorded)).encode("utf-8")
+    manifest = ManifestModel(
+        workflow_id=uuid4(),
+        created_at=datetime.utcnow(),
+        file_manifest={"steps.jsonl": "placeholder"},
+    )
+    analysis = {
+        "fault_detected": False,
+        "mode": "policy_grounded",
+        "coverage": {
+            "steps_recorded": steps_recorded,
+            "coverage_percentage": 0 if steps_recorded == 0 else 100,
+        },
+    }
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.epi+zip")
+        zf.writestr("manifest.json", manifest.model_dump_json())
+        zf.writestr("steps.jsonl", steps)
+        zf.writestr("analysis.json", json.dumps(analysis))
+        zf.writestr("viewer.html", "<html></html>")
+
+
+class TestAnalyzeCommand:
+    def test_zero_step_artifact_reports_no_data(self, tmp_path):
+        from epi_cli.main import analyze
+        artifact = tmp_path / "empty.epi"
+        _write_analyzed_artifact(artifact, steps_recorded=0)
+        mock_console = _mock_console()
+        with patch("epi_cli.main.console", mock_console):
+            code = _call(analyze, epi_file=str(artifact))
+        assert code == 0
+        printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+        assert "No data to analyze" in printed
+        assert "No anomalies detected" not in printed
+
+    def test_nonempty_artifact_keeps_clean_message(self, tmp_path):
+        from epi_cli.main import analyze
+        artifact = tmp_path / "normal.epi"
+        _write_analyzed_artifact(artifact, steps_recorded=3)
+        mock_console = _mock_console()
+        with patch("epi_cli.main.console", mock_console):
+            code = _call(analyze, epi_file=str(artifact))
+        assert code == 0
+        printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+        assert "No anomalies detected" in printed
 
 
 # ─────────────────────────────────────────────────────────────

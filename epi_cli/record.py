@@ -50,7 +50,7 @@ def record(
     """
     Record a command and package the run into a .epi file.
     
-    [NOTICE] For simpler usage, try: epi run script.py
+    [NOTICE] For scripts that already emit EPI steps, try: epi run script.py
     This command (epi record --out) is for advanced/CI use cases.
     """
     if not command:
@@ -58,7 +58,7 @@ def record(
         raise typer.Exit(1)
     
     # Show deprecation notice
-    console.print("[dim][NOTICE] For simpler usage, try: epi run script.py[/dim]")
+    console.print("[dim][NOTICE] For scripts that already emit EPI steps, try: epi run script.py[/dim]")
     console.print("[dim]This advanced command is for CI/exact-control use cases.[/dim]\n")
 
     # Normalize command
