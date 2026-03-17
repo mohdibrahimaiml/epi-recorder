@@ -1,6 +1,6 @@
 # EPI 3-Minute Live Investor Demo
 
-This is the fastest reliable live screenshare demo for EPI `v2.8.2`.
+This is the fastest reliable live screenshare demo for EPI `v2.8.3`.
 
 The one takeaway to drive home is:
 
@@ -101,7 +101,7 @@ Primary assets:
 
 Backup asset:
 
-- the Colab demo notebook using PyPI `2.8.2`
+- the Colab demo notebook using PyPI `2.8.3`
 
 The notebook is a backup only. Do not lead with it in a live investor call.
 
@@ -151,7 +151,7 @@ Say:
 
 Run these checks before every live session:
 
-1. Open the reviewed artifact and confirm the viewer shows the `v2.8.2` viewer
+1. Open the reviewed artifact and confirm the viewer shows the `v2.8.3` viewer
 2. Confirm the primary fault renders at the top
 3. Confirm the review section is present
 4. Run verification on the tampered artifact and confirm it shows tampered

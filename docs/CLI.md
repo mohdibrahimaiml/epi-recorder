@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.2)
+# EPI CLI Reference (v2.8.3)
 
-**Version:** 2.8.2  
+**Version:** 2.8.3  
 **Primary entrypoint:** `epi`
 
 ---
@@ -99,7 +99,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.2`, the analyzer enforces:
+In `v2.8.3`, the analyzer enforces:
 - `constraint_guard`
 - `sequence_guard`
 - `threshold_guard`

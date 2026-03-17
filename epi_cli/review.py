@@ -23,6 +23,12 @@ app = typer.Typer(help="Review fault analysis results for a .epi artifact.")
 console = Console()
 
 
+def _analysis_has_fault(analysis: dict | None) -> bool:
+    if not isinstance(analysis, dict):
+        return False
+    return bool(analysis.get("primary_fault") or analysis.get("fault_detected"))
+
+
 def _read_analysis(epi_path: Path) -> Optional[dict]:
     """Extract analysis.json from a .epi archive."""
     with zipfile.ZipFile(epi_path, "r") as zf:
@@ -135,7 +141,7 @@ def review(
         console.print("[dim]This artifact was created before the Fault Intelligence layer.[/dim]")
         raise typer.Exit(0)
 
-    if not analysis.get("fault_detected", False):
+    if not _analysis_has_fault(analysis):
         console.print(f"[green][OK][/green] No faults detected in [bold]{epi_path.name}[/bold]. Nothing to review.")
         raise typer.Exit(0)
 

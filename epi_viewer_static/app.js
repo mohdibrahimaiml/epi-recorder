@@ -313,11 +313,15 @@ function renderManifestFacts(manifest, context) {
         return;
     }
 
+    const fileCount = Number.isFinite(context && context.files_checked)
+        ? context.files_checked
+        : Object.keys((manifest && manifest.file_manifest) || {}).length;
+
     const facts = [
         ["Workflow ID", manifest.workflow_id || "Unavailable"],
         ["Created", prettyDate(manifest.created_at)],
         ["Spec Version", manifest.spec_version || "Unknown"],
-        ["Files in manifest", context ? String(context.files_checked) : String(Object.keys(manifest.file_manifest || {}).length)],
+        ["Files in manifest", String(fileCount)],
         ["Public key", manifest.public_key ? truncate(manifest.public_key, 52) : "Unavailable"],
         ["Signature", manifest.signature ? truncate(manifest.signature, 96) : "Missing"],
     ];
@@ -403,9 +407,11 @@ function renderTimeline(steps, analysis) {
         return;
     }
 
+    const hasFault = Boolean(analysis && (analysis.primary_fault || analysis.fault_detected));
+
     if (meta) {
         meta.textContent = analysis
-            ? `${steps.length} steps captured. ${analysis.fault_detected ? "Fault analysis is embedded in this artifact." : "Embedded analysis found no fault."}`
+            ? `${steps.length} steps captured. ${hasFault ? "Fault analysis is embedded in this artifact." : "Embedded analysis found no fault."}`
             : `${steps.length} steps captured. Raw evidence view.`;
     }
 
@@ -439,9 +445,10 @@ function renderAnalysis(analysis) {
         return;
     }
 
+    const hasFault = Boolean(analysis.primary_fault || analysis.fault_detected);
     card.hidden = false;
     const items = [
-        ["Fault detected", analysis.fault_detected ? "Yes" : "No"],
+        ["Fault detected", hasFault ? "Yes" : "No"],
     ];
     if (analysis.summary && analysis.summary.headline) {
         items.push(["Headline", analysis.summary.headline]);

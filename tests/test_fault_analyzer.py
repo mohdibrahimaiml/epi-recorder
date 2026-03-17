@@ -190,7 +190,10 @@ class TestCleanExecution:
     def test_result_has_disclaimer(self):
         analyzer = FaultAnalyzer()
         result = analyzer.analyze(CLEAN_STEPS)
-        assert DISCLAIMER in result.to_dict()["disclaimer"]
+        disclaimer = result.to_dict()["disclaimer"]
+        assert DISCLAIMER in disclaimer
+        assert "deterministic rule matches" in disclaimer
+        assert "probabilistic" not in disclaimer
 
     def test_coverage_counts_steps(self):
         analyzer = FaultAnalyzer()

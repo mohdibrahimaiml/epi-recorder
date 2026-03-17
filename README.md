@@ -91,7 +91,12 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## New in v2.8.2 - Front-Door Reliability and Version Consistency
+## New in v2.8.3 - Viewer Consistency and Colab-Friendly Packaging
+
+- viewer now derives fault presence from the embedded primary finding, avoiding contradictory `Fault detected: No` states
+- manifest facts no longer risk showing `Files in manifest: undefined`
+- analyzer wording now clearly separates deterministic policy matches from heuristic observations
+- package dependency pins are tightened to avoid common Colab resolver warnings and the deprecated `typer[all]` extra
 
 This patch release hardens the default user path and cleans up release consistency.
 
@@ -462,6 +467,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.3** | 2026-03-18 | **Viewer consistency and Colab-friendly packaging** - remove contradictory fault states, fix manifest fact fallback, clarify analyzer wording, and cap dependencies for cleaner installs |
 | **2.8.2** | 2026-03-18 | **Front-door reliability and version consistency** - Fail loudly on zero-step `epi run`, report `No data to analyze` for empty artifacts, generate an instrumented `epi init` demo, and align package version surfaces |
 | **2.8.1** | 2026-03-17 | **Viewer trust fixes and policy clarifications** - Correct `Signed` / `Unsigned` / `Tampered` rendering, embed the current viewer in new artifacts, and document `epi_policy.json` more clearly |
 | **2.8.0** | 2026-03-16 | **Policy-grounded fault analysis and Windows file UX** - Enforced threshold/prohibition policy rules, sealed policy + analysis workflow, stronger `.epi` opening and icon behavior |
@@ -482,7 +488,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.2):**
+**Current (v2.8.3):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -534,7 +540,7 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.8.2** shipped Mar 2026
+**6,500+ downloads** in 10 weeks · **v2.8.3** shipped Mar 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
 > - ML Engineer, Fintech

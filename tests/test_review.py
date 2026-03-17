@@ -12,6 +12,7 @@ from epi_core.review import (
     read_review,
     make_review_entry,
 )
+from epi_cli.review import _analysis_has_fault
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -174,3 +175,12 @@ class TestArtifactReview:
     def test_read_review_returns_none_on_missing_file(self, tmp_path):
         result = read_review(tmp_path / "ghost.epi")
         assert result is None
+
+
+class TestReviewCliHelpers:
+    def test_primary_fault_counts_as_fault_even_if_flag_is_false(self):
+        analysis = {
+            "fault_detected": False,
+            "primary_fault": {"fault_type": "POLICY_VIOLATION", "step_number": 2},
+        }
+        assert _analysis_has_fault(analysis) is True

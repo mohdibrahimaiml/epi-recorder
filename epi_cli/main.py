@@ -64,6 +64,13 @@ Tips:
 console = Console()
 
 
+def _analysis_has_fault(analysis: dict) -> bool:
+    """Treat a real primary fault as authoritative even if fault_detected drifted."""
+    if not isinstance(analysis, dict):
+        return False
+    return bool(analysis.get("primary_fault") or analysis.get("fault_detected"))
+
+
 def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
     """Best-effort Windows association repair for pip installs on first real use."""
     import sys as _sys
@@ -251,7 +258,7 @@ def analyze(
         import json
         analysis = json.loads(zf.read("analysis.json").decode("utf-8"))
 
-    fault_detected = analysis.get("fault_detected", False)
+    fault_detected = _analysis_has_fault(analysis)
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
 

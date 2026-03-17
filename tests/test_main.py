@@ -409,6 +409,42 @@ class TestAnalyzeCommand:
         printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
         assert "No anomalies detected" in printed
 
+    def test_primary_fault_overrides_false_fault_detected_flag(self, tmp_path):
+        from epi_cli.main import analyze
+        artifact = tmp_path / "contradictory.epi"
+        manifest = ManifestModel(
+            workflow_id=uuid4(),
+            created_at=datetime.utcnow(),
+            file_manifest={"steps.jsonl": "placeholder"},
+        )
+        analysis = {
+            "fault_detected": False,
+            "mode": "policy_grounded",
+            "coverage": {"steps_recorded": 3, "coverage_percentage": 100},
+            "primary_fault": {
+                "fault_type": "POLICY_VIOLATION",
+                "severity": "critical",
+                "step_number": 2,
+                "rule_id": "R004",
+                "rule_name": "Never Output Secrets",
+                "plain_english": "A prohibited secret-like token was found in output.",
+            },
+        }
+        with zipfile.ZipFile(artifact, "w") as zf:
+            zf.writestr("mimetype", "application/vnd.epi+zip")
+            zf.writestr("manifest.json", manifest.model_dump_json())
+            zf.writestr("steps.jsonl", '{"index":0,"kind":"test","content":{}}\n')
+            zf.writestr("analysis.json", json.dumps(analysis))
+            zf.writestr("viewer.html", "<html></html>")
+
+        mock_console = _mock_console()
+        with patch("epi_cli.main.console", mock_console):
+            code = _call(analyze, epi_file=str(artifact))
+        assert code == 0
+        printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+        assert "FAULT DETECTED" in printed
+        assert "No anomalies detected" not in printed
+
 
 # ─────────────────────────────────────────────────────────────
 # main_callback

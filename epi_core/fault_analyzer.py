@@ -30,9 +30,9 @@ from epi_core.policy import EPIPolicy
 ANALYZER_VERSION = "1.0.0"
 
 DISCLAIMER = (
-    "This analysis is probabilistic. The raw execution record in steps.jsonl "
-    "is the ground truth. Policy violations are grounded in company-defined rules. "
-    "Heuristic observations are pattern-based and require human confirmation."
+    "The raw execution record in steps.jsonl is the ground truth. Policy violations "
+    "are deterministic rule matches. Heuristic observations are pattern-based and "
+    "should be reviewed by a human."
 )
 
 _CONSTRAINT_KEYWORDS = {
