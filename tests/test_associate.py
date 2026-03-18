@@ -61,6 +61,18 @@ class TestGetEpiCommand:
             cmd = _get_epi_command()
         assert isinstance(cmd, str)
 
+    def test_prefers_adjacent_epi_exe_when_available(self, tmp_path):
+        fake_python = tmp_path / "python.exe"
+        fake_python.write_text("", encoding="ascii")
+        fake_epi = tmp_path / "epi.exe"
+        fake_epi.write_text("", encoding="ascii")
+
+        with patch("epi_core.platform.associate.sys.executable", str(fake_python)), \
+             patch("epi_core.platform.associate.shutil.which", return_value=None):
+            cmd = _get_epi_command()
+
+        assert cmd == f'"{fake_epi.absolute()}" view "%1"'
+
 
 class TestWindowsLauncherScripts:
     def test_launcher_copies_epi_to_zip_before_extracting(self, tmp_path):

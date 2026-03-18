@@ -91,6 +91,12 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
+## New in v2.8.4 - Windows Double-Click Stability
+
+- Windows file association now prefers a real `epi.exe` launcher before falling back to the VBS helper
+- this makes double-click opening much more stable for installed EPI on Windows
+- the older VBS path remains as a compatibility fallback for Python-only environments where needed
+
 ## New in v2.8.3 - Viewer Consistency and Colab-Friendly Packaging
 
 - viewer now derives fault presence from the embedded primary finding, avoiding contradictory `Fault detected: No` states
@@ -467,6 +473,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.4** | 2026-03-18 | **Windows double-click stability** - prefer a real `epi.exe` open command over the VBS helper so `.epi` files open more reliably on Windows installs |
 | **2.8.3** | 2026-03-18 | **Viewer consistency and Colab-friendly packaging** - remove contradictory fault states, fix manifest fact fallback, clarify analyzer wording, and cap dependencies for cleaner installs |
 | **2.8.2** | 2026-03-18 | **Front-door reliability and version consistency** - Fail loudly on zero-step `epi run`, report `No data to analyze` for empty artifacts, generate an instrumented `epi init` demo, and align package version surfaces |
 | **2.8.1** | 2026-03-17 | **Viewer trust fixes and policy clarifications** - Correct `Signed` / `Unsigned` / `Tampered` rendering, embed the current viewer in new artifacts, and document `epi_policy.json` more clearly |
@@ -488,7 +495,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.3):**
+**Current (v2.8.4):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -540,7 +547,7 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.8.3** shipped Mar 2026
+**6,500+ downloads** in 10 weeks · **v2.8.4** shipped Mar 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
 > - ML Engineer, Fintech

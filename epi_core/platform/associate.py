@@ -177,23 +177,34 @@ def _get_self_heal_vbs(python_exe: Optional[Path] = None) -> Path:
 def _get_epi_command() -> str:
     """Return the shell open command for .epi files.
 
-    Uses a VBScript launcher via wscript.exe to work around Microsoft Store
-    Python's App Execution Alias limitation (Store Python aliases are
-    APPEXECLINK reparse points that only resolve through cmd/PowerShell,
-    not from Windows Explorer's CreateProcess).
-
-    Falls back to direct python/pythonw if VBScript creation fails.
+    Prefer a real epi.exe when one is available because it is the most stable
+    Windows double-click path. Fall back to the VBScript launcher only for
+    Python-only installs where Explorer cannot reliably invoke the module
+    directly (for example Microsoft Store Python alias edge cases).
     """
-    # Primary: VBScript launcher — works for Store Python AND regular CPython.
+    python_exe = Path(sys.executable)
+
+    adjacent_epi = python_exe.parent / "epi.exe"
+    if adjacent_epi.exists() and adjacent_epi.stat().st_size > 0:
+        return f'"{adjacent_epi.absolute()}" view "%1"'
+
+    epi_on_path = shutil.which("epi.exe")
+    if epi_on_path:
+        epi_path = Path(epi_on_path)
+        try:
+            if epi_path.exists() and epi_path.stat().st_size > 0:
+                return f'"{epi_path.absolute()}" view "%1"'
+        except Exception:
+            pass
+
+    # Fallback: VBScript launcher — useful for Store Python and module-only installs.
     try:
         vbs_path = _get_epi_launcher_vbs()
         return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
     except Exception:
         pass
 
-    python_exe = Path(sys.executable)
-
-    # Fallback 1: pythonw.exe (no console window; skip 0-byte Store aliases)
+    # Last-resort fallbacks when no epi.exe is available.
     pythonw = python_exe.parent / "pythonw.exe"
     if pythonw.exists() and pythonw.stat().st_size > 0:
         return f'"{pythonw.absolute()}" -m epi_cli view "%1"'

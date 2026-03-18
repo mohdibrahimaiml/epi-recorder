@@ -1,6 +1,6 @@
 # EPI 3-Minute Live Investor Demo
 
-This is the fastest reliable live screenshare demo for EPI `v2.8.3`.
+This is the fastest reliable live screenshare demo for EPI `v2.8.4`.
 
 The one takeaway to drive home is:
 

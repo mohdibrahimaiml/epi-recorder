@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.3)
+# EPI CLI Reference (v2.8.4)
 
-**Version:** 2.8.3  
+**Version:** 2.8.4  
 **Primary entrypoint:** `epi`
 
 ---
