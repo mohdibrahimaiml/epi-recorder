@@ -170,6 +170,50 @@ pre,
     background: linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
+.reviewer-verdict {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.reviewer-verdict--good {
+    background: linear-gradient(180deg, #f5fff9, var(--good-soft));
+    border-color: #bde4ce;
+}
+
+.reviewer-verdict--warn {
+    background: linear-gradient(180deg, #fffaf1, var(--warn-soft));
+    border-color: #ebd6a0;
+}
+
+.reviewer-verdict--bad {
+    background: linear-gradient(180deg, #fff5f3, var(--bad-soft));
+    border-color: #efbbb5;
+}
+
+.reviewer-verdict__title {
+    margin: 8px 0 6px;
+    font-size: 21px;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+}
+
+.reviewer-verdict__impact {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--muted);
+}
+
+.reviewer-verdict__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
 .fault-banner--critical {
     background: linear-gradient(180deg, #fff5f3, var(--bad-soft));
     border-color: #efbbb5;

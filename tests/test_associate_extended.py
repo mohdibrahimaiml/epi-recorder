@@ -15,6 +15,7 @@ import pytest
 
 from epi_core.platform.associate import (
     _get_epi_command,
+    _get_user_open_command,
     _get_epi_version,
     _get_registration_state,
     _LAUNCHER_VERSION_WIN,
@@ -143,7 +144,7 @@ class TestNeedsRegistration:
             "version": version,
             "executable": sys.executable,
             # Layer-2 check on Windows compares stored open_command vs current
-            "open_command": _get_epi_command() if sys.platform == "win32" else None,
+            "open_command": _get_user_open_command() if sys.platform == "win32" else None,
         }), encoding="utf-8")
         with patch("epi_core.platform.associate._FLAG_PATH", flag), \
              patch("epi_core.platform.associate._is_association_broken", return_value=False):

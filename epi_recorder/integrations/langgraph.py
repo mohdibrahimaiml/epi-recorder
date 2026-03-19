@@ -22,7 +22,6 @@ Usage:
 import asyncio
 import hashlib
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Sequence, Tuple
 from contextlib import asynccontextmanager
@@ -43,6 +42,7 @@ except ImportError:
         pass
 
 from epi_recorder import record, get_current_session
+from epi_core.time_utils import utc_now, utc_now_iso
 
 
 class EPICheckpointSaver(BaseCheckpointSaver):
@@ -174,7 +174,7 @@ class EPICheckpointSaver(BaseCheckpointSaver):
         """
         # Extract thread_id from config
         thread_id = config.get("configurable", {}).get("thread_id", "default")
-        checkpoint_id = checkpoint.get("id", str(datetime.utcnow().timestamp()))
+        checkpoint_id = checkpoint.get("id", str(utc_now().timestamp()))
         
         # Store checkpoint in memory
         self._checkpoints[(thread_id, checkpoint_id)] = checkpoint
@@ -189,7 +189,7 @@ class EPICheckpointSaver(BaseCheckpointSaver):
                 "checkpoint_id": checkpoint_id,
                 "checkpoint": self._serialize_state(checkpoint),
                 "metadata": metadata,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now_iso()
             })
         else:
             # No active session - checkpoint will be logged when graph completes
@@ -229,7 +229,7 @@ class EPICheckpointSaver(BaseCheckpointSaver):
             await session.alog_step("langgraph.checkpoint.load", {
                 "thread_id": thread_id,
                 "checkpoint_id": latest_checkpoint.get("id"),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now_iso()
             })
         
         return latest_checkpoint

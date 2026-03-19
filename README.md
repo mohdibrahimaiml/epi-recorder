@@ -64,7 +64,7 @@ with record("my_agent.epi"):
 
 **What gets captured:** full prompt & response, token usage & estimated cost, timestamps & model info, complete environment snapshot, and an Ed25519 signature.
 
-For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. `epi run` is best for scripts that already emit EPI steps.
+For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. In `epi run` mode, advanced users can also emit manual steps with `get_current_session().log_step(...)`.
 
 ### Windows double-click support
 
@@ -91,11 +91,20 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## New in v2.8.4 - Windows Double-Click Stability
+## New in v2.8.5 - Guided Policy Setup for Reviewers
 
-- Windows file association now prefers a real `epi.exe` launcher before falling back to the VBS helper
-- this makes double-click opening much more stable for installed EPI on Windows
-- the older VBS path remains as a compatibility fallback for Python-only environments where needed
+- `epi policy init` now walks non-technical reviewers through a short guided setup instead of dropping them into raw JSON
+- built-in finance and healthcare profiles can now be customized with business-language questions
+- `epi policy show` now prints a human-readable rulebook summary first, with raw JSON only when explicitly requested
+- the viewer now explains "Rules In Force" as the active rulebook and highlights the rule tied to the primary fault when available
+
+EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there.
+
+## v2.8.5 Update - Windows Association Reliability for PyPI/GitHub Installs
+
+- HKCU association now targets a stable launcher path under `LOCALAPPDATA` instead of fragile venv/script paths
+- this makes developer installs (`pip install` / source installs) more resilient across Python upgrades and environment changes
+- installer/system (`HKLM`) flows keep using the installed executable path
 
 ## New in v2.8.3 - Viewer Consistency and Colab-Friendly Packaging
 
@@ -222,6 +231,40 @@ pip install epi-recorder
 pytest --epi                    # Generates signed .epi per test
 pytest --epi --epi-dir=evidence # Custom output directory
 ```
+
+## Windows Developer Testing
+
+On this machine, Windows temp cleanup can interfere with direct `pytest` runs.
+For stable local development, use the dedicated EPI temp roots instead of the
+default Windows temp directory.
+
+One-time setup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows-dev-env.ps1
+```
+
+Recommended local test command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-tests.ps1
+```
+
+Pass through any normal pytest arguments:
+
+```powershell
+.\scripts\run-tests.ps1 tests\test_main.py -q
+```
+
+Important notes:
+
+- Avoid OneDrive-synced temp or work directories for local testing on Windows.
+- If you bypass the runner and call `pytest` directly, temp cleanup may still fail on this machine.
+- If Windows Defender or another scanner is locking temp files, add exclusions for:
+  - `C:\epi-temp`
+  - `C:\epi-pytest`
+  - `C:\Users\dell\epi-recorder`
+  - `C:\Users\dell\epi-recorder\.venv-release`
 
 ```
 ======================== EPI Evidence Summary ========================
@@ -473,7 +516,8 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
-| **2.8.4** | 2026-03-18 | **Windows double-click stability** - prefer a real `epi.exe` open command over the VBS helper so `.epi` files open more reliably on Windows installs |
+| **2.8.5** | 2026-03-20 | **Reliability patch** - guided policy UX, stable `epi review` CLI invocation, bootstrap manual-step support in `epi run`, and stronger Windows association repair paths |
+| **2.8.4** | 2026-03-18 | **Windows double-click stability** - stronger association repair and diagnostics for desktop opening workflows |
 | **2.8.3** | 2026-03-18 | **Viewer consistency and Colab-friendly packaging** - remove contradictory fault states, fix manifest fact fallback, clarify analyzer wording, and cap dependencies for cleaner installs |
 | **2.8.2** | 2026-03-18 | **Front-door reliability and version consistency** - Fail loudly on zero-step `epi run`, report `No data to analyze` for empty artifacts, generate an instrumented `epi init` demo, and align package version surfaces |
 | **2.8.1** | 2026-03-17 | **Viewer trust fixes and policy clarifications** - Correct `Signed` / `Unsigned` / `Tampered` rendering, embed the current viewer in new artifacts, and document `epi_policy.json` more clearly |
@@ -495,7 +539,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.4):**
+**Current (v2.8.5):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -547,7 +591,7 @@ See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
 
 ## Traction
 
-**6,500+ downloads** in 10 weeks · **v2.8.4** shipped Mar 2026
+**6,500+ downloads** in 10 weeks · **v2.8.5** shipped Mar 2026
 
 > *"EPI saved us 4 hours debugging a production agent failure."*
 > - ML Engineer, Fintech

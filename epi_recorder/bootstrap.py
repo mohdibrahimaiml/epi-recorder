@@ -7,7 +7,23 @@ to set up LLM patching and recording context.
 
 import os
 import sys
+import atexit
 from pathlib import Path
+
+_FINALIZER_REGISTERED = False
+
+
+def _finalize_bootstrap_recording() -> None:
+    """Finalize bootstrap recording context at process exit."""
+    try:
+        from epi_recorder.patcher import get_recording_context, set_recording_context
+        context = get_recording_context()
+        if context is not None:
+            context.finalize()
+            set_recording_context(None)
+    except Exception:
+        # Never fail process shutdown because of cleanup.
+        pass
 
 
 def initialize_recording():
@@ -44,6 +60,11 @@ def initialize_recording():
         # Patch LLM libraries
         patch_results = patch_all()
         
+        global _FINALIZER_REGISTERED
+        if not _FINALIZER_REGISTERED:
+            atexit.register(_finalize_bootstrap_recording)
+            _FINALIZER_REGISTERED = True
+
         # Optional: Print what was patched (for debugging)
         # for provider, success in patch_results.items():
         #     if success:

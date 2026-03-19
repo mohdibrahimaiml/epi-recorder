@@ -4,7 +4,6 @@ Tests for epi_cli.record — record() function.
 
 import hashlib
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
@@ -13,6 +12,7 @@ import pytest
 import click
 
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now
 
 
 def _sha256(data: bytes) -> str:
@@ -23,7 +23,7 @@ def _create_fake_epi(out_path: Path, workspace: Path):
     steps = b'{"index":0}\n'
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         file_manifest={"steps.jsonl": _sha256(steps)},
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)

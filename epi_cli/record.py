@@ -7,14 +7,13 @@ Usage:
 This command:
 - Prepares a recording workspace
 - Patches LLM libraries in the child process
-- Captures environment snapshot (env.json)
+- Captures environment snapshot (environment.json)
 - Runs the user command with secret redaction enabled by default
 - Packages everything into a .epi
 - Auto-signs the manifest with the default Ed25519 key
 """
 
 import shlex
-import tempfile
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -26,6 +25,7 @@ from rich.panel import Panel
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 from epi_core.trust import sign_manifest
+from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_cli.keys import KeyManager
 from epi_cli._shared import ensure_python_command, build_env_for_child
 from epi_recorder.environment import save_environment_snapshot
@@ -34,6 +34,12 @@ console = Console()
 
 
 app = typer.Typer(name="record", help="Record a workflow into a .epi file")
+
+
+def _print_workspace_failure(exc: Exception) -> None:
+    console.print("[red][FAIL] EPI could not start recording.[/red]")
+    console.print(f"[dim]{exc}[/dim]")
+    console.print("[dim]Fix: point TMP/TEMP to a writable folder and rerun.[/dim]")
 
 
 @app.callback(invoke_without_command=True)
@@ -65,15 +71,19 @@ def record(
     cmd = ensure_python_command(command)
 
     # Prepare workspace
-    temp_workspace = Path(tempfile.mkdtemp(prefix="epi_record_"))
-    steps_dir = temp_workspace  # steps.jsonl lives here
-    env_json = temp_workspace / "env.json"
+    try:
+        temp_workspace = create_recording_workspace("epi_record_")
+        steps_dir = temp_workspace  # steps.jsonl lives here
+        env_json = temp_workspace / "environment.json"
 
-    # Capture environment snapshot
-    save_environment_snapshot(env_json, include_all_env_vars=include_all_env, redact_env_vars=True)
+        # Capture environment snapshot
+        save_environment_snapshot(env_json, include_all_env_vars=include_all_env, redact_env_vars=True)
 
-    # Build child environment and run
-    child_env = build_env_for_child(steps_dir, enable_redaction=(not no_redact))
+        # Build child environment and run
+        child_env = build_env_for_child(steps_dir, enable_redaction=(not no_redact))
+    except (RecordingWorkspaceError, OSError, PermissionError) as exc:
+        _print_workspace_failure(exc)
+        raise typer.Exit(1)
 
     # Create stdout/stderr logs
     stdout_log = temp_workspace / "stdout.log"

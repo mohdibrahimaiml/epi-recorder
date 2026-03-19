@@ -19,7 +19,14 @@ from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
 
-app = typer.Typer(help="Review fault analysis results for a .epi artifact.")
+from epi_cli.view import _resolve_epi_file
+
+app = typer.Typer(
+    help="Review fault analysis results for a .epi artifact.",
+    invoke_without_command=True,
+    no_args_is_help=False,
+    context_settings={"allow_interspersed_args": True},
+)
 console = Console()
 
 
@@ -104,6 +111,20 @@ def _show_fault(fault: dict, epi_path: Path) -> None:
         console.print()
 
 
+def _review_guidance(fault: dict) -> tuple[str, str]:
+    """Return short reviewer-facing impact/action guidance."""
+    severity = str(fault.get("severity", "")).upper()
+    if severity == "CRITICAL":
+        return (
+            "This fault can invalidate trust in the decision outcome.",
+            "Confirm unless you can prove the behavior is expected and policy-safe.",
+        )
+    return (
+        "This fault may affect reliability or policy compliance.",
+        "Confirm or dismiss with notes so downstream reviewers can trace your decision.",
+    )
+
+
 @app.callback(invoke_without_command=True)
 def review(
     ctx: typer.Context,
@@ -119,17 +140,20 @@ def review(
     Shows each detected fault and asks: confirm / dismiss / skip.
     Signs the review and appends it to the artifact as review.json.
     """
-    ctx.obj = {"epi_path": Path(epi_file)}
+    try:
+        resolved_path = _resolve_epi_file(epi_file)
+    except FileNotFoundError:
+        console.print(f"[red][X] File not found:[/red] {epi_file}")
+        raise typer.Exit(1)
+
+    ctx.obj = {"epi_path": resolved_path}
 
     if ctx.invoked_subcommand:
         return
 
     from epi_core.review import ReviewRecord, add_review_to_artifact, make_review_entry
 
-    epi_path = Path(epi_file)
-    if not epi_path.exists():
-        console.print(f"[red][X] File not found:[/red] {epi_file}")
-        raise typer.Exit(1)
+    epi_path = resolved_path
 
     if not zipfile.is_zipfile(epi_path):
         console.print(f"[red][X] Not a valid .epi file:[/red] {epi_file}")
@@ -169,6 +193,9 @@ def review(
     review_entries = []
     for fault in faults:
         _show_fault(fault, epi_path)
+        impact, action = _review_guidance(fault)
+        console.print(f"[bold]Impact:[/bold] {impact}")
+        console.print(f"[bold]Action:[/bold] {action}\n")
 
         console.print("[bold]Your decision:[/bold]")
         console.print("  [green][c][/green] Confirm as genuine fault")

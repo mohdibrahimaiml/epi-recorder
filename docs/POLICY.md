@@ -4,6 +4,14 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
+In `v2.8.5`, the preferred way to create this file is:
+
+```bash
+epi policy init
+```
+
+That guided flow is meant for risk, compliance, and reviewer-facing users. EPI still stores the rulebook as `epi_policy.json`, but most users should not need to author JSON manually.
+
 ## The Simple Mental Model
 
 - `epi_policy.json` = the rulebook you define before the run
@@ -220,17 +228,19 @@ The important checks are:
 
 ## How To Create A Policy
 
-### Option 1: start from a built-in profile
+### Option 1: use the guided setup
+
+```bash
+epi policy init
+```
+
+This asks a few business-language questions and writes `epi_policy.json` for you.
+
+### Option 2: start from a specific built-in profile
 
 ```bash
 epi policy profiles
 epi policy init --profile finance.loan-underwriting
-```
-
-### Option 2: create a generic starter file
-
-```bash
-epi policy init
 ```
 
 ### Option 3: edit the JSON manually

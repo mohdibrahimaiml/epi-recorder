@@ -2,7 +2,9 @@
 EPI CLI - Command-line interface for EPI operations.
 """
 
-__version__ = "1.0.0-keystone"
+from epi_core._version import get_version
+
+__version__ = get_version()
 
 
 

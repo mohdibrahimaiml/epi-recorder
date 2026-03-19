@@ -10,21 +10,99 @@ import functools
 import json
 import os
 import shutil
+import sys
 import tempfile
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now, utc_now_iso
 from epi_core.trust import sign_manifest_inplace
-from epi_recorder.patcher import RecordingContext, set_recording_context, patch_openai
+from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
+from epi_recorder.patcher import (
+    RecordingContext,
+    get_recording_context,
+    patch_openai,
+    set_recording_context,
+)
 from epi_recorder.environment import capture_full_environment
 
 
 # Thread-local storage for active recording sessions
 _thread_local = threading.local()
+
+
+class _StdStreamCapture:
+    """Tee stdout/stderr to console while logging printable lines as EPI steps."""
+
+    def __init__(self, session: "EpiRecorderSession", stream: TextIO, stream_name: str):
+        self._session = session
+        self._stream = stream
+        self._stream_name = stream_name
+        self._buffer = ""
+
+    def write(self, data: str) -> int:
+        text = data if isinstance(data, str) else str(data)
+        written = self._stream.write(text)
+        self._buffer += text
+
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self._emit_line(line.rstrip("\r"))
+        return written
+
+    def flush(self) -> None:
+        self._stream.flush()
+
+    def writable(self) -> bool:
+        return True
+
+    def isatty(self) -> bool:
+        return bool(getattr(self._stream, "isatty", lambda: False)())
+
+    def fileno(self) -> int:
+        return self._stream.fileno()
+
+    @property
+    def encoding(self) -> Optional[str]:
+        return getattr(self._stream, "encoding", None)
+
+    @property
+    def errors(self) -> Optional[str]:
+        return getattr(self._stream, "errors", None)
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._stream, item)
+
+    def emit_pending(self) -> None:
+        if self._buffer:
+            self._emit_line(self._buffer.rstrip("\r"))
+            self._buffer = ""
+
+    def _emit_line(self, line: str) -> None:
+        if not line.strip():
+            return
+
+        payload: Dict[str, Any] = {
+            "stream": self._stream_name,
+            "text": line,
+            "timestamp": utc_now_iso(),
+        }
+        try:
+            parsed = json.loads(line)
+            if isinstance(parsed, (dict, list)):
+                payload["parsed"] = parsed
+        except Exception:
+            pass
+
+        try:
+            self._session.log_step("stdout.print", payload)
+        except Exception:
+            # Never break user stdout writes because step logging failed.
+            pass
 
 
 class EpiRecorderSession:
@@ -57,6 +135,8 @@ class EpiRecorderSession:
         metadata_tags: Optional[List[str]] = None,  # Renamed to avoid conflict with tags parameter
         # Legacy mode (deprecated)
         legacy_patching: bool = False,
+        capture_prints: bool = True,
+        capture_stderr: bool = False,
     ):
         """
         Initialize EPI recording session.
@@ -91,12 +171,18 @@ class EpiRecorderSession:
         
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
+        self.capture_prints = capture_prints
+        self.capture_stderr = capture_stderr
         
         # Runtime state
         self.temp_dir: Optional[Path] = None
         self.recording_context: Optional[RecordingContext] = None
         self.start_time: Optional[datetime] = None
         self._entered = False
+        self._stdout_capture: Optional[_StdStreamCapture] = None
+        self._stderr_capture: Optional[_StdStreamCapture] = None
+        self._original_stdout: Optional[TextIO] = None
+        self._original_stderr: Optional[TextIO] = None
         
     def __enter__(self) -> "EpiRecorderSession":
         """
@@ -109,16 +195,22 @@ class EpiRecorderSession:
             raise RuntimeError("EpiRecorderSession cannot be re-entered")
         
         self._entered = True
-        self.start_time = datetime.utcnow()
+        self.start_time = utc_now()
         
-        # Create temporary directory for recording
-        self.temp_dir = Path(tempfile.mkdtemp(prefix="epi_recording_"))
-        
-        # Initialize recording context
-        self.recording_context = RecordingContext(
-            output_dir=self.temp_dir,
-            enable_redaction=self.redact
-        )
+        try:
+            # Create temporary directory for recording
+            self.temp_dir = create_recording_workspace("epi_recording_")
+
+            # Initialize recording context
+            self.recording_context = RecordingContext(
+                output_dir=self.temp_dir,
+                enable_redaction=self.redact
+            )
+        except RecordingWorkspaceError:
+            if self.temp_dir and self.temp_dir.exists():
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+            self._entered = False
+            raise
         
         # Set as active recording context
         set_recording_context(self.recording_context)
@@ -142,6 +234,9 @@ class EpiRecorderSession:
             "tags": self.tags,
             "timestamp": self.start_time.isoformat()
         })
+
+        if self.capture_prints:
+            self._install_stdio_capture()
         
         return self
     
@@ -161,11 +256,11 @@ class EpiRecorderSession:
                 self.log_step("session.error", {
                     "error_type": exc_type.__name__,
                     "error_message": str(exc_val),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now_iso()
                 })
             
             # Log session end LAST to ensure it's the final step
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             duration = (end_time - self.start_time).total_seconds()
             
             self.log_step("session.end", {
@@ -200,6 +295,7 @@ class EpiRecorderSession:
                 self._sign_epi_file()
             
         finally:
+            self._restore_stdio_capture()
             # Clean up temporary directory
             if self.temp_dir and self.temp_dir.exists():
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -239,11 +335,11 @@ class EpiRecorderSession:
                 self.log_step("session.error", {
                     "error_type": exc_type.__name__,
                     "error_message": str(exc_val),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now_iso()
                 })
 
             # Log session end LAST to ensure it's the final step
-            end_time = datetime.utcnow()
+            end_time = utc_now()
             duration = (end_time - self.start_time).total_seconds()
 
             self.log_step("session.end", {
@@ -280,6 +376,7 @@ class EpiRecorderSession:
                 await loop.run_in_executor(None, self._sign_epi_file)
 
         finally:
+            self._restore_stdio_capture()
             # Clean up temporary directory
             if self.temp_dir and self.temp_dir.exists():
                 await asyncio.get_running_loop().run_in_executor(
@@ -293,6 +390,31 @@ class EpiRecorderSession:
             set_recording_context(None)
             if hasattr(_thread_local, 'active_session'):
                 delattr(_thread_local, 'active_session')
+    
+    def _install_stdio_capture(self) -> None:
+        self._original_stdout = sys.stdout
+        self._original_stderr = sys.stderr
+        self._stdout_capture = _StdStreamCapture(self, self._original_stdout, "stdout")
+        self._stderr_capture = None
+        if self.capture_stderr:
+            self._stderr_capture = _StdStreamCapture(self, self._original_stderr, "stderr")
+        sys.stdout = self._stdout_capture
+        if self._stderr_capture is not None:
+            sys.stderr = self._stderr_capture
+
+    def _restore_stdio_capture(self) -> None:
+        if self._stdout_capture:
+            self._stdout_capture.emit_pending()
+        if self._stderr_capture:
+            self._stderr_capture.emit_pending()
+        if self._original_stdout is not None:
+            sys.stdout = self._original_stdout
+        if self._stderr_capture is not None and self._original_stderr is not None:
+            sys.stderr = self._original_stderr
+        self._stdout_capture = None
+        self._stderr_capture = None
+        self._original_stdout = None
+        self._original_stderr = None
     
     def log_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
@@ -340,7 +462,7 @@ class EpiRecorderSession:
         self.log_step("llm.request", {
             "provider": "custom",
             "model": model,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
             **payload
         })
     
@@ -356,7 +478,7 @@ class EpiRecorderSession:
             Manual use is for custom integrations.
         """
         self.log_step("llm.response", {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
             **response_payload
         })
     
@@ -457,7 +579,7 @@ class EpiRecorderSession:
                 "provider": provider,
                 "model": model,
                 "messages": messages,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             })
         
         # Log response
@@ -465,7 +587,7 @@ class EpiRecorderSession:
             "provider": provider,
             "model": model,
             "choices": choices,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         }
         if usage:
             response_data["usage"] = usage
@@ -510,7 +632,7 @@ class EpiRecorderSession:
             "provider": provider,
             "model": model,
             "messages": messages,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
             **metadata
         })
         
@@ -519,7 +641,7 @@ class EpiRecorderSession:
             "provider": provider,
             "model": model,
             "choices": [{"message": {"role": "assistant", "content": response_content}}],
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         }
         if usage:
             response_data["usage"] = usage
@@ -570,7 +692,7 @@ class EpiRecorderSession:
             "source_path": str(file_path),
             "archive_path": archive_path,
             "size_bytes": file_path.stat().st_size,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now_iso()
         })
     
     def _capture_environment(self) -> None:
@@ -584,13 +706,13 @@ class EpiRecorderSession:
             self.log_step("environment.captured", {
                 "platform": env_data.get("os", {}).get("platform"),
                 "python_version": env_data.get("python", {}).get("version"),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now_iso()
             })
         except Exception as e:
             # Non-fatal: log but continue
             self.log_step("environment.capture_failed", {
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now_iso()
             })
     
     def _sign_epi_file(self) -> None:
@@ -598,7 +720,6 @@ class EpiRecorderSession:
         try:
             from epi_cli.keys import KeyManager
             import zipfile
-            import tempfile
             from epi_core.trust import sign_manifest
             
             # Load key manager
@@ -617,9 +738,8 @@ class EpiRecorderSession:
             private_key = km.load_private_key(self.default_key_name)
             
             # Extract manifest, sign it, and repack
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp_path = Path(tmpdir)
-                
+            tmp_path = create_recording_workspace("epi_signing_")
+            try:
                 # Extract all files
                 with zipfile.ZipFile(self.output_path, 'r') as zf:
                     zf.extractall(tmp_path)
@@ -671,6 +791,8 @@ class EpiRecorderSession:
                 # Successfully created signed file, now safely replace original
                 self.output_path.unlink()
                 temp_output.rename(self.output_path)
+            finally:
+                shutil.rmtree(tmp_path, ignore_errors=True)
                 
         except Exception as e:
             import sys
@@ -698,7 +820,7 @@ def _auto_generate_output_path(name_hint: Optional[str] = None) -> Path:
         base = "recording"
     
     # Generate timestamp
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
     
     # Ensure .epi extension
     filename = f"{base}_{timestamp}.epi"
@@ -759,6 +881,8 @@ def record(
     approved_by: Optional[str] = None,
     metadata_tags: Optional[List[str]] = None,  # Renamed to avoid conflict
     legacy_patching: bool = False,
+    capture_prints: bool = True,
+    capture_stderr: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -840,6 +964,8 @@ def record(
                     approved_by=approved_by,
                     metadata_tags=metadata_tags,
                     legacy_patching=legacy_patching,
+                    capture_prints=capture_prints,
+                    capture_stderr=capture_stderr,
                 ):
                     return func(*args, **kwargs)
             return wrapper
@@ -866,6 +992,8 @@ def record(
                 approved_by=approved_by,
                 metadata_tags=metadata_tags,
                 legacy_patching=legacy_patching,
+                capture_prints=capture_prints,
+                capture_stderr=capture_stderr,
             ):
                 return func(*args, **kwargs)
 
@@ -886,18 +1014,41 @@ def record(
         approved_by=approved_by,
         metadata_tags=metadata_tags,
         legacy_patching=legacy_patching,
+        capture_prints=capture_prints,
+        capture_stderr=capture_stderr,
     )
 
 
+class _BootstrapSessionProxy:
+    """Minimal session proxy exposed when recording is active via bootstrap."""
+
+    def __init__(self, recording_context: RecordingContext):
+        self._recording_context = recording_context
+
+    def log_step(self, kind: str, content: Dict[str, Any]) -> None:
+        self._recording_context.add_step(kind, content)
+
+    async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
+        self.log_step(kind, content)
+
+
 # Make it easy to get current session
-def get_current_session() -> Optional[EpiRecorderSession]:
+def get_current_session() -> Optional[Any]:
     """
     Get the currently active recording session (if any).
     
     Returns:
         EpiRecorderSession or None
     """
-    return getattr(_thread_local, 'active_session', None)
+    active = getattr(_thread_local, 'active_session', None)
+    if active is not None:
+        return active
+
+    # epi run/bootstrap mode: expose a minimal manual logging surface.
+    context = get_recording_context()
+    if context is None:
+        return None
+    return _BootstrapSessionProxy(context)
 
 
 

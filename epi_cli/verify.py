@@ -8,6 +8,7 @@ Performs comprehensive verification including:
 """
 
 import json
+import sys
 from pathlib import Path
 
 import typer
@@ -17,6 +18,7 @@ from rich.table import Table
 
 from epi_core.container import EPIContainer
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
+from epi_cli.view import _resolve_epi_file
 
 console = Console()
 
@@ -34,8 +36,9 @@ def verify_command(
     2. Integrity: File hashes match manifest
     3. Authenticity: Ed25519 signature validation
     """
-    # Ensure file exists
-    if not epi_file.exists():
+    try:
+        epi_file = _resolve_epi_file(str(epi_file))
+    except FileNotFoundError:
         console.print(f"[red][FAIL] Error:[/red] File not found: {epi_file}")
         raise typer.Exit(1)
     
@@ -124,8 +127,9 @@ def verify_command(
         
         # ========== OUTPUT REPORT ==========
         if json_output:
-            # JSON output
-            console.print(json.dumps(report, indent=2))
+            # JSON output (write directly to stdout to avoid Rich line-wrapping
+            # inserted newlines that would corrupt machine-readable JSON).
+            sys.stdout.write(json.dumps(report, indent=2) + "\n")
         else:
             # Rich formatted output
             print_trust_report(report, epi_file, verbose)

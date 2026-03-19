@@ -40,8 +40,6 @@ Use these assets in this order:
 2. tampered artifact for the trust moment
 3. the Colab notebook only as backup
 
-For the full live talk track, see [`docs/INVESTOR-DEMO.md`](../../docs/INVESTOR-DEMO.md).
-
 ## How to Produce the Main Artifact
 
 Open a terminal in this directory:

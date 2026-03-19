@@ -10,9 +10,10 @@ import json
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 from .schemas import StepModel
+from .time_utils import utc_now_iso
+from .workspace import RecordingWorkspaceError, ensure_workspace_writable
 
 
 class EpiStorage:
@@ -31,10 +32,17 @@ class EpiStorage:
         """
         self.session_id = session_id
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        ensure_workspace_writable(self.output_dir)
         
         self.db_path = self.output_dir / f"{session_id}_temp.db"
-        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        try:
+            self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        except sqlite3.OperationalError as exc:
+            raise RecordingWorkspaceError(
+                f"EPI could not open its recording database at '{self.db_path}'. "
+                "The recording workspace is unavailable or not writable. "
+                "Try setting TMP/TEMP to a writable folder and rerun."
+            ) from exc
         self._init_tables()
     
     def _init_tables(self):
@@ -161,7 +169,7 @@ class EpiStorage:
             Path to finalized JSONL file
         """
         # Add finalization metadata before exporting
-        self.set_metadata('finalized_at', datetime.utcnow().isoformat())
+        self.set_metadata('finalized_at', utc_now_iso())
         self.set_metadata('session_id', self.session_id)
 
         # Export to JSONL while connection is still open

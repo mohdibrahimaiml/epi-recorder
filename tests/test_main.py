@@ -17,6 +17,8 @@ import pytest
 import click
 
 from epi_core.schemas import ManifestModel
+from epi_core import __version__ as core_version
+from epi_core.time_utils import utc_now
 
 
 def _mock_console():
@@ -63,6 +65,10 @@ class TestVersionCommand:
             version()
         mock_console.print.assert_called()
 
+    def test_cli_module_version_matches_core(self):
+        from epi_cli import __version__ as cli_version
+        assert cli_version == core_version
+
 
 # ─────────────────────────────────────────────────────────────
 # show_help command
@@ -91,6 +97,7 @@ class TestAssociateCommand:
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=_DIAG_STUB), \
              patch("epi_core.platform.associate._needs_registration", return_value=False), \
              _DIAG_PATCH:
             code = _call(associate, force=False, system=False, elevated=False)
@@ -100,6 +107,7 @@ class TestAssociateCommand:
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=_DIAG_STUB), \
              patch("epi_core.platform.associate._needs_registration", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=True), \
              _DIAG_PATCH:
@@ -110,6 +118,7 @@ class TestAssociateCommand:
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=_DIAG_STUB), \
              patch("epi_core.platform.associate._needs_registration", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=False), \
              _DIAG_PATCH:
@@ -120,10 +129,28 @@ class TestAssociateCommand:
         from epi_cli.main import associate
         mock_console = _mock_console()
         with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=_DIAG_STUB), \
              patch("epi_core.platform.associate.register_file_association", return_value=True), \
              _DIAG_PATCH:
             code = _call(associate, force=True, system=False, elevated=False)
         assert code == 0
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only drift repair behavior")
+    def test_detected_open_command_drift_forces_repair(self):
+        from epi_cli.main import associate
+        mock_console = _mock_console()
+        drift_diag = {
+            "status": "BROKEN",
+            "issues": ["Registered open command does not match the current installation."],
+        }
+        with patch("epi_cli.main.console", mock_console), \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=drift_diag), \
+             patch("epi_core.platform.associate._needs_registration", return_value=False), \
+             patch("epi_core.platform.associate.register_file_association", return_value=True) as mock_register, \
+             _DIAG_PATCH:
+            code = _call(associate, force=False, system=False, elevated=False)
+        assert code == 0
+        mock_register.assert_called_once_with(silent=False, force=True)
 
     @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
     def test_system_flag_elevated_writes_hklm(self):
@@ -302,9 +329,13 @@ class TestInitCommand:
         original = os.getcwd()
         try:
             os.chdir(tmp_path)
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
             with patch("epi_cli.main.console", _mock_console()), \
                  patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
-                 patch("subprocess.run"):
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3):
                 code = _call(init, demo_filename="test_demo.py", no_open=True)
         finally:
             os.chdir(original)
@@ -316,9 +347,13 @@ class TestInitCommand:
         original = os.getcwd()
         try:
             os.chdir(tmp_path)
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
             with patch("epi_cli.main.console", _mock_console()), \
                  patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
-                 patch("subprocess.run"):
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3):
                 init(demo_filename="my_demo.py", no_open=True)
         finally:
             os.chdir(original)
@@ -335,9 +370,13 @@ class TestInitCommand:
             os.chdir(tmp_path)
             demo = tmp_path / "existing.py"
             demo.write_text("# existing", encoding="utf-8")
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
             with patch("epi_cli.main.console", _mock_console()), \
                  patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
-                 patch("subprocess.run"):
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3):
                 init(demo_filename="existing.py", no_open=True)
         finally:
             os.chdir(original)
@@ -350,9 +389,13 @@ class TestInitCommand:
         original = os.getcwd()
         try:
             os.chdir(tmp_path)
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
             with patch("epi_cli.main.console", _mock_console()), \
                  patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
-                 patch("subprocess.run") as mock_run:
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run, \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3):
                 init(demo_filename="my_demo.py", no_open=True)
         finally:
             os.chdir(original)
@@ -361,12 +404,27 @@ class TestInitCommand:
         assert args[0].endswith("python.exe") or args[0].endswith("python") or "python" in args[0].lower()
         assert args[1] == "my_demo.py"
 
+    def test_init_fails_when_demo_does_not_produce_artifact(self, tmp_path):
+        from epi_cli.main import init
+        import os
+        original = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            with patch("epi_cli.main.console", _mock_console()), \
+                 patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
+                 patch("subprocess.run", return_value=MagicMock(returncode=1)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=0):
+                code = _call(init, demo_filename="broken_demo.py", no_open=True)
+        finally:
+            os.chdir(original)
+        assert code == 1
+
 
 def _write_analyzed_artifact(path: Path, steps_recorded: int) -> None:
     steps = "".join(f'{{"index":{i},"kind":"test","content":{{}}}}\n' for i in range(steps_recorded)).encode("utf-8")
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         file_manifest={"steps.jsonl": "placeholder"},
     )
     analysis = {
@@ -414,7 +472,7 @@ class TestAnalyzeCommand:
         artifact = tmp_path / "contradictory.epi"
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             file_manifest={"steps.jsonl": "placeholder"},
         )
         analysis = {

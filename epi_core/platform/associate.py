@@ -33,11 +33,46 @@ from typing import Optional
 # Windows
 # ============================================================
 
+def _resolve_windows_launcher_dir(preferred: Optional[Path] = None) -> Path:
+    """Return a writable directory for Windows launcher/registration helper files."""
+    candidates: list[Path] = []
+    if preferred is not None:
+        candidates.append(preferred)
+    candidates.extend([
+        Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "EPILabs",
+        Path(tempfile.gettempdir()) / "EPILabs",
+        Path.cwd() / ".epi_associate" / "EPILabs",
+        Path.home() / ".epi" / "launcher",
+    ])
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".epi_write_probe"
+            probe.write_text("ok", encoding="ascii")
+            probe.unlink(missing_ok=True)
+            return candidate
+        except Exception:
+            continue
+
+    raise PermissionError("Could not find a writable EPILabs launcher directory")
+
+
 def _write_windows_script(path: Path, content: str) -> Path:
-    """Write Windows script files without a UTF BOM so WSH can execute them."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="ascii", newline="\r\n")
-    return path
+    """Write Windows script files without a UTF BOM so WSH can execute them.
+
+    In locked-down environments AppData paths can be read-only. In that case,
+    fall back to a writable temp location so registration can still proceed.
+    """
+    target_dir = _resolve_windows_launcher_dir(path.parent)
+    target_path = target_dir / path.name
+    target_path.write_text(content, encoding="ascii", newline="\r\n")
+    return target_path
 
 
 def _resolve_self_heal_command(python_exe: Optional[Path] = None) -> str:
@@ -88,8 +123,7 @@ def _get_epi_launcher_vbs(python_exe: Optional[Path] = None) -> Path:
     with no console window. python_exe is ignored (kept for API compatibility
     with register_windows which passes it).
     """
-    launcher_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "EPILabs"
-    launcher_dir.mkdir(parents=True, exist_ok=True)
+    launcher_dir = _resolve_windows_launcher_dir()
     vbs_path = launcher_dir / "launch.vbs"
 
     # Standalone VBS: extract viewer.html from .epi (ZIP) and open in default browser.
@@ -157,8 +191,7 @@ def _get_self_heal_vbs(python_exe: Optional[Path] = None) -> Path:
     python_exe = python_exe or Path(sys.executable)
     heal_command = _resolve_self_heal_command(python_exe).replace('"', '""')
 
-    launcher_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "EPILabs"
-    launcher_dir.mkdir(parents=True, exist_ok=True)
+    launcher_dir = _resolve_windows_launcher_dir()
     vbs_path = launcher_dir / "self_heal.vbs"
 
     vbs_content = (
@@ -211,6 +244,22 @@ def _get_epi_command() -> str:
 
     # Fallback 2: python.exe — last resort, shows a brief console window
     return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+
+def _get_user_open_command() -> str:
+    """Return a stable HKCU open command for PyPI/GitHub installs."""
+    try:
+        vbs_path = _get_epi_launcher_vbs()
+        return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
+    except Exception:
+        return _get_epi_command()
+
+
+def _get_expected_open_command(scope: Optional[str]) -> str:
+    """Expected open command by effective association scope."""
+    if scope == "HKLM":
+        return _get_epi_command()
+    return _get_user_open_command()
+
 
 def _shellexecute_wait(exe: str, params: str, timeout_ms: int = 8000) -> None:
     """Launch exe+params via ShellExecuteExW and wait for the process to finish.
@@ -271,8 +320,7 @@ def _shellexecute_wait(exe: str, params: str, timeout_ms: int = 8000) -> None:
 
 def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
     """Run reg.exe outside packaged/virtualized Python contexts and capture stdout."""
-    launcher_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "EPILabs"
-    launcher_dir.mkdir(parents=True, exist_ok=True)
+    launcher_dir = _resolve_windows_launcher_dir()
 
     fd, output_name = tempfile.mkstemp(prefix="reg_", suffix=".txt", dir=launcher_dir)
     os.close(fd)
@@ -327,7 +375,7 @@ def register_windows() -> None:
     python_exe = Path(sys.executable)
     _get_epi_launcher_vbs(python_exe)
     heal_vbs = _get_self_heal_vbs(python_exe)
-    open_cmd = _get_epi_command()
+    open_cmd = _get_user_open_command()
     icon_cmd = _get_windows_default_icon(python_exe)
     heal_cmd = f'wscript.exe /B "{heal_vbs.absolute()}"'
 
@@ -363,8 +411,7 @@ def register_windows() -> None:
     ]
     reg_content = "\r\n".join(reg_lines)
 
-    launcher_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "EPILabs"
-    launcher_dir.mkdir(parents=True, exist_ok=True)
+    launcher_dir = _resolve_windows_launcher_dir()
     reg_path = launcher_dir / "register.reg"
 
     # .reg files must be UTF-16 LE with BOM for reliable Windows parsing
@@ -799,7 +846,7 @@ def _set_registration_state():
             "version": _get_epi_version(),
             "executable": sys.executable,
             "platform": sys.platform,
-            "open_command": _get_epi_command() if sys.platform == "win32" else None,
+            "open_command": _get_user_open_command() if sys.platform == "win32" else None,
             "launcher_version": _LAUNCHER_VERSION_WIN if sys.platform == "win32" else None,
         }
         _FLAG_PATH.write_text(json.dumps(state), encoding="utf-8")
@@ -836,7 +883,7 @@ def _needs_registration() -> bool:
         # Layer 2: the registered open command has changed
         if sys.platform == "win32":
             stored_cmd = state.get("open_command")
-            if stored_cmd != _get_epi_command():
+            if stored_cmd != _get_user_open_command():
                 return True
 
         # Layer 3: live OS health check (self-healing)
@@ -915,7 +962,8 @@ def _is_association_broken() -> bool:
             if not registered_command:
                 return True
 
-            if registered_command != _get_epi_command():
+            expected_cmd = _get_expected_open_command(snapshot.get("effective_scope"))
+            if registered_command != expected_cmd:
                 return True
 
             import re as _re
@@ -974,7 +1022,7 @@ def get_association_diagnostics() -> dict:
                 if m2 and not Path(m2.group(1)).exists():
                     diag["status"] = "BROKEN"
                     diag["issues"].append(f"Registered executable does not exist: {m2.group(1)}")
-                elif cmd != _get_epi_command():
+                elif cmd != _get_expected_open_command(snapshot.get("effective_scope")):
                     diag["status"] = "BROKEN"
                     diag["issues"].append("Registered open command does not match the current installation.")
             else:
@@ -997,7 +1045,11 @@ def _get_epi_version() -> str:
 def _clear_registered() -> None:
     """Remove the registration flag."""
     if _FLAG_PATH.exists():
-        _FLAG_PATH.unlink()
+        try:
+            _FLAG_PATH.unlink()
+        except PermissionError:
+            # Flag cleanup should never be fatal for diagnostics or tests.
+            pass
 
 
 def register_file_association(silent: bool = False, force: bool = False) -> bool:

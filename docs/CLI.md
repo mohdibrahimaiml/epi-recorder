@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.4)
+# EPI CLI Reference (v2.8.5)
 
-**Version:** 2.8.4  
+**Version:** 2.8.5  
 **Primary entrypoint:** `epi`
 
 ---
@@ -19,7 +19,7 @@
 | `epi unassociate` | Remove file association support. |
 | `epi doctor` | Run self-healing diagnostics. |
 | `epi keys` | Manage signing keys. |
-| `epi policy` | Create and validate `epi_policy.json` rule files. |
+| `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded faults. |
 
 ---
@@ -99,7 +99,9 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.3`, the analyzer enforces:
+In `v2.8.5`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+
+The analyzer enforces:
 - `constraint_guard`
 - `sequence_guard`
 - `threshold_guard`
@@ -109,6 +111,7 @@ In `v2.8.3`, the analyzer enforces:
 epi policy init
 epi policy validate
 epi policy show
+epi policy show --raw
 ```
 
 Practical rule:
@@ -116,6 +119,7 @@ Practical rule:
 - store `epi_policy.json` in the same working directory where you run `epi run` or `epi record`
 - EPI loads it during packing
 - the sealed artifact then contains `policy.json` and `analysis.json` when applicable
+- EPI stores the company rulebook as `epi_policy.json`; most users should not edit JSON manually
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
@@ -127,7 +131,7 @@ Supports human review of policy-grounded faults. Reviewers can confirm, dismiss,
 
 ```bash
 epi review payment_run.epi
-epi review show payment_run.epi
+epi review payment_run.epi show
 ```
 
 ---
@@ -135,5 +139,5 @@ epi review show payment_run.epi
 ## Notes
 
 - For normal Windows users, use the packaged installer for the best `.epi` opening experience.
-- For developer installs from PyPI or source, `epi associate` and `epi doctor` are the main repair paths.
+- For developer installs from PyPI or source, `epi associate` registers a stable user launcher path and `epi doctor` reports drift when OS policy blocks registry repair.
 - Policy and analysis results are embedded into the artifact as `policy.json` and `analysis.json` when available.

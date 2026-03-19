@@ -8,6 +8,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from epi_core._version import get_version
+from epi_core.time_utils import utc_now
+
 
 class ManifestModel(BaseModel):
     """
@@ -18,7 +21,7 @@ class ManifestModel(BaseModel):
     """
     
     spec_version: str = Field(
-        default="2.8.4",
+        default_factory=get_version,
         description="EPI specification version"
     )
     
@@ -28,7 +31,7 @@ class ManifestModel(BaseModel):
     )
     
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Timestamp when the .epi file was created (UTC)"
     )
     
@@ -39,7 +42,7 @@ class ManifestModel(BaseModel):
     
     env_snapshot_hash: Optional[str] = Field(
         default=None,
-        description="SHA-256 hash of env.json (environment snapshot)"
+        description="SHA-256 hash of environment.json (environment snapshot)"
     )
     
     file_manifest: Dict[str, str] = Field(
@@ -93,7 +96,7 @@ class ManifestModel(BaseModel):
                 "env_snapshot_hash": "a3c5f...",
                 "file_manifest": {
                     "steps.jsonl": "b4d6e...",
-                    "env.json": "a3c5f...",
+                    "environment.json": "a3c5f...",
                     "artifacts/output.txt": "c7f8a..."
                 },
                 "signature": "ed25519:3a4b5c6d...",
@@ -119,7 +122,7 @@ class StepModel(BaseModel):
     )
     
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Timestamp when this step occurred (UTC)"
     )
     

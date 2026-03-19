@@ -7,7 +7,6 @@ import json
 import hashlib
 import tempfile
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +14,7 @@ import pytest
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now
 
 
 # ─────────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ class TestReadManifest:
     def test_reads_valid_manifest(self, tmp_path):
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             cli_command="python test.py",
             file_manifest={"steps.jsonl": "abc123"},
         )
@@ -86,7 +86,7 @@ class TestVerifyIntegrity:
 
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             cli_command="python test.py",
             file_manifest={"steps.jsonl": steps_hash},
         )
@@ -122,7 +122,7 @@ class TestVerifyIntegrity:
     def test_empty_file_manifest_passes(self, tmp_path):
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             file_manifest={},
         )
         epi = tmp_path / "empty.epi"

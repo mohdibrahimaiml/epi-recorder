@@ -7,8 +7,8 @@ without monkey patching.
 
 import time
 from typing import Any, Optional
-from datetime import datetime
 
+from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase
 
 
@@ -47,7 +47,7 @@ class TracedMessages:
                 "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             }
             
             # Add optional parameters if present
@@ -93,7 +93,7 @@ class TracedMessages:
                     "usage": usage,
                     "stop_reason": getattr(response, "stop_reason", None),
                     "latency_seconds": round(latency, 3),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
             
             return response
@@ -109,7 +109,7 @@ class TracedMessages:
                     "error": str(e),
                     "error_type": type(e).__name__,
                     "latency_seconds": round(latency, 3),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
             
             raise
@@ -133,7 +133,7 @@ class TracedMessages:
                 "model": model,
                 "messages": messages,
                 "stream": True,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             })
         
         start_time = time.time()
@@ -164,7 +164,7 @@ class TracedMessages:
                     }],
                     "stream": True,
                     "latency_seconds": round(latency, 3),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
                 
         except Exception as e:
@@ -178,7 +178,7 @@ class TracedMessages:
                     "error_type": type(e).__name__,
                     "stream": True,
                     "latency_seconds": round(latency, 3),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
             
             raise

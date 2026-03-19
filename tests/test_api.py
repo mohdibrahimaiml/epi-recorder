@@ -202,6 +202,39 @@ class TestEpiRecorderSession:
                 assert "python" in env_data
                 assert env_data["os"]["platform"]  # Nested structure
 
+    def test_print_lines_are_auto_captured(self):
+        """Test that plain print() output is captured as analyzable steps."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_print_capture.epi"
+
+            with EpiRecorderSession(output_path, auto_sign=False):
+                print("hello from print capture")
+                print('{"tool":"approve_wire_transfer","amount":15000}')
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            printed = [s for s in steps if s["kind"] == "stdout.print"]
+            assert len(printed) >= 2
+            assert any("hello from print capture" in p["content"]["text"] for p in printed)
+            assert any(p["content"].get("parsed", {}).get("tool") == "approve_wire_transfer" for p in printed)
+
+    def test_print_capture_can_be_disabled(self):
+        """Test users can opt out of stdout capture for noise-sensitive runs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_print_capture_disabled.epi"
+
+            with EpiRecorderSession(output_path, auto_sign=False, capture_prints=False):
+                print("this should not become an epi step")
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            printed = [s for s in steps if s["kind"] == "stdout.print"]
+            assert len(printed) == 0
+
 
 class TestRecordFunction:
     """Test the convenience record() function."""

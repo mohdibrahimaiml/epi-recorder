@@ -4,13 +4,14 @@ Tests for epi_core.container - ZIP container management
 Tests the core .epi file format creation and extraction logic.
 """
 
-import tempfile
+import shutil
 from pathlib import Path
 
 import pytest
 
 from epi_core.container import EPIContainer, EPI_MIMETYPE
 from epi_core.schemas import ManifestModel
+from epi_core.workspace import create_recording_workspace
 
 
 class TestEPIContainer:
@@ -19,8 +20,11 @@ class TestEPIContainer:
     @pytest.fixture
     def temp_workspace(self):
         """Create a temporary workspace for testing."""
-        with tempfile.TemporaryDirectory(prefix="epi_test_") as tmpdir:
-            yield Path(tmpdir)
+        workspace = create_recording_workspace("epi_test_")
+        try:
+            yield workspace
+        finally:
+            shutil.rmtree(workspace, ignore_errors=True)
     
     @pytest.fixture
     def sample_files(self, temp_workspace):
@@ -348,7 +352,11 @@ class TestEPIContainer:
         assert "viewer_lite.css" not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert "Evidence Packaged Infrastructure for AI" in viewer_html
+        assert "Decision Verdict" in viewer_html
         assert "No execution data recorded" in viewer_html
+        assert "Needs Verification" in viewer_html
+        from epi_core import __version__
+        assert f"EPI Viewer v{__version__}" in viewer_html
     
     def test_embedded_viewer_with_invalid_json_in_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer handles invalid JSON in steps.jsonl gracefully."""

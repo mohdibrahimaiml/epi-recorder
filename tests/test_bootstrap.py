@@ -5,6 +5,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from epi_recorder.bootstrap import initialize_recording
+from epi_recorder.api import get_current_session
+from epi_recorder.patcher import RecordingContext, set_recording_context
 
 
 class TestBootstrapInitialization:
@@ -53,6 +55,31 @@ class TestBootstrapInitialization:
             
             # Should not raise
             initialize_recording()
+
+
+class TestBootstrapSessionProxy:
+    def test_get_current_session_returns_proxy_in_bootstrap_mode(self, tmp_path):
+        steps_dir = tmp_path / "steps"
+        steps_dir.mkdir()
+
+        context = RecordingContext(steps_dir, enable_redaction=False)
+        try:
+            set_recording_context(context)
+            session = get_current_session()
+            assert session is not None
+            session.log_step("custom.event", {"value": 1})
+            context.finalize()
+
+            steps_path = steps_dir / "steps.jsonl"
+            assert steps_path.exists()
+            payload = steps_path.read_text(encoding="utf-8")
+            assert "custom.event" in payload
+        finally:
+            set_recording_context(None)
+
+    def test_get_current_session_none_without_bootstrap_context(self):
+        set_recording_context(None)
+        assert get_current_session() is None
 
 
 

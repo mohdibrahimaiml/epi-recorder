@@ -8,7 +8,6 @@ verify: verbose mode, signature paths, json output
 import hashlib
 import json
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
@@ -17,6 +16,7 @@ import pytest
 import click
 
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now, utc_now_iso
 
 
 def _sha256(data: bytes) -> str:
@@ -27,7 +27,7 @@ def _make_epi(tmp_path: Path, include_viewer: bool = True, signed: bool = False)
     steps = b'{"index":0,"kind":"test","content":{}}\n'
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         cli_command="python test.py",
         file_manifest={"steps.jsonl": _sha256(steps)},
     )
@@ -89,6 +89,8 @@ class TestViewCommand:
         assert code == 0
         assert extract_dir.exists()
         assert (extract_dir / "viewer.html").exists()
+        html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+        assert 'id="epi-view-context"' in html
 
     def test_no_viewer_html_exits_1(self, tmp_path):
         epi = _make_epi(tmp_path, include_viewer=False)
@@ -165,7 +167,6 @@ class TestViewerContextInjection:
         assert 'id="epi-view-context"' in html
         assert html.index('id="epi-view-context"') < html.index("window.appLoaded")
 
-
 # ─────────────────────────────────────────────────────────────
 # verify_command verbose + signature paths
 # ─────────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ class TestVerifyCommandExtended:
         wrong_hash = "deadbeef" * 8
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             file_manifest={"steps.jsonl": wrong_hash},
         )
         epi = tmp_path / "tampered.epi"
@@ -214,7 +215,7 @@ class TestVerifyCommandExtended:
         steps = b'{"index":0}\n'
         manifest = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             file_manifest={"steps.jsonl": "deadbeef" * 8},
         )
         epi = tmp_path / "t.epi"
@@ -230,7 +231,7 @@ class TestVerifyCommandExtended:
         steps = b'{"index":0}\n'
         manifest_data = {
             "workflow_id": str(uuid4()),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": utc_now_iso(),
             "file_manifest": {"steps.jsonl": _sha256(steps)},
             "signature": "ed25519:default:" + "aa" * 64,
             "public_key": "bb" * 32,
@@ -248,7 +249,7 @@ class TestVerifyCommandExtended:
         steps = b'{"index":0}\n'
         manifest_data = {
             "workflow_id": str(uuid4()),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": utc_now_iso(),
             "file_manifest": {"steps.jsonl": _sha256(steps)},
             "signature": "ed25519:default:" + "aa" * 64,
             "public_key": None,

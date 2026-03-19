@@ -25,6 +25,7 @@ import typer
 from rich.console import Console
 
 from epi_core.container import EPIContainer
+from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_core.trust import create_verification_report, get_signer_name, verify_signature
 
 console = Console()
@@ -89,19 +90,21 @@ def _resolve_epi_file(name_or_path: str) -> Path:
 
 def _make_temp_dir() -> Path | None:
     """Try multiple locations for temp dir creation."""
-    candidates = [
-        lambda: Path(tempfile.mkdtemp(prefix="epi_view_")),
-        lambda: Path(tempfile.gettempdir()) / f"epi_view_{id(object())}",
-        lambda: Path.cwd() / f".epi_temp_{id(object())}",
-    ]
-    for make in candidates:
-        try:
-            p = make()
-            p.mkdir(parents=True, exist_ok=True)
-            return p
-        except Exception:
-            continue
-    return None
+    try:
+        return create_recording_workspace("epi_view_")
+    except RecordingWorkspaceError:
+        candidates = [
+            lambda: Path(tempfile.gettempdir()) / f"epi_view_{id(object())}",
+            lambda: Path.cwd() / f".epi_temp_{id(object())}",
+        ]
+        for make in candidates:
+            try:
+                p = make()
+                p.mkdir(parents=True, exist_ok=True)
+                return p
+            except Exception:
+                continue
+        return None
 
 def _open_in_browser(viewer_path: Path):
     """Cross-platform browser open with fallbacks."""
@@ -191,6 +194,20 @@ def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     viewer_path.write_text(html, encoding="utf-8")
 
 
+def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
+    """
+    Regenerate viewer.html from the extracted artifact contents.
+
+    This keeps the viewer aligned with append-only files like review.json that
+    may have been added after the original viewer was baked into the artifact.
+    """
+    manifest = EPIContainer.read_manifest(resolved_path)
+    viewer_html = EPIContainer._create_embedded_viewer(extracted_dir, manifest)
+    viewer_path = extracted_dir / "viewer.html"
+    viewer_path.write_text(viewer_html, encoding="utf-8")
+    return viewer_path
+
+
 def view(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
@@ -228,6 +245,9 @@ def view(
         dest.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(resolved_path, "r") as zf:
             zf.extractall(dest)
+        viewer = _refresh_viewer_html(dest, resolved_path)
+        if viewer.exists():
+            _inject_viewer_context(viewer, _build_viewer_context(resolved_path))
         console.print(f"[green][OK][/green] Extracted to: {dest}")
         console.print(f"   Open in browser: {dest / 'viewer.html'}")
         raise typer.Exit(0)
@@ -251,10 +271,9 @@ def view(
                     console.print("\n[i] [bold]Manifest contents:[/bold]")
                     console.print(zf.read("manifest.json").decode("utf-8", errors="replace"))
                 raise typer.Exit(1)
-            
-            zf.extract("viewer.html", temp_dir)
+            zf.extractall(temp_dir)
 
-        viewer = temp_dir / "viewer.html"
+        viewer = _refresh_viewer_html(temp_dir, resolved_path)
         _inject_viewer_context(viewer, viewer_context)
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")

@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from epi_core.schemas import ManifestModel, StepModel
+from epi_core.time_utils import utc_now
 from epi_core.serialize import (
     _cbor_default_encoder,
     get_canonical_hash,
@@ -271,7 +272,7 @@ class TestCreateVerificationReport:
     def _make_manifest(self):
         return ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             file_manifest={"steps.jsonl": "abc123"},
         )
 
@@ -324,7 +325,7 @@ class TestSignManifestInplace:
         key = Ed25519PrivateKey.generate()
         m = ManifestModel(
             workflow_id=uuid4(),
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             cli_command="python test.py",
         )
         manifest_path = tmp_path / "manifest.json"

@@ -8,7 +8,6 @@ to capture requests and responses for workflow recording.
 import json
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from functools import wraps
@@ -16,6 +15,8 @@ from functools import wraps
 from epi_core.schemas import StepModel
 from epi_core.redactor import get_default_redactor
 from epi_core.storage import EpiStorage
+from epi_core.time_utils import utc_now
+from epi_core.workspace import ensure_workspace_writable
 
 
 class RecordingContext:
@@ -40,7 +41,7 @@ class RecordingContext:
         self._lock = threading.Lock()
 
         # Ensure output directory exists
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        ensure_workspace_writable(self.output_dir)
 
         # Initialize SQLite storage (crash-safe, atomic)
         import uuid
@@ -67,7 +68,7 @@ class RecordingContext:
                 if redaction_count > 0:
                     redaction_step = StepModel(
                         index=self.step_index,
-                        timestamp=datetime.utcnow(),
+                        timestamp=utc_now(),
                         kind="security.redaction",
                         content={
                             "count": redaction_count,
@@ -82,7 +83,7 @@ class RecordingContext:
             # Create step
             step = StepModel(
                 index=self.step_index,
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 kind=kind,
                 content=content,
                 trace_id=trace_id,

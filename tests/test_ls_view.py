@@ -8,13 +8,13 @@ import hashlib
 import time
 import zipfile
 from pathlib import Path
-from datetime import datetime
 from uuid import uuid4
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now
 
 
 # ─────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ def _make_epi(tmp_path: Path, include_viewer: bool = True, signed: bool = False)
     steps = b'{"index":0,"kind":"test","content":{}}\n'
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         cli_command="python test_script.py --arg",
         file_manifest={"steps.jsonl": _sha256(steps)},
         goal="Measure accuracy",

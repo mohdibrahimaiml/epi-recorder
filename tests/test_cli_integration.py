@@ -143,6 +143,43 @@ class TestCLIVersion:
         assert "EPI" in result.stdout or "epi" in result.stdout.lower()
 
 
+class TestCLIReview:
+    """Test epi review command routing."""
+
+    @pytest.fixture
+    def analyzed_epi_file(self):
+        """Create a minimal .epi with analysis.json for review command tests."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            source_dir = tmpdir_path / "source"
+            source_dir.mkdir()
+            (source_dir / "steps.jsonl").write_text('{"index":0,"kind":"session.start","content":{}}\n')
+            (source_dir / "analysis.json").write_text(json.dumps({
+                "fault_detected": False,
+                "primary_fault": None,
+                "secondary_flags": [],
+                "coverage": {"steps_recorded": 1, "coverage_percentage": 100},
+            }))
+            output_path = tmpdir_path / "review_test.epi"
+            manifest = ManifestModel(cli_command="test review command")
+            EPIContainer.pack(source_dir, manifest, output_path)
+            yield output_path
+
+    def test_review_interactive_entrypoint_accepts_epi_file(self, analyzed_epi_file):
+        """`epi review <file>` should execute callback path, not parser-error on EPI_FILE."""
+        result = runner.invoke(
+            app,
+            ["review", str(analyzed_epi_file), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 0
+        assert "Missing argument 'EPI_FILE'" not in result.stdout
+        assert "Nothing to review" in result.stdout or "No faults detected" in result.stdout
+
+    def test_review_show_still_works(self, analyzed_epi_file):
+        result = runner.invoke(app, ["review", str(analyzed_epi_file), "show"])
+        assert result.exit_code == 0
+
+
 class TestCLIErrors:
     """Test CLI error handling."""
     

@@ -12,7 +12,6 @@ This command:
 """
 
 import shlex
-import tempfile
 import time
 import zipfile
 from datetime import datetime
@@ -26,9 +25,11 @@ from rich.panel import Panel
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 from epi_core.trust import verify_signature, get_signer_name, create_verification_report
+from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 from epi_cli.keys import KeyManager
 from epi_cli._shared import ensure_python_command, build_env_for_child
+from epi_cli.view import _build_viewer_context, _inject_viewer_context, _make_temp_dir
 from epi_recorder.environment import save_environment_snapshot
 
 console = Console()
@@ -36,6 +37,12 @@ console = Console()
 app = typer.Typer(name="run", help="Record a Python workflow that already emits EPI steps.")
 
 DEFAULT_DIR = Path("epi-recordings")
+
+
+def _print_workspace_failure(exc: Exception) -> None:
+    console.print("\n[bold red][X] EPI could not start recording.[/bold red]")
+    console.print(f"[dim]{exc}[/dim]")
+    console.print("[dim]Fix: set TMP/TEMP to a writable folder and rerun.[/dim]\n")
 
 
 def _gen_auto_name(script_path: Path) -> Path:
@@ -49,7 +56,7 @@ def _gen_auto_name(script_path: Path) -> Path:
         Path to the .epi file
     """
     base = script_path.stem if script_path.name != "-" else "recording"
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     DEFAULT_DIR.mkdir(parents=True, exist_ok=True)
     return DEFAULT_DIR / f"{base}_{timestamp}.epi"
 
@@ -119,7 +126,9 @@ def _open_viewer(epi_file: Path) -> bool:
         import webbrowser
 
         # Extract viewer to temp location
-        temp_dir = Path(tempfile.mkdtemp(prefix="epi_view_"))
+        temp_dir = _make_temp_dir()
+        if temp_dir is None:
+            return False
         viewer_path = temp_dir / "viewer.html"
 
         with zipfile.ZipFile(epi_file, "r") as zf:
@@ -127,6 +136,7 @@ def _open_viewer(epi_file: Path) -> bool:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return False
             zf.extract("viewer.html", temp_dir)
+        _inject_viewer_context(viewer_path, _build_viewer_context(epi_file))
 
         file_url = viewer_path.as_uri()
         opened = webbrowser.open(file_url)
@@ -249,15 +259,19 @@ def run(
     cmd = ensure_python_command([str(script)])
     
     # Prepare workspace
-    temp_workspace = Path(tempfile.mkdtemp(prefix="epi_record_"))
-    steps_dir = temp_workspace
-    env_json = temp_workspace / "env.json"
-    
-    # Capture environment snapshot
-    save_environment_snapshot(env_json, include_all_env_vars=False, redact_env_vars=True)
-    
-    # Build child environment and run
-    child_env = build_env_for_child(steps_dir, enable_redaction=True)
+    try:
+        temp_workspace = create_recording_workspace("epi_record_")
+        steps_dir = temp_workspace
+        env_json = temp_workspace / "environment.json"
+
+        # Capture environment snapshot
+        save_environment_snapshot(env_json, include_all_env_vars=False, redact_env_vars=True)
+
+        # Build child environment and run
+        child_env = build_env_for_child(steps_dir, enable_redaction=True)
+    except (RecordingWorkspaceError, OSError, PermissionError) as exc:
+        _print_workspace_failure(exc)
+        raise typer.Exit(1)
     
     # Create stdout/stderr logs
     stdout_log = temp_workspace / "stdout.log"
@@ -322,7 +336,7 @@ def run(
     if empty_recording:
         console.print("\n[bold red][X] No steps recorded.[/bold red]")
         console.print("[dim]EPI was not attached to this script, so the artifact is only useful for debugging.[/dim]")
-        console.print("[dim]Fix: use [cyan]from epi_recorder import record[/cyan] or a supported integration.[/dim]\n")
+        console.print("[dim]Fix: use [cyan]record(...) [/cyan], a supported integration, or [cyan]get_current_session().log_step(...)[/cyan] inside epi run mode.[/dim]\n")
     elif step_count <= 2:
         console.print("\n[bold yellow][!] Warning: Very little execution data was recorded.[/bold yellow]")
         console.print("[dim]Make sure your workflow emits meaningful EPI steps, not just setup/teardown.[/dim]\n")
@@ -367,7 +381,7 @@ def run(
 
     lines.append(f"\n[dim]  epi view {out.stem}    epi verify {out.stem}    epi ls[/dim]")
     if empty_recording:
-        lines.append("[dim]  Next step: instrument your script with record() and run it again.[/dim]")
+        lines.append("[dim]  Next step: instrument with record(), wrappers/integrations, or get_current_session().log_step(...), then run again.[/dim]")
 
     if empty_recording:
         title = "[bold red]Recording captured no execution data[/bold red]"

@@ -6,9 +6,10 @@ Centralised here to avoid duplication and ensure bug fixes apply everywhere.
 
 import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import List
+
+from epi_core.workspace import create_recording_workspace
 
 
 def ensure_python_command(cmd: List[str]) -> List[str]:
@@ -44,7 +45,7 @@ def build_env_for_child(steps_dir: Path, enable_redaction: bool) -> dict:
     env["PYTHONUTF8"] = "1"  # PEP 540 — also covers open() calls in child
 
     # Temporary sitecustomize.py bootstrap
-    bootstrap_dir = Path(tempfile.mkdtemp(prefix="epi_bootstrap_"))
+    bootstrap_dir = create_recording_workspace("epi_bootstrap_")
     (bootstrap_dir / "sitecustomize.py").write_text(
         "from epi_recorder.bootstrap import initialize_recording\n",
         encoding="utf-8",

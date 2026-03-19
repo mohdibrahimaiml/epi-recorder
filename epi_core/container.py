@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from epi_core.schemas import ManifestModel
+from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 
 # EPI mimetype constant (vendor-specific MIME type per RFC 6838)
@@ -37,7 +38,7 @@ class EPIContainer:
     - steps.jsonl (timeline of recorded events)
     - artifacts/ (captured files, content-addressed)
     - cache/ (API/LLM responses)
-    - env.json (environment snapshot)
+    - environment.json (environment snapshot)
     """
     
     @staticmethod
@@ -63,24 +64,27 @@ class EPIContainer:
     @staticmethod
     def _make_temp_dir(prefix: str) -> Path:
         """Create a temp directory with fallbacks for locked system temp paths."""
-        candidates = [
-            lambda: Path(tempfile.mkdtemp(prefix=prefix)),
-            lambda: Path.cwd() / f".{prefix}{id(object())}",
-        ]
+        try:
+            return create_recording_workspace(prefix)
+        except RecordingWorkspaceError:
+            candidates = [
+                lambda: Path(tempfile.gettempdir()) / f"{prefix}{id(object())}",
+                lambda: Path.cwd() / f".{prefix}{id(object())}",
+            ]
 
-        last_error = None
-        for make in candidates:
-            try:
-                candidate = make()
-                candidate.mkdir(parents=True, exist_ok=True)
-                probe = candidate / ".epi_probe"
-                probe.write_text("ok", encoding="utf-8")
-                probe.unlink(missing_ok=True)
-                return candidate
-            except Exception as exc:
-                last_error = exc
+            last_error = None
+            for make in candidates:
+                try:
+                    candidate = make()
+                    candidate.mkdir(parents=True, exist_ok=True)
+                    probe = candidate / ".epi_probe"
+                    probe.write_text("ok", encoding="utf-8")
+                    probe.unlink(missing_ok=True)
+                    return candidate
+                except Exception as exc:
+                    last_error = exc
 
-        raise last_error or RuntimeError("Could not create temporary directory")
+            raise last_error or RuntimeError("Could not create temporary directory")
     
     @staticmethod
     def _create_embedded_viewer(source_dir: Path, manifest: ManifestModel) -> str:
@@ -196,12 +200,17 @@ class EPIContainer:
         else:
             html_with_js = html_with_css
         
-        # Replace dynamic version
-        from epi_core import __version__
-        html_with_version = html_with_js.replace("__EPI_VERSION__", f"v{__version__}")
-        # Backward-compatibility replacement if older templates are reintroduced.
-        html_with_version = html_with_version.replace("EPI v2.7.2", f"EPI v{__version__}")
-        html_with_version = html_with_version.replace("EPI v2.2.0", f"EPI v{__version__}")
+        from epi_core._version import get_version
+
+        current_version_marker = f"v{get_version()}"
+        if "__EPI_VERSION__" in html_with_js:
+            html_with_version = html_with_js.replace("__EPI_VERSION__", current_version_marker)
+        else:
+            html_with_version = html_with_js
+            # Compatibility fallback for older templates that predate the
+            # placeholder-based version injection path.
+            for legacy_marker in ("EPI v2.7.2", "EPI v2.2.0"):
+                html_with_version = html_with_version.replace(legacy_marker, f"EPI {current_version_marker}")
         
         return html_with_version
     
@@ -322,7 +331,7 @@ class EPIContainer:
             # file_manifest. viewer.html is a generated presentation layer that
             # embeds the manifest itself (circular dependency makes hashing it
             # impossible without a two-phase scheme). manifest.json cannot include
-            # its own hash. The evidence data (steps.jsonl, env.json, artifacts/)
+            # its own hash. The evidence data (steps.jsonl, environment.json, artifacts/)
             # is fully covered. The manifest's Ed25519 signature protects integrity
             # of the manifest fields themselves.
             manifest.file_manifest = file_manifest

@@ -27,18 +27,19 @@ env/
 .venv
 .venv-release/
 .venv-normal-user/
+.venv-e2e/
 ci_check_env/
 tmp_debug_env/
-.tmp-build/
-.tmp-build2/
-.tmp-clean-release/
-.tmp-normal-user-flow/
-.tmp-normal-user-init/
-.tmp-pytest/
-.tmp-python/
+.tmp-*
+.tmp-*/**
 .tmp-viewer-*/
 .pytest-tmp-*/
+.pytest-tmp-*/**
 tmp*/
+tmp*/**
+probe_*/
+.epi-temp/
+.epi_associate/
 
 # Vendored frontend dependencies
 epi-viewer/node_modules/
@@ -113,18 +114,18 @@ clients/
 
 # Dump files
 epi_full_dump*.txt
-
-# Scripts subfolder (one-off utilities)
-scripts/
-!scripts/
-!scripts/smoke_policy_fault_analysis.py
+cli_workflow_output.json
+pepy_full.json
+epi_web_verifier/manifest.json
 
 # Spec scratchpad
 spec/
 
+# Local companion sites/workspaces (not part of epi-recorder package)
+epi-official-site/
+
 # Log and coverage artifacts
 *.log
-*.json
 !pyproject.toml
 *.html
 !epi_viewer_static/*.html

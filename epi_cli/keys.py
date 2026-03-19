@@ -6,6 +6,7 @@ Provides secure key generation, storage, and management following best practices
 
 import base64
 import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +16,36 @@ from rich.console import Console
 from rich.table import Table
 
 console = Console()
+
+
+def _is_writable_dir(path: Path) -> bool:
+    """Return True if directory is creatable and writable."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".epi_key_write_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return True
+    except Exception:
+        return False
+
+
+def _resolve_default_keys_dir() -> Path:
+    """Resolve a writable default keys directory with fallbacks."""
+    candidates = [
+        Path.home() / ".epi" / "keys",
+        Path.cwd() / ".epi" / "keys",
+        Path(tempfile.gettempdir()) / "epi" / "keys",
+    ]
+
+    for candidate in candidates:
+        if _is_writable_dir(candidate):
+            return candidate
+
+    raise PermissionError(
+        "Unable to create a writable keys directory. "
+        "Provide --keys-dir or set a writable home/temp path."
+    )
 
 
 class KeyManager:
@@ -34,7 +65,7 @@ class KeyManager:
             keys_dir: Optional custom keys directory (default: ~/.epi/keys/)
         """
         if keys_dir is None:
-            self.keys_dir = Path.home() / ".epi" / "keys"
+            self.keys_dir = _resolve_default_keys_dir()
         else:
             self.keys_dir = keys_dir
         

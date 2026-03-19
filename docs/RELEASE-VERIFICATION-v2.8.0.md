@@ -116,7 +116,7 @@ Run:
 
 ```bash
 epi review <artifact.epi>
-epi review show <artifact.epi>
+epi review <artifact.epi> show
 ```
 
 Expected:

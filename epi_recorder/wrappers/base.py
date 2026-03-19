@@ -4,7 +4,8 @@ Base classes for EPI traced clients.
 
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-from datetime import datetime
+
+from epi_core.time_utils import utc_now_iso
 
 
 class TracedClientBase(ABC):
@@ -37,7 +38,7 @@ class TracedClientBase(ABC):
                 "provider": provider,
                 "model": model,
                 "messages": messages,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
                 **kwargs
             })
     
@@ -57,7 +58,7 @@ class TracedClientBase(ABC):
                 "provider": provider,
                 "model": model,
                 "choices": [{"message": {"role": "assistant", "content": content}}],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             }
             if usage:
                 response_data["usage"] = usage
@@ -74,6 +75,6 @@ class TracedClientBase(ABC):
                 "provider": provider,
                 "error": str(error),
                 "error_type": type(error).__name__,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
                 **kwargs
             })

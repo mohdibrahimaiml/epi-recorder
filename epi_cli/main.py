@@ -5,6 +5,7 @@ Provides the main CLI application with frictionless first-run experience.
 """
 
 import typer
+from pathlib import Path
 from rich.console import Console
 
 from epi_cli.keys import generate_default_keypair_if_missing
@@ -69,6 +70,39 @@ def _analysis_has_fault(analysis: dict) -> bool:
     if not isinstance(analysis, dict):
         return False
     return bool(analysis.get("primary_fault") or analysis.get("fault_detected"))
+
+
+def _count_steps_in_artifact(epi_path: Path) -> int:
+    import zipfile
+
+    if not epi_path.exists() or not zipfile.is_zipfile(epi_path):
+        return 0
+
+    with zipfile.ZipFile(epi_path, "r") as zf:
+        if "steps.jsonl" not in zf.namelist():
+            return 0
+        return len([line for line in zf.read("steps.jsonl").decode("utf-8").splitlines() if line.strip()])
+
+
+def _analyze_reviewer_guidance(has_fault: bool, steps_recorded: int) -> tuple[str, str, str]:
+    """Return plain-language reviewer guidance for analyze output."""
+    if has_fault:
+        return (
+            "Needs review before trust",
+            "A policy-linked issue was detected in this run.",
+            "Run 'epi review <file.epi>' to confirm or dismiss this fault.",
+        )
+    if steps_recorded == 0:
+        return (
+            "No decision possible",
+            "No execution steps were captured, so risk cannot be assessed.",
+            "Re-run with EPI instrumentation (record()/log_step wrappers) and analyze again.",
+        )
+    return (
+        "No fault detected",
+        "No rule or heuristic anomalies were flagged in captured steps.",
+        "Proceed with normal review process; keep artifact for audit traceability.",
+    )
 
 
 def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
@@ -182,7 +216,6 @@ app.command(name="run", help="Record a Python workflow that already emits EPI st
 
 # Phase 1: verify command
 from epi_cli.verify import verify_command
-from pathlib import Path
 
 @app.command(name="verify", help="Verify .epi file integrity and authenticity")
 def verify(
@@ -225,10 +258,16 @@ app.add_typer(install_app, name="global", help="Install/uninstall EPI auto-recor
 
 # NEW: fault intelligence commands (v2.8.0)
 from epi_cli.review import app as review_app
-app.add_typer(review_app, name="review", help="Review fault analysis results for a .epi artifact")
+app.add_typer(
+    review_app,
+    name="review",
+    help="Review fault analysis results for a .epi artifact",
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
 
 from epi_cli.policy import app as policy_app
-app.add_typer(policy_app, name="policy", help="Create and validate epi_policy.json rule files")
+app.add_typer(policy_app, name="policy", help="Create, explain, and validate epi_policy.json rule files")
 
 
 @app.command()
@@ -271,6 +310,10 @@ def analyze(
         sev = fault.get("severity", "").upper()
         sev_color = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "blue"}.get(sev, "white")
         console.print(f"\n[bold red]FAULT DETECTED[/bold red] — [bold]{epi_path.name}[/bold]")
+        verdict, impact, action = _analyze_reviewer_guidance(True, steps_recorded)
+        console.print(f"  Verdict:    [bold red]{verdict}[/bold red]")
+        console.print(f"  Impact:     {impact}")
+        console.print(f"  Action:     {action}")
         console.print(f"  Severity:   [{sev_color}]{sev}[/{sev_color}]")
         console.print(f"  Type:       {fault.get('fault_type')}")
         if fault.get("rule_id"):
@@ -286,12 +329,20 @@ def analyze(
     else:
         if steps_recorded == 0:
             console.print(f"\n[yellow][!][/yellow] [bold]{epi_path.name}[/bold] — No data to analyze")
+            verdict, impact, action = _analyze_reviewer_guidance(False, 0)
+            console.print(f"  Verdict:    [bold yellow]{verdict}[/bold yellow]")
+            console.print(f"  Impact:     {impact}")
+            console.print(f"  Action:     {action}")
             console.print(f"  Mode:       {mode}")
             console.print("  Steps:      0 recorded")
             console.print("  Analysis:   Skipped meaningful fault review because no execution steps were captured")
             console.print("\n  [dim]Fix: instrument the workflow with record() or a supported integration, then rerun it.[/dim]\n")
         else:
             console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
+            verdict, impact, action = _analyze_reviewer_guidance(False, steps_recorded)
+            console.print(f"  Verdict:    [bold green]{verdict}[/bold green]")
+            console.print(f"  Impact:     {impact}")
+            console.print(f"  Action:     {action}")
             console.print(f"  Mode:       {mode}")
             console.print(f"  Steps:      {steps_recorded} recorded, "
                           f"{coverage.get('coverage_percentage', '?')}% coverage\n")
@@ -343,12 +394,20 @@ def associate(
         return
 
     # ── Per-user (HKCU) path ───────────────────────────────────────────────
-    if not force and not _needs_registration():
+    drift_repair = False
+    if sys.platform == "win32" and not force:
+        diag = get_association_diagnostics()
+        issues = [str(i).lower() for i in diag.get("issues", [])]
+        drift_repair = any("does not match the current installation" in issue for issue in issues)
+        if drift_repair:
+            console.print("[yellow][!][/yellow] Detected stale .epi open command; attempting per-user repair.")
+
+    if not force and not drift_repair and not _needs_registration():
         console.print("[green][OK][/green] .epi file association already registered.")
         _print_association_diagnostics(console)
         return
 
-    success = register_file_association(silent=False, force=force)
+    success = register_file_association(silent=False, force=(force or drift_repair))
 
     # Always show post-registration diagnostics so the user can see what was written
     _print_association_diagnostics(console)
@@ -380,25 +439,25 @@ def _print_association_diagnostics(console):
     assoc_scope = diag.get("association_scope")
 
     if ext_progid == "EPIRecorder.File":
-        console.print(f"  [green]✓[/green] .epi → {ext_progid}")
+        console.print(f"  [green][OK][/green] .epi -> {ext_progid}")
     else:
-        console.print(f"  [red]✗[/red] .epi extension key: {ext_progid or 'MISSING'}")
+        console.print(f"  [red][X][/red] .epi extension key: {ext_progid or 'MISSING'}")
 
     if reg_cmd:
-        console.print(f"  [green]✓[/green] Open command: {reg_cmd}")
+        console.print(f"  [green][OK][/green] Open command: {reg_cmd}")
     else:
-        console.print("  [red]✗[/red] Open command: MISSING")
+        console.print("  [red][X][/red] Open command: MISSING")
 
     if assoc_scope:
-        console.print(f"  [green]âœ“[/green] Association scope: {assoc_scope}")
+        console.print(f"  [green][OK][/green] Association scope: {assoc_scope}")
 
     if user_choice:
         if user_choice == "EPIRecorder.File":
-            console.print(f"  [green]✓[/green] UserChoice: {user_choice}")
+            console.print(f"  [green][OK][/green] UserChoice: {user_choice}")
         else:
-            console.print(f"  [yellow]⚠[/yellow]  UserChoice override: [bold]{user_choice}[/bold]")
+            console.print(f"  [yellow][!][/yellow] UserChoice override: [bold]{user_choice}[/bold]")
             console.print("     [dim]Windows is forcing this file type to open with another app.[/dim]")
-            console.print("     [dim]Use 'Open with' → 'Choose another app' to override.[/dim]")
+            console.print("     [dim]Use 'Open with' -> 'Choose another app' to override.[/dim]")
     else:
         console.print("  [dim]  UserChoice: not set (Windows will use our registration)[/dim]")
 
@@ -484,7 +543,8 @@ from pathlib import Path
 from epi_recorder import record
 
 
-output_file = Path("epi_demo.epi")
+output_file = Path("epi-recordings") / "epi_demo.epi"
+output_file.parent.mkdir(parents=True, exist_ok=True)
 
 print("=" * 40)
 print("   Hello from your first EPI recording!")
@@ -521,11 +581,25 @@ print(f"\\n[OK] Done! Created {output_file}")
     # Run the instrumented demo directly so the user gets a meaningful artifact.
     import subprocess
     import sys
-    subprocess.run([sys.executable, demo_filename], check=False)
+    result = subprocess.run([sys.executable, demo_filename], check=False)
+
+    artifact_path = Path("epi-recordings") / "epi_demo.epi"
+    step_count = _count_steps_in_artifact(artifact_path)
+    if result.returncode != 0 or not artifact_path.exists() or step_count == 0:
+        console.print("\n[bold red][FAIL] Setup is incomplete.[/bold red]")
+        if result.returncode != 0:
+            console.print(f"[dim]The generated demo exited with code {result.returncode}.[/dim]")
+        if not artifact_path.exists():
+            console.print("[dim]The demo did not produce epi_demo.epi.[/dim]")
+        elif step_count == 0:
+            console.print("[dim]The demo artifact was created but contains no meaningful execution steps.[/dim]")
+        console.print("[dim]Most likely cause: EPI could not create a writable recording workspace.[/dim]")
+        console.print("[dim]Fix: point TMP/TEMP to a writable folder and rerun [cyan]epi init[/cyan].[/dim]")
+        raise typer.Exit(1)
 
     console.print("\n[bold green]You are all set![/bold green]")
     console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
-    console.print("[dim]Open the artifact with:[/dim] epi view epi_demo.epi")
+    console.print("[dim]Open the artifact with:[/dim] epi view epi-recordings/epi_demo.epi")
 
 
 @app.command()

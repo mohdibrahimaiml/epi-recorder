@@ -11,7 +11,6 @@ Covers:
 import hashlib
 import json
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
@@ -20,6 +19,7 @@ import pytest
 from typer.testing import CliRunner
 
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now
 
 
 runner = CliRunner()
@@ -42,7 +42,7 @@ def _make_epi(tmp_path: Path, include_viewer: bool = True,
 
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         cli_command="python test_script.py",
         file_manifest={"steps.jsonl": steps_hash},
     )
@@ -112,7 +112,7 @@ class TestLsCallback:
              patch("epi_cli.ls.console", mock_console):
             ls()
         printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
-        assert "./epi-recordings/" in printed
+        assert "No recordings" in printed
 
 
 # ─────────────────────────────────────────────────────────────

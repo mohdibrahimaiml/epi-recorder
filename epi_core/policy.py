@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 
 class PolicyRule(BaseModel):
@@ -49,6 +49,16 @@ class PolicyRule(BaseModel):
         serialization_alias="prohibited_pattern",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_prohibition_pattern_alias(cls, values):
+        if isinstance(values, dict):
+            prohibited = values.get("prohibited_pattern")
+            pattern = values.get("pattern")
+            if (prohibited is None or prohibited == "") and pattern:
+                values["prohibited_pattern"] = pattern
+        return values
+
     @field_validator("watch_for", mode="before")
     @classmethod
     def coerce_watch_for(cls, v):
@@ -61,6 +71,7 @@ class EPIPolicy(BaseModel):
     system_name: str
     system_version: str = "1.0"
     policy_version: str
+    profile_id: Optional[str] = None
     rules: list[PolicyRule] = []
 
     def rules_of_type(self, rule_type: str) -> list[PolicyRule]:
@@ -258,6 +269,7 @@ def build_policy_from_profile(
         "system_name": system_name,
         "system_version": system_version,
         "policy_version": policy_version,
+        "profile_id": profile_name,
         "rules": [dict(rule) for rule in profile["rules"]],
     }
 

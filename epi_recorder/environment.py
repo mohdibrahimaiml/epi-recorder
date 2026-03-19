@@ -181,7 +181,7 @@ def save_environment_snapshot(
     Save environment snapshot to JSON file.
     
     Args:
-        output_path: Path where env.json should be saved
+        output_path: Path where environment.json should be saved
         include_all_env_vars: Whether to include all environment variables
         redact_env_vars: Whether to redact sensitive env vars
     """

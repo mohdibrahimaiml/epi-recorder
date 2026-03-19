@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "2.8.4"
+version = "2.8.5"
 description = "Verifiable execution evidence for AI systems. Portable, cryptographically signed artifacts."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
 ]
@@ -93,6 +93,7 @@ include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewe
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]
+license-files = ["LICENSE"]
 
 [tool.setuptools.package-data]
 epi_core = ["assets/*.ico"]
@@ -115,6 +116,4 @@ target-version = ["py311"]
 line-length = 100
 target-version = "py311"
 select = ["E", "F", "I", "N", "W", "UP"]
-
-
  

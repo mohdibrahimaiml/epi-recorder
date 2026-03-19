@@ -15,6 +15,7 @@ import pytest
 from epi_core.platform.associate import (
     _get_epi_command,
     _get_epi_launcher_vbs,
+    _resolve_windows_launcher_dir,
     _get_windows_default_icon,
     _get_registration_state,
     _is_association_broken,
@@ -63,9 +64,9 @@ class TestGetEpiCommand:
 
     def test_prefers_adjacent_epi_exe_when_available(self, tmp_path):
         fake_python = tmp_path / "python.exe"
-        fake_python.write_text("", encoding="ascii")
+        fake_python.write_text("py", encoding="ascii")
         fake_epi = tmp_path / "epi.exe"
-        fake_epi.write_text("", encoding="ascii")
+        fake_epi.write_text("exe", encoding="ascii")
 
         with patch("epi_core.platform.associate.sys.executable", str(fake_python)), \
              patch("epi_core.platform.associate.shutil.which", return_value=None):
@@ -113,6 +114,15 @@ class TestWindowsLauncherScripts:
 
         assert icon_cmd == f'"{icon_file}"'
 
+    def test_launcher_dir_falls_back_when_preferred_unwritable(self, tmp_path):
+        preferred = Path("C:\\<>invalid\\EPILabs")
+        local_app_data = tmp_path / "LocalAppData"
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(local_app_data)}, clear=False):
+            resolved = _resolve_windows_launcher_dir(preferred=preferred)
+
+        assert resolved != preferred
+        assert resolved.exists()
+
 
 # ─────────────────────────────────────────────────────────────
 # _needs_registration + _set_registration_state
@@ -138,12 +148,12 @@ class TestRegistrationState:
              patch("epi_core.platform.associate.sys") as mock_sys:
             mock_sys.platform = "win32"
             mock_sys.executable = sys.executable
-            with patch("epi_core.platform.associate._get_epi_command", return_value='"epi.exe" view "%1"'):
+            with patch("epi_core.platform.associate._get_user_open_command", return_value='wscript.exe /B "launch.vbs" "%1"'):
                 _set_registration_state()
         state = _get_registration_state.__wrapped__(flag_path) if hasattr(_get_registration_state, "__wrapped__") else None
         import json
         stored = json.loads(flag_path.read_text())
-        assert stored.get("open_command") == '"epi.exe" view "%1"'
+        assert stored.get("open_command") == 'wscript.exe /B "launch.vbs" "%1"'
 
     def test_needs_registration_triggers_when_open_command_changes(self, tmp_path):
         """If epi.exe path changes but python exe hasn't, still re-register."""
@@ -160,8 +170,8 @@ class TestRegistrationState:
         }))
         with patch("epi_core.platform.associate._FLAG_PATH", flag_path), \
              patch("epi_core.platform.associate.sys") as mock_sys, \
-             patch("epi_core.platform.associate._get_epi_command",
-                   return_value='"C:\\new\\path\\epi.exe" view "%1"'):
+             patch("epi_core.platform.associate._get_user_open_command",
+                   return_value='wscript.exe /B "C:\\new\\path\\launch.vbs" "%1"'):
             mock_sys.platform = "win32"
             mock_sys.executable = sys.executable
             result = _needs_registration()
@@ -176,8 +186,11 @@ class TestRegistrationState:
         real_cmd = _get_epi_command()  # Save before patching
         cmd_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
         try:
-            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, cmd_path, 0, winreg.KEY_SET_VALUE) as k:
-                winreg.SetValueEx(k, "", 0, winreg.REG_SZ, dead_cmd)
+            try:
+                with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, cmd_path, 0, winreg.KEY_SET_VALUE) as k:
+                    winreg.SetValueEx(k, "", 0, winreg.REG_SZ, dead_cmd)
+            except PermissionError:
+                pytest.skip("HKCU registry is not writable in this environment")
             with patch("epi_core.platform.associate._get_epi_command", return_value=dead_cmd):
                 result = _is_association_broken()
             assert result is True  # exe path doesn't exist → broken

@@ -7,13 +7,13 @@ import json
 import tempfile
 import zipfile
 from pathlib import Path
-from datetime import datetime
 from uuid import uuid4
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from epi_core.schemas import ManifestModel
+from epi_core.time_utils import utc_now, utc_now_iso
 
 
 # ─────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ def _make_minimal_epi(tmp_path: Path, signed: bool = False) -> Path:
     epi_path = tmp_path / "test.epi"
     steps_content = json.dumps({
         "index": 0, "kind": "test.step",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": utc_now_iso(),
         "content": {"msg": "hello"}
     }) + "\n"
 
@@ -37,7 +37,7 @@ def _make_minimal_epi(tmp_path: Path, signed: bool = False) -> Path:
 
     manifest = ManifestModel(
         workflow_id=uuid4(),
-        created_at=datetime.utcnow(),
+        created_at=utc_now(),
         cli_command="python test.py",
         file_manifest={"steps.jsonl": steps_hash},
     )
@@ -184,7 +184,7 @@ class TestPrintTrustReport:
             "mismatches_count": len(mismatches or {}),
             "mismatches": mismatches or {},
             "workflow_id": str(uuid4()),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": utc_now_iso(),
             "spec_version": "2.7.2",
         }
 

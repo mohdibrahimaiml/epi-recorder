@@ -4,10 +4,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
-from datetime import datetime
 
 from epi_core.storage import EpiStorage
 from epi_core.schemas import StepModel
+from epi_core.time_utils import utc_now
 
 class AsyncRecorder:
     """
@@ -58,7 +58,7 @@ class AsyncRecorder:
             'index': self._step_count,
             'type': step_type,
             'content': content,
-            'timestamp': datetime.utcnow() # StepModel expects datetime
+            'timestamp': utc_now()
         })
     
     async def _writer_loop(self):

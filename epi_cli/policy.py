@@ -1,10 +1,9 @@
 """
-epi policy — Create, validate, and inspect epi_policy.json files.
+epi policy - Create, validate, and inspect epi_policy.json rule files.
 
-Commands:
-    epi policy init      Interactive wizard to generate a starter policy file.
-    epi policy validate  Validate an existing epi_policy.json.
-    epi policy show      Print the current policy summary.
+This command is the policy front door for non-technical reviewers. It helps
+teams create a company rulebook without having to hand-author JSON, while
+keeping epi_policy.json as the machine-readable storage format.
 """
 
 import json
@@ -16,18 +15,252 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
+from rich.syntax import Syntax
 from rich.table import Table
+from typer.models import OptionInfo
+
+from epi_core.policy import (
+    EPIPolicy,
+    POLICY_PROFILES,
+    PolicyRule,
+    build_policy_from_profile,
+    list_policy_profiles,
+    load_policy,
+)
 
 app = typer.Typer(help="Manage epi_policy.json for fault analysis rules.")
 console = Console()
 
 POLICY_FILENAME = "epi_policy.json"
 
+GUIDED_PROFILE_CHOICES = {
+    "finance-approval": {
+        "label": "Finance approvals and underwriting",
+        "profile": "finance.loan-underwriting",
+        "description": "For high-value approvals, lending, and underwriting decisions.",
+    },
+    "finance-refund": {
+        "label": "Finance refunds and payments",
+        "profile": "finance.refund-agent",
+        "description": "For refunds, reimbursements, and payment operations.",
+    },
+    "healthcare-triage": {
+        "label": "Healthcare triage",
+        "profile": "healthcare.triage",
+        "description": "For clinical triage and escalation decisions.",
+    },
+    "healthcare-assistant": {
+        "label": "Clinical assistant",
+        "profile": "healthcare.clinical-assistant",
+        "description": "For clinical support with signoff and safety controls.",
+    },
+    "custom-starter": {
+        "label": "Custom starter policy",
+        "profile": None,
+        "description": "Start from a small generic rulebook and customize it yourself.",
+    },
+}
+
+
+def _resolve_option_value(value, default):
+    return default if isinstance(value, OptionInfo) else value
+
+
+def _policy_summary_table(policy: EPIPolicy) -> Table:
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("Rule", style="cyan", no_wrap=True)
+    table.add_column("What it means")
+    table.add_column("Severity", no_wrap=True)
+
+    severity_colors = {
+        "critical": "red",
+        "high": "yellow",
+        "medium": "blue",
+        "low": "dim",
+    }
+
+    for rule in policy.rules:
+        color = severity_colors.get(rule.severity, "white")
+        table.add_row(
+            rule.id,
+            rule.description,
+            f"[{color}]{rule.severity}[/{color}]",
+        )
+    return table
+
+
+def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path] = None) -> None:
+    profile_label = getattr(policy, "profile_id", None) or "custom"
+    where = f"\nStored at: [bold]{output_path}[/bold]" if output_path else ""
+    console.print(
+        Panel(
+            (
+                "EPI stores the company rulebook as [cyan]epi_policy.json[/cyan]. "
+                "Most users should not edit JSON manually."
+                f"{where}"
+            ),
+            title="Policy Summary",
+        )
+    )
+    console.print(f"[bold]System:[/bold] {policy.system_name} v{policy.system_version}")
+    console.print(f"[bold]Policy version:[/bold] {policy.policy_version}")
+    console.print(f"[bold]Profile:[/bold] {profile_label}")
+    console.print(f"[bold]Rules enabled:[/bold] {len(policy.rules)}\n")
+    if policy.rules:
+        console.print(_policy_summary_table(policy))
+        console.print()
+
+
+def _remove_rule(policy: dict, rule_id: str) -> None:
+    policy["rules"] = [rule for rule in policy["rules"] if rule["id"] != rule_id]
+
+
+def _get_rule(policy: dict, rule_id: str) -> Optional[dict]:
+    for rule in policy["rules"]:
+        if rule["id"] == rule_id:
+            return rule
+    return None
+
+
+def _customize_profile_policy(policy: dict, profile_name: str, yes: bool) -> dict:
+    if profile_name == "finance.loan-underwriting":
+        if yes or Confirm.ask("Should high-value approvals require human approval?", default=True):
+            threshold = "10000" if yes else Prompt.ask(
+                "Approval threshold amount",
+                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
+            )
+            rule = _get_rule(policy, "R003")
+            if rule is not None:
+                rule["threshold_value"] = float(threshold)
+        else:
+            _remove_rule(policy, "R003")
+
+        if not (yes or Confirm.ask("Should secret-like tokens be blocked from output?", default=True)):
+            _remove_rule(policy, "R004")
+
+        if not (yes or Confirm.ask("Should risk checks happen before approval?", default=True)):
+            _remove_rule(policy, "R002")
+
+    elif profile_name == "finance.refund-agent":
+        if not (yes or Confirm.ask("Must identity verification happen before refunds?", default=True)):
+            _remove_rule(policy, "R002")
+
+        if yes or Confirm.ask("Should large refunds require human approval?", default=True):
+            threshold = "5000" if yes else Prompt.ask(
+                "Refund threshold amount",
+                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
+            )
+            rule = _get_rule(policy, "R003")
+            if rule is not None:
+                rule["threshold_value"] = float(threshold)
+        else:
+            _remove_rule(policy, "R003")
+
+        if not (yes or Confirm.ask("Should secret-like payment tokens be blocked from output?", default=True)):
+            _remove_rule(policy, "R004")
+
+    elif profile_name == "healthcare.triage":
+        if not (yes or Confirm.ask("Should triage decisions require symptom capture first?", default=True)):
+            _remove_rule(policy, "R002")
+
+        if yes or Confirm.ask("Should high-risk cases require clinician escalation?", default=True):
+            threshold = "8" if yes else Prompt.ask(
+                "Clinical risk threshold",
+                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
+            )
+            rule = _get_rule(policy, "R003")
+            if rule is not None:
+                rule["threshold_value"] = float(threshold)
+        else:
+            _remove_rule(policy, "R003")
+
+        if not (yes or Confirm.ask("Should secret-like tokens be blocked from output?", default=True)):
+            _remove_rule(policy, "R004")
+
+    elif profile_name == "healthcare.clinical-assistant":
+        if not (yes or Confirm.ask("Should patient context be required before recommendations?", default=True)):
+            _remove_rule(policy, "R002")
+
+        if yes or Confirm.ask("Should severe cases require clinician signoff?", default=True):
+            threshold = "7" if yes else Prompt.ask(
+                "Severity score threshold",
+                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
+            )
+            rule = _get_rule(policy, "R003")
+            if rule is not None:
+                rule["threshold_value"] = float(threshold)
+        else:
+            _remove_rule(policy, "R003")
+
+        if not (yes or Confirm.ask("Should secret-like values be blocked from output?", default=True)):
+            _remove_rule(policy, "R004")
+
+    return policy
+
+
+def _build_custom_starter_policy(system_name: str, system_version: str, policy_version: str, yes: bool) -> dict:
+    rules = []
+
+    if yes or Confirm.ask("Should high-value actions require human approval?", default=True):
+        threshold = "10000" if yes else Prompt.ask("Value threshold", default="10000")
+        rules.append(
+            {
+                "id": "R001",
+                "name": "Human Approval Above Threshold",
+                "severity": "high",
+                "description": "Values above the threshold require human approval.",
+                "type": "threshold_guard",
+                "threshold_value": float(threshold),
+                "threshold_field": "amount",
+                "required_action": "human_approval",
+            }
+        )
+
+    if yes or Confirm.ask("Should one action be required before another?", default=True):
+        before_action = "refund" if yes else Prompt.ask(
+            "Action that needs a predecessor",
+            default="refund",
+        )
+        required_action = "verify_identity" if yes else Prompt.ask(
+            "Action that must happen first",
+            default="verify_identity",
+        )
+        rules.append(
+            {
+                "id": "R002",
+                "name": f"Require {required_action} before {before_action}",
+                "severity": "critical",
+                "description": f"{required_action} must happen before {before_action}.",
+                "type": "sequence_guard",
+                "required_before": before_action,
+                "must_call": required_action,
+            }
+        )
+
+    if yes or Confirm.ask("Should secret-like tokens be blocked from output?", default=True):
+        rules.append(
+            {
+                "id": "R003",
+                "name": "Never Output Secrets",
+                "severity": "critical",
+                "description": "Secret-like tokens and credential material must never appear in output.",
+                "type": "prohibition_guard",
+                "prohibited_pattern": r"(sk-[A-Za-z0-9]+|api[_-]?key|secret[_-]?key)",
+            }
+        )
+
+    return {
+        "system_name": system_name,
+        "system_version": system_version,
+        "policy_version": policy_version,
+        "profile_id": "custom.guided",
+        "rules": rules,
+    }
+
 
 @app.command("init")
 def init(
-    output: str = typer.Option(POLICY_FILENAME, "--output", "-o",
-                                help="Output path for the policy file"),
+    output: str = typer.Option(POLICY_FILENAME, "--output", "-o", help="Output path for the policy file"),
     profile: Optional[str] = typer.Option(
         None,
         "--profile",
@@ -36,154 +269,81 @@ def init(
     yes: bool = typer.Option(False, "--yes", "-y", help="Accept all defaults without prompting"),
 ):
     """
-    Interactive wizard to generate a starter epi_policy.json.
+    Create an epi_policy.json rulebook.
 
-    Walks through the most common rule types and produces a valid policy
-    file that the FaultAnalyzer will pick up on the next `epi run`.
+    By default this runs a guided setup flow for non-technical reviewers.
     """
+    output = _resolve_option_value(output, POLICY_FILENAME)
+    profile = _resolve_option_value(profile, None)
+    yes = _resolve_option_value(yes, False)
     output_path = Path(output)
-
     if output_path.exists() and not yes:
         if not Confirm.ask(f"[yellow]{output_path}[/yellow] already exists. Overwrite?", default=False):
             raise typer.Exit(0)
 
-    from epi_core.policy import POLICY_PROFILES, build_policy_from_profile, list_policy_profiles
+    console.print("\n[bold]Guided EPI Policy Setup[/bold]\n")
+    console.print(
+        "Policy is the company rulebook for this workflow. "
+        "EPI records the run, checks it against that rulebook, and embeds both into the artifact.\n"
+    )
+    console.print(
+        "[dim]EPI stores the company rulebook as epi_policy.json; most users should not edit JSON manually.[/dim]\n"
+    )
 
-    console.print("\n[bold]EPI Policy Wizard[/bold]\n")
-    console.print("This creates an [cyan]epi_policy.json[/cyan] that defines rules your AI agent must follow.")
-    console.print("The Fault Analyzer will check every recording against these rules.\n")
-
-    # System info
-    system_name = Prompt.ask("System name", default="my-ai-agent") if not yes else "my-ai-agent"
-    system_version = Prompt.ask("System version", default="1.0") if not yes else "1.0"
     policy_version = str(date.today())
 
-    if not profile and not yes:
-        use_profile = Confirm.ask(
-            "Use a built-in policy profile for healthcare or finance?",
-            default=True,
-        )
-        if use_profile:
-            profile = Prompt.ask(
-                "Profile",
-                default="finance.loan-underwriting",
-            )
+    if yes and not profile:
+        profile = "finance.loan-underwriting"
+
+    if not yes and not profile:
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+        table.add_column("Choice", style="cyan", no_wrap=True)
+        table.add_column("Workflow")
+        table.add_column("Use this when...")
+        for choice, config in GUIDED_PROFILE_CHOICES.items():
+            table.add_row(choice, config["label"], config["description"])
+        console.print(table)
+        console.print()
+        choice = Prompt.ask("Workflow type", default="finance-approval")
+        while choice not in GUIDED_PROFILE_CHOICES:
+            console.print("[red][FAIL][/red] Unknown choice. Pick one of the listed workflow types.")
+            choice = Prompt.ask("Workflow type", default="finance-approval")
+        profile = GUIDED_PROFILE_CHOICES[choice]["profile"]
+    elif profile and profile not in POLICY_PROFILES:
+        available = ", ".join(list_policy_profiles())
+        console.print(f"[red][FAIL][/red] Unknown profile: [bold]{profile}[/bold]")
+        console.print(f"[dim]Available profiles: {available}[/dim]")
+        raise typer.Exit(1)
+
+    default_system_name = "my-ai-system" if not profile else profile.split(".")[-1]
+    system_name = default_system_name if yes else Prompt.ask("System name", default=default_system_name)
+    system_version = "1.0" if yes else Prompt.ask("System version", default="1.0")
 
     if profile:
-        if profile not in POLICY_PROFILES:
-            available = ", ".join(list_policy_profiles())
-            console.print(f"[red][FAIL][/red] Unknown profile: [bold]{profile}[/bold]")
-            console.print(f"[dim]Available profiles: {available}[/dim]")
-            raise typer.Exit(1)
-
-        policy = build_policy_from_profile(
+        policy_data = build_policy_from_profile(
             profile,
             system_name=system_name,
             system_version=system_version,
             policy_version=policy_version,
         )
-        output_path.write_text(json.dumps(policy, indent=2), encoding="utf-8")
+        policy_data = _customize_profile_policy(policy_data, profile, yes=yes)
+    else:
+        policy_data = _build_custom_starter_policy(system_name, system_version, policy_version, yes=yes)
 
-        console.print(f"\n[green][OK][/green] Policy written to [bold]{output_path}[/bold]")
-        console.print(f"  Profile:  [cyan]{profile}[/cyan]")
-        console.print(f"  Rules:    {len(policy['rules'])}")
-        console.print(f"  Focus:    {POLICY_PROFILES[profile]['description']}")
-        console.print(f"\n[dim]Run [cyan]epi policy validate[/cyan] to inspect the generated policy.[/dim]")
-        console.print(f"[dim]Run [cyan]epi run your_script.py[/cyan] to record with policy-grounded fault analysis.[/dim]\n")
-        return
+    output_path.write_text(json.dumps(policy_data, indent=2), encoding="utf-8")
+    policy = EPIPolicy(**policy_data)
 
-    rules = []
-    rule_counter = 1
-
-    # ── Constraint guard ──────────────────────────────────────────────────
-    console.print("\n[bold]Constraint Guards[/bold] — numerical limits the agent must respect")
-    if yes or Confirm.ask("Add a constraint guard rule?", default=True):
-        watch_terms = Prompt.ask(
-            "  Fields that carry the limit (comma-separated)",
-            default="balance,limit,quota"
-        ) if not yes else "balance,limit,quota"
-
-        rules.append({
-            "id": f"R{rule_counter:03d}",
-            "name": "Constraint Guard",
-            "severity": "critical",
-            "description": "Agent must not exceed the established limit.",
-            "type": "constraint_guard",
-            "watch_for": [t.strip() for t in watch_terms.split(",") if t.strip()],
-            "violation_if": "committed_value > constraint_value",
-        })
-        rule_counter += 1
-
-    # ── Sequence guard ────────────────────────────────────────────────────
-    console.print("\n[bold]Sequence Guards[/bold] — actions that must be preceded by another")
-    if yes or Confirm.ask("Add a sequence guard rule?", default=True):
-        action_b = Prompt.ask("  Action that REQUIRES a predecessor (e.g. refund)", default="refund") if not yes else "refund"
-        action_a = Prompt.ask("  Action that MUST happen first (e.g. verify_identity)", default="verify_identity") if not yes else "verify_identity"
-
-        rules.append({
-            "id": f"R{rule_counter:03d}",
-            "name": f"Sequence: {action_a} before {action_b}",
-            "severity": "high",
-            "description": f"Agent must call {action_a} before executing {action_b}.",
-            "type": "sequence_guard",
-            "required_before": action_b,
-            "must_call": action_a,
-        })
-        rule_counter += 1
-
-    # ── Threshold guard ───────────────────────────────────────────────────
-    console.print("\n[bold]Threshold Guards[/bold] — large values that require human approval")
-    if yes or Confirm.ask("Add a threshold guard rule?", default=False):
-        threshold_val = float(Prompt.ask("  Threshold value", default="10000") if not yes else "10000")
-        threshold_field = Prompt.ask("  Field name", default="amount") if not yes else "amount"
-        required_action = Prompt.ask("  Required action above threshold", default="human_approval") if not yes else "human_approval"
-
-        rules.append({
-            "id": f"R{rule_counter:03d}",
-            "name": f"Threshold: {threshold_field} > {threshold_val:,.0f}",
-            "severity": "high",
-            "description": f"Values above {threshold_val:,.0f} require {required_action}.",
-            "type": "threshold_guard",
-            "threshold_value": threshold_val,
-            "threshold_field": threshold_field,
-            "required_action": required_action,
-        })
-        rule_counter += 1
-
-    # ── Prohibition guard ─────────────────────────────────────────────────
-    console.print("\n[bold]Prohibition Guards[/bold] — patterns that must never appear in output")
-    if yes or Confirm.ask("Add a prohibition guard rule?", default=False):
-        pattern = Prompt.ask("  Regex pattern to prohibit", default=r"sk-[A-Za-z0-9]+") if not yes else r"sk-[A-Za-z0-9]+"
-
-        rules.append({
-            "id": f"R{rule_counter:03d}",
-            "name": "Prohibition Guard",
-            "severity": "critical",
-            "description": "Prohibited pattern must never appear in agent output.",
-            "type": "prohibition_guard",
-            "prohibited_pattern": pattern,
-        })
-        rule_counter += 1
-
-    policy = {
-        "system_name": system_name,
-        "system_version": system_version,
-        "policy_version": policy_version,
-        "rules": rules,
-    }
-
-    output_path.write_text(json.dumps(policy, indent=2), encoding="utf-8")
-    console.print(f"\n[green][OK][/green] Policy written to [bold]{output_path}[/bold]")
-    console.print(f"  {len(rules)} rule(s) defined")
-    console.print(f"\n[dim]Run [cyan]epi run your_script.py[/cyan] to record with fault analysis.[/dim]")
-    console.print(f"[dim]Run [cyan]epi policy validate[/cyan] to check the file.[/dim]\n")
+    console.print(f"\n[green][OK][/green] Policy written to [bold]{output_path}[/bold]\n")
+    _print_policy_summary(policy, output_path=output_path)
+    console.print("[dim]Next steps:[/dim]")
+    console.print("  1. Run your instrumented workflow with EPI")
+    console.print("  2. Open the resulting .epi file")
+    console.print("  3. Review the rulebook and any flagged fault together\n")
 
 
 @app.command("profiles")
 def profiles():
     """List built-in healthcare and finance policy profiles."""
-    from epi_core.policy import POLICY_PROFILES, list_policy_profiles
-
     table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
     table.add_column("Profile", style="cyan", no_wrap=True)
     table.add_column("Description")
@@ -192,7 +352,12 @@ def profiles():
         table.add_row(name, POLICY_PROFILES[name]["description"])
 
     console.print()
-    console.print(Panel("Built-in policy packs for high-risk healthcare and finance workflows.", title="EPI Policy Profiles"))
+    console.print(
+        Panel(
+            "Built-in policy packs for high-risk healthcare and finance workflows.",
+            title="EPI Policy Profiles",
+        )
+    )
     console.print(table)
     console.print()
 
@@ -202,59 +367,45 @@ def validate(
     policy_file: str = typer.Argument(POLICY_FILENAME, help="Path to policy file"),
 ):
     """Validate an epi_policy.json file and show a summary."""
-    from epi_core.policy import load_policy
-
     path = Path(policy_file)
     if not path.exists():
         console.print(f"[red][X] File not found:[/red] {path}")
         raise typer.Exit(1)
 
     policy = load_policy(search_dir=path.parent if path.name == POLICY_FILENAME else Path.cwd())
-
-    # Try direct load if load_policy returns None (different filename)
     if policy is None:
         try:
-            from epi_core.policy import EPIPolicy
             data = json.loads(path.read_text(encoding="utf-8"))
             policy = EPIPolicy(**data)
-        except Exception as e:
-            console.print(f"[red][FAIL] Invalid policy:[/red] {e}")
+        except Exception as exc:
+            console.print(f"[red][FAIL] Invalid policy:[/red] {exc}")
             raise typer.Exit(1)
 
-    console.print(f"\n[green][OK][/green] Valid policy: [bold]{path}[/bold]")
-    console.print(f"  System:   [cyan]{policy.system_name}[/cyan] v{policy.system_version}")
-    console.print(f"  Version:  {policy.policy_version}")
-    console.print(f"  Rules:    {len(policy.rules)}\n")
-
-    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
-    table.add_column("ID", style="cyan", no_wrap=True)
-    table.add_column("Name")
-    table.add_column("Type", style="dim")
-    table.add_column("Severity", no_wrap=True)
-
-    severity_colors = {"critical": "red", "high": "yellow", "medium": "blue", "low": "dim"}
-    for rule in policy.rules:
-        color = severity_colors.get(rule.severity, "white")
-        table.add_row(
-            rule.id,
-            rule.name,
-            rule.type,
-            f"[{color}]{rule.severity}[/{color}]",
-        )
-
-    console.print(table)
-    console.print()
+    console.print(f"\n[green][OK][/green] Valid policy: [bold]{path}[/bold]\n")
+    _print_policy_summary(policy, output_path=path)
 
 
 @app.command("show")
 def show(
     policy_file: str = typer.Argument(POLICY_FILENAME, help="Path to policy file"),
+    raw: bool = typer.Option(False, "--raw", help="Also print the raw JSON after the human-readable summary."),
 ):
-    """Print the raw content of the policy file."""
+    """Show a reviewer-friendly summary of the current policy."""
+    raw = _resolve_option_value(raw, False)
     path = Path(policy_file)
     if not path.exists():
         console.print(f"[red][X] Not found:[/red] {path}")
         raise typer.Exit(1)
 
-    from rich.syntax import Syntax
-    console.print(Syntax(path.read_text(encoding="utf-8"), "json", theme="monokai"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    policy = EPIPolicy(**data)
+    _print_policy_summary(policy, output_path=path)
+
+    if raw:
+        console.print(
+            Panel(
+                "Raw JSON is shown below for advanced editing and debugging.",
+                title="Raw Policy JSON",
+            )
+        )
+        console.print(Syntax(json.dumps(data, indent=2), "json", theme="monokai"))

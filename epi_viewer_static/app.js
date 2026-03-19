@@ -134,10 +134,10 @@ function computeTrustState(manifest, context) {
 
     if (manifest && manifest.signature) {
         return {
-            label: "Signed",
-            pillClass: "status-pill status-pill--good",
-            detailTone: "detail-card detail-card--good",
-            detail: "A signature is present on this artifact.",
+            label: "Needs Verification",
+            pillClass: "status-pill status-pill--warn",
+            detailTone: "detail-card detail-card--warn",
+            detail: "A signature is present, but this viewer session did not verify integrity. Open through EPI to verify trust.",
         };
     }
 
@@ -213,6 +213,96 @@ function renderGoalBanner(manifest) {
     host.innerHTML = `
         <div class="section-label">Recording Goal</div>
         <p class="muted-text">${escapeHtml(manifest.goal)}</p>
+    `;
+}
+
+function deriveReviewerVerdict(trustState, analysis, review) {
+    const reviewEntry = review && Array.isArray(review.reviews) && review.reviews.length > 0 ? review.reviews[0] : null;
+    const reviewOutcome = review && (review.outcome || (reviewEntry && reviewEntry.outcome));
+    const hasPrimaryFault = Boolean(analysis && analysis.primary_fault);
+    const reviewRequired = Boolean(hasPrimaryFault && analysis.primary_fault.review_required);
+
+    if (trustState.label === "Tampered") {
+        return {
+            tone: "bad",
+            headline: "Do not trust this evidence.",
+            impact: "Integrity checks failed, so this artifact may have been modified after recording.",
+            action: "Escalate and request the original sealed artifact before any business decision.",
+        };
+    }
+
+    if (hasPrimaryFault && reviewOutcome === "confirmed_fault") {
+        return {
+            tone: "bad",
+            headline: "Policy violation confirmed by human review.",
+            impact: analysis.primary_fault.why_it_matters || "A critical policy rule was violated during execution.",
+            action: "Block or remediate this decision path before production use.",
+        };
+    }
+
+    if (hasPrimaryFault && reviewOutcome === "dismissed") {
+        return {
+            tone: "warn",
+            headline: "Policy flag was reviewed and dismissed.",
+            impact: "A rule trigger occurred, but the reviewer marked it as expected in this context.",
+            action: "Keep the review note with the case record for audit defensibility.",
+        };
+    }
+
+    if (hasPrimaryFault) {
+        return {
+            tone: reviewRequired ? "bad" : "warn",
+            headline: reviewRequired ? "Review required before trusting this decision." : "Policy risk detected in this execution.",
+            impact: analysis.primary_fault.why_it_matters || "A policy-linked issue was detected in the recorded run.",
+            action: "Open Human Review and record a confirm or dismiss decision.",
+        };
+    }
+
+    if (trustState.label === "Unsigned") {
+        return {
+            tone: "warn",
+            headline: "Execution looks clean, but signer authenticity is missing.",
+            impact: "No primary fault was detected, and integrity is intact, but origin cannot be cryptographically proven.",
+            action: "Prefer signed artifacts for compliance and external sharing.",
+        };
+    }
+
+    return {
+        tone: "good",
+        headline: "No primary policy fault detected.",
+        impact: "Recorded execution, integrity checks, and embedded analysis indicate no high-risk policy breach.",
+        action: "Safe to continue review or approval workflow with normal controls.",
+    };
+}
+
+function renderReviewerVerdict(trustState, analysis, review) {
+    const host = document.getElementById("reviewer-verdict");
+    if (!host) {
+        return;
+    }
+    const verdict = deriveReviewerVerdict(trustState, analysis, review);
+    host.hidden = false;
+    host.className = `reviewer-verdict reviewer-verdict--${verdict.tone}`;
+    host.innerHTML = `
+        <div class="section-label">Decision Verdict</div>
+        <h3 class="reviewer-verdict__title">${escapeHtml(verdict.headline)}</h3>
+        <p class="reviewer-verdict__impact">${escapeHtml(verdict.impact)}</p>
+        <div class="reviewer-verdict__meta">
+            <span class="status-pill ${
+                verdict.tone === "good"
+                    ? "status-pill--good"
+                    : verdict.tone === "bad"
+                        ? "status-pill--bad"
+                        : "status-pill--warn"
+            }">${
+                verdict.tone === "good"
+                    ? "Low immediate risk"
+                    : verdict.tone === "bad"
+                        ? "High immediate risk"
+                        : "Needs judgment"
+            }</span>
+            <span class="meta-pill"><span class="meta-pill__label">Recommended action</span><span>${escapeHtml(verdict.action)}</span></span>
+        </div>
     `;
 }
 
@@ -473,7 +563,7 @@ function renderAnalysis(analysis) {
     `).join("");
 }
 
-function renderPolicy(policy) {
+function renderPolicy(policy, analysis) {
     const card = document.getElementById("policy-card");
     const host = document.getElementById("policy-summary");
     if (!card || !host) {
@@ -484,16 +574,23 @@ function renderPolicy(policy) {
         return;
     }
 
+    const primaryRuleId = analysis && analysis.primary_fault ? analysis.primary_fault.rule_id : null;
     card.hidden = false;
     host.innerHTML = `
         <div class="detail-card detail-card--good">
             <div class="detail-label">Policy</div>
             <div class="detail-value">${escapeHtml(policy.system_name || "Unknown")} v${escapeHtml(policy.system_version || "unknown")}</div>
         </div>
+        <div class="detail-card">
+            <div class="detail-label">What these rules mean</div>
+            <div class="detail-value">This is the rulebook that was active during the run. EPI checks the recorded steps against these rules and highlights the one that matters most.</div>
+        </div>
         ${policy.rules.map((rule) => `
-            <div class="detail-card">
+            <div class="detail-card ${primaryRuleId && primaryRuleId === rule.id ? "detail-card--warn" : ""}">
                 <div class="detail-label">${escapeHtml(rule.id || "Rule")}</div>
                 <div class="detail-value">${escapeHtml(rule.name || rule.type || "Unnamed rule")}</div>
+                <div class="detail-subvalue">${escapeHtml(rule.description || "No explanation provided.")}</div>
+                ${primaryRuleId && primaryRuleId === rule.id ? '<div class="detail-subvalue"><strong>This is the rule linked to the primary fault.</strong></div>' : ""}
             </div>
         `).join("")}
     `;
@@ -585,11 +682,12 @@ function init() {
     renderTrustBadge(trustState);
     renderGoalBanner(manifest);
     renderSummary(summary, analysis, policy, review);
+    renderReviewerVerdict(trustState, analysis, review);
     renderTrustSummary(manifest, context, trustState, analysis, policy);
     renderManifestFacts(manifest, context);
     renderTimeline(steps, analysis);
     renderAnalysis(analysis);
-    renderPolicy(policy);
+    renderPolicy(policy, analysis);
     renderReview(review);
 
     const searchInput = document.getElementById("step-search");
