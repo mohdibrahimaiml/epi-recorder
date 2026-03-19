@@ -6,5 +6,9 @@ Thumbs.db
 *.tmp
 *.temp
 .env
+package.json
+package-lock.json
+jsconfig.json
+npm-debug.log*
 
  
