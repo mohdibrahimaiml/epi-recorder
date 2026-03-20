@@ -1,0 +1,476 @@
+diff --git a/contact.html b/contact.html
+index 1354182..d4e3cf5 100644
+--- a/contact.html
++++ b/contact.html
+@@ -24,7 +24,8 @@
+     <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.2">
++    <link rel="canonical" href="https://epilabs.org/contact.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link
+@@ -188,7 +189,7 @@
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
++    <script src="js/app.js" defer></script>
+ </body>
+ 
+ </html>
+\ No newline at end of file
+diff --git a/how-it-works.html b/how-it-works.html
+index 5dafe1e..bba3c36 100644
+--- a/how-it-works.html
++++ b/how-it-works.html
+@@ -13,7 +13,7 @@
+     <meta property="og:title" content="How EPI Works — Cryptographic Proof for AI">
+     <meta property="og:description"
+         content="Transform any AI workflow into a self-contained, verifiable evidence package.">
+-    <meta property="og:image" content="https://epilabs.org/cryptographic_visual.png">
++    <meta property="og:image" content="https://epilabs.org/assets/cryptographic_visual.png">
+ 
+     <!-- Twitter -->
+     <meta property="twitter:card" content="summary_large_image">
+@@ -21,10 +21,11 @@
+     <meta property="twitter:title" content="How EPI Works — Cryptographic Proof for AI">
+     <meta property="twitter:description"
+         content="Transform any AI workflow into a self-contained, verifiable evidence package.">
+-    <meta property="twitter:image" content="https://epilabs.org/cryptographic_visual.png">
++    <meta property="twitter:image" content="https://epilabs.org/assets/cryptographic_visual.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.2">
++    <link rel="canonical" href="https://epilabs.org/how-it-works.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link
+@@ -233,7 +234,7 @@
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
++    <script src="js/app.js" defer></script>
+ </body>
+ 
+ </html>
+diff --git a/index.html b/index.html
+index b68f34c..7cbb4b6 100644
+--- a/index.html
++++ b/index.html
+@@ -13,7 +13,7 @@
+     <meta property="og:title" content="EPI LABS | Verifiable Evidence for AI">
+     <meta property="og:description"
+         content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
+-    <meta property="og:image" content="https://epilabs.org/epi-file-visual.png">
++    <meta property="og:image" content="https://epilabs.org/assets/logo.png">
+ 
+     <!-- Twitter -->
+     <meta property="twitter:card" content="summary_large_image">
+@@ -21,10 +21,11 @@
+     <meta property="twitter:title" content="EPI LABS | Verifiable Evidence for AI">
+     <meta property="twitter:description"
+         content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
+-    <meta property="twitter:image" content="https://epilabs.org/epi-file-visual.png">
++    <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.2">
++    <link rel="canonical" href="https://epilabs.org/">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="stylesheet" href="css/terminal.css">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+@@ -648,9 +649,9 @@ setup_epi_tracing(service_name="my-agent")
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
+-    <script src="js/terminal-demo.js?v=2.6.0"></script>
+-    <script src="js/particles.js"></script>
++    <script src="js/app.js" defer></script>
++    <script src="js/terminal-demo.js?v=2.8.4" defer></script>
++    <script src="js/particles.js" defer></script>
+ </body>
+ 
+ </html>
+diff --git a/js/app.js b/js/app.js
+index ca5e021..fda5b3a 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -561,10 +561,19 @@ function sendEmail(event) {
+     );
+     // Gmail compose URL - opens Gmail directly
+     const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=mohdibrahim@epilabs.org&su=' + subject + '&body=' + body;
+-    window.open(gmailUrl, '_blank');
++    const popup = window.open(gmailUrl, '_blank');
+ 
+-    // Optional: Clear form after a delay
+-    setTimeout(() => {
+-        document.getElementById('contactForm').reset();
+-    }, 1000);
++    const note = document.querySelector('.form-note');
++    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
++        // Popup was blocked — fall back to mailto and inform the user
++        window.location.href = 'mailto:mohdibrahim@epilabs.org?subject=' + subject + '&body=' + body;
++        if (note) note.textContent = 'Popup blocked — opening your default email client instead.';
++    } else {
++        if (note) note.textContent = 'Gmail opened in a new tab. Just click Send!';
++        // Clear form after a delay
++        setTimeout(() => {
++            document.getElementById('contactForm').reset();
++            if (note) note.textContent = 'Opens Gmail with your message pre-filled. Just click Send!';
++        }, 3000);
++    }
+ }
+diff --git a/js/terminal-demo.js b/js/terminal-demo.js
+index a53f843..0e9cc45 100644
+--- a/js/terminal-demo.js
++++ b/js/terminal-demo.js
+@@ -129,8 +129,6 @@ class TerminalDemo {
+             const cmd = this.inputLine.value.trim();
+             this.history.push(cmd);
+             this.historyIndex = this.history.length;
+-            this.history.push(cmd);
+-            this.historyIndex = this.history.length;
+             this.execute(cmd, true); // User always focuses
+         } else if (e.key === 'ArrowUp') {
+             e.preventDefault();
+@@ -221,7 +219,7 @@ class TerminalDemo {
+ 
+         if (subcmd === 'run' || subcmd === 'record') {
+             if (!args[1]) {
+-                this.print([{ text: 'accusing: missing argument <file>', color: 'text-red' }]);
++                this.print([{ text: 'usage: missing argument <file>', color: 'text-red' }]);
+                 return;
+             }
+             await this.simulateRecording(args[1]);
+diff --git a/js/viewer.js b/js/viewer.js
+index 5d1e898..31fe942 100644
+--- a/js/viewer.js
++++ b/js/viewer.js
+@@ -74,7 +74,14 @@ function showState(stateName) {
+ 
+ async function handleFile(file) {
+     if (!file.name.endsWith('.epi')) {
+-        alert('Please select a .epi file.');
++        alert('Please select a valid .epi file.');
++        return;
++    }
++    // Guard: check the file starts with PK (ZIP magic bytes)
++    const header = await file.slice(0, 2).arrayBuffer();
++    const magic = new Uint8Array(header);
++    if (magic[0] !== 0x50 || magic[1] !== 0x4B) {
++        alert('This file does not appear to be a valid .epi archive. Expected a ZIP-based format.');
+         return;
+     }
+ 
+diff --git a/simulation.html b/simulation.html
+index 1d898c5..8244dad 100644
+--- a/simulation.html
++++ b/simulation.html
+@@ -6,7 +6,8 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Live Simulation — EPI LABS</title>
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.6">
++    <link rel="canonical" href="https://epilabs.org/simulation.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="stylesheet" href="css/terminal.css">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+@@ -181,7 +182,7 @@
+                                 <span class="control-dot dot-yellow"></span>
+                                 <span class="control-dot dot-green"></span>
+                             </div>
+-                            <div class="terminal-title">epi-recorder v2.7.2</div>
++                            <div class="terminal-title">epi-recorder v2.8.5</div>
+                         </div>
+                         <div class="terminal-body">
+                             <!-- Content injected by terminal-demo.js -->
+@@ -192,8 +193,8 @@
+         </div>
+     </section>
+ 
+-    <script src="js/app.js"></script>
+-    <script src="terminal-demo.js?v=2.6.0"></script>
++    <script src="js/app.js" defer></script>
++    <script src="js/terminal-demo.js?v=2.8.4" defer></script>
+     <script>
+         // Custom Logic to link Terminal to Stepper
+         document.addEventListener('DOMContentLoaded', () => {
+diff --git a/sw.js b/sw.js
+index c57b31e..7aefed3 100644
+--- a/sw.js
++++ b/sw.js
+@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
+ 
+ self.addEventListener('fetch', (event) => {
+     // Network-First Strategy for HTML to ensure we always get the latest layout
+-    if (event.request.headers.get('accept').includes('text/html')) {
++    if ((event.request.headers.get('accept') || '').includes('text/html')) {
+         event.respondWith(
+             fetch(event.request)
+                 .then((response) => {
+diff --git a/technology.html b/technology.html
+index bb4c0f6..43d91ba 100644
+--- a/technology.html
++++ b/technology.html
+@@ -12,10 +12,11 @@
+     <meta property="og:url" content="https://epilabs.org/technology.html">
+     <meta property="og:title" content="EPI Architecture — The Trustless Verification Stack">
+     <meta property="og:description" content="How we achieved offline, zero-knowledge verification for AI workflows.">
+-    <meta property="og:image" content="https://epilabs.org/trust_network.png">
++    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.2">
++    <link rel="canonical" href="https://epilabs.org/technology.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link
+@@ -284,7 +285,7 @@ vizFrame.src = URL.createObjectURL(blob);
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
++    <script src="js/app.js" defer></script>
+ </body>
+ 
+ </html>
+diff --git a/use-cases.html b/use-cases.html
+index 277cda8..092acae 100644
+--- a/use-cases.html
++++ b/use-cases.html
+@@ -13,7 +13,7 @@
+     <meta property="og:title" content="EPI Use Cases — AI Compliance & Verification">
+     <meta property="og:description"
+         content="Discover how EPI solves the AI trust crisis in Healthcare, Finance, Insurance, and Legal industries.">
+-    <meta property="og:image" content="https://epilabs.org/trust_network.png">
++    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
+ 
+     <!-- Twitter -->
+     <meta property="twitter:card" content="summary_large_image">
+@@ -21,10 +21,11 @@
+     <meta property="twitter:title" content="EPI Use Cases — AI Compliance & Verification">
+     <meta property="twitter:description"
+         content="Discover how EPI solves the AI trust crisis in Healthcare, Finance, Insurance, and Legal industries.">
+-    <meta property="twitter:image" content="https://epilabs.org/trust_network.png">
++    <meta property="twitter:image" content="https://epilabs.org/assets/trust_network.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.6">
++    <link rel="canonical" href="https://epilabs.org/use-cases.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link
+@@ -379,7 +380,7 @@
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
++    <script src="js/app.js" defer></script>
+ </body>
+ 
+ </html>
+\ No newline at end of file
+diff --git a/verify.html b/verify.html
+index 1b831ff..5239236 100644
+--- a/verify.html
++++ b/verify.html
+@@ -6,13 +6,13 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Verify Evidence | EPI LABS</title>
+     <!-- Dependencies (CDNs) -->
+-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+-    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js"></script>
++    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
++    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js" defer></script>
+     <!-- Noble Ed25519 -->
+-    <script src="https://unpkg.com/@noble/ed25519@2.0.0/lib/index.js"></script>
++    <script src="https://unpkg.com/@noble/ed25519@2.0.0/lib/index.js" defer></script>
+ 
+     <!-- Custom System Styles -->
+-    <link rel="stylesheet" href="css/style.css?v=2.6">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="stylesheet" href="css/terminal.css">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+@@ -345,27 +345,27 @@
+     </main>
+ 
+     <!-- UI Modals -->
+-    <div id="timelineModal" class="glass-modal">
++    <div id="timelineModal" class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="timelineModalTitle">
+         <div class="glass-modal-content">
+             <div class="modal-header">
+                 <div>
+-                    <h3 style="margin-bottom: 0;">Evidence Timeline</h3>
++                    <h3 id="timelineModalTitle" style="margin-bottom: 0;">Evidence Timeline</h3>
+                     <p style="font-size: 0.8rem; margin:0;">Granular execution trace from <code style="padding: 0 0.25rem; font-size: 1em;">steps.jsonl</code></p>
+                 </div>
+-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeTimeline()">✕</button>
++                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeTimeline()" aria-label="Close timeline modal">✕</button>
+             </div>
+             <div class="modal-body" id="timelineContent"></div>
+         </div>
+     </div>
+ 
+-    <div id="filesModal" class="glass-modal">
++    <div id="filesModal" class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="filesModalTitle">
+         <div class="glass-modal-content" style="max-width: 600px;">
+             <div class="modal-header">
+                 <div>
+-                    <h3 style="margin-bottom: 0;">File Manifest</h3>
++                    <h3 id="filesModalTitle" style="margin-bottom: 0;">File Manifest</h3>
+                     <p style="font-size: 0.8rem; margin:0;">Cryptographic inventory (SHA-256)</p>
+                 </div>
+-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeFiles()">✕</button>
++                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeFiles()" aria-label="Close file manifest modal">✕</button>
+             </div>
+             <div class="modal-body" style="padding: 0;">
+                 <table style="width: 100%; text-align: left; border-collapse: collapse;">
+@@ -396,6 +396,12 @@
+         const resultPhase = document.getElementById('resultPhase');
+         const launchVizBtn = document.getElementById('launchVizBtn');
+ 
++        // CDN dependency check — show friendly error if scripts failed to load
++        if (typeof JSZip === 'undefined') {
++            const dz = document.getElementById('dropZone');
++            if (dz) dz.innerHTML = '<p style="color:var(--color-warning,#f59e0b);text-align:center;padding:2rem;">⚠️ Required libraries failed to load (CDN unavailable).<br>Please check your internet connection and reload the page.</p>';
++        }
++
+         // Drag & Drop Handlers
+         dropZone.addEventListener('click', () => fileInput.click());
+         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+@@ -407,11 +413,41 @@
+         });
+         fileInput.addEventListener('change', (e) => processFile(e.target.files[0]));
+ 
+-        // Global UI Toggles
+-        window.openTimeline = () => document.getElementById('timelineModal').classList.add('active');
+-        window.closeTimeline = () => document.getElementById('timelineModal').classList.remove('active');
+-        window.openFiles = () => document.getElementById('filesModal').classList.add('active');
+-        window.closeFiles = () => document.getElementById('filesModal').classList.remove('active');
++        // Global UI Toggles with focus management
++        window.openTimeline = () => {
++            const m = document.getElementById('timelineModal');
++            m.classList.add('active');
++            const btn = m.querySelector('button');
++            if (btn) btn.focus();
++        };
++        window.closeTimeline = () => {
++            document.getElementById('timelineModal').classList.remove('active');
++        };
++        window.openFiles = () => {
++            const m = document.getElementById('filesModal');
++            m.classList.add('active');
++            const btn = m.querySelector('button');
++            if (btn) btn.focus();
++        };
++        window.closeFiles = () => {
++            document.getElementById('filesModal').classList.remove('active');
++        };
++
++        // Close modals on Escape key
++        document.addEventListener('keydown', (e) => {
++            if (e.key === 'Escape') {
++                window.closeTimeline();
++                window.closeFiles();
++            }
++        });
++
++        // Close modals on backdrop click
++        document.getElementById('timelineModal').addEventListener('click', (e) => {
++            if (e.target === e.currentTarget) window.closeTimeline();
++        });
++        document.getElementById('filesModal').addEventListener('click', (e) => {
++            if (e.target === e.currentTarget) window.closeFiles();
++        });
+         
+         window.resetUI = () => {
+             resultPhase.classList.add('hidden');
+@@ -707,8 +743,8 @@
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
+-    <script src="js/particles.js"></script>
++    <script src="js/app.js" defer></script>
++    <script src="js/particles.js" defer></script>
+ </body>
+ 
+ </html>
+diff --git a/viewer.html b/viewer.html
+index 35f07de..72d7a03 100644
+--- a/viewer.html
++++ b/viewer.html
+@@ -8,12 +8,13 @@
+     <meta name="description" content="Open and inspect any .epi recording directly in your browser. No install required. Integrity checked with SHA-256, signatures verified with Ed25519.">
+ 
+     <!-- Dependencies -->
+-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
++    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+ 
+     <!-- EPI Labs Design System -->
+-    <link rel="stylesheet" href="css/style.css?v=2.6">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <link rel="stylesheet" href="css/viewer.css?v=2.8">
+     <link rel="icon" type="image/png" href="assets/logo.png">
++    <link rel="canonical" href="https://epilabs.org/viewer.html">
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+@@ -604,7 +605,7 @@
+ 
+ </div><!-- /#app -->
+ 
+-<script src="js/viewer.js?v=2.8"></script>
+-<script src="js/app.js"></script>
++<script src="js/viewer.js?v=2.8" defer></script>
++<script src="js/app.js" defer></script>
+ </body>
+ </html>
+diff --git a/vision.html b/vision.html
+index 450d2ac..6a81435 100644
+--- a/vision.html
++++ b/vision.html
+@@ -13,7 +13,7 @@
+     <meta property="og:title" content="EPI Vision — The Future of AI Trust">
+     <meta property="og:description"
+         content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
+-    <meta property="og:image" content="https://epilabs.org/trust_network.png">
++    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
+ 
+     <!-- Twitter -->
+     <meta property="twitter:card" content="summary_large_image">
+@@ -21,10 +21,11 @@
+     <meta property="twitter:title" content="EPI Vision — The Future of AI Trust">
+     <meta property="twitter:description"
+         content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
+-    <meta property="twitter:image" content="https://epilabs.org/trust_network.png">
++    <meta property="twitter:image" content="https://epilabs.org/assets/trust_network.png">
+ 
+     <link rel="icon" type="image/png" href="assets/logo.png">
+-    <link rel="stylesheet" href="css/style.css?v=2.6">
++    <link rel="canonical" href="https://epilabs.org/vision.html">
++    <link rel="stylesheet" href="css/style.css?v=2.8">
+     <style>
+         /* Vision Page Specific Styles */
+         .shift-grid {
+@@ -363,7 +364,7 @@
+         </div>
+     </footer>
+ 
+-    <script src="js/app.js"></script>
++    <script src="js/app.js" defer></script>
+ </body>
+ 
+ </html>
+\ No newline at end of file
