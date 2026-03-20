@@ -1,836 +1,672 @@
-diff --git a/contact.html b/contact.html
-index 1354182..d4e3cf5 100644
---- a/contact.html
-+++ b/contact.html
-@@ -24,7 +24,8 @@
-     <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.2">
-+    <link rel="canonical" href="https://epilabs.org/contact.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link
-@@ -188,7 +189,7 @@
-         </div>
-     </footer>
- 
--    <script src="js/app.js"></script>
-+    <script src="js/app.js" defer></script>
- </body>
- 
- </html>
-\ No newline at end of file
-diff --git a/css/style.css b/css/style.css
-index 6e6ab55..308cb74 100644
---- a/css/style.css
-+++ b/css/style.css
-@@ -89,10 +89,6 @@ html {
-     scroll-behavior: smooth;
- }
- 
--html {
--    scroll-behavior: smooth;
--}
--
- body {
-     font-family: var(--font-sans);
-     background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
-@@ -137,21 +133,16 @@ h3 {
- }
- 
- p {
-+    color: var(--color-gray-300);
-+    font-size: 1.125rem;
-     line-height: 1.8;
-     margin-bottom: var(--space-md);
--    color: var(--text-secondary);
- }
- 
- h4 {
-     font-size: 1.25rem;
- }
- 
--p {
--    color: var(--color-gray-300);
--    font-size: 1.125rem;
--    line-height: 1.8;
--}
--
- strong {
-     color: var(--color-white);
-     font-weight: 600;
-@@ -2200,6 +2191,13 @@ html {
-         font-size: 1rem;
-     }
- 
-+    /* Minimum 44px touch target for mobile (WCAG 2.1) */
-+    .nav-cta a,
-+    .btn-primary,
-+    .btn-secondary {
-+        min-height: 44px;
-+    }
-+
-     .hero-cta {
-         flex-direction: column;
-         gap: 1rem;
-diff --git a/css/terminal.css b/css/terminal.css
-index 8f269c2..1cca805 100644
---- a/css/terminal.css
-+++ b/css/terminal.css
-@@ -97,7 +97,7 @@
- 
- /* Content Styles */
- .prompt {
--    color: var(--term-gree);
-+    color: var(--term-green);
-     margin-right: 8px;
-     font-weight: bold;
- }
-diff --git a/css/viewer.css b/css/viewer.css
-index 771a87c..1964e14 100644
---- a/css/viewer.css
-+++ b/css/viewer.css
-@@ -412,6 +412,11 @@ body {
-     background: rgba(255, 255, 255, 0.02);
- }
- 
-+.tab-btn:focus-visible {
-+    outline: 2px solid var(--color-primary, #8b5cf6);
-+    outline-offset: -2px;
-+}
-+
- .tab-btn.active {
-     color: var(--color-primary-light);
-     border-bottom-color: var(--color-primary);
-diff --git a/how-it-works.html b/how-it-works.html
-index 5dafe1e..bba3c36 100644
---- a/how-it-works.html
-+++ b/how-it-works.html
-@@ -13,7 +13,7 @@
-     <meta property="og:title" content="How EPI Works — Cryptographic Proof for AI">
-     <meta property="og:description"
-         content="Transform any AI workflow into a self-contained, verifiable evidence package.">
--    <meta property="og:image" content="https://epilabs.org/cryptographic_visual.png">
-+    <meta property="og:image" content="https://epilabs.org/assets/cryptographic_visual.png">
- 
-     <!-- Twitter -->
-     <meta property="twitter:card" content="summary_large_image">
-@@ -21,10 +21,11 @@
-     <meta property="twitter:title" content="How EPI Works — Cryptographic Proof for AI">
-     <meta property="twitter:description"
-         content="Transform any AI workflow into a self-contained, verifiable evidence package.">
--    <meta property="twitter:image" content="https://epilabs.org/cryptographic_visual.png">
-+    <meta property="twitter:image" content="https://epilabs.org/assets/cryptographic_visual.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.2">
-+    <link rel="canonical" href="https://epilabs.org/how-it-works.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link
-@@ -233,7 +234,7 @@
-         </div>
-     </footer>
- 
--    <script src="js/app.js"></script>
-+    <script src="js/app.js" defer></script>
- </body>
- 
- </html>
 diff --git a/index.html b/index.html
-index b68f34c..b6ce21a 100644
+index b6ce21a..cfcef52 100644
 --- a/index.html
 +++ b/index.html
-@@ -13,7 +13,7 @@
-     <meta property="og:title" content="EPI LABS | Verifiable Evidence for AI">
-     <meta property="og:description"
-         content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
--    <meta property="og:image" content="https://epilabs.org/epi-file-visual.png">
-+    <meta property="og:image" content="https://epilabs.org/assets/logo.png">
+@@ -64,6 +64,16 @@
+       ]
+     }
+     </script>
++    <style>
++        #hero-drop-zone { transition: border-color 0.25s ease, background 0.25s ease; }
++        #hero-drop-zone.dz-dragover {
++            border-color: var(--color-primary);
++            background: rgba(10, 132, 255, 0.07);
++            box-shadow: inset 0 0 30px rgba(10, 132, 255, 0.15);
++        }
++        #hero-drop-zone:hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.03); }
++        #hero-drop-zone:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
++    </style>
+ </head>
  
-     <!-- Twitter -->
-     <meta property="twitter:card" content="summary_large_image">
-@@ -21,10 +21,11 @@
-     <meta property="twitter:title" content="EPI LABS | Verifiable Evidence for AI">
-     <meta property="twitter:description"
-         content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
--    <meta property="twitter:image" content="https://epilabs.org/epi-file-visual.png">
-+    <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.2">
-+    <link rel="canonical" href="https://epilabs.org/">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="stylesheet" href="css/terminal.css">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-@@ -165,7 +166,7 @@
-                         <div class="file-line short" style="opacity: 0.5;"></div>
-                     </div>
-                     <div class="file-footer">
--                        <div class="seal-icon">🔒</div>
-+                        <div class="seal-icon" aria-hidden="true">🔒</div>
-                         <div class="seal-info">
-                             <div class="seal-text">Signed Evidence</div>
-                             <div class="seal-status">✔ Verified</div>
-@@ -605,7 +606,6 @@ setup_epi_tracing(service_name="my-agent")
-                     target="_blank">📚 Docs</a>
+ <body>
+@@ -122,6 +132,26 @@
+                         <span>pip install epi-recorder</span>
+                     </a>
+                 </div>
++
++                <!-- Quick-Verify Drop Zone -->
++                <div id="hero-drop-zone"
++                     role="button" tabindex="0"
++                     aria-label="Drop a .epi file here to verify it instantly"
++                     style="margin-top:2.5rem;border:2px dashed rgba(255,255,255,0.12);border-radius:var(--radius-lg);padding:1.5rem 2rem;max-width:480px;margin-left:auto;margin-right:auto;cursor:pointer;text-align:center;background:rgba(0,0,0,0.15);position:relative;z-index:5;">
++                    <div id="hero-dz-idle">
++                        <span aria-hidden="true" style="font-size:1.6rem;display:block;margin-bottom:0.5rem;filter:drop-shadow(0 0 8px rgba(10,132,255,0.5));">🔒</span>
++                        <p style="margin:0;font-size:0.88rem;color:var(--text-muted);line-height:1.5;">
++                            <strong style="color:var(--text-primary);">Drop a .epi file here</strong> to verify it instantly<br>
++                            <span style="font-size:0.78rem;color:var(--text-disabled);">or click to browse · stays in your browser · zero upload</span>
++                        </p>
++                    </div>
++                    <div id="hero-dz-over" style="display:none;">
++                        <span aria-hidden="true" style="font-size:1.6rem;display:block;margin-bottom:0.4rem;">📂</span>
++                        <p style="margin:0;font-size:0.9rem;color:var(--color-primary-light);font-weight:600;">Release to verify</p>
++                    </div>
++                    <input type="file" id="hero-file-input" accept=".epi" style="display:none;" aria-hidden="true">
++                </div>
++                <p id="hero-dz-status" style="font-size:0.78rem;color:var(--color-warning);margin-top:0.5rem;min-height:1.2em;text-align:center;"></p>
              </div>
          </div>
--        </div>
      </section>
- 
-     <!-- Footer -->
-@@ -648,9 +648,9 @@ setup_epi_tracing(service_name="my-agent")
-         </div>
-     </footer>
- 
--    <script src="js/app.js"></script>
--    <script src="js/terminal-demo.js?v=2.6.0"></script>
--    <script src="js/particles.js"></script>
-+    <script src="js/app.js" defer></script>
-+    <script src="js/terminal-demo.js?v=2.8.4" defer></script>
-+    <script src="js/particles.js" defer></script>
- </body>
- 
- </html>
 diff --git a/js/app.js b/js/app.js
-index ca5e021..7efa1f7 100644
+index 7efa1f7..9b73ac6 100644
 --- a/js/app.js
 +++ b/js/app.js
-@@ -284,12 +284,7 @@ class InteractiveTerminal {
-     }
- }
+@@ -286,6 +286,87 @@ class InteractiveTerminal {
  
--// Initialize interactive terminals
--document.addEventListener('DOMContentLoaded', () => {
--    document.querySelectorAll('.terminal-interactive').forEach(terminal => {
--        new InteractiveTerminal(terminal);
--    });
--});
-+// Note: .terminal-interactive elements are initialized by TerminalDemo in terminal-demo.js
+ // Note: .terminal-interactive elements are initialized by TerminalDemo in terminal-demo.js
  
- // ============================================
- // FEATURE 2: Hover Tilt Effects
-@@ -382,6 +377,8 @@ class CountUp {
- const statObserver = new IntersectionObserver((entries) => {
-     entries.forEach(entry => {
-         if (entry.isIntersecting && entry.target.dataset.countup) {
-+            // Unobserve first to prevent double-firing if animation is slow
-+            statObserver.unobserve(entry.target);
-             const counter = new CountUp(
-                 entry.target,
-                 0,
-@@ -389,7 +386,6 @@ const statObserver = new IntersectionObserver((entries) => {
-                 2000
-             );
-             counter.animate();
--            statObserver.unobserve(entry.target);
-         }
-     });
- }, { threshold: 0.5 });
-@@ -537,11 +533,22 @@ function sendEmail(event) {
-     event.preventDefault();
- 
-     // Get form values
--    const name = document.getElementById('name').value;
--    const email = document.getElementById('email').value;
--    const company = document.getElementById('company').value || 'Not specified';
-+    const name = document.getElementById('name').value.trim();
-+    const email = document.getElementById('email').value.trim();
-+    const company = document.getElementById('company').value.trim() || 'Not specified';
-     const inquiryType = document.getElementById('inquiry_type').value;
--    const message = document.getElementById('message').value;
-+    const message = document.getElementById('message').value.trim();
++// ── Homepage Quick-Verify Drop Zone ──────────────────────────────────────────
++(function initHeroDropZone() {
++    const dz = document.getElementById('hero-drop-zone');
++    if (!dz) return; // Only runs on index.html
 +
-+    // Client-side validation with inline feedback
-+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-+    if (!emailRegex.test(email)) {
-+        document.getElementById('email').focus();
-+        alert('Please enter a valid email address.');
-+        return;
-+    }
-+    if (!name) { document.getElementById('name').focus(); alert('Please enter your name.'); return; }
-+    if (!inquiryType) { document.getElementById('inquiry_type').focus(); alert('Please select an inquiry type.'); return; }
-+    if (!message) { document.getElementById('message').focus(); alert('Please enter a message.'); return; }
- 
-     // Create email subject
-     const subject = encodeURIComponent('EPI LABS Inquiry: ' + inquiryType);
-@@ -561,10 +568,19 @@ function sendEmail(event) {
-     );
-     // Gmail compose URL - opens Gmail directly
-     const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=mohdibrahim@epilabs.org&su=' + subject + '&body=' + body;
--    window.open(gmailUrl, '_blank');
-+    const popup = window.open(gmailUrl, '_blank');
- 
--    // Optional: Clear form after a delay
--    setTimeout(() => {
--        document.getElementById('contactForm').reset();
--    }, 1000);
-+    const note = document.querySelector('.form-note');
-+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-+        // Popup was blocked — fall back to mailto and inform the user
-+        window.location.href = 'mailto:mohdibrahim@epilabs.org?subject=' + subject + '&body=' + body;
-+        if (note) note.textContent = 'Popup blocked — opening your default email client instead.';
-+    } else {
-+        if (note) note.textContent = 'Gmail opened in a new tab. Just click Send!';
-+        // Clear form after a delay
-+        setTimeout(() => {
-+            document.getElementById('contactForm').reset();
-+            if (note) note.textContent = 'Opens Gmail with your message pre-filled. Just click Send!';
-+        }, 3000);
-+    }
- }
-diff --git a/js/particles.js b/js/particles.js
-index 700cb8d..5d3013e 100644
---- a/js/particles.js
-+++ b/js/particles.js
-@@ -39,12 +39,20 @@ class ParticleAnimation {
- 
-     resize() {
-         const hero = this.canvas.parentElement;
--        this.canvas.width = hero.offsetWidth;
--        this.canvas.height = hero.offsetHeight;
-+        const w = hero.offsetWidth;
-+        const h = hero.offsetHeight;
-+        // Guard: skip if parent not yet rendered (width 0)
-+        if (w === 0 || h === 0) return;
-+        this.canvas.width = w;
-+        this.canvas.height = h;
-     }
- 
-     handleResize() {
--        window.addEventListener('resize', () => this.resize());
-+        let resizeTimeout;
-+        window.addEventListener('resize', () => {
-+            clearTimeout(resizeTimeout);
-+            resizeTimeout = setTimeout(() => this.resize(), 150);
-+        });
-     }
- 
-     handleMouse() {
-@@ -68,14 +76,18 @@ class ParticleAnimation {
-     }
- 
-     drawConnections() {
-+        const maxDist = 120;
-+        const maxDistSq = maxDist * maxDist;
-         for (let i = 0; i < this.particles.length; i++) {
-             for (let j = i + 1; j < this.particles.length; j++) {
-                 const dx = this.particles[i].x - this.particles[j].x;
-                 const dy = this.particles[i].y - this.particles[j].y;
--                const distance = Math.sqrt(dx * dx + dy * dy);
-+                const distSq = dx * dx + dy * dy;
- 
--                if (distance < 120) {
--                    const opacity = (1 - distance / 120) * 0.15;
-+                // Use squared distance to avoid costly Math.sqrt in the hot path
-+                if (distSq < maxDistSq) {
-+                    const distance = Math.sqrt(distSq);
-+                    const opacity = (1 - distance / maxDist) * 0.15;
-                     this.ctx.beginPath();
-                     this.ctx.strokeStyle = 'rgba(10, 132, 255, ' + opacity + ')';
-                     this.ctx.lineWidth = 0.5;
-@@ -123,7 +135,9 @@ class ParticleAnimation {
-     }
- }
- 
--// Initialize on page load
-+// Initialize on page load — skip on mobile to save battery
- document.addEventListener('DOMContentLoaded', () => {
--    new ParticleAnimation('particle-canvas');
-+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-+        new ParticleAnimation('particle-canvas');
-+    }
- });
-diff --git a/js/terminal-demo.js b/js/terminal-demo.js
-index a53f843..8d01e3d 100644
---- a/js/terminal-demo.js
-+++ b/js/terminal-demo.js
-@@ -44,7 +44,7 @@ class TerminalDemo {
- 
-         // Initial welcome message - print FIRST before creating command line
-         this.print([
--            { text: 'EPI Portable Environment v2.7.0', color: 'text-dim' },
-+            { text: 'EPI Portable Environment v2.8.5', color: 'text-dim' },
-             { text: 'Type "help" for a list of commands.', color: 'text-dim' },
-             { text: '' }
-         ]);
-@@ -129,8 +129,6 @@ class TerminalDemo {
-             const cmd = this.inputLine.value.trim();
-             this.history.push(cmd);
-             this.historyIndex = this.history.length;
--            this.history.push(cmd);
--            this.historyIndex = this.history.length;
-             this.execute(cmd, true); // User always focuses
-         } else if (e.key === 'ArrowUp') {
-             e.preventDefault();
-@@ -221,7 +219,7 @@ class TerminalDemo {
- 
-         if (subcmd === 'run' || subcmd === 'record') {
-             if (!args[1]) {
--                this.print([{ text: 'accusing: missing argument <file>', color: 'text-red' }]);
-+                this.print([{ text: 'usage: missing argument <file>', color: 'text-red' }]);
-                 return;
-             }
-             await this.simulateRecording(args[1]);
-@@ -239,7 +237,7 @@ class TerminalDemo {
- 
-     async simulateRecording(filename) {
-         const steps = [
--            { text: `→ Starting EPI Recorder v2.7.0`, delay: 200 },
-+            { text: `→ Starting EPI Recorder v2.8.5`, delay: 200 },
-             { text: `  Target: ${filename}`, delay: 100 },
-             { text: `  Environment: Python 3.11.4 | Windows 10`, color: 'text-dim', delay: 300 },
-             { text: `● Recording active... (PID: 1420)`, color: 'text-green', delay: 400 },
-diff --git a/js/viewer.js b/js/viewer.js
-index 5d1e898..519432f 100644
---- a/js/viewer.js
-+++ b/js/viewer.js
-@@ -37,6 +37,14 @@ function initializeApp() {
-     // Drag and drop
-     const dropZone = document.getElementById('drop-zone');
- 
-+    // Keyboard activation for the drop zone (accessibility)
-+    dropZone.addEventListener('keydown', (e) => {
-+        if (e.key === 'Enter' || e.key === ' ') {
-+            e.preventDefault();
-+            fileInput.click();
++    const fileInput   = document.getElementById('hero-file-input');
++    const idleOverlay = document.getElementById('hero-dz-idle');
++    const overOverlay = document.getElementById('hero-dz-over');
++    const statusEl    = document.getElementById('hero-dz-status');
++
++    function setDragState(active) {
++        if (active) {
++            dz.classList.add('dz-dragover');
++            idleOverlay.style.display = 'none';
++            overOverlay.style.display = '';
++        } else {
++            dz.classList.remove('dz-dragover');
++            idleOverlay.style.display = '';
++            overOverlay.style.display = 'none';
 +        }
++    }
++
++    dz.addEventListener('click', () => fileInput.click());
++    dz.addEventListener('keydown', (e) => {
++        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
++    });
++    dz.addEventListener('dragover',  (e) => { e.preventDefault(); setDragState(true); });
++    dz.addEventListener('dragleave', (e) => { if (!dz.contains(e.relatedTarget)) setDragState(false); });
++    dz.addEventListener('drop', (e) => {
++        e.preventDefault();
++        setDragState(false);
++        const file = e.dataTransfer.files[0];
++        if (file) processHeroFile(file);
++    });
++    fileInput.addEventListener('change', (e) => {
++        if (e.target.files[0]) processHeroFile(e.target.files[0]);
 +    });
 +
-     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-         dropZone.addEventListener(eventName, preventDefaults, false);
-     });
-@@ -74,7 +82,14 @@ function showState(stateName) {
++    function processHeroFile(file) {
++        if (!file.name.endsWith('.epi')) {
++            statusEl.style.color = 'var(--color-error)';
++            statusEl.textContent = 'Please drop a .epi file.';
++            setTimeout(() => { statusEl.textContent = ''; }, 3000);
++            return;
++        }
++        // Guard: large files won't fit in sessionStorage (~5–10 MB limit)
++        if (file.size > 8 * 1024 * 1024) {
++            statusEl.style.color = 'var(--color-warning)';
++            statusEl.textContent = 'File is large — opening verifier directly.';
++            setTimeout(() => { window.location.href = 'verify.html'; }, 800);
++            return;
++        }
++        statusEl.style.color = 'var(--color-primary-light)';
++        statusEl.textContent = 'Reading ' + file.name + '…';
++        const reader = new FileReader();
++        reader.onload = function (ev) {
++            try {
++                const bytes = new Uint8Array(ev.target.result);
++                let binary = '';
++                bytes.forEach(b => { binary += String.fromCharCode(b); });
++                sessionStorage.setItem('epi_handoff', JSON.stringify({
++                    name: file.name,
++                    size: file.size,
++                    lastModified: file.lastModified,
++                    data: btoa(binary)
++                }));
++                statusEl.textContent = 'Redirecting to verifier…';
++                window.location.href = 'verify.html';
++            } catch (err) {
++                statusEl.style.color = 'var(--color-error)';
++                statusEl.textContent = 'Error: ' + err.message;
++            }
++        };
++        reader.onerror = () => {
++            statusEl.style.color = 'var(--color-error)';
++            statusEl.textContent = 'Could not read the file.';
++        };
++        reader.readAsArrayBuffer(file);
++    }
++})();
++
+ // ============================================
+ // FEATURE 2: Hover Tilt Effects
+ // ============================================
+diff --git a/js/viewer.js b/js/viewer.js
+index 519432f..0832855 100644
+--- a/js/viewer.js
++++ b/js/viewer.js
+@@ -18,14 +18,16 @@ function initializeApp() {
+     btnOpen.addEventListener('click', () => fileInput.click());
  
- async function handleFile(file) {
-     if (!file.name.endsWith('.epi')) {
--        alert('Please select a .epi file.');
-+        alert('Please select a valid .epi file.');
+     fileInput.addEventListener('change', (e) => {
+-        if (e.target.files.length > 0) {
+-            handleFile(e.target.files[0]);
+-        }
++        const files = Array.from(e.target.files);
++        if (files.length === 0) return;
++        if (files.length === 1) { handleFile(files[0]); }
++        else { handleBatchFiles(files); }
+     });
+ 
+     document.getElementById('btn-try-another-error').addEventListener('click', resetToInitial);
+     document.getElementById('btn-close-file').addEventListener('click', resetToInitial);
+     document.getElementById('btn-export-report').addEventListener('click', exportVerificationReport);
++    document.getElementById('btn-batch-close').addEventListener('click', resetToInitial);
+ 
+     // Tab navigation
+     document.querySelectorAll('.tab-btn').forEach(btn => {
+@@ -59,11 +61,10 @@ function initializeApp() {
+ 
+     dropZone.addEventListener('drop', (e) => {
+         dropZone.classList.remove('drag-active');
+-        const dt = e.dataTransfer;
+-        const files = dt.files;
+-        if (files.length > 0) {
+-            handleFile(files[0]);
+-        }
++        const files = Array.from(e.dataTransfer.files);
++        if (files.length === 0) return;
++        if (files.length === 1) { handleFile(files[0]); }
++        else { handleBatchFiles(files); }
+     });
+ }
+ 
+@@ -80,6 +81,97 @@ function showState(stateName) {
+     document.getElementById(`${stateName}-state`).classList.add('active');
+ }
+ 
++async function handleBatchFiles(files) {
++    const epiFiles = files.filter(f => f.name.endsWith('.epi'));
++    if (epiFiles.length === 0) {
++        alert('No valid .epi files found in the selection.');
 +        return;
 +    }
-+    // Guard: check the file starts with PK (ZIP magic bytes)
-+    const header = await file.slice(0, 2).arrayBuffer();
-+    const magic = new Uint8Array(header);
-+    if (magic[0] !== 0x50 || magic[1] !== 0x4B) {
-+        alert('This file does not appear to be a valid .epi archive. Expected a ZIP-based format.');
-         return;
-     }
- 
-@@ -277,21 +292,24 @@ function displayVerifiedEvidence(result) {
-     container.innerHTML = '';
- 
-     if (result.viewerHtml) {
-+        // Show spinner while iframe loads
-+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;gap:0.5rem;"><svg style="animation:spin 1s linear infinite" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Loading viewer...</div>';
++    showState('loading');
++    const results = await Promise.all(
++        epiFiles.map(async (file) => {
++            try {
++                const r = await verifyEpiFile(file);
++                return { file, result: r };
++            } catch (err) {
++                return { file, result: { success: false, error: err.message } };
++            }
++        })
++    );
++    renderBatchResults(results);
++    showState('batch');
++}
 +
-         const iframe = document.createElement('iframe');
-         iframe.sandbox = "allow-scripts allow-popups allow-forms";
--        container.appendChild(iframe);
-+        iframe.style.cssText = 'width:100%;height:100%;border:none;display:none;';
- 
-         // Inject layout fixes into the embedded HTML
-         // This forces the content to fit the iframe and handle scrolling
-         let htmlContent = result.viewerHtml;
-         const layoutFix = `
-             <style>
--                html, body { 
--                    height: 100% !important; 
--                    width: 100% !important; 
--                    margin: 0 !important; 
--                    padding: 0 !important; 
--                    overflow: auto !important; 
-+                html, body {
-+                    height: 100% !important;
-+                    width: 100% !important;
-+                    margin: 0 !important;
-+                    padding: 0 !important;
-+                    overflow: auto !important;
-                 }
-                 /* Ensure terminal/content containers fill space */
-                 #terminal, .terminal, .xterm-viewport {
-@@ -309,7 +327,17 @@ function displayVerifiedEvidence(result) {
- 
-         // Use Blob URL to safely load content
-         const blob = new Blob([htmlContent], { type: 'text/html' });
--        iframe.src = URL.createObjectURL(blob);
-+        const blobUrl = URL.createObjectURL(blob);
++function renderBatchResults(items) {
++    const list = document.getElementById('batch-results-list');
++    list.innerHTML = '';
++    let countVerified = 0, countUnsigned = 0, countFailed = 0;
 +
-+        iframe.onload = () => {
-+            container.innerHTML = '';
-+            container.appendChild(iframe);
-+            iframe.style.display = '';
-+            URL.revokeObjectURL(blobUrl);
++    items.forEach(({ file, result }) => {
++        let chipClass, chipLabel, detailRows;
++        if (!result.success) {
++            chipClass = 'bchip-error'; chipLabel = 'Error'; countFailed++;
++            detailRows = [['Error', result.error || 'Unknown error']];
++        } else {
++            const m   = result.manifest;
++            const integ = result.verificationDetails.integrity;
++            const sig   = result.verificationDetails.signature;
++            if (!integ.valid) {
++                chipClass = 'bchip-tampered'; chipLabel = 'Tampered'; countFailed++;
++            } else if (sig.valid) {
++                chipClass = 'bchip-verified'; chipLabel = 'Verified'; countVerified++;
++            } else if (sig.level === 'UNSIGNED') {
++                chipClass = 'bchip-unsigned'; chipLabel = 'Unsigned'; countUnsigned++;
++            } else {
++                chipClass = 'bchip-error'; chipLabel = 'Sig Error'; countFailed++;
++            }
++            detailRows = [
++                ['Workflow ID', m.workflow_id || '—'],
++                ['Created',     m.created_at ? new Date(m.created_at).toLocaleString() : '—'],
++                ['Signer',      m.signature ? m.signature.split(':')[1] : 'None'],
++                ['Files',       Object.keys(m.file_manifest || {}).length + ' file(s) checked'],
++                ['Integrity',   integ.valid ? 'PASS ✓' : `FAIL — ${integ.mismatches.length} mismatch(es)`],
++                ['Signature',   sig.valid ? `Valid (${sig.algorithm})` : (sig.level || sig.error || 'Invalid')],
++            ];
++        }
++        const fileSizeKb = (file.size / 1024).toFixed(1) + ' KB';
++        const detailHtml = detailRows.map(([k, v]) =>
++            `<div class="batch-detail-key">${k}</div><div class="batch-detail-value">${v}</div>`
++        ).join('');
++
++        const item = document.createElement('div');
++        item.className = 'batch-result-item';
++        item.setAttribute('role', 'listitem');
++        item.innerHTML = `
++            <div class="batch-result-header" tabindex="0" role="button"
++                 aria-expanded="false" aria-label="Toggle details for ${file.name}">
++                <span class="batch-status-chip ${chipClass}">${chipLabel}</span>
++                <span class="batch-result-filename" title="${file.name}">${file.name}</span>
++                <span class="batch-result-filesize">${fileSizeKb}</span>
++                <span class="batch-result-expand" aria-hidden="true">▾</span>
++            </div>
++            <div class="batch-result-detail">
++                <div class="batch-detail-grid">${detailHtml}</div>
++            </div>
++        `;
++        const header = item.querySelector('.batch-result-header');
++        const toggle = () => {
++            const isOpen = item.classList.toggle('open');
++            header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 +        };
++        header.addEventListener('click', toggle);
++        header.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
++        list.appendChild(item);
++    });
 +
-+        iframe.src = blobUrl;
-+        container.appendChild(iframe);
-     } else {
-         container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No embedded viewer found.</div>';
-     }
-diff --git a/simulation.html b/simulation.html
-index 1d898c5..8244dad 100644
---- a/simulation.html
-+++ b/simulation.html
-@@ -6,7 +6,8 @@
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Live Simulation — EPI LABS</title>
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.6">
-+    <link rel="canonical" href="https://epilabs.org/simulation.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="stylesheet" href="css/terminal.css">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-@@ -181,7 +182,7 @@
-                                 <span class="control-dot dot-yellow"></span>
-                                 <span class="control-dot dot-green"></span>
-                             </div>
--                            <div class="terminal-title">epi-recorder v2.7.2</div>
-+                            <div class="terminal-title">epi-recorder v2.8.5</div>
-                         </div>
-                         <div class="terminal-body">
-                             <!-- Content injected by terminal-demo.js -->
-@@ -192,8 +193,8 @@
-         </div>
-     </section>
- 
--    <script src="js/app.js"></script>
--    <script src="terminal-demo.js?v=2.6.0"></script>
-+    <script src="js/app.js" defer></script>
-+    <script src="js/terminal-demo.js?v=2.8.4" defer></script>
-     <script>
-         // Custom Logic to link Terminal to Stepper
-         document.addEventListener('DOMContentLoaded', () => {
-diff --git a/sw.js b/sw.js
-index c57b31e..7aefed3 100644
---- a/sw.js
-+++ b/sw.js
-@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
- 
- self.addEventListener('fetch', (event) => {
-     // Network-First Strategy for HTML to ensure we always get the latest layout
--    if (event.request.headers.get('accept').includes('text/html')) {
-+    if ((event.request.headers.get('accept') || '').includes('text/html')) {
-         event.respondWith(
-             fetch(event.request)
-                 .then((response) => {
-diff --git a/technology.html b/technology.html
-index bb4c0f6..43d91ba 100644
---- a/technology.html
-+++ b/technology.html
-@@ -12,10 +12,11 @@
-     <meta property="og:url" content="https://epilabs.org/technology.html">
-     <meta property="og:title" content="EPI Architecture — The Trustless Verification Stack">
-     <meta property="og:description" content="How we achieved offline, zero-knowledge verification for AI workflows.">
--    <meta property="og:image" content="https://epilabs.org/trust_network.png">
-+    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.2">
-+    <link rel="canonical" href="https://epilabs.org/technology.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link
-@@ -284,7 +285,7 @@ vizFrame.src = URL.createObjectURL(blob);
-         </div>
-     </footer>
- 
--    <script src="js/app.js"></script>
-+    <script src="js/app.js" defer></script>
- </body>
- 
- </html>
-diff --git a/use-cases.html b/use-cases.html
-index 277cda8..092acae 100644
---- a/use-cases.html
-+++ b/use-cases.html
-@@ -13,7 +13,7 @@
-     <meta property="og:title" content="EPI Use Cases — AI Compliance & Verification">
-     <meta property="og:description"
-         content="Discover how EPI solves the AI trust crisis in Healthcare, Finance, Insurance, and Legal industries.">
--    <meta property="og:image" content="https://epilabs.org/trust_network.png">
-+    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
- 
-     <!-- Twitter -->
-     <meta property="twitter:card" content="summary_large_image">
-@@ -21,10 +21,11 @@
-     <meta property="twitter:title" content="EPI Use Cases — AI Compliance & Verification">
-     <meta property="twitter:description"
-         content="Discover how EPI solves the AI trust crisis in Healthcare, Finance, Insurance, and Legal industries.">
--    <meta property="twitter:image" content="https://epilabs.org/trust_network.png">
-+    <meta property="twitter:image" content="https://epilabs.org/assets/trust_network.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.6">
-+    <link rel="canonical" href="https://epilabs.org/use-cases.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link
-@@ -379,7 +380,7 @@
-         </div>
-     </footer>
- 
--    <script src="js/app.js"></script>
-+    <script src="js/app.js" defer></script>
- </body>
- 
- </html>
-\ No newline at end of file
++    const parts = [];
++    if (countVerified) parts.push(`${countVerified} verified`);
++    if (countUnsigned) parts.push(`${countUnsigned} unsigned`);
++    if (countFailed)   parts.push(`${countFailed} failed`);
++    document.getElementById('batch-summary-line').textContent =
++        `${items.length} file${items.length !== 1 ? 's' : ''} · ${parts.join(' · ')}`;
++}
++
+ async function handleFile(file) {
+     if (!file.name.endsWith('.epi')) {
+         alert('Please select a valid .epi file.');
 diff --git a/verify.html b/verify.html
-index 1b831ff..9578d96 100644
+index 9578d96..c64cb33 100644
 --- a/verify.html
 +++ b/verify.html
-@@ -6,13 +6,13 @@
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Verify Evidence | EPI LABS</title>
-     <!-- Dependencies (CDNs) -->
--    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
--    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js"></script>
-+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-+    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js" defer></script>
-     <!-- Noble Ed25519 -->
--    <script src="https://unpkg.com/@noble/ed25519@2.0.0/lib/index.js"></script>
-+    <script src="https://unpkg.com/@noble/ed25519@2.0.0/lib/index.js" defer></script>
- 
-     <!-- Custom System Styles -->
--    <link rel="stylesheet" href="css/style.css?v=2.6">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="stylesheet" href="css/terminal.css">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-@@ -345,27 +345,27 @@
-     </main>
- 
-     <!-- UI Modals -->
--    <div id="timelineModal" class="glass-modal">
-+    <div id="timelineModal" class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="timelineModalTitle">
-         <div class="glass-modal-content">
-             <div class="modal-header">
-                 <div>
--                    <h3 style="margin-bottom: 0;">Evidence Timeline</h3>
-+                    <h3 id="timelineModalTitle" style="margin-bottom: 0;">Evidence Timeline</h3>
-                     <p style="font-size: 0.8rem; margin:0;">Granular execution trace from <code style="padding: 0 0.25rem; font-size: 1em;">steps.jsonl</code></p>
-                 </div>
--                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeTimeline()">✕</button>
-+                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeTimeline()" aria-label="Close timeline modal">✕</button>
-             </div>
-             <div class="modal-body" id="timelineContent"></div>
-         </div>
-     </div>
- 
--    <div id="filesModal" class="glass-modal">
-+    <div id="filesModal" class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="filesModalTitle">
-         <div class="glass-modal-content" style="max-width: 600px;">
-             <div class="modal-header">
-                 <div>
--                    <h3 style="margin-bottom: 0;">File Manifest</h3>
-+                    <h3 id="filesModalTitle" style="margin-bottom: 0;">File Manifest</h3>
-                     <p style="font-size: 0.8rem; margin:0;">Cryptographic inventory (SHA-256)</p>
-                 </div>
--                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeFiles()">✕</button>
-+                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeFiles()" aria-label="Close file manifest modal">✕</button>
-             </div>
-             <div class="modal-body" style="padding: 0;">
-                 <table style="width: 100%; text-align: left; border-collapse: collapse;">
-@@ -396,6 +396,12 @@
-         const resultPhase = document.getElementById('resultPhase');
-         const launchVizBtn = document.getElementById('launchVizBtn');
- 
-+        // CDN dependency check — show friendly error if scripts failed to load
-+        if (typeof JSZip === 'undefined') {
-+            const dz = document.getElementById('dropZone');
-+            if (dz) dz.innerHTML = '<p style="color:var(--color-warning,#f59e0b);text-align:center;padding:2rem;">⚠️ Required libraries failed to load (CDN unavailable).<br>Please check your internet connection and reload the page.</p>';
+@@ -231,6 +231,61 @@
+         }
+         
+         .hidden { display: none !important; }
++
++        /* ── Copy Report ──────────────────────────────────────── */
++        .copy-success-flash {
++            color: var(--color-success) !important;
++            border-color: rgba(48, 209, 88, 0.3) !important;
 +        }
 +
-         // Drag & Drop Handlers
-         dropZone.addEventListener('click', () => fileInput.click());
-         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-@@ -407,11 +413,41 @@
-         });
-         fileInput.addEventListener('change', (e) => processFile(e.target.files[0]));
++        /* ── History Panel ────────────────────────────────────── */
++        .history-row {
++            display: flex;
++            align-items: center;
++            justify-content: space-between;
++            padding: 0.65rem 1.25rem;
++            border-bottom: 1px solid rgba(255,255,255,0.04);
++            font-size: 0.82rem;
++            gap: 1rem;
++        }
++        .history-row:last-child { border-bottom: none; }
++        .history-row:hover { background: rgba(255,255,255,0.03); }
++        .history-filename {
++            font-family: var(--font-mono);
++            color: var(--color-white);
++            font-size: 0.8rem;
++            flex: 1;
++            overflow: hidden;
++            text-overflow: ellipsis;
++            white-space: nowrap;
++        }
++        .history-meta { color: var(--color-gray-500); font-size: 0.75rem; flex-shrink: 0; }
++        .history-chip {
++            padding: 0.15rem 0.5rem;
++            border-radius: 99px;
++            font-size: 0.7rem;
++            font-weight: 600;
++            text-transform: uppercase;
++            letter-spacing: 0.04em;
++            flex-shrink: 0;
++        }
++        .chip-success { background: rgba(48,209,88,0.12); color: var(--color-success); border: 1px solid rgba(48,209,88,0.2); }
++        .chip-warning { background: rgba(255,214,10,0.12); color: var(--color-warning); border: 1px solid rgba(255,214,10,0.2); }
++        .chip-error   { background: rgba(255,69,58,0.12);  color: var(--color-error);   border: 1px solid rgba(255,69,58,0.2); }
++        .history-clear-row {
++            display: flex;
++            justify-content: flex-end;
++            padding: 0.5rem 1rem;
++            background: rgba(0,0,0,0.2);
++            border-top: 1px solid rgba(255,255,255,0.05);
++        }
++        .history-clear-btn {
++            background: none; border: none;
++            color: var(--color-gray-500); font-size: 0.75rem;
++            cursor: pointer; font-family: var(--font-sans);
++            transition: color 0.2s;
++        }
++        .history-clear-btn:hover { color: var(--color-error); }
+     </style>
+ </head>
  
--        // Global UI Toggles
--        window.openTimeline = () => document.getElementById('timelineModal').classList.add('active');
--        window.closeTimeline = () => document.getElementById('timelineModal').classList.remove('active');
--        window.openFiles = () => document.getElementById('filesModal').classList.add('active');
--        window.closeFiles = () => document.getElementById('filesModal').classList.remove('active');
-+        // Global UI Toggles with focus management
-+        window.openTimeline = () => {
-+            const m = document.getElementById('timelineModal');
-+            m.classList.add('active');
-+            const btn = m.querySelector('button');
-+            if (btn) btn.focus();
-+        };
-+        window.closeTimeline = () => {
-+            document.getElementById('timelineModal').classList.remove('active');
-+        };
-+        window.openFiles = () => {
-+            const m = document.getElementById('filesModal');
-+            m.classList.add('active');
-+            const btn = m.querySelector('button');
-+            if (btn) btn.focus();
-+        };
-+        window.closeFiles = () => {
-+            document.getElementById('filesModal').classList.remove('active');
-+        };
-+
-+        // Close modals on Escape key
-+        document.addEventListener('keydown', (e) => {
-+            if (e.key === 'Escape') {
-+                window.closeTimeline();
-+                window.closeFiles();
-+            }
-+        });
-+
-+        // Close modals on backdrop click
-+        document.getElementById('timelineModal').addEventListener('click', (e) => {
-+            if (e.target === e.currentTarget) window.closeTimeline();
-+        });
-+        document.getElementById('filesModal').addEventListener('click', (e) => {
-+            if (e.target === e.currentTarget) window.closeFiles();
-+        });
-         
-         window.resetUI = () => {
-             resultPhase.classList.add('hidden');
-@@ -462,15 +498,30 @@
-                     }).filter(Boolean);
-                 }
- 
--                // Setup Offline Viewer Button
-+                // Setup Offline Viewer Button — render in sandboxed iframe (not new tab)
-+                // to prevent XSS from untrusted viewer.html content in the .epi archive
-                 const viewerFile = zip.file("viewer.html");
-                 if (viewerFile) {
-                     launchVizBtn.classList.remove('hidden');
-                     launchVizBtn.onclick = async () => {
-                         const htmlContent = await viewerFile.async("string");
-                         const blob = new Blob([htmlContent], { type: 'text/html' });
--                        // Open strictly contained isolated page
--                        window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
-+                        const blobUrl = URL.createObjectURL(blob);
-+                        // Use sandboxed iframe: allow-scripts only, no allow-same-origin
-+                        // This prevents the embedded page from accessing parent DOM or cookies
-+                        const container = document.getElementById('vizContainer') || (() => {
-+                            const el = document.createElement('div');
-+                            el.id = 'vizContainer';
-+                            el.style.cssText = 'position:fixed;inset:0;z-index:3000;background:#000;display:flex;flex-direction:column;';
-+                            el.innerHTML = '<div style="display:flex;justify-content:flex-end;padding:0.5rem;background:#0f172a;"><button onclick="document.getElementById(\'vizContainer\').remove();URL.revokeObjectURL(this.dataset.url)" data-url="' + blobUrl + '" style="background:#334155;color:#fff;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;">Close ✕</button></div>';
-+                            document.body.appendChild(el);
-+                            return el;
-+                        })();
-+                        const iframe = document.createElement('iframe');
-+                        iframe.sandbox = 'allow-scripts allow-forms allow-popups';
-+                        iframe.style.cssText = 'flex:1;width:100%;border:none;';
-+                        iframe.src = blobUrl;
-+                        container.appendChild(iframe);
-                     };
-                 }
- 
-@@ -707,8 +758,8 @@
+@@ -330,6 +385,13 @@
+                     <button class="btn-primary" style="flex: 1; padding: 0.75rem;" onclick="openTimeline()">
+                         <span style="font-size: 1.1rem;">👁️</span> Inspect Timeline
+                     </button>
++                    <button id="copyReportBtn" class="btn-secondary"
++                        style="padding: 0.75rem 1rem; border-color: rgba(255,255,255,0.15); color: #fff; white-space: nowrap;"
++                        onclick="window.copyReport()"
++                        title="Copy plain-text verification report to clipboard"
++                        aria-label="Copy verification report to clipboard">
++                        📋 Copy Report
++                    </button>
+                     <button id="launchVizBtn" class="btn-primary hidden" style="background: linear-gradient(135deg, var(--color-violet-500), #6D28D9); padding: 0.75rem;">
+                         <span>🚀</span> Read-Only View
+                     </button>
+@@ -344,6 +406,22 @@
          </div>
-     </footer>
+     </main>
  
--    <script src="js/app.js"></script>
--    <script src="js/particles.js"></script>
-+    <script src="js/app.js" defer></script>
-+    <script src="js/particles.js" defer></script>
- </body>
++    <!-- Verification History Panel -->
++    <div id="historyPanel" style="width:100%;max-width:650px;margin:-0.5rem auto var(--space-xl) auto;padding:0 var(--space-md);display:none;">
++        <button id="historyToggle" onclick="window.toggleHistory()"
++            style="width:100%;background:rgba(10,13,21,0.5);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);padding:0.65rem 1.25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--color-gray-400);font-size:0.82rem;font-family:var(--font-sans);transition:border-color 0.2s ease;"
++            aria-expanded="false" aria-controls="historyList">
++            <span style="display:flex;align-items:center;gap:0.5rem;">
++                <span aria-hidden="true">🕐</span>
++                <span id="historyToggleLabel">Recent Verifications</span>
++            </span>
++            <span id="historyChevron" style="transition:transform 0.25s ease;" aria-hidden="true">▾</span>
++        </button>
++        <div id="historyList" hidden role="list" aria-label="Recent verifications"
++            style="margin-top:0.35rem;background:rgba(10,13,21,0.7);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);overflow:hidden;">
++        </div>
++    </div>
++
+     <!-- UI Modals -->
+     <div id="timelineModal" class="glass-modal" role="dialog" aria-modal="true" aria-labelledby="timelineModalTitle">
+         <div class="glass-modal-content">
+@@ -386,6 +464,7 @@
+         import * as ed from 'https://esm.sh/@noble/ed25519@2.0.0';
  
- </html>
+         let currentSteps = [];
++        let _lastReportData = null;
+         
+         // DOM Elements
+         const dropZone = document.getElementById('dropZone');
+@@ -456,8 +535,142 @@
+             loaderUI.classList.add('hidden');
+             fileInput.value = '';
+             launchVizBtn.classList.add('hidden');
++            _lastReportData = null;
++            const crBtn = document.getElementById('copyReportBtn');
++            if (crBtn) { crBtn.textContent = '📋 Copy Report'; crBtn.classList.remove('copy-success-flash'); }
+         };
+ 
++        // ── Copy Report ───────────────────────────────────────────────────────
++        window.copyReport = async () => {
++            if (!_lastReportData) return;
++            const d = _lastReportData;
++            const now = new Date().toLocaleString();
++            const lines = [
++                '╔═══════════════════════════════════════════════════╗',
++                '║       EPI LABS — Verification Report              ║',
++                '╚═══════════════════════════════════════════════════╝',
++                '',
++                `File            : ${d.filename}`,
++                `Verified At     : ${now}`,
++                `Trust State     : ${d.trustLabel}`,
++                '',
++                `Signer          : ${d.signer}`,
++                `Workflow ID     : ${d.workflowId}`,
++                `Created At      : ${d.createdAt}`,
++                `Goal            : ${d.goal}`,
++                `Files in Bundle : ${d.fileCount}`,
++                `Signature Status: ${d.sigStatus}`,
++                '',
++                `Details         : ${d.desc}`,
++                '',
++                '─────────────────────────────────────────────────────',
++                'Verified client-side by EPI LABS — epilabs.org/verify',
++            ];
++            const text = lines.join('\n');
++            const btn = document.getElementById('copyReportBtn');
++            try {
++                await navigator.clipboard.writeText(text);
++            } catch {
++                // Fallback for browsers that restrict clipboard
++                const ta = Object.assign(document.createElement('textarea'), {
++                    value: text,
++                    style: 'position:fixed;left:-9999px;opacity:0;'
++                });
++                document.body.appendChild(ta);
++                ta.select();
++                document.execCommand('copy');
++                document.body.removeChild(ta);
++            }
++            btn.textContent = '✓ Copied!';
++            btn.classList.add('copy-success-flash');
++            setTimeout(() => {
++                btn.textContent = '📋 Copy Report';
++                btn.classList.remove('copy-success-flash');
++            }, 2200);
++        };
++
++        // ── Verification History ──────────────────────────────────────────────
++        const HISTORY_KEY = 'epi_verify_history';
++        const HISTORY_MAX = 10;
++
++        function saveToHistory(filename, state, signer, fileCount) {
++            let history = [];
++            try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch {}
++            history.unshift({ filename, state, signer: signer || 'Unknown', fileCount: fileCount || 0, ts: Date.now() });
++            if (history.length > HISTORY_MAX) history = history.slice(0, HISTORY_MAX);
++            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch {}
++            renderHistory();
++        }
++
++        function formatRelTime(ts) {
++            const diff = Date.now() - ts;
++            if (diff < 60000)    return 'just now';
++            if (diff < 3600000)  return `${Math.floor(diff / 60000)}m ago`;
++            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
++            return new Date(ts).toLocaleDateString();
++        }
++
++        function renderHistory() {
++            let history = [];
++            try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch {}
++            const panel = document.getElementById('historyPanel');
++            const list  = document.getElementById('historyList');
++            const label = document.getElementById('historyToggleLabel');
++            if (!history.length) { panel.style.display = 'none'; return; }
++            panel.style.display = '';
++            label.textContent = `Recent Verifications (${history.length})`;
++            const chipClass = { success: 'chip-success', warning: 'chip-warning', tampered: 'chip-error', error: 'chip-error' };
++            const chipLabel = { success: 'Verified', warning: 'Unsigned', tampered: 'Tampered', error: 'Failed' };
++            list.innerHTML = history.map(h => `
++                <div class="history-row" role="listitem">
++                    <span class="history-filename" title="${h.filename}">${h.filename}</span>
++                    <span class="history-meta">${formatRelTime(h.ts)}</span>
++                    <span class="history-chip ${chipClass[h.state] || 'chip-warning'}">${chipLabel[h.state] || 'Unknown'}</span>
++                </div>
++            `).join('') + `
++                <div class="history-clear-row">
++                    <button class="history-clear-btn" onclick="window.clearHistory()">Clear All</button>
++                </div>`;
++        }
++
++        window.toggleHistory = () => {
++            const list    = document.getElementById('historyList');
++            const chevron = document.getElementById('historyChevron');
++            const toggle  = document.getElementById('historyToggle');
++            const isHidden = list.hasAttribute('hidden');
++            if (isHidden) { list.removeAttribute('hidden'); chevron.style.transform = 'rotate(180deg)'; toggle.setAttribute('aria-expanded', 'true'); }
++            else          { list.setAttribute('hidden', ''); chevron.style.transform = ''; toggle.setAttribute('aria-expanded', 'false'); }
++        };
++
++        window.clearHistory = () => {
++            try { localStorage.removeItem(HISTORY_KEY); } catch {}
++            renderHistory();
++        };
++
++        renderHistory();
++
++        // ── sessionStorage hand-off from homepage quick-verify ────────────────
++        (function checkHandoff() {
++            const raw = sessionStorage.getItem('epi_handoff');
++            if (!raw) return;
++            sessionStorage.removeItem('epi_handoff');
++            try {
++                const payload = JSON.parse(raw);
++                const binary = atob(payload.data);
++                const bytes = new Uint8Array(binary.length);
++                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
++                const blob = new Blob([bytes], { type: 'application/zip' });
++                const file = new File([blob], payload.name, { type: 'application/zip', lastModified: payload.lastModified });
++                requestAnimationFrame(() => {
++                    uploadUI.classList.add('hidden');
++                    loaderUI.classList.remove('hidden');
++                    processFile(file);
++                });
++            } catch (err) {
++                console.warn('[EPI handoff] Failed to restore file from sessionStorage:', err);
++            }
++        })();
++
+         async function processFile(file) {
+             if (!file) return;
+ 
+@@ -653,6 +866,24 @@
+                 document.getElementById('metaId').textContent = manifest.workflow_id;
+                 populateTimeline();
+             }
++
++            // Snapshot for Copy Report
++            const _trustLabels = { success: 'VERIFIED AUTHENTIC', warning: 'UNVERIFIED IDENTITY', tampered: 'TAMPERED EVIDENCE', error: 'VERIFICATION FAILED' };
++            const _fileCount = manifest ? Object.keys(manifest.file_manifest || {}).length : 0;
++            _lastReportData = {
++                filename: fileInput.files[0]?.name || 'unknown.epi',
++                trustLabel: _trustLabels[state] || state.toUpperCase(),
++                signer: signer || 'Unknown',
++                workflowId: manifest?.workflow_id || '—',
++                createdAt: manifest?.created_at ? new Date(manifest.created_at).toLocaleString() : '—',
++                goal: manifest?.goal || 'Not specified',
++                fileCount: _fileCount,
++                sigStatus: manifest?.signature ? 'Present (ed25519)' : 'Not present (unsigned)',
++                desc: errorMsg
++            };
++
++            // Save to history
++            saveToHistory(fileInput.files[0]?.name || 'unknown.epi', state, signer, _fileCount);
+         }
+ 
+         function populateTimeline() {
 diff --git a/viewer.html b/viewer.html
-index 35f07de..b7e6b31 100644
+index b7e6b31..224d076 100644
 --- a/viewer.html
 +++ b/viewer.html
-@@ -8,12 +8,13 @@
-     <meta name="description" content="Open and inspect any .epi recording directly in your browser. No install required. Integrity checked with SHA-256, signatures verified with Ed25519.">
+@@ -432,6 +432,70 @@
+             .drop-zone { padding: 2rem 1.25rem; }
+             .status-banner, .evidence-summary, .layer-panel { padding: 0.75rem 1rem; }
+         }
++
++        /* ── Batch Results ───────────────────────────────────── */
++        .batch-result-item {
++            background: var(--bg-card);
++            border: 1px solid var(--border-subtle);
++            border-radius: var(--radius-sm);
++            margin-bottom: 0.75rem;
++            overflow: hidden;
++            transition: border-color 0.2s;
++        }
++        .batch-result-item:hover { border-color: var(--border-default); }
++        .batch-result-header {
++            display: flex;
++            align-items: center;
++            gap: 1rem;
++            padding: 0.85rem 1.25rem;
++            cursor: pointer;
++            user-select: none;
++        }
++        .batch-result-header:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
++        .batch-result-filename {
++            font-family: var(--font-mono);
++            font-size: 0.85rem;
++            color: var(--text-primary);
++            font-weight: 500;
++            flex: 1;
++            overflow: hidden;
++            text-overflow: ellipsis;
++            white-space: nowrap;
++        }
++        .batch-result-filesize { font-size: 0.75rem; color: var(--text-disabled); flex-shrink: 0; }
++        .batch-status-chip {
++            padding: 0.2rem 0.6rem;
++            border-radius: 99px;
++            font-size: 0.72rem;
++            font-weight: 700;
++            text-transform: uppercase;
++            letter-spacing: 0.05em;
++            flex-shrink: 0;
++        }
++        .bchip-verified { background: rgba(48,209,88,0.1);  color: #30D158; border: 1px solid rgba(48,209,88,0.2); }
++        .bchip-unsigned { background: rgba(255,214,10,0.1); color: #FFD60A; border: 1px solid rgba(255,214,10,0.2); }
++        .bchip-tampered { background: rgba(255,69,58,0.1);  color: #FF453A; border: 1px solid rgba(255,69,58,0.2); }
++        .bchip-error    { background: rgba(255,69,58,0.08); color: #FF453A; border: 1px solid rgba(255,69,58,0.15); }
++        .batch-result-expand { font-size: 0.75rem; color: var(--text-disabled); transition: transform 0.2s; flex-shrink: 0; }
++        .batch-result-item.open .batch-result-expand { transform: rotate(180deg); }
++        .batch-result-detail {
++            display: none;
++            padding: 1rem 1.25rem;
++            background: rgba(0,0,0,0.3);
++            border-top: 1px solid var(--border-subtle);
++            font-size: 0.82rem;
++            color: var(--text-secondary);
++        }
++        .batch-result-item.open .batch-result-detail { display: block; }
++        .batch-detail-grid {
++            display: grid;
++            grid-template-columns: 140px 1fr;
++            gap: 0.4rem 1rem;
++            font-family: var(--font-mono);
++            font-size: 0.78rem;
++        }
++        .batch-detail-key   { color: var(--text-muted); }
++        .batch-detail-value { color: var(--text-primary); word-break: break-all; }
+     </style>
+ </head>
  
-     <!-- Dependencies -->
--    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
- 
-     <!-- EPI Labs Design System -->
--    <link rel="stylesheet" href="css/style.css?v=2.6">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <link rel="stylesheet" href="css/viewer.css?v=2.8">
-     <link rel="icon" type="image/png" href="assets/logo.png">
-+    <link rel="canonical" href="https://epilabs.org/viewer.html">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-@@ -472,15 +473,17 @@
-             <h1 class="viewer-hero-title">Inspect any <span class="text-gradient">.epi</span> recording</h1>
-             <p class="viewer-hero-sub">Drop a file below to inspect trust, integrity, policy, analysis, and review. Nothing leaves your browser.</p>
- 
--            <div id="drop-zone" class="drop-zone">
--                <span class="drop-icon">📂</span>
-+            <div id="drop-zone" class="drop-zone"
-+                 role="button" tabindex="0"
-+                 aria-label="Drop zone: drag and drop a .epi file here, or press Enter to browse">
-+                <span class="drop-icon" aria-hidden="true">📂</span>
-                 <h3>Drag &amp; drop a .epi file</h3>
-                 <p>or click to browse your computer.<br>Works offline and keeps the file on your machine.</p>
--                <button class="btn-open-file" id="btn-open-file">
--                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-+                <button class="btn-open-file" id="btn-open-file" aria-label="Open file picker to choose a .epi file">
-+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                     Choose .epi file
+@@ -477,13 +541,13 @@
+                  role="button" tabindex="0"
+                  aria-label="Drop zone: drag and drop a .epi file here, or press Enter to browse">
+                 <span class="drop-icon" aria-hidden="true">📂</span>
+-                <h3>Drag &amp; drop a .epi file</h3>
+-                <p>or click to browse your computer.<br>Works offline and keeps the file on your machine.</p>
+-                <button class="btn-open-file" id="btn-open-file" aria-label="Open file picker to choose a .epi file">
++                <h3>Drag &amp; drop .epi file(s)</h3>
++                <p>or click to browse. Select multiple files at once.<br>Works offline — nothing leaves your browser.</p>
++                <button class="btn-open-file" id="btn-open-file" aria-label="Open file picker to choose .epi files">
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+-                    Choose .epi file
++                    Choose .epi file(s)
                  </button>
--                <input type="file" id="file-input" accept=".epi" style="display:none">
-+                <input type="file" id="file-input" accept=".epi" style="display:none" aria-hidden="true">
+-                <input type="file" id="file-input" accept=".epi" style="display:none" aria-hidden="true">
++                <input type="file" id="file-input" accept=".epi" multiple style="display:none" aria-hidden="true">
              </div>
  
              <p class="trust-note">
-@@ -604,7 +607,7 @@
- 
- </div><!-- /#app -->
- 
--<script src="js/viewer.js?v=2.8"></script>
--<script src="js/app.js"></script>
-+<script src="js/viewer.js?v=2.8" defer></script>
-+<script src="js/app.js" defer></script>
- </body>
- </html>
-diff --git a/vision.html b/vision.html
-index 450d2ac..6a81435 100644
---- a/vision.html
-+++ b/vision.html
-@@ -13,7 +13,7 @@
-     <meta property="og:title" content="EPI Vision — The Future of AI Trust">
-     <meta property="og:description"
-         content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
--    <meta property="og:image" content="https://epilabs.org/trust_network.png">
-+    <meta property="og:image" content="https://epilabs.org/assets/trust_network.png">
- 
-     <!-- Twitter -->
-     <meta property="twitter:card" content="summary_large_image">
-@@ -21,10 +21,11 @@
-     <meta property="twitter:title" content="EPI Vision — The Future of AI Trust">
-     <meta property="twitter:description"
-         content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
--    <meta property="twitter:image" content="https://epilabs.org/trust_network.png">
-+    <meta property="twitter:image" content="https://epilabs.org/assets/trust_network.png">
- 
-     <link rel="icon" type="image/png" href="assets/logo.png">
--    <link rel="stylesheet" href="css/style.css?v=2.6">
-+    <link rel="canonical" href="https://epilabs.org/vision.html">
-+    <link rel="stylesheet" href="css/style.css?v=2.8">
-     <style>
-         /* Vision Page Specific Styles */
-         .shift-grid {
-@@ -363,7 +364,7 @@
+@@ -493,6 +557,20 @@
          </div>
-     </footer>
+     </div>
  
--    <script src="js/app.js"></script>
-+    <script src="js/app.js" defer></script>
- </body>
- 
- </html>
-\ No newline at end of file
++    <!-- ══ BATCH STATE ══════════════════════════════════════════════════ -->
++    <div id="batch-state" class="state-view">
++        <div style="flex:1;overflow-y:auto;padding:2rem;max-width:800px;margin:0 auto;width:100%;">
++            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
++                <div>
++                    <h2 style="font-size:1.25rem;font-weight:700;color:var(--text-primary);margin:0 0 0.25rem 0;">Batch Verification Results</h2>
++                    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;" id="batch-summary-line"></p>
++                </div>
++                <button id="btn-batch-close" class="btn-secondary" style="padding:0.5rem 1rem;font-size:0.85rem;">✕ Start Over</button>
++            </div>
++            <div id="batch-results-list" role="list"></div>
++        </div>
++    </div>
++
+     <!-- ══ LOADING STATE ════════════════════════════════════════════════ -->
+     <div id="loading-state" class="state-view">
+         <div class="loading-content">
