@@ -22,6 +22,88 @@ index 1354182..d4e3cf5 100644
  
  </html>
 \ No newline at end of file
+diff --git a/css/style.css b/css/style.css
+index 6e6ab55..308cb74 100644
+--- a/css/style.css
++++ b/css/style.css
+@@ -89,10 +89,6 @@ html {
+     scroll-behavior: smooth;
+ }
+ 
+-html {
+-    scroll-behavior: smooth;
+-}
+-
+ body {
+     font-family: var(--font-sans);
+     background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
+@@ -137,21 +133,16 @@ h3 {
+ }
+ 
+ p {
++    color: var(--color-gray-300);
++    font-size: 1.125rem;
+     line-height: 1.8;
+     margin-bottom: var(--space-md);
+-    color: var(--text-secondary);
+ }
+ 
+ h4 {
+     font-size: 1.25rem;
+ }
+ 
+-p {
+-    color: var(--color-gray-300);
+-    font-size: 1.125rem;
+-    line-height: 1.8;
+-}
+-
+ strong {
+     color: var(--color-white);
+     font-weight: 600;
+@@ -2200,6 +2191,13 @@ html {
+         font-size: 1rem;
+     }
+ 
++    /* Minimum 44px touch target for mobile (WCAG 2.1) */
++    .nav-cta a,
++    .btn-primary,
++    .btn-secondary {
++        min-height: 44px;
++    }
++
+     .hero-cta {
+         flex-direction: column;
+         gap: 1rem;
+diff --git a/css/terminal.css b/css/terminal.css
+index 8f269c2..1cca805 100644
+--- a/css/terminal.css
++++ b/css/terminal.css
+@@ -97,7 +97,7 @@
+ 
+ /* Content Styles */
+ .prompt {
+-    color: var(--term-gree);
++    color: var(--term-green);
+     margin-right: 8px;
+     font-weight: bold;
+ }
+diff --git a/css/viewer.css b/css/viewer.css
+index 771a87c..1964e14 100644
+--- a/css/viewer.css
++++ b/css/viewer.css
+@@ -412,6 +412,11 @@ body {
+     background: rgba(255, 255, 255, 0.02);
+ }
+ 
++.tab-btn:focus-visible {
++    outline: 2px solid var(--color-primary, #8b5cf6);
++    outline-offset: -2px;
++}
++
+ .tab-btn.active {
+     color: var(--color-primary-light);
+     border-bottom-color: var(--color-primary);
 diff --git a/how-it-works.html b/how-it-works.html
 index 5dafe1e..bba3c36 100644
 --- a/how-it-works.html
@@ -59,7 +141,7 @@ index 5dafe1e..bba3c36 100644
  
  </html>
 diff --git a/index.html b/index.html
-index b68f34c..7cbb4b6 100644
+index b68f34c..b6ce21a 100644
 --- a/index.html
 +++ b/index.html
 @@ -13,7 +13,7 @@
@@ -85,7 +167,24 @@ index b68f34c..7cbb4b6 100644
      <link rel="stylesheet" href="css/terminal.css">
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-@@ -648,9 +649,9 @@ setup_epi_tracing(service_name="my-agent")
+@@ -165,7 +166,7 @@
+                         <div class="file-line short" style="opacity: 0.5;"></div>
+                     </div>
+                     <div class="file-footer">
+-                        <div class="seal-icon">🔒</div>
++                        <div class="seal-icon" aria-hidden="true">🔒</div>
+                         <div class="seal-info">
+                             <div class="seal-text">Signed Evidence</div>
+                             <div class="seal-status">✔ Verified</div>
+@@ -605,7 +606,6 @@ setup_epi_tracing(service_name="my-agent")
+                     target="_blank">📚 Docs</a>
+             </div>
+         </div>
+-        </div>
+     </section>
+ 
+     <!-- Footer -->
+@@ -648,9 +648,9 @@ setup_epi_tracing(service_name="my-agent")
          </div>
      </footer>
  
@@ -99,10 +198,68 @@ index b68f34c..7cbb4b6 100644
  
  </html>
 diff --git a/js/app.js b/js/app.js
-index ca5e021..fda5b3a 100644
+index ca5e021..7efa1f7 100644
 --- a/js/app.js
 +++ b/js/app.js
-@@ -561,10 +561,19 @@ function sendEmail(event) {
+@@ -284,12 +284,7 @@ class InteractiveTerminal {
+     }
+ }
+ 
+-// Initialize interactive terminals
+-document.addEventListener('DOMContentLoaded', () => {
+-    document.querySelectorAll('.terminal-interactive').forEach(terminal => {
+-        new InteractiveTerminal(terminal);
+-    });
+-});
++// Note: .terminal-interactive elements are initialized by TerminalDemo in terminal-demo.js
+ 
+ // ============================================
+ // FEATURE 2: Hover Tilt Effects
+@@ -382,6 +377,8 @@ class CountUp {
+ const statObserver = new IntersectionObserver((entries) => {
+     entries.forEach(entry => {
+         if (entry.isIntersecting && entry.target.dataset.countup) {
++            // Unobserve first to prevent double-firing if animation is slow
++            statObserver.unobserve(entry.target);
+             const counter = new CountUp(
+                 entry.target,
+                 0,
+@@ -389,7 +386,6 @@ const statObserver = new IntersectionObserver((entries) => {
+                 2000
+             );
+             counter.animate();
+-            statObserver.unobserve(entry.target);
+         }
+     });
+ }, { threshold: 0.5 });
+@@ -537,11 +533,22 @@ function sendEmail(event) {
+     event.preventDefault();
+ 
+     // Get form values
+-    const name = document.getElementById('name').value;
+-    const email = document.getElementById('email').value;
+-    const company = document.getElementById('company').value || 'Not specified';
++    const name = document.getElementById('name').value.trim();
++    const email = document.getElementById('email').value.trim();
++    const company = document.getElementById('company').value.trim() || 'Not specified';
+     const inquiryType = document.getElementById('inquiry_type').value;
+-    const message = document.getElementById('message').value;
++    const message = document.getElementById('message').value.trim();
++
++    // Client-side validation with inline feedback
++    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++    if (!emailRegex.test(email)) {
++        document.getElementById('email').focus();
++        alert('Please enter a valid email address.');
++        return;
++    }
++    if (!name) { document.getElementById('name').focus(); alert('Please enter your name.'); return; }
++    if (!inquiryType) { document.getElementById('inquiry_type').focus(); alert('Please select an inquiry type.'); return; }
++    if (!message) { document.getElementById('message').focus(); alert('Please enter a message.'); return; }
+ 
+     // Create email subject
+     const subject = encodeURIComponent('EPI LABS Inquiry: ' + inquiryType);
+@@ -561,10 +568,19 @@ function sendEmail(event) {
      );
      // Gmail compose URL - opens Gmail directly
      const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=mohdibrahim@epilabs.org&su=' + subject + '&body=' + body;
@@ -127,10 +284,81 @@ index ca5e021..fda5b3a 100644
 +        }, 3000);
 +    }
  }
+diff --git a/js/particles.js b/js/particles.js
+index 700cb8d..5d3013e 100644
+--- a/js/particles.js
++++ b/js/particles.js
+@@ -39,12 +39,20 @@ class ParticleAnimation {
+ 
+     resize() {
+         const hero = this.canvas.parentElement;
+-        this.canvas.width = hero.offsetWidth;
+-        this.canvas.height = hero.offsetHeight;
++        const w = hero.offsetWidth;
++        const h = hero.offsetHeight;
++        // Guard: skip if parent not yet rendered (width 0)
++        if (w === 0 || h === 0) return;
++        this.canvas.width = w;
++        this.canvas.height = h;
+     }
+ 
+     handleResize() {
+-        window.addEventListener('resize', () => this.resize());
++        let resizeTimeout;
++        window.addEventListener('resize', () => {
++            clearTimeout(resizeTimeout);
++            resizeTimeout = setTimeout(() => this.resize(), 150);
++        });
+     }
+ 
+     handleMouse() {
+@@ -68,14 +76,18 @@ class ParticleAnimation {
+     }
+ 
+     drawConnections() {
++        const maxDist = 120;
++        const maxDistSq = maxDist * maxDist;
+         for (let i = 0; i < this.particles.length; i++) {
+             for (let j = i + 1; j < this.particles.length; j++) {
+                 const dx = this.particles[i].x - this.particles[j].x;
+                 const dy = this.particles[i].y - this.particles[j].y;
+-                const distance = Math.sqrt(dx * dx + dy * dy);
++                const distSq = dx * dx + dy * dy;
+ 
+-                if (distance < 120) {
+-                    const opacity = (1 - distance / 120) * 0.15;
++                // Use squared distance to avoid costly Math.sqrt in the hot path
++                if (distSq < maxDistSq) {
++                    const distance = Math.sqrt(distSq);
++                    const opacity = (1 - distance / maxDist) * 0.15;
+                     this.ctx.beginPath();
+                     this.ctx.strokeStyle = 'rgba(10, 132, 255, ' + opacity + ')';
+                     this.ctx.lineWidth = 0.5;
+@@ -123,7 +135,9 @@ class ParticleAnimation {
+     }
+ }
+ 
+-// Initialize on page load
++// Initialize on page load — skip on mobile to save battery
+ document.addEventListener('DOMContentLoaded', () => {
+-    new ParticleAnimation('particle-canvas');
++    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
++        new ParticleAnimation('particle-canvas');
++    }
+ });
 diff --git a/js/terminal-demo.js b/js/terminal-demo.js
-index a53f843..0e9cc45 100644
+index a53f843..8d01e3d 100644
 --- a/js/terminal-demo.js
 +++ b/js/terminal-demo.js
+@@ -44,7 +44,7 @@ class TerminalDemo {
+ 
+         // Initial welcome message - print FIRST before creating command line
+         this.print([
+-            { text: 'EPI Portable Environment v2.7.0', color: 'text-dim' },
++            { text: 'EPI Portable Environment v2.8.5', color: 'text-dim' },
+             { text: 'Type "help" for a list of commands.', color: 'text-dim' },
+             { text: '' }
+         ]);
 @@ -129,8 +129,6 @@ class TerminalDemo {
              const cmd = this.inputLine.value.trim();
              this.history.push(cmd);
@@ -149,11 +377,35 @@ index a53f843..0e9cc45 100644
                  return;
              }
              await this.simulateRecording(args[1]);
+@@ -239,7 +237,7 @@ class TerminalDemo {
+ 
+     async simulateRecording(filename) {
+         const steps = [
+-            { text: `→ Starting EPI Recorder v2.7.0`, delay: 200 },
++            { text: `→ Starting EPI Recorder v2.8.5`, delay: 200 },
+             { text: `  Target: ${filename}`, delay: 100 },
+             { text: `  Environment: Python 3.11.4 | Windows 10`, color: 'text-dim', delay: 300 },
+             { text: `● Recording active... (PID: 1420)`, color: 'text-green', delay: 400 },
 diff --git a/js/viewer.js b/js/viewer.js
-index 5d1e898..31fe942 100644
+index 5d1e898..519432f 100644
 --- a/js/viewer.js
 +++ b/js/viewer.js
-@@ -74,7 +74,14 @@ function showState(stateName) {
+@@ -37,6 +37,14 @@ function initializeApp() {
+     // Drag and drop
+     const dropZone = document.getElementById('drop-zone');
+ 
++    // Keyboard activation for the drop zone (accessibility)
++    dropZone.addEventListener('keydown', (e) => {
++        if (e.key === 'Enter' || e.key === ' ') {
++            e.preventDefault();
++            fileInput.click();
++        }
++    });
++
+     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+         dropZone.addEventListener(eventName, preventDefaults, false);
+     });
+@@ -74,7 +82,14 @@ function showState(stateName) {
  
  async function handleFile(file) {
      if (!file.name.endsWith('.epi')) {
@@ -169,6 +421,57 @@ index 5d1e898..31fe942 100644
          return;
      }
  
+@@ -277,21 +292,24 @@ function displayVerifiedEvidence(result) {
+     container.innerHTML = '';
+ 
+     if (result.viewerHtml) {
++        // Show spinner while iframe loads
++        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;gap:0.5rem;"><svg style="animation:spin 1s linear infinite" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Loading viewer...</div>';
++
+         const iframe = document.createElement('iframe');
+         iframe.sandbox = "allow-scripts allow-popups allow-forms";
+-        container.appendChild(iframe);
++        iframe.style.cssText = 'width:100%;height:100%;border:none;display:none;';
+ 
+         // Inject layout fixes into the embedded HTML
+         // This forces the content to fit the iframe and handle scrolling
+         let htmlContent = result.viewerHtml;
+         const layoutFix = `
+             <style>
+-                html, body { 
+-                    height: 100% !important; 
+-                    width: 100% !important; 
+-                    margin: 0 !important; 
+-                    padding: 0 !important; 
+-                    overflow: auto !important; 
++                html, body {
++                    height: 100% !important;
++                    width: 100% !important;
++                    margin: 0 !important;
++                    padding: 0 !important;
++                    overflow: auto !important;
+                 }
+                 /* Ensure terminal/content containers fill space */
+                 #terminal, .terminal, .xterm-viewport {
+@@ -309,7 +327,17 @@ function displayVerifiedEvidence(result) {
+ 
+         // Use Blob URL to safely load content
+         const blob = new Blob([htmlContent], { type: 'text/html' });
+-        iframe.src = URL.createObjectURL(blob);
++        const blobUrl = URL.createObjectURL(blob);
++
++        iframe.onload = () => {
++            container.innerHTML = '';
++            container.appendChild(iframe);
++            iframe.style.display = '';
++            URL.revokeObjectURL(blobUrl);
++        };
++
++        iframe.src = blobUrl;
++        container.appendChild(iframe);
+     } else {
+         container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No embedded viewer found.</div>';
+     }
 diff --git a/simulation.html b/simulation.html
 index 1d898c5..8244dad 100644
 --- a/simulation.html
@@ -281,7 +584,7 @@ index 277cda8..092acae 100644
  </html>
 \ No newline at end of file
 diff --git a/verify.html b/verify.html
-index 1b831ff..5239236 100644
+index 1b831ff..9578d96 100644
 --- a/verify.html
 +++ b/verify.html
 @@ -6,13 +6,13 @@
@@ -396,7 +699,41 @@ index 1b831ff..5239236 100644
          
          window.resetUI = () => {
              resultPhase.classList.add('hidden');
-@@ -707,8 +743,8 @@
+@@ -462,15 +498,30 @@
+                     }).filter(Boolean);
+                 }
+ 
+-                // Setup Offline Viewer Button
++                // Setup Offline Viewer Button — render in sandboxed iframe (not new tab)
++                // to prevent XSS from untrusted viewer.html content in the .epi archive
+                 const viewerFile = zip.file("viewer.html");
+                 if (viewerFile) {
+                     launchVizBtn.classList.remove('hidden');
+                     launchVizBtn.onclick = async () => {
+                         const htmlContent = await viewerFile.async("string");
+                         const blob = new Blob([htmlContent], { type: 'text/html' });
+-                        // Open strictly contained isolated page
+-                        window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
++                        const blobUrl = URL.createObjectURL(blob);
++                        // Use sandboxed iframe: allow-scripts only, no allow-same-origin
++                        // This prevents the embedded page from accessing parent DOM or cookies
++                        const container = document.getElementById('vizContainer') || (() => {
++                            const el = document.createElement('div');
++                            el.id = 'vizContainer';
++                            el.style.cssText = 'position:fixed;inset:0;z-index:3000;background:#000;display:flex;flex-direction:column;';
++                            el.innerHTML = '<div style="display:flex;justify-content:flex-end;padding:0.5rem;background:#0f172a;"><button onclick="document.getElementById(\'vizContainer\').remove();URL.revokeObjectURL(this.dataset.url)" data-url="' + blobUrl + '" style="background:#334155;color:#fff;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;">Close ✕</button></div>';
++                            document.body.appendChild(el);
++                            return el;
++                        })();
++                        const iframe = document.createElement('iframe');
++                        iframe.sandbox = 'allow-scripts allow-forms allow-popups';
++                        iframe.style.cssText = 'flex:1;width:100%;border:none;';
++                        iframe.src = blobUrl;
++                        container.appendChild(iframe);
+                     };
+                 }
+ 
+@@ -707,8 +758,8 @@
          </div>
      </footer>
  
@@ -408,7 +745,7 @@ index 1b831ff..5239236 100644
  
  </html>
 diff --git a/viewer.html b/viewer.html
-index 35f07de..72d7a03 100644
+index 35f07de..b7e6b31 100644
 --- a/viewer.html
 +++ b/viewer.html
 @@ -8,12 +8,13 @@
@@ -427,7 +764,30 @@ index 35f07de..72d7a03 100644
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-@@ -604,7 +605,7 @@
+@@ -472,15 +473,17 @@
+             <h1 class="viewer-hero-title">Inspect any <span class="text-gradient">.epi</span> recording</h1>
+             <p class="viewer-hero-sub">Drop a file below to inspect trust, integrity, policy, analysis, and review. Nothing leaves your browser.</p>
+ 
+-            <div id="drop-zone" class="drop-zone">
+-                <span class="drop-icon">📂</span>
++            <div id="drop-zone" class="drop-zone"
++                 role="button" tabindex="0"
++                 aria-label="Drop zone: drag and drop a .epi file here, or press Enter to browse">
++                <span class="drop-icon" aria-hidden="true">📂</span>
+                 <h3>Drag &amp; drop a .epi file</h3>
+                 <p>or click to browse your computer.<br>Works offline and keeps the file on your machine.</p>
+-                <button class="btn-open-file" id="btn-open-file">
+-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
++                <button class="btn-open-file" id="btn-open-file" aria-label="Open file picker to choose a .epi file">
++                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                     Choose .epi file
+                 </button>
+-                <input type="file" id="file-input" accept=".epi" style="display:none">
++                <input type="file" id="file-input" accept=".epi" style="display:none" aria-hidden="true">
+             </div>
+ 
+             <p class="trust-note">
+@@ -604,7 +607,7 @@
  
  </div><!-- /#app -->
  
