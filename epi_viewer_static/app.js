@@ -68,15 +68,121 @@ function formatMetricValue(label, value) {
     return String(value);
 }
 
+function getStepIndex(step, fallbackIndex = 0) {
+    if (step && Number.isInteger(step.index)) {
+        return step.index;
+    }
+    return fallbackIndex;
+}
+
+function getStepTimestamp(step) {
+    return (step && (step.timestamp || step.ts)) || null;
+}
+
+function normalizeStep(step, fallbackIndex = 0) {
+    const normalized = step && typeof step === "object" ? { ...step } : {};
+    normalized.index = getStepIndex(normalized, fallbackIndex);
+    normalized.kind = normalized.kind || "unknown";
+    normalized.content = normalized.content == null ? {} : normalized.content;
+    normalized.timestamp = getStepTimestamp(normalized);
+    return normalized;
+}
+
+function getReviewEntries(review) {
+    return review && Array.isArray(review.reviews) ? review.reviews : [];
+}
+
+function getToolName(content) {
+    return content.tool || content.name || "tool";
+}
+
+function getAgentName(content) {
+    return content.agent_name || content.from_agent || "agent";
+}
+
+function isAgentStepKind(kind) {
+    return kind.startsWith("agent.") || kind.startsWith("tool.");
+}
+
+function getAgentApprovalState(steps) {
+    const requests = steps.filter((step) => step.kind === "agent.approval.request");
+    const responses = steps.filter((step) => step.kind === "agent.approval.response");
+    return {
+        requests,
+        responses,
+        pending: requests.length > responses.length,
+    };
+}
+
 function summarizeStep(step) {
     const kind = step.kind || "unknown";
     const content = step.content || {};
 
+    if (kind === "agent.run.start") {
+        const summaryParts = [`Started ${getAgentName(content)}`];
+        if (content.user_input != null) {
+            summaryParts.push(`for ${truncate(flattenText(content.user_input), 96)}`);
+        }
+        return `${summaryParts.join(" ")}.`;
+    }
+    if (kind === "agent.run.end") {
+        const duration = content.duration_seconds != null ? ` in ${content.duration_seconds.toFixed ? content.duration_seconds.toFixed(2) : content.duration_seconds}s` : "";
+        return `${content.success === false ? "Agent failed" : "Finished"} ${getAgentName(content)}${duration}.`;
+    }
+    if (kind === "agent.run.error") {
+        return truncate(`${getAgentName(content)} error: ${content.error_message || content.error || flattenText(content)}`, 190);
+    }
+    if (kind === "agent.plan") {
+        return truncate(`Plan: ${content.summary || flattenText(content.steps) || "Agent plan recorded."}`, 190);
+    }
+    if (kind === "agent.message") {
+        return truncate(`${content.role || "message"}: ${flattenText(content.content)}`, 190);
+    }
+    if (kind === "agent.approval.request") {
+        const action = content.action || "sensitive action";
+        const risk = content.risk_level ? ` (${content.risk_level})` : "";
+        return truncate(`Approval requested for ${action}${risk}${content.reason ? `: ${content.reason}` : ""}.`, 190);
+    }
+    if (kind === "agent.approval.response") {
+        const action = content.action || "requested action";
+        return truncate(`${content.approved ? "Approved" : "Rejected"} ${action}${content.reviewer ? ` by ${content.reviewer}` : ""}.`, 190);
+    }
+    if (kind === "agent.handoff") {
+        return truncate(`Handed off from ${content.from_agent || getAgentName(content)} to ${content.to_agent || "another agent"}${content.reason ? `: ${content.reason}` : ""}.`, 190);
+    }
+    if (kind === "agent.memory.read") {
+        return truncate(`Read memory ${content.memory_key || "entry"}${content.query ? ` using query ${content.query}` : ""}.`, 190);
+    }
+    if (kind === "agent.memory.write") {
+        return truncate(`${content.operation || "set"} memory ${content.memory_key || "entry"}${content.destination ? ` in ${content.destination}` : ""}.`, 190);
+    }
+    if (kind === "agent.run.pause") {
+        return truncate(`Paused ${getAgentName(content)}${content.waiting_for ? ` waiting for ${content.waiting_for}` : ""}${content.reason ? `: ${content.reason}` : ""}.`, 190);
+    }
+    if (kind === "agent.run.resume") {
+        return truncate(`Resumed ${getAgentName(content)}${content.reason ? `: ${content.reason}` : ""}.`, 190);
+    }
+    if (kind === "agent.action") {
+        return truncate(`${getAgentName(content)} chose tool ${content.tool || "unknown"} ${content.tool_input || ""}`.trim(), 190);
+    }
+    if (kind === "agent.finish") {
+        return truncate(`${getAgentName(content)} finished ${flattenText(content.return_values || content.log || content)}`, 190);
+    }
+    if (kind === "tool.start" || kind === "tool.call") {
+        return truncate(`${getToolName(content)} ${flattenText(content.input || content.tool_input || content)}`, 190);
+    }
+    if (kind === "tool.end" || kind === "tool.response") {
+        return truncate(`${getToolName(content)} returned ${flattenText(content.output || content.result || content)}`, 190);
+    }
+    if (kind === "tool.error") {
+        return truncate(`${getToolName(content)} error: ${content.error || flattenText(content)}`, 190);
+    }
     if (kind === "llm.request") {
         return `Requested model ${content.model || "unknown"} with ${Array.isArray(content.messages) ? content.messages.length : 0} message(s).`;
     }
     if (kind === "llm.response") {
         return truncate(
+            content.text ||
             content.content ||
             (content.choices && content.choices[0] && content.choices[0].message && content.choices[0].message.content) ||
             "LLM response recorded.",
@@ -91,6 +197,9 @@ function summarizeStep(step) {
     }
     if (kind === "http.response") {
         return `HTTP ${content.status_code || "?"} ${truncate(content.url || "", 120)}`;
+    }
+    if (kind === "stdout.print" || kind === "stderr.print") {
+        return truncate(content.text || content.line || flattenText(content), 190);
     }
     if (kind === "DECISION" || kind.toLowerCase().includes("decision")) {
         const decision = content.decision || "Unknown";
@@ -149,40 +258,66 @@ function computeTrustState(manifest, context) {
     };
 }
 
-function deriveCaseSummary(manifest, steps, trustState) {
+function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review) {
     const startStep = steps.find((step) => step.kind === "session.start");
-    const receivedStep = steps.find((step) => (step.kind || "").includes("received"));
-    const decisionStep = steps.find((step) => (step.kind || "").toLowerCase().includes("decision"));
+    const agentStart = steps.find((step) => step.kind === "agent.run.start");
+    const primaryFault = analysis && analysis.primary_fault ? analysis.primary_fault : null;
+    const reviewEntries = getReviewEntries(review);
+    const reviewOutcome = review && (review.outcome || (reviewEntries[0] && reviewEntries[0].outcome));
+    const approvalState = getAgentApprovalState(steps);
 
     const title =
         manifest.goal ||
+        (agentStart && agentStart.content && agentStart.content.goal) ||
+        (agentStart && agentStart.content && agentStart.content.agent_name && `${agentStart.content.agent_name} run`) ||
         (startStep && startStep.content && startStep.content.workflow_name) ||
+        manifest.notes ||
         "Execution Evidence";
 
     const subtitleParts = [];
-    if (receivedStep && receivedStep.content && receivedStep.content.applicant) {
-        subtitleParts.push(receivedStep.content.applicant);
+    if (agentStart && agentStart.content && agentStart.content.agent_name) {
+        subtitleParts.push(`Agent ${agentStart.content.agent_name}`);
     }
-    if (receivedStep && receivedStep.content && receivedStep.content.source) {
-        subtitleParts.push(`Source: ${receivedStep.content.source}`);
+    if (agentStart && agentStart.content && agentStart.content.task_id) {
+        subtitleParts.push(`Task ${truncate(agentStart.content.task_id, 12)}`);
     }
-    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
-        subtitleParts.push(`Decision: ${decisionStep.content.decision}`);
+    if (agentStart && agentStart.content && agentStart.content.attempt) {
+        subtitleParts.push(`Attempt ${agentStart.content.attempt}`);
+    }
+    if (agentStart && agentStart.content && agentStart.content.resume_from) {
+        subtitleParts.push(`Resumed from ${truncate(agentStart.content.resume_from, 12)}`);
+    }
+    if (startStep && startStep.content && startStep.content.workflow_name && manifest.goal) {
+        subtitleParts.push(startStep.content.workflow_name);
+    }
+    if (manifest.created_at) {
+        subtitleParts.push(`Created ${prettyDate(manifest.created_at)}`);
+    }
+    if (manifest.approved_by) {
+        subtitleParts.push(`Approved by ${manifest.approved_by}`);
+    }
+    if (Array.isArray(manifest.tags) && manifest.tags.length) {
+        subtitleParts.push(`Tags: ${manifest.tags.slice(0, 3).join(", ")}`);
     }
 
     const kpis = [
         ["Trust", trustState.label],
         ["Steps", steps.length],
+        ["Policy", policy && Array.isArray(policy.rules) ? `${policy.rules.length} rule(s)` : "None"],
+        ["Review", reviewOutcome || (review ? "Attached" : "Pending")],
+        ["Primary finding", primaryFault ? (primaryFault.rule_id || primaryFault.fault_type || "Detected") : "None"],
     ];
+    if (agentStart && agentStart.content && agentStart.content.session_id) {
+        kpis.push(["Agent session", truncate(agentStart.content.session_id, 12)]);
+    }
+    if (approvalState.requests.length) {
+        kpis.push(["Approvals", approvalState.pending ? "Pending" : approvalState.responses.length]);
+    }
 
-    if (receivedStep && receivedStep.content && receivedStep.content.loan_amount != null) {
-        kpis.push(["Amount", receivedStep.content.loan_amount]);
-    }
-    if (decisionStep && decisionStep.content && decisionStep.content.confidence != null) {
-        kpis.push(["Confidence", decisionStep.content.confidence]);
-    }
-    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
-        kpis.push(["Decision", decisionStep.content.decision]);
+    if (manifest.metrics && typeof manifest.metrics === "object") {
+        Object.entries(manifest.metrics).slice(0, 2).forEach(([label, value]) => {
+            kpis.push([label, value]);
+        });
     }
 
     return {
@@ -345,7 +480,7 @@ function renderSummary(summary, analysis, policy, review) {
     if (notices) {
         const items = [];
         if (summary && summary.kpis && summary.kpis.some(([label, value]) => label === "Steps" && Number(value) === 0)) {
-            items.push("No execution data recorded — this artifact cannot support meaningful fault analysis");
+            items.push("No execution data recorded - this artifact cannot support meaningful fault analysis");
         }
         if (!analysis) {
             items.push("No embedded fault analysis");
@@ -375,17 +510,27 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy) {
         return;
     }
 
+    const signatureValue = context
+        ? (context.has_signature
+            ? (context.signature_valid ? "Valid" : "Invalid")
+            : "Missing")
+        : (manifest.signature ? "Present (unverified)" : "Missing");
+
+    const signatureTone = context && context.has_signature
+        ? (context.signature_valid ? "detail-card detail-card--good" : "detail-card detail-card--bad")
+        : "detail-card detail-card--warn";
+
     const details = [
         ["Artifact trust", trustState.label, trustState.detailTone],
         ["Integrity", context ? (context.integrity_ok ? "Intact" : "Compromised") : "Unknown", context && context.integrity_ok === false ? "detail-card detail-card--bad" : "detail-card"],
-        ["Signature", context ? (context.has_signature ? "Present" : "Missing") : (manifest.signature ? "Present" : "Missing"), !manifest.signature && context && !context.has_signature ? "detail-card detail-card--warn" : "detail-card"],
+        ["Signature", signatureValue, signatureTone],
         ["Analysis", analysis ? "Embedded" : "Not embedded", analysis ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
         ["Policy", policy ? "Embedded" : "Not embedded", policy ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
     ];
 
     host.innerHTML = `
         <div class="${trustState.detailTone}">
-            <div class="detail-label">Trust state</div>
+            <div class="detail-label">What this trust state means</div>
             <div class="detail-value">${escapeHtml(trustState.detail)}</div>
         </div>
         ${details.map(([label, value, klass]) => `
@@ -395,6 +540,62 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy) {
             </div>
         `).join("")}
     `;
+}
+
+function renderGuideSummary(trustState, analysis, policy, review, steps) {
+    const host = document.getElementById("guide-summary");
+    if (!host) {
+        return;
+    }
+
+    const reviewEntry = review && Array.isArray(review.reviews) && review.reviews.length > 0 ? review.reviews[0] : null;
+    const reviewOutcome = review && (review.outcome || (reviewEntry && reviewEntry.outcome));
+    const hasPrimaryFault = Boolean(analysis && analysis.primary_fault);
+    const approvalState = getAgentApprovalState(Array.isArray(steps) ? steps : []);
+
+    const checks = [
+        [
+            "1. Trust comes first",
+            trustState.label === "Tampered"
+                ? "Stop here. Integrity failed, so the record should not be trusted."
+                : trustState.label === "Unsigned"
+                    ? "The contents are intact, but the origin is not cryptographically proven."
+                    : "This artifact passed both integrity and signature checks."
+        ],
+        [
+            "2. Look at the primary finding",
+            hasPrimaryFault
+                ? "EPI found one main issue to review. Start with the primary fault banner and the linked rule."
+                : "No primary policy fault was embedded in this artifact."
+        ],
+        [
+            "3. Check the rulebook",
+            policy
+                ? "The policy panel shows the exact business rules that were active during the run."
+                : "No embedded policy was found, so this case can only be judged from raw execution evidence."
+        ],
+        [
+            "4. Confirm human judgment",
+            reviewOutcome
+                ? `Human review has already been recorded as: ${reviewOutcome}.`
+                : "No human review is attached yet. Treat the analyzer output as a machine finding pending judgment."
+        ],
+        [
+            "5. Check agent approvals",
+            approvalState.pending
+                ? "An approval was requested during execution, but no approval response is embedded yet."
+                : approvalState.requests.length
+                    ? "Agent approval requests and responses are embedded in the timeline."
+                    : "No explicit agent approval checkpoint was recorded in this artifact."
+        ],
+    ];
+
+    host.innerHTML = checks.map(([label, value]) => `
+        <div class="detail-card">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value">${escapeHtml(value)}</div>
+        </div>
+    `).join("");
 }
 
 function renderManifestFacts(manifest, context) {
@@ -424,26 +625,66 @@ function renderManifestFacts(manifest, context) {
     `).join("");
 }
 
-function renderTimelineHighlights(steps) {
+function renderTimelineHighlights(steps, analysis, policy, review, manifest) {
     const host = document.getElementById("timeline-highlights");
     if (!host) {
         return;
     }
-    const receivedStep = steps.find((step) => (step.kind || "").includes("received"));
-    const decisionStep = steps.find((step) => (step.kind || "").toLowerCase().includes("decision"));
     const chips = [];
+    const reviewEntries = getReviewEntries(review);
+    const agentStarts = steps.filter((step) => step.kind === "agent.run.start");
+    const handoffs = steps.filter((step) => step.kind === "agent.handoff");
+    const memoryReads = steps.filter((step) => step.kind === "agent.memory.read");
+    const memoryWrites = steps.filter((step) => step.kind === "agent.memory.write");
+    const pauses = steps.filter((step) => step.kind === "agent.run.pause");
+    const resumes = steps.filter((step) => step.kind === "agent.run.resume");
+    const plans = steps.filter((step) => step.kind === "agent.plan");
+    const approvalState = getAgentApprovalState(steps);
+    const toolsUsed = new Set(
+        steps
+            .filter((step) => step.kind === "tool.call" || step.kind === "tool.start")
+            .map((step) => {
+                const content = step.content || {};
+                return getToolName(content);
+            })
+            .filter(Boolean)
+    );
 
-    if (receivedStep && receivedStep.content && receivedStep.content.applicant) {
-        chips.push(["Applicant", receivedStep.content.applicant]);
+    if (analysis && analysis.primary_fault) {
+        chips.push(["Primary fault", analysis.primary_fault.rule_id || analysis.primary_fault.fault_type || "Detected"]);
     }
-    if (receivedStep && receivedStep.content && receivedStep.content.loan_amount != null) {
-        chips.push(["Amount", formatNumber(receivedStep.content.loan_amount)]);
+    if (analysis && Array.isArray(analysis.secondary_flags) && analysis.secondary_flags.length) {
+        chips.push(["Secondary flags", analysis.secondary_flags.length]);
     }
-    if (decisionStep && decisionStep.content && decisionStep.content.decision) {
-        chips.push(["Decision", decisionStep.content.decision]);
+    if (policy && Array.isArray(policy.rules)) {
+        chips.push(["Rules in force", policy.rules.length]);
     }
-    if (decisionStep && decisionStep.content && decisionStep.content.confidence != null) {
-        chips.push(["Confidence", decisionStep.content.confidence]);
+    if (reviewEntries.length) {
+        chips.push(["Review outcome", review.outcome || reviewEntries[0].outcome || "Attached"]);
+    }
+    if (agentStarts.length) {
+        chips.push(["Agents", agentStarts.length]);
+    }
+    if (plans.length) {
+        chips.push(["Plans", plans.length]);
+    }
+    if (toolsUsed.size) {
+        chips.push(["Tools used", toolsUsed.size]);
+    }
+    if (approvalState.requests.length) {
+        chips.push(["Approvals", approvalState.pending ? "Pending" : approvalState.responses.length]);
+    }
+    if (handoffs.length) {
+        chips.push(["Handoffs", handoffs.length]);
+    }
+    if (memoryReads.length || memoryWrites.length) {
+        chips.push(["Memory ops", memoryReads.length + memoryWrites.length]);
+    }
+    if (pauses.length || resumes.length) {
+        chips.push(["Pauses/resumes", pauses.length + resumes.length]);
+    }
+    if (Array.isArray(manifest.tags)) {
+        manifest.tags.slice(0, 2).forEach((tag) => chips.push(["Tag", tag]));
     }
 
     host.innerHTML = chips.map(([label, value]) => `
@@ -455,8 +696,9 @@ function renderTimelineHighlights(steps) {
 }
 
 function getStepBadges(step, analysis) {
+    const stepIndex = getStepIndex(step);
     const badges = [
-        `<span class="timeline-badge timeline-badge--step">#${escapeHtml(step.index)}</span>`,
+        `<span class="timeline-badge timeline-badge--step">#${escapeHtml(stepIndex)}</span>`,
         `<span class="timeline-badge timeline-badge--kind">${escapeHtml(step.kind || "unknown")}</span>`,
     ];
 
@@ -466,9 +708,9 @@ function getStepBadges(step, analysis) {
 
     const primary = analysis.primary_fault;
     const secondary = analysis.secondary_flags || [];
-    if (primary && primary.step_index === step.index) {
+    if (primary && primary.step_index === stepIndex) {
         badges.push('<span class="timeline-badge timeline-badge--fault">Primary fault</span>');
-    } else if (secondary.some((item) => item.step_index === step.index)) {
+    } else if (secondary.some((item) => item.step_index === stepIndex)) {
         badges.push('<span class="timeline-badge timeline-badge--warn">Secondary flag</span>');
     }
 
@@ -476,42 +718,45 @@ function getStepBadges(step, analysis) {
 }
 
 function getTimelineVariant(step, analysis) {
+    const stepIndex = getStepIndex(step);
     if (!analysis) {
         return "timeline-item";
     }
     const primary = analysis.primary_fault;
     const secondary = analysis.secondary_flags || [];
-    if (primary && primary.step_index === step.index) {
+    if (primary && primary.step_index === stepIndex) {
         return "timeline-item timeline-item--fault";
     }
-    if (secondary.some((item) => item.step_index === step.index)) {
+    if (secondary.some((item) => item.step_index === stepIndex)) {
         return "timeline-item timeline-item--secondary";
     }
     return "timeline-item";
 }
 
-function renderTimeline(steps, analysis) {
+function renderTimeline(steps, analysis, policy, review, manifest) {
     const host = document.getElementById("timeline");
     const meta = document.getElementById("timeline-meta");
     if (!host) {
         return;
     }
 
+    const normalizedSteps = steps.map((step, index) => normalizeStep(step, index));
+
     const hasFault = Boolean(analysis && (analysis.primary_fault || analysis.fault_detected));
 
     if (meta) {
         meta.textContent = analysis
-            ? `${steps.length} steps captured. ${hasFault ? "Fault analysis is embedded in this artifact." : "Embedded analysis found no fault."}`
-            : `${steps.length} steps captured. Raw evidence view.`;
+            ? `${normalizedSteps.length} steps captured. ${hasFault ? "Fault analysis is embedded in this artifact." : "Embedded analysis found no fault."}`
+            : `${normalizedSteps.length} steps captured. Raw evidence view.`;
     }
 
-    renderTimelineHighlights(steps);
+    renderTimelineHighlights(normalizedSteps, analysis, policy, review, manifest);
 
-    host.innerHTML = steps.map((step) => `
+    host.innerHTML = normalizedSteps.map((step) => `
         <article class="${getTimelineVariant(step, analysis)}" data-search="${escapeHtml(`${step.kind} ${flattenText(step.content)}`.toLowerCase())}" data-kind="${escapeHtml((step.kind || "").toLowerCase())}">
             <div class="timeline-item__top">
                 <div class="timeline-item__left">${getStepBadges(step, analysis).join("")}</div>
-                <div class="timeline-item__time">${escapeHtml(prettyDate(step.timestamp))}</div>
+                <div class="timeline-item__time">${escapeHtml(prettyDate(getStepTimestamp(step)))}</div>
             </div>
             <p class="timeline-item__summary">${escapeHtml(summarizeStep(step))}</p>
             <div class="timeline-item__details">
@@ -543,13 +788,26 @@ function renderAnalysis(analysis) {
     if (analysis.summary && analysis.summary.headline) {
         items.push(["Headline", analysis.summary.headline]);
     }
+    if (analysis.confidence) {
+        items.push(["Confidence", analysis.confidence]);
+    }
+    if (analysis.mode) {
+        items.push(["Analysis mode", analysis.mode.replaceAll("_", " ")]);
+    }
     if (analysis.primary_fault) {
         items.push(["Primary finding", analysis.primary_fault.plain_english || "Unavailable"]);
         items.push(["Why it matters", analysis.primary_fault.why_it_matters || "Review this run before trusting the outcome."]);
         items.push(["Review required", analysis.primary_fault.review_required ? "Yes" : "Recommended"]);
+        items.push(["How to read this", "Treat this as the machine's best explanation of where the run became risky. Use the linked rule and raw steps below to confirm it."]);
     }
     if (analysis.secondary_flags && analysis.secondary_flags.length) {
-        items.push(["Secondary flags", analysis.secondary_flags.length]);
+        items.push([
+            "Secondary flags",
+            analysis.secondary_flags
+                .slice(0, 3)
+                .map((flag) => `${flag.rule_id || flag.fault_type || "Flag"}: ${flag.plain_english || "Review this observation."}`)
+                .join(" | "),
+        ]);
     }
     if (analysis.disclaimer) {
         items.push(["Disclaimer", analysis.disclaimer]);
@@ -583,14 +841,15 @@ function renderPolicy(policy, analysis) {
         </div>
         <div class="detail-card">
             <div class="detail-label">What these rules mean</div>
-            <div class="detail-value">This is the rulebook that was active during the run. EPI checks the recorded steps against these rules and highlights the one that matters most.</div>
+            <div class="detail-value">This is the rulebook that was active during the run. EPI checks the recorded steps against these rules and highlights the rule most closely linked to the primary fault.</div>
         </div>
         ${policy.rules.map((rule) => `
             <div class="detail-card ${primaryRuleId && primaryRuleId === rule.id ? "detail-card--warn" : ""}">
                 <div class="detail-label">${escapeHtml(rule.id || "Rule")}</div>
                 <div class="detail-value">${escapeHtml(rule.name || rule.type || "Unnamed rule")}</div>
                 <div class="detail-subvalue">${escapeHtml(rule.description || "No explanation provided.")}</div>
-                ${primaryRuleId && primaryRuleId === rule.id ? '<div class="detail-subvalue"><strong>This is the rule linked to the primary fault.</strong></div>' : ""}
+                <div class="detail-subvalue">${escapeHtml(`Type: ${rule.type || "unknown"} | Severity: ${rule.severity || "unknown"}`)}</div>
+                ${primaryRuleId && primaryRuleId === rule.id ? '<div class="detail-subvalue"><strong>This is the rule linked to the primary fault, so reviewers should compare it with the flagged step below.</strong></div>' : ""}
             </div>
         `).join("")}
     `;
@@ -608,11 +867,21 @@ function renderReview(review) {
     }
 
     card.hidden = false;
-    const primaryReview = review.reviews && review.reviews[0] ? review.reviews[0] : null;
+    const reviewEntries = getReviewEntries(review);
+    const primaryReview = reviewEntries[0] || null;
     const outcome = review.outcome || (primaryReview && primaryReview.outcome) || "Reviewed";
     const reviewer = review.reviewed_by || review.reviewer || "Unknown reviewer";
     const reviewedAt = review.reviewed_at || review.timestamp || null;
     const notes = review.notes || (primaryReview && primaryReview.notes) || "No review notes provided.";
+    const signatureStatus = review.review_signature ? "Present" : "Unsigned";
+    const entriesHtml = reviewEntries.map((entry, index) => `
+        <div class="detail-card">
+            <div class="detail-label">Entry ${index + 1}</div>
+            <div class="detail-value">${escapeHtml(entry.outcome || "reviewed")}</div>
+            <div class="detail-subvalue">${escapeHtml(`Rule ${entry.rule_id || "n/a"} | Step ${entry.fault_step || "?"}`)}</div>
+            <div class="detail-subvalue">${escapeHtml(entry.notes || "No notes provided.")}</div>
+        </div>
+    `).join("");
 
     host.innerHTML = `
         <div class="detail-card detail-card--good">
@@ -631,6 +900,15 @@ function renderReview(review) {
             <div class="detail-label">Notes</div>
             <div class="detail-value">${escapeHtml(notes)}</div>
         </div>
+        <div class="detail-card">
+            <div class="detail-label">Review signature</div>
+            <div class="detail-value">${escapeHtml(signatureStatus)}</div>
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">Entries recorded</div>
+            <div class="detail-value">${escapeHtml(String(reviewEntries.length))}</div>
+        </div>
+        ${entriesHtml}
     `;
 }
 
@@ -655,6 +933,8 @@ function applyFilters() {
 
         if (filter === "flagged") {
             matchesFilter = flagged;
+        } else if (filter === "agent") {
+            matchesFilter = kind.includes("agent") || kind.includes("tool");
         } else if (filter === "decision") {
             matchesFilter = kind.includes("decision");
         } else if (filter === "llm") {
@@ -671,21 +951,22 @@ function init() {
     const data = loadJsonScript("epi-data") || {};
     const context = loadJsonScript("epi-view-context");
     const manifest = data.manifest || {};
-    const steps = Array.isArray(data.steps) ? data.steps : [];
+    const steps = (Array.isArray(data.steps) ? data.steps : []).map((step, index) => normalizeStep(step, index));
     const analysis = data.analysis || null;
     const policy = data.policy || null;
     const review = data.review || null;
 
     const trustState = computeTrustState(manifest, context);
-    const summary = deriveCaseSummary(manifest, steps, trustState);
+    const summary = deriveCaseSummary(manifest, steps, trustState, analysis, policy, review);
 
     renderTrustBadge(trustState);
     renderGoalBanner(manifest);
     renderSummary(summary, analysis, policy, review);
     renderReviewerVerdict(trustState, analysis, review);
     renderTrustSummary(manifest, context, trustState, analysis, policy);
+    renderGuideSummary(trustState, analysis, policy, review, steps);
     renderManifestFacts(manifest, context);
-    renderTimeline(steps, analysis);
+    renderTimeline(steps, analysis, policy, review, manifest);
     renderAnalysis(analysis);
     renderPolicy(policy, analysis);
     renderReview(review);

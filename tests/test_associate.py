@@ -15,6 +15,7 @@ import pytest
 from epi_core.platform.associate import (
     _get_epi_command,
     _get_epi_launcher_vbs,
+    _get_user_open_command,
     _resolve_windows_launcher_dir,
     _get_windows_default_icon,
     _get_registration_state,
@@ -71,6 +72,20 @@ class TestGetEpiCommand:
         with patch("epi_core.platform.associate.sys.executable", str(fake_python)), \
              patch("epi_core.platform.associate.shutil.which", return_value=None):
             cmd = _get_epi_command()
+
+        assert cmd == f'"{fake_epi.absolute()}" view "%1"'
+
+
+class TestGetUserOpenCommand:
+    def test_prefers_cli_view_command_when_epi_exe_is_available(self, tmp_path):
+        fake_python = tmp_path / "python.exe"
+        fake_python.write_text("py", encoding="ascii")
+        fake_epi = tmp_path / "epi.exe"
+        fake_epi.write_text("exe", encoding="ascii")
+
+        with patch("epi_core.platform.associate.sys.executable", str(fake_python)), \
+             patch("epi_core.platform.associate.shutil.which", return_value=None):
+            cmd = _get_user_open_command()
 
         assert cmd == f'"{fake_epi.absolute()}" view "%1"'
 

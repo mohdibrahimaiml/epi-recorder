@@ -123,6 +123,19 @@ spec/
 
 # Local companion sites/workspaces (not part of epi-recorder package)
 epi-official-site/
+AI-Trader-Workspace/
+_viewer_launch_tmp/
+.tmp-importtime-main.txt
+test_analytics_data/
+EPI_Investor_Demo_Colab_v2_8_5.ipynb
+EPI_Investor_Demo_Investor_Grade_v2_8_5.ipynb
+EPI_Investor_Demo_Stable_v2_8_5.ipynb
+EPI_RECORDER_CODEBASE_REPORT.md
+build_investor_colab_stable.py
+build_investor_colab_v285.py
+build_investor_grade_colab_demo.py
+docs/EPI-RECORDER-COMPREHENSIVE-ANALYSIS-REPORT.md
+v2.8.5.ipynb
 
 # Log and coverage artifacts
 *.log

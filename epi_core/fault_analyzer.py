@@ -65,7 +65,7 @@ _ID_KEY_PATTERNS = re.compile(
 _ID_VALUE_PATTERNS = re.compile(
     r"^[A-Z]{2,6}-\d{3,}$|"                           # ACC-123, TXN-9876
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|"  # UUID
-    r"^[A-Z0-9]{6,20}$",                               # TX789, CUST001
+    r"^(?=.*\d)[A-Z0-9]{6,20}$",                       # TX789, CUST001 (must contain a digit)
     re.IGNORECASE,
 )
 
@@ -269,6 +269,128 @@ def _content_str(step: dict) -> str:
         return str(content).lower()
 
 
+def _step_kind(step: dict) -> str:
+    return str(step.get("kind", "")).lower()
+
+
+def _value_matches(value: object, needle: str) -> bool:
+    return isinstance(value, str) and needle.lower() in value.lower()
+
+
+def _is_approval_keyword(action_name: str) -> bool:
+    action_lower = action_name.lower()
+    return "approval" in action_lower or "signoff" in action_lower
+
+
+def _get_primary_action(step: dict) -> Optional[str]:
+    content = step.get("content", {})
+    if not isinstance(content, dict):
+        return None
+
+    kind = _step_kind(step)
+    if kind.startswith("tool."):
+        tool = content.get("tool") or content.get("name") or content.get("action")
+        return str(tool).lower() if isinstance(tool, str) else None
+    if kind == "agent.decision":
+        decision = content.get("decision")
+        return str(decision).lower() if isinstance(decision, str) else None
+    if kind in {"agent.approval.request", "agent.approval.response"}:
+        action = content.get("action")
+        return str(action).lower() if isinstance(action, str) else None
+    if kind == "agent.handoff":
+        target = content.get("to_agent")
+        if isinstance(target, str):
+            return f"handoff {target}".lower()
+        return "handoff"
+    if kind == "agent.state":
+        state = content.get("state")
+        return str(state).lower() if isinstance(state, str) else None
+    return None
+
+
+def _is_action_trigger_step(step: dict) -> bool:
+    kind = _step_kind(step)
+    if kind in {
+        "agent.approval.request",
+        "agent.approval.response",
+        "agent.plan",
+        "agent.message",
+        "agent.memory.read",
+        "agent.memory.write",
+        "agent.run.pause",
+        "agent.run.resume",
+        "agent.state",
+    }:
+        return False
+    if kind.startswith("tool.call") or kind.startswith("tool.use"):
+        return True
+    if kind in {"agent.decision", "agent.handoff", "agent.action", "agent.finish"}:
+        return True
+    return _content_mentions(step, _COMMITMENT_KEYWORDS)
+
+
+def _step_satisfies_approval(step: dict, action_name: Optional[str] = None, approver: Optional[str] = None) -> bool:
+    kind = _step_kind(step)
+    content = step.get("content", {})
+    if not isinstance(content, dict):
+        content = {}
+
+    if kind == "agent.approval.response":
+        if content.get("approved") is not True:
+            return False
+        if action_name and not (
+            _value_matches(content.get("action"), action_name)
+            or action_name.lower() in _content_str(step)
+        ):
+            return False
+        if approver and not _value_matches(content.get("reviewer"), approver):
+            return False
+        return True
+
+    if content.get("approved") is True:
+        if approver and not _value_matches(content.get("reviewer"), approver):
+            return False
+        return True
+
+    text = _content_str(step)
+    if action_name and action_name.lower() in text and ("approved" in text or "approval" in text):
+        if approver and approver.lower() not in text:
+            return False
+        return True
+    return False
+
+
+def _matches_named_action(step: dict, action_name: str) -> bool:
+    action_lower = action_name.lower()
+    kind = _step_kind(step)
+    if action_lower in kind:
+        return True
+
+    primary_action = _get_primary_action(step)
+    if primary_action and action_lower in primary_action:
+        return True
+
+    content = step.get("content", {})
+    if isinstance(content, dict):
+        for key in ("tool", "action", "decision", "state", "requested_by", "to_agent", "from_agent"):
+            if _value_matches(content.get(key), action_lower):
+                return True
+
+    if _is_approval_keyword(action_lower):
+        return _step_satisfies_approval(step, action_lower)
+
+    return action_lower in _content_str(step)
+
+
+def _matches_required_action(step: dict, required_action: str) -> bool:
+    required_lower = required_action.lower()
+    if _is_approval_keyword(required_lower):
+        return _matches_named_action(step, required_lower) or _step_satisfies_approval(step)
+    if "handoff" in required_lower or "escalat" in required_lower:
+        return _step_kind(step) == "agent.handoff" or required_lower in _content_str(step)
+    return _matches_named_action(step, required_lower)
+
+
 def _has_error(step: dict) -> bool:
     """Determine if a step contains an error signal."""
     kind = step.get("kind", "")
@@ -356,7 +478,7 @@ def _extract_entity_ids(steps: list[dict]) -> set[str]:
 
 class FaultAnalyzer:
     """
-    Four-pass fault detector. Produces an AnalysisResult from steps.jsonl content.
+    Fault detector for policy and agent execution risks.
 
     Usage:
         analyzer = FaultAnalyzer(policy=policy)  # policy may be None
@@ -369,7 +491,7 @@ class FaultAnalyzer:
 
     def analyze(self, steps_jsonl: str) -> AnalysisResult:
         """
-        Run all four detection passes and return an AnalysisResult.
+        Run all detection passes and return an AnalysisResult.
 
         Args:
             steps_jsonl: Newline-delimited JSON (one step per line).
@@ -412,8 +534,18 @@ class FaultAnalyzer:
             except Exception:
                 pass
 
+            try:
+                flags.extend(self._pass7_approval_guard_violation(steps))
+            except Exception:
+                pass
+
         try:
-            flags.extend(self._pass6_context_drop(steps))
+            flags.extend(self._pass6_agent_approval_gap(steps))
+        except Exception:
+            pass
+
+        try:
+            flags.extend(self._pass8_context_drop(steps))
         except Exception:
             pass
 
@@ -633,24 +765,20 @@ class FaultAnalyzer:
             must_call = rule.must_call.lower()
 
             for i, step in enumerate(steps):
-                kind_str = step.get("kind", "").lower()
 
                 # Only check tool.call steps for sequence violations —
                 # keywords in workflow names / messages are not action triggers.
-                is_tool_call = "tool.call" in kind_str or "tool.use" in kind_str
-                if not is_tool_call:
+                if not _is_action_trigger_step(step):
                     continue
 
-                step_str = _content_str(step)
-
                 # Check if this step is the "B" action (the one that requires a predecessor)
-                b_present = required_before in step_str or required_before in kind_str
+                b_present = _matches_named_action(step, required_before)
                 if not b_present:
                     continue
 
                 # Search backwards for the "A" action
                 a_found = any(
-                    must_call in _content_str(prev) or must_call in prev.get("kind", "").lower()
+                    _matches_required_action(prev, must_call)
                     for prev in steps[:i]
                 )
 
@@ -709,32 +837,61 @@ class FaultAnalyzer:
             if not candidate_fields:
                 continue
 
+            breach_source = None
+
             for i, step in enumerate(steps):
                 content = step.get("content", {})
                 if not isinstance(content, dict):
-                    continue
+                    content = {}
 
                 matched = None
                 for candidate in candidate_fields:
                     matched = _find_matching_numeric_field(content, candidate)
                     if matched:
                         break
-                if not matched:
+                current_breach = None
+                if matched:
+                    key_path, observed_value = matched
+                    if observed_value > rule.threshold_value:
+                        current_breach = (step.get("index", i), key_path, observed_value)
+                        breach_source = current_breach
+
+                if breach_source is None:
                     continue
 
-                key_path, observed_value = matched
-                if observed_value <= rule.threshold_value:
+                if not _is_action_trigger_step(step):
                     continue
 
                 action_found = any(
-                    rule.required_action.lower() in _content_str(prev)
-                    or rule.required_action.lower() in prev.get("kind", "").lower()
+                    _matches_required_action(prev, rule.required_action)
                     for prev in steps[: i + 1]
                 )
                 if action_found:
                     continue
 
+                source_idx, source_key_path, source_value = breach_source
                 step_idx = step.get("index", i)
+                fault_chain = [
+                    {
+                        "step_index": source_idx,
+                        "step_number": source_idx + 1,
+                        "role": "threshold_source",
+                        "detail": (
+                            f"Observed {source_value:,.2f} in '{source_key_path}' above "
+                            f"threshold {rule.threshold_value:,.2f}"
+                        ),
+                    },
+                ]
+                if step_idx != source_idx:
+                    fault_chain.append(
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "violation_point",
+                            "detail": f"Agent proceeded without '{rule.required_action}'",
+                        }
+                    )
+
                 flags.append(FaultFlag(
                     step_index=step_idx,
                     fault_type="POLICY_VIOLATION",
@@ -742,22 +899,13 @@ class FaultAnalyzer:
                     rule_id=rule.id,
                     rule_name=rule.name,
                     plain_english=(
-                        f"At step {step_idx + 1}, field '{key_path}' had value {observed_value:,.2f}, "
+                        f"By step {step_idx + 1}, field '{source_key_path}' had value {source_value:,.2f}, "
                         f"which exceeded the threshold {rule.threshold_value:,.2f}. "
                         f"Rule {rule.id} ({rule.name}) requires '{rule.required_action}' before proceeding."
                     ),
-                    fault_chain=[
-                        {
-                            "step_index": step_idx,
-                            "step_number": step_idx + 1,
-                            "role": "threshold_breach",
-                            "detail": (
-                                f"Observed {observed_value:,.2f} in '{key_path}' "
-                                f"without '{rule.required_action}'"
-                            ),
-                        },
-                    ],
+                    fault_chain=fault_chain,
                 ))
+                break
 
         return flags
 
@@ -807,7 +955,171 @@ class FaultAnalyzer:
 
         return flags
 
-    def _pass6_context_drop(self, steps: list[dict]) -> list[FaultFlag]:
+    def _pass6_agent_approval_gap(self, steps: list[dict]) -> list[FaultFlag]:
+        """
+        Flag when an agent executes a decision/action while approval is still pending
+        or after an approval response explicitly rejected that action.
+        """
+        flags = []
+
+        approval_requests: list[dict] = []
+        approval_responses: list[dict] = []
+
+        for i, step in enumerate(steps):
+            kind = _step_kind(step)
+            step_idx = step.get("index", i)
+            action = _get_primary_action(step)
+
+            if kind == "agent.approval.request":
+                approval_requests.append({
+                    "step": step,
+                    "index": step_idx,
+                    "action": action,
+                })
+                continue
+
+            if kind == "agent.approval.response":
+                approval_responses.append({
+                    "step": step,
+                    "index": step_idx,
+                    "action": action,
+                    "approved": bool(step.get("content", {}).get("approved")),
+                })
+                continue
+
+            if not _is_action_trigger_step(step) or not action:
+                continue
+
+            matching_requests = [
+                req for req in approval_requests
+                if req["index"] < step_idx
+                and req["action"]
+                and (req["action"] in action or action in req["action"])
+            ]
+            if not matching_requests:
+                continue
+
+            latest_request = matching_requests[-1]
+            matching_responses = [
+                resp for resp in approval_responses
+                if resp["index"] > latest_request["index"]
+                and resp["index"] < step_idx
+                and resp["action"]
+                and (resp["action"] in action or action in resp["action"])
+            ]
+
+            if not matching_responses:
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="HEURISTIC_OBSERVATION",
+                    severity="high",
+                    plain_english=(
+                        f"At step {step_idx + 1}, action '{action}' executed while a prior approval "
+                        f"request was still pending."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": latest_request["index"],
+                            "step_number": latest_request["index"] + 1,
+                            "role": "approval_requested",
+                            "detail": f"Approval requested for '{latest_request['action']}'",
+                        },
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "violation_point",
+                            "detail": f"Action '{action}' executed before approval response",
+                        },
+                    ],
+                ))
+                continue
+
+            latest_response = matching_responses[-1]
+            if latest_response["approved"] is False:
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="HEURISTIC_OBSERVATION",
+                    severity="high",
+                    plain_english=(
+                        f"At step {step_idx + 1}, action '{action}' executed after an approval response "
+                        f"rejected that action."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": latest_request["index"],
+                            "step_number": latest_request["index"] + 1,
+                            "role": "approval_requested",
+                            "detail": f"Approval requested for '{latest_request['action']}'",
+                        },
+                        {
+                            "step_index": latest_response["index"],
+                            "step_number": latest_response["index"] + 1,
+                            "role": "approval_rejected",
+                            "detail": f"Approval rejected for '{latest_response['action']}'",
+                        },
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "violation_point",
+                            "detail": f"Action '{action}' executed despite rejection",
+                        },
+                    ],
+                ))
+
+        return flags
+
+    def _pass7_approval_guard_violation(self, steps: list[dict]) -> list[FaultFlag]:
+        """Policy-only approval guard for named actions."""
+        if not self.policy:
+            return []
+
+        flags = []
+        approval_rules = self.policy.rules_of_type("approval_guard")
+
+        for rule in approval_rules:
+            if not rule.approval_action:
+                continue
+
+            action_name = rule.approval_action.lower()
+            approver = rule.approved_by.lower() if rule.approved_by else None
+
+            for i, step in enumerate(steps):
+                if not _is_action_trigger_step(step):
+                    continue
+                if not _matches_named_action(step, action_name):
+                    continue
+
+                approved = any(
+                    _step_satisfies_approval(prev, action_name=action_name, approver=approver)
+                    for prev in steps[: i + 1]
+                )
+                if approved:
+                    continue
+
+                step_idx = step.get("index", i)
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="POLICY_VIOLATION",
+                    severity=rule.severity,
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    plain_english=(
+                        f"At step {step_idx + 1}, action '{action_name}' executed without an approved "
+                        f"approval response. Rule {rule.id} ({rule.name}) requires explicit approval first."
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "violation_point",
+                            "detail": f"'{action_name}' executed without approval",
+                        },
+                    ],
+                ))
+
+        return flags
+
+    def _pass8_context_drop(self, steps: list[dict]) -> list[FaultFlag]:
         """
         Flag when entity identifiers established in the first third of execution
         vanish completely from the final third.
@@ -815,7 +1127,7 @@ class FaultAnalyzer:
         Only fires when there are enough steps to make the comparison meaningful.
         """
         flags = []
-        if len(steps) < 6:
+        if len(steps) < 8:
             return flags
 
         split_a = max(1, len(steps) // 3)

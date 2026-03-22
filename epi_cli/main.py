@@ -4,11 +4,12 @@ EPI CLI Main - Entry point for the EPI command-line interface.
 Provides the main CLI application with frictionless first-run experience.
 """
 
+import tempfile
+import time
+
 import typer
 from pathlib import Path
 from rich.console import Console
-
-from epi_cli.keys import generate_default_keypair_if_missing
 
 # Create callback that handles --version
 def version_callback(value: bool):
@@ -20,7 +21,7 @@ def version_callback(value: bool):
 # Create Typer app
 app = typer.Typer(
     name="epi",
-    help="""EPI - The PDF for AI Evidence.
+    help="""EPI - Portable evidence and trust review for AI workflows.
 
 Cryptographic proof of what Autonomous AI Systems actually did.
 
@@ -64,6 +65,10 @@ Tips:
 
 console = Console()
 
+_KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "init", "doctor"}
+_WINDOWS_ASSOCIATION_COMMANDS = {"run", "view", "init", "doctor"}
+_WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
+
 
 def _analysis_has_fault(analysis: dict) -> bool:
     """Treat a real primary fault as authoritative even if fault_detected drifted."""
@@ -82,6 +87,30 @@ def _count_steps_in_artifact(epi_path: Path) -> int:
         if "steps.jsonl" not in zf.namelist():
             return 0
         return len([line for line in zf.read("steps.jsonl").decode("utf-8").splitlines() if line.strip()])
+
+
+def _step_kinds_in_artifact(epi_path: Path) -> set[str]:
+    import zipfile
+    import json
+
+    if not epi_path.exists() or not zipfile.is_zipfile(epi_path):
+        return set()
+
+    with zipfile.ZipFile(epi_path, "r") as zf:
+        if "steps.jsonl" not in zf.namelist():
+            return set()
+        kinds = set()
+        for line in zf.read("steps.jsonl").decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except Exception:
+                continue
+            kind = payload.get("kind")
+            if isinstance(kind, str) and kind:
+                kinds.add(kind)
+        return kinds
 
 
 def _analyze_reviewer_guidance(has_fault: bool, steps_recorded: int) -> tuple[str, str, str]:
@@ -105,6 +134,52 @@ def _analyze_reviewer_guidance(has_fault: bool, steps_recorded: int) -> tuple[st
     )
 
 
+def _resolve_cli_state_dir() -> Path:
+    """Resolve a writable state dir for lightweight CLI probe markers."""
+    candidates = [
+        Path.home() / ".epi" / "state",
+        Path(tempfile.gettempdir()) / "epi" / "state",
+        Path.cwd() / ".epi" / "state",
+    ]
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            return candidate
+        except Exception:
+            continue
+    return Path.cwd()
+
+
+def _windows_association_probe_marker() -> Path:
+    return _resolve_cli_state_dir() / "windows_association_probe.marker"
+
+
+def _windows_association_probe_due(now: float | None = None) -> bool:
+    """Return True when the next Windows association probe should run."""
+    marker = _windows_association_probe_marker()
+    now = time.time() if now is None else now
+    try:
+        last_checked = marker.stat().st_mtime
+    except FileNotFoundError:
+        return True
+    except Exception:
+        return True
+    return (now - last_checked) >= _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS
+
+
+def _mark_windows_association_probe() -> None:
+    marker = _windows_association_probe_marker()
+    try:
+        marker.write_text(str(int(time.time())), encoding="ascii")
+    except Exception:
+        pass
+
+
+def _command_needs_default_keys(command_name: str | None) -> bool:
+    """Only bootstrap keys for commands that can actually use them."""
+    return command_name in _KEY_BOOTSTRAP_COMMANDS
+
+
 def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
     """Best-effort Windows association repair for pip installs on first real use."""
     import sys as _sys
@@ -115,13 +190,27 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     if command_name in {"associate", "unassociate", "help", "version"}:
         return
 
+    if command_name not in _WINDOWS_ASSOCIATION_COMMANDS:
+        return
+
+    if command_name != "doctor" and not _windows_association_probe_due():
+        return
+
     from epi_core.platform.associate import get_association_diagnostics, register_file_association
+
+    diag = get_association_diagnostics()
+    if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
+        _mark_windows_association_probe()
+        if interactive and command_name in {"run", "view", "init", "doctor"}:
+            console.print("[dim].epi double-click support checked on Windows.[/dim]")
+        return
 
     register_file_association(silent=True)
 
     diag = get_association_diagnostics()
+    _mark_windows_association_probe()
     if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
-        if interactive and command_name in {"run", "view", "ls", "init", "doctor"}:
+        if interactive and command_name in {"run", "view", "init", "doctor"}:
             console.print("[dim].epi double-click support checked on Windows.[/dim]")
         return
 
@@ -154,7 +243,9 @@ def main_callback(
     # Auto-generate default keypair if missing (frictionless first run)
     # Only print welcome message when running in an interactive terminal
     interactive = _sys.stdout.isatty()
-    generate_default_keypair_if_missing(console_output=interactive)
+    if _command_needs_default_keys(ctx.invoked_subcommand):
+        from epi_cli.keys import generate_default_keypair_if_missing
+        generate_default_keypair_if_missing(console_output=interactive)
 
     # Auto-register .epi file association (idempotent — skips if already done)
     _auto_repair_windows_association(interactive=interactive, command_name=ctx.invoked_subcommand)
@@ -165,7 +256,7 @@ def version():
     """Show EPI version information."""
     from epi_core import __version__
     console.print(f"[bold]EPI[/bold] version [cyan]{__version__}[/cyan]")
-    console.print("[dim]The PDF for AI workflows[/dim]")
+    console.print("[dim]Portable evidence and trust review for AI workflows[/dim]")
 
 
 @app.command(name="help")
@@ -210,9 +301,21 @@ def show_help():
 # Import and register subcommands
 # These will be added as they're implemented
 
-# NEW: run command (zero-config) - direct import
-from epi_cli.run import run as run_command
-app.command(name="run", help="Record a Python workflow that already emits EPI steps.")(run_command)
+# NEW: run command (zero-config) - lazy import to keep read-only CLI startup fast
+@app.command(name="run", help="Record a Python workflow that already emits EPI steps.")
+def run(
+    script: Path = typer.Argument(None, help="Python script to record (Optional - Interactive if missing)"),
+    no_verify: bool = typer.Option(False, "--no-verify", help="Skip verification"),
+    no_open: bool = typer.Option(False, "--no-open", help="Don't open viewer automatically"),
+    goal: str | None = typer.Option(None, "--goal", help="Goal or objective of this workflow"),
+    notes: str | None = typer.Option(None, "--notes", help="Additional notes about this workflow"),
+    metric: list[str] | None = typer.Option(None, "--metric", help="Key=value metrics (can be used multiple times)"),
+    approved_by: str | None = typer.Option(None, "--approved-by", help="Person who approved this workflow"),
+    tag: list[str] | None = typer.Option(None, "--tag", help="Tags for categorizing this workflow (can be used multiple times)"),
+):
+    from epi_cli.run import run as run_command
+
+    return run_command(script, no_verify, no_open, goal, notes, metric, approved_by, tag)
 
 # Phase 1: verify command
 from epi_cli.verify import verify_command
@@ -226,9 +329,26 @@ def verify(
 ):
     return verify_command(ctx, Path(epi_file), json_output, verbose)
 
-# Phase 2: record command (legacy/advanced)
-from epi_cli.record import app as record_app
-app.add_typer(record_app, name="record", help="Advanced: record any command, exact output file.")
+# Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
+# recording engine for simple read-only commands like version/ls/verify.
+@app.command(
+    name="record",
+    help="Advanced: record any command, exact output file.",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def record(
+    ctx: typer.Context,
+    out: Path = typer.Option(..., "--out", help="Output .epi file path"),
+    name: str | None = typer.Option(None, "--name", help="Optional run name"),
+    tag: str | None = typer.Option(None, "--tag", help="Optional tag/label"),
+    no_sign: bool = typer.Option(False, "--no-sign", help="Do not sign the manifest"),
+    no_redact: bool = typer.Option(False, "--no-redact", help="Disable secret redaction"),
+    include_all_env: bool = typer.Option(False, "--include-all-env", help="Capture all env vars (redacted)"),
+    command: list[str] = typer.Argument(..., help="Command to execute after --"),
+):
+    from epi_cli.record import record as record_command
+
+    return record_command(ctx, out, name, tag, no_sign, no_redact, include_all_env, command)
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
@@ -300,13 +420,27 @@ def analyze(
     fault_detected = _analysis_has_fault(analysis)
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
+    primary_fault = analysis.get("primary_fault")
+    secondary_flags = analysis.get("secondary_flags", []) or []
+    display_fault = primary_fault or (secondary_flags[0] if secondary_flags else None)
 
     steps_recorded = coverage.get("steps_recorded")
     if steps_recorded is None:
         steps_recorded = 0
 
     if fault_detected:
-        fault = analysis["primary_fault"]
+        if display_fault is None:
+            console.print(f"\n[bold red]FAULT DETECTED[/bold red] — [bold]{epi_path.name}[/bold]")
+            verdict, impact, action = _analyze_reviewer_guidance(True, steps_recorded)
+            console.print(f"  Verdict:    [bold red]{verdict}[/bold red]")
+            console.print(f"  Impact:     {impact}")
+            console.print(f"  Action:     {action}")
+            console.print(f"  Mode:       {mode}")
+            console.print("  Details:    The analyzer marked this run for review, but no primary fault summary was embedded.")
+            console.print(f"\n  [dim]Run: [cyan]epi view {epi_path.name}[/cyan] to inspect the full artifact[/dim]\n")
+            raise typer.Exit(0)
+
+        fault = display_fault
         sev = fault.get("severity", "").upper()
         sev_color = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "blue"}.get(sev, "white")
         console.print(f"\n[bold red]FAULT DETECTED[/bold red] — [bold]{epi_path.name}[/bold]")
@@ -318,12 +452,12 @@ def analyze(
         console.print(f"  Type:       {fault.get('fault_type')}")
         if fault.get("rule_id"):
             console.print(f"  Rule:       {fault['rule_id']} — {fault.get('rule_name', '')}")
-        console.print(f"  Step:       {fault.get('step_number')}")
+        console.print(f"  Step:       {fault.get('step_number', fault.get('step_index', '?'))}")
         console.print(f"\n  {fault.get('plain_english', '')}")
 
-        secondary = analysis.get("secondary_flags", [])
-        if secondary:
-            console.print(f"\n  [dim]{len(secondary)} secondary flag(s) — run [cyan]epi view[/cyan] to inspect[/dim]")
+        secondary_count = len(secondary_flags) - (1 if primary_fault is None and secondary_flags else 0)
+        if secondary_count > 0:
+            console.print(f"\n  [dim]{secondary_count} secondary flag(s) — run [cyan]epi view[/cyan] to inspect[/dim]")
 
         console.print(f"\n  [dim]Run: [cyan]epi review {epi_path.name}[/cyan] to confirm or dismiss[/dim]\n")
     else:
@@ -549,10 +683,13 @@ output_file.parent.mkdir(parents=True, exist_ok=True)
 print("=" * 40)
 print("   Hello from your first EPI recording!")
 print("=" * 40)
+print("EPI will capture these console prints as stdout evidence.")
+print("Inside the record() block below, it will also capture structured workflow steps.")
 
 with record(str(output_file), workflow_name="EPI Setup Demo", goal="Create a meaningful first EPI artifact") as epi:
     print("\\n1. Doing some math...")
     result = 123 * 456
+    # Structured steps are richer than plain console output.
     epi.log_step("CALCULATION", {"expression": "123 * 456", "result": result})
     print(f"   123 * 456 = {result}")
 
@@ -585,6 +722,7 @@ print(f"\\n[OK] Done! Created {output_file}")
 
     artifact_path = Path("epi-recordings") / "epi_demo.epi"
     step_count = _count_steps_in_artifact(artifact_path)
+    step_kinds = _step_kinds_in_artifact(artifact_path)
     if result.returncode != 0 or not artifact_path.exists() or step_count == 0:
         console.print("\n[bold red][FAIL] Setup is incomplete.[/bold red]")
         if result.returncode != 0:
@@ -598,8 +736,27 @@ print(f"\\n[OK] Done! Created {output_file}")
         raise typer.Exit(1)
 
     console.print("\n[bold green]You are all set![/bold green]")
+    console.print("[dim]Your first artifact now shows both kinds of evidence:[/dim]")
+    if "stdout.print" in step_kinds:
+        console.print("[dim]  • Console evidence: printed output captured as [cyan]stdout.print[/cyan] steps[/dim]")
+    if step_kinds - {"stdout.print"}:
+        console.print("[dim]  • Structured workflow evidence: explicit steps like [cyan]CALCULATION[/cyan], [cyan]FILE_WRITE[/cyan], and [cyan]SUMMARY[/cyan][/dim]")
+    console.print("[dim]Policy review and fault analysis work best with structured EPI steps, not just console output.[/dim]")
+    console.print(f"[dim]Recorded steps:[/dim] {step_count}")
     console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
     console.print("[dim]Open the artifact with:[/dim] epi view epi-recordings/epi_demo.epi")
+    if not no_open:
+        try:
+            from epi_cli.run import _open_viewer
+
+            if _open_viewer(artifact_path):
+                console.print("[dim]Opened your first artifact in the browser.[/dim]")
+            else:
+                console.print("[yellow][!][/yellow] Could not open the browser automatically.")
+                console.print("[dim]Use: epi view epi-recordings/epi_demo.epi[/dim]")
+        except Exception:
+            console.print("[yellow][!][/yellow] Could not open the browser automatically.")
+            console.print("[dim]Use: epi view epi-recordings/epi_demo.epi[/dim]")
 
 
 @app.command()

@@ -37,6 +37,7 @@ def build_env_for_child(steps_dir: Path, enable_redaction: bool) -> dict:
     env["EPI_RECORD"] = "1"
     env["EPI_STEPS_DIR"] = str(steps_dir)
     env["EPI_REDACT"] = "1" if enable_redaction else "0"
+    env["EPI_CAPTURE_PRINTS"] = "1"
 
     # Force UTF-8 I/O in the child process.
     # On Windows the default is cp1252 which corrupts any non-ASCII output

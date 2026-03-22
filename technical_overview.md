@@ -1,10 +1,16 @@
 # EPI Recorder: How It Works (Simplified)
 
-Think of **EPI** as a **Black Box Flight Recorder** for your AI programs. Just like a flight recorder captures every instrument reading and pilot decision to prove what happened during a flight, EPI captures every prompt, response, and action your AI takes to prove it actually happened.
+Think of **EPI** as a **portable case file for AI execution**. It records what happened during a run, can embed the rulebook used to judge that run, can attach a human review decision, and makes later tampering visible. In `v2.8.6`, this also includes a clearer agent-first path for plans, tool usage, approvals, memory activity, and resumed runs.
 
 ## The Core Concept
 
-When you run your AI agent with EPI, we don't just "watch" it from the outside. We gently slip a "listening device" into the python process itself. This allows us to hear exactly what the AI hears and see exactly what the AI says, with zero delay.
+When you run an AI workflow with EPI, the goal is not just “collect logs.” The goal is to create one artifact that can answer:
+
+- what happened
+- what rules were active
+- what went wrong
+- whether a human reviewed it
+- whether the evidence is still trustworthy
 
 ## The 4 Stages of Evidence
 
@@ -13,12 +19,14 @@ Here is the journey of an EPI recording, explained simply:
 ### 1. The Setup (Injection)
 When you type `epi run my_agent.py`, EPI creates a secure environment for your script. Before your code even runs its first line, EPI is already there, waiting. It's like putting a dashcam in a car before starting the engine.
 
-### 2. The Recording (Monkey Patching)
-This is the magic part. EPI uses a technique called **Monkey Patching**.
-*   **Imagine:** Your code wants to call OpenAI or Google Gemini. It reaches for the "phone" to make that call.
-*   **The Switch:** EPI has swapped the phone with a special one that looks and works exactly the same.
-*   **The Action:** When your code makes the call, EPI's phone records the number dialed (the prompt) and the conversation (the response) *before* letting the call go through to the real destination.
-*   **Result:** Your code never knows the difference, but EPI has a perfect copy of the interaction.
+### 2. The Recording
+EPI captures meaningful execution steps while the workflow runs.
+That may come from:
+*   explicit `record()` instrumentation
+*   wrapper clients and integrations
+*   manual `log_step(...)` calls
+
+The point is not hidden magic. The point is to create a trustworthy execution timeline.
 
 ### 3. The Safety Net (Atomic Storage)
 Computers can crash. Power can go out. If your AI agent crashes halfway through, you don't want to lose the evidence of what led up to the crash.
@@ -26,11 +34,11 @@ Computers can crash. Power can go out. If your AI agent crashes halfway through,
 *   **The EPI Way:** We use a tiny, high-speed database engine (SQLite) that writes every single step to the hard drive instantly. It's like writing in a notebook in permanent ink immediately after every event, rather than trying to remember it all and write it down at the end.
 
 ### 4. The Seal (Cryptographic Signing)
-Once the program finishes, we have a pile of evidence (logs). But how do you prove you didn't edit them?
-*   **The Box:** We pack all the logs into a single file (`.epi`).
-*   **The Wax Seal:** We use a powerful mathematical tool called a **Cryptographic Signature** (Ed25519). This is like pouring hot wax over the lock of the box and stamping it with your unique ring.
-*   **Decentralized Trust (v2.7.2):** We now embed your "identity" (public key) directly inside the seal. This means anyone in the world can verify the box without ever having met you or having your keys on their computer first. It's truly zero-config.
-*   **Verification:** If anyone tries to open the box and change a single letter of the logs, the "wax seal" will break. The EPI Viewer checks this seal instantly. If it's broken, it yells **"TAMPERED"**. If it's intact, it confirms **"VERIFIED"**.
+Once the program finishes, EPI packages the evidence into a single `.epi` artifact.
+*   **The Box:** execution timeline, environment, viewer, and optional policy/analysis
+*   **The Seal:** Ed25519 signing plus file-manifest hashing
+*   **The Review Layer:** a later human decision can be appended as `review.json`
+*   **Verification:** if someone changes sealed evidence later, EPI can detect it and show the artifact as **tampered**
 
 ---
 
@@ -38,8 +46,8 @@ Once the program finishes, we have a pile of evidence (logs). But how do you pro
 
 For those who want the specifics:
 
-*   **Patcher**: We use `unittest.mock` style wrapping on `openai`, `google.generativeai`, and `requests` / `httpx`.
+*   **Capture**: EPI supports explicit instrumentation, wrappers, integrations, and limited patching paths.
 *   **Storage**: `sqlite3` in WAL (Write-Ahead Log) mode for atomic, crash-safe writes.
-*   **Format**: The `.epi` file is a standard ZIP containing JSONL logs and a standalone HTML viewer.
-*   **Security**: Ed25519 digital signatures with **Decentralized Identity** (v2.7.2).
-*   **Self-Healing**: Automatic restoration of OS file associations (registry/mime) on every execution (v2.7.2).
+*   **Format**: The `.epi` file is a ZIP-based artifact containing timeline data plus optional `policy.json`, `analysis.json`, and `review.json`.
+*   **Security**: Ed25519 digital signatures plus integrity verification.
+*   **Review model**: the original sealed evidence remains intact even when human review is appended later.

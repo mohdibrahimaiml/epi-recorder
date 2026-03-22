@@ -1,8 +1,8 @@
 """
 EPI CLI View - Open .epi file in browser viewer.
 
-Extracts the embedded viewer.html and opens it in the default browser.
-No code execution, all data is pre-rendered JSON.
+Extracts the artifact contents, regenerates viewer.html, and opens it in the
+default browser. No code execution, all data is pre-rendered JSON.
 
 Features (v2.8.0):
   - Unicode-safe path handling via pathlib
@@ -24,9 +24,9 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from epi_core.container import EPIContainer
+from epi_core.container import EPIContainer, _html_safe_json_dumps
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
-from epi_core.trust import create_verification_report, get_signer_name, verify_signature
+from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
 
 console = Console()
 
@@ -154,19 +154,7 @@ def _build_viewer_context(epi_path: Path) -> dict:
     manifest = EPIContainer.read_manifest(epi_path)
     integrity_ok, mismatches = EPIContainer.verify_integrity(epi_path)
 
-    signature_valid = None
-    signer_name = None
-    if manifest.signature:
-        signer_name = get_signer_name(manifest.signature)
-        if manifest.public_key:
-            try:
-                public_key_bytes = bytes.fromhex(manifest.public_key)
-            except ValueError:
-                import base64
-                public_key_bytes = base64.b64decode(manifest.public_key)
-            signature_valid, _ = verify_signature(manifest, public_key_bytes)
-        else:
-            signature_valid = False
+    signature_valid, signer_name, _sig_message = verify_embedded_manifest_signature(manifest)
 
     report = create_verification_report(
         integrity_ok=integrity_ok,
@@ -181,7 +169,7 @@ def _build_viewer_context(epi_path: Path) -> dict:
 def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     """Inject verification context into extracted viewer.html."""
     html = viewer_path.read_text(encoding="utf-8")
-    context_json = json.dumps(context, indent=2)
+    context_json = _html_safe_json_dumps(context, indent=2)
     script_tag = f'<script id="epi-view-context" type="application/json">{context_json}</script>'
 
     existing_pattern = r'<script id="epi-view-context" type="application/json">.*?</script>'
@@ -263,14 +251,6 @@ def view(
         viewer_context = _build_viewer_context(resolved_path)
 
         with zipfile.ZipFile(resolved_path, "r") as zf:
-            if "viewer.html" not in zf.namelist():
-                console.print(f"[red][X] This .epi file has no viewer.html.[/red]")
-                console.print(f"[dim]   It may be an older format. Try: epi verify {resolved_path}[/dim]")
-                # Fallback: just print the manifest
-                if "manifest.json" in zf.namelist():
-                    console.print("\n[i] [bold]Manifest contents:[/bold]")
-                    console.print(zf.read("manifest.json").decode("utf-8", errors="replace"))
-                raise typer.Exit(1)
             zf.extractall(temp_dir)
 
         viewer = _refresh_viewer_html(temp_dir, resolved_path)

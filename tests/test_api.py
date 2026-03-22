@@ -235,6 +235,92 @@ class TestEpiRecorderSession:
             printed = [s for s in steps if s["kind"] == "stdout.print"]
             assert len(printed) == 0
 
+    def test_agent_run_helper_records_readable_agent_flow(self):
+        """Test the agent helper creates structured agent-facing steps with lineage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_agent_run.epi"
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                with epi.agent_run(
+                    "refund-agent",
+                    user_input="Refund order 123",
+                    goal="Resolve customer refund",
+                    session_id="session-001",
+                    task_id="task-refund-123",
+                    parent_run_id="parent-run-000",
+                    attempt=2,
+                    resume_from="run-previous",
+                    metadata={"channel": "support"},
+                ) as agent:
+                    agent.plan("Validate order, then decide on refund.", steps=["lookup_order", "check policy", "decide"])
+                    agent.message("user", "Refund order 123")
+                    agent.memory_read("customer_history", query="order 123", source="vector-memory", result_count=2)
+                    agent.tool_call("lookup_order", {"order_id": "123"})
+                    agent.tool_result("lookup_order", {"status": "paid"})
+                    agent.approval_request(
+                        "approve_refund",
+                        reason="Amount exceeds auto-approval threshold",
+                        risk_level="high",
+                    )
+                    agent.pause(reason="Waiting for manager approval", waiting_for="manager")
+                    agent.approval_response(
+                        "approve_refund",
+                        approved=True,
+                        reviewer="manager@epilabs.org",
+                        notes="Approved after manual review.",
+                    )
+                    agent.resume(reason="Manager approved refund")
+                    agent.decision(
+                        "approve_refund",
+                        confidence=0.94,
+                        rationale="Order is eligible for refund.",
+                        review_required=True,
+                    )
+                    agent.memory_write("refund_decision", {"decision": "approved"}, destination="session-memory")
+                    agent.handoff("risk-reviewer", reason="Amount above auto threshold")
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            agent_steps = [step for step in steps if step["kind"].startswith("agent.") or step["kind"].startswith("tool.")]
+            kinds = [step["kind"] for step in agent_steps]
+            assert kinds == [
+                "agent.run.start",
+                "agent.plan",
+                "agent.message",
+                "agent.memory.read",
+                "tool.call",
+                "tool.response",
+                "agent.approval.request",
+                "agent.run.pause",
+                "agent.approval.response",
+                "agent.run.resume",
+                "agent.decision",
+                "agent.memory.write",
+                "agent.handoff",
+                "agent.run.end",
+            ]
+
+            run_ids = {step["content"]["run_id"] for step in agent_steps}
+            assert len(run_ids) == 1
+            assert all(step["content"]["agent_name"] == "refund-agent" for step in agent_steps if "agent_name" in step["content"])
+            assert agent_steps[0]["content"]["user_input"] == "Refund order 123"
+            assert agent_steps[0]["content"]["goal"] == "Resolve customer refund"
+            assert agent_steps[0]["content"]["channel"] == "support"
+            assert agent_steps[0]["content"]["session_id"] == "session-001"
+            assert agent_steps[0]["content"]["task_id"] == "task-refund-123"
+            assert agent_steps[0]["content"]["parent_run_id"] == "parent-run-000"
+            assert agent_steps[0]["content"]["attempt"] == 2
+            assert agent_steps[0]["content"]["resume_from"] == "run-previous"
+            assert agent_steps[1]["content"]["steps"] == ["lookup_order", "check policy", "decide"]
+            assert agent_steps[3]["content"]["memory_key"] == "customer_history"
+            assert agent_steps[6]["content"]["action"] == "approve_refund"
+            assert agent_steps[8]["content"]["approved"] is True
+            assert agent_steps[10]["content"]["decision"] == "approve_refund"
+            assert agent_steps[11]["content"]["memory_key"] == "refund_decision"
+            assert agent_steps[13]["content"]["success"] is True
+
 
 class TestRecordFunction:
     """Test the convenience record() function."""

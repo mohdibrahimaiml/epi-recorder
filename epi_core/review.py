@@ -104,6 +104,8 @@ def add_review_to_artifact(epi_path: Path, review: ReviewRecord) -> None:
         FileNotFoundError: if epi_path doesn't exist.
         ValueError: if epi_path is not a valid ZIP.
     """
+    import os
+    import tempfile
     import zipfile
 
     if not epi_path.exists():
@@ -111,8 +113,26 @@ def add_review_to_artifact(epi_path: Path, review: ReviewRecord) -> None:
     if not zipfile.is_zipfile(epi_path):
         raise ValueError(f"Not a valid .epi file: {epi_path}")
 
-    with zipfile.ZipFile(epi_path, "a", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("review.json", review.to_json())
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f"{epi_path.stem}_review_",
+        suffix=epi_path.suffix,
+        dir=str(epi_path.parent),
+    )
+    os.close(fd)
+    temp_path = Path(temp_name)
+
+    try:
+        with zipfile.ZipFile(epi_path, "r") as src, zipfile.ZipFile(temp_path, "w") as dst:
+            for item in src.infolist():
+                if item.filename == "review.json":
+                    continue
+                dst.writestr(item, src.read(item.filename))
+
+            dst.writestr("review.json", review.to_json(), compress_type=zipfile.ZIP_DEFLATED)
+
+        temp_path.replace(epi_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 def read_review(epi_path: Path) -> Optional[ReviewRecord]:
@@ -125,10 +145,12 @@ def read_review(epi_path: Path) -> Optional[ReviewRecord]:
         return None
 
     with zipfile.ZipFile(epi_path, "r") as zf:
-        if "review.json" not in zf.namelist():
+        review_entries = [info for info in zf.infolist() if info.filename == "review.json"]
+        if not review_entries:
             return None
         try:
-            data = json.loads(zf.read("review.json").decode("utf-8"))
+            latest_review = review_entries[-1]
+            data = json.loads(zf.read(latest_review).decode("utf-8"))
             return ReviewRecord.from_dict(data)
         except Exception:
             return None

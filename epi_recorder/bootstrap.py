@@ -8,9 +8,115 @@ to set up LLM patching and recording context.
 import os
 import sys
 import atexit
+import json
 from pathlib import Path
 
 _FINALIZER_REGISTERED = False
+_BOOTSTRAP_STDOUT = None
+_BOOTSTRAP_STDERR = None
+_ORIGINAL_STDOUT = None
+_ORIGINAL_STDERR = None
+
+
+class _BootstrapStreamCapture:
+    """Tee stdout/stderr while writing printable lines into bootstrap steps."""
+
+    def __init__(self, context, stream, stream_name: str):
+        self._context = context
+        self._stream = stream
+        self._stream_name = stream_name
+        self._buffer = ""
+
+    def write(self, data):
+        text = data if isinstance(data, str) else str(data)
+        written = self._stream.write(text)
+        self._buffer += text
+
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self._emit_line(line.rstrip("\r"))
+        return written
+
+    def flush(self):
+        self._stream.flush()
+
+    def writable(self):
+        return True
+
+    def isatty(self):
+        return bool(getattr(self._stream, "isatty", lambda: False)())
+
+    def fileno(self):
+        return self._stream.fileno()
+
+    @property
+    def encoding(self):
+        return getattr(self._stream, "encoding", None)
+
+    @property
+    def errors(self):
+        return getattr(self._stream, "errors", None)
+
+    def __getattr__(self, item):
+        return getattr(self._stream, item)
+
+    def emit_pending(self):
+        if self._buffer:
+            self._emit_line(self._buffer.rstrip("\r"))
+            self._buffer = ""
+
+    def _emit_line(self, line: str) -> None:
+        if not line.strip():
+            return
+
+        payload = {
+            "stream": self._stream_name,
+            "text": line,
+        }
+        try:
+            parsed = json.loads(line)
+            if isinstance(parsed, (dict, list)):
+                payload["parsed"] = parsed
+        except Exception:
+            pass
+
+        try:
+            self._context.add_step("stdout.print", payload)
+        except Exception:
+            pass
+
+
+def _install_stdio_capture(context) -> None:
+    """Install bootstrap stdout capture for epi run mode."""
+    global _BOOTSTRAP_STDOUT, _ORIGINAL_STDOUT, _ORIGINAL_STDERR
+
+    capture_prints = os.environ.get("EPI_CAPTURE_PRINTS", "1") == "1"
+    if not capture_prints or _BOOTSTRAP_STDOUT is not None:
+        return
+
+    _ORIGINAL_STDOUT = sys.stdout
+    _ORIGINAL_STDERR = sys.stderr
+    _BOOTSTRAP_STDOUT = _BootstrapStreamCapture(context, _ORIGINAL_STDOUT, "stdout")
+    sys.stdout = _BOOTSTRAP_STDOUT
+
+
+def _restore_stdio_capture() -> None:
+    global _BOOTSTRAP_STDOUT, _BOOTSTRAP_STDERR, _ORIGINAL_STDOUT, _ORIGINAL_STDERR
+
+    if _BOOTSTRAP_STDOUT is not None:
+        _BOOTSTRAP_STDOUT.emit_pending()
+    if _BOOTSTRAP_STDERR is not None:
+        _BOOTSTRAP_STDERR.emit_pending()
+
+    if _ORIGINAL_STDOUT is not None:
+        sys.stdout = _ORIGINAL_STDOUT
+    if _ORIGINAL_STDERR is not None:
+        sys.stderr = _ORIGINAL_STDERR
+
+    _BOOTSTRAP_STDOUT = None
+    _BOOTSTRAP_STDERR = None
+    _ORIGINAL_STDOUT = None
+    _ORIGINAL_STDERR = None
 
 
 def _finalize_bootstrap_recording() -> None:
@@ -19,6 +125,7 @@ def _finalize_bootstrap_recording() -> None:
         from epi_recorder.patcher import get_recording_context, set_recording_context
         context = get_recording_context()
         if context is not None:
+            _restore_stdio_capture()
             context.finalize()
             set_recording_context(None)
     except Exception:
@@ -56,6 +163,7 @@ def initialize_recording():
         # Create recording context
         context = RecordingContext(steps_path, enable_redaction=enable_redaction)
         set_recording_context(context)
+        _install_stdio_capture(context)
         
         # Patch LLM libraries
         patch_results = patch_all()

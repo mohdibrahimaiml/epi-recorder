@@ -141,6 +141,51 @@ def verify_signature(
         return (False, f"Verification error: {str(e)}")
 
 
+def decode_embedded_public_key(public_key_value: str) -> bytes:
+    """
+    Decode an embedded manifest public key.
+
+    Current artifacts store the key as raw hex, but some legacy or externally
+    produced artifacts may still carry a base64-encoded raw key string.
+    """
+    try:
+        return bytes.fromhex(public_key_value)
+    except ValueError:
+        try:
+            return base64.b64decode(public_key_value)
+        except Exception as e:
+            raise VerificationError(f"Invalid embedded public key: {e}") from e
+
+
+def verify_embedded_manifest_signature(
+    manifest: ManifestModel,
+) -> tuple[Optional[bool], Optional[str], str]:
+    """
+    Verify a manifest using the public key embedded inside the manifest itself.
+
+    Returns:
+        tuple:
+            signature_valid: True, False, or None when no signature exists
+            signer_name: extracted signer key name when present
+            message: human-readable verification result
+    """
+    signer_name = get_signer_name(manifest.signature)
+
+    if not manifest.signature:
+        return (None, signer_name, "No signature present")
+
+    if not manifest.public_key:
+        return (False, signer_name, "No public key embedded in manifest")
+
+    try:
+        public_key_bytes = decode_embedded_public_key(manifest.public_key)
+    except VerificationError as exc:
+        return (False, signer_name, str(exc))
+
+    signature_valid, message = verify_signature(manifest, public_key_bytes)
+    return (signature_valid, signer_name, message)
+
+
 def sign_manifest_inplace(
     manifest_path: Path,
     private_key: Ed25519PrivateKey,

@@ -92,10 +92,10 @@ class TestViewCommand:
         html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
         assert 'id="epi-view-context"' in html
 
-    def test_no_viewer_html_exits_1(self, tmp_path):
+    def test_missing_viewer_html_is_regenerated(self, tmp_path):
         epi = _make_epi(tmp_path, include_viewer=False)
         code = _call_view(str(epi))
-        assert code == 1
+        assert code is None or code == 0
 
     def test_view_with_name_in_default_dir(self, tmp_path):
         """Test resolving a recording by stem name from default dir."""
@@ -166,6 +166,18 @@ class TestViewerContextInjection:
         html = viewer.read_text(encoding="utf-8")
         assert 'id="epi-view-context"' in html
         assert html.index('id="epi-view-context"') < html.index("window.appLoaded")
+
+    def test_inject_escapes_script_breakout_sequences(self, tmp_path):
+        from epi_cli.view import _inject_viewer_context
+
+        viewer = tmp_path / "viewer.html"
+        viewer.write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+        _inject_viewer_context(viewer, {"trust_message": "</script><script>alert(1)</script>"})
+
+        html = viewer.read_text(encoding="utf-8")
+        assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e" in html
+        assert "</script><script>alert(1)</script>" not in html
 
 # ─────────────────────────────────────────────────────────────
 # verify_command verbose + signature paths

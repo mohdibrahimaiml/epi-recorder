@@ -191,3 +191,13 @@ class TestPackWithAnalysis:
         with zipfile.ZipFile(out, "r") as zf:
             assert "manifest.json" in zf.namelist()
             assert "steps.jsonl" in zf.namelist()
+
+    def test_analyzer_failure_does_not_leak_stale_analysis_file(self, tmp_path):
+        src = _make_source_dir(tmp_path, extra_files={"analysis.json": json.dumps({"stale": True})})
+        out = tmp_path / "output.epi"
+
+        with patch("epi_core.fault_analyzer.FaultAnalyzer.analyze", side_effect=RuntimeError("analyzer exploded")):
+            EPIContainer.pack(src, ManifestModel(file_manifest={}), out)
+
+        with zipfile.ZipFile(out, "r") as zf:
+            assert "analysis.json" not in zf.namelist()

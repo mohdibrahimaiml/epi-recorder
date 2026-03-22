@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.5)
+# EPI CLI Reference (v2.8.6)
 
-**Version:** 2.8.5  
+**Version:** 2.8.6  
 **Primary entrypoint:** `epi`
 
 ---
@@ -26,7 +26,7 @@
 
 ## `epi run <script.py>`
 
-Use this when the script already emits EPI steps.
+Use this when you want EPI to run a Python script and capture whatever evidence is available.
 
 ```bash
 epi run my_agent.py
@@ -34,13 +34,24 @@ epi run my_agent.py
 
 Typical outcome:
 - runs the script
-- records the workflow if EPI steps are actually emitted
+- captures plain `print(...)` output as `stdout.print` steps
+- records richer workflow evidence if EPI steps are actually emitted
 - seals a `.epi` artifact
 - performs analysis before sealing
 
 Important:
+- plain console capture is useful, but limited
 - for guaranteed evidence capture, use `from epi_recorder import record` or a supported integration
+- for a middle ground inside `epi run`, use `get_current_session().log_step(...)`
+- for agent-shaped evidence inside `epi run`, use `get_current_session().agent_run(...)`
 - if no execution steps are captured, `epi run` now exits non-zero and tells you how to fix the script
+
+Think of the evidence quality like this:
+
+- `print(...)` only -> basic console evidence
+- `get_current_session().log_step(...)` -> structured custom workflow evidence
+- `get_current_session().agent_run(...)` -> structured agent evidence with messages, tools, decisions, approvals, memory activity, and lineage
+- `record(...)` / wrappers / integrations -> best path for policy, fault analysis, and review
 
 ---
 
@@ -99,13 +110,14 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.5`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v2.8.6`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 
 The analyzer enforces:
 - `constraint_guard`
 - `sequence_guard`
 - `threshold_guard`
 - `prohibition_guard`
+- `approval_guard`
 
 ```bash
 epi policy init

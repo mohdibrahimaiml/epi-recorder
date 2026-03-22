@@ -5,9 +5,20 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
-if (!(Test-Path $Python)) {
-    throw "Python not found at '$Python'. Pass -Python explicitly."
+function Resolve-PythonCommand([string]$PythonValue) {
+    if (Test-Path $PythonValue) {
+        return (Resolve-Path $PythonValue).Path
+    }
+
+    $cmd = Get-Command $PythonValue -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
+    }
+
+    throw "Python not found at '$PythonValue'. Pass -Python explicitly."
 }
+
+$PythonCmd = Resolve-PythonCommand $Python
 
 $runId = Get-Date -Format "yyyyMMdd_HHmmss"
 $gateRoot = Join-Path $repoRoot ".tmp-release-gate\$runId"
@@ -24,27 +35,32 @@ $env:TEMP = $buildTemp
 
 Write-Host "== EPI Release Gate =="
 Write-Host "Repo: $repoRoot"
-Write-Host "Python: $Python"
+Write-Host "Python: $PythonCmd"
 Write-Host ""
 
-& $Python -m epi_cli.main version
+& $PythonCmd -m epi_cli.main version
 if ($LASTEXITCODE -ne 0) { throw "Failed: epi version" }
-& $Python -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py -q --basetemp $baseTemp
+& $PythonCmd -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py -q --basetemp $baseTemp
 if ($LASTEXITCODE -ne 0) { throw "Failed: targeted consistency tests" }
-& $Python -m pytest tests -q --maxfail=20 --basetemp $baseTemp
+& $PythonCmd -m pytest tests -q --maxfail=20 --basetemp $baseTemp
 if ($LASTEXITCODE -ne 0) { throw "Failed: full test suite" }
 
 # Prefer PEP517 build; fallback for temp-constrained Windows environments.
-& $Python -m build --no-isolation --sdist --wheel --outdir $distDir
+& $PythonCmd -m build --no-isolation --sdist --wheel --outdir $distDir
 if ($LASTEXITCODE -ne 0) {
     Write-Host "build failed in this environment; falling back to setup.py artifacts..."
-    & $Python setup.py bdist_wheel --dist-dir $distDir
+    & $PythonCmd setup.py bdist_wheel --dist-dir $distDir
     if ($LASTEXITCODE -ne 0) { throw "Failed: wheel build fallback" }
-    & $Python setup.py sdist --dist-dir $distDir
+    & $PythonCmd setup.py sdist --dist-dir $distDir
     if ($LASTEXITCODE -ne 0) { throw "Failed: sdist build fallback" }
 }
-& $Python -m twine check "$distDir\*"
+& $PythonCmd -m twine check "$distDir\*"
 if ($LASTEXITCODE -ne 0) { throw "Failed: twine check" }
+
+$wheelFiles = Get-ChildItem -Path $distDir -Filter *.whl | Select-Object -ExpandProperty FullName
+if (-not $wheelFiles) { throw "Failed: no wheel artifacts found for audit" }
+& $PythonCmd (Join-Path $repoRoot "scripts\audit_wheel.py") $wheelFiles
+if ($LASTEXITCODE -ne 0) { throw "Failed: wheel content audit" }
 
 Write-Host ""
 Write-Host "Release gate PASSED. Artifacts in: $distDir"

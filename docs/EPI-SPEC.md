@@ -1,15 +1,15 @@
-# EPI File Format Specification v2.8.4
+# EPI File Format Specification v2.8.6
 
 **Status:** Active  
-**Date:** 2026-03-17  
-**Version:** 2.8.4  
+**Date:** 2026-03-22  
+**Version:** 2.8.6  
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.8.4.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.8.6.
 
 ---
 
@@ -18,7 +18,7 @@ The **Executable Package for AI (EPI)** format provides a standardized, portable
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable ZIP-based container.
 
-### 1.2 Key Features (v2.8.4)
+### 1.2 Key Features (v2.8.6)
 - **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -34,26 +34,23 @@ EPI files capture complete AI workflows, code, inputs, model interactions, outpu
 ## 2. File Format
 
 ### 2.1 Container Structure
-`.epi` files are ZIP archives (STORED/No Compression for Hash Stability) with this current structure:
+`.epi` files are ZIP archives with this current structure:
 
 ```text
 example.epi (ZIP archive)
-mimetype                    # MUST be first ("application/epi+zip")
-manifest.json               # Metadata + signatures + hashes
-steps.jsonl                 # Timeline (NDJSON format)
-environment.json            # Environment snapshot
+mimetype                    # MUST be first and STORED ("application/vnd.epi+zip")
+steps.jsonl                 # Timeline (NDJSON format) when steps were captured
+environment.json            # Environment snapshot when available
 analysis.json               # Sealed analyzer output when analysis runs
 policy.json                 # Validated policy embedded at pack time, when present
 review.json                 # Optional appended human review record
 viewer.html                 # Embedded offline viewer
-artifacts/                  # Content-addressed outputs
-  sha256_<hash1>
-  ...
-signatures/                 # Optional detached signatures
+artifacts/                  # Optional captured files
+manifest.json               # Metadata + signatures + file hashes (written last)
 ```
 
 Older historical docs may mention `env.json` or a `viewer/` directory. In
-`v2.8.4`, the canonical layout uses `environment.json` and a root
+`v2.8.6`, the canonical layout uses `environment.json` and a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -63,7 +60,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "1.1-json",
+  "spec_version": "2.8.6",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
@@ -95,7 +92,7 @@ Current EPI artifacts may also include:
 - `policy.json` - the validated policy rules that were active during execution
 - `review.json` - optional human review outcome appended after analysis
 
-These files are included in the file manifest when present so they are covered by integrity verification.
+These files are included in the file manifest when present so they are covered by integrity verification. `viewer.html` is intentionally excluded from the file manifest because it is a generated presentation layer that embeds artifact data and verification context.
 
 ---
 
@@ -110,7 +107,7 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v2.8.4` is the current documented layout.
+- `v2.8.6` is the current documented layout.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Double-click behavior is an operating-system integration concern, not a property of the archive alone.
 
@@ -120,7 +117,9 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **2.8.4** | 2026-03-18 | **Current** | Windows double-click stability fix by preferring a real `epi.exe` launcher when available. |
+| **2.8.6** | 2026-03-22 | **Current** | Agent-first recording, reviewer/trust polish, better onboarding, print capture in `epi run`, faster CLI startup, and cleaner release consistency. |
+| **2.8.5** | 2026-03-20 | Previous | Guided policy setup, reliable `epi review` CLI behavior, manual-step bootstrap support, and stronger Windows association repair paths. |
+| **2.8.4** | 2026-03-18 | Previous | Windows double-click stability fix by preferring a real `epi.exe` launcher when available. |
 | **2.8.3** | 2026-03-18 | Viewer consistency fixes, clearer analyzer wording, and dependency caps for cleaner installs. |
 | **2.8.2** | 2026-03-18 | Front-door reliability fixes for zero-step artifacts, clearer onboarding behavior, and release consistency cleanup. |
 | **2.8.1** | 2026-03-17 | Previous | Viewer trust rendering fix, current viewer embedded in new artifacts, and policy compatibility/documentation cleanup. |

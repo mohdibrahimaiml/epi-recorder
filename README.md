@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
-  <p align="center"><strong>The flight recorder for AI agents</strong></p>
+  <p align="center"><strong>Portable evidence and trust review for AI workflows</strong></p>
   <p align="center">
-    <em>Capture, seal, and verify every decision your agents make - offline, tamper-proof, forever.</em>
+    <em>Record what happened, check it against policy, add human review, and verify whether the evidence is still trustworthy.</em>
   </p>
 </p>
 
@@ -33,13 +33,19 @@
 
 ## Why EPI?
 
-Production agents fail in ways traditional logging can't capture.
+Important AI workflows fail in ways traditional logging cannot explain or defend.
 
-A LangGraph agent processes 47 steps overnight. Step 31 makes a bad decision that cascades into failure. CloudWatch logs expired. You have no idea what the agent was "thinking."
+A workflow approves a refund, transfers funds, or makes a high-risk recommendation. Days later, someone asks:
 
-**EPI captures everything** - every prompt, every response, every tool call, every state transition - sealed into a single, portable, cryptographically signed file. Open it a year later. Debug it locally. Present it in an audit. No cloud required.
+- What actually happened?
+- Which rule was active at the time?
+- Where did the run go wrong?
+- Did a human reviewer confirm or dismiss it?
+- Is this artifact still trustworthy, or was it tampered with?
 
-```python
+**EPI turns that run into one portable `.epi` case file**. It captures the execution timeline, embeds policy and analysis when available, supports append-only human review, and makes trust visible as `Signed`, `Unsigned`, or `Tampered`.
+
+```bash
 pip install epi-recorder
 ```
 
@@ -47,7 +53,32 @@ pip install epi-recorder
 
 ## Quick Start
 
-### Record any LLM call in 3 lines
+### First run: let EPI teach you the model
+
+```bash
+epi init
+```
+
+That creates and runs a demo which shows both:
+- console evidence captured as `stdout.print`
+- structured workflow evidence emitted with explicit EPI steps
+
+This is the most important mental model:
+- plain console output is still useful evidence
+- structured EPI steps are what unlock better policy checks, fault analysis, and review
+
+### Fast path for an existing script
+
+```bash
+epi run my_script.py
+```
+
+What happens:
+- if the script prints output, EPI can capture that as console evidence
+- if the script emits structured EPI steps, the artifact becomes much more useful for trust review
+- if nothing meaningful is captured, `epi run` fails loudly instead of pretending success
+
+### Record a workflow in 3 lines
 
 ```python
 from epi_recorder import record, wrap_openai
@@ -62,9 +93,57 @@ with record("my_agent.epi"):
     )
 ```
 
-**What gets captured:** full prompt & response, token usage & estimated cost, timestamps & model info, complete environment snapshot, and an Ed25519 signature.
+**What EPI creates:** a portable `.epi` artifact with the execution timeline, environment snapshot, embedded viewer, and trust metadata. When policy is present, EPI also embeds `policy.json` and `analysis.json`. Human review can later add `review.json` without rewriting the original record.
 
-For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. In `epi run` mode, advanced users can also emit manual steps with `get_current_session().log_step(...)`.
+**Capture ladder:**
+- `print(...)` in `epi run` mode -> basic console evidence (`stdout.print`)
+- `get_current_session().log_step(...)` -> manual structured steps inside `epi run`
+- `get_current_session().agent_run(...)` -> structured agent evidence inside `epi run`
+- `with record(...)` or supported wrappers/integrations -> strongest path for meaningful workflow evidence
+
+For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. In `epi run` mode, advanced users can also emit manual steps with `get_current_session().log_step(...)` or use `get_current_session().agent_run(...)` for cleaner agent-shaped traces.
+
+### Record an AI agent run more clearly
+
+```python
+from epi_recorder import record
+
+with record("refund_agent.epi", goal="Resolve customer refund safely") as epi:
+    with epi.agent_run(
+        "refund-agent",
+        user_input="Refund order 123",
+        session_id="sess-001",
+        task_id="refund-123",
+        attempt=2,
+        resume_from="run-previous",
+    ) as agent:
+        agent.plan("Look up the order, confirm approval status, then decide.")
+        agent.message("user", "Refund order 123")
+        agent.memory_read("customer_history", query="order 123", result_count=2)
+        agent.tool_call("lookup_order", {"order_id": "123"})
+        agent.tool_result("lookup_order", {"status": "paid", "amount": 120})
+        agent.approval_request("approve_refund", reason="Amount exceeds auto threshold")
+        agent.approval_response("approve_refund", approved=True, reviewer="manager@company.com")
+        agent.decision("approve_refund", confidence=0.91)
+```
+
+This keeps the artifact readable for humans while still producing policy-friendly `tool.call` / `tool.response` steps. The resulting `.epi` can now show lineage, approvals, handoffs, memory activity, and pause/resume checkpoints as part of one agent case file.
+
+### The product loop
+
+```text
+define policy -> run workflow -> inspect fault analysis -> confirm/dismiss in review -> verify trust
+```
+
+Key commands:
+
+```bash
+epi policy init
+python my_workflow.py
+epi view my_workflow.epi
+epi review my_workflow.epi
+epi verify my_workflow.epi
+```
 
 ### Windows double-click support
 
@@ -91,93 +170,50 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## New in v2.8.5 - Guided Policy Setup for Reviewers
+## Who EPI Is For
 
-- `epi policy init` now walks non-technical reviewers through a short guided setup instead of dropping them into raw JSON
-- built-in finance and healthcare profiles can now be customized with business-language questions
-- `epi policy show` now prints a human-readable rulebook summary first, with raw JSON only when explicitly requested
-- the viewer now explains "Rules In Force" as the active rulebook and highlights the rule tied to the primary fault when available
+EPI is most useful when an AI workflow has consequences and someone may later need to review or defend what happened.
 
-EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there.
+Good fits:
+- AI-assisted refunds, approvals, claims, and operations
+- agent workflows that call tools, use memory, or request human approval
+- internal governance, audit, and post-incident review
+- teams that need portable evidence, not just live dashboards
 
-## v2.8.5 Update - Windows Association Reliability for PyPI/GitHub Installs
+Less useful:
+- toy chatbots
+- pure prompt experimentation without workflow consequences
+- teams that only want cloud observability and do not care about portable artifacts
 
-- HKCU association now targets a stable launcher path under `LOCALAPPDATA` instead of fragile venv/script paths
-- this makes developer installs (`pip install` / source installs) more resilient across Python upgrades and environment changes
-- installer/system (`HKLM`) flows keep using the installed executable path
+---
 
-## New in v2.8.3 - Viewer Consistency and Colab-Friendly Packaging
+## What Changed in v2.8.6
 
-- viewer now derives fault presence from the embedded primary finding, avoiding contradictory `Fault detected: No` states
-- manifest facts no longer risk showing `Files in manifest: undefined`
-- analyzer wording now clearly separates deterministic policy matches from heuristic observations
-- package dependency pins are tightened to avoid common Colab resolver warnings and the deprecated `typer[all]` extra
+- **Agent-first workflow recording**
+  - `epi.agent_run(...)` and `get_current_session().agent_run(...)` now create clearer agent-shaped evidence with lineage, approvals, memory activity, handoffs, and pause/resume checkpoints
+- **Better first-run experience**
+  - `epi init` now teaches the evidence model more honestly
+  - `epi run` captures plain `print(...)` output as `stdout.print` and labels console-only evidence clearly
+  - if a child script already uses `record(...)`, `epi run` now prefers the real recorded artifact instead of leaving a misleading bootstrap file behind
+- **Stronger reviewer flow**
+  - `epi review` shows trust first and blocks review on tampered evidence
+  - `epi policy show` now works directly on a `.epi` file so reviewers can inspect the embedded rulebook
+- **Better viewer clarity**
+  - the viewer explains trust state, rulebook context, and review order more clearly for non-technical users
+  - agent/tool/approval events are now summarized more naturally in the timeline
+- **Cleaner Windows and CLI behavior**
+  - association/open flow now prefers the live `epi view "%1"` path to avoid stale viewer launches
+  - basic CLI commands start much faster on Windows
+- **Policy engine expansion**
+  - `approval_guard` joins `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard` as a supported rule type
 
-This patch release hardens the default user path and cleans up release consistency.
+EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there, and agent workflows now map much more naturally into the artifact.
 
-- **Honest `epi run` behavior**: if a script records `0` execution steps, `epi run` now exits non-zero and clearly explains that the script is not instrumented.
-- **Truthful analysis for empty artifacts**: `epi analyze` now reports `No data to analyze` instead of implying a clean run.
-- **Safer onboarding**: `epi init` now generates an explicitly instrumented demo using `record()` and tells users to run it with plain Python.
-- **Viewer empty-data warning**: zero-step artifacts now show a visible warning so they cannot be mistaken for meaningful evidence.
-- **Version consistency**: Python package version surfaces are aligned again across the release.
+Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
-## New in v2.8.1 - Viewer Trust Fixes and Policy Clarifications
+For policy placement and rule design, see [docs/POLICY.md](docs/POLICY.md).
 
-This patch release hardens the embedded viewer and trust rendering path.
-
-- **Correct viewer trust states**: the viewer now receives trust context before app initialization, so `Signed`, `Unsigned`, and `Tampered` render correctly in the main viewer flow.
-- **Current viewer embedded in new artifacts**: newly generated `.epi` files now reliably carry the updated `v2.8.x` viewer template.
-- **Policy clarity**: `epi_policy.json` behavior is now documented more clearly, including where to store it and when it is loaded.
-- **Policy compatibility improvements**: `prohibition_guard` accepts both `pattern` and `prohibited_pattern`, and `threshold_guard` supports `watch_for` as a fallback field selector.
-
-## New in v2.8.0 - Policy-Grounded Fault Analysis and Windows File UX
-
-This release makes EPI's policy and fault-analysis story real at runtime and further hardens the `.epi` desktop experience on Windows.
-
-- **Full policy rule enforcement**: `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard` are all enforced by the analyzer.
-- **Sealed policy context**: `policy.json` and `analysis.json` are embedded into the artifact so later reviewers can see both the execution and the rules active at the time.
-- **Human review flow**: `epi review` turns flagged policy violations into a practical workflow with additive `review.json` records.
-- **Windows file-opening reliability**: the `.epi` handler now uses the repaired standalone launcher path, supports a custom `.epi` icon, and keeps a self-healing repair path for developer installs.
-- **Installer-first Windows UX**: the packaged installer remains the recommended path for normal users, with `epi associate` as the developer and repair fallback.
-
-### Practical workflow
-
-```text
-define policy -> run agent with EPI -> open .epi -> inspect analysis -> review flagged faults
-```
-
-Key commands:
-
-```bash
-epi policy init
-epi policy validate
-python my_agent.py
-epi view my_agent.epi
-epi review my_agent.epi
-```
-
-### Where `epi_policy.json` goes
-
-Today, `epi_policy.json` should live in the same working directory where you run EPI.
-
-Example:
-
-```text
-loan-underwriting/
-  underwriter.py
-  epi_policy.json
-```
-
-```bash
-cd loan-underwriting
-python underwriter.py
-```
-
-EPI loads that file during packing, embeds it into the artifact as `policy.json`, and writes analyzer output as `analysis.json`.
-
-See [`docs/POLICY.md`](docs/POLICY.md) for the full explanation of how policy loading and fault analysis work.
-
-## Framework Integrations (v2.6.0)
+## Framework Integrations
 
 EPI now plugs directly into the tools you already use. **Zero refactoring required.**
 
@@ -230,48 +266,6 @@ with record("stream_demo.epi"):
 pip install epi-recorder
 pytest --epi                    # Generates signed .epi per test
 pytest --epi --epi-dir=evidence # Custom output directory
-```
-
-## Windows Developer Testing
-
-On this machine, Windows temp cleanup can interfere with direct `pytest` runs.
-For stable local development, use the dedicated EPI temp roots instead of the
-default Windows temp directory.
-
-One-time setup:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup-windows-dev-env.ps1
-```
-
-Recommended local test command:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-tests.ps1
-```
-
-Pass through any normal pytest arguments:
-
-```powershell
-.\scripts\run-tests.ps1 tests\test_main.py -q
-```
-
-Important notes:
-
-- Avoid OneDrive-synced temp or work directories for local testing on Windows.
-- If you bypass the runner and call `pytest` directly, temp cleanup may still fail on this machine.
-- If Windows Defender or another scanner is locking temp files, add exclusions for:
-  - `C:\epi-temp`
-  - `C:\epi-pytest`
-  - `C:\Users\dell\epi-recorder`
-  - `C:\Users\dell\epi-recorder\.venv-release`
-
-```
-======================== EPI Evidence Summary ========================
-  [OK] test_auth_flow.epi (signed, 12 steps)
-  [OK] test_payment.epi (signed, 8 steps)
-  [OK] test_refund.epi (signed, 6 steps)
-======================================================================
 ```
 
 ### GitHub Action - CI/CD Verification
@@ -425,11 +419,10 @@ An `.epi` file is a self-contained ZIP archive:
 
 ```
 my_agent.epi
-|- mimetype              # "application/epi+zip"
+|- mimetype              # "application/vnd.epi+zip"
 |- manifest.json         # Metadata + Ed25519 signature + content hashes
 |- steps.jsonl           # Execution timeline (NDJSON)
 |- environment.json      # Runtime environment snapshot
-|- *.db                  # Crash-safe SQLite storage
 `- viewer.html           # Self-contained offline viewer (opens in any browser)
 ```
 
@@ -451,7 +444,7 @@ See **[EPI Specification](docs/EPI-SPEC.md)** for technical details.
 
 ## Why EPI vs. Alternatives
 
-EPI is not an observability dashboard. It's a **durable execution artifact system.**
+EPI is not an observability dashboard. It is a **portable evidence and trust-review system for AI workflows.**
 
 | | **EPI** | LangSmith | Arize | W&B |
 |:--|:--------|:----------|:------|:----|
@@ -516,6 +509,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.6** | 2026-03-22 | **Agent-first product hardening** - clearer reviewer UX, stronger first-run onboarding, print capture in `epi run`, better viewer guidance, and agent-shaped evidence with approvals and lineage |
 | **2.8.5** | 2026-03-20 | **Reliability patch** - guided policy UX, stable `epi review` CLI invocation, bootstrap manual-step support in `epi run`, and stronger Windows association repair paths |
 | **2.8.4** | 2026-03-18 | **Windows double-click stability** - stronger association repair and diagnostics for desktop opening workflows |
 | **2.8.3** | 2026-03-18 | **Viewer consistency and Colab-friendly packaging** - remove contradictory fault states, fix manifest fact fallback, clarify analyzer wording, and cap dependencies for cleaner installs |
@@ -539,11 +533,12 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.5):**
+**Current (v2.8.6):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
 - [Done] Global install for automatic recording
+- [Done] Agent-first recording and review surfaces
 
 **Next:**
 - [Planned] Time-travel debugging (step through any past run)
@@ -559,20 +554,10 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 |:---------|:------------|
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
-| **[Investor Demo](docs/INVESTOR-DEMO.md)** | 3-minute live investor screenshare guide |
+| **[Policy Guide](docs/POLICY.md)** | How policy, fault analysis, and rulebooks work |
 | **[CHANGELOG](CHANGELOG.md)** | Release notes |
 | **[Contributing](CONTRIBUTING.md)** | Contribution guidelines |
 | **[Security](SECURITY.md)** | Security policy and vulnerability reporting |
-
----
-
-## Beta Program
-
-We're looking for teams running agents in production.
-
-**You get:** priority support, free forever, custom integrations.
-
-**[Apply for Beta Access](https://www.epilabs.org/contact.html)**
 
 ---
 
@@ -586,18 +571,6 @@ pytest
 ```
 
 See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for guidelines.
-
----
-
-## Traction
-
-**6,500+ downloads** in 10 weeks · **v2.8.5** shipped Mar 2026
-
-> *"EPI saved us 4 hours debugging a production agent failure."*
-> - ML Engineer, Fintech
-
-> *"The LangGraph integration is killer. Zero config."*
-> - AI Platform Team Lead
 
 ---
 

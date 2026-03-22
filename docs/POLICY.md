@@ -4,7 +4,7 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
-In `v2.8.5`, the preferred way to create this file is:
+In `v2.8.6`, the preferred way to create this file is:
 
 ```bash
 epi policy init
@@ -17,6 +17,11 @@ That guided flow is meant for risk, compliance, and reviewer-facing users. EPI s
 - `epi_policy.json` = the rulebook you define before the run
 - `policy.json` = the sealed copy of that rulebook inside the `.epi` file
 - `analysis.json` = the analyzer's findings about the run
+
+Important:
+
+- console-only evidence can still be useful for inspection
+- policy works best when the workflow emits structured EPI steps, not just plain prints
 
 ## When EPI Uses `epi_policy.json`
 
@@ -89,7 +94,7 @@ before running an important workflow.
 
 ## Rule Types
 
-EPI currently supports four policy rule types.
+EPI currently supports five policy rule types.
 
 ### `constraint_guard`
 
@@ -192,6 +197,29 @@ Compatibility note:
 - EPI accepts both `prohibited_pattern` and `pattern`
 - prefer `prohibited_pattern` in new files
 
+### `approval_guard`
+
+Use this when a named action must have an explicit approval response before it can execute.
+
+Example:
+
+- refund approval requires a manager approval response
+- a sensitive transfer action must have reviewer signoff first
+
+Example shape:
+
+```json
+{
+  "id": "R005",
+  "name": "Manager Approval Before Refund",
+  "severity": "critical",
+  "description": "Refund approval requires an explicit approved response from a manager.",
+  "type": "approval_guard",
+  "approval_action": "approve_refund",
+  "approved_by": "manager"
+}
+```
+
 ## What The Fault Analyzer Checks
 
 When a policy is present, the analyzer checks the recorded trace for:
@@ -200,6 +228,7 @@ When a policy is present, the analyzer checks the recorded trace for:
 - `sequence_violation`
 - `threshold_violation`
 - `prohibition_violation`
+- `approval_violation`
 
 It also performs heuristic checks such as:
 

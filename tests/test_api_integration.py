@@ -1,102 +1,107 @@
 """
-Integration test for Python API - demonstrates real-world usage
+Standalone integration smoke for the Python API.
+
+This file is intentionally executable as a script for manual verification.
+It is not part of the regular pytest suite.
 """
 
 from pathlib import Path
+import json
+import zipfile
+
 from epi_recorder.api import record
 
-print("🧪 Testing EPI Recorder Python API Integration")
-print("=" * 60)
+
+ARTIFACT_DIR = Path("epi-recordings")
+ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _print_header(title: str) -> None:
+    print(title)
+    print("=" * 60)
+
+
+_print_header("Testing EPI Recorder Python API Integration")
 
 # Test 1: Basic recording
-print("\n1️⃣ Test: Basic Recording")
-with record("test_integration_basic.epi", workflow_name="Integration Test"):
-    print("   ✅ Recording context entered")
+print("\n1. Test: Basic Recording")
+with record(str(ARTIFACT_DIR / "test_integration_basic.epi"), workflow_name="Integration Test"):
+    print("   OK Recording context entered")
     result = 42 * 2
-    print(f"   ✅ Calculation: {result}")
+    print(f"   OK Calculation: {result}")
 
-print("   ✅ .epi file created: test_integration_basic.epi")
+print("   OK .epi file created: epi-recordings/test_integration_basic.epi")
 
 # Test 2: With manual logging
-print("\n2️⃣ Test: Manual Logging")
-with record("test_integration_manual.epi", workflow_name="Manual Log Test") as epi:
-    print("   ✅ Recording started")
-    
-    # Log some custom steps
+print("\n2. Test: Manual Logging")
+with record(str(ARTIFACT_DIR / "test_integration_manual.epi"), workflow_name="Manual Log Test") as epi:
+    print("   OK Recording started")
     epi.log_step("data.load", {"rows": 1000, "columns": 10})
-    print("   ✅ Logged data loading")
-    
+    print("   OK Logged data loading")
     epi.log_step("processing.complete", {"status": "success", "duration": 1.5})
-    print("   ✅ Logged processing")
+    print("   OK Logged processing")
 
-print("   ✅ .epi file created: test_integration_manual.epi")
+print("   OK .epi file created: epi-recordings/test_integration_manual.epi")
 
 # Test 3: With artifact
-print("\n3️⃣ Test: Artifact Capture")
+print("\n3. Test: Artifact Capture")
 test_file = Path("test_artifact.txt")
-test_file.write_text("This is a test artifact")
+test_file.write_text("This is a test artifact", encoding="utf-8")
 
-with record("test_integration_artifact.epi", workflow_name="Artifact Test") as epi:
-    print("   ✅ Recording started")
+with record(str(ARTIFACT_DIR / "test_integration_artifact.epi"), workflow_name="Artifact Test") as epi:
+    print("   OK Recording started")
     epi.log_artifact(test_file)
-    print("   ✅ Artifact captured")
+    print("   OK Artifact captured")
 
-test_file.unlink()  # Clean up
-print("   ✅ .epi file created: test_integration_artifact.epi")
+test_file.unlink()
+print("   OK .epi file created: epi-recordings/test_integration_artifact.epi")
 
 # Test 4: Error handling
-print("\n4️⃣ Test: Error Handling")
+print("\n4. Test: Error Handling")
 try:
-    with record("test_integration_error.epi", workflow_name="Error Test") as epi:
-        print("   ✅ Recording started")
+    with record(str(ARTIFACT_DIR / "test_integration_error.epi"), workflow_name="Error Test") as epi:
+        print("   OK Recording started")
         epi.log_step("before.error", {"status": "ok"})
         raise ValueError("Test error")
 except ValueError:
-    print("   ✅ Error caught and logged")
+    print("   OK Error caught and logged")
 
-print("   ✅ .epi file created: test_integration_error.epi")
+print("   OK .epi file created: epi-recordings/test_integration_error.epi")
 
 # Verification
-print("\n📊 Verification")
+print("\nVerification")
 print("=" * 60)
-
-import zipfile
-import json
 
 for filename in [
     "test_integration_basic.epi",
     "test_integration_manual.epi",
     "test_integration_artifact.epi",
-    "test_integration_error.epi"
+    "test_integration_error.epi",
 ]:
-    if Path(filename).exists():
-        with zipfile.ZipFile(filename, 'r') as zf:
-            # Check structure
-            files = zf.namelist()
-            has_manifest = "manifest.json" in files
-            has_steps = "steps.jsonl" in files
-            has_env = "environment.json" in files
-            
-            # Check signature
-            manifest = json.loads(zf.read("manifest.json"))
-            is_signed = manifest.get("signature") is not None
-            
-            print(f"✅ {filename}")
-            print(f"   • Structure: {'✓' if all([has_manifest, has_steps, has_env]) else '✗'}")
-            print(f"   • Signed: {'✓' if is_signed else '✗'}")
-            
-            # Count steps
-            steps_data = zf.read("steps.jsonl").decode("utf-8").strip()
-            step_count = len(steps_data.split("\n")) if steps_data else 0
-            print(f"   • Steps: {step_count}")
+    path = ARTIFACT_DIR / filename
+    if not path.exists():
+        continue
 
-print("\n🎉 All integration tests passed!")
+    with zipfile.ZipFile(path, "r") as zf:
+        files = zf.namelist()
+        has_manifest = "manifest.json" in files
+        has_steps = "steps.jsonl" in files
+        has_env = "environment.json" in files
+
+        manifest = json.loads(zf.read("manifest.json"))
+        is_signed = manifest.get("signature") is not None
+
+        print(f"OK {filename}")
+        print(f"   - Structure: {'yes' if all([has_manifest, has_steps, has_env]) else 'no'}")
+        print(f"   - Signed: {'yes' if is_signed else 'no'}")
+
+        steps_data = zf.read("steps.jsonl").decode("utf-8").strip()
+        step_count = len(steps_data.splitlines()) if steps_data else 0
+        print(f"   - Steps: {step_count}")
+
+print("\nAll integration checks completed.")
 print("=" * 60)
-print("\n📁 Generated files can be verified with:")
-print("   python -m epi_cli.main verify test_integration_basic.epi")
-print("\n👁️  View them with:")
-print("   python -m epi_cli.main view test_integration_basic.epi")
-
-
-
- 
+print("\nGenerated files can be verified with:")
+print("  python -m epi_cli.main verify test_integration_basic.epi")
+print("\nView them with:")
+print("  python -m epi_cli.main view test_integration_basic.epi")

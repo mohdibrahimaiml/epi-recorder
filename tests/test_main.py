@@ -361,6 +361,8 @@ class TestInitCommand:
         content = (tmp_path / "my_demo.py").read_text(encoding="utf-8")
         assert "from epi_recorder import record" in content
         assert 'record(str(output_file)' in content
+        assert "stdout evidence" in content
+        assert "Structured steps are richer than plain console output" in content
 
     def test_init_skips_existing_script(self, tmp_path):
         from epi_cli.main import init
@@ -403,6 +405,46 @@ class TestInitCommand:
         args = mock_run.call_args.args[0]
         assert args[0].endswith("python.exe") or args[0].endswith("python") or "python" in args[0].lower()
         assert args[1] == "my_demo.py"
+
+    def test_init_opens_viewer_on_success_by_default(self, tmp_path):
+        from epi_cli.main import init
+        import os
+        original = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
+            with patch("epi_cli.main.console", _mock_console()), \
+                 patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3), \
+                 patch("epi_cli.run._open_viewer", return_value=True) as mock_open:
+                code = _call(init, demo_filename="my_demo.py", no_open=False)
+        finally:
+            os.chdir(original)
+        assert code == 0
+        mock_open.assert_called_once()
+
+    def test_init_no_open_skips_viewer_launch(self, tmp_path):
+        from epi_cli.main import init
+        import os
+        original = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            recordings_dir = tmp_path / "epi-recordings"
+            recordings_dir.mkdir()
+            (recordings_dir / "epi_demo.epi").write_text("demo", encoding="utf-8")
+            with patch("epi_cli.main.console", _mock_console()), \
+                 patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
+                 patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+                 patch("epi_cli.main._count_steps_in_artifact", return_value=3), \
+                 patch("epi_cli.run._open_viewer", return_value=True) as mock_open:
+                code = _call(init, demo_filename="my_demo.py", no_open=True)
+        finally:
+            os.chdir(original)
+        assert code == 0
+        mock_open.assert_not_called()
 
     def test_init_fails_when_demo_does_not_produce_artifact(self, tmp_path):
         from epi_cli.main import init
@@ -503,18 +545,64 @@ class TestAnalyzeCommand:
         assert "FAULT DETECTED" in printed
         assert "No anomalies detected" not in printed
 
+    def test_fault_detected_without_primary_fault_does_not_crash(self, tmp_path):
+        from epi_cli.main import analyze
+
+        artifact = tmp_path / "secondary_only.epi"
+        manifest = ManifestModel(
+            workflow_id=uuid4(),
+            created_at=utc_now(),
+            file_manifest={"steps.jsonl": "placeholder"},
+        )
+        analysis = {
+            "fault_detected": True,
+            "mode": "policy_grounded",
+            "coverage": {"steps_recorded": 3, "coverage_percentage": 100},
+            "secondary_flags": [
+                {
+                    "fault_type": "HEURISTIC_OBSERVATION",
+                    "severity": "medium",
+                    "step_index": 1,
+                    "plain_english": "Something suspicious happened.",
+                }
+            ],
+        }
+        with zipfile.ZipFile(artifact, "w") as zf:
+            zf.writestr("mimetype", "application/vnd.epi+zip")
+            zf.writestr("manifest.json", manifest.model_dump_json())
+            zf.writestr("steps.jsonl", '{"index":0,"kind":"test","content":{}}\n')
+            zf.writestr("analysis.json", json.dumps(analysis))
+            zf.writestr("viewer.html", "<html></html>")
+
+        mock_console = _mock_console()
+        with patch("epi_cli.main.console", mock_console):
+            code = _call(analyze, epi_file=str(artifact))
+        assert code == 0
+        printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+        assert "FAULT DETECTED" in printed
+        assert "No anomalies detected" not in printed
+
 
 # ─────────────────────────────────────────────────────────────
 # main_callback
 # ─────────────────────────────────────────────────────────────
 
 class TestMainCallback:
-    def test_no_crash(self):
+    def test_bootstraps_keys_for_write_commands(self):
         from epi_cli.main import main_callback
         ctx = MagicMock(invoked_subcommand="run")
         with patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False), \
              patch("epi_cli.main._auto_repair_windows_association") as mock_repair:
             main_callback(ctx=ctx, version=False)
+        mock_repair.assert_called_once()
+
+    def test_skips_key_bootstrap_for_read_only_commands(self):
+        from epi_cli.main import main_callback
+        ctx = MagicMock(invoked_subcommand="ls")
+        with patch("epi_cli.keys.generate_default_keypair_if_missing") as mock_keys, \
+             patch("epi_cli.main._auto_repair_windows_association") as mock_repair:
+            main_callback(ctx=ctx, version=False)
+        mock_keys.assert_not_called()
         mock_repair.assert_called_once()
 
 
@@ -539,6 +627,7 @@ class TestAutoRepairWindowsAssociation:
         diag = {"status": "BROKEN", "extension_progid": None, "issues": ["missing"]}
         with patch("epi_cli.main.console", mock_console), \
              patch("sys.platform", "win32"), \
+             patch("epi_cli.main._windows_association_probe_due", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=False), \
              patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
             _auto_repair_windows_association(interactive=True, command_name="run")
@@ -550,10 +639,20 @@ class TestAutoRepairWindowsAssociation:
         diag = {"status": "OK", "extension_progid": "EPIRecorder.File", "issues": []}
         with patch("epi_cli.main.console", mock_console), \
              patch("sys.platform", "win32"), \
+             patch("epi_cli.main._windows_association_probe_due", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=True), \
              patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
             _auto_repair_windows_association(interactive=True, command_name="view")
         mock_console.print.assert_called_once()
+
+    def test_skips_association_probe_for_ls(self):
+        from epi_cli.main import _auto_repair_windows_association
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.get_association_diagnostics") as mock_diag, \
+             patch("epi_core.platform.associate.register_file_association") as mock_register:
+            _auto_repair_windows_association(interactive=True, command_name="ls")
+        mock_diag.assert_not_called()
+        mock_register.assert_not_called()
 
 
 # ─────────────────────────────────────────────────────────────

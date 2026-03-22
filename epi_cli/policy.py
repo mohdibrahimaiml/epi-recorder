@@ -7,6 +7,7 @@ keeping epi_policy.json as the machine-readable storage format.
 """
 
 import json
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -89,7 +90,7 @@ def _policy_summary_table(policy: EPIPolicy) -> Table:
     return table
 
 
-def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path] = None) -> None:
+def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path | str] = None) -> None:
     profile_label = getattr(policy, "profile_id", None) or "custom"
     where = f"\nStored at: [bold]{output_path}[/bold]" if output_path else ""
     console.print(
@@ -109,6 +110,28 @@ def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path] = None)
     if policy.rules:
         console.print(_policy_summary_table(policy))
         console.print()
+
+
+def _load_policy_payload(path: Path) -> tuple[dict, str]:
+    """
+    Load policy JSON from either a standalone policy file or an .epi artifact.
+
+    Returns:
+        tuple: (policy_payload, source_label)
+    """
+    if path.suffix.lower() == ".epi":
+        if not path.exists():
+            raise FileNotFoundError(path)
+        if not zipfile.is_zipfile(path):
+            raise ValueError(f"Not a valid .epi file: {path}")
+        with zipfile.ZipFile(path, "r") as zf:
+            if "policy.json" not in zf.namelist():
+                raise FileNotFoundError(f"No embedded policy.json found in {path.name}")
+            return json.loads(zf.read("policy.json").decode("utf-8")), f"{path} (embedded policy)"
+
+    if not path.exists():
+        raise FileNotFoundError(path)
+    return json.loads(path.read_text(encoding="utf-8")), str(path)
 
 
 def _remove_rule(policy: dict, rule_id: str) -> None:
@@ -390,16 +413,34 @@ def show(
     policy_file: str = typer.Argument(POLICY_FILENAME, help="Path to policy file"),
     raw: bool = typer.Option(False, "--raw", help="Also print the raw JSON after the human-readable summary."),
 ):
-    """Show a reviewer-friendly summary of the current policy."""
+    """Show a reviewer-friendly summary of a policy file or embedded artifact policy."""
     raw = _resolve_option_value(raw, False)
     path = Path(policy_file)
-    if not path.exists():
-        console.print(f"[red][X] Not found:[/red] {path}")
+    try:
+        data, source_label = _load_policy_payload(path)
+    except FileNotFoundError as exc:
+        console.print(f"[red][X] Not found:[/red] {exc}")
+        raise typer.Exit(1)
+    except ValueError as exc:
+        console.print(f"[red][X] {exc}[/red]")
+        raise typer.Exit(1)
+    except KeyError:
+        console.print(f"[red][X] No embedded policy found in:[/red] {path}")
+        raise typer.Exit(1)
+    except Exception as exc:
+        console.print(f"[red][FAIL] Could not read policy:[/red] {exc}")
         raise typer.Exit(1)
 
-    data = json.loads(path.read_text(encoding="utf-8"))
-    policy = EPIPolicy(**data)
-    _print_policy_summary(policy, output_path=path)
+    try:
+        policy = EPIPolicy(**data)
+    except Exception as exc:
+        console.print(f"[red][FAIL] Invalid policy data:[/red] {exc}")
+        raise typer.Exit(1)
+
+    if path.suffix.lower() == ".epi":
+        console.print(f"[dim]Showing embedded policy from:[/dim] {path}")
+
+    _print_policy_summary(policy, output_path=source_label)
 
     if raw:
         console.print(

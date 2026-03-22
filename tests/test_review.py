@@ -160,6 +160,33 @@ class TestArtifactReview:
         assert len(loaded.reviews) == 1
         assert loaded.reviews[0]["outcome"] == "confirmed_fault"
 
+    def test_second_review_replaces_existing_review_entry_in_zip(self, tmp_path):
+        epi_path = _make_minimal_epi(tmp_path)
+        first = _make_review_record()
+        second = ReviewRecord(
+            reviewed_by="bob@example.com",
+            reviews=[
+                make_review_entry(
+                    fault={"step_number": 2, "rule_id": "R009", "fault_type": "POLICY_VIOLATION"},
+                    outcome="dismissed",
+                    notes="Expected in this case.",
+                    reviewer="bob@example.com",
+                )
+            ],
+        )
+
+        add_review_to_artifact(epi_path, first)
+        add_review_to_artifact(epi_path, second)
+
+        with zipfile.ZipFile(epi_path, "r") as zf:
+            review_entries = [name for name in zf.namelist() if name == "review.json"]
+            assert len(review_entries) == 1
+
+        loaded = read_review(epi_path)
+        assert loaded is not None
+        assert loaded.reviewed_by == "bob@example.com"
+        assert loaded.reviews[0]["outcome"] == "dismissed"
+
     def test_add_review_raises_on_missing_file(self, tmp_path):
         record = _make_review_record()
         with pytest.raises(FileNotFoundError):

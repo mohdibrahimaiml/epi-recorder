@@ -17,7 +17,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from epi_core.container import EPIContainer
-from epi_core.trust import verify_signature, get_signer_name, create_verification_report
+from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
 from epi_cli.view import _resolve_epi_file
 
 console = Console()
@@ -83,38 +83,14 @@ def verify_command(
         if verbose:
             console.print("\n[bold]Step 3: Authenticity Checks[/bold]")
         
-        if manifest.signature:
-            signer_name = get_signer_name(manifest.signature)
-            
-            # Use the embedded public key from the manifest itself for decentralized trust
-            if not manifest.public_key:
-                signature_valid = False
-                if verbose:
-                    console.print("  [red][FAIL][/red] No public key embedded in manifest")
-            else:
-                try:
-                    # public_key is always stored as hex in all versions
-                    try:
-                        public_key_bytes = bytes.fromhex(manifest.public_key)
-                    except ValueError:
-                        import base64
-                        public_key_bytes = base64.b64decode(manifest.public_key)
-                    signature_valid, sig_message = verify_signature(manifest, public_key_bytes)
-
-                    if verbose:
-                        if signature_valid:
-                            console.print(f"  [green][OK][/green] {sig_message}")
-                        else:
-                            console.print(f"  [red][FAIL][/red] {sig_message}")
-
-                except Exception as e:
-                    signature_valid = False
-                    if verbose:
-                        console.print(f"  [red][FAIL][/red] Invalid embedded public key: {e}")
-        else:
-            signature_valid = None
-            if verbose:
+        signature_valid, signer_name, sig_message = verify_embedded_manifest_signature(manifest)
+        if verbose:
+            if signature_valid is True:
+                console.print(f"  [green][OK][/green] {sig_message}")
+            elif signature_valid is None:
                 console.print("  [yellow][WARN][/yellow]  No signature present (unsigned)")
+            else:
+                console.print(f"  [red][FAIL][/red] {sig_message}")
         
         # ========== CREATE REPORT ==========
         report = create_verification_report(

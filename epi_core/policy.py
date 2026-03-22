@@ -27,6 +27,7 @@ class PolicyRule(BaseModel):
         "sequence_guard",
         "threshold_guard",
         "prohibition_guard",
+        "approval_guard",
     ]
 
     # constraint_guard: value established at step M must not be exceeded at step N
@@ -48,6 +49,14 @@ class PolicyRule(BaseModel):
         validation_alias=AliasChoices("prohibited_pattern", "pattern"),
         serialization_alias="prohibited_pattern",
     )
+
+    # approval_guard: action requires an explicit approval response before execution
+    approval_action: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("approval_action", "action"),
+        serialization_alias="approval_action",
+    )
+    approved_by: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -346,6 +355,15 @@ STARTER_POLICY_TEMPLATE = """\
       "description": "Agent must never output raw API keys or secrets.",
       "type": "prohibition_guard",
       "prohibited_pattern": "sk-[A-Za-z0-9]+"
+    },
+    {
+      "id": "R005",
+      "name": "Example Approval Guard",
+      "severity": "critical",
+      "description": "Refund approval requires an explicit approved response from a manager.",
+      "type": "approval_guard",
+      "approval_action": "approve_refund",
+      "approved_by": "manager"
     }
   ]
 }

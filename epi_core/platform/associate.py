@@ -114,32 +114,54 @@ def _get_windows_default_icon(python_exe: Optional[Path] = None) -> str:
 def _get_epi_launcher_vbs(python_exe: Optional[Path] = None) -> Path:
     """Create and return the path to the VBScript launcher.
 
-    Double-click opens the viewer embedded inside the .epi file. The launcher
-    does NOT depend on Python: it uses Windows Shell.Application to extract
-    viewer.html from the .epi (ZIP) and opens it in the default browser. This
-    works regardless of PATH, venv, or which Python has epi_recorder.
+    Double-click should prefer the same `epi view "%1"` path the CLI uses.
+    That keeps the rendered viewer aligned with the current artifact contents
+    and verification context, instead of reopening stale embedded HTML.
 
-    Stored at AppData\\Local\\EPILabs\\launch.vbs. wscript.exe /B runs it
-    with no console window. python_exe is ignored (kept for API compatibility
-    with register_windows which passes it).
+    If no usable runtime command is available, the launcher falls back to
+    extracting the embedded viewer.html directly from the .epi archive.
     """
+    python_exe = python_exe or Path(sys.executable)
     launcher_dir = _resolve_windows_launcher_dir()
     vbs_path = launcher_dir / "launch.vbs"
 
-    # Standalone VBS: extract viewer.html from .epi (ZIP) and open in default browser.
-    # No Python required — works for every user (pip install, PyPI). Double-click = open embedded viewer.
-    vbs_content = r"""On Error Resume Next
+    adjacent_epi = python_exe.parent / "epi.exe"
+    if adjacent_epi.exists() and adjacent_epi.stat().st_size > 0:
+        view_command = f'"{adjacent_epi.absolute()}" view "%1"'
+    else:
+        epi_on_path = shutil.which("epi.exe")
+        if epi_on_path:
+            view_command = f'"{Path(epi_on_path).absolute()}" view "%1"'
+        else:
+            pythonw = python_exe.parent / "pythonw.exe"
+            if pythonw.exists() and pythonw.stat().st_size > 0:
+                view_command = f'"{pythonw.absolute()}" -m epi_cli view "%1"'
+            else:
+                view_command = f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+
+    escaped_view_command = view_command.replace('"', '""')
+
+    vbs_content = f"""On Error Resume Next
 If WScript.Arguments.Count < 1 Then
     WScript.Quit 1
 End If
 
-    Dim epiPath, zipPath, fso, tempFolder, shell, zipNs, destNs, viewerPath, sh, i
+Dim epiPath, zipPath, fso, tempFolder, shell, zipNs, destNs, viewerPath, sh, i, viewerCommand, exitCode
 epiPath = WScript.Arguments(0)
 Set fso = CreateObject("Scripting.FileSystemObject")
 If Not fso.FileExists(epiPath) Then
     WScript.Quit 2
 End If
 epiPath = fso.GetAbsolutePathName(epiPath)
+
+Set sh = CreateObject("WScript.Shell")
+viewerCommand = "{escaped_view_command}"
+viewerCommand = Replace(viewerCommand, "%1", Chr(34) & epiPath & Chr(34))
+exitCode = sh.Run(viewerCommand, 0, True)
+If Err.Number = 0 And exitCode = 0 Then
+    WScript.Quit 0
+End If
+Err.Clear
 
 tempFolder = fso.BuildPath(fso.GetSpecialFolder(2), "epi_view_" & Replace(fso.GetTempName, ".tmp", ""))
 If Not fso.FolderExists(tempFolder) Then
@@ -169,7 +191,6 @@ If Not fso.FileExists(viewerPath) Then
     WScript.Quit 4
 End If
 
-Set sh = CreateObject("WScript.Shell")
 sh.Run Chr(34) & viewerPath & Chr(34), 1, False
 """
     return _write_windows_script(vbs_path, vbs_content)
@@ -210,10 +231,8 @@ def _get_self_heal_vbs(python_exe: Optional[Path] = None) -> Path:
 def _get_epi_command() -> str:
     """Return the shell open command for .epi files.
 
-    Prefer a real epi.exe when one is available because it is the most stable
-    Windows double-click path. Fall back to the VBScript launcher only for
-    Python-only installs where Explorer cannot reliably invoke the module
-    directly (for example Microsoft Store Python alias edge cases).
+    Prefer the live `epi view` path whenever possible so every open flow uses
+    fresh viewer generation and current verification context.
     """
     python_exe = Path(sys.executable)
 
@@ -230,28 +249,23 @@ def _get_epi_command() -> str:
         except Exception:
             pass
 
-    # Fallback: VBScript launcher — useful for Store Python and module-only installs.
-    try:
-        vbs_path = _get_epi_launcher_vbs()
-        return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
-    except Exception:
-        pass
-
-    # Last-resort fallbacks when no epi.exe is available.
     pythonw = python_exe.parent / "pythonw.exe"
     if pythonw.exists() and pythonw.stat().st_size > 0:
         return f'"{pythonw.absolute()}" -m epi_cli view "%1"'
 
-    # Fallback 2: python.exe — last resort, shows a brief console window
-    return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+    if python_exe.exists() and python_exe.stat().st_size > 0:
+        return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+
+    try:
+        vbs_path = _get_epi_launcher_vbs(python_exe)
+        return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
+    except Exception:
+        return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+
 
 def _get_user_open_command() -> str:
     """Return a stable HKCU open command for PyPI/GitHub installs."""
-    try:
-        vbs_path = _get_epi_launcher_vbs()
-        return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
-    except Exception:
-        return _get_epi_command()
+    return _get_epi_command()
 
 
 def _get_expected_open_command(scope: Optional[str]) -> str:

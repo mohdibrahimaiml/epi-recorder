@@ -20,6 +20,7 @@ from rich.console import Console
 from rich.table import Table
 
 from epi_core.container import EPIContainer
+from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
 
 console = Console()
 
@@ -68,9 +69,16 @@ def _get_recording_info(epi_file: Path) -> dict:
                     script = Path(part).name
                     break
 
-        signed = bool(manifest.signature)
-
         integrity_ok, _ = EPIContainer.verify_integrity(epi_file)
+        signature_valid, signer_name, _sig_message = verify_embedded_manifest_signature(manifest)
+        report = create_verification_report(
+            integrity_ok=integrity_ok,
+            signature_valid=signature_valid,
+            signer_name=signer_name,
+            mismatches={},
+            manifest=manifest,
+        )
+        signed = report["trust_level"] == "HIGH"
 
         goal = getattr(manifest, "goal", None)
         metrics = getattr(manifest, "metrics", None)
@@ -86,8 +94,10 @@ def _get_recording_info(epi_file: Path) -> dict:
             "modified": modified,
             "modified_str": modified.strftime("%Y-%m-%d %H:%M"),
             "signed": signed,
+            "has_signature": report["has_signature"],
+            "signature_valid": signature_valid,
             "integrity_ok": integrity_ok,
-            "status": "[green]OK[/green]" if integrity_ok else "[red]FAIL[/red]",
+            "status": "[green]OK[/green]" if integrity_ok and signature_valid is not False else "[red]FAIL[/red]",
             "goal": goal or "",
             "metrics_summary": _format_metrics(metrics) if metrics else "",
             "tags": tags or [],

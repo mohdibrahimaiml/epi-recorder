@@ -23,9 +23,29 @@ from epi_core.workspace import RecordingWorkspaceError, create_recording_workspa
 
 # EPI mimetype constant (vendor-specific MIME type per RFC 6838)
 EPI_MIMETYPE = "application/vnd.epi+zip"
+_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
+_GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json"}
 
 # Thread-safe lock for ZIP packing operations (prevents concurrent corruption)
 _zip_pack_lock = threading.Lock()
+
+
+def _html_safe_json_dumps(data: object, *, indent: Optional[int] = None) -> str:
+    """
+    Serialize JSON safely for embedding inside an HTML <script> tag.
+
+    Recorded content can legitimately contain values such as ``</script>`` or
+    U+2028/U+2029. Escaping these keeps embedded viewer payloads robust for
+    offline viewing and prevents the script block from being cut short.
+    """
+    text = json.dumps(data, ensure_ascii=False, indent=indent)
+    return (
+        text.replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 class EPIContainer:
@@ -119,12 +139,14 @@ class EPIContainer:
         steps = []
         steps_file = source_dir / "steps.jsonl"
         if steps_file.exists():
-            for line in steps_file.read_text(encoding="utf-8").strip().split("\n"):
-                if line:
-                    try:
-                        steps.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
+            for line in steps_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    steps.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
         
         # Read analysis.json and policy.json if present (written by FaultAnalyzer)
         analysis_data = None
@@ -161,7 +183,7 @@ class EPIContainer:
         }
         
         # Inject data into template
-        data_json = json.dumps(embedded_data, indent=2)
+        data_json = _html_safe_json_dumps(embedded_data, indent=2)
         start_tag = '<script id="epi-data" type="application/json">'
         end_tag = "</script>"
         if start_tag in template_html:
@@ -274,6 +296,15 @@ class EPIContainer:
             # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
+            # Clear stale generated files before rebuilding them for this pack.
+            # This prevents reused workspaces from accidentally sealing old
+            # analysis/policy outputs when analyzer or policy loading does not
+            # run on the current pass.
+            for generated_name in _GENERATED_WORKSPACE_FILES:
+                stale_path = source_dir / generated_name
+                if stale_path.exists():
+                    stale_path.unlink()
+
             # ── Fault Intelligence Layer ──────────────────────────────────────
             # Runs BEFORE rglob so analysis.json / policy.json are hashed
             # into file_manifest and covered by the Ed25519 signature.
@@ -314,17 +345,22 @@ class EPIContainer:
             file_manifest = {}
             files_to_pack = []
             
-            for file_path in source_dir.rglob("*"):
+            for file_path in sorted(source_dir.rglob("*")):
                 if file_path.is_file():
                     # Get relative path for archive
                     rel_path = file_path.relative_to(source_dir)
                     arc_name = str(rel_path).replace("\\", "/")  # Use forward slashes in ZIP
+
+                    if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
+                        continue
                     
                     # Compute hash
                     file_hash = EPIContainer._compute_file_hash(file_path)
                     file_manifest[arc_name] = file_hash
                     
                     files_to_pack.append((file_path, arc_name))
+
+            files_to_pack.sort(key=lambda item: item[1])
             
             # Update manifest with file hashes.
             # NOTE: viewer.html and manifest.json are intentionally excluded from

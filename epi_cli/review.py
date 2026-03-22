@@ -19,6 +19,8 @@ from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.text import Text
 
+from epi_core.container import EPIContainer
+from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
 from epi_cli.view import _resolve_epi_file
 
 app = typer.Typer(
@@ -125,6 +127,41 @@ def _review_guidance(fault: dict) -> tuple[str, str]:
     )
 
 
+def _build_review_trust_report(epi_path: Path) -> dict:
+    manifest = EPIContainer.read_manifest(epi_path)
+    integrity_ok, mismatches = EPIContainer.verify_integrity(epi_path)
+    signature_valid, signer_name, _message = verify_embedded_manifest_signature(manifest)
+    return create_verification_report(
+        integrity_ok=integrity_ok,
+        signature_valid=signature_valid,
+        signer_name=signer_name,
+        mismatches=mismatches,
+        manifest=manifest,
+    )
+
+
+def _print_review_trust_summary(report: dict) -> None:
+    if report["trust_level"] == "HIGH":
+        status = "[green]Signed[/green]"
+        guidance = "This artifact is cryptographically verified and safe to review."
+    elif report["trust_level"] == "MEDIUM":
+        status = "[yellow]Unsigned[/yellow]"
+        guidance = "Integrity is intact, but there is no signature. Review the content, but do not treat origin as cryptographically proven."
+    else:
+        status = "[red]Tampered or invalid[/red]"
+        guidance = "Do not review this artifact as evidence. Recover the original sealed file first."
+
+    console.print(
+        Panel(
+            f"[bold]Evidence status:[/bold] {status}\n"
+            f"[bold]What this means:[/bold] {report['trust_message']}\n"
+            f"[bold]Reviewer guidance:[/bold] {guidance}",
+            title="Trust Check",
+            border_style="green" if report["trust_level"] == "HIGH" else ("yellow" if report["trust_level"] == "MEDIUM" else "red"),
+        )
+    )
+
+
 @app.callback(invoke_without_command=True)
 def review(
     ctx: typer.Context,
@@ -157,6 +194,14 @@ def review(
 
     if not zipfile.is_zipfile(epi_path):
         console.print(f"[red][X] Not a valid .epi file:[/red] {epi_file}")
+        raise typer.Exit(1)
+
+    trust_report = _build_review_trust_report(epi_path)
+    console.print()
+    _print_review_trust_summary(trust_report)
+    console.print()
+    if trust_report["trust_level"] == "NONE":
+        console.print("[red][X] Review stopped because the artifact is not trustworthy evidence.[/red]")
         raise typer.Exit(1)
 
     analysis = _read_analysis(epi_path)
@@ -254,6 +299,9 @@ def show_review(ctx: typer.Context):
     from epi_core.review import read_review
 
     epi_path = ctx.obj["epi_path"]
+    console.print()
+    _print_review_trust_summary(_build_review_trust_report(epi_path))
+    console.print()
     record = read_review(epi_path)
 
     if record is None:

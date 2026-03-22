@@ -20,7 +20,7 @@ from epi_core.time_utils import utc_now, utc_now_iso
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
-def _make_minimal_epi(tmp_path: Path, signed: bool = False) -> Path:
+def _make_minimal_epi(tmp_path: Path, signed: bool = False, include_viewer: bool = True) -> Path:
     """Create a minimal valid .epi file for testing."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from epi_core.trust import sign_manifest
@@ -51,7 +51,8 @@ def _make_minimal_epi(tmp_path: Path, signed: bool = False) -> Path:
         zf.writestr("mimetype", mimetype)
         zf.writestr("manifest.json", manifest.model_dump_json(indent=2))
         zf.writestr("steps.jsonl", steps_content)
-        zf.writestr("viewer.html", "<html><body>Viewer</body></html>")
+        if include_viewer:
+            zf.writestr("viewer.html", "<html><body>Viewer</body></html>")
 
     return epi_path
 
@@ -151,13 +152,13 @@ class TestOpenViewer:
         assert result is True
         mock_open.assert_called_once()
 
-    def test_returns_false_when_no_viewer_html(self, tmp_path):
+    def test_regenerates_viewer_when_no_viewer_html(self, tmp_path):
         from epi_cli.run import _open_viewer
-        epi = tmp_path / "no_viewer.epi"
-        with zipfile.ZipFile(epi, "w") as zf:
-            zf.writestr("manifest.json", "{}")
-        result = _open_viewer(epi)
-        assert result is False
+        epi = _make_minimal_epi(tmp_path, include_viewer=False)
+        with patch("webbrowser.open", return_value=True) as mock_open:
+            result = _open_viewer(epi)
+        assert result is True
+        mock_open.assert_called_once()
 
     def test_returns_false_on_bad_zip(self, tmp_path):
         from epi_cli.run import _open_viewer

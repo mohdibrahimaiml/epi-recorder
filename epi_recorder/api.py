@@ -16,6 +16,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
+from uuid import uuid4
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
@@ -103,6 +104,539 @@ class _StdStreamCapture:
         except Exception:
             # Never break user stdout writes because step logging failed.
             pass
+
+
+def _compact_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop None values while preserving falsy-but-meaningful fields like False or 0."""
+    return {key: value for key, value in payload.items() if value is not None}
+
+
+class AgentRun:
+    """
+    High-level helper for recording AI-agent execution as readable EPI steps.
+
+    This gives agent developers a stable, product-shaped surface:
+
+        with record("agent.epi") as epi:
+            with epi.agent_run("refund-agent", user_input="Refund order 123") as agent:
+                agent.message("user", "Refund order 123")
+                agent.tool_call("lookup_order", {"order_id": "123"})
+                agent.tool_result("lookup_order", {"status": "paid"})
+                agent.decision("approve_refund", confidence=0.94)
+
+    The helper intentionally reuses EPI's existing step kinds where that helps
+    downstream policy/fault analysis (`tool.call`, `tool.response`) while adding
+    agent-specific context for the viewer and human review experience.
+    """
+
+    def __init__(
+        self,
+        step_logger: Callable[[str, Dict[str, Any]], None],
+        async_step_logger: Callable[[str, Dict[str, Any]], Any],
+        agent_name: str,
+        *,
+        agent_type: str = "agent",
+        user_input: Optional[Any] = None,
+        goal: Optional[str] = None,
+        session_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        attempt: int = 1,
+        resume_from: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        self._step_logger = step_logger
+        self._async_step_logger = async_step_logger
+        self.agent_name = agent_name
+        self.agent_type = agent_type
+        self.user_input = user_input
+        self.goal = goal
+        self.session_id = session_id or str(uuid4())
+        self.task_id = task_id or str(uuid4())
+        self.parent_run_id = parent_run_id
+        self.attempt = attempt
+        self.resume_from = resume_from
+        self.metadata = metadata or {}
+        self.run_id = str(uuid4())
+        self.started_at: Optional[datetime] = None
+        self._entered = False
+
+    def _payload(self, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        payload = dict(self.metadata)
+        payload.update(
+            {
+                "agent_name": self.agent_name,
+                "agent_type": self.agent_type,
+                "session_id": self.session_id,
+                "task_id": self.task_id,
+                "run_id": self.run_id,
+                "parent_run_id": self.parent_run_id,
+                "attempt": self.attempt,
+                "resume_from": self.resume_from,
+                "timestamp": utc_now_iso(),
+            }
+        )
+        if extra:
+            payload.update(extra)
+        return _compact_payload(payload)
+
+    def _log(self, kind: str, payload: Optional[Dict[str, Any]] = None) -> None:
+        self._step_logger(kind, self._payload(payload))
+
+    async def _alog(self, kind: str, payload: Optional[Dict[str, Any]] = None) -> None:
+        await self._async_step_logger(kind, self._payload(payload))
+
+    def start(self) -> "AgentRun":
+        if self._entered:
+            raise RuntimeError("AgentRun cannot be re-entered")
+
+        self._entered = True
+        self.started_at = utc_now()
+        self._log(
+            "agent.run.start",
+            {
+                "user_input": self.user_input,
+                "goal": self.goal,
+            },
+        )
+        return self
+
+    async def astart(self) -> "AgentRun":
+        if self._entered:
+            raise RuntimeError("AgentRun cannot be re-entered")
+
+        self._entered = True
+        self.started_at = utc_now()
+        await self._alog(
+            "agent.run.start",
+            {
+                "user_input": self.user_input,
+                "goal": self.goal,
+            },
+        )
+        return self
+
+    def plan(self, summary: str, *, steps: Optional[List[str]] = None, **metadata: Any) -> None:
+        self._log("agent.plan", {"summary": summary, "steps": steps, **metadata})
+
+    async def aplan(self, summary: str, *, steps: Optional[List[str]] = None, **metadata: Any) -> None:
+        await self._alog("agent.plan", {"summary": summary, "steps": steps, **metadata})
+
+    def finish(self, success: bool = True, **metadata: Any) -> None:
+        duration = None
+        if self.started_at is not None:
+            duration = (utc_now() - self.started_at).total_seconds()
+
+        self._log(
+            "agent.run.end",
+            {
+                "success": success,
+                "duration_seconds": duration,
+                **metadata,
+            },
+        )
+
+    async def afinish(self, success: bool = True, **metadata: Any) -> None:
+        duration = None
+        if self.started_at is not None:
+            duration = (utc_now() - self.started_at).total_seconds()
+
+        await self._alog(
+            "agent.run.end",
+            {
+                "success": success,
+                "duration_seconds": duration,
+                **metadata,
+            },
+        )
+
+    def message(self, role: str, content: Any, **metadata: Any) -> None:
+        self._log("agent.message", {"role": role, "content": content, **metadata})
+
+    async def amessage(self, role: str, content: Any, **metadata: Any) -> None:
+        await self._alog("agent.message", {"role": role, "content": content, **metadata})
+
+    def tool_call(self, tool: str, tool_input: Optional[Any] = None, **metadata: Any) -> None:
+        self._log("tool.call", {"tool": tool, "input": tool_input, **metadata})
+
+    async def atool_call(self, tool: str, tool_input: Optional[Any] = None, **metadata: Any) -> None:
+        await self._alog("tool.call", {"tool": tool, "input": tool_input, **metadata})
+
+    def tool_result(
+        self,
+        tool: str,
+        output: Optional[Any] = None,
+        *,
+        status: str = "success",
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "tool.response",
+            {
+                "tool": tool,
+                "output": output,
+                "status": status,
+                **metadata,
+            },
+        )
+
+    async def atool_result(
+        self,
+        tool: str,
+        output: Optional[Any] = None,
+        *,
+        status: str = "success",
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "tool.response",
+            {
+                "tool": tool,
+                "output": output,
+                "status": status,
+                **metadata,
+            },
+        )
+
+    def decision(
+        self,
+        decision: str,
+        *,
+        output: Optional[Any] = None,
+        confidence: Optional[float] = None,
+        rationale: Optional[str] = None,
+        review_required: Optional[bool] = None,
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "agent.decision",
+            {
+                "decision": decision,
+                "output": output,
+                "confidence": confidence,
+                "rationale": rationale,
+                "review_required": review_required,
+                **metadata,
+            },
+        )
+
+    async def adecision(
+        self,
+        decision: str,
+        *,
+        output: Optional[Any] = None,
+        confidence: Optional[float] = None,
+        rationale: Optional[str] = None,
+        review_required: Optional[bool] = None,
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "agent.decision",
+            {
+                "decision": decision,
+                "output": output,
+                "confidence": confidence,
+                "rationale": rationale,
+                "review_required": review_required,
+                **metadata,
+            },
+        )
+
+    def approval_request(
+        self,
+        action: str,
+        *,
+        reason: Optional[str] = None,
+        risk_level: Optional[str] = None,
+        requested_by: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "agent.approval.request",
+            {
+                "action": action,
+                "reason": reason,
+                "risk_level": risk_level,
+                "requested_by": requested_by or self.agent_name,
+                **metadata,
+            },
+        )
+
+    async def aapproval_request(
+        self,
+        action: str,
+        *,
+        reason: Optional[str] = None,
+        risk_level: Optional[str] = None,
+        requested_by: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "agent.approval.request",
+            {
+                "action": action,
+                "reason": reason,
+                "risk_level": risk_level,
+                "requested_by": requested_by or self.agent_name,
+                **metadata,
+            },
+        )
+
+    def approval_response(
+        self,
+        action: str,
+        *,
+        approved: bool,
+        reviewer: Optional[str] = None,
+        notes: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "agent.approval.response",
+            {
+                "action": action,
+                "approved": approved,
+                "reviewer": reviewer,
+                "notes": notes,
+                **metadata,
+            },
+        )
+
+    async def aapproval_response(
+        self,
+        action: str,
+        *,
+        approved: bool,
+        reviewer: Optional[str] = None,
+        notes: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "agent.approval.response",
+            {
+                "action": action,
+                "approved": approved,
+                "reviewer": reviewer,
+                "notes": notes,
+                **metadata,
+            },
+        )
+
+    def handoff(self, to_agent: str, *, reason: Optional[str] = None, **metadata: Any) -> None:
+        self._log(
+            "agent.handoff",
+            {
+                "from_agent": self.agent_name,
+                "to_agent": to_agent,
+                "reason": reason,
+                **metadata,
+            },
+        )
+
+    async def ahandoff(self, to_agent: str, *, reason: Optional[str] = None, **metadata: Any) -> None:
+        await self._alog(
+            "agent.handoff",
+            {
+                "from_agent": self.agent_name,
+                "to_agent": to_agent,
+                "reason": reason,
+                **metadata,
+            },
+        )
+
+    def memory_read(
+        self,
+        memory_key: str,
+        *,
+        query: Optional[str] = None,
+        source: Optional[str] = None,
+        result_count: Optional[int] = None,
+        value: Optional[Any] = None,
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "agent.memory.read",
+            {
+                "memory_key": memory_key,
+                "query": query,
+                "source": source,
+                "result_count": result_count,
+                "value": value,
+                **metadata,
+            },
+        )
+
+    async def amemory_read(
+        self,
+        memory_key: str,
+        *,
+        query: Optional[str] = None,
+        source: Optional[str] = None,
+        result_count: Optional[int] = None,
+        value: Optional[Any] = None,
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "agent.memory.read",
+            {
+                "memory_key": memory_key,
+                "query": query,
+                "source": source,
+                "result_count": result_count,
+                "value": value,
+                **metadata,
+            },
+        )
+
+    def memory_write(
+        self,
+        memory_key: str,
+        value: Optional[Any] = None,
+        *,
+        operation: str = "set",
+        destination: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        self._log(
+            "agent.memory.write",
+            {
+                "memory_key": memory_key,
+                "value": value,
+                "operation": operation,
+                "destination": destination,
+                **metadata,
+            },
+        )
+
+    async def amemory_write(
+        self,
+        memory_key: str,
+        value: Optional[Any] = None,
+        *,
+        operation: str = "set",
+        destination: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        await self._alog(
+            "agent.memory.write",
+            {
+                "memory_key": memory_key,
+                "value": value,
+                "operation": operation,
+                "destination": destination,
+                **metadata,
+            },
+        )
+
+    def state(self, state: str, **metadata: Any) -> None:
+        self._log("agent.state", {"state": state, **metadata})
+
+    async def astate(self, state: str, **metadata: Any) -> None:
+        await self._alog("agent.state", {"state": state, **metadata})
+
+    def pause(self, *, reason: Optional[str] = None, waiting_for: Optional[str] = None, **metadata: Any) -> None:
+        self._log(
+            "agent.run.pause",
+            {
+                "reason": reason,
+                "waiting_for": waiting_for,
+                **metadata,
+            },
+        )
+
+    async def apause(self, *, reason: Optional[str] = None, waiting_for: Optional[str] = None, **metadata: Any) -> None:
+        await self._alog(
+            "agent.run.pause",
+            {
+                "reason": reason,
+                "waiting_for": waiting_for,
+                **metadata,
+            },
+        )
+
+    def resume(self, *, reason: Optional[str] = None, resumed_from: Optional[str] = None, **metadata: Any) -> None:
+        self._log(
+            "agent.run.resume",
+            {
+                "reason": reason,
+                "resumed_from": resumed_from or self.resume_from,
+                **metadata,
+            },
+        )
+
+    async def aresume(self, *, reason: Optional[str] = None, resumed_from: Optional[str] = None, **metadata: Any) -> None:
+        await self._alog(
+            "agent.run.resume",
+            {
+                "reason": reason,
+                "resumed_from": resumed_from or self.resume_from,
+                **metadata,
+            },
+        )
+
+    def error(self, error: Union[str, BaseException], **metadata: Any) -> None:
+        if isinstance(error, BaseException):
+            payload = {
+                "error_type": type(error).__name__,
+                "error_message": str(error),
+            }
+        else:
+            payload = {
+                "error_type": "AgentError",
+                "error_message": str(error),
+            }
+        payload.update(metadata)
+        self._log("agent.run.error", payload)
+
+    async def aerror(self, error: Union[str, BaseException], **metadata: Any) -> None:
+        if isinstance(error, BaseException):
+            payload = {
+                "error_type": type(error).__name__,
+                "error_message": str(error),
+            }
+        else:
+            payload = {
+                "error_type": "AgentError",
+                "error_message": str(error),
+            }
+        payload.update(metadata)
+        await self._alog("agent.run.error", payload)
+
+    def __enter__(self) -> "AgentRun":
+        return self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        if exc_type is not None:
+            if exc_val is not None:
+                self.error(exc_val)
+            else:
+                self._log(
+                    "agent.run.error",
+                    {
+                        "error_type": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                    },
+                )
+        self.finish(success=exc_type is None)
+        return False
+
+    async def __aenter__(self) -> "AgentRun":
+        return await self.astart()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+        if exc_type is not None:
+            if exc_val is not None:
+                await self.aerror(exc_val)
+            else:
+                await self._alog(
+                    "agent.run.error",
+                    {
+                        "error_type": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                    },
+                )
+        await self.afinish(success=exc_type is None)
+        return False
 
 
 class EpiRecorderSession:
@@ -446,6 +980,77 @@ class EpiRecorderSession:
         """
         # Logging is CPU-bound, not I/O-bound, so just call sync version
         self.log_step(kind, content)
+
+    def agent_run(
+        self,
+        agent_name: str,
+        *,
+        agent_type: str = "agent",
+        user_input: Optional[Any] = None,
+        goal: Optional[str] = None,
+        session_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        attempt: int = 1,
+        resume_from: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> AgentRun:
+        """
+        Create a high-level agent-run helper for AI systems and agent frameworks.
+
+        Example:
+            with record("refund.epi") as epi:
+                with epi.agent_run("refund-agent", user_input="Refund order 123") as agent:
+                    agent.message("user", "Refund order 123")
+                    agent.tool_call("lookup_order", {"order_id": "123"})
+                    agent.tool_result("lookup_order", {"status": "paid"})
+                    agent.decision("approve_refund", confidence=0.93)
+        """
+        if not self._entered:
+            raise RuntimeError("Cannot create agent run outside of context manager")
+
+        return AgentRun(
+            self.log_step,
+            self.alog_step,
+            agent_name,
+            agent_type=agent_type,
+            user_input=user_input,
+            goal=goal,
+            session_id=session_id,
+            task_id=task_id,
+            parent_run_id=parent_run_id,
+            attempt=attempt,
+            resume_from=resume_from,
+            metadata=metadata,
+        )
+
+    def agent(
+        self,
+        agent_name: str,
+        *,
+        agent_type: str = "agent",
+        user_input: Optional[Any] = None,
+        goal: Optional[str] = None,
+        session_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        attempt: int = 1,
+        resume_from: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> AgentRun:
+        """Alias for agent_run() to keep agent code concise."""
+        return self.agent_run(
+            agent_name,
+            agent_type=agent_type,
+            user_input=user_input,
+            goal=goal,
+            session_id=session_id,
+            task_id=task_id,
+            parent_run_id=parent_run_id,
+            attempt=attempt,
+            resume_from=resume_from,
+            metadata=metadata,
+        )
     
     def log_llm_request(self, model: str, payload: Dict[str, Any]) -> None:
         """
@@ -1030,6 +1635,62 @@ class _BootstrapSessionProxy:
 
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         self.log_step(kind, content)
+
+    def agent_run(
+        self,
+        agent_name: str,
+        *,
+        agent_type: str = "agent",
+        user_input: Optional[Any] = None,
+        goal: Optional[str] = None,
+        session_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        attempt: int = 1,
+        resume_from: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> AgentRun:
+        return AgentRun(
+            self.log_step,
+            self.alog_step,
+            agent_name,
+            agent_type=agent_type,
+            user_input=user_input,
+            goal=goal,
+            session_id=session_id,
+            task_id=task_id,
+            parent_run_id=parent_run_id,
+            attempt=attempt,
+            resume_from=resume_from,
+            metadata=metadata,
+        )
+
+    def agent(
+        self,
+        agent_name: str,
+        *,
+        agent_type: str = "agent",
+        user_input: Optional[Any] = None,
+        goal: Optional[str] = None,
+        session_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
+        attempt: int = 1,
+        resume_from: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> AgentRun:
+        return self.agent_run(
+            agent_name,
+            agent_type=agent_type,
+            user_input=user_input,
+            goal=goal,
+            session_id=session_id,
+            task_id=task_id,
+            parent_run_id=parent_run_id,
+            attempt=attempt,
+            resume_from=resume_from,
+            metadata=metadata,
+        )
 
 
 # Make it easy to get current session

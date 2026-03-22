@@ -14,9 +14,10 @@ This command:
 import shlex
 import time
 import zipfile
+import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from rich.console import Console
@@ -24,12 +25,17 @@ from rich.panel import Panel
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
-from epi_core.trust import verify_signature, get_signer_name, create_verification_report
+from epi_core.trust import verify_embedded_manifest_signature
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 from epi_cli.keys import KeyManager
 from epi_cli._shared import ensure_python_command, build_env_for_child
-from epi_cli.view import _build_viewer_context, _inject_viewer_context, _make_temp_dir
+from epi_cli.view import (
+    _build_viewer_context,
+    _inject_viewer_context,
+    _make_temp_dir,
+    _refresh_viewer_html,
+)
 from epi_recorder.environment import save_environment_snapshot
 
 console = Console()
@@ -77,21 +83,12 @@ def _verify_recording(epi_file: Path) -> tuple[bool, str]:
         if not integrity_ok:
             return False, f"Integrity check failed ({len(mismatches)} mismatches)"
         
-        # Check signature
-        if manifest.signature:
-            if not manifest.public_key:
-                return False, "Signature error: No public key embedded in manifest"
-            try:
-                public_key_bytes = bytes.fromhex(manifest.public_key)
-                signature_valid, msg = verify_signature(manifest, public_key_bytes)
-                if signature_valid:
-                    return True, "OK (signed & verified)"
-                else:
-                    return False, f"Signature invalid: {msg}"
-            except Exception as e:
-                return False, f"Verification error: {e}"
-        else:
+        signature_valid, _signer_name, msg = verify_embedded_manifest_signature(manifest)
+        if signature_valid is True:
+            return True, "OK (signed & verified)"
+        if signature_valid is None:
             return True, "OK (unsigned)"
+        return False, msg
             
     except Exception as e:
         return False, f"Verification failed: {e}"
@@ -113,6 +110,141 @@ def _count_recorded_steps(workspace: Path) -> int:
     return len([line for line in content.splitlines() if line.strip()])
 
 
+def _summarize_recording_steps(workspace: Path) -> tuple[int, set[str]]:
+    """Return total step count and the set of recorded kinds."""
+    timeline_path = workspace / "steps.jsonl"
+    if not timeline_path.exists():
+        return 0, set()
+
+    try:
+        lines = timeline_path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return 0, set()
+
+    kinds: set[str] = set()
+    count = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        count += 1
+        try:
+            payload = json.loads(line)
+            kind = payload.get("kind")
+            if isinstance(kind, str) and kind:
+                kinds.add(kind)
+        except Exception:
+            continue
+    return count, kinds
+
+
+def _summarize_artifact_steps(epi_file: Path) -> tuple[int, set[str]]:
+    """Return total step count and recorded kinds from a packed artifact."""
+    if not epi_file.exists():
+        return 0, set()
+
+    try:
+        with zipfile.ZipFile(epi_file, "r") as zf:
+            if "steps.jsonl" not in zf.namelist():
+                return 0, set()
+            lines = zf.read("steps.jsonl").decode("utf-8").splitlines()
+    except Exception:
+        return 0, set()
+
+    kinds: set[str] = set()
+    count = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        count += 1
+        try:
+            payload = json.loads(line)
+            kind = payload.get("kind")
+            if isinstance(kind, str) and kind:
+                kinds.add(kind)
+        except Exception:
+            continue
+    return count, kinds
+
+
+def _artifact_dirs_for_script(script_path: Path) -> list[Path]:
+    """Candidate directories where a child script may create .epi artifacts."""
+    candidates = [
+        Path.cwd() / DEFAULT_DIR,
+        script_path.parent / DEFAULT_DIR,
+        Path.cwd(),
+        script_path.parent,
+    ]
+
+    resolved: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            key = str(candidate.resolve())
+        except Exception:
+            key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved.append(candidate)
+    return resolved
+
+
+def _snapshot_artifacts(script_path: Path) -> dict[Path, tuple[float, int]]:
+    """Capture .epi files and lightweight stats from likely user artifact dirs."""
+    snapshot: dict[Path, tuple[float, int]] = {}
+    for directory in _artifact_dirs_for_script(script_path):
+        if not directory.exists() or not directory.is_dir():
+            continue
+        for artifact in directory.glob("*.epi"):
+            try:
+                stat = artifact.stat()
+            except Exception:
+                continue
+            snapshot[artifact.resolve()] = (stat.st_mtime, stat.st_size)
+    return snapshot
+
+
+def _detect_new_artifacts(
+    before: dict[Path, tuple[float, int]],
+    after: dict[Path, tuple[float, int]],
+    *,
+    exclude: Optional[Set[Path]] = None,
+) -> list[Path]:
+    """Return new or modified artifacts created during script execution."""
+    exclude = exclude or set()
+    created: list[Path] = []
+    for path, fingerprint in after.items():
+        if path in exclude:
+            continue
+        previous = before.get(path)
+        if previous is None or previous != fingerprint:
+            created.append(path)
+    created.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return created
+
+
+def _should_prefer_child_artifact(
+    bootstrap_count: int,
+    bootstrap_kinds: set[str],
+    child_count: int,
+    child_kinds: set[str],
+) -> bool:
+    """Decide whether a child-created artifact is a better user-facing result."""
+    if child_count <= 0:
+        return False
+
+    bootstrap_stdout_only = bootstrap_count > 0 and bootstrap_kinds.issubset({"stdout.print"})
+    child_stdout_only = child_count > 0 and child_kinds.issubset({"stdout.print"})
+
+    if bootstrap_count == 0:
+        return True
+    if bootstrap_stdout_only and not child_stdout_only:
+        return True
+    if child_count > bootstrap_count:
+        return True
+    return False
+
+
 def _open_viewer(epi_file: Path) -> bool:
     """
     Open the viewer for the recording.
@@ -129,13 +261,9 @@ def _open_viewer(epi_file: Path) -> bool:
         temp_dir = _make_temp_dir()
         if temp_dir is None:
             return False
-        viewer_path = temp_dir / "viewer.html"
-
         with zipfile.ZipFile(epi_file, "r") as zf:
-            if "viewer.html" not in zf.namelist():
-                shutil.rmtree(temp_dir, ignore_errors=True)
-                return False
-            zf.extract("viewer.html", temp_dir)
+            zf.extractall(temp_dir)
+        viewer_path = _refresh_viewer_html(temp_dir, epi_file)
         _inject_viewer_context(viewer_path, _build_viewer_context(epi_file))
 
         file_url = viewer_path.as_uri()
@@ -290,6 +418,7 @@ def run(
     import shutil as _shutil
     import subprocess
 
+    before_artifacts = _snapshot_artifacts(script)
     start = time.time()
     try:
         with open(stdout_log, "wb") as out_f, open(stderr_log, "wb") as err_f:
@@ -330,13 +459,54 @@ def run(
 
     # Package into .epi
     EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
-    
-    step_count = _count_recorded_steps(temp_workspace)
+
+    step_count, step_kinds = _summarize_recording_steps(temp_workspace)
+    effective_out = out
+    script_artifact_detected = None
+
+    after_artifacts = _snapshot_artifacts(script)
+    child_artifacts = _detect_new_artifacts(
+        before_artifacts,
+        after_artifacts,
+        exclude={out.resolve()},
+    )
+    if child_artifacts:
+        child_summaries = []
+        for artifact in child_artifacts:
+            child_count, child_kinds = _summarize_artifact_steps(artifact)
+            child_summaries.append((artifact, child_count, child_kinds))
+
+        # Prefer the richest child-created artifact so scripts that already use
+        # record(...) don't end up with a misleading competing bootstrap file.
+        child_summaries.sort(
+            key=lambda item: (
+                0 if (item[1] > 0 and not item[2].issubset({"stdout.print"})) else 1,
+                -item[1],
+                -item[0].stat().st_mtime,
+            )
+        )
+        preferred_child, child_count, child_kinds = child_summaries[0]
+        if _should_prefer_child_artifact(step_count, step_kinds, child_count, child_kinds):
+            effective_out = preferred_child
+            step_count, step_kinds = child_count, child_kinds
+            script_artifact_detected = preferred_child
+            if out.exists() and out.resolve() != preferred_child.resolve():
+                out.unlink(missing_ok=True)
+
     empty_recording = step_count == 0
+    stdout_only_recording = step_count > 0 and step_kinds.issubset({"stdout.print"})
+    if script_artifact_detected is not None:
+        console.print("\n[bold cyan][i] This script created its own EPI artifact via record(...).[/bold cyan]")
+        console.print(f"[dim]Using that artifact instead of the bootstrap capture: {script_artifact_detected}[/dim]\n")
+
     if empty_recording:
         console.print("\n[bold red][X] No steps recorded.[/bold red]")
         console.print("[dim]EPI was not attached to this script, so the artifact is only useful for debugging.[/dim]")
         console.print("[dim]Fix: use [cyan]record(...) [/cyan], a supported integration, or [cyan]get_current_session().log_step(...)[/cyan] inside epi run mode.[/dim]\n")
+    elif stdout_only_recording:
+        console.print("\n[bold yellow][!] EPI captured console output, but not structured workflow steps.[/bold yellow]")
+        console.print("[dim]This is enough to inspect what the script printed, but richer fault analysis needs explicit EPI steps.[/dim]")
+        console.print("[dim]Next step: use [cyan]record(...)[/cyan], wrappers/integrations, or [cyan]get_current_session().log_step(...)[/cyan] for meaningful policy analysis.[/dim]\n")
     elif step_count <= 2:
         console.print("\n[bold yellow][!] Warning: Very little execution data was recorded.[/bold yellow]")
         console.print("[dim]Make sure your workflow emits meaningful EPI steps, not just setup/teardown.[/dim]\n")
@@ -345,24 +515,29 @@ def run(
     verified = False
     verify_msg = "Skipped"
     if not no_verify:
-        verified, verify_msg = _verify_recording(out)
+        verified, verify_msg = _verify_recording(effective_out)
 
     # Open viewer
     viewer_opened = False
     if not no_open and rc == 0 and verified and not empty_recording:
-        viewer_opened = _open_viewer(out)
+        viewer_opened = _open_viewer(effective_out)
 
     # Build summary panel
-    size_bytes = out.stat().st_size
+    size_bytes = effective_out.stat().st_size
     size_str = f"{size_bytes / (1024*1024):.2f} MB" if size_bytes >= 100_000 else f"{size_bytes / 1024:.1f} KB"
 
     lines = []
-    lines.append(f"[bold]Saved:[/bold]    {out.resolve()}")
+    lines.append(f"[bold]Saved:[/bold]    {effective_out.resolve()}")
     step_style = "red" if empty_recording else "yellow" if step_count <= 2 else "dim"
     lines.append(f"[bold]Size:[/bold]     {size_str}   [{step_style}]({step_count} steps  •  {duration}s)[/{step_style}]")
+    if script_artifact_detected is not None:
+        lines.append("[bold cyan]Source:[/bold cyan]   Used the artifact generated by the script itself")
     if empty_recording:
         lines.append("[bold red]Status:[/bold red]   Recording incomplete - no execution data was captured")
         lines.append("[dim]Use this artifact only for debugging the failed recording path.[/dim]")
+    elif stdout_only_recording:
+        lines.append("[bold yellow]Status:[/bold yellow]   Captured console output only - useful evidence, but limited analysis depth")
+        lines.append("[dim]Add explicit EPI steps for policy-aware review and better fault detection.[/dim]")
 
     if not no_verify:
         if verified:
@@ -379,9 +554,11 @@ def run(
         else:
             lines.append(f"[bold]Viewer:[/bold]   [yellow]Could not open automatically[/yellow]")
 
-    lines.append(f"\n[dim]  epi view {out.stem}    epi verify {out.stem}    epi ls[/dim]")
+    lines.append(f"\n[dim]  epi view {effective_out.stem}    epi verify {effective_out.stem}    epi ls[/dim]")
     if empty_recording:
         lines.append("[dim]  Next step: instrument with record(), wrappers/integrations, or get_current_session().log_step(...), then run again.[/dim]")
+    elif stdout_only_recording:
+        lines.append("[dim]  Next step: console output was captured automatically; add record(), wrappers, or get_current_session().log_step(...) for structured workflow evidence.[/dim]")
 
     if empty_recording:
         title = "[bold red]Recording captured no execution data[/bold red]"

@@ -7,6 +7,7 @@ Tests the full CLI workflow including record, verify, view, and keys commands.
 import tempfile
 from pathlib import Path
 import json
+import zipfile
 
 import pytest
 from typer.testing import CliRunner
@@ -178,6 +179,43 @@ class TestCLIReview:
     def test_review_show_still_works(self, analyzed_epi_file):
         result = runner.invoke(app, ["review", str(analyzed_epi_file), "show"])
         assert result.exit_code == 0
+
+    def test_review_blocks_tampered_artifact_before_review(self, analyzed_epi_file):
+        tampered_path = analyzed_epi_file.parent / "tampered_review_test.epi"
+        with zipfile.ZipFile(analyzed_epi_file, "r") as zin:
+            files = {name: zin.read(name) for name in zin.namelist()}
+        files["analysis.json"] = json.dumps(
+            {
+                "fault_detected": True,
+                "primary_fault": {
+                    "step_number": 1,
+                    "fault_type": "POLICY_VIOLATION",
+                    "severity": "critical",
+                    "plain_english": "Tampered copy",
+                },
+                "secondary_flags": [],
+            }
+        ).encode("utf-8")
+        with zipfile.ZipFile(tampered_path, "w") as zout:
+            for name, data in files.items():
+                zout.writestr(name, data)
+
+        result = runner.invoke(
+            app,
+            ["review", str(tampered_path), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 1
+        assert "Review stopped" in result.stdout
+        assert "trustworthy evidence" in result.stdout
+
+    def test_review_shows_unsigned_trust_summary_for_intact_artifact(self, analyzed_epi_file):
+        result = runner.invoke(
+            app,
+            ["review", str(analyzed_epi_file), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 0
+        assert "Trust Check" in result.stdout
+        assert "Unsigned" in result.stdout
 
 
 class TestCLIErrors:

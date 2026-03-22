@@ -5,6 +5,7 @@ Tests the core .epi file format creation and extraction logic.
 """
 
 import shutil
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -329,6 +330,47 @@ class TestEPIContainer:
         assert "epi-data" in viewer_html
         assert "test" in viewer_html
 
+    def test_embedded_viewer_escapes_script_breakout_sequences(self, temp_workspace, sample_files):
+        """Embedded JSON must be safe even when recorded text contains </script>."""
+        steps_file = sample_files / "steps.jsonl"
+        steps_file.write_text(
+            '{"index": 0, "kind": "llm.response", "content": {"text": "</script><script>alert(1)</script>"}}\n',
+            encoding="utf-8",
+        )
+
+        output_path = temp_workspace / "script_safe.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        extract_dir = EPIContainer.unpack(output_path)
+        viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+
+        assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e" in viewer_html
+        assert "</script><script>alert(1)</script>" not in viewer_html
+
+    def test_pack_excludes_reserved_root_files_from_source_workspace(self, temp_workspace, sample_files):
+        """Runtime-generated root files should not be packed twice from a dirty workspace."""
+        (sample_files / "steps.jsonl").write_text(
+            '{"index": 0, "kind": "session.start", "content": {}}\n',
+            encoding="utf-8",
+        )
+        (sample_files / "manifest.json").write_text('{"stale": true}', encoding="utf-8")
+        (sample_files / "viewer.html").write_text("<html>stale</html>", encoding="utf-8")
+        (sample_files / "mimetype").write_text("wrong/type", encoding="utf-8")
+
+        output_path = temp_workspace / "reserved_files.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        with zipfile.ZipFile(output_path, "r") as zf:
+            names = zf.namelist()
+
+        assert names.count("manifest.json") == 1
+        assert names.count("viewer.html") == 1
+        assert names.count("mimetype") == 1
+
     def test_embedded_viewer_inlines_css_and_javascript(self, temp_workspace, sample_files):
         """Generated viewer.html must be fully self-contained for offline opening."""
         steps_file = sample_files / "steps.jsonl"
@@ -353,8 +395,13 @@ class TestEPIContainer:
         assert 'id="epi-view-context"' in viewer_html
         assert "Evidence Packaged Infrastructure for AI" in viewer_html
         assert "Decision Verdict" in viewer_html
+        assert "What To Check First" in viewer_html
+        assert "Treat this as the machine's best explanation" in viewer_html
         assert "No execution data recorded" in viewer_html
         assert "Needs Verification" in viewer_html
+        assert '<option value="agent">Agent</option>' in viewer_html
+        assert "Approval requested for" in viewer_html
+        assert "No explicit agent approval checkpoint was recorded in this artifact." in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

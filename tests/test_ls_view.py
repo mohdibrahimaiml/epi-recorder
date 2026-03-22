@@ -36,6 +36,11 @@ def _make_epi(tmp_path: Path, include_viewer: bool = True, signed: bool = False)
         metrics={"accuracy": 0.95, "loss": 0.05},
         tags=["test", "demo"],
     )
+    if signed:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from epi_core.trust import sign_manifest
+
+        manifest = sign_manifest(manifest, Ed25519PrivateKey.generate(), "default")
     epi = tmp_path / "test.epi"
     with zipfile.ZipFile(epi, "w") as zf:
         zf.writestr("mimetype", "application/vnd.epi+zip")
@@ -117,11 +122,39 @@ class TestGetRecordingInfo:
         info = _get_recording_info(epi)
         assert info["signed"] is False
 
+    def test_signed_field_yes_only_for_verified_signed_artifact(self, tmp_path):
+        from epi_cli.ls import _get_recording_info
+
+        epi = _make_epi(tmp_path, signed=True)
+        info = _get_recording_info(epi)
+        assert info["signed"] is True
+
     def test_status_ok_for_valid_file(self, tmp_path):
         from epi_cli.ls import _get_recording_info
         epi = _make_epi(tmp_path)
         info = _get_recording_info(epi)
         assert info["integrity_ok"] is True
+
+    def test_invalid_signature_marks_status_failed(self, tmp_path):
+        from epi_cli.ls import _get_recording_info
+
+        steps = b'{"index":0}\n'
+        manifest_data = {
+            "workflow_id": str(uuid4()),
+            "created_at": utc_now().isoformat(),
+            "file_manifest": {"steps.jsonl": _sha256(steps)},
+            "signature": "ed25519:default:" + "aa" * 64,
+            "public_key": "bb" * 32,
+        }
+        epi = tmp_path / "bad_sig.epi"
+        with zipfile.ZipFile(epi, "w") as zf:
+            zf.writestr("mimetype", "application/vnd.epi+zip")
+            zf.writestr("manifest.json", json.dumps(manifest_data))
+            zf.writestr("steps.jsonl", steps)
+
+        info = _get_recording_info(epi)
+        assert info["signed"] is False
+        assert "FAIL" in info["status"]
 
     def test_error_on_bad_file(self, tmp_path):
         from epi_cli.ls import _get_recording_info

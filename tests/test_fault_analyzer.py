@@ -82,6 +82,42 @@ PROHIBITION_VIOLATION_STEPS = "\n".join([
     _make_step(2, "session.end",     {"success": True}),
 ])
 
+AGENT_APPROVAL_PENDING_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "agent_refund"}),
+    _make_step(1, "agent.approval.request", {"action": "approve_refund", "reason": "manual review"}),
+    _make_step(2, "agent.decision", {"decision": "approve_refund", "amount": 2000}),
+    _make_step(3, "session.end", {"success": True}),
+])
+
+AGENT_APPROVAL_REJECTED_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "agent_refund"}),
+    _make_step(1, "agent.approval.request", {"action": "approve_refund", "reason": "manual review"}),
+    _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": False, "reviewer": "manager"}),
+    _make_step(3, "agent.decision", {"decision": "approve_refund", "amount": 2000}),
+    _make_step(4, "session.end", {"success": True}),
+])
+
+AGENT_SEQUENCE_VIOLATION_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "refund_flow"}),
+    _make_step(1, "agent.decision", {"decision": "approve_refund", "amount": 200}),
+    _make_step(2, "session.end", {"success": True}),
+])
+
+AGENT_THRESHOLD_APPROVAL_OK_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "payment_flow"}),
+    _make_step(1, "tool.response", {"tool": "lookup_order", "amount": 15000.0}),
+    _make_step(2, "agent.approval.response", {"action": "approve_payment", "approved": True, "reviewer": "manager"}),
+    _make_step(3, "agent.decision", {"decision": "approve_payment"}),
+    _make_step(4, "session.end", {"success": True}),
+])
+
+AGENT_THRESHOLD_APPROVAL_VIOLATION_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "payment_flow"}),
+    _make_step(1, "tool.response", {"tool": "lookup_order", "amount": 15000.0}),
+    _make_step(2, "agent.decision", {"decision": "approve_payment"}),
+    _make_step(3, "session.end", {"success": True}),
+])
+
 
 def _make_policy_with_sequence():
     return EPIPolicy(
@@ -174,6 +210,25 @@ def _make_policy_with_prohibition():
                 description="Never output API keys.",
                 type="prohibition_guard",
                 prohibited_pattern=r"sk-[A-Za-z0-9]+",
+            )
+        ],
+    )
+
+
+def _make_policy_with_approval_guard():
+    return EPIPolicy(
+        system_name="test",
+        system_version="1.0",
+        policy_version="2025-01-01",
+        rules=[
+            PolicyRule(
+                id="R030",
+                name="Explicit Approval Before Refund",
+                severity="critical",
+                description="Refund approval requires an explicit approved response.",
+                type="approval_guard",
+                approval_action="approve_refund",
+                approved_by="manager",
             )
         ],
     )
@@ -310,6 +365,13 @@ class TestPass3SequenceViolation:
         policy_flags = [f for f in all_flags if f.fault_type == "POLICY_VIOLATION"]
         assert len(policy_flags) == 0
 
+    def test_detects_sequence_violation_on_agent_decision(self):
+        policy = _make_policy_with_sequence()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_SEQUENCE_VIOLATION_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R001"
+
 
 # ── Test: Pass 4 — Context Drop ──────────────────────────────────────────────
 
@@ -339,6 +401,21 @@ class TestPass4ThresholdViolation:
         threshold_flags = [f for f in all_flags if f and f.rule_id == "R011"]
         assert len(threshold_flags) > 0
 
+    def test_threshold_allows_agent_approval_response_before_decision(self):
+        policy = _make_policy_with_threshold()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_THRESHOLD_APPROVAL_OK_STEPS)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        threshold_flags = [f for f in all_flags if f and f.rule_id == "R010"]
+        assert len(threshold_flags) == 0
+
+    def test_threshold_flags_agent_decision_when_approval_missing(self):
+        policy = _make_policy_with_threshold()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_THRESHOLD_APPROVAL_VIOLATION_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R010"
+
 
 class TestPass5ProhibitionViolation:
     def test_detects_prohibited_pattern(self):
@@ -356,6 +433,46 @@ class TestPass5ProhibitionViolation:
         all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
         prohibition_flags = [f for f in all_flags if f and f.rule_id == "R020"]
         assert len(prohibition_flags) == 0
+
+
+class TestPass6AgentApprovalGap:
+    def test_detects_pending_approval_gap(self):
+        analyzer = FaultAnalyzer()
+        result = analyzer.analyze(AGENT_APPROVAL_PENDING_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.fault_type == "HEURISTIC_OBSERVATION"
+        assert "pending" in result.primary_fault.plain_english.lower()
+
+    def test_detects_rejected_approval_override(self):
+        analyzer = FaultAnalyzer()
+        result = analyzer.analyze(AGENT_APPROVAL_REJECTED_STEPS)
+        assert result.fault_detected
+        assert "rejected" in result.primary_fault.plain_english.lower()
+
+
+class TestPass7ApprovalGuardViolation:
+    def test_policy_approval_guard_requires_explicit_approval(self):
+        policy = _make_policy_with_approval_guard()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_APPROVAL_PENDING_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.fault_type == "POLICY_VIOLATION"
+        assert result.primary_fault.rule_id == "R030"
+
+    def test_policy_approval_guard_passes_with_matching_approver(self):
+        policy = _make_policy_with_approval_guard()
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(1, "agent.approval.request", {"action": "approve_refund"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager"}),
+            _make_step(3, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(4, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        approval_flags = [f for f in all_flags if f and f.rule_id == "R030"]
+        assert len(approval_flags) == 0
 
 
 class TestPass4ContextDrop:
@@ -385,10 +502,42 @@ class TestPass4ContextDrop:
         short_steps = "\n".join([_make_step(i, "llm.request", {"account_id": "ACC-1"}) for i in range(4)])
         analyzer = FaultAnalyzer()
         result = analyzer.analyze(short_steps)
-        # Pass 4 requires >= 6 steps, should produce no context drop flag
+        # Pass 4 requires >= 8 steps, should produce no context drop flag
         all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
         drop_flags = [f for f in all_flags if "context" in (f.plain_english or "").lower()]
         assert len(drop_flags) == 0
+
+    def test_no_drop_flag_on_short_healthy_structured_workflow(self):
+        short_structured_steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "structured-demo"}),
+            _make_step(1, "tool.response", {"account_id": "ACC-1001", "balance": 1200.0}),
+            _make_step(2, "llm.request", {"messages": [{"role": "user", "content": "review account"}]}),
+            _make_step(3, "llm.response", {"text": "Account looks good."}),
+            _make_step(4, "tool.call", {"tool": "submit_refund", "amount": 25.0}),
+            _make_step(5, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer()
+        result = analyzer.analyze(short_structured_steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        drop_flags = [f for f in all_flags if "ACC-1001" in (f.plain_english or "")]
+        assert len(drop_flags) == 0
+
+    def test_stdout_is_not_treated_as_entity_identifier(self):
+        stdout_like_steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "demo"}),
+            _make_step(1, "stdout.print", {"stream": "stdout", "text": "hello"}),
+            _make_step(2, "stdout.print", {"stream": "stdout", "text": "processing"}),
+            _make_step(3, "tool.call", {"tool": "fetch_case", "case_id": "CASE-7702"}),
+            _make_step(4, "tool.response", {"status": "ok", "case_id": "CASE-7702"}),
+            _make_step(5, "stdout.print", {"stream": "stdout", "text": "done"}),
+            _make_step(6, "session.end", {"success": True}),
+            _make_step(7, "artifact.captured", {"path": "demo.epi"}),
+        ])
+        analyzer = FaultAnalyzer()
+        result = analyzer.analyze(stdout_like_steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        stdout_flags = [f for f in all_flags if "stdout" in (f.plain_english or "").lower()]
+        assert len(stdout_flags) == 0
 
 
 # ── Test: AnalysisResult output structure ─────────────────────────────────────

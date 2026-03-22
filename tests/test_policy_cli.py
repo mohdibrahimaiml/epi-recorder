@@ -2,8 +2,11 @@ import json
 import os
 import shutil
 import uuid
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import click
 
 from epi_cli.policy import init, show
 
@@ -114,4 +117,57 @@ def test_policy_show_raw_prints_json_after_summary():
         show(policy_file=str(policy_path), raw=True)
 
     assert any(call.args and hasattr(call.args[0], "code") for call in mock_console.print.call_args_list)
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_show_reads_embedded_policy_from_epi_artifact():
+    tmpdir = _tmp_workspace()
+    artifact_path = tmpdir / "review_case.epi"
+    policy_payload = {
+        "system_name": "refund-agent",
+        "system_version": "1.0",
+        "policy_version": "2026-03-22",
+        "profile_id": "finance.refund-agent",
+        "rules": [
+            {
+                "id": "R002",
+                "name": "Verify Identity Before Refund",
+                "severity": "critical",
+                "description": "Identity verification must happen before any refund.",
+                "type": "sequence_guard",
+                "required_before": "refund",
+                "must_call": "verify_identity",
+            }
+        ],
+    }
+    with zipfile.ZipFile(artifact_path, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.epi+zip")
+        zf.writestr("policy.json", json.dumps(policy_payload))
+
+    mock_console = MagicMock()
+    with patch("epi_cli.policy.console", mock_console):
+        show(policy_file=str(artifact_path), raw=False)
+
+    printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+    assert "refund-agent" in printed
+    assert "embedded policy" in printed
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_show_missing_embedded_policy_exits_1():
+    tmpdir = _tmp_workspace()
+    artifact_path = tmpdir / "no_policy.epi"
+    with zipfile.ZipFile(artifact_path, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.epi+zip")
+        zf.writestr("manifest.json", "{}")
+
+    code = None
+    try:
+        with patch("epi_cli.policy.console", MagicMock()):
+            show(policy_file=str(artifact_path), raw=False)
+        code = 0
+    except (SystemExit, click.exceptions.Exit) as exc:
+        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+
+    assert code == 1
     shutil.rmtree(tmpdir, ignore_errors=True)

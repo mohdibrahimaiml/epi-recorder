@@ -10,6 +10,7 @@ __version__ = get_version()
 
 # Export Python API
 from epi_recorder.api import (
+    AgentRun,
     EpiRecorderSession,
     record,
     get_current_session
@@ -36,6 +37,7 @@ def __getattr__(name: str):
 
 __all__ = [
     "EpiRecorderSession",
+    "AgentRun",
     "record",
     "get_current_session",
     "wrap_openai",

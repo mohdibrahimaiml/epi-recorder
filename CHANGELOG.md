@@ -47,6 +47,62 @@ After v3.0.0, the `.epi` format should be:
 
 ## [2.7.2] – 2026-03-14
 
+## [2.8.6] - 2026-03-22
+
+### Product Hardening and Agent-First Workflow Evidence
+
+This release makes the `v2.8.x` line feel much more like a product for both normal users and AI-agent workflows.
+
+#### Added
+
+- **Agent-first recording surface**
+  - `epi.agent_run(...)` / `epi.agent(...)` for direct `record(...)` sessions
+  - `get_current_session().agent_run(...)` in `epi run` bootstrap mode
+  - first-class agent events for plans, tool calls/results, decisions, approvals, memory reads/writes, handoffs, and pause/resume checkpoints
+- **Agent-aware viewer flow**
+  - agent timeline filter
+  - clearer summaries for agent/tool/approval/memory events
+  - case-level highlights for approvals, handoffs, and pause/resume checkpoints
+- **`approval_guard` policy rule**
+  - explicit policy rule for actions that require an approved response before execution
+
+#### Improved
+
+- **First-run onboarding**
+  - `epi init` now behaves more like a setup wizard
+  - generated demo content teaches the difference between console evidence and structured workflow evidence
+- **`epi run` usability**
+  - captures plain `print(...)` output as `stdout.print`
+  - distinguishes console-only evidence from richer structured workflow evidence
+  - prefers a child script's real `record(...)` artifact over a misleading bootstrap artifact
+- **Reviewer trust flow**
+  - `epi review` shows trust state first and blocks tampered evidence from review
+  - `epi policy show` now works directly on `.epi` artifacts with embedded rulebooks
+- **Viewer clarity**
+  - better plain-language trust guidance
+  - clearer review-first and rulebook-first explanations for non-technical reviewers
+- **CLI responsiveness**
+  - lazy imports and narrower startup checks make basic commands materially faster on Windows
+- **Windows opening reliability**
+  - association/open flow now prefers the live `epi view \"%1\"` path to avoid stale viewer launches
+
+#### Fixed
+
+- **Front-door trust issues**
+  - onboarding/demo artifacts no longer get noisy `stdout` context-drop faults
+  - short healthy workflows no longer trigger misleading context-drop findings
+- **Viewer packaging/injection**
+  - embedded viewer data is HTML-safe
+  - stale generated files are cleared before sealing
+  - repeated reviews replace `review.json` cleanly instead of creating duplicate ZIP entries
+- **Trust consistency**
+  - `run`, `view`, `verify`, and `ls` now interpret signed/unsigned/invalid artifacts more consistently
+- **CLI and Windows dev quality**
+  - stale standalone test scripts were repaired for Windows encoding/path behavior
+  - developer association diagnostics are stricter about stale launcher drift
+
+## [2.7.2] â€“ 2026-03-14
+
 ### Bug Fixes & Reliability
 
 This patch release closes a critical verification gap for pre-v2.7.1 evidence files and hardens the CLI across the board.
