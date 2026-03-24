@@ -60,7 +60,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "addtopath";     Description: "Add epi to system PATH (recommended)";  GroupDescription: "Additional options:"; Flags: checked
+Name: "addtopath";     Description: "Add epi to system PATH (recommended)";  GroupDescription: "Additional options:"
 Name: "desktopicon";   Description: "Create desktop shortcut (EPI Viewer)";   GroupDescription: "Additional options:"; Flags: unchecked
 
 [Files]
