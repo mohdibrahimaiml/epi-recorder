@@ -73,3 +73,12 @@ def test_version_resolution_is_stable_outside_repo_cwd():
 
     assert result.returncode == 0
     assert result.stdout.strip() == core_version
+
+
+def test_windows_installer_version_matches_runtime_version():
+    repo_root = Path(__file__).resolve().parent.parent
+    setup_iss = repo_root / "installer" / "windows" / "setup.iss"
+    text = setup_iss.read_text(encoding="utf-8")
+
+    expected_line = f'#define MyAppVersion "{core_version}"'
+    assert expected_line in text

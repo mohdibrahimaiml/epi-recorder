@@ -4,6 +4,8 @@ import importlib.util
 import zipfile
 from pathlib import Path
 
+from epi_core import __version__ as core_version
+
 
 def _load_audit_module():
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "audit_wheel.py"
@@ -22,7 +24,7 @@ def _make_wheel(path: Path, members: list[str]) -> None:
 
 def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
     module = _load_audit_module()
-    wheel_path = tmp_path / "epi_recorder-2.8.6-py3-none-any.whl"
+    wheel_path = tmp_path / f"epi_recorder-{core_version}-py3-none-any.whl"
     _make_wheel(
         wheel_path,
         [
@@ -33,7 +35,7 @@ def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
             "epi_viewer_static/index.html",
             "pytest_epi/plugin.py",
             "epi_postinstall.py",
-            "epi_recorder-2.8.6.dist-info/METADATA",
+            f"epi_recorder-{core_version}.dist-info/METADATA",
         ],
     )
 
@@ -42,13 +44,13 @@ def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
 
 def test_audit_wheel_rejects_unexpected_top_level_entries(tmp_path):
     module = _load_audit_module()
-    wheel_path = tmp_path / "epi_recorder-2.8.6-py3-none-any.whl"
+    wheel_path = tmp_path / f"epi_recorder-{core_version}-py3-none-any.whl"
     _make_wheel(
         wheel_path,
         [
             "epi_recorder/__init__.py",
             "junk.txt",
-            "epi_recorder-2.8.6.dist-info/METADATA",
+            f"epi_recorder-{core_version}.dist-info/METADATA",
         ],
     )
 
@@ -58,14 +60,14 @@ def test_audit_wheel_rejects_unexpected_top_level_entries(tmp_path):
 
 def test_audit_wheel_rejects_suspicious_runtime_files(tmp_path):
     module = _load_audit_module()
-    wheel_path = tmp_path / "epi_recorder-2.8.6-py3-none-any.whl"
+    wheel_path = tmp_path / f"epi_recorder-{core_version}-py3-none-any.whl"
     _make_wheel(
         wheel_path,
         [
             "epi_recorder/__init__.py",
             "epi_recorder/test_import.py",
             "epi_cli/stdout.log",
-            "epi_recorder-2.8.6.dist-info/METADATA",
+            f"epi_recorder-{core_version}.dist-info/METADATA",
         ],
     )
 

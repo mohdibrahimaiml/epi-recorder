@@ -93,12 +93,16 @@ class FaultFlag:
         "category",
         "why_it_matters",
         "review_required",
+        "policy_type",
+        "policy_mode",
+        "policy_applies_at",
         "raw",
     )
 
     def __init__(self, step_index, fault_type, severity, plain_english,
                  rule_id=None, rule_name=None, fault_chain=None,
-                 category=None, why_it_matters=None, review_required=None):
+                 category=None, why_it_matters=None, review_required=None,
+                 policy_type=None, policy_mode=None, policy_applies_at=None):
         self.step_index = step_index
         self.step_number = step_index + 1
         self.fault_type = fault_type
@@ -113,6 +117,9 @@ class FaultFlag:
             review_required if review_required is not None
             else (self.fault_type == "POLICY_VIOLATION" or self.severity in _REVIEW_REQUIRED_SEVERITIES)
         )
+        self.policy_type = policy_type
+        self.policy_mode = policy_mode
+        self.policy_applies_at = policy_applies_at
         self.raw = {}
 
     def _default_why_it_matters(self) -> str:
@@ -138,6 +145,12 @@ class FaultFlag:
             d["rule_id"] = self.rule_id
         if self.rule_name:
             d["rule_name"] = self.rule_name
+        if self.policy_type:
+            d["policy_type"] = self.policy_type
+        if self.policy_mode:
+            d["policy_mode"] = self.policy_mode
+        if self.policy_applies_at:
+            d["policy_applies_at"] = self.policy_applies_at
         return d
 
 
@@ -180,7 +193,10 @@ class AnalysisResult:
             "analyzer_version": self.analyzer_version,
             "analysis_timestamp": self.timestamp,
             "policy_used": self.policy is not None,
+            "policy_format_version": self.policy.policy_format_version if self.policy else None,
+            "policy_id": self.policy.policy_id if self.policy else None,
             "policy_version": self.policy.policy_version if self.policy else None,
+            "policy_scope": self.policy.scope.model_dump(exclude_none=True) if self.policy and self.policy.scope else None,
             "mode": self.mode,
             "fault_taxonomy_version": "1.0",
             "coverage": {
@@ -213,6 +229,62 @@ class AnalysisResult:
             "disclaimer": DISCLAIMER,
         }
         return d
+
+    def _all_flags(self) -> list[FaultFlag]:
+        return ([self.primary_fault] if self.primary_fault else []) + self.secondary_flags
+
+    def to_policy_evaluation_dict(self) -> Optional[dict]:
+        if not self.policy:
+            return None
+
+        matched_by_rule: dict[str, list[FaultFlag]] = {}
+        for flag in self._all_flags():
+            if flag.rule_id:
+                matched_by_rule.setdefault(flag.rule_id, []).append(flag)
+
+        results = []
+        for rule in self.policy.rules:
+            matched = matched_by_rule.get(rule.id, [])
+            results.append({
+                "rule_id": rule.id,
+                "rule_name": rule.name,
+                "rule_type": rule.type,
+                "severity": rule.severity,
+                "mode": rule.mode or "detect",
+                "applies_at": rule.applies_at,
+                "status": "failed" if matched else "passed",
+                "review_required": bool(matched and any(flag.review_required for flag in matched)),
+                "match_count": len(matched),
+                "step_numbers": [flag.step_number for flag in matched],
+                "plain_english": (
+                    matched[0].plain_english
+                    if matched else
+                    f"No violation detected for rule {rule.id} ({rule.name})."
+                ),
+                "matched_findings": [flag.to_dict() for flag in matched],
+            })
+
+        return {
+            "policy_format_version": self.policy.policy_format_version,
+            "policy_id": self.policy.policy_id,
+            "policy_version": self.policy.policy_version,
+            "policy_scope": self.policy.scope.model_dump(exclude_none=True) if self.policy.scope else None,
+            "evaluation_timestamp": self.timestamp,
+            "evaluation_mode": self.mode,
+            "controls_evaluated": len(results),
+            "controls_failed": sum(1 for result in results if result["status"] == "failed"),
+            "artifact_review_required": bool(
+                (self.primary_fault and self.primary_fault.review_required)
+                or any(flag.review_required for flag in self.secondary_flags)
+            ),
+            "results": results,
+        }
+
+    def to_policy_evaluation_json(self) -> Optional[str]:
+        data = self.to_policy_evaluation_dict()
+        if data is None:
+            return None
+        return json.dumps(data, indent=2, ensure_ascii=False)
 
     def _headline(self) -> str:
         if not self.primary_fault:
@@ -382,6 +454,117 @@ def _matches_named_action(step: dict, action_name: str) -> bool:
     return action_lower in _content_str(step)
 
 
+def _matching_approval_requests(steps: list[dict], *, action_name: str, before_index: int) -> list[dict]:
+    matches = []
+    for i, step in enumerate(steps[:before_index]):
+        if _step_kind(step) != "agent.approval.request":
+            continue
+        if _matches_named_action(step, action_name):
+            matches.append({
+                "step": step,
+                "index": step.get("index", i),
+                "content": step.get("content", {}) if isinstance(step.get("content"), dict) else {},
+            })
+    return matches
+
+
+def _matching_approval_responses(steps: list[dict], *, action_name: str, before_index: int) -> list[dict]:
+    matches = []
+    for i, step in enumerate(steps[:before_index]):
+        if _step_kind(step) != "agent.approval.response":
+            continue
+        if not _matches_named_action(step, action_name):
+            continue
+        content = step.get("content", {}) if isinstance(step.get("content"), dict) else {}
+        matches.append({
+            "step": step,
+            "index": step.get("index", i),
+            "content": content,
+            "approved": bool(content.get("approved")),
+        })
+    return matches
+
+
+def _approval_actor_labels(content: dict) -> set[str]:
+    labels = set()
+    for key in ("reviewer", "reviewer_role", "role", "approved_by", "approver"):
+        value = content.get(key)
+        if isinstance(value, str) and value.strip():
+            labels.add(value.strip().lower())
+    return labels
+
+
+def _approval_responses_satisfy_policy(
+    responses: list[dict],
+    requests: list[dict],
+    *,
+    required_roles: list[str],
+    minimum_approvers: int,
+    reason_required: bool,
+    approver: Optional[str],
+) -> tuple[bool, str]:
+    approved_responses = [resp for resp in responses if resp["approved"]]
+    if approver:
+        approved_responses = [
+            resp
+            for resp in approved_responses
+            if approver in _approval_actor_labels(resp["content"])
+        ]
+        if not approved_responses:
+            return False, f"no matching approval from '{approver}' was recorded"
+
+    if required_roles:
+        required_roles_lower = {role.lower() for role in required_roles}
+        approved_responses = [
+            resp
+            for resp in approved_responses
+            if _approval_actor_labels(resp["content"]) & required_roles_lower
+        ]
+        if not approved_responses:
+            return False, (
+                "no approved response matched the required role set "
+                f"{sorted(required_roles_lower)}"
+            )
+
+    if minimum_approvers > 1:
+        unique_approvers = {
+            tuple(sorted(_approval_actor_labels(resp["content"])))
+            for resp in approved_responses
+            if _approval_actor_labels(resp["content"])
+        }
+        if len(unique_approvers) < minimum_approvers:
+            return False, (
+                f"only {len(unique_approvers)} approver(s) were recorded; "
+                f"{minimum_approvers} are required"
+            )
+
+    if reason_required:
+        request_has_reason = any(
+            isinstance(req["content"].get("reason"), str) and req["content"]["reason"].strip()
+            for req in requests
+        )
+        response_has_reason = any(
+            isinstance(resp["content"].get("reason"), str) and resp["content"]["reason"].strip()
+            for resp in approved_responses
+        )
+        if not (request_has_reason or response_has_reason):
+            return False, "approval reason was required but not recorded"
+
+    if not approved_responses:
+        return False, "no approved response was recorded"
+
+    return True, ""
+
+
+def _tool_event_matches_rule(step: dict, applies_at: Optional[str]) -> bool:
+    kind = _step_kind(step)
+    if applies_at == "tool_response":
+        return kind == "tool.response"
+    if applies_at == "tool_call":
+        return kind in {"tool.call", "tool.use"} or kind.startswith("tool.call")
+    return kind.startswith("tool.")
+
+
 def _matches_required_action(step: dict, required_action: str) -> bool:
     required_lower = required_action.lower()
     if _is_approval_keyword(required_lower):
@@ -474,6 +657,16 @@ def _extract_entity_ids(steps: list[dict]) -> set[str]:
     return ids
 
 
+def _policy_flag_kwargs(rule) -> dict:
+    return {
+        "rule_id": rule.id,
+        "rule_name": rule.name,
+        "policy_type": rule.type,
+        "policy_mode": rule.mode or "detect",
+        "policy_applies_at": rule.applies_at,
+    }
+
+
 # ── The Analyzer ──────────────────────────────────────────────────────────────
 
 class FaultAnalyzer:
@@ -536,6 +729,11 @@ class FaultAnalyzer:
 
             try:
                 flags.extend(self._pass7_approval_guard_violation(steps))
+            except Exception:
+                pass
+
+            try:
+                flags.extend(self._pass9_tool_permission_guard(steps))
             except Exception:
                 pass
 
@@ -697,13 +895,15 @@ class FaultAnalyzer:
 
                         # Check if a policy rule matches
                         rule_id = rule_name = None
+                        policy_rule = None
                         if c_key.startswith("__policy_"):
                             parts = c_key.split("_")
                             if len(parts) >= 3:
                                 rule_id = parts[2]
                                 matching = [r for r in policy_constraint_rules if r.id == rule_id]
                                 if matching:
-                                    rule_name = matching[0].name
+                                    policy_rule = matching[0]
+                                    rule_name = policy_rule.name
 
                         fault_type = "POLICY_VIOLATION" if rule_id else "HEURISTIC_OBSERVATION"
                         severity = "critical" if rule_id else "high"
@@ -735,6 +935,7 @@ class FaultAnalyzer:
                                     "detail": f"Committed value {committed_val:,.2f} exceeds constraint",
                                 },
                             ],
+                            **(_policy_flag_kwargs(policy_rule) if policy_rule else {}),
                         ))
                         # One flag per commitment step — break inner loops
                         break
@@ -788,8 +989,6 @@ class FaultAnalyzer:
                         step_index=step_idx,
                         fault_type="POLICY_VIOLATION",
                         severity=rule.severity,
-                        rule_id=rule.id,
-                        rule_name=rule.name,
                         plain_english=(
                             f"At step {step_idx + 1}, action '{required_before}' was executed. "
                             f"Rule {rule.id} ({rule.name}) requires '{must_call}' to be called "
@@ -805,6 +1004,7 @@ class FaultAnalyzer:
                                 ),
                             },
                         ],
+                        **_policy_flag_kwargs(rule),
                     ))
 
         return flags
@@ -896,14 +1096,13 @@ class FaultAnalyzer:
                     step_index=step_idx,
                     fault_type="POLICY_VIOLATION",
                     severity=rule.severity,
-                    rule_id=rule.id,
-                    rule_name=rule.name,
                     plain_english=(
                         f"By step {step_idx + 1}, field '{source_key_path}' had value {source_value:,.2f}, "
                         f"which exceeded the threshold {rule.threshold_value:,.2f}. "
                         f"Rule {rule.id} ({rule.name}) requires '{rule.required_action}' before proceeding."
                     ),
                     fault_chain=fault_chain,
+                    **_policy_flag_kwargs(rule),
                 ))
                 break
 
@@ -937,8 +1136,6 @@ class FaultAnalyzer:
                     step_index=step_idx,
                     fault_type="POLICY_VIOLATION",
                     severity=rule.severity,
-                    rule_id=rule.id,
-                    rule_name=rule.name,
                     plain_english=(
                         f"At step {step_idx + 1}, content matched prohibited pattern "
                         f"'{rule.prohibited_pattern}'. Rule {rule.id} ({rule.name}) was violated."
@@ -951,6 +1148,7 @@ class FaultAnalyzer:
                             "detail": f"Matched prohibited content: {match.group(0)}",
                         },
                     ],
+                    **_policy_flag_kwargs(rule),
                 ))
 
         return flags
@@ -1082,6 +1280,10 @@ class FaultAnalyzer:
 
             action_name = rule.approval_action.lower()
             approver = rule.approved_by.lower() if rule.approved_by else None
+            approval_policy = (
+                self.policy.approval_policy(rule.approval_policy_ref)
+                if rule.approval_policy_ref else None
+            )
 
             for i, step in enumerate(steps):
                 if not _is_action_trigger_step(step):
@@ -1089,11 +1291,111 @@ class FaultAnalyzer:
                 if not _matches_named_action(step, action_name):
                     continue
 
-                approved = any(
-                    _step_satisfies_approval(prev, action_name=action_name, approver=approver)
-                    for prev in steps[: i + 1]
-                )
+                if rule.approval_policy_ref and approval_policy is None:
+                    step_idx = step.get("index", i)
+                    flags.append(FaultFlag(
+                        step_index=step_idx,
+                        fault_type="POLICY_VIOLATION",
+                        severity=rule.severity,
+                        plain_english=(
+                            f"At step {step_idx + 1}, action '{action_name}' executed under rule "
+                            f"{rule.id} ({rule.name}), but the referenced approval policy "
+                            f"'{rule.approval_policy_ref}' was not defined."
+                        ),
+                        fault_chain=[
+                            {
+                                "step_index": step_idx,
+                                "step_number": step_idx + 1,
+                                "role": "policy_reference_missing",
+                                "detail": f"Missing approval policy '{rule.approval_policy_ref}'",
+                            },
+                        ],
+                        **_policy_flag_kwargs(rule),
+                    ))
+                    continue
+
+                requests = _matching_approval_requests(steps, action_name=action_name, before_index=i + 1)
+                responses = _matching_approval_responses(steps, action_name=action_name, before_index=i + 1)
+
+                if approval_policy is not None:
+                    approved, failure_reason = _approval_responses_satisfy_policy(
+                        responses,
+                        requests,
+                        required_roles=approval_policy.required_roles,
+                        minimum_approvers=approval_policy.minimum_approvers,
+                        reason_required=approval_policy.reason_required,
+                        approver=approver,
+                    )
+                else:
+                    approved = any(
+                        _step_satisfies_approval(prev, action_name=action_name, approver=approver)
+                        for prev in steps[: i + 1]
+                    )
+                    failure_reason = "no matching approved response was recorded"
+
                 if approved:
+                    continue
+
+                step_idx = step.get("index", i)
+                detail = f"'{action_name}' executed without approval"
+                if approval_policy is not None:
+                    detail = (
+                        f"'{action_name}' executed without satisfying approval policy "
+                        f"'{approval_policy.approval_id}'"
+                    )
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type="POLICY_VIOLATION",
+                    severity=rule.severity,
+                    plain_english=(
+                        f"At step {step_idx + 1}, action '{action_name}' executed without an approved "
+                        f"approval response. Rule {rule.id} ({rule.name}) requires explicit approval first."
+                        + (f" Requirement not met: {failure_reason}." if failure_reason else "")
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_idx + 1,
+                            "role": "violation_point",
+                            "detail": detail,
+                        },
+                    ],
+                    **_policy_flag_kwargs(rule),
+                ))
+
+        return flags
+
+    def _pass9_tool_permission_guard(self, steps: list[dict]) -> list[FaultFlag]:
+        """Policy-only tool allow/deny controls."""
+        if not self.policy:
+            return []
+
+        flags = []
+        tool_rules = self.policy.rules_of_type("tool_permission_guard")
+
+        for rule in tool_rules:
+            allowed_tools = {tool.lower() for tool in (rule.allowed_tools or [])}
+            denied_tools = {tool.lower() for tool in (rule.denied_tools or [])}
+            if not allowed_tools and not denied_tools:
+                continue
+
+            for i, step in enumerate(steps):
+                if not _tool_event_matches_rule(step, rule.applies_at):
+                    continue
+
+                tool_name = _get_primary_action(step)
+                if not tool_name:
+                    continue
+
+                violation_reason = None
+                if tool_name in denied_tools:
+                    violation_reason = f"tool '{tool_name}' is explicitly denied"
+                elif allowed_tools and tool_name not in allowed_tools:
+                    violation_reason = (
+                        f"tool '{tool_name}' is not in the allowlist {sorted(allowed_tools)}"
+                    )
+
+                if not violation_reason:
                     continue
 
                 step_idx = step.get("index", i)
@@ -1101,20 +1403,19 @@ class FaultAnalyzer:
                     step_index=step_idx,
                     fault_type="POLICY_VIOLATION",
                     severity=rule.severity,
-                    rule_id=rule.id,
-                    rule_name=rule.name,
                     plain_english=(
-                        f"At step {step_idx + 1}, action '{action_name}' executed without an approved "
-                        f"approval response. Rule {rule.id} ({rule.name}) requires explicit approval first."
+                        f"At step {step_idx + 1}, tool '{tool_name}' was used. "
+                        f"Rule {rule.id} ({rule.name}) was violated because {violation_reason}."
                     ),
                     fault_chain=[
                         {
                             "step_index": step_idx,
                             "step_number": step_idx + 1,
                             "role": "violation_point",
-                            "detail": f"'{action_name}' executed without approval",
+                            "detail": violation_reason,
                         },
                     ],
+                    **_policy_flag_kwargs(rule),
                 ))
 
         return flags

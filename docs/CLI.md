@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.6)
+# EPI CLI Reference (v2.8.7)
 
-**Version:** 2.8.6  
+**Version:** 2.8.7  
 **Primary entrypoint:** `epi`
 
 ---
@@ -110,7 +110,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.6`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v2.8.7`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 
 The analyzer enforces:
 - `constraint_guard`
@@ -118,6 +118,7 @@ The analyzer enforces:
 - `threshold_guard`
 - `prohibition_guard`
 - `approval_guard`
+- `tool_permission_guard`
 
 ```bash
 epi policy init
@@ -134,6 +135,8 @@ Practical rule:
 - EPI stores the company rulebook as `epi_policy.json`; most users should not edit JSON manually
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
+
+For the proposed enterprise direction after `v2.8.7`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 

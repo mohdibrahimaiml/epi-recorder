@@ -21,9 +21,24 @@ MINIMAL_POLICY = {
 }
 
 FULL_POLICY = {
+    "policy_format_version": "2.0",
+    "policy_id": "payment-agent-prod",
     "system_name": "payment-agent",
     "system_version": "2.0",
     "policy_version": "2025-03-01",
+    "scope": {
+        "team": "payments",
+        "application": "payment-agent",
+        "environment": "production",
+    },
+    "approval_policies": [
+        {
+            "approval_id": "manager-approval",
+            "required_roles": ["manager"],
+            "minimum_approvers": 1,
+            "reason_required": True,
+        }
+    ],
     "rules": [
         {
             "id": "R001",
@@ -31,6 +46,8 @@ FULL_POLICY = {
             "severity": "critical",
             "description": "Never exceed balance.",
             "type": "constraint_guard",
+            "mode": "detect",
+            "applies_at": "decision",
             "watch_for": ["balance", "limit"],
             "violation_if": "amount > balance",
         },
@@ -181,6 +198,43 @@ class TestEPIPolicy:
         assert isinstance(policy.rules[0].watch_for, list)
         assert "balance" in policy.rules[0].watch_for
 
+    def test_policy_v2_metadata_fields_parse(self, tmp_path):
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(FULL_POLICY), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        assert policy.policy_format_version == "2.0"
+        assert policy.policy_id == "payment-agent-prod"
+        assert policy.scope is not None
+        assert policy.scope.environment == "production"
+        assert len(policy.approval_policies) == 1
+        assert policy.approval_policies[0].approval_id == "manager-approval"
+
+    def test_rule_mode_and_applies_at_parse(self, tmp_path):
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(FULL_POLICY), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        rule = policy.rules_of_type("constraint_guard")[0]
+        assert rule.mode == "detect"
+        assert rule.applies_at == "decision"
+
+    def test_required_roles_string_coerced_to_list(self, tmp_path):
+        policy_data = {
+            **FULL_POLICY,
+            "approval_policies": [
+                {
+                    "approval_id": "manager-approval",
+                    "required_roles": "manager",
+                }
+            ],
+        }
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(policy_data), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        assert policy.approval_policies[0].required_roles == ["manager"]
+
 
 class TestPolicyProfiles:
     def test_lists_expected_regulated_profiles(self):
@@ -198,6 +252,8 @@ class TestPolicyProfiles:
             policy_version="2026-03-17",
         )
         parsed = EPIPolicy(**policy)
+        assert parsed.policy_format_version == "2.0"
+        assert parsed.policy_id == "loan-agent"
         assert parsed.system_name == "loan-agent"
         assert len(parsed.rules) == 4
         assert parsed.rules_of_type("threshold_guard")[0].required_action == "human_approval"

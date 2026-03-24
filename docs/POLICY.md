@@ -4,7 +4,7 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
-In `v2.8.6`, the preferred way to create this file is:
+In `v2.8.7`, the preferred way to create this file is:
 
 ```bash
 epi policy init
@@ -94,7 +94,7 @@ before running an important workflow.
 
 ## Rule Types
 
-EPI currently supports five policy rule types.
+EPI currently supports six policy rule types.
 
 ### `constraint_guard`
 
@@ -220,6 +220,31 @@ Example shape:
 }
 ```
 
+### `tool_permission_guard`
+
+Use this when a workflow should only be allowed to call certain tools.
+
+Example:
+
+- refund agents may call `lookup_order` and `verify_identity`
+- refund agents must never call `delete_customer`
+
+Example shape:
+
+```json
+{
+  "id": "R006",
+  "name": "Approved Refund Tools Only",
+  "severity": "critical",
+  "description": "Only approved refund tools may be used in production.",
+  "type": "tool_permission_guard",
+  "mode": "block",
+  "applies_at": "tool_call",
+  "allowed_tools": ["lookup_order", "verify_identity", "approve_refund"],
+  "denied_tools": ["delete_customer"]
+}
+```
+
 ## What The Fault Analyzer Checks
 
 When a policy is present, the analyzer checks the recorded trace for:
@@ -229,6 +254,7 @@ When a policy is present, the analyzer checks the recorded trace for:
 - `threshold_violation`
 - `prohibition_violation`
 - `approval_violation`
+- `tool_permission_violation`
 
 It also performs heuristic checks such as:
 
@@ -311,3 +337,27 @@ In a real organization, the expected model is:
 - reviewers open `.epi` files and see what went wrong
 
 So `epi_policy.json` should be thought of as the machine-readable form of the company's AI rulebook, not as the main user interface.
+
+## Where Enterprise Policy Goes Next
+
+`v2.8.7` policy is a strong workflow rulebook, but enterprises often need more:
+
+- layered policy inheritance
+- environment-aware controls
+- tool and model allowlists
+- approval policies
+- richer policy provenance
+- policy testing and diffing
+
+The concrete proposal for that next step lives here:
+
+- [Policy v2 Design](./POLICY-V2-DESIGN.md)
+
+That document describes a future enterprise policy model with:
+
+- policy layers
+- intervention points
+- enforcement modes
+- enterprise control families
+- `policy_evaluation.json`
+- proposed CLI and API changes

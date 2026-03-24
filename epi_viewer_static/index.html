@@ -13,6 +13,7 @@
         "steps": [],
         "analysis": null,
         "policy": null,
+        "policy_evaluation": null,
         "review": null
     }
     </script>
@@ -64,6 +65,12 @@
                         <div id="policy-summary" class="card-stack"></div>
                     </article>
 
+                    <article id="policy-evaluation-card" class="card" hidden>
+                        <div class="section-label">Policy v2</div>
+                        <h2 class="card__title">Control Outcomes</h2>
+                        <div id="policy-evaluation-summary" class="card-stack"></div>
+                    </article>
+
                     <article id="review-card" class="card" hidden>
                         <div class="section-label">Human Review</div>
                         <h2 class="card__title">Disposition</h2>
@@ -113,7 +120,7 @@
             <div class="footer__inner">
                 <span>EPI Viewer __EPI_VERSION__</span>
                 <span>Offline artifact viewer</span>
-                <span>application/epi+zip</span>
+                <span>application/vnd.epi+zip</span>
             </div>
         </footer>
     </div>

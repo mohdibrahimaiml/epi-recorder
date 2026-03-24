@@ -93,6 +93,12 @@ def _policy_summary_table(policy: EPIPolicy) -> Table:
 def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path | str] = None) -> None:
     profile_label = getattr(policy, "profile_id", None) or "custom"
     where = f"\nStored at: [bold]{output_path}[/bold]" if output_path else ""
+    scope_bits = []
+    if policy.scope:
+        for key in ("organization", "team", "application", "workflow", "environment"):
+            value = getattr(policy.scope, key, None)
+            if value:
+                scope_bits.append(f"{key}={value}")
     console.print(
         Panel(
             (
@@ -105,6 +111,10 @@ def _print_policy_summary(policy: EPIPolicy, output_path: Optional[Path | str] =
     )
     console.print(f"[bold]System:[/bold] {policy.system_name} v{policy.system_version}")
     console.print(f"[bold]Policy version:[/bold] {policy.policy_version}")
+    if policy.policy_id:
+        console.print(f"[bold]Policy ID:[/bold] {policy.policy_id}")
+    if scope_bits:
+        console.print(f"[bold]Scope:[/bold] {', '.join(scope_bits)}")
     console.print(f"[bold]Profile:[/bold] {profile_label}")
     console.print(f"[bold]Rules enabled:[/bold] {len(policy.rules)}\n")
     if policy.rules:
@@ -273,6 +283,8 @@ def _build_custom_starter_policy(system_name: str, system_version: str, policy_v
         )
 
     return {
+        "policy_format_version": "2.0",
+        "policy_id": system_name.strip().lower().replace(" ", "-"),
         "system_name": system_name,
         "system_version": system_version,
         "policy_version": policy_version,

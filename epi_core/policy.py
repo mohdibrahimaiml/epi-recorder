@@ -10,6 +10,7 @@ recording always completes regardless of policy state.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Optional, Literal
@@ -17,10 +18,57 @@ from typing import Optional, Literal
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 
+PolicySeverity = Literal["critical", "high", "medium", "low"]
+PolicyMode = Literal["detect", "warn", "block", "require_approval", "redact", "quarantine", "escalate"]
+PolicyInterventionPoint = Literal[
+    "input",
+    "prompt",
+    "model_request",
+    "model_response",
+    "tool_call",
+    "tool_response",
+    "memory_read",
+    "memory_write",
+    "decision",
+    "output",
+    "handoff",
+    "review",
+]
+
+
+def _slugify_policy_id(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
+    return slug or "epi-policy"
+
+
+class PolicyScope(BaseModel):
+    organization: Optional[str] = None
+    team: Optional[str] = None
+    application: Optional[str] = None
+    workflow: Optional[str] = None
+    environment: Optional[str] = None
+
+
+class ApprovalPolicy(BaseModel):
+    approval_id: str
+    required_roles: list[str] = Field(default_factory=list)
+    minimum_approvers: int = 1
+    expires_after_minutes: Optional[int] = None
+    reason_required: bool = False
+    separation_of_duties: bool = False
+
+    @field_validator("required_roles", mode="before")
+    @classmethod
+    def coerce_required_roles(cls, v):
+        if isinstance(v, str):
+            return [v]
+        return v
+
+
 class PolicyRule(BaseModel):
     id: str
     name: str
-    severity: Literal["critical", "high", "medium", "low"]
+    severity: PolicySeverity
     description: str
     type: Literal[
         "constraint_guard",
@@ -28,7 +76,10 @@ class PolicyRule(BaseModel):
         "threshold_guard",
         "prohibition_guard",
         "approval_guard",
+        "tool_permission_guard",
     ]
+    mode: Optional[PolicyMode] = None
+    applies_at: Optional[PolicyInterventionPoint] = None
 
     # constraint_guard: value established at step M must not be exceeded at step N
     watch_for: Optional[list[str]] = None         # keywords that identify the constraint field
@@ -57,6 +108,11 @@ class PolicyRule(BaseModel):
         serialization_alias="approval_action",
     )
     approved_by: Optional[str] = None
+    approval_policy_ref: Optional[str] = None
+
+    # tool_permission_guard: allow/deny tool usage at selected intervention points
+    allowed_tools: Optional[list[str]] = None
+    denied_tools: Optional[list[str]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -75,16 +131,33 @@ class PolicyRule(BaseModel):
             return [v]
         return v
 
+    @field_validator("allowed_tools", "denied_tools", mode="before")
+    @classmethod
+    def coerce_tool_lists(cls, v):
+        if isinstance(v, str):
+            return [v]
+        return v
+
 
 class EPIPolicy(BaseModel):
+    policy_format_version: str = "1.0"
+    policy_id: Optional[str] = None
     system_name: str
     system_version: str = "1.0"
     policy_version: str
     profile_id: Optional[str] = None
-    rules: list[PolicyRule] = []
+    scope: Optional[PolicyScope] = None
+    approval_policies: list[ApprovalPolicy] = Field(default_factory=list)
+    rules: list[PolicyRule] = Field(default_factory=list)
 
     def rules_of_type(self, rule_type: str) -> list[PolicyRule]:
         return [r for r in self.rules if r.type == rule_type]
+
+    def approval_policy(self, approval_id: str) -> Optional[ApprovalPolicy]:
+        for policy in self.approval_policies:
+            if policy.approval_id == approval_id:
+                return policy
+        return None
 
 
 POLICY_PROFILES: dict[str, dict] = {
@@ -275,6 +348,8 @@ def build_policy_from_profile(
     """
     profile = POLICY_PROFILES[profile_name]
     return {
+        "policy_format_version": "2.0",
+        "policy_id": _slugify_policy_id(system_name),
         "system_name": system_name,
         "system_version": system_version,
         "policy_version": policy_version,
@@ -364,6 +439,17 @@ STARTER_POLICY_TEMPLATE = """\
       "type": "approval_guard",
       "approval_action": "approve_refund",
       "approved_by": "manager"
+    },
+    {
+      "id": "R006",
+      "name": "Example Tool Permission Guard",
+      "severity": "critical",
+      "description": "Only approved tools may be used in this workflow.",
+      "type": "tool_permission_guard",
+      "mode": "block",
+      "applies_at": "tool_call",
+      "allowed_tools": ["lookup_order", "verify_identity", "approve_refund"],
+      "denied_tools": ["delete_customer"]
     }
   ]
 }

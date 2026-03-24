@@ -144,6 +144,54 @@ class TestPackWithAnalysis:
 
         assert '"analysis"' in viewer_html
 
+    def test_policy_evaluation_json_present_when_policy_used(self, tmp_path):
+        src = _make_source_dir(tmp_path)
+        out = tmp_path / "output.epi"
+        policy_payload = {
+            "policy_format_version": "2.0",
+            "policy_id": "refund-agent-prod",
+            "system_name": "refund-agent",
+            "system_version": "1.0",
+            "policy_version": "2026-04-01",
+            "rules": [
+                {
+                    "id": "R005",
+                    "name": "Manager Approval Before Refund",
+                    "severity": "critical",
+                    "description": "Refund approval requires explicit manager signoff.",
+                    "type": "approval_guard",
+                    "mode": "require_approval",
+                    "applies_at": "decision",
+                    "approval_action": "approve_refund",
+                    "approved_by": "manager",
+                }
+            ],
+        }
+        (tmp_path / "epi_policy.json").write_text(json.dumps(policy_payload), encoding="utf-8")
+        (src / "steps.jsonl").write_text(
+            '{"index": 0, "kind": "session.start", "content": {"workflow": "test"}, "timestamp": "2025-01-01T00:00:00"}\n'
+            '{"index": 1, "kind": "agent.approval.request", "content": {"action": "approve_refund"}, "timestamp": "2025-01-01T00:00:01"}\n'
+            '{"index": 2, "kind": "agent.decision", "content": {"decision": "approve_refund"}, "timestamp": "2025-01-01T00:00:02"}\n'
+            '{"index": 3, "kind": "session.end", "content": {"success": true}, "timestamp": "2025-01-01T00:00:03"}\n',
+            encoding="utf-8",
+        )
+
+        with patch("epi_core.policy.Path") as mock_p:
+            mock_p.cwd.return_value = tmp_path
+            mock_p.side_effect = Path
+            EPIContainer.pack(src, ManifestModel(file_manifest={}), out)
+
+        with zipfile.ZipFile(out, "r") as zf:
+            assert "policy_evaluation.json" in zf.namelist()
+            policy_evaluation = json.loads(zf.read("policy_evaluation.json"))
+            viewer_html = zf.read("viewer.html").decode("utf-8")
+
+        assert policy_evaluation["policy_id"] == "refund-agent-prod"
+        assert policy_evaluation["controls_evaluated"] == 1
+        assert policy_evaluation["controls_failed"] == 1
+        assert "policy_evaluation.json" in EPIContainer.read_manifest(out).file_manifest
+        assert '"policy_evaluation"' in viewer_html
+
     def test_no_policy_json_when_no_policy_file(self, tmp_path):
         """If no epi_policy.json exists in CWD, policy.json must not be in the artifact."""
         src = _make_source_dir(tmp_path)

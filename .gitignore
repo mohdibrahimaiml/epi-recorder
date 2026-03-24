@@ -11,6 +11,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!epi-viewer/lib/
+!epi-viewer/lib/verification.cjs
 lib64/
 parts/
 sdist/

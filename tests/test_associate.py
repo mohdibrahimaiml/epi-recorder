@@ -129,6 +129,26 @@ class TestWindowsLauncherScripts:
 
         assert icon_cmd == f'"{icon_file}"'
 
+    def test_system_elevation_prefers_adjacent_epi_over_path_entry(self, tmp_path):
+        python_exe = tmp_path / "python.exe"
+        python_exe.write_text("py", encoding="ascii")
+        adjacent_epi = tmp_path / "epi.exe"
+        adjacent_epi.write_text("exe", encoding="ascii")
+        stale_path_epi = tmp_path / "stale-epi.exe"
+        stale_path_epi.write_text("exe", encoding="ascii")
+
+        shell32 = MagicMock()
+        shell32.ShellExecuteW.return_value = 33
+
+        with patch("epi_core.platform.associate.sys.executable", str(python_exe)), \
+             patch("epi_core.platform.associate.shutil.which", return_value=str(stale_path_epi)), \
+             patch("ctypes.windll", MagicMock(shell32=shell32)):
+            from epi_core.platform.associate import _elevate_and_register_system
+            _elevate_and_register_system()
+
+        shell32.ShellExecuteW.assert_called_once()
+        assert shell32.ShellExecuteW.call_args[0][2] == str(adjacent_epi)
+
     def test_launcher_dir_falls_back_when_preferred_unwritable(self, tmp_path):
         preferred = Path("C:\\<>invalid\\EPILabs")
         local_app_data = tmp_path / "LocalAppData"
@@ -285,12 +305,32 @@ class TestRegisterFileAssociation:
         """With force=True, registration runs even if already done."""
         with patch("epi_core.platform.associate._needs_registration", return_value=False), \
              patch("epi_core.platform.associate.register_windows") as mock_reg, \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value={"status": "OK", "extension_progid": "EPIRecorder.File"}), \
              patch("epi_core.platform.associate._set_registration_state"):
             result = register_file_association(silent=True, force=True)
         # On Windows, register_windows should be called
         if sys.platform == "win32":
             mock_reg.assert_called_once()
             assert result is True
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+    def test_returns_false_when_windows_post_check_is_still_broken(self):
+        with patch("epi_core.platform.associate._needs_registration", return_value=True), \
+             patch("epi_core.platform.associate.register_windows") as mock_reg, \
+             patch(
+                 "epi_core.platform.associate.get_association_diagnostics",
+                 return_value={
+                     "status": "BROKEN",
+                     "issues": ["Registered open command does not match the current installation."],
+                     "extension_progid": "EPIRecorder.File",
+                 },
+             ), \
+             patch("epi_core.platform.associate._set_registration_state") as mock_state:
+            result = register_file_association(silent=True, force=False)
+
+        mock_reg.assert_called_once()
+        mock_state.assert_not_called()
+        assert result is False
 
     @pytest.mark.skipif(sys.platform == "win32", reason="Non-Windows path")
     def test_non_windows_silent_no_crash(self):

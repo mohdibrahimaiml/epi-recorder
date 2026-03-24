@@ -400,6 +400,12 @@ class TestEPIContainer:
         assert "No execution data recorded" in viewer_html
         assert "Needs Verification" in viewer_html
         assert '<option value="agent">Agent</option>' in viewer_html
+        assert "Control Outcomes" in viewer_html
+        assert "structured control outcomes" in viewer_html.lower()
+        assert "application/vnd.epi+zip" in viewer_html
+        assert "Jump to step" in viewer_html
+        assert "data-jump-step" in viewer_html
+        assert "timeline-item--focus" in viewer_html
         assert "Approval requested for" in viewer_html
         assert "No explicit agent approval checkpoint was recorded in this artifact." in viewer_html
         from epi_core import __version__

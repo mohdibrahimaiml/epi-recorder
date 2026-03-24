@@ -187,25 +187,21 @@ Less useful:
 
 ---
 
-## What Changed in v2.8.6
+## What Changed in v2.8.7
 
-- **Agent-first workflow recording**
-  - `epi.agent_run(...)` and `get_current_session().agent_run(...)` now create clearer agent-shaped evidence with lineage, approvals, memory activity, handoffs, and pause/resume checkpoints
-- **Better first-run experience**
-  - `epi init` now teaches the evidence model more honestly
-  - `epi run` captures plain `print(...)` output as `stdout.print` and labels console-only evidence clearly
-  - if a child script already uses `record(...)`, `epi run` now prefers the real recorded artifact instead of leaving a misleading bootstrap file behind
-- **Stronger reviewer flow**
-  - `epi review` shows trust first and blocks review on tampered evidence
-  - `epi policy show` now works directly on a `.epi` file so reviewers can inspect the embedded rulebook
-- **Better viewer clarity**
-  - the viewer explains trust state, rulebook context, and review order more clearly for non-technical users
-  - agent/tool/approval events are now summarized more naturally in the timeline
-- **Cleaner Windows and CLI behavior**
-  - association/open flow now prefers the live `epi view "%1"` path to avoid stale viewer launches
-  - basic CLI commands start much faster on Windows
-- **Policy engine expansion**
-  - `approval_guard` joins `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard` as a supported rule type
+- **Policy v2 foundation**
+  - policy metadata now supports `policy_format_version`, `policy_id`, scope, approval policies, rule `mode`, and `applies_at`
+  - `tool_permission_guard` now joins `approval_guard`, `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard`
+  - artifacts can now carry structured `policy_evaluation.json` control outcomes
+- **Reviewer-facing control visibility**
+  - the embedded viewer now shows control outcomes directly instead of hiding them in raw JSON
+  - failed controls link straight to their timeline steps for faster review
+- **Trust hardening beyond the Python package**
+  - the separate desktop `epi-viewer` app now performs real Ed25519 manifest verification instead of format-only checks
+  - Windows installer/version metadata is aligned with the current release again
+- **Release consistency**
+  - current version surfaces now align on `2.8.7`
+  - packaging and manifest hygiene remain intact
 
 EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there, and agent workflows now map much more naturally into the artifact.
 
@@ -509,6 +505,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.7** | 2026-03-24 | **Policy v2 foundation and trust hardening** - control outcomes in artifacts, `tool_permission_guard`, viewer jump-to-step review flow, desktop viewer signature verification, and release/version consistency fixes |
 | **2.8.6** | 2026-03-22 | **Agent-first product hardening** - clearer reviewer UX, stronger first-run onboarding, print capture in `epi run`, better viewer guidance, and agent-shaped evidence with approvals and lineage |
 | **2.8.5** | 2026-03-20 | **Reliability patch** - guided policy UX, stable `epi review` CLI invocation, bootstrap manual-step support in `epi run`, and stronger Windows association repair paths |
 | **2.8.4** | 2026-03-18 | **Windows double-click stability** - stronger association repair and diagnostics for desktop opening workflows |
@@ -533,7 +530,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.6):**
+**Current (v2.8.7):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -555,6 +552,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Policy Guide](docs/POLICY.md)** | How policy, fault analysis, and rulebooks work |
+| **[Policy v2 Design](docs/POLICY-V2-DESIGN.md)** | Proposed enterprise policy model with layers, enforcement modes, and richer control types |
 | **[CHANGELOG](CHANGELOG.md)** | Release notes |
 | **[Contributing](CONTRIBUTING.md)** | Contribution guidelines |
 | **[Security](SECURITY.md)** | Security policy and vulnerability reporting |

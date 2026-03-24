@@ -4,7 +4,7 @@ include LICENSE
 include CHANGELOG.md
 
 # Include static viewer files
-recursive-include epi_viewer_static *.html *.js *.css *.json
+recursive-include epi_viewer_static *.html *.js *.css
 recursive-include epi_core/assets *.ico
 
 # Include example scripts

@@ -180,7 +180,7 @@ epi-viewer/
 │   ├── styles.css       # Institutional styling
 │   └── viewer.js        # Frontend logic
 ├── package.json         # Dependencies & build config
-└── icons/               # App icons (TODO)
+└── icons/               # App icons for branded distribution
 ```
 
 ### Running in Development
@@ -211,7 +211,7 @@ npm run build:linux # Linux
 - [x] Verify-before-render security model
 - [x] 3-layer evidence display
 - [x] Export verification reports
-- [ ] Full Ed25519 signature verification (currently format-only)
+- [x] Full Ed25519 signature verification
 - [ ] File association installers
 - [ ] App icons
 
@@ -241,10 +241,10 @@ npm install
 File associations are configured in `package.json` under `build.fileAssociations`.  
 After installing the built application, they should work automatically.
 
-### "Signature verification shows 'Present' but not validated"
+### "Signature verification fails on legacy artifacts"
 
-Current implementation validates signature **format** only.  
-Full Ed25519 cryptographic verification requires adding `@noble/ed25519` or similar library.
+Current desktop verification supports current EPI v2+ manifest signatures.  
+If you need older legacy v1 artifacts, verify them with the main Python `epi verify` flow.
 
 ---
 

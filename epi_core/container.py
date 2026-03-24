@@ -24,7 +24,7 @@ from epi_core.workspace import RecordingWorkspaceError, create_recording_workspa
 # EPI mimetype constant (vendor-specific MIME type per RFC 6838)
 EPI_MIMETYPE = "application/vnd.epi+zip"
 _RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
-_GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json"}
+_GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 
 # Thread-safe lock for ZIP packing operations (prevents concurrent corruption)
 _zip_pack_lock = threading.Lock()
@@ -173,12 +173,21 @@ class EPIContainer:
             except Exception:
                 pass
 
+        policy_evaluation_data = None
+        policy_evaluation_file = source_dir / "policy_evaluation.json"
+        if policy_evaluation_file.exists():
+            try:
+                policy_evaluation_data = json.loads(policy_evaluation_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
         # Create embedded data
         embedded_data = {
             "manifest": manifest.model_dump(mode="json"),
             "steps": steps,
             "analysis": analysis_data,
             "policy": policy_data,
+            "policy_evaluation": policy_evaluation_data,
             "review": review_data,
         }
         
@@ -333,6 +342,12 @@ class EPIContainer:
                     (source_dir / "policy.json").write_text(
                         policy.model_dump_json(indent=2), encoding="utf-8"
                     )
+                    policy_evaluation_json = analysis.to_policy_evaluation_json()
+                    if policy_evaluation_json:
+                        (source_dir / "policy_evaluation.json").write_text(
+                            policy_evaluation_json,
+                            encoding="utf-8",
+                        )
             except Exception as _fa_err:
                 # Fault analysis must never break packing — but log to stderr
                 # so bugs in the analyzer aren't silently invisible.

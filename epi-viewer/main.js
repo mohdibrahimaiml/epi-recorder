@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const extractZip = require('extract-zip');
 const os = require('os');
+const { verifyManifestSignature } = require('./lib/verification.cjs');
 
 let mainWindow;
 
@@ -268,60 +269,7 @@ async function verifyIntegrity(extractDir, manifest) {
 }
 
 async function verifySignature(manifest) {
-    try {
-        // Check if signature exists
-        if (!manifest.signature) {
-            return {
-                valid: false,
-                error: 'No signature present',
-                level: 'UNSIGNED'
-            };
-        }
-
-        // Parse signature format: "ed25519:keyname:base64sig"
-        const parts = manifest.signature.split(':', 3);
-        if (parts.length !== 3) {
-            return {
-                valid: false,
-                error: 'Invalid signature format'
-            };
-        }
-
-        const [algorithm, keyName, signatureB64] = parts;
-
-        if (algorithm !== 'ed25519') {
-            return {
-                valid: false,
-                error: `Unsupported algorithm: ${algorithm}`
-            };
-        }
-
-        // TODO: Implement Ed25519 verification
-        // For now, we'll verify the format is correct and signature exists
-        //Full crypto verification requires ed25519 library
-
-        try {
-            Buffer.from(signatureB64, 'base64');
-        } catch (err) {
-            return {
-                valid: false,
-                error: 'Invalid signature encoding'
-            };
-        }
-
-        return {
-            valid: true,
-            algorithm: algorithm,
-            keyName: keyName,
-            level: 'SIGNED'
-        };
-
-    } catch (error) {
-        return {
-            valid: false,
-            error: error.message
-        };
-    }
+    return verifyManifestSignature(manifest);
 }
 
 async function computeFileHash(filePath) {

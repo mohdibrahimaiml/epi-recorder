@@ -47,6 +47,40 @@ After v3.0.0, the `.epi` format should be:
 
 ## [2.7.2] – 2026-03-14
 
+## [2.8.7] - 2026-03-24
+
+### Policy v2 Foundation and Trust Hardening
+
+#### Added
+
+- **Policy v2 metadata**
+  - `policy_format_version`, `policy_id`, policy scope, approval policy references, rule `mode`, and rule `applies_at`
+- **Enterprise control support**
+  - `tool_permission_guard`
+  - structured `policy_evaluation.json` output sealed into artifacts when policy is present
+- **Viewer control review flow**
+  - control outcomes panel in the embedded viewer
+  - jump-to-step navigation from failed controls into the timeline
+
+#### Improved
+
+- **Policy review clarity**
+  - `epi policy show` surfaces policy ID and scope when present
+  - policy docs now describe both the current rulebook model and the next enterprise direction
+- **Version consistency**
+  - installer metadata and current-version docs now align with `2.8.7`
+
+#### Fixed
+
+- **Desktop trust verification**
+  - the separate `epi-viewer` app now performs real Ed25519 manifest verification instead of format-only checks
+- **Windows association honesty**
+  - association repair now fails honestly if post-registration diagnostics are still broken
+  - system elevation prefers the current install's adjacent `epi.exe` instead of a stale `PATH` entry
+- **Packaging/release hygiene**
+  - stale static-file manifest include removed
+  - release/version drift checks tightened
+
 ## [2.8.6] - 2026-03-22
 
 ### Product Hardening and Agent-First Workflow Evidence

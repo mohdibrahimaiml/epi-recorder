@@ -571,15 +571,16 @@ def _elevate_and_register_system() -> None:
     import ctypes
     import re as _re
 
-    # Find epi.exe to elevate — try pip-installed location first
+    # Find epi.exe to elevate — prefer the current installation first so we do
+    # not accidentally relaunch a stale PATH entry from another Python.
     epi_exe_path: str | None = None
-    found = shutil.which("epi.exe")
-    if found and Path(found).stat().st_size > 0:
-        epi_exe_path = found
+    candidate = Path(sys.executable).parent / "epi.exe"
+    if candidate.exists() and candidate.stat().st_size > 0:
+        epi_exe_path = str(candidate)
     if not epi_exe_path:
-        candidate = Path(sys.executable).parent / "epi.exe"
-        if candidate.exists() and candidate.stat().st_size > 0:
-            epi_exe_path = str(candidate)
+        found = shutil.which("epi.exe")
+        if found and Path(found).stat().st_size > 0:
+            epi_exe_path = found
     if not epi_exe_path:
         raise RuntimeError(
             "Cannot find epi.exe for elevation. "
@@ -1091,6 +1092,11 @@ def register_file_association(silent: bool = False, force: bool = False) -> bool
     try:
         if sys.platform == "win32":
             register_windows()
+            diag = get_association_diagnostics()
+            if diag.get("status") != "OK" or diag.get("extension_progid") != "EPIRecorder.File":
+                issues = diag.get("issues") or []
+                issue_text = "; ".join(str(issue) for issue in issues) if issues else "association is still unhealthy after registration"
+                raise RuntimeError(f"Post-registration verification failed: {issue_text}")
         elif sys.platform == "darwin":
             register_macos()
         else:

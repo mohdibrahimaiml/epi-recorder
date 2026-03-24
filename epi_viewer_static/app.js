@@ -75,6 +75,10 @@ function getStepIndex(step, fallbackIndex = 0) {
     return fallbackIndex;
 }
 
+function getDisplayStepNumber(step, fallbackIndex = 0) {
+    return getStepIndex(step, fallbackIndex) + 1;
+}
+
 function getStepTimestamp(step) {
     return (step && (step.timestamp || step.ts)) || null;
 }
@@ -258,7 +262,7 @@ function computeTrustState(manifest, context) {
     };
 }
 
-function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review) {
+function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review, policyEvaluation) {
     const startStep = steps.find((step) => step.kind === "session.start");
     const agentStart = steps.find((step) => step.kind === "agent.run.start");
     const primaryFault = analysis && analysis.primary_fault ? analysis.primary_fault : null;
@@ -312,6 +316,9 @@ function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review
     }
     if (approvalState.requests.length) {
         kpis.push(["Approvals", approvalState.pending ? "Pending" : approvalState.responses.length]);
+    }
+    if (policyEvaluation && Number.isFinite(policyEvaluation.controls_failed)) {
+        kpis.push(["Controls failed", policyEvaluation.controls_failed]);
     }
 
     if (manifest.metrics && typeof manifest.metrics === "object") {
@@ -504,7 +511,7 @@ function renderSummary(summary, analysis, policy, review) {
     }
 }
 
-function renderTrustSummary(manifest, context, trustState, analysis, policy) {
+function renderTrustSummary(manifest, context, trustState, analysis, policy, policyEvaluation) {
     const host = document.getElementById("trust-summary");
     if (!host) {
         return;
@@ -526,6 +533,7 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy) {
         ["Signature", signatureValue, signatureTone],
         ["Analysis", analysis ? "Embedded" : "Not embedded", analysis ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
         ["Policy", policy ? "Embedded" : "Not embedded", policy ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
+        ["Control outcomes", policyEvaluation ? "Embedded" : "Not embedded", policyEvaluation ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
     ];
 
     host.innerHTML = `
@@ -542,7 +550,7 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy) {
     `;
 }
 
-function renderGuideSummary(trustState, analysis, policy, review, steps) {
+function renderGuideSummary(trustState, analysis, policy, review, steps, policyEvaluation) {
     const host = document.getElementById("guide-summary");
     if (!host) {
         return;
@@ -575,13 +583,21 @@ function renderGuideSummary(trustState, analysis, policy, review, steps) {
                 : "No embedded policy was found, so this case can only be judged from raw execution evidence."
         ],
         [
-            "4. Confirm human judgment",
+            "4. Check control outcomes",
+            policyEvaluation
+                ? policyEvaluation.controls_failed
+                    ? `Structured policy evaluation is embedded. ${policyEvaluation.controls_failed} control(s) failed and should be compared with the primary finding.`
+                    : "Structured policy evaluation is embedded and shows no failed controls."
+                : "No structured policy evaluation is embedded in this artifact yet."
+        ],
+        [
+            "5. Confirm human judgment",
             reviewOutcome
                 ? `Human review has already been recorded as: ${reviewOutcome}.`
                 : "No human review is attached yet. Treat the analyzer output as a machine finding pending judgment."
         ],
         [
-            "5. Check agent approvals",
+            "6. Check agent approvals",
             approvalState.pending
                 ? "An approval was requested during execution, but no approval response is embedded yet."
                 : approvalState.requests.length
@@ -625,7 +641,7 @@ function renderManifestFacts(manifest, context) {
     `).join("");
 }
 
-function renderTimelineHighlights(steps, analysis, policy, review, manifest) {
+function renderTimelineHighlights(steps, analysis, policy, review, manifest, policyEvaluation) {
     const host = document.getElementById("timeline-highlights");
     if (!host) {
         return;
@@ -658,6 +674,12 @@ function renderTimelineHighlights(steps, analysis, policy, review, manifest) {
     }
     if (policy && Array.isArray(policy.rules)) {
         chips.push(["Rules in force", policy.rules.length]);
+    }
+    if (policyEvaluation && Number.isFinite(policyEvaluation.controls_evaluated)) {
+        chips.push(["Controls evaluated", policyEvaluation.controls_evaluated]);
+    }
+    if (policyEvaluation && Number.isFinite(policyEvaluation.controls_failed) && policyEvaluation.controls_failed > 0) {
+        chips.push(["Controls failed", policyEvaluation.controls_failed]);
     }
     if (reviewEntries.length) {
         chips.push(["Review outcome", review.outcome || reviewEntries[0].outcome || "Attached"]);
@@ -698,7 +720,7 @@ function renderTimelineHighlights(steps, analysis, policy, review, manifest) {
 function getStepBadges(step, analysis) {
     const stepIndex = getStepIndex(step);
     const badges = [
-        `<span class="timeline-badge timeline-badge--step">#${escapeHtml(stepIndex)}</span>`,
+        `<span class="timeline-badge timeline-badge--step">#${escapeHtml(getDisplayStepNumber(step))}</span>`,
         `<span class="timeline-badge timeline-badge--kind">${escapeHtml(step.kind || "unknown")}</span>`,
     ];
 
@@ -733,7 +755,43 @@ function getTimelineVariant(step, analysis) {
     return "timeline-item";
 }
 
-function renderTimeline(steps, analysis, policy, review, manifest) {
+function clearTimelineFilters() {
+    const searchInput = document.getElementById("step-search");
+    const filterInput = document.getElementById("step-filter");
+    if (searchInput) {
+        searchInput.value = "";
+    }
+    if (filterInput) {
+        filterInput.value = "all";
+    }
+    applyFilters();
+}
+
+function jumpToTimelineStep(stepNumber) {
+    const numericStep = Number(stepNumber);
+    if (!Number.isFinite(numericStep) || numericStep < 1) {
+        return;
+    }
+
+    clearTimelineFilters();
+
+    const target = document.querySelector(`.timeline-item[data-step-number="${numericStep}"]`);
+    if (!target) {
+        return;
+    }
+
+    target.classList.remove("timeline-item--focus");
+    void target.offsetWidth;
+    target.classList.add("timeline-item--focus");
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.focus({ preventScroll: true });
+
+    window.setTimeout(() => {
+        target.classList.remove("timeline-item--focus");
+    }, 1800);
+}
+
+function renderTimeline(steps, analysis, policy, review, manifest, policyEvaluation) {
     const host = document.getElementById("timeline");
     const meta = document.getElementById("timeline-meta");
     if (!host) {
@@ -750,10 +808,18 @@ function renderTimeline(steps, analysis, policy, review, manifest) {
             : `${normalizedSteps.length} steps captured. Raw evidence view.`;
     }
 
-    renderTimelineHighlights(normalizedSteps, analysis, policy, review, manifest);
+    renderTimelineHighlights(normalizedSteps, analysis, policy, review, manifest, policyEvaluation);
 
     host.innerHTML = normalizedSteps.map((step) => `
-        <article class="${getTimelineVariant(step, analysis)}" data-search="${escapeHtml(`${step.kind} ${flattenText(step.content)}`.toLowerCase())}" data-kind="${escapeHtml((step.kind || "").toLowerCase())}">
+        <article
+            id="timeline-step-${escapeHtml(getDisplayStepNumber(step))}"
+            class="${getTimelineVariant(step, analysis)}"
+            data-step-index="${escapeHtml(getStepIndex(step))}"
+            data-step-number="${escapeHtml(getDisplayStepNumber(step))}"
+            data-search="${escapeHtml(`${step.kind} ${flattenText(step.content)}`.toLowerCase())}"
+            data-kind="${escapeHtml((step.kind || "").toLowerCase())}"
+            tabindex="-1"
+        >
             <div class="timeline-item__top">
                 <div class="timeline-item__left">${getStepBadges(step, analysis).join("")}</div>
                 <div class="timeline-item__time">${escapeHtml(prettyDate(getStepTimestamp(step)))}</div>
@@ -833,12 +899,32 @@ function renderPolicy(policy, analysis) {
     }
 
     const primaryRuleId = analysis && analysis.primary_fault ? analysis.primary_fault.rule_id : null;
+    const scopeBits = [];
+    if (policy.scope) {
+        ["organization", "team", "application", "workflow", "environment"].forEach((key) => {
+            if (policy.scope[key]) {
+                scopeBits.push(`${key}=${policy.scope[key]}`);
+            }
+        });
+    }
     card.hidden = false;
     host.innerHTML = `
         <div class="detail-card detail-card--good">
             <div class="detail-label">Policy</div>
             <div class="detail-value">${escapeHtml(policy.system_name || "Unknown")} v${escapeHtml(policy.system_version || "unknown")}</div>
         </div>
+        ${policy.policy_id ? `
+            <div class="detail-card">
+                <div class="detail-label">Policy ID</div>
+                <div class="detail-value">${escapeHtml(policy.policy_id)}</div>
+            </div>
+        ` : ""}
+        ${scopeBits.length ? `
+            <div class="detail-card">
+                <div class="detail-label">Scope</div>
+                <div class="detail-value">${escapeHtml(scopeBits.join(", "))}</div>
+            </div>
+        ` : ""}
         <div class="detail-card">
             <div class="detail-label">What these rules mean</div>
             <div class="detail-value">This is the rulebook that was active during the run. EPI checks the recorded steps against these rules and highlights the rule most closely linked to the primary fault.</div>
@@ -849,10 +935,80 @@ function renderPolicy(policy, analysis) {
                 <div class="detail-value">${escapeHtml(rule.name || rule.type || "Unnamed rule")}</div>
                 <div class="detail-subvalue">${escapeHtml(rule.description || "No explanation provided.")}</div>
                 <div class="detail-subvalue">${escapeHtml(`Type: ${rule.type || "unknown"} | Severity: ${rule.severity || "unknown"}`)}</div>
+                ${(rule.mode || rule.applies_at) ? `<div class="detail-subvalue">${escapeHtml(`Mode: ${rule.mode || "detect"} | Applies at: ${rule.applies_at || "unspecified"}`)}</div>` : ""}
                 ${primaryRuleId && primaryRuleId === rule.id ? '<div class="detail-subvalue"><strong>This is the rule linked to the primary fault, so reviewers should compare it with the flagged step below.</strong></div>' : ""}
             </div>
         `).join("")}
     `;
+}
+
+function renderPolicyEvaluation(policyEvaluation) {
+    const card = document.getElementById("policy-evaluation-card");
+    const host = document.getElementById("policy-evaluation-summary");
+    if (!card || !host) {
+        return;
+    }
+    if (!policyEvaluation || !Array.isArray(policyEvaluation.results)) {
+        card.hidden = true;
+        return;
+    }
+
+    const failed = policyEvaluation.results.filter((result) => result.status === "failed");
+    const passed = policyEvaluation.results.filter((result) => result.status !== "failed");
+    const orderedResults = failed.concat(passed);
+    const renderStepLinks = (stepNumbers) => {
+        if (!Array.isArray(stepNumbers) || !stepNumbers.length) {
+            return "";
+        }
+        const uniqueSteps = Array.from(
+            new Set(
+                stepNumbers
+                    .map((value) => Number(value))
+                    .filter((value) => Number.isFinite(value) && value >= 1)
+            )
+        ).sort((left, right) => left - right);
+        if (!uniqueSteps.length) {
+            return "";
+        }
+        return `
+            <div class="control-step-links">
+                ${uniqueSteps.map((stepNumber) => `
+                    <button type="button" class="control-step-link" data-jump-step="${escapeHtml(stepNumber)}">
+                        Jump to step ${escapeHtml(stepNumber)}
+                    </button>
+                `).join("")}
+            </div>
+        `;
+    };
+
+    card.hidden = false;
+    host.innerHTML = `
+        <div class="detail-card ${failed.length ? "detail-card--warn" : "detail-card--good"}">
+            <div class="detail-label">Policy evaluation</div>
+            <div class="detail-value">${escapeHtml(policyEvaluation.policy_id || "Unknown policy")}</div>
+            <div class="detail-subvalue">${escapeHtml(`${policyEvaluation.controls_evaluated || 0} control(s) evaluated | ${policyEvaluation.controls_failed || 0} failed`)}</div>
+        </div>
+        <div class="detail-card">
+            <div class="detail-label">How to read this</div>
+            <div class="detail-value">This panel shows structured control outcomes. Failed controls are the clearest machine-readable view of which policy checks passed or failed during the run.</div>
+        </div>
+        ${orderedResults.map((result) => `
+            <div class="detail-card ${result.status === "failed" ? "detail-card--warn" : "detail-card--good"}">
+                <div class="detail-label">${escapeHtml(result.rule_id || "Control")}</div>
+                <div class="detail-value">${escapeHtml(result.rule_name || result.rule_type || "Unnamed control")}</div>
+                <div class="detail-subvalue">${escapeHtml(`Status: ${result.status || "unknown"} | Mode: ${result.mode || "detect"} | Applies at: ${result.applies_at || "unspecified"}`)}</div>
+                <div class="detail-subvalue">${escapeHtml(`Type: ${result.rule_type || "unknown"} | Severity: ${result.severity || "unknown"} | Matches: ${result.match_count || 0}`)}</div>
+                <div class="detail-value">${escapeHtml(result.plain_english || "No evaluation summary available.")}</div>
+                ${renderStepLinks(result.step_numbers)}
+            </div>
+        `).join("")}
+    `;
+
+    host.querySelectorAll("[data-jump-step]").forEach((node) => {
+        node.addEventListener("click", () => {
+            jumpToTimelineStep(node.getAttribute("data-jump-step"));
+        });
+    });
 }
 
 function renderReview(review) {
@@ -954,21 +1110,23 @@ function init() {
     const steps = (Array.isArray(data.steps) ? data.steps : []).map((step, index) => normalizeStep(step, index));
     const analysis = data.analysis || null;
     const policy = data.policy || null;
+    const policyEvaluation = data.policy_evaluation || null;
     const review = data.review || null;
 
     const trustState = computeTrustState(manifest, context);
-    const summary = deriveCaseSummary(manifest, steps, trustState, analysis, policy, review);
+    const summary = deriveCaseSummary(manifest, steps, trustState, analysis, policy, review, policyEvaluation);
 
     renderTrustBadge(trustState);
     renderGoalBanner(manifest);
     renderSummary(summary, analysis, policy, review);
     renderReviewerVerdict(trustState, analysis, review);
-    renderTrustSummary(manifest, context, trustState, analysis, policy);
-    renderGuideSummary(trustState, analysis, policy, review, steps);
+    renderTrustSummary(manifest, context, trustState, analysis, policy, policyEvaluation);
+    renderGuideSummary(trustState, analysis, policy, review, steps, policyEvaluation);
     renderManifestFacts(manifest, context);
-    renderTimeline(steps, analysis, policy, review, manifest);
+    renderTimeline(steps, analysis, policy, review, manifest, policyEvaluation);
     renderAnalysis(analysis);
     renderPolicy(policy, analysis);
+    renderPolicyEvaluation(policyEvaluation);
     renderReview(review);
 
     const searchInput = document.getElementById("step-search");

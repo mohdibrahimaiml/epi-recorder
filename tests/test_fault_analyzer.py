@@ -118,6 +118,19 @@ AGENT_THRESHOLD_APPROVAL_VIOLATION_STEPS = "\n".join([
     _make_step(3, "session.end", {"success": True}),
 ])
 
+TOOL_DENIED_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "refund_flow"}),
+    _make_step(1, "tool.call", {"tool": "delete_customer", "customer_id": "C-001"}),
+    _make_step(2, "session.end", {"success": True}),
+])
+
+TOOL_ALLOWED_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "refund_flow"}),
+    _make_step(1, "tool.call", {"tool": "lookup_order", "order_id": "123"}),
+    _make_step(2, "tool.response", {"tool": "lookup_order", "status": "paid"}),
+    _make_step(3, "session.end", {"success": True}),
+])
+
 
 def _make_policy_with_sequence():
     return EPIPolicy(
@@ -229,6 +242,88 @@ def _make_policy_with_approval_guard():
                 type="approval_guard",
                 approval_action="approve_refund",
                 approved_by="manager",
+            )
+        ],
+    )
+
+
+def _make_policy_with_v2_metadata():
+    return EPIPolicy(
+        policy_format_version="2.0",
+        policy_id="refund-agent-prod",
+        system_name="refund-agent",
+        system_version="2.8.7",
+        policy_version="2026-04-01",
+        scope={
+            "team": "finance-ops",
+            "application": "refund-agent",
+            "environment": "production",
+        },
+        rules=[
+            PolicyRule(
+                id="R031",
+                name="Manager Approval Before Refund",
+                severity="critical",
+                description="Refund approval requires explicit manager signoff.",
+                type="approval_guard",
+                mode="require_approval",
+                applies_at="decision",
+                approval_action="approve_refund",
+                approved_by="manager",
+            )
+        ],
+    )
+
+
+def _make_policy_with_approval_policy_ref():
+    return EPIPolicy(
+        policy_format_version="2.0",
+        policy_id="refund-agent-prod",
+        system_name="refund-agent",
+        system_version="2.8.7",
+        policy_version="2026-04-01",
+        approval_policies=[
+            {
+                "approval_id": "manager-refund-approval",
+                "required_roles": ["manager"],
+                "minimum_approvers": 2,
+                "reason_required": True,
+            }
+        ],
+        rules=[
+            PolicyRule(
+                id="R032",
+                name="Manager Approval Policy Before Refund",
+                severity="critical",
+                description="Refund approval requires a reusable manager approval policy.",
+                type="approval_guard",
+                mode="require_approval",
+                applies_at="decision",
+                approval_action="approve_refund",
+                approval_policy_ref="manager-refund-approval",
+            )
+        ],
+    )
+
+
+def _make_policy_with_tool_permission_guard():
+    return EPIPolicy(
+        policy_format_version="2.0",
+        policy_id="refund-agent-tools",
+        system_name="refund-agent",
+        system_version="2.8.7",
+        policy_version="2026-04-01",
+        rules=[
+            PolicyRule(
+                id="R040",
+                name="Approved Refund Tools Only",
+                severity="critical",
+                description="Only approved refund tools may be used.",
+                type="tool_permission_guard",
+                mode="block",
+                applies_at="tool_call",
+                allowed_tools=["lookup_order", "verify_identity", "approve_refund"],
+                denied_tools=["delete_customer"],
             )
         ],
     )
@@ -474,6 +569,84 @@ class TestPass7ApprovalGuardViolation:
         approval_flags = [f for f in all_flags if f and f.rule_id == "R030"]
         assert len(approval_flags) == 0
 
+    def test_approval_policy_ref_requires_multiple_role_matched_approvers(self):
+        policy = _make_policy_with_approval_policy_ref()
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(1, "agent.approval.request", {"action": "approve_refund", "reason": "manual review"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager"}),
+            _make_step(3, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(4, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(steps)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R032"
+        assert "2 are required" in result.primary_fault.plain_english
+
+    def test_approval_policy_ref_passes_with_two_manager_approvers_and_reason(self):
+        policy = _make_policy_with_approval_policy_ref()
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(1, "agent.approval.request", {"action": "approve_refund", "reason": "manual review"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager"}),
+            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager"}),
+            _make_step(4, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(5, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        approval_flags = [f for f in all_flags if f and f.rule_id == "R032"]
+        assert len(approval_flags) == 0
+
+    def test_approval_policy_ref_requires_reason_when_configured(self):
+        policy = _make_policy_with_approval_policy_ref()
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(1, "agent.approval.request", {"action": "approve_refund"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager"}),
+            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager"}),
+            _make_step(4, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(5, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(steps)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R032"
+        assert "reason was required" in result.primary_fault.plain_english
+
+
+class TestPass8ToolPermissionGuard:
+    def test_tool_permission_guard_flags_denied_tool(self):
+        policy = _make_policy_with_tool_permission_guard()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(TOOL_DENIED_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R040"
+        assert "explicitly denied" in result.primary_fault.plain_english
+
+    def test_tool_permission_guard_flags_non_allowlisted_tool(self):
+        policy = _make_policy_with_tool_permission_guard()
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "refund_flow"}),
+            _make_step(1, "tool.call", {"tool": "export_ledger"}),
+            _make_step(2, "session.end", {"success": True}),
+        ])
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(steps)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R040"
+        assert "not in the allowlist" in result.primary_fault.plain_english
+
+    def test_tool_permission_guard_allows_allowlisted_tool(self):
+        policy = _make_policy_with_tool_permission_guard()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(TOOL_ALLOWED_STEPS)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        tool_flags = [f for f in all_flags if f and f.rule_id == "R040"]
+        assert len(tool_flags) == 0
+
 
 class TestPass4ContextDrop:
     def test_detects_context_drop(self):
@@ -601,3 +774,36 @@ class TestAnalysisResult:
         summary = result.to_dict()["summary"]
         assert "R010" in summary["headline"]
         assert summary["primary_step"] == result.primary_fault.step_number
+
+    def test_policy_metadata_is_exposed_in_analysis_output(self):
+        policy = _make_policy_with_v2_metadata()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_APPROVAL_PENDING_STEPS)
+        payload = result.to_dict()
+
+        assert payload["policy_format_version"] == "2.0"
+        assert payload["policy_id"] == "refund-agent-prod"
+        assert payload["policy_scope"]["environment"] == "production"
+        assert payload["primary_fault"]["policy_type"] == "approval_guard"
+        assert payload["primary_fault"]["policy_mode"] == "require_approval"
+        assert payload["primary_fault"]["policy_applies_at"] == "decision"
+
+    def test_policy_evaluation_output_is_structured(self):
+        policy = _make_policy_with_v2_metadata()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_APPROVAL_PENDING_STEPS)
+        evaluation = result.to_policy_evaluation_dict()
+
+        assert evaluation["policy_id"] == "refund-agent-prod"
+        assert evaluation["controls_evaluated"] == 1
+        assert evaluation["controls_failed"] == 1
+        assert evaluation["artifact_review_required"] is True
+        assert evaluation["results"][0]["rule_id"] == "R031"
+        assert evaluation["results"][0]["status"] == "failed"
+        assert evaluation["results"][0]["mode"] == "require_approval"
+        assert evaluation["results"][0]["applies_at"] == "decision"
+
+    def test_policy_evaluation_absent_without_policy(self):
+        analyzer = FaultAnalyzer()
+        result = analyzer.analyze(CLEAN_STEPS)
+        assert result.to_policy_evaluation_dict() is None

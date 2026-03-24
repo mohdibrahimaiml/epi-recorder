@@ -74,9 +74,9 @@ Creates AppImage and .deb packages.
 
 ---
 
-## TODO Before Distribution
+## Pre-Distribution Checklist
 
-### 1. Add App Icons
+### 1. Add App Icons (Recommended Branding)
 
 Create icons and place in `icons/` directory:
 - `icon.ico` (Windows, 256x256)
@@ -85,17 +85,11 @@ Create icons and place in `icons/` directory:
 
 You can use your EPI logo.
 
-### 2. Enable Full Ed25519 Verification
+### 2. Verify Current Ed25519 Support
 
-Currently, signature verification only checks format.
+Signature verification is implemented for current EPI v2+ artifacts in the desktop app.
 
-To add full cryptographic verification:
-
-```powershell
-npm install @noble/ed25519
-```
-
-Then update `main.js` to use the library for actual signature verification.
+If you need older legacy v1 artifacts, verify them with the main Python `epi verify` flow.
 
 ### 3. Test File Associations
 
@@ -116,7 +110,7 @@ After building the installer:
 ⏳ Waiting for Node.js installation  
 ⏳ Testing needed  
 ⏳ Icons needed  
-⏳ Full Ed25519 verification (optional for v1.0)
+✅ Full Ed25519 verification for current EPI v2+ artifacts
 
 ---
 
