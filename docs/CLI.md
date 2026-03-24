@@ -1,6 +1,6 @@
-# EPI CLI Reference (v2.8.9)
+# EPI CLI Reference (v2.8.10)
 
-**Version:** 2.8.9  
+**Version:** 2.8.10  
 **Primary entrypoint:** `epi`
 
 ---
@@ -110,7 +110,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.9`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v2.8.10`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 
 The analyzer enforces:
 - `constraint_guard`
@@ -139,7 +139,7 @@ Practical rule:
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
-For the proposed enterprise direction after `v2.8.9`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
+For the proposed enterprise direction after `v2.8.10`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 

@@ -7,6 +7,20 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [2.8.10] - 2026-03-24
+
+### Notebook Packaging Correction
+
+#### Fixed
+
+- **Source release demo assets**
+  - `colab_demo.ipynb` and `EPI NEXUA VENTURES.ipynb` are now packaged in the source distribution
+  - older notebook snapshots are explicitly kept out of the release artifact
+- **Release audit coverage**
+  - release gating now audits the source tarball for the required notebooks and rejects temporary packaging leaks
+- **Release honesty**
+  - release-facing docs now describe the notebooks as GitHub/source-release assets while keeping the wheel runtime-focused
+
 ## [2.8.9] - 2026-03-24
 
 ### Colab Viewer Fix and Policy Schema Hotfix

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import click
+from epi_core import __version__ as core_version
 
 from epi_cli.policy import init, show, validate
 
@@ -180,7 +181,7 @@ def test_policy_validate_reads_embedded_policy_from_epi_artifact():
         "policy_format_version": "2.0",
         "policy_id": "finance-refunds-prod",
         "system_name": "refund-agent",
-        "system_version": "2.8.9",
+        "system_version": core_version,
         "policy_version": "2026-03-24",
         "scope": {"environment": "prod"},
         "rules": [],
@@ -227,7 +228,7 @@ def test_policy_validate_reports_schema_field_errors():
         json.dumps(
             {
                 "system_name": "refund-agent",
-                "system_version": "2.8.9",
+                "system_version": core_version,
                 "policy_version": "2026-03-24",
                 "rules": [
                     {

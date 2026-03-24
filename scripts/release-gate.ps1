@@ -161,6 +161,11 @@ if (-not $pep517Succeeded) {
 & $PythonCmd -m twine check "$distDir\*"
 if ($LASTEXITCODE -ne 0) { throw "Failed: twine check" }
 
+$sdistFiles = Get-ChildItem -Path $distDir -Filter *.tar.gz | Select-Object -ExpandProperty FullName
+if (-not $sdistFiles) { throw "Failed: no source distribution artifacts found for audit" }
+& $PythonCmd (Join-Path $repoRoot "scripts\audit_sdist.py") $sdistFiles
+if ($LASTEXITCODE -ne 0) { throw "Failed: sdist content audit" }
+
 $wheelFiles = Get-ChildItem -Path $distDir -Filter *.whl | Select-Object -ExpandProperty FullName
 if (-not $wheelFiles) { throw "Failed: no wheel artifacts found for audit" }
 & $PythonCmd (Join-Path $repoRoot "scripts\audit_wheel.py") $wheelFiles

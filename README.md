@@ -187,19 +187,19 @@ Less useful:
 
 ---
 
-## What Changed in v2.8.9
+## What Changed in v2.8.10
 
-- **Colab viewer fix**
-  - the Colab notebooks now render the actual extracted `viewer.html` inside an iframe instead of a plain `display(HTML(...))` fallback that could hide the real artifact viewer
-- **Policy schema compatibility**
-  - reusable approval policies now accept both `approval_id` and `id`
-  - `applies_at` now accepts either a single intervention point or a list
-  - tool-permission evaluation now honors list-valued `applies_at`
-- **Release alignment**
-  - the tracked Colab demo surfaces now ship with the hotfixes above
-  - current release/version surfaces now align on `2.8.9`
+- **Notebook packaging correction**
+  - `colab_demo.ipynb` and `EPI NEXUA VENTURES.ipynb` now ship in the GitHub repo and source distribution
+  - the wheel remains focused on runtime/package code instead of installing demo notebooks into the environment
+- **Release audit hardening**
+  - the release gate now audits the source tarball and fails if the required notebooks are missing or old notebook snapshots leak into the release
+- **2.8.9 runtime hotfixes preserved**
+  - the Colab notebooks still render the actual extracted `viewer.html` inside an iframe
+  - reusable approval policies still accept both `approval_id` and `id`
+  - `applies_at` still accepts either a single intervention point or a list
 
-EPI still stores the machine-readable rulebook as `epi_policy.json`, but the Colab demos now show the real packaged viewer more faithfully, and Policy v2-style notebook examples no longer trip over schema sharp edges.
+EPI still stores the machine-readable rulebook as `epi_policy.json`, but `v2.8.10` makes the packaged release honest about where the demo notebooks live: in the repo and source release, not as installed runtime assets.
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -522,6 +522,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.10** | 2026-03-24 | **Notebook packaging correction** - ship the two supported Colab notebooks in the source release, add sdist audit coverage, and keep the wheel runtime-focused |
 | **2.8.9** | 2026-03-24 | **Colab viewer and policy schema hotfix** - real embedded viewer rendering in notebooks, approval-policy ID alias support, list-valued `applies_at`, and refreshed Colab demos |
 | **2.8.8** | 2026-03-24 | **Tight release hardening** - better `epi policy validate` diagnostics, OpenAI Agents-style event bridge, viewer auto-expand on control jumps, and installer regression guard |
 | **2.8.7** | 2026-03-24 | **Policy v2 foundation and trust hardening** - control outcomes in artifacts, `tool_permission_guard`, viewer jump-to-step review flow, desktop viewer signature verification, and release/version consistency fixes |
@@ -549,7 +550,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.9):**
+**Current (v2.8.10):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
@@ -557,6 +558,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 - [Done] Agent-first recording and review surfaces
 - [Done] Actionable policy validation and OpenAI Agents-style event bridge
 - [Done] Real embedded viewer rendering in Colab demos and Policy v2 schema hotfixes
+- [Done] Ship the supported Colab notebooks in the source release with audit coverage
 
 **Next:**
 - [Planned] Time-travel debugging (step through any past run)

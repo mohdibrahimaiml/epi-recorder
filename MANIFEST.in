@@ -2,6 +2,9 @@
 include README.md
 include LICENSE
 include CHANGELOG.md
+global-exclude *.ipynb
+include colab_demo.ipynb
+include EPI*NEXUA*VENTURES*.ipynb
 
 # Include static viewer files
 recursive-include epi_viewer_static *.html *.js *.css
