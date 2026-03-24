@@ -556,8 +556,10 @@ def _approval_responses_satisfy_policy(
     return True, ""
 
 
-def _tool_event_matches_rule(step: dict, applies_at: Optional[str]) -> bool:
+def _tool_event_matches_rule(step: dict, applies_at: Optional[str | list[str]]) -> bool:
     kind = _step_kind(step)
+    if isinstance(applies_at, list):
+        return any(_tool_event_matches_rule(step, item) for item in applies_at)
     if applies_at == "tool_response":
         return kind == "tool.response"
     if applies_at == "tool_call":

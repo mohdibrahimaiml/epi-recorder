@@ -1,15 +1,14 @@
-# Release Verification Checklist for v2.8.8
+# Release Verification Checklist for v2.8.9
 
-This checklist is the minimum release gate for `epi-recorder` v2.8.8 before publishing to PyPI and GitHub.
+This checklist is the minimum release gate for `epi-recorder` v2.8.9 before publishing to PyPI and GitHub.
 
 ## Scope
 
-v2.8.8 is a tight release-hardening cut focused on:
+v2.8.9 is a tight patch release focused on:
 
-- clearer `epi policy validate` diagnostics
-- OpenAI Agents-style event bridging
-- reviewer flow polish in the embedded viewer
-- installer and release-gate hardening
+- real embedded viewer rendering in Colab notebooks
+- Policy v2 schema compatibility for notebook-friendly approval policies and list-valued `applies_at`
+- release alignment across GitHub, PyPI, and demo surfaces
 
 ## 1. Python Package Verification
 
@@ -93,8 +92,8 @@ python -m epi_cli.main version
 Expected:
 
 - tests pass
-- runtime version is `2.8.8`
-- `pyproject.toml` and `installer/windows/setup.iss` both say `2.8.8`
+- runtime version is `2.8.9`
+- `pyproject.toml` and `installer/windows/setup.iss` both say `2.8.9`
 - unsupported Inno task flags are rejected by tests
 
 ## 6. Full Release Gate
@@ -128,9 +127,9 @@ Expected:
 
 ## Release Verdict
 
-`v2.8.8` is ready to release only if:
+`v2.8.9` is ready to release only if:
 
 - all targeted tests pass
 - the full release gate passes
-- built artifacts are named `epi_recorder-2.8.8-*`
-- documentation and versioned surfaces report `2.8.8`
+- built artifacts are named `epi_recorder-2.8.9-*`
+- documentation and versioned surfaces report `2.8.9`

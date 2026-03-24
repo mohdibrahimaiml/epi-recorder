@@ -50,7 +50,10 @@ class PolicyScope(BaseModel):
 
 
 class ApprovalPolicy(BaseModel):
-    approval_id: str
+    approval_id: str = Field(
+        validation_alias=AliasChoices("approval_id", "id"),
+        serialization_alias="approval_id",
+    )
     required_roles: list[str] = Field(default_factory=list)
     minimum_approvers: int = 1
     expires_after_minutes: Optional[int] = None
@@ -79,7 +82,7 @@ class PolicyRule(BaseModel):
         "tool_permission_guard",
     ]
     mode: Optional[PolicyMode] = None
-    applies_at: Optional[PolicyInterventionPoint] = None
+    applies_at: Optional[PolicyInterventionPoint | list[PolicyInterventionPoint]] = None
 
     # constraint_guard: value established at step M must not be exceeded at step N
     watch_for: Optional[list[str]] = None         # keywords that identify the constraint field
@@ -136,6 +139,13 @@ class PolicyRule(BaseModel):
     def coerce_tool_lists(cls, v):
         if isinstance(v, str):
             return [v]
+        return v
+
+    @field_validator("applies_at", mode="before")
+    @classmethod
+    def coerce_applies_at(cls, v):
+        if isinstance(v, (tuple, set)):
+            return list(v)
         return v
 
 

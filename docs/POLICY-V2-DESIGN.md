@@ -1,6 +1,6 @@
 # EPI Policy v2 Design
 
-**Status:** Proposed design for the next enterprise policy layer after `v2.8.8`  
+**Status:** Proposed design for the next enterprise policy layer after `v2.8.9`  
 **Audience:** Product, platform, security, compliance, and engineering teams  
 **Goal:** Make EPI policy useful as a real enterprise control system for AI workflows
 
@@ -8,7 +8,7 @@
 
 ## Why Policy v2
 
-`v2.8.8` policy is already useful for sealing a workflow rulebook into a `.epi` artifact and checking a run against it after the fact.
+`v2.8.9` policy is already useful for sealing a workflow rulebook into a `.epi` artifact and checking a run against it after the fact.
 
 That is strong for:
 - workflow-specific controls

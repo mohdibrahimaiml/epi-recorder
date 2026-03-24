@@ -187,20 +187,19 @@ Less useful:
 
 ---
 
-## What Changed in v2.8.8
+## What Changed in v2.8.9
 
-- **Policy validation hardening**
-  - `epi policy validate` now accepts standalone policy files and embedded `policy.json` from `.epi` artifacts
-  - invalid policies now produce actionable JSON parse and schema diagnostics instead of generic failures
-- **Reviewer workflow polish**
-  - jumping from failed controls into the timeline now auto-opens the target step’s raw details
-- **Agent integration expansion**
-  - `OpenAIAgentsRecorder` and `record_openai_agent_events(...)` bridge OpenAI Agents-style event streams into EPI’s agent-native evidence model
-- **Release hardening**
-  - installer task-flag regressions are now explicitly guarded in tests
-  - current release/version surfaces now align on `2.8.8`
+- **Colab viewer fix**
+  - the Colab notebooks now render the actual extracted `viewer.html` inside an iframe instead of a plain `display(HTML(...))` fallback that could hide the real artifact viewer
+- **Policy schema compatibility**
+  - reusable approval policies now accept both `approval_id` and `id`
+  - `applies_at` now accepts either a single intervention point or a list
+  - tool-permission evaluation now honors list-valued `applies_at`
+- **Release alignment**
+  - the tracked Colab demo surfaces now ship with the hotfixes above
+  - current release/version surfaces now align on `2.8.9`
 
-EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there, and agent workflows now map much more naturally into the artifact.
+EPI still stores the machine-readable rulebook as `epi_policy.json`, but the Colab demos now show the real packaged viewer more faithfully, and Policy v2-style notebook examples no longer trip over schema sharp edges.
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -523,6 +522,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.9** | 2026-03-24 | **Colab viewer and policy schema hotfix** - real embedded viewer rendering in notebooks, approval-policy ID alias support, list-valued `applies_at`, and refreshed Colab demos |
 | **2.8.8** | 2026-03-24 | **Tight release hardening** - better `epi policy validate` diagnostics, OpenAI Agents-style event bridge, viewer auto-expand on control jumps, and installer regression guard |
 | **2.8.7** | 2026-03-24 | **Policy v2 foundation and trust hardening** - control outcomes in artifacts, `tool_permission_guard`, viewer jump-to-step review flow, desktop viewer signature verification, and release/version consistency fixes |
 | **2.8.6** | 2026-03-22 | **Agent-first product hardening** - clearer reviewer UX, stronger first-run onboarding, print capture in `epi run`, better viewer guidance, and agent-shaped evidence with approvals and lineage |
@@ -549,13 +549,14 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.8):**
+**Current (v2.8.9):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
 - [Done] Global install for automatic recording
 - [Done] Agent-first recording and review surfaces
 - [Done] Actionable policy validation and OpenAI Agents-style event bridge
+- [Done] Real embedded viewer rendering in Colab demos and Policy v2 schema hotfixes
 
 **Next:**
 - [Planned] Time-travel debugging (step through any past run)

@@ -7,6 +7,31 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [2.8.9] - 2026-03-24
+
+### Colab Viewer Fix and Policy Schema Hotfix
+
+#### Added
+
+- **Branded investor notebook**
+  - `EPI NEXUA VENTURES.ipynb` added to the repo as an investor-grade Colab walkthrough
+
+#### Improved
+
+- **Colab demo fidelity**
+  - both notebook surfaces now render the actual extracted `viewer.html` inside an iframe so Colab shows the real embedded artifact viewer
+- **Release alignment**
+  - current release surfaces now align on `2.8.9`
+
+#### Fixed
+
+- **Policy schema compatibility**
+  - reusable approval policies now accept both `approval_id` and `id`
+  - policy rules now accept list-valued `applies_at`
+  - tool-permission evaluation now handles list-valued `applies_at`
+- **Notebook product fit**
+  - tracked Colab demos now match the current Policy v2 and viewer behavior instead of relying on brittle notebook-only fallbacks
+
 ## [2.8.8] - 2026-03-24
 
 ### Tight Release Hardening
@@ -30,7 +55,7 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 #### Fixed
 
 - **Release consistency**
-  - current release surfaces now align on `2.8.8`
+  - release surfaces aligned on `2.8.8`
 - **Windows installer guardrails**
   - regression coverage now prevents unsupported Inno task flags from slipping back into the installer script
 

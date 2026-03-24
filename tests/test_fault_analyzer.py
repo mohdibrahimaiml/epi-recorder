@@ -647,6 +647,14 @@ class TestPass8ToolPermissionGuard:
         tool_flags = [f for f in all_flags if f and f.rule_id == "R040"]
         assert len(tool_flags) == 0
 
+    def test_tool_permission_guard_accepts_applies_at_list(self):
+        policy = _make_policy_with_tool_permission_guard()
+        policy.rules[0].applies_at = ["tool_call", "tool_response"]
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(TOOL_DENIED_STEPS)
+        assert result.fault_detected
+        assert result.primary_fault.rule_id == "R040"
+
 
 class TestPass4ContextDrop:
     def test_detects_context_drop(self):

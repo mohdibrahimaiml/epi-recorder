@@ -219,6 +219,22 @@ class TestEPIPolicy:
         assert rule.mode == "detect"
         assert rule.applies_at == "decision"
 
+    def test_rule_applies_at_accepts_list(self, tmp_path):
+        policy_data = {
+            **FULL_POLICY,
+            "rules": [
+                {
+                    **FULL_POLICY["rules"][0],
+                    "applies_at": ["decision", "review"],
+                }
+            ],
+        }
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(policy_data), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        assert policy.rules[0].applies_at == ["decision", "review"]
+
     def test_required_roles_string_coerced_to_list(self, tmp_path):
         policy_data = {
             **FULL_POLICY,
@@ -234,6 +250,23 @@ class TestEPIPolicy:
         )
         policy = load_policy(search_dir=tmp_path)
         assert policy.approval_policies[0].required_roles == ["manager"]
+
+    def test_approval_policy_id_alias_is_accepted(self, tmp_path):
+        policy_data = {
+            **FULL_POLICY,
+            "approval_policies": [
+                {
+                    "id": "manager-approval",
+                    "required_roles": ["manager"],
+                    "minimum_approvers": 1,
+                }
+            ],
+        }
+        (tmp_path / "epi_policy.json").write_text(
+            json.dumps(policy_data), encoding="utf-8"
+        )
+        policy = load_policy(search_dir=tmp_path)
+        assert policy.approval_policies[0].approval_id == "manager-approval"
 
 
 class TestPolicyProfiles:
