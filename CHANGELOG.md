@@ -7,7 +7,34 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
-## [3.0.0] – Planned
+## [2.8.8] - 2026-03-24
+
+### Tight Release Hardening
+
+#### Added
+
+- **OpenAI Agents-style event bridge**
+  - `OpenAIAgentsRecorder`
+  - `record_openai_agent_events(...)`
+  - stream-event mapping into EPI agent steps for messages, tools, approvals, handoffs, memory, and decisions
+
+#### Improved
+
+- **Policy validation UX**
+  - `epi policy validate` now accepts both standalone policy files and embedded artifact policies
+  - invalid JSON now reports line-and-column diagnostics
+  - invalid schema fields now report clearer field-level validation errors
+- **Viewer reviewer flow**
+  - jumping from failed controls into the timeline auto-opens the target step details
+
+#### Fixed
+
+- **Release consistency**
+  - current release surfaces now align on `2.8.8`
+- **Windows installer guardrails**
+  - regression coverage now prevents unsupported Inno task flags from slipping back into the installer script
+
+## [3.0.0] - Planned
 
 > **Status:** Pre-RFC. This is a directional commitment, not a release.
 
@@ -44,8 +71,6 @@ After v3.0.0, the `.epi` format should be:
 - suitable for long-term archival
 
 ---
-
-## [2.7.2] – 2026-03-14
 
 ## [2.8.7] - 2026-03-24
 
@@ -135,7 +160,7 @@ This release makes the `v2.8.x` line feel much more like a product for both norm
   - stale standalone test scripts were repaired for Windows encoding/path behavior
   - developer association diagnostics are stricter about stale launcher drift
 
-## [2.7.2] â€“ 2026-03-14
+## [2.7.2] - 2026-03-14
 
 ### Bug Fixes & Reliability
 

@@ -780,6 +780,11 @@ function jumpToTimelineStep(stepNumber) {
         return;
     }
 
+    const details = target.querySelector("details");
+    if (details) {
+        details.open = true;
+    }
+
     target.classList.remove("timeline-item--focus");
     void target.offsetWidth;
     target.classList.add("timeline-item--focus");

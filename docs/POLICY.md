@@ -4,7 +4,7 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
-In `v2.8.7`, the preferred way to create this file is:
+In `v2.8.8`, the preferred way to create this file is:
 
 ```bash
 epi policy init
@@ -340,7 +340,7 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 
 ## Where Enterprise Policy Goes Next
 
-`v2.8.7` policy is a strong workflow rulebook, but enterprises often need more:
+`v2.8.8` policy is a strong workflow rulebook, but enterprises often need more:
 
 - layered policy inheritance
 - environment-aware controls

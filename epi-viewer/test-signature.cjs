@@ -1,8 +1,16 @@
+const crypto = require('crypto');
 const assert = require('assert');
-const { verifyManifestSignature } = require('./lib/verification.cjs');
+const { getManifestHashBytes, verifyManifestSignature } = require('./lib/verification.cjs');
 
-const signedManifest = {
-    spec_version: '2.8.7',
+const SPKI_PREFIX_HEX = '302a300506032b6570032100';
+
+const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+const publicKeyDer = publicKey.export({ format: 'der', type: 'spki' });
+const prefixLength = Buffer.from(SPKI_PREFIX_HEX, 'hex').length;
+const publicKeyHex = publicKeyDer.subarray(prefixLength).toString('hex');
+
+const unsignedManifest = {
+    spec_version: '2.8.8',
     workflow_id: '5034ae3b-f9ac-48d8-89c8-3906fd7570cb',
     created_at: '2026-03-23T14:40:11.823075Z',
     cli_command: 'epi test',
@@ -10,13 +18,19 @@ const signedManifest = {
     file_manifest: {
         'steps.jsonl': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     },
-    public_key: '9bbb58dbda29c5f71a6e1312e7a1f1d74c5c63269b25e2aa08a92995f98bdf30',
-    signature: 'ed25519:desktop-test:23902b4813d8d11f495b0794c02bb148f383b3eddb13c1b50adf2e02f52e3a912ea15f02f14cc17c37b6f33a493709e879360381db51ca2695fda9ac2222bb00',
+    public_key: publicKeyHex,
     goal: 'verify viewer signature test',
     notes: null,
     metrics: null,
     approved_by: null,
     tags: null
+};
+
+const manifestHash = getManifestHashBytes(unsignedManifest);
+const signatureHex = crypto.sign(null, manifestHash, privateKey).toString('hex');
+const signedManifest = {
+    ...unsignedManifest,
+    signature: `ed25519:desktop-test:${signatureHex}`
 };
 
 (async () => {

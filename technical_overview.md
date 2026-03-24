@@ -1,6 +1,6 @@
 # EPI Recorder: How It Works (Simplified)
 
-Think of **EPI** as a **portable case file for AI execution**. It records what happened during a run, can embed the rulebook used to judge that run, can attach a human review decision, and makes later tampering visible. In `v2.8.7`, this also includes richer policy-control outcomes, clearer reviewer links from controls to steps, and stronger trust verification across both the Python and desktop viewer flows.
+Think of **EPI** as a **portable case file for AI execution**. It records what happened during a run, can embed the rulebook used to judge that run, can attach a human review decision, and makes later tampering visible. In `v2.8.8`, this also includes richer policy-control outcomes, clearer reviewer links from controls to steps, stronger policy validation diagnostics, and stronger trust verification across both the Python and desktop viewer flows.
 
 ## The Core Concept
 

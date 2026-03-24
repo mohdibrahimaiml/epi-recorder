@@ -5,6 +5,7 @@ import sys
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import re
 
 from epi_core import __version__ as core_version
 from epi_core.container import EPIContainer
@@ -82,3 +83,31 @@ def test_windows_installer_version_matches_runtime_version():
 
     expected_line = f'#define MyAppVersion "{core_version}"'
     assert expected_line in text
+
+
+def test_windows_installer_task_flags_use_supported_values():
+    repo_root = Path(__file__).resolve().parent.parent
+    setup_iss = repo_root / "installer" / "windows" / "setup.iss"
+    text = setup_iss.read_text(encoding="utf-8")
+
+    in_tasks = False
+    invalid_lines: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(";"):
+            continue
+        if line.startswith("["):
+            in_tasks = line.lower() == "[tasks]"
+            continue
+        if not in_tasks or "Flags:" not in line:
+            continue
+
+        match = re.search(r"Flags:\s*(.+)$", line, re.IGNORECASE)
+        if not match:
+            continue
+
+        flags = {token.strip().lower() for token in match.group(1).split()}
+        if "checked" in flags:
+            invalid_lines.append(raw_line)
+
+    assert not invalid_lines, f"Unsupported Inno task flags found: {invalid_lines}"

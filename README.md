@@ -187,21 +187,18 @@ Less useful:
 
 ---
 
-## What Changed in v2.8.7
+## What Changed in v2.8.8
 
-- **Policy v2 foundation**
-  - policy metadata now supports `policy_format_version`, `policy_id`, scope, approval policies, rule `mode`, and `applies_at`
-  - `tool_permission_guard` now joins `approval_guard`, `constraint_guard`, `sequence_guard`, `threshold_guard`, and `prohibition_guard`
-  - artifacts can now carry structured `policy_evaluation.json` control outcomes
-- **Reviewer-facing control visibility**
-  - the embedded viewer now shows control outcomes directly instead of hiding them in raw JSON
-  - failed controls link straight to their timeline steps for faster review
-- **Trust hardening beyond the Python package**
-  - the separate desktop `epi-viewer` app now performs real Ed25519 manifest verification instead of format-only checks
-  - Windows installer/version metadata is aligned with the current release again
-- **Release consistency**
-  - current version surfaces now align on `2.8.7`
-  - packaging and manifest hygiene remain intact
+- **Policy validation hardening**
+  - `epi policy validate` now accepts standalone policy files and embedded `policy.json` from `.epi` artifacts
+  - invalid policies now produce actionable JSON parse and schema diagnostics instead of generic failures
+- **Reviewer workflow polish**
+  - jumping from failed controls into the timeline now auto-opens the target step’s raw details
+- **Agent integration expansion**
+  - `OpenAIAgentsRecorder` and `record_openai_agent_events(...)` bridge OpenAI Agents-style event streams into EPI’s agent-native evidence model
+- **Release hardening**
+  - installer task-flag regressions are now explicitly guarded in tests
+  - current release/version surfaces now align on `2.8.8`
 
 EPI still stores the machine-readable rulebook as `epi_policy.json`, but normal users no longer need to start there, and agent workflows now map much more naturally into the artifact.
 
@@ -335,6 +332,7 @@ flowchart LR
 
 | Framework | Integration | Coverage |
 |:----------|:------------|:---------|
+| **OpenAI Agents-style events** | `OpenAIAgentsRecorder` | Stream event bridge into agent-native EPI steps |
 | **LiteLLM** | `EPICallback` | 100+ providers, one line |
 | **LangChain** | `EPICallbackHandler` | LLM, tools, chains, retrievers, agents |
 | **LangGraph** | `EPICheckpointSaver` | Native checkpoint backend |
@@ -406,6 +404,26 @@ result = graph.invoke(
 )
 # Captures all state transitions, checkpoint metadata, and agent decision points
 ```
+
+### OpenAI Agents Event Bridge
+
+```python
+from epi_recorder import record
+from epi_recorder.integrations import OpenAIAgentsRecorder
+
+with record("support_agent.epi") as epi:
+    with OpenAIAgentsRecorder(epi, agent_name="support-agent", user_input="Reset customer password") as recorder:
+        for event in streamed_result.stream_events():
+            recorder.consume(event)
+```
+
+This starter adapter maps common agent stream events into:
+- `agent.message`
+- `tool.call` / `tool.response`
+- `agent.handoff`
+- `agent.approval.request` / `agent.approval.response`
+- `agent.memory.read` / `agent.memory.write`
+- `agent.decision`
 
 ---
 
@@ -505,6 +523,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **2.8.8** | 2026-03-24 | **Tight release hardening** - better `epi policy validate` diagnostics, OpenAI Agents-style event bridge, viewer auto-expand on control jumps, and installer regression guard |
 | **2.8.7** | 2026-03-24 | **Policy v2 foundation and trust hardening** - control outcomes in artifacts, `tool_permission_guard`, viewer jump-to-step review flow, desktop viewer signature verification, and release/version consistency fixes |
 | **2.8.6** | 2026-03-22 | **Agent-first product hardening** - clearer reviewer UX, stronger first-run onboarding, print capture in `epi run`, better viewer guidance, and agent-shaped evidence with approvals and lineage |
 | **2.8.5** | 2026-03-20 | **Reliability patch** - guided policy UX, stable `epi review` CLI invocation, bootstrap manual-step support in `epi run`, and stronger Windows association repair paths |
@@ -530,12 +549,13 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.7):**
+**Current (v2.8.8):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support
 - [Done] Global install for automatic recording
 - [Done] Agent-first recording and review surfaces
+- [Done] Actionable policy validation and OpenAI Agents-style event bridge
 
 **Next:**
 - [Planned] Time-travel debugging (step through any past run)

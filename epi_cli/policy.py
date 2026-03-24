@@ -9,10 +9,12 @@ keeping epi_policy.json as the machine-readable storage format.
 import json
 import zipfile
 from datetime import date
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Optional
 
 import typer
+from pydantic import ValidationError
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -26,7 +28,6 @@ from epi_core.policy import (
     PolicyRule,
     build_policy_from_profile,
     list_policy_profiles,
-    load_policy,
 )
 
 app = typer.Typer(help="Manage epi_policy.json for fault analysis rules.")
@@ -142,6 +143,41 @@ def _load_policy_payload(path: Path) -> tuple[dict, str]:
     if not path.exists():
         raise FileNotFoundError(path)
     return json.loads(path.read_text(encoding="utf-8")), str(path)
+
+
+def _print_policy_validation_failure(path: Path, exc: Exception) -> None:
+    if isinstance(exc, JSONDecodeError):
+        console.print(f"[red][FAIL][/red] Invalid JSON in [bold]{path}[/bold]")
+        console.print("[bold]Could not parse policy file[/bold]")
+        console.print(
+            Panel(
+                f"{exc.msg}\nLine {exc.lineno}, column {exc.colno}",
+                title="Could not parse policy file",
+            )
+        )
+        return
+
+    if isinstance(exc, ValidationError):
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+        table.add_column("Field", style="cyan", no_wrap=True)
+        table.add_column("Problem")
+        for error in exc.errors():
+            location = ".".join(str(part) for part in error.get("loc", []) if part is not None) or "<root>"
+            message = error.get("msg", "Invalid value")
+            table.add_row(location, message)
+
+        console.print(f"[red][FAIL][/red] Policy schema is invalid: [bold]{path}[/bold]")
+        console.print("[bold]Validation Errors[/bold]")
+        console.print(
+            Panel(
+                "Fix the fields below, then run [bold]epi policy validate[/bold] again.",
+                title="Validation Errors",
+            )
+        )
+        console.print(table)
+        return
+
+    console.print(f"[red][FAIL][/red] Invalid policy: {exc}")
 
 
 def _remove_rule(policy: dict, rule_id: str) -> None:
@@ -403,21 +439,18 @@ def validate(
 ):
     """Validate an epi_policy.json file and show a summary."""
     path = Path(policy_file)
-    if not path.exists():
-        console.print(f"[red][X] File not found:[/red] {path}")
+    try:
+        data, source_label = _load_policy_payload(path)
+        policy = EPIPolicy(**data)
+    except FileNotFoundError as exc:
+        console.print(f"[red][X] File not found:[/red] {exc}")
+        raise typer.Exit(1)
+    except Exception as exc:
+        _print_policy_validation_failure(path, exc)
         raise typer.Exit(1)
 
-    policy = load_policy(search_dir=path.parent if path.name == POLICY_FILENAME else Path.cwd())
-    if policy is None:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            policy = EPIPolicy(**data)
-        except Exception as exc:
-            console.print(f"[red][FAIL] Invalid policy:[/red] {exc}")
-            raise typer.Exit(1)
-
-    console.print(f"\n[green][OK][/green] Valid policy: [bold]{path}[/bold]\n")
-    _print_policy_summary(policy, output_path=path)
+    console.print(f"\n[green][OK][/green] Valid policy: [bold]{source_label}[/bold]\n")
+    _print_policy_summary(policy, output_path=source_label)
 
 
 @app.command("show")

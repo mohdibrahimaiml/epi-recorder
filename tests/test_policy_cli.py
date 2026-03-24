@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import click
 
-from epi_cli.policy import init, show
+from epi_cli.policy import init, show, validate
 
 
 def _tmp_workspace() -> Path:
@@ -170,4 +170,89 @@ def test_policy_show_missing_embedded_policy_exits_1():
         code = getattr(exc, "code", getattr(exc, "exit_code", 1))
 
     assert code == 1
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_validate_reads_embedded_policy_from_epi_artifact():
+    tmpdir = _tmp_workspace()
+    artifact_path = tmpdir / "policy_case.epi"
+    policy_payload = {
+        "policy_format_version": "2.0",
+        "policy_id": "finance-refunds-prod",
+        "system_name": "refund-agent",
+        "system_version": "2.8.8",
+        "policy_version": "2026-03-24",
+        "scope": {"environment": "prod"},
+        "rules": [],
+    }
+    with zipfile.ZipFile(artifact_path, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.epi+zip")
+        zf.writestr("policy.json", json.dumps(policy_payload))
+
+    mock_console = MagicMock()
+    with patch("epi_cli.policy.console", mock_console):
+        validate(policy_file=str(artifact_path))
+
+    printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+    assert "Valid policy" in printed
+    assert "embedded policy" in printed
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_validate_reports_json_line_and_column():
+    tmpdir = _tmp_workspace()
+    policy_path = tmpdir / "broken_policy.json"
+    policy_path.write_text('{"system_name": "refund-agent",\n', encoding="utf-8")
+
+    mock_console = MagicMock()
+    code = None
+    try:
+        with patch("epi_cli.policy.console", mock_console):
+            validate(policy_file=str(policy_path))
+        code = 0
+    except (SystemExit, click.exceptions.Exit) as exc:
+        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+
+    printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+    assert code == 1
+    assert "Invalid JSON" in printed
+    assert "Could not parse policy file" in printed
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_validate_reports_schema_field_errors():
+    tmpdir = _tmp_workspace()
+    policy_path = tmpdir / "invalid_policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "system_name": "refund-agent",
+                "system_version": "2.8.8",
+                "policy_version": "2026-03-24",
+                "rules": [
+                    {
+                        "id": "R001",
+                        "name": "Missing severity",
+                        "description": "Broken rule",
+                        "type": "sequence_guard",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    mock_console = MagicMock()
+    code = None
+    try:
+        with patch("epi_cli.policy.console", mock_console):
+            validate(policy_file=str(policy_path))
+        code = 0
+    except (SystemExit, click.exceptions.Exit) as exc:
+        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+
+    printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+    assert code == 1
+    assert "Policy schema is invalid" in printed
+    assert "Validation Errors" in printed
     shutil.rmtree(tmpdir, ignore_errors=True)

@@ -406,6 +406,7 @@ class TestEPIContainer:
         assert "Jump to step" in viewer_html
         assert "data-jump-step" in viewer_html
         assert "timeline-item--focus" in viewer_html
+        assert "details.open = true" in viewer_html
         assert "Approval requested for" in viewer_html
         assert "No explicit agent approval checkpoint was recorded in this artifact." in viewer_html
         from epi_core import __version__
