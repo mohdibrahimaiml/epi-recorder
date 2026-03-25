@@ -1,10 +1,12 @@
 # Investor Demo: 3-Minute Live Screenshare
 
-This demo is the fastest practical way to show EPI's policy, fault-analysis, and trust story to an investor.
+This demo is the fastest practical way to show EPI as AI Evidence Infrastructure, not just another clever AI tool.
+
+The buyer story is simple: an AI-supported workflow made a consequential decision, and a governance, risk, or compliance team now needs the case file.
 
 The one takeaway is:
 
-**EPI shows where the AI went wrong, proves it with portable evidence, and makes tampering obvious.**
+**EPI gives enterprises a tamper-evident case file for AI decisions that may later face audit, incident review, or model-risk review.**
 
 It demonstrates:
 
@@ -38,7 +40,10 @@ Use these assets in this order:
 
 1. reviewed investor artifact for the main story
 2. tampered artifact for the trust moment
-3. the Colab notebook only as backup
+3. [`EPI NEXUA VENTURES.ipynb`](../../EPI%20NEXUA%20VENTURES.ipynb) as the branded Colab backup
+4. [`colab_demo.ipynb`](../../colab_demo.ipynb) as the technical backup
+
+The branded Nexua notebook is the canonical investor demo. The generic Colab notebook exists as a simpler fallback when you want less presentation framing and more raw product flow.
 
 ## How to Produce the Main Artifact
 
@@ -122,7 +127,7 @@ For a live investor call:
 
 Use this exact close:
 
-> For high-risk AI systems, EPI gives teams three things: what happened, what went wrong, and whether the evidence is still trustworthy.
+> When AI affects money, access, safety, or compliance, EPI is the case file teams bring to audit, incident review, and AI governance.
 
 ## What Not to Lead With
 
@@ -136,7 +141,7 @@ Avoid starting with:
 
 ## Why this is practical
 
-A normal organization would use this for:
+A normal organization would use this for consequential approval workflows such as:
 
 - loan approvals
 - refunds and claims

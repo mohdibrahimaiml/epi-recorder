@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
-  <p align="center"><strong>Portable evidence and trust review for AI workflows</strong></p>
+  <p align="center"><strong>AI Evidence Infrastructure for Consequential AI</strong></p>
   <p align="center">
-    <em>Record what happened, check it against policy, add human review, and verify whether the evidence is still trustworthy.</em>
+    <em>Tamper-evident decision case files for AI systems that approve, reject, escalate, or act.</em>
   </p>
 </p>
 
@@ -24,6 +24,7 @@
     <a href="docs/EPI-SPEC.md">Specification</a> ·
     <a href="docs/CLI.md">CLI Reference</a> ·
     <a href="docs/POLICY.md">Policy Guide</a> ·
+    <a href="docs/CATEGORY-MESSAGING.md">Enterprise Narrative</a> ·
     <a href="CHANGELOG.md">Changelog</a> ·
     <a href="https://epilabs.org">Website</a>
   </strong>
@@ -31,11 +32,11 @@
 
 ---
 
-## Why EPI?
+## EPI in One Line
 
-Important AI workflows fail in ways traditional logging cannot explain or defend.
+EPI is the evidence layer and system of record for consequential AI decisions.
 
-A workflow approves a refund, transfers funds, or makes a high-risk recommendation. Days later, someone asks:
+When an AI system approves a refund, underwrites a loan, escalates a support case, or triggers an operational action, EPI creates one portable `.epi` case file that answers:
 
 - What actually happened?
 - Which rule was active at the time?
@@ -43,7 +44,49 @@ A workflow approves a refund, transfers funds, or makes a high-risk recommendati
 - Did a human reviewer confirm or dismiss it?
 - Is this artifact still trustworthy, or was it tampered with?
 
-**EPI turns that run into one portable `.epi` case file**. It captures the execution timeline, embeds policy and analysis when available, supports append-only human review, and makes trust visible as `Signed`, `Unsigned`, or `Tampered`.
+Traditional logs help teams debug. EPI helps teams defend a decision after an incident, audit request, model-risk review, or compliance challenge.
+
+## Why Enterprises Buy EPI
+
+- **Incident response for AI decisions**: reconstruct the timeline after money, access, safety, or compliance was affected.
+- **Policy-backed governance**: embed the rulebook and analysis that explain what controls applied.
+- **Human approval and signoff**: append review without rewriting the original record.
+- **Tamper-evident evidence**: make integrity visible as `Signed`, `Unsigned`, or `Tampered`.
+
+EPI is not an observability dashboard. It sits beside observability as the durable evidence layer for high-stakes AI operations.
+
+## Why Now
+
+AI is moving from copilots to decisions with real operational consequences. The question after deployment is no longer only "did the workflow run?" but "can we prove what happened weeks later?"
+
+That pressure shows up in audit, internal governance, post-incident review, vendor risk, and emerging logging obligations for high-risk AI systems. Teams need evidence that survives across tools, vendors, handoffs, and time.
+
+## Buyer, Champion, and First Workflows
+
+Primary buyer:
+- Head of AI Governance
+- Model Risk leader
+- Compliance Engineering lead
+
+Economic buyer:
+- CISO
+- CRO
+- CIO
+
+Champion:
+- AI platform lead
+- Applied AI engineering lead
+
+Best first workflows:
+- refunds, claims, and underwriting decisions
+- support escalations and exception handling
+- internal approvals where AI recommends or triggers action
+- agent workflows that call tools, use memory, and request human approval
+
+Less ideal:
+- toy chatbots
+- pure prompt experimentation without workflow consequences
+- teams that only want live cloud observability and do not care about portable records
 
 ```bash
 pip install epi-recorder
@@ -170,23 +213,6 @@ epi verify my_agent.epi  # Cryptographic integrity check
 
 ---
 
-## Who EPI Is For
-
-EPI is most useful when an AI workflow has consequences and someone may later need to review or defend what happened.
-
-Good fits:
-- AI-assisted refunds, approvals, claims, and operations
-- agent workflows that call tools, use memory, or request human approval
-- internal governance, audit, and post-incident review
-- teams that need portable evidence, not just live dashboards
-
-Less useful:
-- toy chatbots
-- pure prompt experimentation without workflow consequences
-- teams that only want cloud observability and do not care about portable artifacts
-
----
-
 ## What Changed in v2.8.10
 
 - **Notebook packaging correction**
@@ -207,7 +233,7 @@ For policy placement and rule design, see [docs/POLICY.md](docs/POLICY.md).
 
 ## Framework Integrations
 
-EPI now plugs directly into the tools you already use. **Zero refactoring required.**
+EPI fits the stack your AI platform team already uses. **Start with one workflow, not a rewrite.**
 
 ### LiteLLM - 100+ Providers in One Line
 
@@ -457,7 +483,7 @@ See **[EPI Specification](docs/EPI-SPEC.md)** for technical details.
 
 ## Why EPI vs. Alternatives
 
-EPI is not an observability dashboard. It is a **portable evidence and trust-review system for AI workflows.**
+EPI is not an observability dashboard. It is **AI evidence infrastructure for consequential AI decisions.**
 
 | | **EPI** | LangSmith | Arize | W&B |
 |:--|:--------|:----------|:------|:----|
