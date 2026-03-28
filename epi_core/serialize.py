@@ -6,7 +6,7 @@ canonical encoding to ensure identical hashes across platforms and time.
 """
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -30,10 +30,13 @@ def _cbor_default_encoder(encoder, value: Any) -> None:
         ValueError: If value type cannot be encoded
     """
     if isinstance(value, datetime):
-        # Remove microseconds for stability
-        normalized_dt = value.replace(microsecond=0)
-        # Encode as ISO 8601 string with Z suffix for UTC
-        encoder.encode(normalized_dt.isoformat() + "Z")
+        # Normalise to UTC, strip microseconds, produce a stable ISO 8601 string.
+        # Naive datetimes are assumed UTC (consistent with utc_now()).
+        if value.tzinfo is None:
+            normalized_dt = value.replace(microsecond=0, tzinfo=timezone.utc)
+        else:
+            normalized_dt = value.astimezone(timezone.utc).replace(microsecond=0)
+        encoder.encode(normalized_dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
     elif isinstance(value, UUID):
         # Use canonical UUID string representation
         encoder.encode(str(value))
@@ -74,9 +77,12 @@ def get_canonical_hash(model: BaseModel, exclude_fields: set[str] | None = None)
     # Normalize datetime and UUID fields to strings
     def normalize_value(value: Any) -> Any:
         if isinstance(value, datetime):
-            # Remove microseconds and convert to ISO 8601 string with Z suffix
-            normalized_dt = value.replace(microsecond=0)
-            return normalized_dt.isoformat() + "Z"
+            # Normalise to UTC, strip microseconds — must match _cbor_default_encoder.
+            if value.tzinfo is None:
+                normalized_dt = value.replace(microsecond=0, tzinfo=timezone.utc)
+            else:
+                normalized_dt = value.astimezone(timezone.utc).replace(microsecond=0)
+            return normalized_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         elif isinstance(value, UUID):
             # Convert UUID to canonical string representation
             return str(value)
@@ -102,7 +108,11 @@ def get_canonical_hash(model: BaseModel, exclude_fields: set[str] | None = None)
     
     # Check spec_version in model or dict
     spec_version = model_dict.get("spec_version", "")
-    major_version = int(spec_version.split(".")[0]) if spec_version else 1
+    try:
+        # Strip any leading "v" (e.g. "v2.0" → "2.0") before parsing
+        major_version = int(str(spec_version).lstrip("v").split(".")[0]) if spec_version else 1
+    except (ValueError, IndexError):
+        major_version = 1
     use_json = major_version >= 2  # All v2.x+ use JSON canonical hash
         
     if use_json:

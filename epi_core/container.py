@@ -8,6 +8,7 @@ Implements the EPI file format specification:
 - Artifacts and cache (content-addressed)
 """
 
+import base64
 import hashlib
 import json
 import shutil
@@ -46,6 +47,43 @@ def _html_safe_json_dumps(data: object, *, indent: Optional[int] = None) -> str:
         .replace("\u2028", "\\u2028")
         .replace("\u2029", "\\u2029")
     )
+
+
+def _read_json_if_exists(path: Path) -> dict | list | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _read_text_if_exists(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+
+def _read_steps_if_exists(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+
+    steps: list[dict] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                steps.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    except Exception:
+        return []
+
+    return steps
 
 
 class EPIContainer:
@@ -118,126 +156,83 @@ class EPIContainer:
         Returns:
             str: Complete HTML with embedded data
         """
-        # Load viewer template
-        viewer_static_dir = Path(__file__).parent.parent / "epi_viewer_static"
-        template_path = viewer_static_dir / "index.html"
-        app_js_path = viewer_static_dir / "app.js"
-        css_path = viewer_static_dir / "viewer_lite.css"
-        
+        repo_root = Path(__file__).parent.parent
+        template_path = repo_root / "web_viewer" / "index.html"
+        app_js_path = repo_root / "web_viewer" / "app.js"
+        css_path = repo_root / "web_viewer" / "styles.css"
+        crypto_js_path = repo_root / "epi_viewer_static" / "crypto.js"
+
         if not template_path.exists():
             # Fallback: minimal viewer if template not found
             return EPIContainer._create_minimal_viewer(manifest)
-        
+
         # Read template and assets
         template_html = template_path.read_text(encoding="utf-8")
         app_js = app_js_path.read_text(encoding="utf-8") if app_js_path.exists() else ""
-        crypto_js_path = viewer_static_dir / "crypto.js"
         crypto_js = crypto_js_path.read_text(encoding="utf-8") if crypto_js_path.exists() else ""
         css_styles = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
-        
-        # Read steps from steps.jsonl
-        steps = []
-        steps_file = source_dir / "steps.jsonl"
-        if steps_file.exists():
-            for line in steps_file.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    steps.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
-        
-        # Read analysis.json and policy.json if present (written by FaultAnalyzer)
-        analysis_data = None
-        analysis_file = source_dir / "analysis.json"
-        if analysis_file.exists():
-            try:
-                analysis_data = json.loads(analysis_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        policy_data = None
-        policy_file = source_dir / "policy.json"
-        if policy_file.exists():
-            try:
-                policy_data = json.loads(policy_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        review_data = None
-        review_file = source_dir / "review.json"
-        if review_file.exists():
-            try:
-                review_data = json.loads(review_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        policy_evaluation_data = None
-        policy_evaluation_file = source_dir / "policy_evaluation.json"
-        if policy_evaluation_file.exists():
-            try:
-                policy_evaluation_data = json.loads(policy_evaluation_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
 
         # Create embedded data
         embedded_data = {
             "manifest": manifest.model_dump(mode="json"),
-            "steps": steps,
-            "analysis": analysis_data,
-            "policy": policy_data,
-            "policy_evaluation": policy_evaluation_data,
-            "review": review_data,
+            "steps": _read_steps_if_exists(source_dir / "steps.jsonl"),
+            "analysis": _read_json_if_exists(source_dir / "analysis.json"),
+            "policy": _read_json_if_exists(source_dir / "policy.json"),
+            "policy_evaluation": _read_json_if_exists(source_dir / "policy_evaluation.json"),
+            "review": _read_json_if_exists(source_dir / "review.json"),
+            "environment": (
+                _read_json_if_exists(source_dir / "environment.json")
+                or _read_json_if_exists(source_dir / "env.json")
+            ),
+            "stdout": _read_text_if_exists(source_dir / "stdout.log"),
+            "stderr": _read_text_if_exists(source_dir / "stderr.log"),
+            "files": {
+                filename: base64.b64encode((source_dir / filename).read_bytes()).decode("ascii")
+                for filename in sorted(manifest.file_manifest.keys())
+                if (source_dir / filename).exists()
+            },
         }
-        
-        # Inject data into template
+
         data_json = _html_safe_json_dumps(embedded_data, indent=2)
-        start_tag = '<script id="epi-data" type="application/json">'
-        end_tag = "</script>"
-        if start_tag in template_html:
-            prefix, remainder = template_html.split(start_tag, 1)
-            _, suffix = remainder.split(end_tag, 1)
-            html_with_data = f"{prefix}{start_tag}{data_json}{end_tag}{suffix}"
-        else:
-            html_with_data = template_html
-        
-        # Inline CSS regardless of whether the template uses the legacy Tailwind hook.
+        data_tag = f'<script id="epi-data" type="application/json">{data_json}</script>'
+
+        html_with_data = template_html
+        context_tag = '<script id="epi-view-context" type="application/json">{}</script>'
+        if context_tag in html_with_data:
+            html_with_data = html_with_data.replace(context_tag, f"{context_tag}\n{data_tag}")
+        elif "</head>" in html_with_data:
+            html_with_data = html_with_data.replace("</head>", f"{data_tag}\n</head>")
+
         style_block = f"<style>{css_styles}</style>" if css_styles else ""
-        if '<script src="https://cdn.tailwindcss.com"></script>' in html_with_data:
-            html_with_css = html_with_data.replace(
-                '<script src="https://cdn.tailwindcss.com"></script>',
-                style_block
-            )
-        elif style_block and "</head>" in html_with_data:
-            html_with_css = html_with_data.replace("</head>", f"{style_block}\n</head>")
-        else:
-            html_with_css = html_with_data
-        
-        # Inline crypto.js and app.js
-        js_content = ""
+        html_with_css = html_with_data.replace(
+            '<link rel="stylesheet" href="styles.css">',
+            style_block,
+        ) if style_block else html_with_data
+        if style_block and html_with_css == html_with_data and "</head>" in html_with_css:
+            html_with_css = html_with_css.replace("</head>", f"{style_block}\n</head>")
+
+        html_with_scripts = html_with_css.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>',
+            '',
+        )
         if crypto_js:
-            js_content += f"<script>{crypto_js}</script>\n"
-        if app_js:
-            js_content += f"<script>{app_js}</script>"
-            
-        if '<script src="app.js"></script>' in html_with_css:
-            html_with_js = html_with_css.replace(
-                '<script src="app.js"></script>',
-                js_content
+            html_with_scripts = html_with_scripts.replace(
+                '<script src="../epi_viewer_static/crypto.js"></script>',
+                f"<script>{crypto_js}</script>",
             )
-        elif js_content and "</body>" in html_with_css:
-            html_with_js = html_with_css.replace("</body>", f"{js_content}\n</body>")
-        else:
-            html_with_js = html_with_css
-        
+        if app_js:
+            html_with_scripts = html_with_scripts.replace(
+                '<script src="app.js"></script>',
+                f"<script>{app_js}</script>",
+            )
+
         from epi_core._version import get_version
 
         current_version_marker = f"v{get_version()}"
-        if "__EPI_VERSION__" in html_with_js:
-            html_with_version = html_with_js.replace("__EPI_VERSION__", current_version_marker)
+        if "__EPI_VERSION__" in html_with_scripts:
+            html_with_version = html_with_scripts.replace("__EPI_VERSION__", current_version_marker)
         else:
-            html_with_version = html_with_js
+            html_with_version = html_with_scripts
             # Compatibility fallback for older templates that predate the
             # placeholder-based version injection path.
             for legacy_marker in ("EPI v2.7.2", "EPI v2.2.0"):
@@ -270,7 +265,8 @@ class EPIContainer:
         source_dir: Path,
         manifest: ManifestModel,
         output_path: Path,
-        signer_function: Optional[Callable[[ManifestModel], ManifestModel]] = None
+        signer_function: Optional[Callable[[ManifestModel], ManifestModel]] = None,
+        preserve_generated: bool = False,
     ) -> None:
         """
         Create a .epi file from a source directory.
@@ -305,55 +301,55 @@ class EPIContainer:
             # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Clear stale generated files before rebuilding them for this pack.
-            # This prevents reused workspaces from accidentally sealing old
-            # analysis/policy outputs when analyzer or policy loading does not
-            # run on the current pass.
-            for generated_name in _GENERATED_WORKSPACE_FILES:
-                stale_path = source_dir / generated_name
-                if stale_path.exists():
-                    stale_path.unlink()
+            if not preserve_generated:
+                # Clear stale generated files before rebuilding them for this pack.
+                # This prevents reused workspaces from accidentally sealing old
+                # analysis/policy outputs when analyzer or policy loading does not
+                # run on the current pass.
+                for generated_name in _GENERATED_WORKSPACE_FILES:
+                    stale_path = source_dir / generated_name
+                    stale_path.unlink(missing_ok=True)
 
             # ── Fault Intelligence Layer ──────────────────────────────────────
-            # Runs BEFORE rglob so analysis.json / policy.json are hashed
-            # into file_manifest and covered by the Ed25519 signature.
-            try:
-                from epi_core.policy import load_policy
-                from epi_core.fault_analyzer import FaultAnalyzer
+                # Runs BEFORE rglob so analysis.json / policy.json are hashed
+                # into file_manifest and covered by the Ed25519 signature.
+                try:
+                    from epi_core.policy import load_policy
+                    from epi_core.fault_analyzer import FaultAnalyzer
 
-                # Policy lives in the CWD where `epi run` was invoked,
-                # not in the temp source_dir workspace.
-                policy = load_policy()
+                    # Policy lives in the CWD where `epi run` was invoked,
+                    # not in the temp source_dir workspace.
+                    policy = load_policy()
 
-                steps_file = source_dir / "steps.jsonl"
-                steps_content = (
-                    steps_file.read_text(encoding="utf-8")
-                    if steps_file.exists() else ""
-                )
-
-                analyzer = FaultAnalyzer(policy=policy)
-                analysis = analyzer.analyze(steps_content)
-
-                (source_dir / "analysis.json").write_text(
-                    analysis.to_json(), encoding="utf-8"
-                )
-
-                if policy is not None:
-                    (source_dir / "policy.json").write_text(
-                        policy.model_dump_json(indent=2), encoding="utf-8"
+                    steps_file = source_dir / "steps.jsonl"
+                    steps_content = (
+                        steps_file.read_text(encoding="utf-8")
+                        if steps_file.exists() else ""
                     )
-                    policy_evaluation_json = analysis.to_policy_evaluation_json()
-                    if policy_evaluation_json:
-                        (source_dir / "policy_evaluation.json").write_text(
-                            policy_evaluation_json,
-                            encoding="utf-8",
+
+                    analyzer = FaultAnalyzer(policy=policy)
+                    analysis = analyzer.analyze(steps_content)
+
+                    (source_dir / "analysis.json").write_text(
+                        analysis.to_json(), encoding="utf-8"
+                    )
+
+                    if policy is not None:
+                        (source_dir / "policy.json").write_text(
+                            policy.model_dump_json(indent=2), encoding="utf-8"
                         )
-            except Exception as _fa_err:
+                        policy_evaluation_json = analysis.to_policy_evaluation_json()
+                        if policy_evaluation_json:
+                            (source_dir / "policy_evaluation.json").write_text(
+                                policy_evaluation_json,
+                                encoding="utf-8",
+                            )
+                except Exception as _fa_err:
                 # Fault analysis must never break packing — but log to stderr
                 # so bugs in the analyzer aren't silently invisible.
-                import sys as _sys
-                print(f"[EPI] Warning: fault analysis failed ({_fa_err}), "
-                      "packing without analysis.json", file=_sys.stderr)
+                    import sys as _sys
+                    print(f"[EPI] Warning: fault analysis failed ({_fa_err}), "
+                          "packing without analysis.json", file=_sys.stderr)
             # ─────────────────────────────────────────────────────────────────
 
             # Collect all files and compute hashes

@@ -101,9 +101,16 @@ class _StdStreamCapture:
 
         try:
             self._session.log_step("stdout.print", payload)
-        except Exception:
+        except Exception as _log_err:
             # Never break user stdout writes because step logging failed.
-            pass
+            # But warn once so the developer knows evidence is not being captured.
+            if not getattr(self, "_log_warn_sent", False):
+                self._log_warn_sent = True
+                self._stream.write(
+                    f"\n[EPI] Warning: step logging failed ({_log_err}). "
+                    "Evidence capture may be incomplete. "
+                    "Check disk space and file permissions.\n"
+                )
 
 
 def _compact_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -825,20 +832,23 @@ class EpiRecorderSession:
             )
 
             # Sign if requested
+            signed = False
             if self.auto_sign:
-                self._sign_epi_file()
-            
+                signed = self._sign_epi_file()
+
+            self._print_session_summary(signed)
+
         finally:
             self._restore_stdio_capture()
             # Clean up temporary directory
             if self.temp_dir and self.temp_dir.exists():
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
-            
+
             # Clear recording context
             set_recording_context(None)
             if hasattr(_thread_local, 'active_session'):
                 delattr(_thread_local, 'active_session')
-    
+
     # ==================== ASYNC CONTEXT MANAGER SUPPORT ====================
     
     async def __aenter__(self) -> "EpiRecorderSession":
@@ -906,8 +916,11 @@ class EpiRecorderSession:
             )
 
             # Sign if requested (run in executor)
+            signed = False
             if self.auto_sign:
-                await loop.run_in_executor(None, self._sign_epi_file)
+                signed = await loop.run_in_executor(None, self._sign_epi_file)
+
+            self._print_session_summary(signed)
 
         finally:
             self._restore_stdio_capture()
@@ -1300,6 +1313,60 @@ class EpiRecorderSession:
             "timestamp": utc_now_iso()
         })
     
+    # ---- Internal step kinds that are not meaningful to show in the summary ----
+    _INTERNAL_STEP_KINDS = frozenset({
+        "session.start", "session.end", "session.error",
+        "environment.captured", "environment.capture_failed",
+        "security.redaction",
+    })
+
+    def _print_session_summary(self, signed: bool) -> None:
+        """Print a concise post-run summary to stderr."""
+        if os.getenv("EPI_QUIET", "0") == "1":
+            return
+
+        counts = {}
+        if self.recording_context:
+            counts = dict(self.recording_context._step_counts)
+
+        # Filter out infrastructure-only kinds for the count
+        user_counts = {k: v for k, v in counts.items() if k not in self._INTERNAL_STEP_KINDS}
+        total_user_steps = sum(user_counts.values())
+
+        # Build a short breakdown of the most meaningful kinds
+        DISPLAY_GROUPS = [
+            ("llm", ["llm.response", "llm.request", "llm.error"]),
+            ("tool", ["tool.call", "tool.response"]),
+            ("decision", ["agent.decision"]),
+            ("message", ["agent.message"]),
+            ("approval", ["agent.approval.request", "agent.approval.response"]),
+            ("print", ["stdout.print", "stderr.print"]),
+        ]
+        parts = []
+        shown_kinds: set = set()
+        for label, kinds in DISPLAY_GROUPS:
+            group_count = sum(user_counts.get(k, 0) for k in kinds)
+            shown_kinds.update(kinds)
+            if group_count:
+                parts.append(f"{group_count}x {label}")
+
+        # Any remaining user-defined kinds
+        remaining = {k: v for k, v in user_counts.items() if k not in shown_kinds}
+        if remaining:
+            other_total = sum(remaining.values())
+            parts.append(f"{other_total}x custom")
+
+        trust = "Signed \u2713" if signed else "Unsigned"
+        path_str = str(self.output_path)
+
+        # Print to the real stderr (may have been swapped during capture)
+        target = self._original_stderr if self._original_stderr is not None else sys.stderr
+        print(f"\n[EPI] {total_user_steps} steps \u2192 {path_str}  {trust}", file=target)
+        if parts:
+            breakdown = " \u00b7 ".join(parts)
+            print(f"      {breakdown}", file=target)
+        print(f"      epi view {self.output_path.name}\n", file=target)
+
     def _capture_environment(self) -> None:
         """Capture environment snapshot and save to temp directory."""
         try:
@@ -1320,8 +1387,8 @@ class EpiRecorderSession:
                 "timestamp": utc_now_iso()
             })
     
-    def _sign_epi_file(self) -> None:
-        """Sign the .epi file with default key."""
+    def _sign_epi_file(self) -> bool:
+        """Sign the .epi file with default key. Returns True if signed successfully."""
         try:
             from epi_cli.keys import KeyManager
             import zipfile
@@ -1337,7 +1404,7 @@ class EpiRecorderSession:
                     km.generate_keypair(self.default_key_name)
                 except Exception:
                     # If generation fails, skip signing
-                    return
+                    return False
             
             # Load private key
             private_key = km.load_private_key(self.default_key_name)
@@ -1398,10 +1465,13 @@ class EpiRecorderSession:
                 temp_output.rename(self.output_path)
             finally:
                 shutil.rmtree(tmp_path, ignore_errors=True)
-                
+
+            return True
+
         except Exception as e:
             import sys
             print(f"Warning: Failed to sign .epi file: {e}", file=sys.stderr)
+            return False
 
 
 def _auto_generate_output_path(name_hint: Optional[str] = None) -> Path:
@@ -1545,64 +1615,51 @@ def record(
             # Your code here
             pass
     """
+    def _make_session(name_hint: str) -> EpiRecorderSession:
+        auto_path = _auto_generate_output_path(name_hint)
+        return EpiRecorderSession(
+            auto_path,
+            workflow_name or name_hint,
+            tags=tags,
+            auto_sign=auto_sign,
+            redact=redact,
+            default_key_name=default_key_name,
+            goal=goal,
+            notes=notes,
+            metrics=metrics,
+            approved_by=approved_by,
+            metadata_tags=metadata_tags,
+            legacy_patching=legacy_patching,
+            capture_prints=capture_prints,
+            capture_stderr=capture_stderr,
+        )
+
+    def _wrap(func: Callable) -> Callable:
+        """Wrap sync or async function for EPI recording."""
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                async with _make_session(func.__name__):
+                    return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @functools.wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                with _make_session(func.__name__):
+                    return func(*args, **kwargs)
+            return sync_wrapper
+
     # Check if this is being used as a decorator with arguments
     # If the first argument is not a path but keyword arguments are provided,
     # we need to return a decorator function
-    if output_path is None and (workflow_name is not None or goal is not None or notes is not None or 
+    if output_path is None and (workflow_name is not None or goal is not None or notes is not None or
                                metrics is not None or approved_by is not None or metadata_tags is not None):
-        # This is a decorator with arguments, return a decorator function
-        def decorator(func):
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                # Auto-generate path based on function name
-                auto_path = _auto_generate_output_path(func.__name__)
-                with EpiRecorderSession(
-                    auto_path,
-                    workflow_name or func.__name__,
-                    tags=tags,
-                    auto_sign=auto_sign,
-                    redact=redact,
-                    default_key_name=default_key_name,
-                    goal=goal,
-                    notes=notes,
-                    metrics=metrics,
-                    approved_by=approved_by,
-                    metadata_tags=metadata_tags,
-                    legacy_patching=legacy_patching,
-                    capture_prints=capture_prints,
-                    capture_stderr=capture_stderr,
-                ):
-                    return func(*args, **kwargs)
-            return wrapper
-        return decorator
-    
+        return _wrap
+
     # Handle decorator usage: record is called without parentheses
     if callable(output_path):
         func = output_path
-        
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Auto-generate path based on function name
-            auto_path = _auto_generate_output_path(func.__name__)
-            with EpiRecorderSession(
-                auto_path,
-                workflow_name or func.__name__,
-                tags=tags,
-                auto_sign=auto_sign,
-                redact=redact,
-                default_key_name=default_key_name,
-                goal=goal,
-                notes=notes,
-                metrics=metrics,
-                approved_by=approved_by,
-                metadata_tags=metadata_tags,
-                legacy_patching=legacy_patching,
-                capture_prints=capture_prints,
-                capture_stderr=capture_stderr,
-            ):
-                return func(*args, **kwargs)
-
-        return wrapper
+        return _wrap(func)
     
     # Normal context manager usage
     resolved_path = _resolve_output_path(output_path)

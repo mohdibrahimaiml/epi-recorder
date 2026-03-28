@@ -9,7 +9,9 @@ from epi_core.policy import (
     EPIPolicy,
     PolicyRule,
     build_policy_from_profile,
+    build_starter_policy,
     list_policy_profiles,
+    list_starter_rule_types,
 )
 
 
@@ -302,3 +304,26 @@ class TestPolicyProfiles:
         assert parsed.system_name == "triage-agent"
         assert len(parsed.rules) == 4
         assert parsed.rules_of_type("sequence_guard")[0].must_call == "collect_symptoms"
+
+    def test_lists_shared_starter_rule_types(self):
+        starter_rules = list_starter_rule_types()
+        assert "threshold_guard" in starter_rules
+        assert "approval_guard" in starter_rules
+        assert "tool_permission_guard" in starter_rules
+
+    def test_build_starter_policy_returns_valid_browser_aligned_shape(self):
+        policy = build_starter_policy(
+            system_name="refund-agent",
+            system_version="1.0",
+            policy_version="2026-03-26",
+            rule_types=["threshold_guard", "approval_guard", "tool_permission_guard"],
+        )
+
+        parsed = EPIPolicy(**policy)
+        assert parsed.profile_id == "custom.guided"
+        assert parsed.system_name == "refund-agent"
+        assert len(parsed.rules) == 3
+        assert parsed.rules[0].id == "R001"
+        assert parsed.rules_of_type("threshold_guard")[0].threshold_field == "amount"
+        assert parsed.rules_of_type("approval_guard")[0].approved_by == "manager"
+        assert parsed.rules_of_type("tool_permission_guard")[0].allowed_tools == ["lookup_order", "verify_identity"]

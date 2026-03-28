@@ -90,6 +90,8 @@ class TestViewCommand:
         assert extract_dir.exists()
         assert (extract_dir / "viewer.html").exists()
         html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+        assert "EPI Decision Ops" in html
+        assert 'id="epi-preloaded-cases"' in html
         assert 'id="epi-view-context"' in html
 
     def test_missing_viewer_html_is_regenerated(self, tmp_path):

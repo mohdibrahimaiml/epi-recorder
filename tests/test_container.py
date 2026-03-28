@@ -387,28 +387,31 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert ".topbar" in viewer_html
+        assert ".app-footer" in viewer_html
         assert "<script>" in viewer_html
-        assert "function init()" in viewer_html
+        assert "async function initApp()" in viewer_html
         assert '<script src="app.js"></script>' not in viewer_html
-        assert "viewer_lite.css" not in viewer_html
+        assert '<script src="../epi_viewer_static/crypto.js"></script>' not in viewer_html
+        assert "styles.css" not in viewer_html
+        assert "cdn.jsdelivr.net/npm/jszip" not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
-        assert "Evidence Packaged Infrastructure for AI" in viewer_html
-        assert "Decision Verdict" in viewer_html
-        assert "What To Check First" in viewer_html
-        assert "Treat this as the machine's best explanation" in viewer_html
-        assert "No execution data recorded" in viewer_html
-        assert "Needs Verification" in viewer_html
-        assert '<option value="agent">Agent</option>' in viewer_html
-        assert "Control Outcomes" in viewer_html
-        assert "structured control outcomes" in viewer_html.lower()
-        assert "application/vnd.epi+zip" in viewer_html
-        assert "Jump to step" in viewer_html
-        assert "data-jump-step" in viewer_html
-        assert "timeline-item--focus" in viewer_html
-        assert "details.open = true" in viewer_html
-        assert "Approval requested for" in viewer_html
-        assert "No explicit agent approval checkpoint was recorded in this artifact." in viewer_html
+        assert 'id="epi-data"' in viewer_html
+        assert "EPI Decision Ops" in viewer_html
+        assert "Inbox" in viewer_html
+        assert "Decision case file" in viewer_html
+        assert "Review workspace" in viewer_html
+        assert "Download reviewed .epi" in viewer_html
+        assert "Download review record" in viewer_html
+        assert "Optional signing key" in viewer_html
+        assert "Readable policy context" in viewer_html
+        assert "Download epi_policy.json" in viewer_html
+        assert "Build a real rulebook for this workflow" in viewer_html
+        assert "Turn business controls into enforceable EPI rules" in viewer_html
+        assert "Export a business-readable record" in viewer_html
+        assert "Verify source" in viewer_html
+        assert "Opened the packaged Decision Ops case file" in viewer_html
+        assert '"files"' in viewer_html
+        assert "Your changes stay local until you download the reviewed case or review record." in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

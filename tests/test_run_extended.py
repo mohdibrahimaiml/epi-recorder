@@ -346,6 +346,8 @@ class TestRunFunction:
         with patch("webbrowser.open", side_effect=_capture_open), \
              patch("threading.Thread.start", return_value=None):
             assert _open_viewer(epi) is True
+        assert "EPI Decision Ops" in captured_html["html"]
+        assert 'id="epi-preloaded-cases"' in captured_html["html"]
         assert 'id="epi-view-context"' in captured_html["html"]
 
     def test_open_viewer_refreshes_html_from_append_only_review_data(self, tmp_path):
@@ -388,6 +390,7 @@ class TestRunFunction:
              patch("threading.Thread.start", return_value=None):
             assert _open_viewer(epi) is True
 
+        assert 'id="epi-preloaded-cases"' in captured_html["html"]
         assert "reviewer@epilabs.org" in captured_html["html"]
         assert "Confirmed in review." in captured_html["html"]
 

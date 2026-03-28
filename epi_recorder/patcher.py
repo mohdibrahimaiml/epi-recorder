@@ -29,7 +29,7 @@ class RecordingContext:
     def __init__(self, output_dir: Path, enable_redaction: bool = True):
         """
         Initialize recording context.
-        
+
         Args:
             output_dir: Directory where steps.jsonl will be written
             enable_redaction: Whether to redact secrets (default: True)
@@ -39,6 +39,8 @@ class RecordingContext:
         self.enable_redaction = enable_redaction
         self.redactor = get_default_redactor() if enable_redaction else None
         self._lock = threading.Lock()
+        # Tracks count of each step kind for the post-run summary
+        self._step_counts: Dict[str, int] = {}
 
         # Ensure output directory exists
         ensure_workspace_writable(self.output_dir)
@@ -93,6 +95,7 @@ class RecordingContext:
 
             self._write_step(step)
             self.step_index += 1
+            self._step_counts[kind] = self._step_counts.get(kind, 0) + 1
 
     def _write_step(self, step: StepModel) -> None:
         """Write step atomically to SQLite storage."""

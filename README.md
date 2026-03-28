@@ -25,6 +25,9 @@
     <a href="docs/CLI.md">CLI Reference</a> ·
     <a href="docs/POLICY.md">Policy Guide</a> ·
     <a href="docs/CATEGORY-MESSAGING.md">Enterprise Narrative</a> ·
+    <a href="docs/HIGH-RISK-ADOPTION-ROADMAP.md">Adoption Roadmap</a> ·
+    <a href="docs/PILOT-READINESS-ROADMAP.md">Pilot Readiness</a> ·
+    <a href="docs/SELF-HOSTED-RUNBOOK.md">Self-Hosted Runbook</a> ·
     <a href="CHANGELOG.md">Changelog</a> ·
     <a href="https://epilabs.org">Website</a>
   </strong>
@@ -54,6 +57,26 @@ Traditional logs help teams debug. EPI helps teams defend a decision after an in
 - **Tamper-evident evidence**: make integrity visible as `Signed`, `Unsigned`, or `Tampered`.
 
 EPI is not an observability dashboard. It sits beside observability as the durable evidence layer for high-stakes AI operations.
+
+## Open Capture, Enterprise Control
+
+The best long-term shape for EPI is:
+
+- **open-source capture and proof**
+- **enterprise control plane on top**
+
+That means:
+
+- `epi_core`, `epi_recorder`, and `epi_gateway` become the open developer-facing infrastructure layers
+- `.epi` stays the portable, signed proof format
+- reviewer workflows, policy distribution, central search, assignments, and org controls can become the enterprise layer
+
+For the architecture boundary, see [docs/OPEN-CORE-ARCHITECTURE.md](docs/OPEN-CORE-ARCHITECTURE.md).
+
+For the concrete hardening bar before customer pilots, see [docs/PILOT-READINESS-ROADMAP.md](docs/PILOT-READINESS-ROADMAP.md).
+
+For the supported self-hosted runtime, recovery flow, backup/restore, and operator checklist, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
+For the repeatable local operator drill that exercises capture, review, export, backup, and restore on one stack, run `scripts/self_hosted_drill.py`.
 
 ## Why Now
 
@@ -88,6 +111,8 @@ Less ideal:
 - pure prompt experimentation without workflow consequences
 - teams that only want live cloud observability and do not care about portable records
 
+For the concrete rollout plan to make EPI easier for high-risk AI teams worldwide, see [docs/HIGH-RISK-ADOPTION-ROADMAP.md](docs/HIGH-RISK-ADOPTION-ROADMAP.md).
+
 ```bash
 pip install epi-recorder
 ```
@@ -120,6 +145,23 @@ What happens:
 - if the script prints output, EPI can capture that as console evidence
 - if the script emits structured EPI steps, the artifact becomes much more useful for trust review
 - if nothing meaningful is captured, `epi run` fails loudly instead of pretending success
+
+### Gateway path for AI infrastructure adoption
+
+```bash
+pip install epi-recorder
+epi gateway serve
+epi gateway serve --users-file config/gateway-users.example.json
+```
+
+Use this when you want EPI to behave more like AI infrastructure:
+
+- point SDKs, adapters, or proxies at one capture endpoint
+- normalize events into a shared open schema
+- normalize provider-native payloads from OpenAI-compatible, Anthropic, Gemini, LiteLLM, and generic LLM adapters
+- support real proxy-style adoption through OpenAI-compatible `/v1/chat/completions` and Anthropic-compatible `/v1/messages`
+- keep the eventual `.epi` export path for proof and audit
+- optionally gate the shared reviewer APIs with either a shared bearer token or a small local users file for browser sign-in
 
 ### Record a workflow in 3 lines
 

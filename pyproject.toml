@@ -52,6 +52,8 @@ dependencies = [
     "cbor2>=5.6.0",
     "typer>=0.12.0,<0.25",
     "rich>=13.0.0,<14",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
 ]
 
 [project.optional-dependencies]
@@ -62,10 +64,14 @@ analytics = [
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
 ]
+gateway = [
+]
 all = [
     "google-generativeai>=0.4.0",
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -88,7 +94,7 @@ Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "epi_postinstall*", "pytest_epi*"]
+include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "epi_postinstall*", "pytest_epi*"]
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]

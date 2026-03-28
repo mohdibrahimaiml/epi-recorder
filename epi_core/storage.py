@@ -43,7 +43,11 @@ class EpiStorage:
                 "The recording workspace is unavailable or not writable. "
                 "Try setting TMP/TEMP to a writable folder and rerun."
             ) from exc
-        self._init_tables()
+        try:
+            self._init_tables()
+        except Exception:
+            self.conn.close()
+            raise
     
     def _init_tables(self):
         """Initialize database schema"""

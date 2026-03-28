@@ -24,7 +24,7 @@
                 <div class="brand-block">
                     <div class="brand-block__eyebrow">Evidence Packaged Infrastructure for AI</div>
                     <h1 class="brand-block__title">EPI Viewer</h1>
-                    <p class="brand-block__subtitle">Portable execution evidence with integrity, trust, and optional policy-grounded analysis.</p>
+                    <p class="brand-block__subtitle">Decision case file for review, trust, and policy checks.</p>
                 </div>
                 <div id="trust-badge" class="trust-badge"></div>
             </div>
@@ -45,6 +45,12 @@
                         <div class="section-label">Review Guide</div>
                         <h2 class="card__title">What To Check First</h2>
                         <div id="guide-summary" class="card-stack"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="section-label">Actions</div>
+                        <h2 class="card__title">Case Actions</h2>
+                        <div id="case-actions" class="card-stack"></div>
                     </article>
 
                     <article class="card">
@@ -80,8 +86,8 @@
 
                 <section class="content">
                     <article class="card card--summary">
-                        <div class="section-label">Overview</div>
-                        <h2 id="case-title" class="card__title">Execution Evidence</h2>
+                        <div class="section-label">Case Summary</div>
+                        <h2 id="case-title" class="card__title">Decision Case File</h2>
                         <p id="case-subtitle" class="card__subtitle"></p>
                         <div id="reviewer-verdict" class="reviewer-verdict" hidden></div>
                         <div id="fault-banner" class="fault-banner" hidden></div>
@@ -89,11 +95,18 @@
                         <div id="case-kpis" class="kpi-row"></div>
                     </article>
 
+                    <article id="review-workspace-card" class="card">
+                        <div class="section-label">Review Workspace</div>
+                        <h2 class="card__title">Record A Review Decision</h2>
+                        <p class="card__subtitle">Choose the finding, capture a decision, and download a portable review record or case summary.</p>
+                        <div id="review-workspace" class="review-workspace"></div>
+                    </article>
+
                     <article class="card">
                         <div class="timeline-head">
                             <div>
                                 <div class="section-label">Execution</div>
-                                <h2 class="card__title">Timeline</h2>
+                                <h2 class="card__title">Activity Timeline</h2>
                                 <p id="timeline-meta" class="card__subtitle"></p>
                             </div>
                             <div class="timeline-controls">

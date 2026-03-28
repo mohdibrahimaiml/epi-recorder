@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import click
 from epi_core import __version__ as core_version
 
-from epi_cli.policy import init, show, validate
+from epi_cli.policy import _create_policy_editor_html, init, show, validate
 
 
 def _tmp_workspace() -> Path:
@@ -61,6 +61,93 @@ def test_policy_init_yes_defaults_to_profile():
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def test_policy_init_custom_starter_rules_use_shared_templates():
+    tmpdir = _tmp_workspace()
+    original = os.getcwd()
+    try:
+        os.chdir(tmpdir)
+        with patch("epi_cli.policy.console", MagicMock()):
+            init(
+                output="epi_policy.json",
+                starter_rule=["approval_guard", "tool_permission_guard"],
+                yes=True,
+            )
+    finally:
+        os.chdir(original)
+
+    data = json.loads((tmpdir / "epi_policy.json").read_text(encoding="utf-8"))
+    assert data["profile_id"] == "custom.guided"
+    assert [rule["type"] for rule in data["rules"]] == ["approval_guard", "tool_permission_guard"]
+    assert data["rules"][0]["approved_by"] == "manager"
+    assert data["rules"][1]["allowed_tools"] == ["lookup_order", "verify_identity"]
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_editor_html_preloads_rules_workspace():
+    tmpdir = _tmp_workspace()
+    policy_path = tmpdir / "epi_policy.json"
+    policy_payload = {
+        "policy_format_version": "2.0",
+        "policy_id": "refund-agent-prod",
+        "system_name": "refund-agent",
+        "system_version": "1.0",
+        "policy_version": "2026-03-26",
+        "scope": {"workflow": "refund-approval"},
+        "rules": [
+            {
+                "id": "R001",
+                "name": "Require approval",
+                "severity": "critical",
+                "description": "Require approval for large refunds.",
+                "type": "approval_guard",
+                "action": "approve_refund",
+                "approved_by": "manager",
+            }
+        ],
+    }
+    policy_path.write_text(json.dumps(policy_payload), encoding="utf-8")
+
+    html = _create_policy_editor_html(policy_payload, policy_path)
+
+    assert 'id="epi-preloaded-cases"' in html
+    assert '"view": "rules"' in html
+    assert "Download epi_policy.json" in html
+    assert "refund-agent-prod" in html
+    assert "refund-approval" in html
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_init_open_editor_writes_browser_workspace():
+    tmpdir = _tmp_workspace()
+    editor_dir = tmpdir / "editor-session"
+    editor_dir.mkdir(exist_ok=True)
+    original = os.getcwd()
+    try:
+        os.chdir(tmpdir)
+        with patch("epi_cli.policy.console", MagicMock()), \
+             patch("epi_cli.policy._make_temp_dir", return_value=editor_dir), \
+             patch("epi_cli.policy._open_in_browser") as open_browser, \
+             patch("epi_cli.policy._cleanup_after_delay") as cleanup_after_delay:
+            init(
+                output="epi_policy.json",
+                starter_rule=["approval_guard"],
+                yes=True,
+                open_editor=True,
+            )
+    finally:
+        os.chdir(original)
+
+    viewer_path = editor_dir / "policy_editor.html"
+    html = viewer_path.read_text(encoding="utf-8")
+    assert viewer_path.exists()
+    assert '"view": "rules"' in html
+    assert "epi-preloaded-cases" in html
+    assert "approval_guard" in html
+    open_browser.assert_called_once_with(viewer_path)
+    cleanup_after_delay.assert_called_once_with(editor_dir, 30.0)
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def test_policy_show_prints_summary_without_raw_json_by_default():
     tmpdir = _tmp_workspace()
     policy_path = tmpdir / "epi_policy.json"
@@ -95,6 +182,52 @@ def test_policy_show_prints_summary_without_raw_json_by_default():
     assert "refund-agent" in printed
     assert "Raw Policy JSON" not in printed
     assert any("refund-agent" in str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_show_open_editor_writes_browser_workspace():
+    tmpdir = _tmp_workspace()
+    editor_dir = tmpdir / "editor-session"
+    editor_dir.mkdir(exist_ok=True)
+    policy_path = tmpdir / "epi_policy.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "policy_format_version": "2.0",
+                "policy_id": "refund-agent-prod",
+                "system_name": "refund-agent",
+                "system_version": "1.0",
+                "policy_version": "2026-03-26",
+                "rules": [
+                    {
+                        "id": "R001",
+                        "name": "Require approval",
+                        "severity": "critical",
+                        "description": "Require approval for large refunds.",
+                        "type": "approval_guard",
+                        "action": "approve_refund",
+                        "approved_by": "manager",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("epi_cli.policy.console", MagicMock()), \
+         patch("epi_cli.policy._make_temp_dir", return_value=editor_dir), \
+         patch("epi_cli.policy._open_in_browser") as open_browser, \
+         patch("epi_cli.policy._cleanup_after_delay") as cleanup_after_delay:
+        show(policy_file=str(policy_path), raw=False, open_editor=True)
+
+    viewer_path = editor_dir / "policy_editor.html"
+    html = viewer_path.read_text(encoding="utf-8")
+    assert viewer_path.exists()
+    assert '"view": "rules"' in html
+    assert "epi-preloaded-cases" in html
+    assert "refund-agent-prod" in html
+    open_browser.assert_called_once_with(viewer_path)
+    cleanup_after_delay.assert_called_once_with(editor_dir, 30.0)
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 

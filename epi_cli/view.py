@@ -19,6 +19,7 @@ import webbrowser
 import zipfile
 import json
 import re
+import base64
 from pathlib import Path
 
 import typer
@@ -31,6 +32,7 @@ from epi_core.trust import create_verification_report, verify_embedded_manifest_
 console = Console()
 
 DEFAULT_DIR = Path("epi-recordings")
+_MAX_INLINE_ARCHIVE_BYTES = 4 * 1024 * 1024
 
 
 def _resolve_epi_file(name_or_path: str) -> Path:
@@ -182,6 +184,107 @@ def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     viewer_path.write_text(html, encoding="utf-8")
 
 
+def _read_json_if_exists(path: Path) -> dict | list | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _read_text_if_exists(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+
+def _read_steps_if_exists(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    steps: list[dict] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                steps.append(json.loads(line))
+            except Exception:
+                continue
+    except Exception:
+        return []
+    return steps
+
+
+def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> dict:
+    manifest = EPIContainer.read_manifest(resolved_path)
+    integrity_ok, mismatches = EPIContainer.verify_integrity(resolved_path)
+    signature_valid, signer_name, signature_message = verify_embedded_manifest_signature(manifest)
+
+    archive_base64 = None
+    try:
+        if resolved_path.stat().st_size <= _MAX_INLINE_ARCHIVE_BYTES:
+            archive_base64 = base64.b64encode(resolved_path.read_bytes()).decode("ascii")
+    except Exception:
+        archive_base64 = None
+
+    return {
+        "source_name": resolved_path.name,
+        "file_size": resolved_path.stat().st_size if resolved_path.exists() else 0,
+        "archive_base64": archive_base64,
+        "manifest": manifest.model_dump(mode="json"),
+        "steps": _read_steps_if_exists(extracted_dir / "steps.jsonl"),
+        "analysis": _read_json_if_exists(extracted_dir / "analysis.json"),
+        "policy": _read_json_if_exists(extracted_dir / "policy.json"),
+        "policy_evaluation": _read_json_if_exists(extracted_dir / "policy_evaluation.json"),
+        "review": _read_json_if_exists(extracted_dir / "review.json"),
+        "environment": _read_json_if_exists(extracted_dir / "environment.json")
+        or _read_json_if_exists(extracted_dir / "env.json"),
+        "stdout": _read_text_if_exists(extracted_dir / "stdout.log"),
+        "stderr": _read_text_if_exists(extracted_dir / "stderr.log"),
+        "integrity": {
+            "ok": integrity_ok,
+            "checked": len(manifest.file_manifest),
+            "mismatches": sorted(mismatches.keys()),
+        },
+        "signature": {
+            "valid": signature_valid is True,
+            "reason": signature_message,
+            "signer": signer_name,
+        },
+    }
+
+
+def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str:
+    web_viewer_dir = Path(__file__).resolve().parents[1] / "web_viewer"
+    template_path = web_viewer_dir / "index.html"
+    app_js_path = web_viewer_dir / "app.js"
+    css_path = web_viewer_dir / "styles.css"
+    crypto_js_path = Path(__file__).resolve().parents[1] / "epi_viewer_static" / "crypto.js"
+
+    template_html = template_path.read_text(encoding="utf-8")
+    app_js = app_js_path.read_text(encoding="utf-8")
+    css_styles = css_path.read_text(encoding="utf-8")
+    crypto_js = crypto_js_path.read_text(encoding="utf-8")
+
+    payload = {"cases": [_build_preloaded_case_payload(extracted_dir, resolved_path)]}
+    payload_json = _html_safe_json_dumps(payload, indent=2)
+    preload_tag = f'<script id="epi-preloaded-cases" type="application/json">{payload_json}</script>'
+
+    html = template_html.replace(
+        '<link rel="stylesheet" href="styles.css">',
+        f"<style>{css_styles}</style>",
+    )
+    html = html.replace(
+        '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script src="../epi_viewer_static/crypto.js"></script>\n<script src="app.js"></script>',
+        f'{preload_tag}\n<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script>{crypto_js}</script>\n<script>{app_js}</script>',
+    )
+    return html
+
+
 def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
     """
     Regenerate viewer.html from the extracted artifact contents.
@@ -189,8 +292,7 @@ def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
     This keeps the viewer aligned with append-only files like review.json that
     may have been added after the original viewer was baked into the artifact.
     """
-    manifest = EPIContainer.read_manifest(resolved_path)
-    viewer_html = EPIContainer._create_embedded_viewer(extracted_dir, manifest)
+    viewer_html = _create_decision_ops_viewer(extracted_dir, resolved_path)
     viewer_path = extracted_dir / "viewer.html"
     viewer_path.write_text(viewer_html, encoding="utf-8")
     return viewer_path

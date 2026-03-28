@@ -557,8 +557,21 @@ def run(
     lines.append(f"\n[dim]  epi view {effective_out.stem}    epi verify {effective_out.stem}    epi ls[/dim]")
     if empty_recording:
         lines.append("[dim]  Next step: instrument with record(), wrappers/integrations, or get_current_session().log_step(...), then run again.[/dim]")
+        lines.append(
+            "\n[dim cyan]  When to use what:[/dim cyan]\n"
+            "[dim]  epi run script.py          → auto-captures print() output, zero code changes[/dim]\n"
+            "[dim]  with record('out.epi'):    → structured evidence, policy analysis, signed artifact[/dim]\n"
+            "[dim]  wrap_openai(client)        → automatic LLM call capture inside record()[/dim]"
+        )
     elif stdout_only_recording:
         lines.append("[dim]  Next step: console output was captured automatically; add record(), wrappers, or get_current_session().log_step(...) for structured workflow evidence.[/dim]")
+        lines.append(
+            "\n[dim cyan]  Upgrade path:[/dim cyan]\n"
+            "[dim]  from epi_recorder import record, wrap_openai[/dim]\n"
+            "[dim]  client = wrap_openai(OpenAI())   # or wrap_anthropic()[/dim]\n"
+            "[dim]  with record('my_agent.epi'):[/dim]\n"
+            "[dim]      client.chat.completions.create(...)  # captured automatically[/dim]"
+        )
 
     if empty_recording:
         title = "[bold red]Recording captured no execution data[/bold red]"

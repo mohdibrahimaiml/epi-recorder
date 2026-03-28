@@ -68,56 +68,37 @@ def chat(
             console.print(f"[red]Error:[/red] File not found: {epi_file}")
             raise typer.Exit(1)
     
-    # Check for API key
-    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
+    # Detect which provider to use based on available API keys
+    google_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
+
+    if not google_key and not openai_key:
         console.print(Panel(
             "[yellow]No API key found![/yellow]\n\n"
-            "Set your Google AI API key:\n"
-            "  [cyan]set GOOGLE_API_KEY=your-key-here[/cyan]  (Windows)\n"
-            "  [cyan]export GOOGLE_API_KEY=your-key-here[/cyan]  (Mac/Linux)\n\n"
-            "Get a free key at: [link]https://aistudio.google.com/app/apikey[/link]",
+            "Set one of:\n"
+            "  [cyan]set OPENAI_API_KEY=sk-...[/cyan]         (Windows)\n"
+            "  [cyan]export OPENAI_API_KEY=sk-...[/cyan]       (Mac/Linux)\n\n"
+            "  [cyan]set GOOGLE_API_KEY=your-key-here[/cyan]   (Windows)\n"
+            "  [cyan]export GOOGLE_API_KEY=your-key-here[/cyan] (Mac/Linux)\n\n"
+            "Get a free Google key at: https://aistudio.google.com/app/apikey",
             title="[!] API Key Required",
             border_style="yellow"
         ))
         raise typer.Exit(1)
-    
+
     # Load the .epi file
     console.print(f"\n[dim]Loading evidence from:[/dim] {epi_file}")
-    
+
     try:
         manifest = EPIContainer.read_manifest(epi_file)
         steps = load_steps_from_epi(epi_file)
     except Exception as e:
         console.print(f"[red]Error loading .epi file:[/red] {e}")
         raise typer.Exit(1)
-    
-    # Initialize Gemini and catch missing exceptions layer
-    try:
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import google.generativeai as genai
-            import google.api_core.exceptions as _goog_exc
-            
-        genai.configure(api_key=api_key)
-        ai_model = genai.GenerativeModel(model)
-    except ImportError:
-        console.print(Panel(
-            "[red]Google Generative AI package not installed![/red]\n\n"
-            "Install it with:\n"
-            "  [cyan]pip install google-generativeai[/cyan]",
-            title="[X] Missing Dependency",
-            border_style="red"
-        ))
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f"[red]Error initializing Gemini:[/red] {e}")
-        raise typer.Exit(1)
-    
-    # Build context
+
+    # Build context (shared by both providers)
     context = f"""You are an expert assistant analyzing an EPI evidence recording file.
-    
+
 The recording contains cryptographically signed, tamper-proof evidence of an AI workflow execution.
 
 Recording metadata:
@@ -137,34 +118,116 @@ When answering questions:
 4. Keep answers concise but informative
 """
 
-    # Start chat session
-    chat_session = ai_model.start_chat(history=[])
-    
+    # ---- Provider: Gemini (preferred if key available) ----
+    if google_key:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                import google.generativeai as genai
+                import google.api_core.exceptions as _goog_exc
+
+            genai.configure(api_key=google_key)
+            ai_model = genai.GenerativeModel(model)
+            active_provider = "gemini"
+        except ImportError:
+            if not openai_key:
+                console.print(Panel(
+                    "[red]google-generativeai not installed and no OPENAI_API_KEY set.[/red]\n\n"
+                    "Install Gemini:  [cyan]pip install google-generativeai[/cyan]\n"
+                    "Or set:         [cyan]OPENAI_API_KEY=sk-...[/cyan]",
+                    title="[X] Missing Dependency",
+                    border_style="red"
+                ))
+                raise typer.Exit(1)
+            google_key = None  # Fall through to OpenAI
+        except Exception as e:
+            console.print(f"[red]Error initialising Gemini:[/red] {e}")
+            if not openai_key:
+                raise typer.Exit(1)
+            google_key = None  # Fall through to OpenAI
+
+    # ---- Provider: OpenAI (fallback or primary if no Google key) ----
+    if not google_key:
+        try:
+            from openai import OpenAI as _OpenAIClient
+            _openai_client = _OpenAIClient(api_key=openai_key)
+            _openai_model = "gpt-4o-mini"
+            active_provider = "openai"
+            _goog_exc = None  # not available
+
+            class _OpenAIChatAdapter:
+                """Minimal adapter so the chat loop below is provider-agnostic."""
+                def __init__(self, client, model):
+                    self._client = client
+                    self._model = model
+                    self._history = [{"role": "system", "content": context}]
+
+                def send_message(self, prompt: str):
+                    self._history.append({"role": "user", "content": prompt})
+                    resp = self._client.chat.completions.create(
+                        model=self._model,
+                        messages=self._history,
+                    )
+                    text = resp.choices[0].message.content or ""
+                    self._history.append({"role": "assistant", "content": text})
+
+                    class _Resp:
+                        pass
+                    r = _Resp()
+                    r.text = text
+                    return r
+
+            ai_model = _OpenAIChatAdapter(_openai_client, _openai_model)
+            # Wrap send_message so we can call start_chat() the same way
+            chat_session = ai_model
+        except ImportError:
+            console.print(Panel(
+                "[red]openai package not installed.[/red]\n\n"
+                "Install with: [cyan]pip install openai[/cyan]\n"
+                "Or set:       [cyan]GOOGLE_API_KEY=...[/cyan] to use Gemini instead.",
+                title="[X] Missing Dependency",
+                border_style="red"
+            ))
+            raise typer.Exit(1)
+        except Exception as e:
+            console.print(f"[red]Error initialising OpenAI:[/red] {e}")
+            raise typer.Exit(1)
+    else:
+        chat_session = ai_model.start_chat(history=[])
+
     # Display header
     console.print()
     console.print(Panel(
         f"[bold cyan]EPI Evidence Chat[/bold cyan]\n\n"
-        f"[dim]File:[/dim] {epi_file.name}\n"
-        f"[dim]Steps:[/dim] {len(steps)}\n"
-        f"[dim]Model:[/dim] {model}\n\n"
+        f"[dim]File:[/dim]     {epi_file.name}\n"
+        f"[dim]Steps:[/dim]    {len(steps)}\n"
+        f"[dim]Provider:[/dim] {active_provider}  [dim]({model if active_provider == 'gemini' else _openai_model})[/dim]\n\n"
         f"Ask questions about this evidence recording.\n"
         f"Type [yellow]exit[/yellow] or [yellow]quit[/yellow] to end the session.",
         border_style="cyan"
     ))
     console.print()
-    
+
+    def _send(prompt: str) -> str:
+        """Send a message and return the text response."""
+        if active_provider == "gemini":
+            full_prompt = f"{context}\n\nUser question: {prompt}"
+            response = chat_session.send_message(full_prompt)
+        else:
+            response = chat_session.send_message(prompt)
+        return response.text
+
     # Non-interactive mode: answer single question and exit
     if query:
         try:
-            full_prompt = f"{context}\n\nUser question: {query}"
-            response = chat_session.send_message(full_prompt)
+            text = _send(query)
             console.print("[bold green]AI:[/bold green]")
-            console.print(Markdown(response.text))
+            console.print(Markdown(text))
             return
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
             raise typer.Exit(1)
-    
+
     # Interactive chat loop
     while True:
         try:
@@ -172,39 +235,34 @@ When answering questions:
         except (KeyboardInterrupt, EOFError):
             console.print("\n[dim]Goodbye![/dim]")
             break
-        
+
         if question.lower() in ('exit', 'quit', 'q'):
             console.print("[dim]Goodbye![/dim]")
             break
-        
+
         if not question.strip():
             continue
-        
-        # Send to Gemini with context
+
         try:
-            full_prompt = f"{context}\n\nUser question: {question}"
-            response = chat_session.send_message(full_prompt)
-            
+            text = _send(question)
             console.print()
             console.print("[bold green]AI:[/bold green]")
-            console.print(Markdown(response.text))
+            console.print(Markdown(text))
             console.print()
-            
-        except _goog_exc.ResourceExhausted:
-            console.print(Panel(
-                "[yellow]API Quota Exceeded[/yellow]\n\n"
-                "You have hit the rate limit for the Gemini API (free tier).\n"
-                "Please wait a minute before trying again.",
-                title="[!] Rate Limit",
-                border_style="yellow"
-            ))
-        except _goog_exc.NotFound:
-            console.print(f"[red]Error:[/red] The model '{model}' was not found. Try using a different model with --model.")
-        except _goog_exc.InvalidArgument as e:
-            console.print(f"[red]Error:[/red] Invalid argument: {e}")
         except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            console.print("[dim]Try asking a different question.[/dim]")
+            # Handle Gemini-specific quota errors gracefully
+            if _goog_exc and isinstance(e, _goog_exc.ResourceExhausted):
+                console.print(Panel(
+                    "[yellow]API Quota Exceeded[/yellow]\n\n"
+                    "You have hit the rate limit. Please wait a minute before trying again.",
+                    title="[!] Rate Limit",
+                    border_style="yellow"
+                ))
+            elif _goog_exc and isinstance(e, _goog_exc.NotFound):
+                console.print(f"[red]Error:[/red] Model not found. Try a different model with --model.")
+            else:
+                console.print(f"[red]Error:[/red] {e}")
+                console.print("[dim]Try asking a different question.[/dim]")
             console.print()
 
 

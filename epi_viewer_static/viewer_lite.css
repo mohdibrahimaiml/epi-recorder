@@ -214,6 +214,74 @@ pre,
     margin-top: 12px;
 }
 
+.review-workspace {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.form-field {
+    display: grid;
+    gap: 8px;
+}
+
+.form-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.action-button {
+    appearance: none;
+    border: 1px solid #c9d8ff;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 11px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.action-button:hover,
+.action-button:focus-visible {
+    background: #eef3ff;
+    box-shadow: 0 0 0 3px rgba(62, 101, 228, 0.12);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.action-button--secondary {
+    background: #fff;
+    color: #40526a;
+    border-color: var(--border);
+}
+
+.workspace-status {
+    min-height: 24px;
+}
+
 .fault-banner--critical {
     background: linear-gradient(180deg, #fff5f3, var(--bad-soft));
     border-color: #efbbb5;

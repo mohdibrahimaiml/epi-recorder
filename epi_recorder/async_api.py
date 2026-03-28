@@ -37,7 +37,7 @@ class AsyncRecorder:
     async def start(self):
         """Initialize storage in background thread and start writer"""
         # Create storage in thread (SQLite init is also blocking)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._storage = await loop.run_in_executor(
             self._executor,
             lambda: EpiStorage(self.session_name, self.output_dir)
@@ -76,7 +76,7 @@ class AsyncRecorder:
                    break
 
                 # Write to SQLite in background thread (non-blocking for async)
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     self._executor,
                     self._write_to_storage,
@@ -86,8 +86,17 @@ class AsyncRecorder:
                 self._queue.task_done()
                 
         except asyncio.CancelledError:
-            # Graceful shutdown
-            pass
+            # Drain any items still in the queue so no steps are silently lost
+            # when the task is cancelled externally (not via the None sentinel).
+            loop = asyncio.get_running_loop()
+            while not self._queue.empty():
+                try:
+                    item = self._queue.get_nowait()
+                    if item is not None:
+                        await loop.run_in_executor(self._executor, self._write_to_storage, item)
+                    self._queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
         except Exception as e:
             self._error = e
     
@@ -121,7 +130,7 @@ class AsyncRecorder:
         
         # Finalize storage in background thread
         if self._storage:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 self._executor,
                 self._storage.finalize

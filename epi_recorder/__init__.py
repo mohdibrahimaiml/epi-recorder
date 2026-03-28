@@ -18,6 +18,7 @@ from epi_recorder.api import (
 
 # Export wrapper clients (new in v2.3.0)
 from epi_recorder.wrappers import (
+    wrap_client,
     wrap_openai,
     TracedOpenAI,
     wrap_anthropic,
@@ -35,16 +36,20 @@ def __getattr__(name: str):
 # Note: Framework integrations are imported on-demand
 # from epi_recorder.integrations import EPICheckpointSaver
 
+from epi_recorder import auto  # noqa: E402 — available as epi_recorder.auto
+
 __all__ = [
     "EpiRecorderSession",
     "AgentRun",
     "record",
     "get_current_session",
+    "wrap_client",
     "wrap_openai",
     "TracedOpenAI",
     "wrap_anthropic",
     "TracedAnthropic",
     "AgentAnalytics",
+    "auto",
     "__version__",
 ]
 

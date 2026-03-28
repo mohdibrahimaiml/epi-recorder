@@ -96,6 +96,74 @@ function getReviewEntries(review) {
     return review && Array.isArray(review.reviews) ? review.reviews : [];
 }
 
+function getReviewableFindings(analysis) {
+    const findings = [];
+    if (analysis && analysis.primary_fault) {
+        findings.push({ ...analysis.primary_fault, _source: "primary" });
+    }
+    if (analysis && Array.isArray(analysis.secondary_flags)) {
+        analysis.secondary_flags
+            .filter((flag) => flag && flag.fault_type === "POLICY_VIOLATION")
+            .forEach((flag) => findings.push({ ...flag, _source: "secondary" }));
+    }
+    return findings;
+}
+
+function formatReviewOutcome(value) {
+    const outcome = value == null ? "" : String(value);
+    if (!outcome) {
+        return "Pending review";
+    }
+    const normalized = outcome.toLowerCase();
+    if (normalized === "confirmed_fault") {
+        return "Confirmed issue";
+    }
+    if (normalized === "dismissed") {
+        return "Dismissed after review";
+    }
+    if (normalized === "skipped") {
+        return "Review skipped";
+    }
+    if (normalized === "reviewed") {
+        return "Reviewed";
+    }
+    return outcome.replaceAll("_", " ");
+}
+
+function getTrustDisplayLabel(label) {
+    if (label === "Signed") {
+        return "Trusted";
+    }
+    if (label === "Unsigned") {
+        return "Source not proven";
+    }
+    if (label === "Needs Verification") {
+        return "Verify source";
+    }
+    if (label === "Tampered") {
+        return "Do not use";
+    }
+    return label || "Unknown";
+}
+
+function sanitizeFilenamePart(value, fallback = "case") {
+    const text = (value == null ? "" : String(value)).trim();
+    const normalized = text.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+    return normalized || fallback;
+}
+
+function downloadTextFile(filename, content, mimeType = "text/plain;charset=utf-8") {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function getToolName(content) {
     return content.tool || content.name || "tool";
 }
@@ -218,6 +286,7 @@ function computeTrustState(manifest, context) {
         if (context.signature_valid === false || context.integrity_ok === false) {
             return {
                 label: "Tampered",
+                displayLabel: "Do not use",
                 pillClass: "status-pill status-pill--bad",
                 detailTone: "detail-card detail-card--bad",
                 detail: context.mismatches_count
@@ -228,6 +297,7 @@ function computeTrustState(manifest, context) {
         if (!context.has_signature && context.integrity_ok) {
             return {
                 label: "Unsigned",
+                displayLabel: "Source not proven",
                 pillClass: "status-pill status-pill--warn",
                 detailTone: "detail-card detail-card--warn",
                 detail: "The artifact is unsigned, but the sealed files still match the manifest.",
@@ -236,6 +306,7 @@ function computeTrustState(manifest, context) {
         if (context.signature_valid && context.integrity_ok) {
             return {
                 label: "Signed",
+                displayLabel: "Trusted",
                 pillClass: "status-pill status-pill--good",
                 detailTone: "detail-card detail-card--good",
                 detail: context.signer
@@ -248,6 +319,7 @@ function computeTrustState(manifest, context) {
     if (manifest && manifest.signature) {
         return {
             label: "Needs Verification",
+            displayLabel: "Verify source",
             pillClass: "status-pill status-pill--warn",
             detailTone: "detail-card detail-card--warn",
             detail: "A signature is present, but this viewer session did not verify integrity. Open through EPI to verify trust.",
@@ -256,6 +328,7 @@ function computeTrustState(manifest, context) {
 
     return {
         label: "Unsigned",
+        displayLabel: "Source not proven",
         pillClass: "status-pill status-pill--warn",
         detailTone: "detail-card detail-card--warn",
         detail: "No signature is present on this artifact.",
@@ -276,7 +349,7 @@ function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review
         (agentStart && agentStart.content && agentStart.content.agent_name && `${agentStart.content.agent_name} run`) ||
         (startStep && startStep.content && startStep.content.workflow_name) ||
         manifest.notes ||
-        "Execution Evidence";
+        "Decision Case File";
 
     const subtitleParts = [];
     if (agentStart && agentStart.content && agentStart.content.agent_name) {
@@ -305,10 +378,10 @@ function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review
     }
 
     const kpis = [
-        ["Trust", trustState.label],
+        ["Case status", trustState.displayLabel || getTrustDisplayLabel(trustState.label)],
         ["Steps", steps.length],
         ["Policy", policy && Array.isArray(policy.rules) ? `${policy.rules.length} rule(s)` : "None"],
-        ["Review", reviewOutcome || (review ? "Attached" : "Pending")],
+        ["Review", formatReviewOutcome(reviewOutcome || (review ? "Reviewed" : ""))],
         ["Primary finding", primaryFault ? (primaryFault.rule_id || primaryFault.fault_type || "Detected") : "None"],
     ];
     if (agentStart && agentStart.content && agentStart.content.session_id) {
@@ -339,7 +412,7 @@ function renderTrustBadge(trustState) {
     if (!host) {
         return;
     }
-    host.innerHTML = `<span class="${trustState.pillClass}">${escapeHtml(trustState.label)}</span>`;
+    host.innerHTML = `<span class="${trustState.pillClass}" title="${escapeHtml(trustState.label)}">${escapeHtml(trustState.displayLabel || getTrustDisplayLabel(trustState.label))}</span>`;
 }
 
 function renderGoalBanner(manifest) {
@@ -403,17 +476,17 @@ function deriveReviewerVerdict(trustState, analysis, review) {
     if (trustState.label === "Unsigned") {
         return {
             tone: "warn",
-            headline: "Execution looks clean, but signer authenticity is missing.",
-            impact: "No primary fault was detected, and integrity is intact, but origin cannot be cryptographically proven.",
-            action: "Prefer signed artifacts for compliance and external sharing.",
+            headline: "This case looks intact, but the source is not proven.",
+            impact: "No primary fault was detected, and integrity is intact, but the origin cannot be cryptographically confirmed.",
+            action: "Use a signed record before external sharing, audit, or high-stakes approval.",
         };
     }
 
     return {
         tone: "good",
-        headline: "No primary policy fault detected.",
-        impact: "Recorded execution, integrity checks, and embedded analysis indicate no high-risk policy breach.",
-        action: "Safe to continue review or approval workflow with normal controls.",
+        headline: "No major issue was found in this case.",
+        impact: "Recorded execution, trust checks, and embedded analysis do not show a high-risk policy breach.",
+        action: "Continue the normal review or approval workflow.",
     };
 }
 
@@ -459,7 +532,7 @@ function renderSummary(summary, analysis, policy, review) {
         title.textContent = summary.title;
     }
     if (subtitle) {
-        subtitle.textContent = summary.subtitle || "Portable execution evidence for offline review.";
+        subtitle.textContent = summary.subtitle || "Case summary for offline review.";
     }
     if (faultBanner) {
         if (analysis && analysis.primary_fault) {
@@ -490,13 +563,13 @@ function renderSummary(summary, analysis, policy, review) {
             items.push("No execution data recorded - this artifact cannot support meaningful fault analysis");
         }
         if (!analysis) {
-            items.push("No embedded fault analysis");
+            items.push("No machine analysis included");
         }
         if (!policy) {
-            items.push("No embedded policy");
+            items.push("No policy included");
         }
         if (!review) {
-            items.push("No human review appended");
+            items.push("No reviewer decision recorded yet");
         }
         notices.hidden = items.length === 0;
         notices.innerHTML = items.map((item) => `<span class="notice-pill">${escapeHtml(item)}</span>`).join("");
@@ -528,7 +601,8 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy, pol
         : "detail-card detail-card--warn";
 
     const details = [
-        ["Artifact trust", trustState.label, trustState.detailTone],
+        ["Case status", trustState.displayLabel || getTrustDisplayLabel(trustState.label), trustState.detailTone],
+        ["Technical trust", trustState.label, trustState.detailTone],
         ["Integrity", context ? (context.integrity_ok ? "Intact" : "Compromised") : "Unknown", context && context.integrity_ok === false ? "detail-card detail-card--bad" : "detail-card"],
         ["Signature", signatureValue, signatureTone],
         ["Analysis", analysis ? "Embedded" : "Not embedded", analysis ? "detail-card detail-card--good" : "detail-card detail-card--warn"],
@@ -538,7 +612,7 @@ function renderTrustSummary(manifest, context, trustState, analysis, policy, pol
 
     host.innerHTML = `
         <div class="${trustState.detailTone}">
-            <div class="detail-label">What this trust state means</div>
+            <div class="detail-label">What this means for the case</div>
             <div class="detail-value">${escapeHtml(trustState.detail)}</div>
         </div>
         ${details.map(([label, value, klass]) => `
@@ -593,7 +667,7 @@ function renderGuideSummary(trustState, analysis, policy, review, steps, policyE
         [
             "5. Confirm human judgment",
             reviewOutcome
-                ? `Human review has already been recorded as: ${reviewOutcome}.`
+                ? `Human review has already been recorded as: ${formatReviewOutcome(reviewOutcome)}.`
                 : "No human review is attached yet. Treat the analyzer output as a machine finding pending judgment."
         ],
         [
@@ -614,6 +688,200 @@ function renderGuideSummary(trustState, analysis, policy, review, steps, policyE
     `).join("");
 }
 
+function buildCaseSummaryText(summary, trustState, analysis, review, policyEvaluation) {
+    const verdict = deriveReviewerVerdict(trustState, analysis, review);
+    const primaryFault = analysis && analysis.primary_fault ? analysis.primary_fault : null;
+    const reviewEntries = getReviewEntries(review);
+    const reviewOutcome = review && (review.outcome || (reviewEntries[0] && reviewEntries[0].outcome));
+    const lines = [
+        summary.title || "Decision Case File",
+        summary.subtitle || "Case summary for offline review.",
+        "",
+        `Case status: ${trustState.displayLabel || getTrustDisplayLabel(trustState.label)}`,
+        `Technical trust: ${trustState.label}`,
+        `Review status: ${formatReviewOutcome(reviewOutcome || "")}`,
+        `Decision verdict: ${verdict.headline}`,
+        `Recommended action: ${verdict.action}`,
+    ];
+
+    if (primaryFault) {
+        lines.push("");
+        lines.push(`Primary finding: ${primaryFault.plain_english || primaryFault.rule_id || "Recorded finding"}`);
+        lines.push(`Why it matters: ${primaryFault.why_it_matters || "Review before trusting the outcome."}`);
+    }
+
+    if (policyEvaluation && Number.isFinite(policyEvaluation.controls_failed)) {
+        lines.push(`Controls failed: ${policyEvaluation.controls_failed}`);
+    }
+
+    return lines.join("\n");
+}
+
+function renderCaseActions(trustState, analysis, review, policyEvaluation) {
+    const host = document.getElementById("case-actions");
+    if (!host) {
+        return;
+    }
+
+    const reviewEntry = review && Array.isArray(review.reviews) && review.reviews.length > 0 ? review.reviews[0] : null;
+    const reviewOutcome = review && (review.outcome || (reviewEntry && reviewEntry.outcome));
+    const hasPrimaryFault = Boolean(analysis && analysis.primary_fault);
+    const actions = [];
+
+    if (trustState.label === "Tampered") {
+        actions.push(["Stop use of this copy", "Do not approve or rely on this artifact. Ask for the original sealed record."]);
+        actions.push(["Escalate ownership", "Send this case to the record owner or security contact before any business action."]);
+    } else if (hasPrimaryFault && !reviewOutcome) {
+        actions.push(["Review the main issue", "Open the primary finding first and compare it with the linked rule and flagged step."]);
+        actions.push(["Record a reviewer decision", "Approve, reject, or escalate the case so the record contains human judgment."]);
+    } else if (reviewOutcome === "confirmed_fault") {
+        actions.push(["Block or remediate", "A reviewer confirmed the issue. Pause this path until the problem is fixed or formally accepted."]);
+        actions.push(["Preserve the case record", "Keep the review notes and trust state together for audit and incident follow-up."]);
+    } else if (reviewOutcome === "dismissed") {
+        actions.push(["Keep the dismissal note", "The case was reviewed and dismissed. Retain the reviewer note with the record."]);
+        actions.push(["Continue normal workflow", "Proceed with standard controls unless another policy or trust issue is present."]);
+    } else if (trustState.label === "Unsigned" || trustState.label === "Needs Verification") {
+        actions.push(["Verify the source", "Prefer a signed artifact before external sharing, audit use, or sensitive approvals."]);
+        actions.push(["Continue with caution", "You can inspect the case, but treat the source as not yet proven."]);
+    } else {
+        actions.push(["Continue standard review", "The case is trusted and no major issue is currently flagged."]);
+        actions.push(["Export if needed", "Share the record or report with operations, compliance, or audit as part of the normal process."]);
+    }
+
+    if (policyEvaluation && Number.isFinite(policyEvaluation.controls_failed) && policyEvaluation.controls_failed > 0) {
+        actions.push(["Check failed controls", `${policyEvaluation.controls_failed} structured control(s) failed. Compare them with the primary finding before closing the case.`]);
+    }
+
+    host.innerHTML = actions.map(([label, value]) => `
+        <div class="detail-card">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value">${escapeHtml(value)}</div>
+        </div>
+    `).join("");
+}
+
+function renderReviewWorkspace(summary, trustState, analysis, review, policyEvaluation) {
+    const card = document.getElementById("review-workspace-card");
+    const host = document.getElementById("review-workspace");
+    if (!card || !host) {
+        return;
+    }
+
+    card.hidden = false;
+    const findings = getReviewableFindings(analysis);
+    const reviewEntries = getReviewEntries(review);
+    const primaryReview = reviewEntries[0] || null;
+    const defaultReviewer = review && (review.reviewed_by || review.reviewer) ? (review.reviewed_by || review.reviewer) : "";
+    const defaultOutcome = review && (review.outcome || (primaryReview && primaryReview.outcome)) ? (review.outcome || (primaryReview && primaryReview.outcome)) : "confirmed_fault";
+    const defaultNotes = review && (review.notes || (primaryReview && primaryReview.notes)) ? (review.notes || (primaryReview && primaryReview.notes)) : "";
+    const findingOptions = findings.length
+        ? findings.map((fault, index) => {
+            const label = fault.plain_english || fault.rule_id || `Finding ${index + 1}`;
+            const source = fault._source === "primary" ? "Primary" : "Additional";
+            return `<option value="${escapeHtml(String(index))}">${escapeHtml(`${source}: ${truncate(label, 88)}`)}</option>`;
+        }).join("")
+        : '<option value="">No finding available</option>';
+
+    host.innerHTML = `
+        <div class="detail-card">
+            <div class="detail-label">What this workspace does</div>
+            <div class="detail-value">${findings.length ? "Capture a reviewer decision in plain language, then download a portable review record or a readable case summary." : "This case does not include a reviewable policy finding yet, but you can still download a readable case summary."}</div>
+        </div>
+        <div class="form-grid">
+            <label class="form-field">
+                <span class="form-label">Reviewer name</span>
+                <input id="reviewer-name-input" class="input" type="text" placeholder="Name or email" value="${escapeHtml(defaultReviewer)}">
+            </label>
+            <label class="form-field">
+                <span class="form-label">Finding</span>
+                <select id="review-finding-select" class="input" ${findings.length ? "" : "disabled"}>
+                    ${findingOptions}
+                </select>
+            </label>
+            <label class="form-field">
+                <span class="form-label">Decision</span>
+                <select id="review-outcome-select" class="input" ${findings.length ? "" : "disabled"}>
+                    <option value="confirmed_fault" ${defaultOutcome === "confirmed_fault" ? "selected" : ""}>Confirmed issue</option>
+                    <option value="dismissed" ${defaultOutcome === "dismissed" ? "selected" : ""}>Dismissed after review</option>
+                    <option value="skipped" ${defaultOutcome === "skipped" ? "selected" : ""}>Decide later</option>
+                </select>
+            </label>
+        </div>
+        <label class="form-field">
+            <span class="form-label">Review notes</span>
+            <textarea id="review-notes-input" class="input textarea" placeholder="Add a short explanation for the review decision">${escapeHtml(defaultNotes)}</textarea>
+        </label>
+        <div class="button-row">
+            <button id="download-review-record-button" type="button" class="action-button" ${findings.length ? "" : "disabled"}>Download Review Record</button>
+            <button id="download-case-summary-button" type="button" class="action-button action-button--secondary">Download Case Summary</button>
+        </div>
+        <div id="review-workspace-status" class="workspace-status muted-text"></div>
+    `;
+
+    const reviewerInput = document.getElementById("reviewer-name-input");
+    const findingSelect = document.getElementById("review-finding-select");
+    const outcomeSelect = document.getElementById("review-outcome-select");
+    const notesInput = document.getElementById("review-notes-input");
+    const reviewButton = document.getElementById("download-review-record-button");
+    const summaryButton = document.getElementById("download-case-summary-button");
+    const status = document.getElementById("review-workspace-status");
+    const caseStem = sanitizeFilenamePart(summary.title || "case", sanitizeFilenamePart(summary.subtitle || "case"));
+
+    if (reviewButton) {
+        reviewButton.addEventListener("click", () => {
+            if (!findings.length) {
+                if (status) {
+                    status.textContent = "No reviewable finding is available in this case.";
+                }
+                return;
+            }
+
+            const reviewerName = reviewerInput && reviewerInput.value.trim() ? reviewerInput.value.trim() : "Unknown reviewer";
+            const selectedIndex = findingSelect ? Number(findingSelect.value) : 0;
+            const selectedFinding = findings[selectedIndex] || findings[0];
+            const outcome = outcomeSelect && outcomeSelect.value ? outcomeSelect.value : "confirmed_fault";
+            const notes = notesInput ? notesInput.value.trim() : "";
+            const timestamp = new Date().toISOString();
+            const reviewRecord = {
+                review_version: "1.0.0",
+                reviewed_by: reviewerName,
+                reviewed_at: timestamp,
+                reviews: [
+                    {
+                        fault_step: selectedFinding.step_number || null,
+                        rule_id: selectedFinding.rule_id || null,
+                        fault_type: selectedFinding.fault_type || null,
+                        outcome,
+                        notes,
+                        reviewer: reviewerName,
+                        timestamp,
+                    },
+                ],
+                review_signature: null,
+            };
+
+            downloadTextFile(
+                `${caseStem}_review_record.json`,
+                JSON.stringify(reviewRecord, null, 2),
+                "application/json;charset=utf-8"
+            );
+            if (status) {
+                status.textContent = `Downloaded review record for "${selectedFinding.plain_english || selectedFinding.rule_id || "selected finding"}".`;
+            }
+        });
+    }
+
+    if (summaryButton) {
+        summaryButton.addEventListener("click", () => {
+            const text = buildCaseSummaryText(summary, trustState, analysis, review, policyEvaluation);
+            downloadTextFile(`${caseStem}_case_summary.txt`, text);
+            if (status) {
+                status.textContent = "Downloaded a readable case summary.";
+            }
+        });
+    }
+}
+
 function renderManifestFacts(manifest, context) {
     const host = document.getElementById("manifest-facts");
     if (!host) {
@@ -625,11 +893,11 @@ function renderManifestFacts(manifest, context) {
         : Object.keys((manifest && manifest.file_manifest) || {}).length;
 
     const facts = [
-        ["Workflow ID", manifest.workflow_id || "Unavailable"],
+        ["Case ID", manifest.workflow_id || "Unavailable"],
         ["Created", prettyDate(manifest.created_at)],
-        ["Spec Version", manifest.spec_version || "Unknown"],
-        ["Files in manifest", String(fileCount)],
-        ["Public key", manifest.public_key ? truncate(manifest.public_key, 52) : "Unavailable"],
+        ["Record format", manifest.spec_version || "Unknown"],
+        ["Files sealed in record", String(fileCount)],
+        ["Signing key", manifest.public_key ? truncate(manifest.public_key, 52) : "Unavailable"],
         ["Signature", manifest.signature ? truncate(manifest.signature, 96) : "Missing"],
     ];
 
@@ -682,7 +950,7 @@ function renderTimelineHighlights(steps, analysis, policy, review, manifest, pol
         chips.push(["Controls failed", policyEvaluation.controls_failed]);
     }
     if (reviewEntries.length) {
-        chips.push(["Review outcome", review.outcome || reviewEntries[0].outcome || "Attached"]);
+        chips.push(["Review outcome", formatReviewOutcome(review.outcome || reviewEntries[0].outcome || "Reviewed")]);
     }
     if (agentStarts.length) {
         chips.push(["Agents", agentStarts.length]);
@@ -1038,7 +1306,7 @@ function renderReview(review) {
     const entriesHtml = reviewEntries.map((entry, index) => `
         <div class="detail-card">
             <div class="detail-label">Entry ${index + 1}</div>
-            <div class="detail-value">${escapeHtml(entry.outcome || "reviewed")}</div>
+            <div class="detail-value">${escapeHtml(formatReviewOutcome(entry.outcome || "reviewed"))}</div>
             <div class="detail-subvalue">${escapeHtml(`Rule ${entry.rule_id || "n/a"} | Step ${entry.fault_step || "?"}`)}</div>
             <div class="detail-subvalue">${escapeHtml(entry.notes || "No notes provided.")}</div>
         </div>
@@ -1047,7 +1315,7 @@ function renderReview(review) {
     host.innerHTML = `
         <div class="detail-card detail-card--good">
             <div class="detail-label">Outcome</div>
-            <div class="detail-value">${escapeHtml(outcome)}</div>
+            <div class="detail-value">${escapeHtml(formatReviewOutcome(outcome))}</div>
         </div>
         <div class="detail-card">
             <div class="detail-label">Reviewed by</div>
@@ -1127,6 +1395,8 @@ function init() {
     renderReviewerVerdict(trustState, analysis, review);
     renderTrustSummary(manifest, context, trustState, analysis, policy, policyEvaluation);
     renderGuideSummary(trustState, analysis, policy, review, steps, policyEvaluation);
+    renderCaseActions(trustState, analysis, review, policyEvaluation);
+    renderReviewWorkspace(summary, trustState, analysis, review, policyEvaluation);
     renderManifestFacts(manifest, context);
     renderTimeline(steps, analysis, policy, review, manifest, policyEvaluation);
     renderAnalysis(analysis);

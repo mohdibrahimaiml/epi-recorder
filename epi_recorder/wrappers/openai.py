@@ -5,7 +5,9 @@ Provides a proxy wrapper that automatically logs all LLM calls
 without monkey patching.
 """
 
+import os
 import time
+import warnings
 from typing import Any, Optional
 
 from epi_core.time_utils import utc_now_iso
@@ -27,20 +29,30 @@ class TracedCompletions:
     def create(self, *args, **kwargs) -> Any:
         """
         Create a chat completion with automatic EPI tracing.
-        
+
         All arguments are passed through to the underlying client.
         Automatically routes to streaming handler when stream=True.
         """
+        session = self._get_session()
+
+        # Warn on every call path (non-streaming and streaming) so the
+        # developer sees the message regardless of how they use the client.
+        if session is None and os.getenv("EPI_QUIET", "0") != "1":
+            warnings.warn(
+                "wrap_openai() call detected outside a record() context — no evidence will be captured. "
+                "Did you forget `with record('my_agent.epi'):`? "
+                "Set EPI_QUIET=1 to suppress this warning.",
+                stacklevel=2,
+            )
+
         # Route streaming calls to dedicated handler
         if kwargs.get("stream", False):
             return self._create_streaming(*args, **kwargs)
-        
-        session = self._get_session()
-        
+
         # Extract request info
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
-        
+
         # Log request if session is active
         if session:
             session.log_step("llm.request", {

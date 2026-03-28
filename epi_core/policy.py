@@ -337,10 +337,145 @@ POLICY_PROFILES: dict[str, dict] = {
     },
 }
 
+STARTER_POLICY_RULE_TYPES: tuple[str, ...] = (
+    "threshold_guard",
+    "approval_guard",
+    "sequence_guard",
+    "constraint_guard",
+    "prohibition_guard",
+    "tool_permission_guard",
+)
+
 
 def list_policy_profiles() -> list[str]:
     """Return supported built-in policy profile names."""
     return sorted(POLICY_PROFILES.keys())
+
+
+def list_starter_rule_types() -> list[str]:
+    """Return starter rule types shared by the CLI and browser policy editor."""
+    return list(STARTER_POLICY_RULE_TYPES)
+
+
+def build_starter_rule(
+    rule_type: str,
+    *,
+    rule_number: int,
+    workflow_name: str,
+) -> dict:
+    """
+    Build a starter policy rule shape shared by the CLI and browser policy editor.
+
+    Raises:
+        KeyError: if the rule type is not supported.
+    """
+    if rule_type not in STARTER_POLICY_RULE_TYPES:
+        raise KeyError(rule_type)
+
+    rule_id = f"R{rule_number:03d}"
+    workflow_label = workflow_name or "workflow"
+
+    if rule_type == "threshold_guard":
+        return {
+            "id": rule_id,
+            "name": "Human approval above threshold",
+            "severity": "high",
+            "description": f"Large {workflow_label} decisions require human review.",
+            "type": "threshold_guard",
+            "mode": "detect",
+            "applies_at": "decision",
+            "threshold_value": 1000,
+            "threshold_field": "amount",
+            "required_action": "human_approval",
+        }
+
+    if rule_type == "approval_guard":
+        return {
+            "id": rule_id,
+            "name": "Manager approval before sensitive action",
+            "severity": "critical",
+            "description": "This action must have a matching human approval before execution.",
+            "type": "approval_guard",
+            "mode": "require_approval",
+            "applies_at": "decision",
+            "approval_action": "approve_decision",
+            "approved_by": "manager",
+        }
+
+    if rule_type == "sequence_guard":
+        return {
+            "id": rule_id,
+            "name": "Required step before final action",
+            "severity": "high",
+            "description": "A required verification step must happen before the final action.",
+            "type": "sequence_guard",
+            "mode": "detect",
+            "applies_at": "decision",
+            "required_before": "final_action",
+            "must_call": "verify_input",
+        }
+
+    if rule_type == "constraint_guard":
+        return {
+            "id": rule_id,
+            "name": "Stay within known limits",
+            "severity": "high",
+            "description": "The workflow must not go above known limits.",
+            "type": "constraint_guard",
+            "mode": "detect",
+            "applies_at": "decision",
+            "watch_for": ["balance", "limit"],
+            "violation_if": "decision_value > watched_value",
+        }
+
+    if rule_type == "prohibition_guard":
+        return {
+            "id": rule_id,
+            "name": "Never output secrets",
+            "severity": "critical",
+            "description": "The workflow must never output secret-like strings.",
+            "type": "prohibition_guard",
+            "mode": "detect",
+            "applies_at": "output",
+            "prohibited_pattern": r"sk-[A-Za-z0-9]+",
+        }
+
+    return {
+        "id": rule_id,
+        "name": "Only approved tools",
+        "severity": "high",
+        "description": "Only approved tools may be used in this workflow.",
+        "type": "tool_permission_guard",
+        "mode": "block",
+        "applies_at": "tool_call",
+        "allowed_tools": ["lookup_order", "verify_identity"],
+        "denied_tools": ["delete_customer"],
+    }
+
+
+def build_starter_policy(
+    *,
+    system_name: str,
+    system_version: str,
+    policy_version: str,
+    rule_types: list[str],
+    profile_id: str = "custom.guided",
+) -> dict:
+    """
+    Build a custom starter policy from shared starter rule templates.
+    """
+    return {
+        "policy_format_version": "2.0",
+        "policy_id": _slugify_policy_id(system_name),
+        "system_name": system_name,
+        "system_version": system_version,
+        "policy_version": policy_version,
+        "profile_id": profile_id,
+        "rules": [
+            build_starter_rule(rule_type, rule_number=index + 1, workflow_name=system_name)
+            for index, rule_type in enumerate(rule_types)
+        ],
+    }
 
 
 def build_policy_from_profile(

@@ -5,7 +5,9 @@ Provides a proxy wrapper that automatically logs all Claude API calls
 without monkey patching.
 """
 
+import os
 import time
+import warnings
 from typing import Any, Optional
 
 from epi_core.time_utils import utc_now_iso
@@ -40,6 +42,14 @@ class TracedMessages:
         top_p = kwargs.get("top_p", None)
         system = kwargs.get("system", None)
         
+        if session is None and os.getenv("EPI_QUIET", "0") != "1":
+            warnings.warn(
+                "wrap_anthropic() call detected outside a record() context — no evidence will be captured. "
+                "Did you forget `with record('my_agent.epi'):`? "
+                "Set EPI_QUIET=1 to suppress this warning.",
+                stacklevel=2,
+            )
+
         # Log request if session is active
         if session:
             request_data = {
