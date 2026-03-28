@@ -29,14 +29,17 @@ Commands:
   run        <script.py>       Record a Python workflow that already emits EPI steps.
   record     --out <file.epi> -- <cmd...>
                                Advanced: record any command, exact output file.
+  gateway    serve             Run the open-source AI capture gateway.
   verify     <file.epi>        Verify a recording's integrity.
   view       <file.epi|name>   Open recording in browser or extract.
   ls                           List local recordings (./epi-recordings/).
   keys                         Manage keys (list/generate/export) - advanced.
   chat       <file.epi>        Chat with evidence file using AI.
   debug      <file.epi>        Debug AI agent recordings for mistakes.
+  connect                      Launch or serve the local Decision Ops app and connector bridge.
   global                       Install/uninstall global auto-recording.
   associate                    Register .epi file type with the OS. (Repair/fallback)
+  dev                          Zero-friction demo — gateway + case + browser in one command.
   init                         First-time setup wizard.
   doctor                       Self-healing system health check.
   help                         Show this quickstart.
@@ -63,7 +66,7 @@ Tips:
     callback=None  # Will set via decorator below
 )
 
-console = Console()
+console = Console(legacy_windows=False)
 
 _KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "init", "doctor"}
 _WINDOWS_ASSOCIATION_COMMANDS = {"run", "view", "init", "doctor"}
@@ -270,6 +273,7 @@ def show_help():
   [cyan]run[/cyan]        <script.py>       Record a Python workflow that already emits EPI steps.
   [cyan]record[/cyan]     --out <file.epi> -- <cmd...>
                              Advanced: record any command, exact output file.
+  [cyan]gateway[/cyan]    serve             Run the open-source AI capture gateway.
   [cyan]verify[/cyan]     <file.epi>        Verify a recording's integrity.
   [cyan]view[/cyan]       <file.epi|name>   Open recording in browser or extract.
   [cyan]ls[/cyan]                           List local recordings (./epi-recordings/).
@@ -325,9 +329,14 @@ def verify(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path to .epi file to verify"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output")
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    report_out: Path | None = typer.Option(
+        None,
+        "--report",
+        help="Write a verification report to this file (e.g. verification_report.txt).",
+    ),
 ):
-    return verify_command(ctx, Path(epi_file), json_output, verbose)
+    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out)
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
 # recording engine for simple read-only commands like version/ls/verify.
@@ -388,6 +397,18 @@ app.add_typer(
 
 from epi_cli.policy import app as policy_app
 app.add_typer(policy_app, name="policy", help="Create, explain, and validate epi_policy.json rule files")
+
+from epi_cli.connect import app as connect_app
+app.add_typer(connect_app, name="connect", help="Launch or serve the local Decision Ops app and connector bridge")
+
+from epi_cli.gateway import app as gateway_app
+app.add_typer(gateway_app, name="gateway", help="Run the open-source AI capture gateway")
+
+from epi_cli.dev import app as dev_app
+app.add_typer(dev_app, name="dev", help="Zero-friction developer onboarding — gateway + demo case + browser UI")
+
+from epi_cli.export_summary import app as export_summary_app
+app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi artifact")
 
 
 @app.command()
@@ -653,7 +674,13 @@ def keys(
 @app.command()
 def init(
     demo_filename: str = typer.Option("epi_demo.py", "--name", "-n", help="Name of the demo script"),
-    no_open: bool = typer.Option(False, "--no-open", help="Don't open viewer automatically (for testing)")
+    no_open: bool = typer.Option(False, "--no-open", help="Don't open viewer automatically (for testing)"),
+    framework: str = typer.Option(
+        "",
+        "--framework",
+        "-f",
+        help="Skip the interactive picker: openai | litellm | langchain | langgraph | generic",
+    ),
 ):
     """
     [Wizard] First-time setup wizard. Creates keys, an instrumented demo script, and runs it.
@@ -668,14 +695,188 @@ def init(
     else:
          console.print("[green]Found! [OK][/green]")
 
-    # 2. Demo Script
-    console.print(f"2. [dim]Creating demo script '{demo_filename}'...[/dim]", end=" ")
-    script_content = '''# Welcome to EPI!
+    # 2. Demo Script — framework picker
+    # Map friendly --framework names to numeric choices
+    _FRAMEWORK_ALIASES = {
+        "openai": "1", "anthropic": "1",
+        "litellm": "2",
+        "langchain": "3",
+        "langgraph": "4",
+        "generic": "5", "plain": "5", "other": "5",
+    }
+    import sys as _sys
+    _interactive = _sys.stdin.isatty() if hasattr(_sys.stdin, "isatty") else False
 
-from pathlib import Path
+    # Guard: Typer may pass OptionInfo instead of a plain string in direct calls
+    _fw = str(framework).strip() if isinstance(framework, str) else ""
+
+    if _fw:
+        framework_choice = _FRAMEWORK_ALIASES.get(_fw.lower(), _fw)
+    elif _interactive:
+        console.print("\n2. [bold]What are you building with?[/bold]")
+        console.print("   [green]1.[/green] OpenAI / Anthropic (direct client)")
+        console.print("   [green]2.[/green] LiteLLM (100+ providers)")
+        console.print("   [green]3.[/green] LangChain")
+        console.print("   [green]4.[/green] LangGraph")
+        console.print("   [green]5.[/green] Plain Python / other (generic demo)")
+
+        from rich.prompt import Prompt
+        framework_choice = Prompt.ask("   Pick a number", default="1")
+    else:
+        # Non-interactive (CI, tests, piped input) — default to generic demo
+        framework_choice = "5"
+
+    _FRAMEWORK_SCRIPTS = {
+        "1": (
+            "openai_demo.py",
+            '''# EPI + OpenAI quick-start
+# pip install epi-recorder openai
+
+from epi_recorder import record, wrap_openai
+
+# Uncomment and set your key, or set OPENAI_API_KEY env var
+# import os; os.environ["OPENAI_API_KEY"] = "sk-..."
+
+try:
+    from openai import OpenAI
+    client = wrap_openai(OpenAI())
+except ImportError:
+    print("openai not installed — pip install openai")
+    import sys; sys.exit(1)
+
+with record("epi-recordings/openai_demo.epi", goal="OpenAI quick-start demo") as epi:
+    print("Calling OpenAI...")
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "Say hello in one sentence."}],
+        )
+        print("Response:", response.choices[0].message.content)
+        epi.log_step("agent.decision", {"decision": "demo_complete", "confidence": 1.0})
+    except Exception as e:
+        epi.log_step("agent.run.error", {"error_message": str(e)})
+        print(f"API error: {e}")
+        print("Tip: set OPENAI_API_KEY and rerun.")
+
+print("\\nDone! Open with: epi view epi-recordings/openai_demo.epi")
+''',
+        ),
+        "2": (
+            "litellm_demo.py",
+            '''# EPI + LiteLLM quick-start (100+ providers)
+# pip install epi-recorder litellm
+
+try:
+    import litellm
+    from epi_recorder.integrations.litellm import enable_epi
+except ImportError:
+    print("litellm not installed — pip install litellm")
+    import sys; sys.exit(1)
 
 from epi_recorder import record
 
+enable_epi()  # one line — all litellm calls are now captured
+
+with record("epi-recordings/litellm_demo.epi", goal="LiteLLM quick-start demo") as epi:
+    print("Calling via LiteLLM...")
+    try:
+        response = litellm.completion(
+            model="gpt-4o-mini",  # swap to "claude-3-haiku-20240307" etc.
+            messages=[{"role": "user", "content": "Say hello in one sentence."}],
+        )
+        print("Response:", response.choices[0].message.content)
+        epi.log_step("agent.decision", {"decision": "demo_complete", "confidence": 1.0})
+    except Exception as e:
+        epi.log_step("agent.run.error", {"error_message": str(e)})
+        print(f"API error: {e}")
+        print("Tip: set the appropriate API key env var and rerun.")
+
+print("\\nDone! Open with: epi view epi-recordings/litellm_demo.epi")
+''',
+        ),
+        "3": (
+            "langchain_demo.py",
+            '''# EPI + LangChain quick-start
+# pip install epi-recorder langchain langchain-openai
+
+from epi_recorder import record
+from epi_recorder.integrations.langchain import EPICallbackHandler
+
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    print("langchain-openai not installed — pip install langchain langchain-openai")
+    import sys; sys.exit(1)
+
+with record("epi-recordings/langchain_demo.epi", goal="LangChain quick-start demo") as epi:
+    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EPICallbackHandler()])
+    print("Calling LangChain...")
+    try:
+        result = llm.invoke("Say hello in one sentence.")
+        print("Response:", result.content)
+        epi.log_step("agent.decision", {"decision": "demo_complete", "confidence": 1.0})
+    except Exception as e:
+        epi.log_step("agent.run.error", {"error_message": str(e)})
+        print(f"Error: {e}")
+        print("Tip: set OPENAI_API_KEY and rerun.")
+
+print("\\nDone! Open with: epi view epi-recordings/langchain_demo.epi")
+''',
+        ),
+        "4": (
+            "langgraph_demo.py",
+            '''# EPI + LangGraph quick-start
+# pip install epi-recorder langgraph langchain-openai
+
+from epi_recorder import record
+from epi_recorder.integrations.langgraph import EPICheckpointSaver
+
+try:
+    from langgraph.graph import StateGraph, END
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+    from typing import TypedDict, List
+except ImportError:
+    print("Install: pip install langgraph langchain langchain-openai")
+    import sys; sys.exit(1)
+
+class AgentState(TypedDict):
+    messages: List
+
+def call_model(state):
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    response = llm.invoke(state["messages"])
+    return {"messages": state["messages"] + [response]}
+
+with record("epi-recordings/langgraph_demo.epi", goal="LangGraph quick-start demo") as epi:
+    checkpointer = EPICheckpointSaver(epi)
+    graph = StateGraph(AgentState)
+    graph.add_node("agent", call_model)
+    graph.set_entry_point("agent")
+    graph.add_edge("agent", END)
+    app = graph.compile(checkpointer=checkpointer)
+
+    print("Running LangGraph agent...")
+    try:
+        result = app.invoke(
+            {"messages": [HumanMessage(content="Say hello in one sentence.")]},
+            {"configurable": {"thread_id": "demo-thread"}},
+        )
+        print("Response:", result["messages"][-1].content)
+    except Exception as e:
+        epi.log_step("agent.run.error", {"error_message": str(e)})
+        print(f"Error: {e}")
+
+print("\\nDone! Open with: epi view epi-recordings/langgraph_demo.epi")
+''',
+        ),
+        "5": (
+            "epi_demo.py",
+            '''# EPI generic quick-start — no external LLM required
+# pip install epi-recorder
+
+from pathlib import Path
+from epi_recorder import record
 
 output_file = Path("epi-recordings") / "epi_demo.epi"
 output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -686,7 +887,7 @@ print("=" * 40)
 print("EPI will capture these console prints as stdout evidence.")
 print("Inside the record() block below, it will also capture structured workflow steps.")
 
-with record(str(output_file), workflow_name="EPI Setup Demo", goal="Create a meaningful first EPI artifact") as epi:
+with record(str(output_file), workflow_name="EPI Setup Demo", goal="Create a first artifact") as epi:
     print("\\n1. Doing some math...")
     result = 123 * 456
     # Structured steps are richer than plain console output.
@@ -697,13 +898,23 @@ with record(str(output_file), workflow_name="EPI Setup Demo", goal="Create a mea
     hello_path = Path("epi_hello.txt")
     hello_path.write_text(f"Calculation result: {result}\\n", encoding="utf-8")
     epi.log_step("FILE_WRITE", {"path": str(hello_path), "bytes_written": hello_path.stat().st_size})
-    print("   Saved 'epi_hello.txt'")
+    print("   Saved epi_hello.txt")
 
-    print("\\n3. Summarizing the work...")
-    epi.log_step("SUMMARY", {"status": "complete", "artifacts": [str(hello_path)]})
+    epi.log_step("SUMMARY", {"status": "complete"})
 
-print(f"\\n[OK] Done! Created {output_file}")
-'''
+print(f"\\n[OK] Done! Open with: epi view {output_file}")
+''',
+        ),
+    }
+
+    chosen_filename, script_content = _FRAMEWORK_SCRIPTS.get(
+        framework_choice.strip(), _FRAMEWORK_SCRIPTS["5"]
+    )
+    # Respect explicit --name override; otherwise use framework-specific name
+    if demo_filename == "epi_demo.py":
+        demo_filename = chosen_filename
+
+    console.print(f"\n   [dim]Creating '{demo_filename}'...[/dim]", end=" ")
     import os
     if not os.path.exists(demo_filename):
          with open(demo_filename, "w", encoding="utf-8") as f:
@@ -720,15 +931,27 @@ print(f"\\n[OK] Done! Created {output_file}")
     import sys
     result = subprocess.run([sys.executable, demo_filename], check=False)
 
-    artifact_path = Path("epi-recordings") / "epi_demo.epi"
+    # Derive artifact path from demo filename (stem → epi-recordings/<stem>.epi)
+    demo_stem = Path(demo_filename).stem
+    artifact_path = Path("epi-recordings") / f"{demo_stem}.epi"
+    # If the script writes its own artifact in epi-recordings/, pick the newest one
+    if not artifact_path.exists():
+        candidates = sorted(
+            Path("epi-recordings").glob("*.epi") if Path("epi-recordings").exists() else [],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if candidates:
+            artifact_path = candidates[0]
+
     step_count = _count_steps_in_artifact(artifact_path)
     step_kinds = _step_kinds_in_artifact(artifact_path)
     if result.returncode != 0 or not artifact_path.exists() or step_count == 0:
         console.print("\n[bold red][FAIL] Setup is incomplete.[/bold red]")
         if result.returncode != 0:
-            console.print(f"[dim]The generated demo exited with code {result.returncode}.[/dim]")
+            console.print(f"[dim]The demo exited with code {result.returncode}.[/dim]")
         if not artifact_path.exists():
-            console.print("[dim]The demo did not produce epi_demo.epi.[/dim]")
+            console.print(f"[dim]The demo did not produce {artifact_path.name}.[/dim]")
         elif step_count == 0:
             console.print("[dim]The demo artifact was created but contains no meaningful execution steps.[/dim]")
         console.print("[dim]Most likely cause: EPI could not create a writable recording workspace.[/dim]")
@@ -740,11 +963,11 @@ print(f"\\n[OK] Done! Created {output_file}")
     if "stdout.print" in step_kinds:
         console.print("[dim]  • Console evidence: printed output captured as [cyan]stdout.print[/cyan] steps[/dim]")
     if step_kinds - {"stdout.print"}:
-        console.print("[dim]  • Structured workflow evidence: explicit steps like [cyan]CALCULATION[/cyan], [cyan]FILE_WRITE[/cyan], and [cyan]SUMMARY[/cyan][/dim]")
+        console.print("[dim]  • Structured workflow evidence: explicit EPI steps[/dim]")
     console.print("[dim]Policy review and fault analysis work best with structured EPI steps, not just console output.[/dim]")
     console.print(f"[dim]Recorded steps:[/dim] {step_count}")
     console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
-    console.print("[dim]Open the artifact with:[/dim] epi view epi-recordings/epi_demo.epi")
+    console.print(f"[dim]Open the artifact with:[/dim] epi view {artifact_path}")
     if not no_open:
         try:
             from epi_cli.run import _open_viewer
@@ -753,128 +976,262 @@ print(f"\\n[OK] Done! Created {output_file}")
                 console.print("[dim]Opened your first artifact in the browser.[/dim]")
             else:
                 console.print("[yellow][!][/yellow] Could not open the browser automatically.")
-                console.print("[dim]Use: epi view epi-recordings/epi_demo.epi[/dim]")
+                console.print(f"[dim]Use: epi view {artifact_path}[/dim]")
         except Exception:
             console.print("[yellow][!][/yellow] Could not open the browser automatically.")
-            console.print("[dim]Use: epi view epi-recordings/epi_demo.epi[/dim]")
+            console.print(f"[dim]Use: epi view {artifact_path}[/dim]")
 
 
 @app.command()
-def doctor():
+def doctor(
+    gateway_url: str = typer.Option(
+        "",
+        "--gateway",
+        help="Check a running gateway at this URL (e.g. http://localhost:8787).",
+    ),
+):
     """
-    [Doctor] Self-healing doctor. Fixes common issues silently.
+    Self-healing system health check. Run this before going to production.
+
+    Checks keys, disk, write permissions, dependencies, and gateway connectivity.
+    Fixes what it can automatically. Tells you exactly what to do for the rest.
     """
-    console.print("\n[bold blue]EPI Doctor - System Health Check[/bold blue]\n")
-    
+    import json
+    import os
+    import shutil
+    import platform
+    import tempfile
+    import socket
+
+    console.print()
+    console.print("[bold]EPI Doctor — System Health Check[/bold]")
+    console.print("[dim]Running all checks...[/dim]")
+    console.print()
+
     issues = 0
     fixed = 0
-    
-    # Check 1: Keys
-    console.print("1. Security Keys: ", end="")
-    from epi_cli.keys import generate_default_keypair_if_missing
-    if generate_default_keypair_if_missing(console_output=False):
-        console.print("[green][OK] FIXED (Generated)[/green]")
-        fixed += 1
-    else:
-        console.print("[green][OK][/green]")
-        
-    # Check 2: Command on PATH
-    console.print("2. 'epi' command: ", end="")
-    import shutil
-    if shutil.which("epi"):
-        console.print("[green][OK][/green]")
-    else:
-        console.print("[red][X] NOT IN PATH[/red]")
+
+    def _ok(label: str, detail: str = ""):
+        msg = f"  [green][OK][/green]  {label}"
+        if detail:
+            msg += f"  [dim]{detail}[/dim]"
+        console.print(msg)
+
+    def _warn(label: str, fix: str = ""):
+        nonlocal issues
         issues += 1
-        
-        # Try to auto-fix on Windows
-        import platform
+        console.print(f"  [yellow][!][/yellow]  {label}")
+        if fix:
+            console.print(f"        [dim]Fix: {fix}[/dim]")
+
+    def _fail(label: str, fix: str = ""):
+        nonlocal issues
+        issues += 1
+        console.print(f"  [red][X][/red]  {label}")
+        if fix:
+            console.print(f"        [dim]Fix: {fix}[/dim]")
+
+    def _fixed(label: str):
+        nonlocal fixed
+        fixed += 1
+        console.print(f"  [cyan][+][/cyan]  {label} [dim](auto-fixed)[/dim]")
+
+    # ── 1. Signing keys ───────────────────────────────────────────────────
+    console.print("[bold]Signing & Cryptography[/bold]")
+    try:
+        from epi_cli.keys import generate_default_keypair_if_missing, KeyManager
+        was_missing = generate_default_keypair_if_missing(console_output=False)
+        km = KeyManager()
+        if was_missing:
+            _fixed("Ed25519 signing key generated")
+        elif km.has_key("default"):
+            _ok("Ed25519 signing key", "default key present")
+        else:
+            _fail("No signing key found", "Run: epi keys generate")
+    except Exception as e:
+        _fail(f"Key system error: {e}", "Run: epi keys generate")
+
+    # ── 2. Disk space ─────────────────────────────────────────────────────
+    console.print()
+    console.print("[bold]Storage & Disk[/bold]")
+    try:
+        usage = shutil.disk_usage(Path.cwd())
+        free_gb = usage.free / (1024 ** 3)
+        if free_gb < 0.5:
+            _fail(
+                f"Low disk space: {free_gb:.1f} GB free",
+                "Free up disk space. EPI needs at least 500 MB for recordings.",
+            )
+        elif free_gb < 2.0:
+            _warn(
+                f"Disk space low: {free_gb:.1f} GB free",
+                "Consider freeing disk space before long recording sessions.",
+            )
+        else:
+            _ok("Disk space", f"{free_gb:.1f} GB free")
+    except Exception as e:
+        _warn(f"Could not check disk space: {e}")
+
+    # ── 3. Write permissions ──────────────────────────────────────────────
+    try:
+        test_dir = Path(tempfile.mkdtemp(prefix="epi_doctor_"))
+        test_file = test_dir / "write_test.tmp"
+        test_file.write_bytes(b"epi_ok")
+        test_file.unlink()
+        test_dir.rmdir()
+        _ok("Write permissions", f"can write to {Path.cwd()}")
+    except Exception as e:
+        _fail(
+            f"Cannot write to current directory: {e}",
+            "Run EPI from a directory you have write access to.",
+        )
+
+    # ── 4. Recordings directory ───────────────────────────────────────────
+    recordings_dir = Path(os.getenv("EPI_RECORDINGS_DIR", "epi-recordings"))
+    try:
+        recordings_dir.mkdir(parents=True, exist_ok=True)
+        probe = recordings_dir / ".epi_doctor_probe"
+        probe.write_bytes(b"ok")
+        probe.unlink()
+        _ok("Recordings directory", str(recordings_dir.resolve()))
+    except Exception as e:
+        _fail(
+            f"Cannot write to recordings directory ({recordings_dir}): {e}",
+            f"Fix permissions or set EPI_RECORDINGS_DIR to a writable path.",
+        )
+
+    # ── 5. Gateway storage (evidence_vault) ───────────────────────────────
+    vault_dir = Path(os.getenv("EPI_GATEWAY_STORAGE_DIR", "./evidence_vault"))
+    if vault_dir.exists():
+        try:
+            probe = vault_dir / ".epi_doctor_probe"
+            probe.write_bytes(b"ok")
+            probe.unlink()
+            db_path = vault_dir / "cases.sqlite3"
+            db_size = f"{db_path.stat().st_size // 1024} KB" if db_path.exists() else "not yet created"
+            _ok("Gateway storage", f"{vault_dir.resolve()} — cases.sqlite3: {db_size}")
+        except Exception as e:
+            _fail(f"Gateway storage not writable: {e}", f"Fix permissions on {vault_dir}")
+    else:
+        _ok("Gateway storage", f"{vault_dir} — not yet created (normal if gateway never started)")
+
+    # ── 6. Required packages ──────────────────────────────────────────────
+    console.print()
+    console.print("[bold]Dependencies[/bold]")
+    required = {
+        "epi_core": "core EPI library",
+        "cryptography": "Ed25519 signing",
+        "cbor2": "canonical hashing",
+        "pydantic": "data models",
+        "typer": "CLI",
+        "rich": "terminal output",
+    }
+    optional = {
+        "uvicorn": "gateway server (needed for epi gateway serve)",
+        "fastapi": "gateway server (needed for epi gateway serve)",
+        "openai": "OpenAI SDK wrapper",
+        "anthropic": "Anthropic SDK wrapper",
+        "litellm": "LiteLLM integration",
+        "langchain": "LangChain integration",
+    }
+    import importlib
+    for pkg, desc in required.items():
+        try:
+            importlib.import_module(pkg)
+            _ok(pkg, desc)
+        except ImportError:
+            _fail(f"{pkg} missing ({desc})", f"pip install {pkg}")
+
+    console.print()
+    console.print("[bold]Optional packages[/bold]")
+    for pkg, desc in optional.items():
+        try:
+            importlib.import_module(pkg)
+            _ok(pkg, desc)
+        except ImportError:
+            console.print(f"  [dim][-]  {pkg} not installed ({desc})[/dim]")
+
+    # ── 7. epi command on PATH ────────────────────────────────────────────
+    console.print()
+    console.print("[bold]CLI[/bold]")
+    if shutil.which("epi"):
+        _ok("'epi' command on PATH")
+    else:
+        _warn(
+            "'epi' command not found on PATH",
+            "Use 'python -m epi_cli' as fallback, or re-install: pip install --force-reinstall epi-recorder",
+        )
         if platform.system() == "Windows":
-            console.print("   [cyan]→ Attempting automatic PATH fix...[/cyan]")
             try:
                 import importlib.util
-                from pathlib import Path
-
                 if importlib.util.find_spec("epi_postinstall") is not None:
                     import epi_postinstall
-
                     scripts_dir = epi_postinstall.get_scripts_dir()
                     if scripts_dir and scripts_dir.exists():
-                        console.print(f"   [dim]Scripts directory: {scripts_dir}[/dim]")
-
                         if epi_postinstall.add_to_user_path_windows(scripts_dir):
-                            console.print("   [green][OK] PATH updated successfully![/green]")
-                            console.print("   [yellow][!] Please restart your terminal for changes to take effect[/yellow]")
-                            fixed += 1
-                        else:
-                            console.print("   [yellow][!] Could not update PATH automatically[/yellow]")
-                            console.print("   [dim]Manual fix: Use 'python -m epi_cli' instead[/dim]")
-                    else:
-                        console.print("   [red][X] Could not locate Scripts directory[/red]")
-                else:
-                    console.print("   [yellow][!] Auto-fix not available in this environment[/yellow]")
-                    console.print("   [dim]Workaround: Use 'python -m epi_cli' instead[/dim]")
-            except Exception as e:
-                console.print(f"   [red][X] Auto-fix failed: {e}[/red]")
-                console.print("   [dim]Workaround: Use 'python -m epi_cli' instead[/dim]")
-        else:
-            console.print("   [dim]Workaround: Use 'python -m epi_cli' instead[/dim]")
+                            _fixed("PATH updated — restart terminal to apply")
+            except Exception:
+                pass
 
-    # Check 3: Browser
-    console.print("3. Browser Check: ", end="")
-    try:
-        import webbrowser
-        webbrowser.get()
-        console.print("[green][OK][/green]")
-    except Exception:
-        console.print("[yellow][!] WARNING (Headless?)[/yellow]")
-        
-    # Check 4: File Association (Deep check)
-    console.print("4. File Association: ", end="")
-    from epi_core.platform.associate import get_association_diagnostics
-    diag = get_association_diagnostics()
-    
-    if diag["status"] == "OK":
-        if not diag.get("extension_progid"):
-             console.print("[yellow][!] NOT REGISTERED[/yellow]")
-             issues += 1
-        else:
-             console.print("[green][OK][/green]")
-    elif diag["status"] == "OVERRIDDEN":
-        console.print("[bold red][OVERRIDDEN][/bold red]")
-        console.print(f"   [yellow]→ {diag['issues'][0]}[/yellow]")
-        console.print("   [dim]Fix: Right-click any .epi file -> Open with -> Choose another app[/dim]")
-        console.print("   [dim]     Select 'EPI Viewer' and check 'Always use this app'[/dim]")
-        issues += 1
-    else:
-        console.print("[red][X] ISSUES FOUND[/red]")
-        for issue in diag["issues"]:
-            console.print(f"   [red]• {issue}[/red]")
-        issues += 1
-        
-    # Summary
-    print()
-    console.print("[bold]" + "="*70 + "[/bold]")
+    # ── 8. Gateway connectivity ───────────────────────────────────────────
+    if gateway_url:
+        console.print()
+        console.print("[bold]Gateway[/bold]")
+        try:
+            import urllib.request
+            req = urllib.request.urlopen(f"{gateway_url.rstrip('/')}/health", timeout=5)
+            data = json.loads(req.read())
+            status = data.get("status", "unknown")
+            cases = data.get("case_count", "?")
+            ready = data.get("ready", False)
+            if status == "healthy" and ready:
+                _ok(f"Gateway reachable at {gateway_url}", f"{cases} cases, worker ready")
+            elif not ready:
+                _warn(f"Gateway at {gateway_url} is starting up (worker not ready yet)")
+            else:
+                _warn(f"Gateway at {gateway_url} returned status: {status}")
+        except Exception as e:
+            _fail(
+                f"Cannot reach gateway at {gateway_url}: {e}",
+                "Run: epi gateway serve — or check the gateway URL.",
+            )
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    console.print()
+    console.rule()
     if issues == 0:
-        console.print("[bold green][OK] System Healthy![/bold green]")
+        console.print()
+        console.print("  [bold green]System healthy. EPI is ready for production.[/bold green]")
     else:
-        if fixed > 0:
-            console.print(f"[bold yellow][!] Fixed {fixed}/{issues} issues[/bold yellow]")
-            if fixed < issues:
-                console.print("[dim]Some issues require manual attention (see above)[/dim]")
-        else:
-            console.print(f"[bold yellow][!] Found {issues} issues[/bold yellow]")
-            console.print("[dim]See suggestions above[/dim]")
-    console.print("[bold]" + "="*70 + "[/bold]\n")
+        unfixed = issues - fixed
+        if fixed:
+            console.print()
+            console.print(f"  [cyan]Auto-fixed {fixed} issue(s).[/cyan]")
+        if unfixed:
+            console.print(f"  [yellow]{unfixed} issue(s) need manual attention (see above).[/yellow]")
+    console.print()
+    console.print(f"  [dim]Tip: run with --gateway http://localhost:8787 to also check your gateway.[/dim]")
+    console.print()
 
 
 # Entry point for CLI
 def cli_main():
     """CLI entry point (called by `epi` command)."""
-    # Fix Windows console encoding (cp1252 → utf-8) BEFORE any output
+    # Fix Windows console encoding (cp1252 → utf-8) BEFORE any output.
+    # Three layers needed:
+    #   1. SetConsoleCP(65001)  — switches Win32 code page for the console API
+    #   2. sys.stdout/stderr    — covers plain print() and Rich non-legacy path
+    #   3. console._file patch  — Rich Console captures sys.stdout at import
+    #      time, so we must update its internal reference after patching stdout
     import sys as _sys
     import io as _io
     if _sys.platform == "win32":
+        try:
+            import ctypes as _ct
+            _ct.windll.kernel32.SetConsoleOutputCP(65001)
+            _ct.windll.kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
         try:
             _sys.stdout = _io.TextIOWrapper(
                 _sys.stdout.buffer, encoding="utf-8", errors="replace"
@@ -884,6 +1241,12 @@ def cli_main():
             )
         except Exception:
             pass  # Already wrapped or no buffer — safe to ignore
+        try:
+            # Patch the module-level Rich Console so it writes to the new
+            # UTF-8 stdout rather than the cp1252 one it captured at import.
+            console._file = _sys.stdout  # type: ignore[union-attr]
+        except Exception:
+            pass
 
     app()
 

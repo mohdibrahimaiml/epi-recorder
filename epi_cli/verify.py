@@ -10,6 +10,7 @@ Performs comprehensive verification including:
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console
@@ -22,11 +23,67 @@ from epi_cli.view import _resolve_epi_file
 
 console = Console()
 
+def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -> None:
+    """Serialise a verification report dict to a plain-text file."""
+    from datetime import datetime, timezone
+
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    result_line = "VERIFIED ✓" if report["trust_level"] == "HIGH" else (
+        "VERIFIED (unsigned) ✓" if report["trust_level"] == "MEDIUM" else "FAILED ✗"
+    )
+    integrity_line = (
+        f"PASSED — {report['files_checked']} files verified (SHA-256)"
+        if report["integrity_ok"]
+        else f"FAILED — {report['mismatches_count']} file(s) modified"
+    )
+    if report["signature_valid"]:
+        sig_line = f"VALID — Ed25519, signed by key '{report['signer']}'"
+    elif report["signature_valid"] is None:
+        sig_line = "NOT SIGNED — no signature present"
+    else:
+        sig_line = "INVALID — signature does not match"
+
+    if report["trust_level"] == "HIGH":
+        suitable = (
+            "\nThis artifact has not been modified since it was signed.\n"
+            "It is suitable for submission as evidence to regulators,\n"
+            "auditors, or legal proceedings."
+        )
+    elif report["trust_level"] == "MEDIUM":
+        suitable = "\nIntegrity intact but artifact is unsigned.\nConsider signing with: epi keys generate"
+    else:
+        suitable = "\nThis artifact FAILED verification and should not be trusted."
+
+    lines = [
+        "EPI VERIFICATION REPORT",
+        f"Generated: {generated}",
+        f"File: {epi_file.name}",
+        "",
+        f"RESULT: {result_line}",
+        f"Trust Level: {report['trust_level']}",
+        "",
+        f"Integrity Check:  {integrity_line}",
+        f"Signature Check:  {sig_line}",
+        "",
+        "ARTIFACT DETAILS",
+        f"Workflow:     {report['workflow_id']}",
+        f"Created:      {report['created_at']}",
+        f"Spec Version: {report['spec_version']}",
+        suitable,
+        "",
+        "---",
+        "Verified by EPI (Evidence Packaged Infrastructure)",
+        f"epi verify {epi_file.name}",
+    ]
+    report_out.write_text("\n".join(lines), encoding="utf-8")
+
+
 def verify_command(
     ctx: typer.Context,
     epi_file: Path,
     json_output: bool = False,
-    verbose: bool = False
+    verbose: bool = False,
+    report_out: Optional[Path] = None,
 ):
     """
     Verify .epi file integrity and authenticity.
@@ -109,7 +166,14 @@ def verify_command(
         else:
             # Rich formatted output
             print_trust_report(report, epi_file, verbose)
-        
+
+        # ========== WRITE REPORT FILE ==========
+        if report_out is not None:
+            dest = report_out
+            _write_verification_report(report, epi_file, dest)
+            if not json_output:
+                console.print(f"[green][OK][/green] Verification report written: {dest}")
+
         # Exit code based on verification result
         if not integrity_ok or signature_valid is False:
             raise typer.Exit(1)
