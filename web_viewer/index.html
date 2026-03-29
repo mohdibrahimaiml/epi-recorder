@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPI Decision Ops</title>
+<title>EPI Case Review</title>
 <script id="epi-view-context" type="application/json">{}</script>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,10 +13,10 @@
 <div class="page-shell">
   <header class="hero">
     <div>
-      <p class="eyebrow">EPI Decision Ops</p>
-      <h1>Review, explain, and verify AI decisions</h1>
+      <p class="eyebrow">EPI Case Review</p>
+      <h1>Review one flagged decision at a time</h1>
       <p class="hero-copy">
-        Start with one decision, see why it matters, and record the human outcome.
+        Start with one case file, see why it matters, and record the human outcome.
         Everything stays on this device.
       </p>
     </div>
@@ -36,144 +36,151 @@
     <p class="panel-note">
       Use this when you already have saved EPI case files and want to review one here right away.
     </p>
-    <div id="load-status" class="status-banner info">No saved cases are open yet.</div>
+    <div id="load-status" class="status-banner info">No case files are open yet.</div>
   </section>
 
   <section class="setup-panel card">
-    <div class="setup-header">
-      <div>
-        <p class="section-label">Quick Setup</p>
-        <h2>Tell EPI what to watch</h2>
-        <p class="panel-note">
-          Pick a system and a decision type. EPI can open a safe sample right away,
-          then you can add real connector details only when you need them.
-        </p>
-      </div>
-      <span id="setup-ready-badge" class="pill-badge tone-neutral">Needs setup</span>
-    </div>
+    <details id="setup-panel-details" class="setup-shell">
+      <summary class="setup-shell-summary">
+        <div>
+          <p class="section-label">Optional setup</p>
+          <h2>Connect a real system</h2>
+          <p class="panel-note">
+            Start with an example or saved case first. Open this only when you are ready to try a safe sample,
+            connect a real system, or export a starter kit for your workflow. Refund approvals are the fastest place to start.
+          </p>
+        </div>
+        <div class="setup-shell-status">
+          <span id="setup-ready-badge" class="pill-badge tone-neutral">Optional</span>
+          <span class="setup-shell-hint">Open setup</span>
+        </div>
+      </summary>
 
-    <div class="setup-grid setup-grid-primary">
-      <label>
-        1. Where decisions come from
-        <select id="setup-system" class="text-input">
-          <option value="zendesk">Zendesk</option>
-          <option value="salesforce">Salesforce</option>
-          <option value="servicenow">ServiceNow</option>
-          <option value="internal-app">Internal app</option>
-          <option value="csv-export">CSV or exported logs</option>
-        </select>
-      </label>
-      <label>
-        2. What kind of decision this is
-        <select id="setup-workflow" class="text-input">
-          <option value="refund-approval">Refund approvals</option>
-          <option value="loan-underwriting">Loan underwriting</option>
-          <option value="claims-review">Claims review</option>
-          <option value="support-escalation">Support escalations</option>
-          <option value="access-decision">Access decisions</option>
-          <option value="custom-approval">Custom approvals</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="action-row quick-setup-actions">
-      <button id="fetch-live-record-button" class="secondary-button" type="button">Try a safe sample</button>
-      <button id="setup-workspace-button" class="primary-button" type="button">Set up EPI</button>
-      <button id="download-starter-pack-button" class="secondary-button" type="button">Use this in my system</button>
-    </div>
-
-    <details class="advanced-setup">
-      <summary>Advanced setup options</summary>
-      <div class="setup-grid">
-        <label>
-          Who reviews flagged cases
-          <input id="setup-reviewer-role" class="text-input" type="text" value="manager" placeholder="manager">
-        </label>
-        <label>
-          Where this runs
-          <select id="setup-environment" class="text-input">
-            <option value="production">Production</option>
-            <option value="staging">Staging</option>
-            <option value="testing">Testing</option>
-          </select>
-        </label>
-        <label class="setup-field-span">
-          What must happen before the final decision
-          <input id="setup-required-step" class="text-input" type="text" placeholder="verify_identity">
-        </label>
-      </div>
-
-      <div class="connector-config">
-        <div class="rules-card-header">
-          <div>
-            <p class="card-label">System Access</p>
-            <h3>Connect to your system</h3>
-          </div>
-          <div class="action-row">
-            <button id="save-setup-profile-button" class="secondary-button" type="button">Remember here</button>
-            <button id="load-setup-profile-button" class="secondary-button" type="button">Use saved setup</button>
-            <button id="clear-setup-profile-button" class="secondary-button" type="button">Forget saved setup</button>
-          </div>
+      <div class="setup-shell-body">
+        <div class="setup-grid setup-grid-primary">
+          <label>
+            1. Where decisions come from
+            <select id="setup-system" class="text-input">
+              <option value="zendesk">Zendesk</option>
+              <option value="salesforce">Salesforce</option>
+              <option value="servicenow">ServiceNow</option>
+              <option value="internal-app">Internal app</option>
+              <option value="csv-export">CSV or exported logs</option>
+            </select>
+          </label>
+          <label>
+            2. What kind of decision this is
+            <select id="setup-workflow" class="text-input">
+              <option value="refund-approval">Refund approvals</option>
+              <option value="loan-underwriting">Loan underwriting</option>
+              <option value="claims-review">Claims review</option>
+              <option value="support-escalation">Support escalations</option>
+              <option value="access-decision">Access decisions</option>
+              <option value="custom-approval">Custom approvals</option>
+            </select>
+          </label>
         </div>
 
-        <div id="connector-fields" class="setup-grid"></div>
-        <p id="setup-storage-note" class="helper-copy">EPI can remember this setup only in this browser on this device.</p>
-
-        <div class="setup-connection-row">
-          <span id="setup-connection-status" class="pill-badge tone-neutral">Connection not checked</span>
+        <div class="action-row quick-setup-actions">
+          <button id="fetch-live-record-button" class="secondary-button" type="button">Try a safe sample</button>
+          <button id="setup-workspace-button" class="primary-button" type="button">Save setup</button>
+          <button id="download-starter-pack-button" class="secondary-button" type="button">Use this in my system</button>
         </div>
 
-        <section id="shared-auth-section" class="setup-preview shared-auth-section" hidden>
-          <div class="rules-card-header">
-            <div>
-              <p class="card-label">Shared sign-in</p>
-              <h3>Sign in to the team workspace</h3>
+        <details class="advanced-setup">
+          <summary>Advanced setup options</summary>
+          <div class="setup-grid">
+            <label>
+              Who reviews flagged cases
+              <input id="setup-reviewer-role" class="text-input" type="text" value="manager" placeholder="manager">
+            </label>
+            <label>
+              Where this runs
+              <select id="setup-environment" class="text-input">
+                <option value="production">Production</option>
+                <option value="staging">Staging</option>
+                <option value="testing">Testing</option>
+              </select>
+            </label>
+            <label class="setup-field-span">
+              What must happen before the final decision
+              <input id="setup-required-step" class="text-input" type="text" placeholder="verify_identity">
+            </label>
+          </div>
+
+          <div class="connector-config">
+            <div class="rules-card-header">
+              <div>
+                <p class="card-label">System Access</p>
+                <h3>Connect to your system</h3>
+              </div>
+              <div class="action-row">
+                <button id="save-setup-profile-button" class="secondary-button" type="button">Remember here</button>
+                <button id="load-setup-profile-button" class="secondary-button" type="button">Use saved setup</button>
+                <button id="clear-setup-profile-button" class="secondary-button" type="button">Forget saved setup</button>
+              </div>
             </div>
-            <span id="shared-auth-status" class="pill-badge tone-neutral">Not signed in</span>
-          </div>
-          <div class="setup-grid">
-            <label>
-              Username or email
-              <input id="auth-username" class="text-input" type="text" value="" placeholder="reviewer@company.com" autocomplete="username">
-            </label>
-            <label>
-              Password
-              <input id="auth-password" class="text-input" type="password" value="" placeholder="Enter your password" autocomplete="current-password">
-            </label>
-          </div>
-          <div class="action-row">
-            <button id="auth-login-button" class="secondary-button" type="button">Sign in</button>
-            <button id="auth-logout-button" class="secondary-button" type="button">Sign out</button>
-          </div>
-          <p id="shared-auth-copy" class="helper-copy">If your gateway uses local users, sign in here. EPI keeps the session only in this browser tab.</p>
-        </section>
 
-        <details class="advanced-connection">
-          <summary>Connection address</summary>
-          <div class="setup-grid">
-            <label class="setup-field-span">
-              Connection address
-              <input id="setup-bridge-url" class="text-input" type="text" value="http://127.0.0.1:8765" placeholder="http://127.0.0.1:8765">
-            </label>
-            <label class="setup-field-span">
-              Access token
-              <input id="setup-access-token" class="text-input" type="password" value="" placeholder="Paste shared token only if your gateway requires one" autocomplete="off">
-            </label>
-          </div>
-          <p class="helper-copy">If your self-hosted gateway requires a token, EPI keeps it only in this browser tab and never saves it in local storage.</p>
-          <div class="action-row">
-            <button id="check-bridge-button" class="secondary-button" type="button">Test connection</button>
+            <div id="connector-fields" class="setup-grid"></div>
+            <p id="setup-storage-note" class="helper-copy">EPI can remember this setup only in this browser on this device.</p>
+
+            <div class="setup-connection-row">
+              <span id="setup-connection-status" class="pill-badge tone-neutral">Connection not checked</span>
+            </div>
+
+            <section id="shared-auth-section" class="setup-preview shared-auth-section" hidden>
+              <div class="rules-card-header">
+                <div>
+                  <p class="card-label">Shared sign-in</p>
+                  <h3>Sign in to the team workspace</h3>
+                </div>
+                <span id="shared-auth-status" class="pill-badge tone-neutral">Not signed in</span>
+              </div>
+              <div class="setup-grid">
+                <label>
+                  Username or email
+                  <input id="auth-username" class="text-input" type="text" value="" placeholder="reviewer@company.com" autocomplete="username">
+                </label>
+                <label>
+                  Password
+                  <input id="auth-password" class="text-input" type="password" value="" placeholder="Enter your password" autocomplete="current-password">
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="auth-login-button" class="secondary-button" type="button">Sign in</button>
+                <button id="auth-logout-button" class="secondary-button" type="button">Sign out</button>
+              </div>
+              <p id="shared-auth-copy" class="helper-copy">If your team workspace uses local users, sign in here. EPI keeps the session only in this browser tab.</p>
+            </section>
+
+            <details class="advanced-connection">
+              <summary>Connection address</summary>
+              <div class="setup-grid">
+                <label class="setup-field-span">
+                  Connection address
+                  <input id="setup-bridge-url" class="text-input" type="text" value="http://127.0.0.1:8765" placeholder="http://127.0.0.1:8765">
+                </label>
+                <label class="setup-field-span">
+                  Access token
+                  <input id="setup-access-token" class="text-input" type="password" value="" placeholder="Paste a shared token only if your team workspace requires one" autocomplete="off">
+                </label>
+              </div>
+              <p class="helper-copy">If your self-hosted team workspace requires a token, EPI keeps it only in this browser tab and never saves it in local storage.</p>
+              <div class="action-row">
+                <button id="check-bridge-button" class="secondary-button" type="button">Test connection</button>
+              </div>
+            </details>
+
+            <div id="setup-live-record" class="setup-preview" hidden></div>
           </div>
         </details>
 
-        <div id="setup-live-record" class="setup-preview" hidden></div>
+        <div id="setup-preview" class="setup-preview"></div>
       </div>
     </details>
-
-    <div id="setup-preview" class="setup-preview"></div>
   </section>
 
-  <section class="summary-strip" id="summary-strip">
+  <section class="summary-strip" id="summary-strip" hidden>
     <article class="summary-card">
       <span class="summary-label">Cases</span>
       <strong id="summary-total">0</strong>
@@ -216,8 +223,8 @@
       <nav class="nav-grid" aria-label="Main navigation">
         <button class="nav-button active" type="button" data-view="inbox">Inbox</button>
         <button class="nav-button" type="button" data-view="case">Case</button>
-        <button class="nav-button" type="button" data-view="rules">Rules</button>
-        <button class="nav-button" type="button" data-view="reports">Reports</button>
+        <button class="nav-button" type="button" data-view="rules" hidden disabled>Rules</button>
+        <button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>
       </nav>
 
       <div class="sidebar-section">
@@ -228,7 +235,7 @@
       <div class="sidebar-section">
         <p class="sidebar-label">Local processing</p>
         <p class="sidebar-copy">
-          Verification, review drafts, and exports all run locally in the browser. Your case files do not leave this device.
+          Verification, review notes, and exports all run locally in the browser. Your case files do not leave this device.
         </p>
       </div>
 
@@ -239,7 +246,7 @@
           <button id="refresh-shared-button" class="secondary-button compact-button" type="button">Refresh team cases</button>
         </div>
         <p class="sidebar-copy">
-          If your team uses the same self-hosted bridge, EPI can share case previews and review updates across users.
+          If your team uses the same local workspace, EPI can share case previews and review updates across users.
         </p>
       </div>
 
@@ -250,7 +257,7 @@
           <input id="reviewer-identity" class="text-input" type="text" placeholder="manager@example.com">
         </label>
         <p class="sidebar-copy">
-          EPI reuses this for review records, comment author, and the Mine inbox view.
+          EPI reuses this for review notes, comment author, and the Mine inbox view.
         </p>
       </div>
     </aside>
@@ -319,7 +326,7 @@
 
         <div id="empty-inbox" class="card empty-state">
           <h3>No cases yet</h3>
-          <p>Load one or more `.epi` files to create a review inbox.</p>
+          <p>Open one or more `.epi` case files to create a review inbox.</p>
         </div>
         <div id="case-list" class="case-list"></div>
       </section>
@@ -388,6 +395,47 @@
             </article>
 
             <article class="card">
+              <p class="card-label">Human review</p>
+              <form id="review-form" class="review-form">
+                <label>
+                  Reviewer
+                  <input id="reviewer-name" class="text-input" type="text" placeholder="manager@example.com">
+                </label>
+                <label>
+                  Notes
+                  <textarea id="review-notes" class="text-area" rows="5" placeholder="Add the decision, context, and next step."></textarea>
+                </label>
+                <input id="review-outcome" type="hidden" value="dismissed">
+                <div class="review-action-block">
+                  <p class="card-label">Choose the human outcome</p>
+                  <div class="review-action-row">
+                    <button id="review-approve-button" class="primary-button review-action-button" type="submit" data-review-action="dismissed">Approve decision</button>
+                    <button id="review-reject-button" class="secondary-button review-action-button" type="submit" data-review-action="confirmed_fault">Reject decision</button>
+                    <button id="review-escalate-button" class="secondary-button review-action-button" type="submit" data-review-action="skipped">Escalate / decide later</button>
+                  </div>
+                  <p id="review-action-help" class="helper-copy">Choose the outcome that best matches the human decision.</p>
+                </div>
+                <details class="review-signing-details">
+                  <summary>Add signature (optional)</summary>
+                  <label>
+                    Signing key (optional)
+                    <textarea id="review-signing-key" class="text-area" rows="5" placeholder="Paste your EPI Ed25519 private key PEM to sign this review"></textarea>
+                  </label>
+                  <p class="helper-copy">
+                    Optional. Paste the contents of your EPI `.key` file to sign the review in the browser.
+                    If left blank, the review will stay unsigned.
+                  </p>
+                </details>
+                <div class="action-row">
+                  <button id="download-reviewed-epi-button" class="primary-button" type="button">Download reviewed case file (.epi)</button>
+                  <button id="download-review-button" class="secondary-button" type="button">Download review notes</button>
+                  <button id="download-case-report-button" class="secondary-button" type="button">Download case summary</button>
+                </div>
+                <p id="review-save-status" class="helper-copy"></p>
+              </form>
+            </article>
+
+            <article class="card">
               <p class="card-label">Team Workflow</p>
               <form id="workflow-form" class="review-form">
                 <label>
@@ -430,43 +478,6 @@
               </form>
             </article>
 
-            <article class="card">
-              <p class="card-label">Review workspace</p>
-              <form id="review-form" class="review-form">
-                <label>
-                  Reviewer
-                  <input id="reviewer-name" class="text-input" type="text" placeholder="manager@example.com">
-                </label>
-                <label>
-                  Review outcome
-                  <select id="review-outcome" class="text-input">
-                    <option value="confirmed_fault">Confirmed issue</option>
-                    <option value="dismissed">Dismissed after review</option>
-                    <option value="skipped">Decide later</option>
-                  </select>
-                </label>
-                <label>
-                  Notes
-                  <textarea id="review-notes" class="text-area" rows="5" placeholder="Add the decision, context, and next step."></textarea>
-                </label>
-                <label>
-                  Optional signing key
-                  <textarea id="review-signing-key" class="text-area" rows="5" placeholder="Paste your EPI Ed25519 private key PEM to sign this review"></textarea>
-                </label>
-                <p class="helper-copy">
-                  Optional. Paste the contents of your EPI `.key` file to sign the review in the browser.
-                  If left blank, the review will stay unsigned.
-                </p>
-                <div class="action-row">
-                  <button id="apply-review-button" class="primary-button" type="submit">Save review</button>
-                  <button id="download-reviewed-epi-button" class="primary-button" type="button">Download reviewed .epi</button>
-                  <button id="download-review-button" class="secondary-button" type="button">Download review record</button>
-                  <button id="download-case-report-button" class="secondary-button" type="button">Download case summary</button>
-                </div>
-                <p id="review-save-status" class="helper-copy"></p>
-              </form>
-            </article>
-
             <article class="card case-span">
               <p class="card-label">Case timeline</p>
               <div id="case-timeline" class="timeline"></div>
@@ -479,7 +490,7 @@
         <div class="section-header">
           <div>
             <p class="section-label">Rules</p>
-            <h2>Readable policy context</h2>
+            <h2>Readable rules for this workflow</h2>
           </div>
         </div>
 
@@ -487,12 +498,12 @@
           <article class="card">
             <div class="rules-card-header">
               <div>
-                <p class="card-label">Policy file</p>
+                <p class="card-label">Rule file</p>
                 <h3>Build a real rulebook for this workflow</h3>
               </div>
               <div class="action-row">
                 <button id="reset-policy-button" class="secondary-button" type="button">Reset from case</button>
-                <button id="download-policy-button" class="primary-button" type="button">Download epi_policy.json</button>
+                <button id="download-policy-button" class="primary-button" type="button">Download rule file (epi_policy.json)</button>
                 <button id="download-policy-summary-button" class="secondary-button" type="button">Download policy summary</button>
               </div>
             </div>
@@ -561,7 +572,7 @@
                   New rule type
                   <select id="add-rule-type" class="text-input">
                     <option value="threshold_guard">Threshold guard</option>
-                    <option value="approval_guard">Approval guard</option>
+                    <option value="approval_guard">Approval rule</option>
                     <option value="sequence_guard">Sequence guard</option>
                     <option value="constraint_guard">Constraint guard</option>
                     <option value="prohibition_guard">Prohibition guard</option>
@@ -616,7 +627,7 @@
 
   <footer class="app-footer">
     <span>EPI Viewer __EPI_VERSION__</span>
-    <span>Decision Ops surface for AI case review</span>
+    <span>Canonical browser case review for EPI</span>
   </footer>
 </div>
 

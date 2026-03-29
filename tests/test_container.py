@@ -396,22 +396,22 @@ class TestEPIContainer:
         assert "cdn.jsdelivr.net/npm/jszip" not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "EPI Decision Ops" in viewer_html
+        assert "EPI Case Review" in viewer_html
         assert "Inbox" in viewer_html
         assert "Decision case file" in viewer_html
-        assert "Review workspace" in viewer_html
-        assert "Download reviewed .epi" in viewer_html
-        assert "Download review record" in viewer_html
-        assert "Optional signing key" in viewer_html
-        assert "Readable policy context" in viewer_html
-        assert "Download epi_policy.json" in viewer_html
+        assert "Human review" in viewer_html
+        assert "Download reviewed case file (.epi)" in viewer_html
+        assert "Download review notes" in viewer_html
+        assert "Signing key (optional)" in viewer_html
+        assert "Readable rules for this workflow" in viewer_html
+        assert "Download rule file (epi_policy.json)" in viewer_html
         assert "Build a real rulebook for this workflow" in viewer_html
         assert "Turn business controls into enforceable EPI rules" in viewer_html
         assert "Export a business-readable record" in viewer_html
         assert "Verify source" in viewer_html
-        assert "Opened the packaged Decision Ops case file" in viewer_html
+        assert "Opened the packaged case file" in viewer_html
         assert '"files"' in viewer_html
-        assert "Your changes stay local until you download the reviewed case or review record." in viewer_html
+        assert "Your changes stay local until you download the reviewed case or review notes." in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

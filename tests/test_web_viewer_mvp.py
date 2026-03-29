@@ -8,15 +8,15 @@ def _read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_web_viewer_shell_has_decision_ops_navigation():
+def test_web_viewer_shell_has_case_first_navigation():
     html = _read("web_viewer/index.html")
 
-    assert "EPI Decision Ops" in html
+    assert "EPI Case Review" in html
     assert "Inbox" in html
     assert "Case" in html
     assert "Rules" in html
     assert "Reports" in html
-    assert "Start with one decision, see why it matters, and record the human outcome." in html
+    assert "Start with one case file, see why it matters, and record the human outcome." in html
     assert "../epi_viewer_static/crypto.js" in html
     assert "app.js" in html
     assert "styles.css" in html
@@ -25,10 +25,11 @@ def test_web_viewer_shell_has_decision_ops_navigation():
     assert 'id="drop-zone-title"' in html
     assert 'id="drop-zone-copy"' in html
     assert 'id="drop-zone-action"' in html
-    assert "Quick Setup" in html
+    assert "Connect a real system" in html
+    assert 'id="setup-panel-details"' in html
     assert 'id="setup-system"' in html
     assert 'id="setup-workflow"' in html
-    assert "Pick a system and a decision type" in html
+    assert "Refund approvals are the fastest place to start." in html
     assert 'class="setup-grid setup-grid-primary"' in html
     assert 'id="setup-reviewer-role"' in html
     assert 'id="setup-required-step"' in html
@@ -54,6 +55,8 @@ def test_web_viewer_shell_has_decision_ops_navigation():
     assert "Use this in my system" in html
     assert "Advanced setup options" in html
     assert 'id="setup-preview"' in html
+    assert 'id="summary-strip"' in html
+    assert 'id="summary-strip" hidden' in html
     assert 'id="guided-review-panel"' in html
     assert 'id="guided-review-title"' in html
     assert 'id="guided-review-copy"' in html
@@ -77,6 +80,8 @@ def test_web_viewer_shell_has_decision_ops_navigation():
     assert "Zendesk" in html
     assert "Salesforce" in html
     assert "ServiceNow" in html
+    assert '<button class="nav-button" type="button" data-view="rules" hidden disabled>Rules</button>' in html
+    assert '<button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>' in html
     assert 'id="case-workflow-badge"' in html
     assert "Team Workflow" in html
     assert 'id="workflow-form"' in html
@@ -89,8 +94,16 @@ def test_web_viewer_shell_has_decision_ops_navigation():
     assert 'id="comment-form"' in html
     assert 'id="comment-body"' in html
     assert 'id="save-comment-button"' in html
-    assert "Download reviewed .epi" in html
-    assert "Optional signing key" in html
+    assert "Download reviewed case file (.epi)" in html
+    assert "Download review notes" in html
+    assert "Approve decision" in html
+    assert "Reject decision" in html
+    assert "Escalate / decide later" in html
+    assert 'id="review-approve-button"' in html
+    assert 'id="review-reject-button"' in html
+    assert 'id="review-escalate-button"' in html
+    assert "Add signature (optional)" in html
+    assert "Signing key (optional)" in html
     assert "case-review-signature-badge" in html
     assert 'id="case-guidance-title"' in html
     assert 'id="case-guidance-copy"' in html
@@ -103,11 +116,11 @@ def test_web_viewer_shell_has_decision_ops_navigation():
     assert 'id="policy-system-name"' in html
     assert 'id="policy-json-preview"' in html
     assert 'id="policy-rule-editor"' in html
-    assert "Download epi_policy.json" in html
+    assert "Download rule file (epi_policy.json)" in html
     assert "Turn business controls into enforceable EPI rules" in html
 
 
-def test_web_viewer_app_supports_local_review_and_reports():
+def test_web_viewer_app_supports_case_first_review_and_reports():
     js = _read("web_viewer/app.js")
 
     assert "async function parseEpiFile" in js
@@ -139,6 +152,7 @@ def test_web_viewer_app_supports_local_review_and_reports():
     assert "function configureEmbeddedArtifactMode" in js
     assert "function resetImportControls" in js
     assert "function renderSetupWizard" in js
+    assert "function setProgressiveNavigationState" in js
     assert "function renderConnectorFields" in js
     assert "function handleConnectorFieldInput" in js
     assert "function saveSetupProfile" in js
@@ -209,16 +223,19 @@ def test_web_viewer_app_supports_local_review_and_reports():
     assert "function parsePkcs8PrivateKey" in js
     assert "function decodeSignatureBytes" in js
     assert "function buildReviewSigningPayload" in js
+    assert "function setSelectedReviewOutcome" in js
+    assert "async function applyLocalReview(forcedOutcome)" in js
     assert "function openCaseReviewForm" in js
     assert "async function saveCaseWorkflow" in js
     assert "async function saveCaseComment" in js
     assert "async function ensureCaseInReview" in js
     assert "function scrollToSetupWizard" in js
     assert "function downloadReport" in js
+    assert "const REVIEW_ACTIONS = {" in js
     assert "verifyManifestSignature" in js
     assert "document.getElementById('epi-data')" in js
     assert "Verify source" in js
-    assert "Opened the packaged Decision Ops case file. Reviewed .epi download is ready" in js
+    assert "Opened the packaged case file. A reviewed .epi download is ready" in js
     assert "epi_policy.json" in js
     assert "Opened an example case so you can explore the review flow right away." in js
     assert "Opened a live" in js
@@ -227,16 +244,22 @@ def test_web_viewer_app_supports_local_review_and_reports():
     assert "allow_mock_fallback" in js
     assert "Team case" in js
     assert "Comments will be posted as" in js
+    assert "Approve decision" in js
+    assert "Reject decision" in js
+    assert "Escalate / decide later" in js
+    assert "Connect a real system" in js
 
 
-def test_web_viewer_readme_describes_nontechnical_workflow():
+def test_web_viewer_readme_describes_case_first_workflow():
     readme = _read("web_viewer/README.md")
 
-    assert "Decision Ops dashboard" in readme
-    assert "one-click example case" in readme
-    assert "Setup Wizard" in readme
+    assert "case review app" in readme
+    assert "case-first entry" in readme
+    assert "optional setup" in readme
+    assert "refund approvals first" in readme
     assert "safe sample" in readme.lower()
     assert "guided next steps" in readme
+    assert "plain-English review actions" in readme
     assert "recorder starter export" in readme
     assert "Zendesk, Salesforce, ServiceNow, internal apps, and CSV-based workflows" in readme
     assert "stored only in this browser" in readme.lower()
@@ -254,7 +277,7 @@ def test_web_viewer_readme_describes_nontechnical_workflow():
     assert "offline" in readme.lower()
     assert "valid `epi_policy.json`" in readme
     assert "epi connect serve" in readme
-    assert "epi connect open" in readme
+    assert "local review service" in readme
     assert "live source record" in readme.lower()
-    assert "case preview" in readme.lower()
+    assert "live case preview" in readme.lower()
     assert "shared" in readme.lower()

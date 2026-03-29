@@ -32,12 +32,29 @@ const POLICY_EDITOR_EMPTY_KEY = '__workspace__';
 const SETUP_STORAGE_KEY = 'epi-decision-ops.setup.v1';
 const GATEWAY_ACCESS_TOKEN_STORAGE_KEY = 'epi-decision-ops.gateway-token.v1';
 const REVIEWER_IDENTITY_STORAGE_KEY = 'epi-decision-ops.reviewer.v1';
+const REVIEW_ACTIONS = {
+  dismissed: {
+    buttonLabel: 'Approve decision',
+    label: 'Approved decision',
+    help: 'Use this when the recorded decision can proceed and your notes explain why.',
+  },
+  confirmed_fault: {
+    buttonLabel: 'Reject decision',
+    label: 'Rejected decision',
+    help: 'Use this when the decision should not proceed and the issue needs to stay on record.',
+  },
+  skipped: {
+    buttonLabel: 'Escalate / decide later',
+    label: 'Escalated / decide later',
+    help: 'Use this when another reviewer or more information is needed before a final decision.',
+  },
+};
 const POLICY_RULE_TYPES = [
   { value: 'constraint_guard', label: 'Constraint guard' },
   { value: 'sequence_guard', label: 'Sequence guard' },
   { value: 'threshold_guard', label: 'Threshold guard' },
   { value: 'prohibition_guard', label: 'Prohibition guard' },
-  { value: 'approval_guard', label: 'Approval guard' },
+  { value: 'approval_guard', label: 'Approval rule' },
   { value: 'tool_permission_guard', label: 'Tool permission guard' },
 ];
 const POLICY_SEVERITIES = ['critical', 'high', 'medium', 'low'];
@@ -336,6 +353,7 @@ function captureElements() {
   elements.dropZoneCopy = document.getElementById('drop-zone-copy');
   elements.dropZoneAction = document.getElementById('drop-zone-action');
   elements.loadStatus = document.getElementById('load-status');
+  elements.setupPanelDetails = document.getElementById('setup-panel-details');
   elements.setupReadyBadge = document.getElementById('setup-ready-badge');
   elements.setupSystem = document.getElementById('setup-system');
   elements.setupWorkflow = document.getElementById('setup-workflow');
@@ -363,6 +381,7 @@ function captureElements() {
   elements.setupWorkspaceButton = document.getElementById('setup-workspace-button');
   elements.downloadStarterPackButton = document.getElementById('download-starter-pack-button');
   elements.setupPreview = document.getElementById('setup-preview');
+  elements.summaryStrip = document.getElementById('summary-strip');
   elements.summaryTotal = document.getElementById('summary-total');
   elements.summaryReview = document.getElementById('summary-review');
   elements.summaryTrusted = document.getElementById('summary-trusted');
@@ -377,6 +396,8 @@ function captureElements() {
   elements.guidedSampleButton = document.getElementById('guided-sample-button');
   elements.guidedExampleButton = document.getElementById('guided-example-button');
   elements.workspace = document.getElementById('workspace');
+  elements.rulesNavButton = document.querySelector('.nav-button[data-view="rules"]');
+  elements.reportsNavButton = document.querySelector('.nav-button[data-view="reports"]');
   elements.caseSelector = document.getElementById('case-selector');
   elements.sharedWorkspaceStatus = document.getElementById('shared-workspace-status');
   elements.refreshSharedButton = document.getElementById('refresh-shared-button');
@@ -419,11 +440,14 @@ function captureElements() {
   elements.commentBody = document.getElementById('comment-body');
   elements.commentSaveStatus = document.getElementById('comment-save-status');
   elements.reviewForm = document.getElementById('review-form');
-  elements.applyReviewButton = document.getElementById('apply-review-button');
   elements.reviewerName = document.getElementById('reviewer-name');
   elements.reviewOutcome = document.getElementById('review-outcome');
   elements.reviewNotes = document.getElementById('review-notes');
   elements.reviewSigningKey = document.getElementById('review-signing-key');
+  elements.reviewApproveButton = document.getElementById('review-approve-button');
+  elements.reviewRejectButton = document.getElementById('review-reject-button');
+  elements.reviewEscalateButton = document.getElementById('review-escalate-button');
+  elements.reviewActionHelp = document.getElementById('review-action-help');
   elements.reviewSaveStatus = document.getElementById('review-save-status');
   elements.downloadReviewedEpiButton = document.getElementById('download-reviewed-epi-button');
   elements.downloadReviewButton = document.getElementById('download-review-button');
@@ -640,7 +664,8 @@ function bindEvents() {
 
   elements.reviewForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    void applyLocalReview();
+    const forcedOutcome = event.submitter?.dataset?.reviewAction || elements.reviewOutcome.value;
+    void applyLocalReview(forcedOutcome);
   });
   elements.downloadReviewedEpiButton.addEventListener('click', downloadReviewedArtifact);
   elements.downloadReviewButton.addEventListener('click', downloadReviewRecord);
@@ -752,7 +777,7 @@ async function loadPreloadedCases() {
     const hydratedCases = [];
     for (const item of cases) {
       hydratedCases.push(await buildCaseRecord({
-        sourceName: item.source_name || item.sourceName || 'artifact.epi',
+        sourceName: item.source_name || item.sourceName || 'case.epi',
         fileSize: item.file_size || item.fileSize || 0,
         archiveBytes: item.archive_base64 ? base64ToUint8Array(item.archive_base64) : null,
         manifest: item.manifest || {},
@@ -775,14 +800,14 @@ async function loadPreloadedCases() {
       state.selectedCaseId = hydratedCases[0].id;
       if (openedFromArtifact) {
         configureEmbeddedArtifactMode();
-        setStatus('Opened the packaged Decision Ops case file. Reviewed .epi download is ready, and source verification can be refreshed through epi view.', 'success');
+        setStatus('Opened the packaged case file. A reviewed .epi download is ready, and source verification can be refreshed through epi view.', 'success');
       } else {
         const preloadCount = hydratedCases.length;
         const withArchiveBytes = hydratedCases.filter((caseRecord) => Boolean(caseRecord.archiveBytes)).length;
         const archiveMessage = withArchiveBytes === preloadCount
-          ? 'Reviewed .epi download is ready.'
-          : 'Some larger artifacts opened in review-only mode.';
-        setStatus(`Opened ${preloadCount} case file${preloadCount === 1 ? '' : 's'} directly in Decision Ops. ${archiveMessage}`, 'success');
+          ? 'A reviewed .epi download is ready.'
+          : 'Some larger case files opened in review-only mode.';
+        setStatus(`Opened ${preloadCount} case file${preloadCount === 1 ? '' : 's'} in the browser review workspace. ${archiveMessage}`, 'success');
       }
     }
   } catch (error) {
@@ -839,9 +864,9 @@ async function buildCaseRecord(payload) {
   };
   const signature = payload.signature || {
     valid: false,
-    reason: manifest.signature ? 'Signature was not rechecked in this view.' : 'Unsigned manifest',
+    reason: manifest.signature ? 'Signature was not rechecked in this view.' : 'No signer attached to this case file',
   };
-  const sourceName = payload.sourceName || payload.source_name || 'artifact.epi';
+  const sourceName = payload.sourceName || payload.source_name || 'case.epi';
   const embeddedFiles = decodeEmbeddedFiles(payload.embeddedFiles || payload.files || null);
   const reviewSignature = await verifyReviewSignature(review);
   const reviewState = deriveReviewState(review, analysis, policyEvaluation, reviewSignature);
@@ -990,7 +1015,7 @@ function buildLegacyEmbeddedCasePayload(payload) {
       manifest.workflow_name ||
       manifest.system_name ||
       manifest.workflow_id ||
-      'artifact.epi',
+      'case.epi',
     fileSize: 0,
     archiveBytes: null,
     manifest,
@@ -1013,11 +1038,11 @@ function buildLegacyEmbeddedCasePayload(payload) {
       ? {
         valid: false,
         pending: true,
-        reason: 'Open this artifact through epi view to verify the signer and file integrity.',
+        reason: 'Open this case file through epi view to verify the signer and file integrity.',
       }
       : {
         valid: false,
-        reason: 'Unsigned manifest',
+        reason: 'No signer attached to this case file',
       },
   };
 }
@@ -1032,6 +1057,9 @@ async function loadExampleCase() {
 }
 
 function scrollToSetupWizard() {
+  if (elements.setupPanelDetails) {
+    elements.setupPanelDetails.open = true;
+  }
   const setupPanel = document.querySelector('.setup-panel');
   setupPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1280,7 +1308,7 @@ function configureEmbeddedArtifactMode() {
   elements.dropZone.classList.add('disabled');
   elements.dropZone.setAttribute('aria-disabled', 'true');
   elements.dropZoneTitle.textContent = 'Embedded case file loaded';
-  elements.dropZoneCopy.textContent = 'This packaged viewer already contains the case record. Open through epi view or the full web viewer to add more .epi files.';
+  elements.dropZoneCopy.textContent = 'This packaged case review already contains the case record. Open this file again with epi view to add more .epi files.';
   elements.dropZoneAction.textContent = 'Embedded case file ready';
 }
 
@@ -1301,6 +1329,19 @@ function setView(viewName) {
   document.querySelectorAll('.view-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.dataset.viewPanel === viewName);
   });
+}
+
+function setProgressiveNavigationState(hasSelectedCase) {
+  [elements.rulesNavButton, elements.reportsNavButton].forEach((button) => {
+    if (!button) {
+      return;
+    }
+    button.hidden = !hasSelectedCase;
+    button.disabled = !hasSelectedCase;
+  });
+  if (!hasSelectedCase && ['rules', 'reports'].includes(state.currentView)) {
+    state.currentView = state.cases.length ? 'case' : 'inbox';
+  }
 }
 
 function selectCase(caseId) {
@@ -1390,7 +1431,7 @@ function openPriorityCaseReason() {
 }
 
 function renderApp() {
-  const hasWorkspace = state.cases.length > 0 || Boolean(state.workspaceSetup) || Boolean(state.sharedWorkspace.connected);
+  const hasCases = state.cases.length > 0;
 
   renderSetupWizard();
   renderSharedWorkspaceStatus();
@@ -1404,12 +1445,12 @@ function renderApp() {
   elements.reviewFilter.value = state.filters.review;
   elements.reviewerIdentity.value = state.reviewerIdentity;
 
-  const hasCases = state.cases.length > 0;
-  elements.workspace.hidden = !hasWorkspace;
-  elements.emptyInbox.hidden = !hasWorkspace || hasCases;
+  elements.summaryStrip.hidden = !hasCases;
+  elements.workspace.hidden = !hasCases;
+  elements.emptyInbox.hidden = true;
   elements.caseList.hidden = !hasCases;
 
-  if (!hasWorkspace) {
+  if (!hasCases) {
     setView('inbox');
   } else if (!getSelectedCase()) {
     const priorityCase = hasCases ? getPriorityCase(state.cases) : null;
@@ -1418,6 +1459,8 @@ function renderApp() {
       state.currentView = 'case';
     }
   }
+
+  setProgressiveNavigationState(Boolean(getSelectedCase()));
 
   renderGuidedReviewPanel();
   renderInbox();
@@ -1449,9 +1492,12 @@ function renderSummary() {
 }
 
 function renderGuidedReviewPanel() {
+  if (!state.cases.length) {
+    elements.guidedReviewPanel.hidden = true;
+    return;
+  }
   const priorityCase = getPriorityCase();
   const pendingCount = state.cases.filter((caseRecord) => caseRecord.status !== 'resolved').length;
-  const hasSetup = Boolean(state.workspaceSetup);
   const shouldShow = true;
 
   elements.guidedReviewPanel.hidden = !shouldShow;
@@ -1487,7 +1533,7 @@ function renderGuidedReviewPanel() {
     : 'Open one example or saved case first. EPI becomes much easier once you can review a single decision end to end.';
   elements.guidedReviewMeta.textContent = setup
     ? `Next best move: ${canFetchSample ? 'try a safe sample' : 'open an example case'}`
-    : 'Next best move: open an example case or use Quick Setup below.';
+    : 'Next best move: open an example case or connect a real system when you are ready.';
   elements.guidedReviewButton.textContent = canFetchSample ? 'Try a safe sample' : 'Open example case';
   elements.guidedWhyButton.hidden = true;
   elements.guidedQueueButton.hidden = true;
@@ -1500,12 +1546,12 @@ function renderSetupWizard() {
   const draft = buildSetupDraftFromInputs();
   syncSetupBridgeState(draft);
   const setup = buildWorkspaceSetup(draft);
-  const badgeLabel = state.workspaceSetup ? 'Ready' : 'Needs setup';
+  const badgeLabel = state.workspaceSetup ? 'Ready to use' : 'Optional';
   const badgeTone = state.workspaceSetup ? 'success' : 'neutral';
   setBadge(elements.setupReadyBadge, badgeLabel, badgeTone);
   updateConnectionStatusBadge(setup);
   renderSharedAuthPanel(setup);
-  elements.setupWorkspaceButton.textContent = state.workspaceSetup ? 'Update setup' : 'Set up EPI';
+  elements.setupWorkspaceButton.textContent = state.workspaceSetup ? 'Update setup' : 'Save setup';
   elements.downloadStarterPackButton.disabled = !state.workspaceSetup;
   elements.checkBridgeButton.disabled = !setup.bridgeUrl;
   elements.fetchLiveRecordButton.disabled = !setup.bridgeUrl;
@@ -2314,7 +2360,7 @@ async function refreshSharedWorkspace(showStatus) {
     };
     renderSharedWorkspaceStatus();
     if (showStatus) {
-      setStatus('Add the gateway access token first, then refresh the shared inbox.', 'warning');
+      setStatus('Add the access token first, then refresh the shared inbox.', 'warning');
     }
     return;
   }
@@ -2610,8 +2656,8 @@ function renderCaseView() {
   const canDownloadReviewedArtifact = canBuildReviewedArtifact(caseRecord);
   elements.downloadReviewedEpiButton.disabled = !canDownloadReviewedArtifact;
   elements.downloadReviewedEpiButton.textContent = canDownloadReviewedArtifact
-    ? 'Download reviewed .epi'
-    : 'Reviewed .epi unavailable';
+    ? 'Download reviewed case file (.epi)'
+    : 'Reviewed case file unavailable';
   setBadge(elements.caseWorkflowBadge, caseRecord.workflowState.label, caseRecord.workflowState.tone);
   setBadge(elements.caseTrustBadge, caseRecord.trust.label, caseRecord.trust.tone);
   setBadge(elements.caseRiskBadge, caseRecord.risk.label, caseRecord.risk.tone);
@@ -2679,7 +2725,7 @@ function renderWorkflowForm(caseRecord) {
   elements.workflowStatus.value = caseRecord.status || 'unassigned';
   elements.workflowSaveStatus.textContent = caseRecord.sharedWorkspaceCase
     ? `Current owner: ${caseRecord.assignee || 'Unassigned'}. ${caseRecord.isOverdue ? 'This case is overdue.' : caseRecord.workflowState.detail}`
-    : 'Team workflow controls apply when this case is connected to the shared gateway.';
+    : 'Team workflow controls apply when this case is connected to the shared team workspace.';
 }
 
 function renderComments(caseRecord) {
@@ -2943,17 +2989,17 @@ function buildEmptyInboxContent() {
       </p>
       <div class="action-row empty-state-actions">
         <button class="secondary-button" type="button" data-open-example-case>Open example case</button>
-        <button class="secondary-button" type="button" data-scroll-setup>Go back to setup</button>
+        <button class="secondary-button" type="button" data-scroll-setup>Connect a real system</button>
       </div>
     `;
   }
 
   return `
     <h3>Open one decision first</h3>
-    <p>Start with one example case, one saved \`.epi\` file, or Quick Setup below. EPI is easiest to understand one decision at a time.</p>
+    <p>Start with one example case, one saved \`.epi\` file, or the optional setup area. EPI is easiest to understand one decision at a time.</p>
     <div class="action-row empty-state-actions">
       <button class="secondary-button" type="button" data-open-example-case>Open example case</button>
-      <button class="secondary-button" type="button" data-scroll-setup>Use quick setup</button>
+      <button class="secondary-button" type="button" data-scroll-setup>Connect a real system</button>
     </div>
   `;
 }
@@ -3073,8 +3119,8 @@ function buildRecorderStarterReadme(setup, hasLiveRecord) {
     'Expected result:',
     '',
     `- EPI records a ${setup.workflowLabel.toLowerCase()} flow into ./epi-recordings/${workflowSlug}_starter.epi`,
-    '- The artifact includes the local `epi_policy.json` rulebook',
-    '- The viewer opens a real case file that can be reviewed, verified, and exported',
+    '- The case file includes the local `epi_policy.json` rulebook',
+    '- The browser review view opens a real case file that can be reviewed, verified, and exported',
     '',
     '## Replace the placeholders',
     '',
@@ -3090,7 +3136,7 @@ function buildRecorderStarterReadme(setup, hasLiveRecord) {
     '- Uses `with epi.agent_run(...)` for structured decision evidence',
     '- Uses connector-aware helpers so real business-system fetches can be captured in the same run',
     ...(hasLiveRecord ? ['- Includes the last browser-fetched source record so the first run can start with real business context immediately'] : []),
-    '- Produces a standard `.epi` artifact EPI can view, verify, and review',
+    '- Produces a standard `.epi` case file EPI can view, verify, and review',
     '',
   ].join('\n');
 }
@@ -3931,7 +3977,7 @@ function buildPolicyRuleSummary(rule) {
     return `${rule.name || 'Prohibition guard'} blocks output that matches ${rule.prohibited_pattern || 'a forbidden pattern'}.`;
   }
   if (rule.type === 'approval_guard') {
-    return `${rule.name || 'Approval guard'} requires ${rule.approved_by || 'the reviewer'} to approve ${rule.approval_action || 'a sensitive action'} before it executes.`;
+    return `${rule.name || 'Approval rule'} requires ${rule.approved_by || 'the reviewer'} to approve ${rule.approval_action || 'a sensitive action'} before it executes.`;
   }
   if (rule.type === 'tool_permission_guard') {
     return `${rule.name || 'Tool permission guard'} allows ${rule.allowed_tools_text || 'approved tools only'} and denies ${rule.denied_tools_text || 'restricted tools'}.`;
@@ -4152,16 +4198,36 @@ function populateReviewForm(caseRecord) {
     ? 'confirmed_fault'
     : 'dismissed';
   elements.reviewerName.value = existingReview?.reviewer || caseRecord.review?.reviewed_by || state.reviewerIdentity || '';
-  elements.reviewOutcome.value = existingReview?.outcome || defaultOutcome;
+  setSelectedReviewOutcome(existingReview?.outcome || defaultOutcome);
   elements.reviewNotes.value = existingReview?.notes || '';
-  elements.applyReviewButton.textContent = caseRecord.backendCase ? 'Save review to team case' : 'Save review';
   elements.reviewSaveStatus.textContent = existingReview
-    ? `Latest review on file: ${mapReviewOutcome(existingReview.outcome)}${caseRecord.review?.review_signature ? ' (signed)' : ''}`
+    ? `Latest review notes on file: ${mapReviewOutcome(existingReview.outcome)}${caseRecord.review?.review_signature ? ' (signed)' : ''}`
       : caseRecord.backendCase
-      ? 'Saving here updates the shared case. Downloading a reviewed .epi exports portable proof from the gateway.'
+      ? 'Saving here updates the shared case. Downloading a reviewed .epi exports a portable reviewed case file from the team workspace.'
       : canDownloadReviewedArtifact
-      ? 'Your changes stay local until you download the reviewed case or review record.'
+      ? 'Your changes stay local until you download the reviewed case or review notes.'
       : 'Your changes stay local in this browser session. Open the original .epi file if you want to download a reviewed case.';
+}
+
+function setSelectedReviewOutcome(outcome) {
+  const nextOutcome = REVIEW_ACTIONS[outcome] ? outcome : 'dismissed';
+  elements.reviewOutcome.value = nextOutcome;
+  [
+    elements.reviewApproveButton,
+    elements.reviewRejectButton,
+    elements.reviewEscalateButton,
+  ].forEach((button) => {
+    if (!button) {
+      return;
+    }
+    const selected = button.dataset.reviewAction === nextOutcome;
+    button.classList.toggle('is-selected', selected);
+    button.classList.toggle('primary-button', selected);
+    button.classList.toggle('secondary-button', !selected);
+  });
+  if (elements.reviewActionHelp) {
+    elements.reviewActionHelp.textContent = REVIEW_ACTIONS[nextOutcome].help;
+  }
 }
 
 async function saveReviewToBackend(caseRecord, reviewRecord) {
@@ -4195,7 +4261,7 @@ async function saveCaseWorkflow() {
     return;
   }
   if (!caseRecord.backendCase || !state.bridgeHealth?.url) {
-    elements.workflowSaveStatus.textContent = 'Workflow updates are available for shared gateway cases.';
+    elements.workflowSaveStatus.textContent = 'Workflow updates are available for shared team cases.';
     return;
   }
 
@@ -4204,7 +4270,7 @@ async function saveCaseWorkflow() {
     due_at: (elements.workflowDueAt.value || '').trim() || null,
     status: elements.workflowStatus.value || caseRecord.status || 'unassigned',
     updated_by: state.reviewerIdentity || (elements.reviewerName.value || '').trim() || 'reviewer',
-    reason: 'Workflow updated in Decision Ops',
+    reason: 'Workflow updated in case review',
   };
 
   try {
@@ -4236,7 +4302,7 @@ async function saveCaseComment() {
     return;
   }
   if (!caseRecord.backendCase || !state.bridgeHealth?.url) {
-    elements.commentSaveStatus.textContent = 'Comments are available for shared gateway cases.';
+    elements.commentSaveStatus.textContent = 'Comments are available for shared team cases.';
     return;
   }
 
@@ -4288,7 +4354,7 @@ async function ensureCaseInReview(caseRecord) {
     body: JSON.stringify({
       status: 'in_review',
       updated_by: state.reviewerIdentity || (elements.reviewerName.value || '').trim() || 'reviewer',
-      reason: 'Review started in Decision Ops',
+      reason: 'Review started in case review',
     }),
   });
   const payload = await response.json();
@@ -4302,17 +4368,21 @@ async function ensureCaseInReview(caseRecord) {
   return updatedCase;
 }
 
-async function applyLocalReview() {
+async function applyLocalReview(forcedOutcome) {
   const caseRecord = getSelectedCase();
   if (!caseRecord) {
     return;
   }
 
   try {
+    if (forcedOutcome) {
+      setSelectedReviewOutcome(forcedOutcome);
+    }
     const reviewRecord = await buildPreparedReviewRecord(caseRecord);
+    const actionLabel = mapReviewOutcome(reviewRecord.reviews?.[0]?.outcome);
     if (caseRecord.backendCase) {
       await saveReviewToBackend(caseRecord, reviewRecord);
-      elements.reviewSaveStatus.textContent = `Saved shared review for ${reviewRecord.reviewed_by || 'this reviewer'} at ${formatDate(reviewRecord.reviewed_at)}.${reviewRecord.review_signature ? ' Signed review ready.' : ' Review saved.'}`;
+      elements.reviewSaveStatus.textContent = `${actionLabel} saved to the shared team case for ${reviewRecord.reviewed_by || 'this reviewer'} at ${formatDate(reviewRecord.reviewed_at)}.${reviewRecord.review_signature ? ' Signed review ready.' : ' Review notes saved.'}`;
     } else {
       caseRecord.review = reviewRecord;
       caseRecord.reviewSignature = await verifyReviewSignature(reviewRecord);
@@ -4320,7 +4390,7 @@ async function applyLocalReview() {
       caseRecord.status = workflowStatusForReviewOutcome(reviewRecord.reviews?.[0]?.outcome, caseRecord.status);
       caseRecord.workflowState = deriveWorkflowState(caseRecord.status);
       const sharedSaved = await publishCaseToSharedWorkspace(caseRecord);
-      elements.reviewSaveStatus.textContent = `Saved locally for ${reviewRecord.reviewed_by || 'this reviewer'} at ${formatDate(reviewRecord.reviewed_at)}.${reviewRecord.review_signature ? ' Signed review ready.' : ' Download the reviewed .epi when you are ready.'}`;
+      elements.reviewSaveStatus.textContent = `${actionLabel} saved locally for ${reviewRecord.reviewed_by || 'this reviewer'} at ${formatDate(reviewRecord.reviewed_at)}.${reviewRecord.review_signature ? ' Signed review ready.' : ' Download the reviewed case file when you are ready.'}`;
       if (sharedSaved) {
         elements.reviewSaveStatus.textContent += ' Shared workspace updated.';
       }
@@ -4356,9 +4426,9 @@ async function downloadReviewRecord() {
 
     const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-review.json';
     downloadBlob(filename, JSON.stringify(reviewRecord, null, 2), 'application/json');
-    elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The review record is signed.' : ' The review record is unsigned.'}`;
+    elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The review notes file is signed.' : ' The review notes file is unsigned.'}`;
   } catch (error) {
-    elements.reviewSaveStatus.textContent = `Could not export review record: ${error.message}`;
+    elements.reviewSaveStatus.textContent = `Could not export review notes: ${error.message}`;
   }
 }
 
@@ -4378,7 +4448,7 @@ async function downloadReviewedArtifact() {
   }
 
   if (!canBuildReviewedArtifact(caseRecord)) {
-    elements.reviewSaveStatus.textContent = 'This browser session does not have enough artifact data to rebuild a reviewed .epi yet.';
+    elements.reviewSaveStatus.textContent = 'This browser session does not have enough case file data to rebuild a reviewed .epi yet.';
     return;
   }
 
@@ -4396,7 +4466,7 @@ async function downloadReviewedArtifact() {
       const blob = await response.blob();
       const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-reviewed.epi';
       downloadBlob(filename, blob, 'application/vnd.epi+zip');
-      elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review is signed.' : ' The embedded review is unsigned.'} The shared case remains available in the inbox.`;
+      elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review notes are signed.' : ' The embedded review notes are unsigned.'} The shared case remains available in the inbox.`;
     } else {
       caseRecord.review = reviewRecord;
       caseRecord.reviewSignature = await verifyReviewSignature(reviewRecord);
@@ -4413,7 +4483,7 @@ async function downloadReviewedArtifact() {
       const archiveBytes = await buildReviewedArtifactBytes(caseRecord, reviewRecord);
       const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-reviewed.epi';
       downloadBlob(filename, archiveBytes, 'application/zip');
-      elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review is signed.' : ' The embedded review is unsigned.'} The original artifact is unchanged.`;
+      elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review notes are signed.' : ' The embedded review notes are unsigned.'} The original case file is unchanged.`;
     }
   } catch (error) {
     elements.reviewSaveStatus.textContent = `Could not create reviewed .epi: ${error.message}`;
@@ -4497,7 +4567,7 @@ async function collectArtifactSourceEntries(caseRecord) {
 
   if (caseRecord.archiveBytes) {
     if (typeof JSZip === 'undefined') {
-      throw new Error('The browser ZIP helper is unavailable for this preloaded artifact.');
+      throw new Error('The browser ZIP helper is unavailable for this preloaded case file.');
     }
 
     const sourceZip = await JSZip.loadAsync(caseRecord.archiveBytes.slice(0));
@@ -4532,7 +4602,7 @@ async function collectArtifactSourceEntries(caseRecord) {
     return entries;
   }
 
-  throw new Error('This browser session does not include enough artifact data to rebuild the reviewed .epi.');
+  throw new Error('This browser session does not include enough case file data to rebuild the reviewed .epi.');
 }
 
 function buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries) {
@@ -4725,7 +4795,7 @@ async function checkIntegrity(zip, manifest) {
 
 async function verifySignature(manifest) {
   if (!manifest.signature) {
-    return { valid: false, reason: 'Unsigned manifest' };
+    return { valid: false, reason: 'No signer attached to this case file' };
   }
 
   if (typeof verifyManifestSignature !== 'function') {
@@ -4745,7 +4815,7 @@ async function verifyReviewSignature(review) {
       code: 'no-review',
       label: 'No review saved',
       tone: 'neutral',
-      detail: 'This case file does not include review.json yet.',
+      detail: 'This case file does not include saved review notes yet.',
     };
   }
 
@@ -4845,7 +4915,7 @@ function deriveTrustState(manifest, integrity, signature) {
       code: 'source-not-proven',
       label: 'Source not proven',
       tone: 'warning',
-      detail: `This packaged view can show the decision record, but it did not recheck the ${integrity.checked} hashed file(s).`,
+      detail: `This packaged case view can show the decision record, but it did not recheck the ${integrity.checked} protected file(s).`,
     };
   }
 
@@ -4854,7 +4924,7 @@ function deriveTrustState(manifest, integrity, signature) {
       code: 'trusted',
       label: 'Trusted',
       tone: 'success',
-      detail: `All ${integrity.checked} hashed file(s) matched and the signature verified.`,
+      detail: `All ${integrity.checked} protected file(s) matched and the signature verified.`,
     };
   }
 
@@ -4871,7 +4941,7 @@ function deriveTrustState(manifest, integrity, signature) {
     code: 'source-not-proven',
     label: 'Source not proven',
     tone: 'warning',
-    detail: `All ${integrity.checked} hashed file(s) matched, but no signer is attached to this case file.`,
+    detail: `All ${integrity.checked} protected file(s) matched, but no signer is attached to this case file.`,
   };
 }
 
@@ -5013,7 +5083,7 @@ function deriveReviewState(review, analysis, policyEvaluation, reviewSignature) 
     code: 'not-required',
     label: 'No review required',
     tone: 'neutral',
-    detail: 'No pending review signal was found in the artifact.',
+    detail: 'No pending review signal was found in this case file.',
   };
 }
 
@@ -5076,8 +5146,8 @@ function buildFindings(caseRecord) {
 
   if (caseRecord.policyEvaluation) {
     findings.push({
-      title: 'Policy evaluation',
-      copy: `Controls evaluated: ${caseRecord.policyEvaluation.controls_evaluated || 0}. Controls failed: ${caseRecord.policyEvaluation.controls_failed || 0}.`,
+      title: 'Rules evaluation',
+      copy: `Rules checked: ${caseRecord.policyEvaluation.controls_evaluated || 0}. Rules failed: ${caseRecord.policyEvaluation.controls_failed || 0}.`,
     });
   }
 
@@ -5093,14 +5163,14 @@ function buildFindings(caseRecord) {
     const latest = getLatestReviewEntry(caseRecord);
     findings.push({
       title: 'Latest review note',
-      copy: latest?.notes || 'A review record is attached to this case.',
+      copy: latest?.notes || 'Review notes are attached to this case.',
     });
   }
 
   if (!findings.length) {
     findings.push({
       title: 'No explicit findings',
-      copy: 'This artifact does not include analysis.json or policy findings, so the case view focuses on trust, decision context, and timeline.',
+      copy: 'This case file does not include analysis details or rule findings, so the case view focuses on trust, decision context, and timeline.',
     });
   }
 
@@ -5729,16 +5799,7 @@ function toCsvCell(value) {
 }
 
 function mapReviewOutcome(outcome) {
-  if (outcome === 'confirmed_fault') {
-    return 'Confirmed issue';
-  }
-  if (outcome === 'dismissed') {
-    return 'Dismissed after review';
-  }
-  if (outcome === 'skipped') {
-    return 'Decide later';
-  }
-  return 'Reviewed';
+  return REVIEW_ACTIONS[outcome]?.label || 'Reviewed';
 }
 
 function escapeHtml(value) {

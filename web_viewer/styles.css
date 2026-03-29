@@ -170,6 +170,47 @@ button[disabled] {
   padding: 24px;
 }
 
+.setup-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.setup-shell-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+  cursor: pointer;
+  list-style: none;
+}
+
+.setup-shell-summary::-webkit-details-marker {
+  display: none;
+}
+
+.setup-shell-summary h2 {
+  margin-top: 8px;
+  font-size: 1.8rem;
+}
+
+.setup-shell-status {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  text-align: right;
+}
+
+.setup-shell-hint {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.setup-shell-body {
+  border-top: 1px solid rgba(199, 180, 155, 0.72);
+  padding-top: 18px;
+}
+
 .drop-zone {
   border: 2px dashed var(--line-strong);
   border-radius: 22px;
@@ -436,6 +477,12 @@ button[disabled] {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+}
+
+.nav-button[disabled] {
+  opacity: 0.48;
+  cursor: default;
+  transform: none !important;
 }
 
 .sidebar-section {
@@ -735,6 +782,44 @@ label {
   gap: 14px;
 }
 
+.review-action-block {
+  display: grid;
+  gap: 12px;
+}
+
+.review-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.review-action-button {
+  flex: 1 1 180px;
+}
+
+.review-action-button.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.2);
+}
+
+.review-signing-details {
+  border: 1px solid rgba(199, 180, 155, 0.72);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.45);
+  padding: 14px 16px;
+}
+
+.review-signing-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.review-signing-details[open] summary {
+  margin-bottom: 10px;
+}
+
 .comment-thread,
 .comment-form {
   display: grid;
@@ -870,6 +955,15 @@ label {
   .guided-review-panel {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .setup-shell-summary {
+    flex-direction: column;
+  }
+
+  .setup-shell-status {
+    justify-items: start;
+    text-align: left;
   }
 
   .guided-review-actions {
