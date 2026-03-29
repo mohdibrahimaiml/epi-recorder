@@ -211,7 +211,7 @@ def _find_demo_epi(stem: str = "demo_refund") -> Optional[Path]:
 
 def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]:
     """
-    Read a local .epi artifact and push it into the gateway case store.
+    Read a local .epi case file and push it into the gateway case store.
     Returns the case_id on success, None on failure.
     Labels the case "[Live captured]" so it's visually distinct from seeded demo data.
     """
@@ -262,7 +262,7 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
         return result.get("id") or case_id
 
     except Exception as exc:
-        console.print(f"[yellow][!][/yellow] Could not ingest artifact: {exc}")
+        console.print(f"[yellow][!][/yellow] Could not ingest the case file: {exc}")
         return None
 
 
@@ -395,7 +395,7 @@ def _run_demo_script(script_path: Path, env: dict) -> bool:
 
 def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
     """
-    Export the case to a .epi artifact and run epi verify on it.
+    Export the case to a .epi case file and run epi verify on it.
     Prints the full verify output so the user sees the signed proof.
     Returns the exported path or None on failure.
     """
@@ -405,7 +405,7 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
     out_path = Path("refund_case.epi").resolve()
 
     console.print()
-    console.print("[dim]Exporting evidence artifact...[/dim]")
+    console.print("[dim]Exporting the case file...[/dim]")
 
     worker = EvidenceWorker(storage_dir=storage_dir)
 
@@ -450,15 +450,15 @@ app = typer.Typer(help="Zero-friction developer onboarding for EPI.")
 @app.callback(invoke_without_command=True)
 def dev(
     ctx: typer.Context,
-    port: int = typer.Option(8787, "--port", "-p", help="Gateway port."),
-    storage_dir: Path = typer.Option(Path("./evidence_vault"), "--storage-dir", help="Gateway storage directory."),
+    port: int = typer.Option(8787, "--port", "-p", help="Local review workspace port."),
+    storage_dir: Path = typer.Option(Path("./evidence_vault"), "--storage-dir", help="Local case storage directory."),
     no_browser: bool = typer.Option(False, "--no-browser", help="Skip opening the browser."),
     demo_script: Path = typer.Option(Path("demo_refund.py"), "--demo-script", help="Path to demo script (auto-generated if missing)."),
     no_run: bool = typer.Option(False, "--no-run", help="Skip running the demo script."),
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip the interactive export + verify step."),
 ):
     """
-    Start a complete EPI demo: gateway, live capture, browser, export, verify.
+    Start a complete EPI demo: refund review, browser case view, export, verify.
 
     No API key, no internet, no config required.
     """
@@ -470,8 +470,8 @@ def dev(
 
     console.print()
     console.print(Panel.fit(
-        "[bold cyan]epi dev[/bold cyan] — Evidence Packaged Infrastructure\n"
-        "[dim]Real capture. Honest labeling. Cryptographic proof.[/dim]",
+        "[bold cyan]epi demo[/bold cyan] — refund review in one command\n"
+        "[dim]Real capture. Honest labeling. Clear case review.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -490,7 +490,7 @@ def dev(
 
     gateway_url = f"http://127.0.0.1:{actual_port}"
 
-    console.print(f"[dim]  Starting gateway on {gateway_url}...[/dim]")
+    console.print(f"[dim]  Starting the local review workspace on {gateway_url}...[/dim]")
 
     gateway_env = os.environ.copy()
     gateway_env["EPI_GATEWAY_STORAGE_DIR"] = str(storage_dir)
@@ -505,11 +505,11 @@ def dev(
     )
 
     if not _wait_for_port("127.0.0.1", actual_port, timeout=20.0):
-        console.print("[red]  [FAIL] Gateway did not start.[/red]")
+        console.print("[red]  [FAIL] The local review workspace did not start.[/red]")
         gateway_proc.terminate()
         raise typer.Exit(1)
 
-    console.print(f"[green]  [OK] Gateway running -> {gateway_url}[/green]")
+    console.print(f"[green]  [OK] Local review workspace ready -> {gateway_url}[/green]")
 
     # ── [2] Run demo script ───────────────────────────────────────────────
     case_id: Optional[str] = None
@@ -540,7 +540,7 @@ def dev(
 
         if epi_path:
             console.print(f"[dim]  Captured: {epi_path.name} ({epi_path.stat().st_size // 1024 + 1} KB)[/dim]")
-            console.print("[dim]  Building case from artifact...[/dim]")
+            console.print("[dim]  Building the review case file...[/dim]")
             case_id = _ingest_epi_into_gateway(epi_path, storage_dir)
             if case_id:
                 case_source = "live"
@@ -553,7 +553,7 @@ def dev(
         console.print("[dim]  Seeding simulated demo case as fallback...[/dim]")
         case_id = _seed_simulated_case(storage_dir)
         case_source = "simulated"
-        console.print("[yellow]  [DEMO] Simulated case seeded (not a real capture)[/yellow]")
+        console.print("[yellow]  [DEMO] Simulated case added (not a real capture)[/yellow]")
 
     # ── [5] Open browser ──────────────────────────────────────────────────
     console.print()
@@ -569,9 +569,9 @@ def dev(
     )
 
     console.print()
-    console.rule("[bold cyan]Pipeline complete[/bold cyan]")
+    console.rule("[bold cyan]Demo ready[/bold cyan]")
     console.print()
-    console.print(f"  [green]✔[/green] Gateway started          {gateway_url}")
+    console.print(f"  [green]✔[/green] Review workspace ready   {gateway_url}")
     if case_source == "live":
         console.print(f"  [green]✔[/green] Decision captured         demo_refund.epi")
     console.print(f"  [green]✔[/green] Case in inbox             Refund ORD-9001 ($900)  ({source_label})")
@@ -587,7 +587,7 @@ def dev(
     # ── [7] Interactive export + verify ───────────────────────────────────
     if not no_verify:
         console.print()
-        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident artifact.")
+        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident case file.")
         console.print("  This is what you send to auditors, regulators, or downstream systems.")
         console.print()
         try:
@@ -601,7 +601,7 @@ def dev(
             exported = _auto_export_and_verify(storage_dir, case_id)
             if exported:
                 console.print()
-                console.print(f"  [bold green]✔ Evidence artifact verified: {exported.name}[/bold green]")
+                console.print(f"  [bold green]✔ Case file verified: {exported.name}[/bold green]")
                 console.print("  [dim]This file is cryptographically tamper-evident.[/dim]")
                 console.print("  [dim]Share it. Store it. Verify it anywhere.[/dim]")
             console.print()
@@ -613,23 +613,23 @@ def dev(
     console.rule()
     console.print()
     console.print(f"  Cases stored at:   [cyan]{storage_dir}[/cyan]")
-    console.print("  Restart [bold]epi dev[/bold] to continue where you left off.")
+    console.print("  Restart [bold]epi demo[/bold] to continue where you left off.")
     console.print()
-    console.print("  Press [bold]Ctrl+C[/bold] to stop the gateway.")
+    console.print("  Press [bold]Ctrl+C[/bold] to close the local review workspace.")
     console.print()
 
     # ── [9] Keep gateway alive ────────────────────────────────────────────
     try:
         while True:
             if gateway_proc.poll() is not None:
-                console.print("[red][!] Gateway exited unexpectedly.[/red]")
+                console.print("[red][!] The local review workspace exited unexpectedly.[/red]")
                 break
             time.sleep(1.0)
     except KeyboardInterrupt:
         pass
     finally:
         console.print()
-        console.print("[dim]Stopping gateway...[/dim]")
+        console.print("[dim]Stopping the local review workspace...[/dim]")
         try:
             gateway_proc.terminate()
             gateway_proc.wait(timeout=5.0)

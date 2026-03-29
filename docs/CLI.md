@@ -5,26 +5,42 @@
 
 ---
 
+## Start Here
+
+Start with `epi demo`. It is the primary non-technical front door and opens the canonical browser review experience with a refund-approval case in one command.
+
+If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
+
+`epi view` is the canonical EPI case review experience. Older desktop viewer projects remain legacy/internal compatibility surfaces and are not the recommended front door.
+
+---
+
 ## Core Commands
 
 | Command | Purpose |
 | --- | --- |
+| `epi demo` | Start the refund-review demo in the browser. Recommended first run. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
-| `epi view <file.epi>` | Open an artifact in the embedded viewer flow. |
-| `epi verify <file.epi>` | Verify artifact integrity and signature state. |
-| `epi analyze <file.epi>` | Show fault-analysis output without opening the viewer. |
+| `epi view <file.epi>` | Open a case file in the browser review view. |
+| `epi verify <file.epi>` | Verify case file integrity and signature state. |
+| `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
 | `epi unassociate` | Remove file association support. |
 | `epi doctor` | Run self-healing diagnostics. |
 | `epi keys` | Manage signing keys. |
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
+| `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
+
+### Advanced / operator commands
+
+| Command | Purpose |
+| --- | --- |
 | `epi gateway serve` | Start the open-source AI capture gateway for low-friction developer adoption. |
-| `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` artifact. |
-| `epi connect open` | Start the local Decision Ops app and connector bridge together. |
+| `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` case file. |
+| `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
-| `epi review <file.epi>` | Confirm or dismiss policy-grounded faults. |
 
 ---
 
@@ -61,7 +77,7 @@ Think of the evidence quality like this:
 
 ## `epi view <file.epi>`
 
-Opens a recording using the viewer flow.
+Opens a saved case file using the canonical browser review flow.
 
 ```bash
 epi view my_run.epi
@@ -154,7 +170,7 @@ For the proposed enterprise direction after `v2.8.10`, see [`POLICY-V2-DESIGN.md
 
 ## `epi connect open`
 
-Starts the local Decision Ops browser app and the local connector bridge together, then opens the browser for you.
+Starts the local browser review workspace and the local connector bridge together, then opens the browser for you.
 
 ```bash
 epi connect open
@@ -216,7 +232,7 @@ epi connect serve --users-file ./config/gateway-users.example.json
 Typical use:
 - easiest path: run `epi connect open`
 - advanced path: start the bridge in a terminal
-- open the Decision Ops Setup Wizard
+- open the browser setup wizard
 - keep the bridge URL at `http://127.0.0.1:8765` unless you changed the port
 - click `Check local bridge`, then `Fetch live record`
 
@@ -226,7 +242,7 @@ The bridge stays local to the machine by default and is meant for self-hosted se
 
 ## `epi review <file.epi>`
 
-Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the artifact as `review.json` without replacing the original sealed evidence files.
+Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the case file as review notes without replacing the original sealed evidence files.
 
 ```bash
 epi review payment_run.epi

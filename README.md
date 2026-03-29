@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
-  <p align="center"><strong>AI Evidence Infrastructure for Consequential AI</strong></p>
+  <p align="center"><strong>3 lines of code. Your AI agent's decisions — captured, signed, and openable in any browser forever.</strong></p>
   <p align="center">
-    <em>Tamper-evident decision case files for AI systems that approve, reject, escalate, or act.</em>
+    <em>No cloud. No login. No internet required.</em>
   </p>
 </p>
 
@@ -19,15 +19,25 @@
 </p>
 
 <p align="center">
+  <a href="https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"/>
+  </a>
+  &nbsp;
+  <a href="https://epilabs.org/verify">
+    <img src="https://img.shields.io/badge/verify-.epi%20files-green?style=flat-square&logo=checkmarx" alt="Verify .epi files online"/>
+  </a>
+</p>
+
+<p align="center">
   <strong>
-    <a href="#quick-start">Quick Start</a> ·
+    <a href="#install">Install</a> ·
+    <a href="#try-it-now--no-api-key">Try It Now</a> ·
+    <a href="#add-to-your-code">Add to Your Code</a> ·
+    <a href="#pytest-plugin">pytest</a> ·
+    <a href="#framework-integrations">Integrations</a> ·
     <a href="docs/EPI-SPEC.md">Specification</a> ·
     <a href="docs/CLI.md">CLI Reference</a> ·
     <a href="docs/POLICY.md">Policy Guide</a> ·
-    <a href="docs/CATEGORY-MESSAGING.md">Enterprise Narrative</a> ·
-    <a href="docs/HIGH-RISK-ADOPTION-ROADMAP.md">Adoption Roadmap</a> ·
-    <a href="docs/PILOT-READINESS-ROADMAP.md">Pilot Readiness</a> ·
-    <a href="docs/SELF-HOSTED-RUNBOOK.md">Self-Hosted Runbook</a> ·
     <a href="CHANGELOG.md">Changelog</a> ·
     <a href="https://epilabs.org">Website</a>
   </strong>
@@ -35,83 +45,7 @@
 
 ---
 
-## EPI in One Line
-
-EPI is the evidence layer and system of record for consequential AI decisions.
-
-When an AI system approves a refund, underwrites a loan, escalates a support case, or triggers an operational action, EPI creates one portable `.epi` case file that answers:
-
-- What actually happened?
-- Which rule was active at the time?
-- Where did the run go wrong?
-- Did a human reviewer confirm or dismiss it?
-- Is this artifact still trustworthy, or was it tampered with?
-
-Traditional logs help teams debug. EPI helps teams defend a decision after an incident, audit request, model-risk review, or compliance challenge.
-
-## Why Enterprises Buy EPI
-
-- **Incident response for AI decisions**: reconstruct the timeline after money, access, safety, or compliance was affected.
-- **Policy-backed governance**: embed the rulebook and analysis that explain what controls applied.
-- **Human approval and signoff**: append review without rewriting the original record.
-- **Tamper-evident evidence**: make integrity visible as `Signed`, `Unsigned`, or `Tampered`.
-
-EPI is not an observability dashboard. It sits beside observability as the durable evidence layer for high-stakes AI operations.
-
-## Open Capture, Enterprise Control
-
-The best long-term shape for EPI is:
-
-- **open-source capture and proof**
-- **enterprise control plane on top**
-
-That means:
-
-- `epi_core`, `epi_recorder`, and `epi_gateway` become the open developer-facing infrastructure layers
-- `.epi` stays the portable, signed proof format
-- reviewer workflows, policy distribution, central search, assignments, and org controls can become the enterprise layer
-
-For the architecture boundary, see [docs/OPEN-CORE-ARCHITECTURE.md](docs/OPEN-CORE-ARCHITECTURE.md).
-
-For the concrete hardening bar before customer pilots, see [docs/PILOT-READINESS-ROADMAP.md](docs/PILOT-READINESS-ROADMAP.md).
-
-For the supported self-hosted runtime, recovery flow, backup/restore, and operator checklist, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
-For the repeatable local operator drill that exercises capture, review, export, backup, and restore on one stack, run `scripts/self_hosted_drill.py`.
-
-## Why Now
-
-AI is moving from copilots to decisions with real operational consequences. The question after deployment is no longer only "did the workflow run?" but "can we prove what happened weeks later?"
-
-That pressure shows up in audit, internal governance, post-incident review, vendor risk, and emerging logging obligations for high-risk AI systems. Teams need evidence that survives across tools, vendors, handoffs, and time.
-
-## Buyer, Champion, and First Workflows
-
-Primary buyer:
-- Head of AI Governance
-- Model Risk leader
-- Compliance Engineering lead
-
-Economic buyer:
-- CISO
-- CRO
-- CIO
-
-Champion:
-- AI platform lead
-- Applied AI engineering lead
-
-Best first workflows:
-- refunds, claims, and underwriting decisions
-- support escalations and exception handling
-- internal approvals where AI recommends or triggers action
-- agent workflows that call tools, use memory, and request human approval
-
-Less ideal:
-- toy chatbots
-- pure prompt experimentation without workflow consequences
-- teams that only want live cloud observability and do not care about portable records
-
-For the concrete rollout plan to make EPI easier for high-risk AI teams worldwide, see [docs/HIGH-RISK-ADOPTION-ROADMAP.md](docs/HIGH-RISK-ADOPTION-ROADMAP.md).
+## Install
 
 ```bash
 pip install epi-recorder
@@ -119,51 +53,37 @@ pip install epi-recorder
 
 ---
 
-## Quick Start
+## Try It Now — No API Key
 
-### First run: let EPI teach you the model
-
-```bash
-epi init
-```
-
-That creates and runs a demo which shows both:
-- console evidence captured as `stdout.print`
-- structured workflow evidence emitted with explicit EPI steps
-
-This is the most important mental model:
-- plain console output is still useful evidence
-- structured EPI steps are what unlock better policy checks, fault analysis, and review
-
-### Fast path for an existing script
-
-```bash
-epi run my_script.py
-```
-
-What happens:
-- if the script prints output, EPI can capture that as console evidence
-- if the script emits structured EPI steps, the artifact becomes much more useful for trust review
-- if nothing meaningful is captured, `epi run` fails loudly instead of pretending success
-
-### Gateway path for AI infrastructure adoption
+**Option A: On your machine (60 seconds)**
 
 ```bash
 pip install epi-recorder
-epi gateway serve
-epi gateway serve --users-file config/gateway-users.example.json
+epi demo
 ```
 
-Use this when you want EPI to behave more like AI infrastructure:
+This runs a complete refund-approval demo using a built-in mock LLM:
 
-- point SDKs, adapters, or proxies at one capture endpoint
-- normalize events into a shared open schema
-- normalize provider-native payloads from OpenAI-compatible, Anthropic, Gemini, LiteLLM, and generic LLM adapters
-- support real proxy-style adoption through OpenAI-compatible `/v1/chat/completions` and Anthropic-compatible `/v1/messages`
-- keep the eventual `.epi` export path for proof and audit
-- optionally gate the shared reviewer APIs with either a shared bearer token or a small local users file for browser sign-in
+1. Agent runs, makes a decision, captures every step
+2. Creates a signed `.epi` case file locally
+3. Opens the browser review view (no login, no internet)
+4. Lets you export and cryptographically verify it
 
-### Record a workflow in 3 lines
+> Already have an OpenAI key? Set `OPENAI_API_KEY` and the demo uses the real API instead.
+
+**Option B: In your browser (no install)**
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb)
+
+Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same refund-review loop in your browser: setup → run → review → verification.
+
+**Option C: Verify an existing .epi file**
+
+Drag and drop any `.epi` file at [epilabs.org/verify](https://epilabs.org/verify) — no install, no login, verification runs entirely in your browser.
+
+---
+
+## Add to Your Code
 
 ```python
 from epi_recorder import record, wrap_openai
@@ -173,22 +93,23 @@ client = wrap_openai(OpenAI())
 
 with record("my_agent.epi"):
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Plan a trip to Tokyo"}]
     )
 ```
 
-**What EPI creates:** a portable `.epi` artifact with the execution timeline, environment snapshot, embedded viewer, and trust metadata. When policy is present, EPI also embeds `policy.json` and `analysis.json`. Human review can later add `review.json` without rewriting the original record.
+**What EPI creates:** a portable `.epi` case file with the decision timeline, environment snapshot, browser review view, and trust metadata. When rules are present, EPI also embeds `policy.json` and `analysis.json`. Human review can later add review notes without rewriting the original record.
 
-**Capture ladder:**
-- `print(...)` in `epi run` mode -> basic console evidence (`stdout.print`)
-- `get_current_session().log_step(...)` -> manual structured steps inside `epi run`
-- `get_current_session().agent_run(...)` -> structured agent evidence inside `epi run`
-- `with record(...)` or supported wrappers/integrations -> strongest path for meaningful workflow evidence
+Open it:
 
-For guaranteed evidence capture, instrument your workflow with `record()` or use a supported integration. In `epi run` mode, advanced users can also emit manual steps with `get_current_session().log_step(...)` or use `get_current_session().agent_run(...)` for cleaner agent-shaped traces.
+```bash
+epi view my_agent.epi    # browser review view — offline, no login
+epi verify my_agent.epi  # cryptographic integrity check
+```
 
-### Record an AI agent run more clearly
+`epi view` is the canonical EPI review experience. Older desktop viewer surfaces remain legacy/internal compatibility paths and are not the recommended front door.
+
+### Record a full agent run with approvals and tool calls
 
 ```python
 from epi_recorder import record
@@ -199,12 +120,8 @@ with record("refund_agent.epi", goal="Resolve customer refund safely") as epi:
         user_input="Refund order 123",
         session_id="sess-001",
         task_id="refund-123",
-        attempt=2,
-        resume_from="run-previous",
     ) as agent:
         agent.plan("Look up the order, confirm approval status, then decide.")
-        agent.message("user", "Refund order 123")
-        agent.memory_read("customer_history", query="order 123", result_count=2)
         agent.tool_call("lookup_order", {"order_id": "123"})
         agent.tool_result("lookup_order", {"status": "paid", "amount": 120})
         agent.approval_request("approve_refund", reason="Amount exceeds auto threshold")
@@ -212,30 +129,122 @@ with record("refund_agent.epi", goal="Resolve customer refund safely") as epi:
         agent.decision("approve_refund", confidence=0.91)
 ```
 
-This keeps the artifact readable for humans while still producing policy-friendly `tool.call` / `tool.response` steps. The resulting `.epi` can now show lineage, approvals, handoffs, memory activity, and pause/resume checkpoints as part of one agent case file.
+The resulting `.epi` shows lineage, approvals, tool calls, memory activity, and pause/resume checkpoints as one signed case file.
 
-### The product loop
+### Local LLM — free, unlimited development
 
-```text
-define policy -> run workflow -> inspect fault analysis -> confirm/dismiss in review -> verify trust
+```python
+client = wrap_openai(OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama"
+))
+
+with record("test.epi"):
+    response = client.chat.completions.create(model="llama3", messages=[...])
 ```
 
-Key commands:
+---
+
+## pytest Plugin
+
+One flag. Signed `.epi` evidence per test. No code changes.
 
 ```bash
-epi policy init
-python my_workflow.py
-epi view my_workflow.epi
-epi review my_workflow.epi
-epi verify my_workflow.epi
+pytest --epi                    # generates signed .epi per test
+pytest --epi --epi-dir=evidence # custom output directory
 ```
+
+Every test failure leaves a signed case file you can open, verify, and share. Useful for catching regressions in multi-step agent behavior over time.
+
+**Share a test failure**: Attach the `.epi` file to a GitHub issue or PR. Anyone can open it in their browser. No EPI install required on their end — the review view is embedded inside the file.
+
+---
+
+## The Full Loop
+
+```text
+define policy → run workflow → inspect fault analysis → confirm/dismiss in review → verify trust
+```
+
+```bash
+epi policy init          # create epi_policy.json with control rules
+python my_workflow.py    # run your instrumented script
+epi view my_workflow.epi   # open in browser
+epi review my_workflow.epi # add human review notes
+epi verify my_workflow.epi # cryptographic check
+```
+
+---
+
+## Starter Kits
+
+Production-shaped examples for common consequential workflows. Pick one, run it, then adapt to your code.
+
+| Kit | What it covers |
+|:----|:---------------|
+| [`examples/starter_kits/refund/`](examples/starter_kits/refund/) | Refund approval agent with human sign-off, policy rules, and full audit trail |
+
+More kits coming: claims, underwriting, support escalation.
+
+---
+
+## What EPI Is
+
+EPI is the evidence layer for consequential AI decisions — the ones that approve refunds, underwrite loans, escalate support cases, or trigger operational actions.
+
+When one of those runs goes wrong, traditional logs help you debug. EPI helps you *defend* the decision after an incident, audit request, model-risk review, or compliance challenge. It creates one portable `.epi` case file that answers:
+
+- What actually happened, step by step?
+- Which rule was active at the time?
+- Did a human reviewer confirm or dismiss it?
+- Is this case file still trustworthy, or was it tampered with?
+
+EPI is not an observability dashboard. It sits beside observability as the durable evidence layer.
+
+### Why EPI vs. Alternatives
+
+| | **EPI** | LangSmith | Arize | W&B |
+|:--|:--------|:----------|:------|:----|
+| **Works offline** | Yes — air-gapped ready | No — cloud required | No | No |
+| **Tamper-proof** | Yes — Ed25519 signatures | No | No | No |
+| **Open format** | Yes — `.epi` spec | No — proprietary | No | No |
+| **Cost** | **Free** (MIT) | $99+/mo | Custom | $50+/mo |
+
+> EPI complements these tools. Use LangSmith for live traces, EPI for durable evidence.
+
+---
+
+## For Compliance and Governance Teams
+
+EPI is designed for teams facing real regulatory pressure:
+
+- **EU AI Act** — tamper-evident audit trails with cryptographic proof
+- **FDA / Healthcare** — signed decision records for AI-assisted diagnostics
+- **Financial services (SEC, ECOA)** — litigation-grade evidence for automated decisions
+- **Data governance** — automatic PII redaction with `security.redaction` steps
+- **Air-gapped deployment** — no internet required, ever
+
+The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) — drag and drop, no login, no install, no calling you back. Verification runs client-side in their browser.
+
+For the enterprise architecture boundary, see [docs/OPEN-CORE-ARCHITECTURE.md](docs/OPEN-CORE-ARCHITECTURE.md).
+For self-hosted deployment and operator runbook, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
+
+---
+
+## Advanced / Operator Workflows
+
+### Gateway path for AI infrastructure teams
+
+```bash
+epi gateway serve
+epi gateway serve --users-file config/gateway-users.example.json
+```
+
+Point SDKs, adapters, or proxies at one capture endpoint. Supports OpenAI-compatible `/v1/chat/completions`, Anthropic-compatible `/v1/messages`, LiteLLM, and generic LLM adapters. Keeps the `.epi` export path for proof and audit.
 
 ### Windows double-click support
 
-`.epi` files contain an embedded offline viewer, but Windows still needs an
-installed handler application to open them by double-click. For the best
-Windows experience, use the packaged installer so `.epi` is registered as a
-first-class file type.
+`.epi` files contain an embedded offline viewer, but Windows needs a registered handler to open them by double-click.
 
 ```text
 Recommended for Windows users:
@@ -244,13 +253,6 @@ Recommended for Windows users:
 Developer path:
   pip install epi-recorder
   epi associate --system   # or: epi associate
-```
-
-### Inspect the results
-
-```bash
-epi view my_agent.epi    # Opens in browser - no login, no cloud, no internet
-epi verify my_agent.epi  # Cryptographic integrity check
 ```
 
 ---
@@ -573,7 +575,7 @@ LangGraph · LangChain · LiteLLM · AutoGen · CrewAI · OpenTelemetry · pytes
 |:--------|:--------|
 | `epi run <script.py>` | Record execution to `.epi` |
 | `epi verify <file.epi>` | Verify integrity and signature |
-| `epi view <file.epi>` | Open in browser viewer |
+| `epi view <file.epi>` | Open in browser review view |
 | `epi keys list` | Manage signing keys |
 | `epi debug <file.epi>` | Heuristic analysis |
 | `epi chat <file.epi>` | Natural language querying |
@@ -671,4 +673,3 @@ MIT License. See **[LICENSE](./LICENSE)**.
   <strong>Built by <a href="https://epilabs.org">EPI Labs</a></strong><br>
   <em>Making AI agent execution verifiable.</em>
 </p>
-

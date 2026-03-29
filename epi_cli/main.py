@@ -21,43 +21,44 @@ def version_callback(value: bool):
 # Create Typer app
 app = typer.Typer(
     name="epi",
-    help="""EPI - Portable evidence and trust review for AI workflows.
+    help="""EPI — Cryptographic evidence for AI agent decisions.
 
-Cryptographic proof of what Autonomous AI Systems actually did.
+Try it now (no API key needed):
+  epi demo
+
+No-install trial:
+  Open the Colab notebook from the README
+
+Add to your code:
+  from epi_recorder import record, wrap_openai
+  from openai import OpenAI
+  client = wrap_openai(OpenAI())
+  with record("my_agent.epi"):
+      client.chat.completions.create(...)
+
+Then open it:
+  epi view my_agent.epi
+  epi verify my_agent.epi
 
 Commands:
-  run        <script.py>       Record a Python workflow that already emits EPI steps.
-  record     --out <file.epi> -- <cmd...>
-                               Advanced: record any command, exact output file.
-  gateway    serve             Run the open-source AI capture gateway.
-  verify     <file.epi>        Verify a recording's integrity.
-  view       <file.epi|name>   Open recording in browser or extract.
-  ls                           List local recordings (./epi-recordings/).
-  keys                         Manage keys (list/generate/export) - advanced.
-  chat       <file.epi>        Chat with evidence file using AI.
-  debug      <file.epi>        Debug AI agent recordings for mistakes.
-  connect                      Launch or serve the local Decision Ops app and connector bridge.
-  global                       Install/uninstall global auto-recording.
-  associate                    Register .epi file type with the OS. (Repair/fallback)
-  dev                          Zero-friction demo — gateway + case + browser in one command.
-  init                         First-time setup wizard.
-  doctor                       Self-healing system health check.
-  help                         Show this quickstart.
-
-Quickstart (first 30s):
-  1) Install: pip install epi-recorder
-  2) Add EPI to your script:
-     -> from epi_recorder import record
-     -> with record("my_script.epi"): ...
-  3) Run your script normally: python my_script.py
-  4) Open the artifact: epi view my_script.epi
+  demo       Try EPI in 60s — no API key, no config needed. Start here.
+  init       First-time setup wizard (framework picker: OpenAI, LiteLLM, LangChain...).
+  run        <script.py>   Record an already-instrumented Python script.
+  view       <file.epi>    Open a case file in the browser review view.
+  verify     <file.epi>    Cryptographic integrity check.
+  review     <file.epi>    Add human review notes to a case file.
+  analyze    <file.epi>    Show fault analysis summary.
+  policy     init          Create epi_policy.json with control rules.
+  chat       <file.epi>    Chat with evidence using AI.
+  debug      <file.epi>    Debug agent recordings for mistakes.
+  gateway    serve         Advanced: run the AI capture service.
+  ls                       List local recordings.
+  doctor                   Self-healing system health check.
 
 Tips:
-  - Windows double-click support is best via the packaged installer.
-  - `epi associate` is the manual repair/fallback path for pip installs.
-  - `epi run my_script.py` is best for scripts that already emit EPI steps.
-  - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
-  - For guaranteed evidence capture, use @record or `with record(...)`.
+  - `epi demo` = `epi dev` (same command, friendlier name).
+  - Windows double-click: use the packaged installer or `epi associate`.
+  - Local LLMs: wrap_openai(OpenAI(base_url="http://localhost:11434/v1", api_key="ollama"))
 """,
     add_completion=False,
     no_args_is_help=True,
@@ -133,7 +134,7 @@ def _analyze_reviewer_guidance(has_fault: bool, steps_recorded: int) -> tuple[st
     return (
         "No fault detected",
         "No rule or heuristic anomalies were flagged in captured steps.",
-        "Proceed with normal review process; keep artifact for audit traceability.",
+        "Proceed with normal review process; keep the case file for audit traceability.",
     )
 
 
@@ -265,39 +266,44 @@ def version():
 @app.command(name="help")
 def show_help():
     """Show extended quickstart help."""
-    help_text = """[bold cyan]EPI Recorder - Quickstart Guide[/bold cyan]
+    help_text = """[bold cyan]EPI — Cryptographic evidence for AI agent decisions[/bold cyan]
 
-[bold]Usage:[/bold] epi <command> [options]
+[bold]Try it now (no API key needed):[/bold]
+  [green]epi demo[/green]
+
+[bold]No-install trial:[/bold]
+  Open the Colab notebook from the README
+
+[bold]Add to your code:[/bold]
+  [green]from epi_recorder import record, wrap_openai[/green]
+  [green]from openai import OpenAI[/green]
+  [green]client = wrap_openai(OpenAI())[/green]
+  [green]with record("my_agent.epi"):[/green]
+  [green]    client.chat.completions.create(...)[/green]
+  [green]epi view my_agent.epi[/green]
+
+[bold]pytest — one flag, evidence per test:[/bold]
+  [green]pytest --epi[/green]
 
 [bold]Commands:[/bold]
-  [cyan]run[/cyan]        <script.py>       Record a Python workflow that already emits EPI steps.
-  [cyan]record[/cyan]     --out <file.epi> -- <cmd...>
-                             Advanced: record any command, exact output file.
-  [cyan]gateway[/cyan]    serve             Run the open-source AI capture gateway.
-  [cyan]verify[/cyan]     <file.epi>        Verify a recording's integrity.
-  [cyan]view[/cyan]       <file.epi|name>   Open recording in browser or extract.
-  [cyan]ls[/cyan]                           List local recordings (./epi-recordings/).
-  [cyan]keys[/cyan]                         Manage keys (list/generate/export) - advanced.
-  [cyan]chat[/cyan]       <file.epi>        Chat with evidence file using AI.
-  [cyan]debug[/cyan]      <file.epi>        Debug AI agent recordings for mistakes.
-  [cyan]global[/cyan]                       Install/uninstall global auto-recording.
-  [cyan]associate[/cyan]                    Register .epi file type with the OS. (Repair/fallback)
-  [cyan]init[/cyan]                         First-time setup wizard.
-  [cyan]doctor[/cyan]                       Self-healing system health check.
-  [cyan]help[/cyan]                         Show this quickstart.
-
-[bold]Quickstart (first 30s):[/bold]
-  1) Install: pip install epi-recorder
-  2) Instrument your script: [green]from epi_recorder import record[/green]
-  3) Run it normally: [green]python my_script.py[/green]
-  4) Open the artifact: [green]epi view my_script.epi[/green]
+  [cyan]demo[/cyan]       Try EPI in 60s — no API key, no config. [bold]Start here.[/bold]
+  [cyan]init[/cyan]       First-time setup wizard.
+  [cyan]run[/cyan]        <script.py>   Record an instrumented script.
+  [cyan]view[/cyan]       <file.epi>    Open a case file in the browser review view.
+  [cyan]verify[/cyan]     <file.epi>    Cryptographic integrity check.
+  [cyan]review[/cyan]     <file.epi>    Add human review notes to a case file.
+  [cyan]analyze[/cyan]    <file.epi>    Show fault analysis summary.
+  [cyan]policy[/cyan]     init          Create epi_policy.json.
+  [cyan]chat[/cyan]       <file.epi>    Chat with evidence using AI.
+  [cyan]debug[/cyan]      <file.epi>    Debug agent recordings.
+  [cyan]gateway[/cyan]    serve         Advanced capture service.
+  [cyan]ls[/cyan]                       List local recordings.
+  [cyan]doctor[/cyan]                   Self-healing health check.
 
 [bold]Tips:[/bold]
-  - Windows double-click support is best via the packaged installer.
-  - [cyan]epi associate[/cyan] is the manual repair/fallback path for pip installs.
-  - [cyan]epi run my_script.py[/cyan] is best for scripts that already emit EPI steps.
-  - Want explicit name? Use the advanced command: epi record --out experiment.epi -- python my_script.py
-  - For guaranteed evidence capture, use @record or with record(...).
+  - [cyan]epi demo[/cyan] = [cyan]epi dev[/cyan] (same thing, friendlier name).
+  - Local LLMs: [dim]wrap_openai(OpenAI(base_url="http://localhost:11434/v1", api_key="ollama"))[/dim]
+  - Windows double-click: use the packaged installer or [cyan]epi associate[/cyan].
 """
     console.print(help_text)
 
@@ -361,7 +367,7 @@ def record(
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
-@app.command(name="view", help="Open recording in browser or extract.")
+@app.command(name="view", help="Open a case file in the browser review view or extract it.")
 def view(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
@@ -390,7 +396,7 @@ from epi_cli.review import app as review_app
 app.add_typer(
     review_app,
     name="review",
-    help="Review fault analysis results for a .epi artifact",
+    help="Review fault analysis results for a saved case file",
     invoke_without_command=True,
     no_args_is_help=False,
 )
@@ -399,16 +405,18 @@ from epi_cli.policy import app as policy_app
 app.add_typer(policy_app, name="policy", help="Create, explain, and validate epi_policy.json rule files")
 
 from epi_cli.connect import app as connect_app
-app.add_typer(connect_app, name="connect", help="Launch or serve the local Decision Ops app and connector bridge")
+app.add_typer(connect_app, name="connect", help="Launch or serve the local team review workspace and connector bridge")
 
 from epi_cli.gateway import app as gateway_app
-app.add_typer(gateway_app, name="gateway", help="Run the open-source AI capture gateway")
+app.add_typer(gateway_app, name="gateway", help="Advanced: run the open-source AI capture service")
 
 from epi_cli.dev import app as dev_app
-app.add_typer(dev_app, name="dev", help="Zero-friction developer onboarding — gateway + demo case + browser UI")
+app.add_typer(dev_app, name="dev", help="Zero-friction refund review demo in the browser")
+# 'epi demo' is an alias for 'epi dev' for discoverability
+app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — no API key, no config. Alias for 'epi dev'.")
 
 from epi_cli.export_summary import app as export_summary_app
-app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi artifact")
+app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi case file")
 
 
 @app.command()
@@ -433,7 +441,7 @@ def analyze(
     with zipfile.ZipFile(epi_path, "r") as zf:
         if "analysis.json" not in zf.namelist():
             console.print(f"[yellow]No analysis.json in {epi_path.name}[/yellow]")
-            console.print("[dim]This artifact predates the Fault Intelligence layer.[/dim]")
+            console.print("[dim]This case file predates the Fault Intelligence layer.[/dim]")
             raise typer.Exit(0)
         import json
         analysis = json.loads(zf.read("analysis.json").decode("utf-8"))
@@ -458,7 +466,7 @@ def analyze(
             console.print(f"  Action:     {action}")
             console.print(f"  Mode:       {mode}")
             console.print("  Details:    The analyzer marked this run for review, but no primary fault summary was embedded.")
-            console.print(f"\n  [dim]Run: [cyan]epi view {epi_path.name}[/cyan] to inspect the full artifact[/dim]\n")
+            console.print(f"\n  [dim]Run: [cyan]epi view {epi_path.name}[/cyan] to inspect the full case file[/dim]\n")
             raise typer.Exit(0)
 
         fault = display_fault
@@ -953,13 +961,13 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
         if not artifact_path.exists():
             console.print(f"[dim]The demo did not produce {artifact_path.name}.[/dim]")
         elif step_count == 0:
-            console.print("[dim]The demo artifact was created but contains no meaningful execution steps.[/dim]")
+            console.print("[dim]The demo case file was created but contains no meaningful execution steps.[/dim]")
         console.print("[dim]Most likely cause: EPI could not create a writable recording workspace.[/dim]")
         console.print("[dim]Fix: point TMP/TEMP to a writable folder and rerun [cyan]epi init[/cyan].[/dim]")
         raise typer.Exit(1)
 
     console.print("\n[bold green]You are all set![/bold green]")
-    console.print("[dim]Your first artifact now shows both kinds of evidence:[/dim]")
+    console.print("[dim]Your first case file now shows both kinds of evidence:[/dim]")
     if "stdout.print" in step_kinds:
         console.print("[dim]  • Console evidence: printed output captured as [cyan]stdout.print[/cyan] steps[/dim]")
     if step_kinds - {"stdout.print"}:
@@ -967,13 +975,13 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
     console.print("[dim]Policy review and fault analysis work best with structured EPI steps, not just console output.[/dim]")
     console.print(f"[dim]Recorded steps:[/dim] {step_count}")
     console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
-    console.print(f"[dim]Open the artifact with:[/dim] epi view {artifact_path}")
+    console.print(f"[dim]Open the case file with:[/dim] epi view {artifact_path}")
     if not no_open:
         try:
             from epi_cli.run import _open_viewer
 
             if _open_viewer(artifact_path):
-                console.print("[dim]Opened your first artifact in the browser.[/dim]")
+                console.print("[dim]Opened your first case file in the browser.[/dim]")
             else:
                 console.print("[yellow][!][/yellow] Could not open the browser automatically.")
                 console.print(f"[dim]Use: epi view {artifact_path}[/dim]")

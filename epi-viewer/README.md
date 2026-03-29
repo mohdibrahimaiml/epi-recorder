@@ -1,5 +1,7 @@
 # EPI Viewer
 
+> Legacy/internal surface: the canonical end-user review experience is `epi view` and the browser-based `web_viewer`. This desktop viewer remains available for compatibility and internal workflows, but it is not the recommended front door for new users.
+
 **Evidence Inspection Instrument**
 
 A cross-platform desktop application for viewing and verifying `.epi` cryptographic evidence files.
