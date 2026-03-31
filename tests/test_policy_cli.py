@@ -83,6 +83,54 @@ def test_policy_init_custom_starter_rules_use_shared_templates():
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def test_policy_init_insurance_claim_profile_has_expected_rules():
+    tmpdir = _tmp_workspace()
+    original = os.getcwd()
+    try:
+        os.chdir(tmpdir)
+        with patch("epi_cli.policy.console", MagicMock()):
+            init(output="epi_policy.json", profile="insurance.claim-denial", yes=True)
+    finally:
+        os.chdir(original)
+
+    data = json.loads((tmpdir / "epi_policy.json").read_text(encoding="utf-8"))
+    assert data["profile_id"] == "insurance.claim-denial"
+    rule_names = {rule["name"] for rule in data["rules"]}
+    assert "Run Fraud Check Before Claim Denial" in rule_names
+    assert "Check Coverage Before Claim Denial" in rule_names
+    assert "High-Value Claims Require Human Approval" in rule_names
+    assert "Record Denial Reason Before Claim Denial" in rule_names
+    assert "Never Output PII In Claim Notices" in rule_names
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_policy_init_guided_insurance_claim_can_customize_threshold():
+    tmpdir = _tmp_workspace()
+    original = os.getcwd()
+    try:
+        os.chdir(tmpdir)
+        with patch("epi_cli.policy.console", MagicMock()), \
+             patch(
+                 "epi_cli.policy.Prompt.ask",
+                 side_effect=[
+                     "insurance-claim",
+                     "claim-denial-agent",
+                     "1.0",
+                     "1250",
+                 ],
+             ), \
+             patch("epi_cli.policy.Confirm.ask", side_effect=[True, True, True, True]):
+            init(output="epi_policy.json")
+    finally:
+        os.chdir(original)
+
+    data = json.loads((tmpdir / "epi_policy.json").read_text(encoding="utf-8"))
+    threshold_rule = next(rule for rule in data["rules"] if rule["id"] == "R003")
+    assert data["profile_id"] == "insurance.claim-denial"
+    assert threshold_rule["threshold_value"] == 1250.0
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def test_policy_editor_html_preloads_rules_workspace():
     tmpdir = _tmp_workspace()
     policy_path = tmpdir / "epi_policy.json"

@@ -23,6 +23,15 @@ from epi_cli.view import _resolve_epi_file
 
 console = Console()
 
+
+def _print_share_hint() -> None:
+    """Show the lowest-friction next steps after a successful verification."""
+    console.print("")
+    console.print("[bold]Share / review this case file:[/bold]")
+    console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
+    console.print("  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required")
+    console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
+
 def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -> None:
     """Serialise a verification report dict to a plain-text file."""
     from datetime import datetime, timezone
@@ -173,6 +182,9 @@ def verify_command(
             _write_verification_report(report, epi_file, dest)
             if not json_output:
                 console.print(f"[green][OK][/green] Verification report written: {dest}")
+
+        if not json_output and integrity_ok and signature_valid is not False:
+            _print_share_hint()
 
         # Exit code based on verification result
         if not integrity_ok or signature_valid is False:

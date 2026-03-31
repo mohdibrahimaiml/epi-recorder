@@ -35,6 +35,15 @@ DEFAULT_DIR = Path("epi-recordings")
 _MAX_INLINE_ARCHIVE_BYTES = 4 * 1024 * 1024
 
 
+def _print_share_hint() -> None:
+    """Show follow-up paths after opening or extracting a case file."""
+    console.print("")
+    console.print("[bold]Share / review this case file:[/bold]")
+    console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
+    console.print("  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required")
+    console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
+
+
 def _resolve_epi_file(name_or_path: str) -> Path:
     """
     Resolve a name or path to an .epi file.
@@ -340,6 +349,7 @@ def view(
             _inject_viewer_context(viewer, _build_viewer_context(resolved_path))
         console.print(f"[green][OK][/green] Extracted to: {dest}")
         console.print(f"   Open in browser: {dest / 'viewer.html'}")
+        _print_share_hint()
         raise typer.Exit(0)
 
     # Create temp dir
@@ -359,6 +369,7 @@ def view(
         _inject_viewer_context(viewer, viewer_context)
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
+        _print_share_hint()
 
         # Schedule cleanup after browser loads
         _cleanup_after_delay(temp_dir, 8)

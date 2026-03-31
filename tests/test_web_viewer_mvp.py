@@ -83,6 +83,9 @@ def test_web_viewer_shell_has_case_first_navigation():
     assert '<button class="nav-button" type="button" data-view="rules" hidden disabled>Rules</button>' in html
     assert '<button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>' in html
     assert 'id="case-workflow-badge"' in html
+    assert "Decision Summary" in html
+    assert "Record integrity and review" in html
+    assert "Download decision summary" in html
     assert "Team Workflow" in html
     assert 'id="workflow-form"' in html
     assert 'id="workflow-assignee"' in html
@@ -124,6 +127,9 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     js = _read("web_viewer/app.js")
 
     assert "async function parseEpiFile" in js
+    assert "function analysisHeadline" in js
+    assert "function deriveAnalysisState" in js
+    assert "function businessDecisionLabel" in js
     assert "async function loadPreloadedCases" in js
     assert "async function buildCaseRecord" in js
     assert "function buildLegacyEmbeddedCasePayload" in js
@@ -248,6 +254,11 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     assert "Reject decision" in js
     assert "Escalate / decide later" in js
     assert "Connect a real system" in js
+    assert "AI was consulted" in js
+    assert "Record has not been modified" in js
+    assert "Automated policy check complete" in js
+    assert "Automated policy check failed" in js
+    assert "Automated policy check not run" in js
 
 
 def test_web_viewer_readme_describes_case_first_workflow():

@@ -1,13 +1,13 @@
-# EPI CLI Reference (v2.8.10)
+# EPI CLI Reference (v3.0.0)
 
-**Version:** 2.8.10  
+**Version:** 3.0.0
 **Primary entrypoint:** `epi`
 
 ---
 
 ## Start Here
 
-Start with `epi demo`. It is the primary non-technical front door and opens the canonical browser review experience with a refund-approval case in one command.
+Start with `epi demo`. It is the primary developer front door if you want to capture one AI run, open it in the browser, and verify the resulting `.epi` artifact in minutes.
 
 If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
 
@@ -19,11 +19,12 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 
 | Command | Purpose |
 | --- | --- |
-| `epi demo` | Start the refund-review demo in the browser. Recommended first run. |
+| `epi demo` | Start the sample refund workflow and the full repro loop in the browser. Recommended first run. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
 | `epi verify <file.epi>` | Verify case file integrity and signature state. |
+| `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
@@ -114,6 +115,31 @@ epi verify demo.epi
 [OK] Checks: 24/24 passed
 ```
 
+After a successful verification, EPI now points to the two lowest-friction next steps:
+- `epi share <file.epi>` for a hosted browser link
+- `https://epilabs.org/verify` for client-side browser verification
+
+---
+
+## `epi share <file.epi>`
+
+Uploads a validated `.epi` file to the hosted share service and prints a browser link.
+
+```bash
+epi share demo.epi
+epi share demo.epi --expires 7
+epi share demo.epi --json
+epi share demo.epi --api-base-url http://localhost:8787
+```
+
+Behavior:
+- validates the `.epi` locally before upload
+- rejects files larger than 5 MB
+- accepts valid signed artifacts and valid unsigned artifacts
+- returns a hosted link shaped like `https://epilabs.org/cases/?id=...`
+
+This is the fastest path when a teammate should be able to open the repro in a browser without installing EPI first.
+
 ---
 
 ## `epi doctor`
@@ -130,7 +156,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v2.8.10`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v3.0.0`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 
@@ -164,7 +190,7 @@ Practical rule:
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
-For the proposed enterprise direction after `v2.8.10`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
+For the proposed enterprise direction after `v3.0.0`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 

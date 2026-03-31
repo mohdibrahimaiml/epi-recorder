@@ -66,6 +66,24 @@ class TestVerifyCommandVariations:
         
         # Should handle missing key gracefully or fail due to invalid signature
         assert result.exit_code in [0, 1, 2]
+
+    def test_verify_prints_share_hint_on_success(self):
+        """Successful verify output should point to browser verify and team review."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            source_dir = tmpdir_path / "source"
+            source_dir.mkdir()
+            (source_dir / "test.txt").write_text("Hello")
+
+            output_path = tmpdir_path / "unsigned.epi"
+            manifest = ManifestModel(cli_command="test")
+            EPIContainer.pack(source_dir, manifest, output_path)
+
+            result = runner.invoke(app, ["verify", str(output_path)])
+
+            assert result.exit_code == 0, result.output
+            assert "https://epilabs.org/verify" in result.stdout
+            assert "epi connect open" in result.stdout
     
     def test_verify_keyboard_interrupt_handling(self):
         """Test verify handles interrupts gracefully."""
@@ -99,9 +117,11 @@ class TestViewCommandVariations:
             EPIContainer.pack(source_dir, manifest, output_path)
             
             result = runner.invoke(app, ["view", str(output_path)])
-            
+
             assert result.exit_code == 0
             assert len(opened_urls) > 0
+            assert "https://epilabs.org/verify" in result.stdout
+            assert "epi connect open" in result.stdout
 
 
 class TestCLIHelpMessages:
@@ -129,8 +149,22 @@ class TestCLIHelpMessages:
     def test_view_in_help(self):
         """Test that view command appears in help."""
         result = runner.invoke(app, ["--help"])
-        
+
         assert "view" in result.stdout.lower()
+
+    def test_connect_open_is_surfaced_in_help(self):
+        """Top-level help should surface the local team review path."""
+        result = runner.invoke(app, ["--help"])
+
+        assert result.exit_code == 0
+        assert "connect open" in result.stdout.lower()
+
+    def test_custom_help_mentions_connect_open(self):
+        """epi help should mention the local team review path."""
+        result = runner.invoke(app, ["help"])
+
+        assert result.exit_code == 0
+        assert "epi connect open" in result.stdout.lower()
 
 
 class TestVersionCommand:
@@ -266,12 +300,8 @@ class TestVerifyReportFormatting:
             "created_at": "2025-01-01T00:00:00",
             "spec_version": "1.0"
         }
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             epi_file = Path(tmpdir) / "test.epi"
-            
+
             print_trust_report(report, epi_file, verbose=True)
-
-
-
- 

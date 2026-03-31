@@ -1,15 +1,15 @@
-# EPI File Format Specification v2.8.10
+# EPI File Format Specification v3.0.0
 
 **Status:** Active  
 **Date:** 2026-03-24  
-**Version:** 2.8.10  
+**Version:** 3.0.0
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v2.8.10.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v3.0.0.
 
 ---
 
@@ -18,7 +18,7 @@ The **Executable Package for AI (EPI)** format provides a standardized, portable
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable ZIP-based container.
 
-### 1.2 Key Features (v2.8.10)
+### 1.2 Key Features (v3.0.0)
 - **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -51,7 +51,7 @@ manifest.json               # Metadata + signatures + file hashes (written last)
 ```
 
 Older historical docs may mention `env.json` or a `viewer/` directory. In
-`v2.8.10`, the canonical layout uses `environment.json`, a root
+`v3.0.0`, the canonical layout uses `environment.json`, a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -61,7 +61,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "2.8.10",
+  "spec_version": "3.0.0",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
@@ -109,7 +109,7 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v2.8.10` is the current documented layout.
+- `v3.0.0` is the current documented layout.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Double-click behavior is an operating-system integration concern, not a property of the archive alone.
 
@@ -119,7 +119,8 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **2.8.10** | 2026-03-24 | **Current** | Notebook packaging correction for source releases, sdist audit coverage, and no wire-format change from `2.8.9`. |
+| **3.0.0** | 2026-04-01 | **Current** | Major release line for the current capture, share, gateway, review, and insurance-pilot surfaces. |
+| **2.8.10** | 2026-03-24 | Previous | Notebook packaging correction for source releases, sdist audit coverage, and no wire-format change from `2.8.9`. |
 | **2.8.9** | 2026-03-24 | Previous | Policy validation diagnostics, OpenAI Agents-style event bridge, viewer auto-expand on control jump, installer regression guard, and release/version consistency hardening. |
 | **2.8.7** | 2026-03-24 | Previous | Policy v2 metadata, `tool_permission_guard`, `policy_evaluation.json`, richer control-outcome viewer support, and trust hardening across viewer/installer surfaces. |
 | **2.8.6** | 2026-03-22 | Previous | Agent-first recording, reviewer/trust polish, better onboarding, print capture in `epi run`, faster CLI startup, and cleaner release consistency. |

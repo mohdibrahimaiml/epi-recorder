@@ -5,6 +5,7 @@ import os
 import shutil
 import threading
 import time
+import urllib.parse
 from contextlib import asynccontextmanager
 from hashlib import sha256
 from pathlib import Path
@@ -12,7 +13,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
 
@@ -21,11 +22,12 @@ from epi_cli.keys import KeyManager
 from epi_core import __version__
 from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
-from epi_core.container import EPIContainer
+from epi_core.container import EPIContainer, EPI_MIMETYPE
 from epi_core.llm_capture import LLMCaptureRequest, build_llm_capture_events
 from epi_core.time_utils import utc_now_iso
 from epi_core.trust import sign_manifest
 
+from .approval_notify import send_approval_email, send_signed_webhook
 from .proxy import (
     ProxyRelayError,
     build_anthropic_proxy_capture_request,
@@ -33,6 +35,7 @@ from .proxy import (
     relay_anthropic_messages,
     relay_openai_chat_completions,
 )
+from .share import ShareService, ShareServiceError
 from .worker import EvidenceWorker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -94,6 +97,29 @@ class GatewayRuntimeSettings(BaseModel):
     allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
     capture_rate_limit: int = 1000  # max capture requests per minute per IP (0 = disabled)
     max_request_body_bytes: int = 10 * 1024 * 1024  # 10 MB
+    share_enabled: bool = False
+    share_site_base_url: str = "https://epilabs.org"
+    share_api_base_url: str = "https://api.epilabs.org"
+    share_max_upload_bytes: int = 5 * 1024 * 1024
+    share_default_expiry_days: int = 30
+    share_max_expiry_days: int = 30
+    share_rate_limit_per_hour: int = 10
+    share_quota_bytes_per_30d: int = 100 * 1024 * 1024
+    share_ip_hmac_secret: str | None = None
+    share_s3_endpoint: str | None = None
+    share_s3_region: str = "auto"
+    share_s3_bucket: str | None = None
+    share_s3_access_key_id: str | None = None
+    share_s3_secret_access_key: str | None = None
+    approval_base_url: str = "http://127.0.0.1:8765"
+    approval_webhook_url: str | None = None
+    approval_webhook_secret: str | None = None
+    approval_webhook_timeout_seconds: int = 10
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -117,9 +143,43 @@ class GatewayRuntimeSettings(BaseModel):
             raise ValueError("EPI_GATEWAY_CAPTURE_RATE_LIMIT must be >= 0 (0 = disabled)")
         if self.max_request_body_bytes < 1024:
             raise ValueError("EPI_GATEWAY_MAX_REQUEST_BODY_BYTES must be at least 1024")
+        if self.share_max_upload_bytes < 1024:
+            raise ValueError("EPI_GATEWAY_SHARE_MAX_UPLOAD_BYTES must be at least 1024")
+        if self.share_default_expiry_days < 1:
+            raise ValueError("EPI_GATEWAY_SHARE_DEFAULT_EXPIRY_DAYS must be at least 1")
+        if self.share_max_expiry_days < 1:
+            raise ValueError("EPI_GATEWAY_SHARE_MAX_EXPIRY_DAYS must be at least 1")
+        if self.share_default_expiry_days > self.share_max_expiry_days:
+            raise ValueError(
+                "EPI_GATEWAY_SHARE_DEFAULT_EXPIRY_DAYS cannot be greater than EPI_GATEWAY_SHARE_MAX_EXPIRY_DAYS"
+            )
+        if self.share_rate_limit_per_hour < 0:
+            raise ValueError("EPI_GATEWAY_SHARE_RATE_LIMIT_PER_HOUR must be >= 0")
+        if self.share_quota_bytes_per_30d < self.share_max_upload_bytes:
+            raise ValueError(
+                "EPI_GATEWAY_SHARE_QUOTA_BYTES_PER_30D must be at least EPI_GATEWAY_SHARE_MAX_UPLOAD_BYTES"
+            )
+        if self.approval_webhook_timeout_seconds < 1:
+            raise ValueError("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS must be at least 1")
+        if self.smtp_port < 1:
+            raise ValueError("EPI_SMTP_PORT must be at least 1")
         self.access_token = _clean(self.access_token)
         self.users_file = _clean(self.users_file)
         self.webhook_url = _clean(self.webhook_url)
+        self.share_site_base_url = _clean(self.share_site_base_url) or "https://epilabs.org"
+        self.share_api_base_url = _clean(self.share_api_base_url) or "https://api.epilabs.org"
+        self.share_ip_hmac_secret = _clean(self.share_ip_hmac_secret)
+        self.share_s3_endpoint = _clean(self.share_s3_endpoint)
+        self.share_s3_bucket = _clean(self.share_s3_bucket)
+        self.share_s3_access_key_id = _clean(self.share_s3_access_key_id)
+        self.share_s3_secret_access_key = _clean(self.share_s3_secret_access_key)
+        self.approval_base_url = (_clean(self.approval_base_url) or "http://127.0.0.1:8765").rstrip("/")
+        self.approval_webhook_url = _clean(self.approval_webhook_url)
+        self.approval_webhook_secret = _clean(self.approval_webhook_secret)
+        self.smtp_host = _clean(self.smtp_host)
+        self.smtp_user = _clean(self.smtp_user)
+        self.smtp_password = _clean(self.smtp_password)
+        self.smtp_from = _clean(self.smtp_from)
         self.allowed_origins = [origin for origin in self.allowed_origins if _clean(origin)] or ["*"]
         return self
 
@@ -222,6 +282,29 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         allowed_origins=_split_csv_env(os.getenv("EPI_GATEWAY_ALLOWED_ORIGINS")),
         capture_rate_limit=int(os.getenv("EPI_GATEWAY_CAPTURE_RATE_LIMIT", "1000")),
         max_request_body_bytes=int(os.getenv("EPI_GATEWAY_MAX_REQUEST_BODY_BYTES", str(10 * 1024 * 1024))),
+        share_enabled=_truthy(os.getenv("EPI_GATEWAY_SHARE_ENABLED")),
+        share_site_base_url=os.getenv("EPI_GATEWAY_SHARE_SITE_BASE_URL", "https://epilabs.org"),
+        share_api_base_url=os.getenv("EPI_GATEWAY_SHARE_API_BASE_URL", "https://api.epilabs.org"),
+        share_max_upload_bytes=int(os.getenv("EPI_GATEWAY_SHARE_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024))),
+        share_default_expiry_days=int(os.getenv("EPI_GATEWAY_SHARE_DEFAULT_EXPIRY_DAYS", "30")),
+        share_max_expiry_days=int(os.getenv("EPI_GATEWAY_SHARE_MAX_EXPIRY_DAYS", "30")),
+        share_rate_limit_per_hour=int(os.getenv("EPI_GATEWAY_SHARE_RATE_LIMIT_PER_HOUR", "10")),
+        share_quota_bytes_per_30d=int(os.getenv("EPI_GATEWAY_SHARE_QUOTA_BYTES_PER_30D", str(100 * 1024 * 1024))),
+        share_ip_hmac_secret=os.getenv("EPI_GATEWAY_SHARE_IP_HMAC_SECRET"),
+        share_s3_endpoint=os.getenv("EPI_GATEWAY_SHARE_S3_ENDPOINT"),
+        share_s3_region=os.getenv("EPI_GATEWAY_SHARE_S3_REGION", "auto"),
+        share_s3_bucket=os.getenv("EPI_GATEWAY_SHARE_S3_BUCKET"),
+        share_s3_access_key_id=os.getenv("EPI_GATEWAY_SHARE_S3_ACCESS_KEY_ID"),
+        share_s3_secret_access_key=os.getenv("EPI_GATEWAY_SHARE_S3_SECRET_ACCESS_KEY"),
+        approval_base_url=os.getenv("EPI_APPROVAL_BASE_URL", "http://127.0.0.1:8765"),
+        approval_webhook_url=os.getenv("EPI_APPROVAL_WEBHOOK_URL"),
+        approval_webhook_secret=os.getenv("EPI_APPROVAL_WEBHOOK_SECRET"),
+        approval_webhook_timeout_seconds=int(os.getenv("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS", "10")),
+        smtp_host=os.getenv("EPI_SMTP_HOST"),
+        smtp_port=int(os.getenv("EPI_SMTP_PORT", "587")),
+        smtp_user=os.getenv("EPI_SMTP_USER"),
+        smtp_password=os.getenv("EPI_SMTP_PASSWORD"),
+        smtp_from=os.getenv("EPI_SMTP_FROM"),
     )
 
 
@@ -250,6 +333,115 @@ def _fire_webhook(webhook_url: str, payload: dict) -> None:
                 logger.warning("Webhook delivery attempt %d failed: %s — retrying", attempt + 1, exc)
             else:
                 logger.warning("Webhook delivery failed after %d attempts: %s", len(delays), exc)
+
+
+def _looks_like_email(value: str | None) -> bool:
+    text = str(value or "").strip()
+    return bool(text and "@" in text and "." in text.split("@", 1)[-1])
+
+
+def _spawn_background_task(func: Any, *args: Any, task_name: str | None = None, **kwargs: Any) -> None:
+    thread = threading.Thread(
+        target=func,
+        args=args,
+        kwargs=kwargs,
+        daemon=True,
+        name=task_name or "EPI-GatewayTask",
+    )
+    thread.start()
+
+
+def _build_approval_action_urls(settings: GatewayRuntimeSettings, workflow_id: str, approval_id: str) -> tuple[str, str]:
+    workflow_token = urllib.parse.quote(str(workflow_id), safe="")
+    approval_token = urllib.parse.quote(str(approval_id), safe="")
+    approve_url = f"{settings.approval_base_url}/api/approve/{workflow_token}/{approval_token}?decision=approve"
+    deny_url = f"{settings.approval_base_url}/api/approve/{workflow_token}/{approval_token}?decision=deny"
+    return approve_url, deny_url
+
+
+def _dispatch_approval_request_notifications(
+    event: CaptureEventModel,
+    *,
+    worker: EvidenceWorker,
+    settings: GatewayRuntimeSettings,
+) -> None:
+    if not (settings.approval_webhook_url or (settings.smtp_host and settings.smtp_from)):
+        return
+
+    workflow_id = _first_nonempty(event.workflow_id, event.case_id, event.decision_id, event.trace_id, event.event_id)
+    if not workflow_id:
+        logger.warning("Approval request event %s is missing a workflow identifier", event.event_id)
+        return
+
+    content = dict(event.content or {})
+    approval_id = _first_nonempty(content.get("approval_id"), content.get("action"), event.event_id)
+    action = _first_nonempty(content.get("action"), approval_id) or "review"
+    requested_from = _first_nonempty(
+        content.get("requested_from"),
+        content.get("requested_by"),
+        content.get("reviewer"),
+        content.get("reviewer_email"),
+    )
+    case_id = _first_nonempty(event.case_id, worker.find_case_id_for_workflow(workflow_id))
+    approve_url, deny_url = _build_approval_action_urls(settings, workflow_id, approval_id)
+    case_url = (
+        f"{settings.approval_base_url}/api/cases/{urllib.parse.quote(case_id, safe='')}"
+        if case_id
+        else None
+    )
+    payload = {
+        "event": "approval.requested",
+        "workflow_id": workflow_id,
+        "case_id": case_id,
+        "approval_id": approval_id,
+        "action": action,
+        "reason": _clean(content.get("reason")) or "",
+        "requested_from": requested_from,
+        "approve_url": approve_url,
+        "deny_url": deny_url,
+        "case_url": case_url,
+        "reviewer_role": _clean(content.get("reviewer_role")),
+        "timeout_minutes": content.get("timeout_minutes"),
+        "created_at": utc_now_iso(),
+    }
+
+    if settings.approval_webhook_url:
+        _spawn_background_task(
+            send_signed_webhook,
+            settings.approval_webhook_url,
+            payload,
+            secret=settings.approval_webhook_secret,
+            timeout_seconds=settings.approval_webhook_timeout_seconds,
+            task_name="EPI-ApprovalWebhook",
+        )
+
+    if settings.smtp_host and settings.smtp_from and _looks_like_email(requested_from):
+        _spawn_background_task(
+            send_approval_email,
+            to_address=requested_from,
+            workflow_id=workflow_id,
+            action=action,
+            reason=_clean(content.get("reason")) or "Human review is required before this action can proceed.",
+            approve_url=approve_url,
+            deny_url=deny_url,
+            case_url=case_url,
+            smtp_host=settings.smtp_host,
+            smtp_port=settings.smtp_port,
+            smtp_user=settings.smtp_user,
+            smtp_password=settings.smtp_password,
+            smtp_from=settings.smtp_from,
+            task_name="EPI-ApprovalEmail",
+        )
+
+
+def _build_post_persist_hook(settings: GatewayRuntimeSettings):
+    def _hook(events: list[CaptureEventModel], worker: EvidenceWorker) -> None:
+        for event in events:
+            if event.kind != "agent.approval.request":
+                continue
+            _dispatch_approval_request_notifications(event, worker=worker, settings=settings)
+
+    return _hook
 
 
 class _SlidingWindowRateLimiter:
@@ -614,6 +806,7 @@ def _build_preview_capture_event(
 def create_app(
     worker: EvidenceWorker | None = None,
     settings: GatewayRuntimeSettings | None = None,
+    share_service: ShareService | None = None,
 ) -> FastAPI:
     runtime_settings = settings or _build_settings_from_env()
     runtime_worker = worker or _build_worker_from_env(runtime_settings)
@@ -623,17 +816,43 @@ def create_app(
         if runtime_settings.capture_rate_limit > 0
         else None
     )
+    _share_limiter: _SlidingWindowRateLimiter | None = (
+        _SlidingWindowRateLimiter(runtime_settings.share_rate_limit_per_hour, window_seconds=3600.0)
+        if runtime_settings.share_rate_limit_per_hour > 0
+        else None
+    )
     _CAPTURE_PATHS = {"/capture", "/capture/batch", "/capture/llm", "/v1/chat/completions", "/v1/messages"}
+    runtime_share_service = share_service or ShareService(
+        enabled=runtime_settings.share_enabled,
+        storage_dir=Path(runtime_settings.storage_dir),
+        site_base_url=runtime_settings.share_site_base_url,
+        api_base_url=runtime_settings.share_api_base_url,
+        max_upload_bytes=runtime_settings.share_max_upload_bytes,
+        default_expiry_days=runtime_settings.share_default_expiry_days,
+        max_expiry_days=runtime_settings.share_max_expiry_days,
+        rate_limit_per_hour=runtime_settings.share_rate_limit_per_hour,
+        quota_bytes_per_30d=runtime_settings.share_quota_bytes_per_30d,
+        ip_hmac_secret=runtime_settings.share_ip_hmac_secret,
+        rate_limiter=_share_limiter,
+        s3_endpoint=runtime_settings.share_s3_endpoint,
+        s3_region=runtime_settings.share_s3_region,
+        s3_bucket=runtime_settings.share_s3_bucket,
+        s3_access_key_id=runtime_settings.share_s3_access_key_id,
+        s3_secret_access_key=runtime_settings.share_s3_secret_access_key,
+    )
+    runtime_worker.set_post_persist_hook(_build_post_persist_hook(runtime_settings))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("EPI Gateway starting")
         app.state.worker = runtime_worker
         app.state.settings = runtime_settings
+        app.state.share_service = runtime_share_service
         runtime_worker.start()
         if runtime_settings.local_user_auth_enabled:
             loaded_users = _load_gateway_users(runtime_settings)
             runtime_worker.sync_auth_users(loaded_users, source="users_file")
+        runtime_share_service.prune_expired()
         yield
         logger.info("EPI Gateway stopping")
         runtime_worker.stop()
@@ -656,7 +875,12 @@ def create_app(
     async def apply_runtime_guards(request: Request, call_next):
         # ── Request body size guard ───────────────────────────────────────────
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > runtime_settings.max_request_body_bytes:
+        max_body_bytes = (
+            runtime_settings.share_max_upload_bytes
+            if request.url.path == "/api/share" and request.method == "POST"
+            else runtime_settings.max_request_body_bytes
+        )
+        if content_length and int(content_length) > max_body_bytes:
             return JSONResponse(
                 status_code=413,
                 content={"ok": False, "error": "Request body too large"},
@@ -682,9 +906,13 @@ def create_app(
                 "role": "admin",
                 "auth_mode": "disabled",
             }
-        if runtime_settings.auth_required and request.method != "OPTIONS" and request.url.path.startswith("/api"):
+        protected_capture_path = request.url.path in _CAPTURE_PATHS
+        protected_api_path = request.url.path.startswith("/api")
+        if runtime_settings.auth_required and request.method != "OPTIONS" and (protected_api_path or protected_capture_path):
             auth_exempt_paths = {"/api/auth/login"}
-            if request.url.path not in auth_exempt_paths:
+            is_share_path = request.url.path == "/api/share" or request.url.path.startswith("/api/share/")
+            is_approval_path = request.url.path.startswith("/api/approve/")
+            if request.url.path not in auth_exempt_paths and not is_share_path and not is_approval_path:
                 principal = _build_auth_principal(request, runtime_settings, runtime_worker)
                 if not principal:
                     return JSONResponse(status_code=401, content={"ok": False, "error": "Unauthorized"})
@@ -724,6 +952,7 @@ def create_app(
             "retention_mode": runtime_settings.retention_mode,
             "proxy_failure_mode": runtime_settings.proxy_failure_mode,
             "capture_scope": runtime_settings.capture_scope,
+            "share_enabled": runtime_settings.share_enabled,
             "replay": {
                 "applied_batches": snapshot["replayed_batches"],
                 "skipped_batches": snapshot["skipped_replay_batches"],
@@ -742,6 +971,7 @@ def create_app(
                 "shared_workspace": True,
                 "shared_cases": True,
                 "artifact_export": True,
+                "hosted_share_links": runtime_settings.share_enabled,
             },
             "workspace_file": snapshot["database_path"],
         }
@@ -765,6 +995,7 @@ def create_app(
                 "local_user_auth_enabled": runtime_settings.local_user_auth_enabled,
                 "local_user_count": snapshot["auth_user_count"],
                 "retention_mode": runtime_settings.retention_mode,
+                "share_enabled": runtime_settings.share_enabled,
                 "replay": {
                     "applied_batches": snapshot["replayed_batches"],
                     "skipped_batches": snapshot["skipped_replay_batches"],
@@ -1023,6 +1254,115 @@ def create_app(
         if principal.get("auth_mode") == "session" and token:
             runtime_worker.revoke_auth_session(token)
         return {"ok": True}
+
+    @app.post("/api/share", status_code=201)
+    async def create_share_link(
+        request: Request,
+        expires_days: int = Query(default=runtime_settings.share_default_expiry_days, ge=1),
+    ):
+        content_type = _clean(request.headers.get("content-type")) or "application/octet-stream"
+        content_type = content_type.split(";", 1)[0].strip().lower()
+        if content_type not in {EPI_MIMETYPE, "application/octet-stream"}:
+            raise HTTPException(status_code=415, detail="Unsupported content type for .epi upload")
+
+        try:
+            body = await request.body()
+            payload = runtime_share_service.create_share(
+                body,
+                filename=request.headers.get("x-epi-filename"),
+                client_ip=(request.client.host if request.client else None) or "unknown",
+                expires_days=expires_days,
+            )
+        except ShareServiceError as exc:
+            headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+            raise HTTPException(status_code=exc.status_code, detail=str(exc), headers=headers) from exc
+        return payload
+
+    @app.get("/api/share/{share_id}/meta")
+    async def get_share_meta(share_id: str):
+        try:
+            return runtime_share_service.get_share_metadata(share_id)
+        except ShareServiceError as exc:
+            headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+            raise HTTPException(status_code=exc.status_code, detail=str(exc), headers=headers) from exc
+
+    @app.get("/api/share/{share_id}")
+    async def download_share(share_id: str):
+        try:
+            record, payload = runtime_share_service.get_share_bytes(share_id)
+        except ShareServiceError as exc:
+            headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+            raise HTTPException(status_code=exc.status_code, detail=str(exc), headers=headers) from exc
+        return Response(
+            content=payload,
+            media_type=EPI_MIMETYPE,
+            headers={
+                "Content-Disposition": f'attachment; filename="{record.filename}"',
+                "Cache-Control": "private, max-age=60",
+            },
+        )
+
+    @app.api_route("/api/approve/{workflow_id}/{approval_id}", methods=["GET", "POST"])
+    async def record_approval_decision(
+        workflow_id: str,
+        approval_id: str,
+        decision: str = Query(...),
+        reviewer: str = Query(default=""),
+        reason: str = Query(default=""),
+    ):
+        normalized_decision = str(decision or "").strip().lower()
+        if normalized_decision not in {"approve", "deny"}:
+            raise HTTPException(status_code=400, detail="decision must be approve or deny")
+
+        approval_request = runtime_worker.find_approval_request(workflow_id, approval_id)
+        request_content = (approval_request or {}).get("content") or {}
+        case_id = _first_nonempty(
+            (approval_request or {}).get("case_id"),
+            runtime_worker.find_case_id_for_workflow(workflow_id),
+        )
+        action = _first_nonempty(request_content.get("action"), approval_id) or approval_id
+        approved = normalized_decision == "approve"
+        response_reason = _clean(reason) or (
+            "Approved via approval link"
+            if approved
+            else "Denied via approval link"
+        )
+
+        event = CaptureEventModel(
+            kind="agent.approval.response",
+            workflow_id=workflow_id,
+            case_id=case_id,
+            content={
+                "approval_id": approval_id,
+                "action": action,
+                "approved": approved,
+                "reviewer": _clean(reviewer) or "approval-link",
+                "reason": response_reason,
+                "requested_from": _clean(request_content.get("requested_from") or request_content.get("requested_by")),
+                "response_source": "approval-link",
+            },
+        )
+        touched_case_ids = runtime_worker.store_items([event.model_dump(mode="json")])
+        case_id = case_id or (touched_case_ids[0] if touched_case_ids else None)
+
+        label = "Approved" if approved else "Denied"
+        case_link = (
+            f'<p><a href="{runtime_settings.approval_base_url}/api/cases/{urllib.parse.quote(case_id, safe="")}">View case JSON</a></p>'
+            if case_id
+            else ""
+        )
+        html = f"""
+        <html>
+          <body style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:72px auto;padding:24px;color:#0f172a">
+            <h2 style="margin-bottom:8px">{'✅ ' if approved else '❌ '}{label}</h2>
+            <p style="margin-top:0">Decision recorded for workflow <strong>{workflow_id}</strong>.</p>
+            <p><strong>Action:</strong> {action}</p>
+            <p><strong>Reason:</strong> {response_reason}</p>
+            {case_link}
+          </body>
+        </html>
+        """
+        return HTMLResponse(html)
 
     @app.get("/api/cases")
     async def list_cases(

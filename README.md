@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
-  <p align="center"><strong>3 lines of code. Your AI agent's decisions — captured, signed, and openable in any browser forever.</strong></p>
+  <p align="center"><strong>Capture any AI agent run into one portable <code>.epi</code> file you can open, share, and verify anywhere.</strong></p>
   <p align="center">
-    <em>No cloud. No login. No internet required.</em>
+    <em>Use <code>.epi</code> as the bug report artifact for AI systems. No cloud. No login. No internet required.</em>
   </p>
 </p>
 
@@ -31,10 +31,13 @@
 <p align="center">
   <strong>
     <a href="#install">Install</a> ·
-    <a href="#try-it-now--no-api-key">Try It Now</a> ·
+    <a href="#debug-a-run-in-10-minutes--no-api-key">Debug a Run</a> ·
+    <a href="#use-epi-as-a-bug-report-artifact">Share a Failure</a> ·
     <a href="#add-to-your-code">Add to Your Code</a> ·
     <a href="#pytest-plugin">pytest</a> ·
     <a href="#framework-integrations">Integrations</a> ·
+    <a href="docs/SHARE-A-FAILURE.md">Bug Reports</a> ·
+    <a href="docs/CONNECT.md">Team Review</a> ·
     <a href="docs/EPI-SPEC.md">Specification</a> ·
     <a href="docs/CLI.md">CLI Reference</a> ·
     <a href="docs/POLICY.md">Policy Guide</a> ·
@@ -53,7 +56,7 @@ pip install epi-recorder
 
 ---
 
-## Try It Now — No API Key
+## Debug a Run in 10 Minutes — No API Key
 
 **Option A: On your machine (60 seconds)**
 
@@ -62,24 +65,72 @@ pip install epi-recorder
 epi demo
 ```
 
-This runs a complete refund-approval demo using a built-in mock LLM:
+This runs a sample refund workflow and gives you the full developer repro loop:
 
-1. Agent runs, makes a decision, captures every step
-2. Creates a signed `.epi` case file locally
-3. Opens the browser review view (no login, no internet)
-4. Lets you export and cryptographically verify it
+1. Capture one AI agent run into a portable `.epi` artifact
+2. Open the flagged case in the browser review view
+3. Approve, reject, or escalate it like a teammate reviewing a bug
+4. Export and cryptographically verify the same `.epi` file
+
+The refund flow is a concrete sample workflow, not the whole product. The point of the demo is to show how EPI turns one weird run into a portable repro you can open and share.
 
 > Already have an OpenAI key? Set `OPENAI_API_KEY` and the demo uses the real API instead.
+
+**Insurance design-partner demo**
+
+If you want the insurance-specific workflow from the current design-partner push, run the starter kit instead:
+
+```bash
+cd examples/starter_kits/insurance_claim
+python agent.py
+epi view insurance_claim_case.epi
+epi export-summary summary insurance_claim_case.epi
+```
+
+That flow simulates a claim denial with a fraud check, coverage check, human approval, denial reason capture, and a printable Decision Record.
 
 **Option B: In your browser (no install)**
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb)
 
-Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same refund-review loop in your browser: setup → run → review → verification.
+Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same engineering flow: clean run → failing run → browser review → verification → tamper check.
 
 **Option C: Verify an existing .epi file**
 
 Drag and drop any `.epi` file at [epilabs.org/verify](https://epilabs.org/verify) — no install, no login, verification runs entirely in your browser.
+
+---
+
+## Use EPI as a Bug Report Artifact
+
+When an agent run goes weird, create one `.epi` file and hand that to the next engineer.
+
+```text
+capture the run -> open it in the browser -> verify it -> attach it to an issue or PR
+```
+
+Typical pattern:
+
+1. Run `epi demo`, `epi run my_agent.py`, `pytest --epi`, or a framework wrapper
+2. Open the resulting `.epi` with `epi view`
+3. Verify it with `epi verify`
+4. Share it with `epi share my_agent.epi` or attach the raw file to a GitHub issue, PR discussion, Slack thread, or incident doc
+
+Hosted share loop:
+
+```bash
+epi verify my_agent.epi
+epi share my_agent.epi
+```
+
+`epi share` uploads the already-validated case file and returns a browser link at `https://epilabs.org/cases/?id=...`.
+Use it when a teammate needs the fastest possible "open the repro in a browser" path.
+
+Guides:
+
+- [Share one failure with `.epi`](docs/SHARE-A-FAILURE.md)
+- [Use `pytest --epi` for agent regressions](docs/PYTEST-AGENT-REGRESSIONS.md)
+- [Framework integrations in 5 minutes](docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
 
 ---
 
@@ -98,7 +149,7 @@ with record("my_agent.epi"):
     )
 ```
 
-**What EPI creates:** a portable `.epi` case file with the decision timeline, environment snapshot, browser review view, and trust metadata. When rules are present, EPI also embeds `policy.json` and `analysis.json`. Human review can later add review notes without rewriting the original record.
+**What EPI creates:** a portable `.epi` bug-report artifact with the decision timeline, environment snapshot, browser review view, and trust metadata. When rules are present, EPI also embeds `policy.json` and `analysis.json`. Human review can later add review notes without rewriting the original record.
 
 Open it:
 
@@ -108,6 +159,41 @@ epi verify my_agent.epi  # cryptographic integrity check
 ```
 
 `epi view` is the canonical EPI review experience. Older desktop viewer surfaces remain legacy/internal compatibility paths and are not the recommended front door.
+
+## What Compliance Buyers See
+
+These are the three proof points for the insurance design-partner workflow.
+
+### Decision Summary
+
+![Insurance Decision Summary](docs/assets/insurance-decision-summary.svg)
+
+### Human Review Flow
+
+![Insurance Human Review Flow](docs/assets/insurance-human-review-flow.svg)
+
+### Decision Record Export
+
+![Insurance Decision Record](docs/assets/insurance-decision-record.svg)
+
+## Three Common Developer Jobs
+
+| Job | Start here |
+|:----|:-----------|
+| Debug one bad agent run | [`docs/SHARE-A-FAILURE.md`](docs/SHARE-A-FAILURE.md) |
+| Attach `.epi` to a failing test or CI job | [`docs/PYTEST-AGENT-REGRESSIONS.md`](docs/PYTEST-AGENT-REGRESSIONS.md) |
+| Capture runs from my framework with minimal code changes | [`docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md`](docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md) |
+
+## Share With Your Team
+
+```bash
+epi connect open
+```
+
+The local team-review workspace starts on `http://localhost:8000` and talks to the local gateway on `http://127.0.0.1:8765`.
+Share the opened browser URL with a same-machine reviewer, or use the LAN/ngrok patterns in [`docs/CONNECT.md`](docs/CONNECT.md) when someone else needs to open the workspace remotely.
+
+---
 
 ### Record a full agent run with approvals and tool calls
 
@@ -147,14 +233,15 @@ with record("test.epi"):
 
 ## pytest Plugin
 
-One flag. Signed `.epi` evidence per test. No code changes.
+One flag. Portable `.epi` repro for failing tests by default. No code changes.
 
 ```bash
-pytest --epi                    # generates signed .epi per test
+pytest --epi                    # keeps signed .epi files for failing tests
 pytest --epi --epi-dir=evidence # custom output directory
+pytest --epi --epi-on-pass      # also keep passing test artifacts
 ```
 
-Every test failure leaves a signed case file you can open, verify, and share. Useful for catching regressions in multi-step agent behavior over time.
+Every test failure leaves a signed case file you can open, verify, and share. This is the fastest way to make `.epi` part of CI and PR debugging for multi-step agent behavior.
 
 **Share a test failure**: Attach the `.epi` file to a GitHub issue or PR. Anyone can open it in their browser. No EPI install required on their end — the review view is embedded inside the file.
 
@@ -183,23 +270,24 @@ Production-shaped examples for common consequential workflows. Pick one, run it,
 | Kit | What it covers |
 |:----|:---------------|
 | [`examples/starter_kits/refund/`](examples/starter_kits/refund/) | Refund approval agent with human sign-off, policy rules, and full audit trail |
+| [`examples/starter_kits/insurance_claim/`](examples/starter_kits/insurance_claim/) | Insurance claim denial workflow with fraud checks, coverage review, human approval, and Decision Record export |
 
-More kits coming: claims, underwriting, support escalation.
+More kits coming: underwriting and support escalation.
 
 ---
 
-## What EPI Is
+## Why Engineers Use EPI
 
-EPI is the evidence layer for consequential AI decisions — the ones that approve refunds, underwrite loans, escalate support cases, or trigger operational actions.
+EPI is a portable repro layer for AI systems. When an agent run goes wrong, logs tell you something happened. EPI gives you one file you can hand to another engineer so they can inspect the run, review what happened, and verify the file still matches the original capture.
 
-When one of those runs goes wrong, traditional logs help you debug. EPI helps you *defend* the decision after an incident, audit request, model-risk review, or compliance challenge. It creates one portable `.epi` case file that answers:
+One `.epi` file answers:
 
 - What actually happened, step by step?
 - Which rule was active at the time?
 - Did a human reviewer confirm or dismiss it?
 - Is this case file still trustworthy, or was it tampered with?
 
-EPI is not an observability dashboard. It sits beside observability as the durable evidence layer.
+EPI is not an observability dashboard. It sits beside observability as the durable, shareable artifact layer for debugging, review, and later trust checks.
 
 ### Why EPI vs. Alternatives
 
@@ -210,7 +298,7 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 | **Open format** | Yes — `.epi` spec | No — proprietary | No | No |
 | **Cost** | **Free** (MIT) | $99+/mo | Custom | $50+/mo |
 
-> EPI complements these tools. Use LangSmith for live traces, EPI for durable evidence.
+> EPI complements these tools. Use LangSmith for live traces, EPI for portable repro artifacts you can share later.
 
 ---
 
@@ -228,6 +316,7 @@ The portability advantage: you can hand a regulator a single `.epi` file. They v
 
 For the enterprise architecture boundary, see [docs/OPEN-CORE-ARCHITECTURE.md](docs/OPEN-CORE-ARCHITECTURE.md).
 For self-hosted deployment and operator runbook, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
+For the hosted insurance pilot path on `epilabs.org` + `api.epilabs.org`, see [docs/HOSTED-PILOT-RUNBOOK.md](docs/HOSTED-PILOT-RUNBOOK.md).
 
 ---
 
@@ -257,7 +346,7 @@ Developer path:
 
 ---
 
-## What Changed in v2.8.10
+## What Changed in v3.0.0
 
 - **Notebook packaging correction**
   - `colab_demo.ipynb` and `EPI NEXUA VENTURES.ipynb` now ship in the GitHub repo and source distribution
@@ -269,7 +358,7 @@ Developer path:
   - reusable approval policies still accept both `approval_id` and `id`
   - `applies_at` still accepts either a single intervention point or a list
 
-EPI still stores the machine-readable rulebook as `epi_policy.json`, but `v2.8.10` makes the packaged release honest about where the demo notebooks live: in the repo and source release, not as installed runtime assets.
+EPI still stores the machine-readable rulebook as `epi_policy.json`, and `v3.0.0` rolls the current capture, sharing, policy, and reviewer work into the next major release line.
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -326,8 +415,9 @@ with record("stream_demo.epi"):
 
 ```bash
 pip install epi-recorder
-pytest --epi                    # Generates signed .epi per test
+pytest --epi                    # Keeps signed .epi files for failing tests
 pytest --epi --epi-dir=evidence # Custom output directory
+pytest --epi --epi-on-pass      # Keep passing test artifacts too
 ```
 
 ### GitHub Action - CI/CD Verification
@@ -576,6 +666,7 @@ LangGraph · LangChain · LiteLLM · AutoGen · CrewAI · OpenTelemetry · pytes
 | `epi run <script.py>` | Record execution to `.epi` |
 | `epi verify <file.epi>` | Verify integrity and signature |
 | `epi view <file.epi>` | Open in browser review view |
+| `epi share <file.epi>` | Upload a hosted browser link for the case file |
 | `epi keys list` | Manage signing keys |
 | `epi debug <file.epi>` | Heuristic analysis |
 | `epi chat <file.epi>` | Natural language querying |
@@ -620,7 +711,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v2.8.10):**
+**Current (v3.0.0):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support

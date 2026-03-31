@@ -4,10 +4,11 @@ from pathlib import Path
 import queue
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
-from epi_core.capture import CaptureBatchModel, build_capture_batch, coerce_capture_event
+from epi_core.capture import CaptureBatchModel, CaptureEventModel, build_capture_batch, coerce_capture_event
 from epi_core.case_store import CaseStore, ReplaySpoolResultModel
+from epi_core.time_utils import utc_now_iso
 
 logger = logging.getLogger("epi-gateway.worker")
 
@@ -43,6 +44,7 @@ class EvidenceWorker:
         self.replay_result = ReplaySpoolResultModel()
         self.ready = False
         self.last_start_error: str | None = None
+        self._post_persist_hook: Callable[[list[CaptureEventModel], "EvidenceWorker"], None] | None = None
 
         self.batch_size = max(1, int(batch_size))
         self.batch_timeout = max(0.1, float(batch_timeout))
@@ -60,6 +62,7 @@ class EvidenceWorker:
         try:
             self.replay_result = self.case_store.replay_spool(self.events_path)
             self.replayed_batches += self.replay_result.applied_batches
+            self._recover_orphan_sessions()
         except Exception as exc:
             self.last_start_error = str(exc)
             logger.error("Gateway worker failed during startup replay: %s", exc, exc_info=True)
@@ -87,6 +90,12 @@ class EvidenceWorker:
     def enqueue(self, item: dict[str, Any]) -> None:
         """Queue one capture event for background persistence."""
         self._queue.put(coerce_capture_event(item))
+
+    def set_post_persist_hook(
+        self,
+        hook: Callable[[list[CaptureEventModel], "EvidenceWorker"], None] | None,
+    ) -> None:
+        self._post_persist_hook = hook
 
     def store_items(self, items: list[dict[str, Any] | Any]) -> list[str]:
         """Synchronously persist items to the spool and project them into cases."""
@@ -144,6 +153,12 @@ class EvidenceWorker:
     def get_case(self, case_id: str) -> dict[str, Any] | None:
         return self.case_store.get_case(case_id)
 
+    def find_case_id_for_workflow(self, workflow_id: str) -> str | None:
+        return self.case_store.find_case_id_for_workflow(workflow_id)
+
+    def find_approval_request(self, workflow_id: str, approval_id: str) -> dict[str, Any] | None:
+        return self.case_store.find_approval_request(workflow_id, approval_id)
+
     def save_review(self, case_id: str, review_payload: dict[str, Any]) -> dict[str, Any]:
         return self.case_store.save_review(case_id, review_payload)
 
@@ -155,6 +170,27 @@ class EvidenceWorker:
 
     def add_comment(self, case_id: str, author: str, body: str, *, created_at: str | None = None) -> dict[str, Any]:
         return self.case_store.add_comment(case_id, author, body, created_at=created_at)
+
+    def record_system_activity(
+        self,
+        case_id: str,
+        *,
+        kind: str,
+        title: str,
+        copy: str,
+        actor: str = "epi-gateway",
+        created_at: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self.case_store.record_system_activity(
+            case_id,
+            kind=kind,
+            title=title,
+            copy=copy,
+            actor=actor,
+            created_at=created_at,
+            metadata=metadata,
+        )
 
     def export_case(
         self,
@@ -237,19 +273,63 @@ class EvidenceWorker:
         self._persist_batch(batch)
 
     def _persist_batch(self, batch: CaptureBatchModel) -> list[str]:
-        payload = batch.model_dump(mode="json")
+        model = CaptureBatchModel.model_validate(batch)
+        payload = model.model_dump(mode="json")
         payload["_signed_batch"] = True
 
-        file_path = self.events_path / f"evidence_{batch.batch_id}.json"
+        file_path = self.events_path / f"evidence_{model.batch_id}.json"
         with file_path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
 
         touched_case_ids = self.case_store.apply_batch(payload, file_name=file_path.name)
-        self.processed_count += len(batch.items)
+        self.processed_count += len(model.items)
         logger.info(
             "Persisted batch %s with %s item(s); touched %s case(s)",
-            batch.batch_id,
-            len(batch.items),
+            model.batch_id,
+            len(model.items),
             len(touched_case_ids),
         )
+        if self._post_persist_hook:
+            try:
+                self._post_persist_hook(list(model.items), self)
+            except Exception as exc:
+                logger.warning("Post-persist hook failed: %s", exc, exc_info=True)
         return touched_case_ids
+
+    def _recover_orphan_sessions(self) -> None:
+        for session in self.case_store.list_open_sessions():
+            logger.warning("Recovering orphan workflow session: %s", session.workflow_id)
+            touched_case_ids = self.store_items(
+                [
+                    {
+                        "case_id": session.case_id,
+                        "workflow_id": session.workflow_id,
+                        "kind": "agent.run.recovered",
+                        "captured_at": utc_now_iso(),
+                        "content": {
+                            "reason": "Gateway restarted before the run logged a clean completion event.",
+                            "recovered_at": utc_now_iso(),
+                            "started_at": session.started_at,
+                            "last_event_at": session.last_event_at,
+                        },
+                    }
+                ]
+            )
+            case_id = session.case_id or (touched_case_ids[0] if touched_case_ids else None)
+            if case_id:
+                try:
+                    self.record_system_activity(
+                        case_id,
+                        kind="session_recovered",
+                        title="Run recovered after gateway restart",
+                        copy="EPI recovered this run because the gateway restarted before a clean run end was captured.",
+                        created_at=utc_now_iso(),
+                        metadata={
+                            "workflow_id": session.workflow_id,
+                            "started_at": session.started_at,
+                            "last_event_at": session.last_event_at,
+                        },
+                    )
+                except KeyError:
+                    logger.warning("Recovered workflow %s did not resolve to a persisted case", session.workflow_id)
+            self.case_store.delete_open_session(session.workflow_id)

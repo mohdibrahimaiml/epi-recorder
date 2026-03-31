@@ -10,8 +10,8 @@ WORKDIR /app
 # RUN apt-get update && apt-get install -y gcc
 
 # Install dependencies
-# We include fastapi, uvicorn, and the epi-recorder package
-RUN pip install --no-cache-dir fastapi uvicorn[standard] epi-recorder
+# We include the gateway extra so hosted sharing can use S3/R2 when configured.
+RUN pip install --no-cache-dir fastapi uvicorn[standard] "epi-recorder[gateway]"
 
 # Copy Gateway Code
 COPY . /app/epi_gateway
@@ -21,4 +21,3 @@ EXPOSE 8000
 
 # Run the Sidecar
 CMD ["uvicorn", "epi_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
- 

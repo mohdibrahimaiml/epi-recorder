@@ -2650,7 +2650,7 @@ function renderCaseView() {
   }
 
   elements.caseSelector.value = caseRecord.id;
-  elements.caseSubtitle.textContent = `${caseRecord.workflow} case`;
+  elements.caseSubtitle.textContent = `${caseRecord.workflow} decision record`;
   elements.caseTitle.textContent = caseRecord.decision.title;
   elements.caseSummaryCopy.textContent = caseRecord.decision.summary;
   const canDownloadReviewedArtifact = canBuildReviewedArtifact(caseRecord);
@@ -2663,18 +2663,20 @@ function renderCaseView() {
   setBadge(elements.caseRiskBadge, caseRecord.risk.label, caseRecord.risk.tone);
   setBadge(elements.caseReviewBadge, caseRecord.reviewState.label, caseRecord.reviewState.tone);
   setBadge(elements.caseReviewSignatureBadge, caseRecord.reviewSignature.label, caseRecord.reviewSignature.tone);
+  const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
 
   const summaryRows = [
     ['Decision', caseRecord.decision.outcome],
     ['Workflow', caseRecord.workflow],
-    ['Workflow status', caseRecord.workflowState.label],
+    ['Review status', caseRecord.workflowState.label],
     ['Assignee', caseRecord.assignee || 'Unassigned'],
     ['Due date', formatDueDate(caseRecord.dueAt)],
     ['Created', formatDate(caseRecord.manifest.created_at)],
-    ['Source', caseRecord.sourceName],
-    ['Workspace', caseRecord.sharedWorkspaceCase ? 'Shared team case' : 'Local case'],
-    ['Trust', caseRecord.trust.label],
-    ['Review', caseRecord.reviewState.label],
+    ['Case file', caseRecord.sourceName],
+    ['Where this case lives', caseRecord.sharedWorkspaceCase ? 'Shared team case' : 'Local case'],
+    ['Record integrity', caseRecord.trust.label],
+    ['Automated policy check', analysisState.label],
+    ['Human review', caseRecord.reviewState.label],
     ['Signed by', deriveSignerLabel(caseRecord.manifest)],
   ];
 
@@ -2686,6 +2688,10 @@ function renderCaseView() {
     {
       title: caseRecord.trust.label,
       copy: caseRecord.trust.detail,
+    },
+    {
+      title: analysisState.label,
+      copy: analysisState.detail,
     },
     {
       title: caseRecord.reviewState.label,
@@ -4915,16 +4921,16 @@ function deriveTrustState(manifest, integrity, signature) {
       code: 'source-not-proven',
       label: 'Source not proven',
       tone: 'warning',
-      detail: `This packaged case view can show the decision record, but it did not recheck the ${integrity.checked} protected file(s).`,
+      detail: `This packaged case view can show the decision record, but it did not recheck the ${integrity.checked} protected file(s) on this device.`,
     };
   }
 
   if (signature.valid) {
     return {
       code: 'trusted',
-      label: 'Trusted',
+      label: 'Record intact',
       tone: 'success',
-      detail: `All ${integrity.checked} protected file(s) matched and the signature verified.`,
+      detail: `Record has not been modified. All ${integrity.checked} protected file(s) matched and the signer verified.`,
     };
   }
 
@@ -4933,7 +4939,7 @@ function deriveTrustState(manifest, integrity, signature) {
       code: 'source-not-proven',
       label: 'Source not proven',
       tone: 'warning',
-      detail: `File hashes match, but the signature could not be confirmed: ${signature.reason}.`,
+      detail: `The protected files match, but the signer could not be confirmed: ${signature.reason}.`,
     };
   }
 
@@ -4941,8 +4947,73 @@ function deriveTrustState(manifest, integrity, signature) {
     code: 'source-not-proven',
     label: 'Source not proven',
     tone: 'warning',
-    detail: `All ${integrity.checked} protected file(s) matched, but no signer is attached to this case file.`,
+    detail: `The protected files match, but no signer is attached to this case file.`,
   };
+}
+
+function analysisHeadline(analysis) {
+  if (!analysis) {
+    return '';
+  }
+  if (typeof analysis.summary === 'string' && analysis.summary.trim()) {
+    return analysis.summary;
+  }
+  if (analysis.summary && typeof analysis.summary === 'object') {
+    return analysis.summary.headline || analysis.summary.primary_category || '';
+  }
+  return '';
+}
+
+function deriveAnalysisState(manifest, analysis) {
+  const status = String(manifest?.analysis_status || '').trim().toLowerCase();
+  const error = String(manifest?.analysis_error || '').trim();
+  if (status === 'complete') {
+    return {
+      code: 'complete',
+      label: 'Automated policy check complete',
+      tone: 'success',
+      detail: analysisHeadline(analysis) || 'Automated checks ran and the results were sealed into this case file.',
+    };
+  }
+  if (status === 'error') {
+    return {
+      code: 'error',
+      label: 'Automated policy check failed',
+      tone: 'danger',
+      detail: error || 'Automated checks failed before the artifact was sealed.',
+    };
+  }
+  if (status === 'skipped') {
+    return {
+      code: 'skipped',
+      label: 'Automated policy check not run',
+      tone: 'warning',
+      detail: 'No policy check result was recorded for this case file.',
+    };
+  }
+  return {
+    code: 'unknown',
+    label: 'Automated policy check not recorded',
+    tone: 'neutral',
+    detail: 'This artifact does not record whether automated checks ran.',
+  };
+}
+
+function businessDecisionLabel(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) {
+    return 'Decision captured';
+  }
+  if (raw.includes('deny') || raw.includes('declin')) {
+    return 'Denied';
+  }
+  if (raw.includes('approve') || raw.includes('pay') || raw.includes('accept')) {
+    return 'Approved';
+  }
+  if (raw.includes('escalat') || raw.includes('review')) {
+    return 'Escalated';
+  }
+  return sentenceCase(raw);
 }
 
 function deriveDecisionSummary(manifest, steps, analysis) {
@@ -4957,16 +5028,16 @@ function deriveDecisionSummary(manifest, steps, analysis) {
     (typeof lastDecisionStep?.content?.approved === 'boolean'
       ? (lastDecisionStep.content.approved ? 'approved' : 'rejected')
       : null) ||
-    analysis?.summary ||
+    analysisHeadline(analysis) ||
     manifest.goal ||
     'Decision captured';
 
   const workflowName = manifest.system_name || manifest.workflow_name || manifest.workflow_id || 'workflow';
 
   return {
-    title: sentenceCase(String(rawOutcome)),
-    outcome: sentenceCase(String(rawOutcome)),
-    summary: analysis?.summary || manifest.notes || manifest.goal || `EPI captured the decision path for this ${workflowName}.`,
+    title: businessDecisionLabel(String(rawOutcome)),
+    outcome: businessDecisionLabel(String(rawOutcome)),
+    summary: analysisHeadline(analysis) || manifest.notes || manifest.goal || `EPI captured the decision path for this ${workflowName}.`,
   };
 }
 
@@ -5194,7 +5265,7 @@ function buildCaseGuidance(caseRecord) {
         },
         {
           title: 'Share a report if needed',
-          copy: 'Open the report view if you need to hand this case to another team or keep an incident record.',
+          copy: 'Open the decision record exports if you need to hand this case to another team or keep an incident record.',
         },
       ],
     };
@@ -5238,7 +5309,7 @@ function buildCaseGuidance(caseRecord) {
         },
         {
           title: 'Save a defensible record',
-          copy: 'Download the reviewed case or a report so the final decision has a clear audit trail.',
+          copy: 'Download the reviewed case or the decision summary so the final decision has a clear audit trail.',
         },
       ],
     };
@@ -5247,7 +5318,7 @@ function buildCaseGuidance(caseRecord) {
   if (caseRecord.reviewState.code === 'reviewed') {
     return {
       title: 'This case already has a human review',
-      copy: 'You can update the review, check the rules that shaped the case, or export a report for sharing.',
+      copy: 'You can update the review, check the rules that shaped the case, or export the decision record for sharing.',
       reviewButtonLabel: 'Update review',
       items: [
         {
@@ -5260,7 +5331,7 @@ function buildCaseGuidance(caseRecord) {
         },
         {
           title: 'Share the result',
-          copy: 'Open the report view or download the reviewed case if someone else needs the final record.',
+          copy: 'Open the decision record exports or download the reviewed case if someone else needs the final record.',
         },
       ],
     };
@@ -5268,7 +5339,7 @@ function buildCaseGuidance(caseRecord) {
 
   return {
     title: 'This case looks ready to understand and share',
-    copy: 'No urgent review signal is active right now, but you can still inspect the case, tighten the rules, or export a report.',
+    copy: 'No urgent review signal is active right now, but you can still inspect the case, tighten the rules, or export the decision record.',
     reviewButtonLabel: 'Add note',
     items: [
       {
@@ -5281,7 +5352,7 @@ function buildCaseGuidance(caseRecord) {
       },
       {
         title: 'Keep or share the record',
-        copy: 'Open the report view if you want a portable summary for audit, operations, or management.',
+        copy: 'Open the decision record exports if you want a portable summary for audit, operations, or management.',
       },
     ],
   };
@@ -5556,25 +5627,29 @@ function decodeSignatureBytes(signatureValue) {
 }
 
 function buildCaseSummary(caseRecord) {
+  const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
   return [
+    'EPI DECISION SUMMARY',
+    '====================',
     `Case: ${caseRecord.decision.title}`,
     `Workflow: ${caseRecord.workflow}`,
-    `Workflow status: ${caseRecord.workflowState.label}`,
+    `Review status: ${caseRecord.workflowState.label}`,
     `Assignee: ${caseRecord.assignee || 'Unassigned'}`,
     `Due date: ${formatDueDate(caseRecord.dueAt)}`,
     `Created: ${formatDate(caseRecord.manifest.created_at)}`,
-    `Trust: ${caseRecord.trust.label}`,
+    `Record integrity: ${caseRecord.trust.label}`,
+    `Automated policy check: ${analysisState.label}`,
     `Risk: ${caseRecord.risk.label}`,
-    `Review: ${caseRecord.reviewState.label}`,
+    `Human review: ${caseRecord.reviewState.label}`,
     `Signer: ${deriveSignerLabel(caseRecord.manifest)}`,
     '',
-    'Summary',
+    'CASE OVERVIEW',
     caseRecord.decision.summary,
     '',
-    'What happened',
+    'KEY DECISION STEPS',
     ...buildTimeline(caseRecord).map((item, index) => `${index + 1}. ${item.title} (${item.time}) - ${item.copy}`),
     '',
-    'Findings',
+    'FINDINGS AND RULES',
     ...buildFindings(caseRecord).map((item) => `- ${item.title}: ${item.copy}`),
   ].join('\n');
 }
@@ -5687,7 +5762,17 @@ function summarizeFault(fault) {
 }
 
 function stepLabel(kind) {
-  return sentenceCase(String(kind).replace(/\./g, ' '));
+  const mapping = {
+    'tool.call': 'Business check started',
+    'tool.response': 'Business check completed',
+    'llm.request': 'AI was consulted',
+    'llm.response': 'AI response recorded',
+    'agent.approval.request': 'Human approval requested',
+    'agent.approval.response': 'Human approval recorded',
+    'agent.decision': 'Final decision recorded',
+    'agent.run.end': 'Workflow completed',
+  };
+  return mapping[kind] || sentenceCase(String(kind).replace(/\./g, ' '));
 }
 
 async function openCaseReviewForm() {
@@ -5717,8 +5802,7 @@ function summarizeStep(step, index) {
     return `Loaded ${recordId} from ${content.system || 'the source system'} as a review preview.`;
   }
   if (step.kind === 'llm.request') {
-    const firstMessage = Array.isArray(content.messages) ? content.messages[0] : null;
-    return `Prompted ${content.model || 'model'} with ${firstMessage?.content || 'a new request'}.`;
+    return `AI was consulted using ${content.model || 'the configured model'} before the final decision was recorded.`;
   }
   if (step.kind === 'llm.response') {
     const firstChoice = Array.isArray(content.choices) ? content.choices[0] : null;
@@ -5732,7 +5816,7 @@ function summarizeStep(step, index) {
     return `${content.reviewer || 'Reviewer'} ${content.approved ? 'approved' : 'did not approve'} ${content.action || 'the requested action'}.`;
   }
   if (step.kind === 'agent.decision') {
-    return `Decision recorded: ${content.decision || content.result || 'decision captured'}.`;
+    return `Final decision recorded: ${businessDecisionLabel(content.decision || content.result || 'decision captured')}.`;
   }
   return truncate(JSON.stringify(content || {}, null, 2) || `Step ${index + 1}`, 220);
 }

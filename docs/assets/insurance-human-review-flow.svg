@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" fill="none">
+  <rect width="1280" height="760" fill="#F4EFE7"/>
+  <rect x="52" y="42" width="1176" height="676" rx="28" fill="#FFFDF8" stroke="#D7CDBF" stroke-width="2"/>
+  <text x="92" y="96" fill="#5C6470" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">HUMAN REVIEW</text>
+  <text x="92" y="142" fill="#18222C" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="700">One-click review flow</text>
+  <text x="92" y="178" fill="#5C6470" font-family="Segoe UI, Arial, sans-serif" font-size="22">A reviewer reads the finding, records the outcome, and exports the defensible case file.</text>
+
+  <rect x="92" y="224" width="1096" height="440" rx="24" fill="#FFF8F0" stroke="#D7CDBF"/>
+  <text x="128" y="266" fill="#5C6470" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="2">REVIEW FORM</text>
+  <text x="128" y="308" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Reviewer</text>
+  <rect x="128" y="326" width="468" height="52" rx="12" fill="#FFFFFF" stroke="#D7CDBF"/>
+  <text x="148" y="359" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="20">claims.manager@carrier.com</text>
+
+  <text x="128" y="420" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Notes</text>
+  <rect x="128" y="438" width="710" height="140" rx="16" fill="#FFFFFF" stroke="#D7CDBF"/>
+  <text x="148" y="474" fill="#5C6470" font-family="Segoe UI, Arial, sans-serif" font-size="20">Coverage exclusion confirmed, human approval recorded, denial notice language reviewed.</text>
+
+  <text x="872" y="308" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Choose the human outcome</text>
+  <rect x="872" y="336" width="252" height="54" rx="27" fill="#0F766E"/>
+  <text x="942" y="370" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Approve decision</text>
+  <rect x="872" y="406" width="252" height="54" rx="27" fill="#FFF8F0" stroke="#D7CDBF"/>
+  <text x="951" y="440" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Reject decision</text>
+  <rect x="872" y="476" width="252" height="54" rx="27" fill="#FFF8F0" stroke="#D7CDBF"/>
+  <text x="920" y="510" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Escalate / decide later</text>
+
+  <text x="128" y="620" fill="#5C6470" font-family="Segoe UI, Arial, sans-serif" font-size="18">Save locally, publish to the shared case, or export the reviewed .epi case file.</text>
+  <rect x="128" y="640" width="292" height="52" rx="26" fill="#0F766E"/>
+  <text x="176" y="673" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Download reviewed case file</text>
+  <rect x="438" y="640" width="244" height="52" rx="26" fill="#FFF8F0" stroke="#D7CDBF"/>
+  <text x="494" y="673" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Download review notes</text>
+  <rect x="698" y="640" width="254" height="52" rx="26" fill="#FFF8F0" stroke="#D7CDBF"/>
+  <text x="754" y="673" fill="#18222C" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Download decision summary</text>
+</svg>

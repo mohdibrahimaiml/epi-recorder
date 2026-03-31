@@ -125,8 +125,12 @@ spec/
 
 # Local companion sites/workspaces (not part of epi-recorder package)
 epi-official-site/
+EPI-OFFICIAL/
 AI-Trader-Workspace/
 _viewer_launch_tmp/
+.epi-shared-workspace/
+.ops-drill/
+evidence_vault/
 .tmp-importtime-main.txt
 test_analytics_data/
 EPI_Investor_Demo_Colab_v2_8_5.ipynb

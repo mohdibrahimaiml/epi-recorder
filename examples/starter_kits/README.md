@@ -11,7 +11,7 @@ Each starter kit should be a production-shaped example for one consequential wor
 Initial target kits:
 
 - refunds
-- claims
+- insurance claim denial
 - underwriting
 - support escalation
 

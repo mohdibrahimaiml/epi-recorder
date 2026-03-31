@@ -40,6 +40,11 @@ console = Console()
 POLICY_FILENAME = "epi_policy.json"
 
 GUIDED_PROFILE_CHOICES = {
+    "insurance-claim": {
+        "label": "Insurance claim denials",
+        "profile": "insurance.claim-denial",
+        "description": "For claims review, denial workflows, and insurer compliance controls.",
+    },
     "finance-approval": {
         "label": "Finance approvals and underwriting",
         "profile": "finance.loan-underwriting",
@@ -373,6 +378,27 @@ def _customize_profile_policy(policy: dict, profile_name: str, yes: bool) -> dic
 
         if not (yes or Confirm.ask("Should secret-like values be blocked from output?", default=True)):
             _remove_rule(policy, "R004")
+
+    elif profile_name == "insurance.claim-denial":
+        if yes or Confirm.ask("Should high-value claims require human approval?", default=True):
+            threshold = "500" if yes else Prompt.ask(
+                "Claim approval threshold amount",
+                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
+            )
+            rule = _get_rule(policy, "R003")
+            if rule is not None:
+                rule["threshold_value"] = float(threshold)
+        else:
+            _remove_rule(policy, "R003")
+
+        if not (yes or Confirm.ask("Should fraud checks be required before denial?", default=True)):
+            _remove_rule(policy, "R001")
+
+        if not (yes or Confirm.ask("Should coverage checks be required before denial?", default=True)):
+            _remove_rule(policy, "R002")
+
+        if not (yes or Confirm.ask("Should PII be blocked from claim notices?", default=True)):
+            _remove_rule(policy, "R005")
 
     return policy
 

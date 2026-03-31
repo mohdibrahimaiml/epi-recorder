@@ -21,13 +21,16 @@ def version_callback(value: bool):
 # Create Typer app
 app = typer.Typer(
     name="epi",
-    help="""EPI — Cryptographic evidence for AI agent decisions.
+    help="""EPI — Portable repro artifacts for AI agent runs.
 
 Try it now (no API key needed):
   epi demo
 
 No-install trial:
   Open the Colab notebook from the README
+
+Review cases with your team:
+  epi connect open
 
 Add to your code:
   from epi_recorder import record, wrap_openai
@@ -39,18 +42,21 @@ Add to your code:
 Then open it:
   epi view my_agent.epi
   epi verify my_agent.epi
+  epi share my_agent.epi
 
 Commands:
-  demo       Try EPI in 60s — no API key, no config needed. Start here.
+  demo       Capture one sample run, open it in the browser, and verify it. Start here.
   init       First-time setup wizard (framework picker: OpenAI, LiteLLM, LangChain...).
   run        <script.py>   Record an already-instrumented Python script.
   view       <file.epi>    Open a case file in the browser review view.
   verify     <file.epi>    Cryptographic integrity check.
+  share      <file.epi>    Upload a hosted share link for browser review.
   review     <file.epi>    Add human review notes to a case file.
   analyze    <file.epi>    Show fault analysis summary.
   policy     init          Create epi_policy.json with control rules.
   chat       <file.epi>    Chat with evidence using AI.
   debug      <file.epi>    Debug agent recordings for mistakes.
+  connect    open          Review cases with your team in the local browser workspace.
   gateway    serve         Advanced: run the AI capture service.
   ls                       List local recordings.
   doctor                   Self-healing system health check.
@@ -260,19 +266,22 @@ def version():
     """Show EPI version information."""
     from epi_core import __version__
     console.print(f"[bold]EPI[/bold] version [cyan]{__version__}[/cyan]")
-    console.print("[dim]Portable evidence and trust review for AI workflows[/dim]")
+    console.print("[dim]Portable repro and trust review for AI workflows[/dim]")
 
 
 @app.command(name="help")
 def show_help():
     """Show extended quickstart help."""
-    help_text = """[bold cyan]EPI — Cryptographic evidence for AI agent decisions[/bold cyan]
+    help_text = """[bold cyan]EPI — Portable repro artifacts for AI agent runs[/bold cyan]
 
 [bold]Try it now (no API key needed):[/bold]
   [green]epi demo[/green]
 
 [bold]No-install trial:[/bold]
   Open the Colab notebook from the README
+
+[bold]Review cases with your team:[/bold]
+  [green]epi connect open[/green]
 
 [bold]Add to your code:[/bold]
   [green]from epi_recorder import record, wrap_openai[/green]
@@ -281,21 +290,24 @@ def show_help():
   [green]with record("my_agent.epi"):[/green]
   [green]    client.chat.completions.create(...)[/green]
   [green]epi view my_agent.epi[/green]
+  [green]epi share my_agent.epi[/green]
 
 [bold]pytest — one flag, evidence per test:[/bold]
   [green]pytest --epi[/green]
 
 [bold]Commands:[/bold]
-  [cyan]demo[/cyan]       Try EPI in 60s — no API key, no config. [bold]Start here.[/bold]
+  [cyan]demo[/cyan]       Capture one sample run, open it, and verify it. [bold]Start here.[/bold]
   [cyan]init[/cyan]       First-time setup wizard.
   [cyan]run[/cyan]        <script.py>   Record an instrumented script.
   [cyan]view[/cyan]       <file.epi>    Open a case file in the browser review view.
   [cyan]verify[/cyan]     <file.epi>    Cryptographic integrity check.
+  [cyan]share[/cyan]      <file.epi>    Upload a hosted share link for browser review.
   [cyan]review[/cyan]     <file.epi>    Add human review notes to a case file.
   [cyan]analyze[/cyan]    <file.epi>    Show fault analysis summary.
   [cyan]policy[/cyan]     init          Create epi_policy.json.
   [cyan]chat[/cyan]       <file.epi>    Chat with evidence using AI.
   [cyan]debug[/cyan]      <file.epi>    Debug agent recordings.
+  [cyan]connect[/cyan]    open          Review cases with your team in the local browser workspace.
   [cyan]gateway[/cyan]    serve         Advanced capture service.
   [cyan]ls[/cyan]                       List local recordings.
   [cyan]doctor[/cyan]                   Self-healing health check.
@@ -375,6 +387,9 @@ def view(
 ):
     return view_command(ctx, epi_file, extract)
 
+from epi_cli.share import share as share_command
+app.command(name="share", help="Upload a hosted share link for a portable .epi case file.")(share_command)
+
 # NEW: ls command
 from epi_cli.ls import ls as ls_command
 app.command(name="ls", help="List local recordings (./epi-recordings/)")(ls_command)
@@ -411,9 +426,9 @@ from epi_cli.gateway import app as gateway_app
 app.add_typer(gateway_app, name="gateway", help="Advanced: run the open-source AI capture service")
 
 from epi_cli.dev import app as dev_app
-app.add_typer(dev_app, name="dev", help="Zero-friction refund review demo in the browser")
+app.add_typer(dev_app, name="dev", help="Zero-friction sample AI run -> browser repro -> verify flow")
 # 'epi demo' is an alias for 'epi dev' for discoverability
-app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — no API key, no config. Alias for 'epi dev'.")
+app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — capture, open, share, verify. Alias for 'epi dev'.")
 
 from epi_cli.export_summary import app as export_summary_app
 app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi case file")

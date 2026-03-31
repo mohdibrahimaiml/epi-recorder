@@ -77,6 +77,9 @@ class TestPackWithAnalysis:
 
         with zipfile.ZipFile(out, "r") as zf:
             assert "analysis.json" in zf.namelist()
+        manifest = EPIContainer.read_manifest(out)
+        assert manifest.analysis_status == "complete"
+        assert manifest.analysis_error is None
 
     def test_analysis_json_is_valid(self, tmp_path):
         src = _make_source_dir(tmp_path)
@@ -236,6 +239,9 @@ class TestPackWithAnalysis:
             EPIContainer.pack(src, ManifestModel(file_manifest={}), out)
 
         assert out.exists()
+        manifest = EPIContainer.read_manifest(out)
+        assert manifest.analysis_status == "error"
+        assert manifest.analysis_error is not None
         with zipfile.ZipFile(out, "r") as zf:
             assert "manifest.json" in zf.namelist()
             assert "steps.jsonl" in zf.namelist()
@@ -249,3 +255,30 @@ class TestPackWithAnalysis:
 
         with zipfile.ZipFile(out, "r") as zf:
             assert "analysis.json" not in zf.namelist()
+
+    def test_analysis_status_skipped_when_steps_file_missing(self, tmp_path):
+        src = tmp_path / "workspace"
+        src.mkdir()
+        (src / "environment.json").write_text(json.dumps({"os": "test"}), encoding="utf-8")
+        out = tmp_path / "output.epi"
+
+        EPIContainer.pack(src, ManifestModel(file_manifest={}), out)
+
+        manifest = EPIContainer.read_manifest(out)
+        assert manifest.analysis_status == "skipped"
+        assert manifest.analysis_error is None
+        with zipfile.ZipFile(out, "r") as zf:
+            assert "analysis.json" not in zf.namelist()
+
+    def test_analysis_status_complete_when_generated_analysis_is_preserved(self, tmp_path):
+        src = tmp_path / "workspace"
+        src.mkdir()
+        (src / "analysis.json").write_text(json.dumps({"summary": "already analyzed"}), encoding="utf-8")
+        (src / "environment.json").write_text(json.dumps({"os": "test"}), encoding="utf-8")
+        out = tmp_path / "output.epi"
+
+        EPIContainer.pack(src, ManifestModel(file_manifest={}), out, preserve_generated=True)
+
+        manifest = EPIContainer.read_manifest(out)
+        assert manifest.analysis_status == "complete"
+        assert manifest.analysis_error is None

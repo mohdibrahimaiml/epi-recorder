@@ -69,6 +69,11 @@ _ID_VALUE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+_ENTITY_ID_EXEMPT_KEYS = {
+    "policy_number",
+    "policy_clause",
+}
+
 
 # ── Data classes ───────────────────────────────────────────────────────────────
 
@@ -652,6 +657,8 @@ def _extract_entity_ids(steps: list[dict]) -> set[str]:
         content = step.get("content", {})
         for key, val in _flatten_kv(content):
             key_leaf = key.split(".")[-1].split("[")[0]
+            if key_leaf in _ENTITY_ID_EXEMPT_KEYS:
+                continue
             if _ID_KEY_PATTERNS.search(key_leaf) and isinstance(val, str) and len(val) >= 4:
                 ids.add(val)
             elif isinstance(val, str) and _ID_VALUE_PATTERNS.match(val):

@@ -205,6 +205,32 @@ def test_gateway_ready_and_auth_protect_shared_case_api(tmp_path):
         assert authorized.json()["ok"] is True
 
 
+def test_gateway_auth_protects_capture_and_proxy_paths_when_enabled(tmp_path):
+    worker = EvidenceWorker(storage_dir=tmp_path, batch_size=1, batch_timeout=0.1)
+    settings = GatewayRuntimeSettings(access_token="shared-secret")
+    app = create_app(worker=worker, settings=settings)
+
+    with TestClient(app) as client:
+        capture_unauthorized = client.post(
+            "/capture",
+            json={"kind": "session.start", "content": {"workflow": "Claims review"}},
+        )
+        assert capture_unauthorized.status_code == 401
+
+        proxy_unauthorized = client.post(
+            "/v1/chat/completions",
+            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hello"}]},
+        )
+        assert proxy_unauthorized.status_code == 401
+
+        capture_authorized = client.post(
+            "/capture",
+            json={"kind": "session.start", "content": {"workflow": "Claims review"}},
+            headers={"Authorization": "Bearer shared-secret"},
+        )
+        assert capture_authorized.status_code == 202
+
+
 def test_gateway_local_user_login_session_and_roles(tmp_path):
     users_path = tmp_path / "gateway-users.json"
     users_path.write_text(

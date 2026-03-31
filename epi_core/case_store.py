@@ -309,6 +309,15 @@ class AuthSessionModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class OpenSessionModel(BaseModel):
+    workflow_id: str
+    case_id: str | None = None
+    started_at: str
+    last_event_at: str
+
+    model_config = ConfigDict(extra="allow")
+
+
 def _review_state_for_filters(review: dict[str, Any] | None, payload: dict[str, Any]) -> str:
     if review and isinstance(review.get("reviews"), list) and review["reviews"]:
         return "reviewed"
@@ -506,6 +515,7 @@ def build_case_payload_from_events(
 
     title, summary = _derive_summary_from_events(events)
     has_error = any(event.kind == "llm.error" for event in events)
+    has_recovery = any(event.kind == "agent.run.recovered" for event in events)
     has_policy_failure = any(
         event.kind == "policy.check"
         and (
@@ -525,7 +535,7 @@ def build_case_payload_from_events(
     else:
         source_trust = _derive_source_trust("verify-source", "This live case was captured directly. Export it to .epi for portable artifact verification.")
 
-    review_required = bool(preview_only or has_error or has_policy_failure)
+    review_required = bool(preview_only or has_error or has_policy_failure or has_recovery)
     review = latest_review
     has_review = bool(review and isinstance(review.get("reviews"), list) and review["reviews"])
     status = _normalize_workflow_status(
@@ -544,6 +554,10 @@ def build_case_payload_from_events(
         priority = "high"
         risk_state = "high-risk"
         why_it_matters = "The captured events include an error or failed control that should be reviewed."
+    elif has_recovery:
+        priority = "medium"
+        risk_state = "needs-review"
+        why_it_matters = "The gateway recovered this run after a restart before a clean completion event was recorded."
     elif review_required:
         priority = "medium"
         risk_state = "needs-review"
@@ -574,6 +588,16 @@ def build_case_payload_from_events(
                 "why_it_matters": "Preview cases are useful for validation, but they are not yet artifact-verified source evidence.",
             }
         )
+    if has_recovery:
+        analysis["secondary_flags"].append(
+            {
+                "category": "Crash recovery",
+                "fault_type": "session_recovered",
+                "description": "The gateway restarted before this run logged a clean completion event.",
+                "why_it_matters": "Treat this case as blocked until someone confirms the recovered workflow state.",
+            }
+        )
+        status = "blocked"
 
     steps = [_event_to_step(event, index) for index, event in enumerate(events)]
     if steps and steps[0]["kind"] != "session.start":
@@ -775,12 +799,19 @@ class CaseStore:
                     expires_at TEXT NOT NULL,
                     revoked_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS open_sessions (
+                    workflow_id TEXT PRIMARY KEY,
+                    case_id TEXT,
+                    started_at TEXT NOT NULL,
+                    last_event_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_events_case_id ON events(case_id);
                 CREATE INDEX IF NOT EXISTS idx_events_captured_at ON events(captured_at);
                 CREATE INDEX IF NOT EXISTS idx_cases_updated_at ON cases(updated_at);
                 CREATE INDEX IF NOT EXISTS idx_case_comments_case_id ON case_comments(case_id, comment_id);
                 CREATE INDEX IF NOT EXISTS idx_case_activity_case_id ON case_activity(case_id, activity_id);
                 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+                CREATE INDEX IF NOT EXISTS idx_open_sessions_last_event_at ON open_sessions(last_event_at);
                 CREATE TABLE IF NOT EXISTS schema_version (
                     version INTEGER PRIMARY KEY,
                     applied_at TEXT NOT NULL
@@ -794,7 +825,7 @@ class CaseStore:
     # Schema version history:
     #   1 — initial schema (applied_batches, events, cases, reviews, comments, activity, auth_users, auth_sessions)
     #   2 — extra case columns (assignee, due_at, priority_override, comment_count, last_comment_at) via _ensure_case_columns
-    _SCHEMA_VERSION = 2
+    _SCHEMA_VERSION = 3
 
     def _run_migrations(self, connection: sqlite3.Connection) -> None:
         """Apply outstanding schema migrations in order. Idempotent."""
@@ -817,7 +848,14 @@ class CaseStore:
                 "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (2, ?)",
                 (utc_now_iso(),),
             )
-            current = 2  # noqa: F841
+            current = 2
+
+        if current < 3:
+            connection.execute(
+                "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (3, ?)",
+                (utc_now_iso(),),
+            )
+            current = 3  # noqa: F841
 
     def _ensure_case_columns(self, connection: sqlite3.Connection) -> None:
         rows = connection.execute("PRAGMA table_info(cases)").fetchall()
@@ -977,6 +1015,87 @@ class CaseStore:
             )
             connection.commit()
 
+    def list_open_sessions(self) -> list[OpenSessionModel]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT workflow_id, case_id, started_at, last_event_at
+                FROM open_sessions
+                ORDER BY last_event_at ASC, workflow_id ASC
+                """
+            ).fetchall()
+        return [
+            OpenSessionModel(
+                workflow_id=row["workflow_id"],
+                case_id=_clean(row["case_id"]),
+                started_at=row["started_at"],
+                last_event_at=row["last_event_at"],
+            )
+            for row in rows
+        ]
+
+    def delete_open_session(self, workflow_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM open_sessions WHERE workflow_id = ?", (_clean(workflow_id),))
+            connection.commit()
+
+    def find_case_id_for_workflow(self, workflow_id: str) -> str | None:
+        workflow_key = _clean(workflow_id)
+        if not workflow_key:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT case_id
+                FROM cases
+                WHERE workflow_id = ? OR case_id = ?
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (workflow_key, workflow_key),
+            ).fetchone()
+            if row and _clean(row["case_id"]):
+                return _clean(row["case_id"])
+            row = connection.execute(
+                """
+                SELECT case_id
+                FROM open_sessions
+                WHERE workflow_id = ?
+                LIMIT 1
+                """,
+                (workflow_key,),
+            ).fetchone()
+        return _clean(row["case_id"]) if row else None
+
+    def find_approval_request(self, workflow_id: str, approval_id: str) -> dict[str, Any] | None:
+        workflow_key = _clean(workflow_id)
+        approval_key = _clean(approval_id)
+        if not workflow_key or not approval_key:
+            return None
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT case_id, workflow_id, event_json
+                FROM events
+                WHERE kind = 'agent.approval.request'
+                  AND (workflow_id = ? OR case_id = ?)
+                ORDER BY captured_at DESC, event_id DESC
+                """,
+                (workflow_key, workflow_key),
+            ).fetchall()
+        for row in rows:
+            payload = _decode_json(row["event_json"], {})
+            content = payload.get("content") or {}
+            if _clean(content.get("approval_id")) != approval_key:
+                continue
+            return {
+                "case_id": _clean(row["case_id"]),
+                "workflow_id": _clean(row["workflow_id"]) or workflow_key,
+                "content": content,
+                "event": payload,
+            }
+        return None
+
     def replay_spool(self, events_dir: Path) -> ReplaySpoolResultModel:
         events_dir = Path(events_dir)
         events_dir.mkdir(parents=True, exist_ok=True)
@@ -1066,6 +1185,7 @@ class CaseStore:
                 )
                 if cursor.rowcount:
                     touched_case_ids.add(case_id)
+                    self._track_open_session_event(connection, event, case_id)
 
             connection.execute(
                 "INSERT INTO applied_batches (batch_id, file_name, applied_at) VALUES (?, ?, ?)",
@@ -1181,6 +1301,30 @@ class CaseStore:
             for row in rows
         ]
 
+    def record_system_activity(
+        self,
+        case_id: str,
+        *,
+        kind: str,
+        title: str,
+        copy: str,
+        actor: str = "epi-gateway",
+        created_at: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if not self._load_case_payload(case_id):
+            raise KeyError(case_id)
+        self._append_activity(
+            case_id,
+            kind=kind,
+            title=title,
+            copy=copy,
+            actor=actor,
+            created_at=created_at,
+            metadata=metadata,
+        )
+        return self._refresh_case_payload(case_id)
+
     def _append_activity(
         self,
         case_id: str,
@@ -1222,6 +1366,46 @@ class CaseStore:
             )
             new_connection.commit()
 
+    def _track_open_session_event(
+        self,
+        connection: sqlite3.Connection,
+        event: CaptureEventModel,
+        case_id: str,
+    ) -> None:
+        workflow_id = _clean(event.workflow_id)
+        if not workflow_id:
+            return
+
+        captured_at = event.captured_at.isoformat()
+        if event.kind in {"agent.run.end", "agent.run.recovered"}:
+            connection.execute("DELETE FROM open_sessions WHERE workflow_id = ?", (workflow_id,))
+            return
+
+        if event.kind == "agent.run.start":
+            connection.execute(
+                """
+                INSERT INTO open_sessions (workflow_id, case_id, started_at, last_event_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(workflow_id) DO UPDATE SET
+                    case_id = COALESCE(excluded.case_id, open_sessions.case_id),
+                    started_at = excluded.started_at,
+                    last_event_at = excluded.last_event_at
+                """,
+                (workflow_id, case_id, captured_at, captured_at),
+            )
+            return
+
+        connection.execute(
+            """
+            INSERT INTO open_sessions (workflow_id, case_id, started_at, last_event_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(workflow_id) DO UPDATE SET
+                case_id = COALESCE(excluded.case_id, open_sessions.case_id),
+                last_event_at = excluded.last_event_at
+            """,
+            (workflow_id, case_id, captured_at, captured_at),
+        )
+
     def _refresh_case_payload(
         self,
         case_id: str,
@@ -1242,7 +1426,7 @@ class CaseStore:
             current_comment_count = int(current_payload.get("comment_count") or 0)
             current_last_comment_at = _clean(current_payload.get("last_comment_at"))
 
-            if current_status:
+            if current_status and _clean(payload.get("status")) != "blocked":
                 payload["status"] = current_status
             if current_assignee:
                 payload["assignee"] = current_assignee

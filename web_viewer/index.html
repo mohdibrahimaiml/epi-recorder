@@ -190,7 +190,7 @@
       <strong id="summary-review">0</strong>
     </article>
     <article class="summary-card">
-      <span class="summary-label">Trusted</span>
+      <span class="summary-label">Records intact</span>
       <strong id="summary-trusted">0</strong>
     </article>
     <article class="summary-card">
@@ -300,7 +300,7 @@
               Trust
               <select id="trust-filter" class="text-input">
                 <option value="all">All trust states</option>
-                <option value="trusted">Trusted</option>
+                <option value="trusted">Record intact</option>
                 <option value="verify-source">Verify source</option>
                 <option value="source-not-proven">Source not proven</option>
                 <option value="do-not-use">Do not use</option>
@@ -335,13 +335,13 @@
         <div class="section-header">
           <div>
             <p class="section-label">Case</p>
-            <h2>Decision case file</h2>
+            <h2>Decision Summary</h2>
           </div>
         </div>
 
         <div id="no-case-selected" class="card empty-state">
           <h3>Select a case</h3>
-          <p>Choose a case from the inbox or the selector to review the decision record.</p>
+          <p>Choose a case from the inbox or the selector to review the decision summary.</p>
         </div>
 
         <div id="case-view" class="case-layout" hidden>
@@ -372,7 +372,7 @@
               <div class="action-row">
                 <button id="case-guidance-review-button" class="primary-button" type="button">Start review</button>
                 <button id="case-guidance-rules-button" class="secondary-button" type="button">Check rules</button>
-                <button id="case-guidance-report-button" class="secondary-button" type="button">Open report</button>
+                <button id="case-guidance-report-button" class="secondary-button" type="button">Open decision record</button>
               </div>
             </div>
             <div id="case-guidance-list" class="stack-list"></div>
@@ -385,7 +385,7 @@
             </article>
 
             <article class="card">
-              <p class="card-label">Trust and review</p>
+              <p class="card-label">Record integrity and review</p>
               <div id="case-alerts" class="stack-list"></div>
             </article>
 
@@ -429,7 +429,7 @@
                 <div class="action-row">
                   <button id="download-reviewed-epi-button" class="primary-button" type="button">Download reviewed case file (.epi)</button>
                   <button id="download-review-button" class="secondary-button" type="button">Download review notes</button>
-                  <button id="download-case-report-button" class="secondary-button" type="button">Download case summary</button>
+                  <button id="download-case-report-button" class="secondary-button" type="button">Download decision summary</button>
                 </div>
                 <p id="review-save-status" class="helper-copy"></p>
               </form>

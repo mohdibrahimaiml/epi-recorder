@@ -18,6 +18,9 @@ Usage:
     # Configure output directory
     pytest --epi --epi-dir ./test-evidence
 
+    # Keep artifacts for passing tests too
+    pytest --epi --epi-on-pass
+
     # Only record tests matching a pattern
     pytest --epi -k "test_agent"
 
@@ -28,6 +31,8 @@ How it works:
     automatically captured in a .epi file named after the test.
 
     Test results (pass/fail/skip) are logged as the final step.
+    By default, artifacts are kept for failing tests. Use
+    --epi-on-pass to keep successful test artifacts too.
 """
 
 import os
@@ -65,6 +70,12 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Disable signing of .epi files",
+    )
+    group.addoption(
+        "--epi-on-pass",
+        action="store_true",
+        default=False,
+        help="Keep .epi files for passing tests too (default: keep failures only)",
     )
 
 
@@ -148,6 +159,7 @@ def pytest_runtest_setup(item):
         # Store session on the item for later cleanup
         item._epi_session = session
         item._epi_start_time = time.time()
+        item._epi_output_path = output_path
 
     except Exception as e:
         # Don't let EPI failures break the test suite
@@ -192,6 +204,15 @@ def pytest_runtest_teardown(item, nextitem):
 
         session.log_step("test.result", result_data)
         session.__exit__(None, None, None)
+
+        keep_on_pass = item.config.getoption("--epi-on-pass", default=False)
+        output_path = getattr(item, "_epi_output_path", None)
+        keep_artifact = outcome == "failed" or keep_on_pass
+        if output_path and not keep_artifact:
+            try:
+                Path(output_path).unlink(missing_ok=True)
+            except Exception:
+                pass
 
     except Exception as e:
         import warnings

@@ -300,6 +300,8 @@ class EPIContainer:
 
             # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest.analysis_status = "skipped"
+            manifest.analysis_error = None
 
             if not preserve_generated:
                 # Clear stale generated files before rebuilding them for this pack.
@@ -322,35 +324,41 @@ class EPIContainer:
                     policy = load_policy()
 
                     steps_file = source_dir / "steps.jsonl"
-                    steps_content = (
-                        steps_file.read_text(encoding="utf-8")
-                        if steps_file.exists() else ""
-                    )
+                    if steps_file.exists():
+                        steps_content = steps_file.read_text(encoding="utf-8")
 
-                    analyzer = FaultAnalyzer(policy=policy)
-                    analysis = analyzer.analyze(steps_content)
+                        analyzer = FaultAnalyzer(policy=policy)
+                        analysis = analyzer.analyze(steps_content)
 
-                    (source_dir / "analysis.json").write_text(
-                        analysis.to_json(), encoding="utf-8"
-                    )
-
-                    if policy is not None:
-                        (source_dir / "policy.json").write_text(
-                            policy.model_dump_json(indent=2), encoding="utf-8"
+                        (source_dir / "analysis.json").write_text(
+                            analysis.to_json(), encoding="utf-8"
                         )
-                        policy_evaluation_json = analysis.to_policy_evaluation_json()
-                        if policy_evaluation_json:
-                            (source_dir / "policy_evaluation.json").write_text(
-                                policy_evaluation_json,
-                                encoding="utf-8",
+
+                        if policy is not None:
+                            (source_dir / "policy.json").write_text(
+                                policy.model_dump_json(indent=2), encoding="utf-8"
                             )
+                            policy_evaluation_json = analysis.to_policy_evaluation_json()
+                            if policy_evaluation_json:
+                                (source_dir / "policy_evaluation.json").write_text(
+                                    policy_evaluation_json,
+                                    encoding="utf-8",
+                                )
+
+                        manifest.analysis_status = "complete"
                 except Exception as _fa_err:
                 # Fault analysis must never break packing — but log to stderr
                 # so bugs in the analyzer aren't silently invisible.
                     import sys as _sys
+                    manifest.analysis_status = "error"
+                    manifest.analysis_error = str(_fa_err).strip()[:240] or "fault analysis failed"
                     print(f"[EPI] Warning: fault analysis failed ({_fa_err}), "
                           "packing without analysis.json", file=_sys.stderr)
             # ─────────────────────────────────────────────────────────────────
+
+            if manifest.analysis_status == "skipped" and (source_dir / "analysis.json").exists():
+                manifest.analysis_status = "complete"
+                manifest.analysis_error = None
 
             # Collect all files and compute hashes
             file_manifest = {}

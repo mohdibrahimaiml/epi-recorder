@@ -3,7 +3,7 @@ EPI Core Schemas - Pydantic models for manifest and steps.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List, Union, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -59,6 +59,16 @@ class ManifestModel(BaseModel):
         default=None,
         description="Ed25519 signature of the canonical CBOR hash of this manifest (excluding signature field)"
     )
+
+    analysis_status: Optional[Literal["complete", "skipped", "error"]] = Field(
+        default=None,
+        description="Whether deterministic analysis completed, was intentionally skipped, or failed during packing"
+    )
+
+    analysis_error: Optional[str] = Field(
+        default=None,
+        description="Short non-sensitive analysis failure reason when analysis_status is error"
+    )
     
     # New metadata fields for decision tracking
     goal: Optional[str] = Field(
@@ -99,6 +109,7 @@ class ManifestModel(BaseModel):
                     "environment.json": "a3c5f...",
                     "artifacts/output.txt": "c7f8a..."
                 },
+                "analysis_status": "complete",
                 "signature": "ed25519:3a4b5c6d...",
                 "goal": "Improve model accuracy",
                 "notes": "Switched to GPT-4 for better reasoning",

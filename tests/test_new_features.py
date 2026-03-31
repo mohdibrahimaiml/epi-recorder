@@ -445,9 +445,10 @@ class TestExportSummary:
         epi = _make_epi_file(tmp_path)
         result = runner.invoke(cli_app, ["export-summary", "summary", str(epi), "--text"])
         assert result.exit_code == 0, result.output
-        assert "EPI EVIDENCE SUMMARY" in result.output
-        assert "DECISION TRAIL" in result.output
-        assert "VERIFICATION" in result.output
+        assert "EPI DECISION RECORD" in result.output
+        assert "CASE OVERVIEW" in result.output
+        assert "POLICY COMPLIANCE" in result.output
+        assert "CRYPTOGRAPHIC PROOF" in result.output
 
     def test_text_output_shows_workflow(self, tmp_path):
         epi = _make_epi_file(tmp_path)
@@ -470,14 +471,15 @@ class TestExportSummary:
         content = html_out.read_text(encoding="utf-8")
         assert "<!DOCTYPE html>" in content
         assert "<html" in content
-        assert "EPI Evidence Summary" in content
+        assert "EPI Decision Record" in content
 
     def test_html_output_contains_text_content(self, tmp_path):
         epi = _make_epi_file(tmp_path)
         html_out = tmp_path / "report.html"
         runner.invoke(cli_app, ["export-summary", "summary", str(epi), "--out", str(html_out)])
         content = html_out.read_text(encoding="utf-8")
-        assert "DECISION TRAIL" in content
+        assert "Policy Compliance Summary" in content
+        assert "Cryptographic Proof and Verification" in content
 
     def test_missing_file_exits_nonzero(self, tmp_path):
         result = runner.invoke(cli_app, ["export-summary", "summary", "nonexistent.epi", "--text"])
@@ -756,7 +758,7 @@ class TestSchemaVersioning:
         versions = [row[0] for row in conn.execute("SELECT version FROM schema_version ORDER BY version")]
         conn.close()
         assert len(versions) >= 1
-        assert versions[-1] == 2  # current version
+        assert versions[-1] == 3  # current version (3 = open_sessions migration)
 
     def test_schema_version_idempotent_on_second_init(self, tmp_path):
         """Opening the same DB twice should not duplicate schema_version rows."""

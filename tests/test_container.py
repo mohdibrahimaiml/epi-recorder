@@ -398,16 +398,18 @@ class TestEPIContainer:
         assert 'id="epi-data"' in viewer_html
         assert "EPI Case Review" in viewer_html
         assert "Inbox" in viewer_html
-        assert "Decision case file" in viewer_html
+        assert "Decision Summary" in viewer_html
         assert "Human review" in viewer_html
         assert "Download reviewed case file (.epi)" in viewer_html
         assert "Download review notes" in viewer_html
+        assert "Download decision summary" in viewer_html
         assert "Signing key (optional)" in viewer_html
         assert "Readable rules for this workflow" in viewer_html
         assert "Download rule file (epi_policy.json)" in viewer_html
         assert "Build a real rulebook for this workflow" in viewer_html
         assert "Turn business controls into enforceable EPI rules" in viewer_html
         assert "Export a business-readable record" in viewer_html
+        assert "Record integrity and review" in viewer_html
         assert "Verify source" in viewer_html
         assert "Opened the packaged case file" in viewer_html
         assert '"files"' in viewer_html

@@ -13,12 +13,14 @@ import shutil
 import sys
 import tempfile
 import threading
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 from uuid import uuid4
 
 from epi_core.container import EPIContainer
+from epi_core.policy import EPIPolicy
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
 from epi_core.trust import sign_manifest_inplace
@@ -34,6 +36,19 @@ from epi_recorder.environment import capture_full_environment
 
 # Thread-local storage for active recording sessions
 _thread_local = threading.local()
+
+
+def _warn_if_local_policy_invalid(search_dir: Path | None = None) -> None:
+    policy_path = (search_dir or Path.cwd()) / "epi_policy.json"
+    if not policy_path.exists():
+        return
+    try:
+        EPIPolicy.model_validate(json.loads(policy_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        warnings.warn(
+            f"epi_policy.json is invalid and will be ignored: {exc}. Run `epi policy validate` to fix it.",
+            stacklevel=3,
+        )
 
 
 class _StdStreamCapture:
@@ -742,6 +757,8 @@ class EpiRecorderSession:
             # Create temporary directory for recording
             self.temp_dir = create_recording_workspace("epi_recording_")
 
+            _warn_if_local_policy_invalid()
+
             # Initialize recording context
             self.recording_context = RecordingContext(
                 output_dir=self.temp_dir,
@@ -761,7 +778,7 @@ class EpiRecorderSession:
         if self.legacy_patching:
             import warnings
             warnings.warn(
-                "legacy_patching is deprecated and will be removed in v3.0.0. "
+                "legacy_patching is deprecated and will be removed in the next major release. "
                 "Use epi.log_llm_call() or wrapper clients (wrap_openai) instead.",
                 DeprecationWarning,
                 stacklevel=2

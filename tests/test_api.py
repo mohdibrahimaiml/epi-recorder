@@ -337,6 +337,17 @@ class TestRecordFunction:
             
             assert output_path.exists()
 
+    def test_record_warns_when_local_policy_is_invalid(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "epi_policy.json").write_text("{not valid json", encoding="utf-8")
+        output_path = tmp_path / "invalid-policy.epi"
+
+        with pytest.warns(UserWarning, match="epi_policy.json is invalid and will be ignored"):
+            with record(output_path, auto_sign=False, capture_prints=False):
+                pass
+
+        assert output_path.exists()
+
 
 class TestThreadLocalStorage:
     """Test thread-local session tracking."""
