@@ -231,8 +231,9 @@ def _get_self_heal_vbs(python_exe: Optional[Path] = None) -> Path:
 def _get_epi_command() -> str:
     """Return the shell open command for .epi files.
 
-    Prefer the live `epi view` path whenever possible so every open flow uses
-    fresh viewer generation and current verification context.
+    Prefer direct executable/module launches so double-click does not depend on
+    Windows Script Host. That keeps the common open path working even on
+    locked-down enterprise machines where `.vbs` execution is blocked.
     """
     python_exe = Path(sys.executable)
 
@@ -256,11 +257,7 @@ def _get_epi_command() -> str:
     if python_exe.exists() and python_exe.stat().st_size > 0:
         return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
 
-    try:
-        vbs_path = _get_epi_launcher_vbs(python_exe)
-        return f'wscript.exe /B "{vbs_path.absolute()}" "%1"'
-    except Exception:
-        return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
+    return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
 
 
 def _get_user_open_command() -> str:
@@ -349,14 +346,13 @@ def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
         output_path.unlink(missing_ok=True)
 
 
-def _register_windows_via_reg_add(open_cmd: str, heal_cmd: str, icon_cmd: str) -> None:
+def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str) -> None:
     """Fallback: write .epi association using reg add (when regedit didn't work)."""
     commands = [
         ["add", r"HKCU\Software\Classes\.epi", "/ve", "/d", "EPIRecorder.File", "/f"],
         ["add", r"HKCU\Software\Classes\EPIRecorder.File", "/ve", "/d", "EPI Recording File", "/f"],
         ["add", r"HKCU\Software\Classes\EPIRecorder.File\shell\open\command", "/ve", "/d", open_cmd, "/f"],
         ["add", r"HKCU\Software\Classes\EPIRecorder.File\DefaultIcon", "/ve", "/d", icon_cmd, "/f"],
-        ["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "EPIRecorder", "/d", heal_cmd, "/f"],
         ["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.epi\UserChoice", "/f"],
     ]
 
@@ -382,16 +378,10 @@ def register_windows() -> None:
         RuntimeError: if the import fails (before fallback).
     """
     import ctypes
-    import tempfile
 
-    # Create both VBS files with the same Python path so launcher and self-heal
-    # use the interpreter that has epi_recorder (persists after restart).
     python_exe = Path(sys.executable)
-    _get_epi_launcher_vbs(python_exe)
-    heal_vbs = _get_self_heal_vbs(python_exe)
     open_cmd = _get_user_open_command()
     icon_cmd = _get_windows_default_icon(python_exe)
-    heal_cmd = f'wscript.exe /B "{heal_vbs.absolute()}"'
 
     # --- Build .reg file ---------------------------------------------------
     # .reg string escaping: backslashes → \\, double-quotes → \"
@@ -419,9 +409,6 @@ def register_windows() -> None:
         "[HKEY_CURRENT_USER\\Software\\Classes\\EPIRecorder.File\\DefaultIcon]",
         f'@="{_esc(icon_cmd)}"',
         "",
-        "[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run]",
-        f'"EPIRecorder"="{_esc(heal_cmd)}"',
-        "",
     ]
     reg_content = "\r\n".join(reg_lines)
 
@@ -430,10 +417,6 @@ def register_windows() -> None:
 
     # .reg files must be UTF-16 LE with BOM for reliable Windows parsing
     reg_path.write_bytes(b"\xff\xfe" + reg_content.encode("utf-16-le"))
-
-    # --- Write a sentinel file BEFORE import; regedit removes it on success --
-    # Simpler: just check reg.exe from a ShellExecute child after import.
-    # We use a temp done-marker written by a second ShellExecute query.
 
     # --- Import via regedit.exe through ShellExecuteExW --------------------
     # regedit launched via ShellExecuteExW is NOT subject to MSIX virtualisation.
@@ -445,36 +428,19 @@ def register_windows() -> None:
     # --- Verify and fallback to reg add if keys are missing -----------------
     # On some systems regedit doesn't write to real HKCU (e.g. terminal/context).
     # Use reg add as fallback so association works for all users.
-    done_file = launcher_dir / "verify_done.txt"
-    done_file.unlink(missing_ok=True)
-    verify_vbs = launcher_dir / "verify.vbs"
-    _write_windows_script(
-        verify_vbs,
-        'Dim sh\r\n'
-        'Set sh = WScript.CreateObject("WScript.Shell")\r\n'
-        f'Dim val\r\n'
-        f'val = sh.RegRead("HKCU\\\\Software\\\\Classes\\\\.epi\\\\")\r\n'
-        f'Dim f\r\n'
-        f'Set f = CreateObject("Scripting.FileSystemObject").CreateTextFile("{done_file}", True)\r\n'
-        f'f.Write val\r\n'
-        f'f.Close\r\n'
-    )
     try:
-        _shellexecute_wait("wscript.exe", f'/B "{verify_vbs.absolute()}"', timeout_ms=5000)
+        query_output = _run_windows_reg_command(
+            ["query", r"HKCU\Software\Classes\.epi", "/ve"],
+            timeout_ms=5000,
+        )
     except Exception:
-        pass
+        query_output = ""
 
-    verified = False
-    if done_file.exists():
-        result = done_file.read_text(encoding="utf-8", errors="ignore").strip()
-        done_file.unlink(missing_ok=True)
-        verified = result == "EPIRecorder.File"
-        if not verified:
-            pass  # fall through to reg add fallback
+    verified = "EPIRecorder.File" in query_output
 
     if not verified:
         # Regedit didn't write visible keys (e.g. wrong context). Fallback: reg add.
-        _register_windows_via_reg_add(open_cmd, heal_cmd, icon_cmd)
+        _register_windows_via_reg_add(open_cmd, icon_cmd)
         query_output = _run_windows_reg_command(
             ["query", r"HKCU\Software\Classes\.epi", "/ve"],
             timeout_ms=5000,

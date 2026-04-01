@@ -25,10 +25,15 @@ $gateRoot = Join-Path $repoRoot ".tmp-release-gate\$runId"
 $baseTemp = Join-Path $gateRoot "pytest"
 $buildTemp = Join-Path $gateRoot "build-tmp"
 $distDir = Join-Path $gateRoot "dist"
+$repoBuildDir = Join-Path $repoRoot "build"
 
 New-Item -ItemType Directory -Path $baseTemp | Out-Null
 New-Item -ItemType Directory -Path $buildTemp | Out-Null
 New-Item -ItemType Directory -Path $distDir | Out-Null
+
+if (Test-Path $repoBuildDir) {
+    Remove-Item -Recurse -Force $repoBuildDir
+}
 
 $env:TMP = $buildTemp
 $env:TEMP = $buildTemp

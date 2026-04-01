@@ -214,19 +214,18 @@ class TestIsAssociationBroken:
 
 
 class TestWindowsRegAddFallback:
-    def test_reg_add_fallback_persists_run_key(self):
-        outputs = ["The operation completed successfully."] * 6
+    def test_reg_add_fallback_writes_open_command_and_icon(self):
+        outputs = ["The operation completed successfully."] * 5
         with patch("epi_core.platform.associate._run_windows_reg_command", side_effect=outputs) as mock_run:
-            _register_windows_via_reg_add('"epi.exe" view "%1"', 'wscript.exe /B "heal.vbs"', '"epi.ico"')
+            _register_windows_via_reg_add('"epi.exe" view "%1"', '"epi.ico"')
 
         commands = [call.args[0] for call in mock_run.call_args_list]
         assert any(
-            cmd[:4] == ["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "EPIRecorder"]
-            and "EPIRecorder" in cmd
+            cmd[:3] == ["add", r"HKCU\Software\Classes\EPIRecorder.File\DefaultIcon", "/ve"]
             for cmd in commands
         )
-        assert any(
-            cmd[:3] == ["add", r"HKCU\Software\Classes\EPIRecorder.File\DefaultIcon", "/ve"]
+        assert not any(
+            cmd[:4] == ["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "EPIRecorder"]
             for cmd in commands
         )
 
