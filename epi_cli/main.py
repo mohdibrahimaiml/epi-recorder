@@ -76,7 +76,7 @@ Tips:
 console = Console(legacy_windows=False)
 
 _KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "init", "doctor"}
-_WINDOWS_ASSOCIATION_COMMANDS = {"run", "view", "init", "doctor"}
+_WINDOWS_ASSOCIATION_COMMANDS = {"doctor"}
 _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
 
@@ -191,7 +191,12 @@ def _command_needs_default_keys(command_name: str | None) -> bool:
 
 
 def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
-    """Best-effort Windows association repair for pip installs on first real use."""
+    """Best-effort Windows association repair for explicit health checks only.
+
+    Normal `view`/double-click flows should never mutate the user's registry or
+    depend on Windows Script Host. Keep automatic repair scoped to `epi doctor`
+    so the common open path stays predictable on locked-down machines.
+    """
     import sys as _sys
 
     if _sys.platform != "win32":

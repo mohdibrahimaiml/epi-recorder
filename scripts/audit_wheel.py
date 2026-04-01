@@ -19,6 +19,7 @@ EXPECTED_TOP_LEVEL = {
     "epi_analyzer",
     "epi_cli",
     "epi_core",
+    "epi_gateway",
     "epi_postinstall.py",
     "epi_recorder",
     "epi_viewer_static",

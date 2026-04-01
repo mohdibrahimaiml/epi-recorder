@@ -630,10 +630,10 @@ class TestAutoRepairWindowsAssociation:
              patch("epi_cli.main._windows_association_probe_due", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=False), \
              patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
-            _auto_repair_windows_association(interactive=True, command_name="run")
+            _auto_repair_windows_association(interactive=True, command_name="doctor")
         assert mock_console.print.call_count >= 3
 
-    def test_prints_success_note_for_interactive_run_commands(self):
+    def test_prints_success_note_for_doctor(self):
         from epi_cli.main import _auto_repair_windows_association
         mock_console = _mock_console()
         diag = {"status": "OK", "extension_progid": "EPIRecorder.File", "issues": []}
@@ -642,8 +642,17 @@ class TestAutoRepairWindowsAssociation:
              patch("epi_cli.main._windows_association_probe_due", return_value=True), \
              patch("epi_core.platform.associate.register_file_association", return_value=True), \
              patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag):
-            _auto_repair_windows_association(interactive=True, command_name="view")
+            _auto_repair_windows_association(interactive=True, command_name="doctor")
         mock_console.print.assert_called_once()
+
+    def test_skips_association_probe_for_view(self):
+        from epi_cli.main import _auto_repair_windows_association
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate.get_association_diagnostics") as mock_diag, \
+             patch("epi_core.platform.associate.register_file_association") as mock_register:
+            _auto_repair_windows_association(interactive=True, command_name="view")
+        mock_diag.assert_not_called()
+        mock_register.assert_not_called()
 
     def test_skips_association_probe_for_ls(self):
         from epi_cli.main import _auto_repair_windows_association
