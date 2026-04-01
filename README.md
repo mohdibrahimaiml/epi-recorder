@@ -94,7 +94,7 @@ That flow simulates a claim denial with a fraud check, coverage check, human app
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb)
 
-Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same engineering flow: clean run → failing run → browser review → verification → tamper check.
+Click the badge above to open [`colab_demo.ipynb`](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb) from this repo in Google Colab. No local setup. The notebook installs `epi-recorder` inside the Colab runtime and walks through the same engineering flow: clean run → failing run → browser review → verification → tamper check.
 
 **Option C: Verify an existing .epi file**
 
