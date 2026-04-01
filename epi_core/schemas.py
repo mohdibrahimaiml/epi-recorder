@@ -57,7 +57,7 @@ class ManifestModel(BaseModel):
     
     signature: Optional[str] = Field(
         default=None,
-        description="Ed25519 signature of the canonical CBOR hash of this manifest (excluding signature field)"
+        description="Ed25519 signature of the canonical JSON hash (SHA-256) of this manifest (excluding signature field). Uses JSON canonicalization for spec v2+."
     )
 
     analysis_status: Optional[Literal["complete", "skipped", "error"]] = Field(

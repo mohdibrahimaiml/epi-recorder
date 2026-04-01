@@ -15,7 +15,7 @@ import tempfile
 import threading
 import warnings
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 from uuid import uuid4
 
@@ -36,6 +36,43 @@ from epi_recorder.environment import capture_full_environment
 
 # Thread-local storage for active recording sessions
 _thread_local = threading.local()
+
+_RESERVED_ARCHIVE_ROOT_NAMES = {
+    "mimetype",
+    "manifest.json",
+    "viewer.html",
+    "steps.jsonl",
+    "environment.json",
+    "env.json",
+    "analysis.json",
+    "policy.json",
+    "policy_evaluation.json",
+    "review.json",
+    "stdout.log",
+    "stderr.log",
+}
+
+
+def _normalize_archive_path(archive_path: str) -> str:
+    candidate = (archive_path or "").strip().replace("\\", "/")
+    pure = PurePosixPath(candidate)
+
+    if not candidate or pure == PurePosixPath("."):
+        raise ValueError("archive_path must not be empty")
+
+    if pure.is_absolute() or any(part in ("", ".", "..") for part in pure.parts):
+        raise ValueError("archive_path must be a relative path inside the .epi archive")
+
+    if pure.parts and ":" in pure.parts[0]:
+        raise ValueError("archive_path must not include a drive prefix")
+
+    if pure.parts and pure.parts[0] in _RESERVED_ARCHIVE_ROOT_NAMES:
+        raise ValueError(
+            f"archive_path root '{pure.parts[0]}' is reserved by the EPI container; "
+            "store custom files under a non-reserved path such as artifacts/ or evidence/"
+        )
+
+    return pure.as_posix()
 
 
 def _warn_if_local_policy_invalid(search_dir: Path | None = None) -> None:
@@ -636,7 +673,7 @@ class AgentRun:
                     "agent.run.error",
                     {
                         "error_type": getattr(exc_type, "__name__", "AgentError"),
-                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": f"Exception of type {getattr(exc_type, '__name__', 'AgentError')} raised with no value",
                     },
                 )
         self.finish(success=exc_type is None)
@@ -654,7 +691,7 @@ class AgentRun:
                     "agent.run.error",
                     {
                         "error_type": getattr(exc_type, "__name__", "AgentError"),
-                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": f"Exception of type {getattr(exc_type, '__name__', 'AgentError')} raised with no value",
                     },
                 )
         await self.afinish(success=exc_type is None)
@@ -1313,13 +1350,11 @@ class EpiRecorderSession:
         # Determine archive path
         if archive_path is None:
             archive_path = f"artifacts/{file_path.name}"
-        
-        # Create artifacts directory
-        artifacts_dir = self.temp_dir / "artifacts"
-        artifacts_dir.mkdir(exist_ok=True)
-        
-        # Copy file
-        dest_path = artifacts_dir / file_path.name
+        archive_path = _normalize_archive_path(archive_path)
+
+        # Copy file to the path inside the workspace that matches archive_path
+        dest_path = self.temp_dir.joinpath(*PurePosixPath(archive_path).parts)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file_path, dest_path)
         
         # Log artifact step
