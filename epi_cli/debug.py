@@ -14,6 +14,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+try:
+    from epi_analyzer.detector import MistakeDetector
+except ImportError:  # pragma: no cover - exercised via CLI fallback path
+    MistakeDetector = None
+
 console = Console()
 app = typer.Typer(name="debug", help="Debug AI agent recordings for mistakes")
 
@@ -43,9 +48,7 @@ def debug(
     console.print(f"Analyzing [cyan]{epi_file}[/cyan]...")
 
     try:
-        try:
-            from epi_analyzer.detector import MistakeDetector
-        except ImportError:
+        if MistakeDetector is None:
             console.print("[red][FAIL][/red] epi_analyzer is not installed.")
             console.print("[dim]Install it with: pip install epi-analyzer[/dim]")
             raise typer.Exit(code=2)
