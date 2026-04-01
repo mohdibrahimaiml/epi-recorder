@@ -1,3 +1,5 @@
+import re
+
 from typer.testing import CliRunner
 
 from epi_cli.main import app
@@ -6,15 +8,20 @@ from epi_cli.main import app
 runner = CliRunner()
 
 
+def _plain(output: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", output)
+
+
 def test_gateway_help_mentions_shared_backend():
     result = runner.invoke(app, ["gateway", "serve", "--help"])
+    output = _plain(result.output)
 
     assert result.exit_code == 0
-    assert "--storage-dir" in result.output
-    assert "--batch-timeout" in result.output
-    assert "--retention-mode" in result.output
-    assert "--proxy-failure-mode" in result.output
-    assert "--users-file" in result.output
+    assert "--storage-dir" in output
+    assert "--batch-timeout" in output
+    assert "--retention-mode" in output
+    assert "--proxy-failure-mode" in output
+    assert "--users-file" in output
 
 
 def test_gateway_serve_runs_uvicorn_with_shared_case_store(monkeypatch, tmp_path):
