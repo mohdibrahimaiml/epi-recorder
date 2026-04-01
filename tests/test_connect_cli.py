@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 from pathlib import Path
 from urllib import request as urlrequest
@@ -11,6 +12,10 @@ from epi_cli.connect import app, create_connector_bridge_server, create_web_view
 runner = CliRunner()
 
 
+def _plain(output: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", output)
+
+
 def _write_csv(path: Path) -> None:
     path.write_text(
         "case_id,summary,status\nrefund-001,High value refund,pending_review\nrefund-002,Duplicate order,approved\n",
@@ -20,19 +25,21 @@ def _write_csv(path: Path) -> None:
 
 def test_connect_serve_help_mentions_local_gateway():
     result = runner.invoke(app, ["serve", "--help"])
+    output = _plain(result.output)
 
     assert result.exit_code == 0
-    assert "shared epi gateway" in result.output.lower()
-    assert "--port" in result.output
+    assert "shared epi gateway" in output.lower()
+    assert "--port" in output
 
 
 def test_connect_open_help_mentions_browser_app():
     result = runner.invoke(app, ["open", "--help"])
+    output = _plain(result.output)
 
     assert result.exit_code == 0
-    assert "decision ops app" in result.output.lower()
-    assert "--bridge-port" in result.output
-    assert "--web-port" in result.output
+    assert "decision ops app" in output.lower()
+    assert "--bridge-port" in output
+    assert "--web-port" in output
 
 
 def test_fetch_live_record_reads_csv_export(tmp_path):
