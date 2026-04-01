@@ -636,7 +636,7 @@ class AgentRun:
                     "agent.run.error",
                     {
                         "error_type": getattr(exc_type, "__name__", "AgentError"),
-                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": f"Exception of type {getattr(exc_type, '__name__', 'AgentError')} raised with no value",
                     },
                 )
         self.finish(success=exc_type is None)
@@ -654,7 +654,7 @@ class AgentRun:
                     "agent.run.error",
                     {
                         "error_type": getattr(exc_type, "__name__", "AgentError"),
-                        "error_message": getattr(exc_type, "__name__", "AgentError"),
+                        "error_message": f"Exception of type {getattr(exc_type, '__name__', 'AgentError')} raised with no value",
                     },
                 )
         await self.afinish(success=exc_type is None)
@@ -1313,13 +1313,10 @@ class EpiRecorderSession:
         # Determine archive path
         if archive_path is None:
             archive_path = f"artifacts/{file_path.name}"
-        
-        # Create artifacts directory
-        artifacts_dir = self.temp_dir / "artifacts"
-        artifacts_dir.mkdir(exist_ok=True)
-        
-        # Copy file
-        dest_path = artifacts_dir / file_path.name
+
+        # Copy file to the path inside the workspace that matches archive_path
+        dest_path = self.temp_dir / archive_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file_path, dest_path)
         
         # Log artifact step

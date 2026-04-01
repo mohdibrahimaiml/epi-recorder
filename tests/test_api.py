@@ -2,6 +2,7 @@
 Tests for EPI Recorder Python API (epi_recorder.api)
 """
 
+import asyncio
 import json
 import tempfile
 import zipfile
@@ -78,6 +79,28 @@ class TestEpiRecorderSession:
                 # Check content
                 content = zf.read("artifacts/test_file.txt").decode("utf-8")
                 assert content == "Test content"
+
+    def test_artifact_capture_respects_custom_archive_path(self):
+        """Test captured artifacts land at the same archive path that is logged."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_custom_artifact.epi"
+            artifact_file = Path(tmpdir) / "evidence.json"
+            artifact_file.write_text('{"status":"ok"}', encoding="utf-8")
+            archive_path = "evidence/custom/evidence.json"
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                epi.log_artifact(artifact_file, archive_path=archive_path)
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                assert archive_path in zf.namelist()
+                assert zf.read(archive_path).decode("utf-8") == '{"status":"ok"}'
+
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            captured_steps = [step for step in steps if step["kind"] == "artifact.captured"]
+            assert len(captured_steps) == 1
+            assert captured_steps[0]["content"]["archive_path"] == archive_path
     
     def test_error_handling(self):
         """Test that errors are logged and .epi file still created."""
@@ -320,6 +343,51 @@ class TestEpiRecorderSession:
             assert agent_steps[10]["content"]["decision"] == "approve_refund"
             assert agent_steps[11]["content"]["memory_key"] == "refund_decision"
             assert agent_steps[13]["content"]["success"] is True
+
+    def test_agent_run_logs_descriptive_error_when_exception_value_missing(self):
+        """Test sync agent_run writes a readable fallback error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_agent_run_missing_exc_value.epi"
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                agent = epi.agent_run("claims-agent")
+                agent.__enter__()
+                agent.__exit__(RuntimeError, None, None)
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            error_steps = [step for step in steps if step["kind"] == "agent.run.error"]
+            assert len(error_steps) == 1
+            assert error_steps[0]["content"]["error_type"] == "RuntimeError"
+            assert error_steps[0]["content"]["error_message"] == (
+                "Exception of type RuntimeError raised with no value"
+            )
+
+    def test_async_agent_run_logs_descriptive_error_when_exception_value_missing(self):
+        """Test async agent_run writes a readable fallback error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_async_agent_run_missing_exc_value.epi"
+
+            async def _exercise(epi: EpiRecorderSession) -> None:
+                agent = epi.agent_run("claims-agent")
+                await agent.__aenter__()
+                await agent.__aexit__(RuntimeError, None, None)
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                asyncio.run(_exercise(epi))
+
+            with zipfile.ZipFile(output_path, "r") as zf:
+                steps_data = zf.read("steps.jsonl").decode("utf-8")
+                steps = [json.loads(line) for line in steps_data.strip().split("\n") if line.strip()]
+
+            error_steps = [step for step in steps if step["kind"] == "agent.run.error"]
+            assert len(error_steps) == 1
+            assert error_steps[0]["content"]["error_type"] == "RuntimeError"
+            assert error_steps[0]["content"]["error_message"] == (
+                "Exception of type RuntimeError raised with no value"
+            )
 
 
 class TestRecordFunction:

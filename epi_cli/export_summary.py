@@ -785,6 +785,7 @@ def summary(
         None,
         "--out",
         "-o",
+        "--output-dir",
         help="Output .html file (default: <name>_summary.html alongside the .epi file).",
     ),
     text: bool = typer.Option(False, "--text", help="Print plain text to stdout instead of writing HTML."),

@@ -84,3 +84,10 @@ def test_verify_and_viewer_reports_match_for_signed(tmp_path: Path):
 def test_verify_and_viewer_reports_match_for_tampered(tmp_path: Path):
     signed = _make_epi(tmp_path, signed=True)
     _assert_trust_consistent(_tamper_steps(signed))
+
+
+def test_manifest_signature_description_mentions_canonical_json() -> None:
+    field = ManifestModel.model_fields["signature"]
+    description = field.description or ""
+    assert "canonical JSON hash" in description
+    assert "spec v2+" in description
