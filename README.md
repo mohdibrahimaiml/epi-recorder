@@ -85,9 +85,10 @@ cd examples/starter_kits/insurance_claim
 python agent.py
 epi view insurance_claim_case.epi
 epi export-summary summary insurance_claim_case.epi
+epi share insurance_claim_case.epi
 ```
 
-That flow simulates a claim denial with a fraud check, coverage check, human approval, denial reason capture, and a printable Decision Record.
+That flow simulates a claim denial with a fraud check, coverage check, human approval, denial reason capture, and a printable Decision Record. By default the starter kit writes the artifact into `./epi-recordings/`; the `epi` commands above resolve the bare filename for you.
 
 **Option B: In your browser (no install)**
 
@@ -123,7 +124,8 @@ epi verify my_agent.epi
 epi share my_agent.epi
 ```
 
-`epi share` uploads the already-validated case file and returns a browser link at `https://epilabs.org/cases/?id=...`.
+When the hosted share service is configured, `epi share` uploads the already-validated case file and returns a browser link at `https://epilabs.org/cases/?id=...`.
+The default hosted API target is `https://api.epilabs.org`; for self-hosted or staging setups, point `EPI_SHARE_API_URL` at your gateway.
 Use it when a teammate needs the fastest possible "open the repro in a browser" path.
 
 Guides:
@@ -354,7 +356,7 @@ Developer path:
 - **Release audit hardening**
   - the release gate now audits the source tarball and fails if the required notebooks are missing or old notebook snapshots leak into the release
 - **2.8.9 runtime hotfixes preserved**
-  - the Colab notebooks still render the actual extracted `viewer.html` inside an iframe
+  - the Colab notebooks still walk through the current browser review and verification flow for generated artifacts
   - reusable approval policies still accept both `approval_id` and `id`
   - `applies_at` still accepts either a single intervention point or a list
 
@@ -588,7 +590,7 @@ This starter adapter maps common agent stream events into:
 
 ## The `.epi` File Format
 
-An `.epi` file is a self-contained ZIP archive:
+An `.epi` file is a self-contained ZIP archive. The core layout looks like this, with several files included only when that workflow captured them:
 
 ```
 my_agent.epi
@@ -596,7 +598,11 @@ my_agent.epi
 |- manifest.json         # Metadata + Ed25519 signature + content hashes
 |- steps.jsonl           # Execution timeline (NDJSON)
 |- environment.json      # Runtime environment snapshot
-`- viewer.html           # Self-contained offline viewer (opens in any browser)
+|- analysis.json         # Optional fault-analysis output
+|- policy.json           # Optional embedded rulebook
+|- policy_evaluation.json # Optional control outcomes
+|- review.json           # Optional human review record
+`- viewer.html           # Self-contained offline viewer shell
 ```
 
 | Property | Detail |
