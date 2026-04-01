@@ -483,10 +483,28 @@ class TestExportSummary:
 
     def test_html_output_accepts_output_dir_alias(self, tmp_path):
         epi = _make_epi_file(tmp_path)
+        output_dir = tmp_path / "exports"
+        result = runner.invoke(cli_app, ["export-summary", "summary", str(epi), "--output-dir", str(output_dir)])
+        assert result.exit_code == 0, result.output
+        assert (output_dir / f"{epi.stem}_summary.html").exists()
+
+    def test_html_output_accepts_output_dir_alias_with_html_file_path(self, tmp_path):
+        epi = _make_epi_file(tmp_path)
         html_out = tmp_path / "alias-report.html"
         result = runner.invoke(cli_app, ["export-summary", "summary", str(epi), "--output-dir", str(html_out)])
         assert result.exit_code == 0, result.output
         assert html_out.exists()
+
+    def test_html_output_rejects_out_and_output_dir_together(self, tmp_path):
+        epi = _make_epi_file(tmp_path)
+        html_out = tmp_path / "report.html"
+        output_dir = tmp_path / "exports"
+        result = runner.invoke(
+            cli_app,
+            ["export-summary", "summary", str(epi), "--out", str(html_out), "--output-dir", str(output_dir)],
+        )
+        assert result.exit_code != 0
+        assert "either --out or --output-dir" in result.output
 
     def test_missing_file_exits_nonzero(self, tmp_path):
         result = runner.invoke(cli_app, ["export-summary", "summary", "nonexistent.epi", "--text"])

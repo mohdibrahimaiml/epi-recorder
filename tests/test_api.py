@@ -101,6 +101,29 @@ class TestEpiRecorderSession:
             captured_steps = [step for step in steps if step["kind"] == "artifact.captured"]
             assert len(captured_steps) == 1
             assert captured_steps[0]["content"]["archive_path"] == archive_path
+
+    @pytest.mark.parametrize("archive_path", ["../escape.txt", "..\\escape.txt", "/absolute.txt", "C:/temp/escape.txt"])
+    def test_artifact_capture_rejects_unsafe_archive_path(self, archive_path):
+        """Test custom archive paths cannot escape the recording workspace."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_bad_artifact.epi"
+            artifact_file = Path(tmpdir) / "evidence.txt"
+            artifact_file.write_text("safe", encoding="utf-8")
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                with pytest.raises(ValueError, match="archive_path"):
+                    epi.log_artifact(artifact_file, archive_path=archive_path)
+
+    def test_artifact_capture_rejects_reserved_archive_root(self):
+        """Test custom archive paths cannot overwrite reserved evidence files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "test_reserved_artifact.epi"
+            artifact_file = Path(tmpdir) / "steps.txt"
+            artifact_file.write_text("shadow", encoding="utf-8")
+
+            with EpiRecorderSession(output_path, auto_sign=False) as epi:
+                with pytest.raises(ValueError, match="reserved"):
+                    epi.log_artifact(artifact_file, archive_path="steps.jsonl")
     
     def test_error_handling(self):
         """Test that errors are logged and .epi file still created."""

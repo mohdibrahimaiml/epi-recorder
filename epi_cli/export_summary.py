@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 import typer
 from rich.console import Console
+from typer.models import OptionInfo
 
 from epi_cli.view import _resolve_epi_file
 from epi_core.container import EPIContainer
@@ -18,6 +19,10 @@ from epi_core.trust import verify_embedded_manifest_signature
 
 app = typer.Typer(help="Export a regulator-facing HTML or text Decision Record for a .epi artifact.")
 console = Console()
+
+
+def _resolve_option_value(value, default=None):
+    return default if isinstance(value, OptionInfo) else value
 
 
 def _format_ts(ts: str | None) -> str:
@@ -785,8 +790,12 @@ def summary(
         None,
         "--out",
         "-o",
-        "--output-dir",
         help="Output .html file (default: <name>_summary.html alongside the .epi file).",
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None,
+        "--output-dir",
+        help="Directory to write <name>_summary.html into. If you pass an .html path, it will be used as-is.",
     ),
     text: bool = typer.Option(False, "--text", help="Print plain text to stdout instead of writing HTML."),
 ):
@@ -798,6 +807,10 @@ def summary(
     except FileNotFoundError:
         console.print(f"[red][FAIL][/red] File not found: {epi_file}")
         raise typer.Exit(1)
+
+    out = _resolve_option_value(out)
+    output_dir = _resolve_option_value(output_dir)
+    text = bool(_resolve_option_value(text, False))
 
     try:
         manifest = EPIContainer.read_manifest(epi_path)
@@ -824,8 +837,21 @@ def summary(
         )
         return
 
-    if out is None:
-        out = epi_path.parent / f"{epi_path.stem}_summary.html"
+    default_output = epi_path.parent / f"{epi_path.stem}_summary.html"
+    if out is not None and output_dir is not None:
+        console.print("[red][FAIL][/red] Use either --out or --output-dir, not both.")
+        raise typer.Exit(1)
+
+    if output_dir is not None:
+        if output_dir.suffix.lower() == ".html":
+            out = output_dir
+        else:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            out = output_dir / default_output.name
+    elif out is None:
+        out = default_output
+    elif out.exists() and out.is_dir():
+        out = out / default_output.name
 
     html_content = _build_html_summary(
         epi_path,
