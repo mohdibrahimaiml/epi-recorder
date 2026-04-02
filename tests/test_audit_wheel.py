@@ -33,7 +33,10 @@ def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
             "epi_core/__init__.py",
             "epi_cli/main.py",
             "epi_gateway/main.py",
-            "epi_viewer_static/index.html",
+            "epi_viewer_static/crypto.js",
+            "web_viewer/index.html",
+            "web_viewer/app.js",
+            "web_viewer/styles.css",
             "pytest_epi/plugin.py",
             "epi_postinstall.py",
             f"epi_recorder-{core_version}.dist-info/METADATA",
@@ -75,3 +78,22 @@ def test_audit_wheel_rejects_suspicious_runtime_files(tmp_path):
     issues = module.audit_wheel(wheel_path)
     assert "suspicious runtime file: epi_recorder/test_import.py" in issues
     assert "suspicious runtime file: epi_cli/stdout.log" in issues
+
+
+def test_audit_wheel_rejects_missing_viewer_assets(tmp_path):
+    module = _load_audit_module()
+    wheel_path = tmp_path / f"epi_recorder-{core_version}-py3-none-any.whl"
+    _make_wheel(
+        wheel_path,
+        [
+            "epi_recorder/__init__.py",
+            "epi_cli/main.py",
+            "epi_viewer_static/crypto.js",
+            f"epi_recorder-{core_version}.dist-info/METADATA",
+        ],
+    )
+
+    issues = module.audit_wheel(wheel_path)
+    assert "missing required runtime asset: web_viewer/index.html" in issues
+    assert "missing required runtime asset: web_viewer/app.js" in issues
+    assert "missing required runtime asset: web_viewer/styles.css" in issues

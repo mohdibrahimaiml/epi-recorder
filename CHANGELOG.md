@@ -7,6 +7,30 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [3.0.1] - 2026-04-02
+
+### Front-Door Reliability Patch
+
+#### Fixed
+
+- **Packaged browser viewer**
+  - `epi view` now works from a clean wheel install because the `web_viewer` assets ship in the package and are loaded through package resources
+- **LangChain callback stability**
+  - `EPICallbackHandler` no longer crashes when LangChain omits `serialized` metadata in callback payloads
+- **Insurance policy threshold alignment**
+  - the built-in `insurance.claim-denial` profile now evaluates the public `amount` field shape while keeping `claim_amount` compatibility
+- **Threshold analyzer realism**
+  - high-value approval rules now wait for the consequential decision/action instead of flagging intermediate fraud or coverage investigation steps
+
+#### Improved
+
+- **Release audit coverage**
+  - wheel auditing now fails if required viewer assets are missing from the packaged artifact
+- **Current release docs**
+  - release-facing documentation now matches the packaged `3.0.1` behavior and current share/view guidance
+
+---
+
 ## [2.8.10] - 2026-03-24
 
 ### Notebook Packaging Correction
@@ -73,41 +97,30 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 - **Windows installer guardrails**
   - regression coverage now prevents unsupported Inno task flags from slipping back into the installer script
 
-## [3.0.0] - Planned
+## [3.0.0] - 2026-04-01
 
-> **Status:** Pre-RFC. This is a directional commitment, not a release.
+### Stable Evidence Release Line
 
-### Intent
+#### Added
 
-v3.0.0 will finalize EPI as a **stable evidence specification**.
+- **Policy-first workflow surfaces**
+  - guided `epi policy init`
+  - sealed `policy.json` and `policy_evaluation.json`
+- **Insurance/compliance-facing review flow**
+  - Decision Record export
+  - browser review surfaces for trust, policy, and case evidence
+- **Hosted pilot foundations**
+  - gateway share routes
+  - hosted browser case page
 
-#### Planned Changes
+#### Fixed
 
-- **Removal of legacy patching**
-  - `legacy_patching=True` will no longer be supported
-  - All evidence capture will be explicit
+- **Release packaging and docs**
+  - release surfaces aligned around the `3.0.0` evidence workflow and policy model
 
-- **Stabilized evidence specification**
-  - Manifest schema frozen
-  - Backward-compatibility guarantees for `.epi` files
+#### Notes
 
-- **Forward-compatibility primitives**
-  - Versioned step schemas
-  - Extension mechanism for custom evidence types
-
-- **Trust model refinements** (under consideration)
-  - Organization-level key management
-  - Multi-party signing
-  - Delegation chains
-
-#### Design Philosophy
-
-v3.0.0 is not about features. It is about **guarantees**.
-
-After v3.0.0, the `.epi` format should be:
-- readable by any future version
-- verifiable without the original tooling
-- suitable for long-term archival
+- `3.0.0` is the stable software line for the current `.epi` evidence specification.
 
 ---
 

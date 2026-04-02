@@ -111,6 +111,19 @@ AGENT_THRESHOLD_APPROVAL_OK_STEPS = "\n".join([
     _make_step(4, "session.end", {"success": True}),
 ])
 
+AGENT_THRESHOLD_APPROVAL_AFTER_INVESTIGATION_OK_STEPS = "\n".join([
+    _make_step(0, "session.start", {"workflow": "insurance_claim"}),
+    _make_step(1, "tool.response", {"tool": "claim_lookup", "amount": 15000.0}),
+    _make_step(2, "tool.call", {"tool": "run_fraud_check", "claim_id": "CLM-200"}),
+    _make_step(3, "tool.response", {"tool": "run_fraud_check", "fraud_score": 0.03}),
+    _make_step(4, "tool.call", {"tool": "check_coverage", "claim_id": "CLM-200"}),
+    _make_step(5, "tool.response", {"tool": "check_coverage", "coverage_status": "excluded"}),
+    _make_step(6, "agent.approval.response", {"action": "deny_claim", "approved": True, "reviewer": "manager"}),
+    _make_step(7, "tool.call", {"tool": "deny_claim", "amount": 15000.0}),
+    _make_step(8, "agent.decision", {"decision": "deny_claim", "amount": 15000.0}),
+    _make_step(9, "session.end", {"success": True}),
+])
+
 AGENT_THRESHOLD_APPROVAL_VIOLATION_STEPS = "\n".join([
     _make_step(0, "session.start", {"workflow": "payment_flow"}),
     _make_step(1, "tool.response", {"tool": "lookup_order", "amount": 15000.0}),
@@ -500,6 +513,14 @@ class TestPass4ThresholdViolation:
         policy = _make_policy_with_threshold()
         analyzer = FaultAnalyzer(policy=policy)
         result = analyzer.analyze(AGENT_THRESHOLD_APPROVAL_OK_STEPS)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        threshold_flags = [f for f in all_flags if f and f.rule_id == "R010"]
+        assert len(threshold_flags) == 0
+
+    def test_threshold_allows_investigation_before_approval_and_final_action(self):
+        policy = _make_policy_with_threshold()
+        analyzer = FaultAnalyzer(policy=policy)
+        result = analyzer.analyze(AGENT_THRESHOLD_APPROVAL_AFTER_INVESTIGATION_OK_STEPS)
         all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
         threshold_flags = [f for f in all_flags if f and f.rule_id == "R010"]
         assert len(threshold_flags) == 0

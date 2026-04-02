@@ -23,7 +23,15 @@ EXPECTED_TOP_LEVEL = {
     "epi_postinstall.py",
     "epi_recorder",
     "epi_viewer_static",
+    "web_viewer",
     "pytest_epi",
+}
+
+REQUIRED_RUNTIME_MEMBERS = {
+    "epi_viewer_static/crypto.js",
+    "web_viewer/index.html",
+    "web_viewer/app.js",
+    "web_viewer/styles.css",
 }
 
 SUSPICIOUS_RUNTIME_BASENAME_PATTERNS = (
@@ -47,6 +55,7 @@ def audit_wheel(wheel_path: Path) -> list[str]:
     issues: list[str] = []
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
+        members = set(zf.namelist())
         for member_name in zf.namelist():
             normalized = member_name.rstrip("/")
             if not normalized:
@@ -62,6 +71,10 @@ def audit_wheel(wheel_path: Path) -> list[str]:
             basename = Path(normalized).name
             if _matches_suspicious_pattern(basename):
                 issues.append(f"suspicious runtime file: {normalized}")
+
+        for required in sorted(REQUIRED_RUNTIME_MEMBERS):
+            if required not in members:
+                issues.append(f"missing required runtime asset: {required}")
 
     return issues
 

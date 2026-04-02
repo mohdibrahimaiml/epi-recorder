@@ -134,6 +134,17 @@ class EPICallbackHandler(BaseCallbackHandler):
         """Convert UUID to string."""
         return str(run_id)
 
+    def _serialized_name(self, serialized: Any, default: str = "unknown") -> str:
+        """Best-effort component name extraction across LangChain callback variants."""
+        if not isinstance(serialized, dict):
+            return default
+        return (
+            serialized.get("name")
+            or serialized.get("kwargs", {}).get("model_name")
+            or serialized.get("kwargs", {}).get("model")
+            or serialized.get("id", [default])[-1]
+        )
+
     # ---- LLM Events ----
 
     def on_llm_start(
@@ -154,9 +165,7 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         self._call_times[self._run_id_str(run_id)] = time.time()
 
-        model = serialized.get("kwargs", {}).get("model_name") or \
-                serialized.get("kwargs", {}).get("model") or \
-                serialized.get("id", ["unknown"])[-1]
+        model = self._serialized_name(serialized)
 
         session.log_step("llm.request", {
             "provider": "langchain",
@@ -185,9 +194,7 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         self._call_times[self._run_id_str(run_id)] = time.time()
 
-        model = serialized.get("kwargs", {}).get("model_name") or \
-                serialized.get("kwargs", {}).get("model") or \
-                serialized.get("id", ["unknown"])[-1]
+        model = self._serialized_name(serialized)
 
         # Flatten batch messages
         flat_msgs = []
@@ -305,7 +312,7 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         self._call_times[self._run_id_str(run_id)] = time.time()
 
-        tool_name = serialized.get("name") or serialized.get("id", ["unknown"])[-1]
+        tool_name = self._serialized_name(serialized)
 
         session.log_step("tool.start", {
             "name": tool_name,
@@ -389,7 +396,7 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         self._call_times[self._run_id_str(run_id)] = time.time()
 
-        chain_name = serialized.get("name") or serialized.get("id", ["unknown"])[-1]
+        chain_name = self._serialized_name(serialized)
 
         # Serialize inputs safely
         safe_inputs = {}

@@ -28,6 +28,7 @@ from rich.console import Console
 from epi_core.container import EPIContainer, _html_safe_json_dumps
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
+from epi_core.viewer_assets import load_viewer_assets
 
 console = Console()
 
@@ -268,16 +269,14 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
 
 
 def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str:
-    web_viewer_dir = Path(__file__).resolve().parents[1] / "web_viewer"
-    template_path = web_viewer_dir / "index.html"
-    app_js_path = web_viewer_dir / "app.js"
-    css_path = web_viewer_dir / "styles.css"
-    crypto_js_path = Path(__file__).resolve().parents[1] / "epi_viewer_static" / "crypto.js"
+    assets = load_viewer_assets()
+    template_html = assets["template_html"]
+    app_js = assets["app_js"]
+    css_styles = assets["css_styles"]
+    crypto_js = assets["crypto_js"]
 
-    template_html = template_path.read_text(encoding="utf-8")
-    app_js = app_js_path.read_text(encoding="utf-8")
-    css_styles = css_path.read_text(encoding="utf-8")
-    crypto_js = crypto_js_path.read_text(encoding="utf-8")
+    if not template_html or app_js is None or css_styles is None or crypto_js is None:
+        raise FileNotFoundError("Decision viewer assets are not available in this install.")
 
     payload = {"cases": [_build_preloaded_case_payload(extracted_dir, resolved_path)]}
     payload_json = _html_safe_json_dumps(payload, indent=2)
@@ -301,10 +300,15 @@ def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
     This keeps the viewer aligned with append-only files like review.json that
     may have been added after the original viewer was baked into the artifact.
     """
-    viewer_html = _create_decision_ops_viewer(extracted_dir, resolved_path)
     viewer_path = extracted_dir / "viewer.html"
-    viewer_path.write_text(viewer_html, encoding="utf-8")
-    return viewer_path
+    try:
+        viewer_html = _create_decision_ops_viewer(extracted_dir, resolved_path)
+        viewer_path.write_text(viewer_html, encoding="utf-8")
+        return viewer_path
+    except FileNotFoundError:
+        if viewer_path.exists():
+            return viewer_path
+        raise
 
 
 def view(
