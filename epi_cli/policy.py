@@ -33,6 +33,7 @@ from epi_core.policy import (
     list_policy_profiles,
     list_starter_rule_types,
 )
+from epi_core.viewer_assets import load_viewer_assets
 
 app = typer.Typer(help="Manage epi_policy.json for fault analysis rules.")
 console = Console()
@@ -138,16 +139,14 @@ def _build_policy_editor_case_payload(policy_data: dict, output_path: Path) -> d
 
 
 def _create_policy_editor_html(policy_data: dict, output_path: Path) -> str:
-    web_viewer_dir = Path(__file__).resolve().parents[1] / "web_viewer"
-    template_path = web_viewer_dir / "index.html"
-    app_js_path = web_viewer_dir / "app.js"
-    css_path = web_viewer_dir / "styles.css"
-    crypto_js_path = Path(__file__).resolve().parents[1] / "epi_viewer_static" / "crypto.js"
+    assets = load_viewer_assets()
+    template_html = assets["template_html"]
+    app_js = assets["app_js"]
+    css_styles = assets["css_styles"]
+    crypto_js = assets["crypto_js"]
 
-    template_html = template_path.read_text(encoding="utf-8")
-    app_js = app_js_path.read_text(encoding="utf-8")
-    css_styles = css_path.read_text(encoding="utf-8")
-    crypto_js = crypto_js_path.read_text(encoding="utf-8")
+    if not template_html or app_js is None or css_styles is None or crypto_js is None:
+        raise FileNotFoundError("Decision viewer assets are not available in this install.")
 
     payload = {
         "cases": [_build_policy_editor_case_payload(policy_data, output_path)],

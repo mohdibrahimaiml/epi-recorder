@@ -120,7 +120,7 @@ Hosted share loop:
 
 ```bash
 epi verify my_agent.epi
-epi share my_agent.epi
+epi share my_agent.epi   # returns a browser link when the share service is deployed/configured
 ```
 
 `epi share` uploads the already-validated case file and returns a browser link at `https://epilabs.org/cases/?id=...`.
@@ -683,6 +683,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 | Version | Date | Highlights |
 |:--------|:-----|:-----------|
+| **3.0.1** | 2026-04-02 | **Front-door reliability patch** - packaged browser viewer fix, LangChain callback hardening, insurance threshold alignment, and realistic threshold-analysis correction |
 | **2.8.10** | 2026-03-24 | **Notebook packaging correction** - ship the two supported Colab notebooks in the source release, add sdist audit coverage, and keep the wheel runtime-focused |
 | **2.8.9** | 2026-03-24 | **Colab viewer and policy schema hotfix** - real embedded viewer rendering in notebooks, approval-policy ID alias support, list-valued `applies_at`, and refreshed Colab demos |
 | **2.8.8** | 2026-03-24 | **Tight release hardening** - better `epi policy validate` diagnostics, OpenAI Agents-style event bridge, viewer auto-expand on control jumps, and installer regression guard |
@@ -711,7 +712,7 @@ See **[CHANGELOG.md](./CHANGELOG.md)** for detailed release notes.
 
 ## Roadmap
 
-**Current (v3.0.0):**
+**Current (v3.0.1):**
 - [Done] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [Done] CI/CD verification (GitHub Action, pytest plugin)
 - [Done] OpenAI streaming support

@@ -1,6 +1,6 @@
 # EPI Self-Hosted Reliability Runbook
 
-This runbook defines the supported `v3.0.0` self-hosted shape for EPI:
+This runbook defines the supported `v3.0.1` self-hosted shape for EPI:
 
 - single-node deployment
 - append-only event spool on disk

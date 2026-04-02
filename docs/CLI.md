@@ -1,6 +1,6 @@
-# EPI CLI Reference (v3.0.0)
+# EPI CLI Reference (v3.0.1)
 
-**Version:** 3.0.0
+**Version:** 3.0.1
 **Primary entrypoint:** `epi`
 
 ---
@@ -123,7 +123,7 @@ After a successful verification, EPI now points to the two lowest-friction next 
 
 ## `epi share <file.epi>`
 
-Uploads a validated `.epi` file to the hosted share service and prints a browser link.
+Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
 ```bash
 epi share demo.epi
@@ -139,6 +139,8 @@ Behavior:
 - returns a hosted link shaped like `https://epilabs.org/cases/?id=...`
 
 This is the fastest path when a teammate should be able to open the repro in a browser without installing EPI first.
+
+If the default hosted backend is not available yet, point the command at your own gateway with `--api-base-url` or `EPI_SHARE_API_URL`.
 
 ---
 
@@ -156,7 +158,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v3.0.0`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v3.0.1`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 
@@ -190,7 +192,7 @@ Practical rule:
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
-For the proposed enterprise direction after `v3.0.0`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
+For the proposed enterprise direction after `v3.0.1`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 

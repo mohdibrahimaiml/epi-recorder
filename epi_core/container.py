@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from epi_core.schemas import ManifestModel
+from epi_core.viewer_assets import load_viewer_assets
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 
@@ -156,21 +157,15 @@ class EPIContainer:
         Returns:
             str: Complete HTML with embedded data
         """
-        repo_root = Path(__file__).parent.parent
-        template_path = repo_root / "web_viewer" / "index.html"
-        app_js_path = repo_root / "web_viewer" / "app.js"
-        css_path = repo_root / "web_viewer" / "styles.css"
-        crypto_js_path = repo_root / "epi_viewer_static" / "crypto.js"
-
-        if not template_path.exists():
+        assets = load_viewer_assets()
+        template_html = assets["template_html"]
+        if not template_html:
             # Fallback: minimal viewer if template not found
             return EPIContainer._create_minimal_viewer(manifest)
 
-        # Read template and assets
-        template_html = template_path.read_text(encoding="utf-8")
-        app_js = app_js_path.read_text(encoding="utf-8") if app_js_path.exists() else ""
-        crypto_js = crypto_js_path.read_text(encoding="utf-8") if crypto_js_path.exists() else ""
-        css_styles = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
+        app_js = assets["app_js"] or ""
+        crypto_js = assets["crypto_js"] or ""
+        css_styles = assets["css_styles"] or ""
 
         # Create embedded data
         embedded_data = {

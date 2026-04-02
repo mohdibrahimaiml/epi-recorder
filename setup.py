@@ -20,6 +20,7 @@ _PACKAGE_BUILD_TARGETS = (
     "epi_recorder",
     "epi_analyzer",
     "epi_viewer_static",
+    "web_viewer",
     "pytest_epi",
 )
 _MODULE_BUILD_TARGETS = ("epi_postinstall.py",)

@@ -281,7 +281,8 @@ POLICY_PROFILES: dict[str, dict] = {
                 "description": "Claims above the review threshold require a human approval before the denial decision is finalized.",
                 "type": "threshold_guard",
                 "threshold_value": 500,
-                "threshold_field": "claim_amount",
+                "threshold_field": "amount",
+                "watch_for": ["amount", "claim_amount"],
                 "required_action": "human_approval",
             },
             {
