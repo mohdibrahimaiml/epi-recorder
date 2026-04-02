@@ -101,6 +101,9 @@ def test_policy_init_insurance_claim_profile_has_expected_rules():
     assert "High-Value Claims Require Human Approval" in rule_names
     assert "Record Denial Reason Before Claim Denial" in rule_names
     assert "Never Output PII In Claim Notices" in rule_names
+    threshold_rule = next(rule for rule in data["rules"] if rule["id"] == "R003")
+    assert threshold_rule["threshold_field"] == "amount"
+    assert threshold_rule["watch_for"] == ["amount", "claim_amount"]
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 

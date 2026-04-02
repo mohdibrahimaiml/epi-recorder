@@ -8,6 +8,7 @@ include EPI*NEXUA*VENTURES*.ipynb
 
 # Include static viewer files
 recursive-include epi_viewer_static *.html *.js *.css
+recursive-include web_viewer *.html *.js *.css
 recursive-include epi_core/assets *.ico
 
 # Include example scripts

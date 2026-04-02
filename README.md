@@ -107,7 +107,7 @@ capture the run → open it in the browser → verify it → attach it to an iss
 
 ```bash
 epi verify my_agent.epi
-epi share my_agent.epi   # returns a browser link — no EPI install needed on the recipient's end
+epi share my_agent.epi   # returns a browser link when the share service is deployed/configured
 ```
 
 Guides:
@@ -537,13 +537,13 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 ---
 
-## What Changed in v3.0.0
+## What Changed in v3.0.1
 
-- **Notebook packaging** — `epi_recorder_colab_demo.ipynb` (comprehensive end-to-end demo) ships in the GitHub repo and source distribution
-- **Release audit hardening** — release gate audits the source tarball and fails if required notebooks are missing
-- **`epi debug` resilience** — graceful error message when `epi_analyzer` is not installed instead of crashing all CLI commands
-- **EPIPolicy v2.0** — `policy_format_version`, `system_name`, and `policy_version` fields required for policy evaluation to run
-- **2.8.x runtime hotfixes preserved** — approval policies accept both `approval_id` and `id`; `applies_at` accepts a single point or a list
+- **Viewer packaging fixed** — `epi view` now works from the packaged wheel because the browser review assets ship and load correctly
+- **LangChain callback path hardened** — `EPICallbackHandler` now tolerates missing callback metadata instead of emitting runtime errors
+- **Insurance threshold policy aligned** — the built-in claim-denial profile recognizes `amount` and still accepts `claim_amount` as a fallback
+- **Threshold analyzer corrected** — intermediate fraud and coverage investigation steps no longer trip the high-value approval rule before the actual denial action
+- **Release honesty improved** — current docs and share guidance now reflect the real packaged/runtime behavior
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -551,7 +551,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-**Current (v3.0.0):**
+**Current (v3.0.1):**
 - [x] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [x] CI/CD verification (GitHub Action, pytest plugin)
 - [x] OpenAI streaming support

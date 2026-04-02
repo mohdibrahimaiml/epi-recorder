@@ -48,6 +48,10 @@ _COMMITMENT_KEYWORDS = {
     "transfer", "transact",
 }
 
+_DECISIVE_ACTION_KEYWORDS = _COMMITMENT_KEYWORDS | {
+    "deny", "denied", "decline", "declined", "reject", "rejected",
+}
+
 _ERROR_INDICATORS = {
     "error", "exception", "failed", "failure", "timeout", "refused",
     "denied", "unauthorized", "forbidden", "not found", "invalid",
@@ -400,7 +404,10 @@ def _is_action_trigger_step(step: dict) -> bool:
     }:
         return False
     if kind.startswith("tool.call") or kind.startswith("tool.use"):
-        return True
+        primary_action = _get_primary_action(step) or ""
+        if any(keyword in primary_action for keyword in _DECISIVE_ACTION_KEYWORDS):
+            return True
+        return _content_mentions(step, _COMMITMENT_KEYWORDS)
     if kind in {"agent.decision", "agent.handoff", "agent.action", "agent.finish"}:
         return True
     return _content_mentions(step, _COMMITMENT_KEYWORDS)
