@@ -1,0 +1,37 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      EPI_GATEWAY_STORAGE_DIR: /data
+    volumes:
+      - epi_data:/data
+    ports:
+      - "8787:8787"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/ready', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  viewer:
+    image: python:3.12-slim
+    restart: unless-stopped
+    working_dir: /app
+    command: ["python", "-m", "http.server", "8000", "--directory", "/app"]
+    volumes:
+      - ./:/app:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  epi_data:
+    driver: local

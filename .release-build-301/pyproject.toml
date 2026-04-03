@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "epi-recorder"
+version = "3.0.1"
+description = "Portable repro artifacts for AI agent runs. Capture, open, share, and verify failures in any browser."
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.11"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
+]
+maintainers = [
+    {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
+]
+keywords = [
+    "evidence",
+    "forensics",
+    "audit",
+    "compliance",
+    "cryptography",
+    "ai",
+    "llm",
+    "verification",
+    "artifact",
+    "debugging",
+    "bug-report",
+    "incident-response",
+    "pytest",
+    "ci",
+    "execution-trace",
+    "reproducibility",
+    "tamper-evident"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security :: Cryptography",
+    "Topic :: System :: Logging",
+    "Typing :: Typed",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2"
+]
+
+dependencies = [
+    "pydantic>=2.0.0,<=2.12.3",
+    "cryptography>=41.0.0,<44",
+    "cbor2>=5.6.0",
+    "typer>=0.12.0,<0.25",
+    "rich>=13.0.0,<14",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
+]
+
+[project.optional-dependencies]
+ai = [
+    "google-generativeai>=0.4.0",
+]
+analytics = [
+    "pandas>=1.5.0",
+    "matplotlib>=3.5.0",
+]
+gateway = [
+    "boto3>=1.34.0",
+]
+all = [
+    "google-generativeai>=0.4.0",
+    "pandas>=1.5.0",
+    "matplotlib>=3.5.0",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
+    "boto3>=1.34.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.27.0",
+    "black>=24.0.0",
+    "ruff>=0.3.0",
+    "pandas>=1.5.0",
+]
+
+[project.scripts]
+epi = "epi_cli.main:cli_main"
+
+[project.urls]
+Homepage = "https://epilabs.org"
+Documentation = "https://epilabs.org/docs"
+Repository = "https://github.com/mohdibrahimaiml/epi-recorder"
+Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
+Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*"]
+
+[tool.setuptools]
+py-modules = ["epi_postinstall"]
+
+[tool.setuptools.package-data]
+epi_core = ["assets/*.ico"]
+epi_viewer_static = ["*.html", "*.js", "*.css"]
+web_viewer = ["*.html", "*.js", "*.css"]
+
+[project.entry-points.pytest11]
+epi = "pytest_epi.plugin"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=epi_core --cov=epi_cli --cov-report=term-missing --cov-report=html"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+ 

@@ -33,7 +33,7 @@ from epi_core.policy import (
     list_policy_profiles,
     list_starter_rule_types,
 )
-from epi_core.viewer_assets import load_viewer_assets
+from epi_core.viewer_assets import inline_viewer_assets, load_viewer_assets
 
 app = typer.Typer(help="Manage epi_policy.json for fault analysis rules.")
 console = Console()
@@ -141,11 +141,12 @@ def _build_policy_editor_case_payload(policy_data: dict, output_path: Path) -> d
 def _create_policy_editor_html(policy_data: dict, output_path: Path) -> str:
     assets = load_viewer_assets()
     template_html = assets["template_html"]
+    jszip_js = assets["jszip_js"]
     app_js = assets["app_js"]
     css_styles = assets["css_styles"]
     crypto_js = assets["crypto_js"]
 
-    if not template_html or app_js is None or css_styles is None or crypto_js is None:
+    if not template_html or jszip_js is None or app_js is None or css_styles is None or crypto_js is None:
         raise FileNotFoundError("Decision viewer assets are not available in this install.")
 
     payload = {
@@ -155,15 +156,14 @@ def _create_policy_editor_html(policy_data: dict, output_path: Path) -> str:
     payload_json = _html_safe_json_dumps(payload, indent=2)
     preload_tag = f'<script id="epi-preloaded-cases" type="application/json">{payload_json}</script>'
 
-    html = template_html.replace(
-        '<link rel="stylesheet" href="styles.css">',
-        f"<style>{css_styles}</style>",
+    return inline_viewer_assets(
+        template_html,
+        css_styles=css_styles,
+        jszip_js=jszip_js,
+        crypto_js=crypto_js,
+        app_js=app_js,
+        prepend_html=preload_tag,
     )
-    html = html.replace(
-        '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script src="../epi_viewer_static/crypto.js"></script>\n<script src="app.js"></script>',
-        f'{preload_tag}\n<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script>{crypto_js}</script>\n<script>{app_js}</script>',
-    )
-    return html
 
 
 def _open_policy_editor(policy_data: dict, output_path: Path) -> Path:

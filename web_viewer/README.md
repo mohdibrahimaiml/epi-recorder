@@ -26,6 +26,7 @@ It is designed to feel simple for non-technical reviewers:
 - browser signing: paste the same EPI Ed25519 `.key` private key the CLI generates to produce signed review notes
 - signed review status: reloaded reviewed artifacts show whether the attached review notes are signed, unsigned, or have a bad signature
 - packaged artifact rebuild: the baked `viewer.html` can rebuild a reviewed `.epi` offline from embedded `epi-data`
+- extracted review export: `epi view --extract` writes a self-contained `viewer.html` with vendored JSZip so the extracted review page also works offline and in air-gapped environments
 - `Rules`: load the sealed `policy.json`, edit real EPI rule types in plain language, and export a valid `epi_policy.json`
 - `Reports`: export a summary, review, or trust report without using the CLI
 
@@ -66,4 +67,6 @@ This viewer changes the interface on top of that moat so operators, compliance t
 
 Host the repo root or `/web_viewer/` on GitHub Pages and keep `../epi_viewer_static/crypto.js` available so browser-side signature verification continues to work.
 When EPI packages `viewer.html` into an artifact, the same interface is inlined for offline use.
+`epi view --extract` produces that same single-file offline review surface with vendored JSZip and no remote script dependencies.
+The raw repo-hosted `web_viewer/index.html` is still a source app that expects its companion static assets nearby; the single-file offline guarantee applies to the generated embedded and extracted viewer HTML, not to the raw source page by itself.
 For live source-record fetches during optional setup, run `epi connect serve` locally and leave the bridge URL at `http://127.0.0.1:8765` unless your environment needs a different port.

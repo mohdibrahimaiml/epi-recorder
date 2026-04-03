@@ -1,6 +1,6 @@
-# EPI CLI Reference (v3.0.1)
+# EPI CLI Reference (v3.0.2)
 
-**Version:** 3.0.1
+**Version:** 3.0.2
 **Primary entrypoint:** `epi`
 
 ---
@@ -82,10 +82,13 @@ Opens a saved case file using the canonical browser review flow.
 
 ```bash
 epi view my_run.epi
+epi view --extract ./review my_run.epi
 
 # View by name from ./epi-recordings
 epi view my_run
 ```
+
+`epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
 
 ---
 
@@ -158,7 +161,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v3.0.1`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v3.0.2`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 
@@ -192,7 +195,7 @@ Practical rule:
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
-For the proposed enterprise direction after `v3.0.1`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
+For the proposed enterprise direction after `v3.0.2`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 

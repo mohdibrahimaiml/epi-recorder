@@ -7,6 +7,22 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [3.0.2] - 2026-04-04
+
+### Offline Viewer Packaging Fix
+
+#### Fixed
+
+- **Extracted browser viewer**
+  - `epi view --extract` now vendors and inlines `jszip.min.js` instead of leaving a JSDelivr dependency in the generated `viewer.html`
+  - extracted viewers now open cleanly in offline and air-gapped environments without remote script loading
+- **Embedded and policy editor viewer parity**
+  - the shared viewer inlining path now bundles the same JSZip runtime for embedded artifact viewers and the browser policy editor
+- **Release audit coverage**
+  - wheel auditing now fails if the vendored `web_viewer/jszip.min.js` runtime asset is missing from the built package
+
+---
+
 ## [3.0.1] - 2026-04-02
 
 ### Front-Door Reliability Patch

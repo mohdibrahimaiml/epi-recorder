@@ -7,6 +7,7 @@ verify: verbose mode, signature paths, json output
 
 import hashlib
 import json
+import re
 import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -93,6 +94,17 @@ class TestViewCommand:
         assert "EPI Case Review" in html
         assert 'id="epi-preloaded-cases"' in html
         assert 'id="epi-view-context"' in html
+
+    def test_extract_option_inlines_jszip_without_remote_script_src(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        extract_dir = tmp_path / "offline_extracted"
+        code = _call_view(str(epi), extract=str(extract_dir))
+        assert code == 0
+
+        html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+        assert 'src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"' not in html
+        assert re.search(r'<script[^>]+src=["\']https?://', html) is None
+        assert "<script>" in html
 
     def test_missing_viewer_html_is_regenerated(self, tmp_path):
         epi = _make_epi(tmp_path, include_viewer=False)

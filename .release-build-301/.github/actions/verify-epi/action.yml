@@ -1,0 +1,68 @@
+name: 'EPI Verify'
+description: 'Verify EPI recording integrity and cryptographic signatures in CI/CD pipelines'
+author: 'EPI Labs'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Path to .epi file or directory containing .epi files'
+    required: true
+    default: './epi-recordings'
+  fail-on-tampered:
+    description: 'Fail the workflow if any .epi file is tampered'
+    required: false
+    default: 'true'
+  fail-on-unsigned:
+    description: 'Fail the workflow if any .epi file is unsigned'
+    required: false
+    default: 'false'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  generate-summary:
+    description: 'Generate a GitHub Step Summary with verification results'
+    required: false
+    default: 'true'
+
+outputs:
+  total:
+    description: 'Total number of .epi files checked'
+    value: ${{ steps.verify.outputs.total }}
+  verified:
+    description: 'Number of verified .epi files'
+    value: ${{ steps.verify.outputs.verified }}
+  tampered:
+    description: 'Number of tampered .epi files'
+    value: ${{ steps.verify.outputs.tampered }}
+  unsigned:
+    description: 'Number of unsigned .epi files'
+    value: ${{ steps.verify.outputs.unsigned }}
+  result:
+    description: 'Overall result: pass or fail'
+    value: ${{ steps.verify.outputs.result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install EPI Recorder
+      shell: bash
+      run: pip install epi-recorder
+
+    - name: Verify EPI recordings
+      id: verify
+      shell: bash
+      run: |
+        python "${{ github.action_path }}/verify.py" \
+          --path "${{ inputs.path }}" \
+          --fail-on-tampered "${{ inputs.fail-on-tampered }}" \
+          --fail-on-unsigned "${{ inputs.fail-on-unsigned }}" \
+          --generate-summary "${{ inputs.generate-summary }}"

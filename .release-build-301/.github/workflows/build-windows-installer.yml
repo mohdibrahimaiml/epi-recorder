@@ -1,0 +1,87 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - "v*.*.*"        # triggers on v2.7.2, v3.0.0, etc.
+  workflow_dispatch:    # also allow manual trigger from GitHub UI
+
+jobs:
+  build-installer:
+    name: Build epi-setup-*.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install epi-recorder and build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools wheel
+          pip install -e ".[dev]"
+          pip install build twine
+          pip install pyinstaller
+
+      - name: Run release gate
+        run: |
+          .\scripts\release-gate.ps1 -Python python
+        shell: powershell
+
+      - name: Run policy/fault-analysis smoke test
+        run: |
+          python scripts/smoke_policy_fault_analysis.py
+
+      - name: Bundle with PyInstaller
+        run: pyinstaller epi.spec --clean --noconfirm
+
+      - name: Verify bundle
+        run: |
+          $exe = "dist\epi\epi.exe"
+          if (-not (Test-Path $exe)) { throw "PyInstaller failed - epi.exe not found" }
+          Write-Host "Bundle OK: $((Get-Item $exe).Length) bytes"
+          & $exe --version
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --yes --no-progress
+        shell: powershell
+
+      - name: Build installer
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc "installer\windows\setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed" }
+        shell: powershell
+
+      - name: Verify installer
+        run: |
+          $installer = Get-ChildItem "installer\windows\Output\epi-setup-*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer not found" }
+          Write-Host "Installer: $($installer.Name) - $([math]::Round($installer.Length / 1MB, 1)) MB"
+        shell: powershell
+
+      - name: Upload installer to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: installer/windows/Output/epi-setup-*.exe
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Windows (recommended - double-click works out of the box)
+            Download `epi-setup-*.exe` below and run it. `.epi` files will open automatically.
+
+            ### Any platform (developers)
+            ```
+            pip install epi-recorder
+            ```
+            Then run any `epi` command once to activate file associations.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

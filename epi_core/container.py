@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from epi_core.schemas import ManifestModel
-from epi_core.viewer_assets import load_viewer_assets
+from epi_core.viewer_assets import inline_viewer_assets, load_viewer_assets
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 
@@ -163,6 +163,7 @@ class EPIContainer:
             # Fallback: minimal viewer if template not found
             return EPIContainer._create_minimal_viewer(manifest)
 
+        jszip_js = assets["jszip_js"] or ""
         app_js = assets["app_js"] or ""
         crypto_js = assets["crypto_js"] or ""
         css_styles = assets["css_styles"] or ""
@@ -198,28 +199,13 @@ class EPIContainer:
         elif "</head>" in html_with_data:
             html_with_data = html_with_data.replace("</head>", f"{data_tag}\n</head>")
 
-        style_block = f"<style>{css_styles}</style>" if css_styles else ""
-        html_with_css = html_with_data.replace(
-            '<link rel="stylesheet" href="styles.css">',
-            style_block,
-        ) if style_block else html_with_data
-        if style_block and html_with_css == html_with_data and "</head>" in html_with_css:
-            html_with_css = html_with_css.replace("</head>", f"{style_block}\n</head>")
-
-        html_with_scripts = html_with_css.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>',
-            '',
+        html_with_scripts = inline_viewer_assets(
+            html_with_data,
+            css_styles=css_styles,
+            jszip_js=jszip_js,
+            crypto_js=crypto_js,
+            app_js=app_js,
         )
-        if crypto_js:
-            html_with_scripts = html_with_scripts.replace(
-                '<script src="../epi_viewer_static/crypto.js"></script>',
-                f"<script>{crypto_js}</script>",
-            )
-        if app_js:
-            html_with_scripts = html_with_scripts.replace(
-                '<script src="app.js"></script>',
-                f"<script>{app_js}</script>",
-            )
 
         from epi_core._version import get_version
 

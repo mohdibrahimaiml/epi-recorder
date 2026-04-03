@@ -1,0 +1,152 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+!epi-viewer/lib/
+!epi-viewer/lib/verification.cjs
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.venv-release/
+.venv-normal-user/
+.venv-e2e/
+ci_check_env/
+tmp_debug_env/
+.tmp-*
+.tmp-*/**
+.tmp-viewer-*/
+.pytest-tmp-*/
+.pytest-tmp-*/**
+tmp*/
+tmp*/**
+probe_*/
+.epi-temp/
+.epi_associate/
+
+# Vendored frontend dependencies
+epi-viewer/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+installer/windows/Output/
+
+# EPI-specific
+*.epi
+.epi/
+temp_epi_*/
+epi-recordings/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Development workspace (local only)
+/dev/
+
+# One-off scripts and scratch files
+fix_existing_epi_files.py
+force_register.py
+gen_344.py
+loan_decision.py
+mock_trader_flow.py
+print_only.py
+produce_desktop_epi.py
+investor_demo_v2.py
+diag_registry.py
+e2e_script.py
+stress_test_pip.py
+run_tamper_tests.py
+run_investor_demo.bat
+INVESTOR_DEMO_GUIDE.md
+
+# Test output directories
+test_output/
+test_output2/
+test_tamper/
+test_tamper2/
+test_unsigned/
+test_extraction/
+extracted_test/
+final_viewer_test/
+tamper_test/
+tamper_test2/
+tamper_test3/
+tmp_unsigned/
+tmp_unsigned2/
+viewer_check_output/
+
+# Demo/trading app clones (not part of epi-recorder)
+AI-Trader-Clone/
+AI-Trader/
+AI-Trader-Src.zip
+ai-trader-src/
+ai-trader-epi-forensic-demo/
+demos/
+clients/
+
+# Dump files
+epi_full_dump*.txt
+cli_workflow_output.json
+pepy_full.json
+epi_web_verifier/manifest.json
+
+# Spec scratchpad
+spec/
+
+# Local companion sites/workspaces (not part of epi-recorder package)
+epi-official-site/
+EPI-OFFICIAL/
+AI-Trader-Workspace/
+_viewer_launch_tmp/
+.epi-shared-workspace/
+.ops-drill/
+evidence_vault/
+.tmp-importtime-main.txt
+test_analytics_data/
+EPI_Investor_Demo_Colab_v2_8_5.ipynb
+EPI_Investor_Demo_Investor_Grade_v2_8_5.ipynb
+EPI_Investor_Demo_Stable_v2_8_5.ipynb
+EPI_RECORDER_CODEBASE_REPORT.md
+build_investor_colab_stable.py
+build_investor_colab_v285.py
+build_investor_grade_colab_demo.py
+docs/EPI-RECORDER-COMPREHENSIVE-ANALYSIS-REPORT.md
+v2.8.5.ipynb
+
+# Log and coverage artifacts
+*.log
+!pyproject.toml
+*.html
+!epi_viewer_static/*.html
+!web_viewer/*.html
+.aider*
