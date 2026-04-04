@@ -6,7 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report this issue! Please fill out the information below.
+        Thanks for taking the time to report this issue.
+        If you can attach a `.epi` file, do that first — EPI works best as a portable bug report artifact for AI runs.
+        The combination of a short description plus one `.epi` file is usually enough for us to reproduce the problem quickly.
 
   - type: input
     id: version
@@ -83,9 +85,19 @@ body:
       required: true
 
   - type: textarea
+    id: epi_artifact
+    attributes:
+      label: Portable repro (.epi) (strongly recommended)
+      description: |
+        If the issue involves recording, verification, viewing, CI, or a framework integration, please attach the `.epi` file.
+        You can drag and drop it into this text box, or paste the output of `epi verify <file.epi>`.
+        Good sources include `epi demo`, `epi run`, `pytest --epi`, or a framework wrapper.
+        This is the single most useful thing for us to reproduce the issue.
+      placeholder: |
+        Paste `epi verify` output here, or attach the .epi file by dragging it in.
+
+  - type: textarea
     id: additional
     attributes:
       label: Additional Context
       description: Add any other context about the problem here
-
- 

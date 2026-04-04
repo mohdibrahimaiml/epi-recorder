@@ -46,7 +46,7 @@ def debug(
         epi debug agent.epi --export report.txt
     """
     console.print(f"Analyzing [cyan]{epi_file}[/cyan]...")
-    
+
     try:
         if MistakeDetector is None:
             console.print("[red][FAIL][/red] epi_analyzer is not installed.")

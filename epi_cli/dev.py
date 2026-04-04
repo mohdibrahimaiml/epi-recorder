@@ -1,5 +1,5 @@
 """
-epi dev — zero-friction developer onboarding for EPI.
+epi dev — zero-friction portable repro onboarding for EPI.
 
 Design principles:
 - Real capture first. A live-recorded case is always preferred over injected demo data.
@@ -458,7 +458,7 @@ def dev(
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip the interactive export + verify step."),
 ):
     """
-    Start a complete EPI demo: refund review, browser case view, export, verify.
+    Start the fastest EPI repro loop: sample run, browser case view, export, verify.
 
     No API key, no internet, no config required.
     """
@@ -470,8 +470,8 @@ def dev(
 
     console.print()
     console.print(Panel.fit(
-        "[bold cyan]epi demo[/bold cyan] — refund review in one command\n"
-        "[dim]Real capture. Honest labeling. Clear case review.[/dim]",
+        "[bold cyan]epi demo[/bold cyan] — portable repro in one command\n"
+        "[dim]Real capture. Honest labeling. Open, share, verify.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -517,7 +517,7 @@ def dev(
 
     if not no_run:
         console.print()
-        console.print("[dim]  Running demo_refund.py (capturing decision evidence)...[/dim]")
+        console.print("[dim]  Running demo_refund.py (capturing one sample AI run)...[/dim]")
         console.print()
 
         run_env = os.environ.copy()
@@ -579,16 +579,16 @@ def dev(
     console.print()
     console.print("  [bold]In your browser:[/bold]")
     console.print("    1. Click the case → [bold]Refund ORD-9001[/bold]")
-    console.print("    2. Read the agent decision and evidence trail")
-    console.print("    3. Click [green]Approve[/green] or [red]Reject[/red]")
+    console.print("    2. Read the flagged decision and the step-by-step trail")
+    console.print("    3. Click [green]Approve[/green], [red]Reject[/red], or export the case file")
     console.print()
     console.rule()
 
     # ── [7] Interactive export + verify ───────────────────────────────────
     if not no_verify:
         console.print()
-        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident case file.")
-        console.print("  This is what you send to auditors, regulators, or downstream systems.")
+        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident bug report artifact.")
+        console.print("  This is what you attach to a GitHub issue, PR, Slack thread, or downstream handoff.")
         console.print()
         try:
             input("  Press Enter to export & verify  (Ctrl+C to skip) → ")
@@ -603,7 +603,7 @@ def dev(
                 console.print()
                 console.print(f"  [bold green]✔ Case file verified: {exported.name}[/bold green]")
                 console.print("  [dim]This file is cryptographically tamper-evident.[/dim]")
-                console.print("  [dim]Share it. Store it. Verify it anywhere.[/dim]")
+                console.print("  [dim]Attach it. Store it. Verify it anywhere.[/dim]")
             console.print()
             console.print("  [dim]To re-verify later:[/dim]")
             console.print("  [dim]  epi verify refund_case.epi[/dim]")

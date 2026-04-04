@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "name": "Refund Approval Policy",
+  "description": "Controls for AI-assisted refund decisions. Flags high-value refunds, expired return windows, and missing human approval.",
+  "rules": [
+    {
+      "id": "refund-001",
+      "name": "High-value refund requires human approval",
+      "description": "Any refund above $500 must have an explicit human approval step before being executed.",
+      "applies_at": "agent.decision",
+      "condition": {
+        "field": "output.amount_usd",
+        "operator": "gt",
+        "value": 500
+      },
+      "required_step": "agent.approval.response",
+      "enforcement": "block",
+      "severity": "HIGH",
+      "rationale": "Refunds over $500 carry material financial risk. A human reviewer must sign off."
+    },
+    {
+      "id": "refund-002",
+      "name": "Return window must be within 30 days",
+      "description": "Refund requests beyond the 30-day return window should be flagged and require escalation.",
+      "applies_at": "tool.response",
+      "condition": {
+        "field": "output.days_since_purchase",
+        "operator": "gt",
+        "value": 30
+      },
+      "enforcement": "flag",
+      "severity": "MEDIUM",
+      "rationale": "Outside the standard return window. Requires manual exception review."
+    },
+    {
+      "id": "refund-003",
+      "name": "LLM confidence must meet threshold",
+      "description": "Agent decisions below 0.80 confidence are too uncertain to execute automatically.",
+      "applies_at": "agent.decision",
+      "condition": {
+        "field": "confidence",
+        "operator": "lt",
+        "value": 0.80
+      },
+      "enforcement": "flag",
+      "severity": "MEDIUM",
+      "rationale": "Low-confidence decisions increase error rate and customer dispute risk."
+    },
+    {
+      "id": "refund-004",
+      "name": "Order lookup must succeed before decision",
+      "description": "A refund decision must be preceded by a successful order lookup. Deciding without verified order data is prohibited.",
+      "applies_at": "agent.decision",
+      "requires_prior_step": "tool.response",
+      "enforcement": "block",
+      "severity": "CRITICAL",
+      "rationale": "Approving refunds without verified order data enables fraud."
+    }
+  ]
+}
