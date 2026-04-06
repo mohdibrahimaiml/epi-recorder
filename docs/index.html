@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPI Docs - AI Evidence Infrastructure for Consequential AI</title>
+    <meta name="description"
+        content="EPI creates tamper-evident decision case files for AI systems that approve, reject, escalate, or act.">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #58a6ff 0%, #a371f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            color: #8b949e;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #c9d1d9;
+            margin: 32px 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        pre {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px 20px;
+            overflow-x: auto;
+            font-family: 'SF Mono', 'Fira Code', 'Monaco', monospace;
+            font-size: 0.9rem;
+            color: #79c0ff;
+        }
+
+        code {
+            font-family: 'SF Mono', 'Fira Code', 'Monaco', monospace;
+            background: #21262d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .feature {
+            background: rgba(33, 38, 45, 0.6);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .feature strong {
+            color: #58a6ff;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .feature span {
+            color: #8b949e;
+            font-size: 0.9rem;
+        }
+
+        .links {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid #21262d;
+        }
+
+        .links a {
+            color: #58a6ff;
+            text-decoration: none;
+            margin-right: 24px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .links a:hover {
+            color: #a371f7;
+        }
+
+        .footer {
+            margin-top: 48px;
+            color: #484f58;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>EPI Documentation</h1>
+        <p class="tagline">AI evidence infrastructure for consequential AI.</p>
+        <p style="color: #c9d1d9; margin-bottom: 24px;">Tamper-evident decision case files for AI governance, model risk, compliance engineering, and AI platform teams.</p>
+
+        <h2>Install</h2>
+        <pre>pip install epi-recorder</pre>
+
+        <h2>Record</h2>
+        <pre>python my_workflow.py</pre>
+
+        <h2>Review</h2>
+        <pre>epi view evidence.epi
+epi review evidence.epi
+epi verify evidence.epi</pre>
+
+        <div class="features">
+            <div class="feature">
+                <strong>Decision Case Files</strong>
+                <span>One `.epi` record for what happened, which workflow acted, and what evidence still holds.</span>
+            </div>
+            <div class="feature">
+                <strong>Policy and Control Evidence</strong>
+                <span>Embed `policy.json` and analysis so reviewers can see which controls applied and where a run failed.</span>
+            </div>
+            <div class="feature">
+                <strong>Human Review and Signoff</strong>
+                <span>Append `review.json` without rewriting the original sealed evidence.</span>
+            </div>
+            <div class="feature">
+                <strong>Tamper-Evident Trust</strong>
+                <span>Show artifacts as `Signed`, `Unsigned`, or `Tampered` with offline verification.</span>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="../README.md">README</a>
+            <a href="./EPI-DOC-v3.0.2.md">EPI DOC</a>
+            <a href="./CLI.md">CLI</a>
+            <a href="./POLICY.md">Policy</a>
+            <a href="./CONNECT.md">Connect</a>
+            <a href="./FRAMEWORK-INTEGRATIONS-5-MINUTES.md">Integrations</a>
+            <a href="./PYTEST-AGENT-REGRESSIONS.md">pytest</a>
+            <a href="./SHARE-A-FAILURE.md">Share a Failure</a>
+            <a href="./SELF-HOSTED-RUNBOOK.md">Self-Hosted</a>
+            <a href="./EPI-SPEC.md">Spec</a>
+            <a href="./EPI-CODEBASE-WALKTHROUGH.md">Walkthrough</a>
+            <a href="../CHANGELOG.md">Changelog</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder">GitHub</a>
+            <a href="https://pypi.org/project/epi-recorder/">PyPI</a>
+        </div>
+
+        <p class="footer">Current docs target EPI Recorder v3.0.2. Internal strategy and historical release files live under <code>docs/internal/</code> and <code>docs/archive/</code>.</p>
+    </div>
+</body>
+
+</html>

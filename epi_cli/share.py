@@ -96,7 +96,7 @@ def share(
         console.print("[dim]To fix this, either:[/dim]")
         console.print("[dim]  • Deploy the EPI gateway and set EPI_SHARE_API_URL=http://your-host:8765[/dim]")
         console.print("[dim]  • Use --api-base-url http://your-gateway-host:8765[/dim]")
-        console.print("[dim]  • Deploy api.epilabs.org (see docs/HOSTED-PILOT-RUNBOOK.md)[/dim]")
+        console.print("[dim]  • Deploy api.epilabs.org (see docs/internal/HOSTED-PILOT-RUNBOOK.md)[/dim]")
         raise typer.Exit(1) from exc
 
     if json_output:

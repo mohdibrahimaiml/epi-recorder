@@ -73,7 +73,7 @@ Teams should not have to translate high-risk logging and approval requirements i
   - `epi policy init --pack us-finance-model-risk`
   - `epi policy init --pack healthcare-human-review`
 - Extend `epi_core/policy.py` to support pack metadata, versioning, and richer control annotations.
-- Update [POLICY.md](./POLICY.md) with a "policy packs" section and industry-specific examples.
+- Update [POLICY.md](../POLICY.md) with a "policy packs" section and industry-specific examples.
 - Add golden-pack validation tests in a new `tests/test_policy_packs.py`.
 
 ### First packs

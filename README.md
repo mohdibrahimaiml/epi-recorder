@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
@@ -30,17 +30,17 @@
 
 <p align="center">
   <strong>
-    <a href="#install">Install</a> Â·
-    <a href="#get-started-in-10-minutes">Get Started</a> Â·
-    <a href="#add-to-your-code">Add to Your Code</a> Â·
-    <a href="#pytest-plugin">pytest</a> Â·
-    <a href="#framework-integrations">Integrations</a> Â·
-    <a href="docs/SHARE-A-FAILURE.md">Share a Failure</a> Â·
-    <a href="docs/CONNECT.md">Team Review</a> Â·
-    <a href="docs/EPI-SPEC.md">Specification</a> Â·
-    <a href="docs/CLI.md">CLI Reference</a> Â·
-    <a href="docs/POLICY.md">Policy Guide</a> Â·
-    <a href="CHANGELOG.md">Changelog</a> Â·
+    <a href="#install">Install</a> &middot;
+    <a href="#get-started-in-10-minutes">Get Started</a> &middot;
+    <a href="#add-to-your-code">Add to Your Code</a> &middot;
+    <a href="#pytest-plugin">pytest</a> &middot;
+    <a href="#framework-integrations">Integrations</a> &middot;
+    <a href="docs/SHARE-A-FAILURE.md">Share a Failure</a> &middot;
+    <a href="docs/CONNECT.md">Team Review</a> &middot;
+    <a href="docs/EPI-SPEC.md">Specification</a> &middot;
+    <a href="docs/CLI.md">CLI Reference</a> &middot;
+    <a href="docs/POLICY.md">Policy Guide</a> &middot;
+    <a href="CHANGELOG.md">Changelog</a> &middot;
     <a href="https://epilabs.org">Website</a>
   </strong>
 </p>
@@ -68,7 +68,7 @@ Runs a sample refund workflow and gives you the full developer repro loop:
 
 1. Capture an AI agent run into a portable `.epi` artifact
 2. Open the flagged case in the browser review view
-3. Approve, reject, or escalate â€” like a teammate reviewing a bug
+3. Approve, reject, or escalate - like a teammate reviewing a bug
 4. Export and cryptographically verify the same `.epi` file
 
 > Already have an OpenAI key? Set `OPENAI_API_KEY` and the demo uses the real API.
@@ -77,11 +77,11 @@ Runs a sample refund workflow and gives you the full developer repro loop:
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/examples/epi_recorder_colab_demo.ipynb)
 
-Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same engineering flow: clean run â†’ failing run â†’ browser review â†’ verification â†’ tamper check.
+Click the badge above. No local setup. The notebook runs `pip install epi-recorder` inside Colab and walks through the same engineering flow: clean run -> failing run -> browser review -> verification -> tamper check.
 
 **Option C: Verify an existing .epi file**
 
-Drag and drop any `.epi` file at [epilabs.org/verify](https://epilabs.org/verify) â€” no install, no login, verification runs entirely in your browser.
+Drag and drop any `.epi` file at [epilabs.org/verify](https://epilabs.org/verify) - no install, no login, verification runs entirely in your browser.
 
 **Insurance design-partner demo**
 
@@ -102,7 +102,7 @@ Simulates a claim denial with fraud check, coverage review, human approval, deni
 When an agent run goes wrong, create one `.epi` file and hand it to the next engineer.
 
 ```text
-capture the run â†’ open it in the browser â†’ verify it â†’ attach it to an issue or PR
+capture the run -> open it in the browser -> verify it -> attach it to an issue or PR
 ```
 
 ```bash
@@ -163,7 +163,7 @@ with record("refund_agent.epi", goal="Resolve customer refund safely") as epi:
 
 The resulting `.epi` shows lineage, approvals, tool calls, memory activity, and pause/resume checkpoints as one signed case file.
 
-### Local LLM â€” free, unlimited development
+### Local LLM - free, unlimited development
 
 ```python
 client = wrap_openai(OpenAI(
@@ -225,14 +225,14 @@ pytest --epi --epi-dir=evidence # custom output directory
 pytest --epi --epi-on-pass      # also keep passing test artifacts
 ```
 
-Every test failure leaves a signed case file you can open, verify, and share. Attach the `.epi` to a GitHub issue or PR â€” the reviewer opens it in their browser, no EPI install required.
+Every test failure leaves a signed case file you can open, verify, and share. Attach the `.epi` to a GitHub issue or PR - the reviewer opens it in their browser, no EPI install required.
 
 ---
 
 ## The Full Loop
 
 ```text
-define policy â†’ run workflow â†’ inspect fault analysis â†’ confirm/dismiss in review â†’ verify trust
+define policy -> run workflow -> inspect fault analysis -> confirm/dismiss in review -> verify trust
 ```
 
 ```bash
@@ -275,14 +275,14 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 
 | | **EPI** | LangSmith | Arize | W&B |
 |:--|:--------|:----------|:------|:----|
-| **Works offline** | Yes â€” air-gapped ready | No â€” cloud required | No â€” cloud required | No â€” cloud required |
-| **Tamper-proof** | Yes â€” Ed25519 signatures | No | No | No |
-| **Open format** | Yes â€” `.epi` spec | No â€” proprietary | No â€” proprietary | No â€” proprietary |
-| **Agent state** | Yes â€” full checkpoints | Traces only | Predictions only | Experiments only |
-| **Compliance** | Yes â€” EU AI Act, FDA, SEC | Limited | Limited | Not designed |
-| **Local LLMs** | Yes â€” Ollama, llama.cpp | No | No | No |
-| **CI/CD native** | Yes â€” GitHub Action + pytest | No | No | No |
-| **Framework hooks** | Yes â€” LiteLLM, LangChain, OTel | LangChain only | No | No |
+| **Works offline** | Yes - air-gapped ready | No - cloud required | No - cloud required | No - cloud required |
+| **Tamper-proof** | Yes - Ed25519 signatures | No | No | No |
+| **Open format** | Yes - `.epi` spec | No - proprietary | No - proprietary | No - proprietary |
+| **Agent state** | Yes - full checkpoints | Traces only | Predictions only | Experiments only |
+| **Compliance** | Yes - EU AI Act, FDA, SEC | Limited | Limited | Not designed |
+| **Local LLMs** | Yes - Ollama, llama.cpp | No | No | No |
+| **CI/CD native** | Yes - GitHub Action + pytest | No | No | No |
+| **Framework hooks** | Yes - LiteLLM, LangChain, OTel | LangChain only | No | No |
 | **Cost** | **Free** (MIT) | $99+/mo | Custom | $50+/mo |
 
 > **EPI complements these tools.** Use LangSmith for live traces, EPI for durable evidence.
@@ -293,17 +293,16 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 
 EPI is designed for teams facing real regulatory pressure:
 
-- **EU AI Act** â€” tamper-evident audit trails with cryptographic proof
-- **FDA / Healthcare** â€” signed decision records for AI-assisted diagnostics
-- **Financial services (SEC, ECOA)** â€” litigation-grade evidence for automated decisions
-- **Data governance** â€” automatic PII redaction with `security.redaction` steps
-- **Air-gapped deployment** â€” no internet required, ever
+- **EU AI Act** - tamper-evident audit trails with cryptographic proof
+- **FDA / Healthcare** - signed decision records for AI-assisted diagnostics
+- **Financial services (SEC, ECOA)** - litigation-grade evidence for automated decisions
+- **Data governance** - automatic PII redaction with `security.redaction` steps
+- **Air-gapped deployment** - no internet required, ever
 
-The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) â€” drag and drop, no login, no install. Verification runs client-side in their browser.
+The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) - drag and drop, no login, no install. Verification runs client-side in their browser.
 
-For enterprise architecture, see [docs/OPEN-CORE-ARCHITECTURE.md](docs/OPEN-CORE-ARCHITECTURE.md).
+For the flagship product explainer, see [docs/EPI-DOC-v3.0.2.md](docs/EPI-DOC-v3.0.2.md).
 For self-hosted deployment, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
-For the hosted insurance pilot path, see [docs/HOSTED-PILOT-RUNBOOK.md](docs/HOSTED-PILOT-RUNBOOK.md).
 
 ---
 
@@ -311,7 +310,7 @@ For the hosted insurance pilot path, see [docs/HOSTED-PILOT-RUNBOOK.md](docs/HOS
 
 EPI fits the stack your AI platform team already uses. **Start with one workflow, not a rewrite.**
 
-### LiteLLM â€” 100+ Providers in One Line
+### LiteLLM - 100+ Providers in One Line
 
 ```python
 import litellm
@@ -322,10 +321,10 @@ litellm.callbacks = [EPICallback()]  # all calls are now recorded
 response = litellm.completion(model="gpt-4", messages=[...])
 response = litellm.completion(model="claude-3-opus", messages=[...])
 response = litellm.completion(model="ollama/llama3", messages=[...])
-# every call â†’ signed .epi evidence
+# every call -> signed .epi evidence
 ```
 
-### LangChain â€” Full Event Capture
+### LangChain - Full Event Capture
 
 ```python
 from langchain_openai import ChatOpenAI
@@ -336,7 +335,7 @@ result = llm.invoke("Analyze this contract for risk...")
 # captures: LLM calls, tool invocations, chain steps, retriever queries, agent decisions
 ```
 
-### OpenAI Streaming â€” Real-Time Evidence
+### OpenAI Streaming - Real-Time Evidence
 
 ```python
 from epi_recorder import record, wrap_openai
@@ -354,7 +353,7 @@ with record("stream_demo.epi"):
 # chunks yielded in real-time, assembled response logged with full token usage
 ```
 
-### GitHub Action â€” CI/CD Verification
+### GitHub Action - CI/CD Verification
 
 ```yaml
 # .github/workflows/verify.yml
@@ -365,13 +364,13 @@ with record("stream_demo.epi"):
     fail-on-tampered: true
 ```
 
-### OpenTelemetry â€” Bridge to Existing Infra
+### OpenTelemetry - Bridge to Existing Infra
 
 ```python
 from epi_recorder.integrations.opentelemetry import setup_epi_tracing
 
 setup_epi_tracing(service_name="my-agent")
-# all OTel spans â†’ signed .epi files automatically
+# all OTel spans -> signed .epi files automatically
 ```
 
 ### LangGraph Checkpoint Integration
@@ -405,7 +404,7 @@ with record("support_agent.epi") as epi:
 
 Maps stream events into `agent.message`, `tool.call`, `tool.response`, `agent.handoff`, `agent.approval.request/response`, `agent.memory.read/write`, and `agent.decision`.
 
-### Global Install â€” Record Everything
+### Global Install - Record Everything
 
 ```bash
 epi install --global    # all Python processes now auto-record
@@ -446,15 +445,15 @@ An `.epi` file is a self-contained ZIP archive:
 
 ```
 my_agent.epi
-â”œâ”€â”€ mimetype               # "application/vnd.epi+zip"
-â”œâ”€â”€ manifest.json          # metadata + Ed25519 signature + content hashes
-â”œâ”€â”€ steps.jsonl            # execution timeline (NDJSON)
-â”œâ”€â”€ environment.json       # runtime environment snapshot
-â”œâ”€â”€ analysis.json          # optional fault-analysis output
-â”œâ”€â”€ policy.json            # optional embedded rulebook
-â”œâ”€â”€ policy_evaluation.json # optional control outcomes
-â”œâ”€â”€ review.json            # optional human review record
-â””â”€â”€ viewer.html            # self-contained offline viewer shell
+|- mimetype               # "application/vnd.epi+zip"
+|- manifest.json          # metadata + Ed25519 signature + content hashes
+|- steps.jsonl            # execution timeline (NDJSON)
+|- environment.json       # runtime environment snapshot
+|- analysis.json          # optional fault-analysis output
+|- policy.json            # optional embedded rulebook
+|- policy_evaluation.json # optional control outcomes
+|- review.json            # optional human review record
+`- viewer.html            # self-contained offline viewer shell
 ```
 
 | Property | Detail |
@@ -463,7 +462,7 @@ my_agent.epi
 | **Hashing** | SHA-256 content addressing |
 | **Key storage** | Local keyring, user-controlled |
 | **Verification** | Client-side, zero external dependencies |
-| **Viewer** | Embedded HTML â€” works offline forever |
+| **Viewer** | Embedded HTML - works offline forever |
 
 See **[EPI Specification](docs/EPI-SPEC.md)** for technical details.
 
@@ -483,11 +482,11 @@ flowchart LR
 
 | Principle | How |
 |:----------|:----|
-| **Crash-safe** | SQLite WAL â€” no data loss, even if agents crash mid-execution |
+| **Crash-safe** | SQLite WAL - no data loss, even if agents crash mid-execution |
 | **Explicit capture** | Evidence is intentional and reviewable in code |
 | **Cryptographic proof** | Ed25519 signatures (RFC 8032) that can't be forged or backdated |
-| **Offline-first** | Zero cloud dependency â€” works in air-gapped environments |
-| **Framework-native** | Plugs into LiteLLM, LangChain, OpenTelemetry, pytest â€” no refactoring |
+| **Offline-first** | Zero cloud dependency - works in air-gapped environments |
+| **Framework-native** | Plugs into LiteLLM, LangChain, OpenTelemetry, pytest - no refactoring |
 
 ---
 
@@ -497,11 +496,11 @@ flowchart LR
 
 | Provider | Integration | Streaming |
 |:---------|:------------|:----------|
-| **OpenAI** | `wrap_openai()` | Yes â€” real-time chunk capture |
+| **OpenAI** | `wrap_openai()` | Yes - real-time chunk capture |
 | **Anthropic** | `wrap_anthropic()` | Yes |
-| **Google Gemini** | Explicit API | â€” |
+| **Google Gemini** | Explicit API | - |
 | **Ollama** (local) | `wrap_openai()` with local endpoint | Yes |
-| **Any HTTP LLM** | `log_llm_call()` explicit API | â€” |
+| **Any HTTP LLM** | `log_llm_call()` explicit API | - |
 
 ### Framework Integrations
 
@@ -511,7 +510,7 @@ flowchart LR
 | **LiteLLM** | `EPICallback` | 100+ providers, one line |
 | **LangChain** | `EPICallbackHandler` | LLM, tools, chains, retrievers, agents |
 | **LangGraph** | `EPICheckpointSaver` | Native checkpoint backend |
-| **OpenTelemetry** | `EPISpanExporter` | Span â†’ .epi conversion |
+| **OpenTelemetry** | `EPISpanExporter` | Span -> .epi conversion |
 | **pytest** | `--epi` flag | Signed evidence per test |
 | **GitHub Actions** | `verify-epi` action | CI/CD pipeline verification |
 
@@ -571,10 +570,11 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 | Document | Description |
 |:---------|:------------|
+| **[Docs Hub](docs/index.html)** | Curated front door for the current public documentation set |
+| **[EPI DOC v3.0.2](docs/EPI-DOC-v3.0.2.md)** | Flagship explainer for the shipped `3.0.2` product and codebase |
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for the `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Policy Guide](docs/POLICY.md)** | How policy, fault analysis, and rulebooks work |
-| **[Policy v2 Design](docs/POLICY-V2-DESIGN.md)** | Enterprise policy model with layers, enforcement modes, and richer control types |
 | **[CHANGELOG](CHANGELOG.md)** | Release notes |
 | **[Contributing](CONTRIBUTING.md)** | Contribution guidelines |
 | **[Security](SECURITY.md)** | Security policy and vulnerability reporting |

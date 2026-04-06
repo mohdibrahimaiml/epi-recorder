@@ -350,15 +350,8 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 - richer policy provenance
 - policy testing and diffing
 
-The concrete proposal for that next step lives here:
+That next layer is intentionally outside this guide.
 
-- [Policy v2 Design](./POLICY-V2-DESIGN.md)
-
-That document describes a future enterprise policy model with:
-
-- policy layers
-- intervention points
-- enforcement modes
-- enterprise control families
+This document stays focused on the shipped `v3.0.2` workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
 - `policy_evaluation.json`
 - proposed CLI and API changes

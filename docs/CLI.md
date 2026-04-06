@@ -195,8 +195,6 @@ Practical rule:
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
 
-For the proposed enterprise direction after `v3.0.2`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
-
 ---
 
 ## `epi connect open`
@@ -287,4 +285,4 @@ epi review payment_run.epi show
 - For normal Windows users, use the packaged installer for the best `.epi` opening experience.
 - For developer installs from PyPI or source, `epi associate` registers a stable user launcher path and `epi doctor` reports drift when OS policy blocks registry repair.
 - Policy and analysis results are embedded into the artifact as `policy.json` and `analysis.json` when available.
-- For the open-capture / enterprise-control-plane split, see [`OPEN-CORE-ARCHITECTURE.md`](OPEN-CORE-ARCHITECTURE.md).
+- For the supported shared-review deployment shape, see [`SELF-HOSTED-RUNBOOK.md`](SELF-HOSTED-RUNBOOK.md).
