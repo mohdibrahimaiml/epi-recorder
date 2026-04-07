@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "workflow_id": "66666666-6666-4666-8666-666666666666",
+    "created_at": "2026-04-06T10:05:30Z",
+    "goal": "Heavy violations fixture",
+    "tags": ["agt", "fixture", "heavy-violations"]
+  },
+  "audit_logs": [
+    {
+      "entry_id": "heavy-audit-1",
+      "timestamp": "2026-04-06T10:00:00Z",
+      "event_type": "policy_violation",
+      "agent_did": "did:agentmesh:heavy",
+      "action": "issue_denial_notice",
+      "data": {
+        "message": "Supervisor approval missing"
+      },
+      "outcome": "denied",
+      "policy_decision": "deny",
+      "matched_rule": "EUAI-ART9",
+      "trace_id": "trace-heavy-1"
+    },
+    {
+      "entry_id": "heavy-audit-2",
+      "timestamp": "2026-04-06T10:00:03Z",
+      "event_type": "policy_violation",
+      "agent_did": "did:agentmesh:heavy",
+      "action": "expose_pii",
+      "data": {
+        "message": "Sensitive field exposure detected"
+      },
+      "outcome": "denied",
+      "policy_decision": "deny",
+      "matched_rule": "PRIVACY-1",
+      "trace_id": "trace-heavy-2"
+    }
+  ],
+  "compliance_report": {
+    "report_id": "heavy-report-1",
+    "generated_at": "2026-04-06T10:05:00Z",
+    "framework": "eu_ai_act",
+    "total_controls": 5,
+    "controls_met": 2,
+    "controls_partial": 1,
+    "controls_failed": 2,
+    "compliance_score": 40.0,
+    "violations": [
+      {
+        "violation_id": "heavy-vio-1",
+        "control_id": "EUAI-ART9",
+        "severity": "high",
+        "description": "Supervisor approval missing.",
+        "evidence": {
+          "trace_id": "trace-heavy-1",
+          "entry_id": "heavy-audit-1",
+          "matched_rule": "EUAI-ART9"
+        }
+      },
+      {
+        "violation_id": "heavy-vio-2",
+        "control_id": "PRIVACY-1",
+        "severity": "critical",
+        "description": "Sensitive field exposure detected.",
+        "evidence": {
+          "trace_id": "trace-heavy-2",
+          "entry_id": "heavy-audit-2",
+          "matched_rule": "PRIVACY-1"
+        }
+      }
+    ]
+  }
+}

@@ -32,6 +32,7 @@
   <strong>
     <a href="#install">Install</a> &middot;
     <a href="#get-started-in-10-minutes">Get Started</a> &middot;
+    <a href="#agt---epi-quickstart">AGT Quickstart</a> &middot;
     <a href="#add-to-your-code">Add to Your Code</a> &middot;
     <a href="#pytest-plugin">pytest</a> &middot;
     <a href="#framework-integrations">Integrations</a> &middot;
@@ -94,6 +95,30 @@ epi share insurance_claim_case.epi
 ```
 
 Simulates a claim denial with fraud check, coverage review, human approval, denial reason capture, and a printable Decision Record.
+
+---
+
+## AGT -> EPI Quickstart
+
+If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed case file:
+
+```bash
+pip install epi-recorder
+epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi verify sample.epi
+epi view sample.epi
+```
+
+If you are not running from this repo checkout, replace `examples/agt/sample_bundle.json` with your own exported AGT bundle.
+
+What you should see in the resulting artifact:
+
+- `steps.jsonl` - the normalized execution trace
+- `policy.json` and `policy_evaluation.json` - the imported governance evidence
+- `analysis.json` - synthesized findings for `epi review` when analysis is enabled
+- `artifacts/agt/mapping_report.json` - the transformation audit that shows what was copied exactly, translated, derived, or synthesized
+
+Start with the public quickstart in [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md), then use [examples/agt/README.md](examples/agt/README.md) for the sample bundle details.
 
 ---
 
@@ -301,7 +326,8 @@ EPI is designed for teams facing real regulatory pressure:
 
 The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) - drag and drop, no login, no install. Verification runs client-side in their browser.
 
-For the flagship product explainer, see [docs/EPI-DOC-v3.0.2.md](docs/EPI-DOC-v3.0.2.md).
+For the flagship product explainer, see [docs/EPI-DOC-v3.0.3.md](docs/EPI-DOC-v3.0.3.md).
+For the AGT import front door, see [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md).
 For self-hosted deployment, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
 
 ---
@@ -521,6 +547,7 @@ flowchart LR
 | Command | Purpose |
 |:--------|:--------|
 | `epi run <script.py>` | Record execution to `.epi` |
+| `epi import agt <bundle.json> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file |
 | `epi verify <file.epi>` | Verify integrity and signature |
 | `epi view <file.epi>` | Open in browser review view |
 | `epi share <file.epi>` | Upload and return a hosted browser link |
@@ -537,11 +564,11 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 ---
 
-## What Changed in v3.0.2
+## What Changed in v3.0.3
 
-- **Extracted viewer is now truly offline** - `epi view --extract` vendors JSZip directly into the generated `viewer.html`, so the extracted review surface has no remote script dependency and works in air-gapped environments
-- **Viewer runtime packaging is now consistent** - the embedded artifact viewer, extracted viewer, and browser policy editor all use the same inlined browser runtime path
-- **Release audit is stricter** - the packaged wheel now fails release audit if the vendored viewer runtime asset is missing
+- **AGT import is now a first-class front door** - the README, docs hub, CLI reference, and sample docs now walk a new user through `epi import agt -> epi verify -> epi view`
+- **Imported-evidence trust is easier to inspect** - the current docs now explain the reviewer-facing meaning of `policy.json`, `policy_evaluation.json`, `analysis.json`, and `artifacts/agt/mapping_report.json`
+- **Current release surfaces are aligned** - the package version, installer version, current docs hub, and flagship explainer now all point at `v3.0.3`
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -549,13 +576,14 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-**Current (v3.0.2):**
+**Current (v3.0.3):**
 - [x] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [x] CI/CD verification (GitHub Action, pytest plugin)
 - [x] OpenAI streaming support
 - [x] Global install for automatic recording
 - [x] Agent-first recording and review surfaces
 - [x] Policy v2 schema with enforcement and fault analysis
+- [x] AGT import path with transformation audit and strict-mode controls
 - [x] Comprehensive Colab demo notebook
 
 **Next:**
@@ -571,7 +599,8 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 | Document | Description |
 |:---------|:------------|
 | **[Docs Hub](docs/index.html)** | Curated front door for the current public documentation set |
-| **[EPI DOC v3.0.2](docs/EPI-DOC-v3.0.2.md)** | Flagship explainer for the shipped `3.0.2` product and codebase |
+| **[AGT Import Quickstart](docs/AGT-IMPORT-QUICKSTART.md)** | Canonical `AGT -> EPI` first-time user path |
+| **[EPI DOC v3.0.3](docs/EPI-DOC-v3.0.3.md)** | Flagship explainer for the current `3.0.3` release line |
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for the `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Policy Guide](docs/POLICY.md)** | How policy, fault analysis, and rulebooks work |

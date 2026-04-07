@@ -1,0 +1,225 @@
+{
+  "report_version": "agt-mapping-report/v1",
+  "generated_at": "2026-04-07T12:00:00Z",
+  "importer_version": "test-importer",
+  "source_summary": {
+    "has_audit_logs": true,
+    "has_flight_recorder": false,
+    "has_compliance_report": true,
+    "has_policy_document": false,
+    "has_runtime_context": false,
+    "section_counts": {
+      "metadata": 6,
+      "audit_logs": 1,
+      "flight_recorder": 0,
+      "compliance_report": 8
+    }
+  },
+  "step_transformation": {
+    "audit_input_count": 1,
+    "flight_input_count": 0,
+    "combined_input_count": 1,
+    "output_count": 1,
+    "dedupe_strategy": "prefer-audit",
+    "duplicates_removed": 0,
+    "kept_both_count": 0,
+    "ambiguous_conflicts": 0
+  },
+  "event_mapping": {
+    "recognized": [
+      {
+        "section": "audit_logs",
+        "source_type": "tool_invocation",
+        "mapped_kind": "tool.call",
+        "count": 1
+      }
+    ],
+    "unknown": []
+  },
+  "field_handling": {
+    "exact": [
+      {
+        "section": "audit_logs",
+        "field": "agent_did",
+        "mapped_to": "steps[].content.agent_did",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "entry_id",
+        "mapped_to": "steps[].content.entry_id",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "timestamp",
+        "mapped_to": "steps[].timestamp",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "trace_id",
+        "mapped_to": "steps[].trace_id",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "created_at",
+        "mapped_to": "manifest.created_at",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "goal",
+        "mapped_to": "manifest.goal",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "tags[]",
+        "mapped_to": "manifest.tags[]",
+        "count": 3,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "workflow_id",
+        "mapped_to": "manifest.workflow_id",
+        "count": 1,
+        "notes": null
+      }
+    ],
+    "translated": [
+      {
+        "section": "audit_logs",
+        "field": "action",
+        "mapped_to": "steps[].content.action",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "data.policy_id",
+        "mapped_to": "steps[].content",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "data.tool_name",
+        "mapped_to": "steps[].content",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "event_type",
+        "mapped_to": "steps[].kind",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "outcome",
+        "mapped_to": "steps[].content.status",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "policy_decision",
+        "mapped_to": "steps[].content.policy_decision",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "compliance_score",
+        "mapped_to": "policy_evaluation.json.compliance_score",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "controls_failed",
+        "mapped_to": "policy_evaluation.json.controls_failed",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "controls_met",
+        "mapped_to": "policy_evaluation.json.controls_met",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "controls_partial",
+        "mapped_to": "policy_evaluation.json.controls_partial",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "framework",
+        "mapped_to": "policy_evaluation.json.policy_scope.framework",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "generated_at",
+        "mapped_to": "policy_evaluation.json.evaluation_timestamp",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "report_id",
+        "mapped_to": "policy_evaluation.json.policy_id",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "compliance_report",
+        "field": "total_controls",
+        "mapped_to": "policy_evaluation.json.controls_evaluated",
+        "count": 1,
+        "notes": null
+      }
+    ],
+    "derived": [],
+    "synthesized": [
+      {
+        "section": "artifacts",
+        "field": "analysis.json",
+        "mapped_to": "analysis.json",
+        "count": 1,
+        "notes": "Synthesized from AGT compliance evidence so epi review can operate on imported artifacts."
+      }
+    ],
+    "preserved_raw": [],
+    "dropped": [],
+    "unclassified": []
+  },
+  "dedupe_conflicts": [],
+  "analysis": {
+    "mode": "agt_import",
+    "synthesized": true,
+    "source_system": "AGT",
+    "confidence": "derived",
+    "warning": "Synthesized from AGT evidence; not native EPI analysis.",
+    "source_artifacts": [
+      "compliance_report",
+      "steps.jsonl"
+    ]
+  },
+  "warnings": []
+}

@@ -15,6 +15,19 @@ from .langgraph import EPICheckpointSaver
 
 # Lazy imports — only fail when actually used, not on import
 def __getattr__(name):
+    if name in ("AGTBundleModel", "AGTBundleMetadataModel", "coerce_agt_bundle", "export_agt_to_epi"):
+        from .agt import (
+            AGTBundleMetadataModel,
+            AGTBundleModel,
+            coerce_agt_bundle,
+            export_agt_to_epi,
+        )
+        return {
+            "AGTBundleModel": AGTBundleModel,
+            "AGTBundleMetadataModel": AGTBundleMetadataModel,
+            "coerce_agt_bundle": coerce_agt_bundle,
+            "export_agt_to_epi": export_agt_to_epi,
+        }[name]
     if name in ("OpenAIAgentsRecorder", "record_openai_agent_events"):
         from .openai_agents import OpenAIAgentsRecorder, record_openai_agent_events
         return {
@@ -34,6 +47,10 @@ def __getattr__(name):
 
 __all__ = [
     'EPICheckpointSaver',
+    'AGTBundleModel',
+    'AGTBundleMetadataModel',
+    'coerce_agt_bundle',
+    'export_agt_to_epi',
     'OpenAIAgentsRecorder',
     'record_openai_agent_events',
     'EPICallback',

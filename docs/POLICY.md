@@ -4,7 +4,7 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
-In `v3.0.2`, the preferred way to create this file is:
+In `v3.0.3`, the preferred way to create this file is:
 
 ```bash
 epi policy init
@@ -22,6 +22,11 @@ Important:
 
 - console-only evidence can still be useful for inspection
 - policy works best when the workflow emits structured EPI steps, not just plain prints
+
+Imported evidence note:
+
+- `epi import agt` can also seal a source-native `policy.json` and `policy_evaluation.json` into an artifact
+- in that import path, the rulebook comes from the AGT evidence bundle rather than a local `epi_policy.json`
 
 ## When EPI Uses `epi_policy.json`
 
@@ -341,7 +346,7 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 
 ## Where Enterprise Policy Goes Next
 
-`v3.0.2` policy is a strong workflow rulebook, but enterprises often need more:
+`v3.0.3` policy is a strong workflow rulebook, but enterprises often need more:
 
 - layered policy inheritance
 - environment-aware controls
@@ -352,6 +357,6 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 
 That next layer is intentionally outside this guide.
 
-This document stays focused on the shipped `v3.0.2` workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
+This document stays focused on the shipped `v3.0.3` workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
 - `policy_evaluation.json`
 - proposed CLI and API changes

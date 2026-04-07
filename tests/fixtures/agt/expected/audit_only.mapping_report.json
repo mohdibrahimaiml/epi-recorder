@@ -1,0 +1,195 @@
+{
+  "report_version": "agt-mapping-report/v1",
+  "generated_at": "2026-04-07T12:00:00Z",
+  "importer_version": "test-importer",
+  "source_summary": {
+    "has_audit_logs": true,
+    "has_flight_recorder": false,
+    "has_compliance_report": false,
+    "has_policy_document": false,
+    "has_runtime_context": false,
+    "section_counts": {
+      "metadata": 6,
+      "audit_logs": 2,
+      "flight_recorder": 0
+    }
+  },
+  "step_transformation": {
+    "audit_input_count": 2,
+    "flight_input_count": 0,
+    "combined_input_count": 2,
+    "output_count": 2,
+    "dedupe_strategy": "prefer-audit",
+    "duplicates_removed": 0,
+    "kept_both_count": 0,
+    "ambiguous_conflicts": 0
+  },
+  "event_mapping": {
+    "recognized": [
+      {
+        "section": "audit_logs",
+        "source_type": "tool_invocation",
+        "mapped_kind": "tool.call",
+        "count": 1
+      },
+      {
+        "section": "audit_logs",
+        "source_type": "tool_response",
+        "mapped_kind": "tool.response",
+        "count": 1
+      }
+    ],
+    "unknown": []
+  },
+  "field_handling": {
+    "exact": [
+      {
+        "section": "audit_logs",
+        "field": "agent_did",
+        "mapped_to": "steps[].content.agent_did",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "entry_id",
+        "mapped_to": "steps[].content.entry_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "session_id",
+        "mapped_to": "steps[].content.session_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "timestamp",
+        "mapped_to": "steps[].timestamp",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "trace_id",
+        "mapped_to": "steps[].trace_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "created_at",
+        "mapped_to": "manifest.created_at",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "goal",
+        "mapped_to": "manifest.goal",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "tags[]",
+        "mapped_to": "manifest.tags[]",
+        "count": 3,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "workflow_id",
+        "mapped_to": "manifest.workflow_id",
+        "count": 1,
+        "notes": null
+      }
+    ],
+    "translated": [
+      {
+        "section": "audit_logs",
+        "field": "action",
+        "mapped_to": "steps[].content.action",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "data.claim_id",
+        "mapped_to": "steps[].content",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "data.result.covered",
+        "mapped_to": "steps[].content",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "data.tool_name",
+        "mapped_to": "steps[].content",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "event_type",
+        "mapped_to": "steps[].kind",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "matched_rule",
+        "mapped_to": "steps[].content.control_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "outcome",
+        "mapped_to": "steps[].content.status",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "audit_logs",
+        "field": "policy_decision",
+        "mapped_to": "steps[].content.policy_decision",
+        "count": 2,
+        "notes": null
+      }
+    ],
+    "derived": [],
+    "synthesized": [
+      {
+        "section": "artifacts",
+        "field": "analysis.json",
+        "mapped_to": "analysis.json",
+        "count": 1,
+        "notes": "Synthesized from AGT compliance evidence so epi review can operate on imported artifacts."
+      }
+    ],
+    "preserved_raw": [],
+    "dropped": [],
+    "unclassified": []
+  },
+  "dedupe_conflicts": [],
+  "analysis": {
+    "mode": "agt_import",
+    "synthesized": true,
+    "source_system": "AGT",
+    "confidence": "derived",
+    "warning": "Synthesized from AGT evidence; not native EPI analysis.",
+    "source_artifacts": [
+      "compliance_report",
+      "steps.jsonl"
+    ]
+  },
+  "warnings": []
+}

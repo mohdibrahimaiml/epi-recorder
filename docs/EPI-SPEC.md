@@ -1,15 +1,15 @@
-# EPI File Format Specification v3.0.2
+# EPI File Format Specification v3.0.3
 
 **Status:** Active  
-**Date:** 2026-03-24  
-**Version:** 3.0.2
+**Date:** 2026-04-07  
+**Version:** 3.0.3
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v3.0.2.
+The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v3.0.3.
 
 ---
 
@@ -18,7 +18,7 @@ The **Executable Package for AI (EPI)** format provides a standardized, portable
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable ZIP-based container.
 
-### 1.2 Key Features (v3.0.2)
+### 1.2 Key Features (v3.0.3)
 - **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -51,7 +51,7 @@ manifest.json               # Metadata + signatures + file hashes (written last)
 ```
 
 Older historical docs may mention `env.json` or a `viewer/` directory. In
-`v3.0.2`, the canonical layout uses `environment.json`, a root
+`v3.0.3`, the canonical layout uses `environment.json`, a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -61,7 +61,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "3.0.2",
+  "spec_version": "3.0.3",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
@@ -83,8 +83,10 @@ Newline-delimited JSON storage of events.
 - `shell.command`: CLI interactions.
 - `python.call`: Function traces.
 - `llm.request` / `llm.response`: Model interactions.
+- `agent.decision` / `agent.approval.request` / `agent.approval.response`: structured agent workflow events.
 - `file.write`: File creation events.
 - `security.redaction`: Documented scrubbing of secrets.
+- `agt.audit.*` / `agt.flight.*`: imported AGT fallback event kinds when no native EPI mapping exists.
 
 ### 2.4 Policy and Analysis Payloads
 Current EPI artifacts may also include:
@@ -93,6 +95,8 @@ Current EPI artifacts may also include:
 - `policy.json` - the validated policy rules that were active during execution
 - `policy_evaluation.json` - structured control outcomes for richer policy review
 - `review.json` - optional human review outcome appended after analysis
+- `artifacts/agt/mapping_report.json` - transformation audit for imported AGT evidence
+- `artifacts/annex_iv.md` / `artifacts/annex_iv.json` - optional imported Annex IV outputs
 
 These files are included in the file manifest when present so they are covered by integrity verification. `viewer.html` is intentionally excluded from the file manifest because it is a generated presentation layer that embeds artifact data and verification context.
 
@@ -109,7 +113,8 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v3.0.2` is the current documented layout.
+- `v3.0.3` is the current documented layout.
+- `v3.0.3` does not change the high-level container layout from `v3.0.2`; it clarifies the imported-evidence conventions used by the AGT bridge.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Double-click behavior is an operating-system integration concern, not a property of the archive alone.
 
@@ -119,7 +124,8 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **3.0.2** | 2026-04-04 | **Current** | Current release line with the extracted-viewer offline packaging fix and self-contained `epi view --extract` output. |
+| **3.0.3** | 2026-04-07 | **Current** | Current release line with the AGT import front door, transformation-audit documentation, and aligned `v3.0.3` release surfaces. |
+| **3.0.2** | 2026-04-04 | Previous | Extracted-viewer offline packaging fix and self-contained `epi view --extract` output. |
 | **3.0.1** | 2026-04-02 | Previous | Front-door reliability patch for packaged viewer assets, LangChain callback stability, and policy threshold alignment. |
 | **3.0.0** | 2026-04-01 | Previous | Major release line for the current capture, share, gateway, review, and insurance-pilot surfaces. |
 | **2.8.10** | 2026-03-24 | Previous | Notebook packaging correction for source releases, sdist audit coverage, and no wire-format change from `2.8.9`. |

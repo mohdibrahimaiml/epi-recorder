@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "3.0.2"
+version = "3.0.3"
 description = "Portable repro artifacts for AI agent runs. Capture, open, share, and verify failures in any browser."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -120,6 +120,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+norecursedirs = ["tmp*", ".gen_tmp", ".tmp", ".pytest_cache", "htmlcov"]
 addopts = "-v --cov=epi_core --cov=epi_cli --cov-report=term-missing --cov-report=html"
 
 [tool.black]

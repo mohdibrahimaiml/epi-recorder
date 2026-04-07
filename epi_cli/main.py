@@ -26,6 +26,9 @@ app = typer.Typer(
 Try it now (no API key needed):
   epi demo
 
+Already have Microsoft AGT evidence:
+  epi import agt bundle.json --out sample.epi
+
 No-install trial:
   Open the Colab notebook from the README
 
@@ -52,6 +55,7 @@ Commands:
   verify     <file.epi>    Cryptographic integrity check.
   share      <file.epi>    Upload a hosted share link for browser review.
   review     <file.epi>    Add human review notes to a case file.
+  import     agt ...       Convert exported AGT evidence into a portable .epi case file.
   analyze    <file.epi>    Show fault analysis summary.
   policy     init          Create epi_policy.json with control rules.
   chat       <file.epi>    Chat with evidence using AI.
@@ -75,7 +79,7 @@ Tips:
 
 console = Console(legacy_windows=False)
 
-_KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "init", "doctor"}
+_KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "import", "init", "doctor"}
 _WINDOWS_ASSOCIATION_COMMANDS = {"doctor"}
 _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
@@ -282,6 +286,10 @@ def show_help():
 [bold]Try it now (no API key needed):[/bold]
   [green]epi demo[/green]
 
+[bold]Already have Microsoft AGT evidence:[/bold]
+  [green]epi import agt bundle.json --out sample.epi[/green]
+  [green]epi verify sample.epi[/green]
+
 [bold]No-install trial:[/bold]
   Open the Colab notebook from the README
 
@@ -308,6 +316,7 @@ def show_help():
   [cyan]verify[/cyan]     <file.epi>    Cryptographic integrity check.
   [cyan]share[/cyan]      <file.epi>    Upload a hosted share link for browser review.
   [cyan]review[/cyan]     <file.epi>    Add human review notes to a case file.
+  [cyan]import[/cyan]     agt ...       Convert AGT evidence into a portable .epi case file.
   [cyan]analyze[/cyan]    <file.epi>    Show fault analysis summary.
   [cyan]policy[/cyan]     init          Create epi_policy.json.
   [cyan]chat[/cyan]       <file.epi>    Chat with evidence using AI.
@@ -437,6 +446,9 @@ app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — capture, ope
 
 from epi_cli.export_summary import app as export_summary_app
 app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi case file")
+
+from epi_cli.importer import app as import_app
+app.add_typer(import_app, name="import", help="Import external evidence into a sealed .epi case file")
 
 
 @app.command()

@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "workflow_id": "22222222-2222-4222-8222-222222222222",
+    "created_at": "2026-04-06T10:05:30Z",
+    "goal": "Flight-only import fixture",
+    "tags": ["agt", "fixture", "flight-only"]
+  },
+  "flight_recorder": [
+    {
+      "id": 31,
+      "trace_id": "trace-flight-only",
+      "timestamp": "2026-04-06T10:00:00Z",
+      "agent_id": "flight-agent-1",
+      "tool_name": "lookup_customer",
+      "tool_args": "{\"customer_id\":\"C-100\"}",
+      "policy_verdict": "allowed",
+      "result": {
+        "name": "Jamie"
+      },
+      "execution_time_ms": 12.4,
+      "entry_hash": "abc",
+      "previous_hash": "def"
+    },
+    {
+      "id": 32,
+      "trace_id": "trace-flight-only",
+      "timestamp": "2026-04-06T10:00:03Z",
+      "agent_id": "flight-agent-1",
+      "tool_name": "finalize_refund",
+      "tool_args": "{\"amount\":100}",
+      "policy_verdict": "blocked",
+      "violation_reason": "approval required",
+      "result": null,
+      "execution_time_ms": 18.1,
+      "entry_hash": "ghi",
+      "previous_hash": "abc"
+    }
+  ]
+}

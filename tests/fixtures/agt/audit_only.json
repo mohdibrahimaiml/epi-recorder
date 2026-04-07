@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "workflow_id": "11111111-1111-4111-8111-111111111111",
+    "created_at": "2026-04-06T10:05:30Z",
+    "goal": "Audit-only import fixture",
+    "tags": ["agt", "fixture", "audit-only"]
+  },
+  "audit_logs": [
+    {
+      "entry_id": "audit-only-1",
+      "timestamp": "2026-04-06T10:00:00Z",
+      "event_type": "tool_invocation",
+      "agent_did": "did:agentmesh:audit-only",
+      "action": "load_claim",
+      "data": {
+        "tool_name": "load_claim",
+        "claim_id": "CLM-001"
+      },
+      "outcome": "success",
+      "policy_decision": "allow",
+      "matched_rule": "SOC2-CC7.2",
+      "trace_id": "trace-audit-only",
+      "session_id": "session-audit-only"
+    },
+    {
+      "entry_id": "audit-only-2",
+      "timestamp": "2026-04-06T10:00:02Z",
+      "event_type": "tool_response",
+      "agent_did": "did:agentmesh:audit-only",
+      "action": "load_claim",
+      "data": {
+        "tool_name": "load_claim",
+        "result": {
+          "covered": true
+        }
+      },
+      "outcome": "success",
+      "policy_decision": "allow",
+      "matched_rule": "SOC2-CC7.2",
+      "trace_id": "trace-audit-only",
+      "session_id": "session-audit-only"
+    }
+  ]
+}

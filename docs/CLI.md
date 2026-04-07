@@ -1,13 +1,23 @@
-# EPI CLI Reference (v3.0.2)
+# EPI CLI Reference (v3.0.3)
 
-**Version:** 3.0.2
+**Version:** 3.0.3
 **Primary entrypoint:** `epi`
 
 ---
 
 ## Start Here
 
-Start with `epi demo`. It is the primary developer front door if you want to capture one AI run, open it in the browser, and verify the resulting `.epi` artifact in minutes.
+Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes.
+
+If you already have exported Microsoft Agent Governance Toolkit evidence, start with:
+
+```bash
+epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi verify sample.epi
+epi view sample.epi
+```
+
+If you are not in the repo checkout, replace `examples/agt/sample_bundle.json` with your own exported AGT bundle.
 
 If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
 
@@ -20,6 +30,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | Command | Purpose |
 | --- | --- |
 | `epi demo` | Start the sample refund workflow and the full repro loop in the browser. Recommended first run. |
+| `epi import agt <bundle.json> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
@@ -42,6 +53,42 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` case file. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
+
+---
+
+## `epi import agt <bundle.json> --out <file.epi>`
+
+Use this when you already have exported AGT evidence and want a normal `.epi` case file that works with `epi verify`, `epi view`, `epi review`, and `epi export-summary`.
+
+```bash
+epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi verify sample.epi
+epi view sample.epi
+```
+
+If you are running from a bare install instead of this repo checkout, replace the sample path with your own exported AGT bundle.
+
+Default behavior:
+
+- preserves the raw AGT payloads under `artifacts/agt/`
+- writes `artifacts/agt/mapping_report.json` so the transformation itself is auditable
+- synthesizes `analysis.json` so imported artifacts can still participate in `epi review`
+- signs the artifact when a default signing key exists
+
+Important options:
+
+- `--strict --dedupe fail` turns unknown event kinds, unclassified fields, and ambiguous dedupe cases into hard failures
+- `--analysis none` omits `analysis.json` and keeps the choice visible in `mapping_report.json`
+- `--no-attach-raw` skips storing the source AGT payloads under `artifacts/agt/`
+
+What you should see in the resulting artifact:
+
+- `steps.jsonl` - normalized execution trace
+- `policy.json` and `policy_evaluation.json` - imported governance evidence
+- `analysis.json` - synthesized findings when analysis is enabled
+- `artifacts/agt/mapping_report.json` - transformation audit and provenance report
+
+For the public walkthrough, see [`AGT-IMPORT-QUICKSTART.md`](AGT-IMPORT-QUICKSTART.md).
 
 ---
 
@@ -161,7 +208,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v3.0.2`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In `v3.0.3`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 

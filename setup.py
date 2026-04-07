@@ -10,8 +10,12 @@ File association registration is handled by epi_recorder/__init__.py
 from pathlib import Path
 import shutil
 
-from setuptools import setup
-from setuptools.command.build_py import build_py as _build_py
+try:
+    from setuptools import setup
+    from setuptools.command.build_py import build_py as _build_py
+except ModuleNotFoundError:  # pragma: no cover - exercised in packaging hygiene tests
+    setup = None
+    _build_py = None
 
 
 _PACKAGE_BUILD_TARGETS = (
@@ -44,10 +48,17 @@ def _clear_stale_build_outputs(build_lib: str) -> None:
             module_path.unlink()
 
 
-class build_py(_build_py):
-    def run(self):
-        _clear_stale_build_outputs(self.build_lib)
-        super().run()
+if _build_py is not None:
+    class build_py(_build_py):
+        def run(self):
+            _clear_stale_build_outputs(self.build_lib)
+            super().run()
+else:
+    class build_py:  # pragma: no cover - only used when setuptools is unavailable
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError("setuptools is required to run setup.py build commands")
 
 if __name__ == "__main__":
+    if setup is None:
+        raise ModuleNotFoundError("setuptools is required to execute setup.py")
     setup(cmdclass={"build_py": build_py})

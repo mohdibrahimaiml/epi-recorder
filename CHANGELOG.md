@@ -7,6 +7,37 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [3.0.3] - 2026-04-07
+
+### AGT Front-Door Release Polish
+
+#### Added
+
+- **Microsoft Agent Governance Toolkit quickstart**
+  - the public docs now treat `epi import agt` as a first-class onboarding path instead of leaving it buried in examples
+  - a canonical `AGT -> EPI` walkthrough now starts from `examples/agt/sample_bundle.json`
+- **Imported-evidence trust guidance**
+  - current docs now explain the imported artifact surfaces that matter most to reviewers:
+    - `steps.jsonl`
+    - `policy.json`
+    - `policy_evaluation.json`
+    - `analysis.json`
+    - `artifacts/agt/mapping_report.json`
+
+#### Improved
+
+- **Current release documentation alignment**
+  - README, docs hub, CLI reference, policy guide, spec, self-hosted runbook, and flagship explainer now align on `v3.0.3`
+  - the current docs set now points at the `v3.0.3` flagship explainer instead of the previous release-line document
+- **First-time AGT user flow**
+  - the CLI help and importer output now make the `import -> verify -> view` flow more obvious to users coming from exported AGT evidence
+
+#### Notes
+
+- `v3.0.3` is a release-polish line focused on discoverability, trust clarity, and current-doc consistency for the AGT import path.
+
+---
+
 ## [3.0.2] - 2026-04-04
 
 ### Offline Viewer Packaging Fix

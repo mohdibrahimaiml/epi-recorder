@@ -145,6 +145,11 @@
         <h2>Record</h2>
         <pre>python my_workflow.py</pre>
 
+        <h2>Import AGT</h2>
+        <pre>epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi verify sample.epi
+epi view sample.epi</pre>
+
         <h2>Review</h2>
         <pre>epi view evidence.epi
 epi review evidence.epi
@@ -167,11 +172,16 @@ epi verify evidence.epi</pre>
                 <strong>Tamper-Evident Trust</strong>
                 <span>Show artifacts as `Signed`, `Unsigned`, or `Tampered` with offline verification.</span>
             </div>
+            <div class="feature">
+                <strong>Transformation Audit</strong>
+                <span>Imported AGT artifacts include `artifacts/agt/mapping_report.json` so the evidence conversion itself is inspectable.</span>
+            </div>
         </div>
 
         <div class="links">
             <a href="../README.md">README</a>
-            <a href="./EPI-DOC-v3.0.2.md">EPI DOC</a>
+            <a href="./AGT-IMPORT-QUICKSTART.md">AGT Import</a>
+            <a href="./EPI-DOC-v3.0.3.md">EPI DOC</a>
             <a href="./CLI.md">CLI</a>
             <a href="./POLICY.md">Policy</a>
             <a href="./CONNECT.md">Connect</a>
@@ -186,7 +196,7 @@ epi verify evidence.epi</pre>
             <a href="https://pypi.org/project/epi-recorder/">PyPI</a>
         </div>
 
-        <p class="footer">Current docs target EPI Recorder v3.0.2. Internal strategy and historical release files live under <code>docs/internal/</code> and <code>docs/archive/</code>.</p>
+        <p class="footer">Current docs target EPI Recorder v3.0.3. Internal strategy and historical release files live under <code>docs/internal/</code> and <code>docs/archive/</code>.</p>
     </div>
 </body>
 
