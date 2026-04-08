@@ -239,25 +239,25 @@ def _get_epi_command() -> str:
 
     adjacent_epi = python_exe.parent / "epi.exe"
     if adjacent_epi.exists() and adjacent_epi.stat().st_size > 0:
-        return f'"{adjacent_epi.absolute()}" view --browser "%1"'
+        return f'"{adjacent_epi.absolute()}" view "%1"'
 
     epi_on_path = shutil.which("epi.exe")
     if epi_on_path:
         epi_path = Path(epi_on_path)
         try:
             if epi_path.exists() and epi_path.stat().st_size > 0:
-                return f'"{epi_path.absolute()}" view --browser "%1"'
+                return f'"{epi_path.absolute()}" view "%1"'
         except Exception:
             pass
 
     pythonw = python_exe.parent / "pythonw.exe"
     if pythonw.exists() and pythonw.stat().st_size > 0:
-        return f'"{pythonw.absolute()}" -m epi_cli view --browser "%1"'
+        return f'"{pythonw.absolute()}" -m epi_cli view "%1"'
 
     if python_exe.exists() and python_exe.stat().st_size > 0:
-        return f'"{python_exe.absolute()}" -m epi_cli view --browser "%1"'
+        return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
 
-    return f'"{python_exe.absolute()}" -m epi_cli view --browser "%1"'
+    return f'"{python_exe.absolute()}" -m epi_cli view "%1"'
 
 
 def _get_user_open_command() -> str:

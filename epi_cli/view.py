@@ -22,6 +22,7 @@ import base64
 import subprocess
 import sys
 import importlib.util
+import zipfile
 from pathlib import Path
 
 import typer
