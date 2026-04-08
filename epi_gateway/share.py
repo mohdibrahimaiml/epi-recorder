@@ -20,7 +20,7 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from epi_core.artifact_inspector import ArtifactInspectionError, ensure_shareable_artifact
-from epi_core.container import EPI_MIMETYPE
+from epi_core.container import EPIContainer, EPI_MIMETYPE
 
 
 def _utc_now() -> datetime:
@@ -420,6 +420,20 @@ class ShareService:
         expires_in_days = self._normalize_expiry_days(expires_days)
         safe_filename = _sanitize_filename(filename)
         inspection = self._inspect_upload_bytes(raw_bytes)
+        media_type = EPI_MIMETYPE
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".epi",
+                dir=self.storage_dir,
+            ) as temp_file:
+                temp_file.write(raw_bytes)
+                temp_path = Path(temp_file.name)
+            media_type = EPIContainer.container_mimetype(temp_path)
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
 
         share_id = secrets.token_urlsafe(12).rstrip("=")
         object_key = f"cases/{share_id}.epi"
@@ -443,7 +457,7 @@ class ShareService:
             deleted_at=None,
         )
 
-        self.object_store.put_bytes(object_key, raw_bytes, content_type=EPI_MIMETYPE)
+        self.object_store.put_bytes(object_key, raw_bytes, content_type=media_type)
         self.metadata_store.insert(record)
         return self._public_payload(record)
 

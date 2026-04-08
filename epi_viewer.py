@@ -7,12 +7,12 @@ Uses pywebview for native GUI with embedded browser
 
 import sys
 import json
-import zipfile
-import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any
 import tempfile
 import shutil
+
+from epi_core.container import EPIContainer
 
 try:
     import webview
@@ -40,42 +40,29 @@ class EPIViewer:
         
         if not filepath.exists():
             return {"success": False, "error": "File not found"}
-        
-        if not zipfile.is_zipfile(filepath):
-            return {"success": False, "error": "Not a valid .epi file (not a ZIP archive)"}
-        
+
         try:
+            EPIContainer.detect_container_format(filepath)
+
             # Create temp directory for extraction
             self.temp_dir = Path(tempfile.mkdtemp(prefix="epi_view_"))
-            
-            # Extract ZIP
-            with zipfile.ZipFile(filepath, 'r') as zf:
-                zf.extractall(self.temp_dir)
-            
-            # Verify structure
-            mimetype_path = self.temp_dir / 'mimetype'
-            manifest_path = self.temp_dir / 'manifest.json'
-            
-            if not mimetype_path.exists():
-                return {"success": False, "error": "Invalid .epi file: missing mimetype"}
-            
-            if not manifest_path.exists():
-                return {"success": False, "error": "Invalid .epi file: missing manifest.json"}
-            
-            # Check mimetype
-            mimetype = mimetype_path.read_text().strip()
-            if mimetype != 'application/vnd.epi+zip':
-                return {"success": False, "error": f"Invalid mimetype: {mimetype}"}
-            
-            # Parse manifest
-            manifest = json.loads(manifest_path.read_text())
-            
-            # Verify file integrity
-            integrity_result = self._verify_integrity(manifest)
+
+            EPIContainer.unpack(filepath, self.temp_dir)
+            manifest = EPIContainer.read_manifest(filepath).model_dump(mode="json")
+
+            integrity_ok, mismatches = EPIContainer.verify_integrity(filepath)
+            integrity_result = {
+                "valid": integrity_ok,
+                "files_checked": len(manifest.get("file_manifest", {})),
+                "mismatches": [
+                    {"file": filename, "error": message}
+                    for filename, message in mismatches.items()
+                ],
+            }
             if not integrity_result["valid"]:
                 return {
                     "success": False,
-                    "error": f"Integrity check failed: {integrity_result['error']}",
+                    "error": "Integrity check failed",
                     "details": integrity_result
                 }
             
@@ -105,48 +92,6 @@ class EPIViewer:
             
         except Exception as e:
             return {"success": False, "error": str(e)}
-    
-    def _verify_integrity(self, manifest: Dict) -> Dict[str, Any]:
-        """Verify file hash integrity"""
-        try:
-            file_manifest = manifest.get('file_manifest', {})
-            mismatches = []
-            
-            for filename, expected_hash in file_manifest.items():
-                file_path = self.temp_dir / filename
-                
-                if not file_path.exists():
-                    mismatches.append({
-                        "file": filename,
-                        "error": "File missing"
-                    })
-                    continue
-                
-                # Compute SHA-256 hash
-                actual_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
-                
-                if actual_hash != expected_hash:
-                    mismatches.append({
-                        "file": filename,
-                        "error": "Hash mismatch",
-                        "expected": expected_hash,
-                        "actual": actual_hash
-                    })
-            
-            if mismatches:
-                return {
-                    "valid": False,
-                    "error": f"{len(mismatches)} file(s) failed integrity check",
-                    "mismatches": mismatches
-                }
-            
-            return {
-                "valid": True,
-                "files_checked": len(file_manifest)
-            }
-        
-        except Exception as e:
-            return {"valid": False, "error": str(e)}
     
     def _verify_signature(self, manifest: Dict) -> Dict[str, Any]:
         """Verify signature format (full crypto verification happens in specialized verify commands)"""

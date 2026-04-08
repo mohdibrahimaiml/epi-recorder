@@ -17,7 +17,7 @@ import typer
 from rich.console import Console
 
 from epi_core.artifact_inspector import ArtifactInspectionError, ensure_shareable_artifact
-from epi_core.container import EPI_MIMETYPE
+from epi_core.container import EPIContainer
 from epi_cli.view import _resolve_epi_file
 
 console = Console()
@@ -78,7 +78,7 @@ def share(
         data=payload_bytes,
         method="POST",
         headers={
-            "Content-Type": EPI_MIMETYPE,
+            "Content-Type": EPIContainer.container_mimetype(resolved_file),
             "X-EPI-Filename": resolved_file.name,
         },
     )

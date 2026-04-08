@@ -52,15 +52,16 @@ def _make_epi(tmp_path: Path, include_viewer: bool = True, signed: bool = False)
 # view() command function
 # ─────────────────────────────────────────────────────────────
 
-def _call_view(epi_file_str, extract=None):
+def _call_view(epi_file_str, extract=None, browser=False):
     """Call view() directly with mocked console and browser."""
     from epi_cli.view import view
     code = None
     try:
         with patch("epi_cli.view.console", MagicMock()), \
+             patch("epi_cli.view._open_native_viewer", return_value=False), \
              patch("webbrowser.open", return_value=True), \
              patch("os.startfile", side_effect=OSError("no startfile")):
-            view(ctx=MagicMock(), epi_file=epi_file_str, extract=extract)
+            view(ctx=MagicMock(), epi_file=epi_file_str, extract=extract, browser=browser, native=False)
     except (SystemExit, click.exceptions.Exit) as e:
         code = getattr(e, 'code', getattr(e, 'exit_code', None))
     return code
@@ -94,6 +95,7 @@ class TestViewCommand:
         assert "EPI Case Review" in html
         assert 'id="epi-preloaded-cases"' in html
         assert 'id="epi-view-context"' in html
+        assert "__EPI_VERSION__" not in html
 
     def test_extract_option_inlines_jszip_without_remote_script_src(self, tmp_path):
         epi = _make_epi(tmp_path)
@@ -122,13 +124,38 @@ class TestViewCommand:
         code = None
         try:
             with patch("epi_cli.view.console", MagicMock()), \
+                 patch("epi_cli.view._open_native_viewer", return_value=False), \
                  patch("epi_cli.view.DEFAULT_DIR", recordings), \
                  patch("webbrowser.open", return_value=True), \
                  patch("os.startfile", side_effect=OSError()):
-                view(ctx=MagicMock(), epi_file="my_recording", extract=None)
+                view(ctx=MagicMock(), epi_file="my_recording", extract=None, browser=False, native=False)
         except (SystemExit, click.exceptions.Exit) as e:
             code = getattr(e, 'code', getattr(e, 'exit_code', None))
         assert code is None or code == 0
+
+    def test_native_viewer_short_circuits_browser_flow(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        from epi_cli.view import view
+
+        with patch("epi_cli.view.console", MagicMock()), \
+             patch("epi_cli.view._open_native_viewer", return_value=True) as native_open, \
+             patch("epi_cli.view._open_in_browser") as browser_open:
+            view(ctx=MagicMock(), epi_file=str(epi), extract=None, browser=False, native=True)
+
+        native_open.assert_called_once()
+        browser_open.assert_not_called()
+
+    def test_default_view_prefers_browser_even_when_native_viewer_exists(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        from epi_cli.view import view
+
+        with patch("epi_cli.view.console", MagicMock()), \
+             patch("epi_cli.view._open_native_viewer", return_value=True) as native_open, \
+             patch("epi_cli.view._open_in_browser") as browser_open:
+            view(ctx=MagicMock(), epi_file=str(epi), extract=None, browser=False, native=False)
+
+        native_open.assert_not_called()
+        browser_open.assert_called_once()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -165,6 +192,22 @@ class TestViewerContextInjection:
         assert '"integrity_ok": false' in html
         assert '"signature_valid": false' in html
         assert html.index('id="epi-view-context"') < html.index("window.appLoaded")
+
+    def test_inject_does_not_replace_inline_js_string_literals(self, tmp_path):
+        from epi_cli.view import _inject_viewer_context
+
+        viewer = tmp_path / "viewer.html"
+        viewer.write_text(
+            "<html><head><script id=\"epi-view-context\" type=\"application/json\">{}</script></head>"
+            "<body><script>const marker = '<script id=\"epi-view-context\" type=\"application/json\">';</script></body></html>",
+            encoding="utf-8",
+        )
+
+        _inject_viewer_context(viewer, {"integrity_ok": True})
+
+        html = viewer.read_text(encoding="utf-8")
+        assert '"integrity_ok": true' in html
+        assert "const marker = '<script id=\"epi-view-context\" type=\"application/json\">';" in html
 
     def test_inject_adds_context_before_head_close_when_missing(self, tmp_path):
         from epi_cli.view import _inject_viewer_context

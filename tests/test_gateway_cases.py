@@ -1,9 +1,9 @@
 import json
 import time
-import zipfile
 
 from fastapi.testclient import TestClient
 
+from epi_core.container import EPIContainer, EPI_CONTAINER_FORMAT_ENVELOPE
 from epi_gateway.main import GatewayRuntimeSettings, create_app
 from epi_gateway.worker import EvidenceWorker
 
@@ -59,9 +59,8 @@ def test_gateway_case_api_review_and_export(tmp_path):
         assert export_response.status_code == 200
         export_path = tmp_path / "exported.epi"
         export_path.write_bytes(export_response.content)
-        assert zipfile.is_zipfile(export_path) is True
-        with zipfile.ZipFile(export_path, "r") as archive:
-            names = set(archive.namelist())
+        assert EPIContainer.detect_container_format(export_path) == EPI_CONTAINER_FORMAT_ENVELOPE
+        names = set(EPIContainer.list_members(export_path))
         assert "manifest.json" in names
         assert "review.json" in names
 

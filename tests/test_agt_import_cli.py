@@ -1,5 +1,3 @@
-import json
-import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,10 +16,7 @@ def _fixture_path(name: str) -> Path:
 
 
 def _step_count(epi_path: Path) -> int:
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        return len(
-            [line for line in zf.read("steps.jsonl").decode("utf-8").splitlines() if line.strip()]
-        )
+    return EPIContainer.count_steps(epi_path)
 
 
 class TestAGTImportCLI:
@@ -110,9 +105,9 @@ class TestAGTImportCLI:
             )
         assert result.exit_code == 0, result.output
         assert "analysis.json will be omitted" in result.output
-        with zipfile.ZipFile(output_path, "r") as zf:
-            assert "analysis.json" not in set(zf.namelist())
-            assert "artifacts/agt/mapping_report.json" in set(zf.namelist())
+        names = set(EPIContainer.list_members(output_path))
+        assert "analysis.json" not in names
+        assert "artifacts/agt/mapping_report.json" in names
 
     def test_dedupe_keep_both_preserves_both(self, tmp_path):
         output_path = tmp_path / "keep_both.epi"
@@ -164,7 +159,6 @@ class TestAGTImportCLI:
         assert review_result.exit_code == 0, review_result.output
         assert "Review saved" in review_result.output
 
-        with zipfile.ZipFile(output_path, "r") as zf:
-            review_payload = json.loads(zf.read("review.json").decode("utf-8"))
+        review_payload = EPIContainer.read_member_json(output_path, "review.json")
 
         assert review_payload["reviews"][0]["outcome"] == "confirmed_fault"

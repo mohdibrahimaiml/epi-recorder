@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from difflib import SequenceMatcher
 
+from epi_core.container import EPIContainer
+
 
 class MistakeDetector:
     """
@@ -33,30 +35,19 @@ class MistakeDetector:
         self.mistakes: List[Dict] = []
     
     def _load_steps(self) -> List[Dict]:
-        """Load steps from EPI file (ZIP, SQLite, or JSONL)"""
-        import tempfile
-        import zipfile
-        
-        # If it's a ZIP file (.epi), unpack it first
+        """Load steps from EPI file (envelope/ZIP, SQLite, or JSONL)"""
         if self.epi_path.is_file() and self.epi_path.suffix == '.epi':
             try:
-                # Check if it's a valid ZIP
-                if zipfile.is_zipfile(self.epi_path):
-                    temp_dir = Path(tempfile.mkdtemp())
-                    with zipfile.ZipFile(self.epi_path, 'r') as zf:
-                        zf.extractall(temp_dir)
-                    
-                    # Look for steps.jsonl in extracted content
-                    steps_file = temp_dir / "steps.jsonl"
-                    if steps_file.exists():
-                        return self._load_from_jsonl(steps_file)
-                    
-                    # Also check for SQLite db
-                    for db_file in temp_dir.glob("*.db"):
-                        try:
-                            return self._load_from_sqlite(db_file)
-                        except Exception:
-                            continue
+                return [
+                    {
+                        'id': step.get('index', index),
+                        'index': step.get('index', index),
+                        'type': step.get('kind', 'unknown'),
+                        'content': step.get('content', {}),
+                        'timestamp': step.get('timestamp', ''),
+                    }
+                    for index, step in enumerate(EPIContainer.read_steps(self.epi_path))
+                ]
             except Exception:
                 pass  # Fall through to other methods
         

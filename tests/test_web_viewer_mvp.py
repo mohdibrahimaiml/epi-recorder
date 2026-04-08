@@ -84,9 +84,21 @@ def test_web_viewer_shell_has_case_first_navigation():
     assert '<button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>' in html
     assert 'id="case-workflow-badge"' in html
     assert "Decision Summary" in html
+    assert "At A Glance" in html
+    assert 'id="case-snapshot-title"' in html
+    assert 'id="case-snapshot-copy"' in html
+    assert 'id="case-snapshot-grid"' in html
+    assert 'id="case-jump-findings-button"' in html
+    assert 'id="case-jump-timeline-button"' in html
+    assert 'id="case-jump-review-button"' in html
+    assert 'id="case-open-exports-button"' in html
     assert "Record integrity and review" in html
     assert "Download decision summary" in html
     assert "Team Workflow" in html
+    assert 'id="case-summary-card"' in html
+    assert 'id="case-findings-card"' in html
+    assert 'id="case-review-card"' in html
+    assert 'id="case-timeline-card"' in html
     assert 'id="workflow-form"' in html
     assert 'id="workflow-assignee"' in html
     assert 'id="workflow-due-at"' in html
@@ -136,15 +148,20 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     assert "function renderInbox" in js
     assert "function renderCaseView" in js
     assert "function renderCaseGuidance" in js
+    assert "function renderCaseSnapshot" in js
     assert "function getPriorityCase" in js
     assert "function startGuidedReview" in js
     assert "function openPriorityCaseReason" in js
+    assert "function scrollToCaseSection" in js
+    assert "function openReportsView" in js
     assert "function renderGuidedReviewPanel" in js
     assert "function renderWorkflowForm" in js
     assert "function renderComments" in js
     assert "async function loadExampleCase" in js
     assert "function buildExampleCasePayload" in js
     assert "function buildCaseGuidance" in js
+    assert "function buildCaseSnapshot" in js
+    assert "function buildGuidanceItems" in js
     assert "function deriveWorkflowState" in js
     assert "function workflowStatusForReviewOutcome" in js
     assert "function deriveTrustState" in js
@@ -232,6 +249,10 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     assert "function setSelectedReviewOutcome" in js
     assert "async function applyLocalReview(forcedOutcome)" in js
     assert "function openCaseReviewForm" in js
+    assert "function renderCaseSnapshotItem" in js
+    assert "function renderBadgeRow" in js
+    assert "function timelineToneForKind" in js
+    assert "function buildTimelineBadges" in js
     assert "async function saveCaseWorkflow" in js
     assert "async function saveCaseComment" in js
     assert "async function ensureCaseInReview" in js
@@ -242,6 +263,8 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     assert "document.getElementById('epi-data')" in js
     assert "Verify source" in js
     assert "Opened the packaged case file. A reviewed .epi download is ready" in js
+    assert "state.currentView = 'case';" in js
+    assert "if ((!uiState || !uiState.view) && state.currentView === 'inbox')" in js
     assert "epi_policy.json" in js
     assert "Opened an example case so you can explore the review flow right away." in js
     assert "Opened a live" in js
@@ -259,8 +282,6 @@ def test_web_viewer_app_supports_case_first_review_and_reports():
     assert "Automated policy check complete" in js
     assert "Automated policy check failed" in js
     assert "Automated policy check not run" in js
-
-
 def test_web_viewer_readme_describes_case_first_workflow():
     readme = _read("web_viewer/README.md")
 

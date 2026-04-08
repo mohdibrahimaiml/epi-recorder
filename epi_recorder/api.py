@@ -1443,7 +1443,6 @@ class EpiRecorderSession:
         """Sign the .epi file with default key. Returns True if signed successfully."""
         try:
             from epi_cli.keys import KeyManager
-            import zipfile
             from epi_core.trust import sign_manifest
             
             # Load key manager
@@ -1461,56 +1460,27 @@ class EpiRecorderSession:
             # Load private key
             private_key = km.load_private_key(self.default_key_name)
             
-            # Extract manifest, sign it, and repack
+            # Extract, sign, and repack while preserving the current outer container format
+            current_format = EPIContainer.detect_container_format(self.output_path)
+            manifest = EPIContainer.read_manifest(self.output_path)
             tmp_path = create_recording_workspace("epi_signing_")
             try:
-                # Extract all files
-                with zipfile.ZipFile(self.output_path, 'r') as zf:
-                    zf.extractall(tmp_path)
-                
-                # Load and sign manifest
-                manifest_path = tmp_path / "manifest.json"
-                manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-                manifest = ManifestModel(**manifest_data)
-                signed_manifest = sign_manifest(manifest, private_key, self.default_key_name)
-                
-                # Write signed manifest back
-                manifest_path.write_text(
-                    signed_manifest.model_dump_json(indent=2),
-                    encoding="utf-8"
-                )
-                
-                # Regenerate viewer.html with signed manifest
-                steps = []
-                steps_file = tmp_path / "steps.jsonl"
-                if steps_file.exists():
-                    for line in steps_file.read_text(encoding="utf-8").strip().split("\n"):
-                        if line:
-                            try:
-                                steps.append(json.loads(line))
-                            except json.JSONDecodeError:
-                                pass
-                
-                # Regenerate viewer with signed manifest
-                from epi_core.container import EPIContainer
-                viewer_html = EPIContainer._create_embedded_viewer(tmp_path, signed_manifest)
-                viewer_path = tmp_path / "viewer.html"
-                viewer_path.write_text(viewer_html, encoding="utf-8")
-                
-                # Repack the ZIP with signed manifest and updated viewer
-                # CRITICAL: Write to temp file first to prevent data loss
+                EPIContainer.unpack(self.output_path, tmp_path)
+
+                # Re-pack from the extracted workspace so file manifests, viewer content,
+                # and the outer envelope stay coherent after signing.
                 temp_output = self.output_path.with_suffix('.epi.tmp')
-                
-                with zipfile.ZipFile(temp_output, 'w', zipfile.ZIP_DEFLATED) as zf:
-                    # Write mimetype first (uncompressed)
-                    from epi_core.container import EPI_MIMETYPE
-                    zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
-                    
-                    # Write all other files
-                    for file_path in tmp_path.rglob("*"):
-                        if file_path.is_file() and file_path.name != "mimetype":
-                            arc_name = str(file_path.relative_to(tmp_path)).replace("\\", "/")
-                            zf.write(file_path, arc_name)
+                EPIContainer.pack(
+                    tmp_path,
+                    manifest,
+                    temp_output,
+                    signer_function=lambda current: sign_manifest(
+                        current, private_key, self.default_key_name
+                    ),
+                    preserve_generated=True,
+                    container_format=current_format,
+                    generate_analysis=False,
+                )
                 
                 # Successfully created signed file, now safely replace original
                 self.output_path.unlink()

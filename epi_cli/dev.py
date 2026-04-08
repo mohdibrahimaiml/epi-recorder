@@ -10,7 +10,6 @@ Design principles:
 """
 from __future__ import annotations
 
-import json
 import os
 import socket
 import subprocess
@@ -18,7 +17,6 @@ import sys
 import time
 import uuid
 import webbrowser
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -26,6 +24,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+
+from epi_core.container import EPIContainer
 
 console = Console()
 
@@ -218,22 +218,18 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
     try:
         from epi_gateway.worker import EvidenceWorker
 
-        if not zipfile.is_zipfile(epi_path):
+        try:
+            EPIContainer.detect_container_format(epi_path)
+        except Exception:
             return None
 
-        with zipfile.ZipFile(epi_path, "r") as zf:
-            names = zf.namelist()
-            manifest: dict = json.loads(zf.read("manifest.json")) if "manifest.json" in names else {}
-            steps: list = []
-            if "steps.jsonl" in names:
-                raw = zf.read("steps.jsonl").decode("utf-8", errors="replace")
-                for line in raw.splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            steps.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            pass
+        try:
+            manifest_payload = EPIContainer.read_member_json(epi_path, "manifest.json")
+            manifest: dict = manifest_payload if isinstance(manifest_payload, dict) else {}
+        except Exception:
+            manifest = {}
+
+        steps = EPIContainer.read_steps(epi_path)
 
         case_id = (
             manifest.get("recording_id")

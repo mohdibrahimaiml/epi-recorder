@@ -60,6 +60,11 @@ class ManifestModel(BaseModel):
         description="Ed25519 signature of the canonical JSON hash (SHA-256) of this manifest (excluding signature field). Uses JSON canonicalization for spec v2+."
     )
 
+    container_format: Optional[Literal["legacy-zip", "envelope-v2"]] = Field(
+        default=None,
+        description="Physical container format used for this .epi artifact."
+    )
+
     analysis_status: Optional[Literal["complete", "skipped", "error"]] = Field(
         default=None,
         description="Whether deterministic analysis completed, was intentionally skipped, or failed during packing"
@@ -111,6 +116,7 @@ class ManifestModel(BaseModel):
                 },
                 "analysis_status": "complete",
                 "signature": "ed25519:3a4b5c6d...",
+                "container_format": "envelope-v2",
                 "goal": "Improve model accuracy",
                 "notes": "Switched to GPT-4 for better reasoning",
                 "metrics": {"accuracy": 0.92, "latency": 210},

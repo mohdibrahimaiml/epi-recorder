@@ -326,7 +326,7 @@ EPI is designed for teams facing real regulatory pressure:
 
 The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) - drag and drop, no login, no install. Verification runs client-side in their browser.
 
-For the flagship product explainer, see [docs/EPI-DOC-v3.0.3.md](docs/EPI-DOC-v3.0.3.md).
+For the flagship product explainer, see [docs/EPI-DOC-v4.0.0.md](docs/EPI-DOC-v4.0.0.md).
 For the AGT import front door, see [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md).
 For self-hosted deployment, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
 
@@ -467,19 +467,21 @@ Developer path:
 
 ## The `.epi` File Format
 
-An `.epi` file is a self-contained ZIP archive:
+An `.epi` file is now a self-identifying binary envelope that contains the signed evidence payload:
 
 ```
 my_agent.epi
-|- mimetype               # "application/vnd.epi+zip"
-|- manifest.json          # metadata + Ed25519 signature + content hashes
-|- steps.jsonl            # execution timeline (NDJSON)
-|- environment.json       # runtime environment snapshot
-|- analysis.json          # optional fault-analysis output
-|- policy.json            # optional embedded rulebook
-|- policy_evaluation.json # optional control outcomes
-|- review.json            # optional human review record
-`- viewer.html            # self-contained offline viewer shell
+|- EPI1 header            # outer identity, payload length, payload SHA-256
+`- ZIP evidence payload
+   |- mimetype               # "application/vnd.epi+zip"
+   |- manifest.json          # metadata + Ed25519 signature + content hashes
+   |- steps.jsonl            # execution timeline (NDJSON)
+   |- environment.json       # runtime environment snapshot
+   |- analysis.json          # optional fault-analysis output
+   |- policy.json            # optional embedded rulebook
+   |- policy_evaluation.json # optional control outcomes
+   |- review.json            # optional human review record
+   `- viewer.html            # self-contained offline viewer shell
 ```
 
 | Property | Detail |
@@ -487,8 +489,13 @@ my_agent.epi
 | **Signatures** | Ed25519 (RFC 8032) |
 | **Hashing** | SHA-256 content addressing |
 | **Key storage** | Local keyring, user-controlled |
-| **Verification** | Client-side, zero external dependencies |
+| **Verification** | Fast header validation + inner manifest/signature verification |
 | **Viewer** | Embedded HTML - works offline forever |
+
+The embedded viewer travels with the artifact, but operating systems and
+browsers still open `.epi` files through EPI tooling such as `epi view`, the
+Windows installer association, or `epi associate`. They do not execute
+`viewer.html` directly from inside the binary container.
 
 See **[EPI Specification](docs/EPI-SPEC.md)** for technical details.
 
@@ -501,9 +508,9 @@ flowchart LR
     A["Agent Code"] -->|"record()"| B["Capture Layer"]
     B -->|"Wrapper/API"| C["Recorder"]
     C -->|"Atomic Write"| D["SQLite WAL"]
-    D -->|"Finalize"| E["Packer"]
-    F["Private Key"] -->|"Ed25519 Sign"| E
-    E -->|"ZIP"| G["agent.epi"]
+    D -->|"Finalize"| E["ZIP Payload Builder"]
+    F["Private Key"] -->|"Ed25519 Sign Manifest"| E
+    E -->|"Wrap with EPI1 Envelope"| G["agent.epi"]
 ```
 
 | Principle | How |
@@ -564,11 +571,12 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 ---
 
-## What Changed in v3.0.3
+## What Changed in v4.0.0
 
-- **AGT import is now a first-class front door** - the README, docs hub, CLI reference, and sample docs now walk a new user through `epi import agt -> epi verify -> epi view`
-- **Imported-evidence trust is easier to inspect** - the current docs now explain the reviewer-facing meaning of `policy.json`, `policy_evaluation.json`, `analysis.json`, and `artifacts/agt/mapping_report.json`
-- **Current release surfaces are aligned** - the package version, installer version, current docs hub, and flagship explainer now all point at `v3.0.3`
+- **`.epi` has a real outer identity now** - new artifacts start with an `EPI1` binary header instead of ZIP magic bytes
+- **Legacy and new artifacts both work** - EPI transparently reads legacy ZIP-based `.epi` files and new envelope-based `.epi` files
+- **Raw file sharing is stronger** - the default artifact no longer looks like a generic ZIP to channels that classify files by byte signature
+- **AGT import still works unchanged** - the AGT bridge, trust report, and review flow all ride on the new outer format without changing the evidence model
 
 Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
@@ -576,7 +584,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-**Current (v3.0.3):**
+**Current (v4.0.0):**
 - [x] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [x] CI/CD verification (GitHub Action, pytest plugin)
 - [x] OpenAI streaming support
@@ -600,7 +608,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 |:---------|:------------|
 | **[Docs Hub](docs/index.html)** | Curated front door for the current public documentation set |
 | **[AGT Import Quickstart](docs/AGT-IMPORT-QUICKSTART.md)** | Canonical `AGT -> EPI` first-time user path |
-| **[EPI DOC v3.0.3](docs/EPI-DOC-v3.0.3.md)** | Flagship explainer for the current `3.0.3` release line |
+| **[EPI DOC v4.0.0](docs/EPI-DOC-v4.0.0.md)** | Flagship explainer for the current `4.0.0` release line |
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for the `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Policy Guide](docs/POLICY.md)** | How policy, fault analysis, and rulebooks work |

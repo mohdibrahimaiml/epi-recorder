@@ -362,6 +362,25 @@
             </div>
           </article>
 
+          <article class="card case-snapshot-card">
+            <div class="rules-card-header case-snapshot-header">
+              <div>
+                <p class="card-label">At A Glance</p>
+                <h3 id="case-snapshot-title">Understand the case before you scroll</h3>
+                <p id="case-snapshot-copy" class="helper-copy">
+                  Read the essentials first, then jump to the section you need.
+                </p>
+              </div>
+              <div class="action-row case-jump-row">
+                <button id="case-jump-findings-button" class="secondary-button compact-button" type="button">Jump to findings</button>
+                <button id="case-jump-timeline-button" class="secondary-button compact-button" type="button">Jump to timeline</button>
+                <button id="case-jump-review-button" class="primary-button compact-button" type="button">Jump to review</button>
+                <button id="case-open-exports-button" class="secondary-button compact-button" type="button">Open exports</button>
+              </div>
+            </div>
+            <div id="case-snapshot-grid" class="case-snapshot-grid"></div>
+          </article>
+
           <article class="card case-guidance-card">
             <div class="rules-card-header">
               <div>
@@ -379,22 +398,22 @@
           </article>
 
           <div class="case-grid">
-            <article class="card">
+            <article id="case-summary-card" class="card">
               <p class="card-label">Decision summary</p>
               <dl id="case-summary-grid" class="detail-grid"></dl>
             </article>
 
-            <article class="card">
+            <article id="case-alerts-card" class="card">
               <p class="card-label">Record integrity and review</p>
               <div id="case-alerts" class="stack-list"></div>
             </article>
 
-            <article class="card">
+            <article id="case-findings-card" class="card">
               <p class="card-label">Findings and rules</p>
               <div id="case-findings" class="stack-list"></div>
             </article>
 
-            <article class="card">
+            <article id="case-review-card" class="card">
               <p class="card-label">Human review</p>
               <form id="review-form" class="review-form">
                 <label>
@@ -435,7 +454,7 @@
               </form>
             </article>
 
-            <article class="card">
+            <article id="case-workflow-card" class="card">
               <p class="card-label">Team Workflow</p>
               <form id="workflow-form" class="review-form">
                 <label>
@@ -463,7 +482,7 @@
               </form>
             </article>
 
-            <article class="card">
+            <article id="case-comments-card" class="card">
               <p class="card-label">Comments</p>
               <div id="case-comments" class="comment-thread"></div>
               <form id="comment-form" class="comment-form">
@@ -478,7 +497,7 @@
               </form>
             </article>
 
-            <article class="card case-span">
+            <article id="case-timeline-card" class="card case-span">
               <p class="card-label">Case timeline</p>
               <div id="case-timeline" class="timeline"></div>
             </article>

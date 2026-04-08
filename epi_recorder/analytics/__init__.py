@@ -14,11 +14,12 @@ Usage:
 """
 
 import json
-import zipfile
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
 from collections import defaultdict, Counter
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from epi_core.container import EPIContainer
 
 # pandas and matplotlib are optional — imported lazily so that
 # `import epi_recorder` never fails on machines without them.
@@ -94,23 +95,9 @@ class AgentAnalytics:
             Dictionary with artifact metadata and metrics
         """
         try:
-            with zipfile.ZipFile(epi_path, 'r') as zf:
-                # Read manifest
-                manifest_data = json.loads(zf.read('manifest.json').decode('utf-8'))
-                
-                # Read steps
-                steps = []
-                try:
-                    steps_data = zf.read('steps.jsonl').decode('utf-8')
-                    for line in steps_data.strip().split('\n'):
-                        if line:
-                            steps.append(json.loads(line))
-                except KeyError:
-                    pass  # No steps file
-                
-                # Extract metrics
-                return self._extract_metrics(epi_path, manifest_data, steps)
-                
+            manifest_data = EPIContainer.read_manifest(epi_path).model_dump(mode="json")
+            steps = EPIContainer.read_steps(epi_path)
+            return self._extract_metrics(epi_path, manifest_data, steps)
         except Exception as e:
             print(f"Error parsing {epi_path.name}: {e}")
             return None
@@ -274,15 +261,10 @@ class AgentAnalytics:
         
         for epi_file in self.artifact_dir.glob("*.epi"):
             try:
-                with zipfile.ZipFile(epi_file, 'r') as zf:
-                    steps_data = zf.read('steps.jsonl').decode('utf-8')
-                    for line in steps_data.strip().split('\n'):
-                        if not line:
-                            continue
-                        step = json.loads(line)
-                        if step.get('kind', '').startswith('tool.'):
-                            tool_name = step.get('content', {}).get('name', 'unknown')
-                            tool_counts[tool_name] += 1
+                for step in EPIContainer.read_steps(epi_file):
+                    if step.get('kind', '').startswith('tool.'):
+                        tool_name = step.get('content', {}).get('name', 'unknown')
+                        tool_counts[tool_name] += 1
             except Exception:
                 continue
         

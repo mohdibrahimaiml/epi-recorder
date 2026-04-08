@@ -125,6 +125,7 @@ class TestCLIView:
             return True
         
         import epi_cli.view
+        monkeypatch.setattr(epi_cli.view, "_open_native_viewer", lambda *_args, **_kwargs: False)
         monkeypatch.setattr(epi_cli.view, "_open_in_browser", mock_open)
         
         result = runner.invoke(app, ["view", str(sample_epi_file)])

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import html as _html
 import json
-import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
@@ -49,42 +48,25 @@ def _format_ts_short(ts: str | None) -> str:
         return str(ts)
 
 
-def _read_json_member(zf: zipfile.ZipFile, name: str) -> dict[str, Any] | None:
-    if name not in zf.namelist():
-        return None
+def _read_json_member(epi_path: Path, name: str) -> dict[str, Any] | None:
     try:
-        payload = json.loads(zf.read(name).decode("utf-8"))
+        payload = EPIContainer.read_member_json(epi_path, name)
         return payload if isinstance(payload, dict) else None
     except Exception:
         return None
 
 
 def _read_steps(epi_path: Path) -> list[dict[str, Any]]:
-    steps: list[dict[str, Any]] = []
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "steps.jsonl" not in zf.namelist():
-            return steps
-        for line in zf.read("steps.jsonl").decode("utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                payload = json.loads(line)
-            except Exception:
-                continue
-            if isinstance(payload, dict):
-                steps.append(payload)
-    return steps
+    return EPIContainer.read_steps(epi_path)
 
 
 def _read_artifact_context(epi_path: Path) -> dict[str, Any]:
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        return {
-            "analysis": _read_json_member(zf, "analysis.json"),
-            "policy": _read_json_member(zf, "policy.json"),
-            "policy_evaluation": _read_json_member(zf, "policy_evaluation.json"),
-            "review": _read_json_member(zf, "review.json"),
-        }
+    return {
+        "analysis": _read_json_member(epi_path, "analysis.json"),
+        "policy": _read_json_member(epi_path, "policy.json"),
+        "policy_evaluation": _read_json_member(epi_path, "policy_evaluation.json"),
+        "review": _read_json_member(epi_path, "review.json"),
+    }
 
 
 def _titleize(value: str | None) -> str:

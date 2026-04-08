@@ -420,6 +420,13 @@ function captureElements() {
   elements.caseRiskBadge = document.getElementById('case-risk-badge');
   elements.caseReviewBadge = document.getElementById('case-review-badge');
   elements.caseReviewSignatureBadge = document.getElementById('case-review-signature-badge');
+  elements.caseSnapshotTitle = document.getElementById('case-snapshot-title');
+  elements.caseSnapshotCopy = document.getElementById('case-snapshot-copy');
+  elements.caseSnapshotGrid = document.getElementById('case-snapshot-grid');
+  elements.caseJumpFindingsButton = document.getElementById('case-jump-findings-button');
+  elements.caseJumpTimelineButton = document.getElementById('case-jump-timeline-button');
+  elements.caseJumpReviewButton = document.getElementById('case-jump-review-button');
+  elements.caseOpenExportsButton = document.getElementById('case-open-exports-button');
   elements.caseGuidanceTitle = document.getElementById('case-guidance-title');
   elements.caseGuidanceCopy = document.getElementById('case-guidance-copy');
   elements.caseGuidanceList = document.getElementById('case-guidance-list');
@@ -628,8 +635,15 @@ function bindEvents() {
   elements.caseGuidanceReviewButton.addEventListener('click', () => {
     void openCaseReviewForm();
   });
-  elements.caseGuidanceRulesButton.addEventListener('click', () => setView('rules'));
-  elements.caseGuidanceReportButton.addEventListener('click', () => setView('reports'));
+  elements.caseGuidanceRulesButton.addEventListener('click', () => {
+    setView('rules');
+    elements.workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  elements.caseGuidanceReportButton.addEventListener('click', openReportsView);
+  elements.caseJumpFindingsButton.addEventListener('click', () => scrollToCaseSection('case-findings-card'));
+  elements.caseJumpTimelineButton.addEventListener('click', () => scrollToCaseSection('case-timeline-card'));
+  elements.caseJumpReviewButton.addEventListener('click', () => scrollToCaseSection('case-review-card'));
+  elements.caseOpenExportsButton.addEventListener('click', openReportsView);
   elements.refreshSharedButton.addEventListener('click', () => {
     void refreshSharedWorkspace(true);
   });
@@ -798,7 +812,11 @@ async function loadPreloadedCases() {
     applyPreloadedUiState(uiState);
     if (hydratedCases.length) {
       state.selectedCaseId = hydratedCases[0].id;
+      if ((!uiState || !uiState.view) && state.currentView === 'inbox') {
+        state.currentView = 'case';
+      }
       if (openedFromArtifact) {
+        state.currentView = 'case';
         configureEmbeddedArtifactMode();
         setStatus('Opened the packaged case file. A reviewed .epi download is ready, and source verification can be refreshed through epi view.', 'success');
       } else {
@@ -816,8 +834,9 @@ async function loadPreloadedCases() {
 }
 
 async function parseEpiFile(file) {
-  const archiveBuffer = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(archiveBuffer);
+  const artifactBytes = new Uint8Array(await file.arrayBuffer());
+  const { containerFormat, payloadBytes } = await decodeEpiContainerBytes(artifactBytes);
+  const zip = await JSZip.loadAsync(payloadBytes.slice(0));
   const manifestText = await readZipText(zip, 'manifest.json');
   const manifest = JSON.parse(manifestText);
   const steps = await readJsonl(zip, 'steps.jsonl');
@@ -835,7 +854,8 @@ async function parseEpiFile(file) {
   return buildCaseRecord({
     sourceName: file.name,
     fileSize: file.size,
-    archiveBytes: new Uint8Array(archiveBuffer),
+    archiveBytes: payloadBytes,
+    containerFormat,
     manifest,
     steps,
     analysis,
@@ -867,6 +887,13 @@ async function buildCaseRecord(payload) {
     reason: manifest.signature ? 'Signature was not rechecked in this view.' : 'No signer attached to this case file',
   };
   const sourceName = payload.sourceName || payload.source_name || 'case.epi';
+  let archiveBytes = payload.archiveBytes || null;
+  let containerFormat = payload.containerFormat || payload.container_format || null;
+  if (archiveBytes && !containerFormat) {
+    const decoded = await decodeEpiContainerBytes(archiveBytes);
+    archiveBytes = decoded.payloadBytes;
+    containerFormat = decoded.containerFormat;
+  }
   const embeddedFiles = decodeEmbeddedFiles(payload.embeddedFiles || payload.files || null);
   const reviewSignature = await verifyReviewSignature(review);
   const reviewState = deriveReviewState(review, analysis, policyEvaluation, reviewSignature);
@@ -884,7 +911,8 @@ async function buildCaseRecord(payload) {
     id: payload.id || createCaseId(sourceName, manifest),
     sourceName,
     fileSize: payload.fileSize || 0,
-    archiveBytes: payload.archiveBytes || null,
+    archiveBytes,
+    containerFormat: containerFormat || manifest.container_format || 'envelope-v2',
     embeddedFiles,
     manifest,
     steps,
@@ -1427,7 +1455,21 @@ function openPriorityCaseReason() {
     scrollToSetupWizard();
     return;
   }
-  elements.caseFindings.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  scrollToCaseSection('case-findings-card');
+}
+
+function scrollToCaseSection(sectionId) {
+  setView('case');
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    return;
+  }
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openReportsView() {
+  setView('reports');
+  elements.workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderApp() {
@@ -2664,6 +2706,8 @@ function renderCaseView() {
   setBadge(elements.caseReviewBadge, caseRecord.reviewState.label, caseRecord.reviewState.tone);
   setBadge(elements.caseReviewSignatureBadge, caseRecord.reviewSignature.label, caseRecord.reviewSignature.tone);
   const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
+  const guidance = buildCaseGuidance(caseRecord);
+  renderCaseSnapshot(caseRecord, analysisState, guidance);
 
   const summaryRows = [
     ['Decision', caseRecord.decision.outcome],
@@ -2686,43 +2730,59 @@ function renderCaseView() {
 
   const alertItems = [
     {
+      eyebrow: 'Integrity',
       title: caseRecord.trust.label,
       copy: caseRecord.trust.detail,
+      tone: caseRecord.trust.tone,
     },
     {
+      eyebrow: 'Automation',
       title: analysisState.label,
       copy: analysisState.detail,
+      tone: analysisState.tone,
     },
     {
+      eyebrow: 'Human review',
       title: caseRecord.reviewState.label,
       copy: caseRecord.reviewState.detail,
+      tone: caseRecord.reviewState.tone,
     },
     {
+      eyebrow: 'Review signature',
       title: caseRecord.reviewSignature.label,
       copy: caseRecord.reviewSignature.detail,
+      tone: caseRecord.reviewSignature.tone,
     },
     {
+      eyebrow: 'Risk',
       title: caseRecord.risk.label,
       copy: caseRecord.risk.detail,
+      tone: caseRecord.risk.tone,
     },
   ];
 
   elements.caseAlerts.innerHTML = alertItems.map(renderStackItem).join('');
   elements.caseFindings.innerHTML = buildFindings(caseRecord).map(renderStackItem).join('');
   elements.caseTimeline.innerHTML = buildTimeline(caseRecord).map(renderTimelineItem).join('');
-  renderCaseGuidance(caseRecord);
+  renderCaseGuidance(guidance);
   renderWorkflowForm(caseRecord);
   renderComments(caseRecord);
 
   populateReviewForm(caseRecord);
 }
 
-function renderCaseGuidance(caseRecord) {
-  const guidance = buildCaseGuidance(caseRecord);
+function renderCaseGuidance(guidance) {
   elements.caseGuidanceTitle.textContent = guidance.title;
   elements.caseGuidanceCopy.textContent = guidance.copy;
   elements.caseGuidanceList.innerHTML = guidance.items.map(renderStackItem).join('');
   elements.caseGuidanceReviewButton.textContent = guidance.reviewButtonLabel;
+}
+
+function renderCaseSnapshot(caseRecord, analysisState, guidance) {
+  const snapshot = buildCaseSnapshot(caseRecord, analysisState, guidance);
+  elements.caseSnapshotTitle.textContent = snapshot.title;
+  elements.caseSnapshotCopy.textContent = snapshot.copy;
+  elements.caseSnapshotGrid.innerHTML = snapshot.items.map(renderCaseSnapshotItem).join('');
 }
 
 function renderWorkflowForm(caseRecord) {
@@ -4471,7 +4531,7 @@ async function downloadReviewedArtifact() {
       }
       const blob = await response.blob();
       const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-reviewed.epi';
-      downloadBlob(filename, blob, 'application/vnd.epi+zip');
+      downloadBlob(filename, blob, 'application/vnd.epi');
       elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review notes are signed.' : ' The embedded review notes are unsigned.'} The shared case remains available in the inbox.`;
     } else {
       caseRecord.review = reviewRecord;
@@ -4488,7 +4548,7 @@ async function downloadReviewedArtifact() {
       elements.reviewSaveStatus.textContent = 'Preparing reviewed .epi file...';
       const archiveBytes = await buildReviewedArtifactBytes(caseRecord, reviewRecord);
       const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-reviewed.epi';
-      downloadBlob(filename, archiveBytes, 'application/zip');
+      downloadBlob(filename, archiveBytes, 'application/vnd.epi');
       elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review notes are signed.' : ' The embedded review notes are unsigned.'} The original case file is unchanged.`;
     }
   } catch (error) {
@@ -4562,10 +4622,14 @@ async function buildReviewedArtifactBytes(caseRecord, reviewRecord) {
   });
   entries.push({
     name: 'manifest.json',
-    data: textToBytes(JSON.stringify(caseRecord.manifest, null, 2)),
+    data: textToBytes(JSON.stringify({
+      ...caseRecord.manifest,
+      container_format: 'envelope-v2',
+    }, null, 2)),
   });
 
-  return createZipArchive(entries);
+  const payloadBytes = createZipArchive(entries);
+  return wrapZipPayloadAsEnvelope(payloadBytes);
 }
 
 async function collectArtifactSourceEntries(caseRecord) {
@@ -5198,50 +5262,303 @@ function deriveRiskState(analysis, policyEvaluation, integrity, reviewState) {
   };
 }
 
+function buildCaseSnapshot(caseRecord, analysisState, guidance) {
+  const hasSteps = Array.isArray(caseRecord.steps) ? caseRecord.steps.length : 0;
+  const activityCount = Array.isArray(caseRecord.activity) ? caseRecord.activity.length : 0;
+  const evidenceLine = hasSteps
+    ? `${hasSteps} recorded step${hasSteps === 1 ? '' : 's'}${activityCount ? ` and ${activityCount} team update${activityCount === 1 ? '' : 's'}` : ''}.`
+    : 'Metadata-only case record.';
+  const containerLine = caseRecord.containerFormat === 'envelope-v2'
+    ? 'Envelope container with sealed payload.'
+    : 'Legacy ZIP case container.';
+
+  if (caseRecord.trust.code === 'do-not-use') {
+    return {
+      title: 'Pause before using this case',
+      copy: 'The record failed integrity checks. Confirm the source before relying on the decision or any attached review notes.',
+      items: [
+        {
+          label: 'Decision',
+          value: caseRecord.decision.outcome,
+          copy: caseRecord.decision.summary,
+          tone: 'neutral',
+        },
+        {
+          label: 'Trust',
+          value: caseRecord.trust.label,
+          copy: caseRecord.trust.detail,
+          tone: caseRecord.trust.tone,
+        },
+        {
+          label: 'Risk',
+          value: caseRecord.risk.label,
+          copy: caseRecord.risk.detail,
+          tone: caseRecord.risk.tone,
+        },
+        {
+          label: 'Next step',
+          value: guidance.reviewButtonLabel,
+          copy: guidance.copy,
+          tone: 'danger',
+        },
+        {
+          label: 'Evidence trail',
+          value: evidenceLine,
+          copy: containerLine,
+          tone: 'neutral',
+        },
+      ],
+    };
+  }
+
+  if (caseRecord.reviewState.code === 'pending') {
+    return {
+      title: 'You can understand this case in under a minute',
+      copy: 'Start with these five signals, then jump straight to findings, timeline, or the review form when you are ready to decide.',
+      items: [
+        {
+          label: 'Decision',
+          value: caseRecord.decision.outcome,
+          copy: caseRecord.decision.summary,
+          tone: 'neutral',
+        },
+        {
+          label: 'Why it matters',
+          value: caseRecord.risk.label,
+          copy: caseRecord.risk.detail,
+          tone: caseRecord.risk.tone,
+        },
+        {
+          label: 'Human review',
+          value: caseRecord.reviewState.label,
+          copy: caseRecord.reviewState.detail,
+          tone: caseRecord.reviewState.tone,
+        },
+        {
+          label: 'Trust',
+          value: caseRecord.trust.label,
+          copy: caseRecord.trust.detail,
+          tone: caseRecord.trust.tone,
+        },
+        {
+          label: 'Evidence trail',
+          value: evidenceLine,
+          copy: `${analysisState.label}. ${containerLine}`,
+          tone: 'neutral',
+        },
+      ],
+    };
+  }
+
+  if (caseRecord.reviewState.code === 'reviewed') {
+    return {
+      title: 'This decision already has a saved human outcome',
+      copy: 'Use the cards below to confirm the trust state, check the final review note, and update the record only if something changed.',
+      items: [
+        {
+          label: 'Decision',
+          value: caseRecord.decision.outcome,
+          copy: caseRecord.decision.summary,
+          tone: 'neutral',
+        },
+        {
+          label: 'Saved review',
+          value: caseRecord.reviewState.label,
+          copy: caseRecord.reviewState.detail,
+          tone: caseRecord.reviewState.tone,
+        },
+        {
+          label: 'Trust',
+          value: caseRecord.trust.label,
+          copy: caseRecord.trust.detail,
+          tone: caseRecord.trust.tone,
+        },
+        {
+          label: 'Automation',
+          value: analysisState.label,
+          copy: analysisState.detail,
+          tone: analysisState.tone,
+        },
+        {
+          label: 'Evidence trail',
+          value: evidenceLine,
+          copy: containerLine,
+          tone: 'neutral',
+        },
+      ],
+    };
+  }
+
+  return {
+    title: 'Read the essentials first, then decide where to go deeper',
+    copy: 'This case is already organized for review. Use the quick jumps if you want to go straight to findings, timeline, or exports.',
+    items: [
+      {
+        label: 'Decision',
+        value: caseRecord.decision.outcome,
+        copy: caseRecord.decision.summary,
+        tone: 'neutral',
+      },
+      {
+        label: 'Trust',
+        value: caseRecord.trust.label,
+        copy: caseRecord.trust.detail,
+        tone: caseRecord.trust.tone,
+      },
+      {
+        label: 'Risk',
+        value: caseRecord.risk.label,
+        copy: caseRecord.risk.detail,
+        tone: caseRecord.risk.tone,
+      },
+      {
+        label: 'Next step',
+        value: guidance.reviewButtonLabel,
+        copy: guidance.copy,
+        tone: caseRecord.reviewState.tone,
+      },
+      {
+        label: 'Evidence trail',
+        value: evidenceLine,
+        copy: `${analysisState.label}. ${containerLine}`,
+        tone: 'neutral',
+      },
+    ],
+  };
+}
+
+function buildGuidanceItems(tone, items) {
+  const sequenceLabels = ['Start here', 'Then', 'Finish with'];
+  return items.map((item, index) => ({
+    ...item,
+    tone: item.tone || tone,
+    eyebrow: item.eyebrow || sequenceLabels[index] || 'Next',
+  }));
+}
+
+function severityToTone(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (['critical', 'high'].includes(text)) {
+    return 'danger';
+  }
+  if (text === 'medium') {
+    return 'warning';
+  }
+  return 'neutral';
+}
+
+function buildFaultBadges(fault) {
+  const badges = [];
+  if (fault?.severity) {
+    badges.push({
+      label: sentenceCase(fault.severity),
+      tone: severityToTone(fault.severity),
+    });
+  }
+  if (fault?.rule_id) {
+    badges.push({
+      label: `Rule ${fault.rule_id}`,
+      tone: 'neutral',
+    });
+  }
+  if (fault?.step_number != null) {
+    badges.push({
+      label: `Step ${fault.step_number}`,
+      tone: 'neutral',
+    });
+  }
+  return badges;
+}
+
+function buildRuleBadges(rule) {
+  const badges = [];
+  if (rule?.mode) {
+    badges.push({
+      label: sentenceCase(rule.mode),
+      tone: rule.mode === 'block' ? 'danger' : rule.mode === 'require_approval' ? 'warning' : 'neutral',
+    });
+  }
+  if (rule?.applies_at) {
+    badges.push({
+      label: sentenceCase(rule.applies_at),
+      tone: 'neutral',
+    });
+  }
+  return badges;
+}
+
 function buildFindings(caseRecord) {
   const findings = [];
 
   if (caseRecord.analysis?.primary_fault) {
     findings.push({
+      eyebrow: 'Highest priority',
       title: 'Primary fault',
       copy: summarizeFault(caseRecord.analysis.primary_fault),
+      meta: 'Read this before making the human decision.',
+      tone: 'danger',
+      badges: buildFaultBadges(caseRecord.analysis.primary_fault),
     });
   }
 
   (caseRecord.analysis?.secondary_flags || []).forEach((flag, index) => {
     findings.push({
+      eyebrow: 'Supporting signal',
       title: `Secondary flag ${index + 1}`,
       copy: summarizeFault(flag),
+      meta: 'Additional context that may change the review outcome.',
+      tone: 'warning',
+      badges: buildFaultBadges(flag),
     });
   });
 
   if (caseRecord.policyEvaluation) {
+    const evaluated = caseRecord.policyEvaluation.controls_evaluated || 0;
+    const failed = caseRecord.policyEvaluation.controls_failed || 0;
     findings.push({
+      eyebrow: 'Policy evaluation',
       title: 'Rules evaluation',
-      copy: `Rules checked: ${caseRecord.policyEvaluation.controls_evaluated || 0}. Rules failed: ${caseRecord.policyEvaluation.controls_failed || 0}.`,
+      copy: `Rules checked: ${evaluated}. Rules failed: ${failed}.`,
+      meta: `${evaluated} checked / ${failed} failed`,
+      tone: failed ? 'warning' : 'success',
+      badges: [
+        {
+          label: failed ? 'Needs follow-up' : 'No rule failures',
+          tone: failed ? 'warning' : 'success',
+        },
+      ],
     });
   }
 
   const rules = Array.isArray(caseRecord.policy?.rules) ? caseRecord.policy.rules : [];
   rules.slice(0, 4).forEach((rule) => {
     findings.push({
+      eyebrow: 'Active rule',
       title: rule.name || rule.id || 'Rule',
       copy: rule.description || `Mode: ${rule.mode || 'review'}. Applies at: ${rule.applies_at || 'decision'}.`,
+      meta: rule.id ? `Rule ID: ${rule.id}` : null,
+      tone: 'neutral',
+      badges: buildRuleBadges(rule),
     });
   });
 
   if (caseRecord.review?.reviews?.length) {
     const latest = getLatestReviewEntry(caseRecord);
     findings.push({
+      eyebrow: 'Latest review',
       title: 'Latest review note',
       copy: latest?.notes || 'Review notes are attached to this case.',
+      meta: latest?.timestamp ? `Saved ${formatDate(latest.timestamp)}` : 'Review attached to this case.',
+      tone: 'success',
     });
   }
 
   if (!findings.length) {
     findings.push({
+      eyebrow: 'Evidence note',
       title: 'No explicit findings',
       copy: 'This case file does not include analysis details or rule findings, so the case view focuses on trust, decision context, and timeline.',
+      tone: 'neutral',
     });
   }
 
@@ -5254,7 +5571,7 @@ function buildCaseGuidance(caseRecord) {
       title: 'Stop here and verify the original case',
       copy: 'This record failed integrity checks, so it should not be used for decision-making until the source is verified.',
       reviewButtonLabel: 'Add review note',
-      items: [
+      items: buildGuidanceItems('danger', [
         {
           title: 'Treat this case as unsafe',
           copy: 'Do not rely on the decision record until the original file is checked and reopened from a trusted source.',
@@ -5267,7 +5584,7 @@ function buildCaseGuidance(caseRecord) {
           title: 'Share a report if needed',
           copy: 'Open the decision record exports if you need to hand this case to another team or keep an incident record.',
         },
-      ],
+      ]),
     };
   }
 
@@ -5276,7 +5593,7 @@ function buildCaseGuidance(caseRecord) {
       title: 'Assign this case before work starts',
       copy: 'This case still needs an owner. Assign it, set a due date if needed, and then start the review.',
       reviewButtonLabel: 'Start review',
-      items: [
+      items: buildGuidanceItems('warning', [
         {
           title: 'Choose the reviewer',
           copy: 'Use the Team Workflow card to assign ownership so the case is not lost in the queue.',
@@ -5289,7 +5606,7 @@ function buildCaseGuidance(caseRecord) {
           title: 'Capture context in comments',
           copy: 'Add a quick note if another team needs to know why this case was escalated.',
         },
-      ],
+      ]),
     };
   }
 
@@ -5298,7 +5615,7 @@ function buildCaseGuidance(caseRecord) {
       title: 'A human decision is still needed',
       copy: 'This case has been stopped for review. Read the finding, record the outcome, and save the reviewed case when you are done.',
       reviewButtonLabel: 'Start review',
-      items: [
+      items: buildGuidanceItems('warning', [
         {
           title: 'Read the risk and findings first',
           copy: 'Check the finding summary below to understand why this case was flagged before you make a decision.',
@@ -5311,7 +5628,7 @@ function buildCaseGuidance(caseRecord) {
           title: 'Save a defensible record',
           copy: 'Download the reviewed case or the decision summary so the final decision has a clear audit trail.',
         },
-      ],
+      ]),
     };
   }
 
@@ -5320,7 +5637,7 @@ function buildCaseGuidance(caseRecord) {
       title: 'This case already has a human review',
       copy: 'You can update the review, check the rules that shaped the case, or export the decision record for sharing.',
       reviewButtonLabel: 'Update review',
-      items: [
+      items: buildGuidanceItems('success', [
         {
           title: 'Confirm the final record',
           copy: 'Check the latest review note and signature status to make sure the saved outcome still looks right.',
@@ -5333,7 +5650,7 @@ function buildCaseGuidance(caseRecord) {
           title: 'Share the result',
           copy: 'Open the decision record exports or download the reviewed case if someone else needs the final record.',
         },
-      ],
+      ]),
     };
   }
 
@@ -5341,7 +5658,7 @@ function buildCaseGuidance(caseRecord) {
     title: 'This case looks ready to understand and share',
     copy: 'No urgent review signal is active right now, but you can still inspect the case, tighten the rules, or export the decision record.',
     reviewButtonLabel: 'Add note',
-    items: [
+    items: buildGuidanceItems('neutral', [
       {
         title: 'Check the summary and timeline',
         copy: 'Review the decision summary and timeline to confirm the case matches what you expected.',
@@ -5354,7 +5671,7 @@ function buildCaseGuidance(caseRecord) {
         title: 'Keep or share the record',
         copy: 'Open the decision record exports if you want a portable summary for audit, operations, or management.',
       },
-    ],
+    ]),
   };
 }
 
@@ -5365,12 +5682,23 @@ function buildTimeline(caseRecord) {
     time: formatDate(step.timestamp),
     sortTime: step.timestamp,
     copy: summarizeStep(step, index),
+    kicker: `Step ${index + 1}`,
+    tone: timelineToneForKind(step.kind),
+    badges: buildTimelineBadges(step.kind, step.content || {}),
   }));
   const activityItems = (Array.isArray(caseRecord.activity) ? caseRecord.activity : []).map((item) => ({
     title: item.title || sentenceCase(String(item.kind || 'activity').replace(/_/g, ' ')),
     time: formatDate(item.created_at),
     sortTime: item.created_at,
     copy: item.copy || 'Team workflow updated.',
+    kicker: 'Workflow update',
+    tone: 'neutral',
+    badges: [
+      {
+        label: sentenceCase(String(item.kind || 'activity').replace(/_/g, ' ')),
+        tone: 'neutral',
+      },
+    ],
   }));
 
   const combined = [...stepItems, ...activityItems].sort((left, right) => compareIsoDates(left.sortTime, right.sortTime));
@@ -5381,10 +5709,62 @@ function buildTimeline(caseRecord) {
         time: formatDate(caseRecord.manifest.created_at),
         sortTime: caseRecord.manifest.created_at,
         copy: 'This case file contains metadata and supporting files, but no detailed recorded steps.',
+        kicker: 'Timeline note',
+        tone: 'neutral',
+        badges: [],
       },
     ];
   }
   return combined.map(({ sortTime, ...item }) => item);
+}
+
+function timelineToneForKind(kind) {
+  const text = String(kind || '').trim().toLowerCase();
+  if (text.includes('error') || text === 'agent.run.error') {
+    return 'danger';
+  }
+  if (text === 'agent.approval.request' || text === 'policy.check') {
+    return 'warning';
+  }
+  if (['agent.approval.response', 'agent.decision', 'agent.run.end'].includes(text)) {
+    return 'success';
+  }
+  return 'neutral';
+}
+
+function buildTimelineBadges(kind, content) {
+  const badges = [
+    {
+      label: sentenceCase(String(kind || '').replace(/\./g, ' ')),
+      tone: 'neutral',
+    },
+  ];
+
+  if (content?.tool) {
+    badges.push({
+      label: `Tool: ${content.tool}`,
+      tone: 'neutral',
+    });
+  } else if (content?.model) {
+    badges.push({
+      label: `Model: ${content.model}`,
+      tone: 'neutral',
+    });
+  } else if (content?.reviewer) {
+    badges.push({
+      label: `Reviewer: ${content.reviewer}`,
+      tone: 'neutral',
+    });
+  }
+
+  if (typeof content?.approved === 'boolean') {
+    badges.push({
+      label: content.approved ? 'Approved' : 'Rejected',
+      tone: content.approved ? 'success' : 'danger',
+    });
+  }
+
+  return badges.slice(0, 3);
 }
 
 function buildReviewDraft(caseRecord) {
@@ -5487,6 +5867,11 @@ function canBuildReviewedArtifact(caseRecord) {
   );
 }
 
+const EPI_ENVELOPE_MAGIC_BYTES = new Uint8Array([0x45, 0x50, 0x49, 0x31]);
+const EPI_ENVELOPE_VERSION = 1;
+const EPI_PAYLOAD_FORMAT_ZIP_V1 = 0x01;
+const EPI_ENVELOPE_HEADER_SIZE = 64;
+
 function textToBytes(value) {
   return new TextEncoder().encode(String(value));
 }
@@ -5507,6 +5892,98 @@ function uint8ArrayToBase64(bytes) {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
   return btoa(binary);
+}
+
+function bytesEqual(left, right) {
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function readUint64LE(view, offset) {
+  const low = view.getUint32(offset, true);
+  const high = view.getUint32(offset + 4, true);
+  return (high * 0x100000000) + low;
+}
+
+function writeUint64LE(view, offset, value) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error('EPI payload length must be a non-negative safe integer.');
+  }
+  const low = value >>> 0;
+  const high = Math.floor(value / 0x100000000) >>> 0;
+  view.setUint32(offset, low, true);
+  view.setUint32(offset + 4, high, true);
+}
+
+async function decodeEpiContainerBytes(inputBytes) {
+  const bytes = inputBytes instanceof Uint8Array ? inputBytes : new Uint8Array(inputBytes || []);
+  if (bytes.length < 4 || !bytesEqual(bytes.subarray(0, 4), EPI_ENVELOPE_MAGIC_BYTES)) {
+    return {
+      containerFormat: 'legacy-zip',
+      payloadBytes: bytes.slice(0),
+    };
+  }
+  if (bytes.length < EPI_ENVELOPE_HEADER_SIZE) {
+    throw new Error('EPI envelope is too small to contain a valid header.');
+  }
+
+  const headerView = new DataView(bytes.buffer, bytes.byteOffset, EPI_ENVELOPE_HEADER_SIZE);
+  const version = headerView.getUint8(4);
+  const payloadFormat = headerView.getUint8(5);
+  const reservedFlags = headerView.getUint16(6, true);
+  const payloadLength = readUint64LE(headerView, 8);
+  const payloadHash = bytes.slice(16, 48);
+  const reservedTail = bytes.slice(48, 64);
+
+  if (version !== EPI_ENVELOPE_VERSION) {
+    throw new Error(`Unsupported EPI envelope version: ${version}`);
+  }
+  if (payloadFormat !== EPI_PAYLOAD_FORMAT_ZIP_V1) {
+    throw new Error(`Unsupported EPI payload format: ${payloadFormat}`);
+  }
+  if (reservedFlags !== 0) {
+    throw new Error('Invalid EPI envelope header: reserved flags must be zero.');
+  }
+  if (!reservedTail.every((value) => value === 0)) {
+    throw new Error('Invalid EPI envelope header: reserved bytes must be zero.');
+  }
+  if (!Number.isSafeInteger(payloadLength) || payloadLength <= 0) {
+    throw new Error('Invalid EPI envelope payload length.');
+  }
+  if ((EPI_ENVELOPE_HEADER_SIZE + payloadLength) !== bytes.length) {
+    throw new Error('Invalid EPI envelope payload length.');
+  }
+
+  const payloadBytes = bytes.slice(EPI_ENVELOPE_HEADER_SIZE);
+  const actualHash = await sha256Bytes(payloadBytes);
+  if (!bytesEqual(actualHash, payloadHash)) {
+    throw new Error('EPI envelope payload hash mismatch.');
+  }
+
+  return {
+    containerFormat: 'envelope-v2',
+    payloadBytes,
+  };
+}
+
+async function wrapZipPayloadAsEnvelope(payloadBytes) {
+  const payload = payloadBytes instanceof Uint8Array ? payloadBytes : new Uint8Array(payloadBytes || []);
+  const header = new Uint8Array(EPI_ENVELOPE_HEADER_SIZE);
+  header.set(EPI_ENVELOPE_MAGIC_BYTES, 0);
+  const headerView = new DataView(header.buffer);
+  headerView.setUint8(4, EPI_ENVELOPE_VERSION);
+  headerView.setUint8(5, EPI_PAYLOAD_FORMAT_ZIP_V1);
+  headerView.setUint16(6, 0, true);
+  writeUint64LE(headerView, 8, payload.length);
+  header.set(await sha256Bytes(payload), 16);
+  return concatUint8Arrays([header, payload]);
 }
 
 function createZipArchive(entries) {
@@ -5707,22 +6184,57 @@ function setBadge(element, label, tone) {
   element.textContent = label;
 }
 
-function renderStackItem(item) {
+function renderBadgeRow(badges) {
+  if (!Array.isArray(badges) || !badges.length) {
+    return '';
+  }
+  const content = badges.map((badge) => {
+    return `<span class="pill-badge tone-${escapeHtml(badge.tone || 'neutral')}">${escapeHtml(badge.label)}</span>`;
+  }).join('');
+  return `<div class="badge-row">${content}</div>`;
+}
+
+function renderCaseSnapshotItem(item) {
+  const tone = item.tone || 'neutral';
   return `
-    <article class="stack-item">
+    <article class="case-snapshot-item tone-panel-${escapeHtml(tone)}">
+      <span class="case-snapshot-label">${escapeHtml(item.label)}</span>
+      <strong class="case-snapshot-value">${escapeHtml(item.value)}</strong>
+      <p class="case-snapshot-copy">${escapeHtml(item.copy)}</p>
+    </article>
+  `;
+}
+
+function renderStackItem(item) {
+  const tone = item.tone || 'neutral';
+  const eyebrow = item.eyebrow ? `<p class="stack-eyebrow">${escapeHtml(item.eyebrow)}</p>` : '';
+  const meta = item.meta ? `<p class="stack-meta">${escapeHtml(item.meta)}</p>` : '';
+  const badges = renderBadgeRow(item.badges);
+  return `
+    <article class="stack-item tone-panel-${escapeHtml(tone)}">
+      ${eyebrow}
       <h4>${escapeHtml(item.title)}</h4>
       <p class="stack-copy">${escapeHtml(item.copy)}</p>
+      ${meta}
+      ${badges}
     </article>
   `;
 }
 
 function renderTimelineItem(item) {
+  const tone = item.tone || 'neutral';
+  const kicker = item.kicker ? `<span class="timeline-kicker">${escapeHtml(item.kicker)}</span>` : '';
+  const badges = renderBadgeRow(item.badges);
   return `
-    <article class="timeline-item">
+    <article class="timeline-item tone-panel-${escapeHtml(tone)}">
       <div class="timeline-top">
-        <strong class="timeline-kind">${escapeHtml(item.title)}</strong>
+        <div class="timeline-heading">
+          ${kicker}
+          <strong class="timeline-kind">${escapeHtml(item.title)}</strong>
+        </div>
         <span class="timeline-meta">${escapeHtml(item.time)}</span>
       </div>
+      ${badges}
       <div class="timeline-content">${escapeHtml(item.copy)}</div>
     </article>
   `;

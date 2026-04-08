@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib import resources
 from pathlib import Path
+import re
 
 _VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="styles.css">'
 _VIEWER_JSZIP_TAG = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
@@ -34,6 +35,17 @@ def load_viewer_assets() -> dict[str, str | None]:
     }
 
 
+def _escape_inline_script_source(script_source: str | None) -> str | None:
+    if script_source is None:
+        return None
+    return re.sub(
+        r"</(script)",
+        lambda match: "<\\/" + match.group(1),
+        script_source,
+        flags=re.IGNORECASE,
+    )
+
+
 def inline_viewer_assets(
     template_html: str,
     *,
@@ -51,6 +63,9 @@ def inline_viewer_assets(
     injected ahead of the runtime scripts.
     """
     html = template_html
+    jszip_js = _escape_inline_script_source(jszip_js)
+    crypto_js = _escape_inline_script_source(crypto_js)
+    app_js = _escape_inline_script_source(app_js)
 
     style_block = f"<style>{css_styles}</style>" if css_styles else ""
     if _VIEWER_STYLESHEET_TAG in html:

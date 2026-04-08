@@ -1,6 +1,6 @@
-# EPI CLI Reference (v3.0.3)
+# EPI CLI Reference (v4.0.0)
 
-**Version:** 3.0.3
+**Version:** 4.0.0
 **Primary entrypoint:** `epi`
 
 ---
@@ -36,6 +36,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi view <file.epi>` | Open a case file in the browser review view. |
 | `epi verify <file.epi>` | Verify case file integrity and signature state. |
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
+| `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
@@ -135,6 +136,10 @@ epi view --extract ./review my_run.epi
 epi view my_run
 ```
 
+`epi view` opens a generated browser review page for the case. The `.epi` file
+itself remains a binary artifact container; browsers do not execute the
+embedded `viewer.html` directly from inside the `.epi` file.
+
 `epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
 
 ---
@@ -208,7 +213,9 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v3.0.3`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In the current `v4.0.0` line, `epi policy init` is the guided front door for
+policy. It asks a small number of business-language questions and writes the
+machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 

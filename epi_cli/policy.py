@@ -8,7 +8,6 @@ keeping epi_policy.json as the machine-readable storage format.
 
 import json
 import shutil
-import zipfile
 from datetime import date
 from json import JSONDecodeError
 from pathlib import Path
@@ -24,7 +23,7 @@ from rich.table import Table
 from typer.models import OptionInfo
 
 from epi_cli.view import _cleanup_after_delay, _make_temp_dir, _open_in_browser
-from epi_core.container import _html_safe_json_dumps
+from epi_core.container import EPIContainer, _html_safe_json_dumps
 from epi_core.policy import (
     EPIPolicy,
     POLICY_PROFILES,
@@ -247,12 +246,15 @@ def _load_policy_payload(path: Path) -> tuple[dict, str]:
     if path.suffix.lower() == ".epi":
         if not path.exists():
             raise FileNotFoundError(path)
-        if not zipfile.is_zipfile(path):
-            raise ValueError(f"Not a valid .epi file: {path}")
-        with zipfile.ZipFile(path, "r") as zf:
-            if "policy.json" not in zf.namelist():
-                raise FileNotFoundError(f"No embedded policy.json found in {path.name}")
-            return json.loads(zf.read("policy.json").decode("utf-8")), f"{path} (embedded policy)"
+        try:
+            payload = EPIContainer.read_member_json(path, "policy.json")
+        except ValueError as exc:
+            if "Missing policy.json" in str(exc):
+                raise FileNotFoundError(f"No embedded policy.json found in {path.name}") from exc
+            raise
+        if not isinstance(payload, dict):
+            raise ValueError(f"Invalid embedded policy.json in {path.name}")
+        return payload, f"{path} (embedded policy)"
 
     if not path.exists():
         raise FileNotFoundError(path)

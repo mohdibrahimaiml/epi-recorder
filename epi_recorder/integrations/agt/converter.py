@@ -192,6 +192,7 @@ def export_agt_to_epi(
             output_path,
             signer_function=signer_function,
             preserve_generated=True,
+            generate_analysis=False,
         )
 
     return output_path

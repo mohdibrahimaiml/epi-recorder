@@ -10,9 +10,29 @@ from pathlib import Path
 
 import pytest
 
-from epi_core.container import EPIContainer, EPI_MIMETYPE
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+    EPI_LEGACY_MIMETYPE,
+    EPI_MIMETYPE,
+)
 from epi_core.schemas import ManifestModel
 from epi_core.workspace import create_recording_workspace
+
+
+def _extract_payload_zip(tmp_path: Path, artifact_path: Path) -> Path:
+    payload_path = tmp_path / f"{artifact_path.stem}.payload.zip"
+    EPIContainer.extract_inner_payload(artifact_path, payload_path)
+    return payload_path
+
+
+def _legacy_copy(tmp_path: Path, artifact_path: Path) -> Path:
+    legacy_path = tmp_path / f"{artifact_path.stem}.legacy.epi"
+    EPIContainer.migrate(
+        artifact_path, legacy_path, container_format=EPI_CONTAINER_FORMAT_LEGACY
+    )
+    return legacy_path
 
 
 class TestEPIContainer:
@@ -53,6 +73,9 @@ class TestEPIContainer:
         
         assert output_path.exists(), ".epi file should be created"
         assert output_path.stat().st_size > 0, ".epi file should not be empty"
+        assert EPIContainer.detect_container_format(output_path) == EPI_CONTAINER_FORMAT_ENVELOPE
+        assert output_path.read_bytes()[:4] == b"EPI1"
+        assert EPIContainer.container_mimetype(output_path) == EPI_MIMETYPE
     
     def test_pack_populates_file_manifest(self, temp_workspace, sample_files):
         """Test that pack() populates the file manifest with hashes."""
@@ -98,7 +121,7 @@ class TestEPIContainer:
         extract_dir = EPIContainer.unpack(output_path)
         
         mimetype_content = (extract_dir / "mimetype").read_text().strip()
-        assert mimetype_content == EPI_MIMETYPE, f"Mimetype should be {EPI_MIMETYPE}"
+        assert mimetype_content == EPI_LEGACY_MIMETYPE, f"Mimetype should be {EPI_LEGACY_MIMETYPE}"
     
     def test_read_manifest_without_full_extraction(self, temp_workspace, sample_files):
         """Test reading manifest without extracting all files."""
@@ -146,7 +169,7 @@ class TestEPIContainer:
         # Re-pack without updating hashes (simulating tampering)
         tampered_path = temp_workspace / "tampered.epi"
         with zipfile.ZipFile(tampered_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
+            zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
             zf.write(extract_dir / "test.txt", "test.txt")
             zf.write(extract_dir / "data.json", "data.json")
             zf.write(extract_dir / "artifacts" / "output.log", "artifacts/output.log")
@@ -180,7 +203,7 @@ class TestEPIContainer:
         invalid_file = temp_workspace / "invalid.epi"
         invalid_file.write_text("This is not a ZIP file")
         
-        with pytest.raises(ValueError, match="Not a valid ZIP file"):
+        with pytest.raises(ValueError, match="Not a valid \\.epi file"):
             EPIContainer.unpack(invalid_file)
     
     def test_read_manifest_with_invalid_json(self, temp_workspace, sample_files):
@@ -193,7 +216,8 @@ class TestEPIContainer:
         # Corrupt the manifest
         import zipfile
         corrupt_path = temp_workspace / "corrupt.epi"
-        with zipfile.ZipFile(output_path, "r") as zf_in:
+        legacy_path = _legacy_copy(temp_workspace, output_path)
+        with zipfile.ZipFile(legacy_path, "r") as zf_in:
             with zipfile.ZipFile(corrupt_path, "w") as zf_out:
                 for item in zf_in.namelist():
                     if item != "manifest.json":
@@ -263,7 +287,7 @@ class TestEPIContainer:
         invalid_file = temp_workspace / "invalid.epi"
         invalid_file.write_text("Not a ZIP")
         
-        with pytest.raises(ValueError, match="Not a valid ZIP"):
+        with pytest.raises(ValueError, match="Not a valid \\.epi file"):
             EPIContainer.read_manifest(invalid_file)
     
     def test_read_manifest_with_missing_manifest(self, temp_workspace):
@@ -273,7 +297,7 @@ class TestEPIContainer:
         # Create .epi without manifest.json
         output_path = temp_workspace / "no_manifest.epi"
         with zipfile.ZipFile(output_path, "w") as zf:
-            zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
+            zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
         
         with pytest.raises(ValueError, match="Missing manifest.json"):
             EPIContainer.read_manifest(output_path)
@@ -290,7 +314,8 @@ class TestEPIContainer:
         
         # Create a new .epi with missing file but manifest still references it
         missing_file_path = temp_workspace / "missing_file.epi"
-        with zipfile.ZipFile(output_path, "r") as zf_in:
+        legacy_path = _legacy_copy(temp_workspace, output_path)
+        with zipfile.ZipFile(legacy_path, "r") as zf_in:
             with zipfile.ZipFile(missing_file_path, "w") as zf_out:
                 for item in zf_in.namelist():
                     if item != "test.txt":  # Skip one file
@@ -364,7 +389,8 @@ class TestEPIContainer:
 
         EPIContainer.pack(sample_files, manifest, output_path)
 
-        with zipfile.ZipFile(output_path, "r") as zf:
+        payload_zip = _extract_payload_zip(temp_workspace, output_path)
+        with zipfile.ZipFile(payload_zip, "r") as zf:
             names = zf.namelist()
 
         assert names.count("manifest.json") == 1
@@ -414,6 +440,7 @@ class TestEPIContainer:
         assert "Opened the packaged case file" in viewer_html
         assert '"files"' in viewer_html
         assert "Your changes stay local until you download the reviewed case or review notes." in viewer_html
+        assert '${htmlSafeJson(payload, 2)}<\\/script>`;' in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

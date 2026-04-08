@@ -1,5 +1,4 @@
 import json
-import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -38,8 +37,9 @@ def _deterministic_builder() -> MappingReportBuilder:
 
 
 def _read_zip_json(epi_path: Path, member: str) -> dict:
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        return json.loads(zf.read(member).decode("utf-8"))
+    payload = EPIContainer.read_member_json(epi_path, member)
+    assert isinstance(payload, dict)
+    return payload
 
 
 def _export_fixture(
@@ -160,8 +160,7 @@ class TestAGTConverter:
     def test_exported_artifact_contains_imported_files(self, tmp_path):
         output_path = _export_fixture("combined_clean", tmp_path, signed=True)
 
-        with zipfile.ZipFile(output_path, "r") as zf:
-            names = set(zf.namelist())
+        names = set(EPIContainer.list_members(output_path))
 
         assert "steps.jsonl" in names
         assert "policy.json" in names
@@ -192,9 +191,8 @@ class TestAGTConverter:
     def test_analysis_none_omits_analysis_but_keeps_report(self, tmp_path):
         output_path = _export_fixture("combined_clean", tmp_path, analysis_mode="none")
 
-        with zipfile.ZipFile(output_path, "r") as zf:
-            names = set(zf.namelist())
-            report = json.loads(zf.read("artifacts/agt/mapping_report.json").decode("utf-8"))
+        names = set(EPIContainer.list_members(output_path))
+        report = _read_zip_json(output_path, "artifacts/agt/mapping_report.json")
 
         assert "analysis.json" not in names
         assert "artifacts/agt/mapping_report.json" in names
@@ -245,12 +243,7 @@ class TestAGTConverter:
         )
         report = _read_zip_json(output_path, "artifacts/agt/mapping_report.json")
 
-        with zipfile.ZipFile(output_path, "r") as zf:
-            steps = [
-                json.loads(line)
-                for line in zf.read("steps.jsonl").decode("utf-8").splitlines()
-                if line.strip()
-            ]
+        steps = EPIContainer.read_steps(output_path)
 
         assert report["step_transformation"]["kept_both_count"] == 2
         assert len(steps) == 4

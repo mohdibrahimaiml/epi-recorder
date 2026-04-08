@@ -7,7 +7,6 @@ the artifact as review.json without touching the original sealed files.
 """
 
 import json
-import zipfile
 from pathlib import Path
 from typing import Optional
 
@@ -40,31 +39,16 @@ def _analysis_has_fault(analysis: dict | None) -> bool:
 
 def _read_analysis(epi_path: Path) -> Optional[dict]:
     """Extract analysis.json from a .epi archive."""
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "analysis.json" not in zf.namelist():
-            return None
-        try:
-            return json.loads(zf.read("analysis.json").decode("utf-8"))
-        except Exception:
-            return None
+    try:
+        payload = EPIContainer.read_member_json(epi_path, "analysis.json")
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
 
 
 def _read_step(epi_path: Path, step_index: int) -> Optional[dict]:
     """Read a specific step from steps.jsonl by its index field."""
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "steps.jsonl" not in zf.namelist():
-            return None
-        for line in zf.read("steps.jsonl").decode("utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                step = json.loads(line)
-                if step.get("index") == step_index:
-                    return step
-            except Exception:
-                pass
-    return None
+    return EPIContainer.read_step(epi_path, step_index)
 
 
 def _show_fault(fault: dict, epi_path: Path) -> None:
@@ -192,7 +176,9 @@ def review(
 
     epi_path = resolved_path
 
-    if not zipfile.is_zipfile(epi_path):
+    try:
+        EPIContainer.detect_container_format(epi_path)
+    except Exception:
         console.print(f"[red][X] Not a valid .epi file:[/red] {epi_file}")
         raise typer.Exit(1)
 

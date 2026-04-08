@@ -104,6 +104,7 @@ class TestViewCommandVariations:
             return True
         
         import epi_cli.view
+        monkeypatch.setattr(epi_cli.view, "_open_native_viewer", lambda *_args, **_kwargs: False)
         monkeypatch.setattr(epi_cli.view, "_open_in_browser", mock_open)
         
         with tempfile.TemporaryDirectory() as tmpdir:

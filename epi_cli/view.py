@@ -16,10 +16,12 @@ import tempfile
 import threading
 import time
 import webbrowser
-import zipfile
 import json
 import re
 import base64
+import subprocess
+import sys
+import importlib.util
 from pathlib import Path
 
 import typer
@@ -118,6 +120,88 @@ def _make_temp_dir() -> Path | None:
                 continue
         return None
 
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _find_native_viewer_command(epi_path: Path) -> tuple[list[str], Path] | None:
+    """Return a native desktop viewer command when one is available."""
+    repo_root = _repo_root()
+    viewer_root = repo_root / "epi-viewer"
+    file_arg = str(epi_path)
+
+    if sys.platform == "win32":
+        packaged = viewer_root / "dist" / "win-unpacked" / "EPI Viewer.exe"
+        if packaged.exists():
+            return [str(packaged), file_arg], packaged.parent
+
+        dev_electron = viewer_root / "node_modules" / "electron" / "dist" / "electron.exe"
+        main_js = viewer_root / "main.js"
+        if dev_electron.exists() and main_js.exists():
+            return [str(dev_electron), str(main_js), file_arg], viewer_root
+
+    elif sys.platform == "darwin":
+        packaged = viewer_root / "dist" / "mac" / "EPI Viewer.app" / "Contents" / "MacOS" / "EPI Viewer"
+        if packaged.exists():
+            return [str(packaged), file_arg], packaged.parent
+
+        dev_electron = viewer_root / "node_modules" / "electron" / "dist" / "Electron.app" / "Contents" / "MacOS" / "Electron"
+        main_js = viewer_root / "main.js"
+        if dev_electron.exists() and main_js.exists():
+            return [str(dev_electron), str(main_js), file_arg], viewer_root
+
+    else:
+        packaged = viewer_root / "dist" / "linux-unpacked" / "epi-viewer"
+        if packaged.exists():
+            return [str(packaged), file_arg], packaged.parent
+
+        dev_electron = viewer_root / "node_modules" / "electron" / "dist" / "electron"
+        main_js = viewer_root / "main.js"
+        if dev_electron.exists() and main_js.exists():
+            return [str(dev_electron), str(main_js), file_arg], viewer_root
+
+    if importlib.util.find_spec("webview") is not None:
+        python_exe = Path(sys.executable)
+        viewer_script = repo_root / "epi_viewer.py"
+        if viewer_script.exists():
+            if sys.platform == "win32":
+                pythonw = python_exe.parent / "pythonw.exe"
+                launcher = pythonw if pythonw.exists() else python_exe
+            else:
+                launcher = python_exe
+            return [str(launcher), str(viewer_script), file_arg], repo_root
+
+    return None
+
+
+def _open_native_viewer(epi_path: Path) -> bool:
+    """Open `.epi` in a native desktop window when a viewer app is available."""
+    launch = _find_native_viewer_command(epi_path)
+    if not launch:
+        return False
+
+    command, cwd = launch
+    popen_kwargs = {
+        "cwd": str(cwd),
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if sys.platform == "win32":
+        creationflags = 0
+        creationflags |= getattr(subprocess, "DETACHED_PROCESS", 0)
+        creationflags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        if creationflags:
+            popen_kwargs["creationflags"] = creationflags
+
+    try:
+        subprocess.Popen(command, **popen_kwargs)
+        return True
+    except Exception:
+        return False
+
 def _open_in_browser(viewer_path: Path):
     """Cross-platform browser open with fallbacks."""
     import sys
@@ -183,14 +267,22 @@ def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     html = viewer_path.read_text(encoding="utf-8")
     context_json = _html_safe_json_dumps(context, indent=2)
     script_tag = f'<script id="epi-view-context" type="application/json">{context_json}</script>'
+    placeholder_tag = '<script id="epi-view-context" type="application/json">{}</script>'
 
-    existing_pattern = r'<script id="epi-view-context" type="application/json">.*?</script>'
-    if re.search(existing_pattern, html, flags=re.DOTALL):
-        html = re.sub(existing_pattern, script_tag, html, flags=re.DOTALL)
-    elif "</head>" in html:
-        html = html.replace("</head>", f"{script_tag}\n</head>")
+    if placeholder_tag in html:
+        html = html.replace(placeholder_tag, script_tag, 1)
     else:
-        html = f"{script_tag}\n{html}"
+        head_close_index = html.find("</head>")
+        if head_close_index != -1:
+            head_html = html[:head_close_index]
+            existing_pattern = r'<script id="epi-view-context" type="application/json">[\s\S]*?</script>'
+            if re.search(existing_pattern, head_html, flags=re.DOTALL):
+                head_html = re.sub(existing_pattern, script_tag, head_html, count=1, flags=re.DOTALL)
+                html = f"{head_html}{html[head_close_index:]}"
+            else:
+                html = html.replace("</head>", f"{script_tag}\n</head>", 1)
+        else:
+            html = f"{script_tag}\n{html}"
     viewer_path.write_text(html, encoding="utf-8")
 
 
@@ -283,7 +375,7 @@ def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str
     payload_json = _html_safe_json_dumps(payload, indent=2)
     preload_tag = f'<script id="epi-preloaded-cases" type="application/json">{payload_json}</script>'
 
-    return inline_viewer_assets(
+    html = inline_viewer_assets(
         template_html,
         css_styles=css_styles,
         jszip_js=jszip_js,
@@ -291,6 +383,13 @@ def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str
         app_js=app_js,
         prepend_html=preload_tag,
     )
+
+    from epi_core._version import get_version
+
+    current_version_marker = f"v{get_version()}"
+    if "__EPI_VERSION__" in html:
+        return html.replace("__EPI_VERSION__", current_version_marker)
+    return html
 
 
 def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
@@ -315,6 +414,8 @@ def view(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
     extract: str = typer.Option(None, "--extract", help="Destination directory to extract the viewer.html and assets instead of opening browser"),
+    browser: bool = typer.Option(False, "--browser", help="Open in the browser review flow (default behavior)."),
+    native: bool = typer.Option(False, "--native", help="Force the native desktop viewer instead of the browser review flow."),
 ):
     """
     Open .epi file in browser viewer.
@@ -337,17 +438,17 @@ def view(
         console.print("[dim]   Try: epi ls   to see available recordings[/dim]")
         raise typer.Exit(1)
 
-    # Validate it's a valid ZIP
-    if not zipfile.is_zipfile(resolved_path):
-        console.print(f"[red][X] Not a valid .epi file (failed ZIP check):[/red] {resolved_path.name}")
+    try:
+        EPIContainer.detect_container_format(resolved_path)
+    except Exception:
+        console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
         console.print("[dim]   The file may be corrupt or incomplete.[/dim]")
         raise typer.Exit(1)
 
     if extract:
         dest = Path(extract)
         dest.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(resolved_path, "r") as zf:
-            zf.extractall(dest)
+        EPIContainer.unpack(resolved_path, dest)
         viewer = _refresh_viewer_html(dest, resolved_path)
         if viewer.exists():
             _inject_viewer_context(viewer, _build_viewer_context(resolved_path))
@@ -355,6 +456,12 @@ def view(
         console.print(f"   Open in browser: {dest / 'viewer.html'}")
         _print_share_hint()
         raise typer.Exit(0)
+
+    if native and _open_native_viewer(resolved_path):
+        console.print(f"[green][OK][/green] Opened native viewer: {resolved_path.name}")
+        console.print("[dim]Use [cyan]epi view[/cyan] to open the browser review flow instead.[/dim]")
+        _print_share_hint()
+        return
 
     # Create temp dir
     temp_dir = _make_temp_dir()
@@ -366,8 +473,7 @@ def view(
     try:
         viewer_context = _build_viewer_context(resolved_path)
 
-        with zipfile.ZipFile(resolved_path, "r") as zf:
-            zf.extractall(temp_dir)
+        EPIContainer.unpack(resolved_path, temp_dir)
 
         viewer = _refresh_viewer_html(temp_dir, resolved_path)
         _inject_viewer_context(viewer, viewer_context)
@@ -384,10 +490,6 @@ def view(
         console.print("\n[yellow]Cancelled[/yellow]")
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise typer.Exit(130)
-    except zipfile.BadZipFile:
-        console.print(f"[red][X] Corrupt .epi file:[/red] {resolved_path.name}")
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise typer.Exit(1)
     except PermissionError as e:
         console.print(f"[red][X] Permission denied:[/red] {e}")
         shutil.rmtree(temp_dir, ignore_errors=True)

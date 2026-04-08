@@ -13,7 +13,6 @@ This command:
 
 import shlex
 import time
-import zipfile
 import json
 from datetime import datetime
 from pathlib import Path
@@ -143,10 +142,10 @@ def _summarize_artifact_steps(epi_file: Path) -> tuple[int, set[str]]:
         return 0, set()
 
     try:
-        with zipfile.ZipFile(epi_file, "r") as zf:
-            if "steps.jsonl" not in zf.namelist():
-                return 0, set()
-            lines = zf.read("steps.jsonl").decode("utf-8").splitlines()
+        lines = [
+            json.dumps(step)
+            for step in EPIContainer.read_steps(epi_file)
+        ]
     except Exception:
         return 0, set()
 
@@ -261,8 +260,7 @@ def _open_viewer(epi_file: Path) -> bool:
         temp_dir = _make_temp_dir()
         if temp_dir is None:
             return False
-        with zipfile.ZipFile(epi_file, "r") as zf:
-            zf.extractall(temp_dir)
+        EPIContainer.unpack(epi_file, temp_dir)
         viewer_path = _refresh_viewer_html(temp_dir, epi_file)
         _inject_viewer_context(viewer_path, _build_viewer_context(epi_file))
 
