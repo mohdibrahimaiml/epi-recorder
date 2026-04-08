@@ -5,13 +5,14 @@ End-to-end AGT -> EPI converter.
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Callable
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel, StepModel
+from epi_core.workspace import create_recording_workspace
 
 from .mapping import (
     classify_bundle_fields,
@@ -125,8 +126,8 @@ def export_agt_to_epi(
         analysis_mode=analysis_mode,
     )
 
-    with TemporaryDirectory(prefix="epi_agt_import_") as temp_dir:
-        workspace = Path(temp_dir)
+    workspace = create_recording_workspace("epi_agt_import_")
+    try:
         _write_steps(workspace / "steps.jsonl", steps)
 
         if model.policy_document:
@@ -194,5 +195,7 @@ def export_agt_to_epi(
             preserve_generated=True,
             generate_analysis=False,
         )
+    finally:
+        shutil.rmtree(workspace, ignore_errors=True)
 
     return output_path

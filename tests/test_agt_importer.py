@@ -248,3 +248,27 @@ class TestAGTConverter:
         assert report["step_transformation"]["kept_both_count"] == 2
         assert len(steps) == 4
         assert all(step["content"]["source_ref"] for step in steps)
+
+    def test_export_uses_recording_workspace_helper_and_cleans_up(self, tmp_path, monkeypatch):
+        from epi_recorder.integrations.agt import converter
+
+        workspace = tmp_path / "agt_workspace"
+        created_prefixes: list[str] = []
+
+        def fake_create_recording_workspace(prefix: str) -> Path:
+            created_prefixes.append(prefix)
+            workspace.mkdir(parents=True, exist_ok=True)
+            return workspace
+
+        monkeypatch.setattr(converter, "create_recording_workspace", fake_create_recording_workspace)
+
+        output_path = tmp_path / "workspace_helper.epi"
+        export_agt_to_epi(
+            _load_fixture("combined_clean"),
+            output_path,
+            report_builder=_deterministic_builder(),
+        )
+
+        assert created_prefixes == ["epi_agt_import_"]
+        assert output_path.exists()
+        assert not workspace.exists()
