@@ -44,6 +44,14 @@ epi view sample.epi
 
 This opens the case in the browser review flow.
 
+For AGT imports, the first screen should immediately show:
+
+- `Source system: AGT`
+- `Import mode: EPI`
+- decision, review, and trust state in the `Overview`
+- a `Transformation Audit` panel that explains what was preserved raw, translated, derived, or synthesized
+- raw AGT payloads grouped under attachments for local inspection
+
 What you should expect inside the artifact:
 
 - `steps.jsonl` - normalized execution trace from AGT evidence

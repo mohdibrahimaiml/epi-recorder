@@ -486,8 +486,8 @@ from epi_cli.chat import chat as chat_command
 app.command(name="chat", help="Chat with your evidence file using AI")(chat_command)
 
 # NEW: debug command (v2.2.0 - AI-powered mistake detection)
-from epi_cli.debug import app as debug_app
-app.add_typer(debug_app, name="debug", help="Debug AI agent recordings for mistakes")
+from epi_cli.debug import debug as debug_command
+app.command(name="debug", help="Debug AI agent recordings for mistakes")(debug_command)
 
 # NEW: install/uninstall commands (v2.6.0 - global auto-recording)
 from epi_cli.install import app as install_app

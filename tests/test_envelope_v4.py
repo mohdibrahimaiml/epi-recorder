@@ -159,7 +159,7 @@ def test_refresh_viewer_regenerates_embedded_viewer_without_changing_manifest(sa
 
     refreshed_viewer = EPIContainer.read_member_text(output, "viewer.html")
     assert "stale viewer" not in refreshed_viewer
-    assert "EPI Case Review" in refreshed_viewer
+    assert "EPI Case Investigation" in refreshed_viewer
     assert EPIContainer.read_member_text(output, "manifest.json") == manifest_before
     assert EPIContainer.detect_container_format(output) == EPI_CONTAINER_FORMAT_ENVELOPE
 

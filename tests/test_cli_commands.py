@@ -143,6 +143,33 @@ def _call_debug(epi_path, output_json=False, export=None, verbose=False,
         return getattr(e, 'code', getattr(e, 'exit_code', 1))
 
 
+def _invoke_main_debug(
+    cli_args,
+    *,
+    mock_mistakes=None,
+    mock_summary="OK",
+    detector_side_effect=None,
+    detector_missing=False,
+):
+    """Invoke the root CLI path for `epi debug ...`."""
+    from epi_cli.main import app as main_app
+
+    with patch("epi_cli.debug.console", _mock_console()):
+        if detector_missing:
+            with patch("epi_cli.debug.MistakeDetector", None):
+                return runner.invoke(main_app, ["debug", *cli_args])
+
+        if detector_side_effect is not None:
+            with patch("epi_cli.debug.MistakeDetector", side_effect=detector_side_effect):
+                return runner.invoke(main_app, ["debug", *cli_args])
+
+        mock_detector = MagicMock()
+        mock_detector.analyze.return_value = mock_mistakes or []
+        mock_detector.get_summary.return_value = mock_summary
+        with patch("epi_cli.debug.MistakeDetector", return_value=mock_detector):
+            return runner.invoke(main_app, ["debug", *cli_args])
+
+
 class TestDebugCallback:
     def test_no_mistakes_exits_0(self, tmp_path):
         epi = _make_epi(tmp_path)
@@ -187,6 +214,36 @@ class TestDebugCallback:
         code = _call_debug(epi, export=export_file, mock_mistakes=[], mock_summary="No mistakes.")
         assert code == 0
         assert export_file.exists()
+
+
+class TestDebugRootCommand:
+    def test_root_command_no_mistakes_exits_0(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        result = _invoke_main_debug([str(epi)], mock_mistakes=[], mock_summary="No mistakes.")
+        assert result.exit_code == 0
+
+    def test_root_command_json_output_exits_0(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        result = _invoke_main_debug([str(epi), "--json"], mock_mistakes=[], mock_summary="OK")
+        assert result.exit_code == 0
+
+    def test_root_command_critical_mistake_exits_1(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        mistakes = [{"type": "loop", "step": 1, "severity": "CRITICAL"}]
+        result = _invoke_main_debug([str(epi)], mock_mistakes=mistakes, mock_summary="1 critical issue.")
+        assert result.exit_code == 1
+
+    def test_root_command_missing_file_exits_2(self, tmp_path):
+        result = _invoke_main_debug(
+            [str(tmp_path / "ghost.epi")],
+            detector_side_effect=FileNotFoundError("not found"),
+        )
+        assert result.exit_code == 2
+
+    def test_root_command_missing_analyzer_exits_2(self, tmp_path):
+        epi = _make_epi(tmp_path)
+        result = _invoke_main_debug([str(epi)], detector_missing=True)
+        assert result.exit_code == 2
 
 
 # ─────────────────────────────────────────────────────────────

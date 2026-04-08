@@ -4,6 +4,12 @@ const state = {
   cases: [],
   currentView: 'inbox',
   selectedCaseId: null,
+  activeCaseSection: 'case-overview-card',
+  caseHighlights: {
+    stepNumber: null,
+    attachmentName: null,
+  },
+  attachmentPreviewCache: {},
   workspaceSetup: null,
   connectorProfiles: {},
   bridgeHealth: null,
@@ -396,8 +402,9 @@ function captureElements() {
   elements.guidedSampleButton = document.getElementById('guided-sample-button');
   elements.guidedExampleButton = document.getElementById('guided-example-button');
   elements.workspace = document.getElementById('workspace');
-  elements.rulesNavButton = document.querySelector('.nav-button[data-view="rules"]');
-  elements.reportsNavButton = document.querySelector('.nav-button[data-view="reports"]');
+  elements.setupUtilityButton = document.getElementById('open-setup-utility-button');
+  elements.rulesNavButton = document.getElementById('open-rules-utility-button');
+  elements.reportsNavButton = document.getElementById('open-reports-utility-button');
   elements.caseSelector = document.getElementById('case-selector');
   elements.sharedWorkspaceStatus = document.getElementById('shared-workspace-status');
   elements.refreshSharedButton = document.getElementById('refresh-shared-button');
@@ -415,18 +422,20 @@ function captureElements() {
   elements.caseTitle = document.getElementById('case-title');
   elements.caseSubtitle = document.getElementById('case-subtitle');
   elements.caseSummaryCopy = document.getElementById('case-summary-copy');
+  elements.caseOverviewNarrative = document.getElementById('case-overview-narrative');
+  elements.caseOverviewSignals = document.getElementById('case-overview-signals');
   elements.caseWorkflowBadge = document.getElementById('case-workflow-badge');
+  elements.caseSourceBadge = document.getElementById('case-source-badge');
+  elements.caseImportBadge = document.getElementById('case-import-badge');
   elements.caseTrustBadge = document.getElementById('case-trust-badge');
   elements.caseRiskBadge = document.getElementById('case-risk-badge');
   elements.caseReviewBadge = document.getElementById('case-review-badge');
   elements.caseReviewSignatureBadge = document.getElementById('case-review-signature-badge');
+  elements.caseAuditBadge = document.getElementById('case-audit-badge');
+  elements.caseSectionNav = document.querySelector('.case-section-nav');
   elements.caseSnapshotTitle = document.getElementById('case-snapshot-title');
   elements.caseSnapshotCopy = document.getElementById('case-snapshot-copy');
   elements.caseSnapshotGrid = document.getElementById('case-snapshot-grid');
-  elements.caseJumpFindingsButton = document.getElementById('case-jump-findings-button');
-  elements.caseJumpTimelineButton = document.getElementById('case-jump-timeline-button');
-  elements.caseJumpReviewButton = document.getElementById('case-jump-review-button');
-  elements.caseOpenExportsButton = document.getElementById('case-open-exports-button');
   elements.caseGuidanceTitle = document.getElementById('case-guidance-title');
   elements.caseGuidanceCopy = document.getElementById('case-guidance-copy');
   elements.caseGuidanceList = document.getElementById('case-guidance-list');
@@ -434,6 +443,19 @@ function captureElements() {
   elements.caseGuidanceRulesButton = document.getElementById('case-guidance-rules-button');
   elements.caseGuidanceReportButton = document.getElementById('case-guidance-report-button');
   elements.caseSummaryGrid = document.getElementById('case-summary-grid');
+  elements.caseEvidenceSummary = document.getElementById('case-evidence-summary');
+  elements.casePolicyFlow = document.getElementById('case-policy-flow');
+  elements.caseMappingCard = document.getElementById('case-mapping-card');
+  elements.caseMappingSummary = document.getElementById('case-mapping-summary');
+  elements.caseMappingGroups = document.getElementById('case-mapping-groups');
+  elements.caseTrustCard = document.getElementById('case-trust-card');
+  elements.caseTrustGrid = document.getElementById('case-trust-grid');
+  elements.caseAttachmentsCard = document.getElementById('case-attachments-card');
+  elements.caseAttachments = document.getElementById('case-attachments');
+  elements.caseAttachmentPreview = document.getElementById('case-attachment-preview');
+  elements.attachmentPreviewTitle = document.getElementById('attachment-preview-title');
+  elements.attachmentPreviewMeta = document.getElementById('attachment-preview-meta');
+  elements.attachmentPreviewBody = document.getElementById('attachment-preview-body');
   elements.caseAlerts = document.getElementById('case-alerts');
   elements.caseFindings = document.getElementById('case-findings');
   elements.caseTimeline = document.getElementById('case-timeline');
@@ -576,6 +598,14 @@ function bindEvents() {
   document.querySelectorAll('.nav-button').forEach((button) => {
     button.addEventListener('click', () => setView(button.dataset.view));
   });
+  elements.setupUtilityButton.addEventListener('click', () => {
+    scrollToSetupWizard();
+  });
+  elements.rulesNavButton.addEventListener('click', () => {
+    setView('rules');
+    elements.workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  elements.reportsNavButton.addEventListener('click', openReportsView);
 
   elements.searchInput.addEventListener('input', (event) => {
     state.filters.search = event.target.value.trim().toLowerCase();
@@ -640,10 +670,39 @@ function bindEvents() {
     elements.workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   elements.caseGuidanceReportButton.addEventListener('click', openReportsView);
-  elements.caseJumpFindingsButton.addEventListener('click', () => scrollToCaseSection('case-findings-card'));
-  elements.caseJumpTimelineButton.addEventListener('click', () => scrollToCaseSection('case-timeline-card'));
-  elements.caseJumpReviewButton.addEventListener('click', () => scrollToCaseSection('case-review-card'));
-  elements.caseOpenExportsButton.addEventListener('click', openReportsView);
+  elements.caseSectionNav.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-case-section-target]');
+    if (!target) {
+      return;
+    }
+    scrollToCaseSection(target.dataset.caseSectionTarget);
+  });
+  elements.caseView.addEventListener('click', (event) => {
+    const sectionLink = event.target.closest('[data-case-section-target]');
+    if (sectionLink && !sectionLink.closest('.case-section-nav')) {
+      scrollToCaseSection(sectionLink.dataset.caseSectionTarget);
+      return;
+    }
+    const stepLink = event.target.closest('[data-trace-step]');
+    if (stepLink) {
+      highlightCaseStep(Number(stepLink.dataset.traceStep || 0));
+      return;
+    }
+    const attachmentFocus = event.target.closest('[data-attachment-focus]');
+    if (attachmentFocus) {
+      focusCaseAttachment(attachmentFocus.dataset.attachmentFocus);
+      return;
+    }
+    const attachmentPreview = event.target.closest('[data-attachment-preview]');
+    if (attachmentPreview) {
+      void previewCaseAttachment(attachmentPreview.dataset.attachmentPreview);
+      return;
+    }
+    const attachmentDownload = event.target.closest('[data-attachment-download]');
+    if (attachmentDownload) {
+      void downloadCaseAttachment(attachmentDownload.dataset.attachmentDownload);
+    }
+  });
   elements.refreshSharedButton.addEventListener('click', () => {
     void refreshSharedWorkspace(true);
   });
@@ -756,7 +815,7 @@ async function handleFiles(fileList) {
   } else if (failures.length) {
     setStatus(`No case files loaded. ${failures.join(' | ')}`, 'error');
   } else {
-    setStatus(`Loaded ${loadedCases.length} case file${loadedCases.length === 1 ? '' : 's'} into the inbox.`, 'success');
+    setStatus(`Loaded ${loadedCases.length} case file${loadedCases.length === 1 ? '' : 's'} into the queue.`, 'success');
   }
 }
 
@@ -837,6 +896,9 @@ async function parseEpiFile(file) {
   const artifactBytes = new Uint8Array(await file.arrayBuffer());
   const { containerFormat, payloadBytes } = await decodeEpiContainerBytes(artifactBytes);
   const zip = await JSZip.loadAsync(payloadBytes.slice(0));
+  const artifactNames = Object.keys(zip.files)
+    .filter((name) => !zip.files[name].dir)
+    .sort();
   const manifestText = await readZipText(zip, 'manifest.json');
   const manifest = JSON.parse(manifestText);
   const steps = await readJsonl(zip, 'steps.jsonl');
@@ -845,6 +907,7 @@ async function parseEpiFile(file) {
   const policyEvaluation = await readOptionalJson(zip, 'policy_evaluation.json');
   const review = await readOptionalJson(zip, 'review.json');
   const environment = await readOptionalJson(zip, 'environment.json') || await readOptionalJson(zip, 'env.json');
+  const mappingReport = await readOptionalJson(zip, 'artifacts/agt/mapping_report.json');
   const stdout = await readOptionalText(zip, 'stdout.log');
   const stderr = await readOptionalText(zip, 'stderr.log');
 
@@ -863,6 +926,8 @@ async function parseEpiFile(file) {
     policyEvaluation,
     review,
     environment,
+    mappingReport,
+    artifactNames,
     stdout,
     stderr,
     integrity,
@@ -895,6 +960,10 @@ async function buildCaseRecord(payload) {
     containerFormat = decoded.containerFormat;
   }
   const embeddedFiles = decodeEmbeddedFiles(payload.embeddedFiles || payload.files || null);
+  const artifactNames = Array.isArray(payload.artifactNames)
+    ? [...payload.artifactNames]
+    : listEmbeddedArtifactNames(embeddedFiles);
+  const mappingReport = payload.mappingReport || payload.mapping_report || readOptionalEmbeddedJson(embeddedFiles, 'artifacts/agt/mapping_report.json');
   const reviewSignature = await verifyReviewSignature(review);
   const reviewState = deriveReviewState(review, analysis, policyEvaluation, reviewSignature);
   const sourceTrustState = payload.sourceTrustState || payload.source_trust_state || null;
@@ -906,6 +975,9 @@ async function buildCaseRecord(payload) {
   const lastCommentAt = payload.last_comment_at || payload.lastCommentAt || sharedWorkflow.last_comment_at || null;
   const comments = Array.isArray(payload.comments) ? payload.comments : [];
   const activity = Array.isArray(payload.activity) ? payload.activity : [];
+  const trust = sourceTrustState || deriveTrustState(manifest, integrity, signature);
+  const sourceProfile = deriveSourceProfile(manifest, analysis, mappingReport, artifactNames);
+  const attachmentGroups = buildAttachmentGroups(artifactNames, sourceProfile);
 
   return {
     id: payload.id || createCaseId(sourceName, manifest),
@@ -921,6 +993,10 @@ async function buildCaseRecord(payload) {
     policyEvaluation,
     review,
     environment: payload.environment || null,
+    mappingReport,
+    artifactNames,
+    sourceProfile,
+    attachmentGroups,
     stdout: payload.stdout || null,
     stderr: payload.stderr || null,
     sharedWorkspaceCase: Boolean(payload.sharedWorkspaceCase || payload.shared_workspace_case),
@@ -928,7 +1004,7 @@ async function buildCaseRecord(payload) {
     sharedUpdatedAt: payload.sharedUpdatedAt || payload.shared_updated_at || null,
     integrity,
     signature,
-    trust: sourceTrustState || deriveTrustState(manifest, integrity, signature),
+    trust,
     decision: deriveDecisionSummary(manifest, steps, analysis),
     workflow: deriveWorkflowName(manifest, steps, sourceName),
     reviewSignature,
@@ -942,6 +1018,14 @@ async function buildCaseRecord(payload) {
     lastCommentAt,
     comments,
     activity,
+    traceability: buildTraceabilityIndex({
+      steps,
+      analysis,
+      policy,
+      review,
+      mappingReport,
+      attachmentGroups,
+    }),
     isOverdue: Boolean(payload.is_overdue) || isCaseOverdue(dueAt, status),
     priorityOverride: payload.priority_override || payload.priorityOverride || null,
   };
@@ -994,6 +1078,9 @@ function mergeCaseRecords(existing, incoming) {
   if (!merged.policyEvaluation && secondary.policyEvaluation) {
     merged.policyEvaluation = secondary.policyEvaluation;
   }
+  if (!merged.mappingReport && secondary.mappingReport) {
+    merged.mappingReport = secondary.mappingReport;
+  }
   if (!merged.environment && secondary.environment) {
     merged.environment = secondary.environment;
   }
@@ -1008,6 +1095,9 @@ function mergeCaseRecords(existing, incoming) {
   }
   if ((!merged.embeddedFiles || !Object.keys(merged.embeddedFiles).length) && secondary.embeddedFiles) {
     merged.embeddedFiles = secondary.embeddedFiles;
+  }
+  if ((!merged.artifactNames || !merged.artifactNames.length) && secondary.artifactNames) {
+    merged.artifactNames = secondary.artifactNames;
   }
 
   if (reviewTimestamp(secondary.review) > reviewTimestamp(merged.review)) {
@@ -1032,7 +1122,21 @@ function mergeCaseRecords(existing, incoming) {
   if (!merged.trust && secondary.trust) {
     merged.trust = secondary.trust;
   }
+  if (!merged.sourceProfile && secondary.sourceProfile) {
+    merged.sourceProfile = secondary.sourceProfile;
+  }
+  if ((!merged.attachmentGroups || !merged.attachmentGroups.length) && secondary.attachmentGroups) {
+    merged.attachmentGroups = secondary.attachmentGroups;
+  }
   merged.risk = deriveRiskState(merged.analysis, merged.policyEvaluation, merged.integrity, merged.reviewState);
+  merged.traceability = buildTraceabilityIndex({
+    steps: merged.steps || [],
+    analysis: merged.analysis,
+    policy: merged.policy,
+    review: merged.review,
+    mappingReport: merged.mappingReport,
+    attachmentGroups: merged.attachmentGroups,
+  });
   return merged;
 }
 
@@ -1260,6 +1364,151 @@ function buildExampleCasePayload() {
   };
 }
 
+function listEmbeddedArtifactNames(embeddedFiles) {
+  if (!embeddedFiles || typeof embeddedFiles !== 'object') {
+    return [];
+  }
+  return Object.keys(embeddedFiles).sort();
+}
+
+function readEmbeddedText(embeddedFiles, name) {
+  if (!embeddedFiles || !embeddedFiles[name]) {
+    return null;
+  }
+  try {
+    return new TextDecoder().decode(embeddedFiles[name]);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function readOptionalEmbeddedJson(embeddedFiles, name) {
+  const text = readEmbeddedText(embeddedFiles, name);
+  if (!text) {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function deriveSourceProfile(manifest, analysis, mappingReport, artifactNames) {
+  const tags = Array.isArray(manifest?.tags) ? manifest.tags.map((item) => String(item).toLowerCase()) : [];
+  const artifactSet = new Set(Array.isArray(artifactNames) ? artifactNames : []);
+  const analysisWarning = String(analysis?.warning || '').toLowerCase();
+  const analysisMode = String(analysis?.mode || '').toLowerCase();
+  const hasMappingReport = Boolean(mappingReport) || artifactSet.has('artifacts/agt/mapping_report.json');
+  const looksLikeAgt =
+    hasMappingReport ||
+    tags.includes('agt') ||
+    String(analysis?.source_system || '').toLowerCase() === 'agt' ||
+    analysisMode === 'agt_import' ||
+    analysisWarning.includes('agent governance toolkit');
+  const hasRawAgtPayloads = Array.from(artifactSet).some((name) => name.startsWith('artifacts/agt/'));
+  const synthesized = Boolean(mappingReport?.analysis?.synthesized || analysis?.synthesized);
+
+  if (looksLikeAgt) {
+    return {
+      kind: 'agt-imported',
+      label: 'AGT',
+      sourceSystem: 'AGT',
+      importMode: 'Imported via EPI',
+      transformationAuditAvailable: hasMappingReport,
+      rawSourceAvailable: hasRawAgtPayloads,
+      synthesizedContentSummary: synthesized ? 'Synthesized analysis present' : 'Preserved raw evidence only',
+      trustNarrative: synthesized ? 'Verified / Synthesized / Preserved raw' : 'Verified / Preserved raw',
+    };
+  }
+
+  if (manifest?.source_system || manifest?.system_name || manifest?.workflow_name) {
+    return {
+      kind: 'epi-native',
+      label: 'Native EPI',
+      sourceSystem: manifest.source_system || manifest.system_name || 'EPI',
+      importMode: 'Native EPI',
+      transformationAuditAvailable: hasMappingReport,
+      rawSourceAvailable: artifactSet.size > 0,
+      synthesizedContentSummary: synthesized ? 'Synthesized analysis present' : 'Directly recorded evidence',
+      trustNarrative: synthesized ? 'Verified / Synthesized' : 'Verified / Direct capture',
+    };
+  }
+
+  return {
+    kind: 'unknown',
+    label: 'Unknown source',
+    sourceSystem: 'Unknown',
+    importMode: 'Portable EPI artifact',
+    transformationAuditAvailable: hasMappingReport,
+    rawSourceAvailable: artifactSet.size > 0,
+    synthesizedContentSummary: synthesized ? 'Synthesized analysis present' : 'Portable case evidence',
+    trustNarrative: synthesized ? 'Synthesized evidence present' : 'Portable case evidence',
+  };
+}
+
+function buildAttachmentGroups(artifactNames, sourceProfile) {
+  const groups = [
+    { id: 'agt-source', label: 'AGT Source Data', items: [] },
+    { id: 'epi-derived', label: 'EPI Derived Data', items: [] },
+    { id: 'external-files', label: 'External Files', items: [] },
+  ];
+
+  (Array.isArray(artifactNames) ? artifactNames : [])
+    .filter((name) => !['mimetype', 'viewer.html'].includes(name))
+    .forEach((name) => {
+      const item = {
+        name,
+        previewable: /\.(json|jsonl|txt|log|md)$/i.test(name),
+      };
+      if (name.startsWith('artifacts/agt/')) {
+        groups[0].items.push(item);
+      } else if (
+        ['manifest.json', 'steps.jsonl', 'analysis.json', 'policy.json', 'policy_evaluation.json', 'review.json', 'environment.json', 'env.json', 'stdout.log', 'stderr.log'].includes(name) ||
+        name.startsWith('artifacts/')
+      ) {
+        groups[1].items.push(item);
+      } else {
+        groups[2].items.push(item);
+      }
+    });
+
+  return groups.filter((group) => {
+    if (group.items.length) {
+      return true;
+    }
+    return group.id !== 'agt-source' || sourceProfile?.kind === 'agt-imported';
+  });
+}
+
+function buildTraceabilityIndex({ steps, analysis, policy, review, mappingReport, attachmentGroups }) {
+  const latestReview = getLatestReviewEntry({ review });
+  const primaryStepNumber = Number(analysis?.primary_fault?.step_number || 0) || null;
+  const ruleId = analysis?.primary_fault?.rule_id || latestReview?.rule_id || null;
+  const sourceAttachmentNames = (attachmentGroups || [])
+    .flatMap((group) => group.items || [])
+    .map((item) => item.name);
+  const mappedAttachment =
+    mappingReport?.field_handling?.preserved_raw?.[0]?.mapped_to ||
+    mappingReport?.field_handling?.translated?.find((item) => String(item.mapped_to || '').startsWith('artifacts/'))?.mapped_to ||
+    sourceAttachmentNames.find((name) => name.startsWith('artifacts/agt/')) ||
+    null;
+
+  return {
+    primaryStepNumber,
+    latestReviewStepNumber: Number(latestReview?.fault_step || 0) || primaryStepNumber,
+    ruleId,
+    mappedAttachment,
+    sourceAttachmentNames,
+    recognizedPolicySteps: Array.isArray(steps)
+      ? steps
+        .map((step, index) => ({ step, stepNumber: index + 1 }))
+        .filter(({ step }) => ['policy.check', 'agent.decision', 'agent.approval.request', 'agent.approval.response'].includes(step.kind))
+      : [],
+    ruleCount: Array.isArray(policy?.rules) ? policy.rules.length : 0,
+  };
+}
+
 function decodeEmbeddedFiles(entries) {
   if (!entries || typeof entries !== 'object') {
     return null;
@@ -1300,6 +1549,12 @@ function resetWorkspace() {
   state.workspaceSetup = null;
   state.connectorProfiles = {};
   state.liveConnectorRecord = null;
+  state.activeCaseSection = 'case-overview-card';
+  state.caseHighlights = {
+    stepNumber: null,
+    attachmentName: null,
+  };
+  state.attachmentPreviewCache = {};
   state.policyEditors = {};
   state.currentView = 'inbox';
   state.filters = {
@@ -1344,7 +1599,7 @@ function resetImportControls() {
   elements.addFilesButton.disabled = false;
   elements.dropZone.classList.remove('disabled');
   elements.dropZone.removeAttribute('aria-disabled');
-  elements.dropZoneTitle.textContent = 'Open saved cases';
+  elements.dropZoneTitle.textContent = 'Open local EPI cases';
   elements.dropZoneCopy.textContent = 'Drop `.epi` files here or choose them from your computer. Nothing is uploaded.';
   elements.dropZoneAction.textContent = 'Choose files';
 }
@@ -1364,9 +1619,11 @@ function setProgressiveNavigationState(hasSelectedCase) {
     if (!button) {
       return;
     }
-    button.hidden = !hasSelectedCase;
     button.disabled = !hasSelectedCase;
   });
+  if (elements.caseSectionNav) {
+    elements.caseSectionNav.hidden = !hasSelectedCase;
+  }
   if (!hasSelectedCase && ['rules', 'reports'].includes(state.currentView)) {
     state.currentView = state.cases.length ? 'case' : 'inbox';
   }
@@ -1377,6 +1634,9 @@ function selectCase(caseId) {
     return;
   }
   state.selectedCaseId = caseId;
+  state.activeCaseSection = 'case-overview-card';
+  state.caseHighlights.stepNumber = null;
+  state.caseHighlights.attachmentName = null;
   renderCaseView();
   renderRulesView();
   renderReportsView();
@@ -1455,11 +1715,15 @@ function openPriorityCaseReason() {
     scrollToSetupWizard();
     return;
   }
-  scrollToCaseSection('case-findings-card');
+  scrollToCaseSection('case-policy-card');
 }
 
 function scrollToCaseSection(sectionId) {
   setView('case');
+  state.activeCaseSection = sectionId;
+  document.querySelectorAll('.case-section-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.caseSectionTarget === sectionId);
+  });
   const section = document.getElementById(sectionId);
   if (!section) {
     return;
@@ -1558,8 +1822,8 @@ function renderGuidedReviewPanel() {
       : 'Review this decision next';
     elements.guidedReviewCopy.textContent = `${openCountText} ${priorityCase.decision.summary}`;
     elements.guidedReviewMeta.textContent = `${priorityCase.workflow} | ${priorityCase.workflowState.label} | ${ownerText} | ${dueText}`;
-    elements.guidedReviewButton.textContent = 'Review this decision';
-    elements.guidedWhyButton.textContent = 'See why it matters';
+    elements.guidedReviewButton.textContent = 'Open this case';
+    elements.guidedWhyButton.textContent = 'Show why';
     elements.guidedQueueButton.hidden = false;
     elements.guidedWhyButton.hidden = false;
     elements.guidedSampleButton.hidden = true;
@@ -2480,10 +2744,12 @@ async function hydrateSharedWorkspaceCases(sharedCases) {
       analysis: payload.analysis || null,
       policy: payload.policy || null,
       policyEvaluation: payload.policy_evaluation || payload.policyEvaluation || null,
+      mappingReport: payload.mapping_report || payload.mappingReport || null,
       review: payload.review || null,
       environment: payload.environment || null,
       stdout: payload.stdout || null,
       stderr: payload.stderr || null,
+      artifactNames: payload.artifact_names || payload.artifactNames || [],
       integrity: payload.integrity || null,
       signature: payload.signature || null,
       sourceTrustState: payload.source_trust_state || payload.sourceTrustState || item.source_trust_state || item.sourceTrustState || null,
@@ -2514,10 +2780,12 @@ function buildSharedWorkspaceCaseExport(caseRecord) {
     analysis: caseRecord.analysis,
     policy: caseRecord.policy,
     policy_evaluation: caseRecord.policyEvaluation,
+    mapping_report: caseRecord.mappingReport,
     review: caseRecord.review,
     environment: caseRecord.environment,
     stdout: caseRecord.stdout,
     stderr: caseRecord.stderr,
+    artifact_names: caseRecord.artifactNames,
     integrity: caseRecord.integrity,
     signature: caseRecord.signature,
     source_trust_state: caseRecord.trust,
@@ -2633,7 +2901,7 @@ function renderInbox() {
   elements.emptyInbox.hidden = cases.length > 0;
   elements.emptyInbox.innerHTML = `
     <h3>No cases match these filters</h3>
-    <p>Adjust search or filters to bring cases back into the inbox.</p>
+    <p>Adjust search or filters to bring cases back into the queue.</p>
   `;
 
   if (!cases.length) {
@@ -2658,12 +2926,13 @@ function renderInbox() {
       <article class="case-card">
         <div class="case-card-top">
           <div>
-            <p class="case-meta">${escapeHtml(caseRecord.workflow)} | ${formatDate(caseRecord.manifest.created_at)} | ${escapeHtml(caseRecord.sourceName)}</p>
+            <p class="case-meta">${escapeHtml(caseRecord.workflow)} | ${formatDate(caseRecord.manifest.created_at)} | ${escapeHtml(caseRecord.sourceProfile?.sourceSystem || caseRecord.sourceName)}</p>
             <h3>${escapeHtml(caseRecord.decision.title)}</h3>
             <p class="case-summary-copy">${escapeHtml(caseRecord.decision.summary)}</p>
             <p class="case-meta">${ownerBits.join(' | ')}</p>
           </div>
           <div class="badge-row">
+            ${renderBadge(caseRecord.sourceProfile?.label || 'Case source', caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral')}
             ${caseRecord.sharedWorkspaceCase ? renderBadge('Team case', 'neutral') : ''}
             ${renderBadge(caseRecord.workflowState.label, caseRecord.workflowState.tone)}
             ${renderBadge(caseRecord.trust.label, caseRecord.trust.tone)}
@@ -2674,7 +2943,7 @@ function renderInbox() {
         </div>
         <div class="case-card-footer">
           <span class="stack-copy">${escapeHtml(caseRecord.workflowState.detail)}</span>
-          <button class="text-button" type="button" data-open-case="${escapeHtml(caseRecord.id)}">Open case</button>
+          <button class="text-button" type="button" data-open-case="${escapeHtml(caseRecord.id)}">Open investigation</button>
         </div>
       </article>
     `;
@@ -2692,83 +2961,70 @@ function renderCaseView() {
   }
 
   elements.caseSelector.value = caseRecord.id;
-  elements.caseSubtitle.textContent = `${caseRecord.workflow} decision record`;
+  const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
+  const guidance = buildCaseGuidance(caseRecord);
+  const overview = buildOverviewPresentation(caseRecord, analysisState);
+  const policyFlow = buildPolicyFlow(caseRecord);
+  const evidenceSummary = buildEvidenceSummary(caseRecord, analysisState);
+  const trustRows = buildTrustRows(caseRecord, analysisState);
+  const trustAlerts = buildTrustAlerts(caseRecord, analysisState);
+  const mappingView = buildTransformationAuditView(caseRecord);
+  const attachmentView = buildAttachmentView(caseRecord);
+
+  elements.caseSubtitle.textContent = `${caseRecord.workflow} | ${caseRecord.sourceProfile?.importMode || 'Portable EPI artifact'}`;
   elements.caseTitle.textContent = caseRecord.decision.title;
   elements.caseSummaryCopy.textContent = caseRecord.decision.summary;
+  elements.caseOverviewNarrative.textContent = overview.narrative;
   const canDownloadReviewedArtifact = canBuildReviewedArtifact(caseRecord);
   elements.downloadReviewedEpiButton.disabled = !canDownloadReviewedArtifact;
   elements.downloadReviewedEpiButton.textContent = canDownloadReviewedArtifact
     ? 'Download reviewed case file (.epi)'
     : 'Reviewed case file unavailable';
   setBadge(elements.caseWorkflowBadge, caseRecord.workflowState.label, caseRecord.workflowState.tone);
+  setBadge(
+    elements.caseSourceBadge,
+    `Source: ${caseRecord.sourceProfile?.sourceSystem || 'EPI'}`,
+    caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral',
+  );
+  setBadge(
+    elements.caseImportBadge,
+    caseRecord.sourceProfile?.importMode || 'Portable EPI artifact',
+    caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral',
+  );
   setBadge(elements.caseTrustBadge, caseRecord.trust.label, caseRecord.trust.tone);
   setBadge(elements.caseRiskBadge, caseRecord.risk.label, caseRecord.risk.tone);
   setBadge(elements.caseReviewBadge, caseRecord.reviewState.label, caseRecord.reviewState.tone);
   setBadge(elements.caseReviewSignatureBadge, caseRecord.reviewSignature.label, caseRecord.reviewSignature.tone);
-  const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
-  const guidance = buildCaseGuidance(caseRecord);
+  setBadge(
+    elements.caseAuditBadge,
+    mappingView.visible ? 'Transformation audit available' : 'Direct evidence path',
+    mappingView.visible ? 'warning' : 'neutral',
+  );
+  elements.caseOverviewSignals.innerHTML = overview.signals.map(renderCaseSignalItem).join('');
   renderCaseSnapshot(caseRecord, analysisState, guidance);
 
-  const summaryRows = [
-    ['Decision', caseRecord.decision.outcome],
-    ['Workflow', caseRecord.workflow],
-    ['Review status', caseRecord.workflowState.label],
-    ['Assignee', caseRecord.assignee || 'Unassigned'],
-    ['Due date', formatDueDate(caseRecord.dueAt)],
-    ['Created', formatDate(caseRecord.manifest.created_at)],
-    ['Case file', caseRecord.sourceName],
-    ['Where this case lives', caseRecord.sharedWorkspaceCase ? 'Shared team case' : 'Local case'],
-    ['Record integrity', caseRecord.trust.label],
-    ['Automated policy check', analysisState.label],
-    ['Human review', caseRecord.reviewState.label],
-    ['Signed by', deriveSignerLabel(caseRecord.manifest)],
-  ];
-
-  elements.caseSummaryGrid.innerHTML = summaryRows.map(([label, value]) => {
+  elements.caseSummaryGrid.innerHTML = overview.summaryRows.map(([label, value]) => {
     return `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`;
   }).join('');
 
-  const alertItems = [
-    {
-      eyebrow: 'Integrity',
-      title: caseRecord.trust.label,
-      copy: caseRecord.trust.detail,
-      tone: caseRecord.trust.tone,
-    },
-    {
-      eyebrow: 'Automation',
-      title: analysisState.label,
-      copy: analysisState.detail,
-      tone: analysisState.tone,
-    },
-    {
-      eyebrow: 'Human review',
-      title: caseRecord.reviewState.label,
-      copy: caseRecord.reviewState.detail,
-      tone: caseRecord.reviewState.tone,
-    },
-    {
-      eyebrow: 'Review signature',
-      title: caseRecord.reviewSignature.label,
-      copy: caseRecord.reviewSignature.detail,
-      tone: caseRecord.reviewSignature.tone,
-    },
-    {
-      eyebrow: 'Risk',
-      title: caseRecord.risk.label,
-      copy: caseRecord.risk.detail,
-      tone: caseRecord.risk.tone,
-    },
-  ];
-
-  elements.caseAlerts.innerHTML = alertItems.map(renderStackItem).join('');
+  elements.caseEvidenceSummary.innerHTML = evidenceSummary.map(renderStackItem).join('');
+  elements.casePolicyFlow.innerHTML = policyFlow.map(renderStackItem).join('');
+  elements.caseAlerts.innerHTML = trustAlerts.map(renderStackItem).join('');
+  elements.caseTrustGrid.innerHTML = trustRows.map(([label, value]) => {
+    return `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`;
+  }).join('');
   elements.caseFindings.innerHTML = buildFindings(caseRecord).map(renderStackItem).join('');
   elements.caseTimeline.innerHTML = buildTimeline(caseRecord).map(renderTimelineItem).join('');
+  renderTransformationAudit(caseRecord, mappingView);
+  renderAttachmentGroups(caseRecord, attachmentView);
   renderCaseGuidance(guidance);
   renderWorkflowForm(caseRecord);
   renderComments(caseRecord);
-
+  renderAttachmentPreview(caseRecord);
+  setCaseSectionVisible('case-mapping-card', mappingView.visible);
+  setCaseSectionVisible('case-attachments-card', attachmentView.visible);
   populateReviewForm(caseRecord);
+  scrollToActiveCaseSectionIfNeeded();
 }
 
 function renderCaseGuidance(guidance) {
@@ -3055,7 +3311,7 @@ function buildEmptyInboxContent() {
       </p>
       <div class="action-row empty-state-actions">
         <button class="secondary-button" type="button" data-open-example-case>Open example case</button>
-        <button class="secondary-button" type="button" data-scroll-setup>Connect a real system</button>
+        <button class="secondary-button" type="button" data-scroll-setup>Open setup</button>
       </div>
     `;
   }
@@ -3065,7 +3321,7 @@ function buildEmptyInboxContent() {
     <p>Start with one example case, one saved \`.epi\` file, or the optional setup area. EPI is easiest to understand one decision at a time.</p>
     <div class="action-row empty-state-actions">
       <button class="secondary-button" type="button" data-open-example-case>Open example case</button>
-      <button class="secondary-button" type="button" data-scroll-setup>Connect a real system</button>
+      <button class="secondary-button" type="button" data-scroll-setup>Open setup</button>
     </div>
   `;
 }
@@ -4965,7 +5221,7 @@ function deriveTrustState(manifest, integrity, signature) {
   if (!integrity.ok) {
     return {
       code: 'do-not-use',
-      label: 'Do not use',
+      label: 'Tampered / do not use',
       tone: 'danger',
       detail: `Integrity failed for ${integrity.mismatches.join(', ')}.`,
     };
@@ -4983,7 +5239,7 @@ function deriveTrustState(manifest, integrity, signature) {
 
     return {
       code: 'source-not-proven',
-      label: 'Source not proven',
+      label: 'Unsigned but intact',
       tone: 'warning',
       detail: `This packaged case view can show the decision record, but it did not recheck the ${integrity.checked} protected file(s) on this device.`,
     };
@@ -4992,7 +5248,7 @@ function deriveTrustState(manifest, integrity, signature) {
   if (signature.valid) {
     return {
       code: 'trusted',
-      label: 'Record intact',
+      label: 'Verified',
       tone: 'success',
       detail: `Record has not been modified. All ${integrity.checked} protected file(s) matched and the signer verified.`,
     };
@@ -5001,7 +5257,7 @@ function deriveTrustState(manifest, integrity, signature) {
   if (manifest.signature) {
     return {
       code: 'source-not-proven',
-      label: 'Source not proven',
+      label: 'Unsigned but intact',
       tone: 'warning',
       detail: `The protected files match, but the signer could not be confirmed: ${signature.reason}.`,
     };
@@ -5009,7 +5265,7 @@ function deriveTrustState(manifest, integrity, signature) {
 
   return {
     code: 'source-not-proven',
-    label: 'Source not proven',
+    label: 'Unsigned but intact',
     tone: 'warning',
     detail: `The protected files match, but no signer is attached to this case file.`,
   };
@@ -5427,6 +5683,616 @@ function buildCaseSnapshot(caseRecord, analysisState, guidance) {
   };
 }
 
+function buildOverviewPresentation(caseRecord, analysisState) {
+  const reason = deriveDecisionReason(caseRecord);
+  const confidence = deriveDecisionConfidence(caseRecord);
+  const sourceLine = caseRecord.sourceProfile?.kind === 'agt-imported'
+    ? `${caseRecord.sourceProfile.sourceSystem} -> EPI import`
+    : (caseRecord.sourceProfile?.sourceSystem || 'Native EPI');
+  const narrativeParts = [
+    `${caseRecord.decision.outcome} is the recorded outcome for this ${caseRecord.workflow.toLowerCase()} case.`,
+    reason,
+    caseRecord.reviewState.code === 'pending'
+      ? 'Human action is still required before the case should be relied on.'
+      : 'A human decision is already attached or no extra review was requested.',
+    caseRecord.trust.code === 'do-not-use'
+      ? 'Do not trust this file until the original source is reverified.'
+      : 'The file can be inspected locally and its trust state is shown below.',
+  ];
+
+  return {
+    narrative: narrativeParts.join(' '),
+    signals: [
+      {
+        label: 'Decision',
+        value: caseRecord.decision.outcome,
+        copy: caseRecord.decision.summary,
+        tone: 'neutral',
+      },
+      {
+        label: 'Reason',
+        value: reason,
+        copy: caseRecord.risk.detail,
+        tone: caseRecord.risk.tone,
+      },
+      {
+        label: 'Confidence',
+        value: confidence,
+        copy: analysisState.detail,
+        tone: analysisState.tone,
+      },
+      {
+        label: 'Review',
+        value: caseRecord.reviewState.label,
+        copy: caseRecord.reviewState.detail,
+        tone: caseRecord.reviewState.tone,
+      },
+      {
+        label: 'Trust',
+        value: caseRecord.trust.label,
+        copy: caseRecord.trust.detail,
+        tone: caseRecord.trust.tone,
+      },
+      {
+        label: 'Source',
+        value: sourceLine,
+        copy: caseRecord.sourceProfile?.transformationAuditAvailable
+          ? 'Transformation audit available.'
+          : 'Direct case evidence path.',
+        tone: caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral',
+      },
+    ],
+    summaryRows: [
+      ['Decision', caseRecord.decision.outcome],
+      ['Source system', caseRecord.sourceProfile?.sourceSystem || 'EPI'],
+      ['Import mode', caseRecord.sourceProfile?.importMode || 'Portable EPI artifact'],
+      ['Trust state', caseRecord.trust.label],
+      ['Policy result', summarizePolicyResult(caseRecord)],
+      ['Review state', caseRecord.reviewState.label],
+      ['Risk / severity', caseRecord.risk.label],
+      ['Confidence', confidence],
+      ['Created', formatDate(caseRecord.manifest.created_at)],
+      ['Case file', caseRecord.sourceName],
+      ['Workflow', caseRecord.workflow],
+      ['Signed by', deriveSignerLabel(caseRecord.manifest)],
+    ],
+  };
+}
+
+function deriveDecisionReason(caseRecord) {
+  const directReason =
+    caseRecord.analysis?.primary_fault?.plain_english ||
+    caseRecord.analysis?.primary_fault?.why_it_matters ||
+    caseRecord.analysis?.summary?.headline ||
+    (typeof caseRecord.analysis?.summary === 'string' ? caseRecord.analysis.summary : '');
+  if (directReason) {
+    return directReason;
+  }
+  if (caseRecord.policyEvaluation?.controls_failed) {
+    return `Policy checks reported ${caseRecord.policyEvaluation.controls_failed} failed control${caseRecord.policyEvaluation.controls_failed === 1 ? '' : 's'}.`;
+  }
+  return 'No explicit policy explanation was attached to this case.';
+}
+
+function deriveDecisionConfidence(caseRecord) {
+  const lastDecisionStep = [...(caseRecord.steps || [])].reverse().find((step) => step.kind === 'agent.decision');
+  const raw = lastDecisionStep?.content?.confidence ?? caseRecord.analysis?.confidence ?? null;
+  if (typeof raw === 'number') {
+    if (raw >= 0.8) {
+      return 'High';
+    }
+    if (raw >= 0.55) {
+      return 'Medium';
+    }
+    return 'Low';
+  }
+  const normalized = String(raw || '').trim();
+  return normalized ? sentenceCase(normalized) : 'Not recorded';
+}
+
+function summarizePolicyResult(caseRecord) {
+  if (caseRecord.analysis?.primary_fault?.rule_name) {
+    return caseRecord.analysis.primary_fault.rule_name;
+  }
+  if (caseRecord.policyEvaluation?.controls_failed) {
+    return `${caseRecord.policyEvaluation.controls_failed} failed control${caseRecord.policyEvaluation.controls_failed === 1 ? '' : 's'}`;
+  }
+  if (caseRecord.policyEvaluation?.controls_evaluated) {
+    return 'Policy evaluated with no failed controls';
+  }
+  return 'No policy result attached';
+}
+
+function buildEvidenceSummary(caseRecord, analysisState) {
+  const items = [
+    {
+      eyebrow: 'Evidence trail',
+      title: `${caseRecord.steps.length} recorded step${caseRecord.steps.length === 1 ? '' : 's'}`,
+      copy: caseRecord.steps.length
+        ? 'Open the timeline below to trace the sequence from input through decision and review.'
+        : 'This artifact does not include a detailed step log, so the case relies on summary metadata and attached files.',
+      tone: 'neutral',
+    },
+    {
+      eyebrow: 'Execution context',
+      title: caseRecord.environment?.source_system || caseRecord.environment?.runtime || caseRecord.workflow,
+      copy: caseRecord.environment
+        ? truncate(JSON.stringify(caseRecord.environment), 180)
+        : 'No environment block was attached to this case.',
+      tone: 'neutral',
+    },
+    {
+      eyebrow: 'Automation',
+      title: analysisState.label,
+      copy: analysisState.detail,
+      tone: analysisState.tone,
+    },
+  ];
+
+  if (caseRecord.traceability?.primaryStepNumber) {
+    items[0].actions = [
+      {
+        label: `Jump to step ${caseRecord.traceability.primaryStepNumber}`,
+        attribute: 'data-trace-step',
+        value: String(caseRecord.traceability.primaryStepNumber),
+      },
+    ];
+  }
+  return items;
+}
+
+function buildPolicyFlow(caseRecord) {
+  const items = [];
+  const primaryFault = caseRecord.analysis?.primary_fault || null;
+  const reviewLinkStep = caseRecord.traceability?.latestReviewStepNumber || caseRecord.traceability?.primaryStepNumber || null;
+
+  items.push({
+    eyebrow: 'Policy result',
+    title: summarizePolicyResult(caseRecord),
+    copy: caseRecord.policyEvaluation
+      ? `Controls evaluated: ${caseRecord.policyEvaluation.controls_evaluated || 0}. Failed: ${caseRecord.policyEvaluation.controls_failed || 0}.`
+      : 'No separate policy evaluation file was attached to this case.',
+    tone: caseRecord.policyEvaluation?.controls_failed ? 'warning' : 'neutral',
+  });
+
+  if (primaryFault) {
+    items.push({
+      eyebrow: 'Why it fired',
+      title: primaryFault.rule_name || primaryFault.rule_id || 'Primary policy fault',
+      copy: summarizeFault(primaryFault),
+      tone: severityToTone(primaryFault.severity),
+      actions: primaryFault.step_number
+        ? [
+          {
+            label: `Show evidence step ${primaryFault.step_number}`,
+            attribute: 'data-trace-step',
+            value: String(primaryFault.step_number),
+          },
+        ]
+        : [],
+    });
+  }
+
+  items.push({
+    eyebrow: 'Decision',
+    title: caseRecord.decision.outcome,
+    copy: caseRecord.decision.summary,
+    tone: 'neutral',
+    actions: reviewLinkStep
+      ? [
+        {
+          label: `Trace to step ${reviewLinkStep}`,
+          attribute: 'data-trace-step',
+          value: String(reviewLinkStep),
+        },
+      ]
+      : [],
+  });
+
+  items.push({
+    eyebrow: 'Review',
+    title: caseRecord.reviewState.label,
+    copy: caseRecord.reviewState.detail,
+    tone: caseRecord.reviewState.tone,
+    actions: [
+      {
+        label: 'Open review section',
+        attribute: 'data-case-section-target',
+        value: 'case-review-card',
+      },
+    ],
+  });
+
+  if (caseRecord.sourceProfile?.kind === 'agt-imported') {
+    items.unshift({
+      eyebrow: 'Source system',
+      title: 'AGT imported into EPI',
+      copy: `${caseRecord.sourceProfile.trustNarrative}. Transformation audit available for imported evidence.`,
+      tone: 'warning',
+      actions: [
+        {
+          label: 'Open mapping',
+          attribute: 'data-case-section-target',
+          value: 'case-mapping-card',
+        },
+      ],
+    });
+  }
+
+  return items;
+}
+
+function buildTrustRows(caseRecord, analysisState) {
+  return [
+    ['Trust state', caseRecord.trust.label],
+    ['Integrity', caseRecord.integrity.ok ? `Checked ${caseRecord.integrity.checked} protected file(s)` : `Mismatch in ${caseRecord.integrity.mismatches.join(', ')}`],
+    ['Manifest signer', deriveSignerLabel(caseRecord.manifest)],
+    ['Review signature', caseRecord.reviewSignature.label],
+    ['Container format', caseRecord.containerFormat || 'Unknown'],
+    ['Automation state', analysisState.label],
+  ];
+}
+
+function buildTrustAlerts(caseRecord, analysisState) {
+  const items = [
+    {
+      eyebrow: 'Integrity',
+      title: caseRecord.trust.label,
+      copy: caseRecord.trust.detail,
+      tone: caseRecord.trust.tone,
+    },
+    {
+      eyebrow: 'Automation',
+      title: analysisState.label,
+      copy: analysisState.detail,
+      tone: analysisState.tone,
+    },
+    {
+      eyebrow: 'Review signature',
+      title: caseRecord.reviewSignature.label,
+      copy: caseRecord.reviewSignature.detail,
+      tone: caseRecord.reviewSignature.tone,
+    },
+  ];
+
+  if (caseRecord.sourceProfile?.kind === 'agt-imported' && (caseRecord.mappingReport?.analysis?.synthesized || caseRecord.analysis?.synthesized)) {
+    items.push({
+      eyebrow: 'Synthesized analysis',
+      title: 'Synthesized',
+      copy: caseRecord.mappingReport?.analysis?.warning || caseRecord.analysis?.warning || 'This analysis was synthesized during import from AGT evidence.',
+      tone: 'warning',
+    });
+  }
+
+  return items;
+}
+
+function buildTransformationAuditView(caseRecord) {
+  const report = caseRecord.mappingReport;
+  const visible = Boolean(caseRecord.sourceProfile?.transformationAuditAvailable && report);
+  if (!visible) {
+    return {
+      visible: false,
+      summary: [],
+      groups: [],
+    };
+  }
+
+  const summary = [];
+  const sourceSummary = report.source_summary || {};
+  const stepTransformation = report.step_transformation || {};
+  const analysisInfo = report.analysis || {};
+
+  if (sourceSummary.has_audit_logs) {
+    summary.push({
+      eyebrow: 'Mapping',
+      title: 'audit_logs -> steps.jsonl',
+      copy: `${sourceSummary.section_counts?.audit_logs || 0} audit log entr${sourceSummary.section_counts?.audit_logs === 1 ? 'y' : 'ies'} were imported into the EPI evidence trail.`,
+      tone: 'neutral',
+    });
+  }
+  if (sourceSummary.has_compliance_report) {
+    summary.push({
+      eyebrow: 'Policy',
+      title: 'ComplianceReport -> policy_evaluation.json',
+      copy: 'Compliance findings were preserved as EPI policy evaluation output.',
+      tone: 'warning',
+    });
+  }
+  if (sourceSummary.has_policy_document) {
+    summary.push({
+      eyebrow: 'Policy',
+      title: 'PolicyDocument -> policy.json',
+      copy: 'The imported AGT policy document is available as a native EPI policy file.',
+      tone: 'neutral',
+    });
+  }
+  summary.push({
+    eyebrow: 'Transformation',
+    title: 'Raw payload preservation',
+    copy: caseRecord.sourceProfile?.rawSourceAvailable
+      ? 'Raw AGT payloads are preserved under attachments.'
+      : 'No raw AGT payloads were embedded in this browser session.',
+    tone: caseRecord.sourceProfile?.rawSourceAvailable ? 'success' : 'warning',
+  });
+  summary.push({
+    eyebrow: 'Dedupe',
+    title: `Duplicates removed: ${stepTransformation.duplicates_removed || 0}`,
+    copy: `Strategy: ${sentenceCase(stepTransformation.dedupe_strategy || 'not recorded')}. Ambiguous conflicts: ${stepTransformation.ambiguous_conflicts || 0}.`,
+    tone: (stepTransformation.ambiguous_conflicts || 0) > 0 ? 'warning' : 'neutral',
+  });
+  if (analysisInfo.synthesized) {
+    summary.push({
+      eyebrow: 'Analysis',
+      title: 'Synthesized',
+      copy: analysisInfo.warning || 'Analysis was synthesized from AGT evidence during import.',
+      tone: 'warning',
+    });
+  }
+
+  const fieldHandling = report.field_handling || {};
+  const groups = [
+    ['exact', 'Exact'],
+    ['translated', 'Translated'],
+    ['derived', 'Derived'],
+    ['synthesized', 'Synthesized'],
+    ['preserved_raw', 'Preserved raw'],
+    ['dropped', 'Dropped'],
+    ['unclassified', 'Unclassified'],
+  ].map(([key, label]) => ({
+    key,
+    label,
+    items: Array.isArray(fieldHandling[key]) ? fieldHandling[key] : [],
+  })).filter((group) => group.items.length > 0);
+
+  return { visible, summary, groups };
+}
+
+function buildAttachmentView(caseRecord) {
+  const groups = Array.isArray(caseRecord.attachmentGroups) ? caseRecord.attachmentGroups : [];
+  return {
+    visible: groups.some((group) => Array.isArray(group.items) && group.items.length > 0),
+    groups,
+  };
+}
+
+function renderCaseSignalItem(item) {
+  return `
+    <article class="case-snapshot-item tone-panel-${escapeHtml(item.tone || 'neutral')}">
+      <span class="case-snapshot-label">${escapeHtml(item.label)}</span>
+      <strong class="case-snapshot-value">${escapeHtml(item.value)}</strong>
+      <p class="case-snapshot-copy">${escapeHtml(item.copy)}</p>
+    </article>
+  `;
+}
+
+function renderTransformationAudit(caseRecord, mappingView) {
+  if (!mappingView.visible) {
+    elements.caseMappingSummary.innerHTML = `
+      <article class="stack-item tone-panel-neutral">
+        <p class="stack-copy">No transformation audit was attached to this case. Native EPI recordings stay readable without imported-source provenance.</p>
+      </article>
+    `;
+    elements.caseMappingGroups.innerHTML = '';
+    return;
+  }
+
+  elements.caseMappingSummary.innerHTML = mappingView.summary.map(renderStackItem).join('');
+  elements.caseMappingGroups.innerHTML = mappingView.groups.map((group) => {
+    const items = group.items.slice(0, 10).map((item) => renderMappingRow(item, caseRecord)).join('');
+    return `
+      <section class="mapping-group">
+        <div class="mapping-group-header">
+          <div>
+            <p class="card-label">${escapeHtml(group.label)}</p>
+            <h4>${escapeHtml(group.items.length)} mapped field${group.items.length === 1 ? '' : 's'}</h4>
+          </div>
+          ${renderBadge(group.label, group.key === 'dropped' || group.key === 'unclassified' ? 'warning' : group.key === 'synthesized' ? 'warning' : 'neutral')}
+        </div>
+        ${items}
+      </section>
+    `;
+  }).join('');
+}
+
+function renderMappingRow(item, caseRecord) {
+  const mappedTo = item.mapped_to || 'Not recorded';
+  const actions = [];
+  if (String(mappedTo).startsWith('artifacts/')) {
+    actions.push({
+      label: 'Open raw source',
+      attribute: 'data-attachment-focus',
+      value: mappedTo,
+    });
+  } else if (caseRecord.traceability?.primaryStepNumber) {
+    actions.push({
+      label: `Jump to step ${caseRecord.traceability.primaryStepNumber}`,
+      attribute: 'data-trace-step',
+      value: String(caseRecord.traceability.primaryStepNumber),
+    });
+  }
+  return `
+    <article class="mapping-row">
+      <div class="mapping-pair">
+        <strong>${escapeHtml(item.section || 'Source section')} -> ${escapeHtml(item.field || 'field')}</strong>
+        <span class="mapping-arrow">${escapeHtml(mappedTo)}</span>
+      </div>
+      <p class="stack-copy">${escapeHtml(item.notes || `Count: ${item.count || 0}`)}</p>
+      ${renderInlineActions(actions)}
+    </article>
+  `;
+}
+
+function renderAttachmentGroups(caseRecord, attachmentView) {
+  if (!attachmentView.visible) {
+    elements.caseAttachments.innerHTML = `
+      <article class="attachment-group tone-panel-neutral">
+        <p class="stack-copy">No extra attachments are available in this browser session.</p>
+      </article>
+    `;
+    return;
+  }
+
+  elements.caseAttachments.innerHTML = attachmentView.groups.map((group) => {
+    const items = group.items.map((item) => {
+      const isHighlighted = state.caseHighlights.attachmentName === item.name;
+      const actions = [];
+      if (item.previewable) {
+        actions.push({
+          label: 'Preview',
+          attribute: 'data-attachment-preview',
+          value: item.name,
+        });
+      }
+      actions.push({
+        label: 'Download',
+        attribute: 'data-attachment-download',
+        value: item.name,
+      });
+      return `
+        <article class="attachment-item ${isHighlighted ? 'is-highlighted' : ''}">
+          <strong>${escapeHtml(item.name)}</strong>
+          <p class="stack-copy">${escapeHtml(item.previewable ? 'Previewable locally as text or JSON.' : 'Binary or structured attachment. Download to inspect further.')}</p>
+          ${renderInlineActions(actions)}
+        </article>
+      `;
+    }).join('');
+
+    return `
+      <section class="attachment-group">
+        <div class="attachment-group-header">
+          <div>
+            <p class="card-label">${escapeHtml(group.label)}</p>
+            <h4>${escapeHtml(group.items.length)} attachment${group.items.length === 1 ? '' : 's'}</h4>
+          </div>
+        </div>
+        ${items || '<p class="helper-copy">No attachments in this group.</p>'}
+      </section>
+    `;
+  }).join('');
+}
+
+function renderAttachmentPreview(caseRecord) {
+  const preview = state.attachmentPreviewCache[caseRecord.id] || null;
+  if (!preview) {
+    elements.attachmentPreviewTitle.textContent = 'No attachment selected';
+    elements.attachmentPreviewMeta.textContent = 'Select a JSON or text attachment to preview it locally, or download any attachment without leaving the browser.';
+    elements.attachmentPreviewBody.textContent = '';
+    return;
+  }
+  elements.attachmentPreviewTitle.textContent = preview.name;
+  elements.attachmentPreviewMeta.textContent = preview.meta;
+  elements.attachmentPreviewBody.textContent = preview.content;
+}
+
+function setCaseSectionVisible(sectionId, visible) {
+  const panel = document.getElementById(sectionId);
+  if (panel) {
+    panel.hidden = !visible;
+  }
+  const navButton = elements.caseSectionNav?.querySelector(`[data-case-section-target="${sectionId}"]`);
+  if (navButton) {
+    navButton.hidden = !visible;
+  }
+  if (!visible && state.activeCaseSection === sectionId) {
+    state.activeCaseSection = 'case-overview-card';
+  }
+}
+
+function scrollToActiveCaseSectionIfNeeded() {
+  document.querySelectorAll('.case-section-button').forEach((button) => {
+    if (button.hidden) {
+      return;
+    }
+    button.classList.toggle('active', button.dataset.caseSectionTarget === state.activeCaseSection);
+  });
+}
+
+function highlightCaseStep(stepNumber) {
+  if (!stepNumber) {
+    return;
+  }
+  state.caseHighlights.stepNumber = stepNumber;
+  state.activeCaseSection = 'case-evidence-card';
+  renderCaseView();
+  scrollToCaseSection('case-evidence-card');
+}
+
+function focusCaseAttachment(name) {
+  if (!name) {
+    return;
+  }
+  state.caseHighlights.attachmentName = name;
+  state.activeCaseSection = 'case-attachments-card';
+  renderCaseView();
+  scrollToCaseSection('case-attachments-card');
+}
+
+async function previewCaseAttachment(name) {
+  const caseRecord = getSelectedCase();
+  if (!caseRecord || !name) {
+    return;
+  }
+  const bytes = await readCaseAttachmentBytes(caseRecord, name);
+  const previewText = decodePreviewText(bytes);
+  state.attachmentPreviewCache[caseRecord.id] = {
+    name,
+    meta: `${name} | ${previewText.truncated ? 'Preview truncated for local reading.' : 'Full local preview.'}`,
+    content: previewText.content,
+  };
+  focusCaseAttachment(name);
+}
+
+async function downloadCaseAttachment(name) {
+  const caseRecord = getSelectedCase();
+  if (!caseRecord || !name) {
+    return;
+  }
+  const bytes = await readCaseAttachmentBytes(caseRecord, name);
+  downloadBlob(name.split('/').pop() || name, bytes, guessMimeType(name));
+}
+
+async function readCaseAttachmentBytes(caseRecord, name) {
+  if (caseRecord.embeddedFiles?.[name]) {
+    return caseRecord.embeddedFiles[name].slice(0);
+  }
+  if (caseRecord.archiveBytes) {
+    const zip = await JSZip.loadAsync(caseRecord.archiveBytes.slice(0));
+    const entry = zip.file(name);
+    if (!entry) {
+      throw new Error(`${name} is not available in this browser session.`);
+    }
+    return await entry.async('uint8array');
+  }
+  throw new Error('This browser session does not include that attachment.');
+}
+
+function decodePreviewText(bytes) {
+  try {
+    const text = new TextDecoder().decode(bytes);
+    const truncated = text.length > 4000;
+    return {
+      content: truncated ? `${text.slice(0, 4000)}\n\n...` : text,
+      truncated,
+    };
+  } catch (_error) {
+    return {
+      content: 'Preview unavailable for this attachment type.',
+      truncated: false,
+    };
+  }
+}
+
+function guessMimeType(name) {
+  if (/\.json$/i.test(name)) {
+    return 'application/json';
+  }
+  if (/\.jsonl$/i.test(name) || /\.log$/i.test(name) || /\.txt$/i.test(name) || /\.md$/i.test(name)) {
+    return 'text/plain;charset=utf-8';
+  }
+  return 'application/octet-stream';
+}
+
 function buildGuidanceItems(tone, items) {
   const sequenceLabels = ['Start here', 'Then', 'Finish with'];
   return items.map((item, index) => ({
@@ -5498,6 +6364,15 @@ function buildFindings(caseRecord) {
       meta: 'Read this before making the human decision.',
       tone: 'danger',
       badges: buildFaultBadges(caseRecord.analysis.primary_fault),
+      actions: caseRecord.analysis.primary_fault.step_number
+        ? [
+          {
+            label: `Show step ${caseRecord.analysis.primary_fault.step_number}`,
+            attribute: 'data-trace-step',
+            value: String(caseRecord.analysis.primary_fault.step_number),
+          },
+        ]
+        : [],
     });
   }
 
@@ -5509,6 +6384,15 @@ function buildFindings(caseRecord) {
       meta: 'Additional context that may change the review outcome.',
       tone: 'warning',
       badges: buildFaultBadges(flag),
+      actions: flag.step_number
+        ? [
+          {
+            label: `Show step ${flag.step_number}`,
+            attribute: 'data-trace-step',
+            value: String(flag.step_number),
+          },
+        ]
+        : [],
     });
   });
 
@@ -5550,6 +6434,15 @@ function buildFindings(caseRecord) {
       copy: latest?.notes || 'Review notes are attached to this case.',
       meta: latest?.timestamp ? `Saved ${formatDate(latest.timestamp)}` : 'Review attached to this case.',
       tone: 'success',
+      actions: latest?.fault_step
+        ? [
+          {
+            label: `Trace review to step ${latest.fault_step}`,
+            attribute: 'data-trace-step',
+            value: String(latest.fault_step),
+          },
+        ]
+        : [],
     });
   }
 
@@ -5685,6 +6578,8 @@ function buildTimeline(caseRecord) {
     kicker: `Step ${index + 1}`,
     tone: timelineToneForKind(step.kind),
     badges: buildTimelineBadges(step.kind, step.content || {}),
+    highlighted: state.caseHighlights.stepNumber === index + 1,
+    actions: buildTimelineActions(step, index + 1, caseRecord),
   }));
   const activityItems = (Array.isArray(caseRecord.activity) ? caseRecord.activity : []).map((item) => ({
     title: item.title || sentenceCase(String(item.kind || 'activity').replace(/_/g, ' ')),
@@ -5716,6 +6611,29 @@ function buildTimeline(caseRecord) {
     ];
   }
   return combined.map(({ sortTime, ...item }) => item);
+}
+
+function buildTimelineActions(step, stepNumber, caseRecord) {
+  const actions = [];
+  const ruleId = step.content?.matched_rule || step.content?.rule_id || null;
+  if (ruleId) {
+    actions.push({
+      label: `Rule ${ruleId}`,
+      attribute: 'data-case-section-target',
+      value: 'case-policy-card',
+    });
+  }
+  if (caseRecord.sourceProfile?.kind === 'agt-imported' && step.content?.source_ref?.section) {
+    const attachmentName = `artifacts/agt/${step.content.source_ref.section}.json`;
+    if (caseRecord.traceability?.sourceAttachmentNames?.includes(attachmentName)) {
+      actions.push({
+        label: 'Open raw source',
+        attribute: 'data-attachment-focus',
+        value: attachmentName,
+      });
+    }
+  }
+  return actions;
 }
 
 function timelineToneForKind(kind) {
@@ -6205,18 +7123,36 @@ function renderCaseSnapshotItem(item) {
   `;
 }
 
+function renderInlineActions(actions) {
+  if (!Array.isArray(actions) || !actions.length) {
+    return '';
+  }
+  return `
+    <div class="mapping-row-actions">
+      ${actions.map((action) => {
+        const attribute = escapeHtml(action.attribute || '');
+        const value = escapeHtml(action.value || '');
+        const label = escapeHtml(action.label || 'Open');
+        return `<button class="text-button inline-button" type="button" ${attribute}="${value}">${label}</button>`;
+      }).join('')}
+    </div>
+  `;
+}
+
 function renderStackItem(item) {
   const tone = item.tone || 'neutral';
   const eyebrow = item.eyebrow ? `<p class="stack-eyebrow">${escapeHtml(item.eyebrow)}</p>` : '';
   const meta = item.meta ? `<p class="stack-meta">${escapeHtml(item.meta)}</p>` : '';
   const badges = renderBadgeRow(item.badges);
+  const actions = renderInlineActions(item.actions);
   return `
-    <article class="stack-item tone-panel-${escapeHtml(tone)}">
+    <article class="stack-item tone-panel-${escapeHtml(tone)} ${item.highlighted ? 'is-highlighted' : ''}">
       ${eyebrow}
       <h4>${escapeHtml(item.title)}</h4>
       <p class="stack-copy">${escapeHtml(item.copy)}</p>
       ${meta}
       ${badges}
+      ${actions}
     </article>
   `;
 }
@@ -6225,8 +7161,9 @@ function renderTimelineItem(item) {
   const tone = item.tone || 'neutral';
   const kicker = item.kicker ? `<span class="timeline-kicker">${escapeHtml(item.kicker)}</span>` : '';
   const badges = renderBadgeRow(item.badges);
+  const actions = renderInlineActions(item.actions);
   return `
-    <article class="timeline-item tone-panel-${escapeHtml(tone)}">
+    <article class="timeline-item tone-panel-${escapeHtml(tone)} ${item.highlighted ? 'is-highlighted' : ''}">
       <div class="timeline-top">
         <div class="timeline-heading">
           ${kicker}
@@ -6236,6 +7173,7 @@ function renderTimelineItem(item) {
       </div>
       ${badges}
       <div class="timeline-content">${escapeHtml(item.copy)}</div>
+      ${actions}
     </article>
   `;
 }

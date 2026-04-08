@@ -7,7 +7,7 @@
 
 ## Start Here
 
-Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes.
+Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, start with:
 
@@ -29,7 +29,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 
 | Command | Purpose |
 | --- | --- |
-| `epi demo` | Start the sample refund workflow and the full repro loop in the browser. Recommended first run. |
+| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. |
 | `epi import agt <bundle.json> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
@@ -89,6 +89,13 @@ What you should see in the resulting artifact:
 - `analysis.json` - synthesized findings when analysis is enabled
 - `artifacts/agt/mapping_report.json` - transformation audit and provenance report
 
+What you should see in the viewer:
+
+- `Source system: AGT`
+- `Import mode: EPI`
+- `Overview`, `Evidence`, `Policy`, `Review`, `Mapping`, `Trust`, and `Attachments`
+- a transformation audit that shows what EPI preserved, translated, derived, or synthesized
+
 For the public walkthrough, see [`AGT-IMPORT-QUICKSTART.md`](AGT-IMPORT-QUICKSTART.md).
 
 ---
@@ -141,6 +148,14 @@ itself remains a binary artifact container; browsers do not execute the
 embedded `viewer.html` directly from inside the `.epi` file.
 
 `epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
+
+The viewer is case-first. Expect the loaded artifact to open into:
+
+- `Overview` for decision, reason, review state, and trust state
+- `Evidence` for the step trail, tool calls, and model output
+- `Policy` and `Review` when those layers are present
+- `Mapping` for imported evidence such as AGT transformations
+- `Trust` for signature and integrity details
 
 ---
 

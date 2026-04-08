@@ -586,16 +586,23 @@ def test10_viewer() -> TestResult:
         "policy_evaluation" in html or "Policy Compliance" in html or "policy evaluation" in html.lower(),
         "viewer.html is missing policy evaluation data.",
     )
-    has_external = "https://" in html or "http://" in html
+    disallowed_patterns = (
+        r"""<script\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""<link\b[^>]*\bhref=["'](?:https?:)?//""",
+        r"""<(?:img|audio|video|source|embed|iframe)\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""fetch\(\s*["'`](?:https?:)?//""",
+        r"""import\(\s*["'`](?:https?:)?//""",
+    )
+    has_external = any(re.search(pattern, html, flags=re.IGNORECASE) for pattern in disallowed_patterns)
     result.extra["browser_launch_observable"] = any(
         marker in view_run.stdout for marker in ("Opened:", "Browser opened", "http://127.0.0.1")
     )
     result.extra["external_dependencies_found"] = has_external
     if has_external:
-        result.add_note("viewer.html includes external dependencies.")
+        result.add_note("viewer.html includes external runtime dependencies.")
     else:
-        result.add_note("viewer.html appears self-contained.")
-    require(not has_external, "viewer.html contains external dependencies.")
+        result.add_note("viewer.html appears self-contained with no external runtime dependencies.")
+    require(not has_external, "viewer.html contains external runtime dependencies.")
     result.add_artifact(viewer_html)
     result.status = "PASS"
     result.save()

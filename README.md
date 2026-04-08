@@ -68,9 +68,11 @@ epi demo
 Runs a sample refund workflow and gives you the full developer repro loop:
 
 1. Capture an AI agent run into a portable `.epi` artifact
-2. Open the flagged case in the browser review view
+2. Open a case-first browser view with `Overview`, `Evidence`, `Policy`, `Review`, and `Trust`
 3. Approve, reject, or escalate - like a teammate reviewing a bug
 4. Export and cryptographically verify the same `.epi` file
+
+The first screen is designed to answer four things fast: what happened, why it happened, whether human action is required, and whether the file can be trusted.
 
 > Already have an OpenAI key? Set `OPENAI_API_KEY` and the demo uses the real API.
 
@@ -118,6 +120,13 @@ What you should see in the resulting artifact:
 - `analysis.json` - synthesized findings for `epi review` when analysis is enabled
 - `artifacts/agt/mapping_report.json` - the transformation audit that shows what was copied exactly, translated, derived, or synthesized
 
+What you should see in the viewer:
+
+- `Source system: AGT` and `Import mode: EPI` at the top of the case
+- a case-first `Overview` with decision, review state, and trust state
+- `Mapping` / transformation audit details that show what EPI preserved, translated, or synthesized
+- raw AGT payloads grouped under attachments for local inspection
+
 Start with the public quickstart in [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md), then use [examples/agt/README.md](examples/agt/README.md) for the sample bundle details.
 
 ---
@@ -151,7 +160,14 @@ from openai import OpenAI
 
 client = wrap_openai(OpenAI())
 
-with record("my_agent.epi"):
+with record(
+    "my_agent.epi",
+    workflow_name="Trip planner investigation",
+    tags=["travel", "customer-facing"],
+    goal="Propose a safe Tokyo itinerary for the traveler.",
+    notes="Starter example for the case investigation viewer.",
+    metadata_tags=["travel", "customer-facing"],
+):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Plan a trip to Tokyo"}]
@@ -166,12 +182,25 @@ epi view --extract ./review my_agent.epi   # writes a self-contained viewer.html
 epi verify my_agent.epi  # cryptographic integrity check
 ```
 
+What opens in the browser:
+
+- `Overview` - decision, reason, review state, and trust state
+- `Evidence` - the execution trail, tool calls, model output, and supporting artifacts
+- `Policy` - attached rulebook and evaluation output when present
+- `Mapping` - provenance and transformation audit for imported evidence like AGT
+- `Trust` - signature, integrity, and review verification details
+
 ### Record a full agent run with approvals and tool calls
 
 ```python
 from epi_recorder import record
 
-with record("refund_agent.epi", goal="Resolve customer refund safely") as epi:
+with record(
+    "refund_agent.epi",
+    workflow_name="Refund approval investigation",
+    goal="Resolve customer refund safely",
+    metadata_tags=["refund", "approval"],
+) as epi:
     with epi.agent_run(
         "refund-agent",
         user_input="Refund order 123",

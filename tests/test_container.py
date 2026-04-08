@@ -7,6 +7,7 @@ Tests the core .epi file format creation and extraction logic.
 import shutil
 import zipfile
 from pathlib import Path
+import re
 
 import pytest
 
@@ -33,6 +34,27 @@ def _legacy_copy(tmp_path: Path, artifact_path: Path) -> Path:
         artifact_path, legacy_path, container_format=EPI_CONTAINER_FORMAT_LEGACY
     )
     return legacy_path
+
+
+def _assert_no_external_runtime_dependencies(viewer_html: str) -> None:
+    """Reject actual external runtime loads, not harmless URL-like text.
+
+    Placeholder/example values such as localhost bridge URLs and vendored
+    license/comment URLs inside inline JS are allowed because they do not cause
+    network access when the extracted viewer loads.
+    """
+    disallowed_patterns = (
+        r"""<script\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""<link\b[^>]*\bhref=["'](?:https?:)?//""",
+        r"""<(?:img|audio|video|source|embed|iframe)\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""fetch\(\s*["'`](?:https?:)?//""",
+        r"""import\(\s*["'`](?:https?:)?//""",
+    )
+    for pattern in disallowed_patterns:
+        assert not re.search(pattern, viewer_html, flags=re.IGNORECASE), (
+            "viewer.html contains an external runtime dependency pattern: "
+            f"{pattern}"
+        )
 
 
 class TestEPIContainer:
@@ -398,7 +420,7 @@ class TestEPIContainer:
         assert names.count("mimetype") == 1
 
     def test_embedded_viewer_inlines_css_and_javascript(self, temp_workspace, sample_files):
-        """Generated viewer.html must be fully self-contained for offline opening."""
+        """Generated viewer.html must be self-contained and offline-safe."""
         steps_file = sample_files / "steps.jsonl"
         steps_file.write_text(
             '{"index": 0, "kind": "session.start", "content": {"workflow_name": "Demo"}, "timestamp": "2025-01-01T00:00:00"}\n'
@@ -416,26 +438,29 @@ class TestEPIContainer:
         assert ".app-footer" in viewer_html
         assert "<script>" in viewer_html
         assert "async function initApp()" in viewer_html
+        _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert '<script src="../epi_viewer_static/crypto.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "cdn.jsdelivr.net/npm/jszip" not in viewer_html
+        assert "http://127.0.0.1:8765" in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "EPI Case Review" in viewer_html
-        assert "Inbox" in viewer_html
-        assert "Decision Summary" in viewer_html
-        assert "Human review" in viewer_html
+        assert "EPI Case Investigation" in viewer_html
+        assert "Queue" in viewer_html
+        assert "Case investigation" in viewer_html
+        assert "Review" in viewer_html
         assert "Download reviewed case file (.epi)" in viewer_html
         assert "Download review notes" in viewer_html
         assert "Download decision summary" in viewer_html
         assert "Signing key (optional)" in viewer_html
-        assert "Readable rules for this workflow" in viewer_html
+        assert "Refine the rulebook behind this workflow" in viewer_html
         assert "Download rule file (epi_policy.json)" in viewer_html
         assert "Build a real rulebook for this workflow" in viewer_html
         assert "Turn business controls into enforceable EPI rules" in viewer_html
-        assert "Export a business-readable record" in viewer_html
-        assert "Record integrity and review" in viewer_html
+        assert "Export a readable decision record" in viewer_html
+        assert "Transformation audit" in viewer_html
+        assert "Verify the file, signatures, and review chain" in viewer_html
         assert "Verify source" in viewer_html
         assert "Opened the packaged case file" in viewer_html
         assert '"files"' in viewer_html

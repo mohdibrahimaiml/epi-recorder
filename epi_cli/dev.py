@@ -76,8 +76,29 @@ class _MockClient:
     chat = _MockChat()
 
 
+DEMO_WORKFLOW_NAME = "Refund approval investigation"
+DEMO_TAGS = ["demo", "refund", "human-review"]
+DEMO_GOAL = "Decide whether a high-value refund should be approved safely."
+DEMO_NOTES = (
+    "Starter case for the EPI investigation viewer. "
+    "Shows a refund decision, supporting evidence, and a required human review handoff."
+)
+DEMO_METRICS = {
+    "refund_amount_usd": 900.0,
+    "manager_review_threshold_usd": 500.0,
+}
+
+
 def run_refund_agent():
-    with record("demo_refund.epi"):
+    with record(
+        "demo_refund.epi",
+        workflow_name=DEMO_WORKFLOW_NAME,
+        tags=DEMO_TAGS,
+        goal=DEMO_GOAL,
+        notes=DEMO_NOTES,
+        metrics=DEMO_METRICS,
+        metadata_tags=DEMO_TAGS,
+    ):
         from epi_recorder import get_current_session
         session = get_current_session()
 
@@ -86,7 +107,17 @@ def run_refund_agent():
                 "agent_name": "RefundApprovalAgent",
                 "agent_type": "decision",
                 "user_input": "Process refund for order ORD-9001 ($900)",
-                "goal": "Determine whether to approve or reject the refund",
+                "goal": DEMO_GOAL,
+            })
+            session.log_step("policy.check", {
+                "policy_name": "high_value_refund_review",
+                "rule": "Refunds above $500 require human review before payout.",
+                "result": "review_required",
+                "evidence": {
+                    "order_id": "ORD-9001",
+                    "amount_usd": 900,
+                    "threshold_usd": 500,
+                },
             })
 
         if session:
@@ -101,6 +132,7 @@ def run_refund_agent():
                     "amount_usd": 900,
                     "customer_status": "gold",
                     "days_since_purchase": 12,
+                    "review_threshold_usd": 500,
                 },
                 "status": "success",
             })
@@ -159,6 +191,13 @@ def run_refund_agent():
                 "confidence": 0.94,
                 "rationale": answer,
                 "review_required": True,
+                "review_reason": "Refund exceeds the auto-approval threshold.",
+                "severity": "medium",
+            })
+            session.log_step("review.handoff", {
+                "queue": "refund-managers",
+                "reason": "Human review required for refunds above $500.",
+                "requested_action": "Approve or reject the payout.",
             })
             session.log_step("agent.run.end", {
                 "agent_name": "RefundApprovalAgent",
@@ -241,16 +280,16 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
         worker = EvidenceWorker(storage_dir=storage_dir)
         payload = {
             "id": case_id,
-            "title": "[Live captured] Refund ORD-9001 - $900 (Gold customer, 12 days)",
+            "title": "[Live captured] Refund approval investigation - ORD-9001",
             "created_at": created_at,
             "manifest": manifest,
             "steps": steps,
             "analysis": {
                 "review_required": True,
                 "summary": (
-                    "Agent approved $900 refund for Gold customer. "
-                    "Order ORD-9001, 12 days since purchase. Confidence: 94%. "
-                    "Awaiting human review."
+                    "Agent approved a $900 refund for Gold customer ORD-9001. "
+                    "Human review is still required because the amount exceeds the $500 threshold. "
+                    "Confidence: 94%."
                 ),
             },
         }
