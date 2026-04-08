@@ -9,6 +9,8 @@ from epi_core.container import EPIContainer
 
 runner = CliRunner()
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "agt"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEMO_BUNDLE = REPO_ROOT / "examples" / "agt-epi-demo" / "sample_annex_bundle.json"
 
 
 def _fixture_path(name: str) -> Path:
@@ -162,3 +164,28 @@ class TestAGTImportCLI:
         review_payload = EPIContainer.read_member_json(output_path, "review.json")
 
         assert review_payload["reviews"][0]["outcome"] == "confirmed_fault"
+
+    def test_demo_bundle_round_trip_contains_expected_artifact_members(self, tmp_path):
+        output_path = tmp_path / "demo_case.epi"
+        with patch("epi_cli.keys.generate_default_keypair_if_missing", return_value=False):
+            result = runner.invoke(
+                cli_app,
+                [
+                    "import",
+                    "agt",
+                    str(DEMO_BUNDLE),
+                    "--out",
+                    str(output_path),
+                    "--no-sign",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        names = set(EPIContainer.list_members(output_path))
+        assert "steps.jsonl" in names
+        assert "policy.json" in names
+        assert "policy_evaluation.json" in names
+        assert "analysis.json" in names
+        assert "artifacts/annex_iv.md" in names
+        assert "artifacts/annex_iv.json" in names
+        assert "artifacts/agt/mapping_report.json" in names
+        assert "artifacts/agt/bundle.json" in names

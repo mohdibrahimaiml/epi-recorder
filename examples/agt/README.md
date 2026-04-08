@@ -33,4 +33,10 @@ For a stricter import that fails on unknown mappings or ambiguous dedupe cases:
 epi import agt examples/agt/sample_bundle.json --out strict.epi --strict --dedupe fail
 ```
 
+For the maintainer-facing prototype kit that frames this bundle as the future Annex IV exporter extension target, see:
+
+- [`examples/agt-epi-demo/README.md`](../agt-epi-demo/README.md)
+- [`docs/agt-epi/README.md`](../../docs/agt-epi/README.md)
+- [`docs/agt-epi/artifact-rfc.md`](../../docs/agt-epi/artifact-rfc.md)
+
 For the public walkthrough, see [docs/AGT-IMPORT-QUICKSTART.md](../../docs/AGT-IMPORT-QUICKSTART.md).

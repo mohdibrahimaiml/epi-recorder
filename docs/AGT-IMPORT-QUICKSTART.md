@@ -2,6 +2,10 @@
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` case file.
 
+Related docs:
+- [AGT + .EPI docs](agt-epi/README.md)
+- [AGT -> EPI Demo](../examples/agt-epi-demo/README.md)
+
 ---
 
 ## 1. Install
@@ -96,4 +100,6 @@ That means a reviewer can answer both:
 - [CLI Reference](CLI.md)
 - [EPI Specification](EPI-SPEC.md)
 - [AGT example bundle details](../examples/agt/README.md)
+- [AGT -> EPI demo kit](../examples/agt-epi-demo/README.md)
+- [RFC: AGT -> EPI portable artifact layer](rfc/agt-epi-artifact.md)
 - [Flagship product explainer](EPI-DOC-v4.0.0.md)
