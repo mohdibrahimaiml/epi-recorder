@@ -2,17 +2,28 @@
 
 ## Problem
 
-AGT currently lacks a **single portable, sealed, independently verifiable case artifact**.
+AGT currently cannot produce a **single portable, sealed, independently verifiable case artifact**.
 
-Today, its compliance evidence is spread across in-memory structures, SQLite audit logs, and Annex IV Markdown/JSON exports. Those outputs are useful, but they are not one portable object a reviewer, auditor, or regulator can reopen later with full trust.
+Today, its compliance evidence is spread across in-memory structures, SQLite audit logs, and Annex IV Markdown/JSON exports.
 
-Before:
-- in-memory structures
-- SQLite audit logs
-- Annex IV Markdown/JSON exports
+Those outputs are useful, but they require manual reconstruction to understand or audit a decision.
 
-After:
-- one `.epi` file with trace, policy, trust, and source evidence
+There is no single artifact a reviewer, auditor, or regulator can reopen later with full trust.
+
+## Before vs After
+
+### Before
+
+- fragmented evidence across logs and exports
+- no integrity guarantees
+- difficult audit handoff
+
+### After
+
+- one `.epi` file
+- full execution trace and policy evaluation
+- preserved source evidence
+- independently verifiable integrity
 
 ## Proposal
 
@@ -39,13 +50,15 @@ EPI Adapter
 .epi artifact
 ```
 
-The AGT runtime stays unchanged. The Annex IV exporter remains the producer. The EPI adapter adds a portable artifact layer on top.
+AGT remains unchanged.
+The Annex IV exporter remains the producer.
+EPI adds a portable artifact layer on top.
 
 ## Evidence Mapping
 
 | AGT Evidence | EPI Output |
 | --- | --- |
-| `ComplianceReport` | `policy_evaluation.json` plus analysis/decision context |
+| `ComplianceReport` | `policy_evaluation.json` plus decision context |
 | `PolicyDocument` | `policy.json` |
 | `audit_logs` | `steps.jsonl` |
 | `flight_recorder` | `steps.jsonl` |
@@ -60,12 +73,12 @@ The AGT runtime stays unchanged. The Annex IV exporter remains the producer. The
 
 EPI is a container layer, not a competing standard.
 
-It can align conceptually with:
-- `SLSA` for provenance
-- `Sigstore` for signing and verification interoperability
-- optional `CycloneDX` exports where component evidence is relevant
+It aligns with:
+- `SLSA` -> provenance
+- `Sigstore` -> signing and verification
+- `CycloneDX` -> optional structured evidence
 
-The goal is not to replace those standards. The goal is to package AGT evidence into one portable case artifact that can carry or reference them.
+The goal is not to replace standards, but to package AGT evidence into one portable case artifact.
 
 ## Minimal Flow
 
@@ -77,7 +90,7 @@ epi verify case.epi
 epi view case.epi
 ```
 
-Future AGT-side target:
+Future AGT integration:
 - the Annex IV exporter emits this bundle shape directly
 - or the Annex IV exporter calls an equivalent EPI adapter
 
@@ -86,6 +99,8 @@ Future AGT-side target:
 - portable compliance evidence
 - verifiable audit handoff
 - local investigation
-- regulator- and reviewer-readable case artifact
+- regulator- and reviewer-ready case artifact
+
+AGT evidence becomes a single, trusted case file instead of scattered logs and exports.
 
 ![AGT evidence reopened as one portable case file with policy, evidence, trust, and transformation audit.](../assets/agt-epi-demo-case-view.png)
