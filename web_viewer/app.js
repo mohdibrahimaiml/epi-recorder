@@ -4,6 +4,7 @@ const state = {
   cases: [],
   currentView: 'inbox',
   selectedCaseId: null,
+  embeddedArtifactMode: false,
   activeCaseSection: 'case-overview-card',
   caseHighlights: {
     stepNumber: null,
@@ -869,12 +870,13 @@ async function loadPreloadedCases() {
 
     mergeCases(hydratedCases);
     applyPreloadedUiState(uiState);
+    const shouldUseEmbeddedArtifactMode = openedFromArtifact || Boolean(uiState?.embeddedArtifactMode);
     if (hydratedCases.length) {
       state.selectedCaseId = hydratedCases[0].id;
       if ((!uiState || !uiState.view) && state.currentView === 'inbox') {
         state.currentView = 'case';
       }
-      if (openedFromArtifact) {
+      if (shouldUseEmbeddedArtifactMode) {
         state.currentView = 'case';
         configureEmbeddedArtifactMode();
         setStatus('Opened the packaged case file. A reviewed .epi download is ready, and source verification can be refreshed through epi view.', 'success');
@@ -1583,9 +1585,8 @@ function resetWorkspace() {
 }
 
 function configureEmbeddedArtifactMode() {
-  if (typeof JSZip !== 'undefined') {
-    return;
-  }
+  state.embeddedArtifactMode = true;
+  document.body.classList.add('embedded-artifact-mode');
 
   elements.addFilesButton.disabled = true;
   elements.dropZone.classList.add('disabled');
@@ -1596,6 +1597,8 @@ function configureEmbeddedArtifactMode() {
 }
 
 function resetImportControls() {
+  state.embeddedArtifactMode = false;
+  document.body.classList.remove('embedded-artifact-mode');
   elements.addFilesButton.disabled = false;
   elements.dropZone.classList.remove('disabled');
   elements.dropZone.removeAttribute('aria-disabled');
@@ -1783,6 +1786,9 @@ function applyPreloadedUiState(uiState) {
 
   if (['inbox', 'case', 'rules', 'reports'].includes(uiState.view)) {
     state.currentView = uiState.view;
+  }
+  if (typeof uiState.embeddedArtifactMode === 'boolean') {
+    state.embeddedArtifactMode = uiState.embeddedArtifactMode;
   }
 }
 

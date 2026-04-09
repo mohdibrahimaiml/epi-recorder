@@ -1,0 +1,17 @@
+[
+  {
+    "id": 17,
+    "trace_id": "trace-agt-001",
+    "timestamp": "2026-04-06T10:00:10Z",
+    "agent_id": "claims-agent-01",
+    "tool_name": "issue_denial_notice",
+    "tool_args": "{\"claim_id\": \"CLM-2026-001\"}",
+    "input_prompt": "Deny claim CLM-2026-001",
+    "policy_verdict": "blocked",
+    "violation_reason": "High-risk claim requires supervisor approval",
+    "result": null,
+    "execution_time_ms": 11.2,
+    "entry_hash": "4bb98d66564ab0bd2dd24d8da77a0d91e3ec2d5375ad74ba56373a2f2079f5d4",
+    "previous_hash": "a27f52d3ca1b3c7c64d7a0ea9f8a13ecfd16ddf817da5f96fdabc8b7c540bd25"
+  }
+]

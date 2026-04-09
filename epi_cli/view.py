@@ -372,7 +372,13 @@ def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str
     if not template_html or jszip_js is None or app_js is None or css_styles is None or crypto_js is None:
         raise FileNotFoundError("Decision viewer assets are not available in this install.")
 
-    payload = {"cases": [_build_preloaded_case_payload(extracted_dir, resolved_path)]}
+    payload = {
+        "cases": [_build_preloaded_case_payload(extracted_dir, resolved_path)],
+        "ui": {
+            "view": "case",
+            "embeddedArtifactMode": True,
+        },
+    }
     payload_json = _html_safe_json_dumps(payload, indent=2)
     preload_tag = f'<script id="epi-preloaded-cases" type="application/json">{payload_json}</script>'
 

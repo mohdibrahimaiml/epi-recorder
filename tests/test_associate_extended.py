@@ -27,6 +27,7 @@ from epi_core.platform.associate import (
     _clear_registered,
     get_association_diagnostics,
     register_file_association,
+    register_windows,
     unregister_file_association,
 )
 
@@ -182,6 +183,25 @@ class TestIsAssociationBroken:
             result = _is_association_broken()
         assert result is False
 
+    def test_windows_legacy_browser_command_counts_as_healthy(self):
+        snapshot = {
+            "user_choice": None,
+            "hkcu_progid": "EPIRecorder.File",
+            "hklm_progid": None,
+            "hkcu_command": '"C:\\Users\\dell\\epi.exe" view --browser "%1"',
+            "hklm_command": None,
+            "effective_scope": "HKCU",
+            "effective_progid": "EPIRecorder.File",
+            "registered_command": '"C:\\Users\\dell\\epi.exe" view --browser "%1"',
+        }
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate._get_windows_association_snapshot", return_value=snapshot), \
+             patch("epi_core.platform.associate._get_user_open_command",
+                   return_value='"C:\\Users\\dell\\epi.exe" view "%1"'), \
+             patch("epi_core.platform.associate.Path.exists", return_value=True):
+            result = _is_association_broken()
+        assert result is False
+
     def test_darwin_app_missing_returns_true(self):
         with patch("sys.platform", "darwin"), \
              patch("pathlib.Path.exists", return_value=False):
@@ -237,6 +257,17 @@ class TestWindowsRegAddFallback:
 
         assert value == "EPIRecorder.File"
         mock_run.assert_called_once()
+
+    def test_register_windows_uses_hidden_reg_add_path(self):
+        with patch("epi_core.platform.associate._get_user_open_command", return_value='"epi.exe" view "%1"'), \
+             patch("epi_core.platform.associate._get_windows_default_icon", return_value='"epi.ico"'), \
+             patch("epi_core.platform.associate._register_windows_via_reg_add") as mock_reg_add, \
+             patch("epi_core.platform.associate._run_windows_reg_command",
+                   return_value="HKEY_CURRENT_USER\\Software\\Classes\\.epi\n    (Default)    REG_SZ    EPIRecorder.File\n"), \
+             patch("ctypes.windll", MagicMock(shell32=MagicMock())):
+            register_windows()
+
+        mock_reg_add.assert_called_once_with('"epi.exe" view "%1"', '"epi.ico"')
 
 
 # ─────────────────────────────────────────────────────────────

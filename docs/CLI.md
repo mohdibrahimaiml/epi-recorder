@@ -14,10 +14,17 @@ If you already have exported Microsoft Agent Governance Toolkit evidence, start 
 ```bash
 epi import agt examples/agt/sample_bundle.json --out sample.epi
 epi verify sample.epi
-epi view sample.epi
+epi view --extract review sample.epi
 ```
 
-If you are not in the repo checkout, replace `examples/agt/sample_bundle.json` with your own exported AGT bundle.
+You can also point the same command at a raw AGT evidence directory or an EPI-owned AGT import manifest:
+
+```bash
+epi import agt examples/agt/evidence-dir --out sample.epi
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample.epi
+```
+
+If you are not in the repo checkout, replace the sample path with your own exported AGT bundle, evidence directory, or import manifest.
 
 If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
 
@@ -30,7 +37,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | Command | Purpose |
 | --- | --- |
 | `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. |
-| `epi import agt <bundle.json> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file. |
+| `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
@@ -57,17 +64,25 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 
 ---
 
-## `epi import agt <bundle.json> --out <file.epi>`
+## `epi import agt <input> --out <file.epi>`
 
 Use this when you already have exported AGT evidence and want a normal `.epi` case file that works with `epi verify`, `epi view`, `epi review`, and `epi export-summary`.
 
 ```bash
 epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi import agt examples/agt/evidence-dir --out sample.epi
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample.epi
 epi verify sample.epi
-epi view sample.epi
+epi view --extract review sample.epi
 ```
 
-If you are running from a bare install instead of this repo checkout, replace the sample path with your own exported AGT bundle.
+If you are running from a bare install instead of this repo checkout, replace the sample path with your own exported AGT bundle, AGT evidence directory, or EPI-owned AGT import manifest.
+
+Input modes:
+
+- bundle JSON: the neutral aggregated AGT bundle contract
+- evidence directory: AGT-style files such as `audit_logs.json`, `flight_recorder.json`, `compliance_report.json`, and `annex_iv.json`
+- manifest JSON: an EPI-owned `agt_import_manifest.json` that maps custom filenames into the same bundle contract
 
 Default behavior:
 
@@ -95,6 +110,12 @@ What you should see in the viewer:
 - `Import mode: EPI`
 - `Overview`, `Evidence`, `Policy`, `Review`, `Mapping`, `Trust`, and `Attachments`
 - a transformation audit that shows what EPI preserved, translated, derived, or synthesized
+
+After the deterministic extract proof, you can still open the interactive browser flow with:
+
+```bash
+epi view sample.epi
+```
 
 For the public walkthrough, see [`AGT-IMPORT-QUICKSTART.md`](AGT-IMPORT-QUICKSTART.md).
 

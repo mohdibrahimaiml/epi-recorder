@@ -1,0 +1,10 @@
+{
+  "title": "EU AI Act - Annex IV Technical Documentation",
+  "system_name": "Claims Triage Agent",
+  "provider": "Acme Insurance",
+  "metadata": {
+    "compliance_reports_count": 1,
+    "policies_count": 1,
+    "audit_entries_count": 3
+  }
+}

@@ -2,7 +2,7 @@
 
 ## Problem
 
-AGT currently cannot produce a **single portable, sealed, independently verifiable case artifact**.
+AGT already produces runtime-governance evidence, compliance artifacts, and Annex IV export assembly, but it still cannot produce a **single portable, sealed, independently verifiable case artifact**.
 
 Today, its compliance evidence is spread across in-memory structures, SQLite audit logs, and Annex IV Markdown/JSON exports.
 
@@ -52,7 +52,7 @@ EPI Adapter
 
 AGT remains unchanged.
 The Annex IV exporter remains the producer.
-EPI adds a portable artifact layer on top.
+EPI adds a portable case-artifact layer on top.
 
 ## Evidence Mapping
 
@@ -85,10 +85,15 @@ The goal is not to replace standards, but to package AGT evidence into one porta
 Current working proof:
 
 ```bash
-epi import agt examples/agt-epi-demo/sample_annex_bundle.json --out case.epi
+git clone https://github.com/mohdibrahimaiml/epi-recorder
+cd epi-recorder
+pip install .
+epi import agt examples/agt/evidence-dir --out case.epi
 epi verify case.epi
-epi view case.epi
+epi view --extract review case.epi
 ```
+
+The same EPI-side proof path also accepts a neutral AGT bundle JSON or an EPI-owned AGT import manifest without any AGT repo changes.
 
 Future AGT integration:
 - the Annex IV exporter emits this bundle shape directly

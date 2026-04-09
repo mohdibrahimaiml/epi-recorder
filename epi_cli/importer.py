@@ -4,7 +4,6 @@ Import external evidence bundles into sealed .epi artifacts.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import typer
@@ -14,16 +13,33 @@ from rich.panel import Panel
 from epi_cli.keys import KeyManager
 from epi_core.container import EPIContainer
 from epi_core.trust import sign_manifest
-from epi_recorder.integrations.agt import coerce_agt_bundle, export_agt_to_epi
+from epi_recorder.integrations.agt import AGTInputError, export_agt_to_epi, load_agt_input
+from epi_recorder.integrations.agt.loader import DEFAULT_AGT_IMPORT_MANIFEST
 from epi_recorder.integrations.agt.report import AnalysisMode, DedupStrategy
 
 app = typer.Typer(
     help=(
         "Import external evidence into a sealed .epi case file. "
-        "Start with `epi import agt <bundle.json> --out run.epi`."
+        "Start with `epi import agt <bundle-or-dir-or-manifest> --out run.epi`."
     )
 )
 console = Console()
+
+
+def _print_agt_input_hint() -> None:
+    console.print("")
+    console.print("[bold]Supported AGT inputs:[/bold]")
+    console.print("  [cyan]bundle.json[/cyan]                     neutral AGT bundle JSON")
+    console.print("  [cyan]evidence-dir/[/cyan]                   directory with AGT files like audit_logs.json")
+    console.print(
+        f"  [cyan]{DEFAULT_AGT_IMPORT_MANIFEST}[/cyan]              manifest JSON for non-standard filenames"
+    )
+    console.print("")
+    console.print("[dim]Examples:[/dim]")
+    console.print("  [cyan]epi import agt examples/agt/evidence-dir --out case.epi[/cyan]")
+    console.print(
+        "  [cyan]epi import agt examples/agt/manifest-input/agt_import_manifest.json --out case.epi[/cyan]"
+    )
 
 
 def _build_signer(no_sign: bool):
@@ -45,8 +61,12 @@ def _build_signer(no_sign: bool):
 
 @app.command("agt")
 def import_agt(
-    bundle_json: Path = typer.Argument(
-        ..., help="Path to an exported AGT evidence bundle (.json)."
+    agt_input: Path = typer.Argument(
+        ...,
+        help=(
+            "Path to AGT input: neutral bundle JSON, AGT evidence directory, "
+            "or AGT import manifest JSON."
+        ),
     ),
     out: Path = typer.Option(..., "--out", "-o", help="Output .epi file path."),
     no_sign: bool = typer.Option(False, "--no-sign", help="Do not sign the imported artifact."),
@@ -69,25 +89,21 @@ def import_agt(
         help="Whether to synthesize analysis.json for imported artifacts.",
     ),
 ):
-    """Convert an AGT evidence bundle into a normal .epi artifact."""
-
-    if not bundle_json.exists():
-        console.print(f"[red][FAIL][/red] File not found: {bundle_json}")
-        raise typer.Exit(1)
+    """Convert AGT evidence into a normal .epi artifact."""
 
     try:
-        payload = json.loads(bundle_json.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        console.print(f"[red][FAIL][/red] Invalid JSON: {exc}")
+        bundle = load_agt_input(agt_input)
+    except FileNotFoundError as exc:
+        console.print(f"[red][FAIL][/red] {exc}")
+        _print_agt_input_hint()
+        raise typer.Exit(1)
+    except AGTInputError as exc:
+        console.print(f"[red][FAIL][/red] {exc}")
+        _print_agt_input_hint()
         raise typer.Exit(1)
     except Exception as exc:
-        console.print(f"[red][FAIL][/red] Could not read bundle: {exc}")
-        raise typer.Exit(1)
-
-    try:
-        bundle = coerce_agt_bundle(payload)
-    except Exception as exc:
-        console.print(f"[red][FAIL][/red] Invalid AGT bundle: {exc}")
+        console.print(f"[red][FAIL][/red] Could not load AGT input: {exc}")
+        _print_agt_input_hint()
         raise typer.Exit(1)
 
     if strict and dedupe != "fail":
@@ -118,13 +134,14 @@ def import_agt(
 
     signed = bool(EPIContainer.read_manifest(output_path).signature)
     panel = Panel(
-        f"[bold]Input:[/bold] {bundle_json}\n"
+        f"[bold]Input:[/bold] {agt_input}\n"
         f"[bold]Output:[/bold] {output_path}\n"
         f"[bold]Signed:[/bold] {'Yes' if signed else 'No'}\n"
         f"[bold]Analysis:[/bold] {'Synthesized' if analysis == 'synthesized' else 'Omitted'}\n"
         f"[bold]Trust Audit:[/bold] artifacts/agt/mapping_report.json\n"
         f"[dim]Verify:[/dim] epi verify {output_path}\n"
-        f"[dim]Open:[/dim] epi view {output_path}",
+        f"[dim]Extract review:[/dim] epi view --extract review {output_path}\n"
+        f"[dim]Open interactively:[/dim] epi view {output_path}",
         title="[OK] AGT import complete",
         border_style="green",
     )

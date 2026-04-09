@@ -80,6 +80,8 @@ def test_web_viewer_app_supports_source_aware_case_investigation():
     assert "function buildEmptyInboxContent" in js
     assert "function buildRecorderStarterFiles" in js
     assert "function buildSharedWorkspaceCaseExport" in js
+    assert "function configureEmbeddedArtifactMode" in js
+    assert "embedded-artifact-mode" in js
 
 
 def test_web_viewer_readme_describes_case_investigation_model():

@@ -463,6 +463,7 @@ class TestEPIContainer:
         assert "Verify the file, signatures, and review chain" in viewer_html
         assert "Verify source" in viewer_html
         assert "Opened the packaged case file" in viewer_html
+        assert "embedded-artifact-mode" in viewer_html
         assert '"files"' in viewer_html
         assert "Your changes stay local until you download the reviewed case or review notes." in viewer_html
         assert '${htmlSafeJson(payload, 2)}<\\/script>`;' in viewer_html

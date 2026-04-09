@@ -1,42 +1,51 @@
-# AGT -> EPI Import Example
+# AGT Import Examples
 
-This example shows the neutral JSON bundle expected by `epi import agt`.
+`epi import agt` accepts three AGT input shapes:
 
-Generate an artifact from the checked-in sample bundle:
+- `examples/agt/sample_bundle.json`
+- `examples/agt/evidence-dir`
+- `examples/agt/manifest-input/agt_import_manifest.json`
 
-```bash
-epi import agt examples/agt/sample_bundle.json --out sample.epi
-epi verify sample.epi
-epi view sample.epi
-```
-
-What you should see:
-
-- `steps.jsonl` for the normalized AGT execution trace
-- `policy.json` and `policy_evaluation.json` for the imported governance evidence
-- `analysis.json` for synthesized review-ready findings
-- `artifacts/agt/mapping_report.json` for the transformation audit
-
-The sample payload mirrors real AGT evidence sections:
-
-- `audit_logs`
-- `flight_recorder`
-- `compliance_report`
-- `policy_document`
-- `runtime_context`
-- `slo_data`
-- `annex_markdown` / `annex_json`
-
-For a stricter import that fails on unknown mappings or ambiguous dedupe cases:
+From the repo root:
 
 ```bash
-epi import agt examples/agt/sample_bundle.json --out strict.epi --strict --dedupe fail
+epi import agt examples/agt/evidence-dir --out case.epi
+epi verify case.epi
+epi view --extract review case.epi
 ```
 
-For the maintainer-facing prototype kit that frames this bundle as the future Annex IV exporter extension target, see:
+Use the other two inputs the same way:
 
-- [`examples/agt-epi-demo/README.md`](../agt-epi-demo/README.md)
-- [`docs/agt-epi/README.md`](../../docs/agt-epi/README.md)
-- [`docs/agt-epi/artifact-rfc.md`](../../docs/agt-epi/artifact-rfc.md)
+```bash
+epi import agt examples/agt/sample_bundle.json --out case.epi
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out case.epi
+```
 
-For the public walkthrough, see [docs/AGT-IMPORT-QUICKSTART.md](../../docs/AGT-IMPORT-QUICKSTART.md).
+Which input should you use?
+
+- `sample_bundle.json`: you already have one aggregated AGT JSON file
+- `evidence-dir/`: AGT outputs multiple files with standard names like `audit_logs.json`
+- `agt_import_manifest.json`: your AGT filenames differ and need explicit mapping
+
+Expected result:
+
+- `sample.epi` or `case.epi` verifies cleanly
+- `review/viewer.html` is extracted
+- the artifact contains `steps.jsonl`, `policy.json`, `policy_evaluation.json`, and `artifacts/agt/mapping_report.json`
+
+Optional interactive review:
+
+```bash
+epi view case.epi
+```
+
+If directory import fails:
+
+- make sure the directory contains at least `audit_logs.json` or `flight_recorder.json`
+- if filenames differ, add `agt_import_manifest.json`
+
+Related docs:
+
+- [AGT quickstart](../../docs/AGT-IMPORT-QUICKSTART.md)
+- [AGT -> EPI demo](../agt-epi-demo/README.md)
+- [AGT + .EPI docs](../../docs/agt-epi/README.md)

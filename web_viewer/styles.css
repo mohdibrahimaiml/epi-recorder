@@ -69,6 +69,22 @@ button {
   padding: 28px 0 48px;
 }
 
+body.embedded-artifact-mode .hero-actions,
+body.embedded-artifact-mode .upload-panel,
+body.embedded-artifact-mode .setup-panel,
+body.embedded-artifact-mode .summary-strip,
+body.embedded-artifact-mode .guided-review-panel {
+  display: none;
+}
+
+body.embedded-artifact-mode .page-shell {
+  padding-top: 20px;
+}
+
+body.embedded-artifact-mode .hero {
+  align-items: start;
+}
+
 .hero {
   display: flex;
   justify-content: space-between;

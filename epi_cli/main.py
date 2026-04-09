@@ -33,7 +33,7 @@ Try it now (no API key needed):
   epi demo
 
 Already have Microsoft AGT evidence:
-  epi import agt bundle.json --out sample.epi
+  epi import agt <bundle-or-dir-or-manifest> --out sample.epi
 
 No-install trial:
   Open the Colab notebook from the README
@@ -282,7 +282,7 @@ def show_help():
   [green]epi demo[/green]
 
 [bold]Already have Microsoft AGT evidence:[/bold]
-  [green]epi import agt bundle.json --out sample.epi[/green]
+  [green]epi import agt <bundle-or-dir-or-manifest> --out sample.epi[/green]
   [green]epi verify sample.epi[/green]
 
 [bold]No-install trial:[/bold]

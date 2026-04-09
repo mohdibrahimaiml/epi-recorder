@@ -95,6 +95,7 @@ class TestViewCommand:
         assert "EPI Case Investigation" in html
         assert 'id="epi-preloaded-cases"' in html
         assert 'id="epi-view-context"' in html
+        assert '"embeddedArtifactMode": true' in html
         assert "__EPI_VERSION__" not in html
 
     def test_extract_option_inlines_jszip_without_remote_script_src(self, tmp_path):

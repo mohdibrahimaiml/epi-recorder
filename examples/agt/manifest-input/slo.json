@@ -1,0 +1,5 @@
+{
+  "availability": 99.95,
+  "latency_p95_ms": 412,
+  "error_budget_remaining": "92%"
+}

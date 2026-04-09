@@ -1,0 +1,13 @@
+{
+  "runtime": "agent-os",
+  "version": "3.0.0-preview",
+  "python_version": "3.12.3",
+  "dependencies": [
+    "agent-governance-toolkit==0.3.0",
+    "langchain==0.3.0"
+  ],
+  "deployment": {
+    "region": "westeurope",
+    "environment": "production"
+  }
+}
