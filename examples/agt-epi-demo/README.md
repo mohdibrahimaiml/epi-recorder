@@ -2,7 +2,9 @@
 
 Before: AGT evidence is spread across logs and JSON exports.
 
-After: one signed `.epi` case file can be verified and opened locally.
+After: EPI adds the missing portable, verifiable case-file layer on top of AGT.
+
+Without this, auditors still have to reconstruct decisions manually from logs and exports.
 
 ## Convert AGT evidence into one portable case file
 
@@ -25,6 +27,14 @@ epi view case.epi
 ## Visual proof
 
 ![AGT evidence reopened as one portable case file with policy, evidence, trust, and transformation audit.](../../docs/assets/agt-epi-demo-case-view.png)
+
+What the viewer proves in one screen:
+
+- decision-first case summary instead of raw logs
+- source traceability with `AGT -> EPI import`
+- independent trust verification
+- explicit human review state
+- policy and transformation audit in the same case file
 
 ## Honesty note
 

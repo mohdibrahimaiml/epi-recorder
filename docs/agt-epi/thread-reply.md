@@ -11,10 +11,14 @@ epi view case.epi
 ```
 
 This turns AGT evidence into a single portable, verifiable case file with:
+- decision and reasoning
 - full trace
 - policy evaluation
 - preserved source data
 - transformation audit
+- independent trust verification
+
+Without this, auditors still have to reconstruct decisions manually from logs and exports.
 
 Links:
 - RFC: `docs/agt-epi/artifact-rfc.md`
