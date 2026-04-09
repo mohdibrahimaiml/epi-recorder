@@ -10,7 +10,7 @@ Without this, auditors still have to reconstruct decisions manually from logs an
 
 ```bash
 pip install epi-recorder
-epi import agt sample_annex_bundle.json --out case.epi
+epi import agt examples/agt-epi-demo/sample_annex_bundle.json --out case.epi
 epi verify case.epi
 epi view case.epi
 ```
