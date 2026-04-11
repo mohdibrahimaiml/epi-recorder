@@ -29,3 +29,22 @@ def test_on_chain_start_tolerates_missing_serialized_payload(monkeypatch):
     assert kind == "chain.start"
     assert payload["name"] == "unknown"
     assert "text" in payload["inputs"]
+
+
+def test_tool_callbacks_emit_native_epi_tool_steps(monkeypatch):
+    handler = EPICallbackHandler()
+    session = _DummySession()
+    monkeypatch.setattr(handler, "_get_session", lambda: session)
+    run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "lookup_order"},
+        '{"order_id":"123"}',
+        run_id=run_id,
+    )
+    handler.on_tool_end({"status": "paid"}, run_id=run_id)
+
+    assert [kind for kind, _ in session.logged] == ["tool.call", "tool.response"]
+    assert session.logged[0][1]["tool"] == "lookup_order"
+    assert session.logged[1][1]["tool"] == "lookup_order"
+    assert session.logged[1][1]["status"] == "success"

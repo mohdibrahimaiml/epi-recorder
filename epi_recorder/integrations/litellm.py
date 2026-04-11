@@ -30,7 +30,6 @@ Usage:
         )
 """
 
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -245,6 +244,30 @@ class EPICallback:
 _epi_callback_instance: Optional[EPICallback] = None
 
 
+def _callback_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _append_callback_once(target: Any, attr: str, callback: EPICallback) -> bool:
+    callbacks = _callback_list(getattr(target, attr, None))
+    if any(isinstance(cb, EPICallback) for cb in callbacks):
+        return False
+    callbacks.append(callback)
+    setattr(target, attr, callbacks)
+    return True
+
+
+def _remove_epi_callbacks(target: Any, attr: str) -> None:
+    if not hasattr(target, attr):
+        return
+    callbacks = _callback_list(getattr(target, attr, None))
+    setattr(target, attr, [cb for cb in callbacks if not isinstance(cb, EPICallback)])
+
+
 def enable_epi(provider_label: str = "litellm") -> EPICallback:
     """
     Enable EPI recording for all LiteLLM calls.
@@ -276,17 +299,18 @@ def enable_epi(provider_label: str = "litellm") -> EPICallback:
 
     _epi_callback_instance = EPICallback(provider_label=provider_label)
 
-    # Register as both success and failure callback
-    if not isinstance(litellm.success_callback, list):
-        litellm.success_callback = []
-    if not isinstance(litellm.failure_callback, list):
-        litellm.failure_callback = []
+    # Modern LiteLLM calls CustomLogger-style objects from litellm.callbacks,
+    # which gives EPI pre-call, success, failure, and streaming hooks.
+    primary_available = False
+    if hasattr(litellm, "callbacks"):
+        primary_available = True
+        _append_callback_once(litellm, "callbacks", _epi_callback_instance)
 
-    # Avoid duplicates
-    if not any(isinstance(cb, EPICallback) for cb in litellm.success_callback):
-        litellm.success_callback.append(_epi_callback_instance)
-    if not any(isinstance(cb, EPICallback) for cb in litellm.failure_callback):
-        litellm.failure_callback.append(_epi_callback_instance)
+    # Older versions and some app setups use success_callback/failure_callback.
+    # Use them as a fallback to avoid duplicate response/error events.
+    if not primary_available:
+        _append_callback_once(litellm, "success_callback", _epi_callback_instance)
+        _append_callback_once(litellm, "failure_callback", _epi_callback_instance)
 
     return _epi_callback_instance
 
@@ -302,13 +326,5 @@ def disable_epi() -> None:
     except ImportError:
         return
 
-    if isinstance(litellm.success_callback, list):
-        litellm.success_callback = [
-            cb for cb in litellm.success_callback
-            if not isinstance(cb, EPICallback)
-        ]
-    if isinstance(litellm.failure_callback, list):
-        litellm.failure_callback = [
-            cb for cb in litellm.failure_callback
-            if not isinstance(cb, EPICallback)
-        ]
+    for attr in ("callbacks", "success_callback", "failure_callback"):
+        _remove_epi_callbacks(litellm, attr)

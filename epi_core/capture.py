@@ -27,11 +27,12 @@ def _clean_str(value: Any) -> str | None:
     return text or None
 
 
-def _first_meta_value(meta: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = _clean_str(meta.get(key))
-        if value:
-            return value
+def _first_mapping_value(*mappings: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for mapping in mappings:
+        for key in keys:
+            value = _clean_str(mapping.get(key))
+            if value:
+                return value
     return None
 
 
@@ -108,8 +109,39 @@ class CaptureEventModel(BaseModel):
         if raw is None:
             return raw
 
-        data = dict(raw)
+        if hasattr(raw, "model_dump"):
+            data = dict(raw.model_dump())
+        else:
+            data = dict(raw)
         meta = dict(data.get("meta") or {})
+
+        if not _clean_str(data.get("kind")):
+            kind = _first_mapping_value(
+                data,
+                meta,
+                keys=(
+                    "kind",
+                    "event_kind",
+                    "eventKind",
+                    "event_type",
+                    "eventType",
+                    "step_type",
+                    "stepType",
+                    "type",
+                ),
+            )
+            if kind:
+                data["kind"] = kind
+
+        if "content" not in data or data.get("content") is None:
+            for content_key in ("payload", "data", "body"):
+                if content_key in data:
+                    data["content"] = data.get(content_key)
+                    break
+        if "content" not in data or data.get("content") is None:
+            data["content"] = {}
+        if not isinstance(data.get("content"), dict):
+            data["content"] = {"value": data.get("content")}
 
         mappings = {
             "trace_id": ("trace_id", "traceId"),
@@ -126,7 +158,7 @@ class CaptureEventModel(BaseModel):
         for field_name, meta_keys in mappings.items():
             if _clean_str(data.get(field_name)):
                 continue
-            value = _first_meta_value(meta, *meta_keys)
+            value = _first_mapping_value(data, meta, keys=meta_keys)
             if value:
                 data[field_name] = value
 
@@ -135,9 +167,20 @@ class CaptureEventModel(BaseModel):
             provenance = dict(provenance_payload)
         else:
             provenance = {}
-        provenance.setdefault("source", _first_meta_value(meta, "source", "bridge_source") or "epi_gateway")
-        provenance.setdefault("capture_mode", _first_meta_value(meta, "capture_mode") or "direct")
-        notes = _first_meta_value(meta, "bridge_warning", "notes")
+        provenance.setdefault(
+            "source",
+            _first_mapping_value(
+                data,
+                meta,
+                keys=("source", "source_app", "sourceApp", "bridge_source"),
+            )
+            or "epi_gateway",
+        )
+        provenance.setdefault(
+            "capture_mode",
+            _first_mapping_value(data, meta, keys=("capture_mode", "captureMode")) or "direct",
+        )
+        notes = _first_mapping_value(data, meta, keys=("bridge_warning", "bridgeWarning", "notes"))
         if notes and not provenance.get("notes"):
             provenance["notes"] = notes
         data["provenance"] = provenance

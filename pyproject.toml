@@ -65,6 +65,34 @@ dependencies = [
 ai = [
     "google-generativeai>=0.4.0",
 ]
+openai = [
+    "openai>=1.0.0",
+]
+anthropic = [
+    "anthropic>=0.25.0",
+]
+litellm = [
+    "litellm>=1.0.0",
+]
+langchain = [
+    "langchain-core>=0.2.0",
+]
+langgraph = [
+    "langgraph>=0.2.0",
+]
+opentelemetry = [
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
+integrations = [
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "litellm>=1.0.0",
+    "langchain-core>=0.2.0",
+    "langgraph>=0.2.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
 analytics = [
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
@@ -74,6 +102,13 @@ gateway = [
 ]
 all = [
     "google-generativeai>=0.4.0",
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "litellm>=1.0.0",
+    "langchain-core>=0.2.0",
+    "langgraph>=0.2.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
     "fastapi>=0.111.0,<1",

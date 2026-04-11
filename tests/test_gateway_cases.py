@@ -230,6 +230,58 @@ def test_gateway_auth_protects_capture_and_proxy_paths_when_enabled(tmp_path):
         assert capture_authorized.status_code == 202
 
 
+def test_gateway_capture_batch_accepts_connector_events_alias(tmp_path):
+    worker = EvidenceWorker(storage_dir=tmp_path, batch_size=1, batch_timeout=0.1)
+    app = create_app(worker=worker)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/capture/batch",
+            json={
+                "events": [
+                    {
+                        "eventType": "tool.call",
+                        "payload": {"tool": "lookup_order", "input": {"order_id": "123"}},
+                        "traceId": "trace-connector",
+                        "workflowName": "Refund approvals",
+                        "sourceApp": "n8n",
+                    },
+                    {
+                        "eventType": "tool.response",
+                        "payload": {"tool": "lookup_order", "status": "success"},
+                        "traceId": "trace-connector",
+                        "workflowName": "Refund approvals",
+                        "sourceApp": "n8n",
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 202
+        payload = response.json()
+        assert payload["accepted_count"] == 2
+        deadline = time.time() + 2.0
+        cases = []
+        while time.time() < deadline:
+            cases = client.get("/api/cases").json()["cases"]
+            if cases:
+                break
+            time.sleep(0.05)
+        assert cases
+        case = cases[0]
+        detail = None
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            detail = client.get(f"/api/cases/{case['id']}").json()["case"]
+            if len(detail.get("steps") or []) == 3:
+                break
+            time.sleep(0.05)
+        assert detail is not None
+        connector_steps = [step for step in detail["steps"] if step["kind"] != "session.start"]
+        assert sorted(step["kind"] for step in connector_steps) == ["tool.call", "tool.response"]
+        assert all(step["trace_id"] == "trace-connector" for step in connector_steps)
+
+
 def test_gateway_local_user_login_session_and_roles(tmp_path):
     users_path = tmp_path / "gateway-users.json"
     users_path.write_text(
