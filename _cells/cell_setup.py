@@ -17,7 +17,7 @@ display(HTML(f'''
     ✅  EPI Recorder {epi_recorder.__version__} — Ready
   </h2>
   <p style="color: #94a3b8; margin: 0; font-size: 14px;">
-    Execution Proof Infrastructure · Cryptographic AI Evidence
+    Evidence Packaged Infrastructure · Cryptographic AI Evidence
   </p>
 </div>
 '''))
