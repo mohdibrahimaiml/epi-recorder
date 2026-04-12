@@ -1442,7 +1442,7 @@ class EpiRecorderSession:
     def _sign_epi_file(self) -> bool:
         """Sign the .epi file with default key. Returns True if signed successfully."""
         try:
-            from epi_cli.keys import KeyManager
+            from epi_core.keys import KeyManager
             from epi_core.trust import sign_manifest
             
             # Load key manager

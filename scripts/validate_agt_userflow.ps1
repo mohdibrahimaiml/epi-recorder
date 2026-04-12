@@ -35,6 +35,7 @@ $script:Failures = New-Object System.Collections.Generic.List[string]
 $script:ScenarioResults = New-Object System.Collections.Generic.List[object]
 $script:InstallChecks = [ordered]@{}
 $script:CurrentPhase = "initializing"
+$script:HostPythonCmd = $null
 $script:EnvironmentSummary = [ordered]@{
     started_at = (Get-Date).ToString("u")
     repo_root = $repoRoot
@@ -70,6 +71,22 @@ function Resolve-BasePythonCommand([string]$PythonCmd) {
         return $candidate
     }
     return $PythonCmd
+}
+
+function Resolve-SitePackagesPath([string]$PythonCmd) {
+    $result = Invoke-ExternalCommand -FilePath $PythonCmd -Arguments @(
+        "-c",
+        "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+    ) -WorkingDirectory $repoRoot -Environment @{}
+    if ($result.ExitCode -ne 0) {
+        throw "Could not resolve site-packages for '$PythonCmd'.`n$($result.Output)"
+    }
+
+    $candidate = ($result.Output -split "`r?`n" | Select-Object -Last 1).Trim()
+    if ([string]::IsNullOrWhiteSpace($candidate) -or -not (Test-Path $candidate)) {
+        throw "Resolved site-packages path does not exist: $candidate"
+    }
+    return $candidate
 }
 
 function Ensure-Directory([string]$Path) {
@@ -678,11 +695,46 @@ function Get-ExpectationMap($InputPath, [bool]$ExpectAnalysis) {
 }
 
 function Get-ArtifactObservation([string]$EpiPath) {
-    $members = Get-ZipMemberNames -ZipPath $EpiPath
-    $mappingReport = Get-ZipJson -ZipPath $EpiPath -EntryName "artifacts/agt/mapping_report.json"
-    $analysis = Get-ZipJson -ZipPath $EpiPath -EntryName "analysis.json"
-    $policyEvaluation = Get-ZipJson -ZipPath $EpiPath -EntryName "policy_evaluation.json"
-    $steps = Get-ZipSteps -ZipPath $EpiPath
+    $readerScript = @'
+import json
+import sys
+from pathlib import Path
+
+from epi_core.container import EPIContainer
+
+artifact_path = Path(sys.argv[1])
+
+def read_json(member_name: str):
+    try:
+        return EPIContainer.read_member_json(artifact_path, member_name)
+    except Exception:
+        return None
+
+payload = {
+    "members": EPIContainer.list_members(artifact_path),
+    "mapping_report": read_json("artifacts/agt/mapping_report.json"),
+    "analysis": read_json("analysis.json"),
+    "policy_evaluation": read_json("policy_evaluation.json"),
+    "steps": EPIContainer.read_steps(artifact_path),
+}
+print(json.dumps(payload))
+'@
+    $readerPath = Join-Path $workspaceRoot "_artifact_reader.py"
+    Set-Content -Path $readerPath -Value $readerScript -Encoding UTF8
+    $result = Invoke-ExternalCommand -FilePath $script:HostPythonCmd -Arguments @(
+        $readerPath,
+        $EpiPath
+    ) -WorkingDirectory $repoRoot -Environment @{}
+    if ($result.ExitCode -ne 0) {
+        throw "Could not inspect artifact '$EpiPath'.`n$($result.Output)"
+    }
+
+    $payload = $result.Output | ConvertFrom-Json
+    $members = @($payload.members)
+    $mappingReport = $payload.mapping_report
+    $analysis = $payload.analysis
+    $policyEvaluation = $payload.policy_evaluation
+    $steps = @($payload.steps)
 
     return [pscustomobject]@{
         Members = $members
@@ -1071,6 +1123,7 @@ try {
     $script:CurrentPhase = "resolving python"
     $pythonCmd = Resolve-PythonCommand $Python
     $basePythonCmd = Resolve-BasePythonCommand $pythonCmd
+    $script:HostPythonCmd = $pythonCmd
     $script:EnvironmentSummary["python"] = $pythonCmd
     $script:EnvironmentSummary["base_python"] = $basePythonCmd
 
@@ -1087,7 +1140,7 @@ try {
     }
 
     $cleanPython = Join-Path $venvDir "Scripts\python.exe"
-    $hostSitePackages = Join-Path $repoRoot ".venv\Lib\site-packages"
+    $hostSitePackages = Resolve-SitePackagesPath $pythonCmd
     $runtimeShimDir = Join-Path $workspaceRoot "runtime-temp-shim"
     Write-PythonTempShim -ShimDir $runtimeShimDir -SafeTempDir $runtimeTemp
     $script:EnvironmentSummary["host_dependency_site_packages"] = $hostSitePackages
