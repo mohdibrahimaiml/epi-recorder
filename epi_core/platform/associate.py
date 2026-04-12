@@ -33,6 +33,23 @@ from typing import Optional
 # Windows
 # ============================================================
 
+_WINDOWS_INVALID_PATH_CHARS = set('<>"|?*')
+
+
+def _has_windows_invalid_path_chars(path: Path) -> bool:
+    """Return True when a path string cannot be a valid Windows filesystem path."""
+    text = str(path)
+    if any(char in text for char in _WINDOWS_INVALID_PATH_CHARS):
+        return True
+
+    first_colon = text.find(":")
+    if first_colon == -1:
+        return False
+
+    has_drive_prefix = len(text) >= 2 and first_colon == 1 and text[0].isalpha()
+    return not has_drive_prefix or ":" in text[2:]
+
+
 def _resolve_windows_launcher_dir(preferred: Optional[Path] = None) -> Path:
     """Return a writable directory for Windows launcher/registration helper files."""
     candidates: list[Path] = []
@@ -51,6 +68,8 @@ def _resolve_windows_launcher_dir(preferred: Optional[Path] = None) -> Path:
         if key in seen:
             continue
         seen.add(key)
+        if _has_windows_invalid_path_chars(candidate):
+            continue
         try:
             candidate.mkdir(parents=True, exist_ok=True)
             probe = candidate / ".epi_write_probe"

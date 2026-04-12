@@ -10,6 +10,9 @@ step to a warning so the actual pass/fail signal is preserved.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+import ctypes
+import os
 import shutil
 import tempfile
 import uuid
@@ -23,6 +26,32 @@ from epi_core.workspace import create_recording_workspace
 
 
 _original_cleanup_dead_symlinks = _pytest.pathlib.cleanup_dead_symlinks
+
+
+def _unavailable_startfile(_path: str) -> None:
+    raise OSError("os.startfile is only available on Windows")
+
+
+def _install_windows_api_test_shims() -> None:
+    """Expose Windows-only patch targets when tests simulate Windows on POSIX."""
+    if not hasattr(os, "startfile"):
+        os.startfile = _unavailable_startfile  # type: ignore[attr-defined]
+
+    if not hasattr(ctypes, "windll"):
+        ctypes.windll = SimpleNamespace(  # type: ignore[attr-defined]
+            shell32=SimpleNamespace(
+                IsUserAnAdmin=lambda: False,
+                ShellExecuteW=lambda *args, **kwargs: 0,
+                ShellExecuteExW=lambda *args, **kwargs: 0,
+                SHChangeNotify=lambda *args, **kwargs: None,
+            ),
+            kernel32=SimpleNamespace(
+                WaitForSingleObject=lambda *args, **kwargs: 0,
+                CloseHandle=lambda *args, **kwargs: 0,
+                SetConsoleOutputCP=lambda *args, **kwargs: 0,
+                SetConsoleCP=lambda *args, **kwargs: 0,
+            ),
+        )
 
 
 def _safe_cleanup_dead_symlinks(root):  # type: ignore[no-untyped-def]
@@ -92,6 +121,8 @@ def _safe_mkdtemp(
 
 def pytest_configure(config):  # type: ignore[no-untyped-def]
     import sys as _sys
+
+    _install_windows_api_test_shims()
 
     # Windows-only: mkdtemp can fail due to ACL issues in some environments.
     # On Linux/macOS the standard mkdtemp works fine; only apply the shim on Windows.
