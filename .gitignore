@@ -34,6 +34,8 @@ ci_check_env/
 tmp_debug_env/
 .tmp-*
 .tmp-*/**
+.release-build-*/
+.release-build-*.zip
 .tmp-viewer-*/
 .pytest-tmp-*/
 .pytest-tmp-*/**
