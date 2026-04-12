@@ -62,6 +62,28 @@ Spec: https://github.com/mohdibrahimaiml/epi-spec
 pip install epi-recorder
 ```
 
+## Claude Code
+
+Record Claude Code work as `.epi` evidence with the EPI Recorder skill/plugin:
+
+```text
+/record
+```
+
+Plugin install:
+
+```text
+/plugin marketplace add mohdibrahimaiml/epi-claude-code-marketplace
+/plugin install epi-recorder@epi
+/epi-recorder:record
+```
+
+Direct skill install:
+
+```bash
+git clone https://github.com/mohdibrahimaiml/epi-claude-code-skill.git ~/.claude/skills/record
+```
+
 ---
 
 ## Get Started in 10 Minutes
