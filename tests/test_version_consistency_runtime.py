@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import re
@@ -54,9 +53,8 @@ def test_generated_viewer_and_manifest_match_runtime_version():
 
         EPIContainer.pack(source_dir, manifest, output_path)
 
-        with zipfile.ZipFile(output_path) as zf:
-            manifest_json = zf.read("manifest.json").decode("utf-8")
-            viewer_html = zf.read("viewer.html").decode("utf-8")
+        manifest_json = EPIContainer.read_member_text(output_path, "manifest.json")
+        viewer_html = EPIContainer.read_member_text(output_path, "viewer.html")
 
         assert f'"spec_version":"{core_version}"' in manifest_json.replace(" ", "")
         assert f"EPI Viewer v{core_version}" in viewer_html

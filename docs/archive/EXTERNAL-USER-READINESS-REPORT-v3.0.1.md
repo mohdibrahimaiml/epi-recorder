@@ -10,18 +10,18 @@ Can a Python developer at a small AI startup go from zero to a trustworthy `.epi
 
 ## Executive Summary
 
-Yes, the current source candidate passes the external-user readiness bar.
+Yes, the published PyPI `3.0.1` package passes the external-user readiness bar.
 
 Important nuance:
 
-- the already-published PyPI `3.0.0` package did **not** pass the first strict external-user run
-- the current `3.0.1` source candidate **does** pass after fixing the blockers uncovered by that run
-- before a broader public launch, these fixes should be shipped as a new PyPI patch release
+- the previously published PyPI `3.0.0` package did **not** pass the first strict external-user run
+- the fixed `3.0.1` source candidate passed locally
+- the published PyPI `3.0.1` package now also passes the same strict external-user run in a brand-new temp workspace
 
-Recommended release action:
+Release outcome:
 
-- do **not** launch publicly against the existing PyPI `3.0.0`
-- ship the current source as `3.0.1`
+- `epi-recorder 3.0.1` is now the correct public launch target
+- public launch should use `3.0.1`, not `3.0.0`
 
 ## Test Method
 
@@ -38,10 +38,11 @@ Environment rules used for this pass:
   - `docs/POLICY.md`
   - `https://epilabs.org/verify`
 
-Two runs were performed:
+Three runs were performed:
 
-1. strict clean install from the already-published PyPI `3.0.0`
-2. strict clean install from the rebuilt candidate wheel produced from the current source tree
+1. strict clean install from the previously published PyPI `3.0.0`
+2. strict clean install from the rebuilt `3.0.1` candidate wheel produced from the current source tree
+3. strict clean install from the newly published PyPI `3.0.1`
 
 Artifacts and machine-readable results:
 
@@ -49,6 +50,8 @@ Artifacts and machine-readable results:
   - `C:\epi-temp\epi_external_readiness_20260402_142543\readiness_results.json`
 - passing candidate run:
   - `C:\epi-temp\epi_external_readiness_rc2_20260402_161500\readiness_results.json`
+- passing published PyPI `3.0.1` run:
+  - `C:\epi-temp\epi_external_readiness_pypi301_20260402_1645\readiness_results.json`
 
 ## Final Scorecard
 
@@ -78,17 +81,16 @@ Artifacts and machine-readable results:
 
 ## Timing
 
-Measured from the passing fresh candidate run:
+Measured from the passing published PyPI `3.0.1` run:
 
-- full clean workspace setup, wheel install, dependency install, and all 6 tests completed in about 83 seconds on a warm cache
+- fresh PyPI install plus LangChain dependency install completed cleanly in a new temp workspace
 - Test 1 time to first success:
-  - artifact creation plus verify: `6.86s`
+  - artifact creation plus verify: `17.54s`
 - Test 2 first LangChain artifact:
-  - `2.04s`
-- Test 3 policy init + run + export:
-  - all steps completed cleanly
+  - `1.98s`
 - Test 5 viewer open:
-  - `9.08s`
+  - `8.98s`
+- full 6-test acceptance runner completed in about `35.9s` after install on a warm network/cache path
 
 Conclusion:
 
@@ -222,26 +224,21 @@ Repo validation:
 External-user validation:
 
 - failing run reproduced from published PyPI `3.0.0`
-- passing run confirmed from rebuilt candidate wheel in a fresh temp workspace
+- passing run confirmed from rebuilt `3.0.1` candidate wheel in a fresh temp workspace
+- passing run confirmed again from published PyPI `3.0.1` in a separate fresh temp workspace
 
 ## Open Blockers
 
-For the current source candidate:
+For the current source and published `3.0.1` package:
 
 - none at `P0`
 - none at `P1`
-
-For the already-published public package:
-
-- the published PyPI `3.0.0` remains a launch blocker until the fixes in this repo are released
 
 ## Remaining Non-Blocking Follow-Up
 
 These are not launch blockers, but they are worth doing soon:
 
 - run one optional live OpenAI-backed pass when an API key is available
-- cut and publish a patch release from this fixed source tree
-- rerun this same acceptance script against the newly published PyPI version
 - keep hosted sharing documented as deployment-dependent until `api.epilabs.org` is fully live
 
 ## Safe Launch Narrative
@@ -250,9 +247,8 @@ This is the honest product statement after this readiness pass:
 
 `epi-recorder` is ready for public use as a local-first evidence and verification tool for consequential AI workflows. A new developer can install it, create signed `.epi` artifacts, verify tamper evidence, evaluate policy rules, and open the reviewer UI without internal guidance.
 
-This is what should **not** be claimed until the next package release is published and the hosted backend is live:
+This is what should **not** be claimed until the hosted backend is live and the optional live-model pass is completed:
 
-- that the currently published PyPI `3.0.0` already contains these front-door fixes
 - that hosted sharing works without a deployed share backend
 - that the live OpenAI path has been validated in this exact pass without credentials
 
@@ -260,11 +256,11 @@ This is what should **not** be claimed until the next package release is publish
 
 Do this next, in order:
 
-1. release a patched PyPI version from the current source tree
-2. rerun the same external-user pass against that newly published version
-3. only then launch broadly to Hacker News, LinkedIn, LangChain users, and design partners
+1. launch publicly against PyPI `3.0.1`
+2. keep the hosted-sharing caveat explicit until `api.epilabs.org` is fully live
+3. run one optional live OpenAI-backed pass and add it to this report when credentials are available
 
 Bottom line:
 
-- source candidate: launch-ready
-- currently published PyPI `3.0.0`: not yet the right public launch target
+- published PyPI `3.0.1`: launch-ready
+- older PyPI `3.0.0`: superseded by the fixed patch release

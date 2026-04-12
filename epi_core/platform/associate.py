@@ -272,6 +272,24 @@ def _get_expected_open_command(scope: Optional[str]) -> str:
     return _get_user_open_command()
 
 
+def _get_compatible_open_commands(scope: Optional[str]) -> set[str]:
+    """Return accepted Windows open commands for the current install.
+
+    Older EPI installs registered `view --browser "%1"` as the default open
+    command. That path still works, so diagnostics should treat it as healthy
+    instead of forcing unnecessary association repairs.
+    """
+    expected = _get_expected_open_command(scope)
+    compatible = {expected}
+
+    if ' view "%1"' in expected:
+        compatible.add(expected.replace(' view "%1"', ' view --browser "%1"'))
+    elif ' view --browser "%1"' in expected:
+        compatible.add(expected.replace(' view --browser "%1"', ' view "%1"'))
+
+    return compatible
+
+
 def _shellexecute_wait(exe: str, params: str, timeout_ms: int = 8000) -> None:
     """Launch exe+params via ShellExecuteExW and wait for the process to finish.
 
@@ -347,7 +365,7 @@ def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
 
 
 def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str) -> None:
-    """Fallback: write .epi association using reg add (when regedit didn't work)."""
+    """Write the per-user Windows association using hidden `reg add` calls."""
     commands = [
         ["add", r"HKCU\Software\Classes\.epi", "/ve", "/d", "EPIRecorder.File", "/f"],
         ["add", r"HKCU\Software\Classes\EPIRecorder.File", "/ve", "/d", "EPI Recording File", "/f"],
@@ -371,11 +389,13 @@ def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str) -> None:
 def register_windows() -> None:
     """Register .epi file association on Windows via HKCU registry.
 
-    Uses a .reg file imported by regedit.exe launched through ShellExecuteExW.
-    If verification shows keys missing, falls back to reg add so association works.
+    Uses hidden `reg add` / `reg delete` commands routed through
+    ShellExecuteExW so writes land in the real HKCU hive even under packaged
+    Python contexts.
 
-    Raises:
-        RuntimeError: if the import fails (before fallback).
+    This intentionally avoids `regedit.exe`, which can trigger confusing
+    Registry Editor / UAC prompts for users who are only trying to open a
+    `.epi` file.
     """
     import ctypes
 
@@ -383,72 +403,14 @@ def register_windows() -> None:
     open_cmd = _get_user_open_command()
     icon_cmd = _get_windows_default_icon(python_exe)
 
-    # --- Build .reg file ---------------------------------------------------
-    # .reg string escaping: backslashes → \\, double-quotes → \"
-    def _esc(s: str) -> str:
-        return s.replace("\\", "\\\\").replace('"', '\\"')
+    _register_windows_via_reg_add(open_cmd, icon_cmd)
+    query_output = _run_windows_reg_command(
+        ["query", r"HKCU\Software\Classes\.epi", "/ve"],
+        timeout_ms=5000,
+    )
+    if "EPIRecorder.File" not in query_output:
+        raise RuntimeError("Windows registry association could not be verified after registration.")
 
-    # Delete UserChoice so our association is the default (no "Open with" override).
-    reg_lines = [
-        "Windows Registry Editor Version 5.00",
-        "",
-        "[-HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.epi\\UserChoice]",
-        "",
-        "[HKEY_CURRENT_USER\\Software\\Classes\\.epi]",
-        '@="EPIRecorder.File"',
-        "",
-        "[HKEY_CURRENT_USER\\Software\\Classes\\.epi\\OpenWithProgids]",
-        '"EPIRecorder.File"=hex(0):',
-        "",
-        "[HKEY_CURRENT_USER\\Software\\Classes\\EPIRecorder.File]",
-        '@="EPI Recording File"',
-        "",
-        "[HKEY_CURRENT_USER\\Software\\Classes\\EPIRecorder.File\\shell\\open\\command]",
-        f'@="{_esc(open_cmd)}"',
-        "",
-        "[HKEY_CURRENT_USER\\Software\\Classes\\EPIRecorder.File\\DefaultIcon]",
-        f'@="{_esc(icon_cmd)}"',
-        "",
-    ]
-    reg_content = "\r\n".join(reg_lines)
-
-    launcher_dir = _resolve_windows_launcher_dir()
-    reg_path = launcher_dir / "register.reg"
-
-    # .reg files must be UTF-16 LE with BOM for reliable Windows parsing
-    reg_path.write_bytes(b"\xff\xfe" + reg_content.encode("utf-16-le"))
-
-    # --- Import via regedit.exe through ShellExecuteExW --------------------
-    # regedit launched via ShellExecuteExW is NOT subject to MSIX virtualisation.
-    try:
-        _shellexecute_wait("regedit.exe", f'/s "{reg_path.absolute()}"')
-    except RuntimeError as e:
-        raise RuntimeError(f"regedit.exe import failed: {e}")
-
-    # --- Verify and fallback to reg add if keys are missing -----------------
-    # On some systems regedit doesn't write to real HKCU (e.g. terminal/context).
-    # Use reg add as fallback so association works for all users.
-    try:
-        query_output = _run_windows_reg_command(
-            ["query", r"HKCU\Software\Classes\.epi", "/ve"],
-            timeout_ms=5000,
-        )
-    except Exception:
-        query_output = ""
-
-    verified = "EPIRecorder.File" in query_output
-
-    if not verified:
-        # Regedit didn't write visible keys (e.g. wrong context). Fallback: reg add.
-        _register_windows_via_reg_add(open_cmd, icon_cmd)
-        query_output = _run_windows_reg_command(
-            ["query", r"HKCU\Software\Classes\.epi", "/ve"],
-            timeout_ms=5000,
-        )
-        if "EPIRecorder.File" not in query_output:
-            raise RuntimeError("Windows registry association could not be verified after fallback registration.")
-
-    # --- Notify Windows shell to refresh file-association cache -------------
     try:
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
     except Exception:
@@ -943,8 +905,8 @@ def _is_association_broken() -> bool:
             if not registered_command:
                 return True
 
-            expected_cmd = _get_expected_open_command(snapshot.get("effective_scope"))
-            if registered_command != expected_cmd:
+            compatible_commands = _get_compatible_open_commands(snapshot.get("effective_scope"))
+            if registered_command not in compatible_commands:
                 return True
 
             import re as _re
@@ -1003,7 +965,7 @@ def get_association_diagnostics() -> dict:
                 if m2 and not Path(m2.group(1)).exists():
                     diag["status"] = "BROKEN"
                     diag["issues"].append(f"Registered executable does not exist: {m2.group(1)}")
-                elif cmd != _get_expected_open_command(snapshot.get("effective_scope")):
+                elif cmd not in _get_compatible_open_commands(snapshot.get("effective_scope")):
                     diag["status"] = "BROKEN"
                     diag["issues"].append("Registered open command does not match the current installation.")
             else:

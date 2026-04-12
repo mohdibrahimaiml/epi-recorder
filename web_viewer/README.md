@@ -1,69 +1,68 @@
-# EPI Case Review Web Viewer
+# EPI Case Investigation Viewer
 
-`web_viewer/` is the browser-only case review app for local `.epi` case files.
+`web_viewer/` is the browser-local investigation app for portable `.epi` artifacts.
 It powers both:
 
 - the default `epi view` experience for preopened case files
-- the packaged `viewer.html` baked directly into each `.epi` case file
+- the packaged `viewer.html` embedded directly into each `.epi`
 
-It is designed to feel simple for non-technical reviewers:
+The interface is now case-first rather than setup-first:
 
-- case-first entry: open one example case or one saved case file before touching setup
-- optional setup: connect a real system only when you want a safe sample, live case preview, or starter kit
-- refund approvals first: the default starter flow is built around refund approvals as the easiest business workflow to understand
-- safe sample preview: if real connector credentials are not ready yet, EPI can open a realistic local bridge sample so the workflow is still testable end to end
-- saved connector setup: keep connector fields stored only in this browser on this device, while secret keys stay only in the current session
-- local connector bridge: point the setup flow at `epi connect serve`, check the bridge, and fetch a live source record without leaving the browser review flow
-- live case preview: when a bridge fetch succeeds, EPI opens that real source record as a reviewable case immediately instead of leaving it buried in setup
-- shared team workspace: when multiple people use the same self-hosted bridge, case previews and review updates can be synced through the bridge instead of staying single-user only
-- optional local sign-in: a self-hosted workspace can use either one shared bearer token or a small local users file, and the browser keeps session tokens only in the current tab
-- recorder starter export: download a zip with `epi_policy.json`, a real `epi_recorder` starter script, system-specific connector helpers, sample input, and a run guide
-- live source record export: when a bridge fetch succeeds, the starter pack also carries `live_source_record.json` so the first run can start with real business context
-- `Inbox`: load multiple case files and see what needs attention first
-- `Case`: open one decision case file, understand what happened, and record a human outcome
-- guided next steps: each case tells the reviewer what matters most and which action to take next
-- plain-English review actions: approve the decision, reject the decision, or escalate and decide later
-- browser signing: paste the same EPI Ed25519 `.key` private key the CLI generates to produce signed review notes
-- signed review status: reloaded reviewed artifacts show whether the attached review notes are signed, unsigned, or have a bad signature
-- packaged artifact rebuild: the baked `viewer.html` can rebuild a reviewed `.epi` offline from embedded `epi-data`
-- `Rules`: load the sealed `policy.json`, edit real EPI rule types in plain language, and export a valid `epi_policy.json`
-- `Reports`: export a summary, review, or trust report without using the CLI
+- `Queue`: load multiple case files and open the case that needs attention first
+- `Case`: read decision, trust, source, policy, evidence, review, mapping, and attachments in one place
+- `Setup`: optional source-system configuration for safe samples, live previews, and recorder starter export
+- `Rules` and `Reports`: secondary utilities once the case is understood
 
-The starter rule families in this editor are aligned with `epi policy init --starter-rule ...`, so the browser and CLI generate the same custom starter shapes.
-`epi policy init --open-editor` and `epi policy show --open-editor` jump into the same Rules screen with the policy preloaded.
-The setup export generates connector-aware recorder scaffolding for Zendesk, Salesforce, ServiceNow, internal apps, and CSV-based workflows.
-For the simplest local path, `epi connect open` starts both the local review service and the browser app together, opens the browser, and leaves the workspace running in one command.
-If the local review service was started with `--users-file`, the browser app shows a built-in sign-in form for `admin`, `reviewer`, and `auditor` roles.
+The loaded-case flow is designed to answer four questions quickly:
 
-## How it works
+1. What happened?
+2. Why did it happen?
+3. Can I trust this file?
+4. Do I need to act?
 
-1. User opens one or more `.epi` files or starts with the example case
-2. [JSZip](https://stuk.github.io/jszip/) reads the ZIP contents in-browser
-3. `manifest.json`, `steps.jsonl`, `analysis.json`, `policy.json`, and `review.json` are parsed client-side when available
-4. SHA-256 integrity checks run in the browser
-5. Ed25519 verification is attempted with the bundled browser crypto verifier
-6. Optional browser signing uses the pasted Ed25519 PKCS#8 private key directly in the browser
-7. Reloaded case files verify `review_signature` and show a clear signed or unsigned review badge
-8. Everything stays local to the browser
-9. Packaged case files can open immediately from embedded `epi-data`, while `epi view` can preload archive bytes for reviewed `.epi` downloads
-10. The Rules screen exports an actual `epi_policy.json` that EPI can load on future runs
-11. If `epi connect serve` is running, the optional setup flow can fetch one live source record or safe sample, open it as a case preview right away, and keep it local to the browser session until you export the starter pack
-12. If the shared workspace is enabled, case previews and review updates can be synced to other users on the same self-hosted workspace
+## Investigation model
 
-## Why this viewer exists
+The main case surface is organized as:
 
-The core EPI infrastructure is still the moat:
+- `Overview`
+- `Evidence`
+- `Policy`
+- `Review`
+- `Mapping`
+- `Trust`
+- `Attachments`
 
-- trace capture
-- file integrity
-- signatures
-- review notes
-- policy evaluation
+This keeps native EPI recordings readable while also making imported AGT evidence feel first-class inside the same UI.
 
-This viewer changes the interface on top of that moat so operators, compliance teams, and reviewers can use EPI without needing to think first about manifests, hashes, or CLI commands.
+For AGT-imported artifacts, the viewer surfaces:
 
-## Hosting
+- `Source system: AGT`
+- `Import mode: EPI`
+- transformation audit from `artifacts/agt/mapping_report.json`
+- preserved raw AGT payloads under attachments
+- synthesized-analysis warnings when import created derived output
 
-Host the repo root or `/web_viewer/` on GitHub Pages and keep `../epi_viewer_static/crypto.js` available so browser-side signature verification continues to work.
-When EPI packages `viewer.html` into an artifact, the same interface is inlined for offline use.
-For live source-record fetches during optional setup, run `epi connect serve` locally and leave the bridge URL at `http://127.0.0.1:8765` unless your environment needs a different port.
+## What stays unchanged
+
+The viewer redesign does not change the EPI artifact model:
+
+- one `.epi` file
+- offline/local review
+- browser-side integrity checks
+- browser-side signature verification when available
+- optional browser signing for review notes
+- packaged `viewer.html` remains self-contained when embedded or extracted
+
+Everything stays local to the browser. The repo-hosted source app still expects its local companion assets, while packaged and extracted viewers inline what they need for offline use.
+
+## Source and setup support
+
+Optional setup still supports:
+
+- safe sample preview
+- local connector bridge via `epi connect serve`
+- live source-record preview
+- shared local workspace sync
+- recorder starter export with `epi_policy.json` and recorder scaffolding
+
+The setup flow remains secondary to the case reader so reviewers can open a saved artifact and investigate immediately.

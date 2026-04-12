@@ -34,6 +34,8 @@ ci_check_env/
 tmp_debug_env/
 .tmp-*
 .tmp-*/**
+.release-build-*/
+.release-build-*.zip
 .tmp-viewer-*/
 .pytest-tmp-*/
 .pytest-tmp-*/**
@@ -147,6 +149,7 @@ v2.8.5.ipynb
 *.log
 !pyproject.toml
 *.html
+!docs/index.html
 !epi_viewer_static/*.html
 !web_viewer/*.html
 .aider*

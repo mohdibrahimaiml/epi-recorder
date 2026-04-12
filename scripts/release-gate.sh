@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # EPI Release Gate — Linux/macOS
 # Usage: bash scripts/release-gate.sh [python]
-# Default python: python3
+# Default python: python (passed explicitly by CI as 'python')
 
 set -euo pipefail
 

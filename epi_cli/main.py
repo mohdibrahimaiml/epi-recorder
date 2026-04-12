@@ -11,6 +11,12 @@ import typer
 from pathlib import Path
 from rich.console import Console
 
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
+
 # Create callback that handles --version
 def version_callback(value: bool):
     if value:
@@ -25,6 +31,9 @@ app = typer.Typer(
 
 Try it now (no API key needed):
   epi demo
+
+Already have Microsoft AGT evidence:
+  epi import agt <bundle-or-dir-or-manifest> --out sample.epi
 
 No-install trial:
   Open the Colab notebook from the README
@@ -52,6 +61,7 @@ Commands:
   verify     <file.epi>    Cryptographic integrity check.
   share      <file.epi>    Upload a hosted share link for browser review.
   review     <file.epi>    Add human review notes to a case file.
+  import     agt ...       Convert exported AGT evidence into a portable .epi case file.
   analyze    <file.epi>    Show fault analysis summary.
   policy     init          Create epi_policy.json with control rules.
   chat       <file.epi>    Chat with evidence using AI.
@@ -75,7 +85,7 @@ Tips:
 
 console = Console(legacy_windows=False)
 
-_KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "init", "doctor"}
+_KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "import", "init", "doctor"}
 _WINDOWS_ASSOCIATION_COMMANDS = {"doctor"}
 _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
@@ -88,39 +98,28 @@ def _analysis_has_fault(analysis: dict) -> bool:
 
 
 def _count_steps_in_artifact(epi_path: Path) -> int:
-    import zipfile
-
-    if not epi_path.exists() or not zipfile.is_zipfile(epi_path):
+    if not epi_path.exists():
         return 0
-
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "steps.jsonl" not in zf.namelist():
-            return 0
-        return len([line for line in zf.read("steps.jsonl").decode("utf-8").splitlines() if line.strip()])
+    try:
+        return EPIContainer.count_steps(epi_path)
+    except Exception:
+        return 0
 
 
 def _step_kinds_in_artifact(epi_path: Path) -> set[str]:
-    import zipfile
-    import json
-
-    if not epi_path.exists() or not zipfile.is_zipfile(epi_path):
+    if not epi_path.exists():
         return set()
-
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "steps.jsonl" not in zf.namelist():
-            return set()
-        kinds = set()
-        for line in zf.read("steps.jsonl").decode("utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                payload = json.loads(line)
-            except Exception:
-                continue
-            kind = payload.get("kind")
-            if isinstance(kind, str) and kind:
-                kinds.add(kind)
-        return kinds
+    try:
+        return {
+            kind
+            for kind in (
+                step.get("kind")
+                for step in EPIContainer.read_steps(epi_path)
+            )
+            if isinstance(kind, str) and kind
+        }
+    except Exception:
+        return set()
 
 
 def _analyze_reviewer_guidance(has_fault: bool, steps_recorded: int) -> tuple[str, str, str]:
@@ -282,6 +281,10 @@ def show_help():
 [bold]Try it now (no API key needed):[/bold]
   [green]epi demo[/green]
 
+[bold]Already have Microsoft AGT evidence:[/bold]
+  [green]epi import agt <bundle-or-dir-or-manifest> --out sample.epi[/green]
+  [green]epi verify sample.epi[/green]
+
 [bold]No-install trial:[/bold]
   Open the Colab notebook from the README
 
@@ -308,6 +311,7 @@ def show_help():
   [cyan]verify[/cyan]     <file.epi>    Cryptographic integrity check.
   [cyan]share[/cyan]      <file.epi>    Upload a hosted share link for browser review.
   [cyan]review[/cyan]     <file.epi>    Add human review notes to a case file.
+  [cyan]import[/cyan]     agt ...       Convert AGT evidence into a portable .epi case file.
   [cyan]analyze[/cyan]    <file.epi>    Show fault analysis summary.
   [cyan]policy[/cyan]     init          Create epi_policy.json.
   [cyan]chat[/cyan]       <file.epi>    Chat with evidence using AI.
@@ -384,13 +388,91 @@ def record(
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
-@app.command(name="view", help="Open a case file in the browser review view or extract it.")
+@app.command(name="view", help="Open a case file in the browser review view by default. Use --native to force the desktop viewer.")
 def view(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
     extract: str = typer.Option(None, "--extract", help="Destination directory to extract the viewer.html and assets instead of opening browser"),
+    browser: bool = typer.Option(False, "--browser", help="Open in the browser review flow (default behavior)."),
+    native: bool = typer.Option(False, "--native", help="Force the native desktop viewer instead of the browser review flow."),
 ):
-    return view_command(ctx, epi_file, extract)
+    return view_command(ctx, epi_file, extract, browser, native)
+
+
+@app.command(name="migrate", help="Convert a .epi artifact between legacy ZIP and envelope container formats.")
+def migrate(
+    epi_file: str = typer.Argument(..., help="Path or name of the source .epi file"),
+    out: Path = typer.Option(..., "--out", help="Destination .epi file path"),
+    legacy_zip: bool = typer.Option(
+        False,
+        "--legacy-zip",
+        help="Write a legacy ZIP-based .epi instead of the envelope format.",
+    ),
+):
+    from epi_cli.view import _resolve_epi_file
+
+    try:
+        resolved = _resolve_epi_file(epi_file)
+    except FileNotFoundError:
+        console.print(f"[red][X] File not found:[/red] {epi_file}")
+        raise typer.Exit(1)
+
+    target_format = (
+        EPI_CONTAINER_FORMAT_LEGACY if legacy_zip else EPI_CONTAINER_FORMAT_ENVELOPE
+    )
+
+    try:
+        source_format = EPIContainer.detect_container_format(resolved)
+        EPIContainer.migrate(resolved, out, container_format=target_format)
+    except Exception as exc:
+        console.print(f"[red][X] Could not migrate artifact:[/red] {exc}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[green][OK][/green] Migrated {resolved.name} -> {out}")
+    console.print(f"[dim]From:[/dim] {source_format}")
+    console.print(f"[dim]To:[/dim] {target_format}")
+
+
+@app.command(name="refresh-viewer", help="Regenerate embedded viewer.html in existing .epi artifacts without changing sealed evidence.")
+def refresh_viewer(
+    target: Path = typer.Argument(..., help="A .epi file or a directory containing .epi files"),
+    recursive: bool = typer.Option(False, "--recursive", help="Recurse into subdirectories when the target is a directory."),
+):
+    files: list[Path] = []
+
+    if target.is_file():
+        if target.suffix.lower() != ".epi":
+            console.print(f"[red][X][/red] Not a .epi file: {target}")
+            raise typer.Exit(1)
+        files = [target]
+    elif target.is_dir():
+        pattern = "**/*.epi" if recursive else "*.epi"
+        files = sorted(path for path in target.glob(pattern) if path.is_file())
+        if not files:
+            console.print(f"[yellow][!][/yellow] No .epi files found in {target}")
+            raise typer.Exit(1)
+    else:
+        console.print(f"[red][X][/red] Target not found: {target}")
+        raise typer.Exit(1)
+
+    refreshed = 0
+    failures: list[tuple[Path, str]] = []
+
+    for artifact in files:
+        try:
+            EPIContainer.refresh_viewer(artifact)
+            refreshed += 1
+        except Exception as exc:
+            failures.append((artifact, str(exc)))
+
+    if refreshed:
+        console.print(f"[green][OK][/green] Refreshed embedded viewer in {refreshed} .epi file(s).")
+    if failures:
+        for artifact, error in failures[:10]:
+            console.print(f"[red][X][/red] {artifact}: {error}")
+        if len(failures) > 10:
+            console.print(f"[dim]... plus {len(failures) - 10} more failures[/dim]")
+        raise typer.Exit(1)
 
 from epi_cli.share import share as share_command
 app.command(name="share", help="Upload a hosted share link for a portable .epi case file.")(share_command)
@@ -404,8 +486,8 @@ from epi_cli.chat import chat as chat_command
 app.command(name="chat", help="Chat with your evidence file using AI")(chat_command)
 
 # NEW: debug command (v2.2.0 - AI-powered mistake detection)
-from epi_cli.debug import app as debug_app
-app.add_typer(debug_app, name="debug", help="Debug AI agent recordings for mistakes")
+from epi_cli.debug import debug as debug_command
+app.command(name="debug", help="Debug AI agent recordings for mistakes")(debug_command)
 
 # NEW: install/uninstall commands (v2.6.0 - global auto-recording)
 from epi_cli.install import app as install_app
@@ -438,14 +520,15 @@ app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — capture, ope
 from epi_cli.export_summary import app as export_summary_app
 app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi case file")
 
+from epi_cli.importer import app as import_app
+app.add_typer(import_app, name="import", help="Import external evidence into a sealed .epi case file")
+
 
 @app.command()
 def analyze(
     epi_file: str = typer.Argument(..., help="Path or name of .epi file"),
 ):
     """Show fault analysis summary without opening the viewer."""
-    import zipfile
-
     from epi_cli.view import _resolve_epi_file
 
     try:
@@ -454,17 +537,22 @@ def analyze(
         console.print(f"[red][X] File not found:[/red] {epi_file}")
         raise typer.Exit(1)
 
-    if not zipfile.is_zipfile(epi_path):
+    try:
+        EPIContainer.detect_container_format(epi_path)
+    except Exception:
         console.print(f"[red][X] Not a valid .epi file.[/red]")
         raise typer.Exit(1)
 
-    with zipfile.ZipFile(epi_path, "r") as zf:
-        if "analysis.json" not in zf.namelist():
-            console.print(f"[yellow]No analysis.json in {epi_path.name}[/yellow]")
-            console.print("[dim]This case file predates the Fault Intelligence layer.[/dim]")
-            raise typer.Exit(0)
-        import json
-        analysis = json.loads(zf.read("analysis.json").decode("utf-8"))
+    try:
+        analysis = EPIContainer.read_member_json(epi_path, "analysis.json")
+    except ValueError:
+        console.print(f"[yellow]No analysis.json in {epi_path.name}[/yellow]")
+        console.print("[dim]This case file predates the Fault Intelligence layer.[/dim]")
+        raise typer.Exit(0)
+
+    if not isinstance(analysis, dict):
+        console.print(f"[red][X] analysis.json is not a JSON object in {epi_path.name}.[/red]")
+        raise typer.Exit(1)
 
     fault_detected = _analysis_has_fault(analysis)
     mode = analysis.get("mode", "unknown")

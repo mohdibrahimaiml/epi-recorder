@@ -75,7 +75,7 @@ EPI is pilot-ready only when all of these are true:
 Repo work:
 
 - add `docker-compose.yml`
-- add gateway/runtime env docs in [CLI.md](/Users/dell/epi-recorder/docs/CLI.md)
+- add gateway/runtime env docs in [CLI.md](../CLI.md)
 - add a deployment guide in a new `docs/PILOT-DEPLOYMENT.md`
 - add config validation in [main.py](/Users/dell/epi-recorder/epi_gateway/main.py)
 
@@ -188,7 +188,7 @@ Repo work:
 
 - add `scripts/backup-gateway.ps1`
 - add `scripts/restore-gateway.ps1`
-- add migration/version notes in [OPEN-CORE-ARCHITECTURE.md](/Users/dell/epi-recorder/docs/OPEN-CORE-ARCHITECTURE.md)
+- add migration/version notes in [OPEN-CORE-ARCHITECTURE.md](./OPEN-CORE-ARCHITECTURE.md)
 - add backup/restore tests if practical, otherwise scripted verification docs
 
 ### 9. End-To-End Acceptance Testing
@@ -305,7 +305,7 @@ Focus:
 Primary files:
 
 - new deployment files at repo root or `deploy/`
-- [CLI.md](/Users/dell/epi-recorder/docs/CLI.md)
+- [CLI.md](../CLI.md)
 - new `docs/PILOT-DEPLOYMENT.md`
 
 ### Workstream E: Acceptance Testing

@@ -1,9 +1,9 @@
 import json
 import time
-import zipfile
 
 from fastapi.testclient import TestClient
 
+from epi_core.container import EPIContainer, EPI_CONTAINER_FORMAT_ENVELOPE
 from epi_gateway.main import GatewayRuntimeSettings, create_app
 from epi_gateway.worker import EvidenceWorker
 
@@ -59,9 +59,8 @@ def test_gateway_case_api_review_and_export(tmp_path):
         assert export_response.status_code == 200
         export_path = tmp_path / "exported.epi"
         export_path.write_bytes(export_response.content)
-        assert zipfile.is_zipfile(export_path) is True
-        with zipfile.ZipFile(export_path, "r") as archive:
-            names = set(archive.namelist())
+        assert EPIContainer.detect_container_format(export_path) == EPI_CONTAINER_FORMAT_ENVELOPE
+        names = set(EPIContainer.list_members(export_path))
         assert "manifest.json" in names
         assert "review.json" in names
 
@@ -229,6 +228,58 @@ def test_gateway_auth_protects_capture_and_proxy_paths_when_enabled(tmp_path):
             headers={"Authorization": "Bearer shared-secret"},
         )
         assert capture_authorized.status_code == 202
+
+
+def test_gateway_capture_batch_accepts_connector_events_alias(tmp_path):
+    worker = EvidenceWorker(storage_dir=tmp_path, batch_size=1, batch_timeout=0.1)
+    app = create_app(worker=worker)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/capture/batch",
+            json={
+                "events": [
+                    {
+                        "eventType": "tool.call",
+                        "payload": {"tool": "lookup_order", "input": {"order_id": "123"}},
+                        "traceId": "trace-connector",
+                        "workflowName": "Refund approvals",
+                        "sourceApp": "n8n",
+                    },
+                    {
+                        "eventType": "tool.response",
+                        "payload": {"tool": "lookup_order", "status": "success"},
+                        "traceId": "trace-connector",
+                        "workflowName": "Refund approvals",
+                        "sourceApp": "n8n",
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 202
+        payload = response.json()
+        assert payload["accepted_count"] == 2
+        deadline = time.time() + 2.0
+        cases = []
+        while time.time() < deadline:
+            cases = client.get("/api/cases").json()["cases"]
+            if cases:
+                break
+            time.sleep(0.05)
+        assert cases
+        case = cases[0]
+        detail = None
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            detail = client.get(f"/api/cases/{case['id']}").json()["case"]
+            if len(detail.get("steps") or []) == 3:
+                break
+            time.sleep(0.05)
+        assert detail is not None
+        connector_steps = [step for step in detail["steps"] if step["kind"] != "session.start"]
+        assert sorted(step["kind"] for step in connector_steps) == ["tool.call", "tool.response"]
+        assert all(step["trace_id"] == "trace-connector" for step in connector_steps)
 
 
 def test_gateway_local_user_login_session_and_roles(tmp_path):

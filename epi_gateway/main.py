@@ -22,7 +22,7 @@ from epi_cli.keys import KeyManager
 from epi_core import __version__
 from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
-from epi_core.container import EPIContainer, EPI_MIMETYPE
+from epi_core.container import EPIContainer, EPI_MIMETYPE, EPI_SUPPORTED_UPLOAD_MIMETYPES
 from epi_core.llm_capture import LLMCaptureRequest, build_llm_capture_events
 from epi_core.time_utils import utc_now_iso
 from epi_core.trust import sign_manifest
@@ -204,6 +204,22 @@ class GatewayRuntimeSettings(BaseModel):
 
 class CaptureBatchRequest(BaseModel):
     items: list[CaptureEventModel] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_connector_batch_aliases(cls, raw: Any) -> Any:
+        if isinstance(raw, cls) or not isinstance(raw, dict):
+            return raw
+
+        data = dict(raw)
+        if "items" not in data:
+            for key in ("events", "steps", "records"):
+                if key in data:
+                    data["items"] = data[key]
+                    break
+        return data
 
 
 class WorkspaceCaseRequest(BaseModel):
@@ -1262,7 +1278,7 @@ def create_app(
     ):
         content_type = _clean(request.headers.get("content-type")) or "application/octet-stream"
         content_type = content_type.split(";", 1)[0].strip().lower()
-        if content_type not in {EPI_MIMETYPE, "application/octet-stream"}:
+        if content_type not in EPI_SUPPORTED_UPLOAD_MIMETYPES:
             raise HTTPException(status_code=415, detail="Unsupported content type for .epi upload")
 
         try:
@@ -1293,9 +1309,25 @@ def create_app(
         except ShareServiceError as exc:
             headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
             raise HTTPException(status_code=exc.status_code, detail=str(exc), headers=headers) from exc
+        media_type = EPI_MIMETYPE
+        temp_dir = None
+        try:
+            temp_dir = EPIContainer._make_temp_dir("epi_share_download_")
+            temp_path = temp_dir / record.filename
+            temp_path.write_bytes(payload)
+            media_type = EPIContainer.container_mimetype(temp_path)
+        except Exception:
+            media_type = EPI_MIMETYPE
+        finally:
+            try:
+                if temp_dir is not None:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
+
         return Response(
             content=payload,
-            media_type=EPI_MIMETYPE,
+            media_type=media_type,
             headers={
                 "Content-Disposition": f'attachment; filename="{record.filename}"',
                 "Cache-Control": "private, max-age=60",
@@ -1469,7 +1501,7 @@ def create_app(
 
         return FileResponse(
             path=result.output_path,
-            media_type="application/vnd.epi+zip",
+            media_type=EPIContainer.container_mimetype(result.output_path),
             filename=result.filename,
             background=BackgroundTask(lambda: shutil.rmtree(temp_dir, ignore_errors=True)),
         )

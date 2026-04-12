@@ -2,18 +2,18 @@
 
 import json
 import zipfile
-import pytest
 from pathlib import Path
-from unittest.mock import patch
 
+import pytest
+
+from epi_cli.review import _analysis_has_fault
+from epi_core.container import EPI_CONTAINER_FORMAT_ENVELOPE, EPIContainer
 from epi_core.review import (
     ReviewRecord,
     add_review_to_artifact,
-    read_review,
     make_review_entry,
+    read_review,
 )
-from epi_cli.review import _analysis_has_fault
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -202,6 +202,21 @@ class TestArtifactReview:
     def test_read_review_returns_none_on_missing_file(self, tmp_path):
         result = read_review(tmp_path / "ghost.epi")
         assert result is None
+
+    def test_add_review_preserves_envelope_format(self, tmp_path):
+        legacy_path = _make_minimal_epi(tmp_path)
+        envelope_path = tmp_path / "enveloped.epi"
+        EPIContainer.migrate(
+            legacy_path, envelope_path, container_format=EPI_CONTAINER_FORMAT_ENVELOPE
+        )
+
+        record = _make_review_record()
+        add_review_to_artifact(envelope_path, record)
+
+        assert EPIContainer.detect_container_format(envelope_path) == EPI_CONTAINER_FORMAT_ENVELOPE
+        loaded = read_review(envelope_path)
+        assert loaded is not None
+        assert loaded.reviewed_by == "alice@example.com"
 
 
 class TestReviewCliHelpers:

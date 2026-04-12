@@ -455,32 +455,38 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-It is a ZIP container with a defined layout.
+In the current `v4.0.0` line, it is a self-identifying binary envelope with a
+defined inner payload layout.
 
 ### Typical layout
 
 ```text
-mimetype
-steps.jsonl
-environment.json
-analysis.json                  # optional
-policy.json                    # optional
-policy_evaluation.json         # optional
-review.json                    # optional
-artifacts/...                  # optional
-viewer.html
-manifest.json
+example.epi
+EPI1 header                    # outer identity, payload length, payload SHA-256
+payload.zip                    # signed ZIP evidence payload
+  mimetype
+  steps.jsonl
+  environment.json
+  analysis.json                # optional
+  policy.json                  # optional
+  policy_evaluation.json       # optional
+  review.json                  # optional
+  artifacts/...                # optional
+  viewer.html
+  manifest.json
 ```
 
 ### What each file does
 
 #### `mimetype`
 
-A tiny marker file containing:
+A tiny marker file inside the ZIP payload containing:
 
 `application/vnd.epi+zip`
 
-It is written first and uncompressed for standards-style ZIP compatibility.
+It is written first and uncompressed for standards-style ZIP compatibility
+inside the signed payload. The outermost `.epi` file itself no longer begins
+with ZIP magic bytes in `v4.0.0`.
 
 #### `steps.jsonl`
 

@@ -83,7 +83,7 @@ class TestCLIVerify:
     def test_verify_with_json_output(self, sample_epi_file):
         """Test verify with JSON output."""
         result = runner.invoke(app, ["verify", "--json", str(sample_epi_file)])
-        
+
         assert result.exit_code == 0
         # Should be valid JSON
         try:
@@ -92,6 +92,32 @@ class TestCLIVerify:
         except json.JSONDecodeError:
             # If not JSON, at least check it ran
             assert len(result.stdout) > 0
+
+    def test_verify_with_json_output_on_bad_archive(self, tmp_path):
+        """Structural failures should still produce machine-readable JSON."""
+        bad = tmp_path / "bad.epi"
+        bad.write_bytes(b"not a zip")
+
+        result = runner.invoke(app, ["verify", "--json", str(bad)])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.stdout)
+        assert payload["trust_level"] == "NONE"
+        assert payload["integrity_ok"] is False
+        assert payload["error_type"] == "structural_validation_failed"
+        assert "Structural validation failed" in payload["error"]
+
+    def test_verify_with_json_output_on_missing_file(self, tmp_path):
+        """Missing files should still return a JSON failure payload."""
+        missing = tmp_path / "missing.epi"
+
+        result = runner.invoke(app, ["verify", "--json", str(missing)])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.stdout)
+        assert payload["trust_level"] == "NONE"
+        assert payload["error_type"] == "file_not_found"
+        assert "File not found" in payload["error"]
 
 
 class TestCLIView:
@@ -125,6 +151,7 @@ class TestCLIView:
             return True
         
         import epi_cli.view
+        monkeypatch.setattr(epi_cli.view, "_open_native_viewer", lambda *_args, **_kwargs: False)
         monkeypatch.setattr(epi_cli.view, "_open_in_browser", mock_open)
         
         result = runner.invoke(app, ["view", str(sample_epi_file)])

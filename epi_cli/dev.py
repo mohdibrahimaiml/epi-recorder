@@ -1,5 +1,5 @@
 """
-epi dev — zero-friction developer onboarding for EPI.
+epi dev — zero-friction portable repro onboarding for EPI.
 
 Design principles:
 - Real capture first. A live-recorded case is always preferred over injected demo data.
@@ -10,7 +10,6 @@ Design principles:
 """
 from __future__ import annotations
 
-import json
 import os
 import socket
 import subprocess
@@ -18,7 +17,6 @@ import sys
 import time
 import uuid
 import webbrowser
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -26,6 +24,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+
+from epi_core.container import EPIContainer
 
 console = Console()
 
@@ -76,8 +76,29 @@ class _MockClient:
     chat = _MockChat()
 
 
+DEMO_WORKFLOW_NAME = "Refund approval investigation"
+DEMO_TAGS = ["demo", "refund", "human-review"]
+DEMO_GOAL = "Decide whether a high-value refund should be approved safely."
+DEMO_NOTES = (
+    "Starter case for the EPI investigation viewer. "
+    "Shows a refund decision, supporting evidence, and a required human review handoff."
+)
+DEMO_METRICS = {
+    "refund_amount_usd": 900.0,
+    "manager_review_threshold_usd": 500.0,
+}
+
+
 def run_refund_agent():
-    with record("demo_refund.epi"):
+    with record(
+        "demo_refund.epi",
+        workflow_name=DEMO_WORKFLOW_NAME,
+        tags=DEMO_TAGS,
+        goal=DEMO_GOAL,
+        notes=DEMO_NOTES,
+        metrics=DEMO_METRICS,
+        metadata_tags=DEMO_TAGS,
+    ):
         from epi_recorder import get_current_session
         session = get_current_session()
 
@@ -86,7 +107,17 @@ def run_refund_agent():
                 "agent_name": "RefundApprovalAgent",
                 "agent_type": "decision",
                 "user_input": "Process refund for order ORD-9001 ($900)",
-                "goal": "Determine whether to approve or reject the refund",
+                "goal": DEMO_GOAL,
+            })
+            session.log_step("policy.check", {
+                "policy_name": "high_value_refund_review",
+                "rule": "Refunds above $500 require human review before payout.",
+                "result": "review_required",
+                "evidence": {
+                    "order_id": "ORD-9001",
+                    "amount_usd": 900,
+                    "threshold_usd": 500,
+                },
             })
 
         if session:
@@ -101,6 +132,7 @@ def run_refund_agent():
                     "amount_usd": 900,
                     "customer_status": "gold",
                     "days_since_purchase": 12,
+                    "review_threshold_usd": 500,
                 },
                 "status": "success",
             })
@@ -159,6 +191,13 @@ def run_refund_agent():
                 "confidence": 0.94,
                 "rationale": answer,
                 "review_required": True,
+                "review_reason": "Refund exceeds the auto-approval threshold.",
+                "severity": "medium",
+            })
+            session.log_step("review.handoff", {
+                "queue": "refund-managers",
+                "reason": "Human review required for refunds above $500.",
+                "requested_action": "Approve or reject the payout.",
             })
             session.log_step("agent.run.end", {
                 "agent_name": "RefundApprovalAgent",
@@ -218,22 +257,18 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
     try:
         from epi_gateway.worker import EvidenceWorker
 
-        if not zipfile.is_zipfile(epi_path):
+        try:
+            EPIContainer.detect_container_format(epi_path)
+        except Exception:
             return None
 
-        with zipfile.ZipFile(epi_path, "r") as zf:
-            names = zf.namelist()
-            manifest: dict = json.loads(zf.read("manifest.json")) if "manifest.json" in names else {}
-            steps: list = []
-            if "steps.jsonl" in names:
-                raw = zf.read("steps.jsonl").decode("utf-8", errors="replace")
-                for line in raw.splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            steps.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            pass
+        try:
+            manifest_payload = EPIContainer.read_member_json(epi_path, "manifest.json")
+            manifest: dict = manifest_payload if isinstance(manifest_payload, dict) else {}
+        except Exception:
+            manifest = {}
+
+        steps = EPIContainer.read_steps(epi_path)
 
         case_id = (
             manifest.get("recording_id")
@@ -245,16 +280,16 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
         worker = EvidenceWorker(storage_dir=storage_dir)
         payload = {
             "id": case_id,
-            "title": "[Live captured] Refund ORD-9001 - $900 (Gold customer, 12 days)",
+            "title": "[Live captured] Refund approval investigation - ORD-9001",
             "created_at": created_at,
             "manifest": manifest,
             "steps": steps,
             "analysis": {
                 "review_required": True,
                 "summary": (
-                    "Agent approved $900 refund for Gold customer. "
-                    "Order ORD-9001, 12 days since purchase. Confidence: 94%. "
-                    "Awaiting human review."
+                    "Agent approved a $900 refund for Gold customer ORD-9001. "
+                    "Human review is still required because the amount exceeds the $500 threshold. "
+                    "Confidence: 94%."
                 ),
             },
         }
@@ -458,7 +493,7 @@ def dev(
     no_verify: bool = typer.Option(False, "--no-verify", help="Skip the interactive export + verify step."),
 ):
     """
-    Start a complete EPI demo: refund review, browser case view, export, verify.
+    Start the fastest EPI repro loop: sample run, browser case view, export, verify.
 
     No API key, no internet, no config required.
     """
@@ -470,8 +505,8 @@ def dev(
 
     console.print()
     console.print(Panel.fit(
-        "[bold cyan]epi demo[/bold cyan] — refund review in one command\n"
-        "[dim]Real capture. Honest labeling. Clear case review.[/dim]",
+        "[bold cyan]epi demo[/bold cyan] — portable repro in one command\n"
+        "[dim]Real capture. Honest labeling. Open, share, verify.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -517,7 +552,7 @@ def dev(
 
     if not no_run:
         console.print()
-        console.print("[dim]  Running demo_refund.py (capturing decision evidence)...[/dim]")
+        console.print("[dim]  Running demo_refund.py (capturing one sample AI run)...[/dim]")
         console.print()
 
         run_env = os.environ.copy()
@@ -579,16 +614,16 @@ def dev(
     console.print()
     console.print("  [bold]In your browser:[/bold]")
     console.print("    1. Click the case → [bold]Refund ORD-9001[/bold]")
-    console.print("    2. Read the agent decision and evidence trail")
-    console.print("    3. Click [green]Approve[/green] or [red]Reject[/red]")
+    console.print("    2. Read the flagged decision and the step-by-step trail")
+    console.print("    3. Click [green]Approve[/green], [red]Reject[/red], or export the case file")
     console.print()
     console.rule()
 
     # ── [7] Interactive export + verify ───────────────────────────────────
     if not no_verify:
         console.print()
-        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident case file.")
-        console.print("  This is what you send to auditors, regulators, or downstream systems.")
+        console.print("  [bold]Proof step[/bold] — export this case as a tamper-evident bug report artifact.")
+        console.print("  This is what you attach to a GitHub issue, PR, Slack thread, or downstream handoff.")
         console.print()
         try:
             input("  Press Enter to export & verify  (Ctrl+C to skip) → ")
@@ -603,7 +638,7 @@ def dev(
                 console.print()
                 console.print(f"  [bold green]✔ Case file verified: {exported.name}[/bold green]")
                 console.print("  [dim]This file is cryptographically tamper-evident.[/dim]")
-                console.print("  [dim]Share it. Store it. Verify it anywhere.[/dim]")
+                console.print("  [dim]Attach it. Store it. Verify it anywhere.[/dim]")
             console.print()
             console.print("  [dim]To re-verify later:[/dim]")
             console.print("  [dim]  epi verify refund_case.epi[/dim]")

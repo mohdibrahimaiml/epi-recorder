@@ -285,6 +285,26 @@ class TestGetAssociationDiagnostics:
         assert diag["status"] == "OK"
         assert diag["association_scope"] == "HKLM"
 
+    def test_legacy_browser_open_command_is_still_reported_as_healthy(self):
+        snapshot = {
+            "user_choice": None,
+            "hkcu_progid": "EPIRecorder.File",
+            "hklm_progid": None,
+            "hkcu_command": '"C:\\Users\\dell\\epi.exe" view --browser "%1"',
+            "hklm_command": None,
+            "effective_scope": "HKCU",
+            "effective_progid": "EPIRecorder.File",
+            "registered_command": '"C:\\Users\\dell\\epi.exe" view --browser "%1"',
+        }
+        with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate._get_windows_association_snapshot", return_value=snapshot), \
+             patch("epi_core.platform.associate._get_user_open_command",
+                   return_value='"C:\\Users\\dell\\epi.exe" view "%1"'), \
+             patch("epi_core.platform.associate.Path.exists", return_value=True):
+            diag = get_association_diagnostics()
+        assert diag["status"] == "OK"
+        assert not diag["issues"]
+
 
 # ─────────────────────────────────────────────────────────────
 # register_file_association

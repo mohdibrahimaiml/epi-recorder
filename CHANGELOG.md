@@ -7,6 +7,86 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [4.0.0] - 2026-04-08
+
+### `.epi` Envelope Format
+
+#### Added
+
+- **New binary `.epi` outer envelope**
+  - newly written artifacts now use an `EPI1` header instead of starting with ZIP magic bytes
+  - the envelope stores payload length and SHA-256 so readers can fail fast before opening the embedded evidence payload
+- **Dual-format container support**
+  - EPI now reads both legacy ZIP-based `.epi` files and the new envelope-based `.epi` files transparently
+  - legacy artifacts remain valid and readable
+- **Artifact migration command**
+  - `epi migrate` converts between legacy ZIP and envelope container formats without changing the inner evidence payload
+
+#### Changed
+
+- **Default wire format**
+  - `EPIContainer.pack()` and the normal CLI write paths now default to `envelope-v2`
+  - the signed inner manifest remains the trust root for this release line
+- **Share and gateway transport**
+  - new envelope artifacts are served as `application/vnd.epi`
+  - legacy ZIP artifacts keep `application/vnd.epi+zip`
+
+#### Fixed
+
+- **Raw artifact identity during sharing**
+  - `.epi` files no longer begin with ZIP bytes by default, which avoids the most common “compressed folder” misclassification path in download channels
+- **Container abstraction coverage**
+  - `view`, `verify`, `review`, `export-summary`, policy inspection, AGT import, and share validation now route through one shared container layer instead of assuming the outer file is a ZIP archive
+
+---
+
+## [3.0.3] - 2026-04-07
+
+### AGT Front-Door Release Polish
+
+#### Added
+
+- **Microsoft Agent Governance Toolkit quickstart**
+  - the public docs now treat `epi import agt` as a first-class onboarding path instead of leaving it buried in examples
+  - a canonical `AGT -> EPI` walkthrough now starts from `examples/agt/sample_bundle.json`
+- **Imported-evidence trust guidance**
+  - current docs now explain the imported artifact surfaces that matter most to reviewers:
+    - `steps.jsonl`
+    - `policy.json`
+    - `policy_evaluation.json`
+    - `analysis.json`
+    - `artifacts/agt/mapping_report.json`
+
+#### Improved
+
+- **Current release documentation alignment**
+  - README, docs hub, CLI reference, policy guide, spec, self-hosted runbook, and flagship explainer now align on `v3.0.3`
+  - the current docs set now points at the `v3.0.3` flagship explainer instead of the previous release-line document
+- **First-time AGT user flow**
+  - the CLI help and importer output now make the `import -> verify -> view` flow more obvious to users coming from exported AGT evidence
+
+#### Notes
+
+- `v3.0.3` is a release-polish line focused on discoverability, trust clarity, and current-doc consistency for the AGT import path.
+
+---
+
+## [3.0.2] - 2026-04-04
+
+### Offline Viewer Packaging Fix
+
+#### Fixed
+
+- **Extracted browser viewer**
+  - `epi view --extract` now vendors and inlines `jszip.min.js` instead of leaving a JSDelivr dependency in the generated `viewer.html`
+  - extracted viewers now open cleanly in offline and air-gapped environments without remote script loading
+- **Embedded and policy editor viewer parity**
+  - the shared viewer inlining path now bundles the same JSZip runtime for embedded artifact viewers and the browser policy editor
+- **Release audit coverage**
+  - wheel auditing now fails if the vendored `web_viewer/jszip.min.js` runtime asset is missing from the built package
+
+---
+
 ## [3.0.1] - 2026-04-02
 
 ### Front-Door Reliability Patch
@@ -503,7 +583,7 @@ Explicit capture provides stronger evidentiary guarantees.
 ## [2.2.0] – 2026-01-30
 
 ### Clarified Scope
-- EPI's primary artifact is a **portable execution evidence file (.epi)**
+- EPI's primary artifact is a **portable, verifiable `.epi` artifact that packages execution as evidence**
 - Debugging tools are treated as **secondary consumers** of evidence
 
 ### Added

@@ -32,6 +32,68 @@ def _print_share_hint() -> None:
     console.print("  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required")
     console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
 
+
+def _emit_json_report(report: dict) -> None:
+    """Write a machine-readable verification report directly to stdout."""
+    sys.stdout.write(json.dumps(report, indent=2) + "\n")
+
+
+def _build_failure_report(
+    message: str,
+    *,
+    error_type: str,
+    signature_valid: bool | None = None,
+    signer_name: str | None = None,
+    has_signature: bool = False,
+    mismatches: dict[str, str] | None = None,
+) -> dict:
+    """Return a consistent JSON failure payload for pre-manifest verification errors."""
+    mismatch_map = mismatches or {}
+    return {
+        "integrity_ok": False,
+        "signature_valid": signature_valid,
+        "signer": signer_name,
+        "has_signature": has_signature,
+        "spec_version": None,
+        "workflow_id": None,
+        "created_at": None,
+        "files_checked": 0,
+        "mismatches_count": len(mismatch_map),
+        "mismatches": mismatch_map,
+        "trust_level": "NONE",
+        "trust_message": message,
+        "error": message,
+        "error_type": error_type,
+    }
+
+
+def _handle_verification_error(
+    *,
+    message: str,
+    json_output: bool,
+    console_message: str | None = None,
+    error_type: str = "verification_failed",
+    signature_valid: bool | None = None,
+    signer_name: str | None = None,
+    has_signature: bool = False,
+    mismatches: dict[str, str] | None = None,
+) -> None:
+    """Emit a user-facing or JSON verification failure and exit 1."""
+    if json_output:
+        _emit_json_report(
+            _build_failure_report(
+                message,
+                error_type=error_type,
+                signature_valid=signature_valid,
+                signer_name=signer_name,
+                has_signature=has_signature,
+                mismatches=mismatches,
+            )
+        )
+    else:
+        console.print(console_message or message)
+    raise typer.Exit(1)
+
 def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -> None:
     """Serialise a verification report dict to a plain-text file."""
     from datetime import datetime, timezone
@@ -105,8 +167,12 @@ def verify_command(
     try:
         epi_file = _resolve_epi_file(str(epi_file))
     except FileNotFoundError:
-        console.print(f"[red][FAIL] Error:[/red] File not found: {epi_file}")
-        raise typer.Exit(1)
+        _handle_verification_error(
+            message=f"File not found: {epi_file}",
+            json_output=json_output,
+            console_message=f"[red][FAIL] Error:[/red] File not found: {epi_file}",
+            error_type="file_not_found",
+        )
     
     # Initialize verification state
     manifest = None
@@ -128,8 +194,12 @@ def verify_command(
                 console.print("  [green][OK][/green] Valid mimetype")
                 console.print("  [green][OK][/green] Valid manifest schema")
         except Exception as e:
-            console.print(f"[red][FAIL] Structural validation failed:[/red] {e}")
-            raise typer.Exit(1)
+            _handle_verification_error(
+                message=f"Structural validation failed: {e}",
+                json_output=json_output,
+                console_message=f"[red][FAIL] Structural validation failed:[/red] {e}",
+                error_type="structural_validation_failed",
+            )
         
         # ========== STEP 2: INTEGRITY CHECKS ==========
         if verbose:
@@ -171,7 +241,7 @@ def verify_command(
         if json_output:
             # JSON output (write directly to stdout to avoid Rich line-wrapping
             # inserted newlines that would corrupt machine-readable JSON).
-            sys.stdout.write(json.dumps(report, indent=2) + "\n")
+            _emit_json_report(report)
         else:
             # Rich formatted output
             print_trust_report(report, epi_file, verbose)
@@ -193,10 +263,29 @@ def verify_command(
     except typer.Exit:
         raise
     except KeyboardInterrupt:
-        console.print("\n[yellow]Verification interrupted[/yellow]")
+        if json_output:
+            _emit_json_report(
+                _build_failure_report(
+                    "Verification interrupted",
+                    error_type="interrupted",
+                )
+            )
+        else:
+            console.print("\n[yellow]Verification interrupted[/yellow]")
         raise typer.Exit(130)
     except Exception as e:
-        if verbose:
+        if json_output:
+            _emit_json_report(
+                _build_failure_report(
+                    f"Verification failed: {e}",
+                    error_type="verification_failed",
+                    signature_valid=signature_valid,
+                    signer_name=signer_name,
+                    has_signature=bool(getattr(manifest, "signature", None)),
+                    mismatches=mismatches,
+                )
+            )
+        elif verbose:
             console.print_exception()
         else:
             console.print(f"[red][FAIL] Verification failed:[/red] {e}")

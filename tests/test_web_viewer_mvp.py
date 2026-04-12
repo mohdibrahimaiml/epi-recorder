@@ -8,287 +8,99 @@ def _read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_web_viewer_shell_has_case_first_navigation():
+def test_web_viewer_shell_has_case_investigation_navigation():
     html = _read("web_viewer/index.html")
 
-    assert "EPI Case Review" in html
-    assert "Inbox" in html
-    assert "Case" in html
-    assert "Rules" in html
-    assert "Reports" in html
-    assert "Start with one case file, see why it matters, and record the human outcome." in html
+    assert "EPI Case Investigation" in html
+    assert "Queue" in html
+    assert "Case investigation" in html
+    assert "Connect a source when you are ready" in html
+    assert "Export recorder starter" in html
+    assert "Overview" in html
+    assert "Evidence" in html
+    assert "Policy" in html
+    assert "Review" in html
+    assert "Mapping" in html
+    assert "Trust" in html
+    assert "Attachments" in html
+    assert "Transformation audit" in html
+    assert "Inspect raw source files and derived artifacts" in html
+    assert 'id="epi-view-context"' in html
+    assert 'id="open-setup-utility-button"' in html
+    assert 'id="open-rules-utility-button"' in html
+    assert 'id="open-reports-utility-button"' in html
+    assert 'id="case-overview-signals"' in html
+    assert 'id="case-overview-narrative"' in html
+    assert 'id="case-source-badge"' in html
+    assert 'id="case-import-badge"' in html
+    assert 'id="case-audit-badge"' in html
+    assert 'id="case-policy-flow"' in html
+    assert 'id="case-mapping-summary"' in html
+    assert 'id="case-mapping-groups"' in html
+    assert 'id="case-trust-grid"' in html
+    assert 'id="case-attachments"' in html
+    assert 'id="attachment-preview-body"' in html
     assert "../epi_viewer_static/crypto.js" in html
     assert "app.js" in html
     assert "styles.css" in html
-    assert 'id="example-case-button"' in html
-    assert 'id="epi-view-context"' in html
-    assert 'id="drop-zone-title"' in html
-    assert 'id="drop-zone-copy"' in html
-    assert 'id="drop-zone-action"' in html
-    assert "Connect a real system" in html
-    assert 'id="setup-panel-details"' in html
-    assert 'id="setup-system"' in html
-    assert 'id="setup-workflow"' in html
-    assert "Refund approvals are the fastest place to start." in html
-    assert 'class="setup-grid setup-grid-primary"' in html
-    assert 'id="setup-reviewer-role"' in html
-    assert 'id="setup-required-step"' in html
-    assert 'id="connector-fields"' in html
-    assert 'id="save-setup-profile-button"' in html
-    assert 'id="load-setup-profile-button"' in html
-    assert 'id="clear-setup-profile-button"' in html
-    assert 'id="setup-storage-note"' in html
-    assert 'id="setup-connection-status"' in html
-    assert 'id="shared-auth-section"' in html
-    assert 'id="shared-auth-status"' in html
-    assert 'id="auth-username"' in html
-    assert 'id="auth-password"' in html
-    assert 'id="auth-login-button"' in html
-    assert 'id="auth-logout-button"' in html
-    assert 'id="setup-bridge-url"' in html
-    assert 'id="check-bridge-button"' in html
-    assert 'id="fetch-live-record-button"' in html
-    assert "Try a safe sample" in html
-    assert 'id="setup-live-record"' in html
-    assert 'id="setup-workspace-button"' in html
-    assert 'id="download-starter-pack-button"' in html
-    assert "Use this in my system" in html
-    assert "Advanced setup options" in html
-    assert 'id="setup-preview"' in html
-    assert 'id="summary-strip"' in html
-    assert 'id="summary-strip" hidden' in html
-    assert 'id="guided-review-panel"' in html
-    assert 'id="guided-review-title"' in html
-    assert 'id="guided-review-copy"' in html
-    assert 'id="guided-review-meta"' in html
-    assert 'id="guided-review-button"' in html
-    assert 'id="guided-why-button"' in html
-    assert 'id="guided-queue-button"' in html
-    assert 'id="guided-sample-button"' in html
-    assert 'id="guided-example-button"' in html
-    assert "Start Here" in html
-    assert "Review this decision" in html
-    assert 'id="shared-workspace-status"' in html
-    assert 'id="refresh-shared-button"' in html
-    assert 'id="reviewer-identity"' in html
-    assert "My name/email" in html
-    assert 'id="status-filter"' in html
-    assert 'id="quick-view-filter"' in html
-    assert "All workflow statuses" in html
-    assert "Mine" in html
-    assert "Overdue" in html
-    assert "Zendesk" in html
-    assert "Salesforce" in html
-    assert "ServiceNow" in html
-    assert '<button class="nav-button" type="button" data-view="rules" hidden disabled>Rules</button>' in html
-    assert '<button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>' in html
-    assert 'id="case-workflow-badge"' in html
-    assert "Decision Summary" in html
-    assert "Record integrity and review" in html
-    assert "Download decision summary" in html
-    assert "Team Workflow" in html
-    assert 'id="workflow-form"' in html
-    assert 'id="workflow-assignee"' in html
-    assert 'id="workflow-due-at"' in html
-    assert 'id="workflow-status"' in html
-    assert 'id="save-workflow-button"' in html
-    assert "Comments" in html
-    assert 'id="case-comments"' in html
-    assert 'id="comment-form"' in html
-    assert 'id="comment-body"' in html
-    assert 'id="save-comment-button"' in html
-    assert "Download reviewed case file (.epi)" in html
-    assert "Download review notes" in html
-    assert "Approve decision" in html
-    assert "Reject decision" in html
-    assert "Escalate / decide later" in html
-    assert 'id="review-approve-button"' in html
-    assert 'id="review-reject-button"' in html
-    assert 'id="review-escalate-button"' in html
-    assert "Add signature (optional)" in html
-    assert "Signing key (optional)" in html
-    assert "case-review-signature-badge" in html
-    assert 'id="case-guidance-title"' in html
-    assert 'id="case-guidance-copy"' in html
-    assert 'id="case-guidance-list"' in html
-    assert 'id="case-guidance-review-button"' in html
-    assert 'id="case-guidance-rules-button"' in html
-    assert 'id="case-guidance-report-button"' in html
-    assert "Verify source" in html
-    assert 'id="policy-id"' in html
-    assert 'id="policy-system-name"' in html
-    assert 'id="policy-json-preview"' in html
-    assert 'id="policy-rule-editor"' in html
-    assert "Download rule file (epi_policy.json)" in html
-    assert "Turn business controls into enforceable EPI rules" in html
 
 
-def test_web_viewer_app_supports_case_first_review_and_reports():
+def test_web_viewer_app_supports_source_aware_case_investigation():
     js = _read("web_viewer/app.js")
 
     assert "async function parseEpiFile" in js
-    assert "function analysisHeadline" in js
-    assert "function deriveAnalysisState" in js
-    assert "function businessDecisionLabel" in js
-    assert "async function loadPreloadedCases" in js
     assert "async function buildCaseRecord" in js
-    assert "function buildLegacyEmbeddedCasePayload" in js
-    assert "function renderInbox" in js
+    assert "function deriveSourceProfile" in js
+    assert "function buildAttachmentGroups" in js
+    assert "function buildTraceabilityIndex" in js
+    assert "function buildOverviewPresentation" in js
+    assert "function buildPolicyFlow" in js
+    assert "function buildEvidenceSummary" in js
+    assert "function buildTrustRows" in js
+    assert "function buildTrustAlerts" in js
+    assert "function buildTransformationAuditView" in js
+    assert "function renderTransformationAudit" in js
+    assert "function renderAttachmentGroups" in js
+    assert "function renderAttachmentPreview" in js
+    assert "async function previewCaseAttachment" in js
+    assert "async function downloadCaseAttachment" in js
+    assert "function highlightCaseStep" in js
+    assert "function focusCaseAttachment" in js
     assert "function renderCaseView" in js
-    assert "function renderCaseGuidance" in js
-    assert "function getPriorityCase" in js
-    assert "function startGuidedReview" in js
-    assert "function openPriorityCaseReason" in js
-    assert "function renderGuidedReviewPanel" in js
-    assert "function renderWorkflowForm" in js
-    assert "function renderComments" in js
-    assert "async function loadExampleCase" in js
-    assert "function buildExampleCasePayload" in js
-    assert "function buildCaseGuidance" in js
-    assert "function deriveWorkflowState" in js
-    assert "function workflowStatusForReviewOutcome" in js
-    assert "function deriveTrustState" in js
-    assert "function downloadReviewRecord" in js
-    assert "async function downloadReviewedArtifact" in js
-    assert "async function buildReviewedArtifactBytes" in js
-    assert "async function collectArtifactSourceEntries" in js
-    assert "function buildEmbeddedViewerHtml" in js
-    assert "function canBuildReviewedArtifact" in js
-    assert "function createZipArchive" in js
-    assert "function configureEmbeddedArtifactMode" in js
-    assert "function resetImportControls" in js
-    assert "function renderSetupWizard" in js
-    assert "function setProgressiveNavigationState" in js
-    assert "function renderConnectorFields" in js
-    assert "function handleConnectorFieldInput" in js
-    assert "function saveSetupProfile" in js
-    assert "function restoreSavedSetupProfile" in js
-    assert "function clearSavedSetupProfile" in js
-    assert "function hasConfiguredLiveConnectorProfile" in js
-    assert "function shouldUseMockPreview" in js
-    assert "function normalizeBridgeUrl" in js
-    assert "function checkConnectorBridge" in js
-    assert "function autodetectConnectorBridge" in js
-    assert "function restoreReviewerIdentity" in js
-    assert "function saveReviewerIdentity" in js
-    assert "async function refreshGatewayAuthSession" in js
-    assert "async function loginToSharedWorkspace" in js
-    assert "async function logoutFromSharedWorkspace" in js
-    assert "function renderSharedAuthPanel" in js
-    assert "function bridgeSupportsSharedWorkspace" in js
-    assert "function renderSharedWorkspaceStatus" in js
-    assert "function buildBridgeFetchPayload" in js
-    assert "function fetchLiveConnectorRecord" in js
-    assert "async function openLiveConnectorCasePreview" in js
-    assert "function buildLiveConnectorCasePayload" in js
-    assert "function deriveLiveRecordId" in js
-    assert "function buildLiveRecordSummary" in js
-    assert "async function refreshSharedWorkspace" in js
-    assert "async function hydrateSharedWorkspaceCases" in js
-    assert "function buildSharedWorkspaceCaseExport" in js
-    assert "async function publishCaseToSharedWorkspace" in js
-    assert "function mergeCaseRecords" in js
-    assert "function renderLiveConnectorPreview" in js
-    assert "function buildLiveSourceRecordExport" in js
-    assert "function applySetupWizard" in js
-    assert "function createPolicyEditorFromSetup" in js
-    assert "function buildSetupPolicyRules" in js
-    assert "function buildSetupPreviewHtml" in js
+    assert "function renderInbox" in js
+    assert "function renderRulesView" in js
+    assert "function renderReportsView" in js
+    assert "artifacts/agt/mapping_report.json" in js
+    assert "Transformation audit available" in js
+    assert "AGT imported into EPI" in js
+    assert "Unsigned but intact" in js
+    assert "Tampered / do not use" in js
+    assert "function renderInlineActions" in js
+    assert "function buildTimelineActions" in js
     assert "function buildEmptyInboxContent" in js
-    assert "function downloadRecorderStarterPack" in js
     assert "function buildRecorderStarterFiles" in js
-    assert "function buildRecorderStarterScript" in js
-    assert "function buildRecorderStarterReadme" in js
-    assert "function buildRecorderSampleInput" in js
-    assert "function buildConnectorClientScript" in js
-    assert "function buildConnectorSetupGuide" in js
-    assert "function buildZendeskConnectorScript" in js
-    assert "function buildSalesforceConnectorScript" in js
-    assert "function buildServiceNowConnectorScript" in js
-    assert "function buildInternalAppConnectorScript" in js
-    assert "function buildCsvConnectorScript" in js
-    assert "from epi_recorder import record" in js
-    assert "with epi.agent_run" in js
-    assert "connector_client.py" in js
-    assert "CONNECTOR_SETUP.md" in js
-    assert "live_source_record.json" in js
-    assert "requests>=2.32.0" in js
-    assert "epi-decision-ops.setup.v1" in js
-    assert "localStorage" in js
-    assert "function getActivePolicyEditor" in js
-    assert "function createPolicyEditorFromCase" in js
-    assert "function normalizePolicyRules" in js
-    assert "function addPolicyRule" in js
-    assert "function buildExportablePolicyJson" in js
-    assert "function sanitizePolicyRule" in js
-    assert "function downloadPolicyFile" in js
-    assert "function downloadPolicySummary" in js
-    assert "function ruleTypeLabel" in js
-    assert "async function signReviewRecord" in js
-    assert "async function verifyReviewSignature" in js
-    assert "function parsePkcs8PrivateKey" in js
-    assert "function decodeSignatureBytes" in js
-    assert "function buildReviewSigningPayload" in js
-    assert "function setSelectedReviewOutcome" in js
-    assert "async function applyLocalReview(forcedOutcome)" in js
-    assert "function openCaseReviewForm" in js
-    assert "async function saveCaseWorkflow" in js
-    assert "async function saveCaseComment" in js
-    assert "async function ensureCaseInReview" in js
-    assert "function scrollToSetupWizard" in js
-    assert "function downloadReport" in js
-    assert "const REVIEW_ACTIONS = {" in js
-    assert "verifyManifestSignature" in js
-    assert "document.getElementById('epi-data')" in js
-    assert "Verify source" in js
-    assert "Opened the packaged case file. A reviewed .epi download is ready" in js
-    assert "epi_policy.json" in js
-    assert "Opened an example case so you can explore the review flow right away." in js
-    assert "Opened a live" in js
-    assert "Secure keys stay only in this session." in js
-    assert "source.record.loaded" in js
-    assert "allow_mock_fallback" in js
-    assert "Team case" in js
-    assert "Comments will be posted as" in js
-    assert "Approve decision" in js
-    assert "Reject decision" in js
-    assert "Escalate / decide later" in js
-    assert "Connect a real system" in js
-    assert "AI was consulted" in js
-    assert "Record has not been modified" in js
-    assert "Automated policy check complete" in js
-    assert "Automated policy check failed" in js
-    assert "Automated policy check not run" in js
+    assert "function buildSharedWorkspaceCaseExport" in js
+    assert "function configureEmbeddedArtifactMode" in js
+    assert "embedded-artifact-mode" in js
 
 
-def test_web_viewer_readme_describes_case_first_workflow():
+def test_web_viewer_readme_describes_case_investigation_model():
     readme = _read("web_viewer/README.md")
 
-    assert "case review app" in readme
-    assert "case-first entry" in readme
-    assert "optional setup" in readme
-    assert "refund approvals first" in readme
-    assert "safe sample" in readme.lower()
-    assert "guided next steps" in readme
-    assert "plain-English review actions" in readme
-    assert "recorder starter export" in readme
-    assert "Zendesk, Salesforce, ServiceNow, internal apps, and CSV-based workflows" in readme
-    assert "stored only in this browser" in readme.lower()
-    assert "secret keys stay only in the current session" in readme.lower()
-    assert "Inbox" in readme
+    assert "case-first" in readme
+    assert "Queue" in readme
     assert "Case" in readme
-    assert "Rules" in readme
-    assert "Reports" in readme
-    assert "reviewed `.epi`" in readme
-    assert "browser signing" in readme
-    assert "bad signature" in readme
+    assert "Overview" in readme
+    assert "Evidence" in readme
+    assert "Policy" in readme
+    assert "Review" in readme
+    assert "Mapping" in readme
+    assert "Trust" in readme
+    assert "Attachments" in readme
+    assert "Source system: AGT" in readme
+    assert "Import mode: EPI" in readme
+    assert "transformation audit" in readme.lower()
     assert "Everything stays local to the browser" in readme
-    assert "packaged `viewer.html`" in readme
-    assert "embedded `epi-data`" in readme
-    assert "offline" in readme.lower()
-    assert "valid `epi_policy.json`" in readme
+    assert "one `.epi` file" in readme
+    assert "offline/local review" in readme
     assert "epi connect serve" in readme
-    assert "local review service" in readme
-    assert "live source record" in readme.lower()
-    assert "live case preview" in readme.lower()
-    assert "shared" in readme.lower()

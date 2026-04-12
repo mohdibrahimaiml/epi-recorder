@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "goal": "Import AGT evidence from a raw output directory via manifest.",
+    "notes": "Manifest-driven AGT import example for epi import agt."
+  },
+  "files": {
+    "audit_logs": "audit_events.json",
+    "flight_recorder": "flight_rows.json",
+    "compliance_report": "compliance.json",
+    "policy_document": "policy.json",
+    "runtime_context": "runtime.json",
+    "slo_data": "slo.json",
+    "annex_json": "annex.json",
+    "annex_markdown": "annex.md"
+  }
+}

@@ -26,6 +26,41 @@ def test_capture_event_lifts_ids_and_defaults_provenance():
     assert event.meta["provenance"]["trust_class"] == "verified_imported"
 
 
+def test_capture_event_accepts_connector_friendly_aliases():
+    event = CaptureEventModel.model_validate(
+        {
+            "eventType": "tool.call",
+            "payload": {"tool": "lookup_order", "input": {"order_id": "123"}},
+            "traceId": "trace-js-123",
+            "workflowName": "Refund approvals",
+            "sourceApp": "n8n",
+            "captureMode": "imported",
+            "bridgeWarning": "Captured by connector adapter",
+        }
+    )
+
+    assert event.kind == "tool.call"
+    assert event.content["tool"] == "lookup_order"
+    assert event.trace_id == "trace-js-123"
+    assert event.workflow_name == "Refund approvals"
+    assert event.source_app == "n8n"
+    assert event.provenance.source == "n8n"
+    assert event.provenance.capture_mode == "imported"
+    assert event.provenance.notes == "Captured by connector adapter"
+
+
+def test_capture_event_wraps_non_dict_connector_payload():
+    event = CaptureEventModel.model_validate(
+        {
+            "type": "agent.message",
+            "data": "Approved by reviewer",
+        }
+    )
+
+    assert event.kind == "agent.message"
+    assert event.content == {"value": "Approved by reviewer"}
+
+
 def test_capture_batch_counts_and_normalizes_items():
     batch = CaptureBatchModel.from_items(
         [

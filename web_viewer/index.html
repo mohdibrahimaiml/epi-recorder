@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPI Case Review</title>
+<title>EPI Case Investigation</title>
 <script id="epi-view-context" type="application/json">{}</script>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,28 +13,27 @@
 <div class="page-shell">
   <header class="hero">
     <div>
-      <p class="eyebrow">EPI Case Review</p>
-      <h1>Review one flagged decision at a time</h1>
+      <p class="eyebrow">EPI Case Investigation</p>
+      <h1>Open one portable case file and prove the decision.</h1>
       <p class="hero-copy">
-        Start with one case file, see why it matters, and record the human outcome.
-        Everything stays on this device.
+        Read decision, trust, and source first. Then trace policy, evidence, review, and attachments locally on this device.
       </p>
     </div>
     <div class="hero-actions">
       <button class="secondary-button" id="example-case-button" type="button">Open example case</button>
-      <button class="primary-button" id="add-files-button" type="button">Open saved cases</button>
-      <button class="secondary-button" id="reset-workspace-button" type="button">Start over</button>
+      <button class="primary-button" id="add-files-button" type="button">Open local cases</button>
+      <button class="secondary-button" id="reset-workspace-button" type="button">Reset workspace</button>
     </div>
   </header>
 
   <section class="upload-panel card">
     <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Drop EPI files here or open the file picker">
-      <h2 id="drop-zone-title">Open saved cases</h2>
+      <h2 id="drop-zone-title">Open local EPI cases</h2>
       <p id="drop-zone-copy">Drop `.epi` files here or choose them from your computer. Nothing is uploaded.</p>
       <span id="drop-zone-action" class="drop-zone-action">Choose files</span>
     </div>
     <p class="panel-note">
-      Use this when you already have saved EPI case files and want to review one here right away.
+      EPI stays case-first: open one saved artifact, inspect it locally, and keep the review path offline.
     </p>
     <div id="load-status" class="status-banner info">No case files are open yet.</div>
   </section>
@@ -44,10 +43,10 @@
       <summary class="setup-shell-summary">
         <div>
           <p class="section-label">Optional setup</p>
-          <h2>Connect a real system</h2>
+          <h2>Connect a source when you are ready</h2>
           <p class="panel-note">
-            Start with an example or saved case first. Open this only when you are ready to try a safe sample,
-            connect a real system, or export a starter kit for your workflow. Refund approvals are the fastest place to start.
+            Start with a saved artifact or the example case first. Open setup only when you want a safe sample,
+            a live preview, or a recorder starter pack for your workflow.
           </p>
         </div>
         <div class="setup-shell-status">
@@ -59,7 +58,7 @@
       <div class="setup-shell-body">
         <div class="setup-grid setup-grid-primary">
           <label>
-            1. Where decisions come from
+            1. Source system
             <select id="setup-system" class="text-input">
               <option value="zendesk">Zendesk</option>
               <option value="salesforce">Salesforce</option>
@@ -69,7 +68,7 @@
             </select>
           </label>
           <label>
-            2. What kind of decision this is
+            2. Decision workflow
             <select id="setup-workflow" class="text-input">
               <option value="refund-approval">Refund approvals</option>
               <option value="loan-underwriting">Loan underwriting</option>
@@ -84,18 +83,18 @@
         <div class="action-row quick-setup-actions">
           <button id="fetch-live-record-button" class="secondary-button" type="button">Try a safe sample</button>
           <button id="setup-workspace-button" class="primary-button" type="button">Save setup</button>
-          <button id="download-starter-pack-button" class="secondary-button" type="button">Use this in my system</button>
+          <button id="download-starter-pack-button" class="secondary-button" type="button">Export recorder starter</button>
         </div>
 
         <details class="advanced-setup">
           <summary>Advanced setup options</summary>
           <div class="setup-grid">
             <label>
-              Who reviews flagged cases
+              Reviewer role
               <input id="setup-reviewer-role" class="text-input" type="text" value="manager" placeholder="manager">
             </label>
             <label>
-              Where this runs
+              Environment
               <select id="setup-environment" class="text-input">
                 <option value="production">Production</option>
                 <option value="staging">Staging</option>
@@ -103,7 +102,7 @@
               </select>
             </label>
             <label class="setup-field-span">
-              What must happen before the final decision
+              Required step before the final decision
               <input id="setup-required-step" class="text-input" type="text" placeholder="verify_identity">
             </label>
           </div>
@@ -111,7 +110,7 @@
           <div class="connector-config">
             <div class="rules-card-header">
               <div>
-                <p class="card-label">System Access</p>
+                <p class="card-label">Source access</p>
                 <h3>Connect to your system</h3>
               </div>
               <div class="action-row">
@@ -186,11 +185,11 @@
       <strong id="summary-total">0</strong>
     </article>
     <article class="summary-card">
-      <span class="summary-label">Need review</span>
+      <span class="summary-label">Need action</span>
       <strong id="summary-review">0</strong>
     </article>
     <article class="summary-card">
-      <span class="summary-label">Records intact</span>
+      <span class="summary-label">Verified</span>
       <strong id="summary-trusted">0</strong>
     </article>
     <article class="summary-card">
@@ -201,16 +200,16 @@
 
   <section id="guided-review-panel" class="card guided-review-panel" hidden>
     <div class="guided-review-copy">
-      <p class="section-label">Start Here</p>
-      <h2 id="guided-review-title">Open one decision and review it</h2>
+      <p class="section-label">Priority case</p>
+      <h2 id="guided-review-title">Open one decision and investigate it</h2>
       <p id="guided-review-copy" class="panel-note">
-        EPI works best when you start with one decision, understand why it was flagged, and finish the review.
+        EPI works best when you start with one decision, understand why it was made, and finish the review locally.
       </p>
       <p id="guided-review-meta" class="helper-copy"></p>
     </div>
     <div class="guided-review-actions">
-      <button id="guided-review-button" class="primary-button" type="button">Review this decision</button>
-      <button id="guided-why-button" class="secondary-button" type="button">See why it matters</button>
+      <button id="guided-review-button" class="primary-button" type="button">Open this case</button>
+      <button id="guided-why-button" class="secondary-button" type="button">Show why</button>
       <button id="guided-queue-button" class="secondary-button" type="button">Open queue</button>
       <button id="guided-sample-button" class="secondary-button" type="button">Try a safe sample</button>
       <button id="guided-example-button" class="secondary-button" type="button">Open example case</button>
@@ -221,11 +220,18 @@
     <aside class="sidebar card">
       <p class="sidebar-label">Workspace</p>
       <nav class="nav-grid" aria-label="Main navigation">
-        <button class="nav-button active" type="button" data-view="inbox">Inbox</button>
+        <button class="nav-button active" type="button" data-view="inbox">Queue</button>
         <button class="nav-button" type="button" data-view="case">Case</button>
-        <button class="nav-button" type="button" data-view="rules" hidden disabled>Rules</button>
-        <button class="nav-button" type="button" data-view="reports" hidden disabled>Reports</button>
       </nav>
+
+      <div class="sidebar-section">
+        <p class="sidebar-label">Utilities</p>
+        <div class="sidebar-utility-grid">
+          <button id="open-setup-utility-button" class="secondary-button compact-button" type="button">Setup</button>
+          <button id="open-rules-utility-button" class="secondary-button compact-button" type="button">Rules</button>
+          <button id="open-reports-utility-button" class="secondary-button compact-button" type="button">Reports</button>
+        </div>
+      </div>
 
       <div class="sidebar-section">
         <p class="sidebar-label">Selected case</p>
@@ -235,7 +241,8 @@
       <div class="sidebar-section">
         <p class="sidebar-label">Local processing</p>
         <p class="sidebar-copy">
-          Verification, review notes, and exports all run locally in the browser. Your case files do not leave this device.
+          Verification, transformation checks, review notes, and exports all run locally in the browser.
+          Your case files do not leave this device.
         </p>
       </div>
 
@@ -257,7 +264,7 @@
           <input id="reviewer-identity" class="text-input" type="text" placeholder="manager@example.com">
         </label>
         <p class="sidebar-copy">
-          EPI reuses this for review notes, comment author, and the Mine inbox view.
+          EPI reuses this for review notes, comment author, and the Mine queue view.
         </p>
       </div>
     </aside>
@@ -266,8 +273,8 @@
       <section class="view-panel active" data-view-panel="inbox">
         <div class="section-header">
           <div>
-            <p class="section-label">Inbox</p>
-            <h2>Review the cases that matter first</h2>
+            <p class="section-label">Queue</p>
+            <h2>Open the cases that need a decision first</h2>
           </div>
         </div>
 
@@ -275,7 +282,7 @@
           <div class="filter-grid">
             <label>
               Search
-              <input id="search-input" class="text-input" type="search" placeholder="Search case title, workflow, file, or notes">
+              <input id="search-input" class="text-input" type="search" placeholder="Search case title, workflow, source, or notes">
             </label>
             <label>
               Workflow status
@@ -300,10 +307,10 @@
               Trust
               <select id="trust-filter" class="text-input">
                 <option value="all">All trust states</option>
-                <option value="trusted">Record intact</option>
+                <option value="trusted">Verified</option>
                 <option value="verify-source">Verify source</option>
-                <option value="source-not-proven">Source not proven</option>
-                <option value="do-not-use">Do not use</option>
+                <option value="source-not-proven">Unsigned but intact</option>
+                <option value="do-not-use">Tampered / do not use</option>
               </select>
             </label>
             <label>
@@ -326,7 +333,7 @@
 
         <div id="empty-inbox" class="card empty-state">
           <h3>No cases yet</h3>
-          <p>Open one or more `.epi` case files to create a review inbox.</p>
+          <p>Open one or more `.epi` case files to create an investigation queue.</p>
         </div>
         <div id="case-list" class="case-list"></div>
       </section>
@@ -335,67 +342,93 @@
         <div class="section-header">
           <div>
             <p class="section-label">Case</p>
-            <h2>Decision Summary</h2>
+            <h2>Case investigation</h2>
           </div>
         </div>
 
         <div id="no-case-selected" class="card empty-state">
           <h3>Select a case</h3>
-          <p>Choose a case from the inbox or the selector to review the decision summary.</p>
+          <p>Choose a case from the queue or the selector to open its decision, trust, evidence, and review path.</p>
         </div>
 
         <div id="case-view" class="case-layout" hidden>
           <article class="card case-hero-card">
-            <div class="case-hero">
-              <div>
+            <div class="case-hero case-hero-compact">
+              <div class="case-hero-copy">
                 <p id="case-subtitle" class="case-subtitle"></p>
                 <h3 id="case-title"></h3>
                 <p id="case-summary-copy" class="case-summary-copy"></p>
+                <p id="case-overview-narrative" class="case-narrative"></p>
               </div>
-              <div class="badge-row">
-                <span id="case-workflow-badge" class="pill-badge"></span>
-                <span id="case-trust-badge" class="pill-badge"></span>
-                <span id="case-risk-badge" class="pill-badge"></span>
-                <span id="case-review-badge" class="pill-badge"></span>
-                <span id="case-review-signature-badge" class="pill-badge"></span>
-              </div>
+              <div id="case-overview-signals" class="case-signal-grid"></div>
+            </div>
+            <div class="badge-row case-hero-badges">
+              <span id="case-workflow-badge" class="pill-badge"></span>
+              <span id="case-source-badge" class="pill-badge"></span>
+              <span id="case-import-badge" class="pill-badge"></span>
+              <span id="case-trust-badge" class="pill-badge"></span>
+              <span id="case-risk-badge" class="pill-badge"></span>
+              <span id="case-review-badge" class="pill-badge"></span>
+              <span id="case-review-signature-badge" class="pill-badge"></span>
+              <span id="case-audit-badge" class="pill-badge"></span>
             </div>
           </article>
 
-          <article class="card case-guidance-card">
-            <div class="rules-card-header">
+          <nav class="card case-section-nav" aria-label="Case sections">
+            <button class="case-section-button active" type="button" data-case-section-target="case-overview-card">Overview</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-evidence-card">Evidence</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-policy-card">Policy</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-review-card">Review</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-mapping-card">Mapping</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-trust-card">Trust</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-attachments-card">Attachments</button>
+          </nav>
+
+          <article id="case-overview-card" class="card case-snapshot-card">
+            <div class="rules-card-header case-snapshot-header">
               <div>
-                <p class="card-label">What To Do Next</p>
+                <p class="card-label">Overview</p>
+                <h3 id="case-snapshot-title">Understand the case before you go deeper</h3>
+                <p id="case-snapshot-copy" class="helper-copy">
+                  Read the essential signals first, then trace evidence and policy.
+                </p>
+              </div>
+            </div>
+            <div id="case-snapshot-grid" class="case-snapshot-grid"></div>
+            <dl id="case-summary-grid" class="detail-grid detail-grid-wide"></dl>
+            <div class="case-guidance-inline">
+              <div>
+                <p class="card-label">Next action</p>
                 <h3 id="case-guidance-title"></h3>
                 <p id="case-guidance-copy" class="helper-copy"></p>
               </div>
               <div class="action-row">
                 <button id="case-guidance-review-button" class="primary-button" type="button">Start review</button>
-                <button id="case-guidance-rules-button" class="secondary-button" type="button">Check rules</button>
-                <button id="case-guidance-report-button" class="secondary-button" type="button">Open decision record</button>
+                <button id="case-guidance-rules-button" class="secondary-button" type="button">Open rules</button>
+                <button id="case-guidance-report-button" class="secondary-button" type="button">Open reports</button>
               </div>
             </div>
             <div id="case-guidance-list" class="stack-list"></div>
           </article>
 
-          <div class="case-grid">
-            <article class="card">
-              <p class="card-label">Decision summary</p>
-              <dl id="case-summary-grid" class="detail-grid"></dl>
+          <div class="case-grid case-grid-investigation">
+            <article id="case-evidence-card" class="card case-span">
+              <p class="card-label">Evidence</p>
+              <h3>Trace the recorded steps and supporting evidence</h3>
+              <div id="case-evidence-summary" class="stack-list"></div>
+              <div id="case-timeline" class="timeline"></div>
             </article>
 
-            <article class="card">
-              <p class="card-label">Record integrity and review</p>
-              <div id="case-alerts" class="stack-list"></div>
-            </article>
-
-            <article class="card">
-              <p class="card-label">Findings and rules</p>
+            <article id="case-policy-card" class="card">
+              <p class="card-label">Policy</p>
+              <h3>See how policy shaped the decision</h3>
+              <div id="case-policy-flow" class="stack-list"></div>
               <div id="case-findings" class="stack-list"></div>
             </article>
 
-            <article class="card">
-              <p class="card-label">Human review</p>
+            <article id="case-review-card" class="card">
+              <p class="card-label">Review</p>
+              <h3>Record and export the human outcome</h3>
               <form id="review-form" class="review-form">
                 <label>
                   Reviewer
@@ -435,8 +468,22 @@
               </form>
             </article>
 
-            <article class="card">
-              <p class="card-label">Team Workflow</p>
+            <article id="case-mapping-card" class="card">
+              <p class="card-label">Transformation audit</p>
+              <h3>What EPI preserved, translated, and synthesized</h3>
+              <div id="case-mapping-summary" class="stack-list"></div>
+              <div id="case-mapping-groups" class="mapping-groups"></div>
+            </article>
+
+            <article id="case-trust-card" class="card">
+              <p class="card-label">Trust</p>
+              <h3>Verify the file, signatures, and review chain</h3>
+              <dl id="case-trust-grid" class="detail-grid"></dl>
+              <div id="case-alerts" class="stack-list"></div>
+            </article>
+
+            <article id="case-workflow-card" class="card">
+              <p class="card-label">Team workflow</p>
               <form id="workflow-form" class="review-form">
                 <label>
                   Assignee
@@ -463,7 +510,7 @@
               </form>
             </article>
 
-            <article class="card">
+            <article id="case-comments-card" class="card">
               <p class="card-label">Comments</p>
               <div id="case-comments" class="comment-thread"></div>
               <form id="comment-form" class="comment-form">
@@ -478,9 +525,20 @@
               </form>
             </article>
 
-            <article class="card case-span">
-              <p class="card-label">Case timeline</p>
-              <div id="case-timeline" class="timeline"></div>
+            <article id="case-attachments-card" class="card case-span">
+              <p class="card-label">Attachments</p>
+              <h3>Inspect raw source files and derived artifacts</h3>
+              <div class="attachments-layout">
+                <div id="case-attachments" class="attachment-groups"></div>
+                <aside id="case-attachment-preview" class="attachment-preview tone-panel-neutral">
+                  <p class="card-label">Local preview</p>
+                  <h4 id="attachment-preview-title">No attachment selected</h4>
+                  <p id="attachment-preview-meta" class="helper-copy">
+                    Select a JSON or text attachment to preview it locally, or download any attachment without leaving the browser.
+                  </p>
+                  <pre id="attachment-preview-body" class="code-block attachment-preview-body"></pre>
+                </aside>
+              </div>
             </article>
           </div>
         </div>
@@ -490,7 +548,7 @@
         <div class="section-header">
           <div>
             <p class="section-label">Rules</p>
-            <h2>Readable rules for this workflow</h2>
+            <h2>Refine the rulebook behind this workflow</h2>
           </div>
         </div>
 
@@ -591,7 +649,7 @@
         <div class="section-header">
           <div>
             <p class="section-label">Reports</p>
-            <h2>Export a business-readable record</h2>
+            <h2>Export a readable decision record</h2>
           </div>
         </div>
 
@@ -609,7 +667,7 @@
               Scope
               <select id="report-scope" class="text-input">
                 <option value="all">All loaded cases</option>
-                <option value="filtered">Inbox filters</option>
+                <option value="filtered">Queue filters</option>
                 <option value="selected">Selected case</option>
               </select>
             </label>
@@ -627,7 +685,7 @@
 
   <footer class="app-footer">
     <span>EPI Viewer __EPI_VERSION__</span>
-    <span>Canonical browser case review for EPI</span>
+    <span>Offline case investigation for portable EPI artifacts</span>
   </footer>
 </div>
 

@@ -1,0 +1,182 @@
+{
+  "metadata": {
+    "workflow_id": "71f5740b-16a1-4c06-b54c-9b2bc93a0f81",
+    "created_at": "2026-04-06T10:05:30Z",
+    "cli_command": "agt export --format json --run claim-triage-2026-04-06",
+    "goal": "Package AGT compliance evidence into one portable and verifiable case artifact.",
+    "notes": "Maintainer-facing demo bundle for AGT -> EPI portable evidence export.",
+    "approved_by": "ops-review@epilabs.org",
+    "tags": [
+      "agt",
+      "annex-iv",
+      "portable-evidence-demo"
+    ],
+    "system_name": "Claims Triage Agent",
+    "provider": "Acme Insurance"
+  },
+  "audit_logs": [
+    {
+      "entry_id": "audit_agt_001",
+      "timestamp": "2026-04-06T10:00:00Z",
+      "event_type": "tool_invocation",
+      "agent_did": "did:agentmesh:claims-agent",
+      "action": "load_claim",
+      "resource": "claim:CLM-2026-001",
+      "data": {
+        "tool_name": "load_claim",
+        "claim_id": "CLM-2026-001",
+        "input_prompt": "Review claim CLM-2026-001 for potential denial"
+      },
+      "outcome": "success",
+      "policy_decision": "allow",
+      "matched_rule": "SOC2-CC7.2",
+      "trace_id": "trace-agt-001",
+      "session_id": "session-claims-001"
+    },
+    {
+      "entry_id": "audit_agt_002",
+      "timestamp": "2026-04-06T10:00:05Z",
+      "event_type": "tool_response",
+      "agent_did": "did:agentmesh:claims-agent",
+      "action": "check_coverage",
+      "resource": "claim:CLM-2026-001",
+      "data": {
+        "tool_name": "check_coverage",
+        "result": {
+          "covered": false,
+          "policy_clause": "AUTO-17"
+        }
+      },
+      "outcome": "success",
+      "policy_decision": "allow",
+      "matched_rule": "SOC2-CC7.2",
+      "trace_id": "trace-agt-001",
+      "session_id": "session-claims-001"
+    },
+    {
+      "entry_id": "audit_agt_003",
+      "timestamp": "2026-04-06T10:00:10Z",
+      "event_type": "policy_violation",
+      "agent_did": "did:agentmesh:claims-agent",
+      "action": "issue_denial_notice",
+      "resource": "claim:CLM-2026-001",
+      "data": {
+        "message": "High-risk denial attempted without supervisor approval",
+        "control_id": "EUAI-ART9"
+      },
+      "outcome": "denied",
+      "policy_decision": "deny",
+      "matched_rule": "EUAI-ART9",
+      "trace_id": "trace-agt-001",
+      "session_id": "session-claims-001"
+    }
+  ],
+  "flight_recorder": [
+    {
+      "id": 17,
+      "trace_id": "trace-agt-001",
+      "timestamp": "2026-04-06T10:00:10Z",
+      "agent_id": "claims-agent-01",
+      "tool_name": "issue_denial_notice",
+      "tool_args": "{\"claim_id\": \"CLM-2026-001\"}",
+      "input_prompt": "Deny claim CLM-2026-001",
+      "policy_verdict": "blocked",
+      "violation_reason": "High-risk claim requires supervisor approval",
+      "result": null,
+      "execution_time_ms": 11.2,
+      "entry_hash": "4bb98d66564ab0bd2dd24d8da77a0d91e3ec2d5375ad74ba56373a2f2079f5d4",
+      "previous_hash": "a27f52d3ca1b3c7c64d7a0ea9f8a13ecfd16ddf817da5f96fdabc8b7c540bd25"
+    }
+  ],
+  "compliance_report": {
+    "report_id": "rpt-agt-001",
+    "generated_at": "2026-04-06T10:05:00Z",
+    "framework": "eu_ai_act",
+    "period_start": "2026-04-06T10:00:00Z",
+    "period_end": "2026-04-06T10:05:00Z",
+    "organization_id": "acme-insurance",
+    "agents_covered": [
+      "did:agentmesh:claims-agent"
+    ],
+    "total_controls": 6,
+    "controls_met": 4,
+    "controls_partial": 1,
+    "controls_failed": 1,
+    "compliance_score": 83.3,
+    "violations": [
+      {
+        "violation_id": "vio-agt-001",
+        "timestamp": "2026-04-06T10:00:10Z",
+        "agent_did": "did:agentmesh:claims-agent",
+        "action_type": "issue_denial_notice",
+        "control_id": "EUAI-ART9",
+        "framework": "eu_ai_act",
+        "severity": "high",
+        "description": "High-risk denial attempted without supervisor approval.",
+        "evidence": {
+          "trace_id": "trace-agt-001",
+          "entry_id": "audit_agt_003",
+          "matched_rule": "EUAI-ART9"
+        },
+        "remediated": false
+      }
+    ],
+    "evidence_items": 5,
+    "recommendations": [
+      "Require supervisor approval before denial notices are issued."
+    ]
+  },
+  "policy_document": {
+    "version": "1.0",
+    "name": "Claims Governance Policy",
+    "description": "Governance rules for denial notices and high-risk claims.",
+    "rules": [
+      {
+        "name": "deny-high-risk-without-approval",
+        "condition": {
+          "field": "tool_name",
+          "operator": "eq",
+          "value": "issue_denial_notice"
+        },
+        "action": "deny",
+        "priority": 100,
+        "message": "Supervisor approval is required before issuing a denial notice."
+      }
+    ],
+    "defaults": {
+      "action": "allow",
+      "max_tokens": 4096,
+      "max_tool_calls": 10,
+      "confidence_threshold": 0.8
+    }
+  },
+  "runtime_context": {
+    "runtime": "agent-os",
+    "version": "3.0.0-preview",
+    "python_version": "3.12.3",
+    "dependencies": [
+      "agent-governance-toolkit==0.3.0",
+      "langchain==0.3.0"
+    ],
+    "deployment": {
+      "region": "westeurope",
+      "environment": "production"
+    }
+  },
+  "slo_data": {
+    "availability": 99.95,
+    "latency_p95_ms": 412,
+    "error_budget_remaining": "92%"
+  },
+  "annex_markdown": "# Annex IV Technical Documentation\n\n## System\nClaims Triage Agent\n\n## Evidence Summary\nOne high-risk denial attempt was blocked because supervisor approval was missing.\n",
+  "annex_json": {
+    "title": "EU AI Act - Annex IV Technical Documentation",
+    "system_name": "Claims Triage Agent",
+    "provider": "Acme Insurance",
+    "metadata": {
+      "compliance_reports_count": 1,
+      "policies_count": 1,
+      "audit_entries_count": 3
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "report_id": "rpt-agt-001",
+  "generated_at": "2026-04-06T10:05:00Z",
+  "framework": "eu_ai_act",
+  "period_start": "2026-04-06T10:00:00Z",
+  "period_end": "2026-04-06T10:05:00Z",
+  "organization_id": "acme-insurance",
+  "agents_covered": [
+    "did:agentmesh:claims-agent"
+  ],
+  "total_controls": 6,
+  "controls_met": 4,
+  "controls_partial": 1,
+  "controls_failed": 1,
+  "compliance_score": 83.3,
+  "violations": [
+    {
+      "violation_id": "vio-agt-001",
+      "timestamp": "2026-04-06T10:00:10Z",
+      "agent_did": "did:agentmesh:claims-agent",
+      "action_type": "issue_denial_notice",
+      "control_id": "EUAI-ART9",
+      "framework": "eu_ai_act",
+      "severity": "high",
+      "description": "High-risk denial attempted without supervisor approval.",
+      "evidence": {
+        "trace_id": "trace-agt-001",
+        "entry_id": "audit_agt_003",
+        "matched_rule": "EUAI-ART9"
+      },
+      "remediated": false
+    }
+  ],
+  "evidence_items": 5,
+  "recommendations": [
+    "Require supervisor approval before denial notices are issued."
+  ]
+}

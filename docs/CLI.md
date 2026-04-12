@@ -1,13 +1,30 @@
-# EPI CLI Reference (v3.0.1)
+# EPI CLI Reference (v4.0.0)
 
-**Version:** 3.0.1
+**Version:** 4.0.0
 **Primary entrypoint:** `epi`
 
 ---
 
 ## Start Here
 
-Start with `epi demo`. It is the primary developer front door if you want to capture one AI run, open it in the browser, and verify the resulting `.epi` artifact in minutes.
+Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
+
+If you already have exported Microsoft Agent Governance Toolkit evidence, start with:
+
+```bash
+epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi verify sample.epi
+epi view --extract review sample.epi
+```
+
+You can also point the same command at a raw AGT evidence directory or an EPI-owned AGT import manifest:
+
+```bash
+epi import agt examples/agt/evidence-dir --out sample.epi
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample.epi
+```
+
+If you are not in the repo checkout, replace the sample path with your own exported AGT bundle, evidence directory, or import manifest.
 
 If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
 
@@ -19,12 +36,14 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 
 | Command | Purpose |
 | --- | --- |
-| `epi demo` | Start the sample refund workflow and the full repro loop in the browser. Recommended first run. |
+| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. |
+| `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
 | `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
 | `epi verify <file.epi>` | Verify case file integrity and signature state. |
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
+| `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
@@ -42,6 +61,63 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` case file. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
+
+---
+
+## `epi import agt <input> --out <file.epi>`
+
+Use this when you already have exported AGT evidence and want a normal `.epi` case file that works with `epi verify`, `epi view`, `epi review`, and `epi export-summary`.
+
+```bash
+epi import agt examples/agt/sample_bundle.json --out sample.epi
+epi import agt examples/agt/evidence-dir --out sample.epi
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample.epi
+epi verify sample.epi
+epi view --extract review sample.epi
+```
+
+If you are running from a bare install instead of this repo checkout, replace the sample path with your own exported AGT bundle, AGT evidence directory, or EPI-owned AGT import manifest.
+
+Input modes:
+
+- bundle JSON: the neutral aggregated AGT bundle contract
+- evidence directory: AGT-style files such as `audit_logs.json`, `flight_recorder.json`, `compliance_report.json`, and `annex_iv.json`
+- manifest JSON: an EPI-owned `agt_import_manifest.json` that maps custom filenames into the same bundle contract
+
+Default behavior:
+
+- preserves the raw AGT payloads under `artifacts/agt/`
+- writes `artifacts/agt/mapping_report.json` so the transformation itself is auditable
+- synthesizes `analysis.json` so imported artifacts can still participate in `epi review`
+- signs the artifact when a default signing key exists
+
+Important options:
+
+- `--strict --dedupe fail` turns unknown event kinds, unclassified fields, and ambiguous dedupe cases into hard failures
+- `--analysis none` omits `analysis.json` and keeps the choice visible in `mapping_report.json`
+- `--no-attach-raw` skips storing the source AGT payloads under `artifacts/agt/`
+
+What you should see in the resulting artifact:
+
+- `steps.jsonl` - normalized execution trace
+- `policy.json` and `policy_evaluation.json` - imported governance evidence
+- `analysis.json` - synthesized findings when analysis is enabled
+- `artifacts/agt/mapping_report.json` - transformation audit and provenance report
+
+What you should see in the viewer:
+
+- `Source system: AGT`
+- `Import mode: EPI`
+- `Overview`, `Evidence`, `Policy`, `Review`, `Mapping`, `Trust`, and `Attachments`
+- a transformation audit that shows what EPI preserved, translated, derived, or synthesized
+
+After the deterministic extract proof, you can still open the interactive browser flow with:
+
+```bash
+epi view sample.epi
+```
+
+For the public walkthrough, see [`AGT-IMPORT-QUICKSTART.md`](AGT-IMPORT-QUICKSTART.md).
 
 ---
 
@@ -82,10 +158,25 @@ Opens a saved case file using the canonical browser review flow.
 
 ```bash
 epi view my_run.epi
+epi view --extract ./review my_run.epi
 
 # View by name from ./epi-recordings
 epi view my_run
 ```
+
+`epi view` opens a generated browser review page for the case. The `.epi` file
+itself remains a binary artifact container; browsers do not execute the
+embedded `viewer.html` directly from inside the `.epi` file.
+
+`epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
+
+The viewer is case-first. Expect the loaded artifact to open into:
+
+- `Overview` for decision, reason, review state, and trust state
+- `Evidence` for the step trail, tool calls, and model output
+- `Policy` and `Review` when those layers are present
+- `Mapping` for imported evidence such as AGT transformations
+- `Trust` for signature and integrity details
 
 ---
 
@@ -158,7 +249,9 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In `v3.0.1`, `epi policy init` is the guided front door for policy. It asks a small number of business-language questions and writes the machine-readable rulebook for you.
+In the current `v4.0.0` line, `epi policy init` is the guided front door for
+policy. It asks a small number of business-language questions and writes the
+machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
 For teams that prefer the browser flow, `--open-editor` opens the same Rules editor with the policy preloaded from either `epi policy init` or `epi policy show`.
 
@@ -191,8 +284,6 @@ Practical rule:
 - EPI stores the company rulebook as `epi_policy.json`; most users should not edit JSON manually
 
 For the full workflow, see [`POLICY.md`](POLICY.md).
-
-For the proposed enterprise direction after `v3.0.1`, see [`POLICY-V2-DESIGN.md`](POLICY-V2-DESIGN.md).
 
 ---
 
@@ -284,4 +375,4 @@ epi review payment_run.epi show
 - For normal Windows users, use the packaged installer for the best `.epi` opening experience.
 - For developer installs from PyPI or source, `epi associate` registers a stable user launcher path and `epi doctor` reports drift when OS policy blocks registry repair.
 - Policy and analysis results are embedded into the artifact as `policy.json` and `analysis.json` when available.
-- For the open-capture / enterprise-control-plane split, see [`OPEN-CORE-ARCHITECTURE.md`](OPEN-CORE-ARCHITECTURE.md).
+- For the supported shared-review deployment shape, see [`SELF-HOSTED-RUNBOOK.md`](SELF-HOSTED-RUNBOOK.md).

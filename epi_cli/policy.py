@@ -8,7 +8,6 @@ keeping epi_policy.json as the machine-readable storage format.
 
 import json
 import shutil
-import zipfile
 from datetime import date
 from json import JSONDecodeError
 from pathlib import Path
@@ -24,7 +23,7 @@ from rich.table import Table
 from typer.models import OptionInfo
 
 from epi_cli.view import _cleanup_after_delay, _make_temp_dir, _open_in_browser
-from epi_core.container import _html_safe_json_dumps
+from epi_core.container import EPIContainer, _html_safe_json_dumps
 from epi_core.policy import (
     EPIPolicy,
     POLICY_PROFILES,
@@ -33,7 +32,7 @@ from epi_core.policy import (
     list_policy_profiles,
     list_starter_rule_types,
 )
-from epi_core.viewer_assets import load_viewer_assets
+from epi_core.viewer_assets import inline_viewer_assets, load_viewer_assets
 
 app = typer.Typer(help="Manage epi_policy.json for fault analysis rules.")
 console = Console()
@@ -141,11 +140,12 @@ def _build_policy_editor_case_payload(policy_data: dict, output_path: Path) -> d
 def _create_policy_editor_html(policy_data: dict, output_path: Path) -> str:
     assets = load_viewer_assets()
     template_html = assets["template_html"]
+    jszip_js = assets["jszip_js"]
     app_js = assets["app_js"]
     css_styles = assets["css_styles"]
     crypto_js = assets["crypto_js"]
 
-    if not template_html or app_js is None or css_styles is None or crypto_js is None:
+    if not template_html or jszip_js is None or app_js is None or css_styles is None or crypto_js is None:
         raise FileNotFoundError("Decision viewer assets are not available in this install.")
 
     payload = {
@@ -155,15 +155,14 @@ def _create_policy_editor_html(policy_data: dict, output_path: Path) -> str:
     payload_json = _html_safe_json_dumps(payload, indent=2)
     preload_tag = f'<script id="epi-preloaded-cases" type="application/json">{payload_json}</script>'
 
-    html = template_html.replace(
-        '<link rel="stylesheet" href="styles.css">',
-        f"<style>{css_styles}</style>",
+    return inline_viewer_assets(
+        template_html,
+        css_styles=css_styles,
+        jszip_js=jszip_js,
+        crypto_js=crypto_js,
+        app_js=app_js,
+        prepend_html=preload_tag,
     )
-    html = html.replace(
-        '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script src="../epi_viewer_static/crypto.js"></script>\n<script src="app.js"></script>',
-        f'{preload_tag}\n<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>\n<script>{crypto_js}</script>\n<script>{app_js}</script>',
-    )
-    return html
 
 
 def _open_policy_editor(policy_data: dict, output_path: Path) -> Path:
@@ -247,12 +246,15 @@ def _load_policy_payload(path: Path) -> tuple[dict, str]:
     if path.suffix.lower() == ".epi":
         if not path.exists():
             raise FileNotFoundError(path)
-        if not zipfile.is_zipfile(path):
-            raise ValueError(f"Not a valid .epi file: {path}")
-        with zipfile.ZipFile(path, "r") as zf:
-            if "policy.json" not in zf.namelist():
-                raise FileNotFoundError(f"No embedded policy.json found in {path.name}")
-            return json.loads(zf.read("policy.json").decode("utf-8")), f"{path} (embedded policy)"
+        try:
+            payload = EPIContainer.read_member_json(path, "policy.json")
+        except ValueError as exc:
+            if "Missing policy.json" in str(exc):
+                raise FileNotFoundError(f"No embedded policy.json found in {path.name}") from exc
+            raise
+        if not isinstance(payload, dict):
+            raise ValueError(f"Invalid embedded policy.json in {path.name}")
+        return payload, f"{path} (embedded policy)"
 
     if not path.exists():
         raise FileNotFoundError(path)

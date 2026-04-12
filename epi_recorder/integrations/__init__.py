@@ -4,17 +4,48 @@ Framework integrations for EPI Recorder
 Native integrations with popular agent frameworks.
 
 Available integrations:
-  - LangGraph:      EPICheckpointSaver
+  - LangGraph:      EPICheckpointSaver, record_langgraph()
   - OpenAI Agents:  OpenAIAgentsRecorder, record_openai_agent_events()
   - LiteLLM:        EPICallback, enable_epi(), disable_epi()
   - LangChain:      EPICallbackHandler
   - OpenTelemetry:  EPISpanExporter, setup_epi_tracing()
 """
 
-from .langgraph import EPICheckpointSaver
-
 # Lazy imports — only fail when actually used, not on import
 def __getattr__(name):
+    if name in ("EPICheckpointSaver", "record_langgraph"):
+        from .langgraph import EPICheckpointSaver, record_langgraph
+        return {
+            "EPICheckpointSaver": EPICheckpointSaver,
+            "record_langgraph": record_langgraph,
+        }[name]
+    if name in (
+        "AGTBundleModel",
+        "AGTBundleMetadataModel",
+        "AGTInputError",
+        "DEFAULT_AGT_IMPORT_MANIFEST",
+        "coerce_agt_bundle",
+        "export_agt_to_epi",
+        "load_agt_input",
+    ):
+        from .agt import (
+            AGTInputError,
+            AGTBundleMetadataModel,
+            AGTBundleModel,
+            DEFAULT_AGT_IMPORT_MANIFEST,
+            coerce_agt_bundle,
+            export_agt_to_epi,
+            load_agt_input,
+        )
+        return {
+            "AGTInputError": AGTInputError,
+            "AGTBundleModel": AGTBundleModel,
+            "AGTBundleMetadataModel": AGTBundleMetadataModel,
+            "DEFAULT_AGT_IMPORT_MANIFEST": DEFAULT_AGT_IMPORT_MANIFEST,
+            "coerce_agt_bundle": coerce_agt_bundle,
+            "export_agt_to_epi": export_agt_to_epi,
+            "load_agt_input": load_agt_input,
+        }[name]
     if name in ("OpenAIAgentsRecorder", "record_openai_agent_events"):
         from .openai_agents import OpenAIAgentsRecorder, record_openai_agent_events
         return {
@@ -34,6 +65,14 @@ def __getattr__(name):
 
 __all__ = [
     'EPICheckpointSaver',
+    'record_langgraph',
+    'AGTInputError',
+    'AGTBundleModel',
+    'AGTBundleMetadataModel',
+    'DEFAULT_AGT_IMPORT_MANIFEST',
+    'coerce_agt_bundle',
+    'export_agt_to_epi',
+    'load_agt_input',
     'OpenAIAgentsRecorder',
     'record_openai_agent_events',
     'EPICallback',

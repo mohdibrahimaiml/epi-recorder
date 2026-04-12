@@ -26,7 +26,7 @@ Usage:
 
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 
@@ -97,6 +97,7 @@ class EPICallbackHandler(BaseCallbackHandler):
             )
         super().__init__()
         self._call_times: Dict[str, float] = {}   # run_id -> start_time
+        self._tool_names: Dict[str, str] = {}      # run_id -> tool name
 
     def _get_session(self):
         """Get the current active EPI recording session."""
@@ -314,10 +315,14 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         tool_name = self._serialized_name(serialized)
 
-        session.log_step("tool.start", {
+        run_key = self._run_id_str(run_id)
+        self._tool_names[run_key] = tool_name
+
+        session.log_step("tool.call", {
+            "tool": tool_name,
             "name": tool_name,
             "input": input_str[:2000],  # Truncate large inputs
-            "run_id": self._run_id_str(run_id),
+            "run_id": run_key,
             "tags": tags or [],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
@@ -337,17 +342,22 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         run_key = self._run_id_str(run_id)
         start = self._call_times.pop(run_key, None)
+        tool_name = self._tool_names.pop(run_key, None)
         latency = time.time() - start if start else None
 
         result_data = {
+            "tool": tool_name,
+            "name": tool_name,
             "output": str(output)[:2000],  # Truncate large outputs
+            "status": "success",
             "run_id": run_key,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        result_data = {key: value for key, value in result_data.items() if value is not None}
         if latency is not None:
             result_data["latency_seconds"] = round(latency, 3)
 
-        session.log_step("tool.end", result_data)
+        session.log_step("tool.response", result_data)
 
     def on_tool_error(
         self,
@@ -364,18 +374,23 @@ class EPICallbackHandler(BaseCallbackHandler):
 
         run_key = self._run_id_str(run_id)
         start = self._call_times.pop(run_key, None)
+        tool_name = self._tool_names.pop(run_key, None)
         latency = time.time() - start if start else None
 
         error_data = {
+            "tool": tool_name,
+            "name": tool_name,
+            "status": "error",
             "error": str(error),
             "error_type": type(error).__name__,
             "run_id": run_key,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        error_data = {key: value for key, value in error_data.items() if value is not None}
         if latency is not None:
             error_data["latency_seconds"] = round(latency, 3)
 
-        session.log_step("tool.error", error_data)
+        session.log_step("tool.response", error_data)
 
     # ---- Chain Events ----
 

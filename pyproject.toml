@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "3.0.1"
+version = "4.0.0"
 description = "Portable repro artifacts for AI agent runs. Capture, open, share, and verify failures in any browser."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -57,23 +57,58 @@ dependencies = [
     "cbor2>=5.6.0",
     "typer>=0.12.0,<0.25",
     "rich>=13.0.0,<14",
-    "fastapi>=0.111.0,<1",
-    "uvicorn>=0.30.0,<1",
 ]
 
 [project.optional-dependencies]
 ai = [
     "google-generativeai>=0.4.0",
 ]
+openai = [
+    "openai>=1.0.0",
+]
+anthropic = [
+    "anthropic>=0.25.0",
+]
+litellm = [
+    "litellm>=1.0.0",
+]
+langchain = [
+    "langchain-core>=0.2.0",
+]
+langgraph = [
+    "langgraph>=0.2.0",
+]
+opentelemetry = [
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
+integrations = [
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "litellm>=1.0.0",
+    "langchain-core>=0.2.0",
+    "langgraph>=0.2.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
 analytics = [
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
 ]
 gateway = [
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
     "boto3>=1.34.0",
 ]
 all = [
     "google-generativeai>=0.4.0",
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "litellm>=1.0.0",
+    "langchain-core>=0.2.0",
+    "langgraph>=0.2.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
     "fastapi>=0.111.0,<1",
@@ -88,6 +123,8 @@ dev = [
     "black>=24.0.0",
     "ruff>=0.3.0",
     "pandas>=1.5.0",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
 ]
 
 [project.scripts]
@@ -120,6 +157,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+norecursedirs = ["tmp*", ".gen_tmp", ".tmp", ".pytest_cache", "htmlcov"]
 addopts = "-v --cov=epi_core --cov=epi_cli --cov-report=term-missing --cov-report=html"
 
 [tool.black]

@@ -7,12 +7,54 @@ Tests the core .epi file format creation and extraction logic.
 import shutil
 import zipfile
 from pathlib import Path
+import re
 
 import pytest
 
-from epi_core.container import EPIContainer, EPI_MIMETYPE
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+    EPI_LEGACY_MIMETYPE,
+    EPI_MIMETYPE,
+)
 from epi_core.schemas import ManifestModel
 from epi_core.workspace import create_recording_workspace
+
+
+def _extract_payload_zip(tmp_path: Path, artifact_path: Path) -> Path:
+    payload_path = tmp_path / f"{artifact_path.stem}.payload.zip"
+    EPIContainer.extract_inner_payload(artifact_path, payload_path)
+    return payload_path
+
+
+def _legacy_copy(tmp_path: Path, artifact_path: Path) -> Path:
+    legacy_path = tmp_path / f"{artifact_path.stem}.legacy.epi"
+    EPIContainer.migrate(
+        artifact_path, legacy_path, container_format=EPI_CONTAINER_FORMAT_LEGACY
+    )
+    return legacy_path
+
+
+def _assert_no_external_runtime_dependencies(viewer_html: str) -> None:
+    """Reject actual external runtime loads, not harmless URL-like text.
+
+    Placeholder/example values such as localhost bridge URLs and vendored
+    license/comment URLs inside inline JS are allowed because they do not cause
+    network access when the extracted viewer loads.
+    """
+    disallowed_patterns = (
+        r"""<script\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""<link\b[^>]*\bhref=["'](?:https?:)?//""",
+        r"""<(?:img|audio|video|source|embed|iframe)\b[^>]*\bsrc=["'](?:https?:)?//""",
+        r"""fetch\(\s*["'`](?:https?:)?//""",
+        r"""import\(\s*["'`](?:https?:)?//""",
+    )
+    for pattern in disallowed_patterns:
+        assert not re.search(pattern, viewer_html, flags=re.IGNORECASE), (
+            "viewer.html contains an external runtime dependency pattern: "
+            f"{pattern}"
+        )
 
 
 class TestEPIContainer:
@@ -53,6 +95,9 @@ class TestEPIContainer:
         
         assert output_path.exists(), ".epi file should be created"
         assert output_path.stat().st_size > 0, ".epi file should not be empty"
+        assert EPIContainer.detect_container_format(output_path) == EPI_CONTAINER_FORMAT_ENVELOPE
+        assert output_path.read_bytes()[:4] == b"EPI1"
+        assert EPIContainer.container_mimetype(output_path) == EPI_MIMETYPE
     
     def test_pack_populates_file_manifest(self, temp_workspace, sample_files):
         """Test that pack() populates the file manifest with hashes."""
@@ -98,7 +143,7 @@ class TestEPIContainer:
         extract_dir = EPIContainer.unpack(output_path)
         
         mimetype_content = (extract_dir / "mimetype").read_text().strip()
-        assert mimetype_content == EPI_MIMETYPE, f"Mimetype should be {EPI_MIMETYPE}"
+        assert mimetype_content == EPI_LEGACY_MIMETYPE, f"Mimetype should be {EPI_LEGACY_MIMETYPE}"
     
     def test_read_manifest_without_full_extraction(self, temp_workspace, sample_files):
         """Test reading manifest without extracting all files."""
@@ -146,7 +191,7 @@ class TestEPIContainer:
         # Re-pack without updating hashes (simulating tampering)
         tampered_path = temp_workspace / "tampered.epi"
         with zipfile.ZipFile(tampered_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
+            zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
             zf.write(extract_dir / "test.txt", "test.txt")
             zf.write(extract_dir / "data.json", "data.json")
             zf.write(extract_dir / "artifacts" / "output.log", "artifacts/output.log")
@@ -180,7 +225,7 @@ class TestEPIContainer:
         invalid_file = temp_workspace / "invalid.epi"
         invalid_file.write_text("This is not a ZIP file")
         
-        with pytest.raises(ValueError, match="Not a valid ZIP file"):
+        with pytest.raises(ValueError, match="Not a valid \\.epi file"):
             EPIContainer.unpack(invalid_file)
     
     def test_read_manifest_with_invalid_json(self, temp_workspace, sample_files):
@@ -193,7 +238,8 @@ class TestEPIContainer:
         # Corrupt the manifest
         import zipfile
         corrupt_path = temp_workspace / "corrupt.epi"
-        with zipfile.ZipFile(output_path, "r") as zf_in:
+        legacy_path = _legacy_copy(temp_workspace, output_path)
+        with zipfile.ZipFile(legacy_path, "r") as zf_in:
             with zipfile.ZipFile(corrupt_path, "w") as zf_out:
                 for item in zf_in.namelist():
                     if item != "manifest.json":
@@ -263,7 +309,7 @@ class TestEPIContainer:
         invalid_file = temp_workspace / "invalid.epi"
         invalid_file.write_text("Not a ZIP")
         
-        with pytest.raises(ValueError, match="Not a valid ZIP"):
+        with pytest.raises(ValueError, match="Not a valid \\.epi file"):
             EPIContainer.read_manifest(invalid_file)
     
     def test_read_manifest_with_missing_manifest(self, temp_workspace):
@@ -273,7 +319,7 @@ class TestEPIContainer:
         # Create .epi without manifest.json
         output_path = temp_workspace / "no_manifest.epi"
         with zipfile.ZipFile(output_path, "w") as zf:
-            zf.writestr("mimetype", EPI_MIMETYPE, compress_type=zipfile.ZIP_STORED)
+            zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
         
         with pytest.raises(ValueError, match="Missing manifest.json"):
             EPIContainer.read_manifest(output_path)
@@ -290,7 +336,8 @@ class TestEPIContainer:
         
         # Create a new .epi with missing file but manifest still references it
         missing_file_path = temp_workspace / "missing_file.epi"
-        with zipfile.ZipFile(output_path, "r") as zf_in:
+        legacy_path = _legacy_copy(temp_workspace, output_path)
+        with zipfile.ZipFile(legacy_path, "r") as zf_in:
             with zipfile.ZipFile(missing_file_path, "w") as zf_out:
                 for item in zf_in.namelist():
                     if item != "test.txt":  # Skip one file
@@ -364,7 +411,8 @@ class TestEPIContainer:
 
         EPIContainer.pack(sample_files, manifest, output_path)
 
-        with zipfile.ZipFile(output_path, "r") as zf:
+        payload_zip = _extract_payload_zip(temp_workspace, output_path)
+        with zipfile.ZipFile(payload_zip, "r") as zf:
             names = zf.namelist()
 
         assert names.count("manifest.json") == 1
@@ -372,7 +420,7 @@ class TestEPIContainer:
         assert names.count("mimetype") == 1
 
     def test_embedded_viewer_inlines_css_and_javascript(self, temp_workspace, sample_files):
-        """Generated viewer.html must be fully self-contained for offline opening."""
+        """Generated viewer.html must be self-contained and offline-safe."""
         steps_file = sample_files / "steps.jsonl"
         steps_file.write_text(
             '{"index": 0, "kind": "session.start", "content": {"workflow_name": "Demo"}, "timestamp": "2025-01-01T00:00:00"}\n'
@@ -390,30 +438,35 @@ class TestEPIContainer:
         assert ".app-footer" in viewer_html
         assert "<script>" in viewer_html
         assert "async function initApp()" in viewer_html
+        _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert '<script src="../epi_viewer_static/crypto.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "cdn.jsdelivr.net/npm/jszip" not in viewer_html
+        assert "http://127.0.0.1:8765" in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "EPI Case Review" in viewer_html
-        assert "Inbox" in viewer_html
-        assert "Decision Summary" in viewer_html
-        assert "Human review" in viewer_html
+        assert "EPI Case Investigation" in viewer_html
+        assert "Queue" in viewer_html
+        assert "Case investigation" in viewer_html
+        assert "Review" in viewer_html
         assert "Download reviewed case file (.epi)" in viewer_html
         assert "Download review notes" in viewer_html
         assert "Download decision summary" in viewer_html
         assert "Signing key (optional)" in viewer_html
-        assert "Readable rules for this workflow" in viewer_html
+        assert "Refine the rulebook behind this workflow" in viewer_html
         assert "Download rule file (epi_policy.json)" in viewer_html
         assert "Build a real rulebook for this workflow" in viewer_html
         assert "Turn business controls into enforceable EPI rules" in viewer_html
-        assert "Export a business-readable record" in viewer_html
-        assert "Record integrity and review" in viewer_html
+        assert "Export a readable decision record" in viewer_html
+        assert "Transformation audit" in viewer_html
+        assert "Verify the file, signatures, and review chain" in viewer_html
         assert "Verify source" in viewer_html
         assert "Opened the packaged case file" in viewer_html
+        assert "embedded-artifact-mode" in viewer_html
         assert '"files"' in viewer_html
         assert "Your changes stay local until you download the reviewed case or review notes." in viewer_html
+        assert '${htmlSafeJson(payload, 2)}<\\/script>`;' in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

@@ -1,0 +1,196 @@
+{
+  "report_version": "agt-mapping-report/v1",
+  "generated_at": "2026-04-07T12:00:00Z",
+  "importer_version": "test-importer",
+  "source_summary": {
+    "has_audit_logs": false,
+    "has_flight_recorder": true,
+    "has_compliance_report": false,
+    "has_policy_document": false,
+    "has_runtime_context": false,
+    "section_counts": {
+      "metadata": 6,
+      "audit_logs": 0,
+      "flight_recorder": 2
+    }
+  },
+  "step_transformation": {
+    "audit_input_count": 0,
+    "flight_input_count": 2,
+    "combined_input_count": 2,
+    "output_count": 2,
+    "dedupe_strategy": "prefer-audit",
+    "duplicates_removed": 0,
+    "kept_both_count": 0,
+    "ambiguous_conflicts": 0
+  },
+  "event_mapping": {
+    "recognized": [
+      {
+        "section": "flight_recorder",
+        "source_type": "allowed",
+        "mapped_kind": "tool.response",
+        "count": 1
+      },
+      {
+        "section": "flight_recorder",
+        "source_type": "blocked",
+        "mapped_kind": "policy.check",
+        "count": 1
+      }
+    ],
+    "unknown": []
+  },
+  "field_handling": {
+    "exact": [
+      {
+        "section": "flight_recorder",
+        "field": "agent_id",
+        "mapped_to": "steps[].content.agent_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "execution_time_ms",
+        "mapped_to": "steps[].content.execution_time_ms",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "timestamp",
+        "mapped_to": "steps[].timestamp",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "trace_id",
+        "mapped_to": "steps[].trace_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "created_at",
+        "mapped_to": "manifest.created_at",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "goal",
+        "mapped_to": "manifest.goal",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "tags[]",
+        "mapped_to": "manifest.tags[]",
+        "count": 3,
+        "notes": null
+      },
+      {
+        "section": "metadata",
+        "field": "workflow_id",
+        "mapped_to": "manifest.workflow_id",
+        "count": 1,
+        "notes": null
+      }
+    ],
+    "translated": [
+      {
+        "section": "flight_recorder",
+        "field": "id",
+        "mapped_to": "steps[].content.entry_id",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "policy_verdict",
+        "mapped_to": "steps[].kind",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "result",
+        "mapped_to": "steps[].content.result",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "result.name",
+        "mapped_to": "steps[].content.result",
+        "count": 1,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "tool_args",
+        "mapped_to": "steps[].content.arguments",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "tool_name",
+        "mapped_to": "steps[].content.tool",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "violation_reason",
+        "mapped_to": "steps[].content.message",
+        "count": 1,
+        "notes": null
+      }
+    ],
+    "derived": [],
+    "synthesized": [
+      {
+        "section": "artifacts",
+        "field": "analysis.json",
+        "mapped_to": "analysis.json",
+        "count": 1,
+        "notes": "Synthesized from AGT compliance evidence so epi review can operate on imported artifacts."
+      }
+    ],
+    "preserved_raw": [
+      {
+        "section": "flight_recorder",
+        "field": "entry_hash",
+        "mapped_to": "artifacts/agt/flight_recorder.json",
+        "count": 2,
+        "notes": null
+      },
+      {
+        "section": "flight_recorder",
+        "field": "previous_hash",
+        "mapped_to": "artifacts/agt/flight_recorder.json",
+        "count": 2,
+        "notes": null
+      }
+    ],
+    "dropped": [],
+    "unclassified": []
+  },
+  "dedupe_conflicts": [],
+  "analysis": {
+    "mode": "agt_import",
+    "synthesized": true,
+    "source_system": "AGT",
+    "confidence": "derived",
+    "warning": "Synthesized from AGT evidence; not native EPI analysis.",
+    "source_artifacts": [
+      "compliance_report",
+      "steps.jsonl"
+    ]
+  },
+  "warnings": []
+}
