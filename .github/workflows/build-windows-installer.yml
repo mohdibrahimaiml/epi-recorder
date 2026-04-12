@@ -6,6 +6,9 @@ on:
       - "v*.*.*"        # triggers on v2.7.2, v3.0.0, etc.
   workflow_dispatch:    # also allow manual trigger from GitHub UI
 
+permissions:
+  contents: write
+
 jobs:
   build-installer:
     name: Build epi-setup-*.exe
