@@ -4,17 +4,21 @@ Framework integrations for EPI Recorder
 Native integrations with popular agent frameworks.
 
 Available integrations:
-  - LangGraph:      EPICheckpointSaver
+  - LangGraph:      EPICheckpointSaver, record_langgraph()
   - OpenAI Agents:  OpenAIAgentsRecorder, record_openai_agent_events()
   - LiteLLM:        EPICallback, enable_epi(), disable_epi()
   - LangChain:      EPICallbackHandler
   - OpenTelemetry:  EPISpanExporter, setup_epi_tracing()
 """
 
-from .langgraph import EPICheckpointSaver
-
 # Lazy imports — only fail when actually used, not on import
 def __getattr__(name):
+    if name in ("EPICheckpointSaver", "record_langgraph"):
+        from .langgraph import EPICheckpointSaver, record_langgraph
+        return {
+            "EPICheckpointSaver": EPICheckpointSaver,
+            "record_langgraph": record_langgraph,
+        }[name]
     if name in (
         "AGTBundleModel",
         "AGTBundleMetadataModel",
@@ -61,6 +65,7 @@ def __getattr__(name):
 
 __all__ = [
     'EPICheckpointSaver',
+    'record_langgraph',
     'AGTInputError',
     'AGTBundleModel',
     'AGTBundleMetadataModel',

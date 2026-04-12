@@ -45,8 +45,6 @@ Requirements:
     pip install opentelemetry-api opentelemetry-sdk
 """
 
-import json
-import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -201,6 +199,8 @@ class EPISpanExporter(SpanExporter):
             "duration_ms": self._duration_ms(span.start_time, span.end_time),
             "status": self._format_status(span.status),
         }
+        if kind.startswith("tool."):
+            content["tool"] = self._extract_tool_name(span)
 
         # Add all attributes
         if span.attributes:
@@ -260,9 +260,7 @@ class EPISpanExporter(SpanExporter):
 
         # Tool/function calls
         if "tool" in name or "function" in name:
-            if span.status and span.status.status_code == StatusCode.ERROR:
-                return "tool.error"
-            return "tool.end"
+            return "tool.response"
 
         # HTTP calls
         if any(k.startswith("http.") for k in attrs):
@@ -277,6 +275,16 @@ class EPISpanExporter(SpanExporter):
             return "span.error"
 
         return "span.end"
+
+    def _extract_tool_name(self, span: Any) -> str:
+        """Extract a policy-friendly tool/function name from a span."""
+        attrs = dict(span.attributes) if span.attributes else {}
+        return str(
+            attrs.get("tool.name")
+            or attrs.get("function.name")
+            or attrs.get("gen_ai.tool.name")
+            or span.name
+        )
 
     def _format_time(self, ns_timestamp: Optional[int]) -> str:
         """Convert nanosecond timestamp to ISO format."""

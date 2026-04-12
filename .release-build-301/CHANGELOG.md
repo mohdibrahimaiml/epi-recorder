@@ -503,7 +503,7 @@ Explicit capture provides stronger evidentiary guarantees.
 ## [2.2.0] – 2026-01-30
 
 ### Clarified Scope
-- EPI's primary artifact is a **portable execution evidence file (.epi)**
+- EPI's primary artifact is a **portable, verifiable `.epi` artifact that packages execution as evidence**
 - Debugging tools are treated as **secondary consumers** of evidence
 
 ### Added

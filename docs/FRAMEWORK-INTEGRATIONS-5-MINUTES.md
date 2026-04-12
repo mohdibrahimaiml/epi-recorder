@@ -2,6 +2,8 @@
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
+Install only the extras you need, for example `pip install "epi-recorder[litellm]"`, `pip install "epi-recorder[langchain]"`, or `pip install "epi-recorder[opentelemetry]"`.
+
 ## Fast comparison
 
 | Integration | Best when | What it captures |
@@ -53,14 +55,16 @@ Use this when Claude is already in your stack and you want the same capture flow
 
 ```python
 import litellm
-from epi_recorder.integrations import EPICallback
+from epi_recorder import record
+from epi_recorder.integrations.litellm import enable_epi
 
-litellm.callbacks = [EPICallback()]
+enable_epi()
 
-response = litellm.completion(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Explain the regression"}],
-)
+with record("litellm-run.epi", goal="Capture one LiteLLM exchange"):
+    response = litellm.completion(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "Explain the regression"}],
+    )
 ```
 
 Use this when your app already routes multiple providers through LiteLLM.
@@ -117,6 +121,26 @@ exporter.shutdown()
 ```
 
 Use this when you already have tracing instrumentation and want portable, signed repro artifacts in addition to traces.
+
+## HTTP / no-code connectors
+
+```http
+POST /capture
+Content-Type: application/json
+
+{
+  "eventType": "tool.call",
+  "traceId": "trace-123",
+  "workflowName": "Refund approvals",
+  "sourceApp": "n8n",
+  "payload": {
+    "tool": "lookup_order",
+    "input": {"order_id": "123"}
+  }
+}
+```
+
+Use this for n8n, Flowise, Langflow, Dify, or any adapter that can send JSON to the EPI gateway. The gateway also accepts `kind` / `content` if you prefer the native schema, and `/capture/batch` accepts either `items` or `events`.
 
 ## pytest
 

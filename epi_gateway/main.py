@@ -205,6 +205,22 @@ class GatewayRuntimeSettings(BaseModel):
 class CaptureBatchRequest(BaseModel):
     items: list[CaptureEventModel] = Field(default_factory=list)
 
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_connector_batch_aliases(cls, raw: Any) -> Any:
+        if isinstance(raw, cls) or not isinstance(raw, dict):
+            return raw
+
+        data = dict(raw)
+        if "items" not in data:
+            for key in ("events", "steps", "records"):
+                if key in data:
+                    data["items"] = data[key]
+                    break
+        return data
+
 
 class WorkspaceCaseRequest(BaseModel):
     case: dict[str, Any] = Field(default_factory=dict)
