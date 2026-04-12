@@ -7,6 +7,34 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [4.0.1] - 2026-04-12
+
+### Go-To-Market Layer
+
+#### Added
+
+- **Privacy-first opt-in telemetry**
+  - `epi telemetry status|enable|disable|test` now manages local opt-in state
+  - no telemetry is sent, and no install ID is created, before opt-in
+  - telemetry is limited to non-content metrics such as command, integration type, success/failure, artifact bytes, artifact count, CI flag, Python version, OS, and EPI version
+- **Pilot signup**
+  - `epi telemetry enable --join-pilot` captures explicit contact consent
+  - telemetry can be linked to a pilot profile only with explicit `--link-telemetry` consent
+- **Onboarding distribution commands**
+  - `epi init --github-action` can create a safe CI evidence workflow
+  - `epi integrate <target>` generates examples for `pytest`, `langchain`, `litellm`, `opentelemetry`, and `agt`
+- **Gateway telemetry ingestion**
+  - self-hosted gateways can enable `POST /api/telemetry/events` and `POST /api/telemetry/pilot-signups` with `EPI_GATEWAY_TELEMETRY_ENABLED=true`
+  - telemetry records and pilot signup records are stored separately as append-only JSONL
+
+#### Documentation
+
+- Added telemetry privacy documentation.
+- Added legal-safe `.epi` evidence-preparation guidance.
+- Added an internal go-to-market execution plan with AGT outreach thresholds, framework PR fallbacks, dashboard beta definition, and contingency paths.
+
+---
+
 ## [4.0.0] - 2026-04-08
 
 ### `.epi` Envelope Format

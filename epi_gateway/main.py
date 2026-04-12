@@ -24,6 +24,11 @@ from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
 from epi_core.container import EPIContainer, EPI_MIMETYPE, EPI_SUPPORTED_UPLOAD_MIMETYPES
 from epi_core.llm_capture import LLMCaptureRequest, build_llm_capture_events
+from epi_core.telemetry import (
+    TelemetryError,
+    validate_event_payload,
+    validate_pilot_signup_payload,
+)
 from epi_core.time_utils import utc_now_iso
 from epi_core.trust import sign_manifest
 
@@ -120,6 +125,7 @@ class GatewayRuntimeSettings(BaseModel):
     smtp_user: str | None = None
     smtp_password: str | None = None
     smtp_from: str | None = None
+    telemetry_enabled: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -321,7 +327,17 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         smtp_user=os.getenv("EPI_SMTP_USER"),
         smtp_password=os.getenv("EPI_SMTP_PASSWORD"),
         smtp_from=os.getenv("EPI_SMTP_FROM"),
+        telemetry_enabled=_truthy(os.getenv("EPI_GATEWAY_TELEMETRY_ENABLED")),
     )
+
+
+def _append_telemetry_record(settings: GatewayRuntimeSettings, filename: str, payload: dict[str, Any]) -> Path:
+    telemetry_dir = Path(settings.storage_dir) / "telemetry"
+    telemetry_dir.mkdir(parents=True, exist_ok=True)
+    output = telemetry_dir / filename
+    with output.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
+    return output
 
 
 def _fire_webhook(webhook_url: str, payload: dict) -> None:
@@ -969,6 +985,7 @@ def create_app(
             "proxy_failure_mode": runtime_settings.proxy_failure_mode,
             "capture_scope": runtime_settings.capture_scope,
             "share_enabled": runtime_settings.share_enabled,
+            "telemetry_enabled": runtime_settings.telemetry_enabled,
             "replay": {
                 "applied_batches": snapshot["replayed_batches"],
                 "skipped_batches": snapshot["skipped_replay_batches"],
@@ -988,6 +1005,7 @@ def create_app(
                 "shared_cases": True,
                 "artifact_export": True,
                 "hosted_share_links": runtime_settings.share_enabled,
+                "telemetry_ingest": runtime_settings.telemetry_enabled,
             },
             "workspace_file": snapshot["database_path"],
         }
@@ -1012,6 +1030,7 @@ def create_app(
                 "local_user_count": snapshot["auth_user_count"],
                 "retention_mode": runtime_settings.retention_mode,
                 "share_enabled": runtime_settings.share_enabled,
+                "telemetry_enabled": runtime_settings.telemetry_enabled,
                 "replay": {
                     "applied_batches": snapshot["replayed_batches"],
                     "skipped_batches": snapshot["skipped_replay_batches"],
@@ -1070,6 +1089,34 @@ def create_app(
             "\n".join(lines) + "\n",
             media_type="text/plain; version=0.0.4; charset=utf-8",
         )
+
+    @app.post("/api/telemetry/events", status_code=202)
+    async def telemetry_event(payload: dict[str, Any]):
+        if not runtime_settings.telemetry_enabled:
+            raise HTTPException(status_code=404, detail="Telemetry ingestion is not enabled.")
+        try:
+            normalized = validate_event_payload(payload)
+            _append_telemetry_record(runtime_settings, "events.jsonl", normalized)
+            return {"ok": True, "status": "accepted"}
+        except TelemetryError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.error("Failed to persist telemetry event: %s", exc)
+            raise HTTPException(status_code=500, detail="Internal Gateway Error") from exc
+
+    @app.post("/api/telemetry/pilot-signups", status_code=202)
+    async def telemetry_pilot_signup(payload: dict[str, Any]):
+        if not runtime_settings.telemetry_enabled:
+            raise HTTPException(status_code=404, detail="Telemetry ingestion is not enabled.")
+        try:
+            normalized = validate_pilot_signup_payload(payload)
+            _append_telemetry_record(runtime_settings, "pilot_signups.jsonl", normalized)
+            return {"ok": True, "status": "accepted"}
+        except TelemetryError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.error("Failed to persist pilot signup: %s", exc)
+            raise HTTPException(status_code=500, detail="Internal Gateway Error") from exc
 
     @app.post("/capture", status_code=202)
     async def capture_evidence(request: CaptureEventModel):

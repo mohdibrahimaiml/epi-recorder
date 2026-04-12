@@ -256,6 +256,21 @@ def verify_command(
         if not json_output and integrity_ok and signature_valid is not False:
             _print_share_hint()
 
+        try:
+            from epi_core.telemetry import track_event
+
+            track_event(
+                "epi.verify.completed",
+                {
+                    "command": "verify",
+                    "success": bool(integrity_ok and signature_valid is not False),
+                    "artifact_bytes": epi_file.stat().st_size,
+                    "artifact_count": 1,
+                },
+            )
+        except Exception:
+            pass
+
         # Exit code based on verification result
         if not integrity_ok or signature_valid is False:
             raise typer.Exit(1)

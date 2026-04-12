@@ -133,6 +133,21 @@ def import_agt(
         raise typer.Exit(1)
 
     signed = bool(EPIContainer.read_manifest(output_path).signature)
+    try:
+        from epi_core.telemetry import track_event
+
+        track_event(
+            "epi.import.completed",
+            {
+                "command": "import",
+                "source": "agt",
+                "success": True,
+                "artifact_bytes": output_path.stat().st_size,
+                "artifact_count": 1,
+            },
+        )
+    except Exception:
+        pass
     panel = Panel(
         f"[bold]Input:[/bold] {agt_input}\n"
         f"[bold]Output:[/bold] {output_path}\n"

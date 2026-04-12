@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.0.0)
+# EPI CLI Reference (v4.0.1)
 
-**Version:** 4.0.0
+**Version:** 4.0.1
 **Primary entrypoint:** `epi`
 
 ---
@@ -44,6 +44,9 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi verify <file.epi>` | Verify case file integrity and signature state. |
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
 | `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
+| `epi init --github-action` | Create a starter demo and optional CI evidence workflow. |
+| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, or AGT. |
+| `epi telemetry status|enable|disable|test` | Manage privacy-first opt-in telemetry and pilot signup. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
@@ -118,6 +121,74 @@ epi view sample.epi
 ```
 
 For the public walkthrough, see [`AGT-IMPORT-QUICKSTART.md`](AGT-IMPORT-QUICKSTART.md).
+
+---
+
+## `epi init --github-action`
+
+Creates a first-run demo script and can add a safe GitHub Actions workflow for EPI evidence.
+
+```bash
+epi init
+epi init --github-action
+epi init --github-action --force
+```
+
+Behavior:
+- detects pytest projects and writes a workflow that runs `pytest --epi --epi-dir=evidence`
+- skips an existing `.github/workflows/epi-audit.yml` unless `--force` is provided
+- asks before adding the workflow in interactive mode when `--github-action` is not passed
+
+---
+
+## `epi integrate <target>`
+
+Generates integration examples for existing projects without rewriting user agent code.
+
+```bash
+epi integrate pytest --dry-run
+epi integrate pytest --apply
+epi integrate langchain --write-examples
+epi integrate litellm --write-examples
+epi integrate opentelemetry --write-examples
+epi integrate agt --write-examples
+```
+
+Supported targets:
+- `pytest`
+- `langchain`
+- `litellm`
+- `opentelemetry`
+- `agt`
+
+Default behavior:
+- non-interactive mode is dry-run unless `--apply` or `--write-examples` is set
+- interactive mode shows what would be written before creating examples or workflows
+- generated files live under `.epi/examples/` unless the target is the pytest GitHub Actions workflow
+- existing generated files are skipped unless `--force` is passed
+
+---
+
+## `epi telemetry status|enable|disable|test`
+
+Manages privacy-first opt-in telemetry and the EPI Pilot signup.
+
+```bash
+epi telemetry status
+epi telemetry enable
+epi telemetry enable --join-pilot --email you@example.com --use-case compliance --consent-to-contact
+epi telemetry enable --join-pilot --email you@example.com --use-case "agt integration" --consent-to-contact --link-telemetry
+epi telemetry test
+epi telemetry disable
+```
+
+Telemetry is off by default. EPI does not create an install ID until telemetry is enabled or the user explicitly links a pilot profile to telemetry.
+
+Allowed telemetry metrics are non-content only: event name, timestamp, EPI version, Python version, OS, environment, integration type, command, success/failure, artifact bytes, artifact count, and CI flag.
+
+EPI never sends prompts, outputs, file paths, repo names, hostnames, usernames, API keys, artifact content, or customer data. Pilot signup contact fields are stored separately and require explicit contact consent. Linking a pilot profile to telemetry also requires explicit consent.
+
+See [`TELEMETRY-PRIVACY.md`](TELEMETRY-PRIVACY.md).
 
 ---
 
@@ -249,7 +320,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In the current `v4.0.0` line, `epi policy init` is the guided front door for
+In the current `v4.0.1` line, `epi policy init` is the guided front door for
 policy. It asks a small number of business-language questions and writes the
 machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.

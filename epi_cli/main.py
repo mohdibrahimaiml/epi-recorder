@@ -523,6 +523,12 @@ app.add_typer(export_summary_app, name="export-summary", help="Export a human-re
 from epi_cli.importer import app as import_app
 app.add_typer(import_app, name="import", help="Import external evidence into a sealed .epi case file")
 
+from epi_cli.telemetry import app as telemetry_app
+app.add_typer(telemetry_app, name="telemetry", help="Manage opt-in telemetry and pilot signup")
+
+from epi_cli.integrate import integrate_command
+app.command(name="integrate", help="Generate EPI integration examples and CI workflows")(integrate_command)
+
 
 @app.command()
 def analyze(
@@ -797,10 +803,21 @@ def init(
         "-f",
         help="Skip the interactive picker: openai | litellm | langchain | langgraph | generic",
     ),
+    github_action: bool = typer.Option(False, "--github-action", help="Add a GitHub Actions EPI evidence workflow."),
+    force: bool = typer.Option(False, "--force", help="Overwrite generated onboarding files when they already exist."),
 ):
     """
     [Wizard] First-time setup wizard. Creates keys, an instrumented demo script, and runs it.
     """
+    if not isinstance(demo_filename, str):
+        demo_filename = "epi_demo.py"
+    if not isinstance(no_open, bool):
+        no_open = False
+    if not isinstance(github_action, bool):
+        github_action = False
+    if not isinstance(force, bool):
+        force = False
+
     console.print("\n[bold magenta]EPI Setup Wizard[/bold magenta]\n")
 
     # 1. Keys
@@ -841,6 +858,11 @@ def init(
     else:
         # Non-interactive (CI, tests, piped input) — default to generic demo
         framework_choice = "5"
+
+    if not github_action and _interactive:
+        from rich.prompt import Confirm
+
+        github_action = Confirm.ask("   Add a GitHub Actions EPI evidence workflow", default=False)
 
     _FRAMEWORK_SCRIPTS = {
         "1": (
@@ -1039,6 +1061,17 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
     else:
          console.print("[yellow]Exists (Skipped) >>[/yellow]")
 
+    if github_action:
+        from epi_cli.onboarding import write_github_action_workflow
+
+        console.print("\n   [dim]Creating GitHub Actions EPI workflow...[/dim]", end=" ")
+        workflow = write_github_action_workflow(force=force)
+        if workflow.created:
+            console.print(f"[green]Created![/green] [dim]{workflow.path}[/dim]")
+        elif workflow.skipped:
+            console.print(f"[yellow]Exists (Skipped)[/yellow] [dim]{workflow.path}[/dim]")
+            console.print("[dim]Use --force to overwrite the existing workflow.[/dim]")
+
     # 3. Running
     console.print("\n3. [bold cyan]Running the demo now...[/bold cyan]\n")
 
@@ -1084,6 +1117,21 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
     console.print(f"[dim]Recorded steps:[/dim] {step_count}")
     console.print(f"[dim]Run it again with:[/dim] python {demo_filename}")
     console.print(f"[dim]Open the case file with:[/dim] epi view {artifact_path}")
+    try:
+        from epi_core.telemetry import track_event
+
+        track_event(
+            "epi.init.completed",
+            {
+                "command": "init",
+                "success": True,
+                "artifact_bytes": artifact_path.stat().st_size if artifact_path.exists() else 0,
+                "artifact_count": 1,
+                "workflow_created": bool(github_action),
+            },
+        )
+    except Exception:
+        pass
     if not no_open:
         try:
             from epi_cli.run import _open_viewer

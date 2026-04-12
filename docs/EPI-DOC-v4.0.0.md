@@ -3,7 +3,7 @@
 Author: Codex  
 Date: 2026-04-08  
 Repo analyzed: `C:\Users\dell\epi-recorder`  
-Release line observed in source: `v4.0.0`
+Release line observed in source: `v4.0.1`
 
 ---
 
@@ -59,6 +59,8 @@ It is a clearer product line for:
 - local review
 - provenance and transformation audit
 - trust under scrutiny
+
+`v4.0.1` keeps the same artifact wire format and adds the go-to-market layer around the product: opt-in telemetry, explicit pilot signup, safer GitHub Actions onboarding, and framework integration examples.
 
 ---
 

@@ -1,15 +1,15 @@
-# EPI File Format Specification v4.0.0
+# EPI File Format Specification v4.0.1
 
 **Status:** Active  
-**Date:** 2026-04-08  
-**Version:** 4.0.0
+**Date:** 2026-04-12
+**Version:** 4.0.1
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Executable Package for AI (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v4.0.0.
+The **Evidence Packaged Infrastructure (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v4.0.1.
 
 ---
 
@@ -18,7 +18,7 @@ The **Executable Package for AI (EPI)** format provides a standardized, portable
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable container.
 
-### 1.2 Key Features (v4.0.0)
+### 1.2 Key Features (v4.0.1)
 - **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
 - **Binary Envelope Identity:** New artifacts start with `EPI1`, not ZIP magic bytes.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
@@ -54,7 +54,7 @@ payload.zip                 # embedded signed ZIP evidence payload
 ```
 
 Older historical docs may mention `env.json`, raw ZIP `.epi` containers, or a `viewer/` directory. In
-`v4.0.0`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
+`v4.0.1`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -84,7 +84,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "4.0.0",
+  "spec_version": "4.0.1",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
@@ -136,8 +136,9 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v4.0.0` is the current documented layout.
-- `v4.0.0` introduces the `EPI1` outer envelope while preserving the ZIP evidence payload and inner trust model.
+- `v4.0.1` is the current documented layout.
+- `v4.0.1` preserves the `EPI1` outer envelope introduced in `v4.0.0` while adding opt-in telemetry and onboarding surfaces outside the artifact format.
+- `v4.0.0` introduced the `EPI1` outer envelope while preserving the ZIP evidence payload and inner trust model.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Legacy ZIP-based `.epi` artifacts remain readable.
 - Double-click behavior is an operating-system integration concern, not a property of the archive alone.
@@ -148,7 +149,8 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **4.0.0** | 2026-04-08 | **Current** | New `EPI1` outer envelope, dual-format compatibility, `.epi` transport identity upgrade, and `epi migrate` support. |
+| **4.0.1** | 2026-04-12 | **Current** | No artifact wire-format change from `4.0.0`; adds opt-in telemetry, pilot signup, integration scaffolding, and gateway telemetry ingestion. |
+| **4.0.0** | 2026-04-08 | Previous | New `EPI1` outer envelope, dual-format compatibility, `.epi` transport identity upgrade, and `epi migrate` support. |
 | **3.0.3** | 2026-04-07 | Previous | Current release line with the AGT import front door, transformation-audit documentation, and aligned `v3.0.3` release surfaces. |
 | **3.0.2** | 2026-04-04 | Previous | Extracted-viewer offline packaging fix and self-contained `epi view --extract` output. |
 | **3.0.1** | 2026-04-02 | Previous | Front-door reliability patch for packaged viewer assets, LangChain callback stability, and policy threshold alignment. |
