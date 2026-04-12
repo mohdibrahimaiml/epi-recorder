@@ -91,9 +91,19 @@ def _safe_mkdtemp(
 
 
 def pytest_configure(config):  # type: ignore[no-untyped-def]
-    tempfile.mkdtemp = _safe_mkdtemp  # type: ignore[assignment]
-    _pytest.pathlib.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
-    _pytest.tmpdir.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
+    import sys as _sys
+
+    # Windows-only: mkdtemp can fail due to ACL issues in some environments.
+    # On Linux/macOS the standard mkdtemp works fine; only apply the shim on Windows.
+    if _sys.platform == "win32":
+        tempfile.mkdtemp = _safe_mkdtemp  # type: ignore[assignment]
+
+    # Guard against AttributeError in case the pytest version doesn't expose
+    # cleanup_dead_symlinks on _pytest.tmpdir (varies across pytest releases).
+    if hasattr(_pytest.pathlib, "cleanup_dead_symlinks"):
+        _pytest.pathlib.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
+    if hasattr(_pytest.tmpdir, "cleanup_dead_symlinks"):
+        _pytest.tmpdir.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
 
 
 @pytest.fixture
