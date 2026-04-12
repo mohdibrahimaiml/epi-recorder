@@ -10,7 +10,10 @@ on:
 jobs:
   release-gate:
     name: Full test, build, and wheel audit
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
 
     steps:
       - name: Checkout
@@ -28,7 +31,12 @@ jobs:
           pip install -e ".[dev]"
           pip install build twine
 
-      - name: Run release gate
+      - name: Run release gate (Windows)
+        if: runner.os == 'Windows'
         run: |
           .\scripts\release-gate.ps1 -Python python
         shell: powershell
+
+      - name: Run release gate (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/release-gate.sh python
