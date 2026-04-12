@@ -39,6 +39,7 @@ Spec: https://github.com/mohdibrahimaiml/epi-spec
 <p align="center">
   <strong>
     <a href="#install">Install</a> &middot;
+    <a href="#agent-skills">Agent Skills</a> &middot;
     <a href="#get-started-in-10-minutes">Get Started</a> &middot;
     <a href="#agt---epi-quickstart">AGT Quickstart</a> &middot;
     <a href="#add-to-your-code">Add to Your Code</a> &middot;
@@ -62,15 +63,15 @@ Spec: https://github.com/mohdibrahimaiml/epi-spec
 pip install epi-recorder
 ```
 
-## Claude Code
+## Agent Skills
 
-Record Claude Code work as `.epi` evidence with the EPI Recorder skill/plugin:
+Record Claude Code or OpenClaw work as `.epi` evidence with the EPI Recorder skill:
 
 ```text
 /record
 ```
 
-Plugin install:
+Claude Code plugin install:
 
 ```text
 /plugin marketplace add mohdibrahimaiml/epi-claude-code-marketplace
@@ -78,10 +79,16 @@ Plugin install:
 /epi-recorder:record
 ```
 
-Direct skill install:
+Claude Code direct skill install:
 
 ```bash
 git clone https://github.com/mohdibrahimaiml/epi-claude-code-skill.git ~/.claude/skills/record
+```
+
+OpenClaw skill install:
+
+```bash
+git clone https://github.com/mohdibrahimaiml/epi-claude-code-skill.git ~/.openclaw/skills/record
 ```
 
 ---
