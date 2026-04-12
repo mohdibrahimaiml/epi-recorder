@@ -8,9 +8,13 @@
   </p>
 </p>
 
+Reference implementation of EPI (Evidence Packaged Infrastructure).
+
 **EPI (Evidence Packaged Infrastructure)** is a standard for packaging AI execution into portable, verifiable `.epi` artifacts.
 
 EPI packages AI execution as evidence.
+
+Spec: https://github.com/mohdibrahimaiml/epi-spec
 
 ---
 
