@@ -180,7 +180,10 @@ class TestArtifactReview:
 
         with zipfile.ZipFile(epi_path, "r") as zf:
             review_entries = [name for name in zf.namelist() if name == "review.json"]
+            ledger_entries = [name for name in zf.namelist() if name.startswith("reviews/") and name.endswith(".json")]
             assert len(review_entries) == 1
+            assert len(ledger_entries) == 2
+            assert "review_index.json" in zf.namelist()
 
         loaded = read_review(epi_path)
         assert loaded is not None

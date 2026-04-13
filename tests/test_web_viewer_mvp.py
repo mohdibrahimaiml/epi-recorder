@@ -58,6 +58,14 @@ def test_web_viewer_app_supports_source_aware_case_investigation():
     assert "function buildEvidenceSummary" in js
     assert "function buildTrustRows" in js
     assert "function buildTrustAlerts" in js
+    assert "function deriveReviewBindingState" in js
+    assert "async function computeReviewHash" in js
+    assert "function buildReviewSigningPayload" in js
+    assert "review_index.json" in js
+    assert "reviews/" in js
+    assert "Review artifact binding" in js
+    assert "Review not fully checked" in js
+    assert "Redaction / retention" in js
     assert "function buildTransformationAuditView" in js
     assert "function renderTransformationAudit" in js
     assert "function renderAttachmentGroups" in js

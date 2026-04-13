@@ -255,21 +255,22 @@ def review(
         console.print("[dim]All faults skipped. No review record written.[/dim]")
         raise typer.Exit(0)
 
-    # Build and sign the review record
+    # Build the review record. Signing happens after artifact binding so the
+    # signature covers the exact sealed evidence hash and review chain pointer.
     record = ReviewRecord(reviewed_by=reviewer, reviews=review_entries)
 
+    priv = None
     try:
         from epi_cli.keys import KeyManager
         km = KeyManager()
         priv = km.load_private_key(key_name)
-        record.sign(priv)
     except Exception as e:
         console.print(f"[yellow]Could not sign review (key '{key_name}' not found): {e}[/yellow]")
         console.print("[dim]Review will be saved unsigned.[/dim]")
 
     # Append to artifact
     try:
-        add_review_to_artifact(epi_path, record)
+        add_review_to_artifact(epi_path, record, private_key=priv)
         console.print(f"[green][OK][/green] Review saved to [bold]{epi_path.name}[/bold]")
         confirmed = sum(1 for e in review_entries if e["outcome"] == "confirmed_fault")
         dismissed = sum(1 for e in review_entries if e["outcome"] == "dismissed")
@@ -282,7 +283,7 @@ def review(
 @app.command("show")
 def show_review(ctx: typer.Context):
     """Show the review record from a .epi artifact, if present."""
-    from epi_core.review import read_review
+    from epi_core.review import read_review, verify_review_trust
 
     epi_path = ctx.obj["epi_path"]
     console.print()
@@ -298,6 +299,14 @@ def show_review(ctx: typer.Context):
     console.print(f"  Reviewed by: [cyan]{record.reviewed_by}[/cyan]")
     console.print(f"  Reviewed at: [dim]{record.reviewed_at}[/dim]")
     console.print(f"  Signature:   {'[green]present[/green]' if record.review_signature else '[yellow]unsigned[/yellow]'}")
+    review_trust = verify_review_trust(epi_path, strict=False)
+    console.print(f"  Trust:       {review_trust['status']}")
+    if review_trust.get("latest_review_id"):
+        console.print(f"  Review ID:   [dim]{review_trust['latest_review_id']}[/dim]")
+    if review_trust.get("warnings"):
+        console.print(f"  Warnings:    [yellow]{len(review_trust['warnings'])}[/yellow]")
+    if review_trust.get("failures"):
+        console.print(f"  Failures:    [red]{len(review_trust['failures'])}[/red]")
     console.print()
 
     for entry in record.reviews:
@@ -307,3 +316,56 @@ def show_review(ctx: typer.Context):
             f"  Step {entry.get('fault_step', '?')}  [{color}]{outcome}[/{color}]"
             + (f"  [dim]{entry.get('notes', '')}[/dim]" if entry.get("notes") else "")
         )
+
+
+@app.command("bind")
+def bind_review(
+    ctx: typer.Context,
+    reviewer: Optional[str] = typer.Option(
+        None,
+        "--reviewer",
+        "-r",
+        help="Reviewer identity for the new artifact-bound review entry.",
+    ),
+    key_name: str = typer.Option(
+        "default",
+        "--key",
+        "-k",
+        help="Key name to sign the artifact-bound review with.",
+    ),
+):
+    """Promote the latest unbound review into a new artifact-bound signed review."""
+    from epi_cli.keys import KeyManager
+    from epi_core.review import ReviewRecord, add_review_to_artifact, read_review, verify_review_trust
+
+    epi_path = ctx.obj["epi_path"]
+    latest = read_review(epi_path)
+    if latest is None:
+        console.print(f"[red][X][/red] No review found in {epi_path.name}.")
+        raise typer.Exit(1)
+
+    reviewer = (reviewer or latest.reviewed_by or "").strip()
+    if not reviewer:
+        console.print("[red][X][/red] Reviewer identity is required.")
+        raise typer.Exit(1)
+
+    try:
+        private_key = KeyManager().load_private_key(key_name)
+    except Exception as exc:
+        console.print(f"[red][X][/red] Could not load signing key '{key_name}': {exc}")
+        raise typer.Exit(1) from exc
+
+    record = ReviewRecord(
+        reviewed_by=reviewer,
+        reviews=latest.reviews,
+    )
+
+    try:
+        add_review_to_artifact(epi_path, record, private_key=private_key)
+    except Exception as exc:
+        console.print(f"[red][X][/red] Could not bind review to artifact: {exc}")
+        raise typer.Exit(1) from exc
+
+    trust = verify_review_trust(epi_path, strict=True)
+    console.print(f"[green][OK][/green] Added artifact-bound review to [bold]{epi_path.name}[/bold].")
+    console.print(f"[dim]Review trust: {trust['status']} - latest review: {trust.get('latest_review_id') or 'unknown'}[/dim]")

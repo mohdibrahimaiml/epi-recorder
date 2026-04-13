@@ -45,8 +45,13 @@ _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ32s16s")
 
 _RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
+_MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
 
 _zip_pack_lock = threading.Lock()
+
+
+def _is_mutable_review_archive_name(arc_name: str) -> bool:
+    return arc_name in _MUTABLE_REVIEW_ARCHIVE_NAMES or arc_name.startswith("reviews/")
 
 
 @dataclass(frozen=True)
@@ -481,8 +486,9 @@ class EPIContainer:
                 if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
                     continue
 
-                file_hash = EPIContainer._compute_file_hash(file_path)
-                file_manifest[arc_name] = file_hash
+                if not _is_mutable_review_archive_name(arc_name):
+                    file_hash = EPIContainer._compute_file_hash(file_path)
+                    file_manifest[arc_name] = file_hash
                 files_to_pack.append((file_path, arc_name))
 
         files_to_pack.sort(key=lambda item: item[1])
