@@ -1,12 +1,8 @@
 """
 Comprehensive tests for epi_recorder/environment.py to achieve 90%+ coverage
 """
-import pytest
-import os
-import sys
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from epi_recorder.environment import save_environment_snapshot
 
 

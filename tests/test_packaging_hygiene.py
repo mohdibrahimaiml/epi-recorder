@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from setup import _clear_stale_build_outputs
 

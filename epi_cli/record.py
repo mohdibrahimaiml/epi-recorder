@@ -24,7 +24,6 @@ from rich.panel import Panel
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
-from epi_core.trust import sign_manifest
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_cli.keys import KeyManager
 from epi_cli._shared import ensure_python_command, build_env_for_child

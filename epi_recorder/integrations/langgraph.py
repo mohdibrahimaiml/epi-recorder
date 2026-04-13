@@ -22,8 +22,7 @@ Usage:
 import asyncio
 import hashlib
 import json
-from pathlib import Path
-from typing import Any, AsyncIterator, Dict, Iterator, Optional, Sequence, Tuple
+from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple
 from contextlib import asynccontextmanager
 
 try:

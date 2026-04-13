@@ -6,7 +6,6 @@ Tests for epi_core.trust — sign_manifest_inplace, get_signer_name, create_veri
 
 import json
 from datetime import datetime
-from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest

@@ -891,7 +891,6 @@ class FaultAnalyzer:
                                     )
 
             # Check for commitment violations against registered constraints
-            content_str_lower = _content_str(step)
             is_commitment = _content_mentions(step, _COMMITMENT_KEYWORDS)
             if not is_commitment:
                 continue

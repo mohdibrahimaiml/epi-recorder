@@ -4,7 +4,6 @@ Tests for epi_core.redactor - Secret redaction functionality.
 Tests regex-based pattern matching for API keys, tokens, and credentials.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
@@ -264,7 +263,6 @@ class TestRedactor:
     def test_invalid_regex_pattern_handling(self):
         """Test that invalid regex patterns are skipped gracefully."""
         # This tests the error handling in __init__ (lines 98-100)
-        import re
         from unittest.mock import patch
         
         with patch('epi_core.redactor.DEFAULT_REDACTION_PATTERNS', [(r'(?P<invalid', 'Bad pattern')]):
@@ -283,7 +281,6 @@ class TestRedactor:
     
     def test_create_default_config(self):
         """Test create_default_config function."""
-        import tempfile
         from epi_core.redactor import create_default_config
         
         with tempfile.TemporaryDirectory() as tmpdir:

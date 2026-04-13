@@ -9,8 +9,6 @@ Usage:
   epi ls --failed
 """
 
-import json
-import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -103,7 +101,7 @@ def _get_recording_info(epi_file: Path) -> dict:
             "tags": tags or [],
             "tags_summary": ", ".join(tags) if tags else "",
         }
-    except Exception as e:
+    except Exception:
         return {
             "name": epi_file.name,
             "stem": epi_file.stem,

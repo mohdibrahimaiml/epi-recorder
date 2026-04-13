@@ -5,11 +5,10 @@ Provides transparent monkey-patching for OpenAI and other LLM providers
 to capture requests and responses for workflow recording.
 """
 
-import json
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, Optional
 from functools import wraps
 
 from epi_core.schemas import StepModel
@@ -149,7 +148,6 @@ def patch_openai() -> bool:
     """
     try:
         import openai
-        from openai import OpenAI
         
         # Get version for compatibility
         openai_version = openai.__version__
@@ -177,7 +175,6 @@ def _patch_openai_v1() -> bool:
     Patches the chat.completions.create method.
     """
     try:
-        from openai import OpenAI
         from openai.resources.chat import completions
         
         # Store original method for unpatching
@@ -366,7 +363,6 @@ def patch_gemini() -> bool:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import google.generativeai as genai
-            from google.generativeai.types import GenerateContentResponse
         
         # Get the GenerativeModel class
         GenerativeModel = genai.GenerativeModel
@@ -470,7 +466,6 @@ def patch_requests() -> bool:
         bool: True if patching succeeded, False otherwise
     """
     try:
-        import requests
         from requests.sessions import Session
         
         # Store original method for unpatching

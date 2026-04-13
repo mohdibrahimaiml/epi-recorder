@@ -7,10 +7,9 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
-import pytest
 import click
 
 from epi_core.schemas import ManifestModel

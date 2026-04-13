@@ -11,7 +11,6 @@ Verifies that:
 
 import json
 import zipfile
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -45,12 +44,9 @@ def _pack(tmp_path: Path, src: Path, policy_json: str = None) -> Path:
     manifest = ManifestModel(file_manifest={})
 
     # Patch Path.cwd() to point to tmp_path so policy is found there
-    with patch("epi_core.container.Path") as mock_path_cls:
+    with patch("epi_core.container.Path"):
         # Only patch .cwd(); let other Path() calls through
-        import epi_core.container as container_mod
         real_path = Path
-
-        original_cwd = Path.cwd
 
         if policy_json:
             policy_path = tmp_path / "epi_policy.json"

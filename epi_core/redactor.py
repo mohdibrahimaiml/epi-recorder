@@ -8,7 +8,6 @@ information like API keys, tokens, and credentials from captured data.
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-import json
 
 
 # Default redaction patterns (security-first)
@@ -40,6 +39,10 @@ DEFAULT_REDACTION_PATTERNS = [
     
     # JWT tokens
     (r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', 'JWT token'),
+
+    # Common PII
+    (r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', 'Email address'),
+    (r'\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b', 'Phone number'),
     
     # Database connection strings
     (r'postgres://[^:]+:[^@]+@[^/]+', 'PostgreSQL connection string'),
@@ -279,5 +282,3 @@ def get_default_redactor() -> Redactor:
     return Redactor(config_path=config_path if config_path.exists() else None)
 
 
-
- 

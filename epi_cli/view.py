@@ -22,7 +22,6 @@ import base64
 import subprocess
 import sys
 import importlib.util
-import zipfile
 from pathlib import Path
 
 import typer
@@ -439,7 +438,7 @@ def view(
     # Resolve the file path
     try:
         resolved_path = _resolve_epi_file(epi_file)
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         console.print(f"[red][X] File not found:[/red] {epi_file}")
         console.print("[dim]   Searched in: ./epi-recordings/[/dim]")
         console.print("[dim]   Try: epi ls   to see available recordings[/dim]")

@@ -3,9 +3,7 @@ Simple functional tests for bootstrap module
 """
 import io
 import json
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from epi_recorder.bootstrap import initialize_recording, _finalize_bootstrap_recording, _restore_stdio_capture
 from epi_recorder.api import get_current_session
 from epi_recorder.patcher import RecordingContext, set_recording_context

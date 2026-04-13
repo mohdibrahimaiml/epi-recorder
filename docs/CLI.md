@@ -188,6 +188,10 @@ Allowed telemetry metrics are non-content only: event name, timestamp, EPI versi
 
 EPI never sends prompts, outputs, file paths, repo names, hostnames, usernames, API keys, artifact content, or customer data. Pilot signup contact fields are stored separately and require explicit contact consent. Linking a pilot profile to telemetry also requires explicit consent.
 
+After high-intent commands such as `epi init`, `epi integrate`, and successful `epi verify`, EPI may print a local-only opt-in reminder. The reminder does not create an install ID or send telemetry.
+
+If a telemetry send fails after opt-in, EPI queues the sanitized event under `~/.epi/telemetry_queue.jsonl` and retries it on later telemetry sends. Pilot signup is the reachable-user path for dashboard access, compliance report exports, priority support, and roadmap input.
+
 See [`TELEMETRY-PRIVACY.md`](TELEMETRY-PRIVACY.md).
 
 ---

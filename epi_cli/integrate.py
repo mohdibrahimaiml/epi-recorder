@@ -123,3 +123,9 @@ def integrate_command(
         )
     except Exception:
         pass
+    try:
+        from epi_cli.telemetry_hint import maybe_print_telemetry_hint
+
+        maybe_print_telemetry_hint(console, "integrate")
+    except Exception:
+        pass

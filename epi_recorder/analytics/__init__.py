@@ -13,11 +13,11 @@ Usage:
     print(analytics.error_patterns())
 """
 
-import json
-from collections import defaultdict, Counter
-from datetime import datetime, timedelta
+from collections import Counter
+from datetime import datetime
+from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from epi_core.container import EPIContainer
 
@@ -30,11 +30,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]
     PANDAS_AVAILABLE = False
 
-try:
-    import matplotlib.pyplot as plt
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
+MATPLOTLIB_AVAILABLE = find_spec("matplotlib.pyplot") is not None
 
 
 class AgentAnalytics:

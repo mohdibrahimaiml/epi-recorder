@@ -9,7 +9,7 @@ import sqlite3
 import json
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 
 from .schemas import StepModel
 from .time_utils import utc_now_iso

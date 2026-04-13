@@ -4,13 +4,11 @@ Tests for epi_cli.verify — print_trust_report, verify_command logic.
 """
 
 import json
-import tempfile
 import zipfile
 from pathlib import Path
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso

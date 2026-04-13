@@ -8,13 +8,11 @@ register_file_association, unregister_file_association.
 
 import json
 import sys
-from pathlib import Path
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 import pytest
 
 from epi_core.platform.associate import (
-    _get_epi_command,
     _get_user_open_command,
     _get_epi_version,
     _get_registration_state,
@@ -25,7 +23,6 @@ from epi_core.platform.associate import (
     _needs_registration,
     _is_association_broken,
     _clear_registered,
-    get_association_diagnostics,
     register_file_association,
     register_windows,
     unregister_file_association,
@@ -45,7 +42,6 @@ class TestGetEpiVersion:
         with patch("epi_core.__version__", side_effect=AttributeError):
             pass  # version is already imported, just check fallback
         # Test the fallback by patching the import
-        import importlib
         with patch.dict("sys.modules", {"epi_core": None}):
             v = _get_epi_version()
         assert isinstance(v, str)
@@ -140,7 +136,6 @@ class TestNeedsRegistration:
         flag = tmp_path / ".epi" / ".flag"
         flag.parent.mkdir(parents=True)
         version = _get_epi_version()
-        from epi_core.platform.associate import _get_epi_command
         flag.write_text(json.dumps({
             "version": version,
             "executable": sys.executable,
@@ -387,7 +382,7 @@ class TestRegisterFileAssociationPaths:
              patch("sys.platform", "darwin"), \
              patch("epi_core.platform.associate.register_macos") as mock_reg, \
              patch("epi_core.platform.associate._set_registration_state"):
-            result = register_file_association(silent=True, force=True)
+            register_file_association(silent=True, force=True)
         mock_reg.assert_called_once()
 
     def test_prints_message_when_not_silent(self, capsys):

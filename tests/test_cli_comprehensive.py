@@ -208,7 +208,7 @@ class TestKeysHelperFunctions:
     
     def test_generate_default_keypair_if_missing(self):
         """Test auto-generation of default keypair."""
-        from epi_cli.keys import generate_default_keypair_if_missing, KeyManager
+        from epi_cli.keys import KeyManager
         
         with tempfile.TemporaryDirectory() as tmpdir:
             keys_dir = Path(tmpdir) / "keys"

@@ -166,7 +166,7 @@ def initialize_recording():
         _install_stdio_capture(context)
         
         # Patch LLM libraries
-        patch_results = patch_all()
+        patch_all()
         
         global _FINALIZER_REGISTERED
         if not _FINALIZER_REGISTERED:

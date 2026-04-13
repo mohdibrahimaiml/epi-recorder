@@ -516,7 +516,6 @@ def _elevate_and_register_system() -> None:
     This is the pip-install equivalent of a proper Windows installer.
     """
     import ctypes
-    import re as _re
 
     # Find epi.exe to elevate — prefer the current installation first so we do
     # not accidentally relaunch a stale PATH entry from another Python.
@@ -643,7 +642,7 @@ def register_macos() -> None:
         "/Versions/A/Support/lsregister"
     )
     if Path(lsregister).exists():
-        result = subprocess.run(
+        subprocess.run(
             [lsregister, "-f", str(app_base)],
             capture_output=True, timeout=10
         )
@@ -657,11 +656,6 @@ def register_macos() -> None:
 
 def _register_macos_osascript_fallback():
     """Fallback for macOS without lsregister (very old systems)."""
-    script = '''
-    tell application "Finder"
-        set epiFile to POSIX file "/tmp/test.epi"
-    end tell
-    '''
     # Just warn — osascript registration is unreliable
     print("[WARNING] macOS: lsregister not found. Run 'epi associate' after restarting Finder.")
 

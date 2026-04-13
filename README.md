@@ -99,6 +99,10 @@ EPI telemetry sends non-content usage metrics only: event name, timestamp, EPI v
 
 EPI never sends prompts, outputs, file paths, repo names, hostnames, usernames, API keys, artifact content, or customer data. Usage-linked outreach requires explicit pilot signup consent and explicit telemetry-link consent.
 
+After high-intent commands such as `epi init`, `epi integrate`, and successful `epi verify`, EPI may print a local-only opt-in reminder. The reminder does not create an install ID or send telemetry.
+
+If the telemetry endpoint is offline after opt-in, sanitized events are queued under `~/.epi/telemetry_queue.jsonl` and retried by later telemetry sends. Pilot signup gives early access to artifact dashboard, compliance report exports, priority support, and roadmap input.
+
 See [Telemetry Privacy](docs/TELEMETRY-PRIVACY.md) and [Using .epi Artifacts For AI Evidence Preparation](docs/EU-AI-ACT-EVIDENCE-PREP.md).
 
 ## Agent Skills
@@ -408,7 +412,7 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 | **Tamper-proof** | Yes - Ed25519 signatures | No | No | No |
 | **Open format** | Yes - `.epi` spec | No - proprietary | No - proprietary | No - proprietary |
 | **Agent state** | Yes - full checkpoints | Traces only | Predictions only | Experiments only |
-| **Compliance** | Yes - EU AI Act, FDA, SEC | Limited | Limited | Not designed |
+| **Evidence prep** | Supports EU AI Act, FDA, and SEC evidence workflows; not a compliance guarantee | Limited | Limited | Not designed |
 | **Local LLMs** | Yes - Ollama, llama.cpp | No | No | No |
 | **CI/CD native** | Yes - GitHub Action + pytest | No | No | No |
 | **Framework hooks** | Yes - LiteLLM, LangChain, OTel | LangChain only | No | No |
@@ -420,11 +424,11 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 
 ## For Compliance and Governance Teams
 
-EPI is designed for teams facing real regulatory pressure:
+EPI is designed for teams preparing durable evidence for high-risk AI workflows. It supports review and audit workflows; it does not provide legal advice, regulator approval, or a compliance guarantee:
 
-- **EU AI Act** - tamper-evident audit trails with cryptographic proof
-- **FDA / Healthcare** - signed decision records for AI-assisted diagnostics
-- **Financial services (SEC, ECOA)** - litigation-grade evidence for automated decisions
+- **EU AI Act evidence preparation** - tamper-evident audit trails with cryptographic proof
+- **FDA / Healthcare evidence preparation** - signed decision records for AI-assisted review workflows
+- **Financial services evidence preparation** - portable evidence for automated-decision review
 - **Data governance** - automatic PII redaction with `security.redaction` steps
 - **Air-gapped deployment** - no internet required, ever
 

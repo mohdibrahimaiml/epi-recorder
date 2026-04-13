@@ -273,7 +273,6 @@ def backup(
     The archive contains the SQLite case database and all append-only event
     batches.  Restore by unzipping into your evidence_vault directory.
     """
-    import datetime
     import zipfile as _zipfile
     from epi_gateway.worker import EvidenceWorker
 

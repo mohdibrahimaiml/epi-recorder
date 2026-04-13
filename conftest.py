@@ -12,8 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 import ctypes
+import ipaddress
 import os
 import shutil
+import socket
 import tempfile
 import uuid
 import warnings
@@ -26,6 +28,7 @@ from epi_core.workspace import create_recording_workspace
 
 
 _original_cleanup_dead_symlinks = _pytest.pathlib.cleanup_dead_symlinks
+_LOCAL_NETWORK_HOSTS = {"localhost", "localhost.", "127.0.0.1", "::1", "0.0.0.0"}
 
 
 def _unavailable_startfile(_path: str) -> None:
@@ -135,6 +138,84 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
         _pytest.pathlib.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
     if hasattr(_pytest.tmpdir, "cleanup_dead_symlinks"):
         _pytest.tmpdir.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
+
+
+def pytest_addoption(parser):  # type: ignore[no-untyped-def]
+    """Accept common optional-plugin flags even when the plugin is absent."""
+    try:
+        parser.addoption(
+            "--timeout",
+            action="store",
+            default=None,
+            help="No-op fallback when pytest-timeout is not installed.",
+        )
+    except ValueError:
+        pass
+    try:
+        parser.addoption(
+            "--headless",
+            action="store_true",
+            default=True,
+            help="No-op fallback when pytest-playwright is not installed.",
+        )
+    except ValueError:
+        pass
+
+
+def _is_local_network_address(address) -> bool:  # type: ignore[no-untyped-def]
+    if not isinstance(address, tuple) or not address:
+        return True
+
+    host = address[0]
+    if isinstance(host, bytes):
+        host = host.decode("ascii", errors="ignore")
+    host_text = str(host).strip("[]").lower()
+    if host_text in _LOCAL_NETWORK_HOSTS:
+        return True
+
+    try:
+        return ipaddress.ip_address(host_text).is_loopback
+    except ValueError:
+        return False
+
+
+@pytest.fixture(autouse=True)
+def _block_external_network_by_default(request, monkeypatch):  # type: ignore[no-untyped-def]
+    """Keep default tests offline while allowing localhost service tests."""
+    if request.node.get_closest_marker("network"):
+        return
+
+    original_connect = socket.socket.connect
+    original_create_connection = socket.create_connection
+
+    def _check(address) -> None:  # type: ignore[no-untyped-def]
+        if not _is_local_network_address(address):
+            raise AssertionError(
+                f"External network access is blocked in tests; mark with @pytest.mark.network to allow {address!r}."
+            )
+
+    def guarded_connect(self, address):  # type: ignore[no-untyped-def]
+        _check(address)
+        return original_connect(self, address)
+
+    def guarded_create_connection(  # type: ignore[no-untyped-def]
+        address,
+        timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+        source_address=None,
+        *args,
+        **kwargs,
+    ):
+        _check(address)
+        return original_create_connection(
+            address,
+            timeout=timeout,
+            source_address=source_address,
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket, "create_connection", guarded_create_connection)
 
 
 @pytest.fixture

@@ -2,12 +2,9 @@
 Tests for EPI Recorder metadata features
 """
 
-import json
 import tempfile
-import zipfile
 from pathlib import Path
 
-import pytest
 
 from epi_recorder.api import record, EpiRecorderSession
 from epi_core.container import EPIContainer
@@ -30,7 +27,7 @@ class TestPythonAPIMetadata:
             metadata_tags=["test", "metadata"]
         ):
             # Simple code
-            result = 1 + 1
+            1 + 1
 
         # Check that recording was created
         epi_file = tmp_path / "recordings" / "test_with_metadata.epi"
@@ -85,7 +82,7 @@ class TestPythonAPIMetadata:
             goal="Partial metadata test",
             metrics={"accuracy": 0.92}
         ):
-            result = 2 * 2
+            2 * 2
 
         # Check that recording was created
         epi_file = tmp_path / "recordings" / "partial_metadata.epi"
@@ -106,9 +103,6 @@ class TestCLIMetadata:
 
     def test_cli_metric_parsing(self):
         """Test that CLI metric parsing works correctly."""
-        from epi_cli.run import typer
-        import subprocess
-        import sys
 
         # This would normally be tested by actually running the CLI
         # For now, we'll test the parsing logic indirectly
@@ -185,7 +179,7 @@ class TestBackwardCompatibility:
         monkeypatch.setenv("EPI_RECORDINGS_DIR", str(tmp_path / "recordings"))
 
         with record("backward_compat.epi", workflow_name="Compat Test"):
-            result = 3 + 3
+            3 + 3
 
         # Check that recording was created
         epi_file = tmp_path / "recordings" / "backward_compat.epi"
@@ -223,7 +217,3 @@ class TestBackwardCompatibility:
         assert manifest.metrics is None
         assert manifest.approved_by is None
         assert manifest.tags is None
-
-
-
- 

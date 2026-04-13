@@ -126,6 +126,22 @@ dev = [
     "fastapi>=0.111.0,<1",
     "uvicorn>=0.30.0,<1",
 ]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.3.1",
+    "pytest-playwright>=0.5.0",
+    "playwright>=1.45.0",
+    "httpx>=0.27.0",
+    "fastapi>=0.111.0,<1",
+    "uvicorn>=0.30.0,<1",
+    "pandas>=1.5.0",
+    "litellm>=1.0.0",
+    "langchain-core>=0.2.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
 
 [project.scripts]
 epi = "epi_cli.main:cli_main"
@@ -158,7 +174,17 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 norecursedirs = ["tmp*", ".gen_tmp", ".tmp", ".pytest_cache", "htmlcov"]
-addopts = "-v --cov=epi_core --cov=epi_cli --cov-report=term-missing --cov-report=html"
+addopts = "-v --cov=epi_core --cov=epi_cli --cov=epi_gateway --cov=epi_recorder --cov=pytest_epi --cov-report=term-missing --cov-report=html"
+markers = [
+    "unit: fast unit and adapter tests",
+    "integration: multi-component offline tests",
+    "security: cryptographic, redaction, and trust-boundary tests",
+    "browser: browser-rendered viewer tests",
+    "framework: optional framework integration tests",
+    "compliance: evidence-readiness and compliance-claim consistency tests",
+    "slow: long-running or higher-cost local tests",
+    "network: tests that are allowed to use external network access",
+]
 
 [tool.black]
 line-length = 100
@@ -167,5 +193,6 @@ target-version = ["py311"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
- 

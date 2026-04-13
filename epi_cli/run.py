@@ -16,7 +16,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set
 
 import typer
 from rich.console import Console
@@ -452,7 +452,7 @@ def run(
             signed = True
             return signed_manifest
         signer = signer_func
-    except Exception as e:
+    except Exception:
         pass  # Non-fatal
 
     # Package into .epi

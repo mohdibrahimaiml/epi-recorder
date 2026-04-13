@@ -2,12 +2,7 @@
 Tests for the new simplified UX (epi run, @record, zero-config).
 """
 
-import shutil
-import tempfile
-from datetime import datetime
-from pathlib import Path
 
-import pytest
 
 from epi_recorder.api import _auto_generate_output_path, _resolve_output_path, record
 
@@ -146,7 +141,7 @@ class TestZeroConfigContextManager:
         
         with record():
             # Simple code
-            x = 1 + 1
+            1 + 1
         
         # Check that recording was created
         recordings_dir = tmp_path / "recordings"
@@ -161,14 +156,10 @@ class TestZeroConfigContextManager:
         monkeypatch.setenv("EPI_RECORDINGS_DIR", str(tmp_path / "recordings"))
         
         with record("my_custom_name"):
-            x = 1 + 1
+            1 + 1
         
         # Check that recording was created with custom name
         recordings_dir = tmp_path / "recordings"
         epi_files = list(recordings_dir.glob("my_custom_name*.epi"))
         assert len(epi_files) == 1
         assert epi_files[0].name == "my_custom_name.epi"
-
-
-
- 

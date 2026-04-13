@@ -11,7 +11,6 @@ import json
 import os
 import shutil
 import sys
-import tempfile
 import threading
 import warnings
 from datetime import datetime
@@ -23,12 +22,10 @@ from epi_core.container import EPIContainer
 from epi_core.policy import EPIPolicy
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
-from epi_core.trust import sign_manifest_inplace
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_recorder.patcher import (
     RecordingContext,
     get_recording_context,
-    patch_openai,
     set_recording_context,
 )
 from epi_recorder.environment import capture_full_environment

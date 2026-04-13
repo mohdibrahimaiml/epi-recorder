@@ -15,7 +15,6 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 from epi_core.container import EPIContainer
 from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
@@ -255,6 +254,12 @@ def verify_command(
 
         if not json_output and integrity_ok and signature_valid is not False:
             _print_share_hint()
+            try:
+                from epi_cli.telemetry_hint import maybe_print_telemetry_hint
+
+                maybe_print_telemetry_hint(console, "verify")
+            except Exception:
+                pass
 
         try:
             from epi_core.telemetry import track_event

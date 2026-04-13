@@ -10,7 +10,7 @@ import platform
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import importlib.metadata
 
 
@@ -59,7 +59,7 @@ def capture_installed_packages() -> Dict[str, str]:
         # Get all installed packages
         for dist in importlib.metadata.distributions():
             packages[dist.name] = dist.version
-    except Exception as e:
+    except Exception:
         # Fallback: try pip list
         try:
             import subprocess

@@ -29,6 +29,8 @@ def status() -> None:
     console.print(f"  Install ID present: {'yes' if info['has_install_id'] else 'no'}")
     console.print(f"  Config: {info['config_path']}")
     console.print(f"  Endpoint: {info['telemetry_url']}")
+    console.print(f"  Queued events: {info['queued_events']}")
+    console.print(f"  Queue: {info['queue_path']}")
     console.print(f"  Pilot signup saved: {'yes' if info['pilot_signup_saved'] else 'no'}")
     console.print()
     console.print("[dim]Telemetry is opt-in. EPI never sends prompts, outputs, file paths, repo names, usernames, hostnames, API keys, or artifact content.[/dim]")
@@ -68,7 +70,7 @@ def enable(
     if not should_join and _is_interactive() and not no_pilot_prompt:
         console.print()
         console.print("[bold]Join the EPI Pilot?[/bold]")
-        console.print("Get early access to the compliance dashboard, enterprise support, and the .epi integration roadmap.")
+        console.print("Get early access to artifact dashboard, compliance report exports, priority support, and the .epi integration roadmap.")
         should_join = Confirm.ask("Join the pilot", default=False)
 
     if not should_join:
@@ -132,6 +134,7 @@ def disable() -> None:
 def test() -> None:
     """Send a harmless test event if telemetry is enabled."""
 
+    flush = telemetry_core.flush_queued_events()
     sent = telemetry_core.track_event(
         "telemetry.test",
         {"command": "telemetry test", "success": True, "source": "cli"},
@@ -140,3 +143,7 @@ def test() -> None:
         console.print("[green][OK][/green] Test telemetry event sent")
     else:
         console.print("[yellow][!][/yellow] Test event was not sent. Telemetry may be disabled or the endpoint may be unreachable.")
+    if flush["sent"] or flush["remaining"] or flush["dropped"]:
+        console.print(
+            f"[dim]Queued event retry: sent={flush['sent']} remaining={flush['remaining']} dropped={flush['dropped']}[/dim]"
+        )
