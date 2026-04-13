@@ -130,8 +130,8 @@ def _discover_shared_pip_cache() -> str | None:
 
 def _pick_runtime_temp_dir(install_mode: str, preferred: Path) -> Path:
     candidates = [
-        Path(tempfile.gettempdir()) / "epi_external_userflow" / install_mode,
         preferred,
+        Path(tempfile.gettempdir()) / "epi_external_userflow" / install_mode,
     ]
     for candidate in candidates:
         try:
@@ -160,6 +160,8 @@ def _base_env(clean_home: Path, temp_dir: Path) -> dict[str, str]:
     env["USERPROFILE"] = str(clean_home)
     env["APPDATA"] = str(clean_home / "AppData" / "Roaming")
     env["LOCALAPPDATA"] = str(clean_home / "AppData" / "Local")
+    env["TMP"] = str(temp_dir)
+    env["TEMP"] = str(temp_dir)
 
     shared_cache = _discover_shared_pip_cache()
     if shared_cache:

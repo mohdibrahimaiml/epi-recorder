@@ -297,6 +297,7 @@ def run_drill(args: argparse.Namespace) -> dict[str, Any]:
             f"{gateway_url}/capture/llm",
             method="POST",
             payload=capture_payload,
+            headers=_auth_headers(args.access_token),
             timeout=15.0,
         )
         if status != 202:
@@ -321,6 +322,7 @@ def run_drill(args: argparse.Namespace) -> dict[str, Any]:
             f"{gateway_url}/capture",
             method="POST",
             payload=policy_event,
+            headers=_auth_headers(args.access_token),
             timeout=15.0,
         )
         if status != 202:

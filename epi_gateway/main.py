@@ -17,12 +17,12 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
 
-from epi_cli.connect import fetch_live_record
-from epi_cli.keys import KeyManager
 from epi_core import __version__
 from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
+from epi_core.connectors import fetch_live_record
 from epi_core.container import EPIContainer, EPI_MIMETYPE, EPI_SUPPORTED_UPLOAD_MIMETYPES
+from epi_core.keys import KeyManager
 from epi_core.llm_capture import LLMCaptureRequest, build_llm_capture_events
 from epi_core.telemetry import (
     TelemetryError,
