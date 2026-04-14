@@ -160,7 +160,7 @@ class TestEpiRecorderSession:
                 output_path,
                 workflow_name="My Workflow",
                 tags=["test", "demo", "v1"]
-            ) as epi:
+            ):
                 pass
             
             # Verify metadata in manifest and steps
@@ -236,7 +236,7 @@ class TestEpiRecorderSession:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "test_env.epi"
             
-            with EpiRecorderSession(output_path) as epi:
+            with EpiRecorderSession(output_path):
                 pass
             
             # Check environment.json exists

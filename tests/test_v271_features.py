@@ -10,7 +10,6 @@ Covers:
 """
 
 import json
-import os
 import sys
 import tempfile
 import time
@@ -200,7 +199,7 @@ class TestViewResolver:
 
     def test_stem_resolution_picks_most_recent(self, tmp_path):
         """When multiple files match a stem, most recent by mtime wins."""
-        from epi_cli.view import _resolve_epi_file, DEFAULT_DIR
+        from epi_cli.view import _resolve_epi_file
 
         # Create epi-recordings directory in tmp
         recordings_dir = tmp_path / "epi-recordings"
@@ -362,10 +361,9 @@ class TestReliabilityFixes:
         bad = tmp_path / "bad.epi"
         bad.write_bytes(b"not a zip file")
         
-        with patch('epi_cli.view.zipfile.is_zipfile', return_value=True):
-            with pytest.raises(typer.Exit) as exc:
-                view(MagicMock(), str(bad), extract=None)
-            assert exc.value.exit_code == 1
+        with pytest.raises(typer.Exit) as exc:
+            view(MagicMock(), str(bad), extract=None)
+        assert exc.value.exit_code == 1
 
     def test_view_missing_viewer_html_prints_manifest(self, tmp_path):
         """Missing viewer.html falls back to printing manifest."""

@@ -35,11 +35,9 @@ How it works:
     --epi-on-pass to keep successful test artifacts too.
 """
 
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import pytest
 

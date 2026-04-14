@@ -8,7 +8,7 @@ without monkey patching.
 import os
 import time
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase

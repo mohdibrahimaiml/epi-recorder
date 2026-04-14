@@ -551,23 +551,13 @@ def build_case_payload_from_events(
     last_comment_at = _clean(existing_payload.get("last_comment_at"))
 
     if has_error or has_policy_failure:
-        priority = "high"
-        risk_state = "high-risk"
         why_it_matters = "The captured events include an error or failed control that should be reviewed."
     elif has_recovery:
-        priority = "medium"
-        risk_state = "needs-review"
         why_it_matters = "The gateway recovered this run after a restart before a clean completion event was recorded."
     elif review_required:
-        priority = "medium"
-        risk_state = "needs-review"
         why_it_matters = "This case requires a human decision before it should be trusted."
     else:
-        priority = "normal"
-        risk_state = "low-risk"
         why_it_matters = "No active error or failed control was detected in the captured events."
-    if priority_override:
-        priority = priority_override
 
     analysis = {
         "summary": summary or why_it_matters,

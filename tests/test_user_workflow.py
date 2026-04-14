@@ -8,7 +8,6 @@ exactly as a real user would interact with the package.
 import sys
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
 
 PYTHON = f'"{sys.executable}"'

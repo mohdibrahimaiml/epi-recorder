@@ -8,6 +8,8 @@ def test_telemetry_does_not_create_id_before_opt_in(monkeypatch, tmp_path):
     assert telemetry.is_enabled() is False
     assert telemetry.build_event("epi.verify.completed", {"command": "verify"}) is None
     assert telemetry.telemetry_config_path().exists() is False
+    assert telemetry.track_event("epi.verify.completed", {"command": "verify"}) is False
+    assert telemetry.telemetry_queue_path().exists() is False
 
 
 def test_enable_creates_install_id_and_builds_safe_event(monkeypatch, tmp_path):
@@ -31,6 +33,35 @@ def test_banned_metadata_is_not_sent(monkeypatch, tmp_path):
     telemetry.enable()
 
     assert telemetry.track_event("epi.verify.completed", {"prompt": "do not send"}) is False
+    assert telemetry.telemetry_queue_path().exists() is False
+
+
+def test_failed_telemetry_send_is_queued_and_flushed(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    telemetry.enable()
+    sent = []
+
+    def _offline(url, payload, *, timeout=2.0):  # noqa: ANN001
+        return False
+
+    monkeypatch.setattr(telemetry, "send_json", _offline)
+    assert telemetry.track_event("epi.verify.completed", {"command": "verify", "success": True}) is False
+    queue_path = telemetry.telemetry_queue_path()
+    assert queue_path.exists()
+    assert "epi.verify.completed" in queue_path.read_text(encoding="utf-8")
+
+    def _online(url, payload, *, timeout=2.0):  # noqa: ANN001
+        sent.append((url, payload))
+        return True
+
+    monkeypatch.setattr(telemetry, "send_json", _online)
+    result = telemetry.flush_queued_events()
+
+    assert result["sent"] == 1
+    assert result["remaining"] == 0
+    assert result["dropped"] == 0
+    assert sent[0][1]["event_name"] == "epi.verify.completed"
+    assert queue_path.exists() is False
 
 
 def test_pilot_signup_requires_contact_consent(monkeypatch, tmp_path):

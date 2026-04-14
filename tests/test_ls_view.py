@@ -9,7 +9,7 @@ import time
 import zipfile
 from pathlib import Path
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 

@@ -7,7 +7,6 @@ These tests are CRITICAL for ensuring deterministic behavior across platforms.
 from datetime import datetime
 from uuid import UUID
 
-import pytest
 
 from epi_core.schemas import ManifestModel, StepModel
 from epi_core.serialize import get_canonical_hash, verify_hash

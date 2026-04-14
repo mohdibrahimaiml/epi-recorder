@@ -703,6 +703,68 @@ label {
   gap: 16px;
 }
 
+.audit-first-card {
+  display: grid;
+  gap: 18px;
+  border-color: rgba(21, 94, 99, 0.28);
+  background:
+    linear-gradient(135deg, rgba(21, 94, 99, 0.1), rgba(255, 255, 255, 0.9)),
+    rgba(246, 252, 251, 0.92);
+}
+
+.audit-first-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+}
+
+.audit-first-header h3 {
+  margin-top: 6px;
+  font-size: 1.75rem;
+}
+
+.audit-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.audit-summary-item {
+  display: grid;
+  gap: 8px;
+  min-height: 128px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 16px;
+}
+
+.audit-summary-item strong {
+  font-size: 1.02rem;
+}
+
+.audit-proof-callout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  align-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(21, 94, 99, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.audit-proof-command {
+  display: block;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #17212b;
+  color: #f8fafc;
+  padding: 14px 16px;
+  white-space: nowrap;
+}
+
 .case-hero {
   display: flex;
   justify-content: space-between;
@@ -1267,6 +1329,7 @@ label {
   .policy-rule-grid,
   .case-grid,
   .summary-strip,
+  .audit-summary-grid,
   .attachments-layout,
   .detail-grid-wide,
   .sidebar-utility-grid,
@@ -1287,6 +1350,7 @@ label {
 
   .hero,
   .setup-header,
+  .audit-first-header,
   .case-hero,
   .case-card-top,
   .rules-card-header,
@@ -1307,6 +1371,8 @@ label {
   .policy-rule-grid,
   .case-grid,
   .summary-strip,
+  .audit-summary-grid,
+  .audit-proof-callout,
   .attachments-layout,
   .detail-grid-wide,
   .sidebar-utility-grid,

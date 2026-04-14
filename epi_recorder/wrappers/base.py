@@ -2,7 +2,7 @@
 Base classes for EPI traced clients.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Optional
 
 from epi_core.time_utils import utc_now_iso

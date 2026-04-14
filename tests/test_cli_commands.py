@@ -9,13 +9,11 @@ Covers:
 """
 
 import hashlib
-import json
 import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
-import pytest
 from typer.testing import CliRunner
 
 from epi_core.schemas import ManifestModel
@@ -84,7 +82,7 @@ class TestLsCallback:
     def test_all_flag_includes_current_dir(self, tmp_path):
         from epi_cli.ls import ls
         import os
-        epi = _make_epi(tmp_path)
+        _make_epi(tmp_path)
         original_cwd = os.getcwd()
         mock_console = _mock_console()
         try:
@@ -127,7 +125,7 @@ def _mock_console():
 def _call_debug(epi_path, output_json=False, export=None, verbose=False,
                 mock_mistakes=None, mock_summary="OK"):
     """Call debug() directly with mocked detector and console."""
-    import typer, click
+    import click
     from epi_cli.debug import debug
     mock_detector = MagicMock()
     mock_detector.analyze.return_value = mock_mistakes or []
@@ -188,7 +186,7 @@ class TestDebugCallback:
         assert code == 0
 
     def test_file_not_found_exits_2(self, tmp_path):
-        import typer, click
+        import click
         from epi_cli.debug import debug
         ctx = MagicMock()
         with patch("epi_cli.debug.MistakeDetector",

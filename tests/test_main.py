@@ -11,7 +11,6 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
-from datetime import datetime
 
 import pytest
 import click

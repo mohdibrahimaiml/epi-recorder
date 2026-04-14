@@ -122,7 +122,6 @@ def test_migrate_cli_converts_between_envelope_and_legacy(sample_workspace):
 
 def _rewrite_viewer_only(artifact: Path, replacement_html: str, workspace: Path) -> None:
     unpack_dir = workspace / "stale-unpack"
-    payload_path = workspace / "stale-payload.zip"
     restaged_payload = workspace / "stale-restaged.zip"
 
     unpack_dir.mkdir()

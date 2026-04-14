@@ -5,7 +5,7 @@ const state = {
   currentView: 'inbox',
   selectedCaseId: null,
   embeddedArtifactMode: false,
-  activeCaseSection: 'case-overview-card',
+  activeCaseSection: 'audit-first-card',
   caseHighlights: {
     stepNumber: null,
     attachmentName: null,
@@ -420,6 +420,10 @@ function captureElements() {
   elements.emptyInbox = document.getElementById('empty-inbox');
   elements.noCaseSelected = document.getElementById('no-case-selected');
   elements.caseView = document.getElementById('case-view');
+  elements.auditTrustBadge = document.getElementById('audit-trust-badge');
+  elements.auditProofCopy = document.getElementById('audit-proof-copy');
+  elements.auditSummaryGrid = document.getElementById('audit-summary-grid');
+  elements.auditProofCommand = document.getElementById('audit-proof-command');
   elements.caseTitle = document.getElementById('case-title');
   elements.caseSubtitle = document.getElementById('case-subtitle');
   elements.caseSummaryCopy = document.getElementById('case-summary-copy');
@@ -1551,7 +1555,7 @@ function resetWorkspace() {
   state.workspaceSetup = null;
   state.connectorProfiles = {};
   state.liveConnectorRecord = null;
-  state.activeCaseSection = 'case-overview-card';
+  state.activeCaseSection = 'audit-first-card';
   state.caseHighlights = {
     stepNumber: null,
     attachmentName: null,
@@ -1637,7 +1641,7 @@ function selectCase(caseId) {
     return;
   }
   state.selectedCaseId = caseId;
-  state.activeCaseSection = 'case-overview-card';
+  state.activeCaseSection = 'audit-first-card';
   state.caseHighlights.stepNumber = null;
   state.caseHighlights.attachmentName = null;
   renderCaseView();
@@ -2977,6 +2981,7 @@ function renderCaseView() {
   const mappingView = buildTransformationAuditView(caseRecord);
   const attachmentView = buildAttachmentView(caseRecord);
 
+  renderAuditFirstCard(caseRecord, analysisState, attachmentView);
   elements.caseSubtitle.textContent = `${caseRecord.workflow} | ${caseRecord.sourceProfile?.importMode || 'Portable EPI artifact'}`;
   elements.caseTitle.textContent = caseRecord.decision.title;
   elements.caseSummaryCopy.textContent = caseRecord.decision.summary;
@@ -3031,6 +3036,93 @@ function renderCaseView() {
   setCaseSectionVisible('case-attachments-card', attachmentView.visible);
   populateReviewForm(caseRecord);
   scrollToActiveCaseSectionIfNeeded();
+}
+
+function renderAuditFirstCard(caseRecord, analysisState, attachmentView) {
+  setBadge(elements.auditTrustBadge, caseRecord.trust.label, caseRecord.trust.tone);
+  elements.auditProofCopy.textContent = buildAuditProofCopy(caseRecord);
+  elements.auditProofCommand.textContent = `epi verify ${quoteCliArg(caseRecord.sourceName || 'case.epi')}`;
+  renderAuditSummaryGrid(buildAuditSummaryItems(caseRecord, analysisState, attachmentView));
+}
+
+function renderAuditSummaryGrid(items) {
+  elements.auditSummaryGrid.replaceChildren(...items.map((item) => {
+    const card = document.createElement('article');
+    card.className = `audit-summary-item tone-panel-${item.tone || 'neutral'}`;
+
+    const label = document.createElement('span');
+    label.className = 'case-snapshot-label';
+    label.textContent = item.label;
+
+    const value = document.createElement('strong');
+    value.textContent = item.value;
+
+    const copy = document.createElement('p');
+    copy.className = 'case-snapshot-copy';
+    copy.textContent = item.copy;
+
+    card.append(label, value, copy);
+    return card;
+  }));
+}
+
+function buildAuditProofCopy(caseRecord) {
+  if (caseRecord.trust.code === 'do-not-use') {
+    return 'Do not rely on this artifact until the original source is reverified from the .epi file.';
+  }
+  if (caseRecord.trust.code === 'trusted') {
+    return 'This view can inspect the local artifact, but high-stakes review should verify the original .epi with the CLI or a known verifier.';
+  }
+  return 'Use this view to inspect evidence, then verify the original .epi before relying on it for audit or compliance review.';
+}
+
+function buildAuditSummaryItems(caseRecord, analysisState, attachmentView) {
+  const stepCount = Array.isArray(caseRecord.steps) ? caseRecord.steps.length : 0;
+  const protectedFileCount =
+    Number(caseRecord.integrity?.checked || 0) ||
+    Object.keys(caseRecord.manifest?.file_manifest || {}).length ||
+    (Array.isArray(caseRecord.artifactNames) ? caseRecord.artifactNames.length : 0);
+  const rawEvidenceCopy = attachmentView.visible
+    ? 'Open raw files to inspect steps.jsonl, stdout/stderr, environment, analysis, and other sealed evidence.'
+    : 'The manifest records protected file hashes. Raw-file preview is not available in this browser session.';
+  const traceCopy = stepCount
+    ? `${stepCount} recorded step${stepCount === 1 ? '' : 's'}. ${caseRecord.decision.summary}`
+    : `Metadata-only case. ${caseRecord.decision.summary}`;
+
+  return [
+    {
+      label: 'Trust verdict',
+      value: caseRecord.trust.label,
+      copy: caseRecord.trust.detail,
+      tone: caseRecord.trust.tone,
+    },
+    {
+      label: 'What happened',
+      value: caseRecord.decision.outcome,
+      copy: traceCopy,
+      tone: 'neutral',
+    },
+    {
+      label: 'Raw evidence',
+      value: `${protectedFileCount} protected file${protectedFileCount === 1 ? '' : 's'}`,
+      copy: rawEvidenceCopy,
+      tone: 'neutral',
+    },
+    {
+      label: 'Human review',
+      value: caseRecord.reviewState.label,
+      copy: `${caseRecord.reviewState.detail} ${analysisState.label}: ${analysisState.detail}`,
+      tone: caseRecord.reviewState.tone,
+    },
+  ];
+}
+
+function quoteCliArg(value) {
+  const text = String(value || 'case.epi');
+  if (!/[\s"']/.test(text)) {
+    return text;
+  }
+  return `"${text.replace(/"/g, '\\"')}"`;
 }
 
 function renderCaseGuidance(guidance) {
@@ -6201,7 +6293,7 @@ function setCaseSectionVisible(sectionId, visible) {
     navButton.hidden = !visible;
   }
   if (!visible && state.activeCaseSection === sectionId) {
-    state.activeCaseSection = 'case-overview-card';
+    state.activeCaseSection = 'audit-first-card';
   }
 }
 

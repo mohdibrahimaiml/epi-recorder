@@ -1,7 +1,6 @@
 """Tests for epi_core.fault_analyzer — four detection passes."""
 
 import json
-import pytest
 
 from epi_core.fault_analyzer import FaultAnalyzer, AnalysisResult, DISCLAIMER
 from epi_core.policy import EPIPolicy, PolicyRule

@@ -3,11 +3,9 @@ Tests for epi_cli.install — _has_epi_block, _remove_epi_block,
 _get_sitecustomize_path, install_global, uninstall_global, CLI commands.
 """
 
-import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
 import click
 
 from epi_cli.install import (
@@ -104,7 +102,6 @@ class TestGetSitecustomizePath:
 
 class TestEnsureRecordingsDir:
     def test_creates_directory(self, tmp_path):
-        expected = tmp_path / ".epi" / "recordings"
         with patch("epi_cli.install.Path") as mock_path_cls:
             mock_home = MagicMock()
             mock_path_cls.home.return_value = mock_home
@@ -211,9 +208,7 @@ def _mock_console():
 
 class TestCliInstall:
     def _call_install(self, **kwargs):
-        import typer
         from epi_cli.install import cli_install
-        ctx = MagicMock()
         try:
             with patch("epi_cli.install.console", _mock_console()):
                 cli_install(**kwargs)
@@ -246,7 +241,6 @@ class TestCliInstall:
 
 class TestCliUninstall:
     def _call_uninstall(self):
-        import typer
         from epi_cli.install import cli_uninstall
         try:
             with patch("epi_cli.install.console", _mock_console()):

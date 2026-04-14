@@ -6,7 +6,6 @@ without actually writing to the Windows registry.
 """
 
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -18,7 +17,6 @@ from epi_core.platform.associate import (
     _get_user_open_command,
     _resolve_windows_launcher_dir,
     _get_windows_default_icon,
-    _get_registration_state,
     _is_association_broken,
     _needs_registration,
     _resolve_self_heal_command,
@@ -56,7 +54,6 @@ class TestGetEpiCommand:
 
     def test_uses_pythonw_when_available(self):
         """On Windows, prefer pythonw.exe for no console flash."""
-        fake_pythonw = Path(sys.executable).parent / "pythonw.exe"
         with patch("epi_core.platform.associate.Path") as mock_path_cls:
             mock_path_cls.return_value = Path(sys.executable)
             # Just ensure the function runs without error
@@ -185,7 +182,6 @@ class TestRegistrationState:
             mock_sys.executable = sys.executable
             with patch("epi_core.platform.associate._get_user_open_command", return_value='wscript.exe /B "launch.vbs" "%1"'):
                 _set_registration_state()
-        state = _get_registration_state.__wrapped__(flag_path) if hasattr(_get_registration_state, "__wrapped__") else None
         import json
         stored = json.loads(flag_path.read_text())
         assert stored.get("open_command") == 'wscript.exe /B "launch.vbs" "%1"'

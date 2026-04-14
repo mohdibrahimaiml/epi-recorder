@@ -1132,6 +1132,12 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
         )
     except Exception:
         pass
+    try:
+        from epi_cli.telemetry_hint import maybe_print_telemetry_hint
+
+        maybe_print_telemetry_hint(console, "init")
+    except Exception:
+        pass
     if not no_open:
         try:
             from epi_cli.run import _open_viewer
@@ -1165,7 +1171,6 @@ def doctor(
     import shutil
     import platform
     import tempfile
-    import socket
 
     console.print()
     console.print("[bold]EPI Doctor — System Health Check[/bold]")

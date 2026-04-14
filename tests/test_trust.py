@@ -165,7 +165,6 @@ class TestSigning:
     
     def test_sign_manifest(self, test_manifest, test_keypair):
         """Test signing a manifest."""
-        from cryptography.hazmat.primitives import serialization
         
         private_key, _ = test_keypair
         
@@ -177,7 +176,6 @@ class TestSigning:
     
     def test_verify_signature_valid(self, test_manifest, test_keypair):
         """Test verifying a valid signature."""
-        from cryptography.hazmat.primitives import serialization
         
         private_key, public_key_bytes = test_keypair
         
@@ -222,7 +220,6 @@ class TestSigning:
     
     def test_sign_manifest_inplace(self, test_manifest):
         """Test signing manifest file in-place."""
-        from cryptography.hazmat.primitives import serialization
         
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest_path = Path(tmpdir) / "manifest.json"
@@ -397,8 +394,6 @@ class TestVerificationReport:
     
     def test_sign_manifest_error_handling(self):
         """Test sign_manifest error handling."""
-        from cryptography.hazmat.primitives import serialization
-        from epi_core.trust import SigningError
         
         manifest = ManifestModel(cli_command="test")
         
@@ -408,7 +403,6 @@ class TestVerificationReport:
     
     def test_sign_manifest_inplace_missing_file(self):
         """Test sign_manifest_inplace with non-existent file."""
-        from cryptography.hazmat.primitives import serialization
         
         private_key = Ed25519PrivateKey.generate()
         non_existent = Path("/tmp/nonexistent_manifest.json")
@@ -418,8 +412,6 @@ class TestVerificationReport:
     
     def test_sign_manifest_inplace_error_handling(self):
         """Test sign_manifest_inplace error handling."""
-        from cryptography.hazmat.primitives import serialization
-        from epi_core.trust import SigningError
         import tempfile
         
         with tempfile.TemporaryDirectory() as tmpdir:

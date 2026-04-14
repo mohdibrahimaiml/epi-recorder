@@ -1,174 +1,127 @@
-"""
-Systematic test of ALL epi-recorder CLI commands.
-Tests each command and documents what works/fails.
-"""
+from __future__ import annotations
+
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+import pytest
 
-def run_cli_command(args, description):
-    """Run a CLI command and capture result."""
-    cmd = [sys.executable, "-m", "epi_cli.main"] + args
-    print(f"\n{'='*60}")
-    print(f"TEST: {description}")
-    print(f"Command: {' '.join(cmd)}")
-    print(f"{'='*60}")
-    
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            encoding='utf-8',
-            errors='replace'  # Handle encoding issues
-        )
-        
-        print(f"Exit Code: {result.returncode}")
-        
-        if result.stdout:
-            print(f"\nSTDOUT:\n{result.stdout[:500]}")  # First 500 chars
-        
-        if result.stderr:
-            print(f"\nSTDERR:\n{result.stderr[:500]}")
-        
-        status = "PASS" if result.returncode == 0 else "FAIL"
-        print(f"\nStatus: {status}")
-        
-        return {
-            "command": ' '.join(args),
-            "description": description,
-            "exit_code": result.returncode,
-            "status": status,
-            "stdout_length": len(result.stdout),
-            "stderr_length": len(result.stderr)
-        }
-        
-    except subprocess.TimeoutExpired:
-        print("TIMEOUT: Command took too long")
-        return {
-            "command": ' '.join(args),
-            "description": description,
-            "status": "TIMEOUT"
-        }
-    except Exception as e:
-        print(f"ERROR: {e}")
-        return {
-            "command": ' '.join(args),
-            "description": description,
-            "status": "ERROR",
-            "error": str(e)
-        }
-
-# Test results
-results = []
-
-print("="*60)
-print("EPI-RECORDER CLI COMPREHENSIVE TEST")
-print("="*60)
-
-# 1. Help commands
-results.append(run_cli_command(["--help"], "Main help"))
-results.append(run_cli_command(["help"], "Extended help"))
-results.append(run_cli_command(["version"], "Version info"))
-
-# 2. Keys commands
-results.append(run_cli_command(["keys", "list"], "List keys"))
-results.append(run_cli_command(["keys", "generate", "--name", "test-key"], "Generate test key"))
-results.append(run_cli_command(["keys", "export", "--name", "default"], "Export public key"))
-
-# 3. Ls command
-results.append(run_cli_command(["ls"], "List recordings"))
-
-# 4. Verify command (need existing file)
-test_epi = Path("test_recording_v1.1.epi")
-if test_epi.exists():
-    results.append(run_cli_command(["verify", str(test_epi)], "Verify existing .epi file"))
-else:
-    print(f"\nSkipping verify test - {test_epi} not found")
-
-# 5. View command (dry run check, won't open browser)
-if test_epi.exists():
-    print("\nSkipping 'view' command - would open browser")
-    results.append({
-        "command": "view",
-        "description": "View recording (skipped - would open browser)",
-        "status": "SKIPPED"
-    })
-
-# 6. Run command (needs a test script)
-# Create minimal test script
-test_script = Path("cli_test_minimal.py")
-test_script.write_text("""
-print("CLI test script running...")
-import time
-time.sleep(0.1)
-print("Done!")
-""")
-
-results.append(run_cli_command(
-    ["run", str(test_script), "--no-verify", "--no-open"],
-    "Run command (with test script)"
-))
-
-# Cleanup
-if test_script.exists():
-    test_script.unlink()
-
-# 7. Record command (advanced)
-test_script2 = Path("cli_test_record.py")
-test_script2.write_text('print("Recording test")')
-
-results.append(run_cli_command(
-    ["record", "--out", "cli_test_output.epi", "--", "python", str(test_script2)],
-    "Record command (advanced mode)"
-))
-
-# Cleanup
-if test_script2.exists():
-    test_script2.unlink()
-if Path("cli_test_output.epi").exists():
-    Path("cli_test_output.epi").unlink()
-
-# Summary
-print("\n" + "="*60)
-print("SUMMARY OF ALL CLI COMMANDS")
-print("="*60)
-
-passed = sum(1 for r in results if r.get("status") == "PASS")
-failed = sum(1 for r in results if r.get("status") == "FAIL")
-skipped = sum(1 for r in results if r.get("status") == "SKIPPED")
-errors = sum(1 for r in results if r.get("status") in ["ERROR", "TIMEOUT"])
-
-print(f"\nTotal Commands Tested: {len(results)}")
-print(f"  PASSED: {passed}")
-print(f"  FAILED: {failed}")
-print(f"  SKIPPED: {skipped}")
-print(f"  ERRORS: {errors}")
-
-print("\nDetailed Results:")
-for i, r in enumerate(results, 1):
-    status_symbol = {
-        "PASS": "[OK]",
-        "FAIL": "[FAIL]",
-        "SKIPPED": "[SKIP]",
-        "ERROR": "[ERR]",
-        "TIMEOUT": "[TIME]"
-    }.get(r.get("status"), "[?]")
-    
-    print(f"{i:2}. {status_symbol} {r['description']}")
-    if r.get("status") == "FAIL":
-        print(f"     Exit code: {r.get('exit_code')}")
-
-print("\n" + "="*60)
-print("CLI TEST COMPLETE")
-print("="*60)
+from tests.helpers.artifacts import make_decision_epi
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
- 
+
+def _run_cli(args: list[str], *, cwd: Path, epi_home: Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["EPI_HOME"] = str(epi_home)
+    env["HOME"] = str(epi_home)
+    env["USERPROFILE"] = str(epi_home)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    return subprocess.run(
+        [sys.executable, "-m", "epi_cli.main", *args],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--help"], "Usage"),
+        (["help"], "Portable repro artifacts"),
+        (["version"], "EPI"),
+        (["keys", "list"], "EPI"),
+        (["ls"], "recordings"),
+        (["integrate", "pytest", "--dry-run"], "DRY-RUN"),
+        (["telemetry", "status"], "Enabled: no"),
+    ],
+)
+def test_read_only_cli_commands_do_not_mutate_repo(tmp_path: Path, args: list[str], expected: str):
+    result = _run_cli(args, cwd=tmp_path, epi_home=tmp_path / "epi-home")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert expected.lower() in (result.stdout + result.stderr).lower()
+    assert not (REPO_ROOT / "cli_test_minimal.py").exists()
+    assert not (REPO_ROOT / "cli_test_record.py").exists()
+
+
+def test_keys_generate_and_export_are_isolated_to_epi_home(tmp_path: Path):
+    epi_home = tmp_path / "epi-home"
+
+    generated = _run_cli(
+        ["keys", "generate", "--name", "test-key"],
+        cwd=tmp_path,
+        epi_home=epi_home,
+    )
+    exported = _run_cli(
+        ["keys", "export", "--name", "test-key"],
+        cwd=tmp_path,
+        epi_home=epi_home,
+    )
+
+    assert generated.returncode == 0, generated.stdout + generated.stderr
+    assert exported.returncode == 0, exported.stdout + exported.stderr
+    assert (epi_home / ".epi" / "keys" / "test-key.key").exists()
+    assert (epi_home / ".epi" / "keys" / "test-key.pub").exists()
+
+
+def test_verify_view_and_export_summary_use_explicit_artifact(tmp_path: Path):
+    artifact, _ = make_decision_epi(tmp_path, signed=True)
+    extract_dir = tmp_path / "extracted"
+    summary_path = tmp_path / "summary.html"
+    epi_home = tmp_path / "epi-home"
+
+    verify = _run_cli(["verify", str(artifact)], cwd=tmp_path, epi_home=epi_home)
+    view = _run_cli(
+        ["view", str(artifact), "--extract", str(extract_dir)],
+        cwd=tmp_path,
+        epi_home=epi_home,
+    )
+    summary = _run_cli(
+        ["export-summary", "summary", str(artifact), "--out", str(summary_path)],
+        cwd=tmp_path,
+        epi_home=epi_home,
+    )
+
+    assert verify.returncode == 0, verify.stdout + verify.stderr
+    assert view.returncode == 0, view.stdout + view.stderr
+    assert summary.returncode == 0, summary.stdout + summary.stderr
+    assert (extract_dir / "viewer.html").exists()
+    assert "EPI Decision Record" in summary_path.read_text(encoding="utf-8")
+
+
+def test_run_command_records_script_without_opening_browser(tmp_path: Path):
+    script = tmp_path / "run_script.py"
+    script.write_text("print('CLI run smoke')\n", encoding="utf-8")
+
+    result = _run_cli(
+        ["run", str(script), "--no-verify", "--no-open"],
+        cwd=tmp_path,
+        epi_home=tmp_path / "epi-home",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert list((tmp_path / "epi-recordings").glob("run_script_*.epi"))
+
+
+def test_record_command_writes_requested_artifact(tmp_path: Path):
+    script = tmp_path / "record_script.py"
+    script.write_text("print('CLI record smoke')\n", encoding="utf-8")
+    output_path = tmp_path / "record_output.epi"
+
+    result = _run_cli(
+        ["record", "--out", str(output_path), "--", str(script)],
+        cwd=tmp_path,
+        epi_home=tmp_path / "epi-home",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert output_path.exists()

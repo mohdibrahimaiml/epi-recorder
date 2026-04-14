@@ -6,8 +6,6 @@ This allows users to run the CLI even if 'epi' is not in PATH:
     python -m epi_cli view recording.epi
     etc.
 """
-import sys
-import io
 
 # Let Typer/Rich handle encoding; manually wrapping sys.stdout on Windows
 # sometimes causes ValueError on exit due to double-closing.

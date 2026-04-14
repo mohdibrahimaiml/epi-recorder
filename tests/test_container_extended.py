@@ -3,9 +3,7 @@ Extended tests for epi_core.container — pack, unpack, verify_integrity,
 read_manifest, and embedded viewer generation.
 """
 
-import json
 import hashlib
-import tempfile
 import zipfile
 from pathlib import Path
 from uuid import uuid4

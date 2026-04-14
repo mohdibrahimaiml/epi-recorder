@@ -352,6 +352,30 @@
         </div>
 
         <div id="case-view" class="case-layout" hidden>
+          <article id="audit-first-card" class="card audit-first-card">
+            <div class="audit-first-header">
+              <div>
+                <p class="card-label">Audit summary</p>
+                <h3>Can this file be trusted, and what did it record?</h3>
+                <p id="audit-proof-copy" class="helper-copy"></p>
+              </div>
+              <span id="audit-trust-badge" class="pill-badge tone-neutral">Not checked</span>
+            </div>
+            <div id="audit-summary-grid" class="audit-summary-grid"></div>
+            <div class="audit-proof-callout">
+              <div>
+                <p class="card-label">Independent verification</p>
+                <p class="helper-copy">The embedded viewer is for inspection. The signed manifest and protected file hashes are the evidence.</p>
+              </div>
+              <code id="audit-proof-command" class="audit-proof-command">epi verify case.epi</code>
+            </div>
+            <div class="action-row">
+              <button class="primary-button" type="button" data-case-section-target="case-evidence-card">Trace timeline</button>
+              <button class="secondary-button" type="button" data-case-section-target="case-trust-card">Review trust chain</button>
+              <button class="secondary-button" type="button" data-case-section-target="case-attachments-card">Open raw files</button>
+            </div>
+          </article>
+
           <article class="card case-hero-card">
             <div class="case-hero case-hero-compact">
               <div class="case-hero-copy">
@@ -375,7 +399,8 @@
           </article>
 
           <nav class="card case-section-nav" aria-label="Case sections">
-            <button class="case-section-button active" type="button" data-case-section-target="case-overview-card">Overview</button>
+            <button class="case-section-button active" type="button" data-case-section-target="audit-first-card">Audit</button>
+            <button class="case-section-button" type="button" data-case-section-target="case-overview-card">Overview</button>
             <button class="case-section-button" type="button" data-case-section-target="case-evidence-card">Evidence</button>
             <button class="case-section-button" type="button" data-case-section-target="case-policy-card">Policy</button>
             <button class="case-section-button" type="button" data-case-section-target="case-review-card">Review</button>

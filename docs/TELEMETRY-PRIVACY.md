@@ -13,6 +13,7 @@ By default:
 - no install ID is created
 - importing EPI packages does not send anything
 - running normal capture/verify commands does not send anything
+- local opt-in reminders after high-intent commands do not create an install ID or send anything
 
 Check local status with:
 
@@ -63,7 +64,7 @@ If telemetry input includes banned field names, the client drops the event and t
 
 ## Pilot Signup
 
-The EPI Pilot signup is separate from anonymous telemetry. It is used for people who explicitly want early access to dashboard/support work.
+The EPI Pilot signup is separate from anonymous telemetry. It is used for people who explicitly want early access to artifact dashboard, compliance report exports, priority support, and roadmap input.
 
 ```bash
 epi telemetry enable --join-pilot --email you@example.com --use-case governance --consent-to-contact
@@ -86,8 +87,11 @@ EPI stores local telemetry consent under `~/.epi/` by default:
 
 - `telemetry.json`
 - `pilot_signup.json`
+- `telemetry_queue.jsonl`
 
 Set `EPI_HOME` to use a different local state directory.
+
+`telemetry_queue.jsonl` is created only after telemetry opt-in when a sanitized event cannot be delivered. Later telemetry sends retry queued events. Repeatedly failing queued events are dropped after a small number of attempts.
 
 ## Gateway Ingestion
 

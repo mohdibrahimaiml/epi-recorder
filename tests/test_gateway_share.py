@@ -1,5 +1,4 @@
 import hashlib
-import json
 import zipfile
 from pathlib import Path
 from uuid import uuid4
@@ -172,7 +171,6 @@ def test_gateway_share_enforces_rate_limit(tmp_path):
 
 def test_gateway_share_enforces_quota(tmp_path):
     artifact = _make_epi(tmp_path, name="quota.epi")
-    artifact_size = artifact.stat().st_size
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     settings = _share_settings(
         tmp_path / "share",

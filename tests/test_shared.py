@@ -9,7 +9,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from epi_cli._shared import ensure_python_command, build_env_for_child
 

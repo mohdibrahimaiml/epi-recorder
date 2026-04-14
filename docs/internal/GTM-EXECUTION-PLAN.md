@@ -24,6 +24,15 @@ Spec: https://github.com/mohdibrahimaiml/epi-spec
   - role/use case
   - consent to contact
   - optional consent to link telemetry to pilot profile
+- Add high-intent local CTAs after successful `epi init`, `epi integrate`, and `epi verify`:
+  - remind users that EPI is local by default
+  - point anonymous opt-in to `epi telemetry enable`
+  - point reachable pilot signup to `epi telemetry enable --join-pilot`
+  - attach concrete value: artifact dashboard, compliance report exports, priority support, and roadmap input
+- Add local retry for opted-in telemetry:
+  - queue sanitized failed sends under `~/.epi/telemetry_queue.jsonl`
+  - retry on later telemetry sends
+  - drop repeatedly failing queued events
 - Add gateway telemetry endpoints behind `EPI_GATEWAY_TELEMETRY_ENABLED=true`:
   - `POST /api/telemetry/events`
   - `POST /api/telemetry/pilot-signups`

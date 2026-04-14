@@ -5,10 +5,7 @@ Tests the new v2.3.0 architecture without monkey patching.
 """
 
 import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
-from datetime import datetime
+from unittest.mock import Mock
 
 
 class TestExplicitAPI:
@@ -93,7 +90,7 @@ class TestExplicitAPI:
         epi_file = tmp_path / "test.epi"
         
         # This should NOT capture any LLM calls automatically
-        with record(str(epi_file)) as epi:
+        with record(str(epi_file)):
             # Simulate what would happen with a real LLM call
             # Without patching, nothing is auto-logged
             pass

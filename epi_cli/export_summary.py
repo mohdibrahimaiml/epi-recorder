@@ -349,7 +349,6 @@ def _build_html_summary(
     decision_step = _extract_decision_step(steps)
     outcome, outcome_state = _derive_outcome(manifest, steps, review_info)
     outcome_tone = _tone_for_outcome(outcome_state)
-    summary = analysis.get("summary") if isinstance(analysis.get("summary"), dict) else {}
     timeline = _material_steps(steps)
 
     if signature_valid is True:

@@ -8,7 +8,6 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console

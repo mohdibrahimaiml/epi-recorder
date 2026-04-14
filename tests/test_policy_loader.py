@@ -1,13 +1,10 @@
 """Tests for epi_core.policy — policy loading and validation."""
 
 import json
-import pytest
-from pathlib import Path
 
 from epi_core.policy import (
     load_policy,
     EPIPolicy,
-    PolicyRule,
     build_policy_from_profile,
     build_starter_policy,
     list_policy_profiles,

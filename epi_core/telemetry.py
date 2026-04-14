@@ -11,7 +11,6 @@ import json
 import os
 import platform
 import re
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -25,6 +24,7 @@ DEFAULT_TELEMETRY_URL = "https://api.epilabs.org/api/telemetry/events"
 DEFAULT_PILOT_SIGNUP_URL = "https://api.epilabs.org/api/telemetry/pilot-signups"
 TELEMETRY_SCHEMA_VERSION = "telemetry/v1"
 PILOT_SIGNUP_SCHEMA_VERSION = "pilot-signup/v1"
+TELEMETRY_QUEUE_MAX_FAILURES = 3
 
 TELEMETRY_ALLOWED_METADATA_KEYS = frozenset(
     {
@@ -95,6 +95,10 @@ def pilot_signup_path() -> Path:
     return state_dir() / "pilot_signup.json"
 
 
+def telemetry_queue_path() -> Path:
+    return state_dir() / "telemetry_queue.jsonl"
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -116,6 +120,42 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     _write_json(telemetry_config_path(), dict(config))
+
+
+def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n")
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    records: list[dict[str, Any]] = []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    if not records:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = "\n".join(json.dumps(record, separators=(",", ":"), sort_keys=True) for record in records)
+    path.write_text(content + "\n", encoding="utf-8")
 
 
 def is_env_opted_in() -> bool:
@@ -167,6 +207,8 @@ def status() -> dict[str, Any]:
         "install_id": config.get("install_id") if is_enabled() else None,
         "config_path": str(telemetry_config_path()),
         "telemetry_url": telemetry_url(),
+        "queue_path": str(telemetry_queue_path()),
+        "queued_events": len(_read_jsonl(telemetry_queue_path())),
         "pilot_signup_path": str(pilot_signup_path()),
         "pilot_signup_saved": pilot_signup_path().exists(),
     }
@@ -303,6 +345,82 @@ def send_json(url: str, payload: dict[str, Any], *, timeout: float = 2.0) -> boo
         return False
 
 
+def queue_event(payload: dict[str, Any], *, failures: int = 0) -> None:
+    """Queue one already-sanitized telemetry event for a later retry."""
+
+    if not is_enabled():
+        return
+    try:
+        normalized = validate_event_payload(payload)
+    except TelemetryError:
+        return
+    _append_jsonl(
+        telemetry_queue_path(),
+        {
+            "payload": normalized,
+            "failures": int(failures),
+            "queued_at": utc_now_iso(),
+            "last_attempt_at": None,
+        },
+    )
+
+
+def flush_queued_events(*, max_events: int = 20) -> dict[str, int]:
+    """Retry queued telemetry events. Invalid or repeatedly failing records are dropped."""
+
+    if not is_enabled():
+        return {"sent": 0, "remaining": len(_read_jsonl(telemetry_queue_path())), "dropped": 0}
+
+    records = _read_jsonl(telemetry_queue_path())
+    if not records:
+        return {"sent": 0, "remaining": 0, "dropped": 0}
+
+    sent = 0
+    dropped = 0
+    processed = 0
+    remaining: list[dict[str, Any]] = []
+    for record in records:
+        if processed >= max_events:
+            remaining.append(record)
+            continue
+        processed += 1
+
+        payload = record.get("payload")
+        if not isinstance(payload, dict):
+            dropped += 1
+            continue
+        try:
+            normalized = validate_event_payload(payload)
+        except TelemetryError:
+            dropped += 1
+            continue
+
+        failures = int(record.get("failures") or 0)
+        if failures >= TELEMETRY_QUEUE_MAX_FAILURES:
+            dropped += 1
+            continue
+
+        if send_json(telemetry_url(), normalized):
+            sent += 1
+            continue
+
+        failures += 1
+        if failures >= TELEMETRY_QUEUE_MAX_FAILURES:
+            dropped += 1
+        else:
+            remaining.append(
+                {
+                    "payload": normalized,
+                    "failures": failures,
+                    "queued_at": str(record.get("queued_at") or utc_now_iso()),
+                    "last_attempt_at": utc_now_iso(),
+                }
+            )
+
+    _write_jsonl(telemetry_queue_path(), remaining)
+    return {"sent": sent, "remaining": len(remaining), "dropped": dropped}
+
+
 def track_event(event_name: str, metadata: dict[str, Any] | None = None) -> bool:
     """Send one telemetry event if telemetry is enabled. Fail silently."""
 
@@ -312,7 +430,11 @@ def track_event(event_name: str, metadata: dict[str, Any] | None = None) -> bool
         return False
     if payload is None:
         return False
-    return send_json(telemetry_url(), payload)
+    flush_queued_events()
+    if send_json(telemetry_url(), payload):
+        return True
+    queue_event(payload)
+    return False
 
 
 def build_pilot_signup(

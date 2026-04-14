@@ -16,7 +16,6 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.syntax import Syntax
-from rich.text import Text
 
 from epi_core.container import EPIContainer
 from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
@@ -57,7 +56,6 @@ def _show_fault(fault: dict, epi_path: Path) -> None:
     rule_id = fault.get("rule_id", "")
     rule_name = fault.get("rule_name", "")
     severity = fault.get("severity", "").upper()
-    fault_type = fault.get("fault_type", "")
     plain = fault.get("plain_english", "")
     chain = fault.get("fault_chain", [])
 

@@ -25,7 +25,7 @@ import sys
 import site
 import textwrap
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 
 import typer
 from rich.console import Console
@@ -145,7 +145,7 @@ def install_global() -> Tuple[bool, str]:
     sc_path.write_text(new_content, encoding="utf-8")
 
     # Ensure recordings directory exists
-    rec_dir = _ensure_recordings_dir()
+    _ensure_recordings_dir()
 
     return True, f"Installed at {sc_path}"
 

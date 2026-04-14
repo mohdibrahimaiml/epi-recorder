@@ -14,6 +14,11 @@ def test_web_viewer_shell_has_case_investigation_navigation():
     assert "EPI Case Investigation" in html
     assert "Queue" in html
     assert "Case investigation" in html
+    assert "Audit summary" in html
+    assert "Can this file be trusted, and what did it record?" in html
+    assert "The embedded viewer is for inspection" in html
+    assert 'id="audit-summary-grid"' in html
+    assert 'id="audit-proof-command"' in html
     assert "Connect a source when you are ready" in html
     assert "Export recorder starter" in html
     assert "Overview" in html
@@ -58,6 +63,10 @@ def test_web_viewer_app_supports_source_aware_case_investigation():
     assert "function buildEvidenceSummary" in js
     assert "function buildTrustRows" in js
     assert "function buildTrustAlerts" in js
+    assert "function renderAuditFirstCard" in js
+    assert "function buildAuditSummaryItems" in js
+    assert "epi verify" in js
+    assert "audit-first-card" in js
     assert "function buildTransformationAuditView" in js
     assert "function renderTransformationAudit" in js
     assert "function renderAttachmentGroups" in js
