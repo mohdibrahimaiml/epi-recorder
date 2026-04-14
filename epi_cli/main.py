@@ -332,6 +332,63 @@ def show_help():
 # Import and register subcommands
 # These will be added as they're implemented
 
+# Export subcommands (epi export ...)
+export_app = typer.Typer(help="Export helpers")
+app.add_typer(export_app, name="export")
+
+
+@export_app.command(name="agt")
+def export_agt(
+    epi_file: Path = typer.Argument(..., help="Path to .epi file to export"),
+    out: Path | None = typer.Option(None, "--out", "-o", help="Output AGT JSON file path"),
+    include_raw: bool = typer.Option(False, "--include-raw", help="Include raw manifest and steps in export"),
+):
+    """Export a sealed .epi artifact into an AGT-style audit JSON.
+
+    Example: `epi export agt my_case.epi --out my_case.agt.json`
+    """
+    from epi_recorder.integrations.agt.exporter import export_epi_to_agt
+
+    out_path = Path(out) if out is not None else epi_file.with_suffix(".agt.json")
+    export_epi_to_agt(epi_file, out_path, include_raw=include_raw)
+    console.print(f"Wrote AGT-style export to [cyan]{out_path}[/cyan]")
+
+
+# Identity management (epi identity ...)
+identity_app = typer.Typer(help="Identity map commands (register/export/import)")
+app.add_typer(identity_app, name="identity")
+
+
+@identity_app.command(name="register")
+def identity_register(
+    agent_name: str = typer.Argument(..., help="Local agent name to map"),
+    did: str = typer.Argument(..., help="DID (e.g. did:key:...)"),
+    public_key: str | None = typer.Option(None, "--public-key", help="Optional Ed25519 public key"),
+    trust_tier: str | None = typer.Option(None, "--trust-tier", help="Optional trust tier label"),
+):
+    """Register a local agent name -> DID mapping in `~/.epi/identity_map.json`.
+    """
+    from epi_cli.identity import register_agent
+
+    register_agent(agent_name, did, public_key, trust_tier)
+    console.print(f"Registered identity mapping: [cyan]{agent_name}[/cyan] → [green]{did}[/green]")
+
+
+@identity_app.command(name="export")
+def identity_export(out: Path = typer.Argument(..., help="Path to write mapping JSON")):
+    from epi_cli.identity import export_mapping
+
+    path = export_mapping(out)
+    console.print(f"Exported identity mapping to [cyan]{path}[/cyan]")
+
+
+@identity_app.command(name="import")
+def identity_import(infile: Path = typer.Argument(..., help="Path to mapping JSON to import")):
+    from epi_cli.identity import import_mapping
+
+    import_mapping(infile)
+    console.print(f"Imported identity mapping from [cyan]{infile}[/cyan]")
+
 # NEW: run command (zero-config) - lazy import to keep read-only CLI startup fast
 @app.command(name="run", help="Record a Python workflow that already emits EPI steps.")
 def run(

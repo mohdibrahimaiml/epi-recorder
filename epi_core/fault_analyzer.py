@@ -273,6 +273,27 @@ class AnalysisResult:
                 "matched_findings": [flag.to_dict() for flag in matched],
             })
 
+        controls_failed = sum(1 for result in results if result["status"] == "failed")
+
+        agt_compat = {
+            "compliance_status": "passed" if controls_failed == 0 else "failed",
+            "controls_evaluated": len(results),
+            "controls_failed": controls_failed,
+            "failed_controls": [
+                {
+                    "rule_id": r["rule_id"],
+                    "rule_name": r["rule_name"],
+                    "severity": r["severity"],
+                    "status": r["status"],
+                    "step_numbers": r.get("step_numbers", []),
+                    "plain_english": r.get("plain_english"),
+                }
+                for r in results if r["status"] == "failed"
+            ],
+            "primary_finding": self.primary_fault.to_dict() if self.primary_fault else None,
+            "evaluation_timestamp": self.timestamp,
+        }
+
         return {
             "policy_format_version": self.policy.policy_format_version,
             "policy_id": self.policy.policy_id,
@@ -281,12 +302,13 @@ class AnalysisResult:
             "evaluation_timestamp": self.timestamp,
             "evaluation_mode": self.mode,
             "controls_evaluated": len(results),
-            "controls_failed": sum(1 for result in results if result["status"] == "failed"),
+            "controls_failed": controls_failed,
             "artifact_review_required": bool(
                 (self.primary_fault and self.primary_fault.review_required)
                 or any(flag.review_required for flag in self.secondary_flags)
             ),
             "results": results,
+            "agt_compat": agt_compat,
         }
 
     def to_policy_evaluation_json(self) -> Optional[str]:

@@ -7,6 +7,30 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [4.0.2] - 2026-04-14
+
+### AGT Interoperability Release
+
+#### Added
+
+- AGT export features and interoperability adapters:
+  - workspace and archive exporters in `epi_recorder.integrations.agt.exporter`
+  - `EPIContainer.pack(..., embed_agt=True)` to optionally embed `artifacts/agt_export.json` into `.epi` artifacts
+  - identity resolution using the local `epi_cli.identity` mapping to populate AGT `agent` fields
+  - compact `agt_compat` summary block in `policy_evaluation.json` for downstream governance systems
+- Demo and pitch assets: `demo_assets/README.md` and `scripts/package_demo.py` to create a demo bundle
+- Unit tests and automation: added `tests/test_policy_evaluation_agt_compat.py`, `tests/test_workspace_to_agt_exporter.py`, `tests/test_export_identity_resolution.py`, and the reusable verifier `tests/verify_3layer.py`
+
+#### Changed
+
+- Documentation and examples updated to describe AGT export, embedding, and identity mapping workflows
+
+#### Notes
+
+- This release focuses on EPI-side interoperability for AGT without modifying AGT itself; features are opt-in and additive.
+
+---
+
 ## [4.0.1] - 2026-04-12
 
 ### Go-To-Market Layer

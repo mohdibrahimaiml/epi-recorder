@@ -417,6 +417,7 @@ class EPIContainer:
         signer_function: Callable[[ManifestModel], ManifestModel] | None = None,
         preserve_generated: bool = False,
         generate_analysis: bool = True,
+        embed_agt: bool = False,
     ) -> None:
         if not source_dir.exists():
             raise FileNotFoundError(f"Source directory not found: {source_dir}")
@@ -475,6 +476,30 @@ class EPIContainer:
             manifest.analysis_status = "complete"
             manifest.analysis_error = None
 
+        # Optionally embed an AGT export JSON into the workspace before packing.
+        # This is intentionally optional and best-effort: failure to generate
+        # the AGT artifact should not abort packing.
+        if embed_agt:
+            try:
+                from epi_recorder.integrations.agt.exporter import (
+                    export_workspace_to_agt,
+                )
+
+                artifacts_dir = source_dir / "artifacts"
+                artifacts_dir.mkdir(parents=True, exist_ok=True)
+                agt_out = artifacts_dir / "agt_export.json"
+                # include_raw=True to keep manifest/steps for downstream verification
+                export_workspace_to_agt(source_dir, agt_out, include_raw=True)
+            except Exception as _embed_err:
+                import sys as _sys
+
+                manifest.analysis_status = manifest.analysis_status or "error"
+                manifest.analysis_error = (
+                    str(_embed_err).strip()[:240] or "agt embedding failed"
+                )
+                warning = f"[EPI] Warning: AGT embedding failed ({_embed_err}), continuing without embedded AGT"
+                print(warning, file=_sys.stderr)
+
         file_manifest: dict[str, str] = {}
         files_to_pack: list[tuple[Path, str]] = []
 
@@ -519,6 +544,7 @@ class EPIContainer:
         preserve_generated: bool = False,
         container_format: str = EPI_CONTAINER_FORMAT_ENVELOPE,
         generate_analysis: bool = True,
+        embed_agt: bool = False,
     ) -> None:
         """
         Create a `.epi` file from a source directory.
@@ -535,6 +561,7 @@ class EPIContainer:
                     signer_function=signer_function,
                     preserve_generated=preserve_generated,
                     generate_analysis=generate_analysis,
+                    embed_agt=embed_agt,
                 )
                 EPIContainer._write_artifact_from_payload(
                     payload_path, output_path, container_format=container_format

@@ -100,6 +100,14 @@ class ManifestModel(BaseModel):
         default=None,
         description="Tags for categorizing this workflow"
     )
+
+    # Optional governance block for interoperability with external governance
+    # systems (AGT-compatible metadata). This is intentionally optional and
+    # additive so existing artifacts remain readable by older readers.
+    governance: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional governance metadata (DID identity, trust score, source, etc.)",
+    )
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -165,6 +173,13 @@ class StepModel(BaseModel):
     parent_span_id: Optional[str] = Field(
         default=None,
         description="Parent W3C execution span identifier"
+    )
+
+    # Optional governance metadata for scoped step-level audit information.
+    # Use only when relevant (e.g. `agent.decision` events) to avoid noise.
+    governance: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional governance metadata for this step (policy_id, decision, trust_score, agent_did, etc.)",
     )
     
     model_config = ConfigDict(

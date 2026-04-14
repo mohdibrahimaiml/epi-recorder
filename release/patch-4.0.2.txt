@@ -1,0 +1,23 @@
+AGT Interoperability Patch (4.0.2)
+=================================
+
+This patch packages the EPI-side interoperability changes that enable AGT
+consumers to ingest EPI evidence without changing AGT itself.
+
+Key changes:
+- `epi_recorder.integrations.agt.exporter` — archive and workspace exporters
+- `EPIContainer.pack(..., embed_agt=True)` — opt-in embedding of `artifacts/agt_export.json`
+- Identity resolution via `epi_cli.identity` map when emitting AGT `agent` fields
+- `agt_compat` summary block added to `policy_evaluation.json`
+
+How to create the demo bundle:
+
+1. Run the demo to produce a fresh artifact:
+
+   python demo_refund.py
+
+2. Package the demo bundle:
+
+   python scripts/package_demo.py --out release/demo_refund_demo.zip
+
+Include `release/demo_refund_demo.zip` with the release artifacts for demos.
