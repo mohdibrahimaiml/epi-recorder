@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # EPI Release Gate — Linux/macOS
 # Usage: bash scripts/release-gate.sh [python]
-# Default python: python (passed explicitly by CI as 'python')
+# Default python: python3 (passed explicitly by CI as 'python')
 
 set -euo pipefail
 
 PYTHON="${1:-python3}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
 GATE_ROOT="${REPO_ROOT}/.tmp-release-gate/${RUN_ID}"
 BASE_TEMP="${GATE_ROOT}/pytest"
