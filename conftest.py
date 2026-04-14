@@ -126,7 +126,6 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
     import sys as _sys
 
     _install_windows_api_test_shims()
-
     # Windows-only: mkdtemp can fail due to ACL issues in some environments.
     # On Linux/macOS the standard mkdtemp works fine; only apply the shim on Windows.
     if _sys.platform == "win32":
