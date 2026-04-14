@@ -362,8 +362,18 @@ def verify(
         "--report",
         help="Write a verification report to this file (e.g. verification_report.txt).",
     ),
+    review: bool = typer.Option(
+        False,
+        "--review",
+        help="Verify embedded human review ledger, signature, chain, and artifact binding.",
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="With --review, fail missing, unsigned, or legacy unbound reviews.",
+    ),
 ):
-    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out)
+    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out, review=review, strict=strict)
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
 # recording engine for simple read-only commands like version/ls/verify.

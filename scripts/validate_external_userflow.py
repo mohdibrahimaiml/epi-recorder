@@ -170,6 +170,52 @@ def _base_env(clean_home: Path, temp_dir: Path) -> dict[str, str]:
     return env
 
 
+def _write_python_temp_shim(shim_dir: Path, safe_temp_dir: Path) -> None:
+    """Keep clean-room venv/pip temp files inside a known writable directory."""
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    safe_temp_dir.mkdir(parents=True, exist_ok=True)
+    shim = f"""
+import os
+import pathlib
+import shutil
+import tempfile
+import uuid
+
+_SAFE_BASE = pathlib.Path(r"{safe_temp_dir}")
+_SAFE_BASE.mkdir(parents=True, exist_ok=True)
+
+def _manual_mkdtemp(suffix=None, prefix=None, dir=None):
+    base = pathlib.Path(dir) if dir else _SAFE_BASE
+    base.mkdir(parents=True, exist_ok=True)
+    name = f"{{prefix or 'tmp'}}{{uuid.uuid4().hex}}{{suffix or ''}}"
+    path = base / name
+    path.mkdir(parents=True, exist_ok=False)
+    return str(path)
+
+class _ManualTemporaryDirectory:
+    def __init__(self, suffix=None, prefix=None, dir=None, ignore_cleanup_errors=False):
+        self.name = _manual_mkdtemp(suffix=suffix, prefix=prefix, dir=dir)
+        self._ignore_cleanup_errors = ignore_cleanup_errors
+
+    def __enter__(self):
+        return self.name
+
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+        return False
+
+    def cleanup(self):
+        shutil.rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+
+tempfile.mkdtemp = _manual_mkdtemp
+tempfile.TemporaryDirectory = _ManualTemporaryDirectory
+tempfile.tempdir = str(_SAFE_BASE)
+os.environ["TMP"] = str(_SAFE_BASE)
+os.environ["TEMP"] = str(_SAFE_BASE)
+"""
+    (shim_dir / "sitecustomize.py").write_text(textwrap.dedent(shim).strip() + "\n", encoding="utf-8")
+
+
 def _write_helper(path: Path, content: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
@@ -592,6 +638,10 @@ def _create_install_context(root: Path, install_mode: str) -> InstallContext:
     install_record = InstallRecord(install_mode=install_mode)
     runtime_temp = _pick_runtime_temp_dir(install_mode, work_dir / "tmp")
     base_env = _base_env(home_dir, runtime_temp)
+    shim_dir = work_dir / "python-temp-shim"
+    safe_temp_dir = work_dir / "python-safe-temp"
+    _write_python_temp_shim(shim_dir, safe_temp_dir)
+    base_env["PYTHONPATH"] = str(shim_dir)
 
     return InstallContext(
         install_mode=install_mode,
@@ -644,13 +694,24 @@ def _bootstrap_source_install(ctx: InstallContext) -> None:
     create_record = _run_command(
         log_dir=ctx.report_dir / "install",
         label="Create source venv",
-        argv=[str(HOST_PYTHON), "-m", "venv", str(ctx.env_dir)],
+        argv=[str(HOST_PYTHON), "-m", "venv", "--without-pip", str(ctx.env_dir)],
         cwd=REPO_ROOT,
         env=ctx.base_env,
         timeout_seconds=300,
     )
     ctx.install_record.commands.append(create_record)
     _assert(create_record.returncode == 0, "Failed to create source validation venv.")
+
+    ensurepip_record = _run_command(
+        log_dir=ctx.report_dir / "install",
+        label="Bootstrap source pip",
+        argv=[str(ctx.python_executable), "-m", "ensurepip", "--upgrade", "--default-pip"],
+        cwd=REPO_ROOT,
+        env=ctx.base_env,
+        timeout_seconds=300,
+    )
+    ctx.install_record.commands.append(ensurepip_record)
+    _assert(ensurepip_record.returncode == 0, "Failed to bootstrap pip in source validation venv.")
 
     install_record = _run_command(
         log_dir=ctx.report_dir / "install",
@@ -702,13 +763,24 @@ def _bootstrap_wheel_install(ctx: InstallContext, wheel_path: Path, wheel_audit_
     create_record = _run_command(
         log_dir=ctx.report_dir / "install",
         label="Create wheel venv",
-        argv=[str(HOST_PYTHON), "-m", "venv", str(ctx.env_dir)],
+        argv=[str(HOST_PYTHON), "-m", "venv", "--without-pip", str(ctx.env_dir)],
         cwd=REPO_ROOT,
         env=ctx.base_env,
         timeout_seconds=300,
     )
     ctx.install_record.commands.append(create_record)
     _assert(create_record.returncode == 0, "Failed to create wheel validation venv.")
+
+    ensurepip_record = _run_command(
+        log_dir=ctx.report_dir / "install",
+        label="Bootstrap wheel pip",
+        argv=[str(ctx.python_executable), "-m", "ensurepip", "--upgrade", "--default-pip"],
+        cwd=REPO_ROOT,
+        env=ctx.base_env,
+        timeout_seconds=300,
+    )
+    ctx.install_record.commands.append(ensurepip_record)
+    _assert(ensurepip_record.returncode == 0, "Failed to bootstrap pip in wheel validation venv.")
 
     install_record = _run_command(
         log_dir=ctx.report_dir / "install",

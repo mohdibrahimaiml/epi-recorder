@@ -17,6 +17,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from epi_core.container import EPIContainer
+from epi_core.review import verify_review_trust
 from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
 from epi_cli.view import _resolve_epi_file
 
@@ -154,6 +155,8 @@ def verify_command(
     json_output: bool = False,
     verbose: bool = False,
     report_out: Optional[Path] = None,
+    review: bool = False,
+    strict: bool = False,
 ):
     """
     Verify .epi file integrity and authenticity.
@@ -179,6 +182,7 @@ def verify_command(
     signature_valid = None
     signer_name = None
     mismatches = {}
+    review_report = None
     
     try:
         # ========== STEP 1: STRUCTURAL VALIDATION ==========
@@ -235,6 +239,20 @@ def verify_command(
             mismatches=mismatches,
             manifest=manifest
         )
+
+        # ========== STEP 4: REVIEW TRUST CHECKS ==========
+        if review:
+            if verbose:
+                console.print("\n[bold]Step 4: Review Trust Checks[/bold]")
+            review_report = verify_review_trust(epi_file, strict=strict)
+            report["review_trust"] = review_report
+            if verbose:
+                if review_report["status"] == "verified":
+                    console.print("  [green][OK][/green] Review ledger, binding, and signatures verified")
+                elif review_report["status"] == "warnings":
+                    console.print("  [yellow][WARN][/yellow] Review trust warnings present")
+                else:
+                    console.print("  [red][FAIL][/red] Review trust verification failed")
         
         # ========== OUTPUT REPORT ==========
         if json_output:
@@ -244,6 +262,8 @@ def verify_command(
         else:
             # Rich formatted output
             print_trust_report(report, epi_file, verbose)
+            if review_report is not None:
+                print_review_trust_report(review_report)
 
         # ========== WRITE REPORT FILE ==========
         if report_out is not None:
@@ -264,11 +284,12 @@ def verify_command(
         try:
             from epi_core.telemetry import track_event
 
+            review_failed = bool(review_report and review_report.get("status") == "failed")
             track_event(
                 "epi.verify.completed",
                 {
                     "command": "verify",
-                    "success": bool(integrity_ok and signature_valid is not False),
+                    "success": bool(integrity_ok and signature_valid is not False and not review_failed),
                     "artifact_bytes": epi_file.stat().st_size,
                     "artifact_count": 1,
                 },
@@ -277,7 +298,9 @@ def verify_command(
             pass
 
         # Exit code based on verification result
-        if not integrity_ok or signature_valid is False:
+        if not integrity_ok or signature_valid is False or (
+            review_report is not None and review_report.get("status") == "failed"
+        ):
             raise typer.Exit(1)
     
     except typer.Exit:
@@ -381,6 +404,43 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     )
     console.print("\n")
     console.print(panel)
+    console.print("")
+
+
+def print_review_trust_report(review_report: dict):
+    """Print the optional review trust verification result."""
+    status = review_report.get("status")
+    if status == "verified":
+        style = "green"
+        title = "[OK] Review Trust"
+    elif status == "warnings":
+        style = "yellow"
+        title = "[WARN] Review Trust"
+    else:
+        style = "red"
+        title = "[FAIL] Review Trust"
+
+    lines = [
+        f"[bold]Status:[/bold] {status}",
+        f"[bold]Reviews:[/bold] {review_report.get('review_count', 0)}",
+        f"[bold]Latest review:[/bold] {review_report.get('latest_review_id') or 'none'}",
+        f"[bold]Binding:[/bold] {review_report.get('binding_valid')}",
+        f"[bold]Signature:[/bold] {review_report.get('signature_valid')}",
+        f"[bold]Chain:[/bold] {review_report.get('chain_valid')}",
+    ]
+
+    failures = list(review_report.get("failures") or [])
+    warnings = list(review_report.get("warnings") or [])
+    if failures:
+        lines.append("")
+        lines.append("[bold red]Failures:[/bold red]")
+        lines.extend(f"  [red]-[/red] {item}" for item in failures[:5])
+    if warnings:
+        lines.append("")
+        lines.append("[bold yellow]Warnings:[/bold yellow]")
+        lines.extend(f"  [yellow]-[/yellow] {item}" for item in warnings[:5])
+
+    console.print(Panel("\n".join(lines), title=title, border_style=style, expand=False))
     console.print("")
 
 

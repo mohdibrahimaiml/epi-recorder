@@ -1222,6 +1222,19 @@ class CaseStore:
             ).fetchone()
         return _decode_json(row["review_json"], None) if row else None
 
+    def list_reviews(self, case_id: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT review_json FROM case_reviews WHERE case_id = ? ORDER BY review_id ASC",
+                (case_id,),
+            ).fetchall()
+        reviews: list[dict[str, Any]] = []
+        for row in rows:
+            payload = _decode_json(row["review_json"], None)
+            if isinstance(payload, dict):
+                reviews.append(payload)
+        return reviews
+
     def _load_case_payload(self, case_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -2053,8 +2066,54 @@ class CaseStore:
                     json.dumps(case_payload["policy_evaluation"], indent=2, ensure_ascii=False),
                     encoding="utf-8",
                 )
-            if case_payload.get("review") is not None:
-                (temp_dir / "review.json").write_text(json.dumps(case_payload["review"], indent=2, ensure_ascii=False), encoding="utf-8")
+            case_reviews = self.list_reviews(case_id)
+            if not case_reviews and case_payload.get("review") is not None:
+                case_reviews = [case_payload["review"]]
+            if case_reviews:
+                review_dir = temp_dir / "reviews"
+                review_dir.mkdir(parents=True, exist_ok=True)
+                index_entries: list[dict[str, Any]] = []
+                latest_review_id = None
+                for index, review_payload in enumerate(case_reviews, start=1):
+                    if not isinstance(review_payload, dict):
+                        continue
+                    review_copy = dict(review_payload)
+                    review_copy.setdefault("review_version", "1.0.0")
+                    review_id = _clean(review_copy.get("review_id")) or f"case-review-{index:06d}"
+                    review_id = _slugify(review_id)
+                    latest_review_id = review_id
+                    review_copy["review_id"] = review_id
+                    review_copy["case_level_review"] = True
+                    review_path = review_dir / f"{review_id}.json"
+                    review_path.write_text(json.dumps(review_copy, indent=2, ensure_ascii=False), encoding="utf-8")
+                    index_entries.append(
+                        {
+                            "review_id": review_id,
+                            "path": f"reviews/{review_id}.json",
+                            "reviewed_by": review_copy.get("reviewed_by"),
+                            "reviewed_at": review_copy.get("reviewed_at"),
+                            "review_version": review_copy.get("review_version"),
+                            "case_level_review": True,
+                        }
+                    )
+
+                if index_entries:
+                    latest_payload = json.loads((review_dir / f"{latest_review_id}.json").read_text(encoding="utf-8"))
+                    (temp_dir / "review.json").write_text(json.dumps(latest_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+                    (temp_dir / "review_index.json").write_text(
+                        json.dumps(
+                            {
+                                "review_index_version": "1.0.0",
+                                "source": "gateway_case_export",
+                                "trust_source": False,
+                                "latest_review_id": latest_review_id,
+                                "reviews": index_entries,
+                            },
+                            indent=2,
+                            ensure_ascii=False,
+                        ),
+                        encoding="utf-8",
+                    )
             if case_payload.get("environment") is not None:
                 (temp_dir / "environment.json").write_text(
                     json.dumps(case_payload["environment"], indent=2, ensure_ascii=False),

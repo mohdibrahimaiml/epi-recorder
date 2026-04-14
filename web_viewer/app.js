@@ -912,6 +912,7 @@ async function parseEpiFile(file) {
   const policy = await readOptionalJson(zip, 'policy.json');
   const policyEvaluation = await readOptionalJson(zip, 'policy_evaluation.json');
   const review = await readOptionalJson(zip, 'review.json');
+  const reviewIndex = await readOptionalJson(zip, 'review_index.json');
   const environment = await readOptionalJson(zip, 'environment.json') || await readOptionalJson(zip, 'env.json');
   const mappingReport = await readOptionalJson(zip, 'artifacts/agt/mapping_report.json');
   const stdout = await readOptionalText(zip, 'stdout.log');
@@ -931,6 +932,7 @@ async function parseEpiFile(file) {
     policy,
     policyEvaluation,
     review,
+    reviewIndex,
     environment,
     mappingReport,
     artifactNames,
@@ -948,6 +950,7 @@ async function buildCaseRecord(payload) {
   const policy = payload.policy || null;
   const policyEvaluation = payload.policyEvaluation || null;
   const review = payload.review || null;
+  const reviewIndex = payload.reviewIndex || payload.review_index || null;
   const integrity = payload.integrity || {
     ok: true,
     checked: Object.keys(manifest.file_manifest || {}).length,
@@ -971,6 +974,7 @@ async function buildCaseRecord(payload) {
     : listEmbeddedArtifactNames(embeddedFiles);
   const mappingReport = payload.mappingReport || payload.mapping_report || readOptionalEmbeddedJson(embeddedFiles, 'artifacts/agt/mapping_report.json');
   const reviewSignature = await verifyReviewSignature(review);
+  const reviewBinding = deriveReviewBindingState(review, manifest, integrity);
   const reviewState = deriveReviewState(review, analysis, policyEvaluation, reviewSignature);
   const sourceTrustState = payload.sourceTrustState || payload.source_trust_state || null;
   const sharedWorkflow = payload.environment?.shared_workflow || {};
@@ -998,6 +1002,7 @@ async function buildCaseRecord(payload) {
     policy,
     policyEvaluation,
     review,
+    reviewIndex,
     environment: payload.environment || null,
     mappingReport,
     artifactNames,
@@ -1014,6 +1019,7 @@ async function buildCaseRecord(payload) {
     decision: deriveDecisionSummary(manifest, steps, analysis),
     workflow: deriveWorkflowName(manifest, steps, sourceName),
     reviewSignature,
+    reviewBinding,
     reviewState,
     risk: deriveRiskState(analysis, policyEvaluation, integrity, reviewState),
     status,
@@ -1108,7 +1114,9 @@ function mergeCaseRecords(existing, incoming) {
 
   if (reviewTimestamp(secondary.review) > reviewTimestamp(merged.review)) {
     merged.review = secondary.review;
+    merged.reviewIndex = secondary.reviewIndex;
     merged.reviewSignature = secondary.reviewSignature;
+    merged.reviewBinding = secondary.reviewBinding;
     merged.reviewState = secondary.reviewState;
   }
 
@@ -1470,7 +1478,8 @@ function buildAttachmentGroups(artifactNames, sourceProfile) {
       if (name.startsWith('artifacts/agt/')) {
         groups[0].items.push(item);
       } else if (
-        ['manifest.json', 'steps.jsonl', 'analysis.json', 'policy.json', 'policy_evaluation.json', 'review.json', 'environment.json', 'env.json', 'stdout.log', 'stderr.log'].includes(name) ||
+        ['manifest.json', 'steps.jsonl', 'analysis.json', 'policy.json', 'policy_evaluation.json', 'review.json', 'review_index.json', 'environment.json', 'env.json', 'stdout.log', 'stderr.log'].includes(name) ||
+        name.startsWith('reviews/') ||
         name.startsWith('artifacts/')
       ) {
         groups[1].items.push(item);
@@ -4806,6 +4815,7 @@ async function applyLocalReview(forcedOutcome) {
     } else {
       caseRecord.review = reviewRecord;
       caseRecord.reviewSignature = await verifyReviewSignature(reviewRecord);
+      caseRecord.reviewBinding = deriveReviewBindingState(reviewRecord, caseRecord.manifest, caseRecord.integrity);
       caseRecord.reviewState = deriveReviewState(reviewRecord, caseRecord.analysis, caseRecord.policyEvaluation, caseRecord.reviewSignature);
       caseRecord.status = workflowStatusForReviewOutcome(reviewRecord.reviews?.[0]?.outcome, caseRecord.status);
       caseRecord.workflowState = deriveWorkflowState(caseRecord.status);
@@ -4835,6 +4845,7 @@ async function downloadReviewRecord() {
     } else {
       caseRecord.review = reviewRecord;
       caseRecord.reviewSignature = await verifyReviewSignature(reviewRecord);
+      caseRecord.reviewBinding = deriveReviewBindingState(reviewRecord, caseRecord.manifest, caseRecord.integrity);
       caseRecord.reviewState = deriveReviewState(reviewRecord, caseRecord.analysis, caseRecord.policyEvaluation, caseRecord.reviewSignature);
       caseRecord.status = workflowStatusForReviewOutcome(reviewRecord.reviews?.[0]?.outcome, caseRecord.status);
       caseRecord.workflowState = deriveWorkflowState(caseRecord.status);
@@ -4890,6 +4901,7 @@ async function downloadReviewedArtifact() {
     } else {
       caseRecord.review = reviewRecord;
       caseRecord.reviewSignature = await verifyReviewSignature(reviewRecord);
+      caseRecord.reviewBinding = deriveReviewBindingState(reviewRecord, caseRecord.manifest, caseRecord.integrity);
       caseRecord.reviewState = deriveReviewState(reviewRecord, caseRecord.analysis, caseRecord.policyEvaluation, caseRecord.reviewSignature);
       caseRecord.status = workflowStatusForReviewOutcome(reviewRecord.reviews?.[0]?.outcome, caseRecord.status);
       caseRecord.workflowState = deriveWorkflowState(caseRecord.status);
@@ -4938,8 +4950,8 @@ async function signReviewRecord(reviewRecord, signingKeyText) {
     ['sign'],
   );
 
-  const payloadBytes = new TextEncoder().encode(buildReviewSigningPayload(reviewRecord));
-  const hashBytes = await sha256Bytes(payloadBytes);
+  const reviewHash = await computeReviewHash(reviewRecord);
+  const hashBytes = noble.etc.hexToBytes(reviewHash);
   const signatureBuffer = await crypto.subtle.sign('Ed25519', privateKey, hashBytes);
   const signatureHex = noble.etc.bytesToHex(new Uint8Array(signatureBuffer));
 
@@ -4950,7 +4962,53 @@ async function signReviewRecord(reviewRecord, signingKeyText) {
 
   return {
     ...reviewRecord,
+    review_hash: reviewHash,
     review_signature: `ed25519:${publicKeyHex}:${signatureHex}`,
+  };
+}
+
+function safeReviewToken(value) {
+  return String(value || 'review')
+    .trim()
+    .replace(/[^A-Za-z0-9_.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'review';
+}
+
+function randomReviewSuffix() {
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return String(Date.now()).slice(-12);
+}
+
+function normalizeReviewForLedger(reviewRecord) {
+  const reviewedAt = reviewRecord.reviewed_at || new Date().toISOString();
+  const reviewer = reviewRecord.reviewed_by || 'reviewer';
+  const reviewId = reviewRecord.review_id || `review-${safeReviewToken(reviewedAt.replace(/[:+]/g, 'Z'))}-${safeReviewToken(reviewer.toLowerCase()).slice(0, 48)}-${randomReviewSuffix()}`;
+  return {
+    ...reviewRecord,
+    review_id: reviewId,
+  };
+}
+
+function buildReviewIndexForViewer(records) {
+  const reviews = records.map((record) => ({
+    review_id: record.review_id,
+    path: `reviews/${record.review_id}.json`,
+    reviewed_by: record.reviewed_by,
+    reviewed_at: record.reviewed_at,
+    review_hash: record.review_hash || null,
+    previous_review_hash: record.previous_review_hash || null,
+    review_version: record.review_version || '1.0.0',
+  }));
+  return {
+    review_index_version: '1.0.0',
+    trust_source: false,
+    latest_review_id: reviews.at(-1)?.review_id || null,
+    reviews,
   };
 }
 
@@ -4965,10 +5023,20 @@ async function buildReviewedArtifactBytes(caseRecord, reviewRecord) {
   const sourceEntries = await collectArtifactSourceEntries(caseRecord);
   sourceEntries.forEach((entry) => entries.push(entry));
 
-  const viewerHtml = buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries);
+  const ledgerReview = normalizeReviewForLedger(reviewRecord);
+  const reviewIndex = buildReviewIndexForViewer([ledgerReview]);
+  const viewerHtml = buildEmbeddedViewerHtml(caseRecord, ledgerReview, sourceEntries);
+  entries.push({
+    name: `reviews/${ledgerReview.review_id}.json`,
+    data: textToBytes(JSON.stringify(ledgerReview, null, 2)),
+  });
+  entries.push({
+    name: 'review_index.json',
+    data: textToBytes(JSON.stringify(reviewIndex, null, 2)),
+  });
   entries.push({
     name: 'review.json',
-    data: textToBytes(JSON.stringify(reviewRecord, null, 2)),
+    data: textToBytes(JSON.stringify(ledgerReview, null, 2)),
   });
   entries.push({
     name: 'viewer.html',
@@ -4997,7 +5065,8 @@ async function collectArtifactSourceEntries(caseRecord) {
     const sourceZip = await JSZip.loadAsync(caseRecord.archiveBytes.slice(0));
     const sourceNames = Object.keys(sourceZip.files)
       .filter((name) => !sourceZip.files[name].dir)
-      .filter((name) => !['mimetype', 'manifest.json', 'viewer.html', 'review.json'].includes(name));
+      .filter((name) => !['mimetype', 'manifest.json', 'viewer.html'].includes(name))
+      .filter((name) => !isMutableReviewMemberName(name));
 
     sourceNames.sort();
     for (const name of sourceNames) {
@@ -5015,7 +5084,8 @@ async function collectArtifactSourceEntries(caseRecord) {
 
   if (caseRecord.embeddedFiles && Object.keys(caseRecord.embeddedFiles).length) {
     Object.keys(caseRecord.embeddedFiles)
-      .filter((name) => !['mimetype', 'manifest.json', 'viewer.html', 'review.json'].includes(name))
+      .filter((name) => !['mimetype', 'manifest.json', 'viewer.html'].includes(name))
+      .filter((name) => !isMutableReviewMemberName(name))
       .sort()
       .forEach((name) => {
         entries.push({
@@ -5029,6 +5099,10 @@ async function collectArtifactSourceEntries(caseRecord) {
   throw new Error('This browser session does not include enough case file data to rebuild the reviewed .epi.');
 }
 
+function isMutableReviewMemberName(name) {
+  return name === 'review.json' || name === 'review_index.json' || name.startsWith('reviews/');
+}
+
 function buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries) {
   let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   const payload = {
@@ -5038,6 +5112,7 @@ function buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries) {
     policy: caseRecord.policy,
     policy_evaluation: caseRecord.policyEvaluation,
     review: reviewRecord,
+    review_index: buildReviewIndexForViewer([reviewRecord]),
     environment: caseRecord.environment,
     stdout: caseRecord.stdout,
     stderr: caseRecord.stderr,
@@ -5254,8 +5329,8 @@ async function verifyReviewSignature(review) {
 
   if (!globalThis.noble?.verifyAsync) {
     return {
-      code: 'unsigned-review',
-      label: 'Review not checked',
+      code: 'review-not-fully-checked',
+      label: 'Review not fully checked',
       tone: 'warning',
       detail: 'The browser review verifier is unavailable.',
     };
@@ -5274,8 +5349,16 @@ async function verifyReviewSignature(review) {
   try {
     const publicKeyBytes = noble.etc.hexToBytes(parts[1]);
     const signatureBytes = decodeSignatureBytes(parts[2]);
-    const payloadBytes = new TextEncoder().encode(buildReviewSigningPayload(review));
-    const hashBytes = await sha256Bytes(payloadBytes);
+    const expectedHash = await computeReviewHash(review);
+    if (review.review_hash && review.review_hash !== expectedHash) {
+      return {
+        code: 'bad-review-signature',
+        label: 'Bad review signature',
+        tone: 'danger',
+        detail: 'The attached review hash does not match the canonical review contents.',
+      };
+    }
+    const hashBytes = noble.etc.hexToBytes(expectedHash);
     const isValid = await noble.verifyAsync(signatureBytes, hashBytes, publicKeyBytes);
 
     if (isValid) {
@@ -5539,6 +5622,62 @@ function workflowStatusForReviewOutcome(outcome, fallback) {
     return 'blocked';
   }
   return fallback || 'resolved';
+}
+
+function deriveReviewBindingState(review, manifest, integrity) {
+  if (!review) {
+    return {
+      code: 'no-review-binding',
+      label: 'No review binding',
+      tone: 'neutral',
+      detail: 'No review is attached to this case file yet.',
+    };
+  }
+
+  if (!review.artifact_binding) {
+    return {
+      code: 'review-not-fully-checked',
+      label: 'Review not fully checked',
+      tone: 'warning',
+      detail: 'The attached review is case-level or legacy metadata and is not bound to this exact artifact in the browser.',
+    };
+  }
+
+  if (!integrity?.ok) {
+    return {
+      code: 'binding-not-checked',
+      label: 'Review not fully checked',
+      tone: 'danger',
+      detail: 'Evidence integrity failed, so the browser cannot trust the review binding.',
+    };
+  }
+
+  if (review.artifact_binding.workflow_id && manifest?.workflow_id && review.artifact_binding.workflow_id !== manifest.workflow_id) {
+    return {
+      code: 'binding-mismatch',
+      label: 'Review binding mismatch',
+      tone: 'danger',
+      detail: 'The review claims a different workflow ID than this artifact.',
+    };
+  }
+
+  return {
+    code: 'binding-present',
+    label: 'Binding present',
+    tone: 'warning',
+    detail: 'The review includes artifact binding metadata. Use `epi verify --review --strict` for the full sealed-evidence and chain check.',
+  };
+}
+
+function deriveRetentionLabel(caseRecord) {
+  const mode = caseRecord.environment?.retention_mode || caseRecord.manifest?.retention_mode || caseRecord.analysis?.retention_mode;
+  if (mode) {
+    return String(mode).replace(/_/g, ' ');
+  }
+  if ((caseRecord.steps || []).some((step) => JSON.stringify(step.content || {}).includes('[redacted sha256='))) {
+    return 'redacted with hashes';
+  }
+  return 'raw or unspecified';
 }
 
 function deriveReviewState(review, analysis, policyEvaluation, reviewSignature) {
@@ -6023,9 +6162,12 @@ function buildPolicyFlow(caseRecord) {
 function buildTrustRows(caseRecord, analysisState) {
   return [
     ['Trust state', caseRecord.trust.label],
-    ['Integrity', caseRecord.integrity.ok ? `Checked ${caseRecord.integrity.checked} protected file(s)` : `Mismatch in ${caseRecord.integrity.mismatches.join(', ')}`],
-    ['Manifest signer', deriveSignerLabel(caseRecord.manifest)],
+    ['Evidence integrity', caseRecord.integrity.ok ? `Checked ${caseRecord.integrity.checked} protected file(s)` : `Mismatch in ${caseRecord.integrity.mismatches.join(', ')}`],
+    ['Producer/source signature', deriveSignerLabel(caseRecord.manifest)],
+    ['Review status', caseRecord.reviewState.label],
     ['Review signature', caseRecord.reviewSignature.label],
+    ['Review artifact binding', caseRecord.reviewBinding?.label || 'Review not fully checked'],
+    ['Redaction / retention', deriveRetentionLabel(caseRecord)],
     ['Container format', caseRecord.containerFormat || 'Unknown'],
     ['Automation state', analysisState.label],
   ];
@@ -6050,6 +6192,12 @@ function buildTrustAlerts(caseRecord, analysisState) {
       title: caseRecord.reviewSignature.label,
       copy: caseRecord.reviewSignature.detail,
       tone: caseRecord.reviewSignature.tone,
+    },
+    {
+      eyebrow: 'Review artifact binding',
+      title: caseRecord.reviewBinding?.label || 'Review not fully checked',
+      copy: caseRecord.reviewBinding?.detail || 'The browser could not fully verify review binding.',
+      tone: caseRecord.reviewBinding?.tone || 'warning',
     },
   ];
 
@@ -6792,6 +6940,7 @@ function buildReviewDraft(caseRecord) {
 
   return {
     review_version: '1.0.0',
+    case_level_review: true,
     reviewed_by: reviewer,
     reviewed_at: timestamp,
     reviews: [
@@ -6809,13 +6958,32 @@ function buildReviewDraft(caseRecord) {
   };
 }
 
+async function computeReviewHash(reviewRecord) {
+  const payloadBytes = new TextEncoder().encode(buildReviewSigningPayload(reviewRecord));
+  return sha256Hex(payloadBytes);
+}
+
 function buildReviewSigningPayload(reviewRecord) {
-  return canonicalJson({
-    review_version: reviewRecord.review_version,
-    reviewed_by: reviewRecord.reviewed_by,
-    reviewed_at: reviewRecord.reviewed_at,
-    reviews: reviewRecord.reviews,
+  if (reviewRecord?.review_version !== '1.1.0' && !reviewRecord?.artifact_binding) {
+    return canonicalJson({
+      review_version: reviewRecord?.review_version || '1.0.0',
+      reviewed_by: reviewRecord?.reviewed_by,
+      reviewed_at: reviewRecord?.reviewed_at,
+      reviews: reviewRecord?.reviews || [],
+    });
+  }
+
+  const payload = {};
+  Object.keys(reviewRecord || {}).forEach((key) => {
+    if (['review_hash', 'review_signature'].includes(key)) {
+      return;
+    }
+    if (typeof reviewRecord[key] === 'undefined') {
+      return;
+    }
+    payload[key] = reviewRecord[key];
   });
+  return canonicalJson(payload);
 }
 
 function canonicalJson(value) {
@@ -6825,8 +6993,20 @@ function canonicalJson(value) {
   if (typeof value === 'string') {
     return JSON.stringify(value);
   }
-  if (typeof value !== 'object') {
+  if (typeof value === 'boolean') {
     return JSON.stringify(value);
+  }
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value)) {
+      throw new Error('Floats are not allowed in signed review payloads.');
+    }
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'undefined') {
+    throw new Error('Undefined is not allowed in signed review payloads.');
+  }
+  if (typeof value !== 'object') {
+    throw new Error(`Unsupported review payload value: ${typeof value}`);
   }
   if (Array.isArray(value)) {
     return '[' + value.map((item) => canonicalJson(item)).join(',') + ']';
