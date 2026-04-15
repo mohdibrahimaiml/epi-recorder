@@ -213,23 +213,47 @@ class TestLogValidation(TestCase):
             assert "Cannot log validation outside of context manager" in str(e)
 
     def test_log_validation_kind_format(self):
-        """log_validation generates correct kind field"""
-        with TemporaryDirectory() as tmpdir:
-            artifact_path = Path(tmpdir) / "test.epi"
+        """log_validation generates correct kind field with validation.{result} format"""
+        import zipfile
+        import json
+        from tempfile import NamedTemporaryFile
 
-            with record(str(artifact_path)) as epi:
-                # Track that we called log_validation
-                # The kind should be "validation.{result}"
+        # Use a temp file instead of temp dir to capture exact artifact location
+        with NamedTemporaryFile(suffix=".epi", delete=False) as tmp:
+            artifact_path = tmp.name
+
+        try:
+            with record(artifact_path) as epi:
+                # Log validation step
                 epi.log_validation(
-                    validator="test",
+                    validator="format_test",
                     result="fail",
                     details={"test": "data"}
                 )
 
-            # Verify step was logged with correct kind
-            # The artifact may be in the configured EPI temp dir, not our tmpdir
-            # Just verify that log_validation was callable and didn't raise
-            assert True  # If we got here, log_validation worked
+            # Verify step was logged with correct kind by reading JSONL
+            with zipfile.ZipFile(artifact_path, 'r') as z:
+                steps_content = z.read('steps.jsonl').decode('utf-8')
+                steps = [json.loads(line) for line in steps_content.strip().split('\n') if line]
+
+                # Find validation step
+                validation_steps = [s for s in steps if 'validation' in s.get('kind', '')]
+                assert len(validation_steps) > 0, "No validation steps found in artifact"
+
+                # Verify kind format
+                validation_step = validation_steps[0]
+                assert validation_step['kind'] == 'validation.fail', f"Expected 'validation.fail', got '{validation_step['kind']}'"
+
+                # Verify content
+                content = validation_step.get('content', {})
+                assert content['validator'] == 'format_test'
+                assert content['result'] == 'fail'
+                assert content['details']['test'] == 'data'
+
+        finally:
+            import os
+            if os.path.exists(artifact_path):
+                os.unlink(artifact_path)
 
 
 class TestGuardrailsIntegration(TestCase):
