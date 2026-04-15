@@ -9,6 +9,7 @@ Available integrations:
   - LiteLLM:        EPICallback, enable_epi(), disable_epi()
   - LangChain:      EPICallbackHandler
   - OpenTelemetry:  EPISpanExporter, setup_epi_tracing()
+  - Guardrails:     GuardrailsRecorder
 """
 
 # Lazy imports — only fail when actually used, not on import
@@ -61,6 +62,9 @@ def __getattr__(name):
     if name in ("EPISpanExporter", "setup_epi_tracing"):
         from .opentelemetry import EPISpanExporter, setup_epi_tracing
         return {"EPISpanExporter": EPISpanExporter, "setup_epi_tracing": setup_epi_tracing}[name]
+    if name == "GuardrailsRecorder":
+        from .guardrails import GuardrailsRecorder
+        return GuardrailsRecorder
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -81,5 +85,6 @@ __all__ = [
     'EPICallbackHandler',
     'EPISpanExporter',
     'setup_epi_tracing',
+    'GuardrailsRecorder',
 ]
 

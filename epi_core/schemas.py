@@ -152,7 +152,7 @@ class StepModel(BaseModel):
     )
     
     kind: str = Field(
-        description="Step type: shell.command, python.call, llm.request, llm.response, file.write, security.redaction"
+        description="Step type: shell.command, python.call, llm.request, llm.response, file.write, security.redaction, validation.pass, validation.fail, validation.corrected, validation.start"
     )
     
     content: Dict[str, Any] = Field(
@@ -199,5 +199,85 @@ class StepModel(BaseModel):
     )
 
 
+class ValidationPayload(BaseModel):
+    """
+    Validation event payload for use in StepModel.content.
 
- 
+    Represents outcomes from validation systems (Guardrails, Pydantic, Outlines, etc.).
+
+    Optional — not enforced on StepModel. Use when kind is validation.*.
+
+    Examples:
+        # Pass validation
+        validation_pass = ValidationPayload(
+            validator="guardrails",
+            result="pass",
+            score=0.95
+        )
+
+        # Fail validation with details
+        validation_fail = ValidationPayload(
+            validator="guardrails",
+            result="fail",
+            score=0.1,
+            input_ref=5,  # reference to step index
+            details={
+                "error_type": "RefusalValidationError",
+                "message": "Output contains refused content"
+            }
+        )
+
+        # Corrected output
+        validation_corrected = ValidationPayload(
+            validator="guardrails",
+            result="corrected",
+            input_ref=5,
+            output_ref=6,  # reference to step index of corrected output
+            details={"regenerated": True}
+        )
+    """
+
+    validator: str = Field(
+        description="Name of validator (e.g., 'guardrails', 'pydantic', 'outlines', 'custom')"
+    )
+
+    result: Literal["pass", "fail", "corrected"] = Field(
+        description="Validation outcome: pass (succeeded), fail (rejected), corrected (auto-fixed)"
+    )
+
+    input_ref: Optional[int] = Field(
+        default=None,
+        description="Reference to input step index (0-indexed) if validation was in response to a prior step"
+    )
+
+    output_ref: Optional[int] = Field(
+        default=None,
+        description="Reference to output step index (0-indexed) for corrected outcomes, or artifact reference"
+    )
+
+    score: Optional[float] = Field(
+        default=None,
+        description="Confidence/severity score (0.0-1.0). 1.0 = passed cleanly, 0.0 = failed completely"
+    )
+
+    details: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Validator-specific details: error_type, message, suggestions, metadata, etc."
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "validator": "guardrails",
+                "result": "fail",
+                "score": 0.25,
+                "input_ref": 5,
+                "details": {
+                    "error_type": "RefusalValidationError",
+                    "message": "Output contains refused topic",
+                    "suggestions": ["regenerate", "refine_prompt"]
+                }
+            }
+        }
+    )
+

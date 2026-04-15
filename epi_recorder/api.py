@@ -1138,10 +1138,10 @@ class EpiRecorderSession:
     def log_llm_response(self, response_payload: Dict[str, Any]) -> None:
         """
         Log an LLM API response.
-        
+
         Args:
             response_payload: Response data
-            
+
         Note:
             This is typically called automatically by patchers.
             Manual use is for custom integrations.
@@ -1150,7 +1150,64 @@ class EpiRecorderSession:
             "timestamp": utc_now_iso(),
             **response_payload
         })
-    
+
+    def log_validation(
+        self,
+        validator: str,
+        result: str,
+        input_ref: Optional[int] = None,
+        output_ref: Optional[int] = None,
+        score: Optional[float] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Log a validation event from Guardrails, Pydantic, Outlines, or custom validator.
+
+        Args:
+            validator: Name of validator (e.g., "guardrails", "pydantic", "outlines")
+            result: Validation outcome: "pass", "fail", or "corrected"
+            input_ref: Optional reference to input step index (0-indexed)
+            output_ref: Optional reference to output step index or artifact path
+            score: Optional confidence/severity score (0.0-1.0)
+            details: Optional validator-specific details (error_type, message, suggestions, etc.)
+
+        Example (fail with details):
+            epi.log_validation(
+                validator="guardrails",
+                result="fail",
+                score=0.1,
+                input_ref=5,
+                details={
+                    "error_type": "RefusalValidationError",
+                    "message": "Output contains refused topic"
+                }
+            )
+
+        Example (corrected):
+            epi.log_validation(
+                validator="guardrails",
+                result="corrected",
+                input_ref=5,
+                output_ref=6
+            )
+        """
+        if not self._entered:
+            raise RuntimeError("Cannot log validation outside of context manager")
+
+        content = {"validator": validator, "result": result}
+
+        if input_ref is not None:
+            content["input_ref"] = input_ref
+        if output_ref is not None:
+            content["output_ref"] = output_ref
+        if score is not None:
+            content["score"] = score
+        if details is not None:
+            content["details"] = details
+
+        kind = f"validation.{result}"
+        self.log_step(kind, content)
+
     def log_llm_call(
         self, 
         response: Any, 
