@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
   <br>
   <h1 align="center">EPI</h1>
@@ -22,8 +22,8 @@ Spec: https://github.com/mohdibrahimaiml/epi-spec
   <a href="https://pypi.org/project/epi-recorder/"><img src="https://img.shields.io/pypi/v/epi-recorder?style=flat-square&label=PyPI&color=0073b7" alt="PyPI Version"/></a>
   <a href="https://pepy.tech/project/epi-recorder"><img src="https://img.shields.io/pepy/dt/epi-recorder?style=flat-square&label=downloads&color=0073b7" alt="Downloads"/></a>
   <a href="https://pypi.org/project/epi-recorder/"><img src="https://img.shields.io/pypi/pyversions/epi-recorder?style=flat-square&label=python&color=0073b7" alt="Supported Python Versions"/></a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml"><img src="https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg" alt="Build Status"/></a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdibrahimaiml/epi-recorder?style=flat-square&label=license&color=0073b7" alt="License"/></a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder/stargazers"><img src="https://img.shields.io/github/stars/mohdibrahimaiml/epi-recorder?style=flat-square&label=stars&color=0073b7" alt="GitHub Stars"/></a>
 </p>
 
 <p align="center">
@@ -79,6 +79,7 @@ epi integrate langchain --dry-run
 epi integrate litellm --dry-run
 epi integrate opentelemetry --dry-run
 epi integrate agt --dry-run
+epi integrate guardrails --dry-run
 ```
 
 Use `--apply` when you want EPI to write the safe example files or GitHub Actions workflow, and `--force` only when you intentionally want to overwrite generated files.
@@ -415,7 +416,8 @@ EPI is not an observability dashboard. It sits beside observability as the durab
 | **Evidence prep** | Supports EU AI Act, FDA, and SEC evidence workflows; not a compliance guarantee | Limited | Limited | Not designed |
 | **Local LLMs** | Yes - Ollama, llama.cpp | No | No | No |
 | **CI/CD native** | Yes - GitHub Action + pytest | No | No | No |
-| **Framework hooks** | Yes - LiteLLM, LangChain, OTel | LangChain only | No | No |
+| **Framework hooks** | Yes - LiteLLM, LangChain, OTel, Guardrails | LangChain only | No | No |
+| **Validation outcomes** | **Yes** - captures validator feedback | No | No | No |
 | **Cost** | **Free** (MIT) | $99+/mo | Custom | $50+/mo |
 
 > **EPI complements these tools.** Use LangSmith for live traces, EPI for durable evidence.
@@ -522,6 +524,20 @@ result = graph.invoke(
     checkpointer=checkpointer
 )
 # captures all state transitions, checkpoint metadata, and agent decision points
+
+### Guardrails AI - Native Validation Proofs
+
+```python
+from guardrails import Guard
+from epi_guardrails import instrument
+
+# all validation steps and model outputs are now recorded
+instrument(output_path="audit.epi")
+
+guard = Guard.for_rail_string(rail_str)
+result = guard.parse(llm_output=raw_text)
+# captures: LLM calls, validator passes/fails, and corrected outputs
+```
 ```
 
 ### OpenAI Agents Event Bridge
@@ -653,6 +669,7 @@ flowchart LR
 | **LangGraph** | `EPICheckpointSaver` | Native checkpoint backend |
 | **OpenTelemetry** | `EPISpanExporter` | Span -> .epi conversion |
 | **pytest** | `--epi` flag | Signed evidence per test |
+| **Guardrails AI** | `instrument()` hook | Automatic capture of validation results, model calls, and correction history |
 | **GitHub Actions** | `verify-epi` action | CI/CD pipeline verification |
 
 ---
@@ -668,7 +685,7 @@ flowchart LR
 | `epi share <file.epi>` | Upload and return a hosted browser link |
 | `epi export-summary summary <file.epi>` | Generate a printable HTML Decision Record |
 | `epi init --github-action` | Create a starter demo and optional CI evidence workflow |
-| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, or AGT |
+| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, AGT, or Guardrails |
 | `epi telemetry status|enable|disable|test` | Manage privacy-first opt-in telemetry and pilot signup |
 | `epi keys list` | Manage signing keys |
 | `epi debug <file.epi>` | Heuristic analysis for mistakes and loops |
@@ -684,6 +701,7 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 ## What Changed in v4.0.1
 
+- **Native Guardrails AI Support** - new `epi_guardrails` package provides seamless, non-invasive instrumentation for all Guardrails 0.10.x execution paths
 - **Opt-in telemetry** - `epi telemetry status|enable|disable|test` sends only non-content metrics after explicit opt-in
 - **Reachable pilot signup** - `epi telemetry enable --join-pilot` captures explicit contact consent and optional telemetry-link consent
 - **Safer onboarding** - `epi init --github-action` and `epi integrate <target>` write only safe generated examples/workflows unless `--force` is provided

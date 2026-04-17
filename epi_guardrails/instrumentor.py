@@ -442,6 +442,126 @@ def _wrap_validator_after_run(
 
 
 # ==============================================================================
+# Runner.call wrapper — LLM interactions
+# ==============================================================================
+
+
+def _wrap_runner_call(
+    wrapped: Callable,
+    instance: Any,
+    args: tuple,
+    kwargs: dict,
+) -> Any:
+    """
+    Wrap Runner.call (or AsyncRunner.async_call).
+
+    Captures raw LLM metadata (provider, model, messages, usage, latency).
+    """
+    state = guardrails_epi_state()
+    if state is None:
+        return wrapped(*args, **kwargs)
+
+    session = _find_session(state)
+    if session is None:
+        return wrapped(*args, **kwargs)
+
+    start_time = time_module.monotonic()
+    result = None
+    error = None
+
+    try:
+        result = wrapped(*args, **kwargs)
+        return result
+    except Exception as e:
+        error = str(e)
+        raise
+    finally:
+        latency = time_module.monotonic() - start_time
+
+        # Extract info from result (LLMResponse)
+        provider = "unknown"
+        model = "unknown"
+        messages = []
+        usage = None
+        choices = None
+        system = None
+
+        if result is not None:
+            try:
+                # result is an LLMResponse
+                provider = getattr(result, "provider", "unknown")
+                model = getattr(result, "model_id", "unknown")
+                # Try to get messages from the call log or result
+                # but for simplicity, we focus on the result metadata
+                usage_obj = getattr(result, "usage", None)
+                if usage_obj:
+                    # In 0.10.x usage might be an object
+                    try:
+                        usage = {
+                            "prompt_tokens": getattr(usage_obj, "prompt_tokens", 0),
+                            "completion_tokens": getattr(usage_obj, "completion_tokens", 0),
+                            "total_tokens": getattr(usage_obj, "total_tokens", 0),
+                        }
+                    except Exception:
+                        pass
+                
+                output = getattr(result, "output", None)
+                if output:
+                    choices = [{"message": {"content": str(output)}}]
+            except Exception:
+                pass
+
+        session.emit_llm_call(
+            provider=provider,
+            model=model,
+            messages=[], # Captured via step if needed, or extracted from call args
+            choices=choices,
+            usage=usage,
+            latency_seconds=round(latency, 4),
+            error=error,
+            step_id=get_current_iteration_id(),
+        )
+
+
+async def _wrap_async_runner_call(
+    wrapped: Callable,
+    instance: Any,
+    args: tuple,
+    kwargs: dict,
+) -> Any:
+    """Async variant of Runner.call wrapper."""
+    state = guardrails_epi_state()
+    if state is None:
+        return await wrapped(*args, **kwargs)
+
+    session = _find_session(state)
+    if session is None:
+        return await wrapped(*args, **kwargs)
+
+    start_time = time_module.monotonic()
+    result = None
+    error = None
+
+    try:
+        result = await wrapped(*args, **kwargs)
+        return result
+    except Exception as e:
+        error = str(e)
+        raise
+    finally:
+        latency = time_module.monotonic() - start_time
+        # Simplified async capture similar to sync
+        session.emit_llm_call(
+            provider="async_provider",
+            model="async_model",
+            messages=[],
+            latency_seconds=round(latency, 4),
+            error=error,
+            step_id=get_current_iteration_id(),
+        )
+
+
+# ==============================================================================
 # Guard._execute wrapper — session lifecycle
 # ==============================================================================
 
@@ -760,6 +880,23 @@ def instrument(
             logger.info("Instrumented ValidatorServiceBase.after_run_validator")
     except Exception as e:
         logger.warning(f"Failed to instrument ValidatorServiceBase.after_run_validator: {e}")
+
+    # ---- Runner.call / AsyncRunner.async_call ----
+    try:
+        runner_module = import_module(_RUNNER_MODULE)
+        runner_cls = getattr(runner_module, "Runner", None)
+        if runner_cls and hasattr(runner_cls, "call"):
+            _originals["Runner.call"] = runner_cls.call
+            wrap_function_wrapper(_RUNNER_MODULE, "Runner.call", _wrap_runner_call)
+            logger.info("Instrumented Runner.call")
+        
+        async_runner_cls = getattr(runner_module, "AsyncRunner", None)
+        if async_runner_cls and hasattr(async_runner_cls, "async_call"):
+            _originals["AsyncRunner.async_call"] = async_runner_cls.async_call
+            wrap_function_wrapper(_RUNNER_MODULE, "AsyncRunner.async_call", _wrap_async_runner_call)
+            logger.info("Instrumented AsyncRunner.async_call")
+    except Exception as e:
+        logger.warning(f"Failed to instrument Runner calls: {e}")
 
     return True
 

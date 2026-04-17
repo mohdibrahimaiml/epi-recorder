@@ -24,7 +24,7 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 console = Console()
-TARGETS = {"pytest", "langchain", "litellm", "opentelemetry", "agt"}
+TARGETS = {"pytest", "langchain", "litellm", "opentelemetry", "agt", "guardrails"}
 
 
 def _is_interactive() -> bool:

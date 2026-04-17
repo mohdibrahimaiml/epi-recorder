@@ -178,6 +178,39 @@ epi view agt-case.epi
 ```
 """,
         )
+    if target == "guardrails":
+        return (
+            "guardrails_epi_example.py",
+            '''from guardrails import Guard
+from epi_guardrails import instrument, uninstrument
+
+# 1. Start recording to an .epi artifact
+instrument(output_path="guardrails_run.epi")
+
+# 2. Define your Guard (or use one from the Hub)
+rail_str = """
+<rail version="0.1">
+<output>
+    <string name="summary" description="A short summary" on-fail-fix="Always be brief." />
+</output>
+</rail>
+"""
+guard = Guard.for_rail_string(rail_str)
+
+# 3. Execute — all steps, LLM calls, and validator results are captured
+try:
+    result = guard.parse(
+        llm_output="This is a very long and detailed output that should be summarized.",
+        metadata={}
+    )
+    print("Validated output:", result.validated_output)
+finally:
+    # 4. Finalize the artifact
+    uninstrument()
+
+print("Recorded failure/success to guardrails_run.epi")
+''',
+        )
     raise ValueError(f"unsupported integration target: {target}")
 
 
