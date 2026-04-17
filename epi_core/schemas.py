@@ -90,6 +90,23 @@ class ManifestModel(BaseModel):
         default=None,
         description="Key-value metrics for this workflow (accuracy, latency, etc.)"
     )
+
+    source: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="System integration identity and framework bindings"
+    )
+
+    total_steps: Optional[int] = Field(None)
+    total_validators: Optional[int] = Field(None)
+    total_llm_calls: Optional[int] = Field(None)
+    passed: Optional[int] = Field(None)
+    failed: Optional[int] = Field(None)
+    corrected: Optional[int] = Field(None)
+
+    trust: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Immediate cryptographic verification state structure"
+    )
     
     approved_by: Optional[str] = Field(
         default=None,
