@@ -25,6 +25,7 @@ EXPECTED_TOP_LEVEL = {
     "epi_viewer_static",
     "web_viewer",
     "pytest_epi",
+    "epi_guardrails",
 }
 
 REQUIRED_RUNTIME_MEMBERS = {
