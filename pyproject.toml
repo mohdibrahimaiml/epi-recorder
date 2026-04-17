@@ -90,6 +90,8 @@ integrations = [
     "langgraph>=0.2.0",
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
+    "guardrails-ai>=0.10.0",
+    "wrapt>=1.16.0",
 ]
 analytics = [
     "pandas>=1.5.0",
@@ -114,6 +116,8 @@ all = [
     "fastapi>=0.111.0,<1",
     "uvicorn>=0.30.0,<1",
     "boto3>=1.34.0",
+    "guardrails-ai>=0.10.0",
+    "wrapt>=1.16.0",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -125,6 +129,8 @@ dev = [
     "pandas>=1.5.0",
     "fastapi>=0.111.0,<1",
     "uvicorn>=0.30.0,<1",
+    "guardrails-ai>=0.10.0",
+    "wrapt>=1.16.0",
 ]
 test = [
     "pytest>=8.0.0",
@@ -141,6 +147,8 @@ test = [
     "langchain-core>=0.2.0",
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
+    "guardrails-ai>=0.10.0",
+    "wrapt>=1.16.0",
 ]
 
 [project.scripts]
@@ -155,7 +163,7 @@ Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*"]
+include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*"]
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]
