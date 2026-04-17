@@ -365,10 +365,9 @@ class EPISpanExporter(SpanExporter):
         try:
             from epi_recorder.api import EpiRecorderSession
 
-            # Generate filename
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            # Generate deterministic filename per trace
             short_id = trace_id[:8]
-            filename = f"{self._prefix}_{short_id}_{timestamp}.epi"
+            filename = f"{self._prefix}_{short_id}.epi"
             output_path = self._output_dir / filename
 
             # Write via EPI session

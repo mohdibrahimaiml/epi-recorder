@@ -919,6 +919,8 @@ def uninstrument() -> None:
             "guardrails.validator_service",
             "ValidatorServiceBase",
         ),
+        ("Runner.call", "guardrails.run", "Runner"),
+        ("AsyncRunner.async_call", "guardrails.run", "AsyncRunner"),
     ]
 
     for name, module_name, cls_name in restore_map:
