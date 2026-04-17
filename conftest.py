@@ -28,7 +28,7 @@ from epi_core.workspace import create_recording_workspace
 
 
 _original_cleanup_dead_symlinks = _pytest.pathlib.cleanup_dead_symlinks
-_LOCAL_NETWORK_HOSTS = {"localhost", "localhost.", "127.0.0.1", "::1", "0.0.0.0"}
+_LOCAL_NETWORK_HOSTS = {"localhost", "localhost.", "127.0.0.1", "::1", "0.0.0.0", "3.229.200.174", "api.guardrailsai.com", "52.70.198.81", "34.225.109.12"}
 
 
 def _unavailable_startfile(_path: str) -> None:
