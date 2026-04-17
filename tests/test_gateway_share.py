@@ -174,9 +174,9 @@ def test_gateway_share_enforces_quota(tmp_path):
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     settings = _share_settings(
         tmp_path / "share",
-        share_max_upload_bytes=1024,
+        share_max_upload_bytes=4096,
         share_rate_limit_per_hour=20,
-        share_quota_bytes_per_30d=2048,
+        share_quota_bytes_per_30d=8192,
     )
     app = create_app(worker=worker, settings=settings)
 

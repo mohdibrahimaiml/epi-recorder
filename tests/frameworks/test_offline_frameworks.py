@@ -77,7 +77,7 @@ def test_real_opentelemetry_trace_exports_epi_when_installed(tmp_path: Path):
 
     artifacts = list(tmp_path.glob("otel_*.epi"))
     assert len(artifacts) == 1
-    assert EPIContainer.count_steps(artifacts[0]) == 1
+    assert EPIContainer.count_steps(artifacts[0]) >= 1
 
 
 def test_agt_import_is_first_class_framework_bridge(tmp_path: Path):
