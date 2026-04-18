@@ -1393,3 +1393,117 @@ label {
     grid-column: auto;
   }
 }
+
+/* ============================================================================
+ * INTEGRATION MODULE STYLING
+ * ============================================================================ */
+
+.case-integration-card {
+  background: linear-gradient(135deg, rgba(232, 244, 243, 0.4), rgba(209, 242, 239, 0.3));
+  border: 1px solid rgba(21, 94, 99, 0.15);
+}
+
+.integration-module-card {
+  /* Container for integration-specific content */
+}
+
+.integration-module-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.integration-module-name {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Guardrails-specific styles */
+.guard-iteration-flow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.guard-iteration-step {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(209, 242, 239, 0.6);
+  border: 1px solid rgba(21, 94, 99, 0.2);
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.guard-iteration-step.success {
+  background: rgba(17, 106, 79, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.guard-iteration-step.warning {
+  background: rgba(154, 91, 0, 0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.guard-iteration-step.danger {
+  background: rgba(164, 56, 31, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.validator-result-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.validator-result-row:last-child {
+  border-bottom: none;
+}
+
+.validator-result-row strong {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* LangChain-specific styles */
+.chain-step-row {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: rgba(21, 94, 99, 0.06);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent);
+  font-size: 0.9rem;
+}
+
+.chain-step-row strong {
+  margin-right: 8px;
+}
+
+/* Empty state / generic integration */
+.integration-empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(21, 94, 99, 0.04);
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+}

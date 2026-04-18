@@ -35,6 +35,9 @@ const state = {
   },
 };
 
+// Active integration module (set when a case is loaded)
+let activeModule = null;
+
 const POLICY_EDITOR_EMPTY_KEY = '__workspace__';
 const SETUP_STORAGE_KEY = 'epi-decision-ops.setup.v1';
 const GATEWAY_ACCESS_TOKEN_STORAGE_KEY = 'epi-decision-ops.gateway-token.v1';
@@ -464,6 +467,7 @@ function captureElements() {
   elements.caseAlerts = document.getElementById('case-alerts');
   elements.caseFindings = document.getElementById('case-findings');
   elements.caseTimeline = document.getElementById('case-timeline');
+  elements.caseIntegrationPanel = document.getElementById('case-integration-panel');
   elements.workflowForm = document.getElementById('workflow-form');
   elements.workflowAssignee = document.getElementById('workflow-assignee');
   elements.workflowDueAt = document.getElementById('workflow-due-at');
@@ -1460,6 +1464,506 @@ function deriveSourceProfile(manifest, analysis, mappingReport, artifactNames) {
     trustNarrative: synthesized ? 'Synthesized evidence present' : 'Portable case evidence',
   };
 }
+
+// ============================================================================
+// INTEGRATION MODULE SYSTEM
+// ============================================================================
+// Modular framework-specific rendering for Guardrails, LangChain, LangGraph, etc.
+// Each module detects its framework and provides rich visualization panels.
+
+function detectIntegration(manifest, steps, analysis) {
+  const tags = Array.isArray(manifest?.tags) ? manifest.tags.map((t) => String(t).toLowerCase()) : [];
+  const stepsArray = Array.isArray(steps) ? steps : [];
+  const kindSet = new Set(stepsArray.map((s) => s.kind));
+
+  // 1. Explicit tags
+  for (const moduleId of ['epi_guardrails', 'guardrails', 'langchain', 'langgraph', 'openai_agents', 'agt']) {
+    if (tags.includes(moduleId)) return moduleId;
+  }
+
+  // 2. Explicit source
+  if (manifest?.source?.integration && MODULE_REGISTRY[manifest.source.integration]) {
+    return manifest.source.integration;
+  }
+
+  // 3. Heuristic step-kind analysis
+  let scores = { epi_guardrails: 0, guardrails: 0, langchain: 0, langgraph: 0, openai_agents: 0, agt: 0 };
+
+  for (const kind of kindSet) {
+    const k = String(kind).toLowerCase();
+    // epi_guardrails: agent.step + subtype=guardrails, or guardrails.execution.*
+    if (k === 'agent.step' && stepsArray.some((s) => s.kind === 'agent.step' && s.content?.subtype === 'guardrails')) {
+      scores.epi_guardrails += 10;
+    }
+    if (k.startsWith('guardrails.execution')) {
+      scores.epi_guardrails += 8;
+    }
+    // guardrails: guardrails.* steps (not execution)
+    if (k.startsWith('guardrails.') && !k.startsWith('guardrails.execution')) {
+      scores.guardrails += 5;
+    }
+    // langchain: chain.*, retriever.*, agent.action, agent.finish
+    if (['chain.start', 'chain.end', 'chain.error', 'retriever.query', 'retriever.result', 'agent.action', 'agent.finish'].includes(k)) {
+      scores.langchain += 5;
+    }
+    // langgraph: langgraph.checkpoint.*
+    if (k.startsWith('langgraph.checkpoint')) {
+      scores.langgraph += 8;
+    }
+    // openai_agents: agent.run.start with openai model
+    if (k === 'agent.run.start' && stepsArray.some((s) => s.kind === 'agent.run.start' && s.content?.agent_type === 'openai')) {
+      scores.openai_agents += 7;
+    }
+    // agt: mapped via deriveSourceProfile logic
+  }
+
+  const maxScore = Math.max(...Object.values(scores));
+  if (maxScore > 0) {
+    const detected = Object.entries(scores).find(([_, score]) => score === maxScore)?.[0];
+    if (detected) return detected;
+  }
+
+  // 4. AGT via existing deriveSourceProfile
+  const sourceProfile = deriveSourceProfile(manifest, analysis, null, []);
+  if (sourceProfile?.kind === 'agt-imported') {
+    return 'agt';
+  }
+
+  // 5. Fallback
+  return 'generic';
+}
+
+// Integration module definitions
+const MODULE_REGISTRY = {
+  epi_guardrails: {
+    id: 'epi_guardrails',
+    name: 'Guardrails AI (EPI)',
+    icon: '🛡️',
+    detect(manifest, steps) {
+      return steps.some((s) => s.kind === 'agent.step' && s.content?.subtype === 'guardrails') ||
+             steps.some((s) => s.kind?.startsWith('guardrails.execution'));
+    },
+    getStepLabel(step) {
+      const kind = step.kind || '';
+      const content = step.content || {};
+      if (kind === 'agent.step' && content.subtype === 'guardrails') {
+        return content.phase === 'start' ? 'Guard initialized' : 'Guard execution ended';
+      }
+      if (kind === 'guardrails.execution.start') return 'Guard initialized';
+      if (kind === 'guardrails.execution.end') return content.success ? 'Guard completed' : 'Guard failed';
+      if (kind === 'guardrails.iteration') return `Validation iteration ${content.iteration_index || '?'}`;
+      if (kind === 'guardrails.llm.call') return `LLM invoked by guard`;
+      if (kind === 'guardrails.validator.result') return `Validator: ${content.validator_name || '?'} — ${content.status || '?'}`;
+      if (kind === 'guardrails.input.validation') return 'Input validation';
+      if (kind === 'guardrails.output.validation') return 'Output validation';
+      return null;
+    },
+    getStepTone(step) {
+      const kind = step.kind || '';
+      const content = step.content || {};
+      if (kind === 'guardrails.iteration') {
+        if (content.validation_passed) return 'success';
+        if (content.correction_applied) return 'warning';
+        return 'danger';
+      }
+      if (kind === 'guardrails.validator.result') {
+        if (content.status === 'pass') return 'success';
+        if (content.status === 'fail') return 'danger';
+        return 'warning';
+      }
+      if (kind?.startsWith('guardrails.')) return 'neutral';
+      return null;
+    },
+    getStepCopy(step) {
+      const content = step.content || {};
+      if (step.kind === 'guardrails.iteration') {
+        const validators = content.validators_run ? content.validators_run.length : 0;
+        return `Iteration ${content.iteration_index || '?'}: ${validators} validators checked, ${content.validation_passed ? 'passed' : 'failed'}`;
+      }
+      if (step.kind === 'guardrails.validator.result') {
+        return `${content.validator_name || 'Validator'} returned: ${content.status || 'unknown'}${content.error ? ` — ${content.error}` : ''}`;
+      }
+      return null;
+    },
+    buildPanel(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const guardrailsSteps = steps.filter((s) => s.kind?.startsWith('guardrails.') || (s.kind === 'agent.step' && s.content?.subtype === 'guardrails'));
+
+      // Summarize execution
+      const executionSteps = steps.filter((s) => s.kind === 'guardrails.execution.start' || s.kind === 'guardrails.execution.end');
+      const startStep = executionSteps.find((s) => s.kind === 'guardrails.execution.start');
+      const endStep = executionSteps.find((s) => s.kind === 'guardrails.execution.end');
+
+      let guardName = startStep?.content?.guard || 'Guard';
+      let iterations = steps.filter((s) => s.kind === 'guardrails.iteration').length;
+      let llmCalls = steps.filter((s) => s.kind === 'guardrails.llm.call').length;
+      let duration = endStep?.content?.duration_seconds || 0;
+      let success = endStep?.content?.success !== false;
+
+      // Validator breakdown
+      const validators = {};
+      steps.filter((s) => s.kind === 'guardrails.validator.result').forEach((s) => {
+        const name = s.content?.validator_name || 'Unknown';
+        if (!validators[name]) validators[name] = { pass: 0, fail: 0, corrected: 0 };
+        if (s.content?.status === 'pass') validators[name].pass++;
+        if (s.content?.status === 'fail') validators[name].fail++;
+        if (s.content?.corrected) validators[name].corrected++;
+      });
+
+      const validatorRows = Object.entries(validators)
+        .map(([name, counts]) => `
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid var(--line);">${escapeHtml(name)}</td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--line); text-align: center;">
+              <span class="badge tone-success">${counts.pass}</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--line); text-align: center;">
+              <span class="badge tone-danger">${counts.fail}</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--line); text-align: center;">
+              <span class="badge tone-warning">${counts.corrected}</span>
+            </td>
+          </tr>
+        `)
+        .join('');
+
+      return `
+        <div class="integration-module-card">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px;">
+            <div style="padding: 14px; background: rgba(21,94,99,0.08); border-radius: 12px;">
+              <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Guard Name</div>
+              <div style="font-weight: 600; margin-top: 4px;">${escapeHtml(guardName)}</div>
+            </div>
+            <div style="padding: 14px; background: rgba(21,94,99,0.08); border-radius: 12px;">
+              <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Iterations</div>
+              <div style="font-weight: 600; margin-top: 4px;">${iterations}</div>
+            </div>
+            <div style="padding: 14px; background: rgba(21,94,99,0.08); border-radius: 12px;">
+              <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">LLM Calls</div>
+              <div style="font-weight: 600; margin-top: 4px;">${llmCalls}</div>
+            </div>
+            <div style="padding: 14px; background: rgba(21,94,99,0.08); border-radius: 12px;">
+              <div style="font-size: 0.8rem; color: var(--muted); text-transform: uppercase;">Duration</div>
+              <div style="font-weight: 600; margin-top: 4px;">${duration.toFixed(2)}s</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 0.9rem; text-transform: uppercase; color: var(--muted);">Validator Performance</h4>
+            <div style="overflow-x: auto; border-radius: 10px; border: 1px solid var(--line);">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                  <tr style="background: rgba(21,94,99,0.06);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600;">Validator</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600;">Pass</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600;">Fail</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600;">Corrected</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${validatorRows}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; padding: 14px; background: rgba(21,94,99,0.06); border-radius: 10px; border-left: 4px solid var(--accent); font-size: 0.85rem;">
+            <strong>Status:</strong> ${success ? '✓ Guard completed successfully' : '✗ Guard failed'}
+          </div>
+        </div>
+      `;
+    },
+    buildMetrics(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const iterations = steps.filter((s) => s.kind === 'guardrails.iteration').length;
+      const passed = steps.filter((s) => s.kind === 'guardrails.iteration' && s.content?.validation_passed).length;
+      const passRate = iterations > 0 ? Math.round((passed / iterations) * 100) : 0;
+      const corrections = steps.filter((s) => s.kind === 'guardrails.iteration' && s.content?.correction_applied).length;
+
+      return [
+        { label: 'Guard Iterations', value: String(iterations), tone: 'neutral' },
+        { label: 'Pass Rate', value: `${passRate}%`, tone: passRate === 100 ? 'success' : 'warning' },
+        { label: 'Corrections Applied', value: String(corrections), tone: corrections > 0 ? 'warning' : 'success' },
+      ];
+    },
+  },
+
+  langchain: {
+    id: 'langchain',
+    name: 'LangChain',
+    icon: '⛓️',
+    detect(manifest, steps) {
+      return steps.some((s) =>
+        ['chain.start', 'chain.end', 'chain.error', 'retriever.query', 'retriever.result', 'agent.action', 'agent.finish'].includes(s.kind)
+      );
+    },
+    getStepLabel(step) {
+      const kind = step.kind || '';
+      const content = step.content || {};
+      if (kind === 'chain.start') return `Chain started: ${content.name || '?'}`;
+      if (kind === 'chain.end') return `Chain completed`;
+      if (kind === 'chain.error') return `Chain error`;
+      if (kind === 'retriever.query') return `Retriever queried`;
+      if (kind === 'retriever.result') return `Retriever results`;
+      if (kind === 'agent.action') return `Tool called: ${content.tool || '?'}`;
+      if (kind === 'agent.finish') return `Agent finished`;
+      return null;
+    },
+    getStepTone(step) {
+      const kind = step.kind || '';
+      if (kind === 'chain.error') return 'danger';
+      if (kind === 'chain.start') return 'neutral';
+      if (kind === 'chain.end') return 'success';
+      if (kind?.includes('retriever') || kind === 'agent.action') return 'neutral';
+      return null;
+    },
+    getStepCopy(step) {
+      const content = step.content || {};
+      if (step.kind === 'chain.start') return `Starting chain: ${content.name || 'unnamed'}`;
+      if (step.kind === 'retriever.query') return `Query: ${truncate(content.query || 'N/A', 100)}`;
+      if (step.kind === 'retriever.result') return `Returned ${content.result_count || '?'} documents`;
+      if (step.kind === 'agent.action') return `Tool: ${content.tool || '?'} — ${truncate(JSON.stringify(content.input || {}), 80)}`;
+      return null;
+    },
+    buildPanel(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const chainSteps = steps.filter((s) => s.kind?.startsWith('chain'));
+      const toolCalls = steps.filter((s) => s.kind === 'agent.action');
+      const retrieverCalls = steps.filter((s) => s.kind === 'retriever.query');
+
+      const chainRows = chainSteps
+        .map((s) => `
+          <div style="padding: 12px; margin-bottom: 8px; background: rgba(21,94,99,0.08); border-radius: 8px; font-size: 0.9rem;">
+            <strong>${escapeHtml(s.content?.name || 'Chain')}</strong>
+            ${s.kind === 'chain.error' ? ` — <span class="badge tone-danger">Error</span>` : ''}
+          </div>
+        `)
+        .join('');
+
+      const toolRows = toolCalls
+        .map((s) => `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid var(--line);">${escapeHtml(s.content?.tool || '?')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid var(--line); font-size: 0.85rem;">
+              <code>${escapeHtml(truncate(JSON.stringify(s.content?.input || {}), 60))}</code>
+            </td>
+          </tr>
+        `)
+        .join('');
+
+      return `
+        <div class="integration-module-card">
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase; color: var(--muted);">Chain Steps</h4>
+            ${chainRows || '<div style="color: var(--muted);">No chain steps recorded</div>'}
+          </div>
+
+          ${
+            toolCalls.length > 0
+              ? `
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase; color: var(--muted);">Tool Calls</h4>
+              <div style="overflow-x: auto; border-radius: 10px; border: 1px solid var(--line);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                  <thead>
+                    <tr style="background: rgba(21,94,99,0.06);">
+                      <th style="padding: 10px; text-align: left; font-weight: 600;">Tool</th>
+                      <th style="padding: 10px; text-align: left; font-weight: 600;">Input</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${toolRows}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `
+              : ''
+          }
+
+          ${
+            retrieverCalls.length > 0
+              ? `
+            <div style="margin-top: 20px; padding: 14px; background: rgba(21,94,99,0.06); border-radius: 10px;">
+              <strong>Retriever Activity:</strong> ${retrieverCalls.length} queries executed
+            </div>
+          `
+              : ''
+          }
+        </div>
+      `;
+    },
+    buildMetrics(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const chains = steps.filter((s) => s.kind === 'chain.start').length;
+      const tools = steps.filter((s) => s.kind === 'agent.action').length;
+      const retrievals = steps.filter((s) => s.kind === 'retriever.query').length;
+
+      return [
+        { label: 'Chains', value: String(chains), tone: 'neutral' },
+        { label: 'Tool Calls', value: String(tools), tone: 'neutral' },
+        { label: 'Retrievals', value: String(retrievals), tone: 'neutral' },
+      ];
+    },
+  },
+
+  langgraph: {
+    id: 'langgraph',
+    name: 'LangGraph',
+    icon: '🗂️',
+    detect(manifest, steps) {
+      return steps.some((s) => s.kind?.startsWith('langgraph.'));
+    },
+    getStepLabel(step) {
+      const kind = step.kind || '';
+      if (kind.startsWith('langgraph.checkpoint')) return 'State checkpoint';
+      return null;
+    },
+    getStepTone(step) {
+      return null;
+    },
+    getStepCopy(step) {
+      return null;
+    },
+    buildPanel(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const checkpoints = steps.filter((s) => s.kind?.startsWith('langgraph.checkpoint'));
+
+      const checkpointRows = checkpoints
+        .map((s) => `
+          <div style="padding: 12px; margin-bottom: 8px; background: rgba(21,94,99,0.08); border-radius: 8px; font-size: 0.9rem;">
+            <strong>Checkpoint</strong> — ${s.kind}
+            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+              ${new Date(s.timestamp).toLocaleString()}
+            </div>
+          </div>
+        `)
+        .join('');
+
+      return `
+        <div class="integration-module-card">
+          <h4 style="margin: 0 0 12px 0; font-size: 0.9rem; text-transform: uppercase; color: var(--muted);">State Checkpoints</h4>
+          ${checkpointRows || '<div style="color: var(--muted);">No checkpoints recorded</div>'}
+        </div>
+      `;
+    },
+    buildMetrics(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const saves = steps.filter((s) => s.kind === 'langgraph.checkpoint.save').length;
+      const loads = steps.filter((s) => s.kind === 'langgraph.checkpoint.load').length;
+
+      return [
+        { label: 'Saves', value: String(saves), tone: 'neutral' },
+        { label: 'Loads', value: String(loads), tone: 'neutral' },
+      ];
+    },
+  },
+
+  generic: {
+    id: 'generic',
+    name: 'Integration',
+    icon: '📦',
+    detect() {
+      return true; // Always matches as fallback
+    },
+    getStepLabel() {
+      return null; // Fallback to default
+    },
+    getStepTone() {
+      return null;
+    },
+    getStepCopy() {
+      return null;
+    },
+    buildPanel(caseRecord) {
+      const steps = caseRecord.steps || [];
+      const kindCounts = {};
+      steps.forEach((s) => {
+        const kind = s.kind || 'unknown';
+        kindCounts[kind] = (kindCounts[kind] || 0) + 1;
+      });
+
+      const sortedKinds = Object.entries(kindCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10);
+
+      const kindRows = sortedKinds
+        .map(([kind, count]) => `
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line);">
+            <code style="font-size: 0.85rem;">${escapeHtml(kind)}</code>
+            <strong>${count}</strong>
+          </div>
+        `)
+        .join('');
+
+      return `
+        <div class="integration-module-card">
+          <p style="margin: 0 0 16px 0; color: var(--muted); font-size: 0.9rem;">
+            No framework-specific integration detected. Steps recorded:
+          </p>
+          <div style="background: rgba(21,94,99,0.06); padding: 14px; border-radius: 10px;">
+            ${kindRows}
+          </div>
+          <div style="margin-top: 16px; padding: 12px; background: var(--warning-soft); border-radius: 8px; border-left: 4px solid var(--warning);">
+            <strong style="color: var(--warning);">Tip:</strong> <span style="font-size: 0.9rem;">Build a custom integration module to visualize your framework.</span>
+          </div>
+        </div>
+      `;
+    },
+    buildMetrics(caseRecord) {
+      const steps = caseRecord.steps || [];
+      return [
+        { label: 'Total Steps', value: String(steps.length), tone: 'neutral' },
+      ];
+    },
+  },
+
+  // Placeholder modules (can be implemented later)
+  guardrails: {
+    id: 'guardrails',
+    name: 'Guardrails',
+    icon: '🛡️',
+    detect(manifest, steps) {
+      return steps.some((s) => s.kind?.startsWith('guardrails.') && !s.kind?.startsWith('guardrails.execution'));
+    },
+    getStepLabel() { return null; },
+    getStepTone() { return null; },
+    getStepCopy() { return null; },
+    buildPanel(caseRecord) { return '<div class="integration-module-card">Guardrails integration recording detected.</div>'; },
+    buildMetrics() { return []; },
+  },
+
+  openai_agents: {
+    id: 'openai_agents',
+    name: 'OpenAI Agents',
+    icon: '🤖',
+    detect(manifest, steps) {
+      return steps.some((s) => s.kind === 'agent.run.start' && s.content?.agent_type === 'openai');
+    },
+    getStepLabel() { return null; },
+    getStepTone() { return null; },
+    getStepCopy() { return null; },
+    buildPanel(caseRecord) { return '<div class="integration-module-card">OpenAI Agents integration recording detected.</div>'; },
+    buildMetrics() { return []; },
+  },
+
+  agt: {
+    id: 'agt',
+    name: 'AGT',
+    icon: '📋',
+    detect(manifest, analysis) {
+      const sourceProfile = deriveSourceProfile(manifest, analysis, null, []);
+      return sourceProfile?.kind === 'agt-imported';
+    },
+    getStepLabel() { return null; },
+    getStepTone() { return null; },
+    getStepCopy() { return null; },
+    buildPanel() { return '<div class="integration-module-card">AGT transformation audit available via Transformation Audit tab.</div>'; },
+    buildMetrics() { return []; },
+  },
+};
+
+// ============================================================================
 
 function buildAttachmentGroups(artifactNames, sourceProfile) {
   const groups = [
@@ -2979,6 +3483,10 @@ function renderCaseView() {
     return;
   }
 
+  // Detect and set active integration module
+  const detectedModuleId = detectIntegration(caseRecord.manifest, caseRecord.steps, caseRecord.analysis);
+  activeModule = MODULE_REGISTRY[detectedModuleId] || MODULE_REGISTRY.generic;
+
   elements.caseSelector.value = caseRecord.id;
   const analysisState = deriveAnalysisState(caseRecord.manifest, caseRecord.analysis);
   const guidance = buildCaseGuidance(caseRecord);
@@ -2989,6 +3497,7 @@ function renderCaseView() {
   const trustAlerts = buildTrustAlerts(caseRecord, analysisState);
   const mappingView = buildTransformationAuditView(caseRecord);
   const attachmentView = buildAttachmentView(caseRecord);
+  const integrationPanel = buildIntegrationPanel(caseRecord);
 
   renderAuditFirstCard(caseRecord, analysisState, attachmentView);
   elements.caseSubtitle.textContent = `${caseRecord.workflow} | ${caseRecord.sourceProfile?.importMode || 'Portable EPI artifact'}`;
@@ -3035,6 +3544,7 @@ function renderCaseView() {
   }).join('');
   elements.caseFindings.innerHTML = buildFindings(caseRecord).map(renderStackItem).join('');
   elements.caseTimeline.innerHTML = buildTimeline(caseRecord).map(renderTimelineItem).join('');
+  elements.caseIntegrationPanel.innerHTML = integrationPanel;
   renderTransformationAudit(caseRecord, mappingView);
   renderAttachmentGroups(caseRecord, attachmentView);
   renderCaseGuidance(guidance);
@@ -5937,48 +6447,68 @@ function buildOverviewPresentation(caseRecord, analysisState) {
       : 'The file can be inspected locally and its trust state is shown below.',
   ];
 
+  const baseSignals = [
+    {
+      label: 'Decision',
+      value: caseRecord.decision.outcome,
+      copy: caseRecord.decision.summary,
+      tone: 'neutral',
+    },
+    {
+      label: 'Reason',
+      value: reason,
+      copy: caseRecord.risk.detail,
+      tone: caseRecord.risk.tone,
+    },
+    {
+      label: 'Confidence',
+      value: confidence,
+      copy: analysisState.detail,
+      tone: analysisState.tone,
+    },
+    {
+      label: 'Review',
+      value: caseRecord.reviewState.label,
+      copy: caseRecord.reviewState.detail,
+      tone: caseRecord.reviewState.tone,
+    },
+    {
+      label: 'Trust',
+      value: caseRecord.trust.label,
+      copy: caseRecord.trust.detail,
+      tone: caseRecord.trust.tone,
+    },
+    {
+      label: 'Source',
+      value: sourceLine,
+      copy: caseRecord.sourceProfile?.transformationAuditAvailable
+        ? 'Transformation audit available.'
+        : 'Direct case evidence path.',
+      tone: caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral',
+    },
+  ];
+
+  // Add integration-specific metrics to signals if available
+  let signals = baseSignals;
+  if (activeModule?.buildMetrics) {
+    const integrationMetrics = activeModule.buildMetrics(caseRecord);
+    if (Array.isArray(integrationMetrics)) {
+      for (const metric of integrationMetrics) {
+        if (metric && metric.label && metric.value) {
+          signals.push({
+            label: metric.label,
+            value: metric.value,
+            copy: metric.label,
+            tone: metric.tone || 'neutral',
+          });
+        }
+      }
+    }
+  }
+
   return {
     narrative: narrativeParts.join(' '),
-    signals: [
-      {
-        label: 'Decision',
-        value: caseRecord.decision.outcome,
-        copy: caseRecord.decision.summary,
-        tone: 'neutral',
-      },
-      {
-        label: 'Reason',
-        value: reason,
-        copy: caseRecord.risk.detail,
-        tone: caseRecord.risk.tone,
-      },
-      {
-        label: 'Confidence',
-        value: confidence,
-        copy: analysisState.detail,
-        tone: analysisState.tone,
-      },
-      {
-        label: 'Review',
-        value: caseRecord.reviewState.label,
-        copy: caseRecord.reviewState.detail,
-        tone: caseRecord.reviewState.tone,
-      },
-      {
-        label: 'Trust',
-        value: caseRecord.trust.label,
-        copy: caseRecord.trust.detail,
-        tone: caseRecord.trust.tone,
-      },
-      {
-        label: 'Source',
-        value: sourceLine,
-        copy: caseRecord.sourceProfile?.transformationAuditAvailable
-          ? 'Transformation audit available.'
-          : 'Direct case evidence path.',
-        tone: caseRecord.sourceProfile?.kind === 'agt-imported' ? 'warning' : 'neutral',
-      },
-    ],
+    signals: signals,
     summaryRows: [
       ['Decision', caseRecord.decision.outcome],
       ['Source system', caseRecord.sourceProfile?.sourceSystem || 'EPI'],
@@ -6211,6 +6741,36 @@ function buildTrustAlerts(caseRecord, analysisState) {
   }
 
   return items;
+}
+
+function buildIntegrationPanel(caseRecord) {
+  if (!activeModule || !activeModule.buildPanel) {
+    return '';
+  }
+
+  const panelHtml = activeModule.buildPanel(caseRecord);
+  if (!panelHtml) {
+    return '';
+  }
+
+  return `
+    <article class="card case-integration-card">
+      <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.5rem;">${activeModule.icon || '📦'}</span>
+          <div>
+            <div class="section-label">Framework Integration</div>
+            <h3 style="margin: 0; font-size: 1.1rem;">${escapeHtml(activeModule.name || 'Integration')}</h3>
+          </div>
+        </div>
+        <span class="badge tone-neutral" style="font-size: 0.75rem;">Detected</span>
+      </header>
+      ${panelHtml}
+      <footer style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); text-align: center; font-size: 0.8rem; color: var(--muted);">
+        Powered by EPI Viewer integration module system
+      </footer>
+    </article>
+  `;
 }
 
 function buildTransformationAuditView(caseRecord) {
@@ -6817,12 +7377,12 @@ function buildCaseGuidance(caseRecord) {
 function buildTimeline(caseRecord) {
   const visibleSteps = caseRecord.steps.filter((step) => !['session.start', 'session.end'].includes(step.kind));
   const stepItems = visibleSteps.slice(0, 24).map((step, index) => ({
-    title: stepLabel(step.kind),
+    title: stepLabel(step),
     time: formatDate(step.timestamp),
     sortTime: step.timestamp,
     copy: summarizeStep(step, index),
     kicker: `Step ${index + 1}`,
-    tone: timelineToneForKind(step.kind),
+    tone: timelineToneForKind(step),
     badges: buildTimelineBadges(step.kind, step.content || {}),
     highlighted: state.caseHighlights.stepNumber === index + 1,
     actions: buildTimelineActions(step, index + 1, caseRecord),
@@ -6882,7 +7442,18 @@ function buildTimelineActions(step, stepNumber, caseRecord) {
   return actions;
 }
 
-function timelineToneForKind(kind) {
+function timelineToneForKind(step) {
+  // Support both old (kind string) and new (step object) signatures for backward compatibility
+  const stepObj = typeof step === 'string' ? { kind: step } : step;
+  const kind = stepObj?.kind || '';
+
+  // Delegate to active integration module first
+  if (activeModule?.getStepTone) {
+    const moduleTone = activeModule.getStepTone(stepObj);
+    if (moduleTone) return moduleTone;
+  }
+
+  // Fall back to generic tone mapping
   const text = String(kind || '').trim().toLowerCase();
   if (text.includes('error') || text === 'agent.run.error') {
     return 'danger';
@@ -7489,7 +8060,18 @@ function summarizeFault(fault) {
   return `${category}${step}. ${detail}`;
 }
 
-function stepLabel(kind) {
+function stepLabel(step) {
+  // Support both old (kind string) and new (step object) signatures for backward compatibility
+  const stepObj = typeof step === 'string' ? { kind: step } : step;
+  const kind = stepObj?.kind || '';
+
+  // Delegate to active integration module first
+  if (activeModule?.getStepLabel) {
+    const moduleLabel = activeModule.getStepLabel(stepObj);
+    if (moduleLabel) return moduleLabel;
+  }
+
+  // Fall back to generic mapping
   const mapping = {
     'tool.call': 'Business check started',
     'tool.response': 'Business check completed',
@@ -7525,6 +8107,14 @@ async function openCaseReviewForm() {
 
 function summarizeStep(step, index) {
   const content = step.content || {};
+
+  // Delegate to active integration module first
+  if (activeModule?.getStepCopy) {
+    const moduleCopy = activeModule.getStepCopy(step);
+    if (moduleCopy) return moduleCopy;
+  }
+
+  // Fall back to generic summarization
   if (step.kind === 'source.record.loaded') {
     const recordId = content.record_id || content.case_id || 'the source record';
     return `Loaded ${recordId} from ${content.system || 'the source system'} as a review preview.`;
