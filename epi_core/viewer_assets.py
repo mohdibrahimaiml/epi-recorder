@@ -25,7 +25,15 @@ def _read_text(package_dir: str, filename: str) -> str | None:
         return None
 
 
-def load_viewer_assets() -> dict[str, str | None]:
+def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
+    if version == "2.0":
+        return {
+            "template_html": _read_text("web_viewer", "v2_index.html"),
+            "jszip_js": _read_text("web_viewer", "jszip.min.js"),
+            "app_js": _read_text("web_viewer", "v2_app.js"),
+            "css_styles": _read_text("web_viewer", "v2_styles.css"),
+            "crypto_js": _read_text("epi_viewer_static", "crypto.js"),
+        }
     return {
         "template_html": _read_text("web_viewer", "index.html"),
         "jszip_js": _read_text("web_viewer", "jszip.min.js"),

@@ -155,8 +155,12 @@ class EPIContainer:
             raise last_error or RuntimeError("Could not create temporary directory")
 
     @staticmethod
-    def _create_embedded_viewer(source_dir: Path, manifest: ManifestModel) -> str:
-        assets = load_viewer_assets()
+    def _create_embedded_viewer(
+        source_dir: Path,
+        manifest: ManifestModel,
+        viewer_version: str = "2.0",
+    ) -> str:
+        assets = load_viewer_assets(version=viewer_version)
         template_html = assets["template_html"]
         if not template_html:
             return EPIContainer._create_minimal_viewer(manifest)
@@ -418,6 +422,7 @@ class EPIContainer:
         preserve_generated: bool = False,
         generate_analysis: bool = True,
         embed_agt: bool = False,
+        **kwargs,
     ) -> None:
         if not source_dir.exists():
             raise FileNotFoundError(f"Source directory not found: {source_dir}")
@@ -522,7 +527,10 @@ class EPIContainer:
         if signer_function:
             manifest = signer_function(manifest)
 
-        viewer_html = EPIContainer._create_embedded_viewer(source_dir, manifest)
+        viewer_version = str(kwargs.get("viewer_version", "2.0"))
+        viewer_html = EPIContainer._create_embedded_viewer(
+            source_dir, manifest, viewer_version=viewer_version
+        )
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
@@ -545,6 +553,7 @@ class EPIContainer:
         container_format: str = EPI_CONTAINER_FORMAT_ENVELOPE,
         generate_analysis: bool = True,
         embed_agt: bool = False,
+        **kwargs,
     ) -> None:
         """
         Create a `.epi` file from a source directory.
@@ -592,8 +601,12 @@ class EPIContainer:
         source_dir: Path,
         manifest: ManifestModel,
         payload_path: Path,
+        **kwargs,
     ) -> None:
-        viewer_html = EPIContainer._create_embedded_viewer(source_dir, manifest)
+        viewer_version = str(kwargs.get("viewer_version", "2.0"))
+        viewer_html = EPIContainer._create_embedded_viewer(
+            source_dir, manifest, viewer_version=viewer_version
+        )
         payload_path.parent.mkdir(parents=True, exist_ok=True)
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
