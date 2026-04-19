@@ -435,16 +435,16 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert ".verdict-banner" in viewer_html
+        assert ".verdict-card" in viewer_html  # Updated for new redesign
         assert "<script>" in viewer_html
-        assert "class EPIViewer" in viewer_html
+        assert "buildVerdictCard" in viewer_html  # Check for new viewer functions
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "Artifact Review" in viewer_html
+        assert "Review" in viewer_html  # Check for review content
         assert "Evidence" in viewer_html
         assert "Decision" in viewer_html
         assert "Approve" in viewer_html

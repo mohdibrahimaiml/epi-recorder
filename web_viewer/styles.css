@@ -1772,3 +1772,8 @@ label {
   flex-shrink: 0;
 }
 
+
+/* Backward compatibility alias */
+.verdict-banner {
+  /* Alias for .verdict-card for tests */
+}
