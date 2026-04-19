@@ -1507,3 +1507,268 @@ label {
   border-radius: 10px;
   border: 1px dashed var(--line);
 }
+
+/* ========== EPI REDESIGN: VERDICT-FIRST HIERARCHY ========== */
+
+/* Verdict Card — the hero that makes the decision clear */
+.verdict-card {
+  border-radius: 20px;
+  padding: 36px;
+  margin-bottom: 24px;
+  border: 2px solid;
+  background: var(--surface);
+}
+
+.verdict-card--critical {
+  background: rgba(164, 56, 31, 0.06);
+  border-color: var(--danger);
+}
+
+.verdict-card--high {
+  background: rgba(154, 91, 0, 0.06);
+  border-color: var(--warning);
+}
+
+.verdict-card--success {
+  background: rgba(17, 106, 79, 0.06);
+  border-color: var(--success);
+}
+
+.verdict-card--danger {
+  background: var(--ink);
+  border-color: #7a1c10;
+  color: white;
+}
+
+.verdict-icon {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.verdict-headline {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0;
+  font-family: "Cambria", "Iowan Old Style", serif;
+}
+
+.verdict-summary {
+  font-size: 1.05rem;
+  margin-top: 14px;
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+.verdict-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.verdict-cta {
+  margin-left: auto;
+}
+
+/* Story Card — the narrative */
+.story-card {
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.story-intro {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.story-metric-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.story-metric {
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.story-metric-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.story-metric-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-strong);
+  margin-top: 2px;
+}
+
+/* Fault Cards — detailed per-fault explanation */
+.fault-card {
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 6px solid;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.fault-card--critical {
+  border-left-color: var(--danger);
+  border-top-color: var(--danger);
+}
+
+.fault-card--high {
+  border-left-color: var(--warning);
+  border-top-color: var(--warning);
+}
+
+.fault-card--medium {
+  border-left-color: #d97706;
+  border-top-color: #d97706;
+}
+
+.fault-card--low {
+  border-left-color: #2563eb;
+  border-top-color: #2563eb;
+}
+
+.fault-severity {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.fault-severity--critical {
+  background: rgba(164, 56, 31, 0.12);
+  color: var(--danger);
+}
+
+.fault-severity--high {
+  background: rgba(154, 91, 0, 0.12);
+  color: var(--warning);
+}
+
+.fault-severity--medium {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+
+.fault-severity--low {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.fault-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 6px 0 14px 0;
+  font-family: "Cambria", "Iowan Old Style", serif;
+}
+
+.fault-explanation {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.fault-why {
+  font-size: 0.875rem;
+  color: var(--muted);
+  border-left: 3px solid var(--line);
+  padding-left: 12px;
+  margin-top: 14px;
+  font-style: italic;
+}
+
+.fault-step-link {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.fault-step-link:hover {
+  color: var(--accent-strong);
+}
+
+/* Guard Flow Diagram — for Guardrails visualization */
+.guard-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.guard-flow-step {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 2px solid;
+  min-width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.guard-flow-step--neutral {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.guard-flow-step--pass {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.guard-flow-step--fail {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.guard-flow-step--corrected {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.guard-flow-arrow {
+  color: var(--muted);
+  font-size: 1.2rem;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+

@@ -517,6 +517,9 @@ function captureElements() {
   elements.downloadReportJson = document.getElementById('download-report-json');
   elements.downloadReportCsv = document.getElementById('download-report-csv');
 }
+  elements.caseVerdictCard = document.getElementById('case-verdict-card');
+  elements.caseStoryCard = document.getElementById('case-story-card');
+  elements.caseFaultCards = document.getElementById('case-fault-cards');
 
 function bindEvents() {
   elements.exampleCaseButton.addEventListener('click', () => {
@@ -3529,6 +3532,11 @@ function renderCaseView() {
     mappingView.visible ? 'Transformation audit available' : 'Direct evidence path',
     mappingView.visible ? 'warning' : 'neutral',
   );
+
+  // REDESIGN: Inject verdict, story, and fault cards
+  elements.caseVerdictCard.innerHTML = buildVerdictCard(caseRecord, analysisState);
+  elements.caseStoryCard.innerHTML = buildExecutionStory(caseRecord);
+  elements.caseFaultCards.innerHTML = buildFaultCards(caseRecord);
   elements.caseOverviewSignals.innerHTML = overview.signals.map(renderCaseSignalItem).join('');
   renderCaseSnapshot(caseRecord, analysisState, guidance);
 
@@ -7264,6 +7272,157 @@ function buildFindings(caseRecord) {
   return findings;
 }
 
+
+// ========== REDESIGN: VERDICT-FIRST COMPONENTS ==========
+
+function buildOutcomeSentence(caseRecord, analysisState) {
+  if (!caseRecord.analysis) {
+    return `Agent completed execution with unknown status.`;
+  }
+  const primary = caseRecord.analysis.primary_fault;
+  if (primary) {
+    return `${primary.plain_english || 'Policy violation detected'} ${primary.step_number ? `at step ${primary.step_number}` : ''}.`.trim();
+  }
+  const faultCount = (caseRecord.analysis.all_faults || []).length;
+  if (faultCount > 0) {
+    return `Agent violated ${faultCount} policy rule${faultCount === 1 ? '' : 's'}.`;
+  }
+  return `Agent completed execution successfully with no policy violations.`;
+}
+
+function buildVerdictCard(caseRecord, analysisState) {
+  let tone = 'success';
+  let icon = '✅';
+  let headline = 'DECISION CLEARED';
+  let summary = buildOutcomeSentence(caseRecord, analysisState);
+
+  if (caseRecord.trust.code === 'do-not-use') {
+    tone = 'danger';
+    icon = '🔒';
+    headline = 'ARTIFACT TAMPERED';
+    summary = 'This file failed integrity checks. Do not rely on it until verified from the original source.';
+  } else if (caseRecord.risk?.tone === 'danger') {
+    tone = 'critical';
+    icon = '🚨';
+    headline = 'CRITICAL FAULT DETECTED';
+    summary = buildOutcomeSentence(caseRecord, analysisState);
+  } else if (caseRecord.risk?.tone === 'warning') {
+    tone = 'high';
+    icon = '⚠️';
+    headline = 'HIGH-RISK DECISION';
+    summary = buildOutcomeSentence(caseRecord, analysisState);
+  } else if (caseRecord.reviewState.code === 'pending') {
+    tone = 'warning';
+    icon = '🔍';
+    headline = 'HUMAN REVIEW REQUIRED';
+    summary = 'A reviewer must examine this case before it can be approved.';
+  }
+
+  const trustBadgeLabel = caseRecord.trust.code === 'trusted' ? '✅ Cryptographically verified' : '⚠️ Verification recommended';
+  const faultCount = (caseRecord.analysis?.all_faults || []).length;
+  const violationText = faultCount === 0 ? '0 violations' : `${faultCount} violation${faultCount === 1 ? '' : 's'}`;
+
+  const cta = (caseRecord.reviewState.code === 'pending' && tone !== 'danger')
+    ? `<button class="primary-button verdict-cta" type="button" data-case-section-target="case-review-card">Review now →</button>`
+    : tone === 'danger'
+    ? `<button class="secondary-button verdict-cta" type="button" data-case-section-target="case-trust-card">Verify original →</button>`
+    : '';
+
+  return `
+    <div style="display: flex; align-items: flex-start; gap: 24px;">
+      <div style="flex: 1;">
+        <div class="verdict-icon">${icon}</div>
+        <h2 class="verdict-headline">${escapeHtml(headline)}</h2>
+        <p class="verdict-summary">${escapeHtml(summary)}</p>
+        <div class="verdict-meta">
+          <span class="pill-badge tone-success">${escapeHtml(trustBadgeLabel)}</span>
+          <span class="pill-badge tone-neutral">${escapeHtml(violationText)}</span>
+          ${caseRecord.reviewState.code === 'reviewed' ? `<span class="pill-badge tone-success">✓ Reviewed</span>` : ''}
+        </div>
+      </div>
+      ${cta}
+    </div>
+  `;
+}
+function buildExecutionStory(caseRecord) {
+  const steps = caseRecord.steps || [];
+  const stepCount = steps.length;
+  const llmCalls = steps.filter(s => s.kind?.includes('llm')).length;
+  const toolCalls = steps.filter(s => s.kind?.includes('tool')).length;
+  
+  let narrative = 'The agent executed with no recorded steps.';
+  
+  if (stepCount > 0) {
+    const duration = caseRecord.execution?.duration_seconds || caseRecord.summary?.duration_seconds || 0;
+    const durationText = duration > 0 ? ` in ${duration.toFixed(1)}s` : '';
+    
+    if (activeModule && activeModule.buildStoryNarrative) {
+      narrative = activeModule.buildStoryNarrative(caseRecord);
+    } else {
+      narrative = `The agent completed ${stepCount} recorded step${stepCount === 1 ? '' : 's'}${durationText}.`;
+      if (llmCalls > 0) narrative += ` This included ${llmCalls} LLM call${llmCalls === 1 ? '' : 's'}.`;
+      if (toolCalls > 0) narrative += ` The agent called ${toolCalls} tool${toolCalls === 1 ? '' : 's'}.`;
+    }
+  }
+
+  const goal = caseRecord.manifest?.goal || caseRecord.decision?.title || '';
+  const source = caseRecord.manifest?.source?.integration || caseRecord.manifest?.source?.framework || '';
+  const sourceText = source ? ` using ${source}` : '';
+
+  return `
+    <div>
+      <p class="story-intro">${escapeHtml(narrative)}</p>
+      ${goal ? `<p class="story-intro" style="margin-top: 14px; color: var(--muted); font-size: 0.95rem;"><strong>Goal:</strong> ${escapeHtml(goal)}</p>` : ''}
+      ${sourceText ? `<p class="story-intro" style="margin-top: 6px; color: var(--muted); font-size: 0.95rem;"><strong>Framework:</strong> ${escapeHtml(sourceText)}</p>` : ''}
+      
+      <div class="story-metric-row">
+        <div class="story-metric">
+          <span class="story-metric-label">Total Steps</span>
+          <span class="story-metric-value">${stepCount}</span>
+        </div>
+        <div class="story-metric">
+          <span class="story-metric-label">LLM Calls</span>
+          <span class="story-metric-value">${llmCalls}</span>
+        </div>
+        <div class="story-metric">
+          <span class="story-metric-label">Tool Calls</span>
+          <span class="story-metric-value">${toolCalls}</span>
+        </div>
+        ${caseRecord.execution?.duration_seconds ? `
+        <div class="story-metric">
+          <span class="story-metric-label">Duration</span>
+          <span class="story-metric-value">${caseRecord.execution.duration_seconds.toFixed(2)}s</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function buildFaultCards(caseRecord) {
+  const allFaults = caseRecord.analysis?.all_faults || [];
+  if (!allFaults.length) {
+    return '';
+  }
+
+  return allFaults.map((fault) => {
+    const toneClass = `fault-card--${fault.severity || 'medium'}`;
+    const severityClass = `fault-severity--${fault.severity || 'medium'}`;
+    const stepLink = fault.step_number ? `<p class="fault-step-link" onclick="scrollToStep(${fault.step_number})">→ View step ${fault.step_number}</p>` : '';
+
+    return `
+      <article class="fault-card ${toneClass}">
+        <span class="fault-severity ${severityClass}">${fault.severity || 'MEDIUM'}</span>
+        <h4 class="fault-title">${escapeHtml(fault.rule_name || fault.fault_type || 'Fault')}</h4>
+        <p class="fault-explanation">${escapeHtml(fault.plain_english || 'A policy rule was violated.')}</p>
+        ${fault.why_it_matters ? `<p class="fault-why"><strong>Why it matters:</strong> ${escapeHtml(fault.why_it_matters)}</p>` : ''}
+        ${fault.rule_id ? `<p class="helper-copy" style="margin-top: 10px;">Rule: ${escapeHtml(fault.rule_id)}</p>` : ''}
+        ${stepLink}
+      </article>
+    `;
+  }).join('');
+}
+
 function buildCaseGuidance(caseRecord) {
   if (caseRecord.trust.code === 'do-not-use') {
     return {
@@ -8211,4 +8370,13 @@ function escapeHtml(value) {
   const div = document.createElement('div');
   div.textContent = String(value);
   return div.innerHTML;
+}
+
+// Helper to scroll to and highlight a specific step in the timeline
+function scrollToStep(stepNumber) {
+  state.caseHighlights.stepNumber = stepNumber;
+  document.getElementById('case-evidence-card')?.scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => {
+    renderCaseView();
+  }, 100);
 }
