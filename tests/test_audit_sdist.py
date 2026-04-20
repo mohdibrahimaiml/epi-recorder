@@ -34,8 +34,6 @@ def test_audit_sdist_accepts_expected_notebooks(tmp_path):
         sdist_path,
         [
             f"{prefix}/README.md",
-            f"{prefix}/colab_demo.ipynb",
-            f"{prefix}/EPI NEXUA VENTURES.ipynb",
         ],
     )
 
@@ -44,18 +42,18 @@ def test_audit_sdist_accepts_expected_notebooks(tmp_path):
 
 def test_audit_sdist_rejects_missing_required_notebook(tmp_path):
     module = _load_audit_module()
+    module.REQUIRED_NOTEBOOKS = {"fake_demo.ipynb"}
     prefix = f"epi_recorder-{core_version}"
     sdist_path = tmp_path / f"{prefix}.tar.gz"
     _make_sdist(
         sdist_path,
         [
             f"{prefix}/README.md",
-            f"{prefix}/colab_demo.ipynb",
         ],
     )
 
     issues = module.audit_sdist(sdist_path)
-    assert "missing packaged notebook: EPI NEXUA VENTURES.ipynb" in issues
+    assert "missing packaged notebook: fake_demo.ipynb" in issues
 
 
 def test_audit_sdist_rejects_unexpected_notebooks_and_temp_artifacts(tmp_path):
@@ -66,8 +64,6 @@ def test_audit_sdist_rejects_unexpected_notebooks_and_temp_artifacts(tmp_path):
         sdist_path,
         [
             f"{prefix}/README.md",
-            f"{prefix}/colab_demo.ipynb",
-            f"{prefix}/EPI NEXUA VENTURES.ipynb",
             f"{prefix}/EPI_Investor_Demo_Stable_v2_8_5.ipynb",
             f"{prefix}/.tmp_nexua_demo_smoke/log.txt",
         ],

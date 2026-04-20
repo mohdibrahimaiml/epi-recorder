@@ -13,10 +13,7 @@ import tarfile
 from pathlib import Path
 
 
-REQUIRED_NOTEBOOKS = {
-    "colab_demo.ipynb",
-    "EPI NEXUA VENTURES.ipynb",
-}
+REQUIRED_NOTEBOOKS = set()
 
 
 def audit_sdist(sdist_path: Path) -> list[str]:
