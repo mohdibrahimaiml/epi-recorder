@@ -1,0 +1,29 @@
+# Directories
+docs/
+installer/
+scripts/
+config/
+.github/
+
+# Large reference files
+CHANGELOG.md
+CONTRIBUTING.md
+CONTRIBUTORS.md
+SECURITY.md
+
+# Build/packaging specs
+*.spec
+Dockerfile
+docker-compose.yml
+docker-compose.prod.yml
+Caddyfile
+MANIFEST.in
+
+# Electron desktop viewer (separate sub-project)
+epi-viewer/
+
+# Examples and demos (read for patterns, don't load by default)
+examples/
+
+# Notebooks
+*.ipynb

@@ -1,7 +1,0 @@
-{
-  "RefundApprovalAgent": {
-    "did": "did:key:demo123",
-    "public_key": "ed25519:abc",
-    "trust_tier": "standard"
-  }
-}
