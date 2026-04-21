@@ -1,6 +1,6 @@
 # EPI Recorder: How It Works (Simplified)
 
-Think of **EPI** as a **portable case file for AI execution**. It records what happened during a run, can embed the rulebook used to judge that run, can attach a human review decision, and makes later tampering visible. In `v4.0.0`, the browser experience is now case-first: the viewer leads with the decision, review state, trust state, source system, and supporting evidence instead of making reviewers start from raw logs.
+Think of **EPI** as a **portable case file for AI execution**. It records what happened during a run, can embed the rulebook used to judge that run, can attach a human review decision, and makes later tampering visible. In `v4.0.1`, the browser experience is now case-first: the viewer leads with the decision, review state, trust state, source system, and supporting evidence instead of making reviewers start from raw logs.
 
 ## The Core Concept
 

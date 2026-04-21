@@ -1,4 +1,4 @@
-# EPI DOC v4.0.0
+# EPI DOC v4.0.1
 
 Author: Codex  
 Date: 2026-04-08  
@@ -26,9 +26,9 @@ If you remember one sentence, remember this:
 
 ---
 
-## 2. What `v4.0.0` means
+## 2. What `v4.0.1` means
 
-`v4.0.0` is the point where the product becomes much clearer in two different ways:
+`v4.0.1` is the point where the product becomes much clearer in two different ways:
 
 1. the artifact now has a stronger outer identity
 2. the review experience now reads more like a case investigation system than a setup dashboard
@@ -41,9 +41,9 @@ Earlier EPI lines already had the core product idea:
 - policy and human review layers
 - AGT import as an evidence bridge
 
-`v4.0.0` makes those ideas easier to trust and easier to understand.
+`v4.0.1` makes those ideas easier to trust and easier to understand.
 
-In practical terms, the current `v4.0.0` line means:
+In practical terms, the current `v4.0.1` line means:
 
 - new `.epi` files no longer begin with ZIP magic bytes by default
 - legacy ZIP-based `.epi` files still work
@@ -51,7 +51,7 @@ In practical terms, the current `v4.0.0` line means:
 - AGT-imported evidence is treated as a first-class source inside the same viewer
 - the CLI and fresh-install paths are closer to the documented product surface
 
-So `v4.0.0` is not only a format update.
+So `v4.0.1` is not only a format update.
 
 It is a clearer product line for:
 
@@ -146,11 +146,11 @@ Use this when a team needs a local/shared review workspace:
 
 ---
 
-## 5. What a `.epi` file is in `v4.0.0`
+## 5. What a `.epi` file is in `v4.0.1`
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.0.0` line, it is a self-identifying binary envelope with a signed ZIP evidence payload inside it.
+In the current `v4.0.1` line, it is a self-identifying binary envelope with a signed ZIP evidence payload inside it.
 
 The most important practical change is this:
 
@@ -198,7 +198,7 @@ The outer envelope change can sound small if you describe it only as a byte-form
 
 It matters because the artifact itself is the product.
 
-The current `v4.0.0` line improves three things:
+The current `v4.0.1` line improves three things:
 
 ### Artifact identity
 
@@ -232,7 +232,7 @@ The viewer is one of the most important product surfaces in the repo.
 
 In earlier lines, the browser experience could still feel too much like a setup workspace or tooling shell.
 
-In the current `v4.0.0` line, the viewer is much closer to a case investigation surface.
+In the current `v4.0.1` line, the viewer is much closer to a case investigation surface.
 
 The important shift is:
 
@@ -260,7 +260,7 @@ This matters because the browser UI is where EPI stops being "just a format" and
 
 ---
 
-## 8. Why the AGT path matters even more in `v4.0.0`
+## 8. Why the AGT path matters even more in `v4.0.1`
 
 The AGT integration story is one of the strongest parts of the current repo.
 
@@ -368,7 +368,7 @@ The viewer and CLI are important, but the moat is still the artifact and trust l
 
 ## 11. The CLI story is stronger when tested from a fresh install
 
-One thing the current `v4.0.0` line makes clearer is that EPI has to be judged at the user surface, not only at the function surface.
+One thing the current `v4.0.1` line makes clearer is that EPI has to be judged at the user surface, not only at the function surface.
 
 That matters especially for:
 
@@ -391,7 +391,7 @@ That is the right standard for this product, because the CLI is part of the publ
 
 ## 12. What is most credible today
 
-As of the current `v4.0.0` source line, EPI is strongest where someone may later ask:
+As of the current `v4.0.1` source line, EPI is strongest where someone may later ask:
 
 - what happened
 - why it happened
@@ -432,7 +432,7 @@ The strongest current mental model is:
 
 EPI is infrastructure for portable AI case files.
 
-`v4.0.0` strengthens that idea in the two places that matter most:
+`v4.0.1` strengthens that idea in the two places that matter most:
 
 - the artifact is more clearly its own format
 - the review experience is more clearly a case investigation system

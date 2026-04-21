@@ -436,7 +436,7 @@ EPI is designed for teams preparing durable evidence for high-risk AI workflows.
 
 The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) - drag and drop, no login, no install. Verification runs client-side in their browser.
 
-For the flagship product explainer, see [docs/EPI-DOC-v4.0.0.md](docs/EPI-DOC-v4.0.0.md).
+For the flagship product explainer, see [docs/EPI-DOC-v4.0.1.md](docs/EPI-DOC-v4.0.1.md).
 For the AGT import front door, see [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md).
 For self-hosted deployment, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
 
@@ -744,7 +744,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 |:---------|:------------|
 | **[Docs Hub](docs/index.html)** | Curated front door for the current public documentation set |
 | **[AGT Import Quickstart](docs/AGT-IMPORT-QUICKSTART.md)** | Canonical `AGT -> EPI` first-time user path |
-| **[EPI DOC v4.0.x](docs/EPI-DOC-v4.0.0.md)** | Flagship explainer for the current `4.0.1` release line |
+| **[EPI DOC v4.0.x](docs/EPI-DOC-v4.0.1.md)** | Flagship explainer for the current `4.0.1` release line |
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for the `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Telemetry Privacy](docs/TELEMETRY-PRIVACY.md)** | What opt-in telemetry and pilot signup do and do not collect |

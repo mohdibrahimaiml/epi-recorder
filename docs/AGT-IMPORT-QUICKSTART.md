@@ -122,4 +122,4 @@ That means a reviewer can answer both:
 - [AGT example bundle details](../examples/agt/README.md)
 - [AGT -> EPI demo kit](../examples/agt-epi-demo/README.md)
 - [RFC: AGT -> EPI portable artifact layer](rfc/agt-epi-artifact.md)
-- [Flagship product explainer](EPI-DOC-v4.0.0.md)
+- [Flagship product explainer](EPI-DOC-v4.0.1.md)
