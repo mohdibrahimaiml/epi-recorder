@@ -158,7 +158,7 @@ class EPIContainer:
     def _create_embedded_viewer(
         source_dir: Path,
         manifest: ManifestModel,
-        viewer_version: str = "1.0",
+        viewer_version: str = "minimal",
     ) -> str:
         assets = load_viewer_assets(version=viewer_version)
         template_html = assets["template_html"]
@@ -527,7 +527,7 @@ class EPIContainer:
         if signer_function:
             manifest = signer_function(manifest)
 
-        viewer_version = str(kwargs.get("viewer_version", "1.0"))
+        viewer_version = str(kwargs.get("viewer_version", "minimal"))
         viewer_html = EPIContainer._create_embedded_viewer(
             source_dir, manifest, viewer_version=viewer_version
         )
@@ -603,7 +603,7 @@ class EPIContainer:
         payload_path: Path,
         **kwargs,
     ) -> None:
-        viewer_version = str(kwargs.get("viewer_version", "1.0"))
+        viewer_version = str(kwargs.get("viewer_version", "minimal"))
         viewer_html = EPIContainer._create_embedded_viewer(
             source_dir, manifest, viewer_version=viewer_version
         )

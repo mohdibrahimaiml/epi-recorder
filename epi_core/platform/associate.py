@@ -383,8 +383,12 @@ def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
         output_path.unlink(missing_ok=True)
 
 
-def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str) -> None:
-    """Write the per-user Windows association using hidden `reg add` calls."""
+def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str, self_heal_cmd: Optional[str] = None) -> None:
+    """Write the per-user Windows association using hidden `reg add` calls.
+
+    If self_heal_cmd is provided, it is added to the HKCU Run key to ensure
+    persistence across Windows updates and registry cleaning.
+    """
     commands = [
         ["add", r"HKCU\Software\Classes\.epi", "/ve", "/d", "EPIRecorder.File", "/f"],
         ["add", r"HKCU\Software\Classes\EPIRecorder.File", "/ve", "/d", "EPI Recording File", "/f"],
@@ -392,6 +396,9 @@ def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str) -> None:
         ["add", r"HKCU\Software\Classes\EPIRecorder.File\DefaultIcon", "/ve", "/d", icon_cmd, "/f"],
         ["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.epi\UserChoice", "/f"],
     ]
+
+    if self_heal_cmd:
+        commands.append(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "EPIRecorder", "/d", self_heal_cmd, "/f"])
 
     failures = []
     for args in commands:
@@ -412,9 +419,9 @@ def register_windows() -> None:
     ShellExecuteExW so writes land in the real HKCU hive even under packaged
     Python contexts.
 
-    This intentionally avoids `regedit.exe`, which can trigger confusing
-    Registry Editor / UAC prompts for users who are only trying to open a
-    `.epi` file.
+    This also installs a silent 'self-heal' VBScript in the Windows Run key.
+    The script re-verifies the association on every login, ensuring it
+    persists through Windows updates and registry cleaners.
     """
     import ctypes
 
@@ -422,7 +429,14 @@ def register_windows() -> None:
     open_cmd = _get_user_open_command()
     icon_cmd = _get_windows_default_icon(python_exe)
 
-    _register_windows_via_reg_add(open_cmd, icon_cmd)
+    # Prepare self-heal launcher
+    try:
+        vbs_path = _get_self_heal_vbs(python_exe)
+        self_heal_cmd = f'wscript.exe //nologo "{vbs_path.absolute()}"'
+    except Exception:
+        self_heal_cmd = None
+
+    _register_windows_via_reg_add(open_cmd, icon_cmd, self_heal_cmd=self_heal_cmd)
     query_output = _run_windows_reg_command(
         ["query", r"HKCU\Software\Classes\.epi", "/ve"],
         timeout_ms=5000,

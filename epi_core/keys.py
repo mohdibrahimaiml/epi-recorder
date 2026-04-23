@@ -27,8 +27,9 @@ def _is_writable_dir(path: Path) -> bool:
 
 def _resolve_default_keys_dir() -> Path:
     """Resolve a writable default keys directory with fallbacks."""
+    env_dir = os.environ.get("EPI_KEYS_DIR")
     candidates = [
-        Path.home() / ".epi" / "keys",
+        Path(env_dir) if env_dir else Path.home() / ".epi" / "keys",
         Path.cwd() / ".epi" / "keys",
         Path(tempfile.gettempdir()) / "epi" / "keys",
     ]

@@ -147,16 +147,16 @@ def _wrap_runner_step(
 
 
 def _hash_val(value: Any) -> Optional[str]:
-    """Compute SHA-256 hash of a value."""
-    import hashlib
-    import json
-
+    """Compute SHA-256 hash of a value using canonical normalization."""
+    from epi_guardrails.session import _canonical_hash
     if value is None:
         return None
     try:
-        normalized = json.dumps(value, sort_keys=True, default=str).encode("utf-8")
-        return hashlib.sha256(normalized).hexdigest()
-    except Exception:
+        return _canonical_hash(value)
+    except TypeError:
+        # Value is not canonically serializable (e.g. raw Guardrails object).
+        # Log at debug level — this is expected for opaque types.
+        logger.debug("_hash_val: skipping non-serializable type %s", type(value).__name__)
         return None
 
 
@@ -220,6 +220,7 @@ def _wrap_stream_runner_step(
                 validators=[],
                 correction_applied=False,
                 duration_seconds=round(duration, 4),
+                completed=False,
             )
         raise
 
@@ -300,6 +301,7 @@ class _StreamingIterationWrapper:
             correction_applied=correction_applied,
             validators=[],  # Streaming validators don't call after_run_validator
             duration_seconds=round(duration, 4),
+            completed=self._consumed,
         )
 
 
@@ -384,7 +386,11 @@ def _wrap_validator_after_run(
             # Check for correction
             try:
                 corrected = bool(getattr(result, "corrected", False))
-            except Exception:
+            except (AttributeError, TypeError) as exc:
+                logger.warning(
+                    "epi_guardrails: validator=%s could not read 'corrected' field: %s",
+                    validator_name, exc,
+                )
                 corrected = False
 
             # Get fix_value (corrected output)
@@ -393,22 +399,32 @@ def _wrap_validator_after_run(
                 if fix_val is not None:
                     corrected = True
                     corrected_hash = _hash_val(fix_val)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.warning(
+                    "epi_guardrails: validator=%s could not read 'fix_value' field: %s",
+                    validator_name, exc,
+                )
 
             if getattr(result, "error", None):
                 try:
                     error_msg = str(getattr(result, "error", ""))
                     if error_msg:
                         status = "error"
-                except Exception:
-                    pass
+                except (AttributeError, TypeError) as exc:
+                    logger.warning(
+                        "epi_guardrails: validator=%s could not read 'error' field: %s",
+                        validator_name, exc,
+                    )
 
             value = getattr(result, "value", None)
             parsed = getattr(result, "parsed_output", None)
 
-    except Exception:
-        pass
+    except Exception as exc:
+        # Unexpected schema change — surface it so integration drift is visible.
+        logger.warning(
+            "epi_guardrails: validator=%s unexpected result schema, some fields may be missing: %s",
+            validator_name, exc,
+        )
 
     # Get value_before_validation and value_after_validation from logs
     if validator_logs is not None:
@@ -419,8 +435,11 @@ def _wrap_validator_after_run(
                 original_hash = _hash_val(vbv)
             if corrected_hash is None and vav != vbv:
                 corrected_hash = _hash_val(vav)
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as exc:
+            logger.warning(
+                "epi_guardrails: validator=%s could not read logs values: %s",
+                validator_name, exc,
+            )
 
     # Get iteration_id from context stack
     iteration_id = get_current_iteration_id()
@@ -491,25 +510,26 @@ def _wrap_runner_call(
                 # result is an LLMResponse
                 provider = getattr(result, "provider", "unknown")
                 model = getattr(result, "model_id", "unknown")
-                # Try to get messages from the call log or result
-                # but for simplicity, we focus on the result metadata
                 usage_obj = getattr(result, "usage", None)
                 if usage_obj:
-                    # In 0.10.x usage might be an object
                     try:
                         usage = {
                             "prompt_tokens": getattr(usage_obj, "prompt_tokens", 0),
                             "completion_tokens": getattr(usage_obj, "completion_tokens", 0),
                             "total_tokens": getattr(usage_obj, "total_tokens", 0),
                         }
-                    except Exception:
-                        pass
-                
+                    except (AttributeError, TypeError) as exc:
+                        logger.warning(
+                            "epi_guardrails: could not read LLM usage object: %s", exc
+                        )
+
                 output = getattr(result, "output", None)
                 if output:
                     choices = [{"message": {"content": str(output)}}]
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.warning(
+                    "epi_guardrails: could not extract LLM call metadata: %s", exc
+                )
 
         session.emit_llm_call(
             provider=provider,
@@ -562,8 +582,65 @@ async def _wrap_async_runner_call(
 
 
 # ==============================================================================
+# AsyncStreamRunner.async_step wrapper — async streaming iteration
+# ==============================================================================
+
+
+async def _wrap_async_stream_runner_step(
+    wrapped: Callable,
+    instance: Any,
+    args: tuple,
+    kwargs: dict,
+) -> Any:
+    """
+    Wrap AsyncStreamRunner.async_step (or AsyncRunner.async_step).
+
+    Emits a guardrails.step on exhaustion or exception so async streaming
+    evidence is never silently dropped. The exact method name is detected
+    dynamically at instrument() time, so this wrapper survives version drift.
+    """
+    state = guardrails_epi_state()
+    if state is None or not hasattr(state, "guard_name"):
+        async for item in wrapped(*args, **kwargs):
+            yield item
+        return
+
+    call_log = kwargs.get("call_log") or (args[6] if len(args) > 6 else None)
+    step_index = kwargs.get("index") if "index" in kwargs else (args[0] if args else 0)
+    iteration_id = (
+        f"{getattr(call_log, 'id', id(call_log) if call_log else 'async-stream')}-step-{step_index}"
+    )
+
+    step_start_time = time_module.monotonic()
+    _errored = False
+
+    try:
+        push_current_iteration_id(iteration_id)
+        async for item in wrapped(*args, **kwargs):
+            yield item
+    except Exception:
+        _errored = True
+        raise
+    finally:
+        duration = time_module.monotonic() - step_start_time
+        pop_current_iteration_id()
+        session = _find_session(state)
+        if session:
+            session.emit_guardrails_step(
+                iteration_index=step_index or 0,
+                iteration_id=iteration_id,
+                validation_passed=not _errored,
+                validators=[],
+                correction_applied=False,
+                duration_seconds=round(duration, 4),
+                completed=not _errored,
+            )
+
+
+# ==============================================================================
 # Guard._execute wrapper — session lifecycle
 # ==============================================================================
+
 
 
 def _wrap_guard_execute(
@@ -618,7 +695,8 @@ def _wrap_guard_execute(
         if active_session:
             active_session.emit_guard_execution_start(
                 guard_config=guard_config or None,
-                prompt=str(kwargs.get("prompt", ""))[:500] if kwargs.get("prompt") else None,
+                # Full prompt — no truncation. EU AI Act Article 12 traceability.
+                prompt=str(kwargs.get("prompt", "")) if kwargs.get("prompt") else None,
             )
         try:
             return wrapped(self, *args, **kwargs)
@@ -639,13 +717,15 @@ def _wrap_guard_execute(
         goal=kwargs.setdefault("__epi_goal", _settings.get("goal")),
         notes=kwargs.setdefault("__epi_notes", _settings.get("notes")),
         tags=tags,
+        agent_identity=_settings.get("agent_identity"),
     )
 
     try:
         with session:
             session.emit_guard_execution_start(
                 guard_config=guard_config or None,
-                prompt=str(kwargs.get("prompt", ""))[:500] if kwargs.get("prompt") else None,
+                # Full prompt — no truncation. EU AI Act Article 12 traceability.
+                prompt=str(kwargs.get("prompt", "")) if kwargs.get("prompt") else None,
             )
 
             # Call original Guard._execute
@@ -694,11 +774,16 @@ async def _wrap_guard_execute_async(
         goal=goal,
         notes=notes,
         tags=tags,
+        agent_identity=_settings.get("agent_identity"),
     )
 
     try:
         with session:
-            session.emit_guard_execution_start()
+            # Extract prompt from kwargs or args for full capture.
+            prompt_val = kwargs.get("prompt") or (args[0] if args else None)
+            session.emit_guard_execution_start(
+                prompt=str(prompt_val) if prompt_val else None,
+            )
             result = await wrapped(self, *args, **kwargs)
             return result
 
@@ -741,21 +826,36 @@ def instrument(
     notes: Optional[str] = None,
     tags: Optional[list] = None,
     include_raw_rail: bool = False,
+    agent_identity: Optional[dict] = None,
 ) -> bool:
     """
     Instrument Guardrails to produce .epi artifacts on every Guard execution.
 
     Call ONCE at application startup, BEFORE creating any Guard instances.
 
-    Usage:
-        from epi_guardrails import instrument
+    Args:
+        output_path: Path for the .epi artifact.
+        auto_sign: Sign artifact with Ed25519 (default: True).
+        redact: Apply default redaction rules (default: True).
+        goal: Human-readable goal for the recording.
+        notes: Additional notes embedded in the manifest.
+        tags: Tags for categorising this recording.
+        include_raw_rail: Whether to include rail XML in the start event.
+        agent_identity: Optional dict identifying the agent that invoked the
+            Guard. Persisted in the artifact for EU AI Act traceability.
+            Example::
 
-        instrument(output_path="my_run.epi", goal="Validate LLM output")
+                instrument(
+                    agent_identity={
+                        "id": "did:web:my-service",
+                        "version": "1.4.2",
+                    }
+                )
 
-        guard = Guard.from_rail("my.rail")
-        response = guard(llm_api, prompt)  # → my_run.epi written
-
-        uninstrument()
+    Note:
+        This PR stabilises the current monkey-patch integration. A follow-up
+        will migrate to a native Instrumentor/event-based implementation
+        aligned with the Guardrails telemetry system.
 
     Returns:
         True if instrumentation succeeded, False otherwise.
@@ -774,6 +874,7 @@ def instrument(
         "notes": notes,
         "tags": tags or [],
         "include_raw_rail": include_raw_rail,
+        "agent_identity": agent_identity or {},
     }
 
     try:
@@ -854,7 +955,7 @@ def instrument(
     except Exception as e:
         logger.warning(f"Failed to instrument Runner.step: {e}")
 
-    # ---- StreamRunner.step (streaming) ----
+    # ---- StreamRunner.step (sync streaming) ----
     try:
         stream_runner_cls = getattr(runner_module, "StreamRunner", None)
         if stream_runner_cls and hasattr(stream_runner_cls, "step"):
@@ -863,6 +964,27 @@ def instrument(
             logger.info("Instrumented StreamRunner.step")
     except Exception as e:
         logger.warning(f"Failed to instrument StreamRunner.step: {e}")
+
+    # ---- AsyncStreamRunner / AsyncRunner async step (streaming async) ----
+    # Guardrails versions differ on the class/method name. Probe in priority order.
+    _ASYNC_STEP_PROBES = [
+        ("AsyncStreamRunner", "async_step"),
+        ("AsyncRunner", "async_step"),
+        ("AsyncStreamRunner", "step"),
+    ]
+    try:
+        for _cls_name, _method_name in _ASYNC_STEP_PROBES:
+            _async_stream_cls = getattr(runner_module, _cls_name, None)
+            if _async_stream_cls and hasattr(_async_stream_cls, _method_name):
+                _key = f"{_cls_name}.{_method_name}"
+                _originals[_key] = getattr(_async_stream_cls, _method_name)
+                wrap_function_wrapper(_RUNNER_MODULE, f"{_cls_name}.{_method_name}", _wrap_async_stream_runner_step)
+                logger.info("Instrumented %s (async streaming)", _key)
+                break  # Only hook the first available method
+        else:
+            logger.debug("No async streaming runner found in this Guardrails version; skipping.")
+    except Exception as e:
+        logger.warning(f"Failed to instrument async streaming runner: {e}")
 
     # ---- ValidatorServiceBase.after_run_validator ----
     try:
@@ -901,6 +1023,33 @@ def instrument(
     return True
 
 
+def instrument_otel(
+    output_dir: str = "./epi-recordings",
+    auto_sign: bool = True,
+    agent_identity: Optional[dict[str, Any]] = None,
+) -> bool:
+    """
+    Production-grade instrumentation via OpenTelemetry (Stable Interface).
+
+    This is the RECOMMENDED way to instrument Guardrails for compliance 
+    use cases (Article 12). It leverages official framework hooks and 
+    industry-standard tracing, avoiding the risks of monkey-patching.
+
+    NOTE ON FIDELITY: 
+    While stable, OTel instrumentation may have LOWER fidelity than legacy
+    direct hooks. Specifically, raw corrections, 're-asks', and internal
+    validator intermediate states might not be fully captured if they are
+    not emitted as standard OTel span attributes by Guardrails AI.
+    """
+    from epi_guardrails.instrumentor_otel import otel_instrumentor
+
+    return otel_instrumentor.instrument(
+        output_dir=output_dir,
+        auto_sign=auto_sign,
+        agent_identity=agent_identity,
+    )
+
+
 def uninstrument() -> None:
     """
     Remove all Guardrails instrumentation and restore original methods.
@@ -914,6 +1063,9 @@ def uninstrument() -> None:
         ("Guard._execute_async", "guardrails.guard", "Guard"),
         ("Runner.step", "guardrails.run", "Runner"),
         ("StreamRunner.step", "guardrails.run", "StreamRunner"),
+        ("AsyncStreamRunner.async_step", "guardrails.run", "AsyncStreamRunner"),
+        ("AsyncRunner.async_step", "guardrails.run", "AsyncRunner"),
+        ("AsyncStreamRunner.step", "guardrails.run", "AsyncStreamRunner"),
         (
             "ValidatorServiceBase.after_run_validator",
             "guardrails.validator_service",
@@ -934,5 +1086,13 @@ def uninstrument() -> None:
             except Exception:
                 pass
             del _originals[name]
+
+    # Shutdown OTel if active
+    try:
+        from epi_guardrails.instrumentor_otel import otel_instrumentor
+
+        otel_instrumentor.uninstrument()
+    except ImportError:
+        pass
 
     logger.info("Guardrails instrumentation removed")

@@ -12,6 +12,18 @@ from epi_core._version import get_version
 from epi_core.time_utils import utc_now
 
 
+class PolicyModel(BaseModel):
+    """
+    Formal schema for policy enforcement outcomes.
+    """
+    policy_id: str = Field(..., description="Unique identifier for the policy set applied")
+    version: str = Field(..., description="Version of the policy definition")
+    status: Literal["compliant", "violation", "warning"] = Field(...)
+    rules: List[str] = Field(default_factory=list, description="List of rule IDs evaluated")
+    violation_count: int = Field(default=0)
+    remediation: Optional[str] = Field(None, description="Suggested fix if violation occurred")
+
+
 class ManifestModel(BaseModel):
     """
     Manifest model for .epi files.
@@ -105,7 +117,14 @@ class ManifestModel(BaseModel):
 
     trust: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Immediate cryptographic verification state structure"
+        description="""
+        Immediate cryptographic verification state structure.
+        Expected keys: 
+          - public_key_id: Unique name/ID of the key
+          - registry_url: Source of truth for this key's trust
+          - fingerprint: SHA-256 fingerprint of the public key
+          - steps_hash: Integrity hash for the steps.jsonl file
+        """
     )
     
     approved_by: Optional[str] = Field(
@@ -118,12 +137,14 @@ class ManifestModel(BaseModel):
         description="Tags for categorizing this workflow"
     )
 
-    # Optional governance block for interoperability with external governance
-    # systems (AGT-compatible metadata). This is intentionally optional and
-    # additive so existing artifacts remain readable by older readers.
     governance: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Optional governance metadata (DID identity, trust score, source, etc.)",
+    )
+
+    policy: Optional[PolicyModel] = Field(
+        default=None,
+        description="Formal policy evaluation result and rules applied",
     )
     
     model_config = ConfigDict(

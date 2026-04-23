@@ -46,12 +46,63 @@ from epi_guardrails.state import (
 )
 
 
+def _normalize_for_hash(data: Any) -> Any:
+    """
+    Recursively normalize data to a canonical, deterministic form.
+
+    Rules:
+      - dict  → sorted keys, values recursively normalized
+      - list  → elements recursively normalized (order preserved)
+      - Pydantic BaseModel → .model_dump() then normalize
+      - str, int, float, bool, None → pass-through
+      - Anything else → raises TypeError
+
+    Raises TypeError for non-serializable objects so callers can decide
+    whether to skip or surface the error. Never falls back to str().
+    """
+    if data is None or isinstance(data, (bool, int, float, str)):
+        return data
+    if isinstance(data, dict):
+        return {k: _normalize_for_hash(v) for k, v in sorted(data.items())}
+    if isinstance(data, (list, tuple)):
+        return [_normalize_for_hash(v) for v in data]
+    # Pydantic v2
+    if hasattr(data, "model_dump"):
+        return _normalize_for_hash(data.model_dump())
+    # Pydantic v1
+    if hasattr(data, "dict") and callable(data.dict):
+        return _normalize_for_hash(data.dict())
+    raise TypeError(
+        f"_canonical_hash: non-serializable type {type(data).__name__!r}. "
+        "Convert to a primitive before hashing."
+    )
+
+
+def _canonical_hash(data: Any) -> Optional[str]:
+    """
+    Compute a stable SHA-256 hash over canonicalized data.
+
+    Returns None if data is None.
+    Raises TypeError if data contains non-serializable objects.
+    """
+    if data is None:
+        return None
+    normalized = json.dumps(_normalize_for_hash(data), sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+# Keep _hash_payload as a thin alias that swallows TypeError for call sites
+# that genuinely cannot guarantee serializability (e.g. raw LLM API objects).
+# Prefer _canonical_hash in all new code.
 def _hash_payload(data: Any) -> str:
-    """Compute deterministic SHA-256 hash for integrity section."""
+    """Legacy alias. Returns '' on None, None on TypeError."""
     if data is None:
         return ""
-    normalized = json.dumps(data, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(normalized).hexdigest()
+    try:
+        result = _canonical_hash(data)
+        return result or ""
+    except TypeError:
+        return ""
 
 
 # ==============================================================================
@@ -225,6 +276,7 @@ class GuardrailsRecorderSession:
         notes: Optional[str] = None,
         tags: Optional[List[str]] = None,
         include_raw_rail: bool = False,
+        agent_identity: Optional[Dict[str, Any]] = None,
     ):
         self.output_path = Path(output_path)
         self.guard_name = guard_name or "guardrails"
@@ -236,6 +288,10 @@ class GuardrailsRecorderSession:
         self.notes = notes
         self.tags = tags or []
         self.include_raw_rail = include_raw_rail
+        self.agent_identity = agent_identity or {}
+        self.key_name: Optional[str] = None
+        self.public_key: Optional[str] = None
+        self.registry_url: Optional[str] = None
 
         # Runtime
         self._state: Optional[GuardrailsEPIState] = None
@@ -356,34 +412,45 @@ class GuardrailsRecorderSession:
         ei = self._next_event_index()
         ts_ns = time_module.time_ns()
 
-        self.state.input_hash = _hash_payload(
-            {
-                "rail": rail,
-                "prompt": prompt,
-                "config": guard_config,
-            }
-        )
+        try:
+            self.state.input_hash = _canonical_hash(
+                {
+                    "rail": rail,
+                    "prompt": prompt,
+                    "config": guard_config,
+                }
+            )
+        except TypeError as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "epi_guardrails: could not hash execution start payload: %s", exc
+            )
 
-        content = {
+        content: Dict[str, Any] = {
             "event_index": ei,
             "timestamp_ns": ts_ns,
             "guardrails_version": self.guardrails_version,
             "trace_id": self.state.trace_id,
             "session_id": self.state.session_id,
         }
-        
-        guard_block = {"name": self.guard_name}
+
+        guard_block: Dict[str, Any] = {"name": self.guard_name}
         if guard_config:
             guard_block["config"] = guard_config
         if rail and self.include_raw_rail:
             guard_block["rail"] = rail
-            
+
         content["guard"] = guard_block
 
         if prompt:
+            # Full prompt — no truncation. Article 12 requires complete inputs.
             content["prompt"] = prompt
         if metadata:
             content["metadata"] = metadata
+
+        # Agent identity binding — persisted in every execution start event.
+        if self.agent_identity:
+            content["agent"] = self.agent_identity
 
         content["type"] = "agent.step"
         content["subtype"] = "guardrails"
@@ -759,6 +826,48 @@ class GuardrailsRecorderSession:
             },
         )
 
+    def emit_guardrails_step(
+        self,
+        iteration_index: int,
+        iteration_id: str,
+        validation_passed: bool,
+        validators: List[Any],
+        correction_applied: bool,
+        duration_seconds: float,
+        validated_output: Optional[str] = None,
+        guarded_output: Optional[str] = None,
+        completed: bool = True,
+    ) -> None:
+        """
+        Emit a generic guardrails step (used for streaming or fallback).
+        This mimics the structure of an iteration step without requiring a Guardrails object.
+        """
+        ei = self._next_event_index()
+        ts_ns = time_module.time_ns()
+
+        content = {
+            "event_index": ei,
+            "timestamp_ns": ts_ns,
+            "iteration_index": iteration_index,
+            "iteration_id": iteration_id,
+            "validation_passed": validation_passed,
+            "validators": validators,
+            "correction_applied": correction_applied,
+            "duration_seconds": duration_seconds,
+            "completed": completed,
+            "type": "agent.step",
+            "subtype": "guardrails",
+        }
+        if validated_output:
+            content["validated_output"] = validated_output
+            content["output_hash"] = _hash_payload(validated_output)
+        if guarded_output:
+            content["guarded_output"] = guarded_output
+            if guarded_output != validated_output:
+                content["corrected_output_hash"] = _hash_payload(guarded_output)
+
+        self._emit_step("agent.step", content)
+
     # --------------------------------------------------------------------------
     # Finalization
     # --------------------------------------------------------------------------
@@ -781,6 +890,10 @@ class GuardrailsRecorderSession:
                     step_record.completed = False
                     ei = self._next_event_index()
                     self._emit_step("guardrails.step", step_record.to_content())
+
+        # Audit-level Metadata Completeness (Article 12)
+        runtime_meta = self._get_runtime_metadata()
+        completeness_checklist = self._verify_completeness()
 
         success = exc_type is None if not self.state.exception_raised else False
         exc_type_str = exc_type.__name__ if exc_type else None
@@ -843,7 +956,21 @@ class GuardrailsRecorderSession:
             "process_start_time": os.environ.get("START_TIME", str(utc_now())),
         }
 
-        execution_info = {
+        # Compute steps_hash over the raw steps.jsonl bytes for verifier.
+        # This hash is stored in execution.json and checked by `epi verify --strict`.
+        steps_path_for_hash = self._temp_dir / "steps.jsonl"
+        steps_hash: Optional[str] = None
+        if steps_path_for_hash.exists():
+            try:
+                raw_bytes = steps_path_for_hash.read_bytes()
+                steps_hash = hashlib.sha256(raw_bytes).hexdigest()
+            except OSError as exc:
+                import logging as _logging
+                _logging.getLogger(__name__).warning(
+                    "epi_guardrails: could not compute steps_hash: %s", exc
+                )
+
+        execution_info: Dict[str, Any] = {
             "guard_name": self.guard_name,
             "session_id": self.state.session_id,
             "trace_id": self.state.trace_id,
@@ -856,7 +983,10 @@ class GuardrailsRecorderSession:
             "llm_calls_count": self.state.llm_calls_count,
             "input_hash": self.state.input_hash,
             "output_hash": self.state.output_hash,
+            "steps_hash": steps_hash,
         }
+        if self.agent_identity:
+            execution_info["agent"] = self.agent_identity
 
         # Write source.json
         source_path = self._temp_dir / "source.json"
@@ -928,11 +1058,18 @@ class GuardrailsRecorderSession:
             failed=failed_steps,
             corrected=corrected_steps,
             trust={
-                "signature_valid": bool(self.auto_sign),
+                "public_key_id": self.key_name,
+                "registry_url": getattr(self, "registry_url", None),
+                "fingerprint": hashlib.sha256(self.public_key.encode()).hexdigest() if hasattr(self, "public_key") and self.public_key else None,
+                "steps_hash": steps_hash,
                 "signed": bool(self.auto_sign),
-                "tampered": False,
-                "verification_status": "valid" if self.auto_sign else "unsigned",
-            }
+                "verification_status": "pending" if self.auto_sign else "unsigned",
+            },
+            governance={
+                "agent_identity": self.agent_identity,
+                "runtime": runtime_meta,
+                "completeness": completeness_checklist,
+            },
         )
         signer_function = None
         if self.auto_sign:
@@ -980,12 +1117,19 @@ class GuardrailsRecorderSession:
             from epi_core.trust import sign_manifest
 
             km = KeyManager()
-            if not km.has_default_key():
-                km.generate_keypair("default", overwrite=False)
-            private_key = km.load_private_key("default")
+            key_name = self.default_key_name or "default"
+            if not km.has_key(key_name):
+                km.generate_keypair(key_name, overwrite=False)
+            
+            private_key = km.load_private_key(key_name)
+            public_key = km.load_public_key(key_name)
+            
+            self.public_key = public_key.hex()
+            self.key_name = key_name
 
             def signer(manifest):
-                return sign_manifest(manifest, private_key, "default")
+                from epi_core.trust import sign_manifest
+                return sign_manifest(manifest, private_key, key_name)
 
             self._signer_function = signer
             return True
@@ -997,3 +1141,64 @@ class GuardrailsRecorderSession:
         if not hasattr(self, "_signer_function") or self._signer_function is None:
             self._sign_epi()
         return getattr(self, "_signer_function", None)
+    def _get_runtime_metadata(self) -> Dict[str, Any]:
+        """Capture environment metadata for full traceability."""
+        import sys
+        import platform
+        return {
+            "python_version": sys.version,
+            "platform": platform.platform(),
+            "hostname": socket.gethostname(),
+            "pid": os.getpid(),
+            "guardrails_version": self.guardrails_version,
+            "spec_version": "1.1.0",
+        }
+
+    def _verify_completeness(self) -> Dict[str, Any]:
+        """
+        Independent completeness guarantee (Article 12).
+        Detects if expected instrumentation events were missed.
+        """
+        # Count event types in self._steps
+        types = [s.get("kind") for s in self._steps]
+        subtypes = [s.get("content", {}).get("phase") for s in self._steps if s.get("kind") == "agent.step"]
+        
+        has_start = "start" in subtypes
+        has_end = "end" in subtypes
+        
+        # 1. Sequence check (Detection of telemetry gaps)
+        indices = [s.get("event_index", 0) for s in self._steps]
+        if indices:
+            is_sequential = all(indices[i] == indices[i-1] + 1 for i in range(1, len(indices)))
+            missing_count = max(indices) - min(indices) + 1 - len(indices) if indices else 0
+        else:
+            is_sequential = True
+            missing_count = 0
+
+        # 2. Temporal Monotonicity (Clock Integrity)
+        timestamps = [s.get("timestamp_ns", 0) for s in self._steps]
+        is_time_monotonic = all(timestamps[i] >= timestamps[i-1] for i in range(1, len(timestamps))) if timestamps else True
+
+        # 3. Semantic Completeness (Detection of silent omissions)
+        iteration_steps = [
+            s for s in self._steps 
+            if s.get("kind") == "agent.step" and s.get("content", {}).get("subtype") == "guardrails"
+        ]
+        
+        all_iterations_complete = all(s.get("content", {}).get("completed", False) for s in iteration_steps)
+        
+        # Check if every iteration actually HAS validators recorded
+        # This prevents 'empty iterations' that look sequential but have no evidence
+        iterations_with_evidence = all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
+
+        return {
+            "traceability_status": "complete" if (has_start and has_end and all_iterations_complete and is_sequential and is_time_monotonic and iterations_with_evidence) else "partial",
+            "start_event": has_start,
+            "end_event": has_end,
+            "all_iterations_complete": all_iterations_complete,
+            "is_sequential": is_sequential,
+            "is_time_monotonic": is_time_monotonic,
+            "semantic_evidence_present": iterations_with_evidence,
+            "missing_events_count": missing_count,
+            "steps_count": len(self._steps),
+        }

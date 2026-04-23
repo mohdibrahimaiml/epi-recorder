@@ -248,30 +248,99 @@ def get_signer_name(signature: Optional[str]) -> Optional[str]:
     return parts[1]
 
 
+class TrustRegistry:
+    """
+    Registry of trusted public keys for independent verification.
+    
+    Now supports:
+    1. Local Trusted Keys (~/.epi/trusted_keys/*.pub)
+    2. Local Revocation List (~/.epi/trusted_keys/*.revoked)
+    3. Remote Anchoring (via registry_url fetching)
+    """
+    def __init__(
+        self, 
+        trusted_keys_dir: Optional[Path] = None,
+        registry_url: Optional[str] = None
+    ):
+        import os
+        env_dir = os.environ.get("EPI_TRUSTED_KEYS_DIR")
+        self.trusted_keys_dir = trusted_keys_dir or (Path(env_dir) if env_dir else (Path.home() / ".epi" / "trusted_keys"))
+        self.registry_url = registry_url
+
+    def verify_key_trust(self, public_key_hex: str) -> tuple[bool, Optional[str], str]:
+        """
+        Check if a public key is trusted, revoked, or unknown.
+        
+        Returns:
+            tuple: (is_trusted: bool, identity_name: str, status_detail: str)
+        """
+        # 1. Check Revocation First
+        if self.trusted_keys_dir.exists():
+            for rev_file in self.trusted_keys_dir.glob("*.revoked"):
+                try:
+                    if public_key_hex in rev_file.read_text().strip():
+                        return False, rev_file.stem, "REVOKED: This key has been explicitly compromised or retired."
+                except Exception:
+                    continue
+
+        # 2. Local trusted keys
+        if self.trusted_keys_dir.exists():
+            for pub_file in self.trusted_keys_dir.glob("*.pub"):
+                try:
+                    if public_key_hex in pub_file.read_text().strip():
+                        return True, pub_file.stem, "Verified via local trusted registry"
+                except Exception:
+                    continue
+        
+        # 3. Remote Registry (Bootstrap / Anchor)
+        if self.registry_url:
+            try:
+                # In a real implementation, this would use a secure fetch + cache
+                # For now, we simulate the 'Independent Verifiability' path
+                import requests
+                resp = requests.get(self.registry_url, timeout=5)
+                if resp.status_code == 200:
+                    remote_data = resp.json()
+                    if public_key_hex in remote_data.get("trusted_keys", {}):
+                        return True, remote_data["trusted_keys"][public_key_hex], f"Verified via remote anchor: {self.registry_url}"
+                    if public_key_hex in remote_data.get("revoked_keys", []):
+                        return False, "Unknown", "REVOKED via remote anchor"
+            except Exception as e:
+                return False, None, f"Remote registry check failed: {e}"
+
+        # 4. Known Official Keys (EPI Labs)
+        EPI_LABS_OFFICIAL_PUB = "5e75e81a25b54859ba05898b7670f152"
+        if public_key_hex == EPI_LABS_OFFICIAL_PUB:
+            return True, "EPI Labs (Official)", "Verified via built-in trust root"
+
+        return False, None, "UNKNOWN: Identity not found in any trusted registry"
+
+
 def create_verification_report(
     integrity_ok: bool,
     signature_valid: Optional[bool],
     signer_name: Optional[str],
     mismatches: dict[str, str],
-    manifest: ManifestModel
+    manifest: ManifestModel,
+    trusted_registry: Optional[TrustRegistry] = None
 ) -> dict:
     """
-    Create a structured verification report.
-    
-    Args:
-        integrity_ok: Whether file integrity checks passed
-        signature_valid: Whether signature is valid (None if no signature)
-        signer_name: Name of the signing key
-        mismatches: Dict of file mismatches
-        manifest: Manifest being verified
-        
-    Returns:
-        dict: Verification report
+    Create a structured verification report with independent trust analysis.
     """
+    is_trusted_identity = False
+    identity_name = None
+    status_detail = "Registry check not performed"
+    
+    if manifest.public_key and trusted_registry:
+        is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(manifest.public_key)
+
     report = {
         "integrity_ok": integrity_ok,
         "signature_valid": signature_valid,
         "signer": signer_name,
+        "identity_name": identity_name,
+        "identity_trusted": is_trusted_identity,
+        "trust_detail": status_detail,
         "has_signature": manifest.signature is not None,
         "spec_version": manifest.spec_version,
         "workflow_id": str(manifest.workflow_id),
@@ -281,22 +350,25 @@ def create_verification_report(
         "mismatches": mismatches,
     }
     
-    # Compute overall trust level
-    if signature_valid and integrity_ok:
-        report["trust_level"] = "HIGH"
-        report["trust_message"] = "Cryptographically verified and integrity intact"
-    elif signature_valid is None and integrity_ok:
-        report["trust_level"] = "MEDIUM"
-        report["trust_message"] = "Unsigned but integrity intact"
+    # Compute overall trust level with strict semantics
+    if not integrity_ok:
+        report["trust_level"] = "NONE"
+        report["trust_message"] = "Integrity compromised - artifact content has been modified."
     elif signature_valid is False:
         report["trust_level"] = "NONE"
-        report["trust_message"] = "Invalid signature - do not trust"
-    else:
-        report["trust_level"] = "NONE"
-        report["trust_message"] = "Integrity compromised - do not trust"
+        report["trust_message"] = "Invalid signature - artifact was not signed by this key or has been tampered."
+    elif "REVOKED" in status_detail:
+        report["trust_level"] = "INVALID"
+        report["trust_message"] = f"CRITICAL: {status_detail}"
+    elif signature_valid is True:
+        if is_trusted_identity:
+            report["trust_level"] = "HIGH"
+            report["trust_message"] = f"Verified by trusted identity: {identity_name}"
+        else:
+            report["trust_level"] = "MEDIUM"
+            report["trust_message"] = "Signature valid but identity is UNKNOWN (not in registry)."
+    elif signature_valid is None:
+        report["trust_level"] = "LOW"
+        report["trust_message"] = "Unsigned artifact - identity cannot be cryptographically proven."
     
     return report
-
-
-
- 

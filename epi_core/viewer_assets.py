@@ -26,6 +26,25 @@ def _read_text(package_dir: str, filename: str) -> str | None:
 
 
 def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
+    if version == "minimal":
+        html = _read_text("web_viewer", "index.html")
+        if html:
+            combined = {
+                "template_html": html,
+                "jszip_js": None,
+                "app_js": None,
+                "css_styles": None,
+                "crypto_js": None,
+            }
+            html_with_scripts = combined["template_html"]
+            jszip_tag = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
+            if jszip_tag not in html_with_scripts:
+                html_with_scripts = html_with_scripts.replace(
+                    "</body>",
+                    f"<script src=\"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js\"></script></body>"
+                )
+            combined["template_html"] = html_with_scripts
+            return combined
     if version == "2.0":
         return {
             "template_html": _read_text("web_viewer", "v2_index.html"),

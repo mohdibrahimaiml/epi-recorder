@@ -27,6 +27,10 @@ __all__ = [
     "push_iteration_id",
     "pop_iteration_id",
     "current_iteration_id",
+    # Unified helpers (kept for backward compat, now thin wrappers over contextvars only)
+    "get_current_iteration_id",
+    "push_current_iteration_id",
+    "pop_current_iteration_id",
 ]
 
 
@@ -147,26 +151,36 @@ def _current_thread_iteration_id() -> Optional[str]:
     return None
 
 
-# Unified helpers that check contextvars first, then thread-local
+# ==============================================================================
+# Unified helpers — contextvars ONLY (single source of truth)
+#
+# We deliberately do NOT maintain a thread-local iteration_id stack.
+# Rationale:
+#   contextvars.ContextVar is the correct primitive for both async tasks
+#   and native threads (Python copies context into new threads via
+#   copy_context()). A parallel thread-local stack creates two sources
+#   of truth that diverge under ThreadPoolExecutor, causing validator
+#   results to be attached to the wrong step.
+#
+# The only thread-local state we keep is the GuardrailsEPIState session
+# pointer (below), which is needed for thread pools that do NOT inherit
+# the parent context. iteration_id does not need this because validators
+# always run in the same context as the step that pushed the id.
+# ==============================================================================
+
 def get_current_iteration_id() -> Optional[str]:
-    """Get current iteration_id — contextvars first, then thread-local fallback."""
-    ctx_id = current_iteration_id()
-    if ctx_id is not None:
-        return ctx_id
-    return _current_thread_iteration_id()
+    """Get current iteration_id from contextvars (single source)."""
+    return current_iteration_id()
 
 
 def push_current_iteration_id(iteration_id: str) -> None:
-    """Push iteration_id to both contextvars and thread-local."""
+    """Push iteration_id onto the contextvars stack."""
     push_iteration_id(iteration_id)
-    _push_thread_iteration_id(iteration_id)
 
 
 def pop_current_iteration_id() -> Optional[str]:
-    """Pop from both contextvars and thread-local."""
-    ctx_pop = pop_iteration_id()
-    thread_pop = _pop_thread_iteration_id()
-    return ctx_pop or thread_pop
+    """Pop iteration_id from the contextvars stack."""
+    return pop_iteration_id()
 
 
 # ==============================================================================

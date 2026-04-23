@@ -106,7 +106,18 @@ class EPISpanExporter(SpanExporter):
         auto_sign: bool = True,
         flush_interval: float = 30.0,
         prefix: str = "otel",
+        strict_export: bool = True,
     ):
+        """
+        Args:
+            output_dir: Directory for .epi output files.
+            auto_sign: Sign .epi files with Ed25519 (default: True).
+            flush_interval: Seconds between automatic flushes (default: 30).
+            prefix: Filename prefix for .epi files (default: "otel").
+            strict_export: If True (default), raise on export failure — fail-closed
+                for compliance contexts. If False, write a deadletter file and
+                continue (best-effort mode, NOT suitable for regulated systems).
+        """
         if not OTEL_AVAILABLE:
             raise ImportError(
                 "OpenTelemetry is not installed. Install with: "
@@ -119,6 +130,7 @@ class EPISpanExporter(SpanExporter):
         self._auto_sign = auto_sign
         self._flush_interval = flush_interval
         self._prefix = prefix
+        self._strict_export = strict_export
 
         # Buffer: trace_id -> list of span dicts
         self._traces: Dict[str, List[Dict]] = {}
@@ -388,9 +400,30 @@ class EPISpanExporter(SpanExporter):
             session.__exit__(None, None, None)
 
         except Exception as e:
-            # Log but don't crash  
-            import sys
-            print(f"[EPI] Failed to flush trace {trace_id}: {e}", file=sys.stderr)
+            import logging as _logging
+            _log = _logging.getLogger(__name__)
+            _log.error(
+                "[EPI] Failed to flush trace %s: %s",
+                trace_id, e,
+                exc_info=True,
+            )
+            if self._strict_export:
+                # Fail-closed: propagate so the caller knows evidence was lost.
+                raise
+            # Best-effort mode: persist raw steps to a deadletter file.
+            import json as _json
+            dl_path = self._output_dir / f"{trace_id}.epi.deadletter"
+            try:
+                dl_path.write_text(
+                    _json.dumps(
+                        {"trace_id": trace_id, "error": str(e), "steps": steps},
+                        default=str,
+                    ),
+                    encoding="utf-8",
+                )
+                _log.warning("[EPI] Deadletter written: %s", dl_path)
+            except OSError:
+                _log.error("[EPI] Could not write deadletter for trace %s", trace_id)
 
 
 # ---- Convenience Functions ----

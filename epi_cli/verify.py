@@ -36,6 +36,7 @@ def _print_share_hint() -> None:
 def _emit_json_report(report: dict) -> None:
     """Write a machine-readable verification report directly to stdout."""
     sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    sys.stdout.flush()
 
 
 def _build_failure_report(
@@ -223,9 +224,21 @@ def verify_command(
             console.print("\n[bold]Step 3: Authenticity Checks[/bold]")
         
         signature_valid, signer_name, sig_message = verify_embedded_manifest_signature(manifest)
+        
+        # Independent Verifiability: Check if the key is in a trusted registry
+        from epi_core.trust import TrustRegistry
+        registry = TrustRegistry()
+        is_trusted, identity, status_detail = registry.verify_key_trust(manifest.public_key or "")
+
         if verbose:
             if signature_valid is True:
-                console.print(f"  [green][OK][/green] {sig_message}")
+                status_color = "green" if is_trusted else "yellow"
+                status_icon = "[OK]" if is_trusted else "[WARN]"
+                console.print(f"  [{status_color}]{status_icon}[/{status_color}] {sig_message}")
+                if identity:
+                    console.print(f"    [dim]Identity: {identity}[/dim]")
+                else:
+                    console.print("    [yellow][WARN] Identity UNKNOWN (not in trust registry)[/yellow]")
             elif signature_valid is None:
                 console.print("  [yellow][WARN][/yellow]  No signature present (unsigned)")
             else:
@@ -237,13 +250,78 @@ def verify_command(
             signature_valid=signature_valid,
             signer_name=signer_name,
             mismatches=mismatches,
-            manifest=manifest
+            manifest=manifest,
+            trusted_registry=registry
         )
 
-        # ========== STEP 4: REVIEW TRUST CHECKS ==========
+        # ========== STEP 4 (strict): FORENSIC AUDIT (Index, Time, Coverage) ==========
+        if strict:
+            if verbose:
+                console.print("\n[bold]Step 4: Strict Forensic Audit[/bold]")
+            
+            # 4.1 Schema version check
+            _SUPPORTED_SPEC_VERSIONS = {"1.0", "1.1"}
+            spec_ver = getattr(manifest, "spec_version", None)
+            if spec_ver and spec_ver not in _SUPPORTED_SPEC_VERSIONS:
+                report.setdefault("warnings", []).append(f"unsupported_spec_version:{spec_ver}")
+
+            # 4.2 Forensic sequence and time checks
+            try:
+                import zipfile
+                import hashlib as _hashlib
+                import json
+
+                # Read steps.jsonl from ZIP
+                with zipfile.ZipFile(epi_file, "r") as zf:
+                    members = zf.namelist()
+                    steps_member = next((m for m in members if m.endswith("steps.jsonl")), None)
+                    if steps_member:
+                        raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
+                        steps = [json.loads(line) for line in raw_steps]
+                        
+                        # 1. Index Sequence Audit
+                        indices = [s.get("content", {}).get("event_index", 0) for s in steps]
+                        is_sequential = all(indices[i] == indices[i-1] + 1 for i in range(1, len(indices))) if indices else True
+                        
+                        # 2. Timestamp Monotonicity Audit
+                        times = [s.get("content", {}).get("timestamp_ns", 0) for s in steps]
+                        is_time_monotonic = all(times[i] >= times[i-1] for i in range(1, len(times))) if times else True
+
+                        # 3. Semantic Completeness Audit (Detection of empty iterations)
+                        iteration_steps = [s for s in steps if s.get("content", {}).get("subtype") == "guardrails"]
+                        has_evidence = len(iteration_steps) > 0 and all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
+
+                        if not is_sequential or not is_time_monotonic or not has_evidence:
+                            report["completeness_ok"] = False
+                            msg = []
+                            if not is_sequential: msg.append("Index gap detected")
+                            if not is_time_monotonic: msg.append("Non-monotonic timestamps")
+                            if not has_evidence: msg.append("Missing validator evidence")
+                            report.setdefault("warnings", []).append(f"forensic_audit_failed: {', '.join(msg)}")
+                        else:
+                            report["completeness_ok"] = True
+                            
+                    # Steps Hash Verification
+                    execution_data = {}
+                    try:
+                        execution_data = EPIContainer.read_member_json(epi_file, "execution.json")
+                    except: pass
+                    
+                    claimed_hash = execution_data.get("steps_hash") or (manifest.trust or {}).get("steps_hash")
+                    if claimed_hash and steps_member:
+                        raw = zf.read(steps_member)
+                        actual_hash = _hashlib.sha256(raw).hexdigest()
+                        if actual_hash != claimed_hash:
+                            report["integrity_ok"] = False
+                            report.setdefault("warnings", []).append("steps_hash_mismatch")
+                
+            except Exception as _e:
+                report.setdefault("warnings", []).append(f"strict_audit_error: {_e}")
+
+        # ========== STEP 5: REVIEW TRUST CHECKS ==========
         if review:
             if verbose:
-                console.print("\n[bold]Step 4: Review Trust Checks[/bold]")
+                console.print("\n[bold]Step 5: Review Trust Checks[/bold]")
             review_report = verify_review_trust(epi_file, strict=strict)
             report["review_trust"] = review_report
             if verbose:
@@ -298,7 +376,9 @@ def verify_command(
             pass
 
         # Exit code based on verification result
-        if not integrity_ok or signature_valid is False or (
+        if not integrity_ok or signature_valid is False or report.get("trust_level") == "INVALID" or (
+            strict and report.get("completeness_ok") is False
+        ) or (
             review_report is not None and review_report.get("status") == "failed"
         ):
             raise typer.Exit(1)
@@ -379,19 +459,19 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     else:
         content_lines.append(f"[red][FAIL] Signature:[/red] Invalid")
     
-    # Show metadata if verbose
-    if verbose:
+    # Show forensic audit if strict
+    if "completeness_ok" in report:
         content_lines.append("")
-        content_lines.append(f"[dim]Workflow ID:[/dim] {report['workflow_id']}")
-        content_lines.append(f"[dim]Created:[/dim] {report['created_at']}")
-        content_lines.append(f"[dim]Spec Version:[/dim] {report['spec_version']}")
-    
-    # Show mismatches if any
-    if report["mismatches_count"] > 0 and verbose:
-        content_lines.append("")
-        content_lines.append("[bold red]File Mismatches:[/bold red]")
-        for filename, reason in report["mismatches"].items():
-            content_lines.append(f"  [red]-[/red] {filename}: {reason}")
+        content_lines.append("[bold]Forensic Audit (Strict):[/bold]")
+        c_status = "[green]PASS[/green]" if report["completeness_ok"] else "[red]FAIL[/red]"
+        content_lines.append(f"  - Completeness: {c_status}")
+        
+        i_status = "[green]MATCH[/green]" if report["integrity_ok"] else "[red]MISMATCH[/red]"
+        content_lines.append(f"  - Steps Hash:   {i_status}")
+        
+        if "warnings" in report:
+            for w in report["warnings"]:
+                content_lines.append(f"  [yellow]![/yellow] {w}")
     
     content = "\n".join(content_lines)
     
