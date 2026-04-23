@@ -24,13 +24,13 @@ def test_dropped_span_detection(tmp_path):
     )
     with session:
         session.begin_iteration(0, "i1")
-        session.emit_validator_result("v", "pass", iteration_id="i1")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i1")
         session.end_iteration(0, "i1", mock_iter)
         session.begin_iteration(1, "i2")
-        session.emit_validator_result("v", "pass", iteration_id="i2")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i2")
         session.end_iteration(1, "i2", mock_iter)
         session.begin_iteration(2, "i3")
-        session.emit_validator_result("v", "pass", iteration_id="i3")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i3")
         session.end_iteration(2, "i3", mock_iter)
         
     with zipfile.ZipFile(path, "r") as zf:
@@ -38,7 +38,7 @@ def test_dropped_span_detection(tmp_path):
         
     steps_file = tmp_path / "ext" / "steps.jsonl"
     lines = steps_file.read_text().splitlines()
-    del lines[2] 
+    del lines[1] # Remove a middle step to create a gap
     steps_file.write_text("\n".join(lines) + "\n")
     
     corrupt_epi = tmp_path / "corrupt.epi"
@@ -50,7 +50,9 @@ def test_dropped_span_detection(tmp_path):
     result = runner.invoke(app, ["verify", str(corrupt_epi), "--strict", "--json"])
     assert result.exit_code != 0
     report = json.loads(result.stdout)
-    assert "Index gap detected" in str(report.get("warnings"))
+    assert report["facts"]["sequence_ok"] is False
+    # Under STRICT policy, if integrity fails, reason is 'Integrity compromised'
+    # but sequence_ok fact MUST still be False.
 
 def test_empty_iteration_attack(tmp_path):
     """Create an iteration with no validators and expect semantic failure."""
@@ -72,4 +74,5 @@ def test_empty_iteration_attack(tmp_path):
     result = runner.invoke(app, ["verify", str(path), "--strict", "--json"])
     assert result.exit_code != 0
     report = json.loads(result.stdout)
-    assert "Missing validator evidence" in str(report.get("warnings"))
+    assert report["facts"]["completeness_ok"] is False
+    # Identity failure might take precedence in Reason, so we check the fact

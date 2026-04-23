@@ -298,14 +298,13 @@ class TestCreateVerificationReport:
     def test_report_has_required_keys(self):
         m = self._make_manifest()
         report = create_verification_report(True, None, None, {}, m)
-        for key in ("integrity_ok", "signature_valid", "signer", "files_checked",
-                    "mismatches_count", "mismatches", "trust_level", "trust_message"):
+        for key in ("integrity_ok", "signature_valid", "facts", "identity", "metadata", "summary"):
             assert key in report
 
     def test_files_checked_count(self):
         m = self._make_manifest()
         report = create_verification_report(True, None, None, {}, m)
-        assert report["files_checked"] == 1
+        assert report["metadata"]["files_checked"] == 1
 
 
 # ─────────────────────────────────────────────────────────────

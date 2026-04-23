@@ -42,7 +42,7 @@ def test_revoked_key(tmp_path, registry_setup):
     )
     with session:
         session.begin_iteration(0, "i")
-        session.emit_validator_result("v", "pass", iteration_id="i")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i")
         session.end_iteration(0, "i", mock_iter)
         
     revocation_file = registry_setup / "bad-actor.revoked"
@@ -53,7 +53,8 @@ def test_revoked_key(tmp_path, registry_setup):
     result = runner.invoke(app, ["verify", str(path), "--strict", "--json"])
     assert result.exit_code != 0
     report = json.loads(result.stdout)
-    assert report.get("trust_level") == "INVALID"
+    assert report["identity"]["status"] == "REVOKED"
+    assert report["trust_level"] == "INVALID"
 
 def test_unknown_key(tmp_path):
     """Test that an unknown key is flagged as MEDIUM trust."""
@@ -70,14 +71,16 @@ def test_unknown_key(tmp_path):
     )
     with session:
         session.begin_iteration(0, "i")
-        session.emit_validator_result("v", "pass", iteration_id="i")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i")
         session.end_iteration(0, "i", mock_iter)
         
     empty_reg = tmp_path / "empty_reg"
     empty_reg.mkdir()
     os.environ["EPI_TRUSTED_KEYS_DIR"] = str(empty_reg)
     
+    # In STRICT policy, unknown key results in failure
     result = runner.invoke(app, ["verify", str(path), "--strict", "--json"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     report = json.loads(result.stdout)
-    assert report.get("trust_level") == "MEDIUM"
+    assert report["identity"]["status"] == "UNKNOWN"
+    assert report["decision"]["status"] == "FAIL"

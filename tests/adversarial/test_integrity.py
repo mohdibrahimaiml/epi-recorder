@@ -124,4 +124,5 @@ def test_replay_attack_reordering(valid_artifact):
                 
     result = runner.invoke(app, ["verify", str(swapped_epi), "--strict"])
     assert result.exit_code != 0
-    assert "Index gap" in result.stdout or "Non-monotonic" in result.stdout
+    # The replay attack changes the steps.jsonl hash, so it triggers integrity failure first.
+    assert "Integrity compromised" in result.stdout or "sequence gap" in result.stdout

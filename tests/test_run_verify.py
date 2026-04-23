@@ -174,17 +174,40 @@ class TestPrintTrustReport:
     def _make_report(self, trust_level="HIGH", integrity=True,
                      sig_valid=True, mismatches=None):
         return {
+            "facts": {
+                "integrity_ok": integrity,
+                "signature_valid": sig_valid,
+                "sequence_ok": True,
+                "completeness_ok": True,
+                "mismatches": mismatches or {},
+                "has_signature": sig_valid is not None,
+            },
+            "identity": {
+                "status": "KNOWN" if sig_valid else "UNKNOWN",
+                "name": "default",
+                "detail": "Test source",
+            },
+            "decision": {
+                "status": "PASS" if (integrity and sig_valid) else "FAIL",
+                "policy": "standard",
+                "reason": "Test decision"
+            },
+            "metadata": {
+                "workflow_id": str(uuid4()),
+                "created_at": utc_now_iso(),
+                "spec_version": "4.0.1",
+                "files_checked": 2,
+            },
+            # Legacy fields for backward compatibility
             "trust_level": trust_level,
-            "trust_message": "Test message",
             "integrity_ok": integrity,
             "signature_valid": sig_valid,
             "signer": "default",
-            "files_checked": 2,
-            "mismatches_count": len(mismatches or {}),
-            "mismatches": mismatches or {},
             "workflow_id": str(uuid4()),
             "created_at": utc_now_iso(),
-            "spec_version": "2.7.2",
+            "spec_version": "4.0.1",
+            "files_checked": 2,
+            "mismatches_count": len(mismatches or {}),
         }
 
     def test_high_trust_no_exception(self, tmp_path):

@@ -40,7 +40,7 @@ def valid_artifact(tmp_path):
     )
     with session:
         session.begin_iteration(0, "iter-1")
-        session.emit_validator_result("v", "pass", iteration_id="iter-1")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="iter-1")
         session.end_iteration(0, "iter-1", mock_iter)
     
     return path
@@ -86,7 +86,7 @@ def test_revoked_key(tmp_path, clean_env):
     )
     with session:
         session.begin_iteration(0, "i")
-        session.emit_validator_result("v", "pass", iteration_id="i")
+        session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id="i")
         session.end_iteration(0, "i", mock_iter)
         
     (clean_env["registry"] / "bad-actor.revoked").write_text(pub_hex)
@@ -111,7 +111,7 @@ def test_dropped_span_detection(tmp_path):
     with session:
         for i in range(3):
             session.begin_iteration(i, f"i{i}")
-            session.emit_validator_result("v", "pass", iteration_id=f"i{i}")
+            session.emit_validator_result("v", "pass", corrected=False, rail_alias="test", iteration_id=f"i{i}")
             session.end_iteration(i, f"i{i}", mock_iter)
         
     with zipfile.ZipFile(path, "r") as zf:
@@ -119,7 +119,7 @@ def test_dropped_span_detection(tmp_path):
         
     steps_file = tmp_path / "ext" / "steps.jsonl"
     lines = steps_file.read_text().splitlines()
-    del lines[2] # Remove middle iteration
+    del lines[1] # Remove a middle step to create a gap
     steps_file.write_text("\n".join(lines) + "\n")
     
     corrupt_epi = tmp_path / "corrupt.epi"
@@ -130,4 +130,4 @@ def test_dropped_span_detection(tmp_path):
                 
     result = runner.invoke(app, ["verify", str(corrupt_epi), "--strict"])
     assert result.exit_code != 0
-    assert "Index gap detected" in result.stdout
+    assert "Forensic:     FAIL" in result.stdout

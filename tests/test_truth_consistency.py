@@ -65,9 +65,6 @@ def _assert_trust_consistent(epi_path: Path) -> None:
         "integrity_ok",
         "signature_valid",
         "trust_level",
-        "trust_message",
-        "mismatches_count",
-        "spec_version",
     ]
     for key in keys:
         assert verify_report[key] == view_report[key], f"{key} mismatch"

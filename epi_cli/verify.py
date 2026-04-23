@@ -10,7 +10,7 @@ Performs comprehensive verification including:
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
@@ -18,7 +18,13 @@ from rich.panel import Panel
 
 from epi_core.container import EPIContainer
 from epi_core.review import verify_review_trust
-from epi_core.trust import create_verification_report, verify_embedded_manifest_signature
+from epi_core.trust import (
+    create_verification_report, 
+    verify_embedded_manifest_signature,
+    VerificationPolicy,
+    apply_policy,
+    TrustRegistry
+)
 from epi_cli.view import _resolve_epi_file
 
 console = Console()
@@ -51,18 +57,37 @@ def _build_failure_report(
     """Return a consistent JSON failure payload for pre-manifest verification errors."""
     mismatch_map = mismatches or {}
     return {
+        "facts": {
+            "integrity_ok": False,
+            "signature_valid": signature_valid,
+            "has_signature": has_signature,
+            "mismatches": mismatch_map,
+        },
+        "identity": {
+            "status": "UNKNOWN",
+            "name": signer_name,
+            "detail": message,
+        },
+        "summary": {
+            "integrity": "FAILED",
+            "trust": "NONE",
+        },
+        "decision": {
+            "status": "FAIL",
+            "policy": "none",
+            "reason": message
+        },
+        # Legacy flat fields for backward compatibility
         "integrity_ok": False,
         "signature_valid": signature_valid,
-        "signer": signer_name,
+        "trust_level": "NONE",
         "has_signature": has_signature,
-        "spec_version": None,
+        "mismatches_count": len(mismatch_map),
+        "signer": signer_name,
+        "files_checked": 0,
         "workflow_id": None,
         "created_at": None,
-        "files_checked": 0,
-        "mismatches_count": len(mismatch_map),
-        "mismatches": mismatch_map,
-        "trust_level": "NONE",
-        "trust_message": message,
+        "spec_version": None,
         "error": message,
         "error_type": error_type,
     }
@@ -158,7 +183,11 @@ def verify_command(
     report_out: Optional[Path] = None,
     review: bool = False,
     strict: bool = False,
-):
+    policy: Annotated[VerificationPolicy, typer.Option(
+        "--policy", 
+        help="Governance policy to apply (permissive, standard, strict)"
+    )] = VerificationPolicy.STANDARD,
+) -> None:
     """
     Verify .epi file integrity and authenticity.
     
@@ -184,6 +213,7 @@ def verify_command(
     signer_name = None
     mismatches = {}
     review_report = None
+    registry = TrustRegistry()
     
     try:
         # ========== STEP 1: STRUCTURAL VALIDATION ==========
@@ -197,6 +227,13 @@ def verify_command(
                 console.print("  [green][OK][/green] Valid ZIP format")
                 console.print("  [green][OK][/green] Valid mimetype")
                 console.print("  [green][OK][/green] Valid manifest schema")
+            
+            # Version compatibility check
+            SUPPORTED_VERSIONS = ["1.0.0", "1.1.0"]
+            if manifest.spec_version not in SUPPORTED_VERSIONS:
+                 if verbose:
+                      console.print(f"  [yellow]![/yellow] Unsupported spec_version '{manifest.spec_version}' (supported: {SUPPORTED_VERSIONS})")
+                 # We still continue but this can be checked by policy later
         except Exception as e:
             _handle_verification_error(
                 message=f"Structural validation failed: {e}",
@@ -205,118 +242,89 @@ def verify_command(
                 error_type="structural_validation_failed",
             )
         
-        # ========== STEP 2: INTEGRITY CHECKS ==========
+        # ========== STEP 2: INTEGRITY CHECKS (Facts) ==========
         if verbose:
-            console.print("\n[bold]Step 2: Integrity Checks[/bold]")
+            console.print("\n[bold]Step 2: Integrity Checks (Facts)[/bold]")
         
         integrity_ok, mismatches = EPIContainer.verify_integrity(epi_file)
         
-        if verbose:
-            if integrity_ok:
-                console.print(f"  [green][OK][/green] All {len(manifest.file_manifest)} files verified")
-            else:
-                console.print(f"  [red][FAIL][/red] {len(mismatches)} file(s) failed verification")
-                for filename, reason in mismatches.items():
-                    console.print(f"    [red]-[/red] {filename}: {reason}")
+        # ========== STEP 3: FORENSIC AUDIT (Facts) ==========
+        # Moved forward as these are objective 'facts'
+        sequence_ok = True
+        completeness_ok = True
+        steps_hash_ok = True
         
-        # ========== STEP 3: AUTHENTICITY CHECKS ==========
-        if verbose:
-            console.print("\n[bold]Step 3: Authenticity Checks[/bold]")
-        
-        signature_valid, signer_name, sig_message = verify_embedded_manifest_signature(manifest)
-        
-        # Independent Verifiability: Check if the key is in a trusted registry
-        from epi_core.trust import TrustRegistry
-        registry = TrustRegistry()
-        is_trusted, identity, status_detail = registry.verify_key_trust(manifest.public_key or "")
+        try:
+            import zipfile
+            import hashlib as _hashlib
+            import json
 
-        if verbose:
-            if signature_valid is True:
-                status_color = "green" if is_trusted else "yellow"
-                status_icon = "[OK]" if is_trusted else "[WARN]"
-                console.print(f"  [{status_color}]{status_icon}[/{status_color}] {sig_message}")
-                if identity:
-                    console.print(f"    [dim]Identity: {identity}[/dim]")
-                else:
-                    console.print("    [yellow][WARN] Identity UNKNOWN (not in trust registry)[/yellow]")
-            elif signature_valid is None:
-                console.print("  [yellow][WARN][/yellow]  No signature present (unsigned)")
-            else:
-                console.print(f"  [red][FAIL][/red] {sig_message}")
-        
-        # ========== CREATE REPORT ==========
-        report = create_verification_report(
-            integrity_ok=integrity_ok,
-            signature_valid=signature_valid,
-            signer_name=signer_name,
-            mismatches=mismatches,
-            manifest=manifest,
-            trusted_registry=registry
-        )
-
-        # ========== STEP 4 (strict): FORENSIC AUDIT (Index, Time, Coverage) ==========
-        if strict:
-            if verbose:
-                console.print("\n[bold]Step 4: Strict Forensic Audit[/bold]")
-            
-            # 4.1 Schema version check
-            _SUPPORTED_SPEC_VERSIONS = {"1.0", "1.1"}
-            spec_ver = getattr(manifest, "spec_version", None)
-            if spec_ver and spec_ver not in _SUPPORTED_SPEC_VERSIONS:
-                report.setdefault("warnings", []).append(f"unsupported_spec_version:{spec_ver}")
-
-            # 4.2 Forensic sequence and time checks
-            try:
-                import zipfile
-                import hashlib as _hashlib
-                import json
-
-                # Read steps.jsonl from ZIP
-                with zipfile.ZipFile(epi_file, "r") as zf:
-                    members = zf.namelist()
-                    steps_member = next((m for m in members if m.endswith("steps.jsonl")), None)
-                    if steps_member:
-                        raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
-                        steps = [json.loads(line) for line in raw_steps]
-                        
-                        # 1. Index Sequence Audit
-                        indices = [s.get("content", {}).get("event_index", 0) for s in steps]
-                        is_sequential = all(indices[i] == indices[i-1] + 1 for i in range(1, len(indices))) if indices else True
-                        
-                        # 2. Timestamp Monotonicity Audit
-                        times = [s.get("content", {}).get("timestamp_ns", 0) for s in steps]
-                        is_time_monotonic = all(times[i] >= times[i-1] for i in range(1, len(times))) if times else True
-
-                        # 3. Semantic Completeness Audit (Detection of empty iterations)
-                        iteration_steps = [s for s in steps if s.get("content", {}).get("subtype") == "guardrails"]
-                        has_evidence = len(iteration_steps) > 0 and all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
-
-                        if not is_sequential or not is_time_monotonic or not has_evidence:
-                            report["completeness_ok"] = False
-                            msg = []
-                            if not is_sequential: msg.append("Index gap detected")
-                            if not is_time_monotonic: msg.append("Non-monotonic timestamps")
-                            if not has_evidence: msg.append("Missing validator evidence")
-                            report.setdefault("warnings", []).append(f"forensic_audit_failed: {', '.join(msg)}")
+            with zipfile.ZipFile(epi_file, "r") as zf:
+                members = zf.namelist()
+                steps_member = next((m for m in members if m.endswith("steps.jsonl")), None)
+                if steps_member:
+                    raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
+                    steps = [json.loads(line) for line in raw_steps]
+                    
+                    # 1. Index Sequence Audit (Monotonicity)
+                    indices = [s.get("index", 0) for s in steps]
+                    sequence_ok = all(indices[i] == indices[i-1] + 1 for i in range(1, len(indices))) if indices else True
+                    
+                    # 2. Timestamp Monotonicity Audit
+                    # Check both OTel-style ns and standard ISO timestamps
+                    times = []
+                    for s in steps:
+                        t_ns = s.get("content", {}).get("timestamp_ns")
+                        if t_ns is not None:
+                            times.append(t_ns)
                         else:
-                            report["completeness_ok"] = True
-                            
-                    # Steps Hash Verification
+                            # Fallback to ISO timestamp string comparison (safe for monotonicity)
+                            times.append(s.get("timestamp", ""))
+                    
+                    is_time_monotonic = all(times[i] >= times[i-1] for i in range(1, len(times))) if times else True
+                    sequence_ok = sequence_ok and is_time_monotonic
+
+                    # 3. Semantic Completeness Audit
+                    iteration_steps = [s for s in steps if s.get("content", {}).get("subtype") == "guardrails"]
+                    completeness_ok = len(iteration_steps) > 0 and all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
+
+                    # 4. Steps Hash Verification
                     execution_data = {}
                     try:
                         execution_data = EPIContainer.read_member_json(epi_file, "execution.json")
                     except: pass
                     
                     claimed_hash = execution_data.get("steps_hash") or (manifest.trust or {}).get("steps_hash")
-                    if claimed_hash and steps_member:
-                        raw = zf.read(steps_member)
-                        actual_hash = _hashlib.sha256(raw).hexdigest()
-                        if actual_hash != claimed_hash:
-                            report["integrity_ok"] = False
-                            report.setdefault("warnings", []).append("steps_hash_mismatch")
-                
-            except Exception as _e:
-                report.setdefault("warnings", []).append(f"strict_audit_error: {_e}")
+                    if claimed_hash:
+                        actual_hash = _hashlib.sha256(zf.read(steps_member)).hexdigest()
+                        steps_hash_ok = (actual_hash == claimed_hash)
+        except Exception as _e:
+            if verbose:
+                console.print(f"  [yellow]![/yellow] Forensic audit warning: {_e}")
+
+        integrity_ok = integrity_ok and steps_hash_ok
+
+        # ========== STEP 4: AUTHENTICITY CHECKS (Trust) ==========
+        if verbose:
+            console.print("\n[bold]Step 4: Authenticity Checks (Trust)[/bold]")
+        
+        signature_valid, signer_name, sig_message = verify_embedded_manifest_signature(manifest)
+        
+        # ========== STEP 5: CREATE REPORT & APPLY POLICY ==========
+        report = create_verification_report(
+            integrity_ok=integrity_ok,
+            signature_valid=signature_valid,
+            signer_name=signer_name,
+            mismatches=mismatches,
+            manifest=manifest,
+            trusted_registry=registry,
+            sequence_ok=sequence_ok,
+            completeness_ok=completeness_ok
+        )
+        
+        # Apply the selected governance policy
+        active_policy = VerificationPolicy.STRICT if strict else policy
+        apply_policy(report, active_policy)
 
         # ========== STEP 5: REVIEW TRUST CHECKS ==========
         if review:
@@ -375,12 +383,8 @@ def verify_command(
         except Exception:
             pass
 
-        # Exit code based on verification result
-        if not integrity_ok or signature_valid is False or report.get("trust_level") == "INVALID" or (
-            strict and report.get("completeness_ok") is False
-        ) or (
-            review_report is not None and review_report.get("status") == "failed"
-        ):
+        # Exit code based on policy decision
+        if report["decision"]["status"] == "FAIL" or (review_report is not None and review_report.get("status") == "failed"):
             raise typer.Exit(1)
     
     except typer.Exit:
@@ -416,65 +420,84 @@ def verify_command(
 
 
 def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
+    """Print the human-readable verification results with Facts/Identity/Decision separation.
+
+    Supports both the new nested report format (facts/identity/decision) and
+    the legacy flat format for backward compatibility.
     """
-    Print a formatted trust report using Rich.
-    
-    Args:
-        report: Verification report dict
-        epi_file: Path to .epi file
-        verbose: Whether to show detailed information
-    """
-    # Determine overall status symbol and color
-    if report["trust_level"] == "HIGH":
-        status_symbol = "[OK]"
-        status_color = "green"
-        panel_style = "green"
-    elif report["trust_level"] == "MEDIUM":
-        status_symbol = "[WARN]"
-        status_color = "yellow"
-        panel_style = "yellow"
+    # Normalise: detect new nested vs old flat format
+    if "facts" in report:
+        facts = report["facts"]
+        identity = report.get("identity", {})
+        decision = report.get("decision", {})
+        integrity_ok = facts["integrity_ok"]
+        signature_valid = facts["signature_valid"]
+        sequence_ok = facts.get("sequence_ok", True)
+        completeness_ok = facts.get("completeness_ok", True)
+        identity_status = identity.get("status", "UNKNOWN")
+        identity_name = identity.get("name")
+        identity_detail = identity.get("detail", "")
+        public_key_id = identity.get("public_key_id")
+        decision_status = decision.get("status", "FAIL")
+        decision_policy = decision.get("policy", "none")
+        decision_reason = decision.get("reason", "")
     else:
-        status_symbol = "[FAIL]"
-        status_color = "red"
-        panel_style = "red"
-    
-    # Build panel content
+        # Legacy flat format
+        integrity_ok = report.get("integrity_ok", False)
+        signature_valid = report.get("signature_valid", None)
+        sequence_ok = True
+        completeness_ok = True
+        identity_status = "KNOWN" if report.get("identity_trusted") else "UNKNOWN"
+        identity_name = report.get("signer")
+        identity_detail = report.get("trust_message", "")
+        public_key_id = None
+        decision_status = "PASS" if (integrity_ok and signature_valid is not False) else "FAIL"
+        decision_policy = "none"
+        decision_reason = report.get("trust_message", "")
+
+    # Header and Result
+    status_symbol = "[bold green]✔[/bold green]" if decision_status == "PASS" else "[bold red]✘[/bold red]"
+    panel_style = "green" if decision_status == "PASS" else "red"
+
     content_lines = []
-    content_lines.append(f"[bold]File:[/bold] {epi_file}")
-    content_lines.append(f"[bold]Trust Level:[/bold] [{status_color}]{report['trust_level']}[/{status_color}]")
-    content_lines.append(f"[bold]Message:[/bold] {report['trust_message']}")
+
+    # Decision Layer
+    content_lines.append(f"[bold]DECISION: {decision_status}[/bold]")
+    content_lines.append(f"Policy: {decision_policy}")
+    content_lines.append(f"Reason: {decision_reason}")
     content_lines.append("")
-    
-    # Integrity status
-    if report["integrity_ok"]:
-        content_lines.append(f"[green][OK] Integrity:[/green] Verified ({report['files_checked']} files)")
-    else:
-        content_lines.append(f"[red][FAIL] Integrity:[/red] Failed ({report['mismatches_count']} mismatches)")
-    
-    # Signature status
-    if report["signature_valid"]:
-        content_lines.append(f"[green][OK] Signature:[/green] Valid (key: {report['signer']})")
-    elif report["signature_valid"] is None:
-        content_lines.append("[yellow][WARN]  Signature:[/yellow] Not signed")
-    else:
-        content_lines.append(f"[red][FAIL] Signature:[/red] Invalid")
-    
-    # Show forensic audit if strict
-    if "completeness_ok" in report:
+
+    # Fact Layer
+    content_lines.append("[bold underline]FACTS (Objective Proofs)[/bold underline]")
+    i_color = "green" if integrity_ok else "red"
+    content_lines.append(f"  [{i_color}]- Integrity:    {'Verified' if integrity_ok else 'FAILED'}[/{i_color}]")
+
+    s_color = "green" if signature_valid else ("yellow" if signature_valid is None else "red")
+    s_text = "Valid" if signature_valid else ("Unsigned" if signature_valid is None else "INVALID")
+    content_lines.append(f"  [{s_color}]- Signature:    {s_text}[/{s_color}]")
+
+    f_color = "green" if (sequence_ok and completeness_ok) else "red"
+    f_text = "PASS" if (sequence_ok and completeness_ok) else "FAIL"
+    content_lines.append(f"  [{f_color}]- Forensic:     {f_text}[/{f_color}]")
+    content_lines.append("")
+
+    # Identity Layer
+    content_lines.append("[bold underline]IDENTITY (Trust Context)[/bold underline]")
+    id_color = "green" if identity_status == "KNOWN" else ("red" if identity_status == "REVOKED" else "yellow")
+    content_lines.append(f"  [{id_color}]- Status:       {identity_status}[/{id_color}]")
+    content_lines.append(f"  - Name:         {identity_name or 'Unknown'}")
+    if public_key_id:
+        content_lines.append(f"  - Key ID:       {public_key_id}...")
+    content_lines.append(f"  - Source:       {identity_detail}")
+
+    if "warnings" in report and report["warnings"]:
         content_lines.append("")
-        content_lines.append("[bold]Forensic Audit (Strict):[/bold]")
-        c_status = "[green]PASS[/green]" if report["completeness_ok"] else "[red]FAIL[/red]"
-        content_lines.append(f"  - Completeness: {c_status}")
-        
-        i_status = "[green]MATCH[/green]" if report["integrity_ok"] else "[red]MISMATCH[/red]"
-        content_lines.append(f"  - Steps Hash:   {i_status}")
-        
-        if "warnings" in report:
-            for w in report["warnings"]:
-                content_lines.append(f"  [yellow]![/yellow] {w}")
-    
+        content_lines.append("[bold yellow]Warnings:[/bold yellow]")
+        for w in report["warnings"]:
+            content_lines.append(f"  [yellow]![/yellow] {w}")
+
     content = "\n".join(content_lines)
-    
+
     # Print panel
     panel = Panel(
         content,

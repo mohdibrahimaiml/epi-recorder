@@ -256,7 +256,7 @@ class TestSigning:
 
 
 class TestVerificationReport:
-    """Test verification report generation."""
+    """Test verification report generation and policy application."""
     
     def test_create_report_high_trust(self):
         """Test creating report for fully verified package."""
@@ -270,16 +270,27 @@ class TestVerificationReport:
             signature_valid=True,
             signer_name="default",
             mismatches={},
-            manifest=manifest
+            manifest=manifest,
+            sequence_ok=True,
+            completeness_ok=True
         )
         
-        assert report["trust_level"] == "HIGH"
-        assert report["integrity_ok"] is True
-        assert report["signature_valid"] is True
-        assert report["signer"] == "default"
-        assert report["mismatches_count"] == 0
+        # Test structure
+        assert "facts" in report
+        assert "identity" in report
+        # decision is added later by apply_policy
+        
+        assert report["facts"]["integrity_ok"] is True
+        assert report["facts"]["signature_valid"] is True
+        assert report["identity"]["name"] == "default"
+        
+        # Default policy is usually applied by the caller, but let's check basic fields
+        from epi_core.trust import apply_policy, VerificationPolicy
+        apply_policy(report, VerificationPolicy.STANDARD)
+        assert report["decision"]["status"] == "PASS"
+        assert report["decision"]["policy"] == "standard"
     
-    def test_create_report_medium_trust(self):
+    def test_create_report_unsigned(self):
         """Test creating report for unsigned but intact package."""
         manifest = ManifestModel(
             cli_command="test command",
@@ -294,11 +305,20 @@ class TestVerificationReport:
             manifest=manifest
         )
         
-        assert report["trust_level"] == "MEDIUM"
-        assert report["integrity_ok"] is True
-        assert report["signature_valid"] is None
+        assert report["facts"]["signature_valid"] is None
+        assert report["identity"]["status"] == "UNKNOWN"
+        
+        from epi_core.trust import apply_policy, VerificationPolicy
+        # Permissive policy should pass unsigned
+        apply_policy(report, VerificationPolicy.PERMISSIVE)
+        assert report["decision"]["status"] == "PASS"
+        
+        # Strict policy should fail unsigned/unknown
+        apply_policy(report, VerificationPolicy.STRICT)
+        assert report["decision"]["status"] == "FAIL"
+        assert "unknown" in report["decision"]["reason"].lower()
     
-    def test_create_report_no_trust(self):
+    def test_create_report_integrity_fail(self):
         """Test creating report for compromised package."""
         manifest = ManifestModel(
             cli_command="test command",
@@ -307,15 +327,19 @@ class TestVerificationReport:
         
         report = create_verification_report(
             integrity_ok=False,
-            signature_valid=None,
-            signer_name=None,
+            signature_valid=True,
+            signer_name="default",
             mismatches={"test.txt": "Hash mismatch"},
             manifest=manifest
         )
         
-        assert report["trust_level"] == "NONE"
-        assert report["integrity_ok"] is False
-        assert report["mismatches_count"] == 1
+        assert report["facts"]["integrity_ok"] is False
+        
+        from epi_core.trust import apply_policy, VerificationPolicy
+        # Even permissive should fail on integrity loss
+        apply_policy(report, VerificationPolicy.PERMISSIVE)
+        assert report["decision"]["status"] == "FAIL"
+        assert "integrity" in report["decision"]["reason"].lower()
     
     def test_create_report_invalid_signature(self):
         """Test creating report for package with invalid signature."""
@@ -333,9 +357,12 @@ class TestVerificationReport:
             manifest=manifest
         )
         
-        assert report["trust_level"] == "NONE"
-        assert report["signature_valid"] is False
-        assert "trust_message" in report
+        assert report["facts"]["signature_valid"] is False
+        
+        from epi_core.trust import apply_policy, VerificationPolicy
+        apply_policy(report, VerificationPolicy.STANDARD)
+        assert report["decision"]["status"] == "FAIL"
+        assert "signature" in report["decision"]["reason"].lower()
     
     def test_verify_signature_with_unsupported_algorithm(self):
         """Test verify_signature rejects unsupported algorithms."""

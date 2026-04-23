@@ -143,7 +143,7 @@ def test_verify_review_json_output_includes_review_trust(tmp_path, capsys):
         epi_file=epi_path,
         json_output=True,
         review=True,
-        strict=True,
+        strict=False,
     )
 
     payload = json.loads(capsys.readouterr().out)

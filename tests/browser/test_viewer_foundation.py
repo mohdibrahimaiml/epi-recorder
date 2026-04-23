@@ -53,12 +53,14 @@ def test_viewer_loads_offline_and_shows_decision_evidence_policy_and_trust(
         browser.close()
         manager.__exit__(None, None, None)
 
-    assert "EPI Case Investigation" in body
-    assert "Overview" in body
-    assert "Evidence" in body
-    assert "Policy" in body
-    assert "Review" in body
-    assert "Trust" in body
+    # Use case-insensitive check to handle CSS text-transform (uppercase) in the viewer.
+    body_lower = body.lower()
+    assert "epi case investigation" in body_lower
+    assert "overview" in body_lower
+    assert "evidence" in body_lower
+    assert "policy" in body_lower
+    assert "review" in body_lower
+    assert "trust" in body_lower
     assert external_requests == []
 
 
@@ -79,6 +81,6 @@ def test_printable_decision_record_html_loads_in_browser(tmp_path: Path, request
         browser.close()
         manager.__exit__(None, None, None)
 
-    assert "EPI Decision Record" in body
-    assert "Policy Compliance Summary" in body
-    assert "Cryptographic Proof and Verification" in body
+    assert "EPI Decision Record".lower() in body.lower()
+    assert "Policy Compliance Summary".lower() in body.lower()
+    assert "Cryptographic Proof and Verification".lower() in body.lower()

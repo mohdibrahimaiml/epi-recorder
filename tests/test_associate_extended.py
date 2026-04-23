@@ -262,7 +262,10 @@ class TestWindowsRegAddFallback:
              patch("ctypes.windll", MagicMock(shell32=MagicMock())):
             register_windows()
 
-        mock_reg_add.assert_called_once_with('"epi.exe" view "%1"', '"epi.ico"')
+        mock_reg_add.assert_called_once()
+        args, kwargs = mock_reg_add.call_args
+        assert args[0] == '"epi.exe" view "%1"'
+        assert args[1] == '"epi.ico"'
 
 
 # ─────────────────────────────────────────────────────────────

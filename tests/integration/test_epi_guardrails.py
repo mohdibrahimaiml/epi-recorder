@@ -649,7 +649,7 @@ class TestFailureModes:
 
             # Verify it works initially
             runner = CliRunner()
-            res1 = runner.invoke(app, ["verify", "--strict", str(legacy_path)])
+            res1 = runner.invoke(app, ["verify", str(legacy_path)])
             assert res1.exit_code == 0, "Valid artifact should verify"
 
             # Tamper the identity in manifest.json by rewriting the zip
@@ -704,7 +704,7 @@ class TestFailureModes:
 
             # Verify it works initially
             runner = CliRunner()
-            res1 = runner.invoke(app, ["verify", "--strict", str(legacy_path)])
+            res1 = runner.invoke(app, ["verify", str(legacy_path)])
             assert res1.exit_code == 0
 
             # Tamper with steps.jsonl by modifying the zip

@@ -406,9 +406,12 @@ def run(
     return run_command(script, no_verify, no_open, goal, notes, metric, approved_by, tag)
 
 # Phase 1: verify command
-from epi_cli.verify import verify_command
+from typing import Annotated
 
-@app.command(name="verify", help="Verify .epi file integrity and authenticity")
+from epi_cli.verify import verify_command
+from epi_core.trust import VerificationPolicy
+
+@app.command(name="verify", help="Verify .epi file integrity, forensics, and policy-based trust")
 def verify(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path to .epi file to verify"),
@@ -427,10 +430,14 @@ def verify(
     strict: bool = typer.Option(
         False,
         "--strict",
-        help="With --review, fail missing, unsigned, or legacy unbound reviews.",
+        help="Enforce STRICT policy (fails on any warning, unsigned, or forensic gaps).",
     ),
+    policy: Annotated[VerificationPolicy, typer.Option(
+        "--policy",
+        help="Governance policy to apply: PERMISSIVE (integrity only), STANDARD (standard trust), STRICT (high assurance).",
+    )] = VerificationPolicy.STANDARD,
 ):
-    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out, review=review, strict=strict)
+    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out, review=review, strict=strict, policy=policy)
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
 # recording engine for simple read-only commands like version/ls/verify.

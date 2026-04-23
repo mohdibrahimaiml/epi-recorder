@@ -18,6 +18,9 @@ def _run_cli(args: list[str], *, cwd: Path, epi_home: Path) -> subprocess.Comple
     env["EPI_HOME"] = str(epi_home)
     env["HOME"] = str(epi_home)
     env["USERPROFILE"] = str(epi_home)
+    # Ensure isolation from host environment
+    env.pop("EPI_KEYS_DIR", None)
+    env.pop("EPI_TRUSTED_KEYS_DIR", None)
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
     return subprocess.run(

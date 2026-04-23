@@ -237,11 +237,11 @@ def _get_self_heal_vbs(python_exe: Optional[Path] = None) -> Path:
     vbs_content = (
         '\'  EPI self-heal: re-registers .epi file association on every login.\r\n'
         '\'  Silent (WindowStyle=0). Safe to run repeatedly (idempotent).\r\n'
-        'Dim healCommand\r\n'
+        'Dim oShell, healCommand\r\n'
+        'Set oShell = CreateObject("WScript.Shell")\r\n'
         f'healCommand = "{heal_command}"\r\n'
         '\r\n'
-        'Dim oShell\r\n'
-        'Set oShell = CreateObject("WScript.Shell")\r\n'
+        '\' Use cmd /c to ensure python -m works even without a direct file association for .py\r\n'
         'oShell.Run "cmd /c " & healCommand, 0, False\r\n'
     )
     return _write_windows_script(vbs_path, vbs_content)

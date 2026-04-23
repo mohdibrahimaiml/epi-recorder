@@ -316,59 +316,149 @@ class TrustRegistry:
         return False, None, "UNKNOWN: Identity not found in any trusted registry"
 
 
+from enum import Enum
+
+class VerificationPolicy(str, Enum):
+    """Governance policies for artifact acceptance."""
+    PERMISSIVE = "permissive"  # Valid integrity only
+    STANDARD = "standard"      # Valid integrity + not revoked
+    STRICT = "strict"          # Valid integrity + trusted identity + completeness
+
 def create_verification_report(
     integrity_ok: bool,
     signature_valid: Optional[bool],
     signer_name: Optional[str],
     mismatches: dict[str, str],
     manifest: ManifestModel,
-    trusted_registry: Optional[TrustRegistry] = None
+    trusted_registry: Optional[TrustRegistry] = None,
+    # New forensic facts
+    sequence_ok: bool = True,
+    completeness_ok: bool = True,
 ) -> dict:
     """
-    Create a structured verification report with independent trust analysis.
+    Create a structured verification report separating Facts and Identity.
+    Matches the 'Truth Engine' design pattern.
     """
+    # 1. Identity Layer
     is_trusted_identity = False
     identity_name = None
     status_detail = "Registry check not performed"
+    identity_status = "UNKNOWN"
     
     if manifest.public_key and trusted_registry:
         is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(manifest.public_key)
+        if "REVOKED" in status_detail:
+            identity_status = "REVOKED"
+        elif is_trusted_identity:
+            identity_status = "KNOWN"
 
+    # 2. Fact Layer (Objective Evidence)
     report = {
-        "integrity_ok": integrity_ok,
-        "signature_valid": signature_valid,
-        "signer": signer_name,
-        "identity_name": identity_name,
-        "identity_trusted": is_trusted_identity,
-        "trust_detail": status_detail,
-        "has_signature": manifest.signature is not None,
-        "spec_version": manifest.spec_version,
-        "workflow_id": str(manifest.workflow_id),
-        "created_at": manifest.created_at.isoformat(),
-        "files_checked": len(manifest.file_manifest),
-        "mismatches_count": len(mismatches),
-        "mismatches": mismatches,
+        "facts": {
+            "integrity_ok": integrity_ok,
+            "signature_valid": signature_valid,
+            "sequence_ok": sequence_ok,
+            "completeness_ok": completeness_ok,
+            "has_signature": manifest.signature is not None,
+            "mismatches": mismatches,
+        },
+        "identity": {
+            "status": identity_status,
+            "name": identity_name or signer_name,
+            "detail": status_detail,
+            "registry_verified": is_trusted_identity,
+            "public_key_id": manifest.public_key[:16] if manifest.public_key else None
+        },
+        "metadata": {
+            "spec_version": manifest.spec_version,
+            "workflow_id": str(manifest.workflow_id),
+            "created_at": manifest.created_at.isoformat(),
+            "files_checked": len(manifest.file_manifest),
+        }
     }
-    
-    # Compute overall trust level with strict semantics
-    if not integrity_ok:
-        report["trust_level"] = "NONE"
-        report["trust_message"] = "Integrity compromised - artifact content has been modified."
-    elif signature_valid is False:
-        report["trust_level"] = "NONE"
-        report["trust_message"] = "Invalid signature - artifact was not signed by this key or has been tampered."
-    elif "REVOKED" in status_detail:
+
+    # 3. Summary Layer (Unified state for quick lookup)
+    report["summary"] = {
+        "integrity": "VALID" if (integrity_ok and sequence_ok and completeness_ok) else "FAILED",
+        "trust": identity_status if signature_valid is True else ("UNTRUSTED" if signature_valid is False else "UNSIGNED"),
+    }
+
+    # Legacy field support for backward compatibility with existing tests/UI
+    # Note: These are now derived from the structured data above.
+    report["integrity_ok"] = integrity_ok
+    report["signature_valid"] = signature_valid
+    report["identity_trusted"] = is_trusted_identity
+    report["has_signature"] = manifest.signature is not None
+    report["trust_level"] = "HIGH" if (integrity_ok and signature_valid is True) else \
+                           ("MEDIUM" if (integrity_ok and signature_valid is None) else "NONE")
+    if identity_status == "REVOKED":
         report["trust_level"] = "INVALID"
-        report["trust_message"] = f"CRITICAL: {status_detail}"
-    elif signature_valid is True:
-        if is_trusted_identity:
-            report["trust_level"] = "HIGH"
-            report["trust_message"] = f"Verified by trusted identity: {identity_name}"
-        else:
-            report["trust_level"] = "MEDIUM"
-            report["trust_message"] = "Signature valid but identity is UNKNOWN (not in registry)."
-    elif signature_valid is None:
-        report["trust_level"] = "LOW"
-        report["trust_message"] = "Unsigned artifact - identity cannot be cryptographically proven."
+    report["mismatches_count"] = len(mismatches)
+    report["signer"] = signer_name
+    report["files_checked"] = len(manifest.file_manifest)
+    report["workflow_id"] = str(manifest.workflow_id)
+    report["created_at"] = manifest.created_at.isoformat()
+    report["spec_version"] = manifest.spec_version
+
+    # Human-readable trust message for backward compatibility
+    if identity_status == "REVOKED":
+        report["trust_message"] = "Identity revoked - do not trust"
+    elif report["trust_level"] == "HIGH":
+        report["trust_message"] = "Cryptographically verified and integrity intact"
+    elif report["trust_level"] == "MEDIUM":
+        report["trust_message"] = "Unsigned but integrity intact"
+    elif report["trust_level"] == "INVALID":
+        report["trust_message"] = "Invalid signature - do not trust"
+    else:
+        report["trust_message"] = "Integrity compromised - do not trust"
+
+    return report
+
+def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.STANDARD) -> dict:
+    """
+    Evaluate a verification report against a specific governance policy.
+    Separates the 'Decision' from the 'Proof'.
+    """
+    facts = report["facts"]
+    identity = report["identity"]
     
+    decision = {
+        "policy": policy.value,
+        "status": "FAIL",
+        "reason": "Policy requirements not met"
+    }
+
+    # Base requirements: Integrity must always be valid
+    if not facts["integrity_ok"]:
+        decision["reason"] = "Integrity compromised (file tampering detected)"
+    elif not facts["sequence_ok"]:
+        decision["reason"] = "Audit failure (sequence gap detected)"
+    elif facts["signature_valid"] is False:
+        decision["reason"] = "Invalid signature"
+    
+    # Policy-specific logic
+    elif policy == VerificationPolicy.PERMISSIVE:
+        # Integrity is enough
+        decision["status"] = "PASS"
+        decision["reason"] = "Integrity verified (Permissive Policy)"
+
+    elif policy == VerificationPolicy.STANDARD:
+        # Integrity + not revoked
+        if identity["status"] == "REVOKED":
+            decision["reason"] = "Identity revoked"
+        else:
+            decision["status"] = "PASS"
+            decision["reason"] = "Integrity verified and identity not revoked"
+
+    elif policy == VerificationPolicy.STRICT:
+        # Integrity + known identity + completeness
+        if identity["status"] != "KNOWN":
+            decision["reason"] = "Identity unknown or revoked (Strict Policy requires trusted signer)"
+        elif not facts["completeness_ok"]:
+             decision["reason"] = "Evidence incomplete (Strict Policy requires full telemetry coverage)"
+        else:
+            decision["status"] = "PASS"
+            decision["reason"] = "All strict criteria met (Integrity, Identity, Completeness)"
+
+    report["decision"] = decision
     return report
