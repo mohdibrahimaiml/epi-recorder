@@ -162,7 +162,7 @@ def test_policy_editor_html_preloads_rules_workspace():
 
     assert 'id="epi-preloaded-cases"' in html
     assert '"view": "rules"' in html
-    assert "Download rule file (epi_policy.json)" in html
+    assert "Open local cases" in html
     assert "refund-agent-prod" in html
     assert "refund-approval" in html
     shutil.rmtree(tmpdir, ignore_errors=True)

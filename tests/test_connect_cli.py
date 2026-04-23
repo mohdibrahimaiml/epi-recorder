@@ -207,7 +207,7 @@ def test_web_viewer_server_serves_index():
             html = response.read().decode("utf-8")
 
         assert "EPI Case Investigation" in html
-        assert "Connect a source when you are ready" in html
+        assert "Open local cases" in html
     finally:
         server.shutdown()
         server.server_close()

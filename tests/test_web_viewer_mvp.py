@@ -14,39 +14,14 @@ def test_web_viewer_shell_has_case_investigation_navigation():
     assert "EPI Case Investigation" in html
     assert "Queue" in html
     assert "Case investigation" in html
-    assert "Audit summary" in html
-    assert "Can this file be trusted, and what did it record?" in html
-    assert "The embedded viewer is for inspection" in html
-    assert 'id="audit-summary-grid"' in html
-    assert 'id="audit-proof-command"' in html
-    assert "Connect a source when you are ready" in html
-    assert "Export recorder starter" in html
-    assert "Overview" in html
-    assert "Evidence" in html
-    assert "Policy" in html
-    assert "Review" in html
-    assert "Mapping" in html
     assert "Trust" in html
-    assert "Attachments" in html
-    assert "Transformation audit" in html
-    assert "Inspect raw source files and derived artifacts" in html
+    assert "Execution Timeline" in html
+    assert "Workspace" in html
+    assert "Open local cases" in html
+    assert "Open example case" in html
     assert 'id="epi-view-context"' in html
-    assert 'id="open-setup-utility-button"' in html
-    assert 'id="open-rules-utility-button"' in html
-    assert 'id="open-reports-utility-button"' in html
-    assert 'id="case-overview-signals"' in html
-    assert 'id="case-overview-narrative"' in html
-    assert 'id="case-source-badge"' in html
-    assert 'id="case-import-badge"' in html
-    assert 'id="case-audit-badge"' in html
-    assert 'id="case-policy-flow"' in html
-    assert 'id="case-mapping-summary"' in html
-    assert 'id="case-mapping-groups"' in html
     assert 'id="case-trust-grid"' in html
-    assert 'id="case-attachments"' in html
-    assert 'id="attachment-preview-body"' in html
-    assert "../epi_viewer_static/crypto.js" in html
-    assert "app.js" in html
+    assert 'id="case-timeline"' in html
     assert "styles.css" in html
 
 

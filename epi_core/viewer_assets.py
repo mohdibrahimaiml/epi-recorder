@@ -31,19 +31,11 @@ def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
         if html:
             combined = {
                 "template_html": html,
-                "jszip_js": None,
+                "jszip_js": _read_text("web_viewer", "jszip.min.js"),
                 "app_js": None,
-                "css_styles": None,
+                "css_styles": _read_text("web_viewer", "styles.css"),
                 "crypto_js": None,
             }
-            html_with_scripts = combined["template_html"]
-            jszip_tag = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
-            if jszip_tag not in html_with_scripts:
-                html_with_scripts = html_with_scripts.replace(
-                    "</body>",
-                    f"<script src=\"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js\"></script></body>"
-                )
-            combined["template_html"] = html_with_scripts
             return combined
     if version == "2.0":
         return {

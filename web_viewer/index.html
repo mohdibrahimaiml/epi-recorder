@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPI Case Viewer</title>
+<title>EPI Case Viewer __EPI_VERSION__</title>
 <script id="epi-view-context" type="application/json">{}</script>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <input type="file" id="file-input" accept=".epi" multiple hidden>
@@ -77,7 +78,7 @@
   </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="jszip.min.js"></script>
 <script>
 // EPI Viewer Core
 const state = { cases: [], currentView: 'case', selectedCaseId: null };
