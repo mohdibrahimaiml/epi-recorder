@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 _VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="styles.css">'
-_VIEWER_JSZIP_TAG = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
+_VIEWER_JSZIP_TAG = '<script src="jszip.min.js"></script>'
 _VIEWER_CRYPTO_TAG = '<script src="../epi_viewer_static/crypto.js"></script>'
 _VIEWER_APP_TAG = '<script src="app.js"></script>'
 _VIEWER_SCRIPT_BUNDLE = "\n".join((_VIEWER_JSZIP_TAG, _VIEWER_CRYPTO_TAG, _VIEWER_APP_TAG))
@@ -45,8 +45,11 @@ def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
             "css_styles": _read_text("web_viewer", "v2_styles.css"),
             "crypto_js": _read_text("epi_viewer_static", "crypto.js"),
         }
+    # "1.0" (default): full app.js template — used by policy editor and other
+    # app.js-based flows. Uses app_template.html which contains the script bundle
+    # placeholders that inline_viewer_assets needs to inject app.js correctly.
     return {
-        "template_html": _read_text("web_viewer", "index.html"),
+        "template_html": _read_text("web_viewer", "app_template.html") or _read_text("web_viewer", "index.html"),
         "jszip_js": _read_text("web_viewer", "jszip.min.js"),
         "app_js": _read_text("web_viewer", "app.js"),
         "css_styles": _read_text("web_viewer", "styles.css"),

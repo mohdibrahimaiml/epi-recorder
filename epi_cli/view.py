@@ -7,10 +7,11 @@ default browser. No code execution, all data is pre-rendered JSON.
 Features (v2.8.0):
   - Unicode-safe path handling via pathlib
   - Stem resolution picks most recent match
-  - Temp directory auto-cleanup after browser loads
+  - Persistent viewer cache (Docker-volume approach) — no temp-file race condition
   - Clear error messages for corrupt/missing files
 """
 
+import hashlib
 import shutil
 import tempfile
 import threading
@@ -100,6 +101,25 @@ def _resolve_epi_file(name_or_path: str) -> Path:
 
     # Not found
     raise FileNotFoundError(f"Recording not found: {name_or_path}")
+
+
+def _get_persistent_viewer_dir(epi_path: Path) -> Path:
+    """Return a stable cache directory for this .epi file's viewer.
+
+    Inspired by Docker volumes: content persists until explicitly cleared,
+    so the browser always has a valid file:// URL regardless of how long
+    it takes to render. The directory is keyed by absolute path + mtime,
+    so modifying the .epi file automatically regenerates the viewer on
+    next open without any manual cleanup.
+    """
+    try:
+        mtime = int(epi_path.stat().st_mtime)
+    except Exception:
+        mtime = 0
+    cache_key = hashlib.md5(f"{epi_path.absolute()}|{mtime}".encode()).hexdigest()[:10]
+    cache_dir = Path.home() / ".epi" / "view-cache" / f"{epi_path.stem}_{cache_key}"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
 
 
 def _make_temp_dir() -> Path | None:
@@ -407,10 +427,13 @@ def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
     """
     viewer_path = extracted_dir / "viewer.html"
     try:
-        viewer_html = _create_decision_ops_viewer(extracted_dir, resolved_path)
+        manifest = EPIContainer.read_manifest(resolved_path)
+        viewer_html = EPIContainer._create_embedded_viewer(
+            extracted_dir, manifest, viewer_version="minimal"
+        )
         viewer_path.write_text(viewer_html, encoding="utf-8")
         return viewer_path
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         if viewer_path.exists():
             return viewer_path
         raise
@@ -469,38 +492,38 @@ def view(
         _print_share_hint()
         return
 
-    # Create temp dir
-    temp_dir = _make_temp_dir()
-    if temp_dir is None:
-        console.print("[red][X] Could not create temp directory.[/red]")
-        console.print("[dim]   Try: epi view --extract ./output/ <file>[/dim]")
-        raise typer.Exit(1)
+    # Use a persistent viewer cache (Docker-volume approach): no race condition
+    # between browser rendering and temp-file deletion.
+    viewer_dir = _get_persistent_viewer_dir(resolved_path)
 
     try:
         viewer_context = _build_viewer_context(resolved_path)
 
-        EPIContainer.unpack(resolved_path, temp_dir)
+        EPIContainer.unpack(resolved_path, viewer_dir)
 
-        viewer = _refresh_viewer_html(temp_dir, resolved_path)
-        _inject_viewer_context(viewer, viewer_context)
+        # Use the full decision-ops viewer (preloads all case data so it opens
+        # directly with no file-selector dropdown). Fall back to the minimal
+        # viewer only if the decision-ops assets are missing from this install.
+        viewer = viewer_dir / "viewer.html"
+        try:
+            viewer_html = _create_decision_ops_viewer(viewer_dir, resolved_path)
+            viewer.write_text(viewer_html, encoding="utf-8")
+        except Exception:
+            viewer = _refresh_viewer_html(viewer_dir, resolved_path)
+            _inject_viewer_context(viewer, viewer_context)
+
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
         _print_share_hint()
-
-        # Schedule cleanup after browser loads
-        _cleanup_after_delay(temp_dir, 8)
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled[/yellow]")
-        shutil.rmtree(temp_dir, ignore_errors=True)
         raise typer.Exit(130)
     except PermissionError as e:
         console.print(f"[red][X] Permission denied:[/red] {e}")
-        shutil.rmtree(temp_dir, ignore_errors=True)
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red][X] Unexpected error:[/red] {e}")
-        shutil.rmtree(temp_dir, ignore_errors=True)
         raise typer.Exit(1)

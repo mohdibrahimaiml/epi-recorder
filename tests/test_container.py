@@ -435,9 +435,9 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert ".verdict-card" in viewer_html  # Updated for new redesign
+        assert ".hero" in viewer_html  # Updated for new redesign
         assert "<script>" in viewer_html
-        assert "renderCase" in viewer_html  # Check for new viewer functions
+        assert "function render(" in viewer_html  # Check for new viewer functions
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html

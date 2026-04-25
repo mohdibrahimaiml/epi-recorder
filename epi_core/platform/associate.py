@@ -173,6 +173,7 @@ If Not fso.FileExists(epiPath) Then
 End If
 epiPath = fso.GetAbsolutePathName(epiPath)
 
+' -- Primary path: delegate to the installed CLI --
 Set sh = CreateObject("WScript.Shell")
 viewerCommand = "{escaped_view_command}"
 viewerCommand = Replace(viewerCommand, "%1", Chr(34) & epiPath & Chr(34))
@@ -182,13 +183,50 @@ If Err.Number = 0 And exitCode = 0 Then
 End If
 Err.Clear
 
+' -- Fallback: extract viewer.html directly from the archive --
+' EPI files may be in "envelope-v2" format: a 64-byte binary header followed
+' by a standard ZIP payload. Shell.Application cannot open the file directly
+' because it chokes on the header bytes, so we use ADODB.Stream to read the
+' raw bytes, detect the magic ("EPI1" = 0x45 0x50 0x49 0x31), skip the header
+' when present, and write the clean ZIP payload to a temp file.
+
 tempFolder = fso.BuildPath(fso.GetSpecialFolder(2), "epi_view_" & Replace(fso.GetTempName, ".tmp", ""))
 If Not fso.FolderExists(tempFolder) Then
     fso.CreateFolder tempFolder
 End If
+If Err.Number <> 0 Then WScript.Quit 6
+Err.Clear
 
 zipPath = fso.BuildPath(tempFolder, "archive.zip")
-fso.CopyFile epiPath, zipPath, True
+
+Dim adoIn, adoOut, magic, b0, b1, b2, b3, skipBytes
+Set adoIn = CreateObject("ADODB.Stream")
+If Err.Number <> 0 Then WScript.Quit 7
+adoIn.Type = 1
+adoIn.Open
+adoIn.LoadFromFile epiPath
+If Err.Number <> 0 Then WScript.Quit 8
+adoIn.Position = 0
+magic = adoIn.Read(4)
+b0 = AscB(MidB(magic, 1, 1))
+b1 = AscB(MidB(magic, 2, 1))
+b2 = AscB(MidB(magic, 3, 1))
+b3 = AscB(MidB(magic, 4, 1))
+skipBytes = 0
+If b0 = 69 And b1 = 80 And b2 = 73 And b3 = 49 Then
+    skipBytes = 64
+End If
+adoIn.Position = skipBytes
+
+Set adoOut = CreateObject("ADODB.Stream")
+adoOut.Type = 1
+adoOut.Open
+adoOut.Write adoIn.Read()
+adoOut.SaveToFile zipPath, 2
+adoOut.Close
+adoIn.Close
+If Err.Number <> 0 Then WScript.Quit 9
+Err.Clear
 
 Set shell = CreateObject("Shell.Application")
 Set zipNs = shell.NameSpace(zipPath)
@@ -380,7 +418,17 @@ def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
         _shellexecute_wait("cmd.exe", cmd_params, timeout_ms=timeout_ms)
         return output_path.read_text(encoding="utf-8", errors="ignore")
     finally:
-        output_path.unlink(missing_ok=True)
+        # Retry once with a short delay: cmd.exe output redirection may hold
+        # the file handle briefly after the process exits (conhost.exe flush).
+        try:
+            output_path.unlink(missing_ok=True)
+        except OSError:
+            try:
+                import time as _time
+                _time.sleep(0.2)
+                output_path.unlink(missing_ok=True)
+            except OSError:
+                pass  # Leave it — harmless stale file
 
 
 def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str, self_heal_cmd: Optional[str] = None) -> None:
@@ -412,6 +460,59 @@ def _register_windows_via_reg_add(open_cmd: str, icon_cmd: str, self_heal_cmd: O
         raise RuntimeError("Windows registry fallback failed:\n" + "\n".join(failures))
 
 
+def _try_update_hklm_open_command(open_cmd: str) -> bool:
+    """Opportunistically update the HKLM open command when we have write access.
+
+    HKLM is the permanent fallback when HKCU gets wiped (profile resets, sync).
+    Docker Desktop and VS Code write here during install (admin-time). For
+    pip installs, we can often still update it if the user is in the
+    Administrators group — silently no-op if we don't have permission.
+
+    Returns True if HKLM was updated successfully.
+    """
+    try:
+        import winreg
+        key_path = r"Software\Classes\EPIRecorder.File\shell\open\command"
+        k = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE
+        )
+        winreg.SetValueEx(k, "", 0, winreg.REG_SZ, open_cmd)
+        k.Close()
+        return True
+    except Exception:
+        return False  # No admin rights — silently skip
+
+
+def _register_task_scheduler_self_heal(epi_exe_path: str) -> None:
+    """Register a Task Scheduler logon task for persistent self-healing.
+
+    Inspired by Docker Desktop and VS Code: Task Scheduler tasks are stored
+    in C:\\Windows\\System32\\Tasks\\ (a system directory), NOT in HKCU.
+    This means they survive HKCU profile resets that wipe the Run key and
+    the file-association keys simultaneously — the failure mode that causes
+    double-click to stop working after Windows updates or profile sync.
+
+    On every login the task silently re-runs 'epi associate --force',
+    restoring the HKCU keys if they were wiped. /f replaces any existing
+    task with the same name (idempotent).
+    """
+    # Construct the schtasks command via ShellExecuteExW so it works from
+    # packaged (MSIX) Python just like the reg.exe calls above.
+    task_name = r"EpiLabs\EpiRecorderAssociate"
+    # /sc onlogon + /delay 0000:30 = run 30 s after logon (avoids startup rush)
+    # /rl limited = run with normal user rights (no UAC prompt)
+    # /f = force-replace any existing task with the same name
+    schtasks_args = (
+        f'schtasks /create /f /rl limited /sc onlogon /delay 0000:30 '
+        f'/tn "{task_name}" '
+        f'/tr "\\"{epi_exe_path}\\" associate --force"'
+    )
+    try:
+        _shellexecute_wait("cmd.exe", f"/c {schtasks_args}", timeout_ms=10000)
+    except Exception:
+        pass  # Non-fatal: Run-key fallback already set
+
+
 def register_windows() -> None:
     """Register .epi file association on Windows via HKCU registry.
 
@@ -419,9 +520,10 @@ def register_windows() -> None:
     ShellExecuteExW so writes land in the real HKCU hive even under packaged
     Python contexts.
 
-    This also installs a silent 'self-heal' VBScript in the Windows Run key.
-    The script re-verifies the association on every login, ensuring it
-    persists through Windows updates and registry cleaners.
+    Self-heal strategy (Docker Desktop / VS Code inspired):
+    1. HKCU Run key  — fires on login via WScript; fast but wiped with HKCU
+    2. Task Scheduler — stored in C:\\Windows\\System32\\Tasks\\, survives
+       HKCU profile resets; re-registers the association on every login
     """
     import ctypes
 
@@ -429,7 +531,7 @@ def register_windows() -> None:
     open_cmd = _get_user_open_command()
     icon_cmd = _get_windows_default_icon(python_exe)
 
-    # Prepare self-heal launcher
+    # Prepare self-heal launcher (Run key — first line of defence)
     try:
         vbs_path = _get_self_heal_vbs(python_exe)
         self_heal_cmd = f'wscript.exe //nologo "{vbs_path.absolute()}"'
@@ -443,6 +545,21 @@ def register_windows() -> None:
     )
     if "EPIRecorder.File" not in query_output:
         raise RuntimeError("Windows registry association could not be verified after registration.")
+
+    # Keep HKLM open command in sync when possible (no-op if not admin).
+    # HKLM is the permanent fallback when HKCU gets wiped — having a valid
+    # HKLM command ensures double-click always works even without HKCU.
+    _try_update_hklm_open_command(open_cmd)
+
+    # Task Scheduler self-heal (Docker Desktop / VS Code approach):
+    # Unlike the HKCU Run key, Task Scheduler tasks survive HKCU profile
+    # resets, so the association is restored on next login even if Windows
+    # wipes HKCU entirely. Non-fatal if it fails (Run key already set above).
+    adjacent_epi = python_exe.parent / "epi.exe"
+    epi_on_path = shutil.which("epi.exe")
+    epi_for_task = str(adjacent_epi.absolute()) if adjacent_epi.exists() else (epi_on_path or "")
+    if epi_for_task:
+        _register_task_scheduler_self_heal(epi_for_task)
 
     try:
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)

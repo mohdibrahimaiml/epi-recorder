@@ -157,6 +157,7 @@
 
 (function() {
   'use strict';
+  alert('Script started');
 
   /* ── Utilities ─────────────────────────────────────────────────────────── */
   function $(id) { return document.getElementById(id); }
@@ -190,9 +191,12 @@
 
   /* ── Data Loading ──────────────────────────────────────────────────────── */
   function loadEmbeddedData() {
+    alert('loadEmbeddedData called');
     // Try all epi-data tags and pick the one with real data
     const tags = document.querySelectorAll('script#epi-data');
+    alert('Found ' + tags.length + ' epi-data tags');
     for (const node of tags) {
+      alert('Processing tag, textContent len: ' + (node.textContent || '').length);
       try {
         const raw = (node.textContent || '{}').trim();
         if (raw.length < 20) continue; // Skip empty placeholders
@@ -682,7 +686,7 @@
       currentData = data;
       $('drop-overlay').hidden = true;
       $('viewer').hidden = false;
-      render(data);
+      alert('About to render'); render(data); alert('Render done');
       bindAccordions();
       bindTimelineFilters();
     } catch (e) {
@@ -693,7 +697,8 @@
 
   function initEmbedded() {
     const data = loadEmbeddedData();
-    if (!data || !data.manifest || Object.keys(data.manifest).length === 0) return false;
+    alert('loadEmbeddedData returned: ' + (data ? 'data' : 'null'));
+    if (!data || !data.manifest || Object.keys(data.manifest).length === 0) { alert('Returning false: no manifest'); return false; }
     currentData = data;
     $('drop-overlay').hidden = true;
     $('viewer').hidden = false;

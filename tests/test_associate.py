@@ -95,7 +95,11 @@ class TestWindowsLauncherScripts:
 
         content = launcher.read_text(encoding="ascii")
         assert "archive.zip" in content
-        assert "CopyFile epiPath, zipPath, True" in content
+        # New ADODB.Stream approach: reads raw bytes, strips 64-byte EPI1 header,
+        # writes clean ZIP payload — replaces the old CopyFile approach which
+        # could not handle envelope-v2 files.
+        assert "ADODB.Stream" in content
+        assert "skipBytes = 64" in content
         assert "NameSpace(zipPath)" in content
 
     def test_launcher_is_written_without_utf8_bom(self, tmp_path):

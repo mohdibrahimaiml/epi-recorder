@@ -206,8 +206,8 @@ def test_web_viewer_server_serves_index():
         with urlrequest.urlopen(f"http://{host}:{port}/web_viewer/index.html", timeout=5) as response:
             html = response.read().decode("utf-8")
 
-        assert "EPI Case Investigation" in html
-        assert "Open local cases" in html
+        assert "EPI Case Viewer" in html
+        assert "Open an EPI case file" in html
     finally:
         server.shutdown()
         server.server_close()

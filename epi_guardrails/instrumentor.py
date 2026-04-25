@@ -68,8 +68,38 @@ def _guardrails_version() -> tuple:
 
         parts = GUARDRAILS_VERSION.split(".")[:3]
         return tuple(int(p) for p in parts)
-    except Exception:
+    except (ImportError, AttributeError, ValueError):
         return (0, 0, 0)
+
+
+def _safe_get(
+    wrapped: Callable,
+    args: tuple,
+    kwargs: dict,
+    param_name: str,
+    default: Any = None,
+) -> Any:
+    """Extract a parameter value from args/kwargs using signature inspection.
+
+    Falls back to kwargs, then positional index from inspect.signature,
+    then the provided default. This survives Guardrails signature changes.
+    """
+    if param_name in kwargs:
+        return kwargs[param_name]
+    try:
+        import inspect
+
+        sig = inspect.signature(wrapped)
+        for idx, (name, param) in enumerate(sig.parameters.items()):
+            if name == param_name:
+                if idx < len(args):
+                    return args[idx]
+                if param.default is not inspect.Parameter.empty:
+                    return param.default
+                return default
+    except (ValueError, TypeError):
+        pass
+    return default
 
 
 # ==============================================================================
@@ -106,8 +136,8 @@ def _wrap_runner_step(
     if state is None or not hasattr(state, "guard_name"):
         return wrapped(*args, **kwargs)
 
-    call_log = kwargs.get("call_log") or (args[2] if len(args) > 2 else None)
-    step_index_arg = kwargs.get("index") if "index" in kwargs else (args[0] if args else 0)
+    call_log = _safe_get(wrapped, args, kwargs, "call_log", default=None)
+    step_index_arg = _safe_get(wrapped, args, kwargs, "index", default=0)
 
     iteration_id = None
     if call_log is not None:
@@ -188,8 +218,8 @@ def _wrap_stream_runner_step(
     if state is None or not hasattr(state, "guard_name"):
         return wrapped(*args, **kwargs)
 
-    call_log = kwargs.get("call_log") or (args[6] if len(args) > 6 else None)
-    step_index = kwargs.get("index") if "index" in kwargs else (args[0] if args else 0)
+    call_log = _safe_get(wrapped, args, kwargs, "call_log", default=None)
+    step_index = _safe_get(wrapped, args, kwargs, "index", default=0)
     iteration_id = (
         f"{getattr(call_log, 'id', id(call_log) if call_log else 'stream')}-step-{step_index}"
     )
@@ -261,9 +291,34 @@ class _StreamingIterationWrapper:
             self._consumed = True
             duration = time_module.monotonic() - self._step_start_time
             pop_current_iteration_id()
-
             self._emit_streaming_step(duration)
             raise
+
+    def close(self) -> None:
+        """Ensure cleanup on early break or GeneratorExit."""
+        if not self._consumed:
+            self._consumed = True
+            try:
+                pop_current_iteration_id()
+                duration = time_module.monotonic() - self._step_start_time
+                self._emit_streaming_step(duration)
+            except Exception as exc:
+                logger.warning("epi_guardrails: streaming cleanup failed: %s", exc)
+            if hasattr(self._inner, "close"):
+                try:
+                    self._inner.close()
+                except Exception as exc:
+                    logger.warning("epi_guardrails: inner iterator close failed: %s", exc)
+
+    def __del__(self):
+        """Last-resort cleanup if close() was not called."""
+        if not getattr(self, "_consumed", False):
+            try:
+                pop_current_iteration_id()
+                duration = time_module.monotonic() - self._step_start_time
+                self._emit_streaming_step(duration)
+            except Exception:
+                pass
 
     def _emit_streaming_step(self, duration: float) -> None:
         """Emit guardrails.step for streaming after iterator is exhausted."""
@@ -289,8 +344,10 @@ class _StreamingIterationWrapper:
                     correction_applied = True
 
                 validation_passed = getattr(self._final_outcome, "validation_passed", True)
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.warning(
+                    "epi_guardrails: could not read streaming outcome fields: %s", exc
+                )
 
         session.emit_guardrails_step(
             iteration_index=self._iteration_index,
@@ -342,9 +399,9 @@ def _wrap_validator_after_run(
         return wrapped(*args, **kwargs)
 
     # Extract validator + logs + result
-    validator = args[0] if args else kwargs.get("validator")
-    validator_logs = args[1] if len(args) > 1 else kwargs.get("validator_logs")
-    result = args[2] if len(args) > 2 else kwargs.get("result")
+    validator = _safe_get(wrapped, args, kwargs, "validator", default=None)
+    validator_logs = _safe_get(wrapped, args, kwargs, "validator_logs", default=None)
+    result = _safe_get(wrapped, args, kwargs, "result", default=None)
 
     validator_name = getattr(validator, "rail_alias", "unknown") if validator else "unknown"
     rail_alias = getattr(validator, "on_fail_descriptor", "unknown") if validator else "unknown"
@@ -605,8 +662,8 @@ async def _wrap_async_stream_runner_step(
             yield item
         return
 
-    call_log = kwargs.get("call_log") or (args[6] if len(args) > 6 else None)
-    step_index = kwargs.get("index") if "index" in kwargs else (args[0] if args else 0)
+    call_log = _safe_get(wrapped, args, kwargs, "call_log", default=None)
+    step_index = _safe_get(wrapped, args, kwargs, "index", default=0)
     iteration_id = (
         f"{getattr(call_log, 'id', id(call_log) if call_log else 'async-stream')}-step-{step_index}"
     )
@@ -673,7 +730,6 @@ def _wrap_guard_execute(
     notes = kwargs.pop("__epi_notes", _settings.get("notes", None))
     tags = kwargs.pop("__epi_tags", _settings.get("tags", None))
 
-    override_path = kwargs.get("__epi_output_path")
     existing_state = guardrails_epi_state()
 
     # Extract guard config
@@ -683,19 +739,17 @@ def _wrap_guard_execute(
             guard_config["rail_present"] = True
         if hasattr(self, "metadata"):
             guard_config["metadata"] = getattr(self, "metadata", {}) or {}
-    except Exception:
-        pass
+    except (AttributeError, TypeError) as exc:
+        logger.warning("epi_guardrails: could not extract guard config: %s", exc)
 
-    # If already in a session and no explicit override is requested for a new file,
-    # just attach to the active session and avoid creating a nested output-less session
-    if existing_state is not None and not override_path:
+    # If already in a session, attach to the active session and avoid
+    # creating a nested output-less session
+    if existing_state is not None:
         from epi_guardrails.session import _global_sessions
-        # Ensure we record the guard starting in the parent session
         active_session = _global_sessions.get(id(existing_state))
         if active_session:
             active_session.emit_guard_execution_start(
                 guard_config=guard_config or None,
-                # Full prompt — no truncation. EU AI Act Article 12 traceability.
                 prompt=str(kwargs.get("prompt", "")) if kwargs.get("prompt") else None,
             )
         try:
@@ -709,13 +763,13 @@ def _wrap_guard_execute(
     ver_str = ".".join(map(str, _guardrails_version()))
 
     session = GuardrailsRecorderSession(
-        output_path=kwargs.setdefault("__epi_output_path", _settings.get("output_path")),
-        auto_sign=kwargs.setdefault("__epi_auto_sign", _settings.get("auto_sign", True)),
-        redact=kwargs.setdefault("__epi_redact", _settings.get("redact", True)),
+        output_path=output_path,
+        auto_sign=auto_sign,
+        redact=redact,
         guard_name=guard_name,
         guardrails_version=ver_str,
-        goal=kwargs.setdefault("__epi_goal", _settings.get("goal")),
-        notes=kwargs.setdefault("__epi_notes", _settings.get("notes")),
+        goal=goal,
+        notes=notes,
         tags=tags,
         agent_identity=_settings.get("agent_identity"),
     )
@@ -944,11 +998,36 @@ def instrument(
     except Exception as e:
         logger.warning(f"Failed to instrument Guard._execute_async: {e}")
 
+    # ---- AsyncGuard._execute (some Guardrails versions use this class) ----
+    try:
+        guard_module = import_module(_GUARD_MODULE)
+        async_guard_cls = getattr(guard_module, "AsyncGuard", None)
+        if async_guard_cls and hasattr(async_guard_cls, "_execute") and "AsyncGuard._execute" not in _originals:
+            _originals["AsyncGuard._execute"] = async_guard_cls._execute
+
+            def _async_guard_execute_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+                kwargs = dict(kwargs)
+                kwargs.setdefault("__epi_output_path", output_path)
+                kwargs.setdefault("__epi_auto_sign", auto_sign)
+                kwargs.setdefault("__epi_redact", redact)
+                kwargs.setdefault("__epi_goal", goal)
+                kwargs.setdefault("__epi_notes", notes)
+                kwargs.setdefault("__epi_tags", tags)
+                wrapped = _originals["AsyncGuard._execute"]
+                if getattr(wrapped, "__name__", "") == "_async_guard_execute_wrapper":
+                    raise RuntimeError("Infinite loop detected: original is the wrapper!")
+                return _wrap_guard_execute(wrapped, self, args, kwargs)
+
+            async_guard_cls._execute = _async_guard_execute_wrapper  # type: ignore
+            logger.info("Instrumented AsyncGuard._execute")
+    except Exception as e:
+        logger.warning(f"Failed to instrument AsyncGuard._execute: {e}")
+
     # ---- Runner.step (non-streaming) ----
     try:
         runner_module = import_module(_RUNNER_MODULE)
         runner_cls = getattr(runner_module, "Runner", None)
-        if runner_cls and hasattr(runner_cls, "step"):
+        if runner_cls and hasattr(runner_cls, "step") and "Runner.step" not in _originals:
             _originals["Runner.step"] = runner_cls.step
             wrap_function_wrapper(_RUNNER_MODULE, "Runner.step", _wrap_runner_step)
             logger.info("Instrumented Runner.step")
@@ -958,7 +1037,7 @@ def instrument(
     # ---- StreamRunner.step (sync streaming) ----
     try:
         stream_runner_cls = getattr(runner_module, "StreamRunner", None)
-        if stream_runner_cls and hasattr(stream_runner_cls, "step"):
+        if stream_runner_cls and hasattr(stream_runner_cls, "step") and "StreamRunner.step" not in _originals:
             _originals["StreamRunner.step"] = stream_runner_cls.step
             wrap_function_wrapper(_RUNNER_MODULE, "StreamRunner.step", _wrap_stream_runner_step)
             logger.info("Instrumented StreamRunner.step")
@@ -977,9 +1056,10 @@ def instrument(
             _async_stream_cls = getattr(runner_module, _cls_name, None)
             if _async_stream_cls and hasattr(_async_stream_cls, _method_name):
                 _key = f"{_cls_name}.{_method_name}"
-                _originals[_key] = getattr(_async_stream_cls, _method_name)
-                wrap_function_wrapper(_RUNNER_MODULE, f"{_cls_name}.{_method_name}", _wrap_async_stream_runner_step)
-                logger.info("Instrumented %s (async streaming)", _key)
+                if _key not in _originals:
+                    _originals[_key] = getattr(_async_stream_cls, _method_name)
+                    wrap_function_wrapper(_RUNNER_MODULE, f"{_cls_name}.{_method_name}", _wrap_async_stream_runner_step)
+                    logger.info("Instrumented %s (async streaming)", _key)
                 break  # Only hook the first available method
         else:
             logger.debug("No async streaming runner found in this Guardrails version; skipping.")
@@ -990,7 +1070,7 @@ def instrument(
     try:
         validator_module = import_module(_VALIDATOR_MODULE)
         validator_svc = getattr(validator_module, "ValidatorServiceBase", None)
-        if validator_svc and hasattr(validator_svc, "after_run_validator"):
+        if validator_svc and hasattr(validator_svc, "after_run_validator") and "ValidatorServiceBase.after_run_validator" not in _originals:
             _originals["ValidatorServiceBase.after_run_validator"] = (
                 validator_svc.after_run_validator
             )
@@ -1007,13 +1087,13 @@ def instrument(
     try:
         runner_module = import_module(_RUNNER_MODULE)
         runner_cls = getattr(runner_module, "Runner", None)
-        if runner_cls and hasattr(runner_cls, "call"):
+        if runner_cls and hasattr(runner_cls, "call") and "Runner.call" not in _originals:
             _originals["Runner.call"] = runner_cls.call
             wrap_function_wrapper(_RUNNER_MODULE, "Runner.call", _wrap_runner_call)
             logger.info("Instrumented Runner.call")
         
         async_runner_cls = getattr(runner_module, "AsyncRunner", None)
-        if async_runner_cls and hasattr(async_runner_cls, "async_call"):
+        if async_runner_cls and hasattr(async_runner_cls, "async_call") and "AsyncRunner.async_call" not in _originals:
             _originals["AsyncRunner.async_call"] = async_runner_cls.async_call
             wrap_function_wrapper(_RUNNER_MODULE, "AsyncRunner.async_call", _wrap_async_runner_call)
             logger.info("Instrumented AsyncRunner.async_call")
@@ -1061,6 +1141,7 @@ def uninstrument() -> None:
     restore_map = [
         ("Guard._execute", "guardrails.guard", "Guard"),
         ("Guard._execute_async", "guardrails.guard", "Guard"),
+        ("AsyncGuard._execute", "guardrails.guard", "AsyncGuard"),
         ("Runner.step", "guardrails.run", "Runner"),
         ("StreamRunner.step", "guardrails.run", "StreamRunner"),
         ("AsyncStreamRunner.async_step", "guardrails.run", "AsyncStreamRunner"),
@@ -1083,8 +1164,8 @@ def uninstrument() -> None:
                 if cls is not None:
                     attr = name.split(".")[-1]
                     setattr(cls, attr, _originals[name])
-            except Exception:
-                pass
+            except (ImportError, AttributeError) as exc:
+                logger.warning("epi_guardrails: uninstrument failed for %s: %s", name, exc)
             del _originals[name]
 
     # Shutdown OTel if active
