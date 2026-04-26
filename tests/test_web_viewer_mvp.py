@@ -12,17 +12,14 @@ def test_web_viewer_shell_has_case_investigation_navigation():
     html = _read("web_viewer/index.html")
 
     assert "EPI Case Viewer" in html
-    assert "Cryptographic Trust" in html
-    assert "Evidence Summary" in html
-    assert "Execution Timeline" in html
     assert "Policy Evaluation" in html
     assert "Human Review" in html
     assert "Environment Snapshot" in html
-    assert "Offline artifact viewer" in html
     assert 'id="epi-view-context"' in html
     assert 'id="trust-body"' in html
-    assert 'id="timeline"' in html
-    assert "styles.css" in html
+    assert 'id="faults"' in html
+    assert 'id="execution"' in html
+    assert 'id="environment"' in html
 
 
 def test_web_viewer_app_supports_source_aware_case_investigation():
