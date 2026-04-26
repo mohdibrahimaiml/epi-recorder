@@ -464,6 +464,15 @@ class EPIContainer:
                                 policy_evaluation_json,
                                 encoding="utf-8",
                             )
+                    else:
+                        # No explicit policy — generate a minimal baseline evaluation
+                        # from heuristic fault detection so every artifact has
+                        # policy_evaluation.json for the viewer to display.
+                        baseline_eval = EPIContainer._build_baseline_policy_evaluation(analysis)
+                        (source_dir / "policy_evaluation.json").write_text(
+                            json.dumps(baseline_eval, indent=2, ensure_ascii=False),
+                            encoding="utf-8",
+                        )
 
                     manifest.analysis_status = "complete"
             except Exception as _fa_err:
@@ -524,6 +533,15 @@ class EPIContainer:
         files_to_pack.sort(key=lambda item: item[1])
         manifest.file_manifest = file_manifest
 
+        # Compute a deterministic payload fingerprint: SHA-256 of the sorted
+        # file manifest (hash-of-hashes).  Stored in manifest.trust so the
+        # viewer can display it even before Ed25519 signing is performed.
+        _manifest_canon = json.dumps(
+            dict(sorted(file_manifest.items())), ensure_ascii=False, separators=(",", ":")
+        )
+        _payload_hash = hashlib.sha256(_manifest_canon.encode()).hexdigest()
+        manifest.trust = {**(manifest.trust or {}), "payload_hash": _payload_hash}
+
         if signer_function:
             manifest = signer_function(manifest)
 
@@ -542,6 +560,146 @@ class EPIContainer:
 
             manifest_json = manifest.model_dump_json(indent=2)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
+
+    @staticmethod
+    def _build_baseline_policy_evaluation(analysis) -> dict:
+        """
+        Generate a minimal policy_evaluation.json from heuristic analysis when
+        no explicit epi_policy.json is configured.
+
+        This ensures every artifact produced without a project-level policy still
+        has a policy_evaluation section in the viewer, clearly labelled as
+        baseline/heuristic rather than policy-grounded.
+        """
+        from datetime import datetime, timezone
+
+        # Collect all heuristic fault flags
+        all_flags = []
+        if analysis.primary_fault is not None:
+            all_flags.append(analysis.primary_fault)
+        all_flags.extend(analysis.secondary_flags)
+
+        # Map flags to simple results
+        error_flags = [f for f in all_flags if "error" in (f.fault_type or "").lower()
+                       or "fail" in (f.fault_type or "").lower()]
+        other_flags = [f for f in all_flags if f not in error_flags]
+
+        results = []
+
+        # Rule 1 — no execution errors
+        results.append({
+            "rule_id": "baseline.no_error",
+            "rule_name": "No execution errors",
+            "rule_type": "baseline",
+            "severity": "high",
+            "mode": "detect",
+            "status": "failed" if error_flags else "passed",
+            "match_count": len(error_flags),
+            "review_required": bool(error_flags),
+            "step_numbers": [f.step_number for f in error_flags],
+            "plain_english": (
+                f"{len(error_flags)} error fault(s) detected during execution."
+                if error_flags
+                else "No execution errors detected."
+            ),
+        })
+
+        # Rule 2 — no heuristic risk patterns
+        results.append({
+            "rule_id": "baseline.no_risk_pattern",
+            "rule_name": "No heuristic risk patterns",
+            "rule_type": "baseline",
+            "severity": "medium",
+            "mode": "detect",
+            "status": "failed" if other_flags else "passed",
+            "match_count": len(other_flags),
+            "review_required": bool(other_flags and any(
+                f.severity in ("critical", "high") for f in other_flags
+            )),
+            "step_numbers": [f.step_number for f in other_flags],
+            "plain_english": (
+                f"{len(other_flags)} heuristic risk pattern(s) detected."
+                if other_flags
+                else "No heuristic risk patterns detected."
+            ),
+        })
+
+        controls_failed = sum(1 for r in results if r["status"] == "failed")
+
+        return {
+            "policy_id": "epi.baseline",
+            "policy_version": "1.0",
+            "baseline": True,
+            "note": "No epi_policy.json found. Baseline heuristic evaluation only.",
+            "evaluation_timestamp": datetime.now(timezone.utc).isoformat(),
+            "evaluation_mode": "heuristic_only",
+            "controls_evaluated": len(results),
+            "controls_failed": controls_failed,
+            "artifact_review_required": analysis.fault_detected,
+            "results": results,
+        }
+
+    @staticmethod
+    def add_review(
+        epi_path: "Path | str",
+        *,
+        reviewer: str,
+        status: str,
+        notes: str = "",
+    ) -> None:
+        """
+        Attach or update a review.json inside an existing .epi artifact.
+
+        review.json is a mutable file — it is not included in the cryptographic
+        file_manifest so adding it does not invalidate the manifest signature.
+
+        Args:
+            epi_path: Path to the .epi file to update.
+            reviewer:  Name or email of the reviewer.
+            status:    "approved" | "rejected" | "escalated" | any string.
+            notes:     Optional free-text review notes.
+
+        Raises:
+            FileNotFoundError: If the .epi file does not exist.
+        """
+        from datetime import datetime, timezone
+
+        epi_path = Path(epi_path)
+        if not epi_path.exists():
+            raise FileNotFoundError(f"EPI file not found: {epi_path}")
+
+        review_data = {
+            "reviewer": reviewer,
+            "status": status,
+            "outcome": status,
+            "notes": notes,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        review_json = json.dumps(review_data, indent=2, ensure_ascii=False)
+
+        container_format = EPIContainer.detect_container_format(epi_path)
+        temp_dir = EPIContainer._make_temp_dir("epi_add_review_")
+        tmp_zip = temp_dir / "payload.zip"
+        tmp_out = temp_dir / "reviewed.epi"
+
+        try:
+            with EPIContainer._payload_zip_path(epi_path) as src_zip:
+                with zipfile.ZipFile(src_zip, "r") as zf_in:
+                    with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zf_out:
+                        for item in zf_in.infolist():
+                            if item.filename == "review.json":
+                                continue  # Replace with updated review
+                            zf_out.writestr(item, zf_in.read(item.filename))
+                        zf_out.writestr(
+                            "review.json", review_json, compress_type=zipfile.ZIP_DEFLATED
+                        )
+
+            EPIContainer._write_artifact_from_payload(
+                tmp_zip, tmp_out, container_format=container_format
+            )
+            shutil.move(str(tmp_out), str(epi_path))
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     @staticmethod
     def pack(

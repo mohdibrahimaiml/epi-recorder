@@ -3,710 +3,864 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="EPI Evidence Packaged Infrastructure — Offline case file viewer">
+<meta name="description" content="EPI — Portable, verifiable AI execution evidence">
 <title>EPI Case Viewer __EPI_VERSION__</title>
 <script id="epi-view-context" type="application/json">{}</script>
 <link rel="stylesheet" href="styles.css">
+<style>
+/* ── EPI embedded viewer — artifact-only styles ─────────────────────────── */
+
+/* Main viewer layout */
+.viewer { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Viewer topbar */
+.viewer-topbar {
+  height: var(--topbar-h);
+  background: rgba(13,17,23,.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 20px;
+  position: sticky; top: 0; z-index: 100;
+}
+.viewer-brand {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .75rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text); white-space: nowrap; flex-shrink: 0;
+}
+.viewer-brand-icon {
+  width: 26px; height: 26px; border-radius: var(--radius-sm);
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; font-weight: 900; color: #fff; flex-shrink: 0;
+}
+.viewer-brand-sub {
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: var(--text-2); font-size: .75rem;
+}
+.viewer-goal {
+  flex: 1; font-size: .875rem; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 0 12px;
+}
+.viewer-topbar-right {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.viewer-version {
+  font-size: .7rem; color: var(--text-3); font-family: var(--font-mono);
+}
+
+/* Stats strip */
+.viewer-stats {
+  display: flex; gap: 1px; background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat-tile {
+  flex: 1; background: var(--surface);
+  padding: 10px 14px; text-align: center; min-width: 0;
+}
+.stat-tile-value {
+  font-size: 1.2rem; font-weight: 700;
+  font-family: var(--font-mono); color: var(--text);
+  white-space: nowrap;
+}
+.stat-tile-value.is-bad  { color: var(--bad); }
+.stat-tile-value.is-good { color: var(--good); }
+.stat-tile-label {
+  font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-3); margin-top: 2px;
+}
+
+/* Body wrapper */
+.viewer-body {
+  flex: 1; display: flex; flex-direction: column; gap: 16px;
+  padding: 20px 24px; max-width: 1200px; margin: 0 auto; width: 100%;
+}
+
+/* Section separator */
+.section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 0;
+}
+
+/* Primary fault callout */
+.pf-callout {
+  background: var(--bad-dim);
+  border: 1px solid rgba(248,81,73,.3); border-left: 4px solid var(--bad);
+  border-radius: var(--radius-lg); padding: 16px 20px;
+}
+.pf-callout.is-warn {
+  background: var(--warn-dim);
+  border-color: rgba(210,153,34,.3); border-left-color: var(--warn);
+}
+.pf-eyebrow {
+  font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--bad); margin-bottom: 6px;
+}
+.pf-callout.is-warn .pf-eyebrow { color: var(--warn); }
+.pf-type  { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.pf-text  { font-size: .85rem; color: var(--text-2); line-height: 1.6; }
+.pf-why   { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(248,81,73,.15); font-size: .78rem; color: var(--text-3); font-style: italic; }
+.pf-callout.is-warn .pf-why { border-top-color: rgba(210,153,34,.15); }
+
+/* Two-column pair */
+.viewer-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .viewer-pair { grid-template-columns: 1fr; } }
+
+/* Card internals */
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+.card-title { font-size: .825rem; font-weight: 600; color: var(--text); }
+.card-body  { }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: .72rem; font-weight: 600; letter-spacing: .02em;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.badge-neutral { background: var(--surface-2); color: var(--text-2); border-color: var(--border); }
+.badge-good, .badge-success { background: var(--good-dim); color: var(--good); border-color: rgba(63,185,80,.25); }
+.badge-bad,  .badge-danger  { background: var(--bad-dim);  color: var(--bad);  border-color: rgba(248,81,73,.25); }
+.badge-warn, .badge-warning { background: var(--warn-dim); color: var(--warn); border-color: rgba(210,153,34,.25); }
+
+/* Proof rows */
+.proof-row {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-muted);
+  font-size: .8rem;
+}
+.proof-row:last-child { border-bottom: none; }
+.proof-key { color: var(--text-3); white-space: nowrap; flex-shrink: 0; min-width: 90px; }
+.proof-val { color: var(--text); font-family: var(--font-mono); word-break: break-all; text-align: right; }
+.proof-val.good { color: var(--good); }
+.proof-val.bad  { color: var(--bad); }
+.proof-val.warn { color: var(--warn); }
+
+/* Evidence stats */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 8px; text-align: center; }
+.stat-value { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); color: var(--text); }
+.stat-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-top: 2px; }
+
+/* Case meta */
+.case-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: .775rem; color: var(--text-3); }
+.case-meta-item strong { color: var(--text-2); font-weight: 500; margin-right: 4px; }
+.case-meta-item code  { font-family: var(--font-mono); font-size: .73rem; background: var(--surface-2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; color: var(--text-2); }
+
+/* Tag chips */
+.tag-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.tag-chip  { display: inline-block; padding: 2px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; font-size: .72rem; color: var(--text-3); }
+
+/* Fault items */
+.fault-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border-muted); border-left: 3px solid var(--bad);
+  border-radius: var(--radius-md); padding: 12px 14px;
+}
+.fault-item + .fault-item { margin-top: 8px; }
+.fault-sev  { font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--bad); margin-bottom: 3px; }
+.fault-name { font-size: .875rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.fault-desc { font-size: .8rem; color: var(--text-2); line-height: 1.5; }
+.fault-why  { font-size: .77rem; color: var(--text-3); font-style: italic; margin-top: 4px; }
+
+/* Fault — severity border variants */
+.fault-item.sev-warn { border-left-color: var(--warn); }
+.fault-item.sev-warn .fault-sev { color: var(--warn); }
+
+/* Timeline controls */
+.timeline-controls { display: flex; gap: 8px; margin-bottom: 14px; }
+.tl-search {
+  flex: 1; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); background: var(--surface-2);
+  color: var(--text); font-family: var(--font); font-size: .8rem; outline: none;
+}
+.tl-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.tl-filter {
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface-2); color: var(--text); font-family: var(--font);
+  font-size: .8rem; outline: none; cursor: pointer;
+}
+
+/* Timeline step details expansion */
+.tl-details {
+  margin-top: 6px;
+}
+.tl-details summary {
+  font-size: .72rem; color: var(--text-3); cursor: pointer;
+  user-select: none; padding: 2px 0;
+}
+.tl-details summary:hover { color: var(--text-2); }
+.tl-details pre {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);
+  font-family: var(--font-mono); font-size: .72rem; color: var(--text-2);
+  white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+  max-height: 260px; overflow-y: auto;
+}
+
+/* Env table */
+.env-table { width: 100%; border-collapse: collapse; font-size: .775rem; }
+.env-table th { color: var(--text-3); font-weight: 600; text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; }
+.env-table td { padding: 5px 8px; color: var(--text-2); border-bottom: 1px solid var(--border-muted); font-family: var(--font-mono); word-break: break-all; font-size: .75rem; }
+.env-table tr:last-child td { border-bottom: none; }
+
+/* Accordion */
+.accordion-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: none; border: none; color: var(--text-2); cursor: pointer;
+  padding: 0; font-family: var(--font);
+}
+.accordion-toggle:hover { color: var(--text); }
+.accordion-chevron { font-size: .75rem; transition: transform 150ms; display: inline-block; color: var(--text-3); }
+.accordion-toggle[aria-expanded="false"] .accordion-chevron { transform: rotate(-90deg); }
+.accordion-body { display: none; }
+.accordion-body.open { display: block; padding-top: 14px; }
+
+/* Empty state */
+.empty-tl { text-align: center; padding: 28px 16px; font-size: .8rem; color: var(--text-3); }
+
+/* Fatal error */
+.fatal-error {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.fatal-error-box {
+  max-width: 480px; padding: 24px 28px;
+  background: var(--surface); border: 1px solid rgba(248,81,73,.35);
+  border-left: 4px solid var(--bad); border-radius: var(--radius-lg);
+}
+.fatal-error-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--bad); margin-bottom: 10px;
+}
+.fatal-error-msg {
+  font-size: .875rem; color: var(--text); font-family: var(--font-mono);
+  line-height: 1.6;
+}
+
+/* Viewer footer */
+.viewer-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px; padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  font-size: .72rem; color: var(--text-3); background: var(--surface);
+}
+
+@media (max-width: 640px) {
+  .viewer-goal { display: none; }
+  .viewer-stats .stat-tile-label { display: none; }
+  .viewer-body { padding: 14px 14px; gap: 12px; }
+}
+</style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!--  Standalone drop overlay (shown when no embedded data is present)      -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div id="drop-overlay" class="drop-overlay" hidden>
-  <div class="drop-card" id="drop-zone" tabindex="0" role="button" aria-label="Drop EPI files here or open the file picker">
-    <div class="drop-icon">📦</div>
-    <h2 class="drop-title">Open an EPI case file</h2>
-    <p class="drop-text">Drop a <code>.epi</code> artifact here, or choose one from your device. All inspection happens locally — nothing is uploaded.</p>
-    <button class="drop-button" id="choose-files-button" type="button">📂 Choose file</button>
-    <p class="drop-note">EPI Viewer __EPI_VERSION__ &nbsp;·&nbsp; Offline &nbsp;·&nbsp; application/vnd.epi+zip</p>
-  </div>
-  <input type="file" id="file-input" accept=".epi" hidden>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!--  Main viewer (shown in embedded mode or after loading a file)          -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════
+     MAIN VIEWER  (shown after embedded data is loaded)
+     ═══════════════════════════════════════════════════════════════════════ -->
 <div id="viewer" class="viewer" hidden>
 
-  <!-- ── Hero ───────────────────────────────────────────────────────────── -->
-  <header id="hero" class="hero" data-tone="info">
-    <div class="hero-inner">
-      <div class="hero-top">
-        <div>
-          <div class="hero-eyebrow">Evidence Packaged Infrastructure</div>
-          <h1 id="hero-title" class="hero-title">Case File</h1>
-          <p id="hero-subtitle" class="hero-subtitle"></p>
-        </div>
-        <div id="hero-verdict" class="hero-verdict"><span class="icon">ℹ️</span> <span id="hero-verdict-text">Loading</span></div>
-      </div>
-      <div id="hero-chips" class="hero-chips"></div>
+  <!-- ── Topbar ─────────────────────────────────────────────────────────── -->
+  <header class="viewer-topbar">
+    <div class="viewer-brand">
+      <div class="viewer-brand-icon">E</div>
+      <span>EPI</span>
+      <div class="topbar-divider"></div>
+      <span class="viewer-brand-sub">Decision Ops</span>
+    </div>
+
+    <div class="viewer-goal" id="viewer-goal">Case File</div>
+
+    <div class="viewer-topbar-right">
+      <span id="trust-badge" class="badge badge-neutral">Checking…</span>
+      <span id="analysis-badge" class="badge badge-neutral">No analysis</span>
+      <span class="viewer-version">__EPI_VERSION__</span>
     </div>
   </header>
 
-  <!-- ── Main Grid ──────────────────────────────────────────────────────── -->
-  <div class="main-grid">
+  <!-- ── Stats strip ────────────────────────────────────────────────────── -->
+  <div class="viewer-stats" id="viewer-stats">
+    <!-- filled by JS -->
+  </div>
 
-    <!-- Trust Card -->
-    <article class="card span-left animate-in animate-in-1">
-      <div class="card-header">
-        <div class="card-title"><span class="icon">🔐</span> Cryptographic Proof</div>
-        <span id="trust-badge" class="badge badge-neutral">Unchecked</span>
-      </div>
-      <div id="trust-body" class="card-body"></div>
-    </article>
+  <!-- ── Body ──────────────────────────────────────────────────────────── -->
+  <div class="viewer-body">
 
-    <!-- Evidence Stats -->
-    <article class="card span-right animate-in animate-in-2">
-      <div class="card-header">
-        <div class="card-title"><span class="icon">📊</span> Evidence Summary</div>
-        <span id="analysis-badge" class="badge badge-neutral">No analysis</span>
-      </div>
-      <div class="card-body">
-        <div id="stats-grid" class="stats-grid"></div>
-        <div id="case-meta" style="margin-top:14px;font-size:0.85rem;color:var(--text-secondary);"></div>
-      </div>
-    </article>
+    <!-- Primary fault callout (shown only when fault exists) -->
+    <div id="pf-callout" hidden></div>
 
-    <!-- Faults Panel (conditional) -->
-    <article id="faults-card" class="card span-full animate-in animate-in-3" hidden>
+    <!-- Section 1: Trust + Evidence Summary -->
+    <div class="viewer-pair">
+      <article class="card">
+        <div class="card-header">
+          <span class="card-title">Cryptographic Trust</span>
+          <span id="trust-card-badge" class="badge badge-neutral">Unchecked</span>
+        </div>
+        <div id="trust-body" class="card-body"></div>
+        <div id="hero-chips" class="tag-chips"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-header">
+          <span class="card-title">Evidence Summary</span>
+          <span id="evidence-badge" class="badge badge-neutral">Loading</span>
+        </div>
+        <div class="card-body">
+          <div id="stats-grid" class="stats-grid"></div>
+          <div id="case-meta" class="case-meta"></div>
+        </div>
+      </article>
+    </div>
+
+    <!-- Section 3: Analysis — shown only when faults exist -->
+    <article id="faults-card" class="card" hidden>
       <div class="card-header">
-        <div class="card-title"><span class="icon">⚠️</span> Risk &amp; Faults</div>
+        <span class="card-title">Risk &amp; Faults</span>
         <span id="faults-badge" class="badge badge-bad">Faults detected</span>
       </div>
       <div id="faults-body" class="card-body"></div>
     </article>
 
-    <!-- Policy Panel -->
-    <article id="policy-card" class="card span-full animate-in animate-in-3" hidden>
+    <!-- Section 4: Policy — shown only when policy data exists -->
+    <article id="policy-card" class="card" hidden>
       <div class="card-header">
-        <div class="card-title"><span class="icon">📜</span> Policy Evaluation</div>
+        <span class="card-title">Policy Evaluation</span>
         <span id="policy-badge" class="badge badge-neutral">No policy</span>
       </div>
       <div id="policy-body" class="card-body"></div>
     </article>
 
-    <!-- Human Review Panel -->
-    <article class="card span-left animate-in animate-in-4">
+    <!-- Section 5: Execution Timeline -->
+    <article class="card">
       <div class="card-header">
-        <div class="card-title"><span class="icon">📝</span> Human Review</div>
+        <button class="accordion-toggle" id="timeline-toggle" aria-expanded="true">
+          <span class="card-title">Execution Timeline</span>
+          <span class="accordion-chevron">▼</span>
+        </button>
+      </div>
+      <div id="timeline-body" class="accordion-body open">
+        <div class="timeline-controls">
+          <input id="timeline-search" class="tl-search" type="search" placeholder="Search steps…">
+          <select id="timeline-filter" class="tl-filter">
+            <option value="all">All steps</option>
+            <option value="llm">LLM</option>
+            <option value="tool">Tools</option>
+            <option value="agent">Agent</option>
+            <option value="validation">Validation</option>
+            <option value="error">Errors</option>
+            <option value="decision">Decisions</option>
+          </select>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </article>
+
+    <!-- Section 6: Human Review — always shown, pending if not reviewed -->
+    <article class="card">
+      <div class="card-header">
+        <span class="card-title">Human Review</span>
         <span id="review-badge" class="badge badge-neutral">Not reviewed</span>
       </div>
       <div id="review-body" class="card-body"></div>
     </article>
 
-    <!-- Timeline -->
-    <article class="card span-right animate-in animate-in-4">
-      <div class="card-header">
-        <button class="accordion-toggle" id="timeline-toggle" aria-expanded="true">
-          <div class="card-title"><span class="icon">🕒</span> Execution Timeline</div>
-          <span class="accordion-chevron">▼</span>
-        </button>
-      </div>
-      <div id="timeline-body" class="accordion-body open">
-        <div class="card-body">
-          <div id="timeline-search-row" style="display:flex;gap:8px;margin-bottom:12px;">
-            <input id="timeline-search" type="search" placeholder="Search steps…" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.85rem;">
-            <select id="timeline-filter" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.85rem;background:var(--surface);">
-              <option value="all">All steps</option>
-              <option value="llm">LLM</option>
-              <option value="tool">Tools</option>
-              <option value="agent">Agent</option>
-              <option value="validation">Validation</option>
-              <option value="error">Errors</option>
-              <option value="decision">Decisions</option>
-            </select>
-          </div>
-          <div id="timeline" class="timeline"></div>
-        </div>
-      </div>
-    </article>
-
-    <!-- Environment -->
-    <article id="env-card" class="card span-full animate-in animate-in-5" hidden>
+    <!-- Section 7: Environment Snapshot — shown only when env data exists -->
+    <article id="env-card" class="card" hidden>
       <div class="card-header">
         <button class="accordion-toggle" id="env-toggle" aria-expanded="false">
-          <div class="card-title"><span class="icon">🖥️</span> Environment Snapshot</div>
+          <span class="card-title">Environment Snapshot</span>
           <span class="accordion-chevron">▼</span>
         </button>
       </div>
       <div id="env-body" class="accordion-body">
-        <div class="card-body">
-          <div id="env-content"></div>
-        </div>
+        <div id="env-content"></div>
       </div>
     </article>
 
-  </div><!-- /main-grid -->
+  </div><!-- /viewer-body -->
 
-  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
   <footer class="viewer-footer">
     <span>EPI Viewer __EPI_VERSION__</span>
     <span id="footer-id">Case ID: —</span>
-    <span>Offline artifact viewer</span>
+    <span>Offline artifact viewer · application/vnd.epi+zip</span>
   </footer>
 
 </div><!-- /viewer -->
 
-<script src="jszip.min.js"></script>
-
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
-   EPI Viewer Runtime — Embedded & Standalone
+   EPI Viewer Runtime v5 — Embedded artifact renderer
+   Philosophy: display → prove → explain → guide
+   "A human should understand this in 60 seconds without a tool."
    ═══════════════════════════════════════════════════════════════════════════ */
-
-(function() {
+(function () {
   'use strict';
 
-  /* ── Utilities ─────────────────────────────────────────────────────────── */
+  /* ── Utilities ──────────────────────────────────────────────────────────── */
   function $(id) { return document.getElementById(id); }
-  function escapeHtml(v) {
+
+  function esc(v) {
     if (v == null) return '';
     const d = document.createElement('div');
     d.textContent = String(v);
     return d.innerHTML;
   }
+
   function fmtDate(v) {
-    if (!v) return 'Unknown';
+    if (!v) return '—';
     const d = new Date(v);
     return isNaN(d.getTime()) ? String(v) : d.toLocaleString();
   }
-  function fmtDuration(s) {
-    if (s == null || s === 0) return '—';
-    if (s < 1) return (s * 1000).toFixed(0) + ' ms';
-    if (s < 60) return s.toFixed(1) + ' s';
-    const m = Math.floor(s / 60), rem = s % 60;
-    return m + ' m ' + rem.toFixed(0) + ' s';
+
+  function fmtTime(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? '' : d.toLocaleTimeString();
   }
-  function truncate(t, n) {
+
+  function fmtDur(s) {
+    if (!s) return '—';
+    if (s < 1) return Math.round(s * 1000) + ' ms';
+    if (s < 60) return s.toFixed(1) + ' s';
+    return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+  }
+
+  function trunc(t, n) {
     t = t == null ? '' : String(t);
     return t.length <= n ? t : t.slice(0, n - 1) + '…';
   }
-  function flatten(v) {
+
+  function flat(v) {
     if (v == null) return '';
     if (typeof v === 'string') return v;
     try { return JSON.stringify(v); } catch { return String(v); }
   }
 
-  /* ── Data Loading ──────────────────────────────────────────────────────── */
+  function loadJsonScript(id) {
+    const n = document.getElementById(id);
+    if (!n) return null;
+    try { return JSON.parse(n.textContent || '{}'); } catch { return null; }
+  }
+
+  /* ── Data loading ───────────────────────────────────────────────────────── */
   function loadEmbeddedData() {
-    // Try all epi-data tags and pick the one with real data
-    const tags = document.querySelectorAll('script#epi-data');
-    for (const node of tags) {
-      try {
-        const raw = (node.textContent || '{}').trim();
-        if (raw.length < 20) continue; // Skip empty placeholders
-        const data = JSON.parse(raw);
-        if (data.manifest && Object.keys(data.manifest).length > 0) {
-          return data;
-        }
-      } catch (e) {
-        console.error('Failed to parse an epi-data tag', e);
-      }
-    }
-    // Fallback to getElementById
-    const node = $('epi-data');
-    if (!node) return null;
+    const el = document.getElementById('epi-data');
+    if (!el) return null;
     try {
-      const raw = node.textContent || '{}';
-      return JSON.parse(raw);
-    } catch (e) {
-      console.error('Failed to parse embedded EPI data', e);
+      return JSON.parse(el.textContent);
+    } catch {
       return null;
     }
   }
 
-  async function parseEpiFile(file) {
-    const zip = await JSZip.loadAsync(file.arrayBuffer ? file.arrayBuffer() : await file.arrayBuffer());
-    const manifest = JSON.parse(await zip.file('manifest.json').async('text'));
-    const steps = await readJsonl(zip, 'steps.jsonl');
-    const analysis = await readJson(zip, 'analysis.json');
-    const policy = await readJson(zip, 'policy.json');
-    const policyEval = await readJson(zip, 'policy_evaluation.json');
-    const review = await readJson(zip, 'review.json');
-    const environment = await readJson(zip, 'environment.json');
-    const stdout = await readText(zip, 'stdout.log') || '';
-    const stderr = await readText(zip, 'stderr.log') || '';
-    return { manifest, steps, analysis, policy, policy_evaluation: policyEval, review, environment, stdout, stderr, files: {} };
-  }
-  async function readJsonl(zip, name) {
-    const f = zip.file(name);
-    if (!f) return [];
-    const t = await f.async('text');
-    return t.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
-  }
-  async function readJson(zip, name) {
-    const f = zip.file(name);
-    if (!f) return null;
-    try { return JSON.parse(await f.async('text')); } catch { return null; }
-  }
-  async function readText(zip, name) {
-    const f = zip.file(name);
-    if (!f) return null;
-    try { return await f.async('text'); } catch { return null; }
+  /* ── Derived state ──────────────────────────────────────────────────────── */
+  function deriveTrust(manifest, ctx) {
+    if (ctx) {
+      if (ctx.signature_valid === false || ctx.integrity_ok === false)
+        return { tone: 'bad',     label: 'Tampered', text: 'Do not use',      detail: 'Integrity or signature verification failed. Evidence may be modified.' };
+      if (ctx.signature_valid && ctx.integrity_ok)
+        return { tone: 'good',    label: 'Verified',  text: 'Signature valid', detail: 'All file hashes match and the Ed25519 signature is verified.' };
+      if (!ctx.has_signature && ctx.integrity_ok)
+        return { tone: 'warn',    label: 'Unsigned',  text: 'Integrity OK',    detail: 'Files match manifest but no cryptographic signature is present.' };
+    }
+    const t = manifest.trust || {};
+    if (t.tampered === true)
+      return { tone: 'bad',     label: 'Tampered', text: 'Do not use',      detail: 'Manifest flags this artifact as tampered.' };
+    if (t.signature_valid === true)
+      return { tone: 'good',    label: 'Verified',  text: 'Signature valid', detail: 'Signature is valid per embedded manifest.' };
+    if (manifest.signature)
+      return { tone: 'warn',    label: 'Signed',    text: 'Not verified',    detail: 'A signature is present but was not verified in this browser session.' };
+    return   { tone: 'neutral', label: 'Unsigned',  text: 'No signature',   detail: 'No Ed25519 signature. Suitable for dev/test; do not use in production.' };
   }
 
-  /* ── Derived State ─────────────────────────────────────────────────────── */
-  function computeTrust(manifest, context) {
-    // context comes from epi-view-context (optional verification result)
-    if (context) {
-      if (context.signature_valid === false || context.integrity_ok === false) {
-        return { tone: 'danger', label: 'Tampered', text: 'Do not use', icon: '🔒', detail: 'Integrity or signature verification failed.' };
-      }
-      if (context.signature_valid && context.integrity_ok) {
-        return { tone: 'success', label: 'Trusted', text: 'Verified', icon: '✅', detail: 'Signature valid and integrity intact.' };
-      }
-      if (!context.has_signature && context.integrity_ok) {
-        return { tone: 'warning', label: 'Unsigned', text: 'Integrity OK', icon: '⚠️', detail: 'Files match manifest, but no signature is present.' };
-      }
-    }
-    if (manifest && manifest.signature) {
-      return { tone: 'warning', label: 'Signed', text: 'Unverified', icon: '🔏', detail: 'A signature is present but was not verified in this session.' };
-    }
-    return { tone: 'neutral', label: 'Unsigned', text: 'No signature', icon: '⚪', detail: 'No cryptographic signature is present.' };
-  }
-
-  function computeRisk(analysis) {
-    if (!analysis) return { tone: 'neutral', label: 'No analysis', icon: '⚪' };
-    if (analysis.fault_detected) {
+  function deriveRisk(analysis) {
+    if (!analysis) return { tone: 'neutral', label: 'No analysis' };
+    if (analysis.fault_detected || (analysis.all_faults && analysis.all_faults.length > 0)) {
       const sev = (analysis.primary_fault && analysis.primary_fault.severity) || 'medium';
-      if (sev === 'high' || sev === 'critical') return { tone: 'danger', label: 'Critical risk', icon: '🚨' };
-      return { tone: 'warning', label: 'Risk detected', icon: '⚠️' };
+      if (sev === 'critical') return { tone: 'bad',  label: 'Critical risk' };
+      if (sev === 'high')     return { tone: 'bad',  label: 'High risk' };
+      return                         { tone: 'warn', label: 'Risk detected' };
     }
-    if (analysis.review_required) return { tone: 'warning', label: 'Review required', icon: '🔍' };
-    return { tone: 'success', label: 'Clean', icon: '✅' };
+    if (analysis.review_required) return { tone: 'warn', label: 'Review required' };
+    return { tone: 'good', label: 'No faults' };
   }
 
-  function stepKindIcon(kind) {
-    const map = {
-      'session.start': '🚀', 'session.end': '🏁', 'session.error': '💥',
-      'llm.request': '🤖', 'llm.response': '🤖', 'llm.error': '⚡',
-      'tool.call': '🔧', 'tool.response': '🔧', 'tool.error': '⚡', 'tool.start': '🔧', 'tool.end': '🔧',
-      'agent.run.start': '🧠', 'agent.run.end': '🧠', 'agent.run.error': '💥',
-      'agent.message': '💬', 'agent.plan': '📋', 'agent.decision': '⚖️',
-      'agent.approval.request': '🛡️', 'agent.approval.response': '✍️',
-      'agent.handoff': '🔀', 'agent.action': '🎯', 'agent.finish': '✅',
-      'validation.pass': '✅', 'validation.fail': '❌', 'validation.corrected': '🔧', 'validation.start': '🔍',
-      'file.write': '📝', 'shell.command': '💻', 'stdout.print': '📄', 'stderr.print': '📄',
-      'security.redaction': '🛡️', 'http.request': '🌐', 'http.response': '🌐', 'http.error': '⚡',
-      'environment.captured': '🖥️',
-    };
-    return map[kind] || '•';
-  }
-
-  function stepKindLabel(kind) {
-    return (kind || 'unknown').replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  }
-
-  function stepSummary(step) {
-    const c = step.content || {};
-    const k = step.kind || '';
-    if (k.includes('llm.request')) return `Model ${c.model || 'unknown'} · ${Array.isArray(c.messages) ? c.messages.length : 0} message(s)`;
-    if (k.includes('llm.response')) return truncate(c.text || c.content || (c.choices && c.choices[0] && c.choices[0].message && c.choices[0].message.content) || 'Response recorded', 140);
-    if (k.includes('tool.call') || k.includes('tool.start')) return truncate(flatten(c.input || c.tool_input || c), 140);
-    if (k.includes('tool.response') || k.includes('tool.end')) return truncate(flatten(c.output || c.result || c), 140);
-    if (k.includes('tool.error')) return `Error: ${truncate(c.error || flatten(c), 140)}`;
-    if (k.includes('agent.message')) return truncate(`${c.role || 'message'}: ${flatten(c.content)}`, 140);
-    if (k.includes('agent.plan')) return truncate(`Plan: ${c.summary || flatten(c.steps)}`, 140);
-    if (k.includes('agent.decision')) return `Decision: ${c.decision || 'Unknown'}${c.confidence != null ? ' · confidence ' + c.confidence : ''}`;
-    if (k.includes('agent.run.error') || k.includes('session.error')) return `Error: ${truncate(c.error_message || c.error || flatten(c), 140)}`;
-    if (k.includes('validation.pass')) return 'Validation passed';
-    if (k.includes('validation.fail')) return `Failed: ${truncate(c.validator_name || c.rule || flatten(c), 140)}`;
-    if (k.includes('validation.corrected')) return `Corrected: ${truncate(c.validator_name || c.rule || flatten(c), 140)}`;
-    if (k.includes('file.write')) return `File: ${truncate(c.path || c.filename || flatten(c), 140)}`;
-    if (k.includes('shell.command')) return truncate(c.command || flatten(c), 140);
-    if (k.includes('stdout.print') || k.includes('stderr.print')) return truncate(c.text || c.line || flatten(c), 140);
-    if (k.includes('security.redaction')) return `Redacted ${c.field || 'field'} (${c.rule || 'rule'})`;
-    if (k.includes('http.request')) return `${c.method || 'GET'} ${truncate(c.url || '', 120)}`;
-    if (k.includes('http.response')) return `HTTP ${c.status_code || '?'} ${truncate(c.url || '', 120)}`;
-    if (k.includes('environment.captured')) return 'Environment snapshot captured';
-    if (k.includes('session.start')) return `Workflow: ${c.workflow_name || c.goal || 'Started'}`;
-    if (k.includes('session.end')) return `Finished · ${c.duration_seconds != null ? c.duration_seconds.toFixed(2) + ' s' : ''}`;
-    return truncate(flatten(c), 140) || 'Recorded step';
-  }
-
-  function stepTone(step) {
-    const k = step.kind || '';
-    if (k.includes('error')) return 'fail';
-    if (k.includes('fail')) return 'fail';
-    if (k.includes('warn')) return 'warn';
-    if (k.includes('pass') || k.includes('success')) return 'pass';
-    if (k.includes('corrected')) return 'warn';
+  /* ── Step helpers ───────────────────────────────────────────────────────── */
+  function stepTone(s) {
+    const k = s.kind || '';
+    if (k.includes('error') || k.includes('fail')) return 'fail';
+    if (k.includes('warn') || k.includes('corrected')) return 'warn';
+    if (k.includes('pass') || k.includes('success') || k.includes('finish')) return 'pass';
+    if (k.includes('llm') || k.includes('guardrails')) return 'llm';
+    if (k.includes('security') || k.includes('redaction')) return 'info';
     return 'neutral';
   }
 
-  function filterStepKind(kind, filter) {
-    if (filter === 'all') return true;
-    if (filter === 'llm') return kind.includes('llm');
-    if (filter === 'tool') return kind.includes('tool');
-    if (filter === 'agent') return kind.includes('agent');
-    if (filter === 'validation') return kind.includes('validation');
-    if (filter === 'error') return kind.includes('error');
-    if (filter === 'decision') return kind.includes('decision');
+  function stepSummary(s) {
+    const c = s.content || {}, k = s.kind || '';
+    if (k.includes('llm.request'))   return `Model: ${c.model || 'unknown'} · ${Array.isArray(c.messages) ? c.messages.length : 0} msg`;
+    if (k.includes('llm.response'))  return trunc(c.text || c.content || (c.choices?.[0]?.message?.content) || 'Response recorded', 160);
+    if (k.includes('tool.call') || k.includes('tool.start'))    return trunc(flat(c.input || c.tool_input || c), 160);
+    if (k.includes('tool.response') || k.includes('tool.end'))  return trunc(flat(c.output || c.result || c), 160);
+    if (k.includes('tool.error'))        return 'Error: ' + trunc(c.error || flat(c), 160);
+    if (k.includes('agent.message'))     return trunc(`${c.role || 'message'}: ${flat(c.content)}`, 160);
+    if (k.includes('agent.decision'))    return `Decision: ${c.decision || '?'}` + (c.confidence != null ? ` · ${c.confidence}` : '');
+    if (k.includes('agent.run.error'))   return 'Error: ' + trunc(c.error_message || c.error || flat(c), 160);
+    if (k.includes('validation.pass'))   return 'Validation passed';
+    if (k.includes('validation.fail'))   return 'Failed: ' + trunc(c.validator_name || c.rule || flat(c), 160);
+    if (k.includes('validation.corrected')) return 'Corrected: ' + trunc(c.validator_name || c.rule || flat(c), 160);
+    if (k.includes('file.write'))        return 'File: ' + trunc(c.path || c.filename || flat(c), 160);
+    if (k.includes('shell.command'))     return trunc(c.command || flat(c), 160);
+    if (k.includes('security.redaction'))return `Redacted ${c.field || 'field'} (${c.rule || 'pattern'})`;
+    if (k.includes('http.request'))      return `${c.method || 'GET'} ${trunc(c.url || '', 140)}`;
+    if (k.includes('http.response'))     return `HTTP ${c.status_code || '?'} ${trunc(c.url || '', 140)}`;
+    if (k.includes('session.start'))     return `Workflow: ${c.workflow_name || c.goal || 'Started'}`;
+    if (k.includes('session.end'))       return `Finished · ${c.duration_seconds != null ? c.duration_seconds.toFixed(2) + ' s' : ''}`;
+    return trunc(flat(c), 160) || 'Recorded step';
+  }
+
+  function filterKind(kind, f) {
+    if (f === 'all') return true;
+    if (f === 'llm')        return kind.includes('llm');
+    if (f === 'tool')       return kind.includes('tool');
+    if (f === 'agent')      return kind.includes('agent');
+    if (f === 'validation') return kind.includes('validation');
+    if (f === 'error')      return kind.includes('error');
+    if (f === 'decision')   return kind.includes('decision');
     return true;
   }
 
-  /* ── Render Functions ──────────────────────────────────────────────────── */
-  function render(data) {
-    const manifest = data.manifest || {};
-    const steps = Array.isArray(data.steps) ? data.steps : [];
-    const analysis = data.analysis || null;
-    const policy = data.policy || null;
-    const policyEval = data.policy_evaluation || null;
-    const review = data.review || null;
-    const environment = data.environment || null;
-    const context = loadJsonScript('epi-view-context') || {};
-
-    const trust = computeTrust(manifest, context);
-    const risk = computeRisk(analysis);
-
-    // Hero
-    const hero = $('hero');
-    hero.setAttribute('data-tone', risk.tone === 'neutral' ? trust.tone : risk.tone);
-    $('hero-title').textContent = manifest.goal || manifest.workflow_id || 'Case File';
-    $('hero-subtitle').textContent = manifest.notes || manifest.cli_command || 'No description provided.';
-    const hv = $('hero-verdict');
-    hv.innerHTML = `<span class="icon">${risk.icon}</span> <span id="hero-verdict-text">${risk.label}</span>`;
-
-    // Chips
-    const chips = [];
-    if (manifest.tags && manifest.tags.length) chips.push(...manifest.tags);
-    if (manifest.source && manifest.source.integration) chips.push(manifest.source.integration);
-    if (manifest.approved_by) chips.push('Approved by ' + manifest.approved_by);
-    if (analysis && analysis.confidence) chips.push('Confidence: ' + analysis.confidence);
-    $('hero-chips').innerHTML = chips.map(c => `<span class="hero-chip">${escapeHtml(c)}</span>`).join('');
-
-    // Trust card
-    const trustBadge = $('trust-badge');
-    trustBadge.className = 'badge badge-' + (trust.tone === 'neutral' ? 'neutral' : trust.tone);
-    trustBadge.textContent = trust.label;
-
-    const trustRows = [];
-    trustRows.push(['Status', trust.text, trust.tone]);
-    if (manifest.signature) {
-      trustRows.push(['Signature', truncate(manifest.signature, 40), trust.tone === 'success' ? 'good' : trust.tone === 'danger' ? 'bad' : 'warn']);
-    } else {
-      trustRows.push(['Signature', 'Not present', '']);
-    }
-    if (manifest.public_key) {
-      trustRows.push(['Public key', truncate(manifest.public_key, 40), '']);
-    }
-    if (manifest.container_format) {
-      trustRows.push(['Container', manifest.container_format, '']);
-    }
-    if (manifest.file_manifest) {
-      const count = Object.keys(manifest.file_manifest).length;
-      trustRows.push(['Files sealed', count + ' file' + (count === 1 ? '' : 's'), 'good']);
-    }
-    if (manifest.trust && manifest.trust.fingerprint) {
-      trustRows.push(['Key fingerprint', truncate(manifest.trust.fingerprint, 40), '']);
-    }
-    if (manifest.governance && manifest.governance.did) {
-      trustRows.push(['Governance DID', truncate(manifest.governance.did, 40), '']);
-    }
-
-    $('trust-body').innerHTML = trustRows.map(([k, v, cls]) => `
-      <div class="proof-row">
-        <span class="proof-key">${escapeHtml(k)}</span>
-        <span class="proof-val${cls ? ' ' + cls : ''}">${escapeHtml(v)}</span>
-      </div>
-    `).join('');
-
-    // Evidence stats
-    const llmCalls = steps.filter(s => (s.kind || '').includes('llm')).length;
-    const toolCalls = steps.filter(s => (s.kind || '').includes('tool')).length;
-    const agentCalls = steps.filter(s => (s.kind || '').includes('agent')).length;
-    const errorCount = steps.filter(s => (s.kind || '').includes('error')).length;
-    const duration = computeDuration(steps);
-    const coverage = analysis && analysis.coverage ? analysis.coverage.coverage_percentage : null;
-
-    const stats = [
-      { label: 'Steps', value: steps.length },
-      { label: 'LLM Calls', value: llmCalls },
-      { label: 'Tool Calls', value: toolCalls },
-      { label: 'Errors', value: errorCount, tone: errorCount > 0 ? 'bad' : 'good' },
-    ];
-    if (duration) stats.push({ label: 'Duration', value: fmtDuration(duration) });
-    if (coverage != null) stats.push({ label: 'Coverage', value: coverage + '%' });
-
-    $('stats-grid').innerHTML = stats.map(s => `
-      <div class="stat">
-        <div class="stat-value" style="${s.tone ? 'color:var(--' + s.tone + '-text)' : ''}">${escapeHtml(String(s.value))}</div>
-        <div class="stat-label">${escapeHtml(s.label)}</div>
-      </div>
-    `).join('');
-
-    const metaParts = [];
-    if (manifest.created_at) metaParts.push('<strong>Recorded:</strong> ' + fmtDate(manifest.created_at));
-    if (manifest.cli_command) metaParts.push('<strong>Command:</strong> <code>' + escapeHtml(manifest.cli_command) + '</code>');
-    if (manifest.workflow_id) metaParts.push('<strong>Workflow ID:</strong> <code>' + escapeHtml(manifest.workflow_id) + '</code>');
-    $('case-meta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
-
-    const analysisBadge = $('analysis-badge');
-    if (analysis) {
-      analysisBadge.className = 'badge badge-' + (analysis.fault_detected ? 'bad' : 'good');
-      analysisBadge.textContent = analysis.fault_detected ? 'Faults detected' : 'No faults';
-    } else {
-      analysisBadge.className = 'badge badge-neutral';
-      analysisBadge.textContent = 'No analysis';
-    }
-
-    // Faults
-    const faultsCard = $('faults-card');
-    const allFaults = [];
-    if (analysis && analysis.primary_fault) allFaults.push(analysis.primary_fault);
-    if (analysis && analysis.secondary_flags) allFaults.push(...analysis.secondary_flags);
-    if (allFaults.length) {
-      faultsCard.hidden = false;
-      $('faults-badge').textContent = allFaults.length + ' fault' + (allFaults.length === 1 ? '' : 's');
-      $('faults-body').innerHTML = allFaults.map(f => `
-        <div class="fault">
-          <div class="fault-severity">${escapeHtml((f.severity || 'MEDIUM').toUpperCase())}</div>
-          <div class="fault-title">${escapeHtml(f.fault_type || f.category || 'Fault')}</div>
-          <div class="fault-body">${escapeHtml(f.plain_english || 'A policy rule was violated.')}${f.why_it_matters ? ' <em>' + escapeHtml(f.why_it_matters) + '</em>' : ''}</div>
-        </div>
-      `).join('');
-    } else {
-      faultsCard.hidden = true;
-    }
-
-    // Policy
-    const policyCard = $('policy-card');
-    if (policy || policyEval) {
-      policyCard.hidden = false;
-      const pStatus = policy ? policy.status : (policyEval ? (policyEval.controls_failed > 0 ? 'violation' : 'compliant') : null);
-      const pBadge = $('policy-badge');
-      if (pStatus === 'compliant') { pBadge.className = 'badge badge-good'; pBadge.textContent = 'Compliant'; }
-      else if (pStatus === 'violation') { pBadge.className = 'badge badge-bad'; pBadge.textContent = 'Violations'; }
-      else if (pStatus === 'warning') { pBadge.className = 'badge badge-warn'; pBadge.textContent = 'Warning'; }
-      else { pBadge.className = 'badge badge-neutral'; pBadge.textContent = 'No policy'; }
-
-      const rows = [];
-      if (policy) {
-        rows.push(['Policy ID', policy.policy_id || '—']);
-        rows.push(['Version', policy.version || '—']);
-        rows.push(['Rules evaluated', String((policy.rules || []).length)]);
-        if (policy.violation_count) rows.push(['Violations', String(policy.violation_count), 'bad']);
-        if (policy.remediation) rows.push(['Remediation', policy.remediation]);
-      }
-      if (policyEval) {
-        rows.push(['Controls evaluated', String(policyEval.controls_evaluated || 0)]);
-        rows.push(['Controls failed', String(policyEval.controls_failed || 0), (policyEval.controls_failed || 0) > 0 ? 'bad' : 'good']);
-        rows.push(['Review required', policyEval.artifact_review_required ? 'Yes' : 'No']);
-        if (policyEval.results && Array.isArray(policyEval.results)) {
-          policyEval.results.forEach(r => {
-            const status = r.status || r.outcome || 'unknown';
-            const cls = status === 'pass' || status === 'compliant' ? 'good' : status === 'fail' || status === 'violation' ? 'bad' : '';
-            rows.push([r.control_id || r.rule_id || 'Control', status, cls]);
-          });
-        }
-      }
-      $('policy-body').innerHTML = rows.map(([k, v, cls]) => `
-        <div class="proof-row">
-          <span class="proof-key">${escapeHtml(k)}</span>
-          <span class="proof-val${cls ? ' ' + cls : ''}">${escapeHtml(v)}</span>
-        </div>
-      `).join('');
-    } else {
-      policyCard.hidden = true;
-    }
-
-    // Review
-    const reviewEntries = (review && Array.isArray(review.reviews)) ? review.reviews : [];
-    const reviewOutcome = review && review.outcome ? review.outcome : (reviewEntries[0] && reviewEntries[0].outcome);
-    const reviewer = review && review.reviewer ? review.reviewer : (reviewEntries[0] && reviewEntries[0].reviewer);
-    const reviewedAt = review && review.reviewed_at ? review.reviewed_at : (reviewEntries[0] && reviewEntries[0].reviewed_at);
-    const reviewNotes = review && review.notes ? review.notes : (reviewEntries[0] && reviewEntries[0].notes);
-    const hr = analysis && analysis.human_review ? analysis.human_review : {};
-    const reviewStatus = reviewOutcome ? 'reviewed' : (hr.status || 'pending');
-
-    const rBadge = $('review-badge');
-    if (reviewStatus === 'reviewed') { rBadge.className = 'badge badge-good'; rBadge.textContent = 'Reviewed'; }
-    else if (reviewStatus === 'pending') { rBadge.className = 'badge badge-warn'; rBadge.textContent = 'Pending'; }
-    else { rBadge.className = 'badge badge-neutral'; rBadge.textContent = 'Not reviewed'; }
-
-    const rRows = [];
-    rRows.push(['Status', reviewStatus === 'reviewed' ? 'Completed' : 'Awaiting review']);
-    if (reviewer) rRows.push(['Reviewer', reviewer]);
-    if (reviewOutcome) rRows.push(['Outcome', reviewOutcome]);
-    if (reviewedAt) rRows.push(['Reviewed at', fmtDate(reviewedAt)]);
-    if (reviewNotes) rRows.push(['Notes', reviewNotes]);
-    if (manifest.approved_by) rRows.push(['Approved by', manifest.approved_by]);
-
-    if (reviewStatus !== 'reviewed') {
-      $('review-body').innerHTML = `
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin:0 0 12px;">This case has not yet been reviewed by a human.</p>
-        ${rRows.map(([k, v]) => `<div class="proof-row"><span class="proof-key">${escapeHtml(k)}</span><span class="proof-val">${escapeHtml(v)}</span></div>`).join('')}
-      `;
-    } else {
-      $('review-body').innerHTML = rRows.map(([k, v]) => `<div class="proof-row"><span class="proof-key">${escapeHtml(k)}</span><span class="proof-val">${escapeHtml(v)}</span></div>`).join('');
-    }
-
-    // Timeline
-    renderTimeline(steps);
-
-    // Environment
-    const envCard = $('env-card');
-    if (environment && typeof environment === 'object' && Object.keys(environment).length) {
-      envCard.hidden = false;
-      const rows = Object.entries(environment).map(([k, v]) => {
-        let val = v;
-        if (typeof v === 'object') val = JSON.stringify(v);
-        return `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(String(val))}</td></tr>`;
-      }).join('');
-      $('env-content').innerHTML = `<table class="env-table"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
-    } else {
-      envCard.hidden = true;
-    }
-
-    // Footer
-    $('footer-id').textContent = 'Case ID: ' + (manifest.workflow_id || '—');
+  function calcDuration(steps) {
+    const start = steps.find(s => s.kind === 'session.start');
+    const end   = steps.find(s => s.kind === 'session.end');
+    if (start && end) { const d = new Date(end.timestamp) - new Date(start.timestamp); if (d > 0) return d / 1000; }
+    const endStep = steps.find(s => s.kind === 'session.end');
+    return endStep?.content?.duration_seconds || 0;
   }
 
-  function renderTimeline(steps) {
-    const container = $('timeline');
-    const search = ($('timeline-search').value || '').toLowerCase();
-    const filter = $('timeline-filter').value;
+  /* ── Render ─────────────────────────────────────────────────────────────── */
+  function render(data) {
+    const m      = data.manifest || {};
+    const steps  = Array.isArray(data.steps) ? data.steps : [];
+    const anal   = data.analysis || null;
+    const policy = data.policy || null;
+    const pe     = data.policy_evaluation || null;
+    const review = data.review || null;
+    const env    = data.environment || null;
+    const ctx    = loadJsonScript('epi-view-context') || {};
 
-    const visible = steps
-      .map((s, i) => ({ ...s, _idx: i }))
-      .filter(s => filterStepKind(s.kind || '', filter))
-      .filter(s => {
-        if (!search) return true;
-        const hay = (s.kind + ' ' + JSON.stringify(s.content || {})).toLowerCase();
-        return hay.includes(search);
-      });
+    const trust = deriveTrust(m, ctx);
+    const risk  = deriveRisk(anal);
 
-    if (!visible.length) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🕒</div><div class="empty-state-text">No steps match the current filter.</div></div>';
-      return;
+    /* Topbar */
+    const goalText = m.goal || m.workflow_id || 'EPI Case File';
+    $('viewer-goal').textContent = goalText;
+    document.title = 'EPI · ' + trunc(goalText, 64);
+
+    setBadge('trust-badge',    trust.tone, trust.label);
+    setBadge('analysis-badge', risk.tone,  risk.label);
+
+    /* Stats strip */
+    const llmN  = steps.filter(s => (s.kind || '').includes('llm')).length;
+    const toolN = steps.filter(s => (s.kind || '').includes('tool')).length;
+    const errN  = steps.filter(s => (s.kind || '').includes('error')).length;
+    const dur   = calcDuration(steps);
+    const faultN = (anal && anal.all_faults) ? anal.all_faults.length
+                 : (anal && anal.fault_detected) ? 1 : 0;
+
+    $('viewer-stats').innerHTML = [
+      { label: 'Steps',    val: steps.length },
+      { label: 'LLM',      val: llmN },
+      { label: 'Tools',    val: toolN },
+      { label: 'Errors',   val: errN,   cls: errN > 0 ? 'is-bad' : '' },
+      { label: 'Duration', val: dur ? fmtDur(dur) : '—' },
+      { label: 'Faults',   val: faultN, cls: faultN > 0 ? 'is-bad' : 'is-good' },
+    ].map(t => `<div class="stat-tile">
+      <div class="stat-tile-value${t.cls ? ' ' + t.cls : ''}">${esc(String(t.val))}</div>
+      <div class="stat-tile-label">${esc(t.label)}</div>
+    </div>`).join('');
+
+    /* Primary fault callout */
+    const pfc = $('pf-callout');
+    const pf  = anal && anal.primary_fault;
+    if (pf) {
+      pfc.hidden = false;
+      const sev    = (pf.severity || 'medium').toLowerCase();
+      const isCrit = sev === 'critical' || sev === 'high';
+      pfc.className = 'pf-callout' + (isCrit ? '' : ' is-warn');
+      pfc.innerHTML = `
+        <div class="pf-eyebrow">${esc(sev.toUpperCase())} RISK &nbsp;·&nbsp; PRIMARY FAULT</div>
+        <div class="pf-type">${esc(pf.fault_type || pf.category || 'Policy Violation')}</div>
+        <div class="pf-text">${esc(pf.plain_english || 'A policy rule was violated.')}</div>
+        ${pf.why_it_matters ? `<div class="pf-why">${esc(pf.why_it_matters)}</div>` : ''}
+      `;
+    } else {
+      pfc.hidden = true;
     }
 
-    container.innerHTML = visible.map((s, i) => {
+    /* Trust card */
+    setBadge('trust-card-badge', trust.tone, trust.label);
+
+    const tRows = [
+      ['Status',    trust.text, trust.tone],
+      ['Signature', m.signature ? trunc(m.signature, 52) : 'Not present',
+                    m.signature ? (trust.tone === 'good' ? 'good' : trust.tone === 'bad' ? 'bad' : 'warn') : ''],
+    ];
+    if (m.public_key)       tRows.push(['Public key',    trunc(m.public_key, 52), '']);
+    if (m.container_format) tRows.push(['Format',        m.container_format, '']);
+    if (m.file_manifest) {
+      const n = Object.keys(m.file_manifest).length;
+      tRows.push(['Sealed files', `${n} file${n === 1 ? '' : 's'}`, 'good']);
+    }
+    const payloadHash = m.trust && m.trust.payload_hash;
+    if (payloadHash) tRows.push(['Payload hash', trunc(payloadHash, 52), '']);
+    if (trust.detail) tRows.push(['Detail', trust.detail, '']);
+
+    $('trust-body').innerHTML = tRows.map(([k, v, c]) =>
+      `<div class="proof-row">
+        <span class="proof-key">${esc(k)}</span>
+        <span class="proof-val${c ? ' ' + c : ''}">${esc(v)}</span>
+      </div>`).join('');
+
+    /* Tag chips */
+    const chips = [
+      ...(m.tags || []),
+      m.source?.integration,
+      m.approved_by ? 'Approved by ' + m.approved_by : null,
+      m.source?.framework ? m.source.framework + (m.source.framework_version ? ' ' + m.source.framework_version : '') : null,
+    ].filter(Boolean);
+    $('hero-chips').innerHTML = chips.map(c => `<span class="tag-chip">${esc(c)}</span>`).join('');
+
+    /* Evidence summary card */
+    setBadge('evidence-badge',
+      anal ? (anal.fault_detected ? 'bad' : 'good') : 'neutral',
+      anal ? (anal.fault_detected ? 'Faults found' : 'Clean') : 'No analysis');
+
+    const sItems = [
+      { label: 'Steps',  val: steps.length },
+      { label: 'LLM',    val: llmN },
+      { label: 'Tools',  val: toolN },
+      { label: 'Errors', val: errN },
+    ];
+    if (m.passed != null) sItems.push({ label: 'Passed', val: m.passed });
+    if (m.failed != null) sItems.push({ label: 'Failed', val: m.failed });
+    if (dur)              sItems.push({ label: 'Duration', val: fmtDur(dur) });
+
+    $('stats-grid').innerHTML = sItems.map(s =>
+      `<div class="stat">
+        <div class="stat-value">${esc(String(s.val))}</div>
+        <div class="stat-label">${esc(s.label)}</div>
+      </div>`).join('');
+
+    $('case-meta').innerHTML = [
+      m.created_at  ? `<span class="case-meta-item"><strong>Recorded</strong>${esc(fmtDate(m.created_at))}</span>` : '',
+      m.cli_command ? `<span class="case-meta-item"><strong>Command</strong><code>${esc(m.cli_command)}</code></span>` : '',
+      m.workflow_id ? `<span class="case-meta-item"><strong>ID</strong><code>${esc(m.workflow_id)}</code></span>` : '',
+      m.spec_version ? `<span class="case-meta-item"><strong>EPI Spec</strong>${esc(m.spec_version)}</span>` : '',
+    ].filter(Boolean).join('');
+
+    /* Analysis — faults card */
+    const allFaults = collectFaults(anal);
+    if (allFaults.length) {
+      $('faults-card').hidden = false;
+      $('faults-badge').textContent = allFaults.length + ' fault' + (allFaults.length === 1 ? '' : 's');
+      $('faults-body').innerHTML = allFaults.map(f => {
+        const sev = (f.severity || 'medium').toLowerCase();
+        const isWarn = sev !== 'critical' && sev !== 'high';
+        return `<div class="fault-item${isWarn ? ' sev-warn' : ''}">
+          <div class="fault-sev">${esc(sev.toUpperCase())} · ${esc(f.fault_type || f.category || 'Fault')}</div>
+          <div class="fault-desc">${esc(f.plain_english || 'A policy rule was violated.')}</div>
+          ${f.why_it_matters ? `<div class="fault-why">${esc(f.why_it_matters)}</div>` : ''}
+        </div>`;
+      }).join('');
+    } else {
+      $('faults-card').hidden = true;
+    }
+
+    /* Policy card */
+    if (policy || pe) {
+      $('policy-card').hidden = false;
+      const status = policy?.status || (pe ? (pe.controls_failed > 0 ? 'violation' : 'compliant') : null);
+      const pTone  = status === 'compliant' ? 'good' : status === 'violation' ? 'bad' : status === 'warning' ? 'warn' : 'neutral';
+      const pLabel = status === 'compliant' ? 'Compliant' : status === 'violation' ? 'Violations' : status === 'warning' ? 'Warning' : 'No status';
+      setBadge('policy-badge', pTone, pLabel);
+
+      const pRows = [];
+      if (policy) {
+        pRows.push(['Policy ID', policy.policy_id || '—', '']);
+        pRows.push(['Version', policy.version || '—', '']);
+        pRows.push(['Rules', String((policy.rules || []).length), '']);
+        if (policy.violation_count) pRows.push(['Violations', String(policy.violation_count), 'bad']);
+      }
+      if (pe) {
+        pRows.push(['Controls evaluated', String(pe.controls_evaluated || 0), '']);
+        pRows.push(['Controls failed', String(pe.controls_failed || 0), pe.controls_failed > 0 ? 'bad' : 'good']);
+        pRows.push(['Review required', pe.artifact_review_required ? 'Yes' : 'No', pe.artifact_review_required ? 'warn' : '']);
+        (pe.results || []).forEach(r => {
+          const s = r.status || r.outcome || '?';
+          const c = s === 'pass' || s === 'compliant' ? 'good' : s === 'fail' || s === 'violation' ? 'bad' : '';
+          pRows.push([r.control_id || r.rule_id || 'Rule', s, c]);
+        });
+      }
+      $('policy-body').innerHTML = pRows.map(([k, v, c]) =>
+        `<div class="proof-row"><span class="proof-key">${esc(k)}</span><span class="proof-val${c ? ' ' + c : ''}">${esc(v)}</span></div>`
+      ).join('');
+    } else {
+      $('policy-card').hidden = true;
+    }
+
+    /* Timeline */
+    renderTimeline(steps);
+
+    /* Human review */
+    const revEntries = (review && Array.isArray(review.reviews)) ? review.reviews : [];
+    const revOutcome = review?.outcome ?? revEntries[0]?.outcome;
+    const revName    = review?.reviewer ?? revEntries[0]?.reviewer;
+    const revAt      = review?.reviewed_at ?? revEntries[0]?.reviewed_at;
+    const revNotes   = review?.notes ?? revEntries[0]?.notes;
+    const reviewed   = !!revOutcome;
+
+    setBadge('review-badge', reviewed ? 'good' : 'neutral', reviewed ? 'Reviewed' : 'Pending');
+
+    const rRows = [['Status', reviewed ? 'Reviewed' : 'Awaiting review']];
+    if (revName)    rRows.push(['Reviewer',    revName]);
+    if (revOutcome) rRows.push(['Outcome',     revOutcome]);
+    if (revAt)      rRows.push(['Reviewed at', fmtDate(revAt)]);
+    if (revNotes)   rRows.push(['Notes',       revNotes]);
+    if (m.approved_by) rRows.push(['Approved by', m.approved_by]);
+
+    $('review-body').innerHTML = rRows.length
+      ? rRows.map(([k, v]) => `<div class="proof-row"><span class="proof-key">${esc(k)}</span><span class="proof-val">${esc(v)}</span></div>`).join('')
+      : '<p style="font-size:.8rem;color:var(--text-3);margin:0">No human review has been recorded yet.</p>';
+
+    /* Environment */
+    if (env && typeof env === 'object' && Object.keys(env).length) {
+      $('env-card').hidden = false;
+      const rows = Object.entries(env).map(([k, v]) =>
+        `<tr><td>${esc(k)}</td><td>${esc(typeof v === 'object' ? JSON.stringify(v) : String(v))}</td></tr>`
+      ).join('');
+      $('env-content').innerHTML = `<table class="env-table"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      $('env-card').hidden = true;
+    }
+
+    /* Footer */
+    $('footer-id').textContent = 'Case ID: ' + (m.workflow_id || '—');
+  }
+
+  /* ── Timeline renderer ──────────────────────────────────────────────────── */
+  let _currentData = null;
+
+  function renderTimeline(steps) {
+    const search  = ($('timeline-search').value || '').toLowerCase();
+    const filter  = $('timeline-filter').value;
+    const visible = steps
+      .filter(s => filterKind(s.kind || '', filter))
+      .filter(s => !search || (s.kind + ' ' + JSON.stringify(s.content || {})).toLowerCase().includes(search));
+
+    const container = $('timeline');
+    if (!visible.length) {
+      container.innerHTML = '<div class="empty-tl">No steps match the current filter.</div>';
+      return;
+    }
+    container.innerHTML = visible.map(s => {
       const tone = stepTone(s);
-      const dotClass = tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : tone === 'warn' ? 'warn' : 'neutral';
-      return `
-        <div class="tl-item">
-          <div class="tl-dot ${dotClass}">${stepKindIcon(s.kind)}</div>
-          <div class="tl-content">
-            <div class="tl-kind">${escapeHtml(stepKindLabel(s.kind))}</div>
-            <div class="tl-message">${escapeHtml(stepSummary(s))}</div>
-          </div>
-          <div class="tl-time">${fmtDate(s.timestamp)}</div>
+      const dot  = tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : tone === 'warn' ? 'warn' : tone === 'llm' ? 'llm' : tone === 'info' ? 'info' : 'neutral';
+      let rawJson = '';
+      try { rawJson = JSON.stringify(s, null, 2); } catch { rawJson = String(s); }
+      return `<div class="tl-item">
+        <div class="tl-dot ${dot}"></div>
+        <div class="tl-header">
+          <span class="tl-kind">${esc(s.kind || 'unknown')}</span>
+          <span class="tl-time">${esc(fmtTime(s.timestamp))}</span>
         </div>
-      `;
+        <div class="tl-summary">${esc(stepSummary(s))}</div>
+        <details class="tl-details">
+          <summary>Details</summary>
+          <pre>${esc(rawJson)}</pre>
+        </details>
+      </div>`;
     }).join('');
   }
 
-  function computeDuration(steps) {
-    if (!steps.length) return 0;
-    const start = steps.find(s => s.kind === 'session.start');
-    const end = steps.find(s => s.kind === 'session.end');
-    if (start && end && start.timestamp && end.timestamp) {
-      const d = new Date(end.timestamp) - new Date(start.timestamp);
-      if (d > 0) return d / 1000;
-    }
-    // Fallback: content.duration_seconds on session.end
-    const endStep = steps.find(s => s.kind === 'session.end');
-    if (endStep && endStep.content && endStep.content.duration_seconds) {
-      return endStep.content.duration_seconds;
-    }
-    return 0;
+  /* ── Helpers ────────────────────────────────────────────────────────────── */
+  function setBadge(id, tone, label) {
+    const el = $(id);
+    if (!el) return;
+    const cls = tone === 'good' || tone === 'success' ? 'good'
+              : tone === 'bad'  || tone === 'danger'  ? 'bad'
+              : tone === 'warn' || tone === 'warning' ? 'warn'
+              : 'neutral';
+    el.className = `badge badge-${cls}`;
+    el.textContent = label;
   }
 
-  function loadJsonScript(id) {
-    const node = document.getElementById(id);
-    if (!node) return null;
-    try { return JSON.parse(node.textContent || '{}'); } catch { return null; }
+  function collectFaults(anal) {
+    if (!anal) return [];
+    const seen = new Set();
+    const out  = [];
+    const add  = f => {
+      const key = (f.fault_type || '') + '|' + (f.step_index ?? f.step_number ?? '');
+      if (!seen.has(key)) { seen.add(key); out.push(f); }
+    };
+    if (anal.primary_fault)    add(anal.primary_fault);
+    (anal.secondary_flags || []).forEach(add);
+    (anal.all_faults       || []).forEach(add);
+    return out;
   }
 
-  /* ── Accordion bindings ────────────────────────────────────────────────── */
+  /* ── Accordion ──────────────────────────────────────────────────────────── */
   function bindAccordions() {
     document.querySelectorAll('.accordion-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
-        const expanded = btn.getAttribute('aria-expanded') === 'true';
-        btn.setAttribute('aria-expanded', String(!expanded));
+        const open = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!open));
         const body = btn.parentElement.nextElementSibling;
-        if (body) body.classList.toggle('open', !expanded);
+        if (body) body.classList.toggle('open', !open);
       });
     });
   }
 
-  /* ── Timeline filter bindings ──────────────────────────────────────────── */
-  function bindTimelineFilters() {
-    const search = $('timeline-search');
-    const filter = $('timeline-filter');
-    if (search) search.addEventListener('input', () => {
-      const data = currentData;
-      if (data) renderTimeline(data.steps || []);
-    });
-    if (filter) filter.addEventListener('change', () => {
-      const data = currentData;
-      if (data) renderTimeline(data.steps || []);
-    });
+  /* ── Timeline filters ───────────────────────────────────────────────────── */
+  function bindFilters() {
+    const s = $('timeline-search'), f = $('timeline-filter');
+    const redraw = () => { if (_currentData) renderTimeline(_currentData.steps || []); };
+    if (s) s.addEventListener('input', redraw);
+    if (f) f.addEventListener('change', redraw);
   }
 
-  /* ── Drag-drop standalone mode ─────────────────────────────────────────── */
-  let currentData = null;
-
-  function initStandalone() {
-    const overlay = $('drop-overlay');
-    const viewer = $('viewer');
-    const dropZone = $('drop-zone');
-    const fileInput = $('file-input');
-    const chooseBtn = $('choose-files-button');
-
-    overlay.hidden = false;
-    viewer.hidden = true;
-
-    chooseBtn.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async () => {
-      const files = Array.from(fileInput.files || []).filter(f => f.name.toLowerCase().endsWith('.epi'));
-      if (files.length) await loadFile(files[0]);
-    });
-
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', async e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      const files = Array.from(e.dataTransfer.files || []).filter(f => f.name.toLowerCase().endsWith('.epi'));
-      if (files.length) await loadFile(files[0]);
-    });
+  /* ── Fatal error ────────────────────────────────────────────────────────── */
+  function renderFatalError() {
+    document.body.innerHTML =
+      '<div class="fatal-error">' +
+        '<div class="fatal-error-box">' +
+          '<div class="fatal-error-label">Artifact error</div>' +
+          '<div class="fatal-error-msg">Invalid EPI artifact: embedded data missing or corrupted</div>' +
+        '</div>' +
+      '</div>';
   }
 
-  async function loadFile(file) {
-    try {
-      const data = await parseEpiFile(file);
-      currentData = data;
-      $('drop-overlay').hidden = true;
-      $('viewer').hidden = false;
+  /* ── Entry point ────────────────────────────────────────────────────────── */
+  function boot() {
+    const data = loadEmbeddedData();
+    if (!data) {
+      renderFatalError();
+    } else {
+      _currentData = data;
+      document.getElementById('viewer').hidden = false;
       render(data);
       bindAccordions();
-      bindTimelineFilters();
-    } catch (e) {
-      alert('Failed to open EPI file: ' + e.message);
-      console.error(e);
+      bindFilters();
     }
   }
 
-  function initEmbedded() {
-    const data = loadEmbeddedData();
-    if (!data || !data.manifest || Object.keys(data.manifest).length === 0) return false;
-    currentData = data;
-    $('drop-overlay').hidden = true;
-    $('viewer').hidden = false;
-    render(data);
-    bindAccordions();
-    bindTimelineFilters();
-    return true;
-  }
-
-  /* ── Entry ─────────────────────────────────────────────────────────────── */
-  function boot() {
-    if (!initEmbedded()) initStandalone();
-  }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

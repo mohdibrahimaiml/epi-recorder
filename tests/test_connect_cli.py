@@ -207,7 +207,7 @@ def test_web_viewer_server_serves_index():
             html = response.read().decode("utf-8")
 
         assert "EPI Case Viewer" in html
-        assert "Open an EPI case file" in html
+        assert "Offline artifact viewer" in html
     finally:
         server.shutdown()
         server.server_close()
