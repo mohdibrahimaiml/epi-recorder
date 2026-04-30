@@ -30,10 +30,10 @@ EXPECTED_TOP_LEVEL = {
 
 REQUIRED_RUNTIME_MEMBERS = {
     "epi_viewer_static/crypto.js",
-    "web_viewer/index.html",
+    "web_viewer/viewer.html",
     "web_viewer/jszip.min.js",
-    "web_viewer/app.js",
-    "web_viewer/styles.css",
+    "web_viewer/viewer.js",
+    "web_viewer/viewer.css",
 }
 
 SUSPICIOUS_RUNTIME_BASENAME_PATTERNS = (

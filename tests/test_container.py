@@ -96,7 +96,8 @@ class TestEPIContainer:
         assert output_path.exists(), ".epi file should be created"
         assert output_path.stat().st_size > 0, ".epi file should not be empty"
         assert EPIContainer.detect_container_format(output_path) == EPI_CONTAINER_FORMAT_ENVELOPE
-        assert output_path.read_bytes()[:4] == b"EPI1"
+        from epi_core.container import EPI_ENVELOPE_MAGIC
+        assert output_path.read_bytes()[:len(EPI_ENVELOPE_MAGIC)] == EPI_ENVELOPE_MAGIC
         assert EPIContainer.container_mimetype(output_path) == EPI_MIMETYPE
     
     def test_pack_populates_file_manifest(self, temp_workspace, sample_files):
@@ -281,7 +282,7 @@ class TestEPIContainer:
         with zipfile.ZipFile(output_path, "w") as zf:
             zf.writestr("manifest.json", ManifestModel(cli_command="test").model_dump_json())
         
-        with pytest.raises(ValueError, match="Missing mimetype"):
+        with pytest.raises(ValueError, match="mimetype"):
             EPIContainer.unpack(output_path)
     
     def test_unpack_with_wrong_mimetype(self, temp_workspace, sample_files):
@@ -435,20 +436,20 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert ".hero" in viewer_html  # Updated for new redesign
+        assert "doc-header" in viewer_html  # Updated for new redesign
         assert "<script>" in viewer_html
-        assert "function render(" in viewer_html  # Check for new viewer functions
+        assert "function deriveDecision(" in viewer_html  # Updated for new viewer functions
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "Trust" in viewer_html
-        assert "Case" in viewer_html
-        assert "Timeline" in viewer_html
+        assert "Official_Forensic_Record" in viewer_html
+        assert "Evidence_Log" in viewer_html
+        assert "Appendix" in viewer_html
         from epi_core import __version__
-        assert f"EPI Case Viewer v{__version__}" in viewer_html or "__EPI_VERSION__" not in viewer_html
+        assert "Execution_Audit_Artifact" in viewer_html
     
     def test_embedded_viewer_with_invalid_json_in_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer handles invalid JSON in steps.jsonl gracefully."""

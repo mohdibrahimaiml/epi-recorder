@@ -203,10 +203,10 @@ def test_web_viewer_server_serves_index():
     host, port = server.server_address[:2]
 
     try:
-        with urlrequest.urlopen(f"http://{host}:{port}/web_viewer/index.html", timeout=5) as response:
+        with urlrequest.urlopen(f"http://{host}:{port}/web_viewer/viewer.html", timeout=5) as response:
             html = response.read().decode("utf-8")
 
-        assert "EPI Case Viewer" in html
+        assert "EPI_FORENSIC" in html
         assert 'id="epi-view-context"' in html
     finally:
         server.shutdown()
@@ -246,7 +246,7 @@ def test_connect_open_starts_services_and_opens_browser(monkeypatch):
     assert result.exit_code == 0
     assert "EPI is ready." in result.output
     assert "Opened the browser for you." in result.output
-    assert opened_urls == ["http://127.0.0.1:8000/web_viewer/index.html?bridgeUrl=http%3A%2F%2F127.0.0.1%3A8765"]
+    assert opened_urls == ["http://127.0.0.1:8000/web_viewer/viewer.html?bridgeUrl=http%3A%2F%2F127.0.0.1%3A8765"]
     assert bridge_server.shutdown_called is True
     assert bridge_server.server_close_called is True
     assert web_server.shutdown_called is True
@@ -283,4 +283,4 @@ def test_connect_open_passes_access_token_to_browser_session(monkeypatch):
     result = runner.invoke(app, ["open", "--access-token", "shared-secret"])
 
     assert result.exit_code == 0
-    assert opened_urls == ["http://127.0.0.1:8000/web_viewer/index.html?bridgeUrl=http%3A%2F%2F127.0.0.1%3A8765&accessToken=shared-secret"]
+    assert opened_urls == ["http://127.0.0.1:8000/web_viewer/viewer.html?bridgeUrl=http%3A%2F%2F127.0.0.1%3A8765&accessToken=shared-secret"]

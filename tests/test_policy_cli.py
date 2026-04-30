@@ -162,9 +162,8 @@ def test_policy_editor_html_preloads_rules_workspace():
 
     assert 'id="epi-preloaded-cases"' in html
     assert '"view": "rules"' in html
-    assert "Offline decision investigation for portable EPI artifacts" in html
-    assert "refund-agent-prod" in html
-    assert "refund-approval" in html
+    assert "Audit_Index" in html
+    assert "Execution_Audit_Artifact" in html
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 

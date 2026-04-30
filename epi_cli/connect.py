@@ -35,7 +35,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_WEB_PORT = 8000
 REPO_ROOT = Path(__file__).resolve().parents[1]
-VIEWER_PATH = "/web_viewer/index.html"
+VIEWER_PATH = "/web_viewer/viewer.html"
 DEFAULT_STORAGE_DIR = REPO_ROOT / ".epi-shared-workspace"
 
 

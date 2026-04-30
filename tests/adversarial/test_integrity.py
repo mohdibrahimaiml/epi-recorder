@@ -55,8 +55,13 @@ def test_byte_level_tampering_steps(valid_artifact):
     # We need to re-pack manually or use EPIContainer (but that might fix the hashes!)
     # We'll use zipfile directly to simulate an attacker.
     with zipfile.ZipFile(tampered_epi, "w") as zf:
+        # Forensic requirement: mimetype MUST be first
+        mimetype_file = valid_artifact.parent / "extracted" / "mimetype"
+        if mimetype_file.exists():
+            zf.write(mimetype_file, "mimetype")
+        
         for f in (valid_artifact.parent / "extracted").glob("**/*"):
-            if f.is_file():
+            if f.is_file() and f.name != "mimetype":
                 zf.write(f, f.relative_to(valid_artifact.parent / "extracted"))
     
     result = runner.invoke(app, ["verify", str(tampered_epi), "--strict"])
@@ -77,8 +82,13 @@ def test_identity_tampering(valid_artifact):
     # Re-pack
     tampered_epi = valid_artifact.parent / "tampered_id.epi"
     with zipfile.ZipFile(tampered_epi, "w") as zf:
+        # Forensic requirement: mimetype MUST be first
+        mimetype_file = valid_artifact.parent / "extracted_id" / "mimetype"
+        if mimetype_file.exists():
+            zf.write(mimetype_file, "mimetype")
+            
         for f in (valid_artifact.parent / "extracted_id").glob("**/*"):
-            if f.is_file():
+            if f.is_file() and f.name != "mimetype":
                 zf.write(f, f.relative_to(valid_artifact.parent / "extracted_id"))
     
     result = runner.invoke(app, ["verify", str(tampered_epi), "--strict"])
@@ -118,8 +128,13 @@ def test_replay_attack_reordering(valid_artifact):
     # Re-pack
     swapped_epi = path.parent / "swapped.epi"
     with zipfile.ZipFile(swapped_epi, "w") as zf:
+        # Forensic requirement: mimetype MUST be first
+        mimetype_file = path.parent / "swap" / "mimetype"
+        if mimetype_file.exists():
+            zf.write(mimetype_file, "mimetype")
+            
         for f in (path.parent / "swap").glob("**/*"):
-            if f.is_file():
+            if f.is_file() and f.name != "mimetype":
                 zf.write(f, f.relative_to(path.parent / "swap"))
                 
     result = runner.invoke(app, ["verify", str(swapped_epi), "--strict"])

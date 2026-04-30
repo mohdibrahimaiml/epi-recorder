@@ -46,6 +46,8 @@ def _tamper_steps(epi_path: Path) -> Path:
         files = {name: zf.read(name) for name in zf.namelist()}
     files["steps.jsonl"] = b'{"index":0,"kind":"test","content":{"value":999}}\n'
     with zipfile.ZipFile(tampered, "w") as zf:
+        if "mimetype" in files:
+            zf.writestr("mimetype", files.pop("mimetype"))
         for name, content in files.items():
             zf.writestr(name, content)
     return tampered

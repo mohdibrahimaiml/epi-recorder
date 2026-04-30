@@ -61,6 +61,8 @@ def _build_failure_report(
             "integrity_ok": False,
             "signature_valid": signature_valid,
             "has_signature": has_signature,
+            "sequence_ok": False,
+            "completeness_ok": False,
             "mismatches": mismatch_map,
         },
         "identity": {

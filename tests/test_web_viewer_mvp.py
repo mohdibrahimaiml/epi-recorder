@@ -9,87 +9,36 @@ def _read(relative_path: str) -> str:
 
 
 def test_web_viewer_shell_has_case_investigation_navigation():
-    html = _read("web_viewer/index.html")
+    html = _read("web_viewer/viewer.html")
 
-    assert "EPI Case Viewer" in html
-    assert "Policy Evaluation" in html
-    assert "Human Review" in html
-    assert "Environment Snapshot" in html
+    assert "EPI_FORENSIC" in html
+    assert "Official_Forensic_Record" in html
+    assert "Governance" in html
+    assert "Evidence_Log" in html
     assert 'id="epi-view-context"' in html
-    assert 'id="trust-body"' in html
-    assert 'id="faults"' in html
-    assert 'id="execution"' in html
-    assert 'id="environment"' in html
+    assert 'id="forensic-index"' in html
+    assert 'id="evidence-trace"' in html
+    assert 'id="env-section"' in html
 
 
 def test_web_viewer_app_supports_source_aware_case_investigation():
-    js = _read("web_viewer/app.js")
+    js = _read("web_viewer/viewer.js")
 
-    assert "async function parseEpiFile" in js
-    assert "async function buildCaseRecord" in js
-    assert "function deriveSourceProfile" in js
-    assert "function buildAttachmentGroups" in js
-    assert "function buildTraceabilityIndex" in js
-    assert "function buildOverviewPresentation" in js
-    assert "function buildPolicyFlow" in js
-    assert "function buildEvidenceSummary" in js
-    assert "function buildTrustRows" in js
-    assert "function buildTrustAlerts" in js
-    assert "function renderAuditFirstCard" in js
-    assert "function buildAuditSummaryItems" in js
-    assert "epi verify" in js
-    assert "audit-first-card" in js
-    assert "function deriveReviewBindingState" in js
-    assert "async function computeReviewHash" in js
-    assert "function buildReviewSigningPayload" in js
-    assert "review_index.json" in js
-    assert "reviews/" in js
-    assert "Review artifact binding" in js
-    assert "Review not fully checked" in js
-    assert "Redaction / retention" in js
-    assert "function buildTransformationAuditView" in js
-    assert "function renderTransformationAudit" in js
-    assert "function renderAttachmentGroups" in js
-    assert "function renderAttachmentPreview" in js
-    assert "async function previewCaseAttachment" in js
-    assert "async function downloadCaseAttachment" in js
-    assert "function highlightCaseStep" in js
-    assert "function focusCaseAttachment" in js
-    assert "function renderCaseView" in js
-    assert "function renderInbox" in js
-    assert "function renderRulesView" in js
-    assert "function renderReportsView" in js
-    assert "artifacts/agt/mapping_report.json" in js
-    assert "Transformation audit available" in js
-    assert "AGT imported into EPI" in js
-    assert "Unsigned but intact" in js
-    assert "Tampered / do not use" in js
-    assert "function renderInlineActions" in js
-    assert "function buildTimelineActions" in js
-    assert "function buildEmptyInboxContent" in js
-    assert "function buildRecorderStarterFiles" in js
-    assert "function buildSharedWorkspaceCaseExport" in js
-    assert "function configureEmbeddedArtifactMode" in js
-    assert "embedded-artifact-mode" in js
+    assert "async function initialize" in js
+    assert "function deriveDecision" in js
+    assert "function computeTrust" in js
+    assert "function buildCausalGraph" in js
+    assert "function extractFaults" in js
+    assert "function renderDocument" in js
+    assert "tampered" in js
 
 
 def test_web_viewer_readme_describes_case_investigation_model():
     readme = _read("web_viewer/README.md")
 
-    assert "case-first" in readme
-    assert "Queue" in readme
-    assert "Case" in readme
-    assert "Overview" in readme
-    assert "Evidence" in readme
-    assert "Policy" in readme
-    assert "Review" in readme
-    assert "Mapping" in readme
-    assert "Trust" in readme
-    assert "Attachments" in readme
-    assert "Source system: AGT" in readme
-    assert "Import mode: EPI" in readme
-    assert "transformation audit" in readme.lower()
-    assert "Everything stays local to the browser" in readme
-    assert "one `.epi` file" in readme
-    assert "offline/local review" in readme
-    assert "epi connect serve" in readme
+    assert "Forensic Truth Engine" in readme
+    assert "Official_Forensic_Record" in readme
+    assert "0.0 Summary" in readme
+    assert "1.0 Governance" in readme
+    assert "2.0 Evidence_Log" in readme
+    assert "3.0 Appendix" in readme

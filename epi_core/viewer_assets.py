@@ -4,10 +4,10 @@ from importlib import resources
 from pathlib import Path
 import re
 
-_VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="styles.css">'
+_VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="viewer.css">'
 _VIEWER_JSZIP_TAG = '<script src="jszip.min.js"></script>'
 _VIEWER_CRYPTO_TAG = '<script src="../epi_viewer_static/crypto.js"></script>'
-_VIEWER_APP_TAG = '<script src="app.js"></script>'
+_VIEWER_APP_TAG = '<script src="viewer.js"></script>'
 _VIEWER_SCRIPT_BUNDLE = "\n".join((_VIEWER_JSZIP_TAG, _VIEWER_CRYPTO_TAG, _VIEWER_APP_TAG))
 
 

@@ -661,6 +661,9 @@ class EPIContainer:
             "envelope_version": EPI_ENVELOPE_VERSION
         }
 
+        viewer_version = str(kwargs.get("viewer_version", manifest.viewer_version or "minimal"))
+        manifest.viewer_version = viewer_version
+
         if signer_function:
             manifest = signer_function(manifest)
 
@@ -679,8 +682,6 @@ class EPIContainer:
             reserved_tail=b"\x00" * 56
         )
 
-        viewer_version = str(kwargs.get("viewer_version", manifest.viewer_version or "minimal"))
-        manifest.viewer_version = viewer_version
         viewer_html = EPIContainer._create_embedded_viewer(
             source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header
         )

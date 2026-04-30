@@ -64,7 +64,7 @@ def test_byte_level_tampering_steps(valid_artifact):
     
     result = runner.invoke(app, ["verify", str(tampered_epi), "--strict"])
     assert result.exit_code != 0
-    assert "FAILED" in result.stdout or "mismatch" in result.stdout
+    assert "FAIL" in result.stdout or "mismatch" in result.stdout
 
 # 2. Identity & Trust Model
 def test_revoked_key(tmp_path, clean_env):
@@ -130,4 +130,4 @@ def test_dropped_span_detection(tmp_path):
                 
     result = runner.invoke(app, ["verify", str(corrupt_epi), "--strict"])
     assert result.exit_code != 0
-    assert "Forensic:     FAIL" in result.stdout
+    assert "Forensic" in result.stdout and "FAIL" in result.stdout

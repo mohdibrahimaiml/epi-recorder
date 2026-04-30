@@ -63,13 +63,19 @@ _settings: dict[str, Any] = {}
 
 
 def _guardrails_version() -> tuple:
+    """Detect Guardrails AI version robustly using importlib.metadata."""
     try:
-        from guardrails.version import GUARDRAILS_VERSION
-
-        parts = GUARDRAILS_VERSION.split(".")[:3]
+        from importlib.metadata import version
+        v_str = version("guardrails-ai")
+        parts = v_str.split(".")[:3]
         return tuple(int(p) for p in parts)
-    except (ImportError, AttributeError, ValueError):
-        return (0, 0, 0)
+    except Exception:
+        try:
+            from guardrails.version import GUARDRAILS_VERSION
+            parts = GUARDRAILS_VERSION.split(".")[:3]
+            return tuple(int(p) for p in parts)
+        except Exception:
+            return (0, 0, 0)
 
 
 def _safe_get(

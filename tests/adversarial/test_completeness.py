@@ -43,8 +43,13 @@ def test_dropped_span_detection(tmp_path):
     
     corrupt_epi = tmp_path / "corrupt.epi"
     with zipfile.ZipFile(corrupt_epi, "w") as zf:
+        # Forensic requirement: mimetype MUST be first
+        mimetype_file = tmp_path / "ext" / "mimetype"
+        if mimetype_file.exists():
+            zf.write(mimetype_file, "mimetype")
+            
         for f in (tmp_path / "ext").glob("**/*"):
-            if f.is_file():
+            if f.is_file() and f.name != "mimetype":
                 zf.write(f, f.relative_to(tmp_path / "ext"))
                 
     result = runner.invoke(app, ["verify", str(corrupt_epi), "--strict", "--json"])
