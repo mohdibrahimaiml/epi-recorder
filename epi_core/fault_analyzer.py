@@ -696,7 +696,7 @@ def _has_error(step: dict) -> bool:
 
     # 4. Text scan for error phrases in string values or structure
     content_text = _content_str(step).lower()
-    for phrase in ("error", "exception", "traceback", "failed"):
+    for phrase in ("error", "traceback", "failed"):
         if phrase in content_text:
             return True
 

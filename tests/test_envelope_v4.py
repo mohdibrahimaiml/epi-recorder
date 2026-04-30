@@ -11,6 +11,7 @@ from epi_core.container import (
     EPI_CONTAINER_FORMAT_LEGACY,
     EPI_ENVELOPE_HEADER_SIZE,
     EPI_MIMETYPE,
+    EPI_ZIP_MARKER,
     EPIContainer,
 )
 from epi_core.schemas import ManifestModel
@@ -90,7 +91,14 @@ def test_rejects_payload_hash_mismatch_before_zip_open(sample_workspace):
     EPIContainer.pack(source, ManifestModel(cli_command="test"), output)
 
     data = bytearray(output.read_bytes())
-    data[EPI_ENVELOPE_HEADER_SIZE + 5] ^= 0x01
+    # Find the ZIP marker and modify a byte within the actual ZIP payload
+    # so the hash verification fails before zipfile opening.
+    marker_idx = data.find(EPI_ZIP_MARKER)
+    if marker_idx != -1:
+        payload_offset = marker_idx + len(EPI_ZIP_MARKER)
+    else:
+        payload_offset = EPI_ENVELOPE_HEADER_SIZE
+    data[payload_offset + 5] ^= 0x01
     bad.write_bytes(bytes(data))
 
     with pytest.raises(ValueError, match="payload hash mismatch"):
