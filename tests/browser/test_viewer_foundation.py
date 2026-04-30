@@ -55,12 +55,12 @@ def test_viewer_loads_offline_and_shows_decision_evidence_policy_and_trust(
 
     # Use case-insensitive check to handle CSS text-transform (uppercase) in the viewer.
     body_lower = body.lower()
-    assert "evidence packaged infrastructure" in body_lower
-    assert "execution timeline" in body_lower
+    assert "official_forensic_record" in body_lower
+    assert "chronological_evidence_log" in body_lower
     assert "evidence" in body_lower
     assert "policy" in body_lower
     assert "review" in body_lower
-    assert "cryptographic proof" in body_lower
+    assert "cryptographic_artifact_sealed_by_epi_core" in body_lower
     assert external_requests == []
 
 
