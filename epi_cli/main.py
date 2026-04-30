@@ -607,8 +607,17 @@ app.command(name="integrate", help="Generate EPI integration examples and CI wor
 @app.command()
 def analyze(
     epi_file: str = typer.Argument(..., help="Path or name of .epi file"),
+    policy: Path | None = typer.Option(
+        None,
+        "--policy",
+        help="Simulate a different policy against this artifact (read-only, does not modify the artifact).",
+    ),
 ):
-    """Show fault analysis summary without opening the viewer."""
+    """Show fault analysis summary without opening the viewer.
+
+    Use --policy <file> to test a new policy against an existing recording
+    without re-running the agent workflow.
+    """
     from epi_cli.view import _resolve_epi_file
 
     try:
@@ -634,6 +643,46 @@ def analyze(
         console.print(f"[red][X] analysis.json is not a JSON object in {epi_path.name}.[/red]")
         raise typer.Exit(1)
 
+    # Dry-run: re-analyze with a different policy (read-only)
+    if policy and isinstance(policy, Path):
+        if not policy.exists():
+            console.print(f"[red][X] Policy file not found:[/red] {policy}")
+            raise typer.Exit(1)
+        try:
+            import json as _json
+            from epi_core.policy import EPIPolicy as _EPIPolicy
+            from epi_core.fault_analyzer import FaultAnalyzer as _FaultAnalyzer
+            sim_policy = _EPIPolicy.model_validate_json(policy.read_text(encoding="utf-8"))
+            steps_list = EPIContainer.read_steps(epi_path)
+            steps_jsonl = "\n".join(_json.dumps(s) for s in steps_list)
+            sim_result = _FaultAnalyzer(policy=sim_policy).analyze(steps_jsonl)
+            sim_dict = sim_result.to_dict()
+            console.print(f"\n[bold cyan]Policy simulation[/bold cyan] — [bold]{policy.name}[/bold] against [bold]{epi_path.name}[/bold]")
+            console.print(f"[dim](Read-only. The artifact is not modified.)[/dim]\n")
+            sim_fault = sim_dict.get("primary_fault")
+            if sim_dict.get("fault_detected") and sim_fault:
+                sev = sim_fault.get("severity", "").upper()
+                sev_color = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "blue"}.get(sev, "white")
+                console.print(f"  Verdict:    [bold red]{sim_dict.get('verdict_short', 'FAILED')}[/bold red]")
+                console.print(f"  Severity:   [{sev_color}]{sev}[/{sev_color}]")
+                if sim_fault.get("rule_id"):
+                    console.print(f"  Rule:       {sim_fault['rule_id']} — {sim_fault.get('rule_name', '')}")
+                console.print(f"  Step:       {sim_fault.get('step_number', '?')}")
+                console.print(f"\n  {sim_fault.get('plain_english', '')}")
+                secondary = sim_dict.get("secondary_flags", [])
+                if secondary:
+                    console.print(f"\n  [dim]{len(secondary)} secondary flag(s) also found.[/dim]")
+            else:
+                console.print(f"  Verdict:    [bold green]{sim_dict.get('verdict_short', 'No fault')}[/bold green]")
+                console.print("  No violations detected with the simulated policy.")
+            console.print()
+            raise typer.Exit(0)
+        except typer.Exit:
+            raise
+        except Exception as exc:
+            console.print(f"[red][X] Policy simulation failed:[/red] {exc}")
+            raise typer.Exit(1)
+
     fault_detected = _analysis_has_fault(analysis)
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
@@ -644,6 +693,14 @@ def analyze(
     steps_recorded = coverage.get("steps_recorded")
     if steps_recorded is None:
         steps_recorded = 0
+
+    # Show no-policy nudge when running in heuristic-only mode
+    if mode == "heuristic_only":
+        console.print(
+            "[yellow][!][/yellow] No [bold]epi_policy.json[/bold] was found for this run. "
+            "EPI used heuristic analysis only [dim](less precise)[/dim].\n"
+            "    \u2192 Run [bold cyan]epi policy init[/bold cyan] to define compliance rules for your workflow.\n"
+        )
 
     if fault_detected:
         if display_fault is None:
@@ -1492,6 +1549,95 @@ def cli_main():
             pass
 
     app()
+
+
+@app.command()
+def status():
+    """Show EPI project health: policy, recordings, signing key, and last fault verdict.
+
+    Run from your project root (same directory as epi_policy.json).
+    Think of this like 'git status' for your EPI setup.
+    """
+    import sys as _sys
+    from epi_core._version import get_version
+
+    console.print(f"\n[bold]EPI Recorder[/bold] v{get_version()}\n")
+
+    # ── Policy ────────────────────────────────────────────────────────────────
+    policy_path = Path.cwd() / "epi_policy.json"
+    if policy_path.exists():
+        try:
+            from epi_core.policy import load_policy
+            pol = load_policy()
+            if pol:
+                console.print(
+                    f"[green]✅  Policy:[/green]     epi_policy.json found "
+                    f"([bold]{len(pol.rules)}[/bold] rule(s) active)"
+                )
+            else:
+                console.print(
+                    "[yellow]⚠️   Policy:[/yellow]     epi_policy.json found but could not be loaded "
+                    "(run: [cyan]epi policy validate[/cyan])"
+                )
+        except Exception:
+            console.print(
+                "[yellow]⚠️   Policy:[/yellow]     epi_policy.json found but has errors "
+                "(run: [cyan]epi policy validate[/cyan])"
+            )
+    else:
+        console.print(
+            "[yellow]⚠️   Policy:[/yellow]     No epi_policy.json found "
+            "(run: [cyan]epi policy init[/cyan] to create one)"
+        )
+
+    # ── Recordings ────────────────────────────────────────────────────────────
+    rec_dir = Path.cwd() / "epi-recordings"
+    epi_files: list[Path] = []
+    if rec_dir.exists():
+        epi_files = sorted(
+            (p for p in rec_dir.glob("*.epi") if p.is_file()),
+            key=lambda p: p.stat().st_mtime,
+        )
+        console.print(
+            f"[green]✅  Recordings:[/green]  epi-recordings/ found "
+            f"([bold]{len(epi_files)}[/bold] artifact(s))"
+        )
+    else:
+        console.print(
+            "[dim]ℹ️   Recordings:  No epi-recordings/ directory yet "
+            "(run an instrumented workflow to create one)[/dim]"
+        )
+
+    # ── Signing key ───────────────────────────────────────────────────────────
+    try:
+        from epi_cli.keys import get_default_key_path
+        key_path = get_default_key_path()
+        if key_path.exists():
+            console.print("[green]✅  Signing:[/green]    Default signing key present")
+        else:
+            console.print(
+                "[yellow]⚠️   Signing:[/yellow]    No signing key configured "
+                "(run: [cyan]epi keys generate[/cyan])"
+            )
+    except Exception:
+        console.print("[dim]ℹ️   Signing:    Could not check key status[/dim]")
+
+    # ── Last artifact summary ─────────────────────────────────────────────────
+    if epi_files:
+        latest = epi_files[-1]  # sorted by mtime, last is newest
+        console.print()
+        console.print(f"[dim]Last recording: {latest.name}[/dim]")
+        try:
+            latest_analysis = EPIContainer.read_member_json(latest, "analysis.json")
+            if isinstance(latest_analysis, dict):
+                verdict = latest_analysis.get("verdict_short")
+                if not verdict:
+                    verdict = "❌ Fault detected" if latest_analysis.get("fault_detected") else "✅ No fault detected"
+                console.print(f"[dim]Last verdict:   {verdict}[/dim]")
+        except Exception:
+            pass
+
+    console.print()
 
 
 if __name__ == "__main__":

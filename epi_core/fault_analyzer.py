@@ -1,5 +1,5 @@
 """
-EPI Fault Intelligence — Four-pass heuristic + policy-grounded fault analyzer.
+EPI Fault Intelligence — Nine-pass heuristic + policy-grounded fault analyzer.
 
 Reads steps.jsonl content, checks it against an optional EPIPolicy,
 and produces a structured analysis.json result.
@@ -10,11 +10,19 @@ Design principles:
   - Additive: never modifies steps.jsonl. Analysis is a separate sealed artifact.
   - Graceful: any exception inside a detection pass is caught; analysis completes.
 
-The four passes:
-  1. Error Continuation  — tool returned error, agent continued as if it succeeded.
-  2. Constraint Violation — numerical limit set at step M violated at step N.
-  3. Sequence Violation   — action B occurred before required action A (policy only).
-  4. Context Drop         — key entity identifier vanishes from the final third.
+The nine detection passes (executed in order):
+  Pass 1. Error Continuation       — tool returned error, agent continued as if it succeeded.
+  Pass 2. Constraint Violation     — numerical limit set at step M violated at step N.
+  Pass 3. Sequence Violation       — action B occurred before required action A (policy only).
+  Pass 4. Threshold Violation      — value exceeded policy threshold without required action (policy only).
+  Pass 5. Prohibition Violation    — prohibited pattern appeared in output (policy only).
+  Pass 6. Agent Approval Gap       — action executed while approval was pending or after rejection.
+  Pass 7. Approval Guard Violation — named action executed without required explicit approval (policy only).
+  Pass 8. Context Drop             — key entity identifier vanishes from the final third.
+  Pass 9. Tool Permission Guard    — disallowed tool used in execution (policy only).
+
+After all passes, flags are deduplicated (same step + same rule keeps highest severity),
+then ranked (policy violations first, then by severity, then by step index).
 """
 
 import json
@@ -105,13 +113,16 @@ class FaultFlag:
         "policy_type",
         "policy_mode",
         "policy_applies_at",
+        "evidence",
+        "remediation",
         "raw",
     )
 
     def __init__(self, step_index, fault_type, severity, plain_english,
                  rule_id=None, rule_name=None, fault_chain=None,
                  category=None, why_it_matters=None, review_required=None,
-                 policy_type=None, policy_mode=None, policy_applies_at=None):
+                 policy_type=None, policy_mode=None, policy_applies_at=None,
+                 evidence=None, remediation=None):
         self.step_index = step_index
         self.step_number = step_index + 1
         self.fault_type = fault_type
@@ -129,7 +140,16 @@ class FaultFlag:
         self.policy_type = policy_type
         self.policy_mode = policy_mode
         self.policy_applies_at = policy_applies_at
+        self.evidence = evidence or {}
+        self.remediation = remediation or self._default_remediation()
         self.raw = {}
+
+    def _default_remediation(self) -> str:
+        if self.fault_type == "POLICY_VIOLATION":
+            return "Investigate the agent's logic for skipping this required control or violating this prohibition."
+        if self.severity == "critical":
+            return "Immediate human intervention required. Verify if the execution can be rolled back or corrected."
+        return "Inspect the trace for reasoning degradation and consider updating agent prompts."
 
     def _default_why_it_matters(self) -> str:
         if self.fault_type == "POLICY_VIOLATION":
@@ -160,6 +180,10 @@ class FaultFlag:
             d["policy_mode"] = self.policy_mode
         if self.policy_applies_at:
             d["policy_applies_at"] = self.policy_applies_at
+        if self.evidence:
+            d["evidence"] = self.evidence
+        if self.remediation:
+            d["remediation"] = self.remediation
         return d
 
 
@@ -191,6 +215,31 @@ class AnalysisResult:
             return "medium"
         return "low"
 
+    def _build_verdict(self) -> str:
+        """Build a single human-readable judgment sentence for the run."""
+        if not self.primary_fault:
+            return "No fault detected — execution appears compliant."
+        f = self.primary_fault
+        icon = "\u274c" if f.fault_type == "POLICY_VIOLATION" else "\u26a0\ufe0f"
+        status = "FAILED" if f.fault_type == "POLICY_VIOLATION" else "WARNING"
+        if f.rule_id:
+            rule_part = f" ({f.rule_name})" if f.rule_name else ""
+            return (
+                f"{icon} {status} \u2014 "
+                f"Rule {f.rule_id}{rule_part} triggered at step {f.step_number}. "
+                f"{f.plain_english}"
+            )
+        return f"{icon} {status} \u2014 {f.plain_english}"
+
+    def _build_verdict_short(self) -> str:
+        """Build a short (\u22648 word) verdict label for UI badges."""
+        if not self.primary_fault:
+            return "\u2705 No fault detected"
+        f = self.primary_fault
+        icon = "\u274c" if f.fault_type == "POLICY_VIOLATION" else "\u26a0\ufe0f"
+        label = f.rule_name or f.fault_type.replace("_", " ").title()
+        return f"{icon} {label} at step {f.step_number}"
+
     def to_dict(self) -> dict:
         total = len(self.steps)
         full_data = sum(
@@ -216,6 +265,8 @@ class AnalysisResult:
             },
             "fault_detected": self.fault_detected,
             "confidence": self.confidence,
+            "verdict": self._build_verdict(),
+            "verdict_short": self._build_verdict_short(),
             "review_required": bool(
                 (self.primary_fault and self.primary_fault.review_required)
                 or any(flag.review_required for flag in self.secondary_flags)
@@ -274,11 +325,18 @@ class AnalysisResult:
             })
 
         controls_failed = sum(1 for result in results if result["status"] == "failed")
+        pass_rate = round((len(results) - controls_failed) / len(results) * 100) if results else 100
+
+        # Risk Exposure Index (REI)
+        severity_points = {"critical": 10, "high": 5, "medium": 2, "low": 1}
+        rei = sum(severity_points.get(r["severity"].lower(), 0) for r in results if r["status"] == "failed")
 
         agt_compat = {
             "compliance_status": "passed" if controls_failed == 0 else "failed",
             "controls_evaluated": len(results),
             "controls_failed": controls_failed,
+            "pass_rate_percentage": pass_rate,
+            "risk_exposure_index": rei,
             "failed_controls": [
                 {
                     "rule_id": r["rule_id"],
@@ -298,11 +356,14 @@ class AnalysisResult:
             "policy_format_version": self.policy.policy_format_version,
             "policy_id": self.policy.policy_id,
             "policy_version": self.policy.policy_version,
+            "authorized_by": self.policy.authorized_by,
             "policy_scope": self.policy.scope.model_dump(exclude_none=True) if self.policy.scope else None,
             "evaluation_timestamp": self.timestamp,
             "evaluation_mode": self.mode,
             "controls_evaluated": len(results),
             "controls_failed": controls_failed,
+            "pass_rate_percentage": pass_rate,
+            "risk_exposure_index": rei,
             "artifact_review_required": bool(
                 (self.primary_fault and self.primary_fault.review_required)
                 or any(flag.review_required for flag in self.secondary_flags)
@@ -620,22 +681,22 @@ def _has_error(step: dict) -> bool:
     if not isinstance(content, dict):
         return False
 
-    # Direct error keys
+    # 1. Direct error keys (standard)
     for key in _ERROR_KEYS:
         if key in content:
             return True
 
-    # status_code >= 400
+    # 2. Status check (common API patterns)
+    if content.get("status") in ("error", "failed", "failure", "err"):
+        return True
+
+    # 3. status_code >= 400
     if isinstance(content.get("status_code"), int) and content["status_code"] >= 400:
         return True
 
-    # success == False
-    if content.get("success") is False:
-        return False  # success=False is explicit — not always a continuation error
-
-    # Text scan for error phrases in string values
-    content_text = _content_str(step)
-    for phrase in ("\"error\":", "\"exception\":", "traceback", "error occurred"):
+    # 4. Text scan for error phrases in string values or structure
+    content_text = _content_str(step).lower()
+    for phrase in ("error", "exception", "traceback", "failed"):
         if phrase in content_text:
             return True
 
@@ -707,6 +768,32 @@ def _policy_flag_kwargs(rule) -> dict:
 
 # ── The Analyzer ──────────────────────────────────────────────────────────────
 
+def _deduplicate_flags(flags: list[FaultFlag]) -> list[FaultFlag]:
+    """
+    Merge flags that share the same (step_index, rule_id or fault_type) pair.
+
+    When two detection passes both fire on the same root cause (e.g. Pass 3
+    sequence violation AND Pass 6 approval gap for a missing approval), only
+    the highest-severity flag is kept.  The others become implicit — the
+    primary flag's plain_english already describes the violation.
+    """
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    seen: dict[tuple, FaultFlag] = {}
+
+    for flag in flags:
+        # Key: same step + same rule ID (or same fault type if no rule ID)
+        dedup_key = (flag.step_index, flag.rule_id or flag.fault_type)
+        existing = seen.get(dedup_key)
+        if existing is None:
+            seen[dedup_key] = flag
+        else:
+            # Keep the higher-severity one
+            if severity_order.get(flag.severity, 9) < severity_order.get(existing.severity, 9):
+                seen[dedup_key] = flag
+
+    return list(seen.values())
+
+
 class FaultAnalyzer:
     """
     Fault detector for policy and agent execution risks.
@@ -738,54 +825,68 @@ class FaultAnalyzer:
 
         flags: list[FaultFlag] = []
 
-        # Run passes — each is individually guarded
+        # Run passes in sequential order — each is individually guarded
+        # Pass 1: Error Continuation (always)
         try:
             flags.extend(self._pass1_error_continuation(steps))
         except Exception:
             pass
 
+        # Pass 2: Constraint Violation (always)
         try:
             flags.extend(self._pass2_constraint_violation(steps))
         except Exception:
             pass
 
         if self.policy:
+            # Pass 3: Sequence Violation (policy only)
             try:
                 flags.extend(self._pass3_sequence_violation(steps))
             except Exception:
                 pass
 
+            # Pass 4: Threshold Violation (policy only)
             try:
                 flags.extend(self._pass4_threshold_violation(steps))
             except Exception:
                 pass
 
+            # Pass 5: Prohibition Violation (policy only)
             try:
                 flags.extend(self._pass5_prohibition_violation(steps))
             except Exception:
                 pass
 
-            try:
-                flags.extend(self._pass7_approval_guard_violation(steps))
-            except Exception:
-                pass
-
-            try:
-                flags.extend(self._pass9_tool_permission_guard(steps))
-            except Exception:
-                pass
-
+        # Pass 6: Agent Approval Gap (always)
         try:
             flags.extend(self._pass6_agent_approval_gap(steps))
         except Exception:
             pass
 
+        if self.policy:
+            # Pass 7: Approval Guard Violation (policy only)
+            try:
+                flags.extend(self._pass7_approval_guard_violation(steps))
+            except Exception:
+                pass
+
+        # Pass 8: Context Drop (always)
         try:
             flags.extend(self._pass8_context_drop(steps))
         except Exception:
             pass
 
-        # Rank: policy violations first, then by severity
+        if self.policy:
+            # Pass 9: Tool Permission Guard (policy only)
+            try:
+                flags.extend(self._pass9_tool_permission_guard(steps))
+            except Exception:
+                pass
+
+        # Deduplicate: same step_index + same rule/type keeps the highest severity
+        flags = _deduplicate_flags(flags)
+
+        # Rank: policy violations first, then by severity, then by step index
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         policy_first = sorted(
             flags,
@@ -897,18 +998,23 @@ class FaultAnalyzer:
             step_num = step_idx + 1
             numbers = _extract_numbers(content)
 
-            # Record constraint values
+            # Record constraint values — namespaced by step_idx to avoid
+            # cross-context false positives (two unrelated steps both having a
+            # field named 'balance' should not be compared).
             for key, val in numbers:
                 if _key_matches_constraints(key):
                     key_leaf = key.split(".")[-1]
-                    constraint_register[key_leaf] = (val, step_idx, key)
+                    # Namespace: step_idx:leaf so two different tool calls'
+                    # 'balance' values are kept separate.
+                    namespaced_key = f"{step_idx}:{key_leaf}"
+                    constraint_register[namespaced_key] = (val, step_idx, key)
 
                     # Also check policy watch_for lists
                     for rule in policy_constraint_rules:
                         if rule.watch_for:
                             for watch_term in rule.watch_for:
                                 if watch_term.lower() in key.lower():
-                                    constraint_register[f"__policy_{rule.id}_{watch_term}"] = (
+                                    constraint_register[f"__policy_{rule.id}_{step_idx}_{watch_term}"] = (
                                         val, step_idx, key
                                     )
 
@@ -1462,6 +1568,10 @@ class FaultAnalyzer:
         Flag when entity identifiers established in the first third of execution
         vanish completely from the final third.
 
+        When the policy includes a `context_tracking` block, uses the declared
+        `identity_fields` and `exempt_fields` instead of heuristic regex patterns,
+        reducing false positives for workflows with workflow-level constants.
+
         Only fires when there are enough steps to make the comparison meaningful.
         """
         flags = []
@@ -1474,7 +1584,39 @@ class FaultAnalyzer:
         early_steps = steps[:split_a]
         late_steps = steps[split_b:]
 
-        early_ids = _extract_entity_ids(early_steps)
+        # Determine exempt fields: policy-declared + global defaults
+        exempt_fields = set(_ENTITY_ID_EXEMPT_KEYS)
+        identity_fields: list[str] = []
+
+        if self.policy and self.policy.context_tracking:
+            ct = self.policy.context_tracking
+            if ct.exempt_fields:
+                exempt_fields.update(ct.exempt_fields)
+            if ct.identity_fields:
+                identity_fields = [f.lower() for f in ct.identity_fields]
+
+        if identity_fields:
+            # Policy-guided: extract values of declared identity fields from early steps
+            early_ids: set[str] = set()
+            for step in early_steps:
+                for key, val in _flatten_kv(step.get("content", {})):
+                    key_leaf = key.split(".")[-1].split("[")[0].lower()
+                    if key_leaf in identity_fields and isinstance(val, str) and len(val) >= 4:
+                        early_ids.add(val)
+        else:
+            # Heuristic: use regex-based extraction with exempt list applied
+            early_ids = set()
+            for step in early_steps:
+                content = step.get("content", {})
+                for key, val in _flatten_kv(content):
+                    key_leaf = key.split(".")[-1].split("[")[0]
+                    if key_leaf in exempt_fields:
+                        continue
+                    if _ID_KEY_PATTERNS.search(key_leaf) and isinstance(val, str) and len(val) >= 4:
+                        early_ids.add(val)
+                    elif isinstance(val, str) and _ID_VALUE_PATTERNS.match(val):
+                        early_ids.add(val)
+
         if not early_ids:
             return flags
 

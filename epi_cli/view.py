@@ -279,6 +279,7 @@ def _build_viewer_context(epi_path: Path) -> dict:
         mismatches=mismatches,
         manifest=manifest,
     )
+    report["viewer_version"] = getattr(manifest, "viewer_version", None)
     return report
 
 
@@ -428,8 +429,9 @@ def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
     viewer_path = extracted_dir / "viewer.html"
     try:
         manifest = EPIContainer.read_manifest(resolved_path)
+        viewer_version = getattr(manifest, "viewer_version", "minimal")
         viewer_html = EPIContainer._create_embedded_viewer(
-            extracted_dir, manifest, viewer_version="minimal"
+            extracted_dir, manifest, viewer_version=viewer_version
         )
         viewer_path.write_text(viewer_html, encoding="utf-8")
         return viewer_path
@@ -501,11 +503,15 @@ def view(
 
         EPIContainer.unpack(resolved_path, viewer_dir)
 
-        # Use the full decision-ops viewer (preloads all case data so it opens
-        # directly with no file-selector dropdown). Fall back to the minimal
-        # viewer only if the decision-ops assets are missing from this install.
+        # Use the full decision-ops viewer (preloads all case data) unless
+        # a specific single-page shell like "forensic" is requested.
         viewer = viewer_dir / "viewer.html"
+        manifest = EPIContainer.read_manifest(resolved_path)
+        viewer_version = getattr(manifest, "viewer_version", "minimal")
         try:
+            if viewer_version == "forensic":
+                # Force single-page forensic document shell
+                raise ValueError("Forensic shell requested")
             viewer_html = _create_decision_ops_viewer(viewer_dir, resolved_path)
             viewer.write_text(viewer_html, encoding="utf-8")
         except Exception:

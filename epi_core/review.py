@@ -53,6 +53,8 @@ def _identity_for(reviewer: str) -> dict[str, Any]:
     return {
         "type": "email" if "@" in reviewer else "name",
         "value": reviewer,
+        "role": "Reviewer",
+        "org": "Unknown",
         "verified": False,
     }
 
@@ -158,6 +160,7 @@ class ReviewRecord:
         review_hash: str | None = None,
         review_signature: str | None = None,
         case_level_review: bool = False,
+        certification_level: str = "audit",
     ):
         self.reviewed_by = reviewed_by
         self.reviews = reviews
@@ -174,6 +177,7 @@ class ReviewRecord:
         self.review_hash = review_hash
         self.review_signature = review_signature
         self.case_level_review = case_level_review
+        self.certification_level = certification_level
 
     def to_dict(self) -> dict[str, Any]:
         if self.review_version == LEGACY_REVIEW_VERSION and not self.review_id:
@@ -202,6 +206,7 @@ class ReviewRecord:
         }
         if self.case_level_review:
             payload["case_level_review"] = True
+        payload["certification_level"] = self.certification_level
         return payload
 
     def content_hash(self) -> str:

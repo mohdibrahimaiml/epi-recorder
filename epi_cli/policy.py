@@ -73,12 +73,36 @@ GUIDED_PROFILE_CHOICES = {
 }
 
 STARTER_RULE_PROMPTS = (
-    ("threshold_guard", "Should high-value actions require human approval?", "threshold"),
-    ("approval_guard", "Should sensitive named actions require explicit reviewer approval?", None),
-    ("sequence_guard", "Should one step be required before another?", None),
-    ("constraint_guard", "Should the workflow stay within known numeric limits?", None),
-    ("prohibition_guard", "Should secret-like strings be blocked from output?", None),
-    ("tool_permission_guard", "Should only approved tools be allowed?", None),
+    (
+        "threshold_guard",
+        "Should your AI require human sign-off when an amount exceeds a certain threshold (e.g. $10,000)?",
+        "threshold",
+    ),
+    (
+        "approval_guard",
+        "Should a specific AI action (e.g. 'approve_refund') always require an explicit human approval before it runs?",
+        None,
+    ),
+    (
+        "sequence_guard",
+        "Should one step always happen before another? (e.g. verify identity BEFORE processing a refund)",
+        None,
+    ),
+    (
+        "constraint_guard",
+        "Should your AI be blocked from approving more than a known limit (e.g. account balance or credit ceiling)?",
+        None,
+    ),
+    (
+        "prohibition_guard",
+        "Should certain strings (API keys, SSNs, passwords, tokens) be blocked from ever appearing in AI output?",
+        None,
+    ),
+    (
+        "tool_permission_guard",
+        "Should only a specific list of tools be allowed — and all others automatically blocked?",
+        None,
+    ),
 )
 
 
@@ -658,3 +682,79 @@ def show(
             )
         )
         console.print(Syntax(json.dumps(data, indent=2), "json", theme="monokai"))
+
+
+@app.command("lint")
+def lint(
+    policy_file: str = typer.Argument(POLICY_FILENAME, help="Path to epi_policy.json or a .epi artifact"),
+) -> None:
+    """
+    Check a policy file for semantic errors beyond basic schema validation.
+
+    Unlike 'epi policy validate' (which only checks JSON schema),
+    'epi policy lint' checks for operational problems:
+
+      - Duplicate rule IDs (silently causes one rule to be ignored)
+      - Rules without a name (viewer shows rule_name: null)
+      - Invalid regex in prohibition_guard (rule will never fire)
+      - sequence_guard missing must_call or required_before
+      - Unrealistically large threshold values
+      - Tool permission rules with no allowed_tools or denied_tools
+
+    Examples:
+      epi policy lint
+      epi policy lint my_project.epi
+    """
+    from epi_core.policy import lint_policy
+
+    path = Path(policy_file)
+    try:
+        data, source_label = _load_policy_payload(path)
+        policy = EPIPolicy(**data)
+    except FileNotFoundError as exc:
+        console.print(f"[red][X] Not found:[/red] {exc}")
+        raise typer.Exit(1)
+    except Exception as exc:
+        _print_policy_validation_failure(path, exc)
+        raise typer.Exit(1)
+
+    warnings = lint_policy(policy)
+
+    if not warnings:
+        console.print(
+            f"\n[green][OK][/green] No lint issues found in [bold]{source_label}[/bold]"
+        )
+        console.print(
+            f"[dim]  {len(policy.rules)} rule(s) checked — all look operationally sound.[/dim]\n"
+        )
+        raise typer.Exit(0)
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("Rule", style="cyan", no_wrap=True)
+    table.add_column("Severity", no_wrap=True)
+    table.add_column("Issue")
+
+    has_error = False
+    for w in warnings:
+        sev = w["severity"]
+        color = "red" if sev == "error" else "yellow"
+        if sev == "error":
+            has_error = True
+        table.add_row(w["rule_id"], f"[{color}]{sev}[/{color}]", w["message"])
+
+    console.print(f"\n[bold]Lint results for:[/bold] {source_label}\n")
+    console.print(table)
+    console.print()
+
+    if has_error:
+        console.print(
+            "[red][FAIL][/red] Fix the errors above before using this policy. "
+            "Errors mean one or more rules will silently never fire."
+        )
+        raise typer.Exit(1)
+    else:
+        console.print(
+            "[yellow][WARN][/yellow] Warnings found. The policy is usable but review the items above "
+            "before deploying to production."
+        )
+        raise typer.Exit(0)

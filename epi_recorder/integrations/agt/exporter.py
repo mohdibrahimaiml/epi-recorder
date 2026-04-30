@@ -85,8 +85,12 @@ def _resolve_agent_identity_from_manifest(manifest: Any) -> Optional[Dict[str, A
                 "trust_tier": info.get("trust_tier"),
             }
 
-    # Fallback: if governance.identity.value exists, use it raw
+    # Fallback: if governance.agent_identity exists, use it
     if isinstance(gov, dict):
+        ident = gov.get("agent_identity")
+        if isinstance(ident, dict) and ident.get("id"):
+            return ident
+        
         identity_block = gov.get("identity") or {}
         if isinstance(identity_block, dict) and identity_block.get("value"):
             return {"id": identity_block.get("value"), "name": gov.get("agent_name") or None}
@@ -137,12 +141,14 @@ def _transform_step_to_event(step: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     content = step.get("content") or {}
     timestamp = step.get("timestamp")
 
-    if kind.startswith("llm.request"):
+    if kind.startswith("llm.request") or kind == "guardrails.llm.call":
         payload = json.dumps(content, sort_keys=True, ensure_ascii=False)
         return {
             "type": "llm_call",
-            "direction": "request",
+            "direction": "request" if "request" in kind else "call",
             "timestamp": timestamp,
+            "provider": content.get("provider"),
+            "model": content.get("model"),
             "input_hash": f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}",
         }
 
@@ -155,14 +161,18 @@ def _transform_step_to_event(step: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "output_hash": f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}",
         }
 
-    if kind.startswith("agent.decision") or kind == "agent.decision":
+    if kind.startswith("agent.decision") or kind == "agent.decision" or (kind == "agent.step" and content.get("subtype") == "guardrails"):
         return {
             "type": "decision",
             "timestamp": timestamp,
-            "action": content.get("action") or content.get("tool") or content.get("tool_name"),
-            "result": content.get("decision") or content.get("result") or content.get("outcome"),
+            "action": content.get("action") or content.get("subtype") or "guard_validation",
+            "result": content.get("decision") or content.get("status") or content.get("outcome"),
             "policy_id": (content.get("policy_id") or (content.get("policy") or {}).get("id")),
             "governance": content.get("governance") or step.get("governance") or None,
+            "metadata": {
+                "iteration": content.get("iteration_index"),
+                "validators": content.get("validators", [])
+            }
         }
 
     if kind == "security.redaction" or kind.startswith("security.redaction"):

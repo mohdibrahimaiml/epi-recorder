@@ -142,6 +142,11 @@ class ManifestModel(BaseModel):
         description="Optional governance metadata (DID identity, trust score, source, etc.)",
     )
 
+    viewer_version: Optional[str] = Field(
+        default=None,
+        description="Preferred viewer shell version for this artifact (e.g. 'minimal', 'forensic', '2.0')"
+    )
+
     policy: Optional[PolicyModel] = Field(
         default=None,
         description="Formal policy evaluation result and rules applied",
@@ -211,6 +216,11 @@ class StepModel(BaseModel):
     parent_span_id: Optional[str] = Field(
         default=None,
         description="Parent W3C execution span identifier"
+    )
+
+    prev_hash: Optional[str] = Field(
+        default=None,
+        description="Canonical hash (SHA-256) of the previous step in the timeline, forming an immutable chain."
     )
 
     # Optional governance metadata for scoped step-level audit information.

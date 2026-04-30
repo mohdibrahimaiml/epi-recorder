@@ -26,33 +26,15 @@ def _read_text(package_dir: str, filename: str) -> str | None:
 
 
 def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
-    if version == "minimal":
-        html = _read_text("web_viewer", "index.html")
-        if html:
-            combined = {
-                "template_html": html,
-                "jszip_js": _read_text("web_viewer", "jszip.min.js"),
-                "app_js": None,
-                "css_styles": _read_text("web_viewer", "styles.css"),
-                "crypto_js": None,
-            }
-            return combined
-    if version == "2.0":
-        return {
-            "template_html": _read_text("web_viewer", "v2_index.html"),
-            "jszip_js": _read_text("web_viewer", "jszip.min.js"),
-            "app_js": _read_text("web_viewer", "v2_app.js"),
-            "css_styles": _read_text("web_viewer", "v2_styles.css"),
-            "crypto_js": _read_text("epi_viewer_static", "crypto.js"),
-        }
-    # "1.0" (default): full app.js template — used by policy editor and other
-    # app.js-based flows. Uses app_template.html which contains the script bundle
-    # placeholders that inline_viewer_assets needs to inject app.js correctly.
+    """
+    Load the viewer runtime components from the package resources or the filesystem.
+    Note: As of v4.0.3, all versions default to the standardized viewer format.
+    """
     return {
-        "template_html": _read_text("web_viewer", "app_template.html") or _read_text("web_viewer", "index.html"),
+        "template_html": _read_text("web_viewer", "viewer.html"),
         "jszip_js": _read_text("web_viewer", "jszip.min.js"),
-        "app_js": _read_text("web_viewer", "app.js"),
-        "css_styles": _read_text("web_viewer", "styles.css"),
+        "app_js": _read_text("web_viewer", "viewer.js"),
+        "css_styles": _read_text("web_viewer", "viewer.css"),
         "crypto_js": _read_text("epi_viewer_static", "crypto.js"),
     }
 

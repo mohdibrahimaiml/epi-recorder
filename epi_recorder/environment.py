@@ -14,19 +14,36 @@ from typing import Dict, Any
 import importlib.metadata
 
 
-def capture_os_info() -> Dict[str, str]:
+def capture_os_info() -> Dict[str, Any]:
     """
     Capture operating system information.
     
     Returns:
         dict: OS details
     """
+    import multiprocessing
+    
+    # Try to get memory info
+    memory_info = {}
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        memory_info = {
+            "total_gb": round(mem.total / (1024**3), 2),
+            "available_gb": round(mem.available / (1024**3), 2),
+            "percent_used": mem.percent
+        }
+    except (ImportError, Exception):
+        pass
+
     return {
         "system": platform.system(),
         "release": platform.release(),
         "version": platform.version(),
         "machine": platform.machine(),
         "processor": platform.processor() or "Unknown",
+        "cpu_count": multiprocessing.cpu_count(),
+        "memory": memory_info,
         "platform": platform.platform(),
     }
 
@@ -43,6 +60,9 @@ def capture_python_info() -> Dict[str, str]:
         "implementation": platform.python_implementation(),
         "compiler": platform.python_compiler(),
         "executable": sys.executable,
+        "argv": sys.argv,
+        "pid": os.getpid(),
+        "ppid": os.getppid(),
     }
 
 
@@ -160,7 +180,7 @@ def capture_full_environment(
     Returns:
         dict: Complete environment snapshot
     """
-    return {
+    snapshot = {
         "os": capture_os_info(),
         "python": capture_python_info(),
         "packages": capture_installed_packages(),
@@ -170,6 +190,18 @@ def capture_full_environment(
         ),
         "working_directory": capture_working_directory(),
     }
+
+    # Apply global redaction if enabled
+    if redact_env_vars:
+        try:
+            from epi_core.redactor import get_default_redactor
+            redactor = get_default_redactor()
+            redacted_snapshot, _ = redactor.redact(snapshot)
+            return redacted_snapshot
+        except Exception:
+            pass
+
+    return snapshot
 
 
 def save_environment_snapshot(

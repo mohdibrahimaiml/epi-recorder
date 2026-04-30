@@ -73,6 +73,8 @@ class PolicyRule(BaseModel):
     name: str
     severity: PolicySeverity
     description: str
+    rationale: Optional[str] = None
+    domain: Optional[str] = "GENERAL"
     type: Literal[
         "constraint_guard",
         "sequence_guard",
@@ -149,6 +151,30 @@ class PolicyRule(BaseModel):
         return v
 
 
+class ContextTracking(BaseModel):
+    """
+    Optional policy-level declaration of entity identity fields for context-drop detection.
+
+    When set, Pass 8 (context_drop) uses these explicit field names instead of
+    heuristic regex patterns, reducing false positives in workflows that use
+    constants or IDs that look like entity identifiers.
+
+    Example in epi_policy.json:
+        "context_tracking": {
+            "identity_fields": ["customer_id", "account_number", "transaction_id"],
+            "exempt_fields": ["workflow_version", "policy_number", "region_code"]
+        }
+    """
+    identity_fields: list[str] = Field(
+        default_factory=list,
+        description="Field names whose values must persist throughout execution (tracked as entity IDs).",
+    )
+    exempt_fields: list[str] = Field(
+        default_factory=list,
+        description="Field names to skip during entity ID extraction (workflow constants, not entity IDs).",
+    )
+
+
 class EPIPolicy(BaseModel):
     policy_format_version: str = "1.0"
     policy_id: Optional[str] = None
@@ -157,8 +183,14 @@ class EPIPolicy(BaseModel):
     policy_version: str
     profile_id: Optional[str] = None
     scope: Optional[PolicyScope] = None
+    authorized_by: Optional[str] = None
+    governance_url: Optional[str] = None
     approval_policies: list[ApprovalPolicy] = Field(default_factory=list)
     rules: list[PolicyRule] = Field(default_factory=list)
+    context_tracking: Optional[ContextTracking] = Field(
+        default=None,
+        description="Optional tunable settings for entity-identity context-drop detection (Pass 8).",
+    )
 
     def rules_of_type(self, rule_type: str) -> list[PolicyRule]:
         return [r for r in self.rules if r.type == rule_type]
@@ -176,9 +208,11 @@ POLICY_PROFILES: dict[str, dict] = {
         "rules": [
             {
                 "id": "R001",
-                "name": "Do Not Exceed Known Exposure Limit",
+                "name": "Do Not Exceed Credit Limit",
                 "severity": "critical",
                 "description": "The agent must not approve or recommend an amount above the known balance, limit, or exposure ceiling.",
+                "rationale": "Prevent financial loss and unauthorized credit exposure.",
+                "domain": "FINANCIAL",
                 "type": "constraint_guard",
                 "watch_for": ["balance", "available_balance", "credit_limit", "exposure_limit"],
                 "violation_if": "approved_amount > watched_value",
@@ -309,7 +343,7 @@ POLICY_PROFILES: dict[str, dict] = {
         "rules": [
             {
                 "id": "R001",
-                "name": "Do Not Recommend Above Known Risk Ceiling",
+                "name": "Do Not Downgrade Known Risk Ceiling",
                 "severity": "critical",
                 "description": "The agent must not downgrade or override a known critical risk indicator.",
                 "type": "constraint_guard",
@@ -356,6 +390,7 @@ POLICY_PROFILES: dict[str, dict] = {
                 "type": "constraint_guard",
                 "watch_for": ["dose_limit", "max_dosage", "care_limit"],
                 "violation_if": "recommended_value > watched_value",
+                "rationale": "Prevent dosing errors and unauthorized clinical interventions.",
             },
             {
                 "id": "R002",
@@ -583,6 +618,120 @@ def load_policy(search_dir: Optional[Path] = None) -> Optional[EPIPolicy]:
             file=sys.stderr,
         )
         return None
+
+
+def lint_policy(policy: "EPIPolicy") -> list[dict]:
+    """
+    Semantic lint check for an EPIPolicy beyond Pydantic schema validation.
+
+    Catches issues that are syntactically valid but operationally wrong:
+      - Duplicate rule IDs
+      - Rules without a name (fault reports show rule_name: null)
+      - Invalid regex in prohibition_guard patterns
+      - Unrealistically large threshold values
+      - sequence_guard rules where must_call or required_before look like typos
+
+    Returns:
+        List of {"rule_id", "severity", "message"} dicts.
+        "severity" is either "error" (blocks analysis) or "warning" (should review).
+        Empty list means the policy is clean.
+
+    Never raises.
+    """
+    warnings: list[dict] = []
+    seen_ids: dict[str, bool] = {}
+
+    for rule in policy.rules:
+        rule_id = getattr(rule, "id", "<unknown>")
+
+        # ── Duplicate rule IDs ──────────────────────────────────────────────
+        if rule_id in seen_ids:
+            warnings.append({
+                "rule_id": rule_id,
+                "severity": "error",
+                "message": (
+                    f"Duplicate rule ID '{rule_id}'. "
+                    "All rule IDs must be unique within a policy."
+                ),
+            })
+        seen_ids[rule_id] = True
+
+        # ── Missing name ────────────────────────────────────────────────────
+        if not getattr(rule, "name", None):
+            warnings.append({
+                "rule_id": rule_id,
+                "severity": "warning",
+                "message": (
+                    f"Rule '{rule_id}' has no 'name' field. "
+                    "Fault reports and the viewer will show rule_name: null."
+                ),
+            })
+
+        # ── Invalid regex in prohibition_guard ──────────────────────────────
+        if rule.type == "prohibition_guard" and rule.prohibited_pattern:
+            try:
+                re.compile(rule.prohibited_pattern)
+            except re.error as exc:
+                warnings.append({
+                    "rule_id": rule_id,
+                    "severity": "error",
+                    "message": (
+                        f"prohibited_pattern is not a valid regex: {exc}. "
+                        "This rule will never fire."
+                    ),
+                })
+
+        # ── Unrealistically large threshold ─────────────────────────────────
+        if rule.type == "threshold_guard" and rule.threshold_value is not None:
+            if rule.threshold_value > 1_000_000_000:
+                warnings.append({
+                    "rule_id": rule_id,
+                    "severity": "warning",
+                    "message": (
+                        f"threshold_value {rule.threshold_value:,.0f} seems unrealistically large. "
+                        "Verify the intended currency/unit."
+                    ),
+                })
+
+        # ── sequence_guard: missing required fields ─────────────────────────
+        if rule.type == "sequence_guard":
+            if not rule.must_call:
+                warnings.append({
+                    "rule_id": rule_id,
+                    "severity": "warning",
+                    "message": "sequence_guard rule has no 'must_call' field — it will never detect a violation.",
+                })
+            if not rule.required_before:
+                warnings.append({
+                    "rule_id": rule_id,
+                    "severity": "warning",
+                    "message": "sequence_guard rule has no 'required_before' field — it will never detect a violation.",
+                })
+
+        # ── constraint_guard: missing watch_for ────────────────────────────
+        if rule.type == "constraint_guard" and not rule.watch_for:
+            warnings.append({
+                "rule_id": rule_id,
+                "severity": "warning",
+                "message": (
+                    "constraint_guard rule has no 'watch_for' field. "
+                    "Only heuristic keyword matching will be used."
+                ),
+            })
+
+        # ── tool_permission_guard: nothing to enforce ───────────────────────
+        if rule.type == "tool_permission_guard":
+            if not rule.allowed_tools and not rule.denied_tools:
+                warnings.append({
+                    "rule_id": rule_id,
+                    "severity": "warning",
+                    "message": (
+                        "tool_permission_guard has neither 'allowed_tools' nor 'denied_tools'. "
+                        "The rule has no effect."
+                    ),
+                })
+
+    return warnings
 
 
 STARTER_POLICY_TEMPLATE = """\

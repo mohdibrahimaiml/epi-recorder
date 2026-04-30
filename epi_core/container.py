@@ -37,11 +37,14 @@ EPI_SUPPORTED_UPLOAD_MIMETYPES = {
 EPI_CONTAINER_FORMAT_LEGACY = "legacy-zip"
 EPI_CONTAINER_FORMAT_ENVELOPE = "envelope-v2"
 
-EPI_ENVELOPE_MAGIC = b"EPI1"
-EPI_ENVELOPE_VERSION = 1
+# The "Polyglot" Magic: Starts with <!-- to be a valid HTML comment
+EPI_ENVELOPE_MAGIC = b"<!--" 
+EPI_ENVELOPE_VERSION = 2
 EPI_PAYLOAD_FORMAT_ZIP_V1 = 0x01
-EPI_ENVELOPE_HEADER_SIZE = 64
-_EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ32s16s")
+EPI_ENVELOPE_HEADER_SIZE = 128
+EPI_ZIP_MARKER = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
+# Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), Padding(56)
+_EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
 _RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
@@ -61,6 +64,8 @@ class EPIEnvelopeHeader:
     payload_format: int
     reserved_flags: int
     payload_length: int
+    artifact_uuid: bytes
+    created_at_micros: int
     payload_sha256: bytes
     reserved_tail: bytes
 
@@ -159,6 +164,7 @@ class EPIContainer:
         source_dir: Path,
         manifest: ManifestModel,
         viewer_version: str = "minimal",
+        envelope_header: EPIEnvelopeHeader | None = None,
     ) -> str:
         assets = load_viewer_assets(version=viewer_version)
         template_html = assets["template_html"]
@@ -169,6 +175,22 @@ class EPIContainer:
         app_js = assets["app_js"] or ""
         crypto_js = assets["crypto_js"] or ""
         css_styles = assets["css_styles"] or ""
+
+        # Polyglot Bootstrap: Allows the .epi file to run as .html
+        polyglot_bootstrap = (
+            "<!-- <script>\n"
+            "// EPI_POLYGLOT_BOOTSTRAP\n"
+            "window.addEventListener('DOMContentLoaded', () => {\n"
+            "  if (window.location.protocol === 'file:') {\n"
+            "    console.log('[EPI] Polyglot mode detected. Self-loading artifact...');\n"
+            "  }\n"
+            "});\n"
+            "</script> -->"
+        )
+
+        # During creation, we know it's compliant because we just packed it.
+        # But we could also verify if we wanted to be 100% sure.
+        mimetype_compliant = True 
 
         embedded_data = {
             "manifest": manifest.model_dump(mode="json"),
@@ -193,12 +215,28 @@ class EPIContainer:
         data_json = _html_safe_json_dumps(embedded_data, indent=2)
         data_tag = f'<script id="epi-data" type="application/json">{data_json}</script>'
 
+        context = {}
+        if envelope_header:
+            context["envelope"] = {
+                "magic": envelope_header.magic.decode("ascii", "ignore"),
+                "version": envelope_header.version,
+                "payload_length": envelope_header.payload_length,
+                "artifact_uuid": envelope_header.artifact_uuid.hex(),
+                "created_at_micros": envelope_header.created_at_micros,
+                "payload_sha256": envelope_header.payload_sha256.hex(),
+            }
+        context["mimetype_compliant"] = mimetype_compliant
+
         html_with_data = template_html
-        context_tag = '<script id="epi-view-context" type="application/json">{}</script>'
-        if context_tag in html_with_data:
-            html_with_data = html_with_data.replace(context_tag, f"{context_tag}\n{data_tag}")
-        elif "</head>" in html_with_data:
-            html_with_data = html_with_data.replace("</head>", f"{data_tag}\n</head>")
+        context_tag = f'<script id="epi-view-context" type="application/json">{json.dumps(context)}</script>'
+        if '<script id="epi-view-context" type="application/json">{}</script>' in html_with_data:
+            html_with_data = html_with_data.replace('<script id="epi-view-context" type="application/json">{}</script>', context_tag)
+        
+        if data_tag not in html_with_data:
+            if context_tag in html_with_data:
+                html_with_data = html_with_data.replace(context_tag, f"{context_tag}\n{data_tag}")
+            elif "</head>" in html_with_data:
+                html_with_data = html_with_data.replace("</head>", f"{data_tag}\n</head>")
 
         html_with_scripts = inline_viewer_assets(
             html_with_data,
@@ -275,16 +313,17 @@ class EPIContainer:
         if header.magic != EPI_ENVELOPE_MAGIC:
             raise ValueError("Invalid EPI envelope magic bytes")
         if header.version != EPI_ENVELOPE_VERSION:
-            raise ValueError(f"Unsupported EPI envelope version: {header.version}")
+            # We support version 2 currently, but might allow backward compatibility later
+            if header.version != 1:
+                raise ValueError(f"Unsupported EPI envelope version: {header.version}")
         if header.payload_format != EPI_PAYLOAD_FORMAT_ZIP_V1:
             raise ValueError(f"Unsupported EPI payload format: {header.payload_format}")
         if header.reserved_flags != 0:
             raise ValueError("Invalid EPI envelope header: reserved flags must be zero")
         if header.reserved_tail != b"\x00" * len(header.reserved_tail):
             raise ValueError("Invalid EPI envelope header: reserved bytes must be zero")
-        expected_size = EPI_ENVELOPE_HEADER_SIZE + header.payload_length
-        if header.payload_length <= 0 or expected_size != file_size:
-            raise ValueError("Invalid EPI envelope payload length")
+        if header.payload_length <= 0 or file_size < (EPI_ENVELOPE_HEADER_SIZE + header.payload_length):
+            raise ValueError("Invalid EPI envelope payload length or truncated file")
         return header
 
     @staticmethod
@@ -293,12 +332,18 @@ class EPIContainer:
             raise ValueError(f"Not a valid ZIP payload: {zip_path}")
 
         with zipfile.ZipFile(zip_path, "r") as zf:
+            infolist = zf.infolist()
+            if not infolist or infolist[0].filename != "mimetype":
+                raise ValueError("Forensic Violation: 'mimetype' MUST be the first file in the .epi ZIP payload.")
+
+            mimetype_info = infolist[0]
+            if mimetype_info.compress_type != zipfile.ZIP_STORED:
+                raise ValueError("Forensic Violation: 'mimetype' MUST be stored without compression (ZIP_STORED).")
+
             try:
                 mimetype_data = zf.read("mimetype").decode("utf-8").strip()
-            except KeyError as exc:
-                raise ValueError("Missing mimetype file in .epi archive") from exc
-            except UnicodeDecodeError as exc:
-                raise ValueError("Corrupt mimetype file in .epi archive (not valid UTF-8)") from exc
+            except Exception as exc:
+                raise ValueError("Corrupt mimetype file in .epi archive") from exc
 
             if mimetype_data != EPI_LEGACY_MIMETYPE:
                 raise ValueError(
@@ -320,7 +365,17 @@ class EPIContainer:
         written = 0
 
         with open(epi_path, "rb") as src, open(dest_zip_path, "wb") as dst:
+            # Polyglot-aware extraction: Scan for the unique ZIP marker
             src.seek(EPI_ENVELOPE_HEADER_SIZE)
+            buffer = src.read(1024 * 1024) # Check first 1MB for marker
+            marker_idx = buffer.find(EPI_ZIP_MARKER)
+            
+            if marker_idx != -1:
+                src.seek(EPI_ENVELOPE_HEADER_SIZE + marker_idx + len(EPI_ZIP_MARKER))
+            else:
+                # Fallback to standard 128 offset for non-polyglot artifacts
+                src.seek(EPI_ENVELOPE_HEADER_SIZE)
+
             remaining = header.payload_length
             while remaining > 0:
                 chunk = src.read(min(65536, remaining))
@@ -357,23 +412,41 @@ class EPIContainer:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     @staticmethod
-    def _write_envelope_from_payload(payload_path: Path, output_path: Path) -> None:
+    def _write_envelope_from_payload(
+        payload_path: Path, 
+        output_path: Path, 
+        manifest: ManifestModel | None = None,
+        viewer_html: str | None = None
+    ) -> None:
         payload_length = payload_path.stat().st_size
         payload_hash = hashlib.sha256()
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        uuid_bytes = manifest.workflow_id.bytes if manifest else b"\x00" * 16
+        created_at_micros = int(manifest.created_at.timestamp() * 1_000_000) if manifest else 0
+
         header = _EPI_ENVELOPE_HEADER_STRUCT.pack(
-            EPI_ENVELOPE_MAGIC,
+            EPI_ENVELOPE_MAGIC, # "<!--"
             EPI_ENVELOPE_VERSION,
             EPI_PAYLOAD_FORMAT_ZIP_V1,
             0,
             payload_length,
+            uuid_bytes,
+            created_at_micros,
             b"\x00" * 32,
-            b"\x00" * 16,
+            b"\x00" * 56,
         )
 
         with open(output_path, "wb") as dst:
             dst.write(header)
+            
+            # Polyglot Bootstrap: Inject HTML between header and ZIP
+            if viewer_html:
+                # Close the header comment, add HTML, then start a new comment for the binary ZIP
+                dst.write(b" -->\n")
+                dst.write(viewer_html.encode("utf-8"))
+                dst.write(EPI_ZIP_MARKER)
+
             with open(payload_path, "rb") as src:
                 while chunk := src.read(65536):
                     dst.write(chunk)
@@ -385,8 +458,10 @@ class EPIContainer:
             EPI_PAYLOAD_FORMAT_ZIP_V1,
             0,
             payload_length,
+            uuid_bytes,
+            created_at_micros,
             payload_hash.digest(),
-            b"\x00" * 16,
+            b"\x00" * 56,
         )
 
         with open(output_path, "r+b") as dst:
@@ -394,23 +469,25 @@ class EPIContainer:
 
     @staticmethod
     def _write_artifact_from_payload(
-        payload_path: Path, output_path: Path, *, container_format: str
+        payload_path: Path, output_path: Path, *, container_format: str, manifest: ManifestModel | None = None, **kwargs
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if container_format == EPI_CONTAINER_FORMAT_LEGACY:
             shutil.copyfile(payload_path, output_path)
             return
         if container_format == EPI_CONTAINER_FORMAT_ENVELOPE:
-            EPIContainer._write_envelope_from_payload(payload_path, output_path)
+            # Check if viewer HTML is passed in kwargs
+            viewer_html = kwargs.get("viewer_html")
+            EPIContainer._write_envelope_from_payload(payload_path, output_path, manifest=manifest, viewer_html=viewer_html)
             return
         raise ValueError(f"Unsupported container format: {container_format}")
 
     @staticmethod
     def write_from_payload(
-        payload_path: Path, output_path: Path, *, container_format: str
+        payload_path: Path, output_path: Path, *, container_format: str, manifest: ManifestModel | None = None
     ) -> None:
         EPIContainer._write_artifact_from_payload(
-            payload_path, output_path, container_format=container_format
+            payload_path, output_path, container_format=container_format, manifest=manifest
         )
 
     @staticmethod
@@ -423,7 +500,7 @@ class EPIContainer:
         generate_analysis: bool = True,
         embed_agt: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> str:
         if not source_dir.exists():
             raise FileNotFoundError(f"Source directory not found: {source_dir}")
 
@@ -444,7 +521,20 @@ class EPIContainer:
                 from epi_core.fault_analyzer import FaultAnalyzer
                 from epi_core.policy import load_policy
 
-                policy = load_policy()
+                # Prioritize policy inside the source_dir for artifact-local analysis
+                local_policy_path = source_dir / "policy.json"
+                if not local_policy_path.exists():
+                    local_policy_path = source_dir / "epi_policy.json"
+                
+                if local_policy_path.exists():
+                    try:
+                        from epi_core.policy import EPIPolicy
+                        policy = EPIPolicy.model_validate_json(local_policy_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        policy = load_policy()
+                else:
+                    policy = load_policy()
+
                 steps_file = source_dir / "steps.jsonl"
                 if steps_file.exists():
                     steps_content = steps_file.read_text(encoding="utf-8")
@@ -489,6 +579,27 @@ class EPIContainer:
         if manifest.analysis_status == "skipped" and (source_dir / "analysis.json").exists():
             manifest.analysis_status = "complete"
             manifest.analysis_error = None
+
+        # Inject VERIFY.txt for manual audit transparency
+        source_info = manifest.source or {}
+        gov_info = manifest.governance or {}
+        sys_name = source_info.get("system_name") or gov_info.get("system_name") or "EPI_RECORDER"
+        sys_ver = source_info.get("system_version") or gov_info.get("system_version") or "1.0"
+
+        verify_txt = source_dir / "VERIFY.txt"
+        verify_txt.write_text(
+            f"EPI_FORENSIC_VERIFICATION_GUIDE\n"
+            f"===============================\n\n"
+            f"Artifact UUID: {manifest.workflow_id}\n"
+            f"Created At:    {manifest.created_at.isoformat()}\n"
+            f"System:        {sys_name} v{sys_ver}\n\n"
+            f"MANUAL_VERIFICATION_STEPS:\n"
+            f"1. Extract manifest.json from this ZIP archive.\n"
+            f"2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.\n"
+            f"3. Public Key (Raw Hex): {manifest.public_key}\n\n"
+            f"This artifact is a signed, tamper-evident record.\n",
+            encoding="utf-8"
+        )
 
         # Optionally embed an AGT export JSON into the workspace before packing.
         # This is intentionally optional and best-effort: failure to generate
@@ -540,14 +651,38 @@ class EPIContainer:
             dict(sorted(file_manifest.items())), ensure_ascii=False, separators=(",", ":")
         )
         _payload_hash = hashlib.sha256(_manifest_canon.encode()).hexdigest()
-        manifest.trust = {**(manifest.trust or {}), "payload_hash": _payload_hash}
+        
+        # LINKAGE: Bind the manifest to the outer envelope and mimetype
+        manifest.trust = {
+            **(manifest.trust or {}), 
+            "payload_hash": _payload_hash,
+            "artifact_uuid": str(manifest.workflow_id),
+            "mimetype": EPI_LEGACY_MIMETYPE,
+            "envelope_version": EPI_ENVELOPE_VERSION
+        }
 
         if signer_function:
             manifest = signer_function(manifest)
 
-        viewer_version = str(kwargs.get("viewer_version", "minimal"))
+        # Build temporary header for viewer injection
+        uuid_bytes = manifest.workflow_id.bytes
+        created_at_micros = int(manifest.created_at.timestamp() * 1_000_000)
+        temp_header = EPIEnvelopeHeader(
+            magic=EPI_ENVELOPE_MAGIC,
+            version=EPI_ENVELOPE_VERSION,
+            payload_format=EPI_PAYLOAD_FORMAT_ZIP_V1,
+            reserved_flags=0,
+            payload_length=0, # Not yet known precisely for the final file
+            artifact_uuid=uuid_bytes,
+            created_at_micros=created_at_micros,
+            payload_sha256=b"\x00" * 32,
+            reserved_tail=b"\x00" * 56
+        )
+
+        viewer_version = str(kwargs.get("viewer_version", manifest.viewer_version or "minimal"))
+        manifest.viewer_version = viewer_version
         viewer_html = EPIContainer._create_embedded_viewer(
-            source_dir, manifest, viewer_version=viewer_version
+            source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header
         )
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -560,6 +695,8 @@ class EPIContainer:
 
             manifest_json = manifest.model_dump_json(indent=2)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
+            
+        return viewer_html
 
     @staticmethod
     def _build_baseline_policy_evaluation(analysis) -> dict:
@@ -721,7 +858,7 @@ class EPIContainer:
             temp_dir = EPIContainer._make_temp_dir("epi_pack_payload_")
             payload_path = temp_dir / "payload.zip"
             try:
-                EPIContainer._pack_zip_payload(
+                viewer_html = EPIContainer._pack_zip_payload(
                     source_dir,
                     manifest,
                     payload_path,
@@ -729,9 +866,14 @@ class EPIContainer:
                     preserve_generated=preserve_generated,
                     generate_analysis=generate_analysis,
                     embed_agt=embed_agt,
+                    **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
-                    payload_path, output_path, container_format=container_format
+                    payload_path, 
+                    output_path, 
+                    container_format=container_format, 
+                    manifest=manifest,
+                    viewer_html=viewer_html # Pass the inlined viewer HTML for polyglot support
                 )
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)

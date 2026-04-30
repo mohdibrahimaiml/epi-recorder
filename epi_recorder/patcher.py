@@ -40,6 +40,8 @@ class RecordingContext:
         self._lock = threading.Lock()
         # Tracks count of each step kind for the post-run summary
         self._step_counts: Dict[str, int] = {}
+        # Chronological chain anchor (Merkle-style)
+        self._last_step_hash: str = "CHAIN_START"
 
         # Ensure output directory exists
         ensure_workspace_writable(self.output_dir)
@@ -89,8 +91,13 @@ class RecordingContext:
                 content=content,
                 trace_id=trace_id,
                 span_id=span_id,
-                parent_span_id=parent_span_id
+                parent_span_id=parent_span_id,
+                prev_hash=self._last_step_hash
             )
+
+            # Compute hash for next step's anchor
+            from epi_core.serialize import get_canonical_hash
+            self._last_step_hash = get_canonical_hash(step)
 
             self._write_step(step)
             self.step_index += 1
