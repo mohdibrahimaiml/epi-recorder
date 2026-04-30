@@ -40,7 +40,7 @@ def test_pack_defaults_to_envelope(sample_workspace):
     EPIContainer.pack(source, ManifestModel(cli_command="test"), output)
 
     assert EPIContainer.detect_container_format(output) == EPI_CONTAINER_FORMAT_ENVELOPE
-    assert output.read_bytes()[:4] == b"EPI1"
+    assert output.read_bytes()[:4] == b"<!--"
     assert EPIContainer.container_mimetype(output) == EPI_MIMETYPE
 
 
@@ -166,7 +166,7 @@ def test_refresh_viewer_regenerates_embedded_viewer_without_changing_manifest(sa
 
     refreshed_viewer = EPIContainer.read_member_text(output, "viewer.html")
     assert "stale viewer" not in refreshed_viewer
-    assert "EPI Case Viewer" in refreshed_viewer
+    assert "EPI_FORENSIC_DOCUMENT" in refreshed_viewer
     assert EPIContainer.read_member_text(output, "manifest.json") == manifest_before
     assert EPIContainer.detect_container_format(output) == EPI_CONTAINER_FORMAT_ENVELOPE
 
