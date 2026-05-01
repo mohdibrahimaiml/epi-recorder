@@ -345,7 +345,7 @@ class TestRunFunction:
         with patch("webbrowser.open", side_effect=_capture_open), \
              patch("threading.Thread.start", return_value=None):
             assert _open_viewer(epi) is True
-        assert "EPI_FORENSIC" in captured_html["html"]
+        assert "EPI Case Investigation" in captured_html["html"]
         assert 'id="epi-data"' in captured_html["html"]
         assert 'id="epi-view-context"' in captured_html["html"]
 

@@ -34,10 +34,10 @@ def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
             "epi_cli/main.py",
             "epi_gateway/main.py",
             "epi_viewer_static/crypto.js",
-            "web_viewer/viewer.html",
+            "web_viewer/index.html",
             "web_viewer/jszip.min.js",
-            "web_viewer/viewer.js",
-            "web_viewer/viewer.css",
+            "web_viewer/app.js",
+            "web_viewer/styles.css",
             "pytest_epi/plugin.py",
             "epi_postinstall.py",
             f"epi_recorder-{core_version}.dist-info/METADATA",
@@ -95,7 +95,7 @@ def test_audit_wheel_rejects_missing_viewer_assets(tmp_path):
     )
 
     issues = module.audit_wheel(wheel_path)
-    assert "missing required runtime asset: web_viewer/viewer.html" in issues
+    assert "missing required runtime asset: web_viewer/index.html" in issues
     assert "missing required runtime asset: web_viewer/jszip.min.js" in issues
-    assert "missing required runtime asset: web_viewer/viewer.js" in issues
-    assert "missing required runtime asset: web_viewer/viewer.css" in issues
+    assert "missing required runtime asset: web_viewer/app.js" in issues
+    assert "missing required runtime asset: web_viewer/styles.css" in issues

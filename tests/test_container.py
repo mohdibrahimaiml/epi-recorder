@@ -436,20 +436,20 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert "doc-header" in viewer_html  # Updated for new redesign
+        assert "page-shell" in viewer_html  # Updated for new redesign
         assert "<script>" in viewer_html
-        assert "function deriveDecision(" in viewer_html  # Updated for new viewer functions
+        assert "function deriveDecisionSummary(" in viewer_html  # Updated for new viewer functions
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-data"' in viewer_html
-        assert "Official_Forensic_Record" in viewer_html
-        assert "Evidence_Log" in viewer_html
-        assert "Appendix" in viewer_html
+        assert "EPI Case Investigation" in viewer_html
+        assert "hero" in viewer_html
+        assert "drop-zone" in viewer_html
         from epi_core import __version__
-        assert "Execution_Audit_Artifact" in viewer_html
+        assert f"EPI Viewer v{__version__}" in viewer_html
     
     def test_embedded_viewer_with_invalid_json_in_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer handles invalid JSON in steps.jsonl gracefully."""

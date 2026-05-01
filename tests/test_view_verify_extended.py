@@ -91,7 +91,7 @@ class TestViewCommand:
         assert extract_dir.exists()
         assert (extract_dir / "viewer.html").exists()
         html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
-        assert "EPI_FORENSIC" in html
+        assert "EPI Case Investigation" in html
         assert 'id="epi-data"' in html
         assert 'id="epi-view-context"' in html
         assert "__EPI_VERSION__" not in html
