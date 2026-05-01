@@ -1,30 +1,68 @@
-# EPI Forensic Truth Engine Viewer
+# EPI Case Investigation Viewer
 
-`web_viewer/` is the browser-local forensic investigation app for portable `.epi` artifacts.
-It powers the hardened "Truth Engine" architecture, providing a tamper-evident audit interface for AI execution records.
+`web_viewer/` is the browser-local investigation app for portable `.epi` artifacts.
+It powers both:
 
-The interface is strictly evidence-first, optimized for forensic accountability and regulatory compliance (e.g., EU AI Act Article 12).
+- the default `epi view` experience for preopened case files
+- the packaged `viewer.html` embedded directly into each `.epi`
 
-## Forensic Audit Model
+The interface is now case-first rather than setup-first:
 
-The viewer organizes evidence into a structured, chronological record:
+- `Queue`: load multiple case files and open the case that needs attention first
+- `Case`: read decision, trust, source, policy, evidence, review, mapping, and attachments in one place
+- `Setup`: optional source-system configuration for safe samples, live previews, and recorder starter export
+- `Rules` and `Reports`: secondary utilities once the case is understood
 
-- **0.0 Summary**: The high-level verdict, trust status, and artifact metadata.
-- **1.0 Governance**: The rulebook and policy evaluation results (the "Policy Evaluation").
-- **2.0 Evidence_Log**: The bit-perfect chronological trace of execution steps.
-- **3.0 Appendix**: The technical environment snapshot and raw manifest.
+The loaded-case flow is designed to answer four questions quickly:
 
-## Key Hardening Features
+1. What happened?
+2. Why did it happen?
+3. Can I trust this file?
+4. Do I need to act?
 
-- **Official_Forensic_Record**: Every view is treated as an official audit document.
-- **Bit-Perfect Integrity**: Uses browser-side JSZip and SHA-256 to verify payload integrity offline.
-- **Cryptographic Binding**: Verifies Ed25519 signatures to bind agent identity to evidence.
-- **Polyglot Envelope**: The `viewer.html` is embedded as a bootloader inside the `.epi` file itself.
+## Investigation model
 
-## Investigation Flow
+The main case surface is organized as:
 
-The viewer is designed to establish the "Ground Truth" of an AI interaction:
-1. **Verification**: Can I trust this file? (Integrity & Signature)
-2. **Governance**: What were the rules? (Policy Evaluation)
-3. **Evidence**: What actually happened? (Chronological_Evidence_Log)
-4. **Environment**: Where did it happen? (Execution_Environment)
+- `Overview`
+- `Evidence`
+- `Policy`
+- `Review`
+- `Mapping`
+- `Trust`
+- `Attachments`
+
+This keeps native EPI recordings readable while also making imported AGT evidence feel first-class inside the same UI.
+
+For AGT-imported artifacts, the viewer surfaces:
+
+- `Source system: AGT`
+- `Import mode: EPI`
+- transformation audit from `artifacts/agt/mapping_report.json`
+- preserved raw AGT payloads under attachments
+- synthesized-analysis warnings when import created derived output
+
+## What stays unchanged
+
+The viewer redesign does not change the EPI artifact model:
+
+- one `.epi` file
+- offline/local review
+- browser-side integrity checks
+- browser-side signature verification when available
+- optional browser signing for review notes
+- packaged `viewer.html` remains self-contained when embedded or extracted
+
+Everything stays local to the browser. The repo-hosted source app still expects its local companion assets, while packaged and extracted viewers inline what they need for offline use.
+
+## Source and setup support
+
+Optional setup still supports:
+
+- safe sample preview
+- local connector bridge via `epi connect serve`
+- live source-record preview
+- shared local workspace sync
+- recorder starter export with `epi_policy.json` and recorder scaffolding
+
+The setup flow remains secondary to the case reader so reviewers can open a saved artifact and investigate immediately.

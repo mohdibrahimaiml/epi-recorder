@@ -4,10 +4,10 @@ from importlib import resources
 from pathlib import Path
 import re
 
-_VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="viewer.css">'
-_VIEWER_JSZIP_TAG = '<script src="jszip.min.js"></script>'
+_VIEWER_STYLESHEET_TAG = '<link rel="stylesheet" href="styles.css">'
+_VIEWER_JSZIP_TAG = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
 _VIEWER_CRYPTO_TAG = '<script src="../epi_viewer_static/crypto.js"></script>'
-_VIEWER_APP_TAG = '<script src="viewer.js"></script>'
+_VIEWER_APP_TAG = '<script src="app.js"></script>'
 _VIEWER_SCRIPT_BUNDLE = "\n".join((_VIEWER_JSZIP_TAG, _VIEWER_CRYPTO_TAG, _VIEWER_APP_TAG))
 
 
@@ -26,15 +26,11 @@ def _read_text(package_dir: str, filename: str) -> str | None:
 
 
 def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
-    """
-    Load the viewer runtime components from the package resources or the filesystem.
-    Note: As of v4.0.3, all versions default to the standardized viewer format.
-    """
     return {
-        "template_html": _read_text("web_viewer", "viewer.html"),
+        "template_html": _read_text("web_viewer", "index.html"),
         "jszip_js": _read_text("web_viewer", "jszip.min.js"),
-        "app_js": _read_text("web_viewer", "viewer.js"),
-        "css_styles": _read_text("web_viewer", "viewer.css"),
+        "app_js": _read_text("web_viewer", "app.js"),
+        "css_styles": _read_text("web_viewer", "styles.css"),
         "crypto_js": _read_text("epi_viewer_static", "crypto.js"),
     }
 
