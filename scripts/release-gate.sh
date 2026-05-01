@@ -44,22 +44,24 @@ if ! "${PYTHON}" -m build --no-isolation --sdist --wheel --outdir "${DIST_DIR}";
     "${PYTHON}" setup.py sdist --dist-dir "${DIST_DIR}"
 fi
 
-"${PYTHON}" -m twine check "${DIST_DIR}"/*
-
-
 SDIST_FILES=("${DIST_DIR}"/*.tar.gz)
+WHEEL_FILES=("${DIST_DIR}"/*.whl)
+
 if [ ${#SDIST_FILES[@]} -eq 0 ] || [ ! -f "${SDIST_FILES[0]}" ]; then
     echo "ERROR: no source distribution artifacts found for audit" >&2
     exit 1
 fi
-"${PYTHON}" "${REPO_ROOT}/scripts/audit_sdist.py" "${SDIST_FILES[@]}"
 
-WHEEL_FILES=("${DIST_DIR}"/*.whl)
 if [ ${#WHEEL_FILES[@]} -eq 0 ] || [ ! -f "${WHEEL_FILES[0]}" ]; then
     echo "ERROR: no wheel artifacts found for audit" >&2
     exit 1
 fi
+
+"${PYTHON}" -m twine check "${SDIST_FILES[@]}" "${WHEEL_FILES[@]}"
+
+"${PYTHON}" "${REPO_ROOT}/scripts/audit_sdist.py" "${SDIST_FILES[@]}"
 "${PYTHON}" "${REPO_ROOT}/scripts/audit_wheel.py" "${WHEEL_FILES[@]}"
+
 
 echo ""
 echo "Release gate PASSED. Artifacts in: ${DIST_DIR}"

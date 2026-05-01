@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools wheel
-          pip install -e ".[dev]"
+          pip install -e ".[all,dev,test]"
           pip install build twine
 
       - name: Run release gate (Windows)
