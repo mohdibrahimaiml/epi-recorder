@@ -76,7 +76,7 @@ def _get_recording_info(epi_file: Path) -> dict:
             mismatches={},
             manifest=manifest,
         )
-        signed = report["trust_level"] == "HIGH"
+        signed = signature_valid is True
 
         goal = getattr(manifest, "goal", None)
         metrics = getattr(manifest, "metrics", None)

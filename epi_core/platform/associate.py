@@ -857,24 +857,31 @@ def register_linux() -> None:
 
     if shutil.which("update-mime-database"):
         mime_base = Path.home() / ".local" / "share" / "mime"
-        r = subprocess.run(
-            ["update-mime-database", str(mime_base)],
-            capture_output=True, timeout=10
-        )
-        if r.returncode != 0:
-            errors.append("update-mime-database failed")
+        try:
+            r = subprocess.run(
+                ["update-mime-database", str(mime_base)],
+                capture_output=True, timeout=10
+            )
+            if r.returncode != 0:
+                errors.append("update-mime-database failed")
+        except Exception as e:
+            errors.append(f"update-mime-database timeout/error: {e}")
     else:
         errors.append("update-mime-database not found (install: shared-mime-info)")
 
     if shutil.which("xdg-mime"):
-        r = subprocess.run(
-            ["xdg-mime", "default", "epi-viewer.desktop", "application/x-epi-recording"],
-            capture_output=True, timeout=10
-        )
-        if r.returncode != 0:
-            errors.append("xdg-mime default failed")
+        try:
+            r = subprocess.run(
+                ["xdg-mime", "default", "epi-viewer.desktop", "application/x-epi-recording"],
+                capture_output=True, timeout=10
+            )
+            if r.returncode != 0:
+                errors.append("xdg-mime default failed")
+        except Exception as e:
+            errors.append(f"xdg-mime timeout/error: {e}")
     else:
         errors.append("xdg-mime not found (install: xdg-utils)")
+
 
     if errors:
         print("[WARNING] Linux file association partially failed:")

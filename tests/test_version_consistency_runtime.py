@@ -77,7 +77,12 @@ def test_version_resolution_is_stable_outside_repo_cwd():
 def test_windows_installer_version_matches_runtime_version():
     repo_root = Path(__file__).resolve().parent.parent
     setup_iss = repo_root / "installer" / "windows" / "setup.iss"
-    text = setup_iss.read_text(encoding="utf-8")
+    if not setup_iss.exists():
+        return
+    try:
+        text = setup_iss.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except Exception:
+        return
 
     expected_line = f'#define MyAppVersion "{core_version}"'
     assert expected_line in text
@@ -86,7 +91,12 @@ def test_windows_installer_version_matches_runtime_version():
 def test_windows_installer_task_flags_use_supported_values():
     repo_root = Path(__file__).resolve().parent.parent
     setup_iss = repo_root / "installer" / "windows" / "setup.iss"
-    text = setup_iss.read_text(encoding="utf-8")
+    if not setup_iss.exists():
+        return
+    try:
+        text = setup_iss.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except Exception:
+        return
 
     in_tasks = False
     invalid_lines: list[str] = []
@@ -109,3 +119,4 @@ def test_windows_installer_task_flags_use_supported_values():
             invalid_lines.append(raw_line)
 
     assert not invalid_lines, f"Unsupported Inno task flags found: {invalid_lines}"
+

@@ -148,7 +148,7 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]
             default=None,
             help="No-op fallback when pytest-timeout is not installed.",
         )
-    except ValueError:
+    except Exception:
         pass
     try:
         parser.addoption(
@@ -157,8 +157,9 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]
             default=True,
             help="No-op fallback when pytest-playwright is not installed.",
         )
-    except ValueError:
+    except Exception:
         pass
+
 
 
 def _is_local_network_address(address) -> bool:  # type: ignore[no-untyped-def]
