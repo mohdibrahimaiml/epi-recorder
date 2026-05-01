@@ -275,9 +275,21 @@ class TestCreateVerificationReport:
             file_manifest={"steps.jsonl": "abc123"},
         )
 
-    def test_high_trust_when_signed_and_intact(self):
+    def test_low_trust_when_signed_but_unknown_identity(self):
         m = self._make_manifest()
         report = create_verification_report(True, True, "mykey", {}, m)
+        assert report["trust_level"] == "LOW"
+
+    def test_high_trust_when_signed_and_known_identity(self, tmp_path):
+        from epi_core.trust import TrustRegistry
+        m = self._make_manifest()
+        m.public_key = "aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccdd"
+        # Create a trusted key file so the registry recognizes this identity
+        trusted_dir = tmp_path / "trusted_keys"
+        trusted_dir.mkdir()
+        (trusted_dir / "test_key.pub").write_text(m.public_key)
+        registry = TrustRegistry(trusted_keys_dir=trusted_dir)
+        report = create_verification_report(True, True, "test_key", {}, m, trusted_registry=registry)
         assert report["trust_level"] == "HIGH"
 
     def test_medium_trust_unsigned_but_intact(self):

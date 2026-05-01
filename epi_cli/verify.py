@@ -16,6 +16,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from epi_core._version import get_version
 from epi_core.container import EPIContainer
 from epi_core.review import verify_review_trust
 from epi_core.trust import (
@@ -128,7 +129,11 @@ def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -
 
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     result_line = "VERIFIED ✓" if report["trust_level"] == "HIGH" else (
-        "VERIFIED (unsigned) ✓" if report["trust_level"] == "MEDIUM" else "FAILED ✗"
+        "VERIFIED (unsigned) ✓" if report["trust_level"] == "MEDIUM" else (
+            "VALID SIGNATURE (unknown identity) ⚠" if report["trust_level"] == "LOW" else (
+                "IDENTITY MISMATCH — IMPERSONATION DETECTED ✗" if report["trust_level"] == "FAIL" else "FAILED ✗"
+            )
+        )
     )
     integrity_line = (
         f"PASSED — {report['files_checked']} files verified (SHA-256)"
@@ -150,6 +155,18 @@ def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -
         )
     elif report["trust_level"] == "MEDIUM":
         suitable = "\nIntegrity intact but artifact is unsigned.\nConsider signing with: epi keys generate"
+    elif report["trust_level"] == "LOW":
+        suitable = (
+            "\nSignature is valid but signer identity is UNKNOWN.\n"
+            "This may be a key substitution attack. Do not trust without\n"
+            "independent identity verification (e.g. DID:WEB or trust registry)."
+        )
+    elif report["trust_level"] == "FAIL":
+        suitable = (
+            "\nIDENTITY MISMATCH DETECTED. The signer claims an identity\n"
+            "that does not match their cryptographic key. This is an\n"
+            "active impersonation attempt. Do not trust this artifact."
+        )
     else:
         suitable = "\nThis artifact FAILED verification and should not be trusted."
 
@@ -231,7 +248,7 @@ def verify_command(
                 console.print("  [green][OK][/green] Valid manifest schema")
             
             # Version compatibility check
-            SUPPORTED_VERSIONS = ["1.0.0", "1.1.0"]
+            SUPPORTED_VERSIONS = [get_version()]
             if manifest.spec_version not in SUPPORTED_VERSIONS:
                  if verbose:
                       console.print(f"  [yellow]![/yellow] Unsupported spec_version '{manifest.spec_version}' (supported: {SUPPORTED_VERSIONS})")
@@ -485,7 +502,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
 
     # Identity Layer
     content_lines.append("[bold underline]IDENTITY (Trust Context)[/bold underline]")
-    id_color = "green" if identity_status == "KNOWN" else ("red" if identity_status == "REVOKED" else "yellow")
+    if identity_status == "KNOWN":
+        id_color = "green"
+    elif identity_status in ("REVOKED", "MISMATCH"):
+        id_color = "red"
+    else:
+        id_color = "yellow"
     content_lines.append(f"  [{id_color}]- Status:       {identity_status}[/{id_color}]")
     content_lines.append(f"  - Name:         {identity_name or 'Unknown'}")
     if public_key_id:

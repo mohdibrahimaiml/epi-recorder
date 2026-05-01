@@ -189,6 +189,7 @@ markers = [
     "security: cryptographic, redaction, and trust-boundary tests",
     "browser: browser-rendered viewer tests",
     "framework: optional framework integration tests",
+    "e2e: full-system end-to-end lifecycle tests",
     "compliance: evidence-readiness and compliance-claim consistency tests",
     "slow: long-running or higher-cost local tests",
     "network: tests that are allowed to use external network access",

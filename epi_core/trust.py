@@ -255,7 +255,8 @@ class TrustRegistry:
     Now supports:
     1. Local Trusted Keys (~/.epi/trusted_keys/*.pub)
     2. Local Revocation List (~/.epi/trusted_keys/*.revoked)
-    3. Remote Anchoring (via registry_url fetching)
+    3. DID:WEB Resolution (W3C standard, zero-cost hosting)
+    4. Remote Anchoring (via registry_url fetching)
     """
     def __init__(
         self, 
@@ -267,9 +268,41 @@ class TrustRegistry:
         self.trusted_keys_dir = trusted_keys_dir or (Path(env_dir) if env_dir else (Path.home() / ".epi" / "trusted_keys"))
         self.registry_url = registry_url
 
-    def verify_key_trust(self, public_key_hex: str) -> tuple[bool, Optional[str], str]:
+    def _verify_did_web(self, did: str, public_key_hex: str) -> tuple[bool, Optional[str], str]:
+        """
+        Resolve did:web and compare the resolved public key.
+        
+        Returns:
+            (is_trusted, identity_name, status_detail)
+        """
+        try:
+            from epi_core.did_web import resolve_did_web, extract_ed25519_key, DidResolutionError, KeyNotFoundError
+            did_document = resolve_did_web(did)
+            resolved_key = extract_ed25519_key(did_document)
+        except DidResolutionError as exc:
+            return False, None, f"DID resolution failed: {exc}"
+        except KeyNotFoundError as exc:
+            return False, None, f"DID document valid but no Ed25519 key: {exc}"
+        except Exception as exc:
+            return False, None, f"DID verification error: {exc}"
+
+        if resolved_key.lower() == public_key_hex.lower():
+            did_name = did_document.get("id", did)
+            return True, did_name, f"Verified via DID:WEB ({did})"
+
+        return False, None, "DID resolved but public key mismatch — possible impersonation"
+
+    def verify_key_trust(
+        self,
+        public_key_hex: str,
+        governance: Optional[dict] = None,
+    ) -> tuple[bool, Optional[str], str]:
         """
         Check if a public key is trusted, revoked, or unknown.
+        
+        Args:
+            public_key_hex: Hex-encoded public key from the manifest.
+            governance: Optional governance dict (may contain 'did' field).
         
         Returns:
             tuple: (is_trusted: bool, identity_name: str, status_detail: str)
@@ -292,7 +325,13 @@ class TrustRegistry:
                 except Exception:
                     continue
         
-        # 3. Remote Registry (Bootstrap / Anchor)
+        # 3. DID:WEB Resolution (zero-cost, issuer-independent)
+        if governance and isinstance(governance, dict):
+            did = governance.get("did")
+            if did and isinstance(did, str) and did.startswith("did:web:"):
+                return self._verify_did_web(did, public_key_hex)
+        
+        # 4. Remote Registry (Bootstrap / Anchor)
         if self.registry_url:
             try:
                 # In a real implementation, this would use a secure fetch + cache
@@ -308,7 +347,7 @@ class TrustRegistry:
             except Exception as e:
                 return False, None, f"Remote registry check failed: {e}"
 
-        # 4. Known Official Keys (EPI Labs)
+        # 5. Known Official Keys (EPI Labs)
         EPI_LABS_OFFICIAL_PUB = "5e75e81a25b54859ba05898b7670f152"
         if public_key_hex == EPI_LABS_OFFICIAL_PUB:
             return True, "EPI Labs (Official)", "Verified via built-in trust root"
@@ -346,9 +385,14 @@ def create_verification_report(
     identity_status = "UNKNOWN"
     
     if manifest.public_key and trusted_registry:
-        is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(manifest.public_key)
+        is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(
+            manifest.public_key,
+            governance=manifest.governance,
+        )
         if "REVOKED" in status_detail:
             identity_status = "REVOKED"
+        elif "mismatch" in status_detail.lower() or "impersonation" in status_detail.lower():
+            identity_status = "MISMATCH"
         elif is_trusted_identity:
             identity_status = "KNOWN"
 
@@ -389,10 +433,19 @@ def create_verification_report(
     report["signature_valid"] = signature_valid
     report["identity_trusted"] = is_trusted_identity
     report["has_signature"] = manifest.signature is not None
-    report["trust_level"] = "HIGH" if (integrity_ok and signature_valid is True) else \
-                           ("MEDIUM" if (integrity_ok and signature_valid is None) else "NONE")
-    if identity_status == "REVOKED":
+    # Trust level requires both valid signature AND known trusted identity
+    if identity_status == "MISMATCH":
+        report["trust_level"] = "FAIL"   # Active impersonation attack detected
+    elif identity_status == "REVOKED":
         report["trust_level"] = "INVALID"
+    elif integrity_ok and signature_valid is True and identity_status == "KNOWN":
+        report["trust_level"] = "HIGH"
+    elif integrity_ok and signature_valid is True:
+        report["trust_level"] = "LOW"   # Valid signature but unknown identity
+    elif integrity_ok and signature_valid is None:
+        report["trust_level"] = "MEDIUM"
+    else:
+        report["trust_level"] = "NONE"
     report["mismatches_count"] = len(mismatches)
     report["signer"] = signer_name
     report["files_checked"] = len(manifest.file_manifest)
@@ -401,12 +454,16 @@ def create_verification_report(
     report["spec_version"] = manifest.spec_version
 
     # Human-readable trust message for backward compatibility
-    if identity_status == "REVOKED":
+    if identity_status == "MISMATCH":
+        report["trust_message"] = "Identity mismatch - possible impersonation attack"
+    elif identity_status == "REVOKED":
         report["trust_message"] = "Identity revoked - do not trust"
     elif report["trust_level"] == "HIGH":
         report["trust_message"] = "Cryptographically verified and integrity intact"
     elif report["trust_level"] == "MEDIUM":
         report["trust_message"] = "Unsigned but integrity intact"
+    elif report["trust_level"] == "LOW":
+        report["trust_message"] = "Valid signature from unknown identity - verify signer before trusting"
     elif report["trust_level"] == "INVALID":
         report["trust_message"] = "Invalid signature - do not trust"
     else:
@@ -443,9 +500,12 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         decision["reason"] = "Integrity verified (Permissive Policy)"
 
     elif policy == VerificationPolicy.STANDARD:
-        # Integrity + not revoked
+        # Integrity + not revoked + not mismatched
         if identity["status"] == "REVOKED":
             decision["reason"] = "Identity revoked"
+        elif identity["status"] == "MISMATCH":
+            decision["status"] = "FAIL"
+            decision["reason"] = "Identity mismatch - possible impersonation attack"
         else:
             decision["status"] = "PASS"
             decision["reason"] = "Integrity verified and identity not revoked"

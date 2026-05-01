@@ -18,6 +18,21 @@ from epi_core.time_utils import utc_now
 from epi_core.workspace import ensure_workspace_writable
 
 
+MAX_CONTENT_STRING_LENGTH = 2000
+
+
+def _truncate_content(data: Any, max_length: int = MAX_CONTENT_STRING_LENGTH) -> Any:
+    """Recursively truncate long strings in step content to prevent artifact bloat."""
+    if isinstance(data, dict):
+        return {k: _truncate_content(v, max_length) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_truncate_content(item, max_length) for item in data]
+    elif isinstance(data, str) and len(data) > max_length:
+        return data[:max_length] + f" [...truncated: {len(data)} chars total]"
+    else:
+        return data
+
+
 class RecordingContext:
     """
     Global recording context for capturing LLM calls.
@@ -62,6 +77,8 @@ class RecordingContext:
             span_id: Specific W3C execution span identifier
             parent_span_id: Parent W3C execution span identifier
         """
+        from epi_core.serialize import get_canonical_hash
+
         with self._lock:
             # Redact if enabled
             if self.redactor:
@@ -76,12 +93,18 @@ class RecordingContext:
                         content={
                             "count": redaction_count,
                             "target_step": kind
-                        }
+                        },
+                        prev_hash=self._last_step_hash
                     )
                     self._write_step(redaction_step)
                     self.step_index += 1
+                    # Update chain anchor so the next step links to the redaction step
+                    self._last_step_hash = get_canonical_hash(redaction_step)
 
                 content = redacted_content
+
+            # Truncate long strings to prevent artifact bloat
+            content = _truncate_content(content)
 
             # Create step
             step = StepModel(
@@ -96,7 +119,6 @@ class RecordingContext:
             )
 
             # Compute hash for next step's anchor
-            from epi_core.serialize import get_canonical_hash
             self._last_step_hash = get_canonical_hash(step)
 
             self._write_step(step)

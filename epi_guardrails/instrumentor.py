@@ -791,10 +791,30 @@ def _wrap_guard_execute(
             # Call original Guard._execute
             result = wrapped(self, *args, **kwargs)
 
+            # Emit execution end before session exits
+            duration = 0.0
+            if session._start_time:
+                from datetime import datetime, timezone
+                duration = (datetime.now(timezone.utc) - session._start_time).total_seconds()
+            session.emit_guard_execution_end(
+                success=True,
+                duration_seconds=duration,
+            )
+
             return result
 
     except Exception as e:
         session.state.exception_raised = True
+        duration = 0.0
+        if session._start_time:
+            from datetime import datetime, timezone
+            duration = (datetime.now(timezone.utc) - session._start_time).total_seconds()
+        session.emit_guard_execution_end(
+            success=False,
+            duration_seconds=duration,
+            exception_type=type(e).__name__,
+            exception_message=str(e),
+        )
         raise
 
 
@@ -845,10 +865,31 @@ async def _wrap_guard_execute_async(
                 prompt=str(prompt_val) if prompt_val else None,
             )
             result = await wrapped(self, *args, **kwargs)
+
+            # Emit execution end before session exits
+            duration = 0.0
+            if session._start_time:
+                from datetime import datetime, timezone
+                duration = (datetime.now(timezone.utc) - session._start_time).total_seconds()
+            session.emit_guard_execution_end(
+                success=True,
+                duration_seconds=duration,
+            )
+
             return result
 
     except Exception as e:
         session.state.exception_raised = True
+        duration = 0.0
+        if session._start_time:
+            from datetime import datetime, timezone
+            duration = (datetime.now(timezone.utc) - session._start_time).total_seconds()
+        session.emit_guard_execution_end(
+            success=False,
+            duration_seconds=duration,
+            exception_type=type(e).__name__,
+            exception_message=str(e),
+        )
         raise
 
 

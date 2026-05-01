@@ -7,6 +7,7 @@ with minimal code changes.
 
 import asyncio
 import functools
+import hashlib
 import json
 import os
 import shutil
@@ -17,6 +18,8 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 from uuid import uuid4
+
+from cryptography.hazmat.primitives import serialization
 
 from epi_core.container import EPIContainer
 from epi_core.policy import EPIPolicy
@@ -727,6 +730,7 @@ class EpiRecorderSession:
         legacy_patching: bool = False,
         capture_prints: bool = True,
         capture_stderr: bool = False,
+        did_web: Optional[str] = None,
     ):
         """
         Initialize EPI recording session.
@@ -744,7 +748,11 @@ class EpiRecorderSession:
             approved_by: Person or entity who approved this workflow execution
             metadata_tags: Tags for categorizing this workflow (renamed from tags to avoid conflict)
             legacy_patching: Enable deprecated monkey patching mode (default: False)
+            did_web: Optional DID:WEB identifier for zero-cost identity binding (e.g. "did:web:example.com")
         """
+        if did_web is not None and not did_web.startswith("did:web:"):
+            raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
+
         self.output_path = Path(output_path)
         self.workflow_name = workflow_name or "untitled"
         self.tags = tags or []
@@ -758,6 +766,9 @@ class EpiRecorderSession:
         self.metrics = metrics
         self.approved_by = approved_by
         self.metadata_tags = metadata_tags
+        
+        # DID:WEB identity binding (zero-cost, issuer-independent)
+        self.did_web = did_web
         
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
@@ -1517,6 +1528,20 @@ class EpiRecorderSession:
             # Extract, sign, and repack while preserving the current outer container format
             current_format = EPIContainer.detect_container_format(self.output_path)
             manifest = EPIContainer.read_manifest(self.output_path)
+            
+            # Embed DID:WEB identity binding if configured
+            if self.did_web:
+                public_key_bytes = private_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.Raw,
+                    format=serialization.PublicFormat.Raw,
+                )
+                fingerprint = hashlib.sha256(public_key_bytes).hexdigest()[:16]
+                manifest.governance = {"did": self.did_web}
+                manifest.trust = {
+                    "public_key_id": self.default_key_name,
+                    "fingerprint": fingerprint,
+                }
+            
             tmp_path = create_recording_workspace("epi_signing_")
             try:
                 EPIContainer.unpack(self.output_path, tmp_path)

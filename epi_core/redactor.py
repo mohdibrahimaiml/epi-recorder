@@ -44,6 +44,16 @@ DEFAULT_REDACTION_PATTERNS = [
     (r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', 'Email address'),
     (r'\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b', 'Phone number'),
     
+    # Social Security Numbers (US)
+    (r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b', 'Social Security Number'),
+    
+    # Credit / debit card numbers (16-digit and Amex 15-digit)
+    (r'\b(?:\d{4}[- ]?){3}\d{4}\b', 'Credit card number'),
+    (r'\b\d{4}[- ]?\d{6}[- ]?\d{5}\b', 'American Express'),
+    
+    # Masked card endings (e.g. ...4432, ****4432, ending in 4432)
+    (r'(?:\.\.\.|\*\*\*\*|ending in)\s*\d{4}', 'Credit card last 4'),
+    
     # Database connection strings
     (r'postgres://[^:]+:[^@]+@[^/]+', 'PostgreSQL connection string'),
     (r'mysql://[^:]+:[^@]+@[^/]+', 'MySQL connection string'),
