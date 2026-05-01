@@ -22,4 +22,7 @@ global-exclude __pycache__
 global-exclude *.so
 global-exclude .DS_Store
 
- 
+prune .tmp*
+prune scratch
+prune .pytest_cache
+prune htmlcov

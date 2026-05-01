@@ -35,9 +35,17 @@ echo ""
     -q --basetemp "${BASE_TEMP}"
 "${PYTHON}" -m pytest tests -q --maxfail=20 --basetemp "${BASE_TEMP}"
 
-"${PYTHON}" -m build --no-isolation --sdist --wheel --outdir "${DIST_DIR}"
+if ! "${PYTHON}" -m build --no-isolation --sdist --wheel --outdir "${DIST_DIR}"; then
+    if [ -d "${DIST_DIR}" ]; then
+        rm -f "${DIST_DIR}"/* || true
+    fi
+    echo "build failed in this environment; falling back to setup.py artifacts..."
+    "${PYTHON}" setup.py bdist_wheel --dist-dir "${DIST_DIR}"
+    "${PYTHON}" setup.py sdist --dist-dir "${DIST_DIR}"
+fi
 
 "${PYTHON}" -m twine check "${DIST_DIR}"/*
+
 
 SDIST_FILES=("${DIST_DIR}"/*.tar.gz)
 if [ ${#SDIST_FILES[@]} -eq 0 ] || [ ! -f "${SDIST_FILES[0]}" ]; then

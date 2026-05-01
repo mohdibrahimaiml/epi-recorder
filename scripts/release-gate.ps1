@@ -12,6 +12,9 @@ function Resolve-PythonCommand([string]$PythonValue) {
 
     $cmd = Get-Command $PythonValue -ErrorAction SilentlyContinue
     if ($cmd) {
+        if ($cmd -is [array]) {
+            return $cmd[0].Source
+        }
         return $cmd.Source
     }
 
@@ -163,7 +166,8 @@ if (-not $pep517Succeeded) {
     & $PythonCmd setup.py sdist --dist-dir $distDir
     if ($LASTEXITCODE -ne 0) { throw "Failed: sdist build fallback" }
 }
-& $PythonCmd -m twine check "$distDir\*"
+$distFiles = Get-ChildItem -Path $distDir -File | Select-Object -ExpandProperty FullName
+& $PythonCmd -m twine check $distFiles
 if ($LASTEXITCODE -ne 0) { throw "Failed: twine check" }
 
 $sdistFiles = Get-ChildItem -Path $distDir -Filter *.tar.gz | Select-Object -ExpandProperty FullName
