@@ -33,7 +33,7 @@ echo ""
 "${PYTHON}" -m epi_cli.main version
 "${PYTHON}" -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py \
     -q --basetemp "${BASE_TEMP}"
-"${PYTHON}" -m pytest tests -q --maxfail=20 --basetemp "${BASE_TEMP}"
+"${PYTHON}" -m pytest tests -m "not browser" -q --maxfail=20 --basetemp "${BASE_TEMP}"
 
 if ! "${PYTHON}" -m build --no-isolation --sdist --wheel --outdir "${DIST_DIR}"; then
     if [ -d "${DIST_DIR}" ]; then

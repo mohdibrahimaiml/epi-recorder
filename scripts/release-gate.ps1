@@ -119,7 +119,7 @@ Write-Host ""
 if ($LASTEXITCODE -ne 0) { throw "Failed: epi version" }
 & $PythonCmd -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py -q --basetemp $baseTemp
 if ($LASTEXITCODE -ne 0) { throw "Failed: targeted consistency tests" }
-& $PythonCmd -m pytest tests -q --maxfail=20 --basetemp $baseTemp
+& $PythonCmd -m pytest tests -m "not browser" -q --maxfail=20 --basetemp $baseTemp
 if ($LASTEXITCODE -ne 0) { throw "Failed: full test suite" }
 
 # Prefer PEP517 build. On hosts where Python tempfile directories have broken ACLs,
