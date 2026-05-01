@@ -375,7 +375,7 @@ class TestEPIContainer:
         extract_dir = EPIContainer.unpack(output_path)
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
-        assert "epi-data" in viewer_html
+        assert "epi-preloaded-cases" in viewer_html
         assert "test" in viewer_html
 
     def test_embedded_viewer_escapes_script_breakout_sequences(self, temp_workspace, sample_files):
@@ -444,7 +444,7 @@ class TestEPIContainer:
         assert "styles.css" not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
-        assert 'id="epi-data"' in viewer_html
+        assert 'id="epi-preloaded-cases"' in viewer_html
         assert "EPI Case Investigation" in viewer_html
         assert "hero" in viewer_html
         assert "drop-zone" in viewer_html

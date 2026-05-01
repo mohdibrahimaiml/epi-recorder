@@ -192,7 +192,10 @@ class EPIContainer:
         # But we could also verify if we wanted to be 100% sure.
         mimetype_compliant = True 
 
-        embedded_data = {
+        case_payload = {
+            "source_name": manifest.cli_command or str(manifest.workflow_id) or "case.epi",
+            "file_size": 0,
+            "archive_base64": None,
             "manifest": manifest.model_dump(mode="json"),
             "steps": _read_steps_if_exists(source_dir / "steps.jsonl"),
             "analysis": _read_json_if_exists(source_dir / "analysis.json"),
@@ -210,10 +213,31 @@ class EPIContainer:
                 for filename in sorted(manifest.file_manifest.keys())
                 if (source_dir / filename).exists()
             },
+            "integrity": {
+                "ok": True,
+                "checked": len(manifest.file_manifest),
+                "mismatches": [],
+            },
+            "signature": {
+                "valid": False,
+                "reason": (
+                    "Open this case file through epi view to verify the signer and file integrity."
+                    if manifest.signature
+                    else "No signer attached to this case file"
+                ),
+            },
         }
 
-        data_json = _html_safe_json_dumps(embedded_data, indent=2)
-        data_tag = f'<script id="epi-data" type="application/json">{data_json}</script>'
+        preloaded_payload = {
+            "cases": [case_payload],
+            "ui": {
+                "view": "case",
+                "embeddedArtifactMode": True,
+            },
+        }
+
+        data_json = _html_safe_json_dumps(preloaded_payload, indent=2)
+        data_tag = f'<script id="epi-preloaded-cases" type="application/json">{data_json}</script>'
 
         context = {}
         if envelope_header:

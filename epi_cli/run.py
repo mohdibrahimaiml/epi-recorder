@@ -31,8 +31,9 @@ from epi_cli.keys import KeyManager
 from epi_cli._shared import ensure_python_command, build_env_for_child
 from epi_cli.view import (
     _build_viewer_context,
+    _create_decision_ops_viewer,
+    _get_persistent_viewer_dir,
     _inject_viewer_context,
-    _make_temp_dir,
     _refresh_viewer_html,
 )
 from epi_recorder.environment import save_environment_snapshot
@@ -248,36 +249,33 @@ def _open_viewer(epi_file: Path) -> bool:
     """
     Open the viewer for the recording.
 
+    Uses the persistent viewer cache and the current decision-ops viewer
+    so the rendered UI is never stale.
+
     Returns:
         True if opened successfully
     """
     try:
-        import shutil
-        import threading
         import webbrowser
 
-        # Extract viewer to temp location
-        temp_dir = _make_temp_dir()
-        if temp_dir is None:
-            return False
-        EPIContainer.unpack(epi_file, temp_dir)
-        viewer_path = _refresh_viewer_html(temp_dir, epi_file)
-        _inject_viewer_context(viewer_path, _build_viewer_context(epi_file))
+        viewer_dir = _get_persistent_viewer_dir(epi_file)
+        EPIContainer.unpack(epi_file, viewer_dir)
 
-        file_url = viewer_path.as_uri()
-        opened = webbrowser.open(file_url)
+        viewer = viewer_dir / "viewer.html"
+        manifest = EPIContainer.read_manifest(epi_file)
+        viewer_version = getattr(manifest, "viewer_version", "minimal")
 
-        # Clean up temp dir after browser has had time to load the file.
-        # Non-daemon so the process stays alive long enough for the browser.
-        def _cleanup():
-            import time
-            time.sleep(30)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        try:
+            if viewer_version == "forensic":
+                raise ValueError("Forensic shell requested")
+            viewer_html = _create_decision_ops_viewer(viewer_dir, epi_file)
+            viewer.write_text(viewer_html, encoding="utf-8")
+        except Exception:
+            viewer = _refresh_viewer_html(viewer_dir, epi_file)
 
-        t = threading.Thread(target=_cleanup, daemon=False)
-        t.start()
+        _inject_viewer_context(viewer, _build_viewer_context(epi_file))
 
-        return opened
+        return webbrowser.open(viewer.as_uri())
 
     except Exception:
         return False
