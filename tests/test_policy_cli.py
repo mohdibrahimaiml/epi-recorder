@@ -162,8 +162,8 @@ def test_policy_editor_html_preloads_rules_workspace():
 
     assert 'id="epi-preloaded-cases"' in html
     assert '"view": "rules"' in html
-    assert "Audit_Index" in html
-    assert "Execution_Audit_Artifact" in html
+    assert "EPI Case Investigation" in html
+    assert "page-shell" in html
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
