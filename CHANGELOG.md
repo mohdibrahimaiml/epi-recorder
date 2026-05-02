@@ -7,9 +7,18 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
-## [4.0.2] - 2026-04-14
+## [4.0.2] - 2026-05-02
 
-### AGT Interoperability Release
+### Viewer Consistency & AGT Interoperability Release
+
+#### Fixed
+
+- **Eliminated stale "old viewer" across all open paths** — `_open_viewer()` in `epi_cli/run.py` was using a throwaway temp dir (`epi_view_<uuid>`) and regenerating the legacy embedded viewer (`epi-data` format). It now uses the persistent viewer cache (`~/.epi/view-cache/`) and the current decision-ops viewer (`epi-preloaded-cases` format), matching `epi view` behavior.
+- **`EPIContainer._create_embedded_viewer()` now bakes the new viewer format** — the embedded `viewer.html` inside every `.epi` artifact now uses the `epi-preloaded-cases` payload (`cases[]` + `ui` config) instead of the legacy flat `epi-data` format. This fixes:
+  - Windows double-click VBS fallback
+  - `epi extract` output
+  - `epi refresh-viewer` output
+  - Offline/email sharing of the baked-in viewer
 
 #### Added
 
@@ -28,6 +37,7 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 #### Notes
 
 - This release focuses on EPI-side interoperability for AGT without modifying AGT itself; features are opt-in and additive.
+- The viewer fix is a **correction to evidence guarantees** — previously, auto-open paths (`epi run`, `epi init`) and the baked-in viewer could display stale or incomplete verification context. All paths now render the same current decision-ops UI.
 
 ---
 
