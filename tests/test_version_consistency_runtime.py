@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -61,6 +62,8 @@ def test_generated_viewer_and_manifest_match_runtime_version():
 
 
 def test_version_resolution_is_stable_outside_repo_cwd():
+    repo_root = Path(__file__).resolve().parent.parent
+    env = {**os.environ, "PYTHONPATH": str(repo_root)}
     with TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [sys.executable, "-c", "from epi_core._version import get_version; print(get_version())"],
@@ -68,6 +71,7 @@ def test_version_resolution_is_stable_outside_repo_cwd():
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
 
     assert result.returncode == 0

@@ -12,7 +12,7 @@ CURRENT_PUBLIC_DOCS = [
     REPO_ROOT / "docs" / "CLI.md",
     REPO_ROOT / "docs" / "CONNECT.md",
     REPO_ROOT / "docs" / "EPI-CODEBASE-WALKTHROUGH.md",
-    REPO_ROOT / "docs" / "EPI-DOC-v4.0.1.md",
+    REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md",
     REPO_ROOT / "docs" / "FRAMEWORK-INTEGRATIONS-5-MINUTES.md",
     REPO_ROOT / "docs" / "POLICY.md",
     REPO_ROOT / "docs" / "PYTEST-AGENT-REGRESSIONS.md",
@@ -32,7 +32,7 @@ def test_current_public_docs_point_to_runtime_release():
     assert expected in _read(REPO_ROOT / "README.md")
     assert expected in _read(REPO_ROOT / "docs" / "CLI.md")
     assert expected in _read(REPO_ROOT / "docs" / "AGT-IMPORT-QUICKSTART.md")
-    assert expected in _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.1.md")
+    assert expected in _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md")
     assert f"EPI Recorder {expected}" in _read(REPO_ROOT / "docs" / "index.html")
     assert f"Specification v{core_version}" in _read(REPO_ROOT / "docs" / "EPI-SPEC.md")
 
@@ -62,7 +62,7 @@ def test_current_public_docs_describe_envelope_format():
 
 
 def test_current_flagship_doc_has_no_mojibake():
-    text = _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.1.md")
+    text = _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md")
     mojibake_markers = (
         "\u00e2\u20ac\u0153",
         "\u00e2\u20ac",
