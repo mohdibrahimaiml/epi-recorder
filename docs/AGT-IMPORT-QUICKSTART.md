@@ -1,4 +1,4 @@
-# AGT -> EPI Quickstart (v4.0.1)
+# AGT -> EPI Quickstart (v4.0.2)
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` case file.
 
@@ -122,4 +122,4 @@ That means a reviewer can answer both:
 - [AGT example bundle details](../examples/agt/README.md)
 - [AGT -> EPI demo kit](../examples/agt-epi-demo/README.md)
 - [RFC: AGT -> EPI portable artifact layer](rfc/agt-epi-artifact.md)
-- [Flagship product explainer](EPI-DOC-v4.0.1.md)
+- [Flagship product explainer](EPI-DOC-v4.0.2.md)

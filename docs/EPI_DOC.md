@@ -3,7 +3,7 @@
 Author: Codex
 Date: 2026-04-01
 Repo analyzed: `C:\Users\dell\epi-recorder`
-Release line observed: `v4.0.1`
+Release line observed: `v4.0.2`
 
 ---
 

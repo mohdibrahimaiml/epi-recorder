@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.0.1
+# EPI File Format Specification v4.0.2
 
 **Status:** Active  
-**Date:** 2026-04-12
-**Version:** 4.0.1
+**Date:** 2026-05-02
+**Version:** 4.0.2
 **Authors:** EPI Project Team
 
 ---
@@ -18,8 +18,8 @@ The **Evidence Packaged Infrastructure (EPI)** format provides a standardized, p
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable container.
 
-### 1.2 Key Features (v4.0.1)
-- **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection.
+### 1.2 Key Features (v4.0.2)
+- **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection. As of v4.0.2, the baked-in iewer.html uses the epi-preloaded-cases format so every open path renders the same current decision-ops UI.
 - **Binary Envelope Identity:** New artifacts start with `EPI1`, not ZIP magic bytes.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -54,7 +54,7 @@ payload.zip                 # embedded signed ZIP evidence payload
 ```
 
 Older historical docs may mention `env.json`, raw ZIP `.epi` containers, or a `viewer/` directory. In
-`v4.0.1`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
+`v4.0.2`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -84,7 +84,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "4.0.1",
+  "spec_version": "4.0.2",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
