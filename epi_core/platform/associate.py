@@ -713,6 +713,25 @@ def unregister_windows() -> None:
         pass
 
 
+def _get_unix_epi_executable() -> Path | None:
+    """Find the absolute path to the epi executable on macOS/Linux.
+
+    Resolves at registration time so double-click works even when the
+    desktop/shell does not have the same PATH as the installing terminal.
+    """
+    epi_path = shutil.which("epi")
+    if epi_path:
+        resolved = Path(epi_path).resolve()
+        if resolved.exists() and resolved.stat().st_size > 0:
+            return resolved
+
+    adjacent = Path(sys.executable).parent / "epi"
+    if adjacent.exists() and adjacent.stat().st_size > 0:
+        return adjacent.resolve()
+
+    return None
+
+
 # ============================================================
 # macOS
 # ============================================================
@@ -761,9 +780,14 @@ def register_macos() -> None:
     with open(plist_path, "wb") as f:
         plistlib.dump(plist_data, f)
 
-    # Create launcher shell script
+    # Create launcher shell script with absolute epi path
     exe_path = macos_dir / "epi-open"
-    exe_path.write_text('#!/bin/bash\nepi view "$1"\n', encoding="utf-8")
+    epi_exe = _get_unix_epi_executable()
+    if epi_exe:
+        exe_path.write_text(f'#!/bin/bash\n"{epi_exe}" view "$1"\n', encoding="utf-8")
+    else:
+        python_exe = Path(sys.executable).resolve()
+        exe_path.write_text(f'#!/bin/bash\n"{python_exe}" -m epi_cli view "$1"\n', encoding="utf-8")
     exe_path.chmod(0o755)
 
     # Register with Launch Services
@@ -839,14 +863,22 @@ def register_linux() -> None:
         encoding="utf-8",
     )
 
-    # 2. Write .desktop launcher
+    # 2. Write .desktop launcher with absolute epi path
     desktop_dir = Path.home() / ".local" / "share" / "applications"
     desktop_dir.mkdir(parents=True, exist_ok=True)
+
+    epi_exe = _get_unix_epi_executable()
+    if epi_exe:
+        exec_line = f'Exec="{epi_exe}" view %f\n'
+    else:
+        python_exe = Path(sys.executable).resolve()
+        exec_line = f'Exec="{python_exe}" -m epi_cli view %f\n'
+
     (desktop_dir / "epi-viewer.desktop").write_text(
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=EPI Viewer\n"
-        "Exec=epi view %f\n"
+        f"{exec_line}"
         "MimeType=application/x-epi-recording;\n"
         "NoDisplay=true\n",
         encoding="utf-8",
