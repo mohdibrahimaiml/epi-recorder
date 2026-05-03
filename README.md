@@ -311,22 +311,6 @@ with record("test.epi"):
 
 ---
 
-## What Compliance Buyers See
-
-These are the three proof points for the insurance design-partner workflow.
-
-### Decision Summary
-
-![Insurance Decision Summary](docs/assets/insurance-decision-summary.svg)
-
-### Human Review Flow
-
-![Insurance Human Review Flow](docs/assets/insurance-human-review-flow.svg)
-
-### Decision Record Export
-
-![Insurance Decision Record](docs/assets/insurance-decision-record.svg)
-
 ---
 
 ## Three Common Developer Jobs
