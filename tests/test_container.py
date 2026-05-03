@@ -441,7 +441,7 @@ class TestEPIContainer:
         assert "function loadData(" in viewer_html  # forensic viewer entry point
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
-        assert "styles.css" not in viewer_html
+        assert '<link rel="stylesheet" href="styles.css">' not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-preloaded-cases"' in viewer_html

@@ -91,26 +91,19 @@ def resolve_did_web(did: str, timeout: int = 10) -> dict[str, Any]:
         DidResolutionError: On any network, HTTP, or parse failure.
     """
     url = _did_to_url(did)
-    req = Request(url, headers={"Accept": "application/json"})
 
     try:
-        with urlopen(req, timeout=timeout) as resp:  # noqa: S310
-            if resp.status != 200:
-                raise DidResolutionError(
-                    f"DID document fetch returned HTTP {resp.status} for {url}"
-                )
-            body = resp.read().decode("utf-8")
-    except HTTPError as exc:
-        raise DidResolutionError(
-            f"DID document fetch returned HTTP {exc.code} for {url}"
-        ) from exc
-    except URLError as exc:
-        raise DidResolutionError(str(exc.reason)) from exc
-    except Exception as exc:
+        resp = requests.get(url, timeout=timeout)
+    except (ConnectionError, OSError, Exception) as exc:
         raise DidResolutionError(str(exc)) from exc
 
+    if resp.status_code != 200:
+        raise DidResolutionError(
+            f"DID document fetch returned HTTP {resp.status_code} for {url}"
+        )
+
     try:
-        return json.loads(body)
+        return resp.json()
     except Exception as exc:
         raise DidResolutionError(f"DID document is not valid JSON: {exc}") from exc
 
