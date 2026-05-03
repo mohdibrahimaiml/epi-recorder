@@ -861,7 +861,7 @@ class EPIContainer:
             raise FileNotFoundError(f"EPI file not found: {epi_path}")
 
         review_data = {
-            "reviewer": reviewer,
+            "reviewed_by": reviewer,
             "status": status,
             "outcome": status,
             "notes": notes,

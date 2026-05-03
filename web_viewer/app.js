@@ -829,21 +829,82 @@ function renderAnalysis(caseData) {
 }
 
 /** § 7  Human Attestation */
-function renderAttestation(caseData) {
-  const review = caseData.review;
 
-  if (review && review.reviewed_by) {
+/**
+ * Normalize review data from multiple backend schemas into a flat
+ * { reviewed_by, status, notes, reviewed_at } shape the viewer expects.
+ *
+ * Supports:
+ *   - Flat browser/legacy format: { reviewed_by, status, notes }
+ *   - ReviewRecord nested format: { reviewed_by, reviews: [{outcome, notes}] }
+ *   - Legacy add_review format:    { reviewer, status, notes }
+ */
+function normalizeReview(raw) {
+  if (!raw) return null;
+
+  // Legacy key fix: "reviewer" -> "reviewed_by"
+  const reviewedBy = raw.reviewed_by || raw.reviewer || null;
+  if (!reviewedBy) return null;
+
+  // Already flat format with status — use as-is after key fix
+  if (raw.status) {
+    return {
+      reviewed_by: reviewedBy,
+      status: String(raw.status).toLowerCase(),
+      notes: raw.notes || raw.comment || '',
+      reviewed_at: raw.reviewed_at || null,
+    };
+  }
+
+  // ReviewRecord nested format: derive status/notes from reviews[]
+  if (Array.isArray(raw.reviews) && raw.reviews.length > 0) {
+    const outcomes = raw.reviews.map(r => String(r.outcome || '').toLowerCase());
+    const hasConfirmed = outcomes.includes('confirmed_fault');
+    const nonSkipped = outcomes.filter(o => o !== 'skipped');
+    const allDismissed = nonSkipped.length > 0 && nonSkipped.every(o => o === 'dismissed');
+
+    let status = 'escalated';
+    if (hasConfirmed) status = 'rejected';
+    else if (allDismissed) status = 'approved';
+
+    const notes = raw.reviews
+      .map((r, i) => {
+        const line = `${i + 1}. ${(r.outcome || 'review').toUpperCase().replace(/_/g, ' ')}`;
+        return r.notes ? `${line}: ${r.notes}` : line;
+      })
+      .join('\n');
+
+    return {
+      reviewed_by: reviewedBy,
+      status: status,
+      notes: notes || 'No notes provided.',
+      reviewed_at: raw.reviewed_at || null,
+    };
+  }
+
+  // Fallback — at least we have reviewer identity
+  return {
+    reviewed_by: reviewedBy,
+    status: 'unknown',
+    notes: raw.notes || raw.comment || 'No notes provided.',
+    reviewed_at: raw.reviewed_at || null,
+  };
+}
+
+function renderAttestation(caseData) {
+  const review = normalizeReview(caseData.review);
+
+  if (review) {
     // Show completed review
     document.getElementById('review-display').classList.remove('hidden');
     document.getElementById('review-form').classList.add('hidden');
 
-    const status = (review.status || 'unknown').toLowerCase();
+    const status = review.status;
     const seal = document.getElementById('review-seal');
     seal.textContent = status.toUpperCase();
     seal.className = 'verdict-seal ' + status;
 
-    document.getElementById('review-content').textContent =
-      review.notes || review.comment || 'No notes provided.';
+    document.getElementById('review-content').textContent = review.notes;
     document.getElementById('reviewer-name').textContent = review.reviewed_by;
     document.getElementById('review-date').textContent =
       review.reviewed_at ? fmtDate(review.reviewed_at) : '—';
