@@ -1,0 +1,39 @@
+{
+  "name": "epi-viewer",
+  "version": "1.0.0",
+  "description": "Cross-platform desktop application for viewing and verifying .epi cryptographic evidence files",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "org.epilabs.viewer",
+    "productName": "EPI Viewer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "lib/**/*"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "epi",
+        "name": "EPI Evidence File",
+        "role": "Viewer"
+      }
+    ]
+  }
+}

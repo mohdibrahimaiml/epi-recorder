@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPI Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-title">
+                <span class="header-icon">🔐</span>
+                <h1>EPI Viewer</h1>
+            </div>
+            <div class="header-subtitle">Evidence Inspection Instrument</div>
+        </header>
+
+        <!-- Initial State -->
+        <div id="initial-state" class="state-view active">
+            <div class="initial-content">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-icon">📁</div>
+                    <p class="drop-text">Drag and drop an .epi file here</p>
+                    <p class="drop-subtext">or</p>
+                    <button id="btn-open-file" class="btn-primary">Open .epi File</button>
+                </div>
+                <div class="instructions">
+                    <p>✅ Verifies cryptographic signatures before rendering</p>
+                    <p>✅ Validates file integrity using SHA-256 hashes</p>
+                    <p>✅ Works completely offline (air-gapped ready)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="state-view">
+            <div class="loading-content">
+                <h2>Verifying Evidence...</h2>
+                <div class="verification-steps">
+                    <div id="step-parsing" class="step">
+                        <span class="step-icon">○</span>
+                        <span class="step-label">Parsing archive structure</span>
+                    </div>
+                    <div id="step-integrity" class="step">
+                        <span class="step-icon">○</span>
+                        <span class="step-label">Checking file integrity</span>
+                    </div>
+                    <div id="step-signature" class="step">
+                        <span class="step-icon">○</span>
+                        <span class="step-label">Verifying cryptographic signature</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Viewer State -->
+        <div id="viewer-state" class="state-view">
+            <!-- Status Banner -->
+            <div class="status-banner">
+                <span class="status-indicator">✓ VERIFIED</span>
+                <span class="status-separator">|</span>
+                <span id="status-algorithm">Ed25519</span>
+                <span class="status-separator">|</span>
+                <span id="status-timestamp">—</span>
+                <span class="status-separator">|</span>
+                <span id="status-version">EPI —</span>
+            </div>
+
+            <!-- Evidence Summary -->
+            <div class="evidence-summary">
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="summary-label">Workflow</span>
+                        <span id="summary-workflow" class="summary-value">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Created</span>
+                        <span id="summary-created" class="summary-value">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Signer</span>
+                        <span id="summary-signer" class="summary-value">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Files</span>
+                        <span id="summary-files" class="summary-value">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-bar">
+                <button class="tab-btn active" data-layer="narrative">Narrative</button>
+                <button class="tab-btn" data-layer="facts">Facts</button>
+                <button class="tab-btn" data-layer="crypto">Cryptographic</button>
+            </div>
+
+            <!-- Layer Panels -->
+            <div class="layers-container">
+                <div id="layer-narrative" class="layer-panel active">
+                    <div id="embedded-viewer" class="embedded-viewer">
+                        <p style="color: #6b7280;">No embedded viewer found in this .epi file.</p>
+                    </div>
+                </div>
+                <div id="layer-facts" class="layer-panel">
+                    <div id="facts-table" class="facts-table"></div>
+                </div>
+                <div id="layer-crypto" class="layer-panel">
+                    <div id="crypto-details" class="crypto-details"></div>
+                </div>
+            </div>
+
+            <!-- Viewer Actions -->
+            <div class="viewer-actions">
+                <button id="btn-export-report" class="btn-secondary">Export Report</button>
+                <button id="btn-close-file" class="btn-secondary">Close File</button>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="state-view">
+            <div class="error-content">
+                <div class="error-icon">✗</div>
+                <h2>Verification Failed</h2>
+                <p id="error-message" class="error-message">Unknown error</p>
+                <pre id="error-details" class="error-details"></pre>
+                <button id="btn-try-another" class="btn-primary">Try Another File</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="viewer.js"></script>
+</body>
+</html>

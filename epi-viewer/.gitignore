@@ -6,9 +6,10 @@ Thumbs.db
 *.tmp
 *.temp
 .env
-package.json
 package-lock.json
 jsconfig.json
 npm-debug.log*
 
+# Keep the renderer HTML shell (root .gitignore ignores *.html)
+!renderer/index.html
  
