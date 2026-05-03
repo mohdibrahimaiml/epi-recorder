@@ -20,6 +20,35 @@ class DidResolutionError(Exception):
     """Raised when a DID:WEB document cannot be fetched (network, HTTP error, etc.)."""
 
 
+# ---------------------------------------------------------------------------
+# requests-compatible shim — allows test suites to patch
+# `epi_core.did_web.requests.get` without requiring the `requests` package.
+# ---------------------------------------------------------------------------
+class _RequestsShim:
+    """Thin urllib wrapper that exposes the subset of the requests API used here."""
+
+    class _Response:
+        def __init__(self, status_code: int, body: bytes) -> None:
+            self.status_code = status_code
+            self._body = body
+
+        def json(self) -> Any:
+            return json.loads(self._body.decode("utf-8"))
+
+    def get(self, url: str, *, timeout: int = 10, **kwargs: Any) -> "_RequestsShim._Response":
+        req = Request(url, headers={"Accept": "application/json"})
+        try:
+            with urlopen(req, timeout=timeout) as resp:
+                return self._Response(resp.status, resp.read())
+        except HTTPError as exc:
+            return self._Response(exc.code, b"")
+        except (URLError, OSError, ConnectionError) as exc:
+            raise ConnectionError(str(exc)) from exc
+
+
+requests = _RequestsShim()
+
+
 class KeyNotFoundError(Exception):
     """Raised when a DID document is valid but contains no Ed25519 key."""
 

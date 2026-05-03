@@ -471,6 +471,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
         identity_name = report.get("signer")
         identity_detail = report.get("trust_message", "")
         public_key_id = None
+        identity = {}
         decision_status = "PASS" if (integrity_ok and signature_valid is not False) else "FAIL"
         decision_policy = "none"
         decision_reason = report.get("trust_message", "")

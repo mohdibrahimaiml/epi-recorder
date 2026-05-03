@@ -436,18 +436,16 @@ class TestEPIContainer:
         viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
 
         assert "<style>" in viewer_html
-        assert "page-shell" in viewer_html  # Updated for new redesign
+        assert "forensic-index" in viewer_html  # forensic viewer nav
         assert "<script>" in viewer_html
-        assert "function deriveDecisionSummary(" in viewer_html  # Updated for new viewer functions
+        assert "function loadData(" in viewer_html  # forensic viewer entry point
         _assert_no_external_runtime_dependencies(viewer_html)
         assert '<script src="app.js"></script>' not in viewer_html
         assert "styles.css" not in viewer_html
         assert "id='jszip-js'" not in viewer_html or 'id="jszip-js"' not in viewer_html
         assert 'id="epi-view-context"' in viewer_html
         assert 'id="epi-preloaded-cases"' in viewer_html
-        assert "EPI Case Investigation" in viewer_html
-        assert "hero" in viewer_html
-        assert "drop-zone" in viewer_html
+        assert "EPI Forensic Artifact Viewer" in viewer_html
         from epi_core import __version__
         assert f"EPI Viewer v{__version__}" in viewer_html
     

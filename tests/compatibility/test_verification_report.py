@@ -124,6 +124,7 @@ def test_report_nested_identity_keys():
         "detail",
         "registry_verified",
         "public_key_id",
+        "did",
     }
     assert identity_keys == expected_identity, (
         f"identity keys changed: {identity_keys ^ expected_identity}"

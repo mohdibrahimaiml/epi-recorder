@@ -278,6 +278,7 @@ class TestReportStructureStability:
             "detail",
             "registry_verified",
             "public_key_id",
+            "did",
         }
         assert set(report["metadata"].keys()) == {
             "spec_version",

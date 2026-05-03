@@ -206,7 +206,7 @@ def test_web_viewer_server_serves_index():
         with urlrequest.urlopen(f"http://{host}:{port}/web_viewer/index.html", timeout=5) as response:
             html = response.read().decode("utf-8")
 
-        assert "EPI Case Investigation" in html
+        assert "EPI Forensic Artifact Viewer" in html
         assert 'id="epi-view-context"' in html
     finally:
         server.shutdown()

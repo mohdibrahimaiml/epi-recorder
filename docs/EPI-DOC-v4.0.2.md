@@ -1,5 +1,7 @@
 # EPI DOC v4.0.2
 
+> **Note:** This document covers the v4.0.2 release line. The current release is v4.0.3 — see [EPI-DOC-v4.0.3.md](EPI-DOC-v4.0.3.md).
+
 Author: Codex  
 Date: 2026-05-02  
 Repo analyzed: `C:\Users\dell\epi-recorder`  
