@@ -1,0 +1,53 @@
+{
+  "system_name": "epi-simulation-agent",
+  "system_version": "1.0.0",
+  "policy_version": "2026-05-02",
+  "rules": [
+    {
+      "id": "R001",
+      "name": "Loan Over 200K Requires Manager Approval",
+      "severity": "critical",
+      "description": "Loans over $200,000 must have a documented manager approval step before final decision.",
+      "type": "threshold_guard",
+      "threshold_value": 200000,
+      "threshold_field": "loan_amount",
+      "required_action": "agent.approval.response"
+    },
+    {
+      "id": "R002",
+      "name": "Verify Identity Before Refund",
+      "severity": "high",
+      "description": "An identity verification step must be logged before any refund is processed.",
+      "type": "sequence_guard",
+      "required_before": "refund.processed",
+      "must_call": "identity.verified"
+    },
+    {
+      "id": "R003",
+      "name": "Never Output API Keys or Secrets",
+      "severity": "critical",
+      "description": "No secret-like values, API keys or credentials may appear in the evidence trace.",
+      "type": "prohibition_guard",
+      "prohibited_pattern": "sk-[A-Za-z0-9]+"
+    },
+    {
+      "id": "R004",
+      "name": "High-Severity Medical Triage Requires Physician",
+      "severity": "high",
+      "description": "ESI level 1 or 2 triage results must be followed by a physician decision step.",
+      "type": "sequence_guard",
+      "required_before": "patient.outcome",
+      "must_call": "physician.decision"
+    },
+    {
+      "id": "R005",
+      "name": "Refund Over 10000 Requires Human Approval",
+      "severity": "high",
+      "description": "Refund amounts over $10,000 require a documented human approval step.",
+      "type": "threshold_guard",
+      "threshold_value": 10000,
+      "threshold_field": "refund_amount",
+      "required_action": "human_approval"
+    }
+  ]
+}

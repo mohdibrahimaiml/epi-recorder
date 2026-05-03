@@ -354,12 +354,19 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
     except Exception:
         archive_base64 = None
 
+    _steps = _read_steps_if_exists(extracted_dir / "steps.jsonl")
+    _session_start = next(
+        (s for s in _steps if isinstance(s, dict) and s.get("kind") == "session.start"), None
+    )
+    _workflow_name = (_session_start or {}).get("content", {}).get("workflow_name") or getattr(manifest, "workflow_name", None)
+    _source_name = _workflow_name or resolved_path.name
+
     return {
-        "source_name": resolved_path.name,
+        "source_name": _source_name,
         "file_size": resolved_path.stat().st_size if resolved_path.exists() else 0,
         "archive_base64": archive_base64,
         "manifest": manifest.model_dump(mode="json"),
-        "steps": _read_steps_if_exists(extracted_dir / "steps.jsonl"),
+        "steps": _steps,
         "analysis": _read_json_if_exists(extracted_dir / "analysis.json"),
         "policy": _read_json_if_exists(extracted_dir / "policy.json"),
         "policy_evaluation": _read_json_if_exists(extracted_dir / "policy_evaluation.json"),
@@ -480,9 +487,13 @@ def view(
         dest = Path(extract)
         dest.mkdir(parents=True, exist_ok=True)
         EPIContainer.unpack(resolved_path, dest)
-        viewer = _refresh_viewer_html(dest, resolved_path)
-        if viewer.exists():
-            _inject_viewer_context(viewer, _build_viewer_context(resolved_path))
+        viewer_path = dest / "viewer.html"
+        try:
+            viewer_html = _create_decision_ops_viewer(dest, resolved_path)
+            viewer_path.write_text(viewer_html, encoding="utf-8")
+        except Exception:
+            viewer_path = _refresh_viewer_html(dest, resolved_path)
+            _inject_viewer_context(viewer_path, _build_viewer_context(resolved_path))
         console.print(f"[green][OK][/green] Extracted to: {dest}")
         console.print(f"   Open in browser: {dest / 'viewer.html'}")
         _print_share_hint()

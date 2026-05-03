@@ -1,15 +1,15 @@
-# EPI File Format Specification v4.0.2
+# EPI File Format Specification v4.0.3
 
 **Status:** Active  
-**Date:** 2026-05-02
-**Version:** 4.0.2
+**Date:** 2026-05-03
+**Version:** 4.0.3
 **Authors:** EPI Project Team
 
 ---
 
 ## Abstract
 
-The **Evidence Packaged Infrastructure (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v4.0.1.
+The **Evidence Packaged Infrastructure (EPI)** format provides a standardized, portable, and verifiable container for AI evidence. This specification defines the structure, serialization, and verification mechanisms for `.epi` files as implemented in `epi-recorder` v4.0.3.
 
 ---
 
@@ -18,8 +18,8 @@ The **Evidence Packaged Infrastructure (EPI)** format provides a standardized, p
 ### 1.1 Purpose
 EPI files capture complete AI workflows, code, inputs, model interactions, outputs, and environment into a single, cryptographically verifiable container.
 
-### 1.2 Key Features (v4.0.2)
-- **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection. As of v4.0.2, the baked-in iewer.html uses the epi-preloaded-cases format so every open path renders the same current decision-ops UI.
+### 1.2 Key Features (v4.0.3)
+- **Offline-First Viewer:** Embedded HTML/CSS/JS requires no internet connection. As of v4.0.3, the baked-in viewer.html uses the epi-preloaded-cases format so every open path renders the same current decision-ops UI.
 - **Binary Envelope Identity:** New artifacts start with `EPI1`, not ZIP magic bytes.
 - **External Handler Required for Double-Click:** Operating systems open `.epi`
   through a registered application; they do not execute the embedded viewer
@@ -136,8 +136,8 @@ These files are included in the file manifest when present so they are covered b
 
 ## 4. Compatibility Notes
 
-- `v4.0.1` is the current documented layout.
-- `v4.0.1` preserves the `EPI1` outer envelope introduced in `v4.0.0` while adding opt-in telemetry and onboarding surfaces outside the artifact format.
+- `v4.0.3` is the current documented layout.
+- `v4.0.3` is a forensic viewer redesign and trust correctness release with no artifact wire-format changes from `v4.0.2`.
 - `v4.0.0` introduced the `EPI1` outer envelope while preserving the ZIP evidence payload and inner trust model.
 - Older artifacts may still contain legacy naming such as `env.json`.
 - Legacy ZIP-based `.epi` artifacts remain readable.
@@ -149,7 +149,9 @@ These files are included in the file manifest when present so they are covered b
 
 | Version | Date | Status | Notes |
 | --- | --- | --- | --- |
-| **4.0.1** | 2026-04-12 | **Current** | No artifact wire-format change from `4.0.0`; adds opt-in telemetry, pilot signup, integration scaffolding, and gateway telemetry ingestion. |
+| **4.0.3** | 2026-05-03 | **Current** | Forensic viewer redesign, trust correctness fixes (`workflow_name`, `VERIFY.txt`, signature state), simulation framework. No artifact wire-format changes. |
+| **4.0.2** | 2026-05-02 | Previous | Viewer consistency & AGT interoperability release. All open paths now bake the same `epi-preloaded-cases` viewer. |
+| **4.0.1** | 2026-04-12 | Previous | No artifact wire-format change from `4.0.0`; adds opt-in telemetry, pilot signup, integration scaffolding, and gateway telemetry ingestion. |
 | **4.0.0** | 2026-04-08 | Previous | New `EPI1` outer envelope, dual-format compatibility, `.epi` transport identity upgrade, and `epi migrate` support. |
 | **3.0.3** | 2026-04-07 | Previous | Current release line with the AGT import front door, transformation-audit documentation, and aligned `v3.0.3` release surfaces. |
 | **3.0.2** | 2026-04-04 | Previous | Extracted-viewer offline packaging fix and self-contained `epi view --extract` output. |

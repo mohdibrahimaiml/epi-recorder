@@ -26,7 +26,7 @@ If you remember one sentence, remember this:
 
 ---
 
-## 2. What `v4.0.1` means
+## 2. What `v4.0.2` means
 
 `v4.0.2` is the point where the product becomes much clearer in three different ways:
 

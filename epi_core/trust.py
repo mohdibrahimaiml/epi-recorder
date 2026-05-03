@@ -411,7 +411,8 @@ def create_verification_report(
             "name": identity_name or signer_name,
             "detail": status_detail,
             "registry_verified": is_trusted_identity,
-            "public_key_id": manifest.public_key[:16] if manifest.public_key else None
+            "public_key_id": manifest.public_key[:16] if manifest.public_key else None,
+            "did": (manifest.governance or {}).get("did") if manifest.governance else None,
         },
         "metadata": {
             "spec_version": manifest.spec_version,

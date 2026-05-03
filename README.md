@@ -436,7 +436,7 @@ EPI is designed for teams preparing durable evidence for high-risk AI workflows.
 
 The portability advantage: you can hand a regulator a single `.epi` file. They verify it at [epilabs.org/verify](https://epilabs.org/verify) - drag and drop, no login, no install. Verification runs client-side in their browser.
 
-For the flagship product explainer, see [docs/EPI-DOC-v4.0.2.md](docs/EPI-DOC-v4.0.2.md).
+For the flagship product explainer, see [docs/EPI-DOC-v4.0.3.md](docs/EPI-DOC-v4.0.3.md).
 For the AGT import front door, see [docs/AGT-IMPORT-QUICKSTART.md](docs/AGT-IMPORT-QUICKSTART.md).
 For self-hosted deployment, see [docs/SELF-HOSTED-RUNBOOK.md](docs/SELF-HOSTED-RUNBOOK.md).
 
@@ -699,6 +699,19 @@ See **[CLI Reference](docs/CLI.md)** for full documentation.
 
 ---
 
+## What Changed in v4.0.3
+
+- **Forensic document viewer** - Complete redesign from an 8,382-line SPA to a 2,340-line forensic document viewer with numbered sections (section 0-8), monospace aesthetic, expandable step rows with terminal-style JSON, heatmap timeline bar, and fixed sidebar navigation
+- **workflow_name resolution fixed** - Viewer title and source name now show the workflow name instead of a UUID, by correctly reading the `session.start` step's `workflow_name` field
+- **Case context surfaced** - `manifest.goal`, `manifest.notes`, `manifest.metrics`, and `manifest.approved_by` are now displayed in the viewer as section 2 (Case Context)
+- **Smart step summaries** - 14+ step kinds now show human-readable summaries in the timeline instead of raw JSON dumps
+- **DID:WEB improvements** - `did_web.py` now uses stdlib `urllib.request` (no undeclared `requests` dependency), added `generate_did_document()` helper, added `publicKeyMultibase` and `publicKeyJwk` key format support
+- **Forensic: PASS fixed** - `epi verify` no longer reports `Forensic: FAIL` for normal recordings without guardrails steps
+- **VERIFY.txt contains real signing key** - Written after signing, not before; excluded from `file_manifest` to avoid integrity failures
+- **DID identity in verify output** - `epi verify` trust report now shows `DID: did:web:...` when an artifact has a DID:WEB governance binding
+- **Signature display correct** - Viewer now shows `SIGNED` / `UNSIGNED` correctly from actual verification, not a hardcoded value
+- **Simulation framework** - `simulation/run_simulation.py` with 5 scenarios (loan happy path, loan policy fault, medical triage, refund compliant, refund policy fault), all passing
+
 ## What Changed in v4.0.2
 
 - **Native Guardrails AI Support** - new `epi_guardrails` package provides seamless, non-invasive instrumentation for all Guardrails 0.10.x execution paths
@@ -720,7 +733,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-**Current (v4.0.2):**
+**Current (v4.0.3):**
 - [x] Framework-native integrations (LiteLLM, LangChain, OpenTelemetry)
 - [x] CI/CD verification (GitHub Action, pytest plugin)
 - [x] OpenAI streaming support
@@ -744,7 +757,7 @@ Older release notes live in [CHANGELOG.md](CHANGELOG.md).
 |:---------|:------------|
 | **[Docs Hub](docs/index.html)** | Curated front door for the current public documentation set |
 | **[AGT Import Quickstart](docs/AGT-IMPORT-QUICKSTART.md)** | Canonical `AGT -> EPI` first-time user path |
-| **[EPI DOC v4.0.x](docs/EPI-DOC-v4.0.2.md)** | Flagship explainer for the current `4.0.1` release line |
+| **[EPI DOC v4.0.x](docs/EPI-DOC-v4.0.3.md)** | Flagship explainer for the current `4.0.3` release line |
 | **[EPI Specification](docs/EPI-SPEC.md)** | Technical specification for the `.epi` format |
 | **[CLI Reference](docs/CLI.md)** | Command-line interface documentation |
 | **[Telemetry Privacy](docs/TELEMETRY-PRIVACY.md)** | What opt-in telemetry and pilot signup do and do not collect |

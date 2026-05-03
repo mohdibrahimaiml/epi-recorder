@@ -7,6 +7,37 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [4.0.3] - 2026-05-03
+
+### Forensic Viewer Redesign & Trust Correctness Release
+
+#### Changed
+
+- **Forensic document viewer -- complete redesign** -- Replaced the 8,382-line SPA (inbox queues, team panels, filters) with a 2,340-line forensic document viewer. New design: numbered sections (section 0-8), monospace aesthetic, expandable step rows with terminal-style JSON expansion, heatmap timeline bar, fixed sidebar navigation. Oriented around case investigation rather than team workspace management.
+- **`did_web.py` rewritten to use stdlib `urllib.request`** -- Eliminates the undeclared `requests` dependency. Added `generate_did_document()` helper for self-hosting. Added support for both `publicKeyMultibase` (z-prefixed base58btc) and `publicKeyJwk` (crv=Ed25519) key formats.
+
+#### Fixed
+
+- **`workflow_name` resolution** -- Viewer title and source name always showed UUID in v4.0.2. Both `epi_core/container.py` (`_create_embedded_viewer`) and `epi_cli/view.py` (`_build_preloaded_case_payload`) now read `workflow_name` from the `session.start` step content, which is the authoritative source.
+- **Case context not visible** -- `manifest.goal`, `manifest.notes`, `manifest.metrics`, and `manifest.approved_by` are now displayed as section 2 (Case Context) in the forensic viewer.
+- **Smart step summaries** -- 14+ step kinds now show human-readable summaries in the evidence timeline instead of raw `JSON.stringify` dumps. Covered: `session.start/end`, `llm.request/response`, `tool.call/response`, `agent.decision`, `agent.approval.request/response`, `agent.run.start/end`, `application.intake`, `credit.check`, `policy.check`, `environment.captured`, `source.record.loaded`.
+- **`epi verify` Forensic: FAIL on normal recordings** -- `completeness_ok` in `epi_cli/verify.py` incorrectly required guardrails steps in every artifact. Fixed: `len(iteration_steps) == 0 or all(...)` so empty guardrails step lists are treated as complete. Normal recordings now show `Forensic: PASS`.
+- **`VERIFY.txt` always showed `public_key: None`** -- Was written before signing. Now written after signing so it contains the real Ed25519 public key. Also excluded from `file_manifest` to prevent integrity failures on re-open.
+- **DID identity missing from `epi verify` trust report** -- Trust report now shows `DID: did:web:...` when the artifact was recorded with a DID:WEB governance binding.
+- **Viewer hardcoded signature state to unsigned** -- Signature state is now read from case payload verification result. Properly signed artifacts now show `SIGNED` in the viewer header.
+
+#### Added
+
+- **Simulation framework** -- `simulation/run_simulation.py` with five scenarios (loan happy path, loan policy fault, medical triage, refund compliant, refund policy fault), all passing end-to-end.
+
+#### Notes
+
+- No artifact format changes. Existing `.epi` files remain valid and readable.
+- No CLI interface changes. All commands behave the same.
+- The viewer fix is a **correction to evidence guarantees** -- previously, auto-open paths and the baked-in viewer could show incorrect trust state, missing case context, and unreadable step summaries.
+
+---
+
 ## [4.0.2] - 2026-05-02
 
 ### Viewer Consistency & AGT Interoperability Release

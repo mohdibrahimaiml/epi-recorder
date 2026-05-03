@@ -304,8 +304,9 @@ def verify_command(
                     sequence_ok = sequence_ok and is_time_monotonic
 
                     # 3. Semantic Completeness Audit
+                    # Only applies to guardrails-style recordings; passes when none present.
                     iteration_steps = [s for s in steps if s.get("content", {}).get("subtype") == "guardrails"]
-                    completeness_ok = len(iteration_steps) > 0 and all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
+                    completeness_ok = len(iteration_steps) == 0 or all(len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps)
 
                     # 4. Steps Hash Verification
                     execution_data = {}
@@ -512,6 +513,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     content_lines.append(f"  - Name:         {identity_name or 'Unknown'}")
     if public_key_id:
         content_lines.append(f"  - Key ID:       {public_key_id}...")
+    did_identity = identity.get("did") if isinstance(identity, dict) else None
+    if did_identity:
+        content_lines.append(f"  - DID:          {did_identity}")
     content_lines.append(f"  - Source:       {identity_detail}")
 
     if "warnings" in report and report["warnings"]:

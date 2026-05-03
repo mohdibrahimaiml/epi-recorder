@@ -46,7 +46,7 @@ EPI_ZIP_MARKER = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
 # Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), Padding(56)
 _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
-_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
+_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html", "VERIFY.txt"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 _MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
 
@@ -192,12 +192,31 @@ class EPIContainer:
         # But we could also verify if we wanted to be 100% sure.
         mimetype_compliant = True 
 
+        # Derive a human-readable source name:
+        # 1. workflow_name from session.start step content (most reliable)
+        # 2. cli_command tail
+        # 3. short UUID fallback
+        _steps_for_name = _read_steps_if_exists(source_dir / "steps.jsonl")
+        _session_start = next(
+            (s for s in _steps_for_name if isinstance(s, dict) and s.get("kind") == "session.start"),
+            None,
+        )
+        _workflow_name = (
+            (_session_start or {}).get("content", {}).get("workflow_name")
+            or getattr(manifest, "workflow_name", None)
+        )
+        _source_name = (
+            _workflow_name
+            or (manifest.cli_command.split()[-1] if manifest.cli_command else None)
+            or f"{str(manifest.workflow_id)[:8]}.epi"
+        )
+
         case_payload = {
-            "source_name": manifest.cli_command or str(manifest.workflow_id) or "case.epi",
+            "source_name": _source_name,
             "file_size": 0,
             "archive_base64": None,
             "manifest": manifest.model_dump(mode="json"),
-            "steps": _read_steps_if_exists(source_dir / "steps.jsonl"),
+            "steps": _steps_for_name,
             "analysis": _read_json_if_exists(source_dir / "analysis.json"),
             "policy": _read_json_if_exists(source_dir / "policy.json"),
             "policy_evaluation": _read_json_if_exists(source_dir / "policy_evaluation.json"),
@@ -604,26 +623,15 @@ class EPIContainer:
             manifest.analysis_status = "complete"
             manifest.analysis_error = None
 
-        # Inject VERIFY.txt for manual audit transparency
+        # Inject a placeholder VERIFY.txt so the file appears in file_manifest;
+        # the final content (with the public key) is written after signing below.
         source_info = manifest.source or {}
         gov_info = manifest.governance or {}
         sys_name = source_info.get("system_name") or gov_info.get("system_name") or "EPI_RECORDER"
         sys_ver = source_info.get("system_version") or gov_info.get("system_version") or "1.0"
 
         verify_txt = source_dir / "VERIFY.txt"
-        verify_txt.write_text(
-            f"EPI_FORENSIC_VERIFICATION_GUIDE\n"
-            f"===============================\n\n"
-            f"Artifact UUID: {manifest.workflow_id}\n"
-            f"Created At:    {manifest.created_at.isoformat()}\n"
-            f"System:        {sys_name} v{sys_ver}\n\n"
-            f"MANUAL_VERIFICATION_STEPS:\n"
-            f"1. Extract manifest.json from this ZIP archive.\n"
-            f"2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.\n"
-            f"3. Public Key (Raw Hex): {manifest.public_key}\n\n"
-            f"This artifact is a signed, tamper-evident record.\n",
-            encoding="utf-8"
-        )
+        verify_txt.write_text("EPI_FORENSIC_VERIFICATION_GUIDE (pending signing)\n", encoding="utf-8")
 
         # Optionally embed an AGT export JSON into the workspace before packing.
         # This is intentionally optional and best-effort: failure to generate
@@ -691,6 +699,26 @@ class EPIContainer:
         if signer_function:
             manifest = signer_function(manifest)
 
+        # Now that signing is done (public_key is set), write the real VERIFY.txt.
+        gov_info_post = manifest.governance or {}
+        did_line = f"DID:           {gov_info_post.get('did')}\n" if gov_info_post.get("did") else ""
+        verify_txt.write_text(
+            f"EPI_FORENSIC_VERIFICATION_GUIDE\n"
+            f"===============================\n\n"
+            f"Artifact UUID: {manifest.workflow_id}\n"
+            f"Created At:    {manifest.created_at.isoformat()}\n"
+            f"System:        {sys_name} v{sys_ver}\n"
+            f"{did_line}"
+            f"\nMANUAL_VERIFICATION_STEPS:\n"
+            f"1. Extract manifest.json from this ZIP archive.\n"
+            f"2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.\n"
+            f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n\n"
+            f"COMMAND LINE:\n"
+            f"  python -m epi_cli verify <this_file>.epi\n\n"
+            f"This artifact is a signed, tamper-evident record.\n",
+            encoding="utf-8"
+        )
+
         # Build temporary header for viewer injection
         uuid_bytes = manifest.workflow_id.bytes
         created_at_micros = int(manifest.created_at.timestamp() * 1_000_000)
@@ -718,9 +746,11 @@ class EPIContainer:
 
             zf.writestr("viewer.html", viewer_html, compress_type=zipfile.ZIP_DEFLATED)
 
+            zf.writestr("VERIFY.txt", verify_txt.read_text(encoding="utf-8"), compress_type=zipfile.ZIP_DEFLATED)
+
             manifest_json = manifest.model_dump_json(indent=2)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
-            
+
         return viewer_html
 
     @staticmethod
