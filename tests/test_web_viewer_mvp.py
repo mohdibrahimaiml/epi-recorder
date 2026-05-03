@@ -8,36 +8,36 @@ def _read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_web_viewer_shell_has_case_investigation_navigation():
+def test_web_viewer_shell_has_forensic_navigation():
     html = _read("web_viewer/index.html")
 
-    assert "EPI Case Investigation" in html
-    assert "Open local EPI cases" in html
-    assert "Case investigation" in html
+    assert "EPI Forensic Artifact Viewer" in html
+    assert "Audit_Index" in html
     assert "Evidence" in html
     assert 'id="epi-view-context"' in html
-    assert 'id="file-input"' in html
-    assert 'id="drop-zone"' in html
-    assert 'class="page-shell"' in html
+    assert 'id="forensic-index"' in html
+    assert 'id="document-root"' in html
+    assert 'id="integrity-status"' in html
+    assert 'id="evidence-trace"' in html
 
 
-def test_web_viewer_app_supports_source_aware_case_investigation():
+def test_web_viewer_app_supports_forensic_rendering():
     js = _read("web_viewer/app.js")
 
-    assert "function initApp" in js
-    assert "function renderCaseView" in js
-    assert "function deriveTrustState" in js
-    assert "function deriveDecisionSummary" in js
-    assert "function buildTrustRows" in js
-    assert "function renderApp" in js
-    assert "Tampered" in js
+    assert "function init" in js
+    assert "function renderHeader" in js
+    assert "function renderIntegrity" in js
+    assert "function renderVerdict" in js
+    assert "function renderEvidence" in js
+    assert "function renderAttestation" in js
+    assert "COMPROMISED" in js
 
 
-def test_web_viewer_readme_describes_case_investigation_model():
+def test_web_viewer_readme_describes_forensic_model():
     readme = _read("web_viewer/README.md")
 
-    assert "EPI Case Investigation Viewer" in readme
-    assert "case-first" in readme
+    assert "EPI Forensic Artifact Viewer" in readme
+    assert "forensic" in readme.lower()
     assert "Overview" in readme
     assert "Evidence" in readme
     assert "Policy" in readme

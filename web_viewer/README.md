@@ -1,12 +1,12 @@
-# EPI Case Investigation Viewer
+# EPI Forensic Artifact Viewer
 
-`web_viewer/` is the browser-local investigation app for portable `.epi` artifacts.
+`web_viewer/` is the browser-local forensic review app for portable `.epi` artifacts.
 It powers both:
 
 - the default `epi view` experience for preopened case files
 - the packaged `viewer.html` embedded directly into each `.epi`
 
-The interface is now case-first rather than setup-first:
+The interface is now forensic-first rather than setup-first:
 
 - `Queue`: load multiple case files and open the case that needs attention first
 - `Case`: read decision, trust, source, policy, evidence, review, mapping, and attachments in one place
