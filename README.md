@@ -82,7 +82,7 @@ flowchart LR
     D -->|"Wrap with EPI1 Envelope"| G["agent.epi"]
 ```
 
-See [EPI Specification](docs/EPI-SPEC.md) for details.
+See [EPI Specification](docs/EPI-SPEC.md) for details. EPI supports evidence workflows for EU AI Act, FDA, and financial services; it does not provide legal advice and is not a compliance guarantee.
 
 ---
 
