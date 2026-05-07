@@ -14,6 +14,8 @@
   <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdibrahimaiml/epi-recorder?style=flat-square&label=license&color=0073b7" alt="License"/></a>
 </p>
 
+Reference implementation of **EPI (Evidence Packaged Infrastructure) v4.0.3** — the open format for packaging AI execution as tamper-evident, portable evidence.
+
 ---
 
 ## Install
@@ -56,6 +58,31 @@ Open and verify the artifact:
 epi view my_agent.epi    # Browser review (offline)
 epi verify my_agent.epi  # Ed25519 integrity check
 ```
+
+---
+
+## The `.epi` Format
+
+```
+my_agent.epi
+|- EPI1 header            # outer identity, payload length, SHA-256
+`- ZIP evidence payload
+   |- manifest.json        # metadata + Ed25519 signature + content hashes
+   |- steps.jsonl          # execution timeline (NDJSON)
+   |- environment.json     # runtime snapshot
+   `- viewer.html          # self-contained offline viewer
+```
+
+```mermaid
+flowchart LR
+    A["Agent Code"] -->|"record()"| B["Capture Layer"]
+    B --> C["SQLite WAL"]
+    C --> D["ZIP Payload Builder"]
+    E["Private Key"] -->|"Ed25519 Sign Manifest"| D
+    D -->|"Wrap with EPI1 Envelope"| G["agent.epi"]
+```
+
+See [EPI Specification](docs/EPI-SPEC.md) for details.
 
 ---
 
