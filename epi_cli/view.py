@@ -361,6 +361,17 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
     _workflow_name = (_session_start or {}).get("content", {}).get("workflow_name") or getattr(manifest, "workflow_name", None)
     _source_name = _workflow_name or resolved_path.name
 
+    # Embed source files so the browser viewer can rebuild the artifact
+    # after in-browser review (Sign & Seal)
+    _files = {}
+    try:
+        for filename in sorted(manifest.file_manifest.keys()):
+            fp = extracted_dir / filename
+            if fp.exists() and fp.is_file():
+                _files[filename] = base64.b64encode(fp.read_bytes()).decode("ascii")
+    except Exception:
+        pass
+
     return {
         "source_name": _source_name,
         "file_size": resolved_path.stat().st_size if resolved_path.exists() else 0,
@@ -375,6 +386,7 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
         or _read_json_if_exists(extracted_dir / "env.json"),
         "stdout": _read_text_if_exists(extracted_dir / "stdout.log"),
         "stderr": _read_text_if_exists(extracted_dir / "stderr.log"),
+        "files": _files,
         "integrity": {
             "ok": integrity_ok,
             "checked": len(manifest.file_manifest),

@@ -360,6 +360,22 @@ function renderHeader(caseData, context) {
     sigPill.innerHTML = `<span class="pill-dot"></span>UNSIGNED`;
   }
   pillsEl.appendChild(sigPill);
+
+  // Human review status pill
+  const humanReview = normalizeReview(caseData.review);
+  if (humanReview) {
+    const reviewPill = document.createElement('span');
+    const rs = humanReview.status;
+    if (rs === 'approved') {
+      reviewPill.className = 'pill pass';
+    } else if (rs === 'rejected') {
+      reviewPill.className = 'pill fail';
+    } else {
+      reviewPill.className = 'pill warn';
+    }
+    reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${rs.toUpperCase()}`;
+    pillsEl.appendChild(reviewPill);
+  }
 }
 
 /** § 1  Trust & Integrity */
@@ -563,12 +579,16 @@ function renderVerdict(caseData) {
   const decisionContent = decisionStep?.content || {};
   const rawDecision = String(decisionContent.decision || decisionContent.verdict || '').toUpperCase();
 
+  // Check human review — it overrides the system verdict when present
+  const humanReview = normalizeReview(caseData.review);
+
   // Determine verdict class and display text
   let verdictClass = 'pending';
   let verdictDisplay = 'PENDING';
+  let systemVerdict = null;
 
   if (rawDecision) {
-    verdictDisplay = rawDecision;
+    systemVerdict = rawDecision;
     if (['APPROVED', 'PASS', 'PASSED', 'ACCEPT', 'ACCEPTED'].includes(rawDecision)) {
       verdictClass = 'approved';
     } else if (['REJECTED', 'REJECT', 'DENY', 'DENIED', 'FAIL', 'FAILED', 'DECLINE', 'DECLINED'].includes(rawDecision)) {
@@ -577,13 +597,29 @@ function renderVerdict(caseData) {
       verdictClass = 'pending';
     }
   } else if (analysis) {
-    // Fall back to analysis fault detection
     if (analysis.fault_detected === true) {
+      systemVerdict = 'FAILED';
       verdictClass = 'failed';
       verdictDisplay = 'FAILED';
     } else if (analysis.fault_detected === false) {
+      systemVerdict = 'PASSED';
       verdictClass = 'passed';
       verdictDisplay = 'PASSED';
+    }
+  }
+
+  // Human review overrides
+  if (humanReview) {
+    const rs = humanReview.status;
+    if (rs === 'approved') {
+      verdictDisplay = 'APPROVED';
+      verdictClass = 'approved';
+    } else if (rs === 'rejected') {
+      verdictDisplay = 'REJECTED';
+      verdictClass = 'rejected';
+    } else if (rs === 'escalated') {
+      verdictDisplay = 'ESCALATED';
+      verdictClass = 'pending';
     }
   }
 
@@ -600,14 +636,25 @@ function renderVerdict(caseData) {
       `${passed}/${total} GOVERNANCE CONTROL${total !== 1 ? 'S' : ''} SATISFIED`;
   }
 
-  // Analysis note
+  // Analysis note + human attestation context
   const noteEl = document.getElementById('verdict-note');
   const headline = analysis?.summary?.headline;
   const rationale = decisionContent.rationale || decisionContent.reasoning;
+  const parts = [];
+
+  if (humanReview) {
+    parts.push(`Human attestation by ${humanReview.reviewed_by}: ${humanReview.status.toUpperCase()}.`);
+  }
   if (rationale) {
-    noteEl.textContent = trunc(rationale, 300);
+    parts.push(trunc(rationale, 300));
   } else if (headline) {
-    noteEl.textContent = headline;
+    parts.push(headline);
+  } else if (systemVerdict && humanReview) {
+    parts.push(`System verdict was ${systemVerdict}.`);
+  }
+
+  if (parts.length) {
+    noteEl.textContent = parts.join(' ');
   }
 
   // 4-pass diagnostic matrix
@@ -952,7 +999,7 @@ function setupAttestationForm(caseData) {
     statusEl.textContent = 'Cryptographically sealing artifact…';
     statusEl.className = 'sign-status-msg';
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const review = {
         reviewed_by: reviewer,
         reviewed_at: new Date().toISOString(),
@@ -962,9 +1009,152 @@ function setupAttestationForm(caseData) {
       // Apply to caseData so the display reflects the seal
       caseData.review = review;
       renderAttestation(caseData);
-      statusEl.textContent = '';
-    }, 1200);
+
+      try {
+        await downloadReviewedArtifact(caseData, review);
+        statusEl.textContent = 'Artifact sealed. Download started.';
+        statusEl.className = 'sign-status-msg ok';
+      } catch (err) {
+        console.error('Seal failed:', err);
+        statusEl.textContent = 'Seal failed: ' + (err.message || 'Could not build artifact');
+        statusEl.className = 'sign-status-msg err';
+      }
+    }, 600);
   });
+}
+
+// ── Artifact Builder ──────────────────────────────────────────
+
+function htmlSafeJson(obj, indent) {
+  return JSON.stringify(obj, null, indent).replace(/<\/(script)/gi, '<\\/$1');
+}
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function buildEmbeddedViewerHtml(caseData, reviewRecord) {
+  let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+  // Strip existing injected context so epi view can re-inject fresh data
+  html = html.replace(
+    /<script id="epi-view-context" type="application\/json">[\s\S]*?<\/script>/ui,
+    '<script id="epi-view-context" type="application/json">{}</script>'
+  );
+
+  // Strip any existing data tags
+  html = html.replace(/<script id="epi-preloaded-cases" type="application\/json">[\s\S]*?<\/script>\s*/ui, '');
+  html = html.replace(/<script id="epi-data" type="application\/json">[\s\S]*?<\/script>\s*/ui, '');
+
+  // Build payload in the multi-case format the viewer reads
+  const payload = {
+    cases: [{
+      source_name: caseData.source_name || caseData.manifest?.workflow_id || 'artifact',
+      file_size: caseData.file_size || 0,
+      archive_base64: caseData.archive_base64 || null,
+      manifest: caseData.manifest || {},
+      steps: caseData.steps || [],
+      analysis: caseData.analysis || null,
+      policy: caseData.policy || null,
+      policy_evaluation: caseData.policy_evaluation || null,
+      review: reviewRecord,
+      environment: caseData.environment || null,
+      stdout: caseData.stdout || null,
+      stderr: caseData.stderr || null,
+      files: caseData.files || {},
+      integrity: caseData.integrity || null,
+      signature: caseData.signature || null,
+    }],
+    ui: {
+      view: 'case',
+      embeddedArtifactMode: true,
+    },
+  };
+
+  const dataTag = '<script id="epi-preloaded-cases" type="application/json">' +
+    htmlSafeJson(payload, 2) + '</script>';
+
+  // Inject before </head>
+  if (html.includes('</head>')) {
+    html = html.replace('</head>', dataTag + '\n</head>');
+  }
+
+  return html;
+}
+
+async function buildReviewedArtifactBytes(caseData, reviewRecord) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip is not available. Cannot build artifact in browser.');
+  }
+
+  const zip = new JSZip();
+
+  // mimetype must be first and uncompressed
+  zip.file('mimetype', 'application/vnd.epi+zip', { compression: 'STORE' });
+
+  // Original files (base64 decode → binary)
+  const files = caseData.files || {};
+  for (const [name, b64] of Object.entries(files)) {
+    if (name === 'mimetype' || name === 'viewer.html' || name === 'manifest.json' || name === 'review.json') {
+      continue;
+    }
+    zip.file(name, base64ToUint8Array(b64));
+  }
+
+  // Manifest (keep original, just ensure container_format reflects legacy ZIP)
+  const manifest = JSON.parse(JSON.stringify(caseData.manifest || {}));
+  manifest.container_format = 'legacy-zip';
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+  // Review in ledger format
+  const outcomeMap = {
+    approved: 'dismissed',
+    rejected: 'confirmed_fault',
+    escalated: 'skipped',
+  };
+  const reviewLedger = {
+    reviewed_by: reviewRecord.reviewed_by,
+    reviewed_at: reviewRecord.reviewed_at,
+    reviews: [{
+      outcome: outcomeMap[reviewRecord.status] || 'skipped',
+      notes: reviewRecord.notes || '',
+      reviewed_at: reviewRecord.reviewed_at,
+    }],
+    review_version: '1.0.0',
+  };
+  zip.file('review.json', JSON.stringify(reviewLedger, null, 2));
+
+  // Rebuilt viewer HTML with review embedded
+  const viewerHtml = buildEmbeddedViewerHtml(caseData, reviewRecord);
+  zip.file('viewer.html', viewerHtml);
+
+  // Generate ZIP bytes as Blob
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return blob;
+}
+
+async function downloadReviewedArtifact(caseData, reviewRecord) {
+  const blob = await buildReviewedArtifactBytes(caseData, reviewRecord);
+  const url = URL.createObjectURL(blob);
+
+  const manifest = caseData.manifest || {};
+  const workflowId = manifest.workflow_id || 'artifact';
+  const safeName = String(workflowId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${safeName}_reviewed.epi`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 /** § 8  Technical Appendix */

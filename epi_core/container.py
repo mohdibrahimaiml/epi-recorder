@@ -1105,6 +1105,9 @@ class EPIContainer:
         manifest_dict = EPIContainer.read_member_json(epi_path, "manifest.json")
         if not isinstance(manifest_dict, dict):
             raise ValueError("manifest.json must be a JSON object")
+        # Backward compatibility: old browser viewer wrote 'legacy' before 'legacy-zip'
+        if manifest_dict.get("container_format") == "legacy":
+            manifest_dict["container_format"] = "legacy-zip"
         return ManifestModel(**manifest_dict)
 
     @staticmethod
