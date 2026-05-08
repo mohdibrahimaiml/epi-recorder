@@ -649,6 +649,7 @@ class TestAutoRepairWindowsAssociation:
         from epi_cli.main import _auto_repair_windows_association
         diag = {"status": "OK", "extension_progid": "EPIRecorder.File"}
         with patch("sys.platform", "win32"), \
+             patch("epi_core.platform.associate._is_association_broken", return_value=True), \
              patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag) as mock_diag, \
              patch("epi_core.platform.associate.register_file_association") as mock_register:
             _auto_repair_windows_association(interactive=True, command_name="view")
