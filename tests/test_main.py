@@ -644,14 +644,16 @@ class TestAutoRepairWindowsAssociation:
             _auto_repair_windows_association(interactive=True, command_name="doctor")
         mock_console.print.assert_called_once()
 
-    def test_skips_association_probe_for_view(self):
+    def test_runs_association_probe_for_view(self):
+        """view now triggers association check — users install and immediately run epi view."""
         from epi_cli.main import _auto_repair_windows_association
+        diag = {"status": "OK", "extension_progid": "EPIRecorder.File"}
         with patch("sys.platform", "win32"), \
-             patch("epi_core.platform.associate.get_association_diagnostics") as mock_diag, \
+             patch("epi_core.platform.associate.get_association_diagnostics", return_value=diag) as mock_diag, \
              patch("epi_core.platform.associate.register_file_association") as mock_register:
             _auto_repair_windows_association(interactive=True, command_name="view")
-        mock_diag.assert_not_called()
-        mock_register.assert_not_called()
+        mock_diag.assert_called()
+        mock_register.assert_not_called()  # healthy diag means no repair needed
 
     def test_skips_association_probe_for_ls(self):
         from epi_cli.main import _auto_repair_windows_association
