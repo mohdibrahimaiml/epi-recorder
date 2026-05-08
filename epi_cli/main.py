@@ -211,15 +211,18 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     if command_name in {"associate", "unassociate", "help", "version"}:
         return
 
-    if command_name not in _WINDOWS_ASSOCIATION_COMMANDS:
+    # command_name=None means "entry-point call" (cli_main) — always check.
+    is_entry_point = command_name is None
+    is_critical = command_name in {"view", "run", "init", "doctor"}
+
+    if not is_entry_point and command_name not in _WINDOWS_ASSOCIATION_COMMANDS:
         return
 
     # Critical commands always get a health check, but the probe TTL still
     # controls how often we *write* the marker (so we don't spam the state dir).
     probe_due = _windows_association_probe_due()
-    is_critical = command_name in {"view", "run", "init", "doctor"}
 
-    if not is_critical and not probe_due:
+    if not is_entry_point and not is_critical and not probe_due:
         return
 
     from epi_core.platform.associate import (
@@ -228,10 +231,11 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
         _is_association_broken,
     )
 
-    # Fast path: if probe is not due but command is critical, do a quick
-    # live health check without full diagnostics. This catches stale registry
-    # entries (e.g., pointing to a deleted Python install) instantly.
-    if is_critical and not probe_due:
+    # Fast path: if probe is not due but this is an entry-point call or a
+    # critical command, do a quick live health check. This catches stale
+    # registry entries (e.g., pointing to a deleted Python install) instantly
+    # without the overhead of full diagnostics.
+    if (is_entry_point or is_critical) and not probe_due:
         try:
             if not _is_association_broken():
                 return  # Healthy — nothing to do
@@ -1574,6 +1578,16 @@ def cli_main():
             console._file = _sys.stdout  # type: ignore[union-attr]
         except Exception:
             pass
+
+        # ── Windows file association self-heal ────────────────────────────────
+        # This runs for EVERY epi invocation (even --version, --help) so that
+        # users who install from pip/GitHub get working double-click support
+        # without ever needing to run 'epi view' or 'epi associate' manually.
+        # The check is extremely fast when healthy (a few registry reads).
+        try:
+            _auto_repair_windows_association(interactive=False, command_name=None)
+        except Exception:
+            pass  # Non-fatal: association is optional for CLI usage
 
     app()
 
