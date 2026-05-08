@@ -1011,6 +1011,20 @@ body {
 .risk-badge.medium { background: var(--amber); }
 .risk-badge.low    { background: var(--pass); }
 
+.risk-level-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 2px solid var(--border);
+}
+.risk-level-badge.high   { background: var(--fail-bg); color: var(--fail); border-color: var(--fail); }
+.risk-level-badge.medium { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.risk-level-badge.low    { background: var(--pass-bg); color: var(--pass); border-color: var(--pass); }
+
 /* ── Footer ─────────────────────────────────────────────── */
 footer {
   margin-top: 60px;
@@ -1039,14 +1053,57 @@ footer {
   100% { background: transparent; }
 }
 
+/* ── Mobile Nav Toggle ──────────────────────────────────── */
+#nav-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  background: var(--doc-bg);
+  border: 2px solid var(--border);
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+}
+
+#nav-close {
+  display: none;
+  float: right;
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin: -2px -4px 0 0;
+}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 780px) {
   body {
     padding-left: 24px;
+    padding-top: 56px;
+  }
+
+  #nav-toggle {
+    display: block;
   }
 
   #forensic-index {
-    display: none;
+    transform: translateX(-120%);
+    transition: transform 0.25s ease;
+    left: 12px;
+    top: 12px;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.12);
+  }
+
+  #forensic-index.mobile-open {
+    transform: translateX(0);
+  }
+
+  #nav-close {
+    display: inline-block;
   }
 
   #document-root {

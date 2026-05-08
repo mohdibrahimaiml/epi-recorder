@@ -717,15 +717,17 @@ def map_policy_evaluation(
         grouped: dict[str, list[dict[str, Any]]] = {}
         violations = report.get("violations") if isinstance(report.get("violations"), list) else []
         for violation in violations:
-            if not isinstance(violation, dict):
-                continue
-            key = str(
-                violation.get("control_id") or violation.get("violation_id") or "agt_violation"
-            )
-            grouped.setdefault(key, []).append(violation)
+            if isinstance(violation, str):
+                # String violations are treated as control IDs
+                grouped.setdefault(violation, []).append({"control_id": violation})
+            elif isinstance(violation, dict):
+                key = str(
+                    violation.get("control_id") or violation.get("violation_id") or "agt_violation"
+                )
+                grouped.setdefault(key, []).append(violation)
 
         for control_id, grouped_violations in grouped.items():
-            first = grouped_violations[0]
+            first = grouped_violations[0] if grouped_violations else {}
             step_numbers = _link_step_numbers(first, steps)
             severity = _highest_severity(
                 [str(item.get("severity") or "medium") for item in grouped_violations]
@@ -748,6 +750,27 @@ def map_policy_evaluation(
                     "matched_findings": grouped_violations,
                 }
             )
+
+    # If compliance report explicitly says passed=false but no violations/details
+    # were provided, synthesize a single failed result from the top-level signal
+    if not results and report.get("passed") is False:
+        results.append(
+            {
+                "rule_id": report.get("framework") or "agt-compliance",
+                "name": report.get("framework") or "AGT Compliance",
+                "rule_name": report.get("framework") or "AGT Compliance",
+                "rule_type": report.get("framework") or "agt_control",
+                "severity": "high",
+                "mode": "imported",
+                "applies_at": "runtime",
+                "status": "failed",
+                "review_required": True,
+                "match_count": 0,
+                "step_numbers": [],
+                "plain_english": report.get("summary") or "AGT compliance report marked this run as failed.",
+                "matched_findings": [],
+            }
+        )
 
     artifact_review_required = any(bool(result.get("review_required")) for result in results)
     controls_failed = sum(1 for result in results if result.get("status") == "failed")
@@ -933,8 +956,35 @@ def synthesize_analysis(
     ]
     faults = [_policy_fault_from_result(result, steps) for result in failed_results]
 
+    # Fallback 1: look at individual steps for policy check failures
     if not faults:
         faults = _fallback_faults_from_steps(steps)
+
+    # Fallback 2: if compliance report says passed=false but no detailed faults found
+    compliance_report = bundle.compliance_report if isinstance(bundle.compliance_report, dict) else {}
+    if not faults and compliance_report.get("passed") is False:
+        faults.append(
+            {
+                "step_index": 0,
+                "step_number": 1,
+                "fault_type": "POLICY_VIOLATION",
+                "category": "policy_violation",
+                "severity": _normalize_token(compliance_report.get("risk_level")) or "high",
+                "plain_english": compliance_report.get("summary") or "AGT compliance report marked this run as failed.",
+                "why_it_matters": "This run broke an AGT-reported compliance control and should be reviewed before the outcome is trusted.",
+                "review_required": True,
+                "fault_chain": [
+                    {
+                        "step_index": 0,
+                        "step_number": 1,
+                        "role": "source_event",
+                        "detail": compliance_report.get("summary") or "AGT compliance report marked this run as failed.",
+                    }
+                ],
+                "rule_id": compliance_report.get("framework") or "agt-compliance",
+                "rule_name": compliance_report.get("framework") or "AGT Compliance",
+            }
+        )
 
     faults.sort(
         key=lambda fault: (

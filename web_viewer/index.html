@@ -17,9 +17,12 @@
   </div>
 </div>
 
+<!-- ── Mobile Hamburger ──────────────────────────────── -->
+<button id="nav-toggle" aria-label="Open navigation">☰</button>
+
 <!-- ── Sidebar Navigation ────────────────────────────── -->
 <nav id="forensic-index">
-  <div class="index-title">Audit_Index</div>
+  <div class="index-title">Audit_Index <button id="nav-close" aria-label="Close navigation">✕</button></div>
   <a href="#doc-header">§0 Summary</a>
   <a href="#integrity-status">§1 Integrity</a>
   <a href="#case-context" id="nav-context" class="hidden">§2 Context</a>
@@ -129,6 +132,7 @@
         <div>
           <div id="verdict-text" class="verdict-text unknown">PENDING</div>
           <div id="compliance-stats" class="compliance-stats"></div>
+          <div id="risk-level-badge" class="risk-level-badge"></div>
         </div>
         <div id="verdict-note" class="verdict-analysis-note"></div>
       </div>

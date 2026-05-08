@@ -627,13 +627,24 @@ function renderVerdict(caseData) {
   verdictEl.textContent = verdictDisplay;
   verdictEl.className = 'verdict-text ' + verdictClass;
 
-  // Compliance stats
+  // Compliance stats + risk level
   if (pe) {
     const total = pe.controls_evaluated || 0;
     const failed = pe.controls_failed || 0;
     const passed = total - failed;
     document.getElementById('compliance-stats').textContent =
       `${passed}/${total} GOVERNANCE CONTROL${total !== 1 ? 'S' : ''} SATISFIED`;
+
+    const riskLevel = pe.risk_level || analysis?.risk_level || null;
+    const riskEl = document.getElementById('risk-level-badge');
+    if (riskLevel && riskEl) {
+      const rl = String(riskLevel).toLowerCase();
+      riskEl.textContent = `Risk: ${String(riskLevel).toUpperCase()}`;
+      riskEl.className = 'risk-level-badge ' + (rl === 'high' ? 'high' : rl === 'low' ? 'low' : 'medium');
+    } else if (riskEl) {
+      riskEl.textContent = '';
+      riskEl.className = 'risk-level-badge';
+    }
   }
 
   // Analysis note + human attestation context
@@ -772,24 +783,48 @@ function renderGovernance(caseData) {
   showSection('governance-basis', 'nav-governance');
 
   const html = policy.rules.map(rule => {
-    const res = (pe.results || []).find(r => r.rule_id === rule.id);
+    // Handle both object rules and legacy string rules
+    const ruleId = typeof rule === 'string' ? rule : (rule.id || rule.name || 'unnamed');
+    const ruleName = typeof rule === 'string' ? rule : (rule.name || rule.id || 'Unnamed rule');
+    const ruleDesc = typeof rule === 'string' ? '' : (rule.description || '');
+    const ruleSeverity = (typeof rule === 'string' ? 'medium' : (rule.severity || 'medium')).toLowerCase();
+
+    // Match evaluation result by rule_id, control_id, or name
+    const res = (pe.results || []).find(r =>
+      (r.rule_id && r.rule_id === ruleId) ||
+      (r.control_id && r.control_id === ruleId) ||
+      (r.name && r.name === ruleName) ||
+      (r.rule_name && r.rule_name === ruleName)
+    );
     const status = res?.status || 'unknown';
     const isPassed = status === 'passed' || status === 'pass';
     const isFailed = status === 'failed' || status === 'fail';
-    const severity = (rule.severity || 'medium').toLowerCase();
+
+    // Build condition / threshold detail line
+    let detailHtml = '';
+    if (typeof rule === 'object' && rule.condition) {
+      const cond = rule.condition;
+      detailHtml += `<div class="policy-item-desc">Condition: ${esc(cond.field || '?')} ${esc(cond.operator || '?')} ${esc(String(cond.value ?? ''))}</div>`;
+    }
+    if (typeof rule === 'object' && rule.threshold != null) {
+      detailHtml += `<div class="policy-item-desc">Threshold: ${esc(String(rule.threshold))}</div>`;
+    }
+    if (ruleDesc) {
+      detailHtml += `<div class="policy-item-desc">${esc(ruleDesc)}</div>`;
+    }
 
     return `
       <div class="policy-item ${isPassed ? 'passed' : isFailed ? 'failed' : ''}">
         <div class="policy-item-header">
           <span class="policy-item-name">
-            ${esc(rule.id)}: ${esc(rule.name)}
-            <span class="risk-badge ${severity}">${esc(severity.toUpperCase())}</span>
+            ${esc(ruleId)}: ${esc(ruleName)}
+            <span class="risk-badge ${ruleSeverity}">${esc(ruleSeverity.toUpperCase())}</span>
           </span>
           <span class="policy-item-status ${isPassed ? 'passed' : isFailed ? 'failed' : ''}">
             ${esc(status.toUpperCase())}
           </span>
         </div>
-        ${rule.description ? `<div class="policy-item-desc">${esc(rule.description)}</div>` : ''}
+        ${detailHtml}
       </div>`;
   }).join('');
 
@@ -1272,6 +1307,23 @@ function init() {
   // Render first case (single-case viewer)
   const caseData = data.cases[0];
   const context = data.context;
+
+  // Mobile nav toggle
+  const navToggle = document.getElementById('nav-toggle');
+  const navClose = document.getElementById('nav-close');
+  const sidebar = document.getElementById('forensic-index');
+  if (navToggle && sidebar) {
+    navToggle.addEventListener('click', () => sidebar.classList.add('mobile-open'));
+  }
+  if (navClose && sidebar) {
+    navClose.addEventListener('click', () => sidebar.classList.remove('mobile-open'));
+  }
+  // Close sidebar when clicking a nav link (mobile)
+  if (sidebar) {
+    sidebar.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => sidebar.classList.remove('mobile-open'));
+    });
+  }
 
   runBoot(() => {
     renderHeader(caseData, context);
