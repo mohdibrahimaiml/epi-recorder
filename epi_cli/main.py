@@ -86,7 +86,11 @@ Tips:
 console = Console(legacy_windows=False)
 
 _KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "import", "init", "doctor"}
-_WINDOWS_ASSOCIATION_COMMANDS = {"doctor"}
+# Commands that should verify/repair Windows file association on every run.
+# 'view' is critical: users install epi-recorder and immediately run 'epi view'
+# to open artifacts. If the registry points to a deleted Python path, double-click
+# will be broken forever unless we detect and fix it here.
+_WINDOWS_ASSOCIATION_COMMANDS = {"doctor", "view", "run", "init"}
 _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
 
@@ -190,11 +194,14 @@ def _command_needs_default_keys(command_name: str | None) -> bool:
 
 
 def _auto_repair_windows_association(interactive: bool, command_name: str | None) -> None:
-    """Best-effort Windows association repair for explicit health checks only.
+    """Best-effort Windows association repair.
 
-    Normal `view`/double-click flows should never mutate the user's registry or
-    depend on Windows Script Host. Keep automatic repair scoped to `epi doctor`
-    so the common open path stays predictable on locked-down machines.
+    Critical commands ('view', 'run', 'init', 'doctor') always verify the
+    association is healthy. If the registry points to a deleted Python path
+    (common after venv switches or uninstalls), we detect it and re-register
+    silently so double-click keeps working.
+
+    Non-critical commands only probe when the TTL expires.
     """
     import sys as _sys
 
@@ -207,15 +214,35 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     if command_name not in _WINDOWS_ASSOCIATION_COMMANDS:
         return
 
-    if command_name != "doctor" and not _windows_association_probe_due():
+    # Critical commands always get a health check, but the probe TTL still
+    # controls how often we *write* the marker (so we don't spam the state dir).
+    probe_due = _windows_association_probe_due()
+    is_critical = command_name in {"view", "run", "init", "doctor"}
+
+    if not is_critical and not probe_due:
         return
 
-    from epi_core.platform.associate import get_association_diagnostics, register_file_association
+    from epi_core.platform.associate import (
+        get_association_diagnostics,
+        register_file_association,
+        _is_association_broken,
+    )
 
+    # Fast path: if probe is not due but command is critical, do a quick
+    # live health check without full diagnostics. This catches stale registry
+    # entries (e.g., pointing to a deleted Python install) instantly.
+    if is_critical and not probe_due:
+        try:
+            if not _is_association_broken():
+                return  # Healthy — nothing to do
+        except Exception:
+            pass  # Fall through to full diagnostics/repair
+
+    # Full diagnostics + silent repair
     diag = get_association_diagnostics()
     if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
         _mark_windows_association_probe()
-        if interactive and command_name in {"run", "view", "init", "doctor"}:
+        if interactive and is_critical:
             console.print("[dim].epi double-click support checked on Windows.[/dim]")
         return
 
@@ -224,7 +251,7 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     diag = get_association_diagnostics()
     _mark_windows_association_probe()
     if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
-        if interactive and command_name in {"run", "view", "init", "doctor"}:
+        if interactive and is_critical:
             console.print("[dim].epi double-click support checked on Windows.[/dim]")
         return
 
