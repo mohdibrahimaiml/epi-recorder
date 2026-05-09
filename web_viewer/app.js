@@ -376,6 +376,21 @@ function renderHeader(caseData, context) {
     reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${rs.toUpperCase()}`;
     pillsEl.appendChild(reviewPill);
   }
+
+  // Risk level pill
+  const pe = caseData.policy_evaluation || {};
+  const analysis = caseData.analysis || {};
+  const riskLevel = pe.risk_level || analysis.risk_level || null;
+  if (riskLevel) {
+    const rl = String(riskLevel).toLowerCase();
+    const riskPill = document.createElement('span');
+    let riskClass = 'warn';
+    if (rl === 'high' || rl === 'critical') riskClass = 'fail';
+    if (rl === 'low') riskClass = 'pass';
+    riskPill.className = 'pill ' + riskClass;
+    riskPill.innerHTML = `<span class="pill-dot"></span>RISK ${String(riskLevel).toUpperCase()}`;
+    pillsEl.appendChild(riskPill);
+  }
 }
 
 /** § 1  Trust & Integrity */
@@ -787,7 +802,6 @@ function renderGovernance(caseData) {
     const ruleId = typeof rule === 'string' ? rule : (rule.id || rule.name || 'unnamed');
     const ruleName = typeof rule === 'string' ? rule : (rule.name || rule.id || 'Unnamed rule');
     const ruleDesc = typeof rule === 'string' ? '' : (rule.description || '');
-    const ruleSeverity = (typeof rule === 'string' ? 'medium' : (rule.severity || 'medium')).toLowerCase();
 
     // Match evaluation result by rule_id, control_id, or name
     const res = (pe.results || []).find(r =>
@@ -796,6 +810,10 @@ function renderGovernance(caseData) {
       (r.name && r.name === ruleName) ||
       (r.rule_name && r.rule_name === ruleName)
     );
+
+    // Determine severity from evaluation result, fallback to rule severity or medium
+    let ruleSeverity = res?.severity || (typeof rule === 'string' ? 'medium' : (rule.severity || 'medium'));
+    ruleSeverity = String(ruleSeverity).toLowerCase();
     const status = res?.status || 'unknown';
     const isPassed = status === 'passed' || status === 'pass';
     const isFailed = status === 'failed' || status === 'fail';

@@ -729,8 +729,9 @@ def map_policy_evaluation(
         for control_id, grouped_violations in grouped.items():
             first = grouped_violations[0] if grouped_violations else {}
             step_numbers = _link_step_numbers(first, steps)
+            fallback_severity = report.get("risk_level") or "medium"
             severity = _highest_severity(
-                [str(item.get("severity") or "medium") for item in grouped_violations]
+                [str(item.get("severity") or fallback_severity) for item in grouped_violations]
             )
             plain = first.get("description") or f"AGT reported a failed control for {control_id}."
             results.append(
@@ -801,6 +802,7 @@ def map_policy_evaluation(
             report.get("controls_met") or max(controls_evaluated - controls_failed, 0)
         ),
         "compliance_score": report.get("compliance_score"),
+        "risk_level": report.get("risk_level"),
         "artifact_review_required": artifact_review_required,
         "results": results,
         "source_system": "microsoft-agent-governance-toolkit",
@@ -1018,6 +1020,7 @@ def synthesize_analysis(
         "policy_scope": policy_evaluation.get("policy_scope"),
         "mode": "agt_import",
         "synthesized": True,
+        "risk_level": (bundle.compliance_report or {}).get("risk_level") if isinstance(bundle.compliance_report, dict) else None,
         "source_system": "AGT",
         "source_artifacts": ["compliance_report", "steps.jsonl"],
         "warning": IMPORT_ANALYSIS_WARNING,
