@@ -66,7 +66,7 @@ def _guardrails_version() -> tuple:
     """Detect Guardrails AI version robustly using importlib.metadata."""
     try:
         from importlib.metadata import version
-        v_str = version("guardrails-ai")
+        v_str = version("guardrails")
         parts = v_str.split(".")[:3]
         return tuple(int(p) for p in parts)
     except Exception:
