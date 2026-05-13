@@ -15,6 +15,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+try:
+    import guardrails
+    _HAS_GUARDRAILS = True
+except ImportError:
+    _HAS_GUARDRAILS = False
+
 
 class TestEpiGuardrailsImports:
     """Smoke tests for module imports."""
@@ -35,6 +41,7 @@ class TestEpiGuardrailsImports:
             ValidatorResultContent,
         )
 
+    @pytest.mark.skipif(not _HAS_GUARDRAILS, reason="guardrails not installed")
     def test_version_check(self):
         from epi_guardrails.instrumentor import _guardrails_version
 
@@ -44,6 +51,7 @@ class TestEpiGuardrailsImports:
         assert ver >= (0, 10, 0)
 
 
+@pytest.mark.skipif(not _HAS_GUARDRAILS, reason="guardrails not installed")
 class TestInstrumentUninstrument:
     """Test that instrument() and uninstrument() work correctly."""
 
@@ -320,6 +328,7 @@ class TestStepTypes:
         assert len(content["validators"]) == 1
 
 
+@pytest.mark.skipif(not _HAS_GUARDRAILS, reason="guardrails not installed")
 class TestInstrumentorWithMockGuard:
     """Integration test with a mock Guard execution (no real LLM needed)."""
 
