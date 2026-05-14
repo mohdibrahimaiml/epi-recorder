@@ -231,3 +231,95 @@ class TestPrintTrustReport:
         from epi_cli.verify import print_trust_report
         report = self._make_report("HIGH")
         print_trust_report(report, tmp_path / "test.epi", verbose=True)
+
+
+# ─────────────────────────────────────────────────────────────
+# Tests: prev_hash chain verification
+# ─────────────────────────────────────────────────────────────
+
+class TestPrevHashChainVerification:
+    """Tests for prev_hash chain integrity."""
+
+    def _make_step_dicts(self, tamper_step_index: int | None = None) -> list[dict]:
+        """Build a list of 3 step dicts with a valid JSON-hashed prev_hash chain."""
+        from epi_core.serialize import get_canonical_hash
+        from epi_core.schemas import StepModel
+
+        steps = []
+        prev_hash = "CHAIN_START"
+        for i in range(3):
+            step = StepModel(
+                index=i,
+                timestamp=utc_now(),
+                kind="test.step",
+                content={"msg": f"step-{i}"},
+                prev_hash=prev_hash,
+            )
+            steps.append(step)
+            prev_hash = get_canonical_hash(step, format="json")
+
+        if tamper_step_index is not None:
+            steps[tamper_step_index].content["tampered"] = True
+
+        return [s.model_dump(mode="json") for s in steps]
+
+    def test_intact_chain_passes(self):
+        """A valid chain should verify cleanly."""
+        from epi_cli.verify import _verify_step_chain
+
+        step_dicts = self._make_step_dicts()
+        ok, breaks = _verify_step_chain(step_dicts)
+        assert ok is True
+        assert breaks == []
+
+    def test_tampered_chain_detected(self):
+        """Modifying a step's content should break the prev_hash chain."""
+        from epi_cli.verify import _verify_step_chain
+
+        step_dicts = self._make_step_dicts(tamper_step_index=1)
+        ok, breaks = _verify_step_chain(step_dicts)
+        assert ok is False
+        assert any("prev_hash mismatch" in b for b in breaks)
+
+    def test_single_step_no_chain(self):
+        """A single step has no chain to verify — should pass."""
+        from epi_cli.verify import _verify_step_chain
+
+        ok, breaks = _verify_step_chain([{"index": 0, "kind": "test"}])
+        assert ok is True
+        assert breaks == []
+
+    def test_empty_steps_no_chain(self):
+        """Empty step list should pass."""
+        from epi_cli.verify import _verify_step_chain
+
+        ok, breaks = _verify_step_chain([])
+        assert ok is True
+        assert breaks == []
+
+    def test_genesis_step_skipped(self):
+        """Steps with prev_hash='CHAIN_START' are skipped."""
+        from epi_cli.verify import _verify_step_chain
+
+        step_dicts = [
+            {"index": 0, "kind": "start", "prev_hash": "CHAIN_START"},
+            {"index": 1, "kind": "middle", "prev_hash": "CHAIN_START"},
+        ]
+        ok, breaks = _verify_step_chain(step_dicts)
+        assert ok is True
+        assert breaks == []
+
+    def test_old_cbor_artifact_graceful(self):
+        """Steps with CBOR-hashed prev_hash should not crash (graceful degradation)."""
+        from epi_cli.verify import _verify_step_chain
+
+        # Simulate an old artifact: prev_hash is a CBOR hash that won't match JSON
+        step_dicts = [
+            {"index": 0, "kind": "test", "content": {"a": 1}},
+            {"index": 1, "kind": "test", "content": {"b": 2}, "prev_hash": "deadbeef" * 8},
+        ]
+        ok, breaks = _verify_step_chain(step_dicts)
+        # Should detect the mismatch, not crash
+        assert ok is False
+        assert any("prev_hash mismatch" in b for b in breaks)
+

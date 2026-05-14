@@ -99,7 +99,7 @@ class RecordingContext:
                     self._write_step(redaction_step)
                     self.step_index += 1
                     # Update chain anchor so the next step links to the redaction step
-                    self._last_step_hash = get_canonical_hash(redaction_step)
+                    self._last_step_hash = get_canonical_hash(redaction_step, format="json")
 
                 content = redacted_content
 
@@ -118,8 +118,8 @@ class RecordingContext:
                 prev_hash=self._last_step_hash
             )
 
-            # Compute hash for next step's anchor
-            self._last_step_hash = get_canonical_hash(step)
+            # Compute hash for next step's anchor (JSON, same format as steps.jsonl)
+            self._last_step_hash = get_canonical_hash(step, format="json")
 
             self._write_step(step)
             self.step_index += 1

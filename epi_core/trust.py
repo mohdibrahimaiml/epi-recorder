@@ -373,6 +373,7 @@ def create_verification_report(
     # New forensic facts
     sequence_ok: bool = True,
     completeness_ok: bool = True,
+    chain_ok: bool = True,
 ) -> dict:
     """
     Create a structured verification report separating Facts and Identity.
@@ -403,6 +404,7 @@ def create_verification_report(
             "signature_valid": signature_valid,
             "sequence_ok": sequence_ok,
             "completeness_ok": completeness_ok,
+            "chain_ok": chain_ok,
             "has_signature": manifest.signature is not None,
             "mismatches": mismatches,
         },
@@ -424,7 +426,7 @@ def create_verification_report(
 
     # 3. Summary Layer (Unified state for quick lookup)
     report["summary"] = {
-        "integrity": "VALID" if (integrity_ok and sequence_ok and completeness_ok) else "FAILED",
+        "integrity": "VALID" if (integrity_ok and sequence_ok and completeness_ok and chain_ok) else "FAILED",
         "trust": identity_status if signature_valid is True else ("UNTRUSTED" if signature_valid is False else "UNSIGNED"),
     }
 

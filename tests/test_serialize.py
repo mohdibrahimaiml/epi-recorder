@@ -248,3 +248,99 @@ class TestCanonicalHashing:
 
 
  
+
+class TestExplicitFormatParameter:
+    """Test suite for explicit format parameter in get_canonical_hash."""
+
+    def test_step_hash_uses_json_when_forced(self):
+        """Verify format='json' forces JSON canonical hash for StepModel."""
+        step = StepModel(
+            index=0,
+            kind="llm.request",
+            content={"prompt": "test", "model": "gpt-4"},
+        )
+        step.timestamp = datetime(2025, 1, 15, 10, 30, 0)
+
+        json_hash = get_canonical_hash(step, format="json")
+        assert len(json_hash) == 64
+        # JSON canonicalization should produce a different hash than CBOR
+        cbor_hash = get_canonical_hash(step, format="cbor")
+        assert json_hash != cbor_hash
+
+    def test_step_hash_uses_cbor_when_forced(self):
+        """Verify format='cbor' forces CBOR canonical hash."""
+        step = StepModel(
+            index=1,
+            kind="llm.response",
+            content={"response": "hello"},
+        )
+        step.timestamp = datetime(2025, 1, 15, 10, 30, 0)
+
+        cbor_hash = get_canonical_hash(step, format="cbor")
+        assert len(cbor_hash) == 64
+
+    def test_json_and_cbor_hashes_differ(self):
+        """Same model, different formats → different hashes."""
+        step = StepModel(
+            index=2,
+            kind="test.step",
+            content={"key": "value"},
+        )
+        step.timestamp = datetime(2025, 1, 15, 10, 30, 0)
+
+        h_json = get_canonical_hash(step, format="json")
+        h_cbor = get_canonical_hash(step, format="cbor")
+        h_default = get_canonical_hash(step)
+
+        # JSON and CBOR must differ
+        assert h_json != h_cbor
+        # Default (auto-detect) for StepModel (no spec_version) should be CBOR
+        assert h_default == h_cbor
+
+    def test_manifest_json_auto_detect(self):
+        """ManifestModel with v4 spec_version uses JSON by default."""
+        manifest = ManifestModel(
+            workflow_id=UUID("12345678-1234-5678-1234-567812345678"),
+            created_at=datetime(2025, 1, 15, 10, 30, 0),
+            cli_command="test",
+        )
+        # Default should be JSON because spec_version is "4.0.3" (major >= 2)
+        h_default = get_canonical_hash(manifest)
+        h_json = get_canonical_hash(manifest, format="json")
+        h_cbor = get_canonical_hash(manifest, format="cbor")
+
+        assert h_default == h_json
+        assert h_default != h_cbor
+
+    def test_verify_hash_with_format(self):
+        """Verify verify_hash forwards format parameter correctly."""
+        step = StepModel(
+            index=0,
+            kind="test",
+            content={"data": "value"},
+        )
+        step.timestamp = datetime(2025, 1, 15, 10, 30, 0)
+
+        expected_json = get_canonical_hash(step, format="json")
+        expected_cbor = get_canonical_hash(step, format="cbor")
+
+        assert verify_hash(step, expected_json, format="json") is True
+        assert verify_hash(step, expected_cbor, format="cbor") is True
+        # Cross-format should fail
+        assert verify_hash(step, expected_json, format="cbor") is False
+        assert verify_hash(step, expected_cbor, format="json") is False
+
+    def test_format_none_preserves_auto_detect(self):
+        """format=None should behave exactly like not passing the parameter."""
+        step = StepModel(
+            index=0,
+            kind="test",
+            content={"data": "value"},
+        )
+        step.timestamp = datetime(2025, 1, 15, 10, 30, 0)
+
+        h_implicit = get_canonical_hash(step)
+        h_explicit_none = get_canonical_hash(step, format=None)
+
+        assert h_implicit == h_explicit_none
+

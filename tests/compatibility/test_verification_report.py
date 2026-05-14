@@ -99,6 +99,7 @@ def test_report_nested_facts_keys():
         "signature_valid",
         "sequence_ok",
         "completeness_ok",
+        "chain_ok",
         "has_signature",
         "mismatches",
     }

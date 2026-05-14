@@ -318,6 +318,24 @@ class TestCreateVerificationReport:
         report = create_verification_report(True, None, None, {}, m)
         assert report["metadata"]["files_checked"] == 1
 
+    def test_chain_ok_defaults_to_true(self):
+        m = self._make_manifest()
+        report = create_verification_report(True, None, None, {}, m)
+        assert report["facts"]["chain_ok"] is True
+
+    def test_chain_ok_false_in_facts(self):
+        m = self._make_manifest()
+        report = create_verification_report(True, None, None, {}, m, chain_ok=False)
+        assert report["facts"]["chain_ok"] is False
+        # Integrity summary should be FAILED when chain is broken
+        assert report["summary"]["integrity"] == "FAILED"
+
+    def test_chain_ok_true_in_facts_when_passed(self):
+        m = self._make_manifest()
+        report = create_verification_report(True, None, None, {}, m, chain_ok=True)
+        assert report["facts"]["chain_ok"] is True
+        assert report["summary"]["integrity"] == "VALID"
+
 
 # ─────────────────────────────────────────────────────────────
 # trust.sign_manifest_inplace
@@ -344,3 +362,4 @@ class TestSignManifestInplace:
         data = json.loads(manifest_path.read_text())
         assert data["signature"] is not None
         assert "ed25519:testkey:" in data["signature"]
+

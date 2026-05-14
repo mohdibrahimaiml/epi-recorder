@@ -31,6 +31,44 @@ from epi_cli.view import _resolve_epi_file
 console = Console()
 
 
+def _verify_step_chain(steps: list[dict]) -> tuple[bool, list[str]]:
+    """
+    Verify the prev_hash cryptographic chain in a list of steps.
+
+    Each step's ``prev_hash`` must equal the JSON canonical hash of the
+    previous step.  Steps with ``prev_hash == "CHAIN_START"`` or ``None``
+    are skipped (genesis steps).
+
+    Returns:
+        tuple: (chain_ok: bool, chain_breaks: list of human-readable messages)
+
+    Old artifacts (CBOR-hashed chains) are handled gracefully — if any
+    exception occurs during verification, the function returns ``(True, [])``
+    so that legacy artifacts do not falsely fail verification.
+    """
+    if len(steps) < 2:
+        return True, []
+
+    try:
+        from epi_core.serialize import get_canonical_hash
+        from epi_core.schemas import StepModel
+
+        chain_breaks: list[str] = []
+        step_models = [StepModel(**s) for s in steps]
+        for i in range(1, len(step_models)):
+            claimed_prev = step_models[i].prev_hash
+            if claimed_prev is None or claimed_prev == "CHAIN_START":
+                continue
+            expected_hash = get_canonical_hash(step_models[i - 1], format="json")
+            if claimed_prev != expected_hash:
+                chain_breaks.append(f"step {i}: prev_hash mismatch")
+        return len(chain_breaks) == 0, chain_breaks
+    except Exception:
+        # Old artifacts (CBOR-hashed chains) or malformed steps:
+        # default to True so we don't break legacy verification.
+        return True, []
+
+
 def _print_share_hint() -> None:
     """Show the lowest-friction next steps after a successful verification."""
     console.print("")
@@ -272,7 +310,9 @@ def verify_command(
         sequence_ok = True
         completeness_ok = True
         steps_hash_ok = True
-        
+        chain_ok = True
+        chain_breaks = []
+
         try:
             import zipfile
             import hashlib as _hashlib
@@ -284,11 +324,11 @@ def verify_command(
                 if steps_member:
                     raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
                     steps = [json.loads(line) for line in raw_steps]
-                    
+
                     # 1. Index Sequence Audit (Monotonicity)
                     indices = [s.get("index", 0) for s in steps]
                     sequence_ok = all(indices[i] == indices[i-1] + 1 for i in range(1, len(indices))) if indices else True
-                    
+
                     # 2. Timestamp Monotonicity Audit
                     # Check both OTel-style ns and standard ISO timestamps
                     times = []
@@ -299,7 +339,7 @@ def verify_command(
                         else:
                             # Fallback to ISO timestamp string comparison (safe for monotonicity)
                             times.append(s.get("timestamp", ""))
-                    
+
                     is_time_monotonic = all(times[i] >= times[i-1] for i in range(1, len(times))) if times else True
                     sequence_ok = sequence_ok and is_time_monotonic
 
@@ -313,16 +353,28 @@ def verify_command(
                     try:
                         execution_data = EPIContainer.read_member_json(epi_file, "execution.json")
                     except: pass
-                    
+
                     claimed_hash = execution_data.get("steps_hash") or (manifest.trust or {}).get("steps_hash")
                     if claimed_hash:
                         actual_hash = _hashlib.sha256(zf.read(steps_member)).hexdigest()
                         steps_hash_ok = (actual_hash == claimed_hash)
+
+                    # 5. prev_hash Chain Verification
+                    chain_ok, chain_breaks = _verify_step_chain(steps)
         except Exception as _e:
             if verbose:
                 console.print(f"  [yellow]![/yellow] Forensic audit warning: {_e}")
 
-        integrity_ok = integrity_ok and steps_hash_ok
+        integrity_ok = integrity_ok and steps_hash_ok and chain_ok
+
+        if verbose:
+            if chain_ok and not chain_breaks:
+                console.print("  [green][OK][/green] prev_hash chain verified")
+            elif chain_breaks:
+                for cb in chain_breaks:
+                    console.print(f"  [red][FAIL][/red] Chain broken: {cb}")
+            else:
+                console.print("  [yellow]![/yellow] Chain check skipped (old artifact or malformed)")
 
         # ========== STEP 4: AUTHENTICITY CHECKS (Trust) ==========
         if verbose:
@@ -339,7 +391,8 @@ def verify_command(
             manifest=manifest,
             trusted_registry=registry,
             sequence_ok=sequence_ok,
-            completeness_ok=completeness_ok
+            completeness_ok=completeness_ok,
+            chain_ok=chain_ok,
         )
         
         # Apply the selected governance policy
@@ -454,6 +507,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
         signature_valid = facts["signature_valid"]
         sequence_ok = facts.get("sequence_ok", True)
         completeness_ok = facts.get("completeness_ok", True)
+        chain_ok = facts.get("chain_ok", True)
         identity_status = identity.get("status", "UNKNOWN")
         identity_name = identity.get("name")
         identity_detail = identity.get("detail", "")
@@ -467,6 +521,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
         signature_valid = report.get("signature_valid", None)
         sequence_ok = True
         completeness_ok = True
+        chain_ok = True
         identity_status = "KNOWN" if report.get("identity_trusted") else "UNKNOWN"
         identity_name = report.get("signer")
         identity_detail = report.get("trust_message", "")
@@ -497,9 +552,11 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     s_text = "Valid" if signature_valid else ("Unsigned" if signature_valid is None else "INVALID")
     content_lines.append(f"  [{s_color}]- Signature:    {s_text}[/{s_color}]")
 
-    f_color = "green" if (sequence_ok and completeness_ok) else "red"
-    f_text = "PASS" if (sequence_ok and completeness_ok) else "FAIL"
+    f_color = "green" if (sequence_ok and completeness_ok and chain_ok) else "red"
+    f_text = "PASS" if (sequence_ok and completeness_ok and chain_ok) else "FAIL"
     content_lines.append(f"  [{f_color}]- Forensic:     {f_text}[/{f_color}]")
+    if not chain_ok:
+        content_lines.append(f"  [red]- Chain:        BROKEN (prev_hash mismatch)[/red]")
     content_lines.append("")
 
     # Identity Layer

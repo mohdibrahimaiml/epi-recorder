@@ -269,6 +269,7 @@ class TestReportStructureStability:
             "signature_valid",
             "sequence_ok",
             "completeness_ok",
+            "chain_ok",
             "has_signature",
             "mismatches",
         }
