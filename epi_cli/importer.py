@@ -15,7 +15,10 @@ from epi_core.container import EPIContainer
 from epi_core.trust import sign_manifest
 from epi_recorder.integrations.agt import AGTInputError, export_agt_to_epi, load_agt_input
 from epi_recorder.integrations.agt.loader import DEFAULT_AGT_IMPORT_MANIFEST
-from epi_recorder.integrations.agt.report import AnalysisMode, DedupStrategy
+from epi_recorder.integrations.agt.report import AnalysisMode
+
+_ALLOWED_DEDUP = {"prefer-audit", "keep-both", "fail"}
+_ALLOWED_ANALYSIS = {"synthesized", "none"}
 
 app = typer.Typer(
     help=(
@@ -78,12 +81,12 @@ def import_agt(
         "--strict",
         help="Fail on unknown AGT event mappings, unclassified fields, and dedupe conflicts.",
     ),
-    dedupe: DedupStrategy = typer.Option(
+    dedupe: str = typer.Option(
         "prefer-audit",
         "--dedupe",
         help="How to handle overlapping audit/flight-recorder records.",
     ),
-    analysis: AnalysisMode = typer.Option(
+    analysis: str = typer.Option(
         "synthesized",
         "--analysis",
         help="Whether to synthesize analysis.json for imported artifacts.",
@@ -104,6 +107,14 @@ def import_agt(
     except Exception as exc:
         console.print(f"[red][FAIL][/red] Could not load AGT input: {exc}")
         _print_agt_input_hint()
+        raise typer.Exit(1)
+
+    if dedupe not in _ALLOWED_DEDUP:
+        console.print(f"[red][FAIL][/red] Invalid --dedupe value: {dedupe!r}. Must be one of: prefer-audit, keep-both, fail")
+        raise typer.Exit(1)
+
+    if analysis not in _ALLOWED_ANALYSIS:
+        console.print(f"[red][FAIL][/red] Invalid --analysis value: {analysis!r}. Must be one of: synthesized, none")
         raise typer.Exit(1)
 
     if strict and dedupe != "fail":

@@ -14,7 +14,7 @@
   <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdibrahimaiml/epi-recorder?style=flat-square&label=license&color=0073b7" alt="License"/></a>
 </p>
 
-Reference implementation of **EPI (Evidence Packaged Infrastructure) v4.0.3** — the open format for packaging AI execution as tamper-evident, portable evidence.
+Reference implementation of **EPI (Evidence Packaged Infrastructure) v4.1.0** — the open format for packaging AI execution as tamper-evident, portable evidence.
 
 ---
 

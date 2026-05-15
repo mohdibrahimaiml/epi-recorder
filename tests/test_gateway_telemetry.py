@@ -13,7 +13,7 @@ def _event_payload():
         "install_id": "install-1",
         "event_name": "epi.verify.completed",
         "timestamp": "2026-04-12T00:00:00Z",
-        "epi_version": "4.0.1",
+        "epi_version": "4.1.0",
         "python_version": "3.11",
         "os": "Linux",
         "environment": "ci",

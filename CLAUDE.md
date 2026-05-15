@@ -8,7 +8,7 @@
 **EPI** (Evidence Packaged Infrastructure) is the reference implementation of the EPI standard
 for packaging AI execution into portable, verifiable `.epi` artifacts.
 
-**Version**: 4.0.1 · **Python**: ≥3.11 · **License**: MIT
+**Version**: 4.1.0 · **Python**: ≥3.11 · **License**: MIT
 
 ## Package Map
 

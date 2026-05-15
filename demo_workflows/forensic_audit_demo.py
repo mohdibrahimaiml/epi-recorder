@@ -134,7 +134,7 @@ def generate_report(results: list[dict]) -> str:
         "",
         "**Auditor:** Independent Third-Party Verifier  ",
         "**Date:** Auto-generated  ",
-        "**Tool:** `epi verify` (compatibility-locked v4.0.1)  ",
+        "**Tool:** `epi verify` (compatibility-locked v4.1.0)  ",
         "",
         "## Executive Summary",
         "",

@@ -631,6 +631,12 @@ app.add_typer(import_app, name="import", help="Import external evidence into a s
 from epi_cli.telemetry import app as telemetry_app
 app.add_typer(telemetry_app, name="telemetry", help="Manage opt-in telemetry and pilot signup")
 
+try:
+    from epi_cli.scitt import app as scitt_app
+    app.add_typer(scitt_app, name="scitt", help="Register and verify SCITT transparency receipts")
+except ImportError:
+    pass  # cbor2 missing — should never happen since it's a core dependency
+
 from epi_cli.integrate import integrate_command
 app.command(name="integrate", help="Generate EPI integration examples and CI workflows")(integrate_command)
 

@@ -20,11 +20,15 @@ from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 from epi_core.trust import verify_embedded_manifest_signature
 from epi_recorder.api import EpiRecorderSession
-from tests.helpers.artifacts import make_decision_epi, read_legacy_member_json, rewrite_legacy_member
 
 # Import frozen compatibility contracts so this test breaks if they drift
 from tests.compatibility.test_manifest_schema import FROZEN_MANIFEST_FIELDS
 from tests.compatibility.test_verification_report import FROZEN_REPORT_KEYS
+from tests.helpers.artifacts import (
+    make_decision_epi,
+    read_legacy_member_json,
+    rewrite_legacy_member,
+)
 
 pytestmark = pytest.mark.e2e
 runner = CliRunner()
@@ -105,8 +109,7 @@ class TestArtifactLifecycleTamperResistance:
         # Changing manifest.json alters both file hash and signed hash;
         # at minimum the signature must be invalid.
         assert (
-            report["facts"]["signature_valid"] is False
-            or report["facts"]["integrity_ok"] is False
+            report["facts"]["signature_valid"] is False or report["facts"]["integrity_ok"] is False
         )
 
     def test_signature_replay_between_artifacts_fails(self, tmp_path: Path):
@@ -229,7 +232,12 @@ class TestGoldenArtifactsStillVerify:
     """Committed golden artifacts must continue to parse, verify, and integrate."""
 
     def test_legacy_golden_artifact_verifies(self):
-        path = Path(__file__).with_suffix("").parent.parent / "compatibility" / "golden" / "golden_legacy.epi"
+        path = (
+            Path(__file__).with_suffix("").parent.parent
+            / "compatibility"
+            / "golden"
+            / "golden_legacy.epi"
+        )
         if not path.exists():
             pytest.skip("Golden legacy artifact not found")
 
@@ -241,7 +249,12 @@ class TestGoldenArtifactsStillVerify:
         assert ok is True, f"Integrity mismatch: {mismatches}"
 
     def test_envelope_golden_artifact_verifies(self):
-        path = Path(__file__).with_suffix("").parent.parent / "compatibility" / "golden" / "golden_envelope.epi"
+        path = (
+            Path(__file__).with_suffix("").parent.parent
+            / "compatibility"
+            / "golden"
+            / "golden_envelope.epi"
+        )
         if not path.exists():
             pytest.skip("Golden envelope artifact not found")
 
@@ -272,6 +285,7 @@ class TestReportStructureStability:
             "chain_ok",
             "has_signature",
             "mismatches",
+            "transparency_ok",
         }
         assert set(report["identity"].keys()) == {
             "status",
@@ -280,6 +294,7 @@ class TestReportStructureStability:
             "registry_verified",
             "public_key_id",
             "did",
+            "scitt",
         }
         assert set(report["metadata"].keys()) == {
             "spec_version",
@@ -287,6 +302,6 @@ class TestReportStructureStability:
             "created_at",
             "files_checked",
         }
-        assert set(report["summary"].keys()) == {"integrity", "trust"}
+        assert set(report["summary"].keys()) == {"integrity", "trust", "transparency"}
         assert set(report["decision"].keys()) == {"policy", "status", "reason"}
         assert report["trust_level"] in {"HIGH", "MEDIUM", "LOW", "NONE", "INVALID"}

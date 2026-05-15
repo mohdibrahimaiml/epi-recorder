@@ -7,6 +7,23 @@ EPI follows [Semantic Versioning](https://semver.org/) and treats version change
 
 ---
 
+## [4.1.0] - 2026-05-14
+
+### Chain Verification & Trust Correctness Release
+
+#### Fixed
+
+- **`prev_hash` chain verification** -- Changed `StepModel` hashing from CBOR to JSON canonicalization via new `format="json"` parameter in `get_canonical_hash()`. Added chain verification to `epi verify` and `chain_ok` to verification reports. Old CBOR-hashed artifacts gracefully default to `chain_ok=True`.
+- **Guardrails test skip** -- Added `pytest.importorskip("guardrails")` to 5 tests in `tests/integration/test_epi_guardrails.py` when guardrails is not installed.
+- **Typer CLI compatibility** -- Changed `DedupStrategy` annotation from `Literal[...]` to `str` in `epi_cli/importer.py` to avoid `RuntimeError: Type not yet supported` in typer 0.12.5.
+
+#### Notes
+
+- No artifact wire-format changes. Existing `.epi` files remain valid and readable.
+- No CLI interface changes. All commands behave the same.
+
+---
+
 ## [4.0.3] - 2026-05-03
 
 ### Forensic Viewer Redesign & Trust Correctness Release

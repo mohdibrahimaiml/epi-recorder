@@ -195,7 +195,7 @@ class TestPrintTrustReport:
             "metadata": {
                 "workflow_id": str(uuid4()),
                 "created_at": utc_now_iso(),
-                "spec_version": "4.0.1",
+                "spec_version": "4.1.0",
                 "files_checked": 2,
             },
             # Legacy fields for backward compatibility

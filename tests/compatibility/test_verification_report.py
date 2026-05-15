@@ -2,9 +2,9 @@
 Lock the verification report key sets (success and failure paths).
 """
 
-import re
 from pathlib import Path
 
+from epi_cli.verify import _build_failure_report
 from epi_core.schemas import ManifestModel
 from epi_core.trust import (
     TrustRegistry,
@@ -12,7 +12,6 @@ from epi_core.trust import (
     apply_policy,
     create_verification_report,
 )
-from epi_cli.verify import _build_failure_report
 
 FROZEN_REPORT_KEYS = {
     "facts",
@@ -102,6 +101,7 @@ def test_report_nested_facts_keys():
         "chain_ok",
         "has_signature",
         "mismatches",
+        "transparency_ok",
     }
     assert facts_keys == expected_facts, (
         f"facts keys changed: {facts_keys ^ expected_facts}"
@@ -126,6 +126,7 @@ def test_report_nested_identity_keys():
         "registry_verified",
         "public_key_id",
         "did",
+        "scitt",
     }
     assert identity_keys == expected_identity, (
         f"identity keys changed: {identity_keys ^ expected_identity}"
@@ -169,7 +170,8 @@ def test_report_trust_levels_are_frozen():
     assert report["trust_level"] == "LOW"  # No registry entry = LOW even with valid sig
 
     # Now with a registry entry for that key → HIGH
-    import tempfile, os
+    import os
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         trusted_dir = os.path.join(td, "trusted_keys")
         os.makedirs(trusted_dir)

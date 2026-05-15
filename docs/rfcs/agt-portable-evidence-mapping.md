@@ -11,7 +11,7 @@
 
 AGT produces rich governance evidence during AI agent execution — audit logs, compliance reports, policy evaluations, and EU AI Act technical documentation. Today, this evidence lives in memory or in SQLite databases on the runtime host. When an auditor requests proof of compliance six months later, the evidence is often gone, fragmented, or tied to a deployment environment that no longer exists.
 
-This document specifies how AGT evidence bundles map into `.epi`, a portable, signed evidence envelope shipped as `epi-recorder` v4.0.3 on PyPI. This RFC is published for review by the AGT community and other governance framework maintainers. The mapping is implemented in `epi_recorder/integrations/agt/converter.py` via `export_agt_to_epi()`. The envelope carries AGT artifacts without altering their semantics. `.epi` certifies integrity — that the enclosed files have not changed since sealing — not compliance. Compliance evaluation remains the responsibility of the consumer.
+This document specifies how AGT evidence bundles map into `.epi`, a portable, signed evidence envelope shipped as `epi-recorder` v4.1.0 on PyPI. This RFC is published for review by the AGT community and other governance framework maintainers. The mapping is implemented in `epi_recorder/integrations/agt/converter.py` via `export_agt_to_epi()`. The envelope carries AGT artifacts without altering their semantics. `.epi` certifies integrity — that the enclosed files have not changed since sealing — not compliance. Compliance evaluation remains the responsibility of the consumer.
 
 ---
 
@@ -153,7 +153,7 @@ A typical `.epi` file contains the following entries:
 
 | Field | Type | Description |
 |---|---|---|
-| `spec_version` | string | EPI specification version (e.g. `"4.0.3"`) |
+| `spec_version` | string | EPI specification version (e.g. `"4.1.0"`) |
 | `workflow_id` | UUID | Unique artifact identifier |
 | `created_at` | ISO-8601 datetime | Sealing timestamp |
 | `cli_command` | string | Original command that produced the workflow |
@@ -323,7 +323,7 @@ The following threats are assessed from the perspective of an auditor or regulat
 
 **Threat.** An attacker confuses the verifier by mixing hex-encoded and base64-encoded signatures, or by stripping the `ed25519:` prefix.
 
-**Mitigation.** EPI v4.0.3 mandates the format `ed25519:<key_name>:<hex_signature>`. The verifier in `epi_core/trust.py` parses this format strictly and rejects signatures that do not match. Legacy base64-encoded signatures from v1.x are detected and handled with explicit backward-compatibility logic. The `epi verify` CLI reports `INVALID` for malformed signatures.
+**Mitigation.** EPI v4.1.0 mandates the format `ed25519:<key_name>:<hex_signature>`. The verifier in `epi_core/trust.py` parses this format strictly and rejects signatures that do not match. Legacy base64-encoded signatures from v1.x are detected and handled with explicit backward-compatibility logic. The `epi verify` CLI reports `INVALID` for malformed signatures.
 
 ### 8.4 Redaction Abuse
 
@@ -468,7 +468,7 @@ The following are explicitly out of scope for this RFC and for the EPI AGT impor
 | AGT Discussion #806 — Portable Evidence Format | [github.com/microsoft/agent-governance-toolkit/discussions/806](https://github.com/microsoft/agent-governance-toolkit/discussions/806) |
 | AGT Annex IV Exporter #782 | [github.com/microsoft/agent-governance-toolkit/pull/782](https://github.com/microsoft/agent-governance-toolkit/pull/782) |
 | EPI Recorder Repository | [github.com/mohdibrahimaiml/epi-recorder](https://github.com/mohdibrahimaiml/epi-recorder) |
-| EPI Recorder on PyPI (v4.0.3) | [pypi.org/project/epi-recorder/4.0.3](https://pypi.org/project/epi-recorder/4.0.3/) |
+| EPI Recorder on PyPI (v4.1.0) | [pypi.org/project/epi-recorder/4.1.0](https://pypi.org/project/epi-recorder/4.1.0/) |
 | EPI Specification | [github.com/mohdibrahimaiml/epi-spec](https://github.com/mohdibrahimaiml/epi-spec) |
 | in-toto v1.0 Specification | [github.com/in-toto/docs/blob/master/in-toto-spec.md](https://github.com/in-toto/docs/blob/master/in-toto-spec.md) |
 | SLSA v1.0 Provenance | [slsa.dev/spec/v1.0/provenance](https://slsa.dev/spec/v1.0/provenance) |

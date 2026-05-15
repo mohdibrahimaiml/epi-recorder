@@ -304,7 +304,7 @@ class TestExplicitFormatParameter:
             created_at=datetime(2025, 1, 15, 10, 30, 0),
             cli_command="test",
         )
-        # Default should be JSON because spec_version is "4.0.3" (major >= 2)
+        # Default should be JSON because spec_version is "4.1.0" (major >= 2)
         h_default = get_canonical_hash(manifest)
         h_json = get_canonical_hash(manifest, format="json")
         h_cbor = get_canonical_hash(manifest, format="cbor")

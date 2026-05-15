@@ -253,7 +253,7 @@ def scenario_d_time_gap_simulation():
 def main():
     print("=" * 60)
     print("EPI REAL-WORLD SIMULATION")
-    print("Version: 4.0.1")
+    print("Version: 4.1.0")
     print("=" * 60)
 
     results = {
