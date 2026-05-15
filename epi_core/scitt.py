@@ -268,6 +268,9 @@ def verify_scitt_statement(
     Returns:
         True if the statement is valid for this manifest.
     """
+    if isinstance(manifest, dict):
+        manifest = ManifestModel(**manifest)
+
     statement = parse_scitt_statement(cose_bytes)
 
     # Verify payload matches manifest hash
