@@ -1,0 +1,17 @@
+{
+  "entries": [
+    {
+      "entry_id": "old-001",
+      "timestamp": "2026-01-01T00:00:00Z",
+      "event_type": "tool_invocation",
+      "agent_did": "did:web:old-agent.example.com",
+      "action": "allow",
+      "resource": "/api/users",
+      "data": {"method": "GET"},
+      "outcome": "success",
+      "trace_id": "",
+      "entry_hash": "sha256-old001"
+    }
+  ],
+  "metadata": {"export_version": "4.0"}
+}

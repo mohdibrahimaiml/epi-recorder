@@ -636,6 +636,12 @@ try:
 except ImportError:
     pass  # cbor2 missing — should never happen since it's a core dependency
 
+try:
+    from epi_cli.agt_cmd import app as agt_cmd_app
+    app.add_typer(agt_cmd_app, name="agt", help="AGT adapter — evidence receipts and raw audit imports")
+except ImportError:
+    pass
+
 from epi_cli.integrate import integrate_command
 app.command(name="integrate", help="Generate EPI integration examples and CI workflows")(integrate_command)
 

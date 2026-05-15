@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "agent_did": "did:web:broken.example.com",
+      "action": "allow",
+      "outcome": "success"
+    }
+  ]
+}

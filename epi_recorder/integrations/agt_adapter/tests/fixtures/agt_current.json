@@ -1,0 +1,87 @@
+{
+  "entries": [
+    {
+      "entry_id": "entry-001",
+      "timestamp": "2026-05-15T10:00:00Z",
+      "event_type": "tool_invocation",
+      "agent_did": "did:web:sales-agent.example.com",
+      "action": "allow",
+      "resource": "/crm/contacts",
+      "data": {"tool": "crm_lookup", "query": "acme corp"},
+      "outcome": "success",
+      "policy_decision": "allowed",
+      "trace_id": "trace-abc",
+      "entry_hash": "sha256-abc123"
+    },
+    {
+      "entry_id": "entry-002",
+      "timestamp": "2026-05-15T10:01:00Z",
+      "event_type": "tool_blocked",
+      "agent_did": "did:web:sales-agent.example.com",
+      "action": "deny",
+      "resource": "/admin/users",
+      "data": {"tool": "user_delete", "target": "admin"},
+      "outcome": "denied",
+      "policy_decision": "blocked_by_policy",
+      "trace_id": "trace-abc",
+      "entry_hash": "sha256-def456"
+    },
+    {
+      "entry_id": "entry-003",
+      "timestamp": "2026-05-15T10:02:00Z",
+      "event_type": "policy_violation",
+      "agent_did": "did:web:rogue-agent.example.com",
+      "action": "quarantine",
+      "resource": "/api/secrets",
+      "data": {"anomaly_score": 0.95},
+      "outcome": "failure",
+      "policy_decision": "quarantined_by_guardian",
+      "trace_id": "trace-xyz",
+      "entry_hash": "sha256-ghi789"
+    },
+    {
+      "entry_id": "entry-004",
+      "timestamp": "2026-05-15T10:03:00Z",
+      "event_type": "policy_evaluation",
+      "agent_did": "did:web:sales-agent.example.com",
+      "action": "allow",
+      "resource": "/api/data",
+      "data": {"policy_id": "data-access-v2", "checks": 3},
+      "outcome": "success",
+      "policy_decision": "allowed",
+      "trace_id": "trace-abc",
+      "entry_hash": "sha256-jkl012"
+    },
+    {
+      "entry_id": "entry-005",
+      "timestamp": "2026-05-15T10:04:00Z",
+      "event_type": "rogue_detection",
+      "agent_did": "did:web:agent5.example.com",
+      "action": "audit",
+      "resource": "/system/logs",
+      "data": {"detection_model": "isolation_forest", "score": 0.87},
+      "outcome": "success",
+      "policy_decision": "flagged_for_review",
+      "trace_id": "trace-det1",
+      "entry_hash": "sha256-mno345"
+    },
+    {
+      "entry_id": "entry-006",
+      "timestamp": "2026-05-15T10:05:00Z",
+      "event_type": "agent_invocation",
+      "agent_did": "did:web:orchestrator.example.com",
+      "action": "allow",
+      "resource": "did:web:worker-agent.example.com",
+      "data": {"delegation_scope": "read_only", "ttl": 3600},
+      "outcome": "success",
+      "policy_decision": "delegation_approved",
+      "trace_id": "trace-del1",
+      "entry_hash": "sha256-pqr678"
+    }
+  ],
+  "metadata": {
+    "export_version": "4.1",
+    "exported_at": "2026-05-15T10:06:00Z",
+    "merkle_root": "abc123def456"
+  }
+}

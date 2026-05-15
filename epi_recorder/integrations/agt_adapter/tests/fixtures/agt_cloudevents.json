@@ -1,0 +1,20 @@
+[
+  {
+    "specversion": "1.0",
+    "type": "ai.agentmesh.tool.invoked",
+    "source": "did:web:agent.example.com",
+    "id": "ce-001",
+    "time": "2026-05-15T10:00:00Z",
+    "datacontenttype": "application/json",
+    "data": {"tool": "crm_lookup", "query": "acme corp"}
+  },
+  {
+    "specversion": "1.0",
+    "type": "ai.agentmesh.tool.blocked",
+    "source": "did:web:agent.example.com",
+    "id": "ce-002",
+    "time": "2026-05-15T10:01:00Z",
+    "datacontenttype": "application/json",
+    "data": {"tool": "user_delete", "reason": "policy_violation"}
+  }
+]

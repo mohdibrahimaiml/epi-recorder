@@ -1,0 +1,22 @@
+{
+  "entries": [
+    {
+      "entry_id": "extra-001",
+      "timestamp": "2026-05-15T10:00:00Z",
+      "event_type": "tool_invocation",
+      "agent_did": "did:web:agent.example.com",
+      "action": "allow",
+      "resource": "/api/data",
+      "data": {"tool": "search"},
+      "outcome": "success",
+      "policy_decision": "allowed",
+      "trace_id": "trace-1",
+      "entry_hash": "sha256-extra001",
+      "federation_context": "eu-west-1",
+      "data_classification": "CONFIDENTIAL",
+      "retention_policy_days": 90,
+      "compliance_frameworks": ["SOC2", "ISO27001"]
+    }
+  ],
+  "metadata": {"export_version": "5.0-preview"}
+}
