@@ -271,7 +271,6 @@ def main_callback(
     version: bool = typer.Option(
         False,
         "--version",
-        "-v",
         help="Show version and exit",
         callback=version_callback,
         is_eager=True
