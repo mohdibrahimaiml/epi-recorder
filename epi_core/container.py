@@ -719,6 +719,14 @@ class EPIContainer:
             encoding="utf-8"
         )
 
+        # Include VERIFY.txt in the cryptographic file_manifest so tampering is detected.
+        verify_bytes = verify_txt.read_bytes()
+        manifest.file_manifest["VERIFY.txt"] = hashlib.sha256(verify_bytes).hexdigest()
+
+        # Re-sign if needed since file_manifest changed after signing above.
+        if signer_function:
+            manifest = signer_function(manifest)
+
         # Build temporary header for viewer injection
         uuid_bytes = manifest.workflow_id.bytes
         created_at_micros = int(manifest.created_at.timestamp() * 1_000_000)
@@ -746,7 +754,7 @@ class EPIContainer:
 
             zf.writestr("viewer.html", viewer_html, compress_type=zipfile.ZIP_DEFLATED)
 
-            zf.writestr("VERIFY.txt", verify_txt.read_text(encoding="utf-8"), compress_type=zipfile.ZIP_DEFLATED)
+            zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
             manifest_json = manifest.model_dump_json(indent=2)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
@@ -1132,6 +1140,22 @@ class EPIContainer:
                     mismatches[filename] = (
                         f"Hash mismatch: expected {expected_hash}, got {actual_hash}"
                     )
+
+            # Check for extra files not listed in file_manifest (injection detection).
+            # VERIFY.txt is exempt when missing from file_manifest for backward
+            # compatibility with artifacts from earlier releases.
+            # Mutable review files are also exempt (they are added after signing).
+            for file_path in temp_path.rglob("*"):
+                if file_path.is_file():
+                    rel_path = str(file_path.relative_to(temp_path)).replace("\\", "/")
+                    if rel_path in _RESERVED_ROOT_ARCHIVE_NAMES:
+                        continue
+                    if _is_mutable_review_archive_name(rel_path):
+                        continue
+                    if rel_path == "VERIFY.txt" and "VERIFY.txt" not in manifest.file_manifest:
+                        continue
+                    if rel_path not in manifest.file_manifest:
+                        mismatches[rel_path] = "Extra file not in manifest"
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)
 

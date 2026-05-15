@@ -73,6 +73,19 @@ class TestSCITTStatement:
         assert stmt.issuer == issuer
         assert stmt.payload is not None
 
+    def test_create_scitt_statement_with_dict(self, signed_manifest, private_key):
+        """create_scitt_statement must accept a raw dict and produce the same statement."""
+        manifest_dict = signed_manifest.model_dump(mode="json")
+
+        cose_from_dict = create_scitt_statement(manifest_dict, private_key, issuer="test")
+        cose_from_model = create_scitt_statement(signed_manifest, private_key, issuer="test")
+
+        stmt_from_dict = parse_scitt_statement(cose_from_dict)
+        stmt_from_model = parse_scitt_statement(cose_from_model)
+
+        assert stmt_from_dict.subject == stmt_from_model.subject
+        assert stmt_from_dict.issuer == stmt_from_model.issuer
+
     def test_statement_payload_matches_manifest_hash(self, signed_manifest, private_key):
         """The statement payload must equal the manifest's canonical hash."""
         cose_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")

@@ -177,7 +177,7 @@ class SCITTStatement:
 
 
 def create_scitt_statement(
-    manifest: ManifestModel,
+    manifest: ManifestModel | dict,
     private_key: Ed25519PrivateKey,
     issuer: str,
     kid: bytes = b"default",
@@ -191,7 +191,7 @@ def create_scitt_statement(
     identical content.
 
     Args:
-        manifest: The EPI manifest to attest.
+        manifest: The EPI manifest to attest (ManifestModel or dict).
         private_key: Ed25519 private key of the issuer.
         issuer: Issuer identifier (DID, URI, or key name).
         kid: Key identifier byte string.
@@ -199,6 +199,8 @@ def create_scitt_statement(
     Returns:
         COSE_Sign1 bytes.
     """
+    if isinstance(manifest, dict):
+        manifest = ManifestModel(**manifest)
     manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
     payload = manifest_hash.encode("utf-8")
 

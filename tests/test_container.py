@@ -356,7 +356,65 @@ class TestEPIContainer:
         
         with pytest.raises(FileNotFoundError):
             EPIContainer.verify_integrity(fake_path)
-    
+
+    def test_verify_integrity_includes_verify_txt(self, temp_workspace, sample_files):
+        """VERIFY.txt must be in file_manifest and integrity-checked."""
+        output_path = temp_workspace / "test.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        read_manifest = EPIContainer.read_manifest(output_path)
+        assert "VERIFY.txt" in read_manifest.file_manifest, (
+            "VERIFY.txt should be in file_manifest"
+        )
+
+        is_valid, mismatches = EPIContainer.verify_integrity(output_path)
+        assert is_valid, "Integrity check should pass for untampered file"
+
+    def test_verify_integrity_rejects_extra_files(self, temp_workspace, sample_files):
+        """Injected files not in file_manifest must be detected."""
+        import zipfile
+
+        output_path = temp_workspace / "test.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        # Inject an extra file into the ZIP
+        injected_path = temp_workspace / "injected.epi"
+        with zipfile.ZipFile(output_path, "r") as zf_in:
+            with zipfile.ZipFile(injected_path, "w") as zf_out:
+                for item in zf_in.namelist():
+                    zf_out.writestr(item, zf_in.read(item))
+                zf_out.writestr("malware.exe", b"EVIL_PAYLOAD")
+
+        is_valid, mismatches = EPIContainer.verify_integrity(injected_path)
+        assert not is_valid, "Integrity check should fail when extra file is injected"
+        assert "malware.exe" in mismatches
+        assert "Extra file not in manifest" in mismatches["malware.exe"]
+
+    def test_verify_integrity_detects_removed_verify_txt(self, temp_workspace, sample_files):
+        """Removing VERIFY.txt must cause integrity failure."""
+        import zipfile
+
+        output_path = temp_workspace / "test.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        # Remove VERIFY.txt from the ZIP
+        stripped_path = temp_workspace / "stripped.epi"
+        with zipfile.ZipFile(output_path, "r") as zf_in:
+            with zipfile.ZipFile(stripped_path, "w") as zf_out:
+                for item in zf_in.namelist():
+                    if item != "VERIFY.txt":
+                        zf_out.writestr(item, zf_in.read(item))
+
+        is_valid, mismatches = EPIContainer.verify_integrity(stripped_path)
+        assert not is_valid, "Integrity check should fail when VERIFY.txt is missing"
+        assert "VERIFY.txt" in mismatches
+
     def test_embedded_viewer_with_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer includes steps data."""
         # Create steps.jsonl
