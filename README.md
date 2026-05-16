@@ -4,7 +4,7 @@
 
 # EPI: Evidence Packaged Infrastructure
 
-### The Forensic Standard for Verifiable AI Execution.
+### Portable Evidence for AI Execution.
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
