@@ -161,6 +161,7 @@ class TestGuardrailsRecorderSession:
                     guard_config={"num_reasks": 1},
                     prompt="test prompt",
                 )
+                captured_trace_id = session.state.trace_id
 
                 session.begin_iteration(
                     iteration_index=0,
@@ -252,7 +253,15 @@ class TestGuardrailsRecorderSession:
             
             # Start event
             start_step = [s for s in steps if s["kind"] == "agent.step" and s["content"].get("phase") == "start"][0]
-            assert start_step["content"]["trace_id"] == str(session.state.trace_id)
+            assert start_step["content"]["trace_id"] == captured_trace_id, (
+                f"trace_id mismatch: step_content={start_step['content'].get('trace_id')!r} "
+                f"vs captured={captured_trace_id!r}"
+            )
+            # Also verify session.state is still consistent after exit
+            assert str(session.state.trace_id) == captured_trace_id, (
+                f"session.state.trace_id changed after exit: "
+                f"got={session.state.trace_id!r} vs captured={captured_trace_id!r}"
+            )
             
             # End event
             end_step = [s for s in steps if s["kind"] == "agent.step" and s["content"].get("phase") == "end"][0]
