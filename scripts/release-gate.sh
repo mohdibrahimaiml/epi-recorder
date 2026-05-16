@@ -29,6 +29,9 @@ echo "== EPI Release Gate =="
 echo "Repo: ${REPO_ROOT}"
 echo "Python: ${PYTHON}"
 echo ""
+echo "Cleaning environment..."
+"${PYTHON}" -m pip uninstall -y epi-recorder || true
+echo ""
 export PYTHONPATH="${REPO_ROOT}"
 "${PYTHON}" -m epi_cli.main version
 "${PYTHON}" -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py \

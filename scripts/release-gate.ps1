@@ -115,6 +115,9 @@ Write-Host "Repo: $repoRoot"
 Write-Host "Python: $PythonCmd"
 Write-Host ""
 
+Write-Host "Cleaning environment..."
+& $PythonCmd -m pip uninstall -y epi-recorder | Out-Null
+Write-Host ""
 $env:PYTHONPATH = $repoRoot
 & $PythonCmd -m epi_cli.main version
 if ($LASTEXITCODE -ne 0) { throw "Failed: epi version" }
