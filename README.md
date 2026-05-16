@@ -1,148 +1,129 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
+  <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="220"/>
   <br>
   <h1 align="center">EPI: Evidence Packaged Infrastructure</h1>
-  <p align="center"><strong>The forensic bug report artifact for AI systems.</strong></p>
+  <p align="center"><strong>The Forensic Standard for Verifiable AI Execution.</strong></p>
   <p align="center">
-    <em>Capture any AI agent run into one portable <code>.epi</code> file you can open, share, and verify anywhere.</em>
+    <em>EPI (v4.1.0) is a protocol-level container format for capturing, sealing, and verifying AI agent workflows as immutable evidence.</em>
   </p>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/epi-recorder/"><img src="https://img.shields.io/pypi/v/epi-recorder?style=flat-square&label=PyPI&color=0073b7" alt="PyPI Version"/></a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml"><img src="https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg" alt="Build Status"/></a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdibrahimaiml/epi-recorder?style=flat-square&label=license&color=0073b7" alt="License"/></a>
-  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"/></a>
+  <a href="https://pypi.org/project/epi-recorder/"><img src="https://img.shields.io/pypi/v/epi-recorder?style=for-the-badge&label=PyPI&color=0073b7" alt="PyPI Version"/></a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml"><img src="https://img.shields.io/github/actions/workflow/status/mohdibrahimaiml/epi-recorder/release-gate.yml?style=for-the-badge&label=Verification" alt="Build Status"/></a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdibrahimaiml/epi-recorder?style=for-the-badge&label=license&color=0073b7" alt="License"/></a>
 </p>
 
 ---
 
-## 🚀 Why EPI?
+## 🏛️ The Infrastructure for Trusted AI
 
-Logs are **brittle, non-portable, and easily tampered with**. In high-stakes AI applications—finance, healthcare, legal—standard logging isn't enough. 
+In the era of autonomous AI, logs are insufficient. Infrastructure requires **evidence**. EPI provides a standardized, tamper-evident container (`.epi`) that transforms transient LLM calls into durable, verifiable records.
 
-EPI turns AI execution into a **forensic artifact**:
-- **Portable**: One file contains the trace, environment, policy, and a self-contained viewer.
-- **Verifiable**: Cryptographically sealed with **Ed25519** and **SHA-256**.
-- **Offline-First**: No cloud, no login, no internet required to view or verify.
-- **Governance-Ready**: Designed for **EU AI Act** transparency and **NIST AI RMF** compliance.
+### 🇪🇺 EU AI Act & Regulatory Alignment
+EPI is engineered to satisfy the rigorous transparency requirements of modern AI regulation:
+- **Article 12 (Logging)**: Automated generation of event logs for high-risk AI systems.
+- **Article 13 (Transparency)**: Human-interpretable presentation of AI decision paths via the Forensic Viewer.
+- **Article 14 (Human Oversight)**: Built-in human-in-the-loop review and attestation layers.
+- **NIST AI RMF / ISO 42001**: Mapping evidence to risk management and governance frameworks.
 
 ---
 
-## 📦 Install
+## 💎 Core Use Cases
+
+| Industry | Application | Value Proposition |
+| :--- | :--- | :--- |
+| **Enterprise** | **Post-Hoc Debugging** | Package a failing agent run into a portable `.epi` repro for 100% reproducible debugging. |
+| **Finance/Insurance** | **Claim Auditing** | Generate a signed, immutable record of every AI-driven refund or claim decision. |
+| **Legal/Compliance** | **Admissible Evidence** | Maintain a cryptographic chain of custody for AI outputs in sensitive legal workflows. |
+| **Cybersecurity** | **Adversarial Analysis** | Inspect agent tool-use and model logic in a secure, air-gapped forensic environment. |
+| **Healthcare** | **Clinical Audit Trails** | Capture the reasoning behind AI-assisted medical triage for regulatory review. |
+
+---
+
+## 📦 Installation
 
 ```bash
 pip install epi-recorder
 ```
 
-## ⏱️ Get Started in 60 Seconds
+## ⏱️ 60-Second Proof of Concept
 
 ```bash
 epi demo
 ```
 
-This runs a sample workflow and demonstrates the full **Capture → View → Verify** loop:
-1. **Capture**: Records a multi-step agent run into `refund_case.epi`.
-2. **View**: Opens the **Forensic Viewer** in your browser (offline).
-3. **Verify**: Checks the cryptographic integrity and signature.
+Run the built-in simulator to witness the **Capture → Seal → Verify** lifecycle. This command generates a signed `.epi` artifact, opens the **Forensic Viewer**, and performs a cryptographic integrity check.
 
 ---
 
-## 🛠️ Core API
+## 🛠️ The SDK: Capture Everything
 
-Capture any LLM-backed workflow with minimal code changes.
+EPI integrates at the protocol layer, allowing you to instrument entire agent populations with zero friction.
 
 ```python
 from epi_recorder import record, wrap_openai
 from openai import OpenAI
 
-# 1. Wrap your client
+# 1. High-Fidelity Wrapper (Captures Request/Response/Metadata)
 client = wrap_openai(OpenAI())
 
-# 2. Record the session
-with record("my_agent.epi", workflow_name="Insurance Claim V4"):
+# 2. Forensic Context (Seals Trace, Env, and Governance Basis)
+with record("forensic_case.epi", workflow_name="Underwriting V4"):
     response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": "Assess this claim for risk."}]
+        messages=[{"role": "user", "content": "Analyze applicant #421"}]
     )
 ```
 
-### Review and Verify
-```bash
-epi view my_agent.epi    # Open forensic investigation UI
-epi verify my_agent.epi  # Run Ed25519 & hash-chain integrity check
-```
-
 ---
 
-## 🏗️ The `.epi` Forensic Container
+## 🏗️ Protocol Architecture
 
-EPI artifacts use a **binary envelope** (EPI1) that wraps a signed, forensic ZIP payload.
-
-```text
-my_run.epi
-├── [Header] EPI1 (Magic, Length, SHA-256)
-└── [Payload] Signed ZIP
-    ├── mimetype (Forensic marker: must be first, uncompressed)
-    ├── manifest.json (Metadata + Ed25519 Signature + File Hashes)
-    ├── steps.jsonl (Immutable Timeline with prev_hash chaining)
-    ├── environment.json (Host & Python snapshot)
-    ├── governance_basis.json (The rulebook applied)
-    └── viewer.html (Self-contained Offline UI)
-```
+EPI artifacts are **Polyglot Containers**—valid as both a binary envelope and a self-contained offline investigation UI.
 
 ```mermaid
-graph TD
-    A[Agent Runtime] -->|Instrumented Steps| B[SQLite WAL Cache]
-    B -->|Finalize| C[EPI Packer]
-    D[Private Key] -->|Ed25519 Sign| C
-    C -->|EPI1 Envelope| E[.epi Artifact]
-    E -->|Open| F[Forensic Viewer]
-    E -->|Check| G[Integrity Verifier]
+graph LR
+    A[AI Agent] -->|NDJSON Steps| B[Forensic Accumulator]
+    B -->|SHA-256 Hash Chain| C[Manifest Engine]
+    D[Ed25519 Identity] -->|Digital Signature| C
+    C -->|EPI1 Binary Envelope| E[.epi Artifact]
+    E -->|MIME: application/vnd.epi| F[Forensic Viewer]
+    E -->|MIME: application/zip| G[Integrity Engine]
+    H[DID:WEB] -.->|Identity Binding| D
 ```
 
----
-
-## 🔌 Framework Integrations
-
-EPI acts as a universal evidence layer for the entire AI ecosystem.
-
-- **LiteLLM**: `litellm.callbacks = [EPICallback()]`
-- **LangChain**: `ChatOpenAI(..., callbacks=[EPICallbackHandler()])`
-- **LangGraph**: `EPICheckpointSaver()` for stateful graph history.
-- **OpenTelemetry**: `setup_epi_tracing()` to turn spans into artifacts.
-- **pytest**: `pytest --epi` (automatic artifacts for failing tests).
-- **Microsoft AGT**: `epi import agt <bundle>` (import external evidence).
+### Forensic Features:
+- **EPI1 Envelope**: High-performance binary header for fast verification and MIME detection.
+- **Strict Ordering**: The `mimetype` file is strictly stored as the first uncompressed entry (Forensic Standard).
+- **Step-Level Chaining**: Each execution step is cryptographically bound to the previous step.
+- **Automatic Redaction**: Built-in regex engines scrub API keys, tokens, and PII before sealing.
 
 ---
 
-## 🏛️ Governance & Compliance
+## 🔌 The Ecosystem Hub
 
-EPI is built for the **Enterprise AI Stack**.
+EPI is a framework-agnostic evidence layer.
 
-- **EU AI Act**: Direct support for **Article 12 (Logging)** and **Article 13 (Transparency)**.
-- **NIST AI RMF**: Evidence packaging for MEASURE and MANAGE functions.
-- **Forensic Redaction**: Automatic scrubbing of `sk-...` keys, bearer tokens, and PII.
-- **DID:WEB Identity**: Bind artifacts to organizational identities (e.g., `did:web:gov.acme.com`).
-
----
-
-## 📑 Documentation
-
-- 📖 **[EPI Specification](docs/EPI-SPEC.md)**: The technical wire format.
-- ⚖️ **[Governance Guide](docs/POLICY.md)**: Defining and enforcing AI rulebooks.
-- 🇪🇺 **[EU AI Act Prep](docs/EU-AI-ACT-EVIDENCE-PREP.md)**: Regulatory evidence workflows.
-- 🔌 **[Integration Guide](docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)**: 5-minute setup for any stack.
+- **Integrations**: LiteLLM, LangChain, LangGraph, CrewAI, AutoGen, and OpenTelemetry.
+- **CLI Toolchain**: `epi view`, `epi verify`, `epi keys`, `epi import agt`.
+- **Decentralized Identity**: Bind evidence to organizations using **DID:WEB**.
+- **SCITT Integration**: Align with the IETF Supply Chain Integrity, Transparency, and Trust standard.
 
 ---
 
-## 🤝 Contributing
+## 📑 Resources & Governance
 
-```bash
-git clone https://github.com/mohdibrahimaiml/epi-recorder.git
-pip install -e ".[dev]"
-pytest
-```
+- 📄 **[Technical Specification](docs/EPI-SPEC.md)**: The wire-format and envelope protocol.
+- 🏛️ **[Governance Framework](docs/POLICY.md)**: Managing rulebooks and compliance evaluation.
+- 🇪🇺 **[Regulatory Compliance Guide](docs/EU-AI-ACT-EVIDENCE-PREP.md)**: Article mapping for EU AI Act.
+- 🛠️ **[CLI Reference](docs/CLI.md)**: Comprehensive operator guide.
 
-MIT License. Built by **EPI Labs**.  
-*Making AI agent execution verifiable, portable, and trustworthy.*
+---
+
+## 🤝 Community & Enterprise
+
+Built by **EPI Labs**.  
+*Standardizing the world's AI evidence infrastructure.*
+
+[MIT License](LICENSE) | [Contributing](CONTRIBUTING.md) | [Security Policy](SECURITY.md)
