@@ -153,7 +153,7 @@ class TestGuardrailsRecorderSession:
                 goal="Integration test",
                 notes="Test notes",
                 tags=["test", "integration"],
-                redact=True,
+                redact=False,
             )
 
             with session:
