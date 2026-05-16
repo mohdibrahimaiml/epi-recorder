@@ -104,9 +104,13 @@ class ManagedGatewayServer:
             self._server.should_exit = True
 
     def server_close(self) -> None:
-        try:
-            self.socket.close()
-        except Exception:
+        if self._server is None:
+            try:
+                self.socket.close()
+            except Exception:
+                pass
+        else:
+            # Uvicorn will close the socket when it exits serve()
             pass
 
 
