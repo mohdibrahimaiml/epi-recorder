@@ -100,27 +100,25 @@ class MistakeDetector:
     
     def _load_from_sqlite(self, db_path: Path) -> List[Dict]:
         """Load steps from SQLite database"""
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.execute('SELECT * FROM steps ORDER BY id')
-        
         steps = []
-        for row in cursor.fetchall():
-            # row: (id, step_index, timestamp, kind, content, created_at)
-            content_str = row[4]
-            content = json.loads(content_str) if isinstance(content_str, str) else content_str
-            steps.append({
-                'id': row[0],
-                'index': row[1],
-                'type': row[3], # kind
-                'content': content,
-                'timestamp': row[2] # timestamp
-            })
-        
-        conn.close()
+        with sqlite3.connect(str(db_path)) as conn:
+            cursor = conn.execute('SELECT * FROM steps ORDER BY id')
+            for row in cursor.fetchall():
+                # row: (id, step_index, timestamp, kind, content, created_at)
+                content_str = row[4]
+                content = json.loads(content_str) if isinstance(content_str, str) else content_str
+                steps.append({
+                    'id': row[0],
+                    'index': row[1],
+                    'type': row[3],  # kind
+                    'content': content,
+                    'timestamp': row[2]  # timestamp
+                })
         return steps
     
     def analyze(self) -> List[Dict]:
         """Run all detection patterns"""
+        self.mistakes = []  # Reset so repeated calls don't accumulate duplicates
         self._detect_infinite_loops()
         self._detect_hallucinations()
         self._detect_inefficiency()
@@ -323,8 +321,3 @@ class MistakeDetector:
             lines.append("")
         
         return '\n'.join(lines)
-        
-        return '\n'.join(lines)
-
-
- 
