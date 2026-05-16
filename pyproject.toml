@@ -161,7 +161,7 @@ Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*"]
-exclude = ["**/tests*"]
+exclude = ["tests", "tests.*", "*.tests", "*.tests.*"]
 
 [tool.setuptools]
 py-modules = ["epi_postinstall"]
