@@ -77,7 +77,7 @@ For AGT-imported cases, `Mapping` becomes the transformation audit that explains
 For those who want the specifics:
 
 - **Capture**: EPI supports explicit instrumentation, wrappers, integrations, imports, and limited patching paths.
-- **Format**: the `.epi` file is a ZIP-based artifact containing timeline data plus optional `policy.json`, `analysis.json`, `review.json`, and imported-source artifacts.
+- **Format**: the `.epi` file uses a binary `EPI1` envelope containing a ZIP evidence payload. The ZIP contains the timeline data plus optional `policy.json`, `analysis.json`, `review.json`, and imported-source artifacts.
 - **Viewer**: the packaged `viewer.html` remains self-contained for offline and extracted review flows.
 - **Security**: Ed25519 digital signatures plus integrity verification.
 - **Review model**: the original sealed evidence remains intact even when human review is appended later.

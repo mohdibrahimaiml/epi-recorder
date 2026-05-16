@@ -54,7 +54,7 @@ payload.zip                 # embedded signed ZIP evidence payload
 ```
 
 Older historical docs may mention `env.json`, raw ZIP `.epi` containers, or a `viewer/` directory. In
-`v4.0.2`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
+`v4.1.0`, the canonical layout uses an `EPI1` outer envelope, `environment.json`, and a root
 `viewer.html`. The embedded viewer is portable evidence content, but
 double-click still requires a registered external handler such as the Windows
 installer or `epi associate`.
@@ -84,7 +84,7 @@ The source of truth for the package.
 
 ```json
 {
-  "spec_version": "4.0.2",
+  "spec_version": "4.1.0",
   "workflow_id": "uuid...",
   "created_at": "iso-8601...",
   "cli_command": "epi run script.py",
