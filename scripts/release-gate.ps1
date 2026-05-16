@@ -115,6 +115,7 @@ Write-Host "Repo: $repoRoot"
 Write-Host "Python: $PythonCmd"
 Write-Host ""
 
+$env:PYTHONPATH = $repoRoot
 & $PythonCmd -m epi_cli.main version
 if ($LASTEXITCODE -ne 0) { throw "Failed: epi version" }
 & $PythonCmd -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py -q --basetemp $baseTemp
