@@ -43,7 +43,7 @@ The artifact can be **emailed to an auditor**, **archived for 10 years**, or **o
 ```text
 agent_run.epi
 ├── [Envelope] EPI1 Header  — Binary magic, version, and payload SHA-256
-└── [Payload] Signed ZIP
+└── [Payload] Signed ZIP    — Wrap with EPI1 Envelope
     ├── manifest.json       — Ed25519 signed root of trust + file hashes
     ├── steps.jsonl         — Immutable execution timeline (prev_hash chain)
     ├── governance.json     — The rulebook that governed the run
@@ -120,7 +120,7 @@ EPI acts as a universal evidence layer for the entire AI ecosystem:
 
 ## ⚖️ Regulatory Compliance Mapping
 
-EPI produces evidence that addresses specific global regulatory requirements.
+EPI produces evidence that addresses specific global regulatory requirements. EPI is not a compliance guarantee and does not provide legal advice. Whether the enclosed evidence satisfies a specific regulatory threshold is for the auditor or notified body to determine.
 
 | Requirement | Framework | .epi Evidence |
 |:---|:---|:---|
