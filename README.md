@@ -10,6 +10,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![SCITT Compatible](https://img.shields.io/badge/SCITT-COSE%20Sign1-orange?style=for-the-badge)](docs/standards/scitt-predicate.md)
+[![AIUC-1 Ready](https://img.shields.io/badge/AIUC--1-Ready-success?style=for-the-badge)](docs/standards/aiuc-1-evidence.md)
 [![Release Gate](https://img.shields.io/badge/release%20gate-passing-brightgreen?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
 [**Pilot Program**](#-founding-pilot-program) · [Quick Start](#🚀-quick-start) · [Integrations](#🔌-integrations) · [Regulatory Mapping](#⚖️-regulatory-compliance-mapping) · [Standards](#🏛️-standards-alignment) · [Docs](docs/)
@@ -130,12 +131,14 @@ EPI produces evidence that addresses specific global regulatory requirements. EP
 | Audit trail for regulated software | **FDA 21 CFR Part 11** | Signed `steps.jsonl` + `manifest.json` |
 | Non-repudiation of data | **HIPAA § 164.312** | Ed25519 signature over manifest |
 | AI Risk Management documentation | **NIST AI RMF** | `governance.json` + `analysis.json` |
+| Verifiable risk evaluation & HITL audit proof | **AIUC-1 (SOC 2 for Agents)** | `steps.jsonl` + `review.json` + `analysis.json` |
 
 ---
 
 ## 🏛️ Standards Alignment
 
 - **SCITT (IETF)**: EPI produces SCITT-compatible COSE Sign1 statements for transparency log anchoring.
+- **AIUC-1 (Compliance)**: EPI generates structured compliance audit evidence mapping to the six AIUC-1 risk domains for autonomous agent audits. See [AIUC-1 Evidence Mapping](docs/standards/aiuc-1-evidence.md) for details.
 - **CycloneDX**: Preserves CycloneDX SBOMs under `artifacts/sbom/` for software supply chain transparency.
 - **in-toto (CNCF)**: Roadmap: Exporting `steps.jsonl` as in-toto link files for execution supply chain verification.
 - **Ed25519 (RFC 8032)**: All manifests are signed using industry-standard Ed25519 digital signatures.

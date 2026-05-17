@@ -32,7 +32,9 @@ keywords = [
     "ci",
     "execution-trace",
     "reproducibility",
-    "tamper-evident"
+    "tamper-evident",
+    "aiuc-1",
+    "aiuc"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
