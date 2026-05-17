@@ -9,7 +9,7 @@
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![SCITT Compatible](https://img.shields.io/badge/SCITT-COSE%20Sign1-orange?style=for-the-badge)](docs/EPI-DOC-v4.1.0.md)
+[![SCITT Compatible](https://img.shields.io/badge/SCITT-COSE%20Sign1-orange?style=for-the-badge)](docs/standards/scitt-predicate.md)
 [![Release Gate](https://img.shields.io/badge/release%20gate-passing-brightgreen?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
 [**Pilot Program**](#-founding-pilot-program) · [Quick Start](#🚀-quick-start) · [Integrations](#🔌-integrations) · [Regulatory Mapping](#⚖️-regulatory-compliance-mapping) · [Standards](#🏛️-standards-alignment) · [Docs](docs/)
