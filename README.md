@@ -6,6 +6,8 @@
 
 ### Portable Evidence for AI Execution.
 
+Helps generate structured, tamper-evident evidence for AI agent compliance workflows, including AIUC-1 accountability controls.
+
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
