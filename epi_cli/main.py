@@ -466,8 +466,26 @@ def verify(
         "--policy",
         help="Governance policy to apply: PERMISSIVE (integrity only), STANDARD (standard trust), STRICT (high assurance).",
     )] = VerificationPolicy.STANDARD,
+    aiuc1: bool = typer.Option(
+        False,
+        "--aiuc1",
+        help="Include AIUC-1 trust domain mapping in the verification report",
+    ),
+    web: bool = typer.Option(
+        False,
+        "--web",
+        help="Open verification results in browser at verify.epilabs.org after CLI check",
+    ),
+    qr: bool = typer.Option(
+        False,
+        "--qr",
+        help="Print a QR code that opens the artifact on verify.epilabs.org",
+    ),
 ):
-    return verify_command(ctx, Path(epi_file), json_output, verbose, report_out, review=review, strict=strict, policy=policy)
+    return verify_command(
+        ctx, Path(epi_file), json_output, verbose, report_out,
+        review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
+    )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
 # recording engine for simple read-only commands like version/ls/verify.

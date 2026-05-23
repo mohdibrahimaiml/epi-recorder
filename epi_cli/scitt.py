@@ -145,6 +145,64 @@ def scitt_register(
     console.print(panel)
 
 
+@app.command("anchor")
+def scitt_anchor(
+    epi_file: Path = typer.Argument(..., help="Path to the .epi file to anchor."),
+    service: str = typer.Option(
+        None, "--service", "-s",
+        help="SCITT transparency service URL (overrides EPI_SCITT_URL env var).",
+    ),
+    key: str = typer.Option(
+        "default", "--key", "-k",
+        help="Name of the Ed25519 key to use for signing.",
+    ),
+) -> None:
+    """
+    Manually anchor a signed .epi artifact to a SCITT Transparency Service.
+
+    This is useful when auto-anchoring was disabled or failed during recording.
+    Requires EPI_SCITT_URL env var or --service flag.
+    """
+    epi_path = Path(epi_file).resolve()
+    if not epi_path.exists():
+        console.print(f"[red][FAIL][/red] File not found: {epi_path}")
+        raise typer.Exit(1)
+
+    try:
+        manifest = EPIContainer.read_manifest(epi_path)
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Could not read manifest: {exc}")
+        raise typer.Exit(1)
+
+    if not manifest.signature:
+        console.print(
+            "[yellow][WARN][/yellow] Artifact is unsigned. Sign first with: epi sign <file.epi>"
+        )
+        raise typer.Exit(1)
+
+    private_key = _load_signing_key(key)
+
+    from epi_recorder.auto_scitt import AutoSCITTAnchor
+    import os
+
+    service_url = service or os.environ.get("EPI_SCITT_URL")
+    if not service_url:
+        console.print(
+            "[red][FAIL][/red] No SCITT service URL. Set EPI_SCITT_URL or use --service."
+        )
+        raise typer.Exit(1)
+
+    anchor = AutoSCITTAnchor(service_url=service_url)
+    console.print(f"[bold]Anchoring to SCITT:[/bold] {service_url}")
+
+    success = anchor.anchor_if_configured(manifest, epi_path, private_key, key)
+    if success:
+        console.print("[green][OK][/green] SCITT anchor complete")
+    else:
+        console.print("[red][FAIL][/red] SCITT anchor failed")
+        raise typer.Exit(1)
+
+
 @app.command("verify")
 def scitt_verify(
     epi_file: Path = typer.Argument(..., help="Path to the .epi file to verify."),

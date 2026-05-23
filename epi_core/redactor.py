@@ -9,6 +9,7 @@ import re
 import os
 import hmac
 import hashlib
+import secrets
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -104,6 +105,39 @@ class RedactionPlaceholderStr(str):
 REDACTION_PLACEHOLDER = RedactionPlaceholderStr("***REDACTED***")
 
 
+def _load_or_generate_redaction_secret() -> bytes:
+    """
+    Load the redaction secret from ~/.epi/.redaction_secret,
+    or generate a new cryptographically secure one if it doesn't exist.
+
+    Returns:
+        32-byte secret for HMAC-SHA256 redaction.
+    """
+    epi_dir = Path.home() / ".epi"
+    secret_path = epi_dir / ".redaction_secret"
+
+    # Load existing secret
+    if secret_path.exists():
+        return secret_path.read_bytes()
+
+    # Ensure directory exists
+    epi_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate a 256-bit (32-byte) cryptographically secure random secret
+    secret = secrets.token_bytes(32)
+
+    # Write with restrictive permissions (owner read/write only)
+    # On Windows, os.chmod with 0o600 may not fully restrict but is best-effort
+    secret_path.write_bytes(secret)
+    try:
+        os.chmod(secret_path, 0o600)
+    except Exception:
+        pass  # Permissions may not be modifiable on all platforms
+
+    print(f"EPI: Generated redaction secret at {secret_path}")
+    return secret
+
+
 class Redactor:
     """
     Redacts sensitive information using configurable regex patterns.
@@ -126,9 +160,13 @@ class Redactor:
         self.env_vars_to_redact = REDACT_ENV_VARS.copy()
         self.allowlist = set(allowlist) if allowlist else set()
         
-        # Derive redaction secret from environment
-        secret_str = os.environ.get("EPI_REDACTION_SECRET", "default-redaction-secret")
-        self.redaction_secret = secret_str.encode("utf-8")
+        # Derive redaction secret from environment or generated file
+        # Never use a hardcoded fallback — that would make redaction forgeable
+        secret_str = os.environ.get("EPI_REDACTION_SECRET")
+        if secret_str:
+            self.redaction_secret = secret_str.encode("utf-8")
+        else:
+            self.redaction_secret = _load_or_generate_redaction_secret()
         
         # Compile default patterns
         for pattern_str, description in DEFAULT_REDACTION_PATTERNS:

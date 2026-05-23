@@ -267,7 +267,11 @@ class TrustRegistry:
         self.trusted_keys_dir = trusted_keys_dir or (
             Path(env_dir) if env_dir else (Path.home() / ".epi" / "trusted_keys")
         )
-        self.registry_url = registry_url
+        # Default to EPI Labs public trust registry if no URL provided
+        self.registry_url = registry_url or os.environ.get(
+            "EPI_TRUSTED_REGISTRY_URL",
+            "https://epilabs.org/.well-known/epi-trust-registry.json",
+        )
 
         # AUD-IA-04: Warn when the trust registry is stored in the same directory as the signing key
         try:

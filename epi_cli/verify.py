@@ -20,6 +20,7 @@ from rich.panel import Panel
 
 from epi_cli.view import _resolve_epi_file
 from epi_core._version import get_version
+from epi_core.aiuc1_mapping import map_verification_to_aiuc1, aiuc1_summary
 from epi_core.container import EPIContainer
 from epi_core.review import verify_review_trust
 from epi_core.trust import (
@@ -31,6 +32,45 @@ from epi_core.trust import (
 )
 
 console = Console()
+
+
+def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
+    """
+    Fetch and cache the SCITT transparency service's Ed25519 public key.
+
+    Args:
+        service_url: URL of the SCITT service (e.g., https://scitt.epilabs.org)
+
+    Returns:
+        32-byte raw Ed25519 public key, or None if unavailable.
+    """
+    if not service_url:
+        return None
+
+    import hashlib
+    from pathlib import Path
+
+    cache_dir = Path.home() / ".epi" / "scitt_service_keys"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_key = hashlib.sha256(service_url.encode()).hexdigest()[:16]
+    cache_file = cache_dir / f"{cache_key}.pub"
+
+    # Return cached key if present
+    if cache_file.exists():
+        try:
+            return bytes.fromhex(cache_file.read_text().strip())
+        except Exception:
+            pass
+
+    # Fetch from service
+    try:
+        from epi_core.scitt import SCITTServiceClient
+        client = SCITTServiceClient(service_url)
+        key_bytes = client.get_public_key()
+        cache_file.write_text(key_bytes.hex())
+        return key_bytes
+    except Exception:
+        return None
 
 
 def _verify_step_chain(steps: list[dict]) -> tuple[bool, list[str]]:
@@ -160,6 +200,28 @@ def _print_share_hint() -> None:
         "  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required"
     )
     console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
+
+
+def _print_qr_code(url: str) -> None:
+    """Print a QR code in the terminal. Falls back to URL box if qrcode not installed."""
+    try:
+        import qrcode
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(url)
+        qr.make()
+        # Print compact ASCII QR
+        for row in qr.modules:
+            line = ""
+            for cell in row:
+                line += "██" if cell else "  "
+            console.print(f"[bold]{line}[/bold]")
+    except Exception:
+        # Fallback: draw a nice box with the URL
+        console.print("┌" + "─" * 50 + "┐")
+        console.print("│" + " " * 50 + "│")
+        console.print("│" + url.center(50) + "│")
+        console.print("│" + " " * 50 + "│")
+        console.print("└" + "─" * 50 + "┘")
 
 
 def _emit_json_report(report: dict) -> None:
@@ -333,10 +395,25 @@ def verify_command(
     report_out: Path | None = None,
     review: bool = False,
     strict: bool = False,
+    aiuc1: bool = typer.Option(
+        False,
+        "--aiuc1",
+        help="Include AIUC-1 trust domain mapping in the verification report",
+    ),
     policy: Annotated[
         VerificationPolicy,
         typer.Option("--policy", help="Governance policy to apply (permissive, standard, strict)"),
     ] = VerificationPolicy.STANDARD,
+    web: bool = typer.Option(
+        False,
+        "--web",
+        help="Open verification results in browser at verify.epilabs.org after CLI check",
+    ),
+    qr: bool = typer.Option(
+        False,
+        "--qr",
+        help="Print a QR code that opens the artifact on verify.epilabs.org",
+    ),
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -410,6 +487,7 @@ def verify_command(
         chain_breaks = []
         seq_comp_gaps = []
         step_count_ok = True  # AUD-CO-02: safe default for old artifacts
+        steps: list[dict] = []
 
         try:
             import hashlib as _hashlib
@@ -564,15 +642,28 @@ def verify_command(
                 verify_scitt_statement(statement_bytes, manifest, public_key_bytes=None)
 
                 # Verify receipt signature against statement
-                # The service public key is not embedded in the artifact;
-                # we would need a trust registry entry for the service.
-                # For now, verify structural integrity only.
-                # TODO: Add service public key to TrustRegistry for full verification.
-                receipt = cbor2.loads(receipt_bytes)
-                if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
-                    transparency_ok = True
+                # Fetch service public key from the transparency service or cache
+                service_pub_key = _fetch_scitt_service_key(scitt_gov.get("service_url"))
+                if service_pub_key:
+                    try:
+                        from epi_core.scitt import verify_scitt_receipt
+                        verify_scitt_receipt(receipt_bytes, statement_bytes, service_pub_key)
+                        transparency_ok = True
+                        if verbose:
+                            console.print("  [green][OK][/green] SCITT receipt cryptographically verified")
+                    except Exception as exc:
+                        transparency_ok = False
+                        if verbose:
+                            console.print(f"  [red][FAIL][/red] SCITT receipt signature invalid: {exc}")
                 else:
-                    transparency_ok = False
+                    # Fallback: structural check only if service key unavailable
+                    receipt = cbor2.loads(receipt_bytes)
+                    if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
+                        transparency_ok = True
+                        if verbose:
+                            console.print("  [yellow][WARN][/yellow] SCITT receipt structurally valid (service key unavailable for crypto verification)")
+                    else:
+                        transparency_ok = False
 
                 if verbose:
                     if transparency_ok:
@@ -601,6 +692,16 @@ def verify_command(
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
         apply_policy(report, active_policy)
+
+        # ========== AIUC-1 DOMAIN MAPPING ==========
+        if aiuc1:
+            aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps)
+            report["aiuc1"] = aiuc1_summary(aiuc1_statuses)
+            if verbose:
+                console.print("\n[bold]AIUC-1 Trust Domain Mapping[/bold]")
+                for domain_id, status in aiuc1_statuses.items():
+                    color = "green" if status.status == "PASS" else ("yellow" if status.status == "PARTIAL" else "red")
+                    console.print(f"  [{color}]{domain_id}. {status.label}: {status.status}[/{color}]")
 
         # ========== STEP 5: REVIEW TRUST CHECKS ==========
         if review:
@@ -644,6 +745,25 @@ def verify_command(
                 maybe_print_telemetry_hint(console, "verify")
             except Exception:
                 pass
+
+        # ========== WEB / QR BRIDGE ==========
+        if web and not json_output:
+            portal_url = "https://verify.epilabs.org"
+            console.print(f"\n[bold cyan]Opening {portal_url}...[/bold cyan]")
+            console.print(f"[dim]Upload this file to verify in your browser:[/dim]")
+            console.print(f"[green]{epi_file.resolve()}[/green]\n")
+            try:
+                import webbrowser
+                webbrowser.open(portal_url)
+            except Exception:
+                console.print("[yellow]Could not open browser automatically.[/yellow]")
+                console.print(f"[cyan]Please visit: {portal_url}[/cyan]")
+
+        if qr and not json_output:
+            portal_url = "https://verify.epilabs.org"
+            console.print(f"\n[bold cyan]Scan this QR code to verify on your phone:[/bold cyan]")
+            _print_qr_code(portal_url)
+            console.print(f"[dim]Or visit: {portal_url}[/dim]\n")
 
         try:
             from epi_core.telemetry import track_event
@@ -797,6 +917,29 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     if did_identity:
         content_lines.append(f"  - DID:          {did_identity}")
     content_lines.append(f"  - Source:       {identity_detail}")
+
+    # AIUC-1 Domain Layer
+    aiuc1_data = report.get("aiuc1")
+    if aiuc1_data:
+        content_lines.append("")
+        content_lines.append("[bold underline]AIUC-1 TRUST DOMAINS[/bold underline]")
+        domains = aiuc1_data.get("domains", {})
+        for domain_id in ["A", "B", "C", "D", "E", "F"]:
+            domain = domains.get(domain_id)
+            if not domain:
+                continue
+            d_status = domain.get("status", "UNKNOWN")
+            d_label = domain.get("label", domain_id)
+            if d_status == "PASS":
+                d_color = "green"
+            elif d_status == "PARTIAL":
+                d_color = "yellow"
+            else:
+                d_color = "red"
+            content_lines.append(f"  [{d_color}]{domain_id}. {d_label}: {d_status}[/{d_color}]")
+        overall = aiuc1_data.get("overall", "UNKNOWN")
+        o_color = "green" if overall == "PASS" else ("yellow" if overall == "PARTIAL" else "red")
+        content_lines.append(f"  [{o_color}]Overall: {overall}[/{o_color}]")
 
     if "warnings" in report and report["warnings"]:
         content_lines.append("")
