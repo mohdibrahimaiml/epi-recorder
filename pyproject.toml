@@ -163,7 +163,7 @@ Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*"]
+include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*", "verify_portal*"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*", "*tests*"]
 
 [tool.setuptools]
@@ -173,6 +173,7 @@ py-modules = ["epi_postinstall"]
 epi_core = ["assets/*.ico"]
 epi_viewer_static = ["*.html", "*.js", "*.css"]
 web_viewer = ["*.html", "*.js", "*.css"]
+verify_portal = ["static/*", "static/.well-known/*", "static/.well-known/**/*"]
 
 [project.entry-points.pytest11]
 epi = "pytest_epi.plugin"
