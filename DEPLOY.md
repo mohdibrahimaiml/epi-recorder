@@ -1,5 +1,5 @@
-# EPI Production Deployment Guide
-## One Domain, One Platform, ~$5/month
+# EPI Free Deployment Guide
+## Zero Cost — Render Free Tier
 
 ---
 
@@ -14,79 +14,84 @@
 | `https://epilabs.org/.well-known/epi-trust-registry.json` | Trust registry |
 | `https://epilabs.org/health` | Health check |
 
-**Platform**: Railway (one app, one custom domain)
-**Cost**: ~$5/month (Railway Starter)
+**Platform**: Render (free tier — $0)
+**Limitation**: Sleeps after 15 min inactivity (wakes in ~30 sec on next request)
 
 ---
 
 ## Prerequisites
 
-- Railway account (https://railway.app) — sign up with GitHub
-- DNS access for `epilabs.org` (Cloudflare, Namecheap, etc.)
-- Your local `~/.epi/keys/default.key` exists
+- Render account (https://render.com) — sign up with GitHub (no credit card required)
+- DNS access for `epilabs.org`
 
 ---
 
-## Step 1: Prepare Production Key
-
-Run this locally to get your base64-encoded private key:
+## Step 1: Push Code to GitHub
 
 ```bash
-python scripts/prepare_production_key.py
-```
-
-**Copy the base64 string.** Treat it like a password. Never commit it.
-
----
-
-## Step 2: Push Code to GitHub
-
-```bash
-# In epi-recorder repo
+cd /c/Users/dell/epi-recorder
 git push origin main
 ```
 
 ---
 
-## Step 3: Deploy to Railway
+## Step 2: Deploy on Render
 
-### Create Project
+### Create Blueprint
 
-1. Go to https://railway.app
-2. Click **"New Project"**
-3. Select **"Deploy from GitHub repo"**
-4. Choose `epi-recorder`
-5. Railway auto-detects `railway.toml`
+1. Go to https://dashboard.render.com/blueprints
+2. Click **"New Blueprint Instance"**
+3. Connect your GitHub repo: `epi-recorder`
+4. Render reads `render.yaml` and sets up the service automatically
 
-### Set Environment Variables
+### Or Manual Setup
 
-In Railway → Project → Variables, add:
-
-```
-EPI_ATTESTATION_PRIVATE_KEY=<paste base64 from Step 1>
-PORT=8000
-```
-
-### Add Custom Domain
-
-In Railway → Project → Settings → Domains:
-1. Click **"Custom Domain"**
-2. Enter: `epilabs.org`
-3. Railway gives you a CNAME target (e.g., `your-app.up.railway.app`)
-
-### DNS Setup
-
-In your DNS provider (Cloudflare/Namecheap):
-
-```
-CNAME epilabs.org → <railway-cname-target>
-```
-
-Wait 1–5 minutes for DNS propagation.
+1. Go to https://dashboard.render.com/
+2. Click **"New +"** → **"Web Service"**
+3. Connect `epi-recorder` repo
+4. Settings:
+   - **Name**: `epi-verify-portal`
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -e ".[gateway]"`
+   - **Start Command**: `python -m verify_portal.main`
+   - **Plan**: Free
+5. Click **Create Web Service**
 
 ---
 
-## Step 4: Verify Deployment
+## Step 3: Add Secret Key
+
+In Render dashboard → your service → **Environment**:
+
+```
+EPI_ATTESTATION_PRIVATE_KEY = p4c0FFSbCFvetlNhT9nOPz4Q7+y0cpVas8p9ONvqo3k=
+```
+
+Click **Save Changes**. Render redeploys automatically.
+
+---
+
+## Step 4: Add Custom Domain
+
+In Render dashboard → your service → **Settings** → **Custom Domains**:
+
+1. Click **"Add Custom Domain"**
+2. Enter: `epilabs.org`
+3. Render gives you a CNAME target (e.g., `epi-verify-portal.onrender.com`)
+
+### DNS Setup
+
+In your DNS provider:
+
+```
+CNAME epilabs.org → epi-verify-portal.onrender.com
+```
+
+Wait 2–5 minutes for propagation.
+
+---
+
+## Step 5: Verify
 
 ```bash
 # Health check
@@ -95,72 +100,46 @@ curl https://epilabs.org/health
 # DID document
 curl https://epilabs.org/.well-known/did.json
 
-# Trust registry
-curl https://epilabs.org/.well-known/epi-trust-registry.json
-
 # Verify a real .epi file
-curl -F "file=@epi-recordings/demo_refund.epi" https://epilabs.org/api/verify | jq '.trust_level'
-
-# Check tamper detection
-curl -F "file=@tampered.epi" https://epilabs.org/api/verify | jq '.facts.integrity_ok'
-# Expected: false
+curl -F "file=@epi-recordings/demo_refund.epi" https://epilabs.org/api/verify
 ```
 
-Open `https://epilabs.org/verify` in your browser to use the drag-drop UI.
+Open `https://epilabs.org/verify` in your browser.
+
+---
+
+## Free Tier Limits
+
+| Limit | Value |
+|---|---|
+| RAM | 512 MB |
+| Disk | 0.5 GB |
+| Bandwidth | 100 GB/month |
+| Uptime | Sleeps after 15 min inactivity |
+| Cost | **$0** |
+
+**When someone visits after sleep**: First request takes ~30 seconds to wake up. All subsequent requests are fast.
+
+**Upgrade later**: Render Starter plan is $7/month (always-on, more resources).
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `404` on DID | Files not in static dir | Check `verify_portal/static/.well-known/` exists in repo |
-| `502` on verify | Railway app crashed | Check Railway logs for Python errors |
-| `429` rate limited | Normal behavior | Wait 24h or upgrade Railway plan |
-| Signature invalid | Wrong key in env var | Re-run `prepare_production_key.py` and update Railway variable |
-| DNS not resolving | CNAME not propagated | Wait 5–10 minutes, check with `dig epilabs.org` |
+| Symptom | Fix |
+|---|---|
+| `502 Bad Gateway` | App crashed — check Render logs |
+| First request slow | Normal — free tier sleeps after 15 min |
+| `429 Too Many Requests` | Rate limiting working correctly |
+| DNS not resolving | Wait 5–10 min, check CNAME record |
 
 ---
 
-## Rollback
+## Alternative Free Hosts
 
-If something breaks:
-
-```bash
-# Revert to previous commit
-git revert HEAD
-git push origin main
-
-# Railway auto-deploys the revert
-```
-
----
-
-## Architecture Notes
-
-### Why One Platform?
-
-You only own `epilabs.org`. Using subdomains (`verify.epilabs.org`) requires:
-- A second service (Vercel)
-- A second DNS record
-- More complexity
-
-This architecture puts everything on Railway:
-- `GET /` → landing page
-- `GET /verify` → verify portal
-- `POST /api/verify` → API
-- `/.well-known/*` → DID + trust registry
-
-### Scaling
-
-The in-memory rate limiter (`_rate_limit_store`) is per-instance. If Railway scales horizontally, each instance tracks its own limits. For a solo founder pre-revenue, this is acceptable. Post-revenue, switch to Redis.
-
----
-
-## Cost
-
-| Service | Monthly Cost |
-|---------|-------------|
-| Railway (starter) | ~$5 |
-| Domain (epilabs.org) | Already owned |
-| **Total** | **~$5/month** |
+| Host | Free Tier | Custom Domain | Notes |
+|---|---|---|---|
+| **Render** ✅ | Yes | Yes | Sleeps after 15 min |
+| Koyeb | Yes | Yes | 2 apps free |
+| Fly.io | Yes | Yes | Requires credit card |
+| Vercel | Yes | Yes | Only static/serverless; body limit 4.5MB |
