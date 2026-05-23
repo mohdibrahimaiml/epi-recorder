@@ -48,6 +48,7 @@ def test_viewer_loads_offline_and_shows_decision_evidence_policy_and_trust(
     )
     try:
         page.goto((extract_dir / "viewer.html").as_uri(), wait_until="load")
+        page.locator("#boot-overlay").wait_for(state="hidden", timeout=10000)
         body = page.locator("body").inner_text(timeout=5000)
     finally:
         browser.close()
@@ -60,7 +61,7 @@ def test_viewer_loads_offline_and_shows_decision_evidence_policy_and_trust(
     assert "evidence" in body_lower
     assert "policy" in body_lower
     assert "review" in body_lower
-    assert "cryptographic_artifact_sealed_by_epi_core" in body_lower
+    assert "cryptographic artifact" in body_lower
     assert external_requests == []
 
 

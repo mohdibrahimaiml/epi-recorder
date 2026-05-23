@@ -230,7 +230,7 @@ class EPIContainer:
             "files": {
                 filename: base64.b64encode((source_dir / filename).read_bytes()).decode("ascii")
                 for filename in sorted(manifest.file_manifest.keys())
-                if (source_dir / filename).exists()
+                if filename not in _RESERVED_ROOT_ARCHIVE_NAMES and (source_dir / filename).exists()
             },
             "integrity": {
                 "ok": True,
@@ -608,6 +608,11 @@ class EPIContainer:
                         )
 
                     manifest.analysis_status = "complete"
+                    # AUD-CO-02: Attest the step count in the manifest so that
+                    # verify can detect if steps were added or removed after signing.
+                    manifest.total_steps = sum(
+                        1 for line in steps_content.splitlines() if line.strip()
+                    )
             except Exception as _fa_err:
                 import sys as _sys
 
@@ -752,9 +757,18 @@ class EPIContainer:
             for file_path, arc_name in files_to_pack:
                 zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
 
-            zf.writestr("viewer.html", viewer_html, compress_type=zipfile.ZIP_DEFLATED)
+            viewer_html_bytes = viewer_html.encode("utf-8")
+            zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
+
+            # Include viewer.html in the cryptographic file_manifest so that a
+            # visual-deception attack (swapping the UI layer) is detectable.
+            manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
 
             zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
+
+            # Re-sign one final time because viewer.html hash was just added.
+            if signer_function:
+                manifest = signer_function(manifest)
 
             manifest_json = manifest.model_dump_json(indent=2)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
@@ -985,7 +999,14 @@ class EPIContainer:
 
                 zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
 
-            zf.writestr("viewer.html", viewer_html, compress_type=zipfile.ZIP_DEFLATED)
+            viewer_html_bytes = viewer_html.encode("utf-8")
+            zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
+
+            # Update the viewer.html hash in the manifest so that verify_integrity
+            # correctly detects a stale viewer after refresh (signature will be
+            # invalid — that is intentional and correct; re-sign to fix it).
+            manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+
             zf.writestr(
                 "manifest.json",
                 manifest.model_dump_json(indent=2),

@@ -115,9 +115,10 @@ def _cose_sign1_decode(cose_bytes: bytes) -> tuple[dict, dict, bytes | None, byt
         raise SCITTVerificationError(f"Invalid protected headers: {exc}") from exc
 
     # cbor2 may return frozendict instead of dict
-    if not isinstance(protected, (dict, cbor2.frozendict)):
+    from collections.abc import Mapping
+    if not isinstance(protected, Mapping):
         raise SCITTVerificationError("Protected headers must be a CBOR map")
-    if not isinstance(unprotected, (dict, cbor2.frozendict)):
+    if not isinstance(unprotected, Mapping):
         raise SCITTVerificationError("Unprotected headers must be a CBOR map")
     if payload is not None and not isinstance(payload, bytes):
         raise SCITTVerificationError("Payload must be bstr or nil")

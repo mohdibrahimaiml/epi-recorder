@@ -59,7 +59,7 @@ class TestFreshEnvironmentVerification:
         assert report["facts"]["integrity_ok"] is True
         assert report["facts"]["signature_valid"] is True
         assert report["identity"]["status"] == "UNKNOWN"
-        assert report["decision"]["status"] == "PASS"
+        assert report["decision"]["status"] == "WARN"
 
         manifest = EPIContainer.read_manifest(artifact)
         assert set(ManifestModel.model_fields.keys()) == FROZEN_MANIFEST_FIELDS
@@ -225,7 +225,7 @@ class TestDidWebOptionalContract:
         assert report["facts"]["integrity_ok"] is True
         assert report["identity"]["status"] == "UNKNOWN"
         assert "DID resolution failed" in report["identity"]["detail"]
-        assert report["decision"]["status"] == "PASS"
+        assert report["decision"]["status"] == "WARN"
 
 
 class TestGoldenArtifactsStillVerify:
@@ -301,6 +301,7 @@ class TestReportStructureStability:
             "workflow_id",
             "created_at",
             "files_checked",
+            "verifier_version",
         }
         assert set(report["summary"].keys()) == {"integrity", "trust", "transparency"}
         assert set(report["decision"].keys()) == {"policy", "status", "reason"}

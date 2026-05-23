@@ -17,6 +17,15 @@ from epi_core.schemas import ManifestModel
 from epi_core.serialize import get_canonical_hash
 
 
+def _get_verifier_version() -> str:
+    """Return the installed epi-recorder package version, or 'unknown'."""
+    try:
+        from importlib.metadata import version
+        return version("epi-recorder")
+    except Exception:
+        return "unknown"
+
+
 class SigningError(Exception):
     """Raised when signing operations fail."""
 
@@ -252,12 +261,27 @@ class TrustRegistry:
 
     def __init__(self, trusted_keys_dir: Path | None = None, registry_url: str | None = None):
         import os
+        import warnings
 
         env_dir = os.environ.get("EPI_TRUSTED_KEYS_DIR")
         self.trusted_keys_dir = trusted_keys_dir or (
             Path(env_dir) if env_dir else (Path.home() / ".epi" / "trusted_keys")
         )
         self.registry_url = registry_url
+
+        # AUD-IA-04: Warn when the trust registry is stored in the same directory as the signing key
+        try:
+            from epi_core.keys import _resolve_default_keys_dir
+            keys_dir = _resolve_default_keys_dir()
+            if keys_dir and self.trusted_keys_dir:
+                if keys_dir.resolve() == self.trusted_keys_dir.resolve():
+                    warnings.warn(
+                        f"Trust registry directory '{self.trusted_keys_dir}' matches "
+                        f"signing keys directory '{keys_dir}'. This violates AUD-IA-04 trust registry independence.",
+                        UserWarning,
+                    )
+        except Exception:
+            pass
 
     def _verify_did_web(self, did: str, public_key_hex: str) -> tuple[bool, str | None, str]:
         """
@@ -392,6 +416,15 @@ def create_verification_report(
     status_detail = "Registry check not performed"
     identity_status = "UNKNOWN"
 
+    if manifest.public_key and not trusted_registry:
+        # Artifact is signed but caller supplied no registry to check against.
+        # Make this explicit so operators know they should configure one.
+        status_detail = (
+            "No trusted keys registry configured — cannot verify signer identity. "
+            "Populate ~/.epi/trusted_keys/ with the signer's .pub file or pass a "
+            "TrustRegistry instance to enable identity verification."
+        )
+
     if manifest.public_key and trusted_registry:
         is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(
             manifest.public_key,
@@ -437,6 +470,7 @@ def create_verification_report(
             "workflow_id": str(manifest.workflow_id),
             "created_at": manifest.created_at.isoformat(),
             "files_checked": len(manifest.file_manifest),
+            "verifier_version": _get_verifier_version(),
         },
     }
 
@@ -532,12 +566,25 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         decision["reason"] = "Integrity verified (Permissive Policy)"
 
     elif policy == VerificationPolicy.STANDARD:
-        # Integrity + not revoked + not mismatched
+        # Integrity + not revoked + not mismatched.
+        # If a signature is present but the signer is unknown to any trusted
+        # registry, we cannot rule out a key-substitution forgery attack.
+        # We therefore issue a WARN rather than a silent PASS.
         if identity["status"] == "REVOKED":
             decision["reason"] = "Identity revoked"
         elif identity["status"] == "MISMATCH":
             decision["status"] = "FAIL"
             decision["reason"] = "Identity mismatch - possible impersonation attack"
+        elif facts["signature_valid"] is True and identity["status"] == "UNKNOWN":
+            # Signed by an unrecognised key: integrity is provable but origin
+            # cannot be confirmed.  A sophisticated forger can self-sign with a
+            # freshly generated key, so we escalate this to WARN.
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Signed by unrecognised key — integrity verified but signer identity "
+                "is not in any trusted registry. Add the signer's public key to "
+                "~/.epi/trusted_keys/ or use --policy strict to require a known identity."
+            )
         else:
             decision["status"] = "PASS"
             decision["reason"] = "Integrity verified and identity not revoked"

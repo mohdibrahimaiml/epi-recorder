@@ -323,3 +323,61 @@ class TestPrevHashChainVerification:
         assert ok is False
         assert any("prev_hash mismatch" in b for b in breaks)
 
+
+class TestStepSequenceCompleteness:
+    """Tests for AUD-CO-01 step sequence completeness."""
+
+    def test_complete_sequence_passes(self):
+        from epi_cli.verify import _audit_step_sequence_completeness
+
+        steps = [
+            {"index": 0, "kind": "llm.request", "span_id": "span-1"},
+            {"index": 1, "kind": "llm.response", "span_id": "span-1"},
+            {"index": 2, "kind": "tool.call", "content": {"call_id": "call-1"}},
+            {"index": 3, "kind": "tool.response", "content": {"call_id": "call-1"}},
+            {"index": 4, "kind": "agent.approval.request", "content": {"action": "approve"}},
+            {"index": 5, "kind": "agent.approval.response", "content": {"action": "approve"}},
+        ]
+        ok, gaps = _audit_step_sequence_completeness(steps)
+        assert ok is True
+        assert not gaps
+
+    def test_missing_tool_response(self):
+        from epi_cli.verify import _audit_step_sequence_completeness
+
+        steps = [
+            {"index": 0, "kind": "tool.call", "content": {"call_id": "call-1"}},
+            {"index": 1, "kind": "tool.call", "content": {"call_id": "call-2"}},
+            {"index": 2, "kind": "tool.response", "content": {"call_id": "call-2"}},
+        ]
+        ok, gaps = _audit_step_sequence_completeness(steps)
+        assert ok is False
+        assert len(gaps) == 1
+        assert "tool.call at step 0 is missing a corresponding tool.response" in gaps[0]
+
+    def test_missing_llm_response(self):
+        from epi_cli.verify import _audit_step_sequence_completeness
+
+        steps = [
+            {"index": 0, "kind": "llm.request", "span_id": "span-1"},
+            {"index": 1, "kind": "llm.request", "span_id": "span-2"},
+            {"index": 2, "kind": "llm.error", "span_id": "span-2"},
+        ]
+        ok, gaps = _audit_step_sequence_completeness(steps)
+        assert ok is False
+        assert len(gaps) == 1
+        assert "llm.request at step 0 is missing a corresponding response or error" in gaps[0]
+
+    def test_missing_approval_response(self):
+        from epi_cli.verify import _audit_step_sequence_completeness
+
+        steps = [
+            {"index": 0, "kind": "agent.approval.request", "content": {"action": "action-1"}},
+            {"index": 1, "kind": "agent.approval.request", "content": {"action": "action-2"}},
+            {"index": 2, "kind": "agent.approval.response", "content": {"action": "action-2"}},
+        ]
+        ok, gaps = _audit_step_sequence_completeness(steps)
+        assert ok is False
+        assert len(gaps) == 1
+        assert "agent.approval.request for 'action-1' at step 0 is missing a response" in gaps[0]
+

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, List, Union, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from epi_core._version import get_version
 from epi_core.time_utils import utc_now
@@ -230,6 +230,39 @@ class StepModel(BaseModel):
         description="Optional governance metadata for this step (policy_id, decision, trust_score, agent_did, etc.)",
     )
     
+    source_type: Optional[Literal["user", "tool", "reasoning", "system"]] = Field(
+        default=None,
+        description="The source or actor type that generated this step's core content (user, tool, reasoning, system)"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_source_type(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if data.get("source_type") is None and "kind" in data:
+                kind = data["kind"]
+                if kind in ("tool.response",):
+                    data["source_type"] = "tool"
+                elif kind in ("agent.approval.response",):
+                    data["source_type"] = "user"
+                elif kind == "agent.message":
+                    role = (data.get("content") or {}).get("role", "")
+                    if role == "user":
+                        data["source_type"] = "user"
+                    elif role == "system":
+                        data["source_type"] = "system"
+                    else:
+                        data["source_type"] = "reasoning"
+                elif kind in ("agent.run.start",):
+                    data["source_type"] = "user"
+                elif kind in ("llm.request", "llm.response", "agent.decision", "agent.handoff", "agent.run.end", "tool.call", "agent.approval.request"):
+                    data["source_type"] = "reasoning"
+                elif kind.startswith("validation.") or kind in ("security.redaction", "shell.command", "file.write", "python.call"):
+                    data["source_type"] = "system"
+                else:
+                    data["source_type"] = "reasoning"
+        return data
+    
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -241,7 +274,8 @@ class StepModel(BaseModel):
                     "model": "gpt-4"
                 },
                 "trace_id": "0af7651916cd43dd8448eb211c80319c",
-                "span_id": "b7ad6b7169203331"
+                "span_id": "b7ad6b7169203331",
+                "source_type": "reasoning"
             }
         }
     )

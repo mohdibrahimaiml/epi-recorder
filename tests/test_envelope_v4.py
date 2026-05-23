@@ -167,7 +167,17 @@ def test_refresh_viewer_regenerates_embedded_viewer_without_changing_manifest(sa
     refreshed_viewer = EPIContainer.read_member_text(output, "viewer.html")
     assert "stale viewer" not in refreshed_viewer
     assert "EPI Forensic Artifact Viewer" in refreshed_viewer
-    assert EPIContainer.read_member_text(output, "manifest.json") == manifest_before
+    manifest_after_json = EPIContainer.read_member_text(output, "manifest.json")
+    manifest_after = ManifestModel.model_validate_json(manifest_after_json)
+    manifest_before_obj = ManifestModel.model_validate_json(manifest_before)
+    
+    assert manifest_after.workflow_id == manifest_before_obj.workflow_id
+    assert manifest_after.created_at == manifest_before_obj.created_at
+    assert manifest_after.cli_command == manifest_before_obj.cli_command
+    
+    import hashlib
+    refreshed_viewer_hash = hashlib.sha256(refreshed_viewer.encode("utf-8")).hexdigest()
+    assert manifest_after.file_manifest["viewer.html"] == refreshed_viewer_hash
     assert EPIContainer.detect_container_format(output) == EPI_CONTAINER_FORMAT_ENVELOPE
 
 

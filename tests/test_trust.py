@@ -260,26 +260,34 @@ class TestVerificationReport:
     
     def test_create_report_high_trust(self):
         """Test creating report for fully verified package."""
+        from unittest.mock import MagicMock
+        from epi_core.trust import TrustRegistry
+
         manifest = ManifestModel(
             cli_command="test command",
-            file_manifest={"test.txt": "abc123"}
+            file_manifest={"test.txt": "abc123"},
+            public_key="b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364"
         )
-        
+
+        mock_registry = MagicMock(spec=TrustRegistry)
+        mock_registry.verify_key_trust.return_value = (True, "default", "Trusted key")
+
         report = create_verification_report(
             integrity_ok=True,
             signature_valid=True,
             signer_name="default",
             mismatches={},
             manifest=manifest,
+            trusted_registry=mock_registry,
             sequence_ok=True,
             completeness_ok=True
         )
-        
+
         # Test structure
         assert "facts" in report
         assert "identity" in report
         # decision is added later by apply_policy
-        
+
         assert report["facts"]["integrity_ok"] is True
         assert report["facts"]["signature_valid"] is True
         assert report["identity"]["name"] == "default"

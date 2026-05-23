@@ -406,9 +406,10 @@ def _shellexecute_wait(exe: str, params: str, timeout_ms: int = 8000) -> None:
 
 def _run_windows_reg_command(args: list[str], timeout_ms: int = 8000) -> str:
     """Run reg.exe outside packaged/virtualized Python contexts and capture stdout."""
-    launcher_dir = _resolve_windows_launcher_dir()
-
-    fd, output_name = tempfile.mkstemp(prefix="reg_", suffix=".txt", dir=launcher_dir)
+    # Create the temp file in the system temp directory (not launcher_dir/LOCALAPPDATA)
+    # so that the host cmd.exe (outside the MSIX container) and the python process
+    # (inside the container) can both access the same physical file.
+    fd, output_name = tempfile.mkstemp(prefix="reg_", suffix=".txt")
     os.close(fd)
     output_path = Path(output_name)
 

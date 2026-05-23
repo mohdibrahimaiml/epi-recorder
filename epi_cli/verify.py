@@ -44,9 +44,9 @@ def _verify_step_chain(steps: list[dict]) -> tuple[bool, list[str]]:
     Returns:
         tuple: (chain_ok: bool, chain_breaks: list of human-readable messages)
 
-    Old artifacts (CBOR-hashed chains) are handled gracefully — if any
-    exception occurs during verification, the function returns ``(True, [])``
-    so that legacy artifacts do not falsely fail verification.
+    Old artifacts that used CBOR-style hashing may fail schema validation;
+    those specific errors are handled gracefully.  Unexpected runtime errors
+    are reported as a chain break rather than silently passing.
     """
     if len(steps) < 2:
         return True, []
@@ -63,12 +63,92 @@ def _verify_step_chain(steps: list[dict]) -> tuple[bool, list[str]]:
                 continue
             expected_hash = get_canonical_hash(step_models[i - 1], format="json")
             if claimed_prev != expected_hash:
-                chain_breaks.append(f"step {i}: prev_hash mismatch")
+                # Fallback: check CBOR canonical hash for legacy artifacts
+                expected_cbor_hash = get_canonical_hash(step_models[i - 1], format="cbor")
+                if claimed_prev != expected_cbor_hash:
+                    chain_breaks.append(f"step {i}: prev_hash mismatch")
         return len(chain_breaks) == 0, chain_breaks
-    except Exception:
-        # Old artifacts (CBOR-hashed chains) or malformed steps:
-        # default to True so we don't break legacy verification.
+    except (ValueError, TypeError):
+        # Old artifacts (CBOR-hashed chains) or steps with unexpected field
+        # types: default to True so legacy artifacts do not falsely fail.
         return True, []
+    except Exception as exc:  # noqa: BLE001
+        # Unexpected error: do not silently pass — report it as a chain break
+        # so operators are aware something went wrong during chain validation.
+        return False, [f"chain verification error: {exc}"]
+
+
+def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str]]:
+    """
+    AUD-CO-01: Step Sequence Completeness Audit.
+    Ensures:
+      - Every tool.call has a corresponding tool.response
+      - Every llm.request has a corresponding llm.response or llm.error
+      - Every agent.approval.request has a corresponding agent.approval.response
+    """
+    gaps: list[str] = []
+    
+    pending_tool_calls: list[tuple[int, str | None]] = []
+    pending_llm_requests: list[tuple[int, str | None]] = []
+    pending_approvals: list[tuple[int, str | None]] = []
+    
+    for s in steps:
+        kind = s.get("kind", "")
+        content = s.get("content", {}) or {}
+        idx = s.get("index", 0)
+        span_id = s.get("span_id")
+        
+        if kind == "tool.call":
+            call_id = content.get("call_id")
+            pending_tool_calls.append((idx, call_id))
+        elif kind == "tool.response":
+            call_id = content.get("call_id")
+            matched = False
+            if call_id is not None:
+                for item in reversed(pending_tool_calls):
+                    if item[1] == call_id:
+                        pending_tool_calls.remove(item)
+                        matched = True
+                        break
+            if not matched and pending_tool_calls:
+                pending_tool_calls.pop(0)
+                
+        elif kind == "llm.request":
+            pending_llm_requests.append((idx, span_id))
+        elif kind in ("llm.response", "llm.error"):
+            matched = False
+            if span_id is not None:
+                for item in reversed(pending_llm_requests):
+                    if item[1] == span_id:
+                        pending_llm_requests.remove(item)
+                        matched = True
+                        break
+            if not matched and pending_llm_requests:
+                pending_llm_requests.pop(0)
+                
+        elif kind == "agent.approval.request":
+            action = content.get("action")
+            pending_approvals.append((idx, action))
+        elif kind == "agent.approval.response":
+            action = content.get("action")
+            matched = False
+            if action is not None:
+                for item in reversed(pending_approvals):
+                    if item[1] == action:
+                        pending_approvals.remove(item)
+                        matched = True
+                        break
+            if not matched and pending_approvals:
+                pending_approvals.pop(0)
+                
+    for idx, call_id in pending_tool_calls:
+        gaps.append(f"tool.call at step {idx} is missing a corresponding tool.response")
+    for idx, span_id in pending_llm_requests:
+        gaps.append(f"llm.request at step {idx} is missing a corresponding response or error")
+    for idx, action in pending_approvals:
+        gaps.append(f"agent.approval.request for '{action}' at step {idx} is missing a response")
+        
+    return len(gaps) == 0, gaps
 
 
 def _print_share_hint() -> None:
@@ -328,6 +408,8 @@ def verify_command(
         steps_hash_ok = True
         chain_ok = True
         chain_breaks = []
+        seq_comp_gaps = []
+        step_count_ok = True  # AUD-CO-02: safe default for old artifacts
 
         try:
             import hashlib as _hashlib
@@ -376,6 +458,10 @@ def verify_command(
                         len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps
                     )
 
+                    # AUD-CO-01: Step Sequence Completeness Audit
+                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
+                    completeness_ok = completeness_ok and seq_comp_ok
+
                     # 4. Steps Hash Verification
                     execution_data = {}
                     try:
@@ -392,11 +478,21 @@ def verify_command(
 
                     # 5. prev_hash Chain Verification
                     chain_ok, chain_breaks = _verify_step_chain(steps)
+
+                    # 6. AUD-CO-02: Step Count Attestation
+                    # Compare actual step count against the signed manifest.total_steps.
+                    # Only checked when the manifest has total_steps set (new artifacts).
+                    # Old artifacts without total_steps are silently skipped.
+                    claimed_step_count = manifest.total_steps
+                    actual_step_count = len(steps)
+                    if claimed_step_count is not None:
+                        step_count_ok = actual_step_count == claimed_step_count
+
         except Exception as _e:
             if verbose:
                 console.print(f"  [yellow]![/yellow] Forensic audit warning: {_e}")
 
-        integrity_ok = integrity_ok and steps_hash_ok and chain_ok
+        integrity_ok = integrity_ok and steps_hash_ok and chain_ok and step_count_ok
 
         if verbose:
             if chain_ok and not chain_breaks:
@@ -408,6 +504,26 @@ def verify_command(
                 console.print(
                     "  [yellow]![/yellow] Chain check skipped (old artifact or malformed)"
                 )
+
+            # Report sequence completeness
+            if completeness_ok and not seq_comp_gaps:
+                console.print("  [green][OK][/green] Step sequence completeness verified")
+            elif seq_comp_gaps:
+                for gap in seq_comp_gaps:
+                    console.print(f"  [red][FAIL][/red] Sequence incomplete: {gap}")
+
+            # Report step count check
+            if manifest.total_steps is not None:
+                if step_count_ok:
+                    console.print(
+                        f"  [green][OK][/green] Step count verified: "
+                        f"{actual_step_count} of {claimed_step_count} steps present"
+                    )
+                else:
+                    console.print(
+                        f"  [red][FAIL][/red] Step count mismatch: "
+                        f"manifest says {claimed_step_count}, found {actual_step_count}"
+                    )
 
         # ========== STEP 4: AUTHENTICITY CHECKS (Trust) ==========
         if verbose:

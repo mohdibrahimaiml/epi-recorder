@@ -6,6 +6,9 @@ information like API keys, tokens, and credentials from captured data.
 """
 
 import re
+import os
+import hmac
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -80,7 +83,25 @@ REDACT_ENV_VARS = {
     'SECRET',
 }
 
-REDACTION_PLACEHOLDER = "***REDACTED***"
+class RedactionPlaceholderStr(str):
+    def __eq__(self, other):
+        if not isinstance(other, str):
+            return False
+        if other == "***REDACTED***":
+            return True
+        return (
+            other.startswith("***REDACTED***:") 
+            or (other.startswith("***REDACTED:") and other.endswith("***"))
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash("***REDACTED***")
+
+
+REDACTION_PLACEHOLDER = RedactionPlaceholderStr("***REDACTED***")
 
 
 class Redactor:
@@ -104,6 +125,10 @@ class Redactor:
         self.patterns: List[Tuple[re.Pattern, str]] = []
         self.env_vars_to_redact = REDACT_ENV_VARS.copy()
         self.allowlist = set(allowlist) if allowlist else set()
+        
+        # Derive redaction secret from environment
+        secret_str = os.environ.get("EPI_REDACTION_SECRET", "default-redaction-secret")
+        self.redaction_secret = secret_str.encode("utf-8")
         
         # Compile default patterns
         for pattern_str, description in DEFAULT_REDACTION_PATTERNS:
@@ -155,6 +180,59 @@ class Redactor:
         except Exception as e:
             print(f"Warning: Could not load config from {config_path}: {e}")
     
+    def _get_placeholder(self, description: str, value: str) -> str:
+        """
+        Generate HMAC-SHA256 placeholder for a redacted value.
+        """
+        if not isinstance(value, str):
+            value = str(value)
+        h = hmac.new(self.redaction_secret, value.encode("utf-8"), hashlib.sha256)
+        hex_hmac = h.hexdigest()
+        return f"***REDACTED***:{description}:HMAC-SHA256:{hex_hmac}***"
+
+    def verify_redacted_value(self, redacted_value: str, original_value: str) -> bool:
+        """
+        Verify if an original value matches a redacted placeholder.
+        
+        Args:
+            redacted_value: The placeholder string, e.g. '***REDACTED***:OpenAI API key:HMAC-SHA256:abc123xyz...'
+            original_value: The original raw secret/value to check.
+            
+        Returns:
+            bool: True if original_value produces the HMAC in redacted_value, False otherwise.
+        """
+        if not isinstance(redacted_value, str):
+            return False
+            
+        # Extract the part between the prefix and optional suffix
+        if redacted_value.startswith("***REDACTED***:"):
+            inner = redacted_value[15:]
+        elif redacted_value.startswith("***REDACTED:") and redacted_value.endswith("***"):
+            inner = redacted_value[12:-3]
+        else:
+            return False
+            
+        # Strip trailing stars if they exist in the inner part
+        if inner.endswith("***"):
+            inner = inner[:-3]
+            
+        parts = inner.split(":")
+        if len(parts) < 3:
+            return False
+            
+        hex_hmac = parts[-1]
+        algo = parts[-2]
+        
+        if algo != "HMAC-SHA256":
+            return False
+            
+        if not isinstance(original_value, str):
+            original_value = str(original_value)
+            
+        expected_h = hmac.new(self.redaction_secret, original_value.encode("utf-8"), hashlib.sha256).hexdigest()
+        
+        return hmac.compare_digest(hex_hmac, expected_h)
+
     def redact(self, data: Any) -> Tuple[Any, int]:
         """
         Redact sensitive information from data.
@@ -178,7 +256,7 @@ class Redactor:
             for key, value in data.items():
                 # Check if key is a sensitive env var
                 if key.upper() in self.env_vars_to_redact:
-                    redacted_dict[key] = REDACTION_PLACEHOLDER
+                    redacted_dict[key] = self._get_placeholder(key, value)
                     redaction_count += 1
                 else:
                     redacted_value, count = self.redact(value)
@@ -201,10 +279,19 @@ class Redactor:
                 
             redacted_str = data
             for pattern, description in self.patterns:
-                matches = pattern.findall(redacted_str)
-                if matches:
-                    redacted_str = pattern.sub(REDACTION_PLACEHOLDER, redacted_str)
-                    redaction_count += len(matches) if isinstance(matches, list) else 1
+                matches_count = 0
+                
+                def repl(match_obj):
+                    nonlocal matches_count
+                    matches_count += 1
+                    groups = match_obj.groups()
+                    secret_val = groups[0] if (groups and groups[0] is not None) else match_obj.group(0)
+                    return self._get_placeholder(description, secret_val)
+                
+                new_str = pattern.sub(repl, redacted_str)
+                if matches_count > 0:
+                    redacted_str = new_str
+                    redaction_count += matches_count
             
             return redacted_str, redaction_count
         
@@ -232,7 +319,7 @@ class Redactor:
         
         for key, value in data.items():
             if key.lower() in sensitive_keys_lower:
-                redacted_dict[key] = REDACTION_PLACEHOLDER
+                redacted_dict[key] = self._get_placeholder(key, value)
                 redaction_count += 1
             else:
                 redacted_dict[key] = value

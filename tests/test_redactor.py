@@ -293,6 +293,59 @@ class TestRedactor:
             assert "[redaction]" in content
             assert "enabled" in content
 
+    def test_hmac_placeholder_structure(self):
+        """Test that redaction generates placeholders with HMAC-SHA256."""
+        redactor = Redactor()
+        data = {"api_key": "sk-abc123def456"}
+        redacted, count = redactor.redact_dict_keys(data, {"api_key"})
+        assert count == 1
+        val = redacted["api_key"]
+        assert val.startswith("***REDACTED***:api_key:HMAC-SHA256:")
+        assert val.endswith("***")
+        # Extract hex hmac
+        parts = val.split(":")
+        hex_hmac = parts[-1].rstrip("*")
+        assert len(hex_hmac) == 64  # SHA-256 hex is 64 chars
+
+    def test_verify_redacted_value(self):
+        """Test verify_redacted_value method."""
+        redactor = Redactor()
+        data = {"api_key": "sk-abc123def456"}
+        redacted, count = redactor.redact_dict_keys(data, {"api_key"})
+        val = redacted["api_key"]
+        
+        # Valid verification
+        assert redactor.verify_redacted_value(val, "sk-abc123def456") is True
+        
+        # Invalid verification (wrong value)
+        assert redactor.verify_redacted_value(val, "wrong-value") is False
+        
+        # Invalid verification (not a placeholder)
+        assert redactor.verify_redacted_value("not-a-placeholder", "sk-abc123def456") is False
+
+    def test_custom_redaction_secret(self):
+        """Test that setting EPI_REDACTION_SECRET changes HMAC."""
+        import os
+        from unittest.mock import patch
+        
+        with patch.dict(os.environ, {"EPI_REDACTION_SECRET": "my-secret-key"}):
+            redactor1 = Redactor()
+            
+        with patch.dict(os.environ, {"EPI_REDACTION_SECRET": "another-secret-key"}):
+            redactor2 = Redactor()
+            
+        val = "sk-abc123def456"
+        data = {"api_key": val}
+        
+        redacted1, _ = redactor1.redact_dict_keys(data, {"api_key"})
+        redacted2, _ = redactor2.redact_dict_keys(data, {"api_key"})
+        
+        assert redacted1["api_key"] != redacted2["api_key"]
+        assert redactor1.verify_redacted_value(redacted1["api_key"], val) is True
+        assert redactor2.verify_redacted_value(redacted2["api_key"], val) is True
+        # Cross-verification should fail since they use different keys
+        assert redactor1.verify_redacted_value(redacted2["api_key"], val) is False
+
 
 
  

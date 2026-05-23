@@ -86,6 +86,11 @@ def get_canonical_hash(
     # Convert model to dict
     model_dict = model.model_dump()
 
+    # AUD-AT-01: Exclude source_type from StepModel canonical hash to preserve
+    # backward compatibility with legacy artifacts that do not contain this field.
+    if model.__class__.__name__ == "StepModel":
+        model_dict.pop("source_type", None)
+
     # Normalize datetime and UUID fields to strings
     def normalize_value(value: Any) -> Any:
         if isinstance(value, datetime):
