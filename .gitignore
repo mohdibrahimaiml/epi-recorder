@@ -155,4 +155,5 @@ v2.8.5.ipynb
 !docs/index.html
 !epi_viewer_static/*.html
 !web_viewer/*.html
+!verify_portal/static/*.html
 .aider*

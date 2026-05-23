@@ -134,11 +134,38 @@ def _sign_attestation(payload: dict) -> str | None:
 
 @app.get("/")
 async def root():
-    """Serve the frontend HTML."""
+    """Serve the landing page."""
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
-    return {"message": "EPI Verify Portal — visit /static/index.html or deploy the frontend"}
+    return {"message": "EPI Labs — visit /verify to verify .epi artifacts"}
+
+
+@app.get("/verify")
+async def verify_page():
+    """Serve the verify portal frontend."""
+    verify_path = STATIC_DIR / "verify.html"
+    if verify_path.exists():
+        return FileResponse(verify_path)
+    raise HTTPException(status_code=404, detail="Verify frontend not found")
+
+
+@app.get("/.well-known/did.json")
+async def did_document():
+    """Serve the DID document for did:web:epilabs.org."""
+    did_path = STATIC_DIR / ".well-known" / "did.json"
+    if did_path.exists():
+        return FileResponse(did_path, media_type="application/json")
+    raise HTTPException(status_code=404, detail="DID document not found")
+
+
+@app.get("/.well-known/epi-trust-registry.json")
+async def trust_registry_file():
+    """Serve the EPI trust registry."""
+    reg_path = STATIC_DIR / ".well-known" / "epi-trust-registry.json"
+    if reg_path.exists():
+        return FileResponse(reg_path, media_type="application/json")
+    raise HTTPException(status_code=404, detail="Trust registry not found")
 
 
 @app.get("/health")
@@ -147,7 +174,7 @@ async def health():
     return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
 
 
-@app.post("/verify")
+@app.post("/api/verify")
 async def verify(
     request: Request,
     file: UploadFile = File(...),

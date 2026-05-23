@@ -1,0 +1,20 @@
+{
+  "name": "EPI Labs Official Trust Registry",
+  "version": "2026-05-23",
+  "updated_at": "2026-05-23T07:20:11Z",
+  "trusted_keys": {
+    "b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364": "EPI Labs Official"
+  },
+  "revoked_keys": [],
+  "scitt_services": [
+    {
+      "url": "https://scitt.epilabs.org",
+      "name": "EPI Labs SCITT Transparency Service",
+      "status": "active"
+    }
+  ],
+  "policy": {
+    "minimum_spec_version": "2.0.0",
+    "recommended_retention_days": 180
+  }
+}

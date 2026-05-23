@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPI Labs — Episodic Process Integrity</title>
+  <style>
+    :root { --bg:#0a0a0a; --fg:#e0e0e0; --accent:#00d4aa; --muted:#666; --surface:#111; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+    header { padding:4rem 1rem 2rem; text-align:center; border-bottom:1px solid #222; }
+    h1 { font-size:2.5rem; font-weight:800; letter-spacing:-0.02em; }
+    .tagline { color:var(--accent); font-weight:600; margin-top:0.5rem; }
+    main { max-width:720px; margin:0 auto; padding:2rem 1rem; }
+    section { margin-bottom:3rem; }
+    h2 { font-size:1.25rem; margin-bottom:1rem; color:var(--accent); }
+    p { margin-bottom:1rem; color:var(--fg); }
+    code { background:#1a1a1a; padding:0.2rem 0.4rem; border-radius:4px; font-size:0.9rem; color:var(--accent); }
+    .cta { display:inline-block; background:var(--accent); color:#000; padding:0.75rem 1.5rem; border-radius:8px; text-decoration:none; font-weight:700; margin-top:1rem; }
+    .cta:hover { opacity:0.9; }
+    .well-known { background:var(--surface); padding:1rem; border-radius:8px; margin-top:0.5rem; }
+    .well-known a { color:var(--accent); text-decoration:none; }
+    .well-known a:hover { text-decoration:underline; }
+    footer { text-align:center; padding:3rem 1rem; color:var(--muted); font-size:0.875rem; border-top:1px solid #222; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EPI Labs</h1>
+    <div class="tagline">Episodic Process Integrity for AI Systems</div>
+  </header>
+
+  <main>
+    <section>
+      <h2>What is EPI?</h2>
+      <p>
+        EPI (Episodic Process Integrity) is an open protocol for cryptographically
+        recording, verifying, and attesting to the behavior of AI systems.
+        Every decision, every guardrail check, every redaction — sealed and
+        independently verifiable.
+      </p>
+    </section>
+
+    <section>
+      <h2>Verify Any EPI Recording</h2>
+      <p>
+        Drop a <code>.epi</code> file into the verification portal to get a
+        complete trust report with AIUC-1 mapping.
+      </p>
+      <a class="cta" href="/verify">Open Verify Portal →</a>
+    </section>
+
+    <section>
+      <h2>Trust Anchors</h2>
+      <p>
+        EPI Labs operates a <code>did:web</code> identity that anchors all
+        official attestations. The trust chain resolves to this domain.
+      </p>
+      <div class="well-known">
+        <a href="/.well-known/did.json">/.well-known/did.json</a> — DID document<br>
+        <a href="/.well-known/epi-trust-registry.json">/.well-known/epi-trust-registry.json</a> — Trust registry
+      </div>
+    </section>
+
+    <section>
+      <h2>Get Started</h2>
+      <p>
+        Install the EPI recorder in your Python project:
+      </p>
+      <code>pip install epi-recorder</code>
+      <p style="margin-top:1rem">
+        <a href="https://github.com/epi-labs/epi-recorder">GitHub →</a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>© EPI Labs. did:web:epilabs.org</p>
+  </footer>
+</body>
+</html>

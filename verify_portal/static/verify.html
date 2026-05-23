@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPI Verify — Verify .epi Artifacts in Your Browser</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --surface: #181b21;
+            --surface-2: #22262d;
+            --text: #e6e6e6;
+            --text-dim: #9aa0a6;
+            --accent: #4fc3f7;
+            --accent-2: #81c784;
+            --warn: #ffb74d;
+            --error: #e57373;
+            --border: #2c3038;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        header h1 span {
+            color: var(--accent);
+        }
+        header p {
+            color: var(--text-dim);
+            font-size: 1.05rem;
+        }
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 60px 40px;
+            text-align: center;
+            background: var(--surface);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: var(--surface-2);
+        }
+        .dropzone-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.7;
+        }
+        .dropzone-text {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+        }
+        .dropzone-text strong {
+            color: var(--accent);
+        }
+        .dropzone-sub {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-top: 8px;
+            opacity: 0.7;
+        }
+        input[type="file"] { display: none; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px;
+        }
+        .loading.active { display: block; }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .progress-bar {
+            width: 100%;
+            max-width: 300px;
+            height: 6px;
+            background: var(--surface-2);
+            border-radius: 3px;
+            margin: 20px auto 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .error {
+            display: none;
+            background: rgba(229, 115, 115, 0.1);
+            border: 1px solid var(--error);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-top: 24px;
+        }
+        .error.active { display: block; }
+        .error-title { color: var(--error); font-weight: 600; margin-bottom: 8px; }
+        .error-hint { color: var(--text-dim); font-size: 0.9rem; margin-top: 8px; }
+        .error-hint code {
+            background: var(--surface-2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .results {
+            display: none;
+            margin-top: 32px;
+        }
+        .results.active { display: block; }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .trust-badge {
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 999px;
+        }
+        .trust-badge.high { background: rgba(129, 199, 132, 0.15); color: var(--accent-2); }
+        .trust-badge.medium { background: rgba(255, 183, 77, 0.15); color: var(--warn); }
+        .trust-badge.low { background: rgba(255, 183, 77, 0.1); color: var(--warn); }
+        .trust-badge.invalid, .trust-badge.fail { background: rgba(229, 115, 115, 0.15); color: var(--error); }
+        .trust-badge.none { background: var(--surface-2); color: var(--text-dim); }
+
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tooltip {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--surface-2);
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            cursor: help;
+            position: relative;
+        }
+        .tooltip:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-2);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 10;
+            border: 1px solid var(--border);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--surface-2);
+            border-radius: 8px;
+        }
+        .item-label { color: var(--text-dim); font-size: 0.9rem; }
+        .item-value { font-weight: 600; font-size: 0.95rem; }
+        .item-value.pass { color: var(--accent-2); }
+        .item-value.fail { color: var(--error); }
+        .item-value.warn { color: var(--warn); }
+
+        .aiuc1-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+        .aiuc1-item {
+            padding: 12px 14px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .aiuc1-domain { font-weight: 600; }
+        .aiuc1-status { font-size: 0.85rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+        .aiuc1-status.pass { background: rgba(129, 199, 132, 0.15); color: var(--accent-2); }
+        .aiuc1-status.partial { background: rgba(255, 183, 77, 0.15); color: var(--warn); }
+        .aiuc1-status.fail { background: rgba(229, 115, 115, 0.15); color: var(--error); }
+
+        .attestation {
+            margin-top: 16px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--accent);
+            color: #000;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--border); }
+
+        .retry-box {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--surface-2);
+            border-radius: 8px;
+        }
+        .retry-box p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 12px; }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .container { padding: 20px 16px; }
+            header h1 { font-size: 1.5rem; }
+            .dropzone { padding: 40px 20px; }
+            .result-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>EPI</span> Verify</h1>
+            <p>Upload a <code>.epi</code> artifact to verify its integrity, signature, and AIUC-1 compliance.<br>No installation required.</p>
+        </header>
+
+        <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📦</div>
+            <div class="dropzone-text">
+                Drag & drop your <strong>.epi</strong> file here<br>or click to browse
+            </div>
+            <div class="dropzone-sub">Free: 3 verifications per day. Max file size: 50 MB.</div>
+            <input type="file" id="fileInput" accept=".epi">
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Verifying artifact integrity, signature, and AIUC-1 compliance...</p>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <div class="error" id="error">
+            <div class="error-title" id="errorTitle">Verification Failed</div>
+            <div id="errorMessage"></div>
+            <div class="error-hint" id="errorHint"></div>
+            <div class="retry-box" id="retryBox" style="display:none;">
+                <p>Need more verifications? Upgrade to unlimited.</p>
+                <button class="btn" onclick="document.getElementById('dropzone').scrollIntoView({behavior:'smooth'}); hideAll();">Try Another File</button>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-header">
+                <div id="trustBadge" class="trust-badge">UNKNOWN</div>
+                <div style="color:var(--text-dim);font-size:0.9rem;">
+                    Workflow: <span id="workflowId" style="color:var(--text)">—</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    Facts (Objective Proofs)
+                    <span class="tooltip" data-tip="These are cryptographic facts that cannot be forged">?</span>
+                </div>
+                <div class="grid" id="factsGrid"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    Identity (Trust Context)
+                    <span class="tooltip" data-tip="Who signed this artifact and do we trust them?">?</span>
+                </div>
+                <div class="grid" id="identityGrid"></div>
+            </div>
+
+            <div class="section" id="aiuc1Section">
+                <div class="section-title">
+                    AIUC-1 Trust Domains
+                    <span class="tooltip" data-tip="Mapping of evidence to AIUC-1's six trust domains">?</span>
+                </div>
+                <div class="aiuc1-grid" id="aiuc1Grid"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    Attestation
+                    <span class="tooltip" data-tip="A signed certificate you can attach to legal or insurance filings">?</span>
+                </div>
+                <div class="attestation">
+                    <p style="color:var(--text-dim);margin-bottom:12px;font-size:0.9rem;">
+                        Download a signed attestation for your legal or insurance filing.
+                    </p>
+                    <button class="btn" id="downloadAttestation">Download Signed Attestation</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('dropzone').scrollIntoView({behavior:'smooth'}); hideAll();">Verify Another File</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Powered by <a href="https://epilabs.org" target="_blank">EPI Labs</a> ·
+            <a href="https://github.com/epi-labs/epi-recorder" target="_blank">Open Source</a> ·
+            DID: <a href="https://epilabs.org/.well-known/did.json" target="_blank">did:web:epilabs.org</a>
+        </div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorHint = document.getElementById('errorHint');
+        const retryBox = document.getElementById('retryBox');
+        const progressFill = document.getElementById('progressFill');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) handleFile(files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+
+        async function handleFile(file) {
+            if (!file.name.endsWith('.epi')) {
+                showError(
+                    'Please upload a file with the .epi extension.',
+                    'If your file has a different extension, it may not be a valid EPI artifact.'
+                );
+                return;
+            }
+            if (file.size > 50 * 1024 * 1024) {
+                showError(
+                    'File too large. Maximum size is 50 MB.',
+                    'Large artifacts can be split or compressed before verification.'
+                );
+                return;
+            }
+
+            hideAll();
+            loading.classList.add('active');
+            progressFill.style.width = '30%';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('aiuc1', 'true');
+
+            try {
+                progressFill.style.width = '60%';
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    body: formData,
+                });
+                progressFill.style.width = '90%';
+                const data = await res.json();
+                if (!res.ok) {
+                    handleServerError(res.status, data);
+                    return;
+                }
+                showResults(data);
+            } catch (err) {
+                showError(
+                    'Network error: ' + err.message,
+                    'Please check your internet connection and try again. If the problem persists, verify.epilabs.org may be temporarily unavailable.'
+                );
+            } finally {
+                loading.classList.remove('active');
+                progressFill.style.width = '0%';
+            }
+        }
+
+        function hideAll() {
+            results.classList.remove('active');
+            error.classList.remove('active');
+            loading.classList.remove('active');
+        }
+
+        function showError(msg, hint = '') {
+            hideAll();
+            errorTitle.textContent = 'Verification Failed';
+            errorMessage.textContent = msg;
+            errorHint.textContent = hint;
+            retryBox.style.display = 'block';
+            error.classList.add('active');
+        }
+
+        function handleServerError(status, data) {
+            let title = 'Verification Failed';
+            let msg = data.detail || 'An unknown error occurred on the server.';
+            let hint = '';
+
+            if (status === 429) {
+                title = 'Rate Limit Reached';
+                msg = 'You have used all free verifications for today.';
+                hint = 'Free tier: 3 verifications per day. Contact EPI Labs for unlimited institutional access.';
+            } else if (status === 400) {
+                title = 'Invalid File';
+                msg = data.detail || 'The uploaded file could not be processed.';
+                hint = 'Make sure you are uploading a valid .epi artifact created by the EPI recorder.';
+            } else if (status >= 500) {
+                title = 'Server Error';
+                msg = 'Something went wrong on our end.';
+                hint = 'Please try again in a few minutes. If the problem persists, contact support.';
+            }
+
+            errorTitle.textContent = title;
+            errorMessage.textContent = msg;
+            errorHint.textContent = hint;
+            retryBox.style.display = (status === 429) ? 'none' : 'block';
+            error.classList.add('active');
+        }
+
+        function showResults(report) {
+            hideAll();
+            results.classList.add('active');
+
+            // Trust badge
+            const trustLevel = report.trust_level || 'NONE';
+            const badge = document.getElementById('trustBadge');
+            badge.textContent = trustLevel;
+            badge.className = 'trust-badge ' + trustLevel.toLowerCase();
+
+            // Workflow ID
+            document.getElementById('workflowId').textContent = report.metadata?.workflow_id || '—';
+
+            // Facts
+            const facts = report.facts || {};
+            const factsGrid = document.getElementById('factsGrid');
+            factsGrid.innerHTML = '';
+            const factItems = [
+                { label: 'Integrity', key: 'integrity_ok', pass: 'Verified', fail: 'FAILED' },
+                { label: 'Signature', key: 'signature_valid', pass: 'Valid', fail: 'INVALID', none: 'Unsigned' },
+                { label: 'Sequence', key: 'sequence_ok', pass: 'Monotonic', fail: 'GAP' },
+                { label: 'Completeness', key: 'completeness_ok', pass: 'Complete', fail: 'INCOMPLETE' },
+                { label: 'Chain', key: 'chain_ok', pass: 'Unbroken', fail: 'BROKEN' },
+                { label: 'Transparency', key: 'transparency_ok', pass: 'VERIFIED', fail: 'FAILED', none: 'Missing' },
+            ];
+            for (const item of factItems) {
+                const val = facts[item.key];
+                let cls = 'pass', text = item.pass;
+                if (val === false) { cls = 'fail'; text = item.fail; }
+                else if (val === null || val === undefined) { cls = 'warn'; text = item.none || 'N/A'; }
+                factsGrid.innerHTML += `<div class="item"><span class="item-label">${item.label}</span><span class="item-value ${cls}">${text}</span></div>`;
+            }
+
+            // Identity
+            const identity = report.identity || {};
+            const identityGrid = document.getElementById('identityGrid');
+            identityGrid.innerHTML = '';
+            const idItems = [
+                { label: 'Status', value: identity.status || 'UNKNOWN' },
+                { label: 'Name', value: identity.name || 'Unknown' },
+                { label: 'DID', value: identity.did || '—' },
+                { label: 'Public Key', value: identity.public_key_id ? identity.public_key_id + '...' : '—' },
+            ];
+            for (const item of idItems) {
+                identityGrid.innerHTML += `<div class="item"><span class="item-label">${item.label}</span><span class="item-value">${item.value}</span></div>`;
+            }
+
+            // AIUC-1
+            const aiuc1 = report.aiuc1 || {};
+            const aiuc1Grid = document.getElementById('aiuc1Grid');
+            aiuc1Grid.innerHTML = '';
+            const domains = aiuc1.domains || {};
+            for (const [id, info] of Object.entries(domains)) {
+                const status = info.status;
+                const cls = status === 'PASS' ? 'pass' : (status === 'PARTIAL' ? 'partial' : 'fail');
+                aiuc1Grid.innerHTML += `
+                    <div class="aiuc1-item">
+                        <span class="aiuc1-domain">${id}. ${info.label}</span>
+                        <span class="aiuc1-status ${cls}">${status}</span>
+                    </div>`;
+            }
+
+            // Attestation download
+            const attestation = report.attestation;
+            const downloadBtn = document.getElementById('downloadAttestation');
+            if (attestation) {
+                downloadBtn.style.display = 'inline-block';
+                downloadBtn.onclick = () => {
+                    const blob = new Blob([JSON.stringify(attestation, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `epi-attestation-${report.metadata?.workflow_id || 'unknown'}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+            } else {
+                downloadBtn.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

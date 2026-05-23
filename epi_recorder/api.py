@@ -898,6 +898,10 @@ class EpiRecorderSession:
             if self.auto_sign:
                 signed = self._sign_epi_file()
 
+            # Auto-SCITT anchor if configured
+            if signed:
+                self._auto_scitt_anchor()
+
             self._print_session_summary(signed)
 
         finally:
@@ -1504,6 +1508,30 @@ class EpiRecorderSession:
                 "timestamp": utc_now_iso()
             })
     
+    def _auto_scitt_anchor(self) -> None:
+        """Automatically anchor to SCITT if EPI_SCITT_AUTO_ANCHOR=1 is set."""
+        try:
+            from epi_recorder.auto_scitt import AutoSCITTAnchor
+            from epi_core.keys import KeyManager
+            from epi_core.container import EPIContainer
+
+            anchor = AutoSCITTAnchor()
+            if not anchor.is_configured():
+                return
+
+            km = KeyManager()
+            if not km.has_key(self.default_key_name):
+                return
+
+            private_key = km.load_private_key(self.default_key_name)
+            manifest = EPIContainer.read_manifest(self.output_path)
+            anchor.anchor_if_configured(
+                manifest, self.output_path, private_key, self.default_key_name
+            )
+        except Exception:
+            # Fail-open: SCITT anchoring must never block artifact creation
+            pass
+
     def _sign_epi_file(self) -> bool:
         """Sign the .epi file with default key. Returns True if signed successfully."""
         try:

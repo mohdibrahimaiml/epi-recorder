@@ -378,8 +378,11 @@ class TrustRegistry:
                         )
                     if public_key_hex in remote_data.get("revoked_keys", []):
                         return False, "Unknown", "REVOKED via remote anchor"
-            except Exception as e:
-                return False, None, f"Remote registry check failed: {e}"
+            except Exception:
+                # Network or parsing failure — don't block verification.
+                # Fall through to built-in roots and UNKNOWN so offline
+                # verification remains possible.
+                pass
 
         # 5. Known Official Keys (EPI Labs)
         epi_labs_official_pub = "5e75e81a25b54859ba05898b7670f152"
