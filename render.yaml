@@ -15,3 +15,5 @@ services:
         value: 10000
       - key: EPI_ATTESTATION_PRIVATE_KEY
         sync: false  # Set manually in Render dashboard — never commit secrets
+      - key: EPI_SCITT_SERVICE_PRIVATE_KEY
+        sync: false  # Set manually in Render dashboard — never commit secrets

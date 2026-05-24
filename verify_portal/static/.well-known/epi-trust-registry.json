@@ -8,9 +8,10 @@
   "revoked_keys": [],
   "scitt_services": [
     {
-      "url": "https://scitt.epilabs.org",
+      "url": "https://epilabs.org/scitt",
       "name": "EPI Labs SCITT Transparency Service",
-      "status": "active"
+      "status": "active",
+      "public_key": "36e662657340d780bb5800f01796e69258e8755109ba94b8c6661f5fac371a3c"
     }
   ],
   "policy": {

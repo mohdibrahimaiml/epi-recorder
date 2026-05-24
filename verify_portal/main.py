@@ -35,6 +35,7 @@ from epi_core.trust import (
     create_verification_report,
     verify_embedded_manifest_signature,
 )
+from verify_portal.scitt_routes import router as scitt_router
 
 app = FastAPI(
     title="EPI Verify Portal",
@@ -46,6 +47,9 @@ app = FastAPI(
 STATIC_DIR = Path(__file__).parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# SCITT transparency service routes
+app.include_router(scitt_router, prefix="/scitt")
 
 # Simple in-memory rate limiting: IP -> (count, reset_time)
 _RATE_LIMIT_FREE = 3  # free verifications per IP per day
@@ -115,6 +119,23 @@ def _load_signer_key() -> bytes | None:
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
         )
+    except Exception:
+        return None
+
+
+def _load_scitt_service_public_key() -> bytes | None:
+    """Load the SCITT service public key from env var (derives from private key)."""
+    raw_b64 = os.environ.get("EPI_SCITT_SERVICE_PRIVATE_KEY")
+    if not raw_b64:
+        return None
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        key_bytes = base64.b64decode(raw_b64)
+        if len(key_bytes) != 32:
+            return None
+        private_key = Ed25519PrivateKey.from_private_bytes(key_bytes)
+        return private_key.public_key().public_bytes_raw()
     except Exception:
         return None
 
@@ -307,20 +328,37 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
         signature_valid = None
         signer_name = None
 
-    # SCITT receipt check
+    # SCITT receipt check — full cryptographic verification
+    transparency_ok = None
     try:
-        from epi_core.scitt import extract_scitt_artifacts, verify_scitt_receipt, parse_scitt_statement
+        from epi_core.scitt import (
+            extract_scitt_artifacts,
+            verify_scitt_receipt,
+            verify_scitt_statement,
+        )
         stmt_bytes, rcpt_bytes, scitt_gov = extract_scitt_artifacts(epi_file)
         if stmt_bytes and rcpt_bytes and scitt_gov:
-            # We would need the SCITT service public key to fully verify;
-            # for now, structural presence counts as "present"
-            transparency_ok = True
+            # 1. Verify statement structure and payload hash match
+            verify_scitt_statement(stmt_bytes, manifest, public_key_bytes=None)
+
+            # 2. Load SCITT service public key
+            service_pub_key = _load_scitt_service_public_key()
+            if service_pub_key:
+                # 3. Verify receipt signature cryptographically
+                verify_scitt_receipt(rcpt_bytes, stmt_bytes, service_pub_key)
+                transparency_ok = True
+            else:
+                # Service key unavailable — fallback to structural check
+                import cbor2
+                receipt = cbor2.loads(rcpt_bytes)
+                if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
+                    transparency_ok = True
+                else:
+                    transparency_ok = False
         elif stmt_bytes or rcpt_bytes:
             transparency_ok = False
-        else:
-            transparency_ok = None
     except Exception:
-        transparency_ok = None
+        transparency_ok = False
 
     # Build report
     report = create_verification_report(

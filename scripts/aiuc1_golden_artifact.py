@@ -119,28 +119,13 @@ def build_golden_artifact():
         # Update file_manifest with new files
         manifest.file_manifest = dict(manifest.file_manifest or {})
         manifest.file_manifest["review.json"] = "sha256-placeholder"
-        manifest.file_manifest["artifacts/scitt/statement.cbor"] = "sha256-placeholder"
-        manifest.file_manifest["artifacts/scitt/receipt.cbor"] = "sha256-placeholder"
 
-        # Add SCITT governance
+        # DID for issuer derivation
         manifest.governance = manifest.governance or {}
-        manifest.governance["scitt"] = {
-            "service_url": "https://scitt.epilabs.org",
-            "entry_id": "aiuc1-golden-001",
-            "registered_at": datetime.now(UTC).isoformat(),
-            "statement_path": "artifacts/scitt/statement.cbor",
-            "receipt_path": "artifacts/scitt/receipt.cbor",
-        }
         manifest.governance["did"] = "did:web:epilabs.org"
 
         # Update total_steps
         manifest.total_steps = len(steps)
-
-        # Create dummy SCITT artifacts
-        scitt_dir = extract_dir / "artifacts" / "scitt"
-        scitt_dir.mkdir(parents=True, exist_ok=True)
-        (scitt_dir / "statement.cbor").write_bytes(b"\xa1\x01\x01")  # minimal CBOR
-        (scitt_dir / "receipt.cbor").write_bytes(b"\xa1\x01\x02")   # minimal CBOR
 
         # Sign the manifest
         signed_manifest = sign_manifest(manifest, private_key, "default")
@@ -159,6 +144,22 @@ def build_golden_artifact():
             container_format="legacy-zip",
             preserve_generated=True,
         )
+
+        # Anchor to live SCITT transparency service
+        from epi_recorder.auto_scitt import AutoSCITTAnchor
+        anchor = AutoSCITTAnchor(service_url="https://epilabs.org/scitt")
+        try:
+            anchored = anchor.anchor_if_configured(
+                signed_manifest, output_path, private_key, "default"
+            )
+            if anchored:
+                print(f"[OK] SCITT anchored to https://epilabs.org/scitt")
+            else:
+                print(f"[WARN] SCITT anchoring skipped (service not reachable)")
+        except Exception as exc:
+            print(f"[WARN] SCITT anchoring failed: {exc}")
+            print(f"       You can manually anchor later with:")
+            print(f"       epi scitt anchor {output_path} --service https://epilabs.org/scitt")
 
         print(f"[OK] Golden artifact created: {output_path}")
         print(f"     Workflow ID: {manifest.workflow_id}")
