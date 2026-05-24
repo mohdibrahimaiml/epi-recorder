@@ -55,10 +55,15 @@ def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
     cache_key = hashlib.sha256(service_url.encode()).hexdigest()[:16]
     cache_file = cache_dir / f"{cache_key}.pub"
 
-    # Return cached key if present
+    # Return cached key if present and not expired (24h TTL)
+    CACHE_TTL_SECONDS = 86400
     if cache_file.exists():
         try:
-            return bytes.fromhex(cache_file.read_text().strip())
+            import time
+            if time.time() - cache_file.stat().st_mtime < CACHE_TTL_SECONDS:
+                return bytes.fromhex(cache_file.read_text().strip())
+            # Expired: delete and fall through to re-fetch
+            cache_file.unlink(missing_ok=True)
         except Exception:
             pass
 
@@ -748,7 +753,7 @@ def verify_command(
 
         # ========== WEB / QR BRIDGE ==========
         if web and not json_output:
-            portal_url = "https://verify.epilabs.org"
+            portal_url = "https://epilabs.org/verify"
             console.print(f"\n[bold cyan]Opening {portal_url}...[/bold cyan]")
             console.print(f"[dim]Upload this file to verify in your browser:[/dim]")
             console.print(f"[green]{epi_file.resolve()}[/green]\n")
@@ -760,7 +765,7 @@ def verify_command(
                 console.print(f"[cyan]Please visit: {portal_url}[/cyan]")
 
         if qr and not json_output:
-            portal_url = "https://verify.epilabs.org"
+            portal_url = "https://epilabs.org/verify"
             console.print(f"\n[bold cyan]Scan this QR code to verify on your phone:[/bold cyan]")
             _print_qr_code(portal_url)
             console.print(f"[dim]Or visit: {portal_url}[/dim]\n")

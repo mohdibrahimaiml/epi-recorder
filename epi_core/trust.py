@@ -384,11 +384,6 @@ class TrustRegistry:
                 # verification remains possible.
                 pass
 
-        # 5. Known Official Keys (EPI Labs)
-        epi_labs_official_pub = "5e75e81a25b54859ba05898b7670f152"
-        if public_key_hex == epi_labs_official_pub:
-            return True, "EPI Labs (Official)", "Verified via built-in trust root"
-
         return False, None, "UNKNOWN: Identity not found in any trusted registry"
 
 

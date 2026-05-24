@@ -160,7 +160,7 @@ def _has_file_in_manifest(manifest: Any | None, filename: str) -> bool:
     if manifest is None:
         return False
     file_manifest = getattr(manifest, "file_manifest", None) or {}
-    return any(filename in key for key in file_manifest.keys())
+    return any(key == filename or key.endswith(f"/{filename}") for key in file_manifest.keys())
 
 
 def _detect_redaction_in_steps(steps: list[dict] | None) -> bool:
@@ -191,7 +191,7 @@ def _check_timestamp_monotonicity(steps: list[dict] | None) -> bool:
                 timestamps.append(ts)
         return all(timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1))
     except Exception:
-        return True  # Graceful fallback
+        return False  # Cannot verify monotonicity — assume tampering
 
 
 def _detect_error_steps(steps: list[dict] | None) -> bool:

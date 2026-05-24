@@ -88,11 +88,8 @@ class RedactionPlaceholderStr(str):
     def __eq__(self, other):
         if not isinstance(other, str):
             return False
-        if other == "***REDACTED***":
-            return True
-        return (
-            other.startswith("***REDACTED***:") 
-            or (other.startswith("***REDACTED:") and other.endswith("***"))
+        return other == "***REDACTED***" or (
+            other.startswith("***REDACTED***:") and ":HMAC-SHA256:" in other
         )
 
     def __ne__(self, other):

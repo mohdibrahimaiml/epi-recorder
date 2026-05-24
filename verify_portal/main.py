@@ -190,8 +190,13 @@ async def verify(
     Returns:
         JSON verification report with optional AIUC-1 mapping and signed attestation.
     """
-    # Rate limiting
-    client_ip = request.client.host if request.client else "unknown"
+    # Rate limiting — use X-Forwarded-For for real client IP behind proxy
+    client_ip = request.headers.get("x-forwarded-for")
+    if client_ip:
+        # X-Forwarded-For can be "client, proxy1, proxy2" — take the outermost (first)
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
     if not _check_rate_limit(client_ip):
         raise HTTPException(
             status_code=429,
@@ -203,8 +208,11 @@ async def verify(
         raise HTTPException(status_code=400, detail="File must have .epi extension")
 
     # Save uploaded file to temp directory
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
     with tempfile.NamedTemporaryFile(suffix=".epi", delete=False) as tmp:
         content = await file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File too large. Max 50 MB.")
         tmp.write(content)
         tmp_path = Path(tmp.name)
 
