@@ -202,7 +202,7 @@ def create_scitt_statement(
     """
     if isinstance(manifest, dict):
         manifest = ManifestModel(**manifest)
-    manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
+    manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})
     payload = manifest_hash.encode("utf-8")
 
     protected = {
@@ -275,7 +275,7 @@ def verify_scitt_statement(
     statement = parse_scitt_statement(cose_bytes)
 
     # Verify payload matches manifest hash
-    expected_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
+    expected_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})
     if statement.payload is None:
         raise SCITTVerificationError("SCITT statement has detached payload")
     actual_hash = statement.payload.decode("utf-8")

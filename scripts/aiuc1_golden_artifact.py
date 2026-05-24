@@ -147,7 +147,9 @@ def build_golden_artifact():
 
         # Anchor to live SCITT transparency service
         from epi_recorder.auto_scitt import AutoSCITTAnchor
-        anchor = AutoSCITTAnchor(service_url="https://epilabs.org/scitt")
+        import os
+        scitt_url = os.environ.get("EPI_SCITT_URL", "https://epilabs.org/scitt")
+        anchor = AutoSCITTAnchor(service_url=scitt_url)
         try:
             anchored = anchor.anchor_if_configured(
                 signed_manifest, output_path, private_key, "default"

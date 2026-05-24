@@ -673,6 +673,11 @@ class EPIContainer:
                 if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
                     continue
 
+                # SCITT artifacts are verified cryptographically, not via file_manifest
+                if arc_name.startswith("artifacts/scitt/"):
+                    files_to_pack.append((file_path, arc_name))
+                    continue
+
                 if not _is_mutable_review_archive_name(arc_name):
                     file_hash = EPIContainer._compute_file_hash(file_path)
                     file_manifest[arc_name] = file_hash
@@ -1174,6 +1179,9 @@ class EPIContainer:
                     if _is_mutable_review_archive_name(rel_path):
                         continue
                     if rel_path == "VERIFY.txt" and "VERIFY.txt" not in manifest.file_manifest:
+                        continue
+                    # SCITT artifacts are verified cryptographically via receipt
+                    if rel_path.startswith("artifacts/scitt/"):
                         continue
                     if rel_path not in manifest.file_manifest:
                         mismatches[rel_path] = "Extra file not in manifest"

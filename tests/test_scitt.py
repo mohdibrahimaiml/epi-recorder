@@ -91,7 +91,7 @@ class TestSCITTStatement:
         cose_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")
         stmt = parse_scitt_statement(cose_bytes)
 
-        expected_hash = get_canonical_hash(signed_manifest, exclude_fields={"signature"})
+        expected_hash = get_canonical_hash(signed_manifest, exclude_fields={"signature", "governance"})
         assert stmt.payload.decode("utf-8") == expected_hash
         assert stmt.subject == expected_hash
 

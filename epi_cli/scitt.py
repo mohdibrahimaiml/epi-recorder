@@ -311,14 +311,6 @@ def _build_scitt_artifact(
     manifest_dict.setdefault("governance", {})
     manifest_dict["governance"]["scitt"] = scitt_gov
 
-    # Compute hashes for SCITT artifacts
-    stmt_hash = hashlib.sha256(statement_bytes).hexdigest()
-    rcpt_hash = hashlib.sha256(receipt_bytes).hexdigest()
-
-    manifest_dict["file_manifest"] = dict(manifest_dict.get("file_manifest", {}))
-    manifest_dict["file_manifest"]["artifacts/scitt/statement.cbor"] = stmt_hash
-    manifest_dict["file_manifest"]["artifacts/scitt/receipt.cbor"] = rcpt_hash
-
     updated_manifest = ManifestModel(**manifest_dict)
 
     # Re-sign the manifest
@@ -357,4 +349,5 @@ def _build_scitt_artifact(
             output_path=output_epi,
             container_format=container_format,
             preserve_generated=True,
+            generate_analysis=False,
         )
