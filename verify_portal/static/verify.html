@@ -443,7 +443,7 @@
             } catch (err) {
                 showError(
                     'Network error: ' + err.message,
-                    'Please check your internet connection and try again. If the problem persists, verify.epilabs.org may be temporarily unavailable.'
+                    'Please check your internet connection and try again. If the problem persists, epilabs.org may be temporarily unavailable.'
                 );
             } finally {
                 loading.classList.remove('active');
@@ -475,6 +475,10 @@
                 title = 'Rate Limit Reached';
                 msg = 'You have used all free verifications for today.';
                 hint = 'Free tier: 3 verifications per day. Contact EPI Labs for unlimited institutional access.';
+            } else if (status === 413) {
+                title = 'File Too Large';
+                msg = data.detail || 'The uploaded file exceeds the size limit.';
+                hint = 'Maximum file size is 50 MB. Large artifacts can be split or compressed.';
             } else if (status === 400) {
                 title = 'Invalid File';
                 msg = data.detail || 'The uploaded file could not be processed.';
@@ -504,6 +508,33 @@
 
             // Workflow ID
             document.getElementById('workflowId').textContent = report.metadata?.workflow_id || '—';
+
+            // Decision banner (if present)
+            const decision = report.decision || {};
+            if (decision.status) {
+                const decisionBanner = document.createElement('div');
+                decisionBanner.style.cssText = 'margin-bottom:16px;padding:12px 16px;border-radius:8px;font-weight:600;text-align:center;';
+                if (decision.status === 'PASS') {
+                    decisionBanner.style.background = 'rgba(129, 199, 132, 0.15)';
+                    decisionBanner.style.color = 'var(--accent-2)';
+                } else if (decision.status === 'WARN') {
+                    decisionBanner.style.background = 'rgba(255, 183, 77, 0.15)';
+                    decisionBanner.style.color = 'var(--warn)';
+                } else {
+                    decisionBanner.style.background = 'rgba(229, 115, 115, 0.15)';
+                    decisionBanner.style.color = 'var(--error)';
+                }
+                decisionBanner.textContent = `Policy: ${decision.policy?.toUpperCase() || 'STANDARD'} — ${decision.reason}`;
+                document.querySelector('.result-header').insertAdjacentElement('afterend', decisionBanner);
+            }
+
+            // Trust message (if present)
+            if (report.trust_message) {
+                const msgDiv = document.createElement('div');
+                msgDiv.style.cssText = 'margin-bottom:16px;color:var(--text-dim);font-size:0.9rem;';
+                msgDiv.textContent = report.trust_message;
+                document.querySelector('.result-header').insertAdjacentElement('afterend', msgDiv);
+            }
 
             // Facts
             const facts = report.facts || {};
