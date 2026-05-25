@@ -168,22 +168,28 @@ def build_golden_artifact():
         )
 
         # Anchor to live SCITT transparency service
+        # CRITICAL: Read the manifest BACK from the packed artifact before
+        # creating the SCITT statement. EPIContainer.pack() regenerates
+        # file_manifest (including viewer.html hash), so the in-memory
+        # signed_manifest is stale. The statement must match the FINAL manifest.
         from epi_recorder.auto_scitt import AutoSCITTAnchor
         import os
         scitt_url = os.environ.get("EPI_SCITT_URL", "https://epilabs.org/scitt")
+        os.environ["EPI_SCITT_AUTO_ANCHOR"] = "1"
         anchor = AutoSCITTAnchor(service_url=scitt_url)
         try:
+            final_manifest = EPIContainer.read_manifest(output_path)
             anchored = anchor.anchor_if_configured(
-                signed_manifest, output_path, private_key, "default"
+                final_manifest, output_path, private_key, "default"
             )
             if anchored:
-                print(f"[OK] SCITT anchored to https://epilabs.org/scitt")
+                print(f"[OK] SCITT anchored to {scitt_url}")
             else:
                 print(f"[WARN] SCITT anchoring skipped (service not reachable)")
         except Exception as exc:
             print(f"[WARN] SCITT anchoring failed: {exc}")
             print(f"       You can manually anchor later with:")
-            print(f"       epi scitt anchor {output_path} --service https://epilabs.org/scitt")
+            print(f"       epi scitt anchor {output_path} --service {scitt_url}")
 
         print(f"[OK] Golden artifact created: {output_path}")
         print(f"     Workflow ID: {manifest.workflow_id}")

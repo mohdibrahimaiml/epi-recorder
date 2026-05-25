@@ -193,11 +193,51 @@ class AutoSCITTAnchor:
                 header = f.read(4)
             container_format = "envelope-v2" if header == b"<!--" else "legacy-zip"
 
-            EPIContainer.pack(
-                source_dir=extract_dir,
-                manifest=signed_manifest,
-                output_path=epi_path,
-                container_format=container_format,
-                preserve_generated=True,
-                generate_analysis=False,
-            )
+            # Directly rewrite the ZIP to avoid EPIContainer.pack() regenerating
+            # file_manifest, viewer.html, VERIFY.txt, etc. The statement was
+            # created from the manifest that already has the correct file_manifest.
+            # Calling pack() would change hashes and break the statement match.
+            import shutil
+
+            tmp_output = epi_path.parent / (epi_path.name + ".tmp")
+            with zipfile.ZipFile(epi_path, "r") as zf_in:
+                with zipfile.ZipFile(tmp_output, "w", zipfile.ZIP_DEFLATED) as zf_out:
+                    seen_manifest = False
+                    seen_stmt = False
+                    seen_rcpt = False
+                    for item in zf_in.infolist():
+                        name = item.filename
+                        if name == "manifest.json":
+                            if not seen_manifest:
+                                zf_out.writestr(
+                                    "manifest.json",
+                                    signed_manifest.model_dump_json(indent=2),
+                                )
+                                seen_manifest = True
+                            continue
+                        if name == "artifacts/scitt/statement.cbor":
+                            if not seen_stmt:
+                                zf_out.writestr(
+                                    "artifacts/scitt/statement.cbor", statement_bytes
+                                )
+                                seen_stmt = True
+                            continue
+                        if name == "artifacts/scitt/receipt.cbor":
+                            if not seen_rcpt:
+                                zf_out.writestr(
+                                    "artifacts/scitt/receipt.cbor", receipt_bytes
+                                )
+                                seen_rcpt = True
+                            continue
+                        zf_out.writestr(item, zf_in.read(name))
+
+                    if not seen_stmt:
+                        zf_out.writestr(
+                            "artifacts/scitt/statement.cbor", statement_bytes
+                        )
+                    if not seen_rcpt:
+                        zf_out.writestr(
+                            "artifacts/scitt/receipt.cbor", receipt_bytes
+                        )
+
+            shutil.move(str(tmp_output), str(epi_path))
