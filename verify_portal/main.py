@@ -43,10 +43,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Serve static frontend
+# Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # SCITT transparency service routes
 app.include_router(scitt_router, prefix="/scitt")
@@ -153,22 +151,13 @@ def _sign_attestation(payload: dict) -> str | None:
         return None
 
 
-@app.get("/")
-async def root():
-    """Serve the landing page."""
-    index_path = STATIC_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(index_path)
-    return {"message": "EPI Labs — visit /verify to verify .epi artifacts"}
-
-
-@app.get("/verify")
+@app.get("/portal")
 async def verify_page():
-    """Serve the verify portal frontend."""
-    verify_path = STATIC_DIR / "verify.html"
-    if verify_path.exists():
-        return FileResponse(verify_path)
-    raise HTTPException(status_code=404, detail="Verify frontend not found")
+    """Serve the server-side verify portal frontend."""
+    portal_path = STATIC_DIR / "portal.html"
+    if portal_path.exists():
+        return FileResponse(portal_path)
+    raise HTTPException(status_code=404, detail="Portal frontend not found")
 
 
 @app.get("/.well-known/did.json")
@@ -400,6 +389,12 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 
     return report
 
+
+# Mount static files at root for the full EPI-OFFICIAL website.
+# This must come AFTER all API routes so that /api/verify, /scitt/*,
+# /.well-known/*, /health, and /portal are handled by FastAPI routes.
+if STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

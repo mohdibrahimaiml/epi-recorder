@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When Your AI Denies a Claim, What Evidence Do You Have? - EPI LABS</title>
+    <meta name="description"
+        content="AI claim denials need a defensible record. See how EPI turns one insurer decision into a signed Decision Record you can verify later.">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/style.css?v=2.6">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="top"></div>
+
+    <nav class="nav">
+        <div class="container nav-container">
+            <div class="nav-logo">
+                <a href="index.html" title="Go to Home">
+                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="how-it-works.html#top">How It Works</a>
+                <a href="technology.html">Technology</a>
+                <a href="use-cases.html#top">Use Cases</a>
+                <a href="verify/">Verify</a>
+                <a href="viewer.html">Review</a>
+                <a href="contact.html#top">Contact</a>
+            </div>
+            <div class="nav-cta">
+                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary" target="_blank">GitHub</a>
+                <a href="contact.html#top" class="btn-primary">Book Demo</a>
+            </div>
+        </div>
+    </nav>
+
+    <div style="height: 80px;"></div>
+
+    <section class="section">
+        <div class="container" style="max-width: 920px;">
+            <div class="section-header" style="text-align: left;">
+                <div class="hero-badge" style="display: inline-flex; margin-bottom: 1rem;">Insurance design-partner focus</div>
+                <h1 class="section-title" style="font-size: 3rem;">When Your AI Denies a Claim, What Evidence Do You Have?</h1>
+                <p class="section-desc" style="max-width: 820px;">
+                    A denial decision is not just another model output. It can trigger complaints, audit questions, legal review,
+                    or direct regulatory scrutiny. When that happens, the team needs one defensible record that shows what checks
+                    ran, what the AI recommended, who approved the outcome, and whether the record changed afterward.
+                </p>
+            </div>
+
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">The problem</h2>
+                <p>
+                    In most teams, the evidence for an AI claim denial is scattered. Some of it lives in vendor traces, some in
+                    tickets, some in workflow logs, and some only in a reviewer’s memory. That is painful during internal review
+                    and worse when an external party asks, “What exactly happened here?”
+                </p>
+                <p>
+                    Compliance and model-risk teams do not need more dashboards in that moment. They need one portable case file
+                    that answers four questions clearly: what decision was made, what checks supported it, what human approved it,
+                    and whether anyone changed the record later.
+                </p>
+            </div>
+
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">What EPI does</h2>
+                <p>
+                    EPI captures the claim workflow into a sealed <code>.epi</code> case file. That file can include the claim
+                    checks, the AI recommendation, the human approval step, the rule evaluation, and a printable Decision Record.
+                    Anyone can later verify whether the record still matches what was created at the time of the decision.
+                </p>
+                <p>
+                    For insurance teams, that means a claim denial is no longer “something the model did.” It becomes a defensible
+                    record you can hand to compliance, legal, internal audit, or a regulator.
+                </p>
+            </div>
+
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">What the demo shows</h2>
+                <p>
+                    The current insurance starter workflow loads a claim, runs a fraud check, checks coverage, requests human
+                    approval because the amount exceeds the threshold, records the denial reason, and seals the final denial into
+                    a case file. Then EPI exports a Decision Record that can be printed or turned into a PDF directly from the
+                    browser.
+                </p>
+                <p>
+                    That is the proof point: not a slide, not an architecture diagram, but the exact record a reviewer would read.
+                </p>
+            </div>
+
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Try it</h2>
+                <p style="margin-bottom: 1rem;">Run the insurance starter kit locally:</p>
+                <pre style="background: rgba(255,255,255,0.04); padding: 1.25rem; border-radius: 16px; overflow-x: auto;"><code>cd examples/starter_kits/insurance_claim
+python agent.py
+epi view insurance_claim_case.epi
+epi export-summary summary insurance_claim_case.epi</code></pre>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem;">
+                    <a href="https://github.com/mohdibrahimaiml/epi-recorder/tree/main/examples/starter_kits/insurance_claim" class="btn-primary" target="_blank">Open the insurance starter kit</a>
+                    <a href="https://colab.research.google.com/github/mohdibrahimaiml/epi-recorder/blob/main/colab_demo.ipynb" class="btn-secondary" target="_blank">Open the Colab walkthrough</a>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Why this matters now</h2>
+                <p>
+                    AI teams often start with speed and only later realize they also need evidence. Claim denials are where that
+                    realization arrives quickly, because the cost of “we can reconstruct it later” is too high. EPI exists to
+                    make that reconstruction unnecessary.
+                </p>
+            </div>
+        </div>
+    </section>
+</body>
+
+</html>

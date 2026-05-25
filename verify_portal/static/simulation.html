@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Simulation - EPI LABS</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/style.css?v=2.6">
+    <link rel="stylesheet" href="css/terminal.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        .sim-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+            min-height: 600px;
+        }
+
+        .sim-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .step-list {
+            position: relative;
+            padding-left: 20px;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step-item {
+            position: relative;
+            padding-bottom: 2rem;
+            opacity: 0.4;
+            transition: all 0.3s ease;
+        }
+
+        .step-item.active {
+            opacity: 1;
+        }
+
+        .step-item.completed {
+            opacity: 0.6;
+        }
+
+        .step-dot {
+            position: absolute;
+            left: -27px;
+            top: 0;
+            width: 16px;
+            height: 16px;
+            background: var(--color-bg);
+            border: 2px solid #666;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .step-item.active .step-dot {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px var(--color-primary);
+        }
+
+        .step-item.completed .step-dot {
+            background: var(--color-success);
+            border-color: var(--color-success);
+        }
+
+        .step-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .step-desc {
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.5;
+        }
+
+        .terminal-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 800px) {
+            .sim-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Anchor -->
+    <div id="top"></div>
+
+    <!-- Minimal Navigation for Simulation -->
+    <nav class="nav" style="background: rgba(0,0,0,0.8); border-bottom: 1px solid #333;">
+        <div class="container nav-container">
+            <div class="nav-logo">
+                <a href="index.html" title="Back to Home">
+                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
+                </a>
+            </div>
+            <div class="nav-links" style="display: none;">
+                <!-- Hide standard links for immersion -->
+            </div>
+            <div class="nav-cta">
+                <a href="index.html" class="btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Back to Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section" style="padding-top: 8rem;">
+        <div class="container">
+            <div class="section-header">
+                <h1 class="section-title">EPI Workflow Simulator</h1>
+                <p class="section-desc">Experience the complete evidence lifecycle: Install, Record, Verify, View.</p>
+            </div>
+
+            <div class="sim-container">
+                <!-- Sidebar Stepper -->
+                <div class="sim-sidebar">
+                    <div class="step-list">
+                        <div class="step-item active" id="step-install">
+                            <div class="step-dot"></div>
+                            <div class="step-title">1. Install</div>
+                            <div class="step-desc">
+                                Installs the <code>epi-recorder</code> package from PyPI. Zero system dependencies
+                                required.
+                            </div>
+                        </div>
+                        <div class="step-item" id="step-record">
+                            <div class="step-dot"></div>
+                            <div class="step-title">2. Record</div>
+                            <div class="step-desc">
+                                Explicitly captures inputs, API calls (OpenAI), and artifacts using
+                                <code>log_llm_call()</code> or wrappers.
+                            </div>
+                        </div>
+                        <div class="step-item" id="step-verify">
+                            <div class="step-dot"></div>
+                            <div class="step-title">3. Verify</div>
+                            <div class="step-desc">
+                                Checks cryptographic signatures (Ed25519) and file integrity hashes.
+                            </div>
+                        </div>
+                        <div class="step-item" id="step-view">
+                            <div class="step-dot"></div>
+                            <div class="step-title">4. View</div>
+                            <div class="step-desc">
+                                Opens the self-contained evidence package in the browser viewer.
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="restart-demo" class="btn-secondary" style="margin-top: auto; display: none;">Restart Simulation</button>
+                </div>
+
+                <!-- Terminal -->
+                <div class="terminal-wrapper">
+                    <div id="interactive-terminal" class="terminal-window terminal-interactive" style="height: 500px;"
+                        data-manual-init="true">
+                        <div class="terminal-header">
+                            <div class="terminal-controls">
+                                <span class="control-dot dot-red"></span>
+                                <span class="control-dot dot-yellow"></span>
+                                <span class="control-dot dot-green"></span>
+                            </div>
+                            <div class="terminal-title">epi-recorder v4.1.0</div>
+                        </div>
+                        <div class="terminal-body">
+                            <!-- Content injected by terminal-demo.js -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="js/app.js?v=4.1.0"></script>
+    <script src="js/terminal-demo.js?v=4.1.0"></script>
+    <script>
+        // Custom Logic to link Terminal to Stepper
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('EPI Simulation: DOMContentLoaded fired');
+
+            // Create a custom instance for this page with callbacks
+            console.log('EPI Simulation: Creating TerminalDemo instance');
+            const term = new TerminalDemo('interactive-terminal', {
+                mode: 'full',
+                onPhaseChange: (phase) => {
+                    console.log('EPI Simulation: Phase changed to:', phase);
+
+                    const validPhases = ['install', 'record', 'verify', 'view'];
+                    const currentIdx = validPhases.indexOf(phase);
+
+                    // Update each step based on its position relative to current
+                    validPhases.forEach((stepPhase, idx) => {
+                        const step = document.getElementById('step-' + stepPhase);
+                        if (!step) return;
+
+                        // Clear all states first
+                        step.classList.remove('active', 'completed');
+
+                        if (idx < currentIdx) {
+                            // Past steps are completed
+                            step.classList.add('completed');
+                        } else if (idx === currentIdx) {
+                            // Current step is active
+                            step.classList.add('active');
+                        }
+                        // Future steps have no class (pending)
+                    });
+
+                    if (phase === 'view') {
+                        document.getElementById('restart-demo').style.display = 'block';
+                        // Open the viewer automatically for the full experience
+                        console.log('EPI Simulation: About to open viewer modal');
+                        setTimeout(() => {
+                            if (typeof openViewerModal === 'function') {
+                                openViewerModal();
+                            } else {
+                                console.error('EPI Simulation: openViewerModal is not defined');
+                            }
+                        }, 1000);
+                    }
+                }
+            });
+
+            // Explicitly start the demo
+            console.log('EPI Simulation: About to call startAutoDemo');
+            term.startAutoDemo();
+            console.log('EPI Simulation: startAutoDemo called');
+
+            document.getElementById('restart-demo').addEventListener('click', () => {
+                location.reload();
+            });
+        });
+    </script>
+</body>
+
+</html>

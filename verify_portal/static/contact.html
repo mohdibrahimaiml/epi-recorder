@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact EPI LABS - Enterprise Integration & Partnerships</title>
+    <meta name="description"
+        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://epilabs.org/contact.html">
+    <meta property="og:title" content="Contact EPI LABS">
+    <meta property="og:description"
+        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
+    <meta property="og:image" content="https://epilabs.org/assets/logo.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://epilabs.org/contact.html">
+    <meta property="twitter:title" content="Contact EPI LABS">
+    <meta property="twitter:description"
+        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
+    <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
+
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/style.css?v=4.1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Top Anchor -->
+    <div id="top"></div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container nav-container">
+            <div class="nav-logo">
+                <a href="index.html" title="Go to Home">
+                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="how-it-works.html#top">How It Works</a>
+                <a href="technology.html">Technology</a>
+                <a href="use-cases.html#top">Use Cases</a>
+                <a href="verify.html">Verify</a>
+                <a href="viewer/">Decision Ops</a>
+                <a href="vision.html#vision">Vision</a>
+                <a href="contact.html#top">Contact</a>
+            </div>
+            <div class="nav-cta">
+                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
+                    target="_blank">GitHub</a>
+                <a href="contact.html" class="btn-primary">Request Deck</a>
+            </div>
+            <button class="hamburger" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Spacer for fixed nav -->
+    <div style="height: 80px;"></div>
+
+    <!-- Contact Form Section -->
+    <section class="section contact-section" id="contact-form">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Get In Touch</h2>
+                <p class="section-desc">Have questions about EPI? Want to discuss enterprise integration?
+                    We'd love to hear from you.</p>
+            </div>
+
+            <div class="contact-wrapper">
+                <div class="contact-info" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem; height: fit-content;">
+                    <div class="contact-item">
+                        <span class="contact-icon">📧</span>
+                        <div>
+                            <h4>Email</h4>
+                            <a href="mailto:mohdibrahim@epilabs.org">mohdibrahim@epilabs.org</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-icon">💻</span>
+                        <div>
+                            <h4>GitHub</h4>
+                            <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">epi-recorder
+                                Repository</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-icon">📦</span>
+                        <div>
+                            <h4>PyPI Package</h4>
+                            <a href="https://pypi.org/project/epi-recorder/" target="_blank">epi-recorder</a>
+                        </div>
+                    </div>
+                </div>
+
+                <form class="contact-form" id="contactForm" onsubmit="sendEmail(event)">
+                    <div class="form-group">
+                        <label for="name">Your Name *</label>
+                        <input type="text" id="name" name="name" required placeholder="John Doe">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" required placeholder="john@company.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company">Company / Organization</label>
+                        <input type="text" id="company" name="company" placeholder="Acme Inc.">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inquiry_type">Inquiry Type *</label>
+                        <select id="inquiry_type" name="inquiry_type" required>
+                            <option value="">Select an option...</option>
+                            <option value="Investor Deck Request">Investor Deck Request</option>
+                            <option value="Enterprise Integration">Enterprise Integration</option>
+                            <option value="Partnership Opportunity">Partnership Opportunity</option>
+                            <option value="Technical Question">Technical Question</option>
+                            <option value="Media / Press">Media / Press</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Your Message *</label>
+                        <textarea id="message" name="message" rows="5" required
+                            placeholder="Tell us about your use case, questions, or how we can help..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary btn-large form-submit">
+                        Open Gmail and Send ->
+                    </button>
+                    <p class="form-note">Opens Gmail with your message pre-filled. Just click Send!</p>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <a href="index.html" title="Go to Home">
+                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
+                    </a>
+                    <p>Building the trust layer for the AI economy.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <a href="how-it-works.html">How It Works</a>
+                        <a href="technology.html">Technology</a>
+                        <a href="use-cases.html">Use Cases</a>
+                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
+                            target="_blank">Documentation</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <a href="vision.html">Vision</a>
+                        <a href="vision.html#founder">Team</a>
+                        <a href="contact.html">Contact</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Resources</h4>
+                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
+                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
+                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
+                            target="_blank">License</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/app.js?v=4.1.0"></script>
+</body>
+
+</html>

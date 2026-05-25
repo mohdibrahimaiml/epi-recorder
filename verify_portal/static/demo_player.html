@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPI Viewer - my_workflow.epi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .header {
+            background: #fff;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 18px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge-verified {
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Metadata Card */
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e1e4e8;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .meta-item h4 {
+            margin: 0 0 5px 0;
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+
+        .meta-item p {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+            margin-top: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .event {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .event-dot {
+            position: absolute;
+            left: -35px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 4px solid #fff;
+            box-shadow: 0 0 0 1px #e2e8f0;
+        }
+
+        .chat-bubble {
+            background: #fff;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+        }
+
+        .chat-bubble::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 15px;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-left: 1px solid #e1e4e8;
+            border-bottom: 1px solid #e1e4e8;
+            transform: rotate(45deg);
+        }
+
+        .role {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .content {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .code-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            margin-top: 8px;
+            overflow-x: auto;
+        }
+
+        .artifact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0f9ff;
+            color: #0369a1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 10px;
+            border: 1px solid #bae6fd;
+        }
+
+        .timestamp {
+            float: right;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            EPI Viewer
+        </div>
+        <div class="badge-verified">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <path d="M20 6L9 17l-5-5" />
+            </svg>
+            Verified Evidence
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Metadata -->
+        <div class="card">
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <h4>Workflow Goal</h4>
+                    <p>Train v2 Model</p>
+                </div>
+                <div class="meta-item">
+                    <h4>Duration</h4>
+                    <p>1.2s</p>
+                </div>
+                <div class="meta-item">
+                    <h4>Signature</h4>
+                    <p style="font-family: monospace; font-size: 13px; color: #059669;">Valid (Ed25519)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline">
+            <!-- Event 1: Start -->
+            <div class="event">
+                <div class="event-dot" style="background: #10b981;"></div>
+                <div class="chat-bubble">
+                    <span class="timestamp">00:00.124</span>
+                    <div class="role">System</div>
+                    <div class="content">Workflow started. Context initialized.</div>
+                </div>
+            </div>
+
+            <!-- Event 2: User Code -->
+            <div class="event">
+                <div class="event-dot"></div>
+                <div class="chat-bubble">
+                    <span class="timestamp">00:00.350</span>
+                    <div class="role">Output</div>
+                    <div class="content">
+                        <div class="code-block">Training model v2...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event 3: User Code -->
+            <div class="event">
+                <div class="event-dot"></div>
+                <div class="chat-bubble">
+                    <span class="timestamp">00:01.352</span>
+                    <div class="role">Output</div>
+                    <div class="content">
+                        <div class="code-block">Model Accuracy: 98.5%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event 4: Artifact -->
+            <div class="event">
+                <div class="event-dot" style="background: #8b5cf6;"></div>
+                <div class="chat-bubble">
+                    <span class="timestamp">00:01.355</span>
+                    <div class="role">Artifact Captured</div>
+                    <div class="content">
+                        File was automatically captured and hashed.
+                        <br>
+                        <a href="#" class="artifact-link">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                <polyline points="13 2 13 9 20 9"></polyline>
+                            </svg>
+                            my_workflow.epi (7.4 KB)
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event 5: End -->
+            <div class="event">
+                <div class="event-dot" style="background: #ef4444;"></div>
+                <div class="chat-bubble">
+                    <span class="timestamp">00:01.360</span>
+                    <div class="role">System</div>
+                    <div class="content">Workflow completed successfully.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
