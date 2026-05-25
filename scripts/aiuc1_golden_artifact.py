@@ -66,12 +66,25 @@ def build_golden_artifact():
                 if line.strip():
                     steps.append(json.loads(line))
 
-        # Inject a realistic error step before session.end
+        # Use the session.end timestamp for injected steps to preserve monotonicity
+        session_end_ts = steps[-1].get("timestamp", datetime.now(UTC).isoformat())
+
+        # Inject a realistic llm.request + llm.error pair before session.end
+        request_step = {
+            "index": len(steps) - 1,
+            "timestamp": session_end_ts,
+            "kind": "llm.request",
+            "span_id": "error-pair-001",
+            "content": {
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "Process refund"}],
+            },
+        }
         error_step = {
             "index": len(steps) - 1,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": session_end_ts,
             "kind": "llm.error",
-            "span_id": "error-001",
+            "span_id": "error-pair-001",
             "content": {
                 "error": "RateLimitError",
                 "message": "API rate limit exceeded — retrying with backoff",
@@ -79,10 +92,19 @@ def build_golden_artifact():
             },
         }
         # Insert before the last session.end step
+        steps.insert(-1, request_step)
         steps.insert(-1, error_step)
-        # Re-index
+        # Re-index and recompute prev_hash chain
+        from epi_core.schemas import StepModel
+        from epi_core.serialize import get_canonical_hash
+
         for i, s in enumerate(steps):
             s["index"] = i
+            if i == 0:
+                s["prev_hash"] = "CHAIN_START"
+            else:
+                prev_step = StepModel(**steps[i - 1])
+                s["prev_hash"] = get_canonical_hash(prev_step, format="json")
 
         # Add redaction evidence (Domain A + F)
         for s in steps:

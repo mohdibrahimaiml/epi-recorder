@@ -648,7 +648,7 @@ def verify_command(
 
                 # Verify receipt signature against statement
                 # Fetch service public key from the transparency service or cache
-                service_pub_key = _fetch_scitt_service_key(scitt_gov.get("service_url"))
+                service_pub_key = _fetch_scitt_service_key(scitt_info.get("service_url"))
                 if service_pub_key:
                     try:
                         from epi_core.scitt import verify_scitt_receipt
