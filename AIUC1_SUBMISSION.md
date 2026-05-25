@@ -37,10 +37,10 @@ EPI is an open-source protocol for cryptographically recording, verifying, and a
 |---|---|
 | Cryptographic integrity | SHA-256 file manifest; any tampering breaks verification |
 | Authenticity | Ed25519 signatures on every manifest; signer identity checked against trust registry |
-| Transparency | Optional SCITT (Supply Chain Integrity, Transparency and Trust) anchoring to transparency logs |
+| Transparency | SCITT (Supply Chain Integrity, Transparency and Trust) anchoring to live transparency service at `https://epilabs.org/scitt` |
 | DID:WEB identity | `did:web:epilabs.org` resolves to public key at `/.well-known/did.json` |
 
-**Status:** PARTIAL (signature + integrity are live; SCITT is opt-in, not yet deployed to production)
+**Status:** PASS (signature + integrity + SCITT receipt verification are all live and tested)
 
 ---
 
@@ -101,7 +101,7 @@ EPI is an open-source protocol for cryptographically recording, verifying, and a
 | DID document | ✅ Live | https://epilabs.org/.well-known/did.json |
 | Trust registry | ✅ Live | https://epilabs.org/.well-known/epi-trust-registry.json |
 | Ed25519 signing | ✅ Working | CLI `epi verify` + web portal both validate |
-| SCITT module | ✅ Code complete | `epi_recorder/auto_scitt.py` — opt-in via env var |
+| SCITT service | ✅ Live | `POST https://epilabs.org/scitt/register` + `GET https://epilabs.org/scitt/keys` |
 | AIUC-1 mapping | ✅ Working | 6-domain mapping in `epi_core/aiuc1_mapping.py` |
 | Independent verification | ✅ Verified | Fresh environment test passed with only DID document |
 
@@ -109,7 +109,7 @@ EPI is an open-source protocol for cryptographically recording, verifying, and a
 
 | Gap | Impact | Timeline |
 |---|---|---|
-| Production SCITT service | "SCITT-anchored" claim requires live transparency log | Q3 2026 (evaluating providers) |
+| Production SCITT service | ✅ Live since 2026-05-24 | Deployed on Render free tier at `https://epilabs.org/scitt` |
 | Formal AIUC-1 control IDs | Mapping is to domains only; specific controls need AIUC-1 team input | After consultation |
 | Horizontal rate limiting | In-memory store resets on deploy; needs Redis for scale | Post-revenue |
 | EU AI Act specific mappings | Need legal review before claiming compliance | Q3 2026 |
@@ -130,7 +130,7 @@ EPI is an open-source protocol for cryptographically recording, verifying, and a
 
 - We do **not** claim full AIUC-1 compliance. We map to the six declared domains and are seeking guidance on specific control IDs.
 - The EU AI Act "Omnibus" dates in our earlier marketing draft were unverifiable and have been removed.
-- SCITT anchoring is opt-in (`EPI_SCITT_AUTO_ANCHOR=1`) because we do not yet operate a production transparency service.
+- SCITT anchoring is opt-in (`EPI_SCITT_AUTO_ANCHOR=1`) and backed by a live transparency service at `https://epilabs.org/scitt`.
 - We are a pre-revenue solo-founder project. Infrastructure cost is ~$5/month.
 
 ---
