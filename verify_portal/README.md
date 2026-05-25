@@ -47,7 +47,7 @@ to any static host and point the API calls to your backend.
 
 ## API
 
-### POST /verify
+### POST /api/verify
 
 Upload a `.epi` file and receive a verification report.
 
@@ -96,7 +96,7 @@ curl -X POST -F "file=@artifact.epi" -F "aiuc1=true" http://localhost:8000/verif
 ```
 Frontend (static/index.html)
     │
-    ▼ POST /verify  (multipart/form-data)
+    ▼ POST /api/verify  (multipart/form-data)
 Backend (verify_portal/main.py)
     │
     ├── epi_core.container.EPIContainer.verify_integrity()

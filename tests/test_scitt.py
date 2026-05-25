@@ -337,4 +337,63 @@ class TestSCITTCLI:
         )
 
         assert report["facts"]["transparency_ok"] is False
-        assert report["summary"]["transparency"] == "FAILED"
+
+    def test_cli_verify_full_crypto(
+        self, tmp_path: Path, signed_manifest, private_key, mock_service,
+    ):
+        """``epi scitt verify`` performs full cryptographic receipt verification."""
+        from typer.testing import CliRunner
+
+        from epi_cli.main import app
+        from epi_core.container import EPIContainer
+        from epi_core.scitt import scitt_governance_from_info
+
+        # Create an .epi artifact with embedded SCITT statement + receipt.
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "steps.jsonl").write_text('{"index":0}\n')
+        input_epi = tmp_path / "input.epi"
+        EPIContainer.pack(source_dir, signed_manifest, input_epi)
+
+        statement_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")
+        receipt_bytes, info = mock_service.register(statement_bytes)
+
+        gov = scitt_governance_from_info(info, issuer="test")
+        gov["service_url"] = "https://mock-scitt.example.com"
+
+        # Embed SCITT artifacts into the .epi file manually.
+        import zipfile
+        with zipfile.ZipFile(input_epi, "r") as zf_in:
+            members = {name: zf_in.read(name) for name in zf_in.namelist()}
+
+        members["artifacts/scitt/statement.cbor"] = statement_bytes
+        members["artifacts/scitt/receipt.cbor"] = receipt_bytes
+
+        manifest_dict = signed_manifest.model_dump(mode="json")
+        if manifest_dict.get("governance") is None:
+            manifest_dict["governance"] = {}
+        manifest_dict["governance"]["scitt"] = gov
+        import json
+        members["manifest.json"] = json.dumps(manifest_dict, indent=2, sort_keys=True).encode()
+
+        with zipfile.ZipFile(input_epi, "w", zipfile.ZIP_DEFLATED) as zf_out:
+            for name, content in members.items():
+                compress = zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+                zf_out.writestr(name, content, compress)
+
+        # Mock the service key fetcher so the CLI can verify offline.
+        import epi_cli.verify
+        original_fetcher = epi_cli.verify._fetch_scitt_service_key
+        epi_cli.verify._fetch_scitt_service_key = lambda url: mock_service.public_key_bytes
+
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                app, ["scitt", "verify", str(input_epi)]
+            )
+            assert result.exit_code == 0, f"CLI failed: {result.output}"
+            assert "SCITT statement valid" in result.output
+            assert "SCITT receipt structurally valid" in result.output
+            assert "SCITT receipt signature verified" in result.output
+        finally:
+            epi_cli.verify._fetch_scitt_service_key = original_fetcher

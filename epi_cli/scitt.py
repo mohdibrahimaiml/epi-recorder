@@ -25,6 +25,7 @@ from epi_core.scitt import (
     SCITTVerificationError,
     create_scitt_statement,
     scitt_governance_from_info,
+    verify_scitt_receipt,
     verify_scitt_statement,
 )
 from epi_core.trust import sign_manifest
@@ -262,16 +263,42 @@ def scitt_verify(
         console.print(f"  [red][FAIL][/red] SCITT statement invalid: {exc}")
         raise typer.Exit(1)
 
-    # Verify receipt (structural check; full sig verification needs service pubkey)
+    # Verify receipt — first structurally, then cryptographically.
     try:
         receipt = cbor2.loads(receipt_bytes)
-        if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
-            console.print("  [green][OK][/green] SCITT receipt structurally valid")
-        else:
+        if not (isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18):
             raise SCITTVerificationError("Invalid receipt structure")
+        console.print("  [green][OK][/green] SCITT receipt structurally valid")
     except Exception as exc:
         console.print(f"  [red][FAIL][/red] SCITT receipt invalid: {exc}")
         raise typer.Exit(1)
+
+    # Full cryptographic verification of the receipt signature.
+    service_url = scitt_gov.get("service_url") or service
+    if service_url:
+        try:
+            from epi_cli.verify import _fetch_scitt_service_key
+
+            service_pub_key = _fetch_scitt_service_key(service_url)
+            if service_pub_key:
+                verify_scitt_receipt(receipt_bytes, statement_bytes, service_pub_key)
+                console.print("  [green][OK][/green] SCITT receipt signature verified (Ed25519)")
+            else:
+                console.print(
+                    "  [yellow][WARN][/yellow] Could not fetch SCITT service public key;"
+                    " skipping signature verification."
+                )
+        except SCITTVerificationError as exc:
+            console.print(f"  [red][FAIL][/red] SCITT receipt signature invalid: {exc}")
+            raise typer.Exit(1)
+        except Exception as exc:
+            console.print(
+                f"  [yellow][WARN][/yellow] Could not verify receipt signature: {exc}"
+            )
+    else:
+        console.print(
+            "  [yellow][WARN][/yellow] No service URL known; skipping signature verification."
+        )
 
     panel = Panel(
         f"[bold]Artifact:[/bold] {epi_path}\n"

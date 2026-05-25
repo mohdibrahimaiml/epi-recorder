@@ -176,19 +176,45 @@ def _detect_redaction_in_steps(steps: list[dict] | None) -> bool:
 
 
 def _check_timestamp_monotonicity(steps: list[dict] | None) -> bool:
-    """Check that step timestamps are monotonically increasing."""
+    """Check that step timestamps are monotonically increasing.
+
+    Prefer ``timestamp_ns`` (nanoseconds since epoch, stored in
+    ``step["content"]["timestamp_ns"]``) because that is what the main
+    verification pipeline uses.  Fall back to the legacy ``timestamp``
+    ISO string only when ``timestamp_ns`` is absent.
+    """
     if not steps or len(steps) < 2:
         return True
     try:
         from datetime import datetime
 
-        timestamps = []
+        # Determine which field to use.  If *any* step has timestamp_ns,
+        # we use exclusively timestamp_ns so that mixed artifacts do not
+        # compare incompatible types.
+        has_ns = any(
+            step.get("content", {}).get("timestamp_ns") is not None for step in steps
+        )
+
+        timestamps: list[int | datetime] = []
         for step in steps:
-            ts = step.get("timestamp")
-            if isinstance(ts, str):
-                timestamps.append(datetime.fromisoformat(ts.replace("Z", "+00:00")))
-            elif isinstance(ts, datetime):
-                timestamps.append(ts)
+            if has_ns:
+                t_ns = step.get("content", {}).get("timestamp_ns")
+                if t_ns is not None:
+                    timestamps.append(int(t_ns))
+                else:
+                    # Missing timestamp_ns in a step when others have it
+                    # breaks monotonicity verification.
+                    return False
+            else:
+                ts = step.get("timestamp")
+                if isinstance(ts, str):
+                    timestamps.append(datetime.fromisoformat(ts.replace("Z", "+00:00")))
+                elif isinstance(ts, datetime):
+                    timestamps.append(ts)
+                else:
+                    # Missing timestamp when none of the steps have timestamp_ns
+                    return False
+
         return all(timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1))
     except Exception:
         return False  # Cannot verify monotonicity — assume tampering

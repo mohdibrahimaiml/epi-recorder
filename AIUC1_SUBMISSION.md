@@ -1,7 +1,7 @@
 # AIUC-1 Contribution Submission — EPI Labs
 
 **Organization:** EPI Labs  
-**Contact:** [your email]  
+**Contact:** contact@epilabs.org  
 **Project:** EPI (Episodic Process Integrity) Recorder  
 **Portal:** https://epilabs.org/verify  
 **DID:** did:web:epilabs.org  
