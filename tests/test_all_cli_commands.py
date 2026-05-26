@@ -101,6 +101,25 @@ def test_verify_view_and_export_summary_use_explicit_artifact(tmp_path: Path):
     assert "EPI Decision Record" in summary_path.read_text(encoding="utf-8")
 
 
+def test_export_html_creates_standalone_viewer(tmp_path: Path):
+    artifact, _ = make_decision_epi(tmp_path, signed=True)
+    output_html = tmp_path / "shared_case.html"
+    epi_home = tmp_path / "epi-home"
+
+    result = _run_cli(
+        ["export-html", str(artifact), "--output", str(output_html)],
+        cwd=tmp_path,
+        epi_home=epi_home,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert output_html.exists()
+    content = output_html.read_text(encoding="utf-8")
+    assert "<!DOCTYPE html>" in content
+    assert "epi-preloaded-cases" in content
+    assert "SHARED" in content
+
+
 def test_run_command_records_script_without_opening_browser(tmp_path: Path):
     script = tmp_path / "run_script.py"
     script.write_text("print('CLI run smoke')\n", encoding="utf-8")

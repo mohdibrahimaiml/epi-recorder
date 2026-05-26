@@ -44,6 +44,7 @@ def _print_share_hint() -> None:
     """Show follow-up paths after opening or extracting a case file."""
     console.print("")
     console.print("[bold]Share / review this case file:[/bold]")
+    console.print("  [cyan]epi export-html <file.epi>[/cyan] standalone HTML — no install required")
     console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
     console.print("  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required")
     console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
@@ -557,3 +558,83 @@ def view(
     except Exception as e:
         console.print(f"[red][X] Unexpected error:[/red] {e}")
         raise typer.Exit(1)
+
+
+def export_html(
+    ctx: typer.Context,
+    epi_file: str = typer.Argument(..., help="Path or name of .epi file to export as HTML"),
+    output: str = typer.Option(None, "--output", "-o", help="Output HTML file path (default: <stem>.html in current directory)"),
+):
+    """
+    Export an .epi file to a standalone HTML file that opens in any browser.
+
+    The exported HTML contains the full embedded viewer with preloaded case data.
+    Recipients can double-click it to open — no Python, pip, or GitHub required.
+    Works completely offline after the file is transferred.
+
+    Example:
+        epi export-html my_recording.epi
+        epi export-html my_recording.epi --output ~/Desktop/shared_case.html
+    """
+    try:
+        resolved_path = _resolve_epi_file(epi_file)
+    except FileNotFoundError:
+        console.print(f"[red][X] File not found:[/red] {epi_file}")
+        console.print("[dim]   Searched in: ./epi-recordings/[/dim]")
+        raise typer.Exit(1)
+
+    try:
+        EPIContainer.detect_container_format(resolved_path)
+    except Exception:
+        console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
+        raise typer.Exit(1)
+
+    # Determine output path
+    if output:
+        out_path = Path(output)
+    else:
+        out_path = Path(f"{resolved_path.stem}.html")
+
+    # Try to extract embedded viewer from polyglot envelope first
+    viewer_html = EPIContainer.extract_embedded_viewer(resolved_path)
+
+    if viewer_html is None:
+        # Fallback: legacy format or no embedded viewer — generate fresh
+        console.print("[yellow][!] No embedded viewer found; generating fresh viewer...[/yellow]")
+        temp_dir = _make_temp_dir()
+        if temp_dir is None:
+            console.print("[red][X] Could not create temporary directory.[/red]")
+            raise typer.Exit(1)
+        try:
+            EPIContainer.unpack(resolved_path, temp_dir)
+            viewer_html = _create_decision_ops_viewer(temp_dir, resolved_path)
+        except Exception as e:
+            console.print(f"[red][X] Failed to generate viewer:[/red] {e}")
+            raise typer.Exit(1)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    # Inject a banner that tells the recipient this is a shared EPI case
+    share_banner = (
+        "<script>"
+        "(function(){"
+        "  if(window.location.protocol==='file:'){"
+        "    var d=document.createElement('div');"
+        "    d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f172a;color:#e2e8f0;padding:8px 16px;font-family:system-ui;font-size:13px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px;';"
+        "    d.innerHTML='<span style=\"background:#10b981;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;\">SHARED</span><span>This is an EPI forensic case file. It opens without any installation.</span>';"
+        "    document.addEventListener('DOMContentLoaded',function(){document.body.appendChild(d);});"
+        "  }"
+        "})();"
+        "</script>"
+    )
+
+    # Insert banner before closing </head> tag if present
+    if "</head>" in viewer_html:
+        viewer_html = viewer_html.replace("</head>", f"{share_banner}\n</head>", 1)
+    else:
+        viewer_html = share_banner + "\n" + viewer_html
+
+    out_path.write_text(viewer_html, encoding="utf-8")
+    console.print(f"[green][OK][/green] Exported to: {out_path.absolute()}")
+    console.print(f"[dim]   Share this file — recipients can open it in any browser without installing anything.[/dim]")
+    raise typer.Exit(0)

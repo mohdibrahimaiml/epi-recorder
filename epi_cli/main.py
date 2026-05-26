@@ -59,6 +59,7 @@ Commands:
   run        <script.py>   Record an already-instrumented Python script.
   view       <file.epi>    Open a case file in the browser review view.
   verify     <file.epi>    Cryptographic integrity check.
+  export-html <file.epi>   Export a standalone HTML file — share with anyone, no install needed.
   share      <file.epi>    Upload a hosted share link for browser review.
   review     <file.epi>    Add human review notes to a case file.
   import     agt ...       Convert exported AGT evidence into a portable .epi case file.
@@ -510,6 +511,8 @@ def record(
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
+from epi_cli.view import export_html as export_html_command
+
 @app.command(name="view", help="Open a case file in the browser review view by default. Use --native to force the desktop viewer.")
 def view(
     ctx: typer.Context,
@@ -519,6 +522,15 @@ def view(
     native: bool = typer.Option(False, "--native", help="Force the native desktop viewer instead of the browser review flow."),
 ):
     return view_command(ctx, epi_file, extract, browser, native)
+
+
+@app.command(name="export-html", help="Export a .epi file to a standalone HTML file that opens in any browser without installation.")
+def export_html(
+    ctx: typer.Context,
+    epi_file: str = typer.Argument(..., help="Path or name of .epi file to export as HTML"),
+    output: str = typer.Option(None, "--output", "-o", help="Output HTML file path (default: <stem>.html in current directory)"),
+):
+    return export_html_command(ctx, epi_file, output)
 
 
 @app.command(name="migrate", help="Convert a .epi artifact between legacy ZIP and envelope container formats.")

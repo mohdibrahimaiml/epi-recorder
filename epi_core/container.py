@@ -394,6 +394,41 @@ class EPIContainer:
                 )
 
     @staticmethod
+    def extract_embedded_viewer(epi_path: Path) -> str | None:
+        """Extract the embedded viewer HTML from a polyglot envelope-v2 .epi file.
+
+        Returns the inlined viewer HTML string if the file is an envelope with an
+        embedded viewer, or None for legacy ZIP files or files without a viewer.
+        """
+        fmt = EPIContainer.detect_container_format(epi_path)
+        if fmt == EPI_CONTAINER_FORMAT_LEGACY:
+            return None
+
+        with open(epi_path, "rb") as f:
+            f.seek(EPI_ENVELOPE_HEADER_SIZE)
+            # Read a reasonable chunk to find the ZIP marker
+            # Viewer HTML is typically 500KB-2MB; read first 4MB to be safe
+            chunk = f.read(4 * 1024 * 1024)
+
+        marker_idx = chunk.find(EPI_ZIP_MARKER)
+        if marker_idx == -1:
+            return None
+
+        viewer_bytes = chunk[:marker_idx]
+        # Strip the polyglot comment close " -->\n" if present
+        prefix = b" -->\n"
+        if viewer_bytes.startswith(prefix):
+            viewer_bytes = viewer_bytes[len(prefix):]
+        else:
+            # Some older polyglot formats may not have the prefix
+            pass
+
+        try:
+            return viewer_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+
+    @staticmethod
     def extract_inner_payload(epi_path: Path, dest_zip_path: Path) -> Path:
         fmt = EPIContainer.detect_container_format(epi_path)
         dest_zip_path.parent.mkdir(parents=True, exist_ok=True)
