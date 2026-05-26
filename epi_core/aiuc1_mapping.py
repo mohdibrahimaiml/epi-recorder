@@ -20,6 +20,7 @@ domain should our evidence artifacts address?" and refine this mapping afterward
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -91,6 +92,7 @@ def map_verification_to_aiuc1(
     report: dict,
     manifest: Any | None = None,
     steps: list[dict] | None = None,
+    epi_path: Path | None = None,
 ) -> dict[str, AIUC1DomainStatus]:
     """
     Map an EPI verification report to AIUC-1 trust domains.
@@ -99,6 +101,9 @@ def map_verification_to_aiuc1(
         report: The verification report dict from create_verification_report().
         manifest: Optional ManifestModel for additional metadata.
         steps: Optional list of steps for forensic analysis.
+        epi_path: Optional path to the .epi file for checking mutable files
+            (e.g. review.json) that are excluded from the cryptographic
+            file_manifest but may still exist in the ZIP.
 
     Returns:
         Dict mapping domain letter -> AIUC1DomainStatus.
@@ -117,10 +122,10 @@ def map_verification_to_aiuc1(
             (identity.get("scitt") or {}).get("entry_id")
         ),
         "identity_known": identity.get("status") == "KNOWN",
-        "human_review_present": _has_file_in_manifest(manifest, "review.json"),
-        "policy_present": _has_file_in_manifest(manifest, "policy.json"),
-        "analysis_present": _has_file_in_manifest(manifest, "analysis.json"),
-        "environment_isolated": _has_file_in_manifest(manifest, "environment.json"),
+        "human_review_present": _has_file_in_manifest(manifest, "review.json", epi_path),
+        "policy_present": _has_file_in_manifest(manifest, "policy.json", epi_path),
+        "analysis_present": _has_file_in_manifest(manifest, "analysis.json", epi_path),
+        "environment_isolated": _has_file_in_manifest(manifest, "environment.json", epi_path),
         "redaction_applied": _detect_redaction_in_steps(steps),
         "redaction_audit_trail": _detect_redaction_in_steps(steps),
         "timestamp_monotonic": _check_timestamp_monotonicity(steps),
@@ -155,12 +160,30 @@ def map_verification_to_aiuc1(
     return result
 
 
-def _has_file_in_manifest(manifest: Any | None, filename: str) -> bool:
-    """Check if a file exists in the manifest's file_manifest."""
-    if manifest is None:
-        return False
-    file_manifest = getattr(manifest, "file_manifest", None) or {}
-    return any(key == filename or key.endswith(f"/{filename}") for key in file_manifest.keys())
+def _has_file_in_manifest(
+    manifest: Any | None, filename: str, epi_path: Path | None = None
+) -> bool:
+    """Check if a file exists in the manifest's file_manifest or ZIP contents.
+
+    Mutable review files (e.g. review.json) are intentionally excluded from
+    the cryptographic file_manifest.  When ``epi_path`` is provided, this
+    function also checks the actual ZIP member list so those files are still
+    counted as present for AIUC-1 evidence mapping.
+    """
+    if manifest is not None:
+        file_manifest = getattr(manifest, "file_manifest", None) or {}
+        if any(key == filename or key.endswith(f"/{filename}") for key in file_manifest.keys()):
+            return True
+
+    if epi_path is not None:
+        try:
+            from epi_core.container import EPIContainer
+            members = EPIContainer.list_members(epi_path)
+            return filename in members
+        except Exception:
+            pass
+
+    return False
 
 
 def _detect_redaction_in_steps(steps: list[dict] | None) -> bool:

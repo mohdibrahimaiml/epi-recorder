@@ -242,6 +242,26 @@ def test_has_file_in_manifest_none() -> None:
     assert _has_file_in_manifest(None, "review.json") is False
 
 
+def test_has_file_in_manifest_epi_path_fallback(tmp_path) -> None:
+    """Mutable files (review.json) are excluded from file_manifest but should
+    still be detected when epi_path is provided."""
+    import zipfile
+
+    epi = tmp_path / "test.epi"
+    with zipfile.ZipFile(epi, "w") as zf:
+        zf.writestr("mimetype", "application/vnd.epi+zip")
+        zf.writestr("manifest.json", "{}")
+        zf.writestr("review.json", "{}")
+
+    # Not in manifest file_manifest → False without epi_path
+    m = _make_manifest({})
+    assert _has_file_in_manifest(m, "review.json") is False
+
+    # With epi_path, falls back to ZIP member list → True
+    assert _has_file_in_manifest(m, "review.json", epi_path=epi) is True
+    assert _has_file_in_manifest(m, "policy.json", epi_path=epi) is False
+
+
 # ---------------------------------------------------------------------------
 # _detect_redaction_in_steps
 # ---------------------------------------------------------------------------

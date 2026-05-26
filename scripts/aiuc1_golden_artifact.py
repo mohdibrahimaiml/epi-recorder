@@ -53,10 +53,6 @@ def build_golden_artifact():
         with zipfile.ZipFile(src_path, "r") as zf:
             zf.extractall(extract_dir)
 
-        # --- DOMAIN A: Data & Privacy ---
-        # environment.json already present ✅
-        # Add redaction evidence to steps
-
         # --- DOMAIN D: Reliability ---
         # Add error steps to steps.jsonl
         steps_path = extract_dir / "steps.jsonl"
@@ -69,7 +65,7 @@ def build_golden_artifact():
         # Use the session.end timestamp for injected steps to preserve monotonicity
         session_end_ts = steps[-1].get("timestamp", datetime.now(UTC).isoformat())
 
-        # Inject a realistic llm.request + llm.error pair before session.end
+        # Inject steps for Domain A (redaction), Domain D (error), Domain F (audit)
         request_step = {
             "index": len(steps) - 1,
             "timestamp": session_end_ts,
@@ -91,10 +87,28 @@ def build_golden_artifact():
                 "recoverable": True,
             },
         }
+        redaction_step = {
+            "index": len(steps),
+            "timestamp": session_end_ts,
+            "kind": "stdout.print",
+            "content": {"text": "Using api_key: sk-live-secret123 for payment gateway"},
+        }
         # Insert before the last session.end step
         steps.insert(-1, request_step)
         steps.insert(-1, error_step)
-        # Re-index and recompute prev_hash chain
+        steps.insert(-1, redaction_step)
+
+        # Apply redaction BEFORE recomputing prev_hash chain
+        for s in steps:
+            if s["kind"] == "stdout.print":
+                text = s.get("content", {}).get("text", "")
+                if "api_key" in text.lower() or "password" in text.lower():
+                    s["content"]["text"] = text.replace(
+                        "secret123",
+                        "***REDACTED***:API Key:HMAC-SHA256:04677206f418bafcd140abc40f31***",
+                    )
+
+        # Re-index and recompute prev_hash chain AFTER all modifications
         from epi_core.schemas import StepModel
         from epi_core.serialize import get_canonical_hash
 
@@ -105,16 +119,6 @@ def build_golden_artifact():
             else:
                 prev_step = StepModel(**steps[i - 1])
                 s["prev_hash"] = get_canonical_hash(prev_step, format="json")
-
-        # Add redaction evidence (Domain A + F)
-        for s in steps:
-            if s["kind"] == "stdout.print":
-                text = s.get("content", {}).get("text", "")
-                if "api_key" in text.lower() or "password" in text.lower():
-                    s["content"]["text"] = text.replace(
-                        "secret123",
-                        "***REDACTED***:API Key:HMAC-SHA256:04677206f418bafcd140abc40f31***",
-                    )
 
         with open(steps_path, "w", encoding="utf-8") as f:
             for s in steps:
@@ -133,14 +137,43 @@ def build_golden_artifact():
             json.dumps(review, indent=2), encoding="utf-8"
         )
 
+        # Add policy.json for policy enforcement evidence
+        policy = {
+            "policy_format_version": "1.0",
+            "policy_id": "aiuc1-golden-policy",
+            "system_name": "EPI Golden Artifact Builder",
+            "system_version": "4.1.0",
+            "policy_version": "1.0.0",
+            "profile_id": "aiuc1-submission",
+            "rules": [
+                {
+                    "id": "REDACT_API_KEYS",
+                    "name": "Redact API keys in output",
+                    "severity": "high",
+                    "description": "Any stdout containing api_key must be redacted with HMAC-SHA256 placeholders.",
+                    "type": "constraint_guard",
+                    "mode": "redact",
+                    "intervention_point": "output",
+                },
+                {
+                    "id": "HUMAN_REVIEW_HIGH_VALUE",
+                    "name": "Human review for high-value refunds",
+                    "severity": "critical",
+                    "description": "Refunds over threshold require human reviewer approval.",
+                    "type": "approval_guard",
+                    "mode": "require_approval",
+                    "intervention_point": "decision",
+                },
+            ],
+        }
+        (extract_dir / "policy.json").write_text(
+            json.dumps(policy, indent=2), encoding="utf-8"
+        )
+
         # --- DOMAIN B: Security ---
         # Add SCITT governance metadata (receipt will be simulated)
         with open(extract_dir / "manifest.json", "r", encoding="utf-8") as f:
             manifest = ManifestModel.model_validate_json(f.read())
-
-        # Update file_manifest with new files
-        manifest.file_manifest = dict(manifest.file_manifest or {})
-        manifest.file_manifest["review.json"] = "sha256-placeholder"
 
         # DID for issuer derivation
         manifest.governance = manifest.governance or {}

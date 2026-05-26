@@ -700,7 +700,7 @@ def verify_command(
 
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
-            aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps)
+            aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps, epi_path=epi_file)
             report["aiuc1"] = aiuc1_summary(aiuc1_statuses)
             if verbose:
                 console.print("\n[bold]AIUC-1 Trust Domain Mapping[/bold]")
