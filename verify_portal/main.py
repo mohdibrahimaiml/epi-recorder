@@ -22,7 +22,7 @@ from typing import Any
 from cryptography.hazmat.primitives import serialization
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from epi_core.aiuc1_mapping import aiuc1_summary, map_verification_to_aiuc1
@@ -437,6 +437,10 @@ async def simulation_page():
     return FileResponse(STATIC_DIR / "simulation.html")
 
 @app.get("/viewer")
+async def viewer_redirect():
+    return RedirectResponse(url="/viewer/")
+
+@app.get("/viewer/")
 async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer" / "index.html")
 
