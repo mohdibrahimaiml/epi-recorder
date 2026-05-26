@@ -31,6 +31,9 @@ echo "Python: ${PYTHON}"
 echo ""
 echo "Cleaning environment..."
 "${PYTHON}" -m pip uninstall -y epi-recorder || true
+# FastAPI UploadFile requires python-multipart; ensure it's present even if
+# the outer CI workflow misses it (e.g. cached runner image).
+"${PYTHON}" -m pip install "python-multipart>=0.0.20" --quiet || true
 echo ""
 export PYTHONPATH="${REPO_ROOT}"
 "${PYTHON}" -m epi_cli.main version
