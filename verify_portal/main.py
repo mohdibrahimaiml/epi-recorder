@@ -438,7 +438,7 @@ async def simulation_page():
 
 @app.get("/viewer")
 async def viewer_page():
-    return FileResponse(STATIC_DIR / "viewer.html")
+    return FileResponse(STATIC_DIR / "viewer" / "index.html")
 
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
