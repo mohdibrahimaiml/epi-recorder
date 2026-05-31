@@ -58,7 +58,10 @@
       </div>
       <input type="file" id="fileInput" class="hidden" accept=".epi,.zip">
     </div>
-    <p style="text-align:center;margin-top:0.8rem;font-family:var(--mono);font-size:0.65rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.05em">OR <a href="assets/sample.epi" download style="color:var(--pass);font-weight:700">&#x2B07; DOWNLOAD A SAMPLE .EPI</a> TO TEST</p>
+    <p style="text-align:center;margin-top:0.8rem;font-family:var(--mono);font-size:0.65rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.05em">
+      <button class="btn btn-p btn-sm" onclick="loadSample()" style="font-size:0.65rem">&#x26A1; LOAD SAMPLE .EPI (ONE CLICK)</button>
+      &nbsp;OR&nbsp; <a href="assets/sample.epi" download="sample.epi" style="color:var(--pass);font-weight:700">&#x2B07; DOWNLOAD SAMPLE</a>
+    </p>
   </div>
 
   <div id="resultPhase" class="hidden" style="margin-top:1.5rem">
@@ -105,6 +108,8 @@ function closeTimeline(){document.getElementById("timelineModal").classList.remo
 function openFiles(){document.getElementById("filesModal").classList.add("active")}
 function closeFiles(){document.getElementById("filesModal").classList.remove("active")}
 function resetUI(){rp.classList.add("hidden");ip.classList.remove("hidden");uu.classList.remove("hidden");lu.classList.add("hidden");fi.value="";lv.classList.add("hidden");allChecks=[];var b=document.getElementById("statusBadge");b.style.color="var(--ink4)";b.style.borderColor="var(--line3)";b.style.background="transparent";document.getElementById("statusIcon").innerHTML="&#x1F6E0;";document.getElementById("statusText").textContent="READY";document.getElementById("statusDesc").textContent="Awaiting .epi file drop";document.getElementById("metaSigner").textContent="--";document.getElementById("metaId").textContent="--";document.getElementById("metaDate").textContent="--";document.getElementById("metaGoal").textContent="--"}
+// ONE-CLICK SAMPLE LOAD
+window.loadSample=async function(){try{uu.classList.add("hidden");lu.classList.remove("hidden");var res=await fetch("assets/sample.epi");if(!res.ok){alert("Failed to load sample.epi. Is the file in assets/?");lu.classList.add("hidden");uu.classList.remove("hidden");return}var blob=await res.blob(),file=new File([blob],"sample.epi",{type:"application/octet-stream"});await pf(file)}catch(e){lu.classList.add("hidden");uu.classList.remove("hidden");alert("Error loading sample: "+e.message)}}
 
 async function _sha256(str){var buf=new TextEncoder().encode(str),dg=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(dg)).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}
 function _canonicalCJ(o){return JSON.stringify(o,Object.keys(o).sort())}
