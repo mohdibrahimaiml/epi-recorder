@@ -1,282 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TECHNOLOGY — EPI LABS</title>
+<meta name="description" content="Ed25519, SHA-256, prev_hash chains, 9-pass fault analysis, COSE Sign1 SCITT.">
+<meta property="og:title" content="TECHNOLOGY — EPI LABS"><meta property="og:description" content="Ed25519, SHA-256, prev_hash chains, 9-pass fault analysis, COSE Sign1 SCITT.">
+<meta property="og:url" content="https://epilabs.org/technology.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Technology Deep Dive - EPI LABS</title>
-    <meta name="description"
-        content="Technical overview of how EPI records AI workflows, verifies integrity client-side, and packages portable evidence with Ed25519 signatures.">
-    <meta property="og:type" content="article">
-    <meta property="og:url" content="https://epilabs.org/technology.html">
-    <meta property="og:title" content="EPI Architecture - Portable Evidence for AI Workflows">
-    <meta property="og:description"
-        content="How EPI records workflows, seals artifacts, and verifies trust without sending evidence to a server.">
-    <meta property="og:image" content="https://epilabs.org/trust_network.png">
-
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css?v=2.2">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
-        rel="stylesheet">
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "TechArticle",
-      "headline": "EPI System: Deep Dive Technical Report",
-      "image": "https://epilabs.org/trust_network.png",
-      "author": {
-        "@type": "Organization",
-        "name": "EPI LABS"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "EPI LABS",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://epilabs.org/assets/logo.png"
-        }
-      },
-      "description": "A technical overview of how EPI packages evidence for AI workflows."
-    }
-    </script>
-</head>
-
-<body>
-    <div id="top"></div>
-
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html" class="active">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html">Verify</a>
-                <a href="viewer/">Decision Ops</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
-                    target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <div style="height: 80px;"></div>
-
-    <section class="section" style="padding-bottom: 2rem;">
-        <div class="container">
-            <div class="section-header">
-                <div class="hero-badge" style="margin: 0 auto 1.5rem auto;">Engineering &amp; Architecture</div>
-                <h1 class="section-title">The Architecture of Trust</h1>
-                <p class="section-desc">A technical deep dive into the architecture that makes EPI suitable for
-                    trustworthy AI workflows, offline review, and portable evidence exchange.</p>
-            </div>
-        </div>
-    </section>
-
-    <section class="section" style="padding-top: 0;">
-        <div class="container" style="max-width: 900px;">
-
-            <h2 style="font-size: 2rem; margin-bottom: 1.5rem; color: var(--color-white);">1. The SQLite & CBOR Recorder Engine
-            </h2>
-            <p>The heart of EPI is its ability to capture workflow execution into a portable relational database that can be
-                inspected and queried. The modern v4.1.0 engine moves beyond flat directories and ZIP packaging to implement a unified <strong>SQLite-based Envelope Container</strong> format, zero-cost <strong>did:web</strong> cryptographic identity bindings, <strong>SCITT</strong> audit-log receipts, and integrated Agent Governance Toolkit (AGT) compliance converters.</p>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">A. Explicit API and
-                Wrappers</h3>
-            <p>EPI works best when recording is explicit. The <code>record(...)</code> context manager,
-                <code>agent_run(...)</code> helpers, and wrapper clients such as <code>wrap_openai()</code> capture
-                inputs, tool activity, outputs, and decisions where you choose to record them. That keeps the product
-                predictable and makes the resulting evidence easier to review.</p>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">B. The Cryptographic Identity Kernel</h3>
-            <p>EPI leverages <strong>Ed25519</strong> signatures to seal its SQLite/CBOR containers. In v4.1.0, this is bound to decentralized identities via the <strong>did:web</strong> standard. Furthermore, every sealed execution outputs signed verification receipts fully compliant with the <strong>SCITT (Supply Chain Integrity, Transparency, and Trust)</strong> ledger standard, ensuring independent and immutable mathematical auditing.</p>
-            <div
-                style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-top: 1rem;">
-                <ul style="list-style-type: none; padding: 0;">
-                    <li style="margin-bottom: 0.5rem;"><strong>Signing Scheme:</strong> Ed25519 (Edwards-curve Digital Signature)</li>
-                    <li style="margin-bottom: 0.5rem;"><strong>Identity Standard:</strong> <code>did:web</code> Zero-Trust Binding</li>
-                    <li style="margin-bottom: 0.5rem;"><strong>Transparency Standard:</strong> SCITT-compliant Ledger Receipts</li>
-                    <li><strong>Compliance Target:</strong> Agent Governance Toolkit (AGT) mapping maps</li>
-                </ul>
-            </div>
-
-            <h2 style="font-size: 2rem; margin-bottom: 1.5rem; margin-top: 3rem; color: var(--color-white);">1A. New in
-                v4.1.0: Advanced Forensics & AI Agent Mistake Detection</h2>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">LiteLLM - 100+
-                Providers</h3>
-            <p>A single callback can capture LLM calls across <strong>100+ providers</strong>: OpenAI, Anthropic,
-                Cohere, Mistral, Azure, Bedrock, and more. This gives teams a practical way to generate evidence
-                without rewriting each provider integration from scratch:</p>
-            <div
-                style="background: #0d1117; padding: 1.5rem; border-radius: var(--radius-md); overflow-x: auto; margin: 1.5rem 0; border: 1px solid #30363d;">
-                <pre><code style="background: transparent; padding: 0; color: #e6edf3;">import litellm
-from epi_recorder.integrations.litellm import EPICallback
-
-litellm.callbacks = [EPICallback()]  # That's it
-response = litellm.completion(model="gpt-4", messages=[...])
-# Every call -> signed .epi evidence</code></pre>
-            </div>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">LangChain Callback
-                Handler</h3>
-            <p>The <code>EPICallbackHandler</code> captures LLM calls, tool invocations, chain steps, retriever
-                queries, and agent decisions in one handler:</p>
-            <div
-                style="background: #0d1117; padding: 1.5rem; border-radius: var(--radius-md); overflow-x: auto; margin: 1.5rem 0; border: 1px solid #30363d;">
-                <pre><code style="background: transparent; padding: 0; color: #e6edf3;">from langchain_openai import ChatOpenAI
-from epi_recorder.integrations.langchain import EPICallbackHandler
-
-llm = ChatOpenAI(model="gpt-4", callbacks=[EPICallbackHandler()])
-result = llm.invoke("Analyze this contract...")
-# Captures: LLM, tools, chains, retrievers, agents</code></pre>
-            </div>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">pytest Plugin
-                (<code>--epi</code> flag)</h3>
-            <p>Generate signed <code>.epi</code> evidence per test. This is useful when teams want CI/CD runs to leave
-                behind portable proof instead of only ephemeral logs.</p>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">OpenAI Streaming
-                Support</h3>
-            <p>Native <code>stream=True</code> capture lets the caller receive streaming output while EPI records the
-                assembled response and token usage into the artifact.</p>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">OpenTelemetry
-                Exporter</h3>
-            <p><code>EPISpanExporter</code> bridges OpenTelemetry spans into signed <code>.epi</code> files. That
-                makes EPI easier to adopt inside systems that already use OTel for tracing:</p>
-            <div
-                style="background: #0d1117; padding: 1.5rem; border-radius: var(--radius-md); overflow-x: auto; margin: 1.5rem 0; border: 1px solid #30363d;">
-                <pre><code style="background: transparent; padding: 0; color: #e6edf3;">from epi_recorder.integrations.opentelemetry import setup_epi_tracing
-
-setup_epi_tracing(service_name="my-agent")
-# All OTel spans -> signed .epi files automatically</code></pre>
-            </div>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">Global Install</h3>
-            <p>Auto-recording can also be installed globally through <code>sitecustomize.py</code>. One command:
-                <code>epi install --global</code>. Idempotent with clean uninstall via
-                <code>epi uninstall --global</code>.
-            </p>
-        </div>
-
-        <div style="margin-bottom: 5rem;">
-            <h2 style="font-size: 2rem; margin-bottom: 1.5rem; color: var(--color-white);">2. Client-Side
-                Verification</h2>
-            <p>The verifier is designed to run in the browser so evidence can be inspected without sending the
-                artifact to a server. The page uses browser-side ZIP parsing and signature tooling to inspect the
-                package structure, hashes, and signature metadata locally.</p>
-
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--color-primary-light);">The Embedded Viewer
-                Sandbox</h3>
-            <p>Rendering an embedded <code>viewer.html</code> inside the verifier carries XSS risks. EPI handles this
-                by placing the embedded viewer inside a <strong>sandboxed Blob iframe</strong>:</p>
-
-            <div
-                style="background: #0d1117; padding: 1.5rem; border-radius: var(--radius-md); overflow-x: auto; margin: 1.5rem 0; border: 1px solid #30363d;">
-                <pre><code style="background: transparent; padding: 0; color: #e6edf3;">// 1. Create a Blob from the untrusted content
-const blob = new Blob([htmlContent], { type: 'text/html' });
-
-// 2. Generate a unique, isolated URL
-vizFrame.src = URL.createObjectURL(blob);
-
-// 3. Enforce strict sandboxing (No 'allow-same-origin')
-// &lt;iframe sandbox="allow-scripts allow-popups allow-forms"&gt;</code></pre>
-            </div>
-            <p>This prevents the embedded viewer from accessing the parent verifier's cookies, local storage, or DOM.
-                In practice, it lets the website expose artifact inspection without turning the embedded viewer into a
-                trusted same-origin page.</p>
-        </div>
-
-        <div style="margin-bottom: 5rem;">
-            <h2 style="font-size: 2rem; margin-bottom: 1.5rem; color: var(--color-white);">3. CI/CD and Automation
-            </h2>
-            <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
-                    <p>At pipeline scale, the <code>epi-action</code> GitHub Action and CLI commands make it possible
-                        to generate and verify evidence automatically:</p>
-                    <ol style="margin-left: 1.5rem; margin-top: 1rem; color: var(--text-secondary);">
-                        <li style="margin-bottom: 0.5rem;"><strong>Trigger:</strong> Runs on pull requests or push
-                            events.</li>
-                        <li style="margin-bottom: 0.5rem;"><strong>Generate:</strong> Runs tests or workflows with EPI
-                            recording enabled.</li>
-                        <li style="margin-bottom: 0.5rem;"><strong>Verify:</strong> Immediately runs
-                            <code>epi verify</code>.
-                        </li>
-                        <li><strong>Block:</strong> Fails the build if verification fails.</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-
-        <div
-            style="padding: 2rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-lg);">
-            <h3 style="color: var(--color-white); margin-bottom: 1rem;">Conclusion: Portable Trust</h3>
-            <p style="margin-bottom: 0;">EPI is designed so one artifact can carry the workflow record, policy
-                context, analysis, review state, and trust signals together. The recorder captures evidence, the
-                artifact sealing step makes tampering visible, and the viewer makes the result inspectable without
-                requiring a custom backend.</p>
-        </div>
-    </section>
-
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
-                            target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
-                            target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><div class="diag-label reveal"><span class="diag-dot"></span>ARCHITECTURE</div><h1 class="reveal">THE ARCHITECTURE<br><span style="color:var(--info)">OF TRUST</span></h1><p class="hero-desc reveal">Technical deep dive into the cryptographic trust system. For engineers implementing EPI and regulators evaluating its evidentiary properties.</p></div></section><section class="section" style="padding-top:1rem"><div class="container container-sm"><div class="section-label reveal">// 1.0 CONTAINER FORMAT</div><p class="reveal">EPI uses a dual-format container. <strong>Envelope v2</strong> is a polyglot HTML+ZIP format (128-byte binary header + embedded viewer + ZIP payload) that opens in any browser while remaining cryptographically verifiable. <strong>Legacy ZIP</strong> is fully supported for backward compatibility.</p><div class="g2 reveal" style="margin:1.2rem 0 2rem"><div class="card"><h3 style="color:var(--info)">ENVELOPE V2 (CURRENT)</h3><p>128-byte binary header with magic bytes, version, UUID, payload SHA-256. Polyglot enables zero-install browser viewing.</p></div><div class="card"><h3 style="color:var(--info)">LEGACY ZIP</h3><p>Standard ZIP with mimetype as first entry. Auto-detected on read. Supported for all earlier artifacts.</p></div></div><div class="section-label reveal">// 2.0 CRYPTOGRAPHIC TRUST MODEL</div><div class="ga reveal"><div class="card"><h3>SHA-256 INTEGRITY</h3><div class="card-bar"></div><p>Every file hash-checked against manifest.json. Extra files flagged as injections. Missing files reported.</p></div><div class="card"><h3>ED25519 SIGNATURES</h3><div class="card-bar"></div><p>RFC 8032 Ed25519 with canonical JSON hashing (RFC 8785 style). Format: ed25519:keyname:hexsig.</p></div><div class="card"><h3>PREV-HASH CHAIN</h3><div class="card-bar"></div><p>Each step links to predecessor. Inserting/removing/reordering breaks the chain — detected by verify.</p></div><div class="card"><h3>IDENTITY RESOLUTION</h3><div class="card-bar"></div><p>TrustRegistry: local keys, DID:WEB, remote registry. Without registry, identity is explicitly UNKNOWN.</p></div></div><div class="section-label reveal" style="margin-top:2.5rem">// 3.0 FAULT ANALYSIS (9 PASSES)</div><p class="reveal" style="margin-bottom:1rem;font-family:var(--mono);font-size:0.68rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.05em">DETERMINISTIC, POLICY-AWARE. NO LLM CALLS. RULES-BASED. * = POLICY-ONLY.</p><div class="ga reveal"><div class="card" style="padding:1rem"><h4 style="color:var(--info);font-size:0.8rem">PASS 1</h4><p style="font-size:0.75rem">ERROR CONTINUATION</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--info);font-size:0.8rem">PASS 2</h4><p style="font-size:0.75rem">CONSTRAINT VIOLATION</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--warn);font-size:0.8rem">PASS 3*</h4><p style="font-size:0.75rem">SEQUENCE VIOLATION</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--warn);font-size:0.8rem">PASS 4*</h4><p style="font-size:0.75rem">THRESHOLD VIOLATION</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--warn);font-size:0.8rem">PASS 5*</h4><p style="font-size:0.75rem">PROHIBITION VIOLATION</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--info);font-size:0.8rem">PASS 6</h4><p style="font-size:0.75rem">APPROVAL GAP</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--warn);font-size:0.8rem">PASS 7*</h4><p style="font-size:0.75rem">APPROVAL GUARD</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--info);font-size:0.8rem">PASS 8</h4><p style="font-size:0.75rem">CONTEXT DROP</p></div><div class="card" style="padding:1rem"><h4 style="color:var(--warn);font-size:0.8rem">PASS 9*</h4><p style="font-size:0.75rem">TOOL PERMISSION</p></div></div><div class="section-label reveal" style="margin-top:2.5rem">// 4.0 SCITT & REDACTION</div><div class="g2 reveal"><div class="card"><h3 style="color:var(--info)">SCITT TRANSPARENCY</h3><div class="card-bar"></div><p>Production-ready COSE_Sign1 implementation (cbor2 + cryptography). Anchoring requires deployed service.</p></div><div class="card"><h3 style="color:var(--info)">SECRET REDACTION</h3><div class="card-bar"></div><p>Scans captured content for API keys, tokens, PII before sealing. HMAC-SHA256 placeholders.</p></div></div></div></section><div class="hash-fp">a8b3ea00b9f249be377f1532e4c1a4cf54bbf7eaa5d8f150</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>

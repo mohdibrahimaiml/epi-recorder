@@ -1,665 +1,113 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS</title>
+<meta name="description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
+<meta property="og:title" content="EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS"><meta property="og:description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
+<meta property="og:url" content="https://epilabs.org/"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EPI LABS - The PDF for AI Evidence</title>
-    <meta name="description"
-        content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible. Transform any AI Evidence/Workflow into a self-contained, verifiable evidence package.">
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://epilabs.org/">
-    <meta property="og:title" content="EPI LABS - The PDF for AI Evidence">
-    <meta property="og:description"
-        content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
-    <meta property="og:image" content="https://epilabs.org/epi-file-visual.png">
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero"><div class="container hero-inner">
+<div class="diag-label reveal"><span class="diag-dot"></span>SYSTEM STATUS: OPERATIONAL · v4.1.0 · MIT LICENSE</div>
+<h1 class="reveal">EVIDENCE<br>PACKAGED<br><span style="color:var(--info)">INFRASTRUCTURE</span></h1>
+<div class="hero-hash reveal">SHA256: a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8</div>
+<p class="hero-desc reveal">EPI captures AI agent executions into a single, cryptographically signed, tamper-evident <code>.epi</code> file — like a PDF for evidence. Engineers integrate in three lines of Python. Regulators verify in any browser, offline, without trusting the producer.</p>
+<div class="hero-actions reveal"><a href="verify.html" class="btn btn-p btn-lg">VERIFY AN .EPI FILE</a><a href="how-it-works.html" class="btn btn-lg">HOW IT WORKS</a><a href="https://pypi.org/project/epi-recorder/" class="btn btn-lg" target="_blank">pip install epi-recorder</a></div>
+<div class="term reveal" id="hero-terminal"><div class="term-body">
+<div><span class="tp">$ </span><span class="tc">epi run agent.py</span></div>
+<div><span class="tok">[OK] </span><span class="to">47 execution steps recorded</span></div>
+<div><span class="tok">[OK] </span><span class="to">5 LLM calls captured (OpenAI + Anthropic)</span></div>
+<div><span class="tok">[OK] </span><span class="to">Ed25519 signature applied (key: default)</span></div>
+<div style="margin-top:6px"><span class="tp">$ </span><span class="tc">epi verify agent.epi</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Integrity: SHA-256, 12 files OK</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Signature: VALID (Ed25519, key: default)</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Chain: INTACT (prev_hash, 47 steps)</span></div>
+<div style="margin-top:6px"><span class="to">TRUST LEVEL: </span><span class="tok">HIGH</span></div>
+<div class="td">// ARTIFACT HAS NOT BEEN MODIFIED SINCE SEALING.</div>
+</div></div></div></section>
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://epilabs.org/">
-    <meta property="twitter:title" content="EPI LABS - The PDF for AI Evidence">
-    <meta property="twitter:description"
-        content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
-    <meta property="twitter:image" content="https://epilabs.org/epi-file-visual.png">
+<div class="stats-bar"><div class="container"><div class="stats">
+<div class="stat"><div class="stat-val reveal">v4.1.0</div><div class="stat-lbl">PRODUCTION</div></div>
+<div class="stat"><div class="stat-val reveal">Ed25519</div><div class="stat-lbl">SIGNING STANDARD</div></div>
+<div class="stat"><div class="stat-val reveal">100% OFFLINE</div><div class="stat-lbl">VERIFICATION</div></div>
+<div class="stat"><div class="stat-val reveal">9 PASSES</div><div class="stat-lbl">FAULT ANALYSIS</div></div>
+</div></div></div>
 
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css?v=2.2">
-    <link rel="stylesheet" href="css/terminal.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
-        rel="stylesheet">
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "Organization",
-          "name": "EPI LABS",
-          "url": "https://epilabs.org/",
-          "logo": "https://epilabs.org/assets/logo.png",
-          "sameAs": [
-            "https://github.com/mohdibrahimaiml/epi-recorder",
-            "https://pypi.org/project/epi-recorder/"
-          ],
-          "description": "Building the trust layer for the AI economy with Execution Proof Infrastructure."
-        },
-        {
-          "@type": "SoftwareApplication",
-          "name": "epi-recorder",
-          "url": "https://epilabs.org/",
-          "author": {
-            "@type": "Organization",
-            "name": "EPI LABS"
-          },
-          "description": "EPI Recorder captures, cryptographically signs, and packages AI workflows into verifiable evidence.",
-          "applicationCategory": "DeveloperApplication",
-          "operatingSystem": "Windows, macOS, Linux",
-          "softwareVersion": "4.1.0",
-          "license": "https://opensource.org/licenses/MIT"
-        }
-      ]
-    }
-    </script>
-</head>
+<section class="section"><div class="container">
+<div class="section-header"><div class="section-label reveal">// 1.0 EVIDENCE CONTAINER</div>
+<h2 class="reveal">ONE FILE. COMPLETE PROOF.</h2>
+<p class="section-sub reveal">Everything about your AI execution — captured, sealed, and independently verifiable — in a single portable artifact.</p></div>
+<div class="g3">
+<div class="card reveal"><div class="card-icon">&#x1F512;</div><h3>CRYPTOGRAPHIC SEAL</h3><div class="card-bar"></div><p>Ed25519-signed at creation. Any modification — even a single byte — is instantly detectable.</p></div>
+<div class="card reveal"><div class="card-icon">&#x1F4E6;</div><h3>SELF-CONTAINED</h3><div class="card-bar"></div><p>Steps with prev_hash chain, manifest with SHA-256 hashes, embedded viewer — all in one file.</p></div>
+<div class="card reveal"><div class="card-icon">&#x1F50D;</div><h3>INDEPENDENT VERIFICATION</h3><div class="card-bar"></div><p>100% browser-based. No server, no API, no trust. Verify integrity and signatures offline.</p></div>
+</div></div></section>
 
-<body>
-    <!-- Top Anchor -->
-    <div id="top"></div>
+<section class="section" style="background:var(--bg2)"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 2.0 VERIFICATION CHECKLIST</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">FIVE INDEPENDENT CHECKS</h2>
+<div class="status-box pass reveal" style="margin-bottom:1.2rem"><div class="sb-label">CRYPTOGRAPHIC VERIFICATION</div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>SHA-256 FILE MANIFEST</strong><span>Every file hash-checked against manifest.json. Extra files flagged as injections.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>ED25519 SIGNATURE</strong><span>RFC 8032 Ed25519 with canonical JSON hashing. Same primitive as Signal, SSH, TLS 1.3.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>PREV-HASH CHAIN</strong><span>Immutable step chain — inserting, removing, or reordering any step breaks the chain.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP SEQUENCE COMPLETENESS</strong><span>Every tool.call requires a tool.response. Unmatched calls and approval gaps are flagged.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP COUNT ATTESTATION</strong><span>Manifest declares total_steps. Any mismatch = steps added or removed after signing.</span></div></div>
+</div></div></section>
 
-    <!-- Navigation -->
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <div class="mobile-back">
-                    <span>&lt;</span> Back
-                </div>
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html">Verify</a>
-                <a href="viewer/">Decision Ops</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
-                    target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
+<section class="section"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 3.0 QUICKSTART</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:0.6rem">THREE LINES OF PYTHON</h2>
+<p class="reveal" style="text-align:center;color:var(--ink4);margin-bottom:2rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em">NO MONKEY PATCHING. STREAMING AND NON-STREAMING.</p>
+<div class="g3">
+<div class="card reveal"><h3>01 // WRAP CLIENT</h3><p>One function call. No side effects.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> wrap_openai<br><span class="c-kw">from</span> openai <span class="c-kw">import</span> OpenAI<br><br><span class="c-fn">client</span> = wrap_openai(OpenAI())</code></div></div>
+<div class="card reveal"><h3>02 // RECORD WORKFLOW</h3><p>Everything captured: LLM calls, tools, token counts, latency.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> record<br><br><span class="c-kw">with</span> record(<span class="c-s">"agent.epi"</span>,<br>         goal=<span class="c-s">"Assess application"</span>):<br>    r = client.chat<br>        .completions.create(<br>            model=<span class="c-s">"gpt-4o"</span>,<br>            messages=[...])</code></div></div>
+<div class="card reveal"><h3>03 // VERIFY ANYWHERE</h3><p>Drag-and-drop at epilabs.org/verify. Zero install, zero upload.</p><div class="code-block" style="margin-top:0.8rem"><code>$ epi verify agent.epi<br><span style="color:var(--pass)">TRUST LEVEL: HIGH</span><br>Integrity: PASSED<br>Signature: VALID<br>Chain: INTACT</code></div></div>
+</div>
+<div style="text-align:center;margin-top:2rem"><a href="https://pypi.org/project/epi-recorder/" class="btn btn-p btn-lg" target="_blank">pip install epi-recorder</a><a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-lg" target="_blank" style="margin-left:0.5rem">VIEW ON GITHUB</a></div>
+</div></section>
 
-    <!-- Hero Section (Text Only) -->
-    <section class="hero" id="home">
-        <canvas id="particle-canvas"></canvas>
-        <div class="container" style="text-align: center; max-width: 800px;">
-            <div class="hero-content" style="max-width: 100%;">
-                <div class="hero-badge"
-                    style="border-color: var(--color-violet-500); color: var(--color-violet-500); background: rgba(139, 92, 246, 0.1);">
-                    New: EPI Decision Ops is live on epilabs.org</div>
-                <h1 class="hero-title text-gradient" style="font-size: 4rem;">The PDF
-                    for AI Evidence</h1>
-                <p class="hero-subtitle">Stop relying on screenshots. <strong>Execution Proof Infrastructure
-                        (.epi)</strong> is the open standard for <strong>Verifiable Execution</strong>.
-                    It captures code, context, and computation into a <strong>verifiable signed receipt</strong> that
-                    works everywhere.
-                </p>
-                <div class="hero-cta" style="justify-content: center;">
-                    <a href="viewer/" class="btn-primary"
-                        style="background: linear-gradient(135deg, #14b8a6, #0ea5e9); border: none;">
-                        Open Decision Ops
-                    </a>
-                    <a href="how-it-works.html" class="btn-primary">See the Evidence Package -&gt;</a>
-                    <a href="https://pypi.org/project/epi-recorder/" class="btn-secondary" target="_blank">
-                        <span>pip install "epi-recorder[all]"</span>
-                    </a>
-                </div>
-                <p style="margin-top: 1rem; color: var(--color-gray-300); font-size: 0.95rem;">
-                    Review AI decision case files in the browser, try a safe sample instantly, and open the new
-                    Decision Ops workspace at
-                    <a href="viewer/" style="color: var(--color-primary-light); text-decoration: underline;">epilabs.org/viewer/</a>.
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Product Demo Section (Separate, Fully Visible) -->
-    <section class="section" id="product" style="padding-top: 4rem;">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">See It In Action</h2>
-                <p class="section-desc">From code execution to sealed evidence in seconds.</p>
-            </div>
-            <div style="display: flex; gap: 3rem; align-items: center; justify-content: center; flex-wrap: wrap;">
-                <!-- The Terminal (Creation) -->
-                <div id="interactive-terminal" class="terminal-window terminal-interactive"
-                    style="flex: 1; min-width: 350px; max-width: 500px;">
-                    <div class="terminal-header">
-                        <div class="terminal-controls">
-                            <span class="control-dot dot-red"></span>
-                            <span class="control-dot dot-yellow"></span>
-                            <span class="control-dot dot-green"></span>
-                        </div>
-                        <div class="terminal-title">epi-recorder v4.1.0</div>
-                    </div>
-                    <div class="terminal-body">
-                        <!-- Content injected by terminal-demo.js -->
-                    </div>
-                </div>
-
-                <!-- The File (Result) -->
-                <div class="epi-file-visual" style="min-width: 280px;">
-                    <div class="file-header">
-                        <div class="file-type">.epi</div>
-                        <div
-                            style="width: 8px; height: 8px; background: var(--color-success); border-radius: 50%; box-shadow: 0 0 10px var(--color-success);">
-                        </div>
-                    </div>
-                    <div class="file-body">
-                        <div class="file-line medium"></div>
-                        <div class="file-line"></div>
-                        <div class="file-line short"></div>
-                        <div class="file-line medium" style="margin-top: 1rem; opacity: 0.5;"></div>
-                        <div class="file-line short" style="opacity: 0.5;"></div>
-                    </div>
-                    <div class="file-footer">
-                        <div class="seal-icon">LOCK</div>
-                        <div class="seal-info">
-                            <div class="seal-text">Cryptographic Seal</div>
-                            <div class="seal-status">OK Verified</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stats Row -->
-            <div class="hero-stats" style="margin-top: 4rem; justify-content: center;">
-                <div class="stat-item">
-                    <div class="stat-value">v4.1.0</div>
-                    <div class="stat-label">Framework Integrations</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">100% Offline</div>
-                    <div class="stat-label">Works Without Internet</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">Open Source</div>
-                    <div class="stat-label">MIT License</div>
-                </div>
-            </div>
-
-            <!-- Premium Simulation CTA -->
-            <div
-                style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 5rem; padding-bottom: 2rem;">
-                <div
-                    style="height: 1px; width: 100px; background: linear-gradient(90deg, transparent, var(--color-primary), transparent); margin-bottom: 2rem;">
-                </div>
-                <p
-                    style="margin-bottom: 1.5rem; color: var(--color-gray-300); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.9rem;">
-                    SEE THE ACTUAL WORKING OF</p>
-                <a href="simulation.html" class="btn-primary"
-                    style="padding: 0.75rem 2rem; border-radius: 999px; box-shadow: 0 0 20px rgba(10, 132, 255, 0.3);">
-                    Execution Proof Infrastructure (.epi)
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Get Started Section -->
-    <section class="section get-started-section" id="get-started">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Get Started with epi-recorder v4.1.0</h2>
-                <p class="section-desc">99% installation success rate. Universal one-command installer for all
-                    platforms.
-                </p>
-            </div>
-            <div class="install-demo" style="display: block; width: 100%; max-width: 900px; margin: 3rem auto;">
-
-                <!-- Terminal UI with Floating Badge -->
-                <div class="terminal-wrapper" style="position: relative;">
-                    <!-- Floating Secure Badge -->
-                    <div
-                        style="position: absolute; top: -15px; right: -10px; background: #10B981; color: white; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); z-index: 20; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.2);">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
-                            </path>
-                        </svg>
-                        Cryptographically Signed
-                    </div>
-
-                    <div class="terminal-window" id="homepage-terminal"
-                        style="box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-                        <div class="terminal-header">
-                            <div class="terminal-buttons">
-                                <span class="close"></span>
-                                <span class="minimize"></span>
-                                <span class="maximize"></span>
-                            </div>
-                            <div class="terminal-title">epi-recorder v4.1.0 -- bash -- 80x24</div>
-                        </div>
-                        <div class="terminal-body">
-                            <!-- JS will inject lines here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- What's New in v4.1.0 -->
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-                    <div
-                        style="width: 40px; height: 40px; background: linear-gradient(135deg, #8B5CF6, #3B82F6); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                        NEW</div>
-                    <h3 style="font-size: 1.5rem; color: white; margin: 0;">What's New in v4.1.0</h3>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            SQLite Envelope Container
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">Unified
-                            <strong>relational database container</strong>. Full structured queries, native indexing, and rich offline forensic audits.
-                        </p>
-                    </div>
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            Zero-Cost did:web Signers
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">
-                            Embed zero-friction, cryptographically verifiable did:web identities directly within the evidence signature chain.
-                        </p>
-                    </div>
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            SCITT Ledger Receipts
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">
-                            Off-the-shelf integration with <strong>SCITT transparency ledgers</strong> for immutable supply-chain and run verification.
-                        </p>
-                    </div>
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            AGT Compliance Mappings
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">Import, convert, and verify forensic evidence compliant with the <strong>Microsoft Agent Governance Toolkit</strong>.
-                        </p>
-                    </div>
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            AI Mistake Detector
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">
-                            CLI's <code>epi debug</code> scans recordings for infinite loops, LLM hallucinations, inefficiencies, and repeated work.
-                        </p>
-                    </div>
-                    <div>
-                        <div
-                            style="color: var(--color-primary-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            Self-Contained Workspace
-                        </div>
-                        <p style="color: var(--color-gray-400); font-size: 0.9rem; margin: 0;">
-                            Open localized, secure review workflows with <code>epi connect</code>, keeping all AI decision data off the cloud.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Installation Scripts -->
-                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(139, 92, 246, 0.2);">
-                    <div
-                        style="color: var(--color-gray-300); font-weight: 600; margin-bottom: 1rem; font-size: 0.95rem;">
-                        Quick Install (One Command):</div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-                        <div
-                            style="background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; padding: 1rem;">
-                            <div
-                                style="color: var(--color-primary-light); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">
-                                Unix / Mac:</div>
-                            <code
-                                style="display: block; background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 4px; font-size: 0.85rem; color: var(--color-success); overflow-x: auto;">curl -sSL https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/scripts/install.sh | sh</code>
-                        </div>
-                        <div
-                            style="background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; padding: 1rem;">
-                            <div
-                                style="color: var(--color-primary-light); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">
-                                Windows:</div>
-                            <code
-                                style="display: block; background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 4px; font-size: 0.85rem; color: var(--color-success); overflow-x: auto;">iwr https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/scripts/install.ps1 -useb | iex</code>
-                        </div>
-                    </div>
-                    <div
-                        style="margin-top: 1rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--color-primary); border-radius: 4px;">
-                        <div style="color: var(--color-gray-300); font-size: 0.85rem;">Note: <strong>Always
-                                works:</strong> If <code>epi</code> command not found, use
-                            <code>python -m epi_cli</code> (100% reliable)
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="cli-intro" style="text-align: center; margin-top: 3rem; margin-bottom: 2rem;">
-                <h3 style="font-size: 1.5rem; color: white;">See It In Action</h3>
-                <p style="color: var(--color-gray-400);">From code execution to sealed evidence in seconds.</p>
-            </div>
-            <div class="cli-reference">
-                <h3>Complete CLI Reference (v4.1.0)</h3>
-
-                <!-- Core Commands -->
-                <h4 style="color: var(--color-primary-light); margin: 2rem 0 1rem; font-size: 1.1rem;">Core
-                    Commands</h4>
-                <div class="cli-commands">
-                    <div class="cli-command">
-                        <code class="command-name">epi run &lt;script.py&gt;</code>
-                        <p>Zero-config recording. Auto-verifies and opens viewer. Simplest way to record.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi record --out &lt;file.epi&gt; -- &lt;cmd&gt;</code>
-                        <p>Advanced recording with explicit output filename. Record any shell command.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi debug &lt;file.epi&gt;</code>
-                        <p>Launch the AI Mistake and Hallucination Detector to analyze execution logs.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi verify &lt;file.epi&gt;</code>
-                        <p>Verify integrity and authenticity (structural, integrity, signature checks).</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi verify &lt;file.epi&gt; --verbose</code>
-                        <p>Verbose verification output with detailed check results.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi verify &lt;file.epi&gt; --json</code>
-                        <p>Output verification results as JSON for CI/CD integration.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi view &lt;file.epi&gt;</code>
-                        <p>Open recording in browser with interactive timeline viewer.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi ls</code>
-                        <p>List all recordings in ./epi-recordings/ directory.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi doctor</code>
-                        <p><strong>Shipped in v2.1.1:</strong> Self-healing diagnostics. Auto-detects and repairs PATH
-                            issues.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                </div>
-
-                <!-- Key Management -->
-                <h4 style="color: var(--color-primary-light); margin: 2rem 0 1rem; font-size: 1.1rem;">Key
-                    Management</h4>
-                <div class="cli-commands">
-                    <div class="cli-command">
-                        <code class="command-name">epi keys list</code>
-                        <p>List all Ed25519 keypairs in your keystore.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi keys generate</code>
-                        <p>Generate a new Ed25519 keypair (auto-generated on first use).</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi keys generate --name &lt;keyname&gt;</code>
-                        <p>Generate a named keypair for team/project separation.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi keys export --name &lt;keyname&gt;</code>
-                        <p>Export public key for sharing with verifiers.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                </div>
-
-                <!-- Help & Info -->
-                <h4 style="color: var(--color-primary-light); margin: 2rem 0 1rem; font-size: 1.1rem;">Help &
-                    Info</h4>
-                <div class="cli-commands">
-                    <div class="cli-command">
-                        <code class="command-name">epi --help</code>
-                        <p>Show all available commands and usage information.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi help</code>
-                        <p>Show extended quickstart guide with examples.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi version</code>
-                        <p>Show EPI version information (currently v4.1.0).</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi &lt;command&gt; --help</code>
-                        <p>Get detailed help for any specific command.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                </div>
-
-                <!-- Python API -->
-                <h4 style="color: var(--color-primary-light); margin: 2rem 0 1rem; font-size: 1.1rem;">Python API
-                </h4>
-                <div class="cli-commands">
-                    <div class="cli-command">
-                        <code class="command-name">@record</code>
-                        <p>Decorator to record a function. <code>@record(goal="test")</code></p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">with record("file.epi", goal="...")</code>
-                        <p>Context manager. <strong>Tip:</strong> Always provide an explicit filename when adding
-                            metadata like <code>goal</code> or <code>metrics</code>.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                </div>
-
-                <!-- Global Install -->
-                <h4 style="color: var(--color-primary-light); margin: 2rem 0 1rem; font-size: 1.1rem;">Global
-                    Install (v4.1.0)</h4>
-                <div class="cli-commands">
-                    <div class="cli-command">
-                        <code class="command-name">epi install --global</code>
-                        <p>Auto-record all Python processes via <code>sitecustomize.py</code>. Idempotent and safe.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                    <div class="cli-command">
-                        <code class="command-name">epi uninstall --global</code>
-                        <p>Remove auto-recording cleanly. One command.</p>
-                        <span class="badge shipped">Shipped</span>
-                    </div>
-                </div>
-
-                <!-- Native OS Integration -->
-                <h4 style="color: var(--color-primary-light); margin: 3rem 0 1rem; font-size: 1.1rem;">v4.1.0 Native OS Integration</h4>
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">Zero-Friction CLI & GUI Handlers</h5>
-                    <div style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <p style="color: #e6edf3; font-size: 0.85rem; margin-bottom: 0.75rem;">EPI evidence bundles are now first-class OS citizens natively wired to your environment. Double-click any <code>.epi</code> file on Windows, macOS, or Linux to seamlessly launch the isolated viewer without terminal intervention.</p>
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">$ epi associate    # Register .epi file extension natively
-$ epi unassociate  # Cleanly remove global registry bindings</code></pre>
-                    </div>
-                </div>
-
-                <!-- Quick Start Examples -->
-                <h4 style="color: var(--color-primary-light); margin: 3rem 0 1rem; font-size: 1.1rem;">v4.1.0 Quick Start Examples</h4>
-
-                <!-- LiteLLM Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">LiteLLM - 100+
-                        Providers</h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">import litellm
-from epi_recorder.integrations.litellm import EPICallback
-
-litellm.callbacks = [EPICallback()]  # That's it
-
-response = litellm.completion(model="gpt-4", messages=[...])
-response = litellm.completion(model="claude-3-opus", messages=[...])
-# Every call -> signed .epi evidence</code></pre>
-                    </div>
-                </div>
-
-                <!-- LangChain Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">LangChain
-                        Handler</h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">from langchain_openai import ChatOpenAI
-from epi_recorder.integrations.langchain import EPICallbackHandler
-
-llm = ChatOpenAI(model="gpt-4", callbacks=[EPICallbackHandler()])
-result = llm.invoke("Analyze this contract...")
-# Captures: LLM, tools, chains, retrievers, agents</code></pre>
-                    </div>
-                </div>
-
-                <!-- Streaming Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">OpenAI
-                        Streaming</h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">client = wrap_openai(OpenAI())
-
-with record("stream.epi"):
-    stream = client.chat.completions.create(
-        model="gpt-4", stream=True,
-        messages=[{"role": "user", "content": "Write a poem"}]
-    )
-    for chunk in stream:
-        print(chunk.choices[0].delta.content or "", end="")
-# Assembled response + token usage logged automatically</code></pre>
-                    </div>
-                </div>
-
-                <!-- pytest Plugin Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">pytest
-                        Evidence</h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">$ pytest --epi --epi-dir=evidence
-
-======================== EPI Evidence Summary ========================
-  OK test_auth_flow.epi (signed, 12 steps)
-  OK test_payment.epi (signed, 8 steps)
-  OK test_refund.epi (signed, 6 steps)
-======================================================================</code></pre>
-                    </div>
-                </div>
-
-                <!-- GitHub Action Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">GitHub Action
-                    </h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">- name: Verify EPI evidence
-  uses: mohdibrahimaiml/epi-recorder/.github/actions/verify-epi@main
-  with:
-    path: ./evidence
-    fail-on-tampered: true</code></pre>
-                    </div>
-                </div>
-
-                <!-- OpenTelemetry Example -->
-                <div style="margin-bottom: 2rem;">
-                    <h5 style="color: var(--color-gray-300); margin-bottom: 0.75rem; font-size: 1rem;">OpenTelemetry
-                    </h5>
-                    <div
-                        style="background: #0d1117; padding: 1rem; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                        <pre style="margin: 0; overflow-x: auto;"><code style="color: #e6edf3; font-size: 0.85rem;">from epi_recorder.integrations.opentelemetry import setup_epi_tracing
-
-setup_epi_tracing(service_name="my-agent")
-# All OTel spans -> signed .epi files automatically</code></pre>
-                    </div>
-                </div>
-            </div>
-
-            <div class="install-links">
-                <a href="https://pypi.org/project/epi-recorder/" class="btn-primary" target="_blank">PyPI</a>
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary" target="_blank">GitHub</a>
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" class="btn-secondary"
-                    target="_blank">Docs</a>
-            </div>
-        </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
-                            target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
-                            target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
-    <script src="js/terminal-demo.js?v=4.1.0"></script>
-    <script src="js/particles.js?v=4.1.0"></script>
+<section class="section" style="background:var(--bg2)"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 4.0 REGULATORY ALIGNMENT</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">BUILT FOR COMPLIANCE</h2>
+<div style="overflow-x:auto"><table class="dtable"><thead><tr><th>REQUIREMENT</th><th>FRAMEWORK</th><th>.EPI EVIDENCE</th></tr></thead><tbody>
+<tr><td><strong>LOGS OF OPERATION</strong></td><td>EU AI Act Art. 12</td><td class="tchk">steps.jsonl + environment.json</td></tr>
+<tr><td><strong>DOCUMENT RETENTION (10YR)</strong></td><td>EU AI Act Art. 19</td><td class="tchk">SEALED .EPI FORMAT</td></tr>
+<tr><td><strong>HUMAN OVERSIGHT EVIDENCE</strong></td><td>EU AI Act Art. 14</td><td class="tchk">review.json LEDGER</td></tr>
+<tr><td><strong>AUDIT TRAIL INTEGRITY</strong></td><td>FDA 21 CFR 11</td><td class="tchk">SIGNED MANIFEST + STEPS</td></tr>
+<tr><td><strong>NON-REPUDIATION</strong></td><td>HIPAA 164.312</td><td class="tchk">Ed25519 SIGNATURE</td></tr>
+<tr><td><strong>RISK DOCUMENTATION</strong></td><td>NIST AI RMF / AIUC-1</td><td class="tchk">analysis + governance</td></tr>
+</tbody></table></div>
+<p style="text-align:center;color:var(--ink4);font-size:0.7rem;font-family:var(--mono);margin-top:1.2rem">// EPI IS NOT A COMPLIANCE GUARANTEE. WHETHER EVIDENCE SATISFIES A SPECIFIC THRESHOLD IS FOR THE AUDITOR TO DETERMINE.</p>
+</div></section>
+<div class="hash-fp">a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4</div>
+<footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>

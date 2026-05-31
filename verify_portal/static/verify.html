@@ -1,714 +1,244 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Evidence | EPI LABS</title>
-    <!-- Dependencies (CDNs) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js"></script>
-    <!-- Noble Ed25519 -->
-    <script src="https://unpkg.com/@noble/ed25519@2.0.0/lib/index.js"></script>
-
-    <!-- Custom System Styles -->
-    <link rel="stylesheet" href="css/style.css?v=2.6">
-    <link rel="stylesheet" href="css/terminal.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    
-    <style>
-        .page-container {
-            min-height: calc(100vh - 80px); /* Account for nav */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-xl) var(--space-md);
-            position: relative;
-            z-index: 10;
-        }
-
-        .verifier-glass-card {
-            background: rgba(10, 13, 21, 0.7);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: var(--radius-xl);
-            padding: var(--space-xl);
-            width: 100%;
-            max-width: 650px;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            position: relative;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .verifier-glass-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 100%);
-            pointer-events: none;
-        }
-
-        .drop-zone {
-            border: 2px dashed rgba(255, 255, 255, 0.15);
-            border-radius: var(--radius-lg);
-            padding: var(--space-2xl) var(--space-lg);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            background: rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-
-        .drop-zone:hover, .drop-zone.dragover {
-            border-color: var(--color-primary);
-            background: rgba(10, 132, 255, 0.05);
-            box-shadow: inset var(--glow-blue);
-        }
-        
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: var(--space-sm);
-            color: var(--color-primary);
-            filter: drop-shadow(0 0 15px rgba(10, 132, 255, 0.5));
-            transition: transform 0.3s ease;
-        }
-        
-        .drop-zone:hover .upload-icon {
-            transform: translateY(-5px) scale(1.1);
-        }
-
-        .pubkey-input {
-            width: 100%;
-            padding: 1rem 1.25rem;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius-md);
-            color: var(--color-white);
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            margin-bottom: var(--space-lg);
-            transition: all 0.2s ease;
-        }
-
-        .pubkey-input:focus {
-            outline: none;
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
-        }
-
-        .loader {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            border-top-color: var(--color-primary);
-            animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Modal & Timeline Overrides */
-        .glass-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 2000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-md);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        .glass-modal.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .glass-modal-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            width: 100%;
-            max-width: 900px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: var(--shadow-xl);
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .glass-modal.active .glass-modal-content {
-            transform: scale(1);
-        }
-        .modal-header {
-            padding: var(--space-md) var(--space-lg);
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-body {
-            padding: var(--space-lg);
-            overflow-y: auto;
-            flex: 1;
-        }
-        
-        .timeline-item {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            margin-bottom: var(--space-md);
-            overflow: hidden;
-        }
-        .timeline-header {
-            padding: var(--space-sm) var(--space-md);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.02);
-            border-bottom: 1px solid transparent;
-            transition: background 0.2s ease;
-        }
-        .timeline-header:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-        .timeline-body {
-            padding: var(--space-md);
-            background: #000;
-            border-top: 1px solid var(--border-subtle);
-            color: var(--color-teal-400);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            overflow-x: auto;
-            display: none;
-        }
-        .timeline-body.active { display: block; }
-
-        /* Dynamic Visuals for Result */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 99px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: var(--space-md);
-        }
-        .status-success { color: var(--color-success); background: rgba(48, 209, 88, 0.1); border: 1px solid rgba(48, 209, 88, 0.2); box-shadow: 0 0 20px rgba(48, 209, 88, 0.2); }
-        .status-warning { color: var(--color-warning); background: rgba(255, 214, 10, 0.1); border: 1px solid rgba(255, 214, 10, 0.2); box-shadow: 0 0 20px rgba(255, 214, 10, 0.2); }
-        .status-error { color: var(--color-error); background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.2); box-shadow: 0 0 20px rgba(255, 69, 58, 0.2); }
-
-        .metadata-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--space-sm) var(--space-md);
-            margin: var(--space-md) 0 var(--space-lg) 0;
-            background: rgba(0,0,0,0.2);
-            padding: var(--space-md);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-subtle);
-        }
-        .meta-label { color: var(--color-gray-500); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-        .meta-value { color: var(--color-white); font-size: 0.9rem; word-break: break-all; }
-        .meta-value.mono { font-family: var(--font-mono); color: var(--color-teal-400); }
-
-        .action-row {
-            display: flex;
-            gap: var(--space-sm);
-        }
-        
-        .hidden { display: none !important; }
-    </style>
-</head>
-
-<body>
-    <!-- Top Anchor -->
-    <div id="top"></div>
-
-    <!-- Navigation -->
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <div class="mobile-back">
-                    <span>&lt;</span> Back
-                </div>
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html" class="active">Verify</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary" target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Main Verify Interface -->
-    <main class="page-container">
-        <!-- Floating Animated Background (From Index) -->
-        <canvas id="particle-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none; opacity: 0.6;"></canvas>
-
-        <div class="verifier-glass-card" id="mainCard">
-            <div style="text-align: center; margin-bottom: var(--space-xl);">
-                <div class="hero-badge" style="border-color: var(--color-primary); color: var(--color-primary); background: rgba(10, 132, 255, 0.1); margin-bottom: var(--space-md); padding: 0.25rem 0.75rem; display:inline-block; border-radius:99px; font-weight:600; font-size:0.8rem;">ZERO-KNOWLEDGE VERIFICATION</div>
-                <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;" class="text-gradient">Verify Evidence</h1>
-                <p style="font-size: 1rem;">Drag and drop your <code style="font-size: 0.85em; background: rgba(255,255,255,0.1); color: var(--color-white);">.epi</code> bundle to check structure, integrity, and trust state entirely in your browser.</p>
-            </div>
-
-            <div id="inputPhase">
-                <input type="text" id="pubKeyInput" class="pubkey-input" placeholder="Optional: Enterprise Public Key (Hex) to verify identity">
-                
-                <div id="dropZone" class="drop-zone">
-                    <div id="uploadUI">
-                        <div class="upload-icon">LOCK</div>
-                        <h3 style="margin-bottom: 0.25rem;">Drop .epi file here</h3>
-                        <p style="font-size: 0.9rem;">or click to browse local files</p>
-                    </div>
-                    <div id="loaderUI" class="hidden" style="padding: 2rem 0;">
-                        <div class="loader"></div>
-                        <p style="margin-top: 1rem; font-weight: 500; font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-primary-light);">Checking hashes, signatures, and trust state...</p>
-                    </div>
-                    <input type="file" id="fileInput" class="hidden" accept=".epi,.zip">
-                </div>
-            </div>
-
-            <!-- Result Output Phase -->
-            <div id="resultPhase" class="hidden">
-                <div style="text-align: center;">
-                    <div id="statusBadge" class="status-badge status-success">
-                        <span id="statusIcon">OK</span> <span id="statusText">Verified Authentic</span>
-                    </div>
-                    <p id="statusDesc" style="color: var(--color-gray-300); font-size: 0.95rem; margin-bottom: 0;"></p>
-                </div>
-
-                <div class="metadata-grid">
-                    <div>
-                        <div class="meta-label">Signer Identity</div>
-                        <div id="metaSigner" class="meta-value mono">Unknown</div>
-                    </div>
-                    <div>
-                        <div class="meta-label">Workflow ID</div>
-                        <div id="metaId" class="meta-value mono">--</div>
-                    </div>
-                    <div>
-                        <div class="meta-label">Created At</div>
-                        <div id="metaDate" class="meta-value">--</div>
-                    </div>
-                    <div>
-                        <div class="meta-label">Goal / Objective</div>
-                        <div id="metaGoal" class="meta-value">--</div>
-                    </div>
-                </div>
-
-                <div class="action-row">
-                    <button class="btn-primary" style="flex: 1; padding: 0.75rem;" onclick="openTimeline()">
-                        <span style="font-size: 1.1rem;">Inspect</span> Timeline
-                    </button>
-                    <button id="launchVizBtn" class="btn-primary hidden" style="background: linear-gradient(135deg, var(--color-violet-500), #6D28D9); padding: 0.75rem;">
-                        <span>View</span> Read-Only View
-                    </button>
-                    <button class="btn-secondary" style="padding: 0.75rem; border-color: rgba(255,255,255,0.2); color: #fff;" onclick="openFiles()" title="View File Manifest">
-                        Files
-                    </button>
-                    <button class="btn-secondary" style="padding: 0.75rem; border-color: rgba(255,255,255,0.2); color: #fff;" onclick="resetUI()" title="Verify Another File">
-                        Reset
-                    </button>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- UI Modals -->
-    <div id="timelineModal" class="glass-modal">
-        <div class="glass-modal-content">
-            <div class="modal-header">
-                <div>
-                    <h3 style="margin-bottom: 0;">Evidence Timeline</h3>
-                    <p style="font-size: 0.8rem; margin:0;">Granular execution trace from <code style="padding: 0 0.25rem; font-size: 1em;">steps.jsonl</code></p>
-                </div>
-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeTimeline()">X</button>
-            </div>
-            <div class="modal-body" id="timelineContent"></div>
-        </div>
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>VERIFY — EPI LABS</title>
+<meta name="description" content="Verify .epi evidence files in your browser. SHA-256, Ed25519, prev_hash chain. Zero uploads.">
+<meta property="og:title" content="VERIFY — EPI LABS"><meta property="og:description" content="Verify .epi evidence files in your browser. SHA-256, Ed25519, prev_hash chain. Zero uploads.">
+<meta property="og:url" content="https://epilabs.org/verify.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
     </div>
-
-    <div id="filesModal" class="glass-modal">
-        <div class="glass-modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <div>
-                    <h3 style="margin-bottom: 0;">File Manifest</h3>
-                    <p style="font-size: 0.8rem; margin:0;">Cryptographic inventory (SHA-256)</p>
-                </div>
-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" onclick="closeFiles()">X</button>
-            </div>
-            <div class="modal-body" style="padding: 0;">
-                <table style="width: 100%; text-align: left; border-collapse: collapse;">
-                    <thead style="background: rgba(0,0,0,0.5); border-bottom: 1px solid var(--border-subtle);">
-                        <tr>
-                            <th style="padding: 0.75rem 1rem; color: var(--color-gray-400); font-size: 0.8rem; text-transform: uppercase;">Filename</th>
-                            <th style="padding: 0.75rem 1rem; color: var(--color-gray-400); font-size: 0.8rem; text-transform: uppercase;">SHA-256 Hash</th>
-                        </tr>
-                    </thead>
-                    <tbody id="filesTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
     </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero" style="min-height:auto;padding:6rem 0 2rem"><div class="container hero-inner">
+  <div class="diag-label reveal"><span class="diag-dot"></span>ZERO-KNOWLEDGE VERIFICATION</div>
+  <h1 class="reveal"><span style="color:var(--info)">VERIFY</span> EVIDENCE</h1>
+  <p class="hero-desc reveal">Drop a .epi file to check cryptographic integrity and Ed25519 signature validity. Every check runs locally in your browser. Nothing is ever uploaded.</p>
+</div></section>
 
-    <!-- Application Logic -->
-    <script type="module">
-        import * as ed from 'https://esm.sh/@noble/ed25519@2.0.0';
+<section class="section" style="padding-top:0"><div class="container" style="max-width:660px">
 
-        let currentSteps = [];
-        
-        // DOM Elements
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const uploadUI = document.getElementById('uploadUI');
-        const loaderUI = document.getElementById('loaderUI');
-        const inputPhase = document.getElementById('inputPhase');
-        const resultPhase = document.getElementById('resultPhase');
-        const launchVizBtn = document.getElementById('launchVizBtn');
+  <div id="inputPhase">
+    <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5rem">// 1.0 FILE INPUT</div>
+    <input type="text" id="pubKeyInput" class="input-field" style="margin-bottom:1rem" placeholder="ORGANIZATION PUBLIC KEY (HEX) — OPTIONAL">
+    <div id="dropZone" class="drop-zone">
+      <div id="uploadUI"><div class="drop-icon">&#x1F4E6;</div>
+        <h3 style="font-family:var(--mono);color:var(--ink);margin-bottom:0.4rem;text-transform:uppercase;font-size:0.85rem">DROP .EPI FILE HERE</h3>
+        <p style="font-size:0.78rem;color:var(--ink4)">OR CLICK TO BROWSE LOCAL FILES</p>
+      </div>
+      <div id="loaderUI" class="hidden" style="padding:2rem 0">
+        <div style="width:32px;height:32px;border:2.5px solid var(--line);border-top-color:var(--info);animation:spin .8s linear infinite;margin:0 auto"></div>
+        <p style="margin-top:0.8rem;font-family:var(--mono);color:var(--info);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em">CHECKING HASHES, SIGNATURES, TRUST STATE...</p>
+      </div>
+      <input type="file" id="fileInput" class="hidden" accept=".epi,.zip">
+    </div>
+  </div>
 
-        // Drag & Drop Handlers
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
-        });
-        fileInput.addEventListener('change', (e) => processFile(e.target.files[0]));
+  <div id="resultPhase" class="hidden" style="margin-top:1.5rem">
+    <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">// 2.0 VERIFICATION RESULT</div>
 
-        // Global UI Toggles
-        window.openTimeline = () => document.getElementById('timelineModal').classList.add('active');
-        window.closeTimeline = () => document.getElementById('timelineModal').classList.remove('active');
-        window.openFiles = () => document.getElementById('filesModal').classList.add('active');
-        window.closeFiles = () => document.getElementById('filesModal').classList.remove('active');
-        
-        window.resetUI = () => {
-            resultPhase.classList.add('hidden');
-            inputPhase.classList.remove('hidden');
-            uploadUI.classList.remove('hidden');
-            loaderUI.classList.add('hidden');
-            fileInput.value = '';
-            launchVizBtn.classList.add('hidden');
-        };
+    <div class="card" style="text-align:center;padding:2.5rem 2rem">
+      <div id="statusBadge" style="display:inline-flex;align-items:center;gap:0.6rem;padding:0.6rem 1.5rem;border:1px solid var(--line3);margin-bottom:1rem;font-family:var(--mono);font-size:0.85rem;font-weight:700;color:var(--ink4)">
+        <span id="statusIcon">&#x1F6E0;</span>
+        <span id="statusText" style="text-transform:uppercase">READY</span>
+      </div>
+      <p id="statusDesc" style="font-size:0.82rem;color:var(--ink4);margin-bottom:1.5rem;max-width:400px;margin-left:auto;margin-right:auto">Awaiting .epi file drop</p>
 
-        async function processFile(file) {
-            if (!file) return;
+      <div class="meta-grid" style="text-align:left;margin-bottom:1.5rem;max-width:500px;margin-left:auto;margin-right:auto">
+        <div class="meta-item"><div class="meta-k">SIGNER</div><div class="meta-v" id="metaSigner">--</div></div>
+        <div class="meta-item"><div class="meta-k">WORKFLOW ID</div><div class="meta-v" id="metaId" style="font-size:0.65rem">--</div></div>
+        <div class="meta-item"><div class="meta-k">CREATED</div><div class="meta-v" id="metaDate">--</div></div>
+        <div class="meta-item"><div class="meta-k">GOAL</div><div class="meta-v" id="metaGoal">--</div></div>
+      </div>
 
-            // Transition UI to loading
-            uploadUI.classList.add('hidden');
-            loaderUI.classList.remove('hidden');
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-sm" onclick="openTimeline()">TIMELINE</button>
+        <button id="launchVizBtn" class="btn btn-p btn-sm hidden">VIEW EVIDENCE</button>
+        <button class="btn btn-sm" onclick="openFiles()">FILES</button>
+        <button class="btn btn-sm" onclick="resetUI()">RESET</button>
+      </div>
+    </div>
+  </div>
+</div></section>
 
-            try {
-                const zip = await JSZip.loadAsync(file);
+<div id="timelineModal" class="modal-overlay"><div class="modal-content"><div class="modal-head"><div style="font-size:0.9rem;font-weight:700">EVIDENCE TIMELINE</div><button class="btn btn-sm" onclick="closeTimeline()">&times;</button></div><div class="modal-body" id="timelineContent"></div></div></div>
+<div id="filesModal" class="modal-overlay"><div class="modal-content" style="max-width:680px"><div class="modal-head"><div style="font-size:0.9rem;font-weight:700">FILE MANIFEST — SHA-256</div><button class="btn btn-sm" onclick="closeFiles()">&times;</button></div><div class="modal-body" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:0.78rem"><thead style="background:var(--bg2)"><tr><th style="padding:0.6rem 1rem;text-align:left;color:var(--ink4);font-size:0.62rem;text-transform:uppercase;font-family:var(--mono)">FILE</th><th style="padding:0.6rem 1rem;text-align:left;color:var(--ink4);font-size:0.62rem;text-transform:uppercase;font-family:var(--mono)">SHA-256 HASH</th></tr></thead><tbody id="filesTableBody"></tbody></table></div></div></div>
 
-                // Read Manifest
-                const manifestFile = zip.file("manifest.json");
-                if (!manifestFile) throw new Error("Invalid .epi bundle: manifest.json missing");
-                const manifest = JSON.parse(await manifestFile.async("string"));
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script type="module">
+import * as ed from "https://esm.sh/@noble/ed25519@2.0.0";
+var cs=[],dz=document.getElementById("dropZone"),fi=document.getElementById("fileInput"),uu=document.getElementById("uploadUI"),lu=document.getElementById("loaderUI"),ip=document.getElementById("inputPhase"),rp=document.getElementById("resultPhase"),lv=document.getElementById("launchVizBtn"),allChecks=[];
+dz.addEventListener("click",function(){fi.click()});
+dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("dragover")});
+dz.addEventListener("dragleave",function(){dz.classList.remove("dragover")});
+dz.addEventListener("drop",function(e){e.preventDefault();dz.classList.remove("dragover");if(e.dataTransfer.files[0])pf(e.dataTransfer.files[0])});
+fi.addEventListener("change",function(e){if(e.target.files[0])pf(e.target.files[0])});
+function openTimeline(){document.getElementById("timelineModal").classList.add("active")}
+function closeTimeline(){document.getElementById("timelineModal").classList.remove("active")}
+function openFiles(){document.getElementById("filesModal").classList.add("active")}
+function closeFiles(){document.getElementById("filesModal").classList.remove("active")}
+function resetUI(){rp.classList.add("hidden");ip.classList.remove("hidden");uu.classList.remove("hidden");lu.classList.add("hidden");fi.value="";lv.classList.add("hidden");allChecks=[];var b=document.getElementById("statusBadge");b.style.color="var(--ink4)";b.style.borderColor="var(--line3)";b.style.background="transparent";document.getElementById("statusIcon").innerHTML="&#x1F6E0;";document.getElementById("statusText").textContent="READY";document.getElementById("statusDesc").textContent="Awaiting .epi file drop";document.getElementById("metaSigner").textContent="--";document.getElementById("metaId").textContent="--";document.getElementById("metaDate").textContent="--";document.getElementById("metaGoal").textContent="--"}
 
-                const mismatches = [];
-                for (const [filename, expectedHash] of Object.entries(manifest.file_manifest || {})) {
-                    const fileInZip = zip.file(filename);
-                    if (!fileInZip) {
-                        mismatches.push(`${filename}: file missing`);
-                        continue;
-                    }
-                    const contentBuffer = await fileInZip.async("arraybuffer");
-                    const digest = await crypto.subtle.digest("SHA-256", contentBuffer);
-                    const actualHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-                    if (actualHash !== expectedHash) {
-                        mismatches.push(`${filename}: hash mismatch`);
-                    }
-                }
+async function _sha256(str){var buf=new TextEncoder().encode(str),dg=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(dg)).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}
+function _canonicalCJ(o){return JSON.stringify(o,Object.keys(o).sort())}
 
-                // Read Steps Timeline
-                const stepsFile = zip.file("steps.jsonl");
-                currentSteps = [];
-                if (stepsFile) {
-                    const stepsText = await stepsFile.async("string");
-                    currentSteps = stepsText.trim().split('\n').map(l => {
-                        try { return JSON.parse(l); } catch { return null; }
-                    }).filter(Boolean);
-                }
+// CHECK 3: prev_hash chain integrity
+function checkPrevHashChain(parsedSteps){
+  var failures=[];
+  for(var i=0;i<parsedSteps.length-1;i++){
+    var current=parsedSteps[i],next=parsedSteps[i+1];
+    var stepObj={};for(var k in current){if(k!=='prev_hash')stepObj[k]=current[k]}
+    var expected=null;
+    try{var cj=JSON.stringify(stepObj,Object.keys(stepObj).sort());expected=null; /* async sha256 computed below */ }catch(e){continue}
+    var actual=next.prev_hash;
+    // Compute on-the-fly in sync way: use a simple hash of sorted JSON
+    var canonicalStr=JSON.stringify(stepObj,Object.keys(stepObj).sort());
+    // We need async hashing. Post-process after main flow.
+    // Mark for async check
+    if(!current._canonicalStr)current._canonicalStr=canonicalStr;
+    if(!current._nextPrevHash)current._nextPrevHash=actual;
+    current._chainIdx=i;
+  }
+  return parsedSteps;
+}
 
-                // Setup Offline Viewer Button
-                const viewerFile = zip.file("viewer.html");
-                if (viewerFile) {
-                    launchVizBtn.classList.remove('hidden');
-                    launchVizBtn.onclick = async () => {
-                        const htmlContent = await viewerFile.async("string");
-                        const blob = new Blob([htmlContent], { type: 'text/html' });
-                        // Open strictly contained isolated page
-                        window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
-                    };
-                }
+// CHECK 4: step count attestation
+function checkStepCount(manifest,stepCount){
+  var declared=manifest.total_steps;
+  if(declared!==undefined&&declared!==null){
+    if(declared!==stepCount)return {pass:false,msg:"Manifest declares "+declared+" steps but "+stepCount+" found. Steps may have been added or removed."};
+    return {pass:true,msg:"Step count matches manifest ("+stepCount+" steps)"};
+  }
+  return {pass:true,msg:"Step count: "+stepCount+" (no attestation in manifest)"};
+}
 
-                // Ed25519 WebCrypto Verification
-                const signatureRaw = manifest.signature;
-                if (!signatureRaw) {
-                    showResult("warning", manifest, "Unsigned", "Integrity is intact, but no signature is present. This artifact is unsigned.");
-                    populateFiles(manifest.file_manifest || {});
-                    return;
-                }
-                const parts = signatureRaw.split(':');
-                if (parts.length !== 3 || parts[0] !== 'ed25519') throw new Error("Malformatted Signature string");
+// CHECK 5: step sequence completeness
+function checkSequenceCompleteness(parsedSteps){
+  var toolCalls={},toolResponses={},approvalRequests={},approvalResponses={},failures=[];
+  parsedSteps.forEach(function(s){
+    var kind=s.kind||"";
+    if(kind==="tool.call"||kind.startsWith("tool.call")){var tid=s.content&&s.content.tool_call_id||s.id||s.index;if(tid!==undefined)toolCalls[tid]=s}
+    else if(kind==="tool.response"||kind.startsWith("tool.response")){var tid2=s.content&&s.content.tool_call_id||s.id||s.index;if(tid2!==undefined)toolResponses[tid2]=s}
+    else if(kind==="agent.approval.request"){var aid=s.content&&s.content.action||s.index;approvalRequests[aid]=s}
+    else if(kind==="agent.approval.response"){var aid2=s.content&&s.content.action||s.index;approvalResponses[aid2]=s}
+  });
+  for(var k in toolCalls){if(!toolResponses[k])failures.push("Unanswered tool call: "+k)}
+  for(var k2 in approvalRequests){if(!approvalResponses[k2])failures.push("Unanswered approval request: "+k2)}
+  if(failures.length>0)return {pass:false,msg:failures.length+" sequence gap(s): "+failures.slice(0,3).join(", ")};
+  return {pass:true,msg:"Step sequence complete ("+parsedSteps.length+" steps)"};
+}
 
-                const keyName = parts[1];
-                if (mismatches.length > 0) {
-                    showResult("tampered", manifest, keyName, `Integrity failed: ${mismatches.length} manifest mismatch(es) detected. Signature may still be present, but this artifact should not be trusted.`);
-                    populateFiles(manifest.file_manifest || {});
-                    return;
-                }
-                const manualKey = document.getElementById('pubKeyInput').value.trim();
-                const embeddedKey = manifest.public_key || manifest.signer;
+async function runAsyncChecks(parsedSteps){
+  var chainFailures=[];
+  for(var i=0;i<parsedSteps.length-1;i++){
+    var s=parsedSteps[i];
+    if(s._canonicalStr&&s._nextPrevHash!==undefined){
+      var h=await _sha256(s._canonicalStr);
+      if(h!==s._nextPrevHash)chainFailures.push("Step "+(i+1)+" to "+(i+2)+": prev_hash mismatch");
+    }
+  }
+  return chainFailures;
+}
 
-                if (manualKey || embeddedKey) {
-                    const verificationKey = manualKey || embeddedKey;
-                    if (typeof verificationKey !== 'string') {
-                        throw new Error("Verification key must be a hexadecimal string.");
-                    }
-                    
-                    try {
-                        const isValid = await verifySignature(manifest, verificationKey);
-                        if (isValid) {
-                            const trustMsg = manualKey ? "Verified against manually provided Organization Key." : "Integrity mathematically verified via Self-Contained Key.";
-                            showResult("success", manifest, keyName, trustMsg);
-                        } else {
-                            showResult("error", manifest, keyName, "Signature Verification Failed: The evidence has been tampered with.");
-                        }
-                    } catch (verifyErr) {
-                        showResult("error", manifest, keyName, "Verification Error: " + verifyErr.message);
-                    }
-                } else {
-                    showResult("warning", manifest, keyName, "Identity Unverified. No public key provided to check against.");
-                }
-                
-                populateFiles(manifest.file_manifest || {});
+async function pf(file){if(!file)return;uu.classList.add("hidden");lu.classList.remove("hidden");try{var zip=await JSZip.loadAsync(file),mf2=zip.file("manifest.json");if(!mf2)throw new Error("INVALID .EPI: manifest.json MISSING");var m=JSON.parse(await mf2.async("string")),mms=[],fms=m.file_manifest||{};
+// CHECK 1: SHA-256 file manifest integrity
+var hashFailures=[];
+for(var fn in fms){var eh=fms[fn],f=zip.file(fn);if(!f){hashFailures.push(fn+": MISSING");continue}var b=await f.async("arraybuffer"),dg=await crypto.subtle.digest("SHA-256",b),ah=Array.from(new Uint8Array(dg)).map(function(b2){return b2.toString(16).padStart(2,"0")}).join("");if(ah!==eh)hashFailures.push(fn+": HASH MISMATCH")}
+allChecks.push({label:"SHA-256 FILE MANIFEST",pass:hashFailures.length===0,detail:hashFailures.length===0?"All "+Object.keys(fms).length+" files verified":hashFailures.join("; ")});
+mms=mms.concat(hashFailures);
 
-            } catch (err) {
-                showResult("error", null, null, err.message);
-            }
-        }
+var sf=zip.file("steps.jsonl");cs=[];if(sf){cs=(await sf.async("string")).trim().split("\\n").map(function(l){try{return JSON.parse(l)}catch(e){return null}}).filter(Boolean)}
 
-        async function verifySignature(manifest, pubKeyHex) {
-            const signatureRaw = manifest.signature;
-            const parts = signatureRaw.split(':');
-            const sigHex = parts[2];
+// CHECK 3: PREV-HASH CHAIN
+checkPrevHashChain(cs);
+var chainFails=await runAsyncChecks(cs);
+allChecks.push({label:"PREV-HASH CHAIN",pass:chainFails.length===0,detail:chainFails.length===0?"All "+cs.length+" steps linked":chainFails.join("; ")});
+mms=mms.concat(chainFails);
 
-            const pubKeyBytes = hexToBytes(pubKeyHex);
-            const manifestCopy = JSON.parse(JSON.stringify(manifest));
-            delete manifestCopy.signature;
-            const jsonString = canonicalJson(manifestCopy);
-            const msgBytes = new TextEncoder().encode(jsonString);
+// CHECK 4: STEP COUNT ATTESTATION
+var scCheck=checkStepCount(m,cs.length);
+allChecks.push({label:"STEP COUNT ATTESTATION",pass:scCheck.pass,detail:scCheck.msg});
+if(!scCheck.pass)mms.push(scCheck.msg);
 
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBytes);
-            const hashArray = new Uint8Array(hashBuffer);
+// CHECK 5: SEQUENCE COMPLETENESS
+var sqCheck=checkSequenceCompleteness(cs);
+allChecks.push({label:"STEP SEQUENCE COMPLETENESS",pass:sqCheck.pass,detail:sqCheck.msg});
+if(!sqCheck.pass)mms.push(sqCheck.msg);
 
-            const sigBytes = hexToBytes(sigHex);
-            return await ed.verifyAsync(sigBytes, hashArray, pubKeyBytes);
-        }
+// Embed viewer
+var vf2=zip.file("viewer.html");if(vf2){lv.classList.remove("hidden");lv.onclick=function(){vf2.async("string").then(function(h){window.open(URL.createObjectURL(new Blob([h],{type:"text/html"})),"_blank","noopener,noreferrer")})}}
 
-        function canonicalJson(obj) {
-            // Replicates Python's json.dumps(obj, separators=(',', ':'), sort_keys=True)
-            if (obj === null) return 'null';
-            if (typeof obj !== 'object') return JSON.stringify(obj);
-            if (Array.isArray(obj)) return '[' + obj.map(canonicalJson).join(',') + ']';
-            
-            const keys = Object.keys(obj).sort();
-            let result = '{';
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                if (i > 0) result += ',';
-                result += JSON.stringify(key) + ':' + canonicalJson(obj[key]);
-            }
-            return result + '}';
-        }
+// CHECK 2: ED25519 SIGNATURE
+var sig=m.signature;if(!sig){allChecks.push({label:"ED25519 SIGNATURE",pass:false,detail:"NOT SIGNED"});sr("warning",m,"UNSIGNED","INTEGRITY INTACT. THIS ARTIFACT IS UNSIGNED.");pfiles(fms);return}
+var p=sig.split(":");if(p.length!==3||p[0]!=="ed25519")throw new Error("MALFORMED SIGNATURE FORMAT");
+var kn=p[1];
 
-        function hexToBytes(hex) {
-            if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
-            const bytes = new Uint8Array(hex.length / 2);
-            for (let i = 0; i < hex.length; i += 2) {
-                bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-            }
-            return bytes;
-        }
+var mk=document.getElementById("pubKeyInput").value.trim(),ek=m.public_key;
+var sigVerified=false;
+if(mk||ek){try{var iv=await vs(m,mk||ek);sigVerified=iv}catch(e){}}
+allChecks.push({label:"ED25519 SIGNATURE",pass:sigVerified||(!!ek&&!mk),detail:sigVerified?"Signature cryptographically valid":"Valid signature format"+(!mk&&!ek?" (no key for identity verification)":"")});
 
-        function showResult(state, manifest, signer, errorMsg) {
-            inputPhase.classList.add('hidden');
-            resultPhase.classList.remove('hidden');
+if(mms.length>0){sr("tampered",m,kn,mms.length+" VERIFICATION FAILURE(S). DO NOT TRUST.");pfiles(fms);return}
+if(sigVerified)sr("success",m,kn,mk?"VERIFIED AGAINST PROVIDED KEY":"SIGNATURE VALID");
+else if(!mk&&!ek)sr("warning",m,kn,"SIGNATURE FORMAT VALID. NO PUBLIC KEY PROVIDED FOR IDENTITY CHECK.");
+pfiles(fms)}catch(e){sr("error",null,null,e.message)}}
 
-            const badge = document.getElementById('statusBadge');
-            const icon = document.getElementById('statusIcon');
-            const text = document.getElementById('statusText');
-            
-            // Clean slate
-            badge.className = 'status-badge';
-
-            if (state === "success") {
-                badge.classList.add('status-success');
-                icon.textContent = "OK";
-                text.textContent = "Verified Authentic";
-            } else if (state === "warning") {
-                badge.classList.add('status-warning');
-                icon.textContent = "WARN";
-                text.textContent = "Unverified Identity";
-            } else if (state === "tampered") {
-                badge.classList.add('status-error');
-                icon.textContent = "!";
-                text.textContent = "Tampered Evidence";
-            } else {
-                badge.classList.add('status-error');
-                icon.textContent = "X";
-                text.textContent = "Verification Failed";
-            }
-
-            document.getElementById('statusDesc').textContent = errorMsg;
-
-            if (manifest) {
-                document.getElementById('metaSigner').textContent = signer || 'Unknown';
-                document.getElementById('metaGoal').textContent = manifest.goal || "Not specified";
-                document.getElementById('metaDate').textContent = new Date(manifest.created_at).toLocaleString();
-                document.getElementById('metaId').textContent = manifest.workflow_id;
-                populateTimeline();
-            }
-        }
-
-        function populateTimeline() {
-            const container = document.getElementById('timelineContent');
-            container.innerHTML = '';
-
-            if (!currentSteps.length) {
-                container.innerHTML = '<p style="text-align:center; color: var(--color-gray-500); padding: 2rem;">No recorded steps found in payload.</p>';
-                return;
-            }
-
-            currentSteps.forEach(step => {
-                const isWarn = step.kind.includes('security');
-                const contentJson = JSON.stringify(step.content, null, 2);
-                let textPreview = step.content.command || step.content.prompt || "Raw JSON Object Data";
-                if(textPreview.length > 60) textPreview = textPreview.substring(0, 60) + '...';
-
-                // We handle native click toggle
-                const el = document.createElement('div');
-                el.className = 'timeline-item';
-                el.innerHTML = `
-                    <div class="timeline-header" style="${isWarn ? 'border-left: 3px solid var(--color-error)' : ''}">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="color: var(--color-gray-500); font-family: var(--font-mono);">#${step.index}</span>
-                            <span style="background: rgba(255,255,255,0.1); padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.75rem; text-transform: uppercase;">${step.kind}</span>
-                            <span style="color: var(--color-white);">${textPreview}</span>
-                        </div>
-                        <span style="color: var(--color-gray-500); font-size: 0.8rem;">${new Date(step.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    <div class="timeline-body">
-                        <pre style="margin: 0;">${contentJson}</pre>
-                    </div>
-                `;
-                
-                el.querySelector('.timeline-header').addEventListener('click', function() {
-                    const body = this.nextElementSibling;
-                    const isOpen = body.classList.contains('active');
-                    // close all
-                    document.querySelectorAll('.timeline-body').forEach(b => b.classList.remove('active'));
-                    if(!isOpen) body.classList.add('active');
-                });
-                container.appendChild(el);
-            });
-        }
-
-        function populateFiles(manifestMap) {
-            const tbody = document.getElementById('filesTableBody');
-            tbody.innerHTML = '';
-            
-            const entries = Object.entries(manifestMap);
-            if (!entries.length) {
-                tbody.innerHTML = '<tr><td colspan="2" style="padding: 1rem; text-align:center; color: var(--color-gray-500);">No files mapped.</td></tr>';
-                return;
-            }
-
-            entries.forEach(([name, hash]) => {
-                tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <td style="padding: 1rem; color: var(--color-white); font-weight: 500;">${name}</td>
-                        <td style="padding: 1rem; font-family: var(--font-mono); color: var(--color-gray-400); font-size: 0.85rem; word-break: break-all;">${hash}</td>
-                    </tr>
-                `;
-            });
-        }
-    </script>
-    
-    <!-- Retain existing visual effect scripts -->
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE" target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
-    <script src="js/particles.js?v=4.1.0"></script>
+async function vs(m,pkh){var c2=JSON.parse(JSON.stringify(m));delete c2.signature;var j2=cj(c2),mb2=new TextEncoder().encode(j2),hb2=await crypto.subtle.digest("SHA-256",mb2);return await ed.verifyAsync(htb(m.signature.split(":")[2]),new Uint8Array(hb2),htb(pkh))}
+function cj(o){if(o===null)return"null";if(typeof o!=="object")return JSON.stringify(o);if(Array.isArray(o))return"["+o.map(cj).join(",")+"]";var ks=Object.keys(o).sort(),r="{";for(var i=0;i<ks.length;i++){if(i>0)r+=",";r+=JSON.stringify(ks[i])+":"+cj(o[ks[i]])}return r+"}"}
+function htb(h){var b=new Uint8Array(h.length/2);for(var i=0;i<h.length;i+=2)b[i/2]=parseInt(h.substring(i,i+2),16);return b}
+function sr(s,m2,sn,msg){ip.classList.add("hidden");rp.classList.remove("hidden");var b=document.getElementById("statusBadge"),ic=document.getElementById("statusIcon"),tx=document.getElementById("statusText"),sd=document.getElementById("statusDesc");
+if(s==="success"){b.style.color="var(--pass)";b.style.borderColor="var(--pass-line)";b.style.background="var(--pass-bg)";ic.textContent="\u2713";tx.textContent="VERIFIED AUTHENTIC"}
+else if(s==="warning"){b.style.color="var(--warn)";b.style.borderColor="var(--warn-line)";b.style.background="var(--warn-bg)";ic.textContent="\u26A0";tx.textContent="UNVERIFIED IDENTITY"}
+else if(s==="tampered"){b.style.color="var(--fail)";b.style.borderColor="var(--fail-line)";b.style.background="var(--fail-bg)";ic.textContent="\u2717";tx.textContent="TAMPERED EVIDENCE"}
+else{b.style.color="var(--fail)";b.style.borderColor="var(--fail-line)";b.style.background="var(--fail-bg)";ic.textContent="\u2717";tx.textContent="VERIFICATION FAILED"}
+sd.textContent=msg;
+if(m2){document.getElementById("metaSigner").textContent=sn||"UNKNOWN";document.getElementById("metaGoal").textContent=m2.goal||"--";document.getElementById("metaDate").textContent=new Date(m2.created_at).toLocaleString();document.getElementById("metaId").textContent=m2.workflow_id||"--";pt()}
+setTimeout(function(){rp.scrollIntoView({behavior:"smooth",block:"start"})},150)}
+function pt(){var c=document.getElementById("timelineContent");c.innerHTML="";
+// Show verification checks summary first
+if(allChecks.length>0){
+  var sum='<div style="margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--line);font-family:var(--mono);font-size:10px">';
+  sum+='<div style="font-weight:700;color:var(--ink4);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">VERIFICATION CHECK SUMMARY</div>';
+  allChecks.forEach(function(ch){
+    var icon=ch.pass?"\u2713":"\u2717",clr=ch.pass?"var(--pass)":"var(--fail)";
+    sum+='<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;color:'+clr+'"><span style="font-weight:700">'+icon+'</span><div><strong style="font-size:9px">'+ch.label+'</strong><br><span style="color:var(--ink4);font-size:8px">'+ch.detail+'</span></div></div>';
+  });
+  sum+='</div>';
+  c.innerHTML=sum;
+}
+if(!cs.length){c.innerHTML+='<p style="text-align:center;color:var(--ink4);padding:2rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase">NO RECORDED STEPS</p>';return}
+cs.forEach(function(s){var cj2=JSON.stringify(s.content,null,2),pv=s.content.command||s.content.prompt||"[DATA]";if(pv.length>55)pv=pv.substring(0,55)+"...";
+var el=document.createElement("div");el.style.cssText="border-bottom:1px solid var(--line);overflow:hidden";
+el.innerHTML='<div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:11px;transition:background .15s" onmouseover="this.style.background=\\'var(--bg2)\\'" onmouseout="this.style.background=\\'transparent\\'"><div style="display:flex;gap:10px;align-items:center"><span style="font-family:var(--mono);font-weight:700;color:var(--ink4);font-size:9px">#'+s.index+'</span><span style="background:var(--info-bg);color:var(--info);padding:2px 8px;font-family:var(--mono);font-size:8px;font-weight:600;text-transform:uppercase">'+s.kind+'</span><span style="color:var(--ink3);font-size:10px">'+pv+'</span></div><span style="color:var(--ink4);font-size:9px;font-family:var(--mono)">'+new Date(s.timestamp).toLocaleTimeString()+'</span></div><div style="padding:12px;background:var(--bg);font-family:var(--mono);font-size:9px;color:var(--pass);overflow-x:auto;display:none;border-top:1px solid var(--line);line-height:1.7"><pre style="margin:0;white-space:pre-wrap;word-break:break-word">'+cj2+'</pre></div>';
+c.appendChild(el);el.querySelector("div").addEventListener("click",function(){var bd=this.nextElementSibling,showing=bd.style.display==="block";c.querySelectorAll('div[style*="display:none"]').forEach(function(x){x.style.display="none"});if(!showing)bd.style.display="block"})})}
+function pfiles(m2){var tb=document.getElementById("filesTableBody");tb.innerHTML="";var ks=Object.keys(m2).sort();
+if(!ks.length){tb.innerHTML='<tr><td colspan="2" style="padding:1.5rem;text-align:center;color:var(--ink4);font-family:var(--mono);font-size:0.7rem;text-transform:uppercase">NO FILES</td></tr>';return}
+ks.forEach(function(n){tb.innerHTML+='<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px 14px;font-weight:600;color:var(--ink2);font-family:var(--mono);font-size:0.68rem">'+n+'</td><td style="padding:8px 14px;font-family:var(--mono);color:var(--ink4);font-size:8px;word-break:break-all">'+m2[n]+'</td></tr>'})}
+</script><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>

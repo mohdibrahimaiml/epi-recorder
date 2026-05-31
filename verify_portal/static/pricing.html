@@ -1,358 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EPI — AI Evidence Infrastructure</title>
-  <meta name="description" content="Tamper-evident decision case files for AI systems that approve, reject, escalate, or act. Built for the EU AI Act and AI liability.">
-  <meta property="og:title" content="EPI — AI Evidence Infrastructure">
-  <meta property="og:description" content="Prove what your AI did. Before a regulator asks.">
-  <meta property="og:url" content="https://epilabs.org">
-  <link rel="stylesheet" href="css/pricing.css">
-</head>
-<body>
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PRICING — EPI LABS</title>
+<meta name="description" content="EPI is currently in active development. Pricing will be announced soon.">
+<meta property="og:title" content="PRICING — EPI LABS"><meta property="og:description" content="EPI is currently in active development. Pricing will be announced soon.">
+<meta property="og:url" content="https://epilabs.org/pricing.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<!-- ═══════════════════════════  NAV  ═══════════════════════════ -->
-<nav class="nav">
-  <div class="nav-inner">
-    <a href="/" class="logo">EPI <span class="logo-tag">epilabs.org</span></a>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
     <div class="nav-links">
-      <a href="#how-it-works">How it works</a>
-      <a href="#case-study">Case study</a>
-      <a href="#pricing">Pricing</a>
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-      <a href="#demo" class="nav-cta">Book a demo</a>
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
     </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
   </div>
-</nav>
-
-<!-- ═══════════════════════════  HERO  ═══════════════════════════ -->
-<section class="hero">
-  <div class="container">
-    <div class="hero-badge">EU AI Act · Article 12 · AI Liability</div>
-    <h1 class="hero-headline">
-      Prove what your AI did.<br>
-      <span class="accent">Before a regulator asks.</span>
-    </h1>
-    <p class="hero-sub">
-      EPI creates a tamper-evident case file for every consequential AI decision —
-      cryptographically signed, portable, and independently verifiable.
-      When a regulator, auditor, or court asks "show us the record," you answer in 30 seconds.
-    </p>
-    <div class="hero-actions">
-      <a href="#demo" class="btn-primary">Book a 20-minute demo</a>
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" class="btn-secondary">View on GitHub</a>
-    </div>
-    <p class="hero-note">Open-source core · No vendor lock-in · Works with OpenAI, Anthropic, any LLM</p>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  PROBLEM  ═══════════════════════════ -->
-<section class="section section-dark">
-  <div class="container">
-    <p class="section-label">The problem</p>
-    <h2 class="section-heading">Your AI is making decisions.<br>You can't prove what it decided.</h2>
-    <div class="problem-grid">
-      <div class="problem-card">
-        <div class="problem-icon">⚖️</div>
-        <h3>Regulatory exposure</h3>
-        <p>The EU AI Act, CFPB guidance, and FCA rules require documented evidence of AI decisions affecting people. Logs in a vendor dashboard are hard to package and verify independently.</p>
-      </div>
-      <div class="problem-card">
-        <div class="problem-icon">🔍</div>
-        <h3>Fragmented audit trails</h3>
-        <p>LLM call in one tool. Business logic in another. Human review in a third. When regulators ask, engineers spend weeks reconstructing what happened.</p>
-      </div>
-      <div class="problem-card">
-        <div class="problem-icon">🚨</div>
-        <h3>No tamper evidence</h3>
-        <p>Even if you find the logs, you still need to show they were preserved consistently. Screenshots and ad hoc exports are difficult to verify. You need cryptographic proof of integrity.</p>
-      </div>
-    </div>
-    <div class="urgency-bar">
-      <span class="urgency-dot"></span>
-      <strong>August 2, 2026</strong> — key EU AI Act obligations for high-risk AI systems are approaching.
-      Teams using AI in loan decisions, HR screening, or insurance underwriting should prepare durable decision records.
-      <strong>The deadline is approaching.</strong>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  HOW IT WORKS  ═══════════════════════════ -->
-<section class="section" id="how-it-works">
-  <div class="container">
-    <p class="section-label">How it works</p>
-    <h2 class="section-heading">Three lines of code.<br>A defensible record forever.</h2>
-    <div class="steps-grid">
-      <div class="step">
-        <div class="step-num">01</div>
-        <h3>Capture</h3>
-        <p>Point your existing AI SDK at the EPI gateway. LLM calls, tool invocations, and decision events can be captured automatically — minimal application changes.</p>
-        <div class="code-block">
-          <code>OPENAI_BASE_URL=http://localhost:8787/v1<br>
-python my_agent.py</code>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">02</div>
-        <h3>Record</h3>
-        <p>EPI packages the decision trail into a portable <code>.epi</code> artifact — a signed case file containing captured steps, model outputs, policy context, and human review where available.</p>
-        <div class="code-block">
-          <code>epi gateway export --case-id loan-4821<br>
-→ loan-4821.epi (signed, 6 files verified)</code>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">03</div>
-        <h3>Verify</h3>
-        <p>Reviewers can verify that the artifact has not been tampered with. No EPI account required.</p>
-        <div class="code-block">
-          <code>epi verify loan-4821.epi<br>
-→ VERIFIED ✓  Trust Level: HIGH<br>
-→ Ed25519 · 6 files · SHA-256</code>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  CASE STUDY  ═══════════════════════════ -->
-<section class="section section-dark" id="case-study">
-  <div class="container">
-    <p class="section-label">Case study</p>
-    <h2 class="section-heading">How Acme Fintech answered a regulator<br>in 30 seconds.</h2>
-    <div class="case-study">
-      <div class="case-scenario">
-        <div class="scenario-badge">Scenario</div>
-        <p>
-          Acme Fintech uses an AI model to assist loan officers with approval decisions.
-          In Q1, it processed <strong>12,400 applications</strong>. The CFPB received
-          <strong>340 complaints</strong> from denied applicants alleging discriminatory
-          scoring. The regulator sent a formal request:
-        </p>
-        <blockquote>
-          "Provide the complete input data, model output, and decision rationale for
-          each denied application, along with evidence that records have not been altered
-          since the time of decision."
-        </blockquote>
-      </div>
-
-      <div class="case-timeline">
-        <div class="timeline-col without">
-          <div class="timeline-label without-label">Without EPI</div>
-          <div class="timeline-item bad">
-            <span class="tl-icon">❌</span>
-            <div><strong>Week 1–2:</strong> Engineers reconstruct decisions from 4 separate systems (LLM vendor, app DB, log aggregator, review tool)</div>
-          </div>
-          <div class="timeline-item bad">
-            <span class="tl-icon">❌</span>
-            <div><strong>Week 3:</strong> Legal flags that exported logs have no integrity proof — a forensics firm is engaged at $15k</div>
-          </div>
-          <div class="timeline-item bad">
-            <span class="tl-icon">❌</span>
-            <div><strong>Week 5:</strong> 23 cases have gaps. Engineers admit they can't fully reconstruct the model's reasoning for those decisions</div>
-          </div>
-          <div class="timeline-item bad">
-            <span class="tl-icon">❌</span>
-            <div><strong>Week 8:</strong> Regulator issues a notice of potential violation. Legal fees exceed $180k</div>
-          </div>
-        </div>
-
-        <div class="timeline-col with">
-          <div class="timeline-label with-label">With EPI</div>
-          <div class="timeline-item good">
-            <span class="tl-icon">✓</span>
-            <div><strong>Day 1, 9:00 AM:</strong> Compliance team runs <code>epi gateway export-all --status resolved</code></div>
-          </div>
-          <div class="timeline-item good">
-            <span class="tl-icon">✓</span>
-            <div><strong>Day 1, 9:30 AM:</strong> 340 signed <code>.epi</code> artifacts produced — each containing the exact prompt, model output, policy applied, and reviewer decision</div>
-          </div>
-          <div class="timeline-item good">
-            <span class="tl-icon">✓</span>
-            <div><strong>Day 1, 10:00 AM:</strong> Review team runs <code>epi verify</code> on all 340 files. Each prints <strong>VERIFIED ✓ Trust Level: HIGH</strong></div>
-          </div>
-          <div class="timeline-item good">
-            <span class="tl-icon">✓</span>
-            <div><strong>Day 1, 11:00 AM:</strong> Package delivered to CFPB. Regulator can independently verify every artifact — no EPI account required</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="case-result">
-        <div class="result-stat">
-          <span class="result-num">8 weeks</span>
-          <span class="result-label">without EPI</span>
-        </div>
-        <div class="result-arrow">→</div>
-        <div class="result-stat">
-          <span class="result-num">2 hours</span>
-          <span class="result-label">with EPI</span>
-        </div>
-        <div class="result-divider"></div>
-        <div class="result-stat">
-          <span class="result-num">$180k+</span>
-          <span class="result-label">response cost reduced</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  WHAT YOU GET  ═══════════════════════════ -->
-<section class="section">
-  <div class="container">
-    <p class="section-label">What EPI captures</p>
-    <h2 class="section-heading">Everything in one artifact. Signed at the moment of decision.</h2>
-    <div class="features-grid">
-      <div class="feature">
-        <div class="feature-icon">🧾</div>
-        <h3>Full decision trail</h3>
-        <p>Every LLM prompt and response, tool call and result, agent step, and business logic outcome — in order, timestamped.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔐</div>
-        <h3>Ed25519 signature</h3>
-        <p>The artifact is cryptographically signed at creation. Any modification — even a single byte — invalidates the signature.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">👤</div>
-        <h3>Human review record</h3>
-        <p>Who reviewed the decision, what they decided, when, and why — embedded in the same signed artifact.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">📋</div>
-        <h3>Policy applied</h3>
-        <p>Which epi_policy.json was in effect at the time of the decision, and whether the AI's behaviour complied.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🌐</div>
-        <h3>Works with any LLM</h3>
-        <p>OpenAI, Anthropic, Google, Mistral, or any OpenAI-compatible API. Minimal application changes: point your SDK at the EPI gateway.</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">📦</div>
-        <h3>Portable forever</h3>
-        <p>A <code>.epi</code> file is a self-contained SQLite/CBOR Envelope. No EPI account needed to verify it — today, or in 10 years.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  PRICING  ═══════════════════════════ -->
-<section class="section section-dark" id="pricing">
-  <div class="container">
-    <p class="section-label">Pricing</p>
-    <h2 class="section-heading">Start free. Pay when you need the team.</h2>
-    <p class="section-sub">All plans include the open-source core. No credit card required to start.</p>
-    <div class="pricing-grid">
-
-      <div class="pricing-card">
-        <div class="plan-name">Open Source</div>
-        <div class="plan-price">Free <span class="plan-forever">forever</span></div>
-        <div class="plan-desc">For individual developers and researchers exploring AI governance.</div>
-        <ul class="plan-features">
-          <li>✓ Up to 1,000 decisions / month</li>
-          <li>✓ Local recorder + viewer</li>
-          <li>✓ Ed25519 signing + verification</li>
-          <li>✓ <code>epi verify</code> CLI</li>
-          <li>✓ <code>.epi</code> export</li>
-          <li>✓ MIT licensed</li>
-        </ul>
-        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" class="plan-cta plan-cta-secondary">Get started on GitHub</a>
-      </div>
-
-      <div class="pricing-card pricing-card-featured">
-        <div class="plan-badge">Most popular</div>
-        <div class="plan-name">Team</div>
-        <div class="plan-price">$199 <span class="plan-period">/ month</span></div>
-        <div class="plan-desc">For AI teams that need a shared capture gateway and human review workflow.</div>
-        <ul class="plan-features">
-          <li>✓ Up to 50,000 decisions / month</li>
-          <li>✓ Shared capture gateway</li>
-          <li>✓ Up to 10 reviewers</li>
-          <li>✓ Case inbox + review workflow</li>
-          <li>✓ Slack / Teams webhook alerts</li>
-          <li>✓ Automated backup</li>
-          <li>✓ Bulk export for compliance</li>
-          <li>✓ Email support</li>
-        </ul>
-        <a href="#demo" class="plan-cta plan-cta-primary">Book a demo</a>
-      </div>
-
-      <div class="pricing-card">
-        <div class="plan-name">Enterprise</div>
-        <div class="plan-price">Custom</div>
-        <div class="plan-desc">For regulated organisations that need audit-grade evidence at scale.</div>
-        <ul class="plan-features">
-          <li>✓ Unlimited decisions</li>
-          <li>✓ Unlimited reviewers</li>
-          <li>✓ SSO (SAML / OIDC)</li>
-          <li>✓ Private deployment (VPC / on-prem)</li>
-          <li>✓ Retention policies + search</li>
-          <li>✓ Compliance report exports</li>
-          <li>✓ SLA + dedicated support</li>
-          <li>✓ EU AI Act readiness package</li>
-        </ul>
-        <a href="#demo" class="plan-cta plan-cta-secondary">Talk to us</a>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  DEMO CTA  ═══════════════════════════ -->
-<section class="section demo-section" id="demo">
-  <div class="container demo-container">
-    <h2 class="demo-heading">See EPI answer a regulator in 30 seconds.</h2>
-    <p class="demo-sub">
-      In a 20-minute call, we'll walk through a live scenario — your industry, your AI stack —
-      and show you exactly what your audit response would look like today.
-    </p>
-    <div class="demo-form-wrapper">
-      <!-- Replace this href with your actual Calendly / Cal.com / Savvycal link -->
-      <a href="mailto:mohdibrahim@epilabs.org?subject=EPI Demo Request&body=Hi, I'd like to book a 20-minute EPI demo.%0A%0ACompany:%0AIndustry:%0AWhat AI decisions am I trying to audit:" class="btn-primary btn-large">
-        Book a 20-minute demo →
-      </a>
-      <p class="demo-note">Or email directly: <a href="mailto:mohdibrahim@epilabs.org">mohdibrahim@epilabs.org</a></p>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════  FOOTER  ═══════════════════════════ -->
-<footer class="footer">
-  <div class="container footer-inner">
-    <div class="footer-left">
-      <span class="logo">EPI</span>
-      <p>AI Evidence Infrastructure.<br>Open-source core. Built for the EU AI Act.</p>
-    </div>
-    <div class="footer-links">
-      <div>
-        <strong>Product</strong>
-        <a href="#how-it-works">How it works</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#case-study">Case study</a>
-      </div>
-      <div>
-        <strong>Developers</strong>
-        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank" rel="noopener">Docs</a>
-        <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
-      </div>
-      <div>
-        <strong>Company</strong>
-        <a href="mailto:mohdibrahim@epilabs.org">Contact</a>
-        <a href="#demo">Book a demo</a>
-      </div>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <div class="container">
-      <span>© 2026 EPI Labs · epilabs.org</span>
-      <span>MIT Licensed · Open Source</span>
-    </div>
-  </div>
-</footer>
-
+<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><div class="diag-label reveal"><span class="diag-dot"></span>PRICING</div><h1 class="reveal"><span style="color:var(--info)">COMING</span> SOON</h1><p class="hero-desc reveal">EPI is pre-launch. Pricing has not been set. Core usage will always be open source and MIT licensed.</p></div></section><section class="section" style="padding-top:1rem"><div class="container container-sm"><div class="card reveal" style="text-align:center;padding:2.5rem;border-color:var(--pass-line);background:linear-gradient(135deg,var(--bg3),var(--pass-bg))"><div style="font-family:var(--mono);font-size:3rem;font-weight:900;color:var(--pass);margin-bottom:0.5rem">FREE</div><h3 style="font-size:1rem;margin-bottom:0.5rem">OPEN SOURCE</h3><p style="font-size:0.85rem;max-width:400px;margin:0 auto 1.2rem">The core EPI recorder, verifier, and fault analyzer will always be open source under the MIT license. Use it, inspect it, build on it.</p><a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p btn-lg" target="_blank">GITHUB</a></div><div class="status-box reveal" style="margin-top:1.5rem;text-align:center"><div class="sb-label" style="justify-content:center">PAID TIERS — NOT YET AVAILABLE</div><p style="font-size:0.85rem;max-width:500px;margin:0 auto">Team gateways, review workflows, shared policy libraries, priority support, and enterprise SSO are planned but not yet priced. Founding partners will receive early adopter terms.</p><a href="contact.html" class="btn btn-p btn-lg" style="margin-top:1.2rem">JOIN THE WAITLIST</a></div></div></section><div class="hash-fp">c0f2e2bfde075910d06f3d2cfaeab5436e95043b8951397e</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
 </html>

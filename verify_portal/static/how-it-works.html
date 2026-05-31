@@ -1,239 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>HOW IT WORKS — EPI LABS</title>
+<meta name="description" content="Five steps from raw execution to sealed evidence.">
+<meta property="og:title" content="HOW IT WORKS — EPI LABS"><meta property="og:description" content="Five steps from raw execution to sealed evidence.">
+<meta property="og:url" content="https://epilabs.org/how-it-works.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>How It Works - EPI LABS</title>
-    <meta name="description"
-        content="See how EPI Recorder captures, cryptographically signs, and packages AI workflows into verifiable evidence.">
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://epilabs.org/how-it-works.html">
-    <meta property="og:title" content="How EPI Works - Cryptographic Proof for AI">
-    <meta property="og:description"
-        content="Transform any AI workflow into a self-contained, verifiable evidence package.">
-    <meta property="og:image" content="https://epilabs.org/cryptographic_visual.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://epilabs.org/how-it-works.html">
-    <meta property="twitter:title" content="How EPI Works - Cryptographic Proof for AI">
-    <meta property="twitter:description"
-        content="Transform any AI workflow into a self-contained, verifiable evidence package.">
-    <meta property="twitter:image" content="https://epilabs.org/cryptographic_visual.png">
-
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css?v=2.2">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
-        rel="stylesheet">
-</head>
-
-<body>
-    <!-- Top Anchor -->
-    <div id="top"></div>
-
-    <!-- Navigation -->
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html">Verify</a>
-                <a href="viewer/">Decision Ops</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
-                    target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Spacer for fixed nav -->
-    <div style="height: 80px;"></div>
-
-    <!-- How It Works -->
-    <section class="section lifecycle-section" id="how-it-works">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">The EPI Lifecycle</h2>
-                <p class="section-desc">Transform any AI Evidence/Workflow into a self-contained, verifiable evidence
-                    package.
-                </p>
-            </div>
-            <div class="lifecycle-grid">
-                <div class="lifecycle-step install-step">
-                    <div class="step-icon">PKG</div>
-                    <h3>0. Install</h3>
-                    <p>Get started in seconds. Install the <strong>epi-recorder</strong> package from PyPI with a single
-                        command.</p>
-                    <div class="step-code"><code>$ pip install "epi-recorder[all]"</code></div>
-                    <p
-                        style="margin-top: 1rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--color-primary); border-radius: 4px; font-size: 0.9rem; color: var(--color-gray-300);">
-                        <strong>New in v4.1.0:</strong> Queryable **SQLite Envelope Containers**, zero-cost **did:web identity mappings**, **SCITT ledger verification**, Microsoft **AGT compliance reporting**, and the **AI mistake debugger** (`epi debug`). See <a href="index.html#get-started"
-                            style="color: var(--color-primary-light); text-decoration: underline;">Get Started</a> for
-                        details.
-                    </p>
-                </div>
-                <div class="lifecycle-step">
-                    <div class="step-icon">REC</div>
-                    <h3>1. Record <span class="status-badge shipped">Shipped</span></h3>
-                    <p>Explicit "Flight Recorder" for your AI. Use <code>log_llm_call()</code> or wrappers to capture
-                        inputs, calls, and
-                        outputs into a <strong>single sealed file</strong>.</p>
-                    <div class="step-code"><code>$ epi record script.py</code></div>
-                </div>
-                <div class="lifecycle-step">
-                    <div class="step-icon">VERIFY</div>
-                    <h3>2. Verify</h3>
-                    <p>The <strong>EPI Verifier</strong> replays the file in a sandbox. It proves the output was
-                        generated by the exact code and inputs claimed.</p>
-                    <div class="step-code"><code>$ epi verify scan_01.epi</code></div>
-                </div>
-                <div class="lifecycle-step">
-                    <div class="step-icon">SHARE</div>
-                    <h3>3. Share Evidence</h3>
-                    <p>Send the <code>.epi</code> file to auditors, investors, or regulators. It's a <strong>portable
-                            proof of work</strong> that doesn't need your secrets.</p>
-                    <div class="step-code"><code>(Drag & Drop File Here)</code></div>
-                </div>
-                <div class="lifecycle-step">
-                    <div class="step-icon">VIEW</div>
-                    <h3>4. View <span class="status-badge shipped">Shipped</span></h3>
-                    <p>Self-contained HTML viewer. Open .epi files like PDFs. No execution, no risk. Human-readable
-                        timeline of events.</p>
-                    <div class="step-code"><code>$ epi view output.epi</code></div>
-                </div>
-            </div>
-        </div>
-        </div>
-    </section>
-
-    <!-- Technology Deep Dive -->
-    <section class="section tech-section">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Under the Hood</h2>
-                <p class="section-desc">Enterprise-grade architecture. No proprietary lock-in.</p>
-            </div>
-            <div class="tech-grid">
-                <div class="tech-feature">
-                    <h4>SQLite Envelope</h4>
-                    <p>Self-contained relational <code>.epi</code> files. Query decision flows, tools, and variables forensically offline.</p>
-                </div>
-                <div class="tech-feature">
-                    <h4>Ed25519 Signatures</h4>
-                    <p>Same crypto as Signal & SSH. Tamper-proof, military-grade security.</p>
-                </div>
-                <div class="tech-feature">
-                    <h4>Content-Addressed Storage</h4>
-                    <p>SHA-256 hashing ensures file integrity. Deduplication by design.</p>
-                </div>
-                <div class="tech-feature">
-                    <h4>Multi-Provider Support</h4>
-                    <p>OpenAI, Anthropic, Ollama, Google Gemini. Automatic capture.</p>
-                </div>
-                <div class="tech-feature">
-                    <h4>Offline Replay</h4>
-                    <p>Cached LLM responses enable deterministic re-runs without API calls.</p>
-                </div>
-                <div class="tech-feature">
-                    <h4>Embedded Viewer</h4>
-                    <p>Static HTML/JS timeline. No server required. Works like a PDF.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Security Flow Section -->
-    <section class="section security-section">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">The Trust Architecture</h2>
-                <p class="section-desc">How we turn code into verifiable evidence.</p>
-            </div>
-            <div class="security-flow">
-                <div class="flow-step">
-                    <h4>Input</h4>
-                    <div class="value">Code Execution</div>
-                </div>
-                <div class="flow-arrow">-&gt;</div>
-                <div class="flow-step">
-                    <h4>Integrity</h4>
-                    <div class="value">SHA-256 Hash</div>
-                </div>
-                <div class="flow-arrow">-&gt;</div>
-                <div class="flow-step">
-                    <h4>Identity</h4>
-                    <div class="value">Ed25519 Sign</div>
-                </div>
-                <div class="flow-arrow">-&gt;</div>
-                <div class="flow-step verified">
-                    <h4>Result</h4>
-                    <div class="value">Verified .epi</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
-                            target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
-                            target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><div class="diag-label reveal"><span class="diag-dot"></span>SYSTEM DIAGRAM</div><h1 class="reveal">HOW EPI<br><span style="color:var(--info)">WORKS</span></h1><p class="hero-desc reveal">From raw execution to a sealed, verifiable evidence package — in five cryptographically verifiable steps.</p></div></section><section class="section" style="padding-top:1rem"><div class="container"><div class="ga"><div class="card reveal"><h3>00 // INSTALL</h3><div class="card-bar"></div><p>pip install epi-recorder. Zero system dependencies. macOS, Linux, Windows.</p><div class="code-block"><code>$ pip install epi-recorder</code></div></div><div class="card reveal"><h3>01 // RECORD</h3><div class="card-bar"></div><p>Wrap client, open context. LLM calls, tools, decisions captured as structured JSONL.</p><div class="code-block"><code>$ epi run my_agent.py</code></div></div><div class="card reveal"><h3>02 // VERIFY</h3><div class="card-bar"></div><p>SHA-256 integrity, Ed25519 signature, prev_hash chain, step completeness, count attestation.</p><div class="code-block"><code>$ epi verify agent.epi</code></div></div><div class="card reveal"><h3>03 // REVIEW</h3><div class="card-bar"></div><p>Inspect timeline, check 9-pass fault analyzer, add review notes. All local, zero uploads.</p><div class="code-block"><code>$ epi view agent.epi</code></div></div><div class="card reveal"><h3>04 // SHARE</h3><div class="card-bar"></div><p>Send the .epi to auditors. Anyone verifies independently — browser-based, offline.</p><div class="code-block"><code>Drop at epilabs.org/verify</code></div></div></div></div></section><section class="section" style="background:var(--bg2)"><div class="container container-sm"><div class="section-label reveal" style="text-align:center;justify-content:center">// CONTAINER STRUCTURE</div><h2 class="reveal" style="text-align:center;margin-bottom:1.5rem">INSIDE AN <span style="color:var(--pass)">.EPI</span> FILE</h2><div class="code-block reveal" style="font-size:0.8rem;line-height:2.3;padding:1.8rem"><div style="color:var(--pass);font-weight:700;font-size:0.9rem">agent_run.epi</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">manifest.json</strong> — ED25519 SIGNED ROOT OF TRUST</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">steps.jsonl</strong> — IMMUTABLE EXECUTION TIMELINE</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">environment.json</strong> — FULL RUNTIME SNAPSHOT</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">analysis.json</strong> — 9-PASS FAULT ANALYSIS</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">policy.json</strong> — RULEBOOK FOR THIS RUN</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x251C;&#x2500; <strong style="color:var(--ink)">viewer.html</strong> — SELF-CONTAINED FORENSIC VIEWER</div><div style="padding-left:1.5rem;color:var(--ink4)">&#x2514;&#x2500; <strong style="color:var(--ink)">VERIFY.txt</strong> — OFFLINE VERIFICATION GUIDE</div></div></div></section><div class="hash-fp">28163a73ea1a71d8926980ccbd86b50a4b1befd18edbe015</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>

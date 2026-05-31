@@ -1,369 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>VISION — EPI LABS</title>
+<meta name="description" content="Our roadmap to build the trust layer for the AI economy.">
+<meta property="og:title" content="VISION — EPI LABS"><meta property="og:description" content="Our roadmap to build the trust layer for the AI economy.">
+<meta property="og:url" content="https://epilabs.org/vision.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision & Team - EPI LABS</title>
-    <meta name="description"
-        content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://epilabs.org/vision.html">
-    <meta property="og:title" content="EPI Vision - The Future of AI Trust">
-    <meta property="og:description"
-        content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
-    <meta property="og:image" content="https://epilabs.org/trust_network.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://epilabs.org/vision.html">
-    <meta property="twitter:title" content="EPI Vision - The Future of AI Trust">
-    <meta property="twitter:description"
-        content="Our roadmap to build the trust layer for the AI economy. From local verification to decentralized proof networks.">
-    <meta property="twitter:image" content="https://epilabs.org/trust_network.png">
-
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css?v=2.6">
-    <style>
-        /* Vision Page Specific Styles */
-        .shift-grid {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 2rem;
-            align-items: center;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .shift-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 2rem;
-            border-radius: 16px;
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-
-        .epi-card {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--color-primary);
-            box-shadow: 0 0 30px rgba(139, 92, 246, 0.1);
-        }
-
-        .shift-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .shift-sub {
-            color: var(--color-text-dim);
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 1rem;
-        }
-
-        .shift-list {
-            list-style: none;
-            padding: 0;
-            margin-top: 1.5rem;
-            text-align: left;
-        }
-
-        .shift-list li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .shift-vs {
-            font-weight: 800;
-            font-size: 1.5rem;
-            color: var(--color-text-dim);
-        }
-
-        @media (max-width: 768px) {
-            .shift-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .shift-vs {
-                padding: 1rem 0;
-            }
-        }
-    </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
-        rel="stylesheet">
-</head>
-
-<body>
-    <!-- Top Anchor -->
-    <div id="top"></div>
-
-    <!-- Navigation -->
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html">Verify</a>
-                <a href="viewer/">Decision Ops</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
-                    target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Spacer for fixed nav -->
-    <div style="height: 80px;"></div>
-
-    <!-- Vision Section -->
-    <section class="section vision-beyond-section" id="vision">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Our Vision</h2>
-                <p class="section-desc">We believe every AI system should be verifiable.
-                    Here's how we're making that happen.</p>
-            </div>
-
-            <div class="vision-tiers">
-                <!-- NEW: The Paradigm Shift -->
-                <div class="paradigm-shift-container" style="margin-bottom: 5rem;">
-                    <div class="shift-grid">
-                        <div class="shift-card pdf-card">
-                            <div class="shift-icon">PDF</div>
-                            <h3>Visual Fidelity</h3>
-                            <p class="shift-sub">The PDF Standard</p>
-                            <p>Before PDF, documents broke when moved between computers. PDF solved "Missing Fonts" by
-                                embedding them.</p>
-                            <ul class="shift-list">
-                                <li>Captures <strong>Appearance</strong></li>
-                                <li>Static & Visual</li>
-                                <li>Standard for <strong>Documents</strong></li>
-                            </ul>
-                        </div>
-                        <div class="shift-vs">VS</div>
-                        <div class="shift-card epi-card active-card">
-                            <div class="shift-icon">EPI</div>
-                            <h3>Verifiable Execution</h3>
-                            <p class="shift-sub">The EPI Standard</p>
-                            <p>AI runs break without the right environment. EPI solves "Missing Context" by embedding
-                                the execution.</p>
-                            <ul class="shift-list">
-                                <li>Captures <strong>Behavior</strong></li>
-                                <li>Dynamic & Verifiable</li>
-                                <li>Standard for <strong>Agents</strong></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- NEW: The Receipt Economy -->
-                <div class="receipt-economy-section"
-                    style="text-align: center; margin-bottom: 5rem; padding: 2rem; background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);">
-                    <h3 style="font-size: 2rem; margin-bottom: 1rem;">The "Receipt" Economy</h3>
-                    <p style="max-width: 700px; margin: 0 auto 2rem; font-size: 1.1rem; color: var(--color-text-dim);">
-                        As AI agents start spending money and signing contracts, "log files" aren't enough.
-                        You can't take a log file to court. You need a <strong>signed receipt</strong> of computation.
-                    </p>
-                    <div class="receipt-grid"
-                        style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">LEGAL</span>
-                            <strong>Liability Defense</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;">The <strong>Black Box Defense</strong>.
-                                Irrefutable proof of intent when agents fail.</p>
-                        </div>
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">COMP</span>
-                            <strong>Compliance</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;"><strong>Zero-Touch.</strong> Automated "Article
-                                11" documentation for EU AI Act audits.</p>
-                        </div>
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">RISK</span>
-                            <strong>Underwriting</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;"><strong>Actuarial Data.</strong> Turn "Unknown
-                                Risk" into "Calculated Risk" for insurers.</p>
-                        </div>
-                        <!-- Row 2 -->
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">IR</span>
-                            <strong>Forensics</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;"><strong>Incident Response.</strong> Replay the
-                                exact "Attack Path" of a jailbreak or prompt injection.</p>
-                        </div>
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">SCI</span>
-                            <strong>Science</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;"><strong>IP Preservation.</strong> Prevent "Bit
-                                Rot". Ensure drug discovery runs work 10 years later.</p>
-                        </div>
-                        <div class="receipt-item">
-                            <span style="display: block; font-size: 2rem; margin-bottom: 0.5rem;">SCM</span>
-                            <strong>Supply Chain</strong>
-                            <p style="font-size: 0.9rem; opacity: 0.8;"><strong>Model Provenance.</strong> A "Customs
-                                Declaration" for every fine-tune and dataset used.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Existing Tiers (Slightly Refined) -->
-                <h3 style="text-align: center; margin-bottom: 2rem;">The Technology Stack</h3>
-                <div class="vision-tiers" style="margin-top: 0;">
-                    <div class="vision-tier tier-complete">
-                        <div class="tier-badge">Phase 1</div>
-                        <h3>The Recorder</h3>
-                        <p>Capture the "Truth". System-level interception of shell, API, and file events. Ed25519
-                            signed.</p>
-                    </div>
-
-                    <div class="vision-arrow">&rarr;</div>
-
-                    <div class="vision-tier tier-next">
-                        <div class="tier-badge">Phase 2</div>
-                        <h3>The Player</h3>
-                        <p>Deterministic Replay. Access the "Truth" without needing the original GPU or API keys.</p>
-                    </div>
-
-                    <div class="vision-arrow">&rarr;</div>
-
-                    <div class="vision-tier tier-future">
-                        <div class="tier-badge">Phase 3</div>
-                        <h3>The Network</h3>
-                        <p>Global Registry. A "DOI for AI" where every major run is publicly verifiable.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Vision / Roadmap -->
-    <section class="section roadmap-section" id="roadmap">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Forward Outlook</h2>
-                <p class="section-desc">From Open Standard to The Trust Network</p>
-            </div>
-            <div class="roadmap-timeline">
-                <div class="roadmap-item completed">
-                    <div class="roadmap-marker"></div>
-                    <div class="roadmap-content">
-                        <div class="roadmap-date">Q4 2024</div>
-                        <h3>The Foundation (v2.8)</h3>
-                        <p>Open-source MIT package with signed ZIP artifacts, CLI replay capabilities, and early verification hooks.</p>
-                    </div>
-                </div>
-                <div class="roadmap-item active">
-                    <div class="roadmap-marker"></div>
-                    <div class="roadmap-content">
-                        <div class="roadmap-date">Q2 2026</div>
-                        <h3>The Trust Standard (v4.1.0)</h3>
-                        <p>Live with queryable **SQLite envelope containers**, decentralized **did:web signers**, immutable **SCITT ledgers**, **AGT mappings**, and automated **AI mistake debugging**.</p>
-                    </div>
-                </div>
-                <div class="roadmap-item">
-                    <div class="roadmap-marker"></div>
-                    <div class="roadmap-content">
-                        <div class="roadmap-date">Next</div>
-                        <h3>Shared Review and Policy Management</h3>
-                        <p>Central policy libraries, shared review queues, and organization-level trust workflows built on the artifact model.</p>
-                    </div>
-                </div>
-                <div class="roadmap-item">
-                    <div class="roadmap-marker"></div>
-                    <div class="roadmap-content">
-                        <div class="roadmap-date">Later</div>
-                        <h3>Replay and Evidence Exchange</h3>
-                        <p>Run comparison, replay-oriented debugging, and cleaner evidence exchange between engineering, risk, and audit teams.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Founder -->
-    <section class="section founder-section" id="founder">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Architected in India. Engineered for the World.</h2>
-            </div>
-            <div class="founder-card">
-                <div class="founder-info">
-                    <h3>Mohd Ibrahim Afridi</h3>
-                    <p class="founder-title">Founder & Chief Architect</p>
-                    <p class="founder-bio">Published AI Researcher (Grok-3 Architectures, Dynamic Chains of Thought) and
-                        Serial Entrepreneur (XCL3NT, Velroy Eagle Ventures). EPI Labs is the culmination of years of
-                        research into AI verification and proof-carrying systems.</p>
-                    <div class="founder-links">
-                        <a href="https://afridisportfolio.vercel.app/" target="_blank">Portfolio</a>
-                        <a href="https://github.com/mohdibrahimaiml" target="_blank">GitHub</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
-                            target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
-                            target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><div class="diag-label reveal"><span class="diag-dot"></span>MISSION</div><h1 class="reveal"><span style="color:var(--info)">VISION</span></h1><p class="hero-desc reveal">Every AI system should be verifiable. Here is how we are building the trust layer.</p></div></section><section class="section" style="padding-top:1rem"><div class="container container-sm"><div class="g2 reveal" style="margin-bottom:2.5rem"><div class="card" style="text-align:center;padding:2rem"><div style="font-family:var(--mono);font-size:2.5rem;font-weight:900;color:var(--ink4);margin-bottom:0.5rem">PDF</div><h3>VISUAL FIDELITY</h3><p style="font-size:0.82rem">Before PDF, documents broke across machines. PDF embedded fonts and layout — solving missing context forever.</p></div><div class="card" style="text-align:center;padding:2rem;border-color:var(--info-line);background:linear-gradient(135deg,var(--bg3),rgba(88,166,255,0.03))"><div style="font-family:var(--mono);font-size:2.5rem;font-weight:900;color:var(--info);margin-bottom:0.5rem">EPI</div><h3>VERIFIABLE EXECUTION</h3><p style="font-size:0.82rem">AI runs break without the right environment. EPI embeds the execution — code, context, and computation — into a verifiable signed receipt.</p></div></div><div class="section-label reveal" style="text-align:center;justify-content:center">// ROADMAP</div><h2 class="reveal" style="text-align:center;margin-bottom:2rem">BUILDING THE NETWORK</h2><div class="timeline reveal"><div class="tl-item tl-done"><div class="tl-dt">COMPLETE - v4.1.0</div><h4>THE RECORDER</h4><p>Capture execution: LLM calls, tool invocations, decisions, environment. Ed25519 signed at packaging. Shipped.</p></div><div class="tl-item tl-active"><div class="tl-dt">ACTIVE - NOW</div><h4>VERIFICATION + REVIEW</h4><p>Browser-based cryptographic verification, timeline inspection, human review. Live at epilabs.org/verify.</p></div><div class="tl-item"><div class="tl-dt">NEXT</div><h4>SHARED REVIEW & POLICY</h4><p>Central policy libraries, shared review queues, org-level trust workflows.</p></div><div class="tl-item"><div class="tl-dt">LATER</div><h4>THE NETWORK</h4><p>A global registry — a DOI for AI runs — with SCITT transparency ledger anchoring.</p></div></div><div class="section-label reveal" style="margin-top:3rem;text-align:center;justify-content:center">// TEAM</div><div class="card reveal" id="founder"><h3 style="margin-bottom:0.15rem">MOHD IBRAHIM AFRIDI</h3><p style="color:var(--info);font-family:var(--mono);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">FOUNDER & CHIEF ARCHITECT</p><p style="font-size:0.85rem">Published AI researcher and serial entrepreneur. EPI Labs is the culmination of years of research into AI verification and proof-carrying systems. Built in India, engineered for the world.</p><div style="display:flex;gap:0.5rem;margin-top:1rem"><a href="https://afridisportfolio.vercel.app/" target="_blank" class="btn btn-sm">PORTFOLIO</a><a href="https://github.com/mohdibrahimaiml" target="_blank" class="btn btn-sm">GITHUB</a></div></div></div></section><div class="hash-fp">2aa5e67d2161aecf36868990182b67b2e5e002e7e7a086de</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>

@@ -1,194 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CONTACT — EPI LABS</title>
+<meta name="description" content="Get in touch — pilot program, enterprise inquiries, questions.">
+<meta property="og:title" content="CONTACT — EPI LABS"><meta property="og:description" content="Get in touch — pilot program, enterprise inquiries, questions.">
+<meta property="og:url" content="https://epilabs.org/contact.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact EPI LABS - Enterprise Integration & Partnerships</title>
-    <meta name="description"
-        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://epilabs.org/contact.html">
-    <meta property="og:title" content="Contact EPI LABS">
-    <meta property="og:description"
-        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
-    <meta property="og:image" content="https://epilabs.org/assets/logo.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://epilabs.org/contact.html">
-    <meta property="twitter:title" content="Contact EPI LABS">
-    <meta property="twitter:description"
-        content="Get in touch with the EPI Labs team. Schedule a demo, request an investor deck, or discuss enterprise integration.">
-    <meta property="twitter:image" content="https://epilabs.org/assets/logo.png">
-
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css?v=4.1.0">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
-        rel="stylesheet">
-</head>
-
-<body>
-    <!-- Top Anchor -->
-    <div id="top"></div>
-
-    <!-- Navigation -->
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="index.html" title="Go to Home">
-                    <img src="assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="how-it-works.html#top">How It Works</a>
-                <a href="technology.html">Technology</a>
-                <a href="use-cases.html#top">Use Cases</a>
-                <a href="verify.html">Verify</a>
-                <a href="viewer/">Decision Ops</a>
-                <a href="vision.html#vision">Vision</a>
-                <a href="contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary"
-                    target="_blank">GitHub</a>
-                <a href="contact.html" class="btn-primary">Request Deck</a>
-            </div>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Spacer for fixed nav -->
-    <div style="height: 80px;"></div>
-
-    <!-- Contact Form Section -->
-    <section class="section contact-section" id="contact-form">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Get In Touch</h2>
-                <p class="section-desc">Have questions about EPI? Want to discuss enterprise integration?
-                    We'd love to hear from you.</p>
-            </div>
-
-            <div class="contact-wrapper">
-                <div class="contact-info" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem; height: fit-content;">
-                    <div class="contact-item">
-                        <span class="contact-icon">📧</span>
-                        <div>
-                            <h4>Email</h4>
-                            <a href="mailto:mohdibrahim@epilabs.org">mohdibrahim@epilabs.org</a>
-                        </div>
-                    </div>
-                    <div class="contact-item">
-                        <span class="contact-icon">💻</span>
-                        <div>
-                            <h4>GitHub</h4>
-                            <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">epi-recorder
-                                Repository</a>
-                        </div>
-                    </div>
-                    <div class="contact-item">
-                        <span class="contact-icon">📦</span>
-                        <div>
-                            <h4>PyPI Package</h4>
-                            <a href="https://pypi.org/project/epi-recorder/" target="_blank">epi-recorder</a>
-                        </div>
-                    </div>
-                </div>
-
-                <form class="contact-form" id="contactForm" onsubmit="sendEmail(event)">
-                    <div class="form-group">
-                        <label for="name">Your Name *</label>
-                        <input type="text" id="name" name="name" required placeholder="John Doe">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="email">Email Address *</label>
-                        <input type="email" id="email" name="email" required placeholder="john@company.com">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="company">Company / Organization</label>
-                        <input type="text" id="company" name="company" placeholder="Acme Inc.">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="inquiry_type">Inquiry Type *</label>
-                        <select id="inquiry_type" name="inquiry_type" required>
-                            <option value="">Select an option...</option>
-                            <option value="Investor Deck Request">Investor Deck Request</option>
-                            <option value="Enterprise Integration">Enterprise Integration</option>
-                            <option value="Partnership Opportunity">Partnership Opportunity</option>
-                            <option value="Technical Question">Technical Question</option>
-                            <option value="Media / Press">Media / Press</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="message">Your Message *</label>
-                        <textarea id="message" name="message" rows="5" required
-                            placeholder="Tell us about your use case, questions, or how we can help..."></textarea>
-                    </div>
-
-                    <button type="submit" class="btn-primary btn-large form-submit">
-                        Open Gmail and Send ->
-                    </button>
-                    <p class="form-note">Opens Gmail with your message pre-filled. Just click Send!</p>
-                </form>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="index.html" title="Go to Home">
-                        <img src="assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Building the trust layer for the AI economy.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="how-it-works.html">How It Works</a>
-                        <a href="technology.html">Technology</a>
-                        <a href="use-cases.html">Use Cases</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme"
-                            target="_blank">Documentation</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Company</h4>
-                        <a href="vision.html">Vision</a>
-                        <a href="vision.html#founder">Team</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
-                        <a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a>
-                        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE"
-                            target="_blank">License</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>Built in India for the world. &copy; 2026 EPI LABS. MIT License.</p>
-            </div>
-        </div>
-    </footer>
-
-    <script src="js/app.js?v=4.1.0"></script>
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><h1 class="reveal"><span style="color:var(--info)">CONTACT</span></h1><p class="hero-desc reveal">Interested in the pilot program, enterprise deployment, or just want to learn more?</p></div></section><section class="section" style="padding-top:1rem"><div class="container container-sm"><div class="card reveal" style="margin-bottom:1.5rem"><div style="display:flex;flex-direction:column;gap:0.8rem"><div><div style="font-family:var(--mono);font-size:0.6rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem">EMAIL</div><a href="mailto:mohdibrahim@epilabs.org" style="font-size:0.9rem;font-family:var(--mono)">mohdibrahim@epilabs.org</a></div><div><div style="font-family:var(--mono);font-size:0.6rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem">GITHUB</div><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" style="font-size:0.9rem;font-family:var(--mono)">github.com/mohdibrahimaiml/epi-recorder</a></div><div><div style="font-family:var(--mono);font-size:0.6rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem">PYPI</div><a href="https://pypi.org/project/epi-recorder/" target="_blank" style="font-size:0.9rem;font-family:var(--mono)">pypi.org/project/epi-recorder</a></div></div></div><div class="status-box pass reveal"><div class="sb-label">PILOT PROGRAM</div><p style="margin-bottom:1rem">EPI is seeking regulated enterprises to pilot AI compliance evidence packaging. Founding partners receive direct integration support, priority roadmap influence, and optional recognition as early adopters.</p><a href="mailto:mohdibrahim@epilabs.org?subject=EPI%20Pilot%20Program" class="btn btn-p btn-lg">JOIN PILOT PROGRAM</a></div></div></section><div class="hash-fp">50c35ddc973e7e0da4e33fff11d162c02d82a90d2125783e</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
 </body>
-
 </html>
