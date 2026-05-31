@@ -12,8 +12,8 @@ const os = require('os');
 const { verifyManifestSignature } = require('./lib/verification.cjs');
 
 let mainWindow;
-const EPI_ENVELOPE_MAGIC = Buffer.from('EPI1', 'ascii');
-const EPI_ENVELOPE_VERSION = 1;
+const EPI_ENVELOPE_MAGIC = Buffer.from('<!--', 'ascii');
+const EPI_ENVELOPE_VERSION = 2;
 const EPI_PAYLOAD_FORMAT_ZIP_V1 = 0x01;
 const EPI_ENVELOPE_HEADER_SIZE = 64;
 
@@ -246,7 +246,7 @@ ipcMain.handle('verify-epi-file', async (event, filePath) => {
 
             // Step 5: Check mimetype
             const mimetype = fs.readFileSync(mimetypePath, 'utf8').trim();
-            if (mimetype !== 'application/vnd.epi+zip') {
+            if ((mimetype !== 'application/vnd.epi+zip' && mimetype !== 'application/vnd.epi')) {
                 return {
                     success: false,
                     error: `Invalid mimetype: ${mimetype}`
