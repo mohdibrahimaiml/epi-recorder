@@ -40,7 +40,14 @@
 <h1 class="reveal">EVIDENCE<br>PACKAGED<br><span style="color:var(--info)">INFRASTRUCTURE</span></h1>
 <div class="hero-hash reveal">SHA256: a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8</div>
 <p class="hero-desc reveal">EPI captures AI agent executions into a single, cryptographically signed, tamper-evident <code>.epi</code> file — like a PDF for evidence. Engineers integrate in three lines of Python. Regulators verify in any browser, offline, without trusting the producer.</p>
-<div class="hero-actions reveal"><a href="verify.html" class="btn btn-p btn-lg">VERIFY AN .EPI FILE</a><a href="how-it-works.html" class="btn btn-lg">HOW IT WORKS</a><a href="https://pypi.org/project/epi-recorder/" class="btn btn-lg" target="_blank">pip install epi-recorder</a></div>
+<div class="hero-actions reveal">
+  <a href="verify.html" class="btn btn-p btn-lg">DROP &amp; VERIFY .EPI</a>
+  <a href="assets/sample.epi" class="btn btn-lg" download>&#x2B07; TRY WITH SAMPLE</a>
+  <a href="https://pypi.org/project/epi-recorder/" class="btn btn-lg" target="_blank">pip install epi-recorder</a>
+</div>
+<p class="reveal" style="font-size:0.72rem;color:var(--ink4);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.5rem">
+  <span style="color:var(--pass)">&#x2713;</span> DOWNLOAD THE SAMPLE .EPI ABOVE. THEN DROP IT ON <a href="verify.html" style="color:var(--info)">/VERIFY</a>.
+</p>
 <div class="term reveal" id="hero-terminal"><div class="term-body">
 <div><span class="tp">$ </span><span class="tc">epi run agent.py</span></div>
 <div><span class="tok">[OK] </span><span class="to">47 execution steps recorded</span></div>
@@ -60,6 +67,33 @@
 <div class="stat"><div class="stat-val reveal">100% OFFLINE</div><div class="stat-lbl">VERIFICATION</div></div>
 <div class="stat"><div class="stat-val reveal">9 PASSES</div><div class="stat-lbl">FAULT ANALYSIS</div></div>
 </div></div></div>
+
+<section class="section" style="background:var(--bg2)"><div class="container container-sm">
+<div class="section-label reveal" style="text-align:center;justify-content:center">// YOUR FIRST 5 MINUTES</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">HOW TO USE EPI</h2>
+<div class="ga">
+<div class="card reveal" style="border-color:var(--pass-line);background:linear-gradient(135deg,var(--bg3),var(--pass-bg))">
+<h3 style="color:var(--pass);font-size:0.85rem">STEP 01</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">Download our sample .epi file — it contains a signed loan assessment workflow with all cryptographic evidence intact.</p>
+<a href="assets/sample.epi" class="btn btn-p" download style="font-size:0.72rem">&#x2B07; DOWNLOAD SAMPLE (310 KB)</a>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 02</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">Go to <strong>/verify</strong> and drag the sample file onto the drop zone. Every check runs in your browser. No server. No upload.</p>
+<a href="verify.html" class="btn" style="font-size:0.72rem">OPEN VERIFIER</a>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 03</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">See the timeline — click any step to expand. Watch the prev_hash chain and Ed25519 signature validate in real time.</p>
+<p style="font-size:0.72rem;color:var(--pass);font-family:var(--mono)">[PASS] Integrity + Signature + Chain</p>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 04</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">Ready to record your own? Install the Python package and wrap your OpenAI or Anthropic client in 3 lines.</p>
+<div class="code-block" style="font-size:0.72rem;margin:0"><code>pip install epi-recorder<br>epi run your_agent.py<br>epi verify your_agent.epi</code></div>
+</div>
+</div>
+</div></section>
 
 <section class="section"><div class="container">
 <div class="section-header"><div class="section-label reveal">// 1.0 EVIDENCE CONTAINER</div>
