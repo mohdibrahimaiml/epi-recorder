@@ -1,0 +1,9 @@
+{
+  "shared_workflow": {
+    "status": "unassigned",
+    "assignee": null,
+    "due_at": null,
+    "comment_count": 0,
+    "last_comment_at": null
+  }
+}

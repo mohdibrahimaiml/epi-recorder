@@ -1,0 +1,16 @@
+EPI_FORENSIC_VERIFICATION_GUIDE
+===============================
+
+Artifact UUID: 8995541a-7713-5cb1-8851-95e21631e2db
+Created At:    2026-05-07T19:05:18.468824+00:00
+System:        EPI_RECORDER v1.0
+
+MANUAL_VERIFICATION_STEPS:
+1. Extract manifest.json from this ZIP archive.
+2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.
+3. Public Key (Raw Hex): b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364
+
+COMMAND LINE:
+  python -m epi_cli verify <this_file>.epi
+
+This artifact is a signed, tamper-evident record.

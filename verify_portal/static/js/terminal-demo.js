@@ -44,7 +44,7 @@ class TerminalDemo {
 
         // Initial welcome message - print FIRST before creating command line
         this.print([
-            { text: 'EPI Portable Environment v4.1.0', color: 'text-dim' },
+            { text: 'EPI Portable Environment v4.2.0', color: 'text-dim' },
             { text: 'Type "help" for a list of commands.', color: 'text-dim' },
             { text: '' }
         ]);
@@ -239,7 +239,7 @@ class TerminalDemo {
 
     async simulateRecording(filename) {
         const steps = [
-            { text: `-> Starting EPI Recorder v4.1.0`, delay: 200 },
+            { text: `-> Starting EPI Recorder v4.2.0`, delay: 200 },
             { text: `  Target: ${filename}`, delay: 100 },
             { text: `  Environment: Python 3.11.9 | Windows 11`, color: 'text-dim', delay: 300 },
             { text: `* Recording active... (PID: 1420)`, color: 'text-green', delay: 400 },
@@ -263,9 +263,9 @@ class TerminalDemo {
         if (args[0] === 'install' && args[1] === 'epi-recorder') {
             const lines = [
                 { text: 'Collecting epi-recorder', color: 'text-dim' },
-                { text: '  Downloading epi_recorder-4.1.0-py3-none-any.whl (28 kB)' },
+                { text: '  Downloading epi_recorder-4.2.0-py3-none-any.whl (28 kB)' },
                 { text: 'Installing collected packages: epi-recorder', color: 'text-dim' },
-                { text: 'Successfully installed epi-recorder-4.1.0', color: 'text-green' }
+                { text: 'Successfully installed epi-recorder-4.2.0', color: 'text-green' }
             ];
             for (const line of lines) {
                 this.print([line]);

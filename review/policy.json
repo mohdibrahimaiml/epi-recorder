@@ -1,0 +1,39 @@
+{
+  "policy_format_version": "1.0",
+  "policy_id": "STRICT-FINANCE-v1",
+  "system_name": "Support-Agent-v2",
+  "system_version": "1.0",
+  "policy_version": "2026-04-29",
+  "profile_id": null,
+  "scope": null,
+  "authorized_by": null,
+  "governance_url": null,
+  "approval_policies": [],
+  "rules": [
+    {
+      "id": "R_REFUND_LOG",
+      "name": "Mandatory Refund Logging",
+      "severity": "high",
+      "description": "Any refund decision must be preceded by a call to the 'log_audit_event' tool.",
+      "rationale": null,
+      "domain": "GENERAL",
+      "type": "sequence_guard",
+      "mode": null,
+      "applies_at": null,
+      "watch_for": null,
+      "violation_if": null,
+      "required_before": "REFUND_PROCESSED",
+      "must_call": "log_audit_event",
+      "threshold_value": null,
+      "threshold_field": null,
+      "required_action": null,
+      "prohibited_pattern": null,
+      "approval_action": null,
+      "approved_by": null,
+      "approval_policy_ref": null,
+      "allowed_tools": null,
+      "denied_tools": null
+    }
+  ],
+  "context_tracking": null
+}

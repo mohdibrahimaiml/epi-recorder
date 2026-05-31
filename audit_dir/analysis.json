@@ -1,0 +1,62 @@
+{
+  "analyzer_version": "1.0.0",
+  "analysis_timestamp": "2026-05-07T19:05:18.493256+00:00",
+  "policy_used": true,
+  "policy_format_version": "1.0",
+  "policy_id": "STRICT-FINANCE-v1",
+  "policy_version": "2026-04-29",
+  "policy_scope": null,
+  "mode": "policy_grounded",
+  "fault_taxonomy_version": "1.0",
+  "coverage": {
+    "status": "complete",
+    "steps_recorded": 14,
+    "steps_with_full_data": 14,
+    "coverage_percentage": 100
+  },
+  "fault_detected": true,
+  "confidence": "medium",
+  "verdict": "⚠️ WARNING — At step 3 the agent received a constraint value of 500.00 (field: threshold_usd). At step 10 a committed value of 900.00 exceeded this limit.",
+  "verdict_short": "⚠️ Heuristic Observation at step 10",
+  "review_required": true,
+  "primary_fault": {
+    "step_index": 9,
+    "step_number": 10,
+    "fault_type": "HEURISTIC_OBSERVATION",
+    "category": "heuristic_observation",
+    "severity": "high",
+    "plain_english": "At step 3 the agent received a constraint value of 500.00 (field: threshold_usd). At step 10 a committed value of 900.00 exceeded this limit.",
+    "why_it_matters": "This pattern suggests a potentially unsafe or non-compliant outcome and should be reviewed by a human.",
+    "review_required": true,
+    "fault_chain": [
+      {
+        "step_index": 2,
+        "step_number": 3,
+        "role": "constraint_source",
+        "detail": "Constraint value 500.00 established"
+      },
+      {
+        "step_index": 9,
+        "step_number": 10,
+        "role": "violation_point",
+        "detail": "Committed value 900.00 exceeds constraint"
+      }
+    ],
+    "remediation": "Inspect the trace for reasoning degradation and consider updating agent prompts."
+  },
+  "secondary_flags": [],
+  "summary": {
+    "headline": "HEURISTIC_OBSERVATION triggered at step 10.",
+    "primary_category": "heuristic_observation",
+    "primary_step": 10,
+    "secondary_count": 0
+  },
+  "human_review": {
+    "status": "pending",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "outcome": null,
+    "notes": null
+  },
+  "disclaimer": "The raw execution record in steps.jsonl is the ground truth. Policy violations are deterministic rule matches. Heuristic observations are pattern-based and should be reviewed by a human."
+}

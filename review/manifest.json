@@ -1,0 +1,40 @@
+{
+  "spec_version": "4.0.3",
+  "workflow_id": "8995541a-7713-5cb1-8851-95e21631e2db",
+  "created_at": "2026-05-07T19:05:18.468824Z",
+  "cli_command": "epi gateway export --case-id live-03569b9b",
+  "env_snapshot_hash": null,
+  "file_manifest": {
+    "analysis.json": "60d2887b82260d53c82ba4a7092db6c70a146bad5d4019c01b1e39b7cdcf2f34",
+    "environment.json": "4d4edb57ccd35612cf66dbae0c537b96e6d3c21ca32aa622f001adbb84021036",
+    "policy.json": "4f5d022abc23e8896409622b98e5c0fb147dbdc7200380724078c6a851dbc6a6",
+    "policy_evaluation.json": "54a1fe24ada8960a3ae6ce86ee80fade4faeb44aa557a5a2271fe5336c5eb173",
+    "steps.jsonl": "69af9d0e83f74393107246aa890d438ee6f548154da9296b5b33466a7d935e7e"
+  },
+  "public_key": "b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364",
+  "signature": "ed25519:default:fc8df2f7b54417b765d89c4496f99e49d333866003c5e8e4968a9daff5c23f2ba9c051c79b988cf4cecb9f1edb75b9950ca8843ec4a6648a6d05f2b699be1208",
+  "container_format": "envelope-v2",
+  "analysis_status": "complete",
+  "analysis_error": null,
+  "goal": "Agent approved a $900 refund for Gold customer ORD-9001. Human review is still required because the amount exceeds the $500 threshold. Confidence: 94%.",
+  "notes": "Starter case for the EPI investigation viewer. Shows a refund decision, supporting evidence, and a required human review handoff.",
+  "metrics": null,
+  "source": null,
+  "total_steps": null,
+  "total_validators": null,
+  "total_llm_calls": null,
+  "passed": null,
+  "failed": null,
+  "corrected": null,
+  "trust": {
+    "payload_hash": "ec1511c6f1ee8aef09478d40aa2542d4eda48929f398d2477abaf2d9eae5b880",
+    "artifact_uuid": "8995541a-7713-5cb1-8851-95e21631e2db",
+    "mimetype": "application/vnd.epi+zip",
+    "envelope_version": 2
+  },
+  "approved_by": null,
+  "tags": null,
+  "governance": null,
+  "viewer_version": "minimal",
+  "policy": null
+}

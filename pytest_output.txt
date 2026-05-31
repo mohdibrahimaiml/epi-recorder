@@ -1,0 +1,275 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0
+rootdir: c:\Users\dell\epi-recorder
+configfile: pyproject.toml
+testpaths: tests
+plugins: epi-recorder-4.1.0, anyio-4.13.0, Faker-37.12.0, langsmith-0.7.32, asyncio-1.3.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1217 items
+
+tests\adversarial\test_adversarial_suite.py ...                          [  0%]
+tests\adversarial\test_completeness.py ..                                [  0%]
+tests\adversarial\test_identity.py ..                                    [  0%]
+tests\adversarial\test_integrity.py ...                                  [  0%]
+tests\browser\test_viewer_foundation.py ..                               [  0%]
+tests\compatibility\test_canonical_hash.py .....                         [  1%]
+tests\compatibility\test_did_web_contract.py .......                     [  1%]
+tests\compatibility\test_envelope_format.py ....                         [  2%]
+tests\compatibility\test_golden_artifacts.py ..................          [  3%]
+tests\compatibility\test_manifest_schema.py ..                           [  3%]
+tests\compatibility\test_signing_format.py ........                      [  4%]
+tests\compatibility\test_step_schema.py ..                               [  4%]
+tests\compatibility\test_verification_report.py ......                   [  5%]
+tests\compliance\test_evidence_readiness.py ....                         [  5%]
+tests\e2e\test_full_system.py ...........                                [  6%]
+tests\frameworks\test_offline_frameworks.py ....ss                       [  6%]
+tests\integration\test_end_to_end_foundation.py .....                    [  7%]
+tests\integration\test_epi_guardrails.py .......................         [  9%]
+tests\integration\test_epi_guardrails_stress.py ....                     [  9%]
+tests\integrations\agt_adapter\test_compat.py .....                      [ 10%]
+tests\integrations\agt_adapter\test_detect.py ............               [ 11%]
+tests\integrations\agt_adapter\test_export.py ...                        [ 11%]
+tests\integrations\agt_adapter\test_import.py .....                      [ 11%]
+tests\integrations\agt_adapter\test_preservation.py ....                 [ 11%]
+tests\integrations\agt_adapter\test_tamper.py ..                         [ 12%]
+tests\security\test_trust_and_data_boundaries.py ........                [ 12%]
+tests\test_agt_exporter.py .                                             [ 12%]
+tests\test_agt_import_cli.py .................                           [ 14%]
+tests\test_agt_importer.py .................................             [ 17%]
+tests\test_agt_report.py ....                                            [ 17%]
+tests\test_all_cli_commands.py ...........                               [ 18%]
+tests\test_api.py .............................                          [ 20%]
+tests\test_associate.py .............................s                   [ 23%]
+tests\test_associate_extended.py .......................s.............   [ 26%]
+tests\test_audit_sdist.py ...                                            [ 26%]
+tests\test_audit_wheel.py ....                                           [ 26%]
+tests\test_bootstrap.py ........                                         [ 27%]
+tests\test_capture_schema.py ....                                        [ 27%]
+tests\test_cli_commands.py .......................                       [ 29%]
+tests\test_cli_comprehensive.py ....................                     [ 31%]
+tests\test_cli_integration.py ................                           [ 32%]
+tests\test_connect_cli.py ...........                                    [ 33%]
+tests\test_container.py .............................                    [ 35%]
+tests\test_container_extended.py ..........                              [ 36%]
+tests\test_container_with_analysis.py .............                      [ 37%]
+tests\test_did_web.py ...............                                    [ 38%]
+tests\test_docs_release_consistency.py ....                              [ 39%]
+tests\test_embed_agt_pack.py .                                           [ 39%]
+tests\test_envelope_v4.py ........                                       [ 40%]
+tests\test_environment_comprehensive.py .................                [ 41%]
+tests\test_epi_recorder_init.py .                                        [ 41%]
+tests\test_export_identity_resolution.py .                               [ 41%]
+tests\test_fault_analyzer.py ........................................... [ 45%]
+........                                                                 [ 45%]
+tests\test_fault_analyzer_insurance.py .                                 [ 45%]
+tests\test_gateway_approval_flow.py .....                                [ 46%]
+tests\test_gateway_cases.py ..........                                   [ 47%]
+tests\test_gateway_cli.py ...                                            [ 47%]
+tests\test_gateway_proxy.py .......                                      [ 47%]
+tests\test_gateway_share.py ........                                     [ 48%]
+tests\test_gateway_telemetry.py ....                                     [ 48%]
+tests\test_gateway_worker.py .......                                     [ 49%]
+tests\test_identity_mapping.py .                                         [ 49%]
+tests\test_install.py ............................                       [ 51%]
+tests\test_insurance_starter_kit.py .                                    [ 51%]
+tests\test_langchain_integration.py ..                                   [ 52%]
+tests\test_litellm_integration.py ..                                     [ 52%]
+tests\test_llm_capture.py .....                                          [ 52%]
+tests\test_ls_view.py ..........................                         [ 54%]
+tests\test_main.py .............................................         [ 58%]
+tests\test_metadata_features.py .........                                [ 59%]
+tests\test_new_features.py ............................................. [ 62%]
+......                                                                   [ 63%]
+tests\test_new_ux.py ...........                                         [ 64%]
+tests\test_onboarding_integrate.py ....                                  [ 64%]
+tests\test_openai_agents_integration.py ...                              [ 64%]
+tests\test_opentelemetry_integration.py .                                [ 64%]
+tests\test_packaging_hygiene.py ..                                       [ 65%]
+tests\test_patcher.py .....................                              [ 66%]
+tests\test_policy_cli.py ...............                                 [ 68%]
+tests\test_policy_evaluation_agt_compat.py .                             [ 68%]
+tests\test_policy_loader.py ........................                     [ 70%]
+tests\test_record_extended.py ........                                   [ 70%]
+tests\test_redactor.py .......................                           [ 72%]
+tests\test_review.py ..................                                  [ 74%]
+tests\test_review_trust_protocol.py ............                         [ 75%]
+tests\test_run_extended.py ......................                        [ 76%]
+tests\test_run_verify.py ..........................                      [ 79%]
+tests\test_runtime_boundaries.py ...                                     [ 79%]
+tests\test_scitt.py .................                                    [ 80%]
+tests\test_serialize.py .................                                [ 82%]
+tests\test_serialize_storage.py ........................................ [ 85%]
+.                                                                        [ 85%]
+tests\test_share_cli.py .........                                        [ 86%]
+tests\test_share_site_assets.py sss                                      [ 86%]
+tests\test_shared.py ..................                                  [ 88%]
+tests\test_telemetry.py ......                                           [ 88%]
+tests\test_telemetry_cli.py ..                                           [ 88%]
+tests\test_trust.py ..........................                           [ 90%]
+tests\test_truth_consistency.py ....                                     [ 91%]
+tests\test_user_workflow.py .                                            [ 91%]
+tests\test_v271_features.py .......sss................                   [ 93%]
+tests\test_validation_evidence.py ........................               [ 95%]
+tests\test_version_consistency_runtime.py ......                         [ 95%]
+tests\test_view_verify_extended.py ......................                [ 97%]
+tests\test_web_viewer_mvp.py ...                                         [ 97%]
+tests\test_workspace.py ...                                              [ 98%]
+tests\test_workspace_to_agt_exporter.py .                                [ 98%]
+tests\test_wrappers.py .........                                         [ 98%]
+tests\unit\test_cli_foundation.py ...                                    [ 99%]
+tests\unit\test_framework_adapter_foundation.py ...                      [ 99%]
+tests\unit\test_gateway_foundation.py ...                                [ 99%]
+tests\unit\test_telemetry_foundation.py ....                             [100%]
+
+============================== warnings summary ===============================
+..\AppData\Roaming\Python\Python312\site-packages\typer\params.py:946
+..\AppData\Roaming\Python\Python312\site-packages\typer\params.py:946
+..\AppData\Roaming\Python\Python312\site-packages\typer\params.py:946
+..\AppData\Roaming\Python\Python312\site-packages\typer\params.py:946
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\typer\params.py:946: DeprecationWarning: The 'is_flag' and 'flag_value' parameters are not supported by Typer and will be removed entirely in a future release.
+    return OptionInfo(
+
+tests/integration/test_epi_guardrails_stress.py: 18 warnings
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\llm_providers.py:516: DeprecationWarning: The default value of 0 for temperature is deprecated and will be removed in guardrails-ai v0.8.x and higher.
+    warnings.warn(
+
+tests/integration/test_epi_guardrails_stress.py::test_stress_multithreaded_concurrency
+tests/integration/test_epi_guardrails_stress.py::test_nested_guard_execution
+tests/integration/test_epi_guardrails_stress.py::test_stress_async_concurrency
+tests/integration/test_epi_guardrails_stress.py::test_guard_payload_structure
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\llm_providers.py:440: UserWarning: We recommend including 'messages' as keyword-only arguments for custom LLM callables. Doing so ensures these arguments are not unintentionally passed through to other calls via **kwargs.
+    warnings.warn(
+
+tests/integration/test_epi_guardrails_stress.py: 18 warnings
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\telemetry\common.py:40: DeprecationWarning: Use LLMResponse.model_dump() instead.
+    return json.dumps(val.to_dict())
+
+tests/integration/test_epi_guardrails_stress.py::test_stress_multithreaded_concurrency
+tests/integration/test_epi_guardrails_stress.py::test_stress_async_concurrency
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\validator_service\__init__.py:73: UserWarning: Could not obtain an event loop. Falling back to synchronous validation.
+    warnings.warn(
+
+tests/integration/test_epi_guardrails_stress.py: 18 warnings
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\telemetry\common.py:40: DeprecationWarning: Use Call.model_dump() instead.
+    return json.dumps(val.to_dict())
+
+tests/integration/test_epi_guardrails_stress.py: 18 warnings
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\guardrails\telemetry\common.py:40: DeprecationWarning: Use Iteration.model_dump() instead.
+    return json.dumps(val.to_dict())
+
+tests/test_user_workflow.py::test_workflow
+  C:\Users\dell\AppData\Roaming\Python\Python312\site-packages\_pytest\python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_user_workflow.py::test_workflow returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.12.10-final-0 _______________
+
+Name                                                      Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------------------------
+epi_cli\__init__.py                                           2      0   100%
+epi_cli\__main__.py                                           3      3     0%   13-16
+epi_cli\_shared.py                                           26      0   100%
+epi_cli\agt_cmd.py                                           34     24    29%   33-72
+epi_cli\chat.py                                             138    125     9%   27-42, 60-265
+epi_cli\connect.py                                          330    177    46%   47, 53, 108-111, 118, 126-130, 134-145, 149-150, 154-156, 160-174, 178-272, 304-309, 322-323, 326-327, 331-334, 361-399, 410-419, 463, 465, 467, 470-475, 483-488, 498, 501-502, 504-505, 513, 526, 539, 544
+epi_cli\debug.py                                             52      6    88%   107-112
+epi_cli\dev.py                                              235    208    11%   220-227, 231-238, 243-248, 257-301, 309-411, 416-428, 437-475, 500-673
+epi_cli\export_summary.py                                   247     35    86%   29, 35-36, 41, 47-48, 75, 86, 89, 129, 138, 168-170, 174-177, 208, 216-217, 231-234, 250, 273, 275, 357, 365-366, 385, 798-800, 835
+epi_cli\gateway.py                                          164     20    88%   97, 101, 105, 116, 118, 123, 126, 137, 139, 148, 176-178, 208, 212-214, 331, 338-339
+epi_cli\identity.py                                          42      5    88%   35-36, 72-73, 75
+epi_cli\importer.py                                          96     37    61%   53-63, 108-111, 114-115, 118-119, 143-145, 161-162, 195-229
+epi_cli\install.py                                          113     11    90%   64-70, 78-82
+epi_cli\integrate.py                                         70     17    76%   31, 57, 77-79, 88-90, 98-99, 106-107, 110, 124-125, 130-131
+epi_cli\keys.py                                              29     10    66%   28-37, 48-49
+epi_cli\ls.py                                                95     24    75%   175-212
+epi_cli\main.py                                             805    282    65%   100, 105-110, 125-126, 161-163, 176-179, 187-188, 226, 242-243, 259, 380-384, 401-404, 409-412, 417-420, 434-436, 489-491, 520-522, 531-533, 548-551, 556-560, 569-570, 575-579, 636-637, 642-643, 667-669, 673-675, 679-682, 685-686, 690-726, 737, 741, 749-757, 776, 832-843, 877-917, 986, 988, 1000, 1022-1030, 1036-1038, 1243, 1277-1278, 1286, 1288, 1306-1307, 1312-1313, 1321-1325, 1392-1394, 1403, 1408, 1414-1415, 1425-1426, 1439-1440, 1455-1458, 1484-1485, 1512-1514, 1525-1534, 1545-1546, 1571-1601, 1613-1692, 1696
+epi_cli\onboarding.py                                        61     14    77%   28-29, 58-66, 135-214, 222
+epi_cli\policy.py                                           362    129    64%   173, 195, 203-205, 272, 278, 280, 284, 320, 324, 331, 345, 348, 351, 354-369, 372-387, 390-405, 417, 420, 423, 426, 447-452, 493-494, 510-512, 515-516, 532-533, 536-539, 571-572, 589-604, 617-618, 646-654, 658-660, 671-672, 708-760
+epi_cli\record.py                                            67      9    87%   39-41, 83-85, 118-120
+epi_cli\review.py                                           219     70    68%   35, 44-45, 102, 127-128, 164-166, 179-181, 193-195, 209-210, 217, 219-220, 253-254, 265-267, 276-278, 296-313, 336-369
+epi_cli\run.py                                              353     69    80%   99-110, 121-122, 128, 135-136, 143, 150-151, 157, 163-165, 183-184, 201-202, 234, 241-245, 270, 273-274, 320-341, 353-359, 374-375, 411, 423-427, 453-454
+epi_cli\scitt.py                                            146     97    34%   43-45, 52, 55, 80-81, 87-89, 92-96, 112-114, 120-121, 127-145, 164-226, 246-296
+epi_cli\share.py                                             77     18    77%   35, 42-46, 89-100
+epi_cli\telemetry.py                                         75     21    72%   71-74, 81, 83, 85, 87, 93, 98, 112-114, 120, 137-147
+epi_cli\telemetry_hint.py                                    26     12    54%   30-43
+epi_cli\verify.py                                           422     93    78%   71-78, 142, 273, 277, 280, 289-302, 476-477, 493, 500-504, 511-513, 523, 538-585, 608, 612-619, 645-646, 663-664, 674-701, 773, 778-780, 798, 802-805, 825-826, 828-829
+epi_cli\view.py                                             323    114    65%   118-119, 130-142, 146, 151-196, 201-224, 302-303, 307, 316-317, 323-326, 336, 339-342, 355-356, 373-374, 413, 439, 449-461, 507-509, 538, 541-543, 549-559
+epi_core\__init__.py                                          8      0   100%
+epi_core\_version.py                                         18      5    72%   29-34
+epi_core\artifact_inspector.py                               59      6    90%   46, 62, 67, 70, 83-84
+epi_core\auth_local.py                                       77     12    84%   31, 41, 45, 50-51, 67, 71, 80, 85, 88, 94, 98
+epi_core\capture.py                                         125      4    97%   108, 110, 113, 142
+epi_core\case_store.py                                      891    106    88%   49, 52-53, 76, 84-91, 105, 114, 118-120, 132-133, 145, 408, 414, 416, 418, 420, 485-487, 489-497, 532, 876, 881, 929, 940, 990, 1035, 1049-1058, 1064, 1080, 1087, 1110-1118, 1126-1127, 1145, 1189-1190, 1196, 1319, 1421, 1439, 1482-1597, 1696, 1767, 1769, 1771, 1773, 1775, 1777, 1779, 1781, 1796, 1826, 1830-1831, 1901, 1938-1941, 1960, 1999, 2004, 2040, 2063, 2071, 2079, 2123, 2125
+epi_core\connectors.py                                      138     65    53%   28, 38-60, 91-92, 105-106, 116-117, 136, 147-157, 169-179, 191-202, 214-229, 243, 245, 259, 288
+epi_core\container.py                                       609     86    86%   92-93, 101-102, 113, 118-119, 142-160, 172, 281-282, 298-300, 321, 345, 352-353, 357, 363, 365, 367, 369, 375, 384, 388-389, 426, 433, 526, 573-577, 655-663, 879-916, 994, 1023, 1089, 1109, 1112-1113, 1127, 1136, 1139, 1177
+epi_core\did_web.py                                          87     36    59%   32-33, 36, 39-46, 139, 151-169, 182-188, 209
+epi_core\fault_analyzer.py                                  742    118    84%   151, 184, 213, 216, 378, 396-407, 413, 432-433, 468, 470-471, 503, 507, 514, 518-520, 524-526, 534, 544, 572, 603-609, 619, 649, 662, 670, 682, 691, 695, 745-756, 791-792, 832-833, 838-839, 845-846, 851-852, 857-858, 863-864, 870-871, 876-877, 883-884, 913, 1034, 1043-1049, 1099, 1106, 1163, 1173, 1181, 1188, 1257, 1264, 1268-1269, 1415, 1422, 1435, 1438-1458, 1514, 1523, 1531, 1592-1596, 1600-1605, 1618, 1627
+epi_core\keys.py                                             78      6    92%   24-25, 41, 71, 110, 118
+epi_core\llm_capture.py                                     216     51    76%   62, 77-91, 97-99, 103-107, 111-115, 122, 127, 149-160, 266, 278-279, 283-284, 294, 339, 363, 369
+epi_core\platform\__init__.py                                 2      0   100%
+epi_core\platform\associate.py                              544    148    73%   47, 69, 79-82, 109, 120-121, 127-131, 149, 155-159, 307-317, 344-345, 398, 426-432, 458, 461, 480-482, 513-514, 539-540, 548, 567-568, 588-638, 659-661, 663, 681, 713-714, 727, 731, 742-811, 816, 821-838, 873, 899-901, 912-914, 1031-1032, 1036, 1087, 1090, 1135-1136, 1141-1142, 1153-1161, 1177-1179, 1222-1223, 1228-1229, 1245, 1259, 1267
+epi_core\policy.py                                          172     35    80%   143, 150, 202, 459, 492, 505, 518, 641-734
+epi_core\redactor.py                                        146     28    81%   89, 91, 98, 101, 161-170, 174, 178-181, 188, 205, 211, 221, 227, 230, 278, 374-377
+epi_core\review.py                                          382     47    88%   66, 74, 77, 125-126, 192, 224, 226, 228, 267, 293-294, 296-297, 308, 317, 327, 329-330, 343-344, 346, 349-350, 356-357, 359, 362-363, 369, 394-395, 434, 486, 494-495, 529-530, 540-545, 588-589, 623
+epi_core\schemas.py                                          87      0   100%
+epi_core\scitt.py                                           213     44    79%   100-101, 104, 108, 114-115, 120, 122, 124, 126, 230, 236, 273, 280, 347, 375, 447-457, 459-460, 473-485, 531-532, 542-543, 546-549
+epi_core\serialize.py                                        58      3    95%   38, 131-132
+epi_core\storage.py                                          62      3    95%   48-50
+epi_core\telemetry.py                                       282     61    78%   107-108, 139, 142-143, 153-154, 156-158, 178-181, 227, 229, 231, 234-236, 248, 260, 266, 277, 297, 304, 306, 309, 315, 334-345, 352, 355-356, 372, 384-385, 390-391, 394-396, 400-401, 407-411, 435, 454, 472, 474, 476, 479, 482, 484
+epi_core\time_utils.py                                        5      0   100%
+epi_core\trust.py                                           254     41    84%   25-26, 144-145, 160-161, 186-187, 278-284, 305-308, 341-342, 350-351, 361-378, 383, 436, 502, 525, 537, 558, 574, 576-577, 603-604
+epi_core\viewer_assets.py                                    56     17    70%   15, 21-25, 40, 73-74, 91-104
+epi_core\workspace.py                                        50      2    96%   70-71
+epi_gateway\__init__.py                                       2      0   100%
+epi_gateway\approval_notify.py                               53     22    58%   25, 78-119
+epi_gateway\main.py                                         837    146    83%   135, 137, 139-140, 142-143, 145, 147, 149, 151, 153, 155, 157, 159, 163, 165, 169, 171, 203, 220, 265-266, 376-383, 405-406, 497, 504-505, 551-552, 571, 578, 591, 600, 605, 638, 648, 653, 658, 681, 690-691, 700-701, 709, 1053-1088, 1103-1105, 1110, 1115-1119, 1132-1134, 1147-1149, 1165-1167, 1173-1174, 1195-1220, 1224-1273, 1278, 1287-1288, 1303, 1315, 1329, 1366-1367, 1372-1373, 1394, 1476, 1485-1486, 1489-1497, 1507-1508, 1516, 1532-1535, 1546-1547, 1574-1578, 1598-1599
+epi_gateway\proxy.py                                        100      6    94%   127, 167, 195-196, 199-200
+epi_gateway\share.py                                        258     32    88%   43, 229, 261, 279-287, 296, 304-308, 311-314, 360, 372, 386-389, 400, 404, 486, 496-497, 516, 518, 540-541
+epi_gateway\worker.py                                       162     19    88%   57, 66-69, 103, 257-262, 265-266, 270, 295-296, 333-334
+epi_recorder\__init__.py                                     11      2    82%   33-35
+epi_recorder\analytics\__init__.py                          132    132     0%   16-456
+epi_recorder\analytics\engine.py                              2      2     0%   7-9
+epi_recorder\api.py                                         575    115    80%   61, 111, 114, 117, 120, 124, 128, 131, 135-136, 140, 156-161, 250, 265, 282, 316, 322, 350, 392, 433, 473, 496, 538, 579, 594, 607, 627, 637-648, 651-662, 670, 688, 812-816, 924, 933-1001, 1009, 1012, 1018, 1022, 1085, 1117, 1248, 1281-1311, 1365, 1384, 1410, 1443, 1500-1502, 1521-1523, 1572-1575, 1741-1745, 1795, 1840
+epi_recorder\async_api.py                                    77     77     0%   1-154
+epi_recorder\auto.py                                         62     57     8%   64-136
+epi_recorder\bootstrap.py                                   114     21    82%   41, 44, 47, 50, 54, 58, 61, 65-66, 70, 78-79, 85-86, 95, 109, 131-133, 156-157, 187
+epi_recorder\environment.py                                  75     22    71%   30-31, 82-97, 201-202, 240-248, 266
+epi_recorder\integrations\__init__.py                        24     17    29%   18-19, 32-41, 56-68
+epi_recorder\integrations\agt\__init__.py                     5      0   100%
+epi_recorder\integrations\agt\converter.py                   87      4    95%   105, 108, 120, 169
+epi_recorder\integrations\agt\exporter.py                   185     35    81%   30-31, 45, 47, 58, 60, 69-70, 75, 92, 103, 105-108, 115-117, 121, 126, 134, 156-157, 179, 187, 231-232, 268-269, 273, 276-277, 312-313, 335
+epi_recorder\integrations\agt\loader.py                     161     16    90%   72, 88-89, 102-103, 154-155, 223-224, 232, 246-251
+epi_recorder\integrations\agt\mapping.py                    437     92    79%   32, 38, 47-50, 62, 65-66, 75-77, 111-122, 131-136, 158, 161, 171-173, 176, 181-183, 263-265, 267-270, 272-275, 281, 300, 302, 450, 636, 641-643, 648, 669-695, 722, 758, 820-825, 916-919, 968, 1076-1100, 1128, 1266-1278, 1352, 1384
+epi_recorder\integrations\agt\report.py                     266     17    94%   157, 233, 251-252, 287, 296-301, 319-324, 492, 498
+epi_recorder\integrations\agt\schema.py                      48      3    94%   70, 73, 76
+epi_recorder\integrations\agt_adapter\__init__.py             6      0   100%
+epi_recorder\integrations\agt_adapter\compat.py              26      3    88%   31-32, 45
+epi_recorder\integrations\agt_adapter\detect.py              68     16    76%   43-46, 73-74, 83-91, 112, 118
+epi_recorder\integrations\agt_adapter\errors.py               5      0   100%
+epi_recorder\integrations\agt_adapter\exporter.py            47      4    91%   54, 105-106, 114
+epi_recorder\integrations\agt_adapter\importer.py            73      2    97%   54, 181
+epi_recorder\integrations\agt_adapter\mapping_report.py      18      4    78%   37, 49-57, 66
+epi_recorder\integrations\agt_adapter\schemas.py            113      1    99%   206
+epi_recorder\integrations\agt_adapter\transforms.py          50      5    90%   50-64, 137
+epi_recorder\integrations\guardrails.py                      22      0   100%
+epi_recorder\integrations\langchain.py                      245    126    49%   40-58, 91-92, 104-108, 112-132, 165, 192-205, 225, 237-243, 246-248, 261, 276-294, 312, 341, 371-393, 410, 421, 424-425, 447, 459-462, 483-490, 510-516, 532-559, 570-577, 597, 622
+epi_recorder\integrations\langgraph.py                       79     79     0%   22-319
+epi_recorder\integrations\litellm.py                        140     84    40%   66-70, 79, 85-95, 99-107, 111-119, 123-136, 142-149, 158-188, 192-214, 220, 224, 228, 235, 239, 249, 252, 295-296, 326-327
+epi_recorder\integrations\openai_agents.py                  181     43    76%   29, 32-46, 52, 58-60, 87, 90-93, 145, 158, 195-197, 216-225, 228-236, 239-240, 250, 266-271, 274-275, 293
+epi_recorder\integrations\opentelemetry.py                  195     52    73%   62-79, 122, 168-169, 183-184, 215, 228, 236, 247, 270, 279, 283, 287, 304, 311, 317, 321, 323, 335-338, 354-355, 358, 375, 425-426, 465-489
+epi_recorder\patcher.py                                     240    138    42%   31, 190-197, 218-282, 289-291, 300-378, 397-480, 485-487, 509-556, 562-566, 604-636
+epi_recorder\step_types.py                                   95     95     0%   18-173
+epi_recorder\wrappers\__init__.py                            13      7    46%   38-46
+epi_recorder\wrappers\anthropic.py                           81     66    19%   21-22, 26-27, 35-125, 133-194, 225-226, 234, 262
+epi_recorder\wrappers\base.py                                27     17    37%   30-31, 35-37, 55-68, 72-74
+epi_recorder\wrappers\openai.py                              90     41    54%   41, 50, 105-119, 128-212, 263
+pytest_epi\__init__.py                                        0      0   100%
+pytest_epi\plugin.py                                        109     91    17%   38-80, 93, 98, 103-110, 116-169, 175-226, 234-250
+---------------------------------------------------------------------------------------
+TOTAL                                                     15569   4265    73%
+Coverage HTML written to dir htmlcov
+========== 1207 passed, 10 skipped, 83 warnings in 405.55s (0:06:45) ==========
+EXIT_CODE=0
