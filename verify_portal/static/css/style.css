@@ -140,7 +140,7 @@ code{font-family:var(--mono);font-size:0.82em;color:var(--pass);background:rgba(
 
 .term{background:var(--bg);border:1px solid var(--line2);overflow:hidden;max-width:640px;margin:0 auto;font-family:var(--mono);font-size:0.78rem;transition:all 0.3s var(--ease);box-shadow:0 16px 48px rgba(0,0,0,0.5)}
 .term:hover{border-color:var(--line3);transform:translateY(-3px);box-shadow:0 20px 60px rgba(0,0,0,0.6)}
-.term::before{content:'EPI_FORENSIC_INTERFACE v4.1.0';display:block;padding:0.5rem 0.9rem;font-size:0.6rem;font-weight:700;color:var(--pass);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--bg2)}
+.term::before{content:'EPI_FORENSIC_INTERFACE v4.2.0';display:block;padding:0.5rem 0.9rem;font-size:0.6rem;font-weight:700;color:var(--pass);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--bg2)}
 .term-body{padding:1.2rem;color:var(--ink3);line-height:1.9;max-height:340px;overflow-y:auto}
 .term-body div{opacity:0}
 .term-body .tp{color:var(--pass);margin-right:0.5rem;font-weight:700}
