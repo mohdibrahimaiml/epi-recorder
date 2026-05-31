@@ -89,7 +89,7 @@ epi verify --strict loan-approval.epi
 
 ```text
 ────────────────────────────────────────────────────
-  EPI Verification Report (v4.1.0)
+  EPI Verification Report (v4.2.0)
 ────────────────────────────────────────────────────
   Trust Level:  HIGH
   Signature:    VALID   (Ed25519)
