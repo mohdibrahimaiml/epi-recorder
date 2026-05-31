@@ -2,6 +2,41 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.2.0] - 2026-05-31
+
+### Portal Launch, SCITT Service & AGT Interoperability
+
+#### Added
+
+- Live verify portal - Full EPI-OFFICIAL website on Render.
+- SCITT transparency service - Live receipt signing and verification.
+- AGT adapter - Microsoft AGT mapping layer.
+- AIUC-1 compliance mapping - 6-domain audit layer.
+- epi export-html - Zero-install browser sharing.
+- Auto-SCITT anchoring - Per-workflow receipt embedding.
+- DID:WEB trust registry - did:web:epilabs.org identity.
+
+#### Changed
+
+- Render deployment - render.yaml blueprint.
+- Railway deployment - railway.toml config.
+- Self-hosted runbook - Operations guide.
+
+#### Fixed
+
+- Security audit - 8 flaws resolved.
+- SCITT hash consistency - Statement alignment.
+- Viewer error handling - Error URLs, 413 handling.
+- Portal routing - Explicit routes, redirects.
+- Packaging hygiene - verify_portal in wheels.
+
+#### Documentation
+
+- New: AGT quickstart, AIUC-1 submission, SCITT predicate.
+- Updated: CLI ref, spec, release docs, README.
+
+---
+
 EPI follows [Semantic Versioning](https://semver.org/) and treats version changes as
 **corrections to evidence guarantees**, not just feature updates.
 
