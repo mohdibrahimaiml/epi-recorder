@@ -95,7 +95,7 @@ class KeyManager:
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
 
-        key_password = os.environ.get(EPI_KEY_PASSWORD)
+        key_password = os.environ.get("EPI_KEY_PASSWORD")
         encryption = serialization.BestAvailableEncryption(key_password.encode()) if key_password else serialization.NoEncryption()
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
