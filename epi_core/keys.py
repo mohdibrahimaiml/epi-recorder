@@ -95,10 +95,12 @@ class KeyManager:
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
 
+        key_password = os.environ.get(EPI_KEY_PASSWORD)
+        encryption = serialization.BestAvailableEncryption(key_password.encode()) if key_password else serialization.NoEncryption()
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
+            encryption_algorithm=encryption,
         )
         public_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
@@ -126,7 +128,8 @@ class KeyManager:
             raise FileNotFoundError(
                 f"Private key '{name}' not found. Generate with: epi keys generate --name {name}"
             )
-        return serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+        key_password = os.environ.get("EPI_KEY_PASSWORD")
+        return serialization.load_pem_private_key(key_path.read_bytes(), password=key_password.encode() if key_password else None)
 
     def load_public_key(self, name: str = "default") -> bytes:
         """Load a public key from disk."""

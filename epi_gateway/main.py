@@ -1175,6 +1175,11 @@ def create_app(
 
         inbound_headers = dict(request.headers)
         failure_mode = _resolve_failure_mode(inbound_headers, runtime_settings)
+        if failure_mode == "fail-closed" and not runtime_worker.snapshot().get("ready"):
+            return _capture_failure_response(
+                "EPI Gateway worker not ready - cannot accept requests in fail-closed mode.",
+                settings=runtime_settings,
+            )
         try:
             result, capture_request = relay_openai_chat_completions(payload, inbound_headers)
             try:
