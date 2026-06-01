@@ -37,8 +37,11 @@ class TracedCompletions:
 
         # Warn on every call path (non-streaming and streaming) so the
         # developer sees the message regardless of how they use the client.
-        if session is None and os.getenv("EPI_QUIET", "0") != "1":
-            warnings.warn(
+        if session is None:
+            if os.getenv("EPI_ENFORCE") == "1":
+                raise RuntimeError("EPI_ENFORCE=1: wrap_openai() call rejected - no record() context")
+            elif os.getenv("EPI_QUIET", "0") != "1":
+                warnings.warn(
                 "wrap_openai() call detected outside a record() context — no evidence will be captured. "
                 "Did you forget `with record('my_agent.epi'):`? "
                 "Set EPI_QUIET=1 to suppress this warning.",

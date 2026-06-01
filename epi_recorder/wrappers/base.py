@@ -3,6 +3,7 @@ Base classes for EPI traced clients.
 """
 
 from abc import ABC
+import os
 from typing import Any, Optional
 
 from epi_core.time_utils import utc_now_iso
@@ -25,10 +26,12 @@ class TracedClientBase(ABC):
         """
         self._client = client
     
-    def _get_session(self):
-        """Get the current active EPI recording session."""
+    def _get_session(self, enforce=False):
         from epi_recorder.api import get_current_session
-        return get_current_session()
+        session = get_current_session()
+        if session is None and (enforce or os.getenv("EPI_ENFORCE") == "1"):
+            raise RuntimeError("EPI_ENFORCE=1: LLM call outside record() context rejected")
+        return session
     
     def _log_request(self, provider: str, model: str, messages: list, **kwargs) -> None:
         """Log an LLM request to the active session."""
