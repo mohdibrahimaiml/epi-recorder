@@ -57,7 +57,7 @@ Following the ZIP marker, the remaining bytes form a standard ZIP archive contai
 
 ### 2.3 Legacy Format
 
-Prior to v4.0.0, `.epi` files used the magic bytes `EPI1` (binary, not polyglot). Implementations SHOULD support reading legacy `EPI1` containers but SHOULD NOT produce them.
+Prior to v4.0.0 (legacy EPI1 header), `.epi` files used the magic bytes `EPI1` (binary, not polyglot). Implementations SHOULD support reading legacy `EPI1` containers but SHOULD NOT produce them.
 
 ---
 
