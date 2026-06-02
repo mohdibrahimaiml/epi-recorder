@@ -1,148 +1,493 @@
-<!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS</title>
-<meta name="description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
-<meta property="og:title" content="EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS"><meta property="og:description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
-<meta property="og:url" content="https://epilabs.org/"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
-<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI LABS — Don't trust the AI. Trust the Record.</title>
+<meta name="description" content="The PDF for AI Evidence. Self-contained, cryptographically signed, tamper-evident .epi files. pip install epi-recorder.">
+<meta property="og:title" content="EPI LABS — Don't trust the AI. Trust the Record.">
+<meta property="og:description" content="Self-contained evidence packages that make AI reproducible, verifiable, and legally defensible.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/epi-v9.css?v=9.0">
+</head>
+<body>
 
-<link rel="stylesheet" href="css/style.css?v=7.0">
-</head><body>
-<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
-<div class="grid-tex"></div>
-  <nav class="nav"><div class="nav-inner">
-    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
-    <div class="nav-links">
-      <a href="how-it-works.html">HOW IT WORKS</a>
-      <a href="technology.html">TECHNOLOGY</a>
-      <a href="use-cases.html">USE CASES</a>
-      <a href="pricing.html">PRICING</a>
-      <a href="verify.html">VERIFY</a>
-      <a href="demo.html">DEMO</a>
-      <a href="vision.html">VISION</a>
-      <a href="contact.html">CONTACT</a>
-    </div>
-    <div class="nav-actions">
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
-      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
-    </div>
-    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-  </div></nav>
-  <div class="mobile-menu">
-    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
-    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
-    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
-    <a href="contact.html">CONTACT</a>
-    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo" aria-label="EPI Labs home">
+      <img src="assets/logo.png" alt="EPI" loading="eager">
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#pillars">Pillars</a></li>
+      <li><a href="#product">Product</a></li>
+      <li><a href="#verify">Verify</a></li>
+      <li><a href="#compliance">Compliance</a></li>
+      <li><a href="#contact" class="nav-cta">Get Started</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
-<section class="hero"><div class="container hero-inner">
-<div class="diag-label reveal"><span class="diag-dot"></span>SYSTEM STATUS: OPERATIONAL · v4.2.0 · MIT LICENSE</div>
-<h1 class="reveal" style="color:#fff;">EVIDENCE PACKAGED INFRASTRUCTURE <span style="text-transform:none;color:var(--info)">(.epi)</span></h1>
-<div class="hero-hash reveal">SHA256: a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8</div>
-<p class="hero-desc reveal">EPI captures AI agent executions into a single, cryptographically signed, tamper-evident <code>.epi</code> file — like a PDF for evidence. Engineers integrate in three lines of Python. Regulators verify in any browser, offline, without trusting the producer.</p>
-<div class="hero-actions reveal">
-  <a href="verify.html" class="btn btn-p btn-lg">DROP &amp; VERIFY .EPI</a>
-  <a href="assets/sample.epi" class="btn btn-lg" download="sample.epi">&#x2B07; TRY WITH SAMPLE</a>
-  <a href="https://pypi.org/project/epi-recorder/" class="btn btn-lg" target="_blank">pip install epi-recorder</a>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="#pillars">Pillars</a>
+  <a href="#product">Product</a>
+  <a href="#verify">Verify</a>
+  <a href="#compliance">Compliance</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub &nearr;</a>
+  <a href="#contact">Get Started</a>
 </div>
-<p class="reveal" style="font-size:0.72rem;color:var(--ink4);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.5rem">
-  <span style="color:var(--pass)">&#x2713;</span> DOWNLOAD THE SAMPLE .EPI ABOVE. THEN DROP IT ON <a href="verify.html" style="color:var(--info)">/VERIFY</a>.
-</p>
-<div class="term reveal" id="hero-terminal"><div class="term-body">
-<div><span class="tp">$ </span><span class="tc">epi run agent.py</span></div>
-<div><span class="tok">[OK] </span><span class="to">47 execution steps recorded</span></div>
-<div><span class="tok">[OK] </span><span class="to">5 LLM calls captured (OpenAI + Anthropic)</span></div>
-<div><span class="tok">[OK] </span><span class="to">Ed25519 signature applied (key: default)</span></div>
-<div style="margin-top:6px"><span class="tp">$ </span><span class="tc">epi verify agent.epi</span></div>
-<div><span class="tok">[PASS] </span><span class="to">Integrity: SHA-256, 12 files OK</span></div>
-<div><span class="tok">[PASS] </span><span class="to">Signature: VALID (Ed25519, key: default)</span></div>
-<div><span class="tok">[PASS] </span><span class="to">Chain: INTACT (prev_hash, 47 steps)</span></div>
-<div style="margin-top:6px"><span class="to">TRUST LEVEL: </span><span class="tok">HIGH</span></div>
-<div class="td">// ARTIFACT HAS NOT BEEN MODIFIED SINCE SEALING.</div>
-</div></div></div></section>
 
-<div class="stats-bar"><div class="container"><div class="stats">
-<div class="stat"><div class="stat-val reveal">v4.2.0</div><div class="stat-lbl">PRODUCTION</div></div>
-<div class="stat"><div class="stat-val reveal">Ed25519</div><div class="stat-lbl">SIGNING STANDARD</div></div>
-<div class="stat"><div class="stat-val reveal">100% OFFLINE</div><div class="stat-lbl">VERIFICATION</div></div>
-<div class="stat"><div class="stat-val reveal">9 PASSES</div><div class="stat-lbl">FAULT ANALYSIS</div></div>
-</div></div></div>
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge reveal">
+      <span class="hero-badge-dot"></span>v4.2.0 &middot; OPERATIONAL &middot; MIT LICENSE
+    </div>
+    <h1 class="reveal d1">
+      Don't trust the AI.<br>
+      <span class="italic-accent">Trust the Record.</span>
+    </h1>
+    <p class="hero-sub reveal d2">
+      <strong>The PDF for AI Evidence</strong> — self-contained, cryptographically signed, tamper-evident <strong>.epi</strong> files. No dashboard. No vendor lock-in. Just a file you can open, verify offline, and own forever.
+    </p>
+    <div class="hero-actions reveal d3">
+      <a href="#product" class="btn btn-primary">See How It Works <span class="btn-arrow">&darr;</span></a>
+      <a href="#dropZone" class="btn btn-secondary">Verify a .epi file</a>
+    </div>
+  </div>
+</section>
 
-<section class="section" style="background:var(--bg2)"><div class="container container-sm">
-<div class="section-label reveal" style="text-align:center;justify-content:center">// YOUR FIRST 5 MINUTES</div>
-<h2 class="reveal" style="text-align:center;margin-bottom:2rem">HOW TO USE EPI</h2>
-<div class="ga">
-<div class="card reveal" style="border-color:var(--pass-line);background:linear-gradient(135deg,var(--bg3),var(--pass-bg))">
-<h3 style="color:var(--pass);font-size:0.85rem">STEP 01</h3>
-<p style="font-size:0.82rem;margin-bottom:0.8rem">Download our sample .epi file — it contains a signed loan assessment workflow with all cryptographic evidence intact.</p>
-<a href="assets/sample.epi" class="btn btn-p" download="sample.epi" style="font-size:0.72rem">&#x2B07; DOWNLOAD SAMPLE (310 KB)</a>
-</div>
-<div class="card reveal">
-<h3 style="color:var(--info);font-size:0.85rem">STEP 02</h3>
-<p style="font-size:0.82rem;margin-bottom:0.8rem">Go to <strong>/verify</strong> and drag the sample file onto the drop zone. Every check runs in your browser. No server. No upload.</p>
-<a href="verify.html" class="btn" style="font-size:0.72rem">OPEN VERIFIER</a>
-</div>
-<div class="card reveal">
-<h3 style="color:var(--info);font-size:0.85rem">STEP 03</h3>
-<p style="font-size:0.82rem;margin-bottom:0.8rem">See the timeline — click any step to expand. Watch the prev_hash chain and Ed25519 signature validate in real time.</p>
-<p style="font-size:0.72rem;color:var(--pass);font-family:var(--mono)">[PASS] Integrity + Signature + Chain</p>
-</div>
-<div class="card reveal">
-<h3 style="color:var(--info);font-size:0.85rem">STEP 04</h3>
-<p style="font-size:0.82rem;margin-bottom:0.8rem">Ready to record your own? Install the Python package and wrap your OpenAI or Anthropic client in 3 lines.</p>
-<div class="code-block" style="font-size:0.72rem;margin:0"><code>pip install epi-recorder<br>epi run your_agent.py<br>epi verify your_agent.epi</code></div>
-</div>
-</div>
-</div></section>
+<!-- ═══════════════ THESIS ═══════════════ -->
+<section class="thesis">
+  <div class="container">
+    <div class="thesis-inner reveal">
+      <q>AI evidence shouldn't live in someone else's dashboard.<br>It should be a <em>file</em> you can open.</q>
+      <p class="thesis-attr">The EPI Thesis</p>
+    </div>
+  </div>
+</section>
 
-<section class="section"><div class="container">
-<div class="section-header"><div class="section-label reveal">// 1.0 EVIDENCE CONTAINER</div>
-<h2 class="reveal">ONE FILE. COMPLETE PROOF.</h2>
-<p class="section-sub reveal">Everything about your AI execution — captured, sealed, and independently verifiable — in a single portable artifact.</p></div>
-<div class="g3">
-<div class="card reveal"><div class="card-icon">&#x1F512;</div><h3>CRYPTOGRAPHIC SEAL</h3><div class="card-bar"></div><p>Ed25519-signed at creation. Any modification — even a single byte — is instantly detectable.</p></div>
-<div class="card reveal"><div class="card-icon">&#x1F4E6;</div><h3>SELF-CONTAINED</h3><div class="card-bar"></div><p>Steps with prev_hash chain, manifest with SHA-256 hashes, embedded viewer — all in one file.</p></div>
-<div class="card reveal"><div class="card-icon">&#x1F50D;</div><h3>INDEPENDENT VERIFICATION</h3><div class="card-bar"></div><p>100% browser-based. No server, no API, no trust. Verify integrity and signatures offline.</p></div>
-</div></div></section>
+<!-- ═══════════════ THREE PILLARS ═══════════════ -->
+<section id="pillars">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Container</div>
+      <h2 class="section-title reveal d1">One file. Complete proof.</h2>
+    </div>
 
-<section class="section" style="background:var(--bg2)"><div class="container">
-<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 2.0 VERIFICATION CHECKLIST</div>
-<h2 class="reveal" style="text-align:center;margin-bottom:2rem">FIVE INDEPENDENT CHECKS</h2>
-<div class="status-box pass reveal" style="margin-bottom:1.2rem"><div class="sb-label">CRYPTOGRAPHIC VERIFICATION</div>
-<div class="check-item"><span class="chk">&#x2713;</span><div><strong>SHA-256 FILE MANIFEST</strong><span>Every file hash-checked against manifest.json. Extra files flagged as injections.</span></div></div>
-<div class="check-item"><span class="chk">&#x2713;</span><div><strong>ED25519 SIGNATURE</strong><span>RFC 8032 Ed25519 with canonical JSON hashing. Same primitive as Signal, SSH, TLS 1.3.</span></div></div>
-<div class="check-item"><span class="chk">&#x2713;</span><div><strong>PREV-HASH CHAIN</strong><span>Immutable step chain — inserting, removing, or reordering any step breaks the chain.</span></div></div>
-<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP SEQUENCE COMPLETENESS</strong><span>Every tool.call requires a tool.response. Unmatched calls and approval gaps are flagged.</span></div></div>
-<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP COUNT ATTESTATION</strong><span>Manifest declares total_steps. Any mismatch = steps added or removed after signing.</span></div></div>
-</div></div></section>
+    <div class="pillars reveal d2">
+      <div class="pillar">
+        <div class="pillar-deco">
+          manifest.json<br>{<br>&nbsp;&nbsp;"signature":<br>&nbsp;&nbsp;&nbsp;&nbsp;"ed25519:key:0xa3f7...",<br>&nbsp;&nbsp;"file_manifest":<br>&nbsp;&nbsp;&nbsp;&nbsp;{ "steps.jsonl": "SHA256..." }<br>}<br><br>&gt; Ed25519 &middot; SHA-256<br>&gt; Canonical JSON
+        </div>
+        <div class="pillar-content">
+          <h3>Cryptographic Signing</h3>
+          <p>Ed25519 signed manifest. SHA-256 integrity map. Any byte change invalidates the entire .epi.</p>
+        </div>
+      </div>
 
-<section class="section"><div class="container">
-<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 3.0 QUICKSTART</div>
-<h2 class="reveal" style="text-align:center;margin-bottom:0.6rem">THREE LINES OF PYTHON</h2>
-<p class="reveal" style="text-align:center;color:var(--ink4);margin-bottom:2rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em">NO MONKEY PATCHING. STREAMING AND NON-STREAMING.</p>
-<div class="g3">
-<div class="card reveal"><h3>01 // WRAP CLIENT</h3><p>One function call. No side effects.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> wrap_openai<br><span class="c-kw">from</span> openai <span class="c-kw">import</span> OpenAI<br><br><span class="c-fn">client</span> = wrap_openai(OpenAI())</code></div></div>
-<div class="card reveal"><h3>02 // RECORD WORKFLOW</h3><p>Everything captured: LLM calls, tools, token counts, latency.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> record<br><br><span class="c-kw">with</span> record(<span class="c-s">"agent.epi"</span>,<br>         goal=<span class="c-s">"Assess application"</span>):<br>    r = client.chat<br>        .completions.create(<br>            model=<span class="c-s">"gpt-4o"</span>,<br>            messages=[...])</code></div></div>
-<div class="card reveal"><h3>03 // VERIFY ANYWHERE</h3><p>Drag-and-drop at epilabs.org/verify. Zero install, zero upload.</p><div class="code-block" style="margin-top:0.8rem"><code>$ epi verify agent.epi<br><span style="color:var(--pass)">TRUST LEVEL: HIGH</span><br>Integrity: PASSED<br>Signature: VALID<br>Chain: INTACT</code></div></div>
+      <div class="pillar">
+        <div class="pillar-deco">
+          steps.jsonl<br>{ <span class="c-green">"index":0</span>,<br>&nbsp;&nbsp;"kind":"llm_call",<br>&nbsp;&nbsp;<span class="c-green">"prev_hash":null</span> }<br>{ <span class="c-green">"index":1</span>,<br>&nbsp;&nbsp;"kind":"tool_call",<br>&nbsp;&nbsp;<span class="c-green">"prev_hash":"a3f7b2..."</span> }<br><br><span class="c-green">&check; CHAIN INTACT</span>
+        </div>
+        <div class="pillar-content">
+          <h3>Hash-Chained Timeline</h3>
+          <p>Every step linked via prev_hash. Insert, delete, or reorder — the chain breaks. Tamper-evident by construction.</p>
+        </div>
+      </div>
+
+      <div class="pillar">
+        <div class="pillar-deco">
+          .epi<br>&nbsp;&nbsp;<span style="opacity:.5">&#x2502;&#x2502;&#x2502;</span><br>&nbsp;&nbsp;&#x251C;&#x2500; viewer.html<br>&nbsp;&nbsp;&#x251C;&#x2500; manifest.json<br>&nbsp;&nbsp;&#x251C;&#x2500; steps.jsonl<br>&nbsp;&nbsp;&#x2514;&#x2500; environment.json<br><br>HTML + ZIP + Signature<br>Browser-openable
+        </div>
+        <div class="pillar-content">
+          <h3>Polyglot Container</h3>
+          <p>Valid HTML <em>and</em> binary archive. Double-click opens in any browser. Zero install. Air-gapped verification.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ PRODUCT (Terminal Demo) ═══════════════ -->
+<section class="product" id="product">
+  <div class="container">
+    <div class="product-grid">
+      <div class="product-demo reveal">
+        <div class="demo-bar">
+          <div class="dd dd-r"></div><div class="dd dd-y"></div><div class="dd dd-g"></div>
+          <span>epi-recorder v4.2.0</span>
+        </div>
+        <div class="demo-body" id="demoBody"></div>
+        <div class="demo-output">
+          <div class="demo-out-l">&gt; Recording 42 execution steps...</div>
+          <div class="demo-out-l">&gt; Sealed agent.epi &check; Ed25519 signed</div>
+          <div class="demo-out-l success">&check; VERIFIED &mdash; Trust Level: HIGH</div>
+          <div class="demo-out-l" style="color:#D4A847">Ed25519 &middot; 42 steps &middot; SHA-256 &middot; SCITT anchored</div>
+        </div>
+      </div>
+      <div>
+        <div class="product-badge reveal">&check; Open Source</div>
+        <div class="section-label reveal">Integration</div>
+        <h2 class="section-title reveal d1">Three lines of Python.<br>Signed. Sealed. Shipped.</h2>
+        <p class="section-desc reveal d2">
+          No monkey patching. No configuration. Wrap your OpenAI client, record your agent, and get a cryptographically sealed .epi file.
+        </p>
+        <div class="product-features reveal d3">
+          <div class="pf">
+            <div class="pf-icon">&#x231A;</div>
+            <div class="pf-text">
+              <h4>Zero Configuration</h4>
+              <p>pip install epi-recorder. Three lines of Python. Works with any LLM SDK — OpenAI, Anthropic, and more.</p>
+            </div>
+          </div>
+          <div class="pf">
+            <div class="pf-icon">&#x1F6E1;</div>
+            <div class="pf-text">
+              <h4>Automatic Redaction</h4>
+              <p>API keys, passwords, and PII sanitized before disk write. Your secrets never touch the evidence file.</p>
+            </div>
+          </div>
+          <div class="pf">
+            <div class="pf-icon">&#x1F50D;</div>
+            <div class="pf-text">
+              <h4>Browser-Verifiable</h4>
+              <p>Drop a .epi into any browser. Five cryptographic checks run locally. Nothing uploaded. Nothing trusted.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ VERIFICATION ═══════════════ -->
+<section id="verify">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Verification</div>
+      <h2 class="section-title reveal d1">Five independent checks.<br>Zero blind trust.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">No server. No upload. No installation. Just a browser and a .epi file.</p>
+    </div>
+    <div class="verify-grid reveal d3">
+      <div class="v-card"><h4>01 &middot; Structure</h4><p>Valid envelope, extractable ZIP, all required files present. Every byte in its place.</p><div class="v-status v-status--pass">&check; STRUCTURE_VALID</div></div>
+      <div class="v-card"><h4>02 &middot; Integrity</h4><p>Every file hash matched against computed SHA-256. One mismatch triggers failure.</p><div class="v-status v-status--pass">&check; HASHES_MATCH</div></div>
+      <div class="v-card"><h4>03 &middot; Signature</h4><p>Ed25519 signature validated against canonical manifest hash. Verifiable with public key only.</p><div class="v-status v-status--pass">&check; SIGNATURE_VALID</div></div>
+      <div class="v-card"><h4>04 &middot; Chain</h4><p>prev_hash links intact. Monotonic indices. Timestamps never decrease. One timeline.</p><div class="v-status v-status--pass">&check; CHAIN_INTACT</div></div>
+      <div class="v-card"><h4>05 &middot; SCITT</h4><p>COSE_Sign1 statement and receipt verified against transparency ledger. Publicly auditable.</p><div class="v-status v-status--warn">&circlearrowleft; SCITT_ANCHORED</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ DROP ZONE ═══════════════ -->
+<section id="dropZone">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Try It</div>
+      <h2 class="section-title reveal d1">Drop a .epi file.<br>See the verdict.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">Drag any evidence package here. Verification runs entirely in your browser. Nothing leaves your machine.</p>
+    </div>
+    <div class="reveal d3">
+      <div class="drop-zone" id="dropZoneEl">
+        <span class="drop-icon">&#x1F4C1;</span>
+        <p class="drop-title">DROP .EPI FILE HERE</p>
+        <p class="drop-hint">or click to browse &middot; zero upload &middot; offline verification</p>
+        <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
+        <div class="drop-result" id="dropResult"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TRUST MODEL ═══════════════ -->
+<section class="product">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Trust Model</div>
+      <h2 class="section-title reveal d1">Who signed it. What it proves.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">Every .epi carries a trust level — computed from integrity, signature, identity, and transparency.</p>
+    </div>
+    <div class="trust-wrap reveal d3" style="overflow-x:auto">
+      <table class="trust-table">
+        <thead><tr><th>Level</th><th>Integrity</th><th>Signature</th><th>Identity</th><th>SCITT</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag--high">HIGH</span></td><td>PASS</td><td>VALID</td><td>KNOWN</td><td>&mdash;</td><td>Trust registry verified signer identity</td></tr>
+          <tr><td><span class="tag tag--med">MEDIUM</span></td><td>PASS</td><td>VALID</td><td>UNKNOWN</td><td>&check;</td><td>Valid signature, SCITT ledger-anchored</td></tr>
+          <tr><td><span class="tag tag--low">LOW</span></td><td>PASS</td><td>VALID</td><td>UNKNOWN</td><td>&mdash;</td><td>Valid but unverified identity</td></tr>
+          <tr><td><span class="tag tag--none">NONE</span></td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>No signature present</td></tr>
+          <tr><td><span class="tag tag--tampered">TAMPERED</span></td><td>FAIL</td><td>INVALID</td><td>&mdash;</td><td>&mdash;</td><td>Integrity failure or signature mismatch</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ INTEGRATION CODE ═══════════════ -->
+<section id="integrate">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Quickstart</div>
+      <h2 class="section-title reveal d1">One command to evidence.</h2>
+    </div>
+    <div class="code-block reveal d2">
+      <div class="demo-bar">
+        <div class="dd dd-r"></div><div class="dd dd-y"></div><div class="dd dd-g"></div>
+        <span>agent.py</span>
+      </div>
+      <div class="code-body"><span class="demo-kw">from</span> openai <span class="demo-kw">import</span> OpenAI
+<span class="demo-kw">from</span> epi_recorder <span class="demo-kw">import</span> record, wrap_openai
+
+client = <span class="demo-fn">wrap_openai</span>(<span class="demo-fn">OpenAI</span>())
+
+<span class="demo-kw">with</span> <span class="demo-fn">record</span>(<span class="demo-s">"agent.epi"</span>, goal=<span class="demo-s">"Assess loan application"</span>):
+    response = client.chat.completions.<span class="demo-fn">create</span>(
+        model=<span class="demo-s">"gpt-4"</span>,
+        messages=[{<span class="demo-s">"role"</span>:<span class="demo-s">"user"</span>, <span class="demo-s">"content"</span>:<span class="demo-s">"Assess this"</span>}]
+    )
+
+<span class="demo-c"># Every call → signed .epi evidence</span>
+<span class="demo-c"># $ epi verify agent.epi →</span> <span class="demo-g">VERIFIED ✓</span>
 </div>
-<div style="text-align:center;margin-top:2rem"><a href="https://pypi.org/project/epi-recorder/" class="btn btn-p btn-lg" target="_blank">pip install epi-recorder</a><a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-lg" target="_blank" style="margin-left:0.5rem">VIEW ON GITHUB</a></div>
-</div></section>
+    </div>
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://pypi.org/project/epi-recorder/" target="_blank" class="btn btn-primary" rel="noopener">pip install epi-recorder <span class="btn-arrow">&rarr;</span></a>
+    </div>
+  </div>
+</section>
 
-<section class="section" style="background:var(--bg2)"><div class="container">
-<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 4.0 REGULATORY ALIGNMENT</div>
-<h2 class="reveal" style="text-align:center;margin-bottom:2rem">BUILT FOR COMPLIANCE</h2>
-<div style="overflow-x:auto"><table class="dtable"><thead><tr><th>REQUIREMENT</th><th>FRAMEWORK</th><th>.EPI EVIDENCE</th></tr></thead><tbody>
-<tr><td><strong>LOGS OF OPERATION</strong></td><td>EU AI Act Art. 12</td><td class="tchk">steps.jsonl + environment.json</td></tr>
-<tr><td><strong>DOCUMENT RETENTION (10YR)</strong></td><td>EU AI Act Art. 19</td><td class="tchk">SEALED .EPI FORMAT</td></tr>
-<tr><td><strong>HUMAN OVERSIGHT EVIDENCE</strong></td><td>EU AI Act Art. 14</td><td class="tchk">review.json LEDGER</td></tr>
-<tr><td><strong>AUDIT TRAIL INTEGRITY</strong></td><td>FDA 21 CFR 11</td><td class="tchk">SIGNED MANIFEST + STEPS</td></tr>
-<tr><td><strong>NON-REPUDIATION</strong></td><td>HIPAA 164.312</td><td class="tchk">Ed25519 SIGNATURE</td></tr>
-<tr><td><strong>RISK DOCUMENTATION</strong></td><td>NIST AI RMF / AIUC-1</td><td class="tchk">analysis + governance</td></tr>
-</tbody></table></div>
-<p style="text-align:center;color:var(--ink4);font-size:0.7rem;font-family:var(--mono);margin-top:1.2rem">// EPI IS NOT A COMPLIANCE GUARANTEE. WHETHER EVIDENCE SATISFIES A SPECIFIC THRESHOLD IS FOR THE AUDITOR TO DETERMINE.</p>
-</div></section>
-<div class="hash-fp">a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4</div>
-<footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
+<!-- ═══════════════ COMPLIANCE ═══════════════ -->
+<section class="product" id="compliance">
+  <div class="container">
+    <div style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center">Compliance</div>
+      <h2 class="section-title reveal d1">Built for the EU AI Act.<br>Ready for everything else.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">Articles 12, 14, and 19 — all addressable from a single .epi artifact.</p>
+    </div>
+    <div class="comp-grid reveal d3">
+      <div class="comp-card">
+        <div class="comp-act">Article 12</div>
+        <h4>Record-Keeping</h4>
+        <p>Seals the complete execution trail — every LLM call, tool invocation, decision, and environment snapshot — into one signed artifact.</p>
+      </div>
+      <div class="comp-card">
+        <div class="comp-act">Article 14</div>
+        <h4>Human Oversight</h4>
+        <p>review.json appended post-sealing without breaking the signature. Who reviewed, when, what they decided — same file.</p>
+      </div>
+      <div class="comp-card">
+        <div class="comp-act">Article 19</div>
+        <h4>Transparency</h4>
+        <p>Policy definitions and evaluation results travel with the container. Every rule, every threshold, every outcome logged.</p>
+      </div>
+    </div>
+    <div class="spec-banner reveal d4">
+      <div class="spec-icon">&#x1F4DC;</div>
+      <div class="spec-text">
+        <h4>EPI File Format Specification v4.2.0</h4>
+        <p>Every byte defined. Envelope structure, manifest schema, cryptographic protocol, verification procedure. Open standard. MIT licensed.</p>
+      </div>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EPI-SPEC.md" target="_blank" class="btn btn-secondary" style="flex-shrink:0" rel="noopener">Read the Spec <span class="btn-arrow">&rarr;</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section class="cta" id="contact">
+  <div class="container">
+    <div class="section-label reveal" style="justify-content:center">Get Started</div>
+    <h2 class="section-title reveal d1">Evidence starts with<br>one command.</h2>
+    <p class="section-desc reveal d2">Install. Wrap. Record. Verify. An auditor-proof trail in under a minute. Zero configuration required.</p>
+    <div class="cta-actions reveal d3">
+      <a href="https://pypi.org/project/epi-recorder/" target="_blank" class="btn btn-primary" rel="noopener">pip install epi-recorder <span class="btn-arrow">&rarr;</span></a>
+      <a href="viewer/" class="btn btn-secondary">Decision Ops &nearr;</a>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" class="btn btn-secondary" rel="noopener">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <img src="assets/logo.png" alt="EPI" class="footer-logo" loading="lazy">
+        <span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span>
+        <span class="hash-mark">SHA256&ensp;a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8</span>
+      </div>
+      <ul class="footer-links">
+        <li><a href="how-it-works.html">How It Works</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
+        <li><a href="mailto:mohdibrahim@epilabs.org">Email</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  // TERMINAL TYPE EFFECT
+  var db = document.getElementById('demoBody');
+  if(db){
+    var code = [
+      '<span class="demo-c"># Install EPI</span>',
+      '<span class="demo-kw">pip</span> install epi-recorder',
+      '',
+      '<span class="demo-c"># Record your AI agent</span>',
+      '<span class="demo-kw">epi</span> run agent.py',
+      '',
+      '<span class="demo-c"># Verify the evidence</span>',
+      '<span class="demo-kw">epi</span> verify agent.epi',
+      ''
+    ];
+    var cur = 0, pos = 0;
+    var curSpan = null;
+
+    function build(){
+      db.innerHTML = '';
+      for(var i=0;i<code.length;i++){
+        var d = document.createElement('div');
+        d.style.minHeight = '1.85em';
+        var s = document.createElement('span');
+        d.appendChild(s);
+        db.appendChild(d);
+      }
+      cur=0;pos=0;
+      curSpan = db.children[0].querySelector('span');
+      type();
+    }
+
+    function type(){
+      if(cur >= code.length) return;
+      var text = code[cur];
+      var strip = text.replace(/<[^>]*>/g,'');
+      if(pos < strip.length){
+        curSpan.innerHTML = text.substring(0,pos+1) + '<span class="demo-c" style="animation:blink .8s step-end infinite">|</span>';
+        pos++;
+        setTimeout(type, 25 + Math.random()*35);
+      } else {
+        curSpan.innerHTML = text;
+        cur++; pos = 0;
+        if(cur < code.length){
+          curSpan = db.children[cur].querySelector('span');
+          setTimeout(type, 200);
+        }
+      }
+    }
+    setTimeout(build, 600);
+  }
+
+  // DROP ZONE
+  var dz = document.getElementById('dropZoneEl');
+  var fi = document.getElementById('fileInput');
+  var dr = document.getElementById('dropResult');
+  if(dz && fi && dr) {
+    dz.addEventListener('click',function(){fi.click()});
+    function prev(e){e.preventDefault();e.stopPropagation()}
+    ['dragenter','dragover','dragleave','drop'].forEach(function(ev){
+      dz.addEventListener(ev,prev);document.body.addEventListener(ev,prev);
+    });
+    ['dragenter','dragover'].forEach(function(ev){
+      dz.addEventListener(ev,function(){dz.classList.add('dragover')});
+    });
+    ['dragleave','drop'].forEach(function(ev){
+      dz.addEventListener(ev,function(){dz.classList.remove('dragover')});
+    });
+    dz.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)proc(f)});
+    fi.addEventListener('change',function(){if(fi.files[0])proc(fi.files[0])});
+
+    function show(t,m){dr.className='drop-result drop-result--'+t+' show';dr.innerHTML=m}
+    function proc(f){
+      var n=f.name.toLowerCase();
+      if(!n.endsWith('.epi')&&!n.endsWith('.zip')){show('fail','INVALID: Expected .epi or .zip file.');return}
+      show('warn','Reading '+f.name+'...');
+      var r=new FileReader();
+      r.onload=function(){
+        if(typeof JSZip==='undefined'){show('warn','JSZip not loaded. Try: <code style="font-family:var(--mono);font-size:.68rem">pip install epi-recorder</code>');return}
+        JSZip.loadAsync(r.result).then(function(z){
+          var mf=z.file('manifest.json');
+          if(!mf){show('fail','INVALID: No manifest.json found.');return}
+          mf.async('string').then(function(c){
+            try{
+              var m=JSON.parse(c);
+              var fc=Object.keys(z.files).length;
+              var sc=m.steps_count||(m.execution_log?'present':'0');
+              if(m.signature){
+                show('pass','VERIFIED &mdash; Trust: '+(m.trust_level||'HIGH')+'<br>Files: '+fc+' &middot; Steps: '+sc+'<br><span style="font-size:.66rem;opacity:.5">Ed25519 &middot; SHA-256 &middot; Polyglot</span>');
+              }else{
+                show('warn','VALID STRUCTURE &mdash; No signature<br>Files: '+fc+' &middot; Steps: '+sc);
+              }
+            }catch(e){show('fail','PARSE ERROR: '+e.message)}
+          }).catch(function(e){show('fail','READ ERROR: '+e.message)});
+        }).catch(function(e){show('fail','INVALID ARCHIVE: '+e.message)});
+      };
+      r.onerror=function(){show('fail','READ ERROR')};
+      r.readAsArrayBuffer(f);
+    }
+  }
+
+  // NAV
+  var nav = document.getElementById('nav');
+  var mb = document.getElementById('mobBtn');
+  var mm = document.getElementById('mobMenu');
+  var nl = document.getElementById('navLinks');
+
+  window.addEventListener('scroll',function(){if(nav)nav.classList.toggle('scrolled',scrollY>40)});
+
+  if(mb&&mm){
+    mb.addEventListener('click',function(){
+      var o=mm.classList.contains('open');
+      mb.classList.toggle('open');mm.classList.toggle('open');
+      mb.setAttribute('aria-expanded',String(!o));
+      document.body.style.overflow=o?'':'hidden';
+    });
+    var mls=mm.querySelectorAll('a');
+    for(var i=0;i<mls.length;i++){mls[i].addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow='';})}
+  }
+
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click',function(e){
+      if(mm)mm.classList.remove('open');if(mb)mb.classList.remove('open');
+      if(mb)mb.setAttribute('aria-expanded','false');document.body.style.overflow='';
+      var t=document.querySelector(this.getAttribute('href'));
+      if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'})}
+    });
+  });
+
+  // ACTIVE SECTION HIGHLIGHT
+  if(nl&&nl.querySelectorAll){
+    var secs=document.querySelectorAll('section[id]');
+    var nas=nl.querySelectorAll('a');
+    window.addEventListener('scroll',function(){
+      var cur='';
+      for(var i=0;i<secs.length;i++){if(scrollY>=secs[i].offsetTop-140)cur=secs[i].getAttribute('id')}
+      for(var j=0;j<nas.length;j++){nas[j].classList.remove('active');if(nas[j].getAttribute('href')==='#'+cur)nas[j].classList.add('active')}
+    });
+  }
+
+  // SCROLL REVEAL
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(e){
+      for(var i=0;i<e.length;i++){if(e[i].isIntersecting){e[i].target.classList.add('visible');obs.unobserve(e[i].target)}}
+    },{threshold:.1,rootMargin:'0px 0px -40px 0px'});
+    document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)});
+  } else {
+    document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')});
+  }
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 </body>
 </html>

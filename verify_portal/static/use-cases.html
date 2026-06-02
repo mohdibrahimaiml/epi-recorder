@@ -1,41 +1,193 @@
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>USE CASES — EPI LABS</title>
-<meta name="description" content="EPI is built for any AI workflow where a decision matters and someone may later need to inspect it.">
-<meta property="og:title" content="USE CASES — EPI LABS"><meta property="og:description" content="EPI is built for any AI workflow where a decision matters and someone may later need to inspect it.">
+<title>Use Cases — EPI Labs</title>
+<meta name="description" content="EPI captures and seals AI decisions into verifiable evidence — built for any domain where getting it wrong has real consequences.">
+<meta property="og:title" content="Use Cases — EPI Labs"><meta property="og:description" content="EPI captures and seals AI decisions into verifiable evidence.">
 <meta property="og:url" content="https://epilabs.org/use-cases.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
 <meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
-
-<link rel="stylesheet" href="css/style.css?v=7.0">
+<link rel="stylesheet" href="css/epi-v9.css?v=9.0">
 </head><body>
+
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
 <div class="grid-tex"></div>
+
+<!-- ═══ NAV ═══ -->
   <nav class="nav"><div class="nav-inner">
-    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
-    <div class="nav-links">
-      <a href="how-it-works.html">HOW IT WORKS</a>
-      <a href="technology.html">TECHNOLOGY</a>
-      <a href="use-cases.html">USE CASES</a>
-      <a href="pricing.html">PRICING</a>
-      <a href="verify.html">VERIFY</a>
-      <a href="demo.html">DEMO</a>
-      <a href="vision.html">VISION</a>
-      <a href="contact.html">CONTACT</a>
-    </div>
-    <div class="nav-actions">
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
-      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
-    </div>
-    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-  </div></nav>
-  <div class="mobile-menu">
-    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
-    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
-    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
-    <a href="contact.html">CONTACT</a>
-    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI Labs"></a>
+  <div class="nav-links">
+    <a href="index.html#how">How It Works</a>
+    <a href="index.html#devs">Developers</a>
+    <a href="index.html#compliance">Compliance</a>
+    <a href="use-cases.html">Use Cases</a>
+    <a href="technology.html">Technology</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="vision.html">Vision</a>
   </div>
-<section class="hero" style="min-height:auto;padding:6rem 0 2.5rem"><div class="container hero-inner"><div class="diag-label reveal"><span class="diag-dot"></span>WHERE EPI APPLIES</div><h1 class="reveal"><span style="color:var(--info)">USE CASES</span></h1><p class="hero-desc reveal">EPI does not dictate how you use AI. It provides verifiable proof of how AI was used — so when the question comes, the answer is a sealed file, not a scramble through logs.</p></div></section><section class="section" style="padding-top:1rem"><div class="container"><div class="ga"><div class="card reveal"><h3>FINANCIAL SERVICES</h3><div class="card-bar"></div><p>When an AI model decides a loan, flags a transaction, or scores credit, regulators need evidence. EPI captures the full decision trail — model input, reasoning, tool calls, output — and seals it with an Ed25519 signature that can be verified years later, even if the original infrastructure no longer exists.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">EU AI ACT</span><span class="pill pill-i">SR 11-7</span><span class="pill pill-i">FINRA</span></div></div><div class="card reveal"><h3 style="color:var(--info)">HEALTHCARE & MEDICAL AI</h3><div class="card-bar"></div><p>The FDA now reviews AI/ML devices through Predetermined Change Control Plans (PCCPs). Manufacturers must prove a model ran exactly as described in their 510(k). EPI produces a signed, immutable snapshot of every execution — in a single file that any regulator can verify offline.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">FDA 21 CFR PART 11</span><span class="pill pill-i">PCCP</span><span class="pill pill-i">SaMD</span></div></div><div class="card reveal"><h3>INSURANCE UNDERWRITING</h3><div class="card-bar"></div><p>Colorado (SB 21-169), New York (DFS Circular), and California now require insurers to demonstrate governance over AI used in pricing, underwriting, and claims. EPI provides a portable audit trail — one file per decision, independently verifiable — that maps directly to NAIC principles and state-level explainability rules.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">CO SB 21-169</span><span class="pill pill-i">NY DFS</span><span class="pill pill-i">NAIC</span></div></div><div class="card reveal"><h3>GOVERNMENT & PUBLIC SECTOR</h3><div class="card-bar"></div><p>The EU AI Act requires high-risk AI providers to retain logs for 10 years. Government agencies procuring AI systems need vendor-neutral evidence that survives infrastructure turnover. EPI is open-source, format-stable, and verifiable without the original vendor's software. The evidence package IS the artifact.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">EU AI ACT ART 12/19</span><span class="pill pill-i">PROCUREMENT</span></div></div><div class="card reveal"><h3>AI SAFETY & EVALUATION</h3><div class="card-bar"></div><p>Research labs, red-teaming exercises, and safety evaluations generate sensitive data about model behavior. EPI captures every step with a cryptographically linked chain. Independent reviewers can verify the full execution without access to the original lab environment — essential for reproducible AI safety science.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">REPRODUCIBILITY</span><span class="pill pill-i">EVAL TRUST</span></div></div><div class="card reveal"><h3>LEGAL TECHNOLOGY</h3><div class="card-bar"></div><p>AI is increasingly used for document review, contract analysis, and e-discovery. When the output of an AI tool becomes part of a legal record, the chain of custody matters. EPI proves who ran the model, when, what it produced, and that nothing was modified — a verifiable case file, not a screenshot.</p><div class="pills" style="margin-top:0.5rem"><span class="pill pill-i">CHAIN OF CUSTODY</span><span class="pill pill-i">E-DISCOVERY</span></div></div></div><div class="status-box pass reveal" style="margin-top:2.5rem"><div class="sb-label">WHY EPI, NOT JUST LOGS</div><p>Debugging tools (LangSmith, Weights & Biases, MLflow, Datadog) are built for development — not for portable, verifiable evidence. EPI produces one file containing the execution record, policy, cryptographic proof, fault analysis, and an embedded viewer. It verifies without the original infrastructure, the original API keys, or the original model. The difference between <strong>"we have logs somewhere"</strong> and <strong>"here is a sealed, independently verifiable case file."</strong></p></div><div class="status-box reveal" style="margin-top:1.2rem;border-left:3px solid var(--info);background:linear-gradient(90deg,var(--info-bg),transparent 10%)"><div class="sb-label">WHAT EPI DOES NOT DO</div><p style="font-size:0.82rem;color:var(--ink3)">EPI is <strong>not</strong> a compliance certification. It does not guarantee that an AI system is safe, fair, or regulatory-compliant. It provides cryptographically verifiable evidence of execution — the auditor determines whether that evidence satisfies a given regulatory threshold. EPI also does not detect hallucinations, evaluate model quality, or replace human oversight.</p></div></div></section><div class="hash-fp">ffe7cd5e9cc13658a86bf98833b8d0639df9191bea09a090</div><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
-</body>
-</html>
+  <div class="nav-actions">
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GitHub</a>
+    <a href="contact.html" class="btn btn-p btn-sm">Contact Us</a>
+  </div>
+  <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+</div></nav>
+
+  <div class="mobile-menu">
+  <a href="index.html#how">How It Works</a><a href="index.html#devs">Developers</a>
+  <a href="index.html#compliance">Compliance</a><a href="use-cases.html">Use Cases</a>
+  <a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
+  <a href="vision.html">Vision</a><a href="demo.html">Demo</a>
+  <a href="contact.html">Contact</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GitHub</a>
+</div>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero" style="min-height:auto;padding:7rem 0 3rem"><div class="container hero-inner">
+  <div class="diag-label reveal"><span class="diag-dot"></span>Where EPI applies</div>
+  <h1 class="reveal reveal-d1">Decisions that demand <span style="color:var(--amber)">proof</span></h1>
+  <p class="hero-desc reveal reveal-d2">
+    EPI is built for any domain where an AI decision carries weight — financial, medical, legal, regulatory. When the question comes, the answer is a sealed file, not a scramble through logs.
+  </p>
+</div></section>
+
+<!-- ═══ USE CASES ═══ -->
+<section class="section" style="padding-top:1rem"><div class="container">
+
+  <!-- Row 1: Financial Services + Healthcare -->
+  <div class="g2 reveal" style="margin-bottom:1.25rem">
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x1F4B0;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">Financial Services</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">AI Loan &middot; Fraud &middot; Credit Scoring</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">When an AI model approves a mortgage, flags a transaction for AML review, or scores a credit application, regulators need to see exactly what happened. Not a summary. Not a dashboard. The full execution — every input, every model call, every intermediate decision — cryptographically sealed.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI captures the complete decision trail: model endpoint, prompt, response, tool invocations, and business rules applied. The resulting <code>.epi</code> file can be verified years later — long after the original model has been deprecated, the API keys rotated, and the infrastructure retired.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">SR 11-7</span><span class="pill pill-i">FINRA</span><span class="pill pill-i">ECB Guide</span><span class="pill pill-i">FCRA</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x1F3E5;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">Healthcare &amp; Medical AI</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">FDA &middot; Clinical &middot; Diagnostics</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">The FDA now reviews AI/ML-enabled medical devices through Predetermined Change Control Plans. Manufacturers must prove a model ran <em>exactly</em> as described in their 510(k) or De Novo submission — same version, same inputs, same outputs.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI produces a signed, immutable snapshot of every execution — the model fingerprint, the inference inputs, the structured output, the environment. A single file that any notified body or FDA reviewer can verify offline, without access to the manufacturer's cloud.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">FDA 21 CFR 11</span><span class="pill pill-i">PCCP</span><span class="pill pill-i">SaMD</span><span class="pill pill-i">MDR 2017/745</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Insurance + Government -->
+  <div class="g2 reveal reveal-d1" style="margin-bottom:1.25rem">
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x1F4CB;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">Insurance Underwriting</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">Pricing &middot; Claims &middot; Governance</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">Colorado (SB 21-169), New York (DFS Circular No. 7), and the NAIC Model Bulletin now require insurers to demonstrate meaningful governance over AI used in pricing, underwriting, and claims adjudication. "The algorithm said so" is not enough.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI provides a portable, cryptographically verifiable audit trail — one file per decision. Every rating factor applied, every exclusion checked, every threshold evaluated, all sealed at decision time. The evidence survives the insurer's own infrastructure, making it independently auditable by regulators and third parties.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">CO SB 21-169</span><span class="pill pill-i">NY DFS</span><span class="pill pill-i">NAIC</span><span class="pill pill-i">EIOPA</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x1F3DB;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">Government &amp; Public Sector</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">Procurement &middot; Benefits &middot; Logs</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">The EU AI Act mandates that high-risk AI providers retain logs of operation (Art. 12) for a minimum of 10 years (Art. 19). Government agencies procuring AI systems need vendor-neutral evidence that outlives the vendor contract — evidence verifiable without the original supplier's software or infrastructure.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI is open-source, format-stable, and designed for decades-long retention. The <code>.epi</code> file <em>is</em> the artifact — self-contained, self-describing, and independently verifiable. A procurement officer in 2036 can verify a decision made in 2026 without installing proprietary software or tracking down a defunct vendor.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">EU AI Act 12/19</span><span class="pill pill-i">Procurement</span><span class="pill pill-i">FOIA</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: AI Safety + Legal -->
+  <div class="g2 reveal reveal-d2" style="margin-bottom:1.25rem">
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x1F9EA;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">AI Safety &amp; Evaluation</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">Red-Teaming &middot; Benchmarks &middot; Audits</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">Research labs, evaluation teams, and third-party auditors run thousands of controlled experiments on frontier models — probing for bias, toxicity, jailbreaking, and capability overhang. The results of these evaluations carry enormous weight, shaping deployment decisions and regulatory responses.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI seals every evaluation run: the exact prompt, the model version, the full multi-turn trajectory, the tool calls, and the final output. An independent reviewer can verify the full execution without access to the lab environment or model endpoint — essential for reproducible, defensible AI safety science.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">NIST AI RMF</span><span class="pill pill-i">ISO 42001</span><span class="pill pill-i">Reproducibility</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:2rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-soft);border:1px solid var(--info-line);display:flex;align-items:center;justify-content:center;font-size:1.1rem">&#x2696;</div>
+        <div>
+          <h3 style="margin-bottom:0;font-size:1.05rem">Legal Technology</h3>
+          <span style="font-size:0.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--mono)">E-Discovery &middot; Review &middot; Custody</span>
+        </div>
+      </div>
+      <div class="card-bar" style="margin-bottom:1rem"></div>
+      <p style="font-size:0.84rem;line-height:1.7">AI is increasingly embedded in document review, contract analysis, privilege classification, and e-discovery workflows. When the output of an AI tool enters a legal record, the chain of custody must be unbroken. A screenshot of a dashboard is not evidence.</p>
+      <p style="font-size:0.84rem;line-height:1.7">EPI proves who ran the model, when, on which documents, with which parameters, and that nothing was modified after the fact. The <code>.epi</code> file serves as a verifiable case exhibit — admissible, auditable, and independent of the original tooling. One file that courts can trust.</p>
+      <div class="pills" style="margin-top:1rem">
+        <span class="pill pill-i">FRCP 26(g)</span><span class="pill pill-i">Chain of Custody</span><span class="pill pill-i">E-Discovery</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Why EPI vs Logs ═══ -->
+  <div class="status-box pass reveal reveal-d3" style="margin-top:2.5rem">
+    <div class="sb-label">Why EPI, not just logs</div>
+    <p>Observability tools — LangSmith, Weights &amp; Biases, MLflow, Datadog — are built for <em>development</em>, not for portable, verifiable <em>evidence</em>. They live in your cloud, depend on your API keys, and vanish when you switch vendors.</p>
+    <p style="margin-top:0.5rem">EPI produces a single file containing the execution record, cryptographic proof, policy, fault analysis, and an embedded viewer. It verifies without the original infrastructure, without the original API keys, and without the original model. That is the difference between <strong>"we have logs somewhere"</strong> and <strong>"here is a sealed, independently verifiable case file."</strong></p>
+  </div>
+
+  <div class="status-box reveal reveal-d3" style="margin-top:1.2rem;border-left:3px solid var(--info);background:linear-gradient(90deg,var(--info-bg),transparent 10%)">
+    <div class="sb-label">What EPI does not do</div>
+    <p style="font-size:0.82rem;color:var(--ink3)">EPI is not a compliance certification. It does not guarantee that an AI system is safe, fair, or regulatory-compliant. It does not detect hallucinations, evaluate model quality, or replace human oversight. EPI provides <em>cryptographically verifiable evidence of execution</em>. The auditor — the regulator, the court, the safety researcher — determines whether that evidence meets the threshold.</p>
+  </div>
+
+  <!-- ═══ CTA ═══ -->
+  <div class="text-center mt-2 reveal reveal-d4">
+    <div class="section-label" style="justify-content:center">Ready to seal your AI decisions?</div>
+    <h2 style="margin-bottom:1rem">Start with a sample. Or send us yours.</h2>
+    <a href="verify.html" class="btn btn-p btn-lg">Verify a .EPI Now</a>
+    <a href="contact.html" class="btn btn-lg" style="margin-left:0.5rem">Talk to Us</a>
+  </div>
+
+</div></section>
+
+<div class="hash-fp">c24044dea1679d231a925821818e70569353c90715b65897</div>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer"><div class="container"><div class="footer-grid">
+<div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI Labs"></a><p>Building the trust layer for the AI economy. Open source. Verifiable. Portable.</p></div>
+<div class="footer-col"><h4>Product</h4><a href="index.html#product">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div>
+<div class="footer-col"><h4>Developers</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div>
+<div class="footer-col"><h4>Company</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div>
+</div><div class="footer-bottom"><span>&copy; 2026 EPI Labs. MIT License.</span><span>Built in India. Engineered for the world.</span></div></div></footer>
+
+<script src="js/app.js?v=8.0"></script>
+</body></html>

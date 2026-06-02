@@ -1,28 +1,36 @@
-const CACHE_NAME = 'epi-verifier-v7';
+const CACHE_NAME = 'epi-verifier-v9';
 const ASSETS = [
-    './verify/',
+    './',
+    './index.html',
     './verify.html',
-    './cases/',
-    './manifest.json',
+    './how-it-works.html',
+    './technology.html',
+    './use-cases.html',
+    './demo.html',
+    './pricing.html',
+    './contact.html',
+    './css/epi-v9.css',
+    './js/app.js',
     './js/epi-verify-core.js',
+    './assets/logo.png',
     './assets/logo.svg',
-    'https://esm.sh/@noble/ed25519@2.0.0'
+    './assets/sample.epi',
+    './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            // We try to cache local assets. External CDNs might be opaque/cors issues but we try.
-            // For a robust offline app, we should bundle dependencies locally. 
-            // For this MVP, we cache the main HTML which is most important.
-            return cache.addAll(['./verify/', './verify.html', './cases/', './manifest.json', './js/epi-verify-core.js', './assets/logo.svg']);
+            return cache.addAll(ASSETS);
+        }).catch(() => {
+            // If some assets fail (e.g., external), still complete install
+            return caches.open(CACHE_NAME);
         })
     );
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    // Clean up old caches if any
     event.waitUntil(
         caches.keys().then((keys) => {
             return Promise.all(
@@ -34,27 +42,44 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Network-First Strategy for HTML to ensure we always get the latest layout
-    if (event.request.headers.get('accept').includes('text/html')) {
+    const req = event.request;
+    const accept = req.headers.get('accept') || '';
+
+    // Network-First for HTML to ensure fresh content
+    if (accept.includes('text/html')) {
         event.respondWith(
-            fetch(event.request)
+            fetch(req)
                 .then((response) => {
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseClone);
-                    });
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
                     return response;
                 })
-                .catch(() => {
-                    return caches.match(event.request);
-                })
+                .catch(() => caches.match(req))
         );
-    } else {
-        // Cache-First for static assets
+        return;
+    }
+
+    // Stale-While-Revalidate for CSS/JS to get updates without waiting
+    if (req.url.includes('.css') || req.url.includes('.js')) {
         event.respondWith(
-            caches.match(event.request).then((cachedResponse) => {
-                return cachedResponse || fetch(event.request);
+            caches.match(req).then((cached) => {
+                const fetchPromise = fetch(req).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const clone = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+                    }
+                    return networkResponse;
+                }).catch(() => cached);
+                return cached || fetchPromise;
             })
         );
+        return;
     }
+
+    // Cache-First for static assets
+    event.respondWith(
+        caches.match(req).then((cachedResponse) => {
+            return cachedResponse || fetch(req);
+        })
+    );
 });
