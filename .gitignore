@@ -156,6 +156,7 @@ v2.8.5.ipynb
 !epi_viewer_static/*.html
 !web_viewer/*.html
 !verify_portal/static/*.html
+!verify_portal/static/assets/*.html
 !verify_portal/static/cases/*.html
 !verify_portal/static/epi-viewer/*.html
 !verify_portal/static/viewer/*.html
