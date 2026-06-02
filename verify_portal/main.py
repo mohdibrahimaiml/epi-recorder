@@ -444,6 +444,14 @@ async def viewer_redirect():
 async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer" / "index.html")
 
+@app.get("/epi-viewer")
+async def epi_viewer_redirect():
+    return RedirectResponse(url="/epi-viewer/")
+
+@app.get("/epi-viewer/")
+async def epi_viewer_page():
+    return FileResponse(STATIC_DIR / "epi-viewer" / "index.html")
+
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
