@@ -9,35 +9,33 @@
 <link rel="stylesheet" href="css/epi-v9.css?v=9.0">
 </head><body>
 
-<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
-<div class="grid-tex"></div>
-
 <!-- ═══ NAV ═══ -->
-  <nav class="nav"><div class="nav-inner">
-  <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI Labs"></a>
-  <div class="nav-links">
-    <a href="index.html#how">How It Works</a>
-    <a href="index.html#devs">Developers</a>
-    <a href="index.html#compliance">Compliance</a>
-    <a href="use-cases.html">Use Cases</a>
-    <a href="technology.html">Technology</a>
-    <a href="pricing.html">Pricing</a>
-    <a href="vision.html">Vision</a>
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo" aria-label="EPI Labs home">
+      <img src="assets/logo.png" alt="EPI" loading="eager">
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="index.html#product">Product</a></li>
+      <li><a href="use-cases.html" class="active">Use Cases</a></li>
+      <li><a href="technology.html">Technology</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="contact.html" class="nav-cta">Contact</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
-  <div class="nav-actions">
-    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GitHub</a>
-    <a href="contact.html" class="btn btn-p btn-sm">Contact Us</a>
-  </div>
-  <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-</div></nav>
-
-  <div class="mobile-menu">
-  <a href="index.html#how">How It Works</a><a href="index.html#devs">Developers</a>
-  <a href="index.html#compliance">Compliance</a><a href="use-cases.html">Use Cases</a>
-  <a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
-  <a href="vision.html">Vision</a><a href="demo.html">Demo</a>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="index.html">Home</a>
+  <a href="index.html#product">Product</a>
+  <a href="use-cases.html">Use Cases</a>
+  <a href="technology.html">Technology</a>
+  <a href="pricing.html">Pricing</a>
   <a href="contact.html">Contact</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GitHub</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub &nearr;</a>
 </div>
 
 <!-- ═══ HERO ═══ -->
@@ -182,12 +180,22 @@
 <div class="hash-fp">c24044dea1679d231a925821818e70569353c90715b65897</div>
 
 <!-- ═══ FOOTER ═══ -->
-<footer class="footer"><div class="container"><div class="footer-grid">
-<div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI Labs"></a><p>Building the trust layer for the AI economy. Open source. Verifiable. Portable.</p></div>
-<div class="footer-col"><h4>Product</h4><a href="index.html#product">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div>
-<div class="footer-col"><h4>Developers</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div>
-<div class="footer-col"><h4>Company</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div>
-</div><div class="footer-bottom"><span>&copy; 2026 EPI Labs. MIT License.</span><span>Built in India. Engineered for the world.</span></div></div></footer>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <img src="assets/logo.png" alt="EPI" class="footer-logo" loading="lazy">
+        <span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span>
+      </div>
+      <ul class="footer-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="mailto:mohdibrahim@epilabs.org">Email</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
 
-<script src="js/app.js?v=8.0"></script>
+<script src="js/app.js?v=9.0"></script>
 </body></html>

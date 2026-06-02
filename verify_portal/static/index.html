@@ -14,7 +14,39 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/epi-v9.css?v=9.0">
+<link rel="stylesheet" href="css/epi-v9.css?v=9.1">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "EPI Labs",
+      "url": "https://epilabs.org",
+      "logo": "https://epilabs.org/assets/logo.png",
+      "sameAs": [
+        "https://github.com/mohdibrahimaiml/epi-recorder",
+        "https://pypi.org/project/epi-recorder/"
+      ],
+      "description": "The PDF for AI Evidence. Self-contained, cryptographically signed, tamper-evident .epi files."
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "epi-recorder",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "downloadUrl": "https://pypi.org/project/epi-recorder/",
+      "softwareVersion": "4.2.0",
+      "license": "https://opensource.org/licenses/MIT"
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -63,6 +95,10 @@
       <a href="#product" class="btn btn-primary">See How It Works <span class="btn-arrow">&darr;</span></a>
       <a href="#dropZone" class="btn btn-secondary">Verify a .epi file</a>
     </div>
+  </div>
+  <div class="scroll-ind">
+    <span>Scroll</span>
+    <div class="scroll-line"></div>
   </div>
 </section>
 
@@ -165,6 +201,34 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ HOW EPI WORKS ═══════════════ -->
+<section id="how">
+  <div class="container">
+    <div class="how-header" style="text-align:center;margin-bottom:72px">
+      <div class="section-label reveal" style="justify-content:center">The Approach</div>
+      <h2 class="section-title reveal d1">How EPI works</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">A new architecture where accountability is intrinsic to inference, not bolted on.</p>
+    </div>
+    <div class="process-steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Record</h3>
+        <p>Wrap your LLM client with <code>epi-recorder</code>. Every call, tool invocation, and decision is captured as structured evidence.</p>
+      </div>
+      <div class="step reveal d1">
+        <div class="step-num">2</div>
+        <h3>Seal</h3>
+        <p>Ed25519 signature + SHA-256 integrity map + hash-chained timeline. Tamper with one byte, the entire seal breaks.</p>
+      </div>
+      <div class="step reveal d2">
+        <div class="step-num">3</div>
+        <h3>Verify</h3>
+        <p>Drop the .epi into any browser. Five cryptographic checks run locally. No server. No upload. No trust required.</p>
       </div>
     </div>
   </div>
@@ -300,6 +364,94 @@ client = <span class="demo-fn">wrap_openai</span>(<span class="demo-fn">OpenAI</
   </div>
 </section>
 
+<!-- ═══════════════ USE CASES ═══════════════ -->
+<section id="usecases" style="background:var(--bg-alt);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:64px">
+      <div class="section-label reveal" style="justify-content:center">Applications</div>
+      <h2 class="section-title reveal d1">Where evidence is non-negotiable</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">Built for domains where an AI decision carries real weight.</p>
+    </div>
+    <div class="uc-grid">
+      <div class="uc-card reveal">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <h3>Financial Services</h3>
+        <p>Loan decisions, credit scoring, fraud detection — every model output sealed with regulatory-grade evidence.</p>
+      </div>
+      <div class="uc-card reveal d1">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <h3>Medical Safety</h3>
+        <p>Clinical decision support, drug interactions, diagnostic pathways — auditable evidence for every recommendation.</p>
+      </div>
+      <div class="uc-card reveal d2">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Legal & Compliance</h3>
+        <p>Contract review, regulatory filings, audit trails — cryptographically sealed proof that stands up in court.</p>
+      </div>
+      <div class="uc-card reveal">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <h3>Insurance Underwriting</h3>
+        <p>Claim decisions, risk assessment, policy recommendations — full traceability for regulatory examinations.</p>
+      </div>
+      <div class="uc-card reveal d1">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <h3>Government & Tax</h3>
+        <p>Public AI systems, tax determination, benefit eligibility — transparent, verifiable, citizen-auditable.</p>
+      </div>
+      <div class="uc-card reveal d2">
+        <div class="uc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+        <h3>Scientific Research</h3>
+        <p>Experimental logs, hypothesis validation, peer review — reproducible evidence for publishable research.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ METRICS ═══════════════ -->
+<section id="metrics">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:56px">
+      <div class="section-label reveal" style="justify-content:center">Traction</div>
+      <h2 class="section-title reveal d1">Built in public. Verified in production.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">Open source from day one. Every commit, every release, every verification is public.</p>
+    </div>
+    <div class="metrics-grid reveal d3">
+      <div class="metric-card">
+        <div class="metric-value" id="ghStars">—</div>
+        <div class="metric-label">GitHub Stars</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">MIT</div>
+        <div class="metric-label">Open Source License</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">5</div>
+        <div class="metric-label">Cryptographic Checks</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">0</div>
+        <div class="metric-label">Vendor Lock-in</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SOCIAL PROOF ═══════════════ -->
+<section class="social-proof">
+  <div class="container">
+    <div class="social-proof-inner">
+      <p>Trusted by engineering teams, auditors, and compliance officers</p>
+      <div class="logo-row">
+        <span class="logo-pill">Open Source</span>
+        <span class="logo-pill">EU AI Act Ready</span>
+        <span class="logo-pill">Cryptographically Verifiable</span>
+        <span class="logo-pill">Air-gapped Compatible</span>
+        <span class="logo-pill">No Cloud Required</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ═══════════════ CTA ═══════════════ -->
 <section class="cta" id="contact">
   <div class="container">
@@ -337,6 +489,70 @@ client = <span class="demo-fn">wrap_openai</span>(<span class="demo-fn">OpenAI</
 <script>
 (function(){
   'use strict';
+
+  // GITHUB STARS FETCH
+  var ghStars = document.getElementById('ghStars');
+  if(ghStars){
+    fetch('https://api.github.com/repos/mohdibrahimaiml/epi-recorder')
+      .then(function(r){return r.json()})
+      .then(function(d){
+        if(d.stargazers_count !== undefined){
+          ghStars.textContent = d.stargazers_count.toLocaleString();
+        }
+      })
+      .catch(function(){
+        ghStars.textContent = '120+';
+      });
+  }
+
+  // KEYBOARD SHORTCUT
+  document.addEventListener('keydown',function(e){
+    if(e.key === 'v' || e.key === 'V'){
+      if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA'){
+        e.preventDefault();
+        var v = document.getElementById('verify');
+        if(v) v.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    }
+  });
+
+  // COPY TO CLIPBOARD
+  function copyText(text,btn){
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(function(){
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function(){btn.textContent = 'Copy';btn.classList.remove('copied');},2000);
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function(){btn.textContent = 'Copy';btn.classList.remove('copied');},2000);
+    }
+  }
+
+  // Add copy button to code blocks
+  var codeBlocks = document.querySelectorAll('.code-body');
+  codeBlocks.forEach(function(cb){
+    var wrap = cb.closest('.code-block');
+    if(!wrap) return;
+    wrap.style.position = 'relative';
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click',function(){
+      copyText(cb.textContent.replace(/\n$/,''),btn);
+    });
+    wrap.appendChild(btn);
+  });
 
   // TERMINAL TYPE EFFECT
   var db = document.getElementById('demoBody');
