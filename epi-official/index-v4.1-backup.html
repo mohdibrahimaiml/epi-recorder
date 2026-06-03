@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS</title>
+<meta name="description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
+<meta property="og:title" content="EVIDENCE_PACKAGED_INFRASTRUCTURE — EPI LABS"><meta property="og:description" content="The PDF for AI Evidence. Portable, cryptographically signed, tamper-evident evidence packages.">
+<meta property="og:url" content="https://epilabs.org/"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
+
+<link rel="stylesheet" href="css/style.css?v=7.0">
+</head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="grid-tex"></div>
+  <nav class="nav"><div class="nav-inner">
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
+    <div class="nav-links">
+      <a href="how-it-works.html">HOW IT WORKS</a>
+      <a href="technology.html">TECHNOLOGY</a>
+      <a href="use-cases.html">USE CASES</a>
+      <a href="pricing.html">PRICING</a>
+      <a href="verify.html">VERIFY</a>
+      <a href="demo.html">DEMO</a>
+      <a href="vision.html">VISION</a>
+      <a href="contact.html">CONTACT</a>
+    </div>
+    <div class="nav-actions">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
+      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
+    </div>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></nav>
+  <div class="mobile-menu">
+    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
+    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
+    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
+    <a href="contact.html">CONTACT</a>
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+  </div>
+<section class="hero"><div class="container hero-inner">
+<div class="diag-label reveal"><span class="diag-dot"></span>SYSTEM STATUS: OPERATIONAL · v4.2.0 · MIT LICENSE</div>
+<h1 class="reveal" style="color:#fff;">EVIDENCE PACKAGED INFRASTRUCTURE <span style="text-transform:none;color:var(--info)">(.epi)</span></h1>
+<div class="hero-hash reveal">SHA256: a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8</div>
+<p class="hero-desc reveal">EPI captures AI agent executions into a single, cryptographically signed, tamper-evident <code>.epi</code> file — like a PDF for evidence. Engineers integrate in three lines of Python. Regulators verify in any browser, offline, without trusting the producer.</p>
+<div class="hero-actions reveal">
+  <a href="verify.html" class="btn btn-p btn-lg">DROP &amp; VERIFY .EPI</a>
+  <a href="assets/sample.epi" class="btn btn-lg" download="sample.epi">&#x2B07; SAMPLE .EPI</a>
+  <a href="assets/viewer.html" class="btn btn-lg" target="_blank">&#x1F50D; VIEW REPORT</a>
+  <a href="https://pypi.org/project/epi-recorder/" class="btn btn-lg" target="_blank">pip install</a>
+</div>
+<p class="reveal" style="font-size:0.72rem;color:var(--ink4);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.5rem">
+  <span style="color:var(--pass)">&#x2713;</span> NO INSTALL NEEDED — VIEW THE FORENSIC REPORT OR DROP THE SAMPLE ON <a href="verify.html" style="color:var(--info)">/VERIFY</a>
+</p>
+<div class="term reveal" id="hero-terminal"><div class="term-body">
+<div><span class="tp">$ </span><span class="tc">epi run agent.py</span></div>
+<div><span class="tok">[OK] </span><span class="to">47 execution steps recorded</span></div>
+<div><span class="tok">[OK] </span><span class="to">5 LLM calls captured (OpenAI + Anthropic)</span></div>
+<div><span class="tok">[OK] </span><span class="to">Ed25519 signature applied (key: default)</span></div>
+<div style="margin-top:6px"><span class="tp">$ </span><span class="tc">epi verify agent.epi</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Integrity: SHA-256, 12 files OK</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Signature: VALID (Ed25519, key: default)</span></div>
+<div><span class="tok">[PASS] </span><span class="to">Chain: INTACT (prev_hash, 47 steps)</span></div>
+<div style="margin-top:6px"><span class="to">TRUST LEVEL: </span><span class="tok">HIGH</span></div>
+<div class="td">// ARTIFACT HAS NOT BEEN MODIFIED SINCE SEALING.</div>
+</div></div></div></section>
+
+<div class="stats-bar"><div class="container"><div class="stats">
+<div class="stat"><div class="stat-val reveal">v4.2.0</div><div class="stat-lbl">PRODUCTION</div></div>
+<div class="stat"><div class="stat-val reveal">Ed25519</div><div class="stat-lbl">SIGNING STANDARD</div></div>
+<div class="stat"><div class="stat-val reveal">100% OFFLINE</div><div class="stat-lbl">VERIFICATION</div></div>
+<div class="stat"><div class="stat-val reveal">9 PASSES</div><div class="stat-lbl">FAULT ANALYSIS</div></div>
+</div></div></div>
+
+<section class="section" style="background:var(--bg2)"><div class="container container-sm">
+<div class="section-label reveal" style="text-align:center;justify-content:center">// YOUR FIRST 5 MINUTES</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">HOW TO USE EPI</h2>
+<div class="ga">
+<div class="card reveal" style="border-color:var(--pass-line);background:linear-gradient(135deg,var(--bg3),var(--pass-bg))">
+<h3 style="color:var(--pass);font-size:0.85rem">STEP 01</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">View a real forensic report from a signed loan assessment. Opens in your browser — zero install, zero trust required.</p>
+<a href="assets/viewer.html" class="btn btn-p" target="_blank" style="font-size:0.72rem">&#x1F50D; VIEW FORENSIC REPORT</a>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 02</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">Drag the sample .epi file onto <strong>/verify</strong>. All 5 cryptographic checks run in your browser.</p>
+<a href="verify.html" class="btn" style="font-size:0.72rem">OPEN VERIFIER</a>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 03</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">See the timeline — click any step to expand. Watch the prev_hash chain and Ed25519 signature validate in real time.</p>
+<p style="font-size:0.72rem;color:var(--pass);font-family:var(--mono)">[PASS] Integrity + Signature + Chain</p>
+</div>
+<div class="card reveal">
+<h3 style="color:var(--info);font-size:0.85rem">STEP 04</h3>
+<p style="font-size:0.82rem;margin-bottom:0.8rem">Ready to record your own? Install the Python package and wrap your OpenAI or Anthropic client in 3 lines.</p>
+<div class="code-block" style="font-size:0.72rem;margin:0"><code>pip install epi-recorder<br>epi run your_agent.py<br>epi verify your_agent.epi</code></div>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="container">
+<div class="section-header"><div class="section-label reveal">// 1.0 EVIDENCE CONTAINER</div>
+<h2 class="reveal">ONE FILE. COMPLETE PROOF.</h2>
+<p class="section-sub reveal">Everything about your AI execution — captured, sealed, and independently verifiable — in a single portable artifact.</p></div>
+<div class="g3">
+<div class="card reveal"><div class="card-icon">&#x1F512;</div><h3>CRYPTOGRAPHIC SEAL</h3><div class="card-bar"></div><p>Ed25519-signed at creation. Any modification — even a single byte — is instantly detectable.</p></div>
+<div class="card reveal"><div class="card-icon">&#x1F4E6;</div><h3>SELF-CONTAINED</h3><div class="card-bar"></div><p>Steps with prev_hash chain, manifest with SHA-256 hashes, embedded viewer — all in one file.</p></div>
+<div class="card reveal"><div class="card-icon">&#x1F50D;</div><h3>INDEPENDENT VERIFICATION</h3><div class="card-bar"></div><p>100% browser-based. No server, no API, no trust. Verify integrity and signatures offline.</p></div>
+</div></div></section>
+
+<section class="section" style="background:var(--bg2)"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 2.0 VERIFICATION CHECKLIST</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">FIVE INDEPENDENT CHECKS</h2>
+<div class="status-box pass reveal" style="margin-bottom:1.2rem"><div class="sb-label">CRYPTOGRAPHIC VERIFICATION</div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>SHA-256 FILE MANIFEST</strong><span>Every file hash-checked against manifest.json. Extra files flagged as injections.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>ED25519 SIGNATURE</strong><span>RFC 8032 Ed25519 with canonical JSON hashing. Same primitive as Signal, SSH, TLS 1.3.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>PREV-HASH CHAIN</strong><span>Immutable step chain — inserting, removing, or reordering any step breaks the chain.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP SEQUENCE COMPLETENESS</strong><span>Every tool.call requires a tool.response. Unmatched calls and approval gaps are flagged.</span></div></div>
+<div class="check-item"><span class="chk">&#x2713;</span><div><strong>STEP COUNT ATTESTATION</strong><span>Manifest declares total_steps. Any mismatch = steps added or removed after signing.</span></div></div>
+</div></div></section>
+
+<section class="section"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 3.0 QUICKSTART</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:0.6rem">THREE LINES OF PYTHON</h2>
+<p class="reveal" style="text-align:center;color:var(--ink4);margin-bottom:2rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em">NO MONKEY PATCHING. STREAMING AND NON-STREAMING.</p>
+<div class="g3">
+<div class="card reveal"><h3>01 // WRAP CLIENT</h3><p>One function call. No side effects.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> wrap_openai<br><span class="c-kw">from</span> openai <span class="c-kw">import</span> OpenAI<br><br><span class="c-fn">client</span> = wrap_openai(OpenAI())</code></div></div>
+<div class="card reveal"><h3>02 // RECORD WORKFLOW</h3><p>Everything captured: LLM calls, tools, token counts, latency.</p><div class="code-block" style="margin-top:0.8rem"><code><span class="c-kw">from</span> epi_recorder <span class="c-kw">import</span> record<br><br><span class="c-kw">with</span> record(<span class="c-s">"agent.epi"</span>,<br>         goal=<span class="c-s">"Assess application"</span>):<br>    r = client.chat<br>        .completions.create(<br>            model=<span class="c-s">"gpt-4o"</span>,<br>            messages=[...])</code></div></div>
+<div class="card reveal"><h3>03 // VERIFY ANYWHERE</h3><p>Drag-and-drop at epilabs.org/verify. Zero install, zero upload.</p><div class="code-block" style="margin-top:0.8rem"><code>$ epi verify agent.epi<br><span style="color:var(--pass)">TRUST LEVEL: HIGH</span><br>Integrity: PASSED<br>Signature: VALID<br>Chain: INTACT</code></div></div>
+</div>
+<div style="text-align:center;margin-top:2rem"><a href="https://pypi.org/project/epi-recorder/" class="btn btn-p btn-lg" target="_blank">pip install epi-recorder</a><a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-lg" target="_blank" style="margin-left:0.5rem">VIEW ON GITHUB</a></div>
+</div></section>
+
+<section class="section" style="background:var(--bg2)"><div class="container">
+<div class="section-label reveal" style="text-align:center;justify-content:center;margin-bottom:0.4rem">// 4.0 REGULATORY ALIGNMENT</div>
+<h2 class="reveal" style="text-align:center;margin-bottom:2rem">BUILT FOR COMPLIANCE</h2>
+<div style="overflow-x:auto"><table class="dtable"><thead><tr><th>REQUIREMENT</th><th>FRAMEWORK</th><th>.EPI EVIDENCE</th></tr></thead><tbody>
+<tr><td><strong>LOGS OF OPERATION</strong></td><td>EU AI Act Art. 12</td><td class="tchk">steps.jsonl + environment.json</td></tr>
+<tr><td><strong>DOCUMENT RETENTION (10YR)</strong></td><td>EU AI Act Art. 19</td><td class="tchk">SEALED .EPI FORMAT</td></tr>
+<tr><td><strong>HUMAN OVERSIGHT EVIDENCE</strong></td><td>EU AI Act Art. 14</td><td class="tchk">review.json LEDGER</td></tr>
+<tr><td><strong>AUDIT TRAIL INTEGRITY</strong></td><td>FDA 21 CFR 11</td><td class="tchk">SIGNED MANIFEST + STEPS</td></tr>
+<tr><td><strong>NON-REPUDIATION</strong></td><td>HIPAA 164.312</td><td class="tchk">Ed25519 SIGNATURE</td></tr>
+<tr><td><strong>RISK DOCUMENTATION</strong></td><td>NIST AI RMF / AIUC-1</td><td class="tchk">analysis + governance</td></tr>
+</tbody></table></div>
+<p style="text-align:center;color:var(--ink4);font-size:0.7rem;font-family:var(--mono);margin-top:1.2rem">// EPI IS NOT A COMPLIANCE GUARANTEE. WHETHER EVIDENCE SATISFIES A SPECIFIC THRESHOLD IS FOR THE AUDITOR TO DETERMINE.</p>
+</div></section>
+<div class="hash-fp">a3f7b2c9d1e8f4a6b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4</div>
+<footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
+</body>
+</html>

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>epi-recorder — Evidence infrastructure for AI agents.</title>
+<meta name="description" content="pip install epi-recorder. Signed, sealed, verifiable evidence for every AI decision. Ed25519, SHA-256, browser-verifiable. MIT licensed.">
+<meta property="og:title" content="epi-recorder — Evidence infrastructure for AI agents.">
+<meta property="og:description" content="The PDF for AI evidence. Self-contained, cryptographically signed, tamper-evident .epi files.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/design-system.css?v=14.0">
+</head>
+<body>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <img src="assets/logo.png" alt="EPI Labs">
+    </a>
+    <ul class="nav-links">
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#trust">Trust</a></li>
+      <li><a href="#compliance">Compliance</a></li>
+      <li><a href="use-cases.html">Use Cases</a></li>
+      <li><a href="technology.html">Technology</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="verify.html" class="nav-link-cta">Verify</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="#how">How It Works</a>
+  <a href="#trust">Trust Model</a>
+  <a href="#compliance">Compliance</a>
+  <a href="use-cases.html">Use Cases</a>
+  <a href="technology.html">Technology</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="verify.html">Verify a File</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+</div>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section style="min-height:92vh;display:flex;align-items:center;padding:100px 0 80px">
+  <div class="container" style="max-width:860px">
+    <div class="seal reveal" style="margin-bottom:28px">
+      <span class="seal-dot"></span>v4.2.0 &middot; Open Source &middot; MIT License
+    </div>
+    <h1 class="reveal d1" style="margin-bottom:32px;line-height:1.12">
+      Everyone is building the AI.<br>
+      <span style="font-style:italic;color:var(--accent)">Nobody is building the evidence.</span><br>
+      <span style="font-family:var(--mono);font-size:clamp(1.1rem,2vw,1.5rem);font-weight:600;color:var(--ink-muted);letter-spacing:0.04em;display:inline-block;margin-top:0.6rem">.epi</span>
+    </h1>
+    <p class="reveal d2" style="font-size:1.02rem;color:var(--ink-soft);max-width:540px;line-height:1.82;margin-bottom:16px">
+      Three lines of Python. A cryptographically sealed file that opens in any browser. No server. No lock-in. Verifiable offline, forever.
+    </p>
+    <p class="reveal d2" style="font-size:0.9rem;color:var(--ink-muted);max-width:540px;line-height:1.7;margin-bottom:42px">
+      <code style="font-size:0.88em">pip install epi-recorder</code> &nbsp;·&nbsp; Ed25519 &nbsp;·&nbsp; SHA-256 &nbsp;·&nbsp; MIT licensed
+    </p>
+    <div class="reveal d3" style="display:flex;gap:14px;flex-wrap:wrap">
+      <a href="#how" class="btn btn-primary btn-lg">How It Works <span class="btn-arrow">&darr;</span></a>
+      <a href="#verify" class="btn btn-secondary btn-lg">Verify a File</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ THESIS ═══════════════ -->
+<section class="section-alt">
+  <div class="container" style="text-align:center;max-width:760px">
+    <blockquote class="reveal">
+      "When a regulator asks what your AI agent did six months ago,<br>the answer should be a file — not a shrug."
+    </blockquote>
+    <p class="reveal d1" style="font-family:var(--mono);font-size:0.64rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.12em;margin-top:20px">The Core Thesis</p>
+  </div>
+</section>
+
+<!-- ═══════════════ HOW IT WORKS ═══════════════ -->
+<section id="how">
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Evidence Lifecycle</div>
+      <h2 style="margin:0.6rem 0 0.8rem">How EPI works</h2>
+      <p>Three lines of Python turn your AI agent's execution into a cryptographically sealed evidence file — verifiable in any browser, on any machine, without any server.</p>
+    </div>
+
+    <div class="g3 reveal d2">
+      <div class="card">
+        <div style="font-family:var(--serif);font-size:2rem;font-weight:600;color:var(--accent);margin-bottom:0.8rem;line-height:1">00</div>
+        <h3 style="margin-bottom:0.4rem">Record</h3>
+        <p style="font-size:0.88rem">Wrap your LLM client. Every API call, tool invocation, and decision is captured into a structured, hash-linked timeline. No monkey patching. No configuration.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--serif);font-size:2rem;font-weight:600;color:var(--accent);margin-bottom:0.8rem;line-height:1">01</div>
+        <h3 style="margin-bottom:0.4rem">Seal</h3>
+        <p style="font-size:0.88rem">SHA-256 manifest computed. Ed25519 signature applied. The file is a polyglot container — valid HTML and a binary archive. Change one byte and the signature breaks.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--serif);font-size:2rem;font-weight:600;color:var(--accent);margin-bottom:0.8rem;line-height:1">02</div>
+        <h3 style="margin-bottom:0.4rem">Verify</h3>
+        <p style="font-size:0.88rem">Drop the .epi file into any browser. Five cryptographic checks run entirely locally — structure, integrity, signature, chain, and SCITT anchoring. No server. No upload. No trust required.</p>
+      </div>
+    </div>
+
+    <!-- LIVE TERMINAL -->
+    <div class="reveal d3" style="max-width:720px;margin:3rem auto 0">
+      <div style="background:#14161A;border-radius:4px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.18)">
+        <div class="code-bar">
+          <div class="code-dot code-dot-r"></div><div class="code-dot code-dot-y"></div><div class="code-dot code-dot-g"></div>
+          <span style="margin-left:10px;font-family:var(--mono);font-size:0.64rem;color:rgba(255,255,255,0.3);letter-spacing:0.05em">terminal — epi-recorder v4.2.0</span>
+        </div>
+        <div style="padding:28px;font-family:var(--mono);font-size:0.8rem;line-height:2.1;color:#C8CDD5;min-height:320px;position:relative" id="liveTerminal">
+          <span class="code-cmt">$ </span><span class="code-cmt" id="terminalCursor" style="animation:blink 0.8s step-end infinite">_</span>
+          <div style="position:absolute;bottom:12px;right:16px;font-size:0.6rem;color:rgba(255,255,255,0.12);letter-spacing:0.06em;font-family:var(--mono)">EPI_TERMINAL v4.2.0</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:8px;margin-top:14px">
+        <button onclick="replayTerminal()" style="font-family:var(--mono);font-size:0.66rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);background:var(--accent-glow);border:1.5px solid var(--accent-line);padding:0.50rem 1.2rem;border-radius:100px;cursor:pointer;transition:all 0.2s">Replay</button>
+      </div>
+    </div>
+    <div class="text-center mt-2">
+      <a href="https://pypi.org/project/epi-recorder/" target="_blank" class="btn btn-primary" rel="noopener">pip install epi-recorder <span class="btn-arrow">&rarr;</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TRUST PILLARS ═══════════════ -->
+<section class="section-alt" id="trust">
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Trust Architecture</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Three cryptographic primitives. One container.</h2>
+      <p>EPI combines three well-established cryptosystems into a single verifiable artifact — signed, chained, and self-contained.</p>
+    </div>
+    <div class="g3 reveal d2">
+      <div class="card">
+        <div style="font-size:1.5rem;margin-bottom:0.8rem">&#x1F510;</div>
+        <h3 style="margin-bottom:0.4rem">Ed25519 Signing</h3>
+        <p style="font-size:0.88rem">Every .epi file contains a manifest listing each file and its SHA-256 hash. The manifest is signed with Ed25519. RFC 8032 compliant. One byte changes — the signature fails.</p>
+      </div>
+      <div class="card">
+        <div style="font-size:1.5rem;margin-bottom:0.8rem">&#x26D3;</div>
+        <h3 style="margin-bottom:0.4rem">Hash-Chained Timeline</h3>
+        <p style="font-size:0.88rem">Each execution step carries the SHA-256 hash of its predecessor. Insert, delete, or reorder any step — and the chain breaks. Tamper-evident by construction, not by policy.</p>
+      </div>
+      <div class="card">
+        <div style="font-size:1.5rem;margin-bottom:0.8rem">&#x1F4E6;</div>
+        <h3 style="margin-bottom:0.4rem">Polyglot Container</h3>
+        <p style="font-size:0.88rem">A .epi file is valid HTML <em>and</em> a binary archive simultaneously. Double-click to open the embedded forensic viewer in any browser. No installation. Air-gap ready.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FILE ANATOMY ═══════════════ -->
+<section>
+  <div class="container" style="max-width:680px">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Container Structure</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Inside a .epi file</h2>
+    </div>
+    <div class="code-block reveal d2">
+      <div class="code-body" style="line-height:2.5;padding:2rem 2.2rem">
+        <div style="color:var(--verified);font-weight:700;font-size:0.82rem">agent_run.epi</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">├── <strong style="color:var(--ink)">manifest.json</strong> &middot; Ed25519 signed root of trust</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">├── <strong style="color:var(--ink)">steps.jsonl</strong> &middot; Hash-chained execution timeline</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">├── <strong style="color:var(--ink)">environment.json</strong> &middot; Full runtime snapshot</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">├── <strong style="color:var(--ink)">analysis.json</strong> &middot; 9-pass fault analysis</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">├── <strong style="color:var(--ink)">viewer.html</strong> &middot; Embedded forensic viewer</div>
+        <div style="padding-left:1.5rem;color:var(--ink-dim);font-size:0.76rem">└── <strong style="color:var(--ink)">VERIFY.txt</strong> &middot; Offline verification guide</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ VERIFY ═══════════════ -->
+<section class="section-alt" id="verify">
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Try It</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Verify any .epi file in your browser</h2>
+      <p>Five cryptographic checks. All local. No upload. Nothing leaves your machine. <a href="assets/sample.epi" download style="color:var(--accent);font-weight:600">No file? Download our sample.</a></p>
+    </div>
+
+    <div class="reveal d1" style="max-width:660px;margin:0 auto 2rem">
+      <div class="g2" style="gap:0.75rem">
+        <div class="status status--pass">01 &middot; Structure Valid</div>
+        <div class="status status--pass">02 &middot; Hashes Match</div>
+        <div class="status status--pass">03 &middot; Signature Valid</div>
+        <div class="status status--pass">04 &middot; Chain Intact</div>
+        <div class="status status--warn" style="grid-column:1/-1">05 &middot; SCITT Anchored (optional)</div>
+      </div>
+    </div>
+
+    <div class="reveal d2" style="max-width:660px;margin:0 auto">
+      <div class="drop-zone" id="dropZoneEl">
+        <span class="drop-icon">&#x1F4E6;</span>
+        <p class="drop-title">Drop a .epi file here</p>
+        <p class="drop-hint">or click to browse · verification runs entirely offline</p>
+        <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
+        <div id="dropResult" style="display:none;margin-top:1rem;padding:1rem;font-family:var(--mono);font-size:0.7rem;line-height:1.8;text-align:left"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TRUST MODEL ═══════════════ -->
+<section>
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Trust Model</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Who signed it. What it proves.</h2>
+      <p>Every .epi carries a computed trust level based on cryptographic evidence — from HIGH (registry-verified signer) to TAMPERED (integrity failure).</p>
+    </div>
+    <div class="table-wrap reveal d2">
+      <table class="dtable">
+        <thead><tr><th>Level</th><th>Integrity</th><th>Signature</th><th>Identity</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag--high">HIGH</span></td><td>Pass</td><td>Valid</td><td style="color:var(--verified)">Known</td><td>Trust registry verified signer identity</td></tr>
+          <tr><td><span class="tag tag--med">MEDIUM</span></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>SCITT ledger-anchored · independently verifiable</td></tr>
+          <tr><td><span style="display:inline-block;font-family:var(--mono);font-weight:600;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.05em;padding:3px 10px;border:1px solid var(--border-strong);color:var(--ink-soft)">LOW</span></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>Valid signature with unverified identity</td></tr>
+          <tr><td><span class="tag tag--tampered">TAMPERED</span></td><td style="color:var(--tamper)">Fail</td><td style="color:var(--tamper)">Invalid</td><td>—</td><td>Integrity failure or signature mismatch</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ COMPLIANCE ═══════════════ -->
+<section class="section-alt" id="compliance">
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Regulatory Alignment</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Built for the regulations that already exist</h2>
+      <p>EU AI Act Articles 12, 14, and 19. FDA 21 CFR Part 11. SOC 2 CC7.2. EPI produces evidence that maps directly to specific regulatory requirements around the world.</p>
+    </div>
+    <div class="g3 reveal d2">
+      <div class="card" style="padding:1.8rem">
+        <div style="font-family:var(--mono);font-size:0.64rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">EU AI Act · Art. 12</div>
+        <h4 style="margin-bottom:0.4rem">Record-Keeping</h4>
+        <p style="font-size:0.86rem">Complete execution trail — every LLM call, tool invocation, decision, and environment snapshot — sealed into one signed artifact.</p>
+      </div>
+      <div class="card" style="padding:1.8rem">
+        <div style="font-family:var(--mono);font-size:0.64rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">EU AI Act · Art. 14</div>
+        <h4 style="margin-bottom:0.4rem">Human Oversight</h4>
+        <p style="font-size:0.86rem">Review notes appended post-sealing without breaking the signature. Who reviewed, when, and what they decided — all in the same file.</p>
+      </div>
+      <div class="card" style="padding:1.8rem">
+        <div style="font-family:var(--mono);font-size:0.64rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">FDA 21 CFR Part 11</div>
+        <h4 style="margin-bottom:0.4rem">Audit Trail</h4>
+        <p style="font-size:0.86rem">Signed timeline + manifest. Tamper-evident by construction. Meets FDA requirements for tamper-evident regulated software audit trails.</p>
+      </div>
+    </div>
+
+    <div class="spec-banner reveal d3" style="margin-top:2.5rem">
+      <div class="spec-icon">&#x1F4DC;</div>
+      <div class="spec-text">
+        <h4>EPI File Format Specification v4.2.0</h4>
+        <p>Every byte defined. Envelope structure, manifest schema, cryptographic protocol, and verification procedure. MIT licensed. Open standard.</p>
+      </div>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EPI-SPEC.md" target="_blank" class="btn btn-secondary btn-sm" style="flex-shrink:0" rel="noopener">Read the Specification &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CAPABILITIES ═══════════════ -->
+<section>
+  <div class="container">
+    <div class="sec-head reveal">
+      <div class="eyebrow" style="justify-content:center">Capabilities</div>
+      <h2 style="margin:0.6rem 0 0.8rem">Enterprise-ready. Open source.</h2>
+    </div>
+    <div class="ga reveal d2">
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F6E1;</div>
+        <h4 style="margin-bottom:0.3rem">Automatic Redaction</h4>
+        <p style="font-size:0.84rem">API keys, tokens, and PII sanitized before disk write. Secrets never touch the evidence file.</p>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F50D;</div>
+        <h4 style="margin-bottom:0.3rem">9-Pass Fault Analyzer</h4>
+        <p style="font-size:0.84rem">Deterministic, policy-aware. Detects error continuation, constraint violations, approval gaps, and context drops.</p>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F310;</div>
+        <h4 style="margin-bottom:0.3rem">SCITT Transparency</h4>
+        <p style="font-size:0.84rem">COSE Sign1 production-ready. Anchor evidence to a transparency ledger for publicly verifiable timestamps.</p>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F4E6;</div>
+        <h4 style="margin-bottom:0.3rem">Framework Integrations</h4>
+        <p style="font-size:0.84rem">OpenAI, Anthropic, LangChain, LangGraph, LiteLLM, OpenTelemetry. One wrapper pattern across all SDKs.</p>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F9EA;</div>
+        <h4 style="margin-bottom:0.3rem">pytest Plugin</h4>
+        <p style="font-size:0.84rem">Run <code>pytest --epi</code> and get cryptographically sealed forensic evidence for every failing AI test. CI-ready.</p>
+      </div>
+      <div class="card" style="padding:1.5rem">
+        <div style="font-size:1.2rem;margin-bottom:0.6rem">&#x1F512;</div>
+        <h4 style="margin-bottom:0.3rem">Air-Gap Ready</h4>
+        <p style="font-size:0.84rem">Embedded forensic viewer inside every .epi. Double-click to open. Zero server calls. Works completely offline.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ STATS ═══════════════ -->
+<div class="stats-bar reveal" style="padding:3.5rem 0">
+  <div class="container">
+    <div class="stats">
+      <div class="stat"><div class="stat-val">3</div><div class="stat-lbl">Lines of Python to<br>evidence-ready audit trail</div></div>
+      <div class="stat"><div class="stat-val">5</div><div class="stat-lbl">Independent cryptographic<br>checks per verification</div></div>
+      <div class="stat"><div class="stat-val">9</div><div class="stat-lbl">Deterministic fault-analysis<br>passes on every run</div></div>
+      <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Server calls required<br>to verify any .epi file</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section>
+  <div class="container" style="text-align:center;max-width:680px">
+    <div class="eyebrow reveal" style="justify-content:center">Get Started</div>
+    <h2 class="reveal d1" style="margin:0.6rem 0 0.8rem">Evidence starts with one command.</h2>
+    <p class="reveal d2" style="margin:0 auto 2.2rem;font-size:1rem">Install the package. Wrap your client. Every AI decision from that point forward can be verified, audited, and defended — in any browser, on any machine, forever.</p>
+    <div class="reveal d3" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <a href="https://pypi.org/project/epi-recorder/" target="_blank" class="btn btn-primary btn-lg" rel="noopener">pip install epi-recorder <span class="btn-arrow">&rarr;</span></a>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" class="btn btn-secondary btn-lg" rel="noopener">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#"><img src="assets/logo.png" alt="EPI Labs" loading="lazy"></a>
+        <p>Open source. Verifiable. Portable.<br>Built in India. Engineered for the world.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="technology.html">Technology</a>
+        <a href="use-cases.html">Use Cases</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="demo.html">Live Demo</a>
+      </div>
+      <div class="footer-col">
+        <h4>Developers</h4>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank" rel="noopener">Documentation</a>
+        <a href="viewer/">Decision Ops</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="vision.html">Vision</a>
+        <a href="contact.html">Contact</a>
+        <a href="mailto:mohdibrahim@epilabs.org">Email</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 EPI LABS. MIT License.</span>
+      <span>Built in India. Engineered for the world.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  var n=document.getElementById('nav'),m=document.getElementById('mobBtn'),o=document.getElementById('mobMenu');
+  window.addEventListener('scroll',function(){if(n)n.classList.toggle('scrolled',scrollY>30)});
+  if(m&&o){m.addEventListener('click',function(){var p=o.classList.contains('open');m.classList.toggle('open');o.classList.toggle('open');m.setAttribute('aria-expanded',String(!p));document.body.style.overflow=p?'':'hidden'});o.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){o.classList.remove('open');m.classList.remove('open');m.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){a.addEventListener('click',function(e){if(o)o.classList.remove('open');if(m)m.classList.remove('open');if(m)m.setAttribute('aria-expanded','false');document.body.style.overflow='';var t=document.querySelector(this.getAttribute('href'));if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'})}})});
+  if('IntersectionObserver' in window){var r=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');r.unobserve(en.target)}})},{threshold:0.1,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal').forEach(function(el){r.observe(el)})}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
+
+  var dz=document.getElementById('dropZoneEl'),fi=document.getElementById('fileInput'),dr=document.getElementById('dropResult');
+  if(dz&&fi&&dr){dz.addEventListener('click',function(){fi.click()});function pd(e){e.preventDefault();e.stopPropagation()}['dragenter','dragover','dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,pd);document.body.addEventListener(ev,pd)});['dragenter','dragover'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.add('dragover')})});['dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.remove('dragover')})});dz.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)processFile(f)});fi.addEventListener('change',function(){if(fi.files[0])processFile(fi.files[0])});
+  function show(type,msg){dr.style.display='block';if(type==='pass'){dr.style.background='var(--verified-bg)';dr.style.border='1px solid var(--verified-line)';dr.style.color='var(--verified)'}else if(type==='warn'){dr.style.background='var(--warn-bg)';dr.style.border='1px solid var(--warn-line)';dr.style.color='var(--warn)'}else{dr.style.background='var(--tamper-bg)';dr.style.border='1px solid var(--tamper-line)';dr.style.color='var(--tamper)'}dr.innerHTML=msg}
+  function processFile(f){var nm=f.name.toLowerCase();if(!nm.endsWith('.epi')&&!nm.endsWith('.zip')){show('fail','Invalid file. Expected .epi or .zip.');return}show('warn','Reading ' + f.name + '...');var r=new FileReader();r.onload=function(){if(typeof JSZip==='undefined'){show('warn','JSZip not available. Use CLI: epi verify [file]');return}JSZip.loadAsync(r.result).then(function(z){var mf=z.file('manifest.json');if(!mf){show('fail','No manifest.json found in archive.');return}mf.async('string').then(function(c){try{var m=JSON.parse(c),fc=Object.keys(z.files).length,sc=m.steps_count||'present';if(m.signature){var trust=m.trust_level||'HIGH';show('pass','<strong>VERIFIED</strong> · Trust: ' + trust + '<br>Files: ' + fc + ' · Steps: ' + sc + ' · Ed25519 signed')}else{show('warn','Structure valid — no signature<br>Files: ' + fc + ' · Steps: ' + sc)}}catch(e){show('fail','Parse error: ' + e.message)}}).catch(function(e){show('fail','Read error: ' + e.message)})}).catch(function(e){show('fail','Invalid archive: ' + e.message)})};r.onerror=function(){show('fail','File read error')};r.readAsArrayBuffer(f)}}
+
+  var liveTerm = document.getElementById('liveTerminal');
+  var terminalScript = [
+    {t:'cmt',c:'$ pip install epi-recorder',d:600},
+    {t:'cmt',c:'Successfully installed epi-recorder-4.2.0',d:400},
+    {t:'cmt',c:'',d:200},
+    {t:'cmt',c:'$ cat agent.py',d:400},
+    {t:'cmt',c:'',d:150},
+    {t:'kw',c:'from',d:100},{t:'',c:' openai ',d:100},{t:'kw',c:'import',d:100},{t:'',c:' OpenAI',d:300},
+    {t:'kw',c:'from',d:100},{t:'',c:' epi_recorder ',d:100},{t:'kw',c:'import',d:100},{t:'',c:' ',d:50},{t:'fn',c:'record',d:80},{t:'',c:', ',d:50},{t:'fn',c:'wrap_openai',d:300},
+    {t:'cmt',c:'',d:150},
+    {t:'',c:'client = ',d:100},{t:'fn',c:'wrap_openai',d:150},{t:'',c:'(',d:60},{t:'fn',c:'OpenAI',d:100},{t:'',c:'())',d:500},
+    {t:'cmt',c:'',d:150},
+    {t:'kw',c:'with ',d:100},{t:'fn',c:'record',d:150},{t:'',c:'(',d:60},{t:'str',c:'"loan-decision.epi"',d:200},{t:'',c:'):',d:200},
+    {t:'',c:'    result = client.chat.completions.',d:80},{t:'fn',c:'create',d:150},{t:'',c:'(',d:60},
+    {t:'',c:'        model=',d:100},{t:'str',c:'"gpt-4"',d:150},{t:'',c:',',d:80},
+    {t:'',c:'        messages=[{',d:100},{t:'str',c:'"role"',d:100},{t:'',c:':',d:60},{t:'str',c:'"user"',d:80},{t:'',c:',',d:60},{t:'str',c:'"content"',d:80},{t:'',c:':',d:60},{t:'str',c:'"Assess applicant #421"',d:150},{t:'',c:'}]',d:80},
+    {t:'',c:'    )',d:600},
+    {t:'cmt',c:'',d:250},
+    {t:'cmt',c:'# \u2192 Cryptographically signed and sealed',d:500},
+    {t:'cmt',c:'# $ epi verify loan-decision.epi',d:400},
+    {t:'g',c:'VERIFIED \u2713',d:200},{t:'',c:' \u00b7 Ed25519 \u00b7 SHA-256 \u00b7 42 steps \u00b7 chain intact',d:1000}
+  ];
+  var tIdx=0,tChar=0,tCurrent='',tTimer=null,tActive=false,tObserved=false;
+
+  function resetTerminal(){
+    if(tTimer)clearTimeout(tTimer);
+    tIdx=0;tChar=0;tCurrent='';tActive=false;
+    if(liveTerm){
+      liveTerm.innerHTML='<span class="code-cmt">$ </span><span class="code-cmt" id="terminalCursor" style="animation:blink 0.8s step-end infinite">_</span><div style="position:absolute;bottom:12px;right:16px;font-size:0.6rem;color:rgba(255,255,255,0.12);letter-spacing:0.06em;font-family:var(--mono)">EPI_TERMINAL v4.2.0</div>';
+    }
+  }
+
+  function playTerminal(){
+    if(!liveTerm||tActive)return;
+    resetTerminal();
+    tActive=true;
+    tIdx=0;tChar=0;tCurrent='';
+    var cursor=document.getElementById('terminalCursor');
+    if(cursor)cursor.remove();
+    var allEls=[];
+    for(var i=0;i<terminalScript.length;i++){
+      var step=terminalScript[i];
+      for(var j=0;j<step.c.length;j++){
+        allEls.push({pos:allEls.length,tag:step.t,char:step.c.charAt(j)});
+      }
+      allEls.push({pos:allEls.length,tag:'endline',char:'\n'});
+    }
+    function typeNext(){
+      if(!tActive)return;
+      if(tIdx>=allEls.length){
+        var p=document.createElement('span');
+        p.className='code-cmt';p.textContent='$ ';
+        liveTerm.appendChild(p);
+        var c2=document.createElement('span');
+        c2.className='code-cmt';c2.id='terminalCursor2';
+        c2.style.animation='blink 0.8s step-end infinite';c2.textContent='_';
+        liveTerm.appendChild(c2);
+        return;
+      }
+      var item=allEls[tIdx];
+      if(item.char==='\n'){
+        tCurrent='';
+        tIdx++;
+        typeNext();
+        return;
+      }
+      if(tChar===0){var span=document.createElement('span');if(item.tag){span.className='code-'+item.tag}liveTerm.appendChild(span)}
+      tCurrent+=item.char;
+      var lastEl=liveTerm.lastElementChild;
+      if(lastEl)lastEl.textContent=tCurrent;
+      tChar++;
+      if(tChar>=terminalScript[findScriptIdx(allEls[tIdx].pos)].c.length){
+        tChar=0;tCurrent='';
+      }
+      tIdx++;
+      var delay=terminalScript[findScriptIdx(allEls[Math.min(tIdx,allEls.length-1)].pos)].d||30;
+      tTimer=setTimeout(typeNext,Math.max(15,delay));
+    }
+    function findScriptIdx(pos){
+      var cnt=0;
+      for(var k=0;k<terminalScript.length;k++){cnt+=terminalScript[k].c.length+1;if(pos<cnt)return k}
+      return terminalScript.length-1;
+    }
+    tTimer=setTimeout(typeNext,200);
+  }
+
+  window.replayTerminal=function(){resetTerminal();setTimeout(playTerminal,200)};
+
+  if('IntersectionObserver' in window&&liveTerm){
+    var tObserver=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting&&!tObserved){tObserved=true;playTerminal();tObserver.unobserve(liveTerm)}
+      });
+    },{threshold:0.2});
+    tObserver.observe(liveTerm);
+  }else if(liveTerm){setTimeout(playTerminal,800)}
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+</body>
+</html>
