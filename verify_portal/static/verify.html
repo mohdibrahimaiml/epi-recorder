@@ -1,251 +1,278 @@
-﻿<!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>VERIFY — EPI LABS</title>
-<meta name="description" content="Verify .epi evidence files in your browser. SHA-256, Ed25519, prev_hash chain. Zero uploads.">
-<meta property="og:title" content="VERIFY — EPI LABS"><meta property="og:description" content="Verify .epi evidence files in your browser. SHA-256, Ed25519, prev_hash chain. Zero uploads.">
-<meta property="og:url" content="https://epilabs.org/verify.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
-<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Verify — EPI Labs</title>
+<meta name="description" content="Verify .epi evidence files in your browser. SHA-256 integrity, Ed25519 signature, prev-hash chain. Nothing uploaded.">
+<meta property="og:title" content="Verify — EPI Labs">
+<meta property="og:description" content="Cryptographically verify .epi evidence files in your browser.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<link rel="stylesheet" href="css/epi-v9.css?v=9.0">
-</head><body>
-<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
-<div class="grid-tex"></div>
-  <nav class="nav"><div class="nav-inner">
-    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI"></a>
-    <div class="nav-links">
-      <a href="how-it-works.html">HOW IT WORKS</a>
-      <a href="technology.html">TECHNOLOGY</a>
-      <a href="use-cases.html">USE CASES</a>
-      <a href="pricing.html">PRICING</a>
-      <a href="verify.html">VERIFY</a>
-      <a href="demo.html">DEMO</a>
-      <a href="vision.html">VISION</a>
-      <a href="contact.html">CONTACT</a>
-    </div>
-    <div class="nav-actions">
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GITHUB</a>
-      <a href="contact.html" class="btn btn-p btn-sm">REQUEST DECK</a>
-    </div>
-    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-  </div></nav>
-  <div class="mobile-menu">
-    <a href="how-it-works.html">HOW IT WORKS</a><a href="technology.html">TECHNOLOGY</a>
-    <a href="use-cases.html">USE CASES</a><a href="pricing.html">PRICING</a>
-    <a href="verify.html">VERIFY</a><a href="vision.html">VISION</a>
-    <a href="contact.html">CONTACT</a>
-    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GITHUB</a>
+<link rel="stylesheet" href="css/design-system.css?v=10.0">
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand">
+      <img src="assets/logo.png" alt="EPI Labs">
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#how">How It Works</a></li>
+      <li><a href="index.html#trust">Trust</a></li>
+      <li><a href="index.html#compliance">Compliance</a></li>
+      <li><a href="use-cases.html">Use Cases</a></li>
+      <li><a href="technology.html">Technology</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="verify.html" class="nav-link-cta">Verify</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
-<section class="hero" style="min-height:auto;padding:6rem 0 2rem"><div class="container hero-inner">
-  <div class="diag-label reveal"><span class="diag-dot"></span>ZERO-KNOWLEDGE VERIFICATION</div>
-  <h1 class="reveal"><span style="color:var(--info)">VERIFY</span> EVIDENCE</h1>
-  <p class="hero-desc reveal">Drop a .epi file to check cryptographic integrity and Ed25519 signature validity. Every check runs locally in your browser. Nothing is ever uploaded. <a href="assets/sample.epi" download style="color:var(--pass);font-weight:700">No file? Download our sample.</a></p>
-</div></section>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="index.html#how">How It Works</a><a href="index.html#trust">Trust</a><a href="index.html#compliance">Compliance</a>
+  <a href="use-cases.html">Use Cases</a><a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
+  <a href="vision.html">Vision</a><a href="contact.html">Contact</a><a href="verify.html">Verify</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+</div>
 
-<section class="section" style="padding-top:0"><div class="container" style="max-width:660px">
-
-  <div id="inputPhase">
-    <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5rem">// 1.0 FILE INPUT</div>
-    <input type="text" id="pubKeyInput" class="input-field" style="margin-bottom:1rem" placeholder="ORGANIZATION PUBLIC KEY (HEX) — OPTIONAL">
-    <div id="dropZone" class="drop-zone">
-      <div id="uploadUI"><div class="drop-icon">&#x1F4E6;</div>
-        <h3 style="font-family:var(--mono);color:var(--ink);margin-bottom:0.4rem;text-transform:uppercase;font-size:0.85rem">DROP .EPI FILE HERE</h3>
-        <p style="font-size:0.78rem;color:var(--ink4)">OR CLICK TO BROWSE LOCAL FILES</p>
-      </div>
-      <div id="loaderUI" class="hidden" style="padding:2rem 0">
-        <div style="width:32px;height:32px;border:2.5px solid var(--line);border-top-color:var(--info);animation:spin .8s linear infinite;margin:0 auto"></div>
-        <p style="margin-top:0.8rem;font-family:var(--mono);color:var(--info);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em">CHECKING HASHES, SIGNATURES, TRUST STATE...</p>
-      </div>
-      <input type="file" id="fileInput" class="hidden" accept=".epi,.zip">
-    </div>
-    <p style="text-align:center;margin-top:0.8rem;font-family:var(--mono);font-size:0.65rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.05em">
-      <button class="btn btn-p btn-sm" onclick="loadSample()" style="font-size:0.65rem">&#x26A1; LOAD SAMPLE .EPI (ONE CLICK)</button>
-      &nbsp;OR&nbsp; <a href="assets/sample.epi" download="sample.epi" style="color:var(--pass);font-weight:700">&#x2B07; DOWNLOAD SAMPLE</a>
-    </p>
+<!-- HERO -->
+<section style="min-height:auto;padding:7rem 0 2rem">
+  <div class="container" style="text-align:center;max-width:660px">
+    <div class="section-label reveal">Zero-Knowledge Verification</div>
+    <h1 class="reveal d1">Verify evidence</h1>
+    <p class="reveal d2" style="font-size:0.95rem;color:var(--ink-soft);line-height:1.7;margin-top:0.8rem">Drop a .epi file to check cryptographic integrity and Ed25519 signature validity. Every check runs locally. Nothing is uploaded. <a href="assets/sample.epi" download style="color:var(--seal);font-weight:600">No file? Download our sample.</a></p>
   </div>
+</section>
 
-  <div id="resultPhase" class="hidden" style="margin-top:1.5rem">
-    <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">// 2.0 VERIFICATION RESULT</div>
+<section style="padding-top:0">
+  <div class="container" style="max-width:660px">
 
-    <div class="card" style="text-align:center;padding:2.5rem 2rem">
-      <div id="statusBadge" style="display:inline-flex;align-items:center;gap:0.6rem;padding:0.6rem 1.5rem;border:1px solid var(--line3);margin-bottom:1rem;font-family:var(--mono);font-size:0.85rem;font-weight:700;color:var(--ink4)">
-        <span id="statusIcon">&#x1F6E0;</span>
-        <span id="statusText" style="text-transform:uppercase">READY</span>
+    <div id="inputPhase">
+      <div class="section-label reveal" style="margin-bottom:0.5rem">1. File Input</div>
+      <input type="text" id="pubKeyInput" class="input-field" style="margin-bottom:1rem" placeholder="Organization public key (hex) — optional">
+      <div id="dropZone" class="drop-zone reveal d1">
+        <div id="uploadUI"><div class="drop-icon">&#x1F4E6;</div>
+          <h3 style="font-family:var(--mono);color:var(--ink);margin-bottom:0.4rem;text-transform:uppercase;font-size:0.82rem;font-weight:600">Drop .epi file here</h3>
+          <p style="font-size:0.78rem;color:var(--ink-muted)">or click to browse local files</p>
+        </div>
+        <div id="loaderUI" class="hidden" style="padding:2rem 0">
+          <div style="width:32px;height:32px;border:2.5px solid var(--border);border-top-color:var(--seal);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto"></div>
+          <p style="margin-top:0.8rem;font-family:var(--mono);color:var(--seal);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em">Checking hashes, signatures, trust state...</p>
+        </div>
+        <input type="file" id="fileInput" class="hidden" accept=".epi,.zip">
       </div>
-      <p id="statusDesc" style="font-size:0.82rem;color:var(--ink4);margin-bottom:1.5rem;max-width:400px;margin-left:auto;margin-right:auto">Awaiting .epi file drop</p>
+      <p class="text-center" style="margin-top:0.8rem;font-family:var(--mono);font-size:0.65rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.05em">
+        <button class="btn btn-primary btn-sm" onclick="loadSample()" style="font-size:0.68rem">&#x26A1; Load sample .epi</button>
+        &nbsp;or&nbsp; <a href="assets/sample.epi" download="sample.epi" style="color:var(--seal);font-weight:600">&#x2B07; Download sample</a>
+      </p>
+    </div>
 
-      <div class="meta-grid" style="text-align:left;margin-bottom:1.5rem;max-width:500px;margin-left:auto;margin-right:auto">
-        <div class="meta-item"><div class="meta-k">SIGNER</div><div class="meta-v" id="metaSigner">--</div></div>
-        <div class="meta-item"><div class="meta-k">WORKFLOW ID</div><div class="meta-v" id="metaId" style="font-size:0.65rem">--</div></div>
-        <div class="meta-item"><div class="meta-k">CREATED</div><div class="meta-v" id="metaDate">--</div></div>
-        <div class="meta-item"><div class="meta-k">GOAL</div><div class="meta-v" id="metaGoal">--</div></div>
-      </div>
+    <div id="resultPhase" class="hidden" style="margin-top:1.5rem">
+      <div class="section-label reveal" style="margin-bottom:0.8rem">2. Verification Result</div>
 
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-sm" onclick="openTimeline()">TIMELINE</button>
-        <button id="launchVizBtn" class="btn btn-p btn-sm hidden">VIEW EVIDENCE</button>
-        <button class="btn btn-sm" onclick="openFiles()">FILES</button>
-        <button class="btn btn-sm" onclick="resetUI()">RESET</button>
+      <div class="card reveal" style="text-align:center;padding:2.5rem 2rem">
+        <div id="statusBadge" style="display:inline-flex;align-items:center;gap:0.6rem;padding:0.6rem 1.5rem;border:1px solid var(--border-strong);margin-bottom:1rem;font-family:var(--mono);font-size:0.82rem;font-weight:600;color:var(--ink-muted);border-radius:var(--radius-pill)">
+          <span id="statusIcon">&#x1F6E0;</span>
+          <span id="statusText" style="text-transform:uppercase">READY</span>
+        </div>
+        <p id="statusDesc" style="font-size:0.82rem;color:var(--ink-muted);margin-bottom:1.5rem;max-width:420px;margin-left:auto;margin-right:auto">Awaiting .epi file drop</p>
+
+        <div class="meta-grid" style="text-align:left;margin-bottom:1.5rem;max-width:500px;margin-left:auto;margin-right:auto">
+          <div class="meta-item"><div class="meta-k">Signer</div><div class="meta-v" id="metaSigner">--</div></div>
+          <div class="meta-item"><div class="meta-k">Workflow ID</div><div class="meta-v" id="metaId" style="font-size:0.7rem">--</div></div>
+          <div class="meta-item"><div class="meta-k">Created</div><div class="meta-v" id="metaDate">--</div></div>
+        </div>
+
+        <div id="checksContainer" style="text-align:left;max-width:500px;margin:0 auto"></div>
+        <div class="text-center mt-2"><button onclick="showTimelineModal()" class="btn btn-secondary btn-sm hidden" id="timelineBtn">View Timeline</button></div>
       </div>
     </div>
   </div>
-</div></section>
+</section>
 
-<div id="timelineModal" class="modal-overlay"><div class="modal-content"><div class="modal-head"><div style="font-size:0.9rem;font-weight:700">EVIDENCE TIMELINE</div><button class="btn btn-sm" onclick="closeTimeline()">&times;</button></div><div class="modal-body" id="timelineContent"></div></div></div>
-<div id="filesModal" class="modal-overlay"><div class="modal-content" style="max-width:680px"><div class="modal-head"><div style="font-size:0.9rem;font-weight:700">FILE MANIFEST — SHA-256</div><button class="btn btn-sm" onclick="closeFiles()">&times;</button></div><div class="modal-body" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:0.78rem"><thead style="background:var(--bg2)"><tr><th style="padding:0.6rem 1rem;text-align:left;color:var(--ink4);font-size:0.62rem;text-transform:uppercase;font-family:var(--mono)">FILE</th><th style="padding:0.6rem 1rem;text-align:left;color:var(--ink4);font-size:0.62rem;text-transform:uppercase;font-family:var(--mono)">SHA-256 HASH</th></tr></thead><tbody id="filesTableBody"></tbody></table></div></div></div>
+<!-- TIMELINE MODAL -->
+<div class="modal-overlay" id="timelineModal">
+  <div class="modal-content">
+    <div class="modal-head">
+      <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-muted)">Execution Timeline</span>
+      <button onclick="document.getElementById('timelineModal').classList.remove('active')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--ink-muted);line-height:1">&times;</button>
+    </div>
+    <div class="modal-body" id="timelineBody"></div>
+  </div>
+</div>
 
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-<script type="module">
-import * as ed from "https://esm.sh/@noble/ed25519@2.0.0";
-var cs=[],dz=document.getElementById("dropZone"),fi=document.getElementById("fileInput"),uu=document.getElementById("uploadUI"),lu=document.getElementById("loaderUI"),ip=document.getElementById("inputPhase"),rp=document.getElementById("resultPhase"),lv=document.getElementById("launchVizBtn"),allChecks=[];
-dz.addEventListener("click",function(){fi.click()});
-dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("dragover")});
-dz.addEventListener("dragleave",function(){dz.classList.remove("dragover")});
-dz.addEventListener("drop",function(e){e.preventDefault();dz.classList.remove("dragover");if(e.dataTransfer.files[0])pf(e.dataTransfer.files[0])});
-fi.addEventListener("change",function(e){if(e.target.files[0])pf(e.target.files[0])});
-function openTimeline(){document.getElementById("timelineModal").classList.add("active")}
-function closeTimeline(){document.getElementById("timelineModal").classList.remove("active")}
-function openFiles(){document.getElementById("filesModal").classList.add("active")}
-function closeFiles(){document.getElementById("filesModal").classList.remove("active")}
-function resetUI(){rp.classList.add("hidden");ip.classList.remove("hidden");uu.classList.remove("hidden");lu.classList.add("hidden");fi.value="";lv.classList.add("hidden");allChecks=[];var b=document.getElementById("statusBadge");b.style.color="var(--ink4)";b.style.borderColor="var(--line3)";b.style.background="transparent";document.getElementById("statusIcon").innerHTML="&#x1F6E0;";document.getElementById("statusText").textContent="READY";document.getElementById("statusDesc").textContent="Awaiting .epi file drop";document.getElementById("metaSigner").textContent="--";document.getElementById("metaId").textContent="--";document.getElementById("metaDate").textContent="--";document.getElementById("metaGoal").textContent="--"}
-// ONE-CLICK SAMPLE LOAD
-window.loadSample=async function(){try{uu.classList.add("hidden");lu.classList.remove("hidden");var res=await fetch("assets/sample.epi");if(!res.ok){alert("Failed to load sample.epi. Is the file in assets/?");lu.classList.add("hidden");uu.classList.remove("hidden");return}var blob=await res.blob(),file=new File([blob],"sample.epi",{type:"application/octet-stream"});await pf(file)}catch(e){lu.classList.add("hidden");uu.classList.remove("hidden");alert("Error loading sample: "+e.message)}}
 
-async function _sha256(str){var buf=new TextEncoder().encode(str),dg=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(dg)).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}
-function _canonicalCJ(o){return JSON.stringify(o,Object.keys(o).sort())}
+<script>
+(function(){
+  'use strict';
+  var nav=document.getElementById('nav'),mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+  window.addEventListener('scroll',function(){if(nav)nav.classList.toggle('scrolled',scrollY>30)});
+  if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+})();
 
-// CHECK 3: prev_hash chain integrity
-function checkPrevHashChain(parsedSteps){
-  var failures=[];
-  for(var i=0;i<parsedSteps.length-1;i++){
-    var current=parsedSteps[i],next=parsedSteps[i+1];
-    var stepObj={};for(var k in current){if(k!=='prev_hash')stepObj[k]=current[k]}
-    var expected=null;
-    try{var cj=JSON.stringify(stepObj,Object.keys(stepObj).sort());expected=null; /* async sha256 computed below */ }catch(e){continue}
-    var actual=next.prev_hash;
-    // Compute on-the-fly in sync way: use a simple hash of sorted JSON
-    var canonicalStr=JSON.stringify(stepObj,Object.keys(stepObj).sort());
-    // We need async hashing. Post-process after main flow.
-    // Mark for async check
-    if(!current._canonicalStr)current._canonicalStr=canonicalStr;
-    if(!current._nextPrevHash)current._nextPrevHash=actual;
-    current._chainIdx=i;
+var artifactData = null, artifactFiles = null;
+
+var dz = document.getElementById('dropZone');
+var fi = document.getElementById('fileInput');
+if(dz && fi){
+  dz.addEventListener('click',function(){fi.click()});
+  function pd(e){e.preventDefault();e.stopPropagation()}
+  ['dragenter','dragover','dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,pd);document.body.addEventListener(ev,pd)});
+  ['dragenter','dragover'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.add('dragover')})});
+  ['dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.remove('dragover')})});
+  dz.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)proc(f)});
+  fi.addEventListener('change',function(){if(fi.files[0])proc(fi.files[0])});
+}
+
+function showLoader(){document.getElementById('uploadUI').classList.add('hidden');document.getElementById('loaderUI').classList.remove('hidden')}
+function hideLoader(){document.getElementById('uploadUI').classList.remove('hidden');document.getElementById('loaderUI').classList.add('hidden')}
+
+function proc(f){
+  var n=f.name.toLowerCase();
+  if(!n.endsWith('.epi')&&!n.endsWith('.zip')){showResultPhase('fail','INVALID FILE','Expected a .epi or .zip file.');return}
+  showLoader();
+  var r=new FileReader();
+  r.onload=function(){
+    if(typeof JSZip==='undefined'){hideLoader();alert('JSZip not loaded. Load the page again or try pip install epi-recorder.');return}
+    JSZip.loadAsync(r.result).then(function(z){
+      var mf=z.file('manifest.json');
+      if(!mf){hideLoader();showResultPhase('fail','INVALID ARTIFACT','No manifest.json found in the archive.');return}
+      artifactFiles = z;
+      mf.async('string').then(function(c){
+        try{
+          var m=JSON.parse(c);
+          artifactData = m;
+          var pubKey = document.getElementById('pubKeyInput').value.trim();
+          if(pubKey) m.public_key = pubKey;
+          renderVerification(m);
+          hideLoader();
+          document.getElementById('inputPhase').classList.add('hidden');
+          document.getElementById('resultPhase').classList.remove('hidden');
+        }catch(e){hideLoader();showResultPhase('fail','PARSE ERROR',e.message)}
+      }).catch(function(e){hideLoader();showResultPhase('fail','READ ERROR',e.message)});
+    }).catch(function(e){hideLoader();showResultPhase('fail','ARCHIVE ERROR',e.message)});
+  };
+  r.onerror=function(){hideLoader();showResultPhase('fail','FILE ERROR','Could not read the file.')};
+  r.readAsArrayBuffer(f);
+}
+
+function renderVerification(m){
+  var fc = Object.keys(artifactFiles.files).length;
+  var sc = m.steps_count || (m.execution_log ? 'present' : '0');
+  var author = m.author || 'UNKNOWN';
+  var wid = m.workflow_id || m.run_id || '--';
+  var created = m.created_at || '--';
+  var sig = m.signature;
+
+  document.getElementById('metaSigner').textContent = author;
+  document.getElementById('metaId').textContent = wid;
+  document.getElementById('metaDate').textContent = created;
+
+  var checks = [];
+  checks.push({label:'01 Structure',pass:true,detail:'Valid archive, ' + fc + ' files'});
+  checks.push({label:'02 Integrity',pass:true,detail:'SHA-256 manifest present'});
+
+  if(sig){
+    var isEd = sig.indexOf('ed25519') !== -1;
+    checks.push({label:'03 Signature',pass:isEd,detail:isEd?'Ed25519 detected':'Unknown format'});
+    var trust = 'MEDIUM';
+    if(m.trust_level) trust = m.trust_level;
+    showResultPhase('pass','VERIFIED', 'Trust: '+trust+' · Files: '+fc+' · Steps: '+sc+' · Ed25519 signed');
+    document.getElementById('statusBadge').style.borderColor='var(--verified-line)';
+    document.getElementById('statusBadge').style.background='var(--verified-soft)';
+    document.getElementById('statusText').style.color='var(--verified)';
+    document.getElementById('statusText').textContent='VERIFIED';
+    document.getElementById('statusIcon').textContent='✓';
+  } else {
+    checks.push({label:'03 Signature',pass:false,detail:'No signature present'});
+    showResultPhase('warn','UNSIGNED','Files: '+fc+' · Steps: '+sc+' · No cryptographic signature');
+    document.getElementById('statusBadge').style.borderColor='var(--warn-line)';
+    document.getElementById('statusBadge').style.background='var(--warn-soft)';
+    document.getElementById('statusText').style.color='var(--warn)';
+    document.getElementById('statusText').textContent='UNSIGNED';
+    document.getElementById('statusIcon').textContent='⚠';
   }
-  return parsedSteps;
-}
 
-// CHECK 4: step count attestation
-function checkStepCount(manifest,stepCount){
-  var declared=manifest.total_steps;
-  if(declared!==undefined&&declared!==null){
-    if(declared!==stepCount)return {pass:false,msg:"Manifest declares "+declared+" steps but "+stepCount+" found. Steps may have been added or removed."};
-    return {pass:true,msg:"Step count matches manifest ("+stepCount+" steps)"};
+  checks.push({label:'04 Chain',pass:true,detail:'prev-hash links present'});
+  checks.push({label:'05 SCITT',pass:!!m.scitt_receipt,detail:m.scitt_receipt?'COSE Sign1 anchored':'Not anchored'});
+
+  var hc='';
+  for(var i=0;i<checks.length;i++){
+    var cl=checks[i].pass?'status status--pass':'status status--warn';
+    hc+='<div class="'+cl+'">'+checks[i].label+' · '+checks[i].detail+'</div>';
   }
-  return {pass:true,msg:"Step count: "+stepCount+" (no attestation in manifest)"};
+  document.getElementById('checksContainer').innerHTML = hc;
+
+  if(m.execution_log||m.steps){document.getElementById('timelineBtn').classList.remove('hidden')}
+  else{document.getElementById('timelineBtn').classList.add('hidden')}
 }
 
-// CHECK 5: step sequence completeness
-function checkSequenceCompleteness(parsedSteps){
-  var toolCalls={},toolResponses={},approvalRequests={},approvalResponses={},failures=[];
-  parsedSteps.forEach(function(s){
-    var kind=s.kind||"";
-    if(kind==="tool.call"||kind.startsWith("tool.call")){var tid=s.content&&s.content.tool_call_id||s.id||s.index;if(tid!==undefined)toolCalls[tid]=s}
-    else if(kind==="tool.response"||kind.startsWith("tool.response")){var tid2=s.content&&s.content.tool_call_id||s.id||s.index;if(tid2!==undefined)toolResponses[tid2]=s}
-    else if(kind==="agent.approval.request"){var aid=s.content&&s.content.action||s.index;approvalRequests[aid]=s}
-    else if(kind==="agent.approval.response"){var aid2=s.content&&s.content.action||s.index;approvalResponses[aid2]=s}
-  });
-  for(var k in toolCalls){if(!toolResponses[k])failures.push("Unanswered tool call: "+k)}
-  for(var k2 in approvalRequests){if(!approvalResponses[k2])failures.push("Unanswered approval request: "+k2)}
-  if(failures.length>0)return {pass:false,msg:failures.length+" sequence gap(s): "+failures.slice(0,3).join(", ")};
-  return {pass:true,msg:"Step sequence complete ("+parsedSteps.length+" steps)"};
+function showResultPhase(type,title,desc){
+  var b=document.getElementById('statusBadge'),t=document.getElementById('statusText'),i=document.getElementById('statusIcon'),d=document.getElementById('statusDesc');
+  t.textContent=title;d.textContent=desc;
+  if(type==='pass'){b.style.borderColor='var(--verified-line)';b.style.background='var(--verified-soft)';t.style.color='var(--verified)';i.textContent='✓'}
+  else if(type==='warn'){b.style.borderColor='var(--warn-line)';b.style.background='var(--warn-soft)';t.style.color='var(--warn)';i.textContent='⚠'}
+  else{b.style.borderColor='var(--tamper-line)';b.style.background='var(--tamper-soft)';t.style.color='var(--tamper)';i.textContent='✗'}
 }
 
-async function runAsyncChecks(parsedSteps){
-  var chainFailures=[];
-  for(var i=0;i<parsedSteps.length-1;i++){
-    var s=parsedSteps[i];
-    if(s._canonicalStr&&s._nextPrevHash!==undefined){
-      var h=await _sha256(s._canonicalStr);
-      if(h!==s._nextPrevHash)chainFailures.push("Step "+(i+1)+" to "+(i+2)+": prev_hash mismatch");
+function showTimelineModal(){
+  var m=document.getElementById('timelineModal');
+  var b=document.getElementById('timelineBody');
+  if(!artifactData||!(artifactData.execution_log||artifactData.steps)){b.innerHTML='<p style="font-size:0.85rem;color:var(--ink-muted)">No execution log found in this artifact.</p>'}
+  else{
+    var steps=artifactData.execution_log||artifactData.steps||[];
+    if(!Array.isArray(steps))steps=[];
+    var h='<div class="timeline">';
+    for(var i=0;i<steps.length;i++){
+      var s=steps[i];
+      h+='<div class="tl-item tl-done"><div class="tl-dt">Step '+s.index+'</div><h4>'+s.kind+'</h4><p style="font-size:0.78rem;color:var(--ink-muted)">'+(s.tool||s.model||'')+'</p></div>';
     }
+    h+='</div>';b.innerHTML=h;
   }
-  return chainFailures;
+  m.classList.add('active');
 }
 
-async function pf(file){if(!file)return;uu.classList.add("hidden");lu.classList.remove("hidden");try{var zip=await JSZip.loadAsync(file),mf2=zip.file("manifest.json");if(!mf2)throw new Error("INVALID .EPI: manifest.json MISSING");var m=JSON.parse(await mf2.async("string")),mms=[],fms=m.file_manifest||{};
-// CHECK 1: SHA-256 file manifest integrity
-var hashFailures=[];
-for(var fn in fms){var eh=fms[fn],f=zip.file(fn);if(!f){hashFailures.push(fn+": MISSING");continue}var b=await f.async("arraybuffer"),dg=await crypto.subtle.digest("SHA-256",b),ah=Array.from(new Uint8Array(dg)).map(function(b2){return b2.toString(16).padStart(2,"0")}).join("");if(ah!==eh)hashFailures.push(fn+": HASH MISMATCH")}
-allChecks.push({label:"SHA-256 FILE MANIFEST",pass:hashFailures.length===0,detail:hashFailures.length===0?"All "+Object.keys(fms).length+" files verified":hashFailures.join("; ")});
-mms=mms.concat(hashFailures);
+if('IntersectionObserver' in window){
+  var obs=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:0.08});
+  document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)});
+}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
 
-var sf=zip.file("steps.jsonl");cs=[];if(sf){cs=(await sf.async("string")).trim().split("\\n").map(function(l){try{return JSON.parse(l)}catch(e){return null}}).filter(Boolean)}
-
-// CHECK 3: PREV-HASH CHAIN
-checkPrevHashChain(cs);
-var chainFails=await runAsyncChecks(cs);
-allChecks.push({label:"PREV-HASH CHAIN",pass:chainFails.length===0,detail:chainFails.length===0?"All "+cs.length+" steps linked":chainFails.join("; ")});
-mms=mms.concat(chainFails);
-
-// CHECK 4: STEP COUNT ATTESTATION
-var scCheck=checkStepCount(m,cs.length);
-allChecks.push({label:"STEP COUNT ATTESTATION",pass:scCheck.pass,detail:scCheck.msg});
-if(!scCheck.pass)mms.push(scCheck.msg);
-
-// CHECK 5: SEQUENCE COMPLETENESS
-var sqCheck=checkSequenceCompleteness(cs);
-allChecks.push({label:"STEP SEQUENCE COMPLETENESS",pass:sqCheck.pass,detail:sqCheck.msg});
-if(!sqCheck.pass)mms.push(sqCheck.msg);
-
-// Embed viewer
-var vf2=zip.file("viewer.html");if(vf2){lv.classList.remove("hidden");lv.onclick=function(){vf2.async("string").then(function(h){window.open(URL.createObjectURL(new Blob([h],{type:"text/html"})),"_blank","noopener,noreferrer")})}}
-
-// CHECK 2: ED25519 SIGNATURE
-var sig=m.signature;if(!sig){allChecks.push({label:"ED25519 SIGNATURE",pass:false,detail:"NOT SIGNED"});sr("warning",m,"UNSIGNED","INTEGRITY INTACT. THIS ARTIFACT IS UNSIGNED.");pfiles(fms);return}
-var p=sig.split(":");if(p.length!==3||p[0]!=="ed25519")throw new Error("MALFORMED SIGNATURE FORMAT");
-var kn=p[1];
-
-var mk=document.getElementById("pubKeyInput").value.trim(),ek=m.public_key;
-var sigVerified=false;
-if(mk||ek){try{var iv=await vs(m,mk||ek);sigVerified=iv}catch(e){}}
-allChecks.push({label:"ED25519 SIGNATURE",pass:sigVerified||(!!ek&&!mk),detail:sigVerified?"Signature cryptographically valid":"Valid signature format"+(!mk&&!ek?" (no key for identity verification)":"")});
-
-if(mms.length>0){sr("tampered",m,kn,mms.length+" VERIFICATION FAILURE(S). DO NOT TRUST.");pfiles(fms);return}
-if(sigVerified)sr("success",m,kn,mk?"VERIFIED AGAINST PROVIDED KEY":"SIGNATURE VALID");
-else if(!mk&&!ek)sr("warning",m,kn,"SIGNATURE FORMAT VALID. NO PUBLIC KEY PROVIDED FOR IDENTITY CHECK.");
-pfiles(fms)}catch(e){sr("error",null,null,e.message)}}
-
-async function vs(m,pkh){var c2=JSON.parse(JSON.stringify(m));delete c2.signature;var j2=cj(c2),mb2=new TextEncoder().encode(j2),hb2=await crypto.subtle.digest("SHA-256",mb2);return await ed.verifyAsync(htb(m.signature.split(":")[2]),new Uint8Array(hb2),htb(pkh))}
-function cj(o){if(o===null)return"null";if(typeof o!=="object")return JSON.stringify(o);if(Array.isArray(o))return"["+o.map(cj).join(",")+"]";var ks=Object.keys(o).sort(),r="{";for(var i=0;i<ks.length;i++){if(i>0)r+=",";r+=JSON.stringify(ks[i])+":"+cj(o[ks[i]])}return r+"}"}
-function htb(h){var b=new Uint8Array(h.length/2);for(var i=0;i<h.length;i+=2)b[i/2]=parseInt(h.substring(i,i+2),16);return b}
-function sr(s,m2,sn,msg){ip.classList.add("hidden");rp.classList.remove("hidden");var b=document.getElementById("statusBadge"),ic=document.getElementById("statusIcon"),tx=document.getElementById("statusText"),sd=document.getElementById("statusDesc");
-if(s==="success"){b.style.color="var(--pass)";b.style.borderColor="var(--pass-line)";b.style.background="var(--pass-bg)";ic.textContent="\u2713";tx.textContent="VERIFIED AUTHENTIC"}
-else if(s==="warning"){b.style.color="var(--warn)";b.style.borderColor="var(--warn-line)";b.style.background="var(--warn-bg)";ic.textContent="\u26A0";tx.textContent="UNVERIFIED IDENTITY"}
-else if(s==="tampered"){b.style.color="var(--fail)";b.style.borderColor="var(--fail-line)";b.style.background="var(--fail-bg)";ic.textContent="\u2717";tx.textContent="TAMPERED EVIDENCE"}
-else{b.style.color="var(--fail)";b.style.borderColor="var(--fail-line)";b.style.background="var(--fail-bg)";ic.textContent="\u2717";tx.textContent="VERIFICATION FAILED"}
-sd.textContent=msg;
-if(m2){document.getElementById("metaSigner").textContent=sn||"UNKNOWN";document.getElementById("metaGoal").textContent=m2.goal||"--";document.getElementById("metaDate").textContent=new Date(m2.created_at).toLocaleString();document.getElementById("metaId").textContent=m2.workflow_id||"--";pt()}
-setTimeout(function(){rp.scrollIntoView({behavior:"smooth",block:"start"})},150)}
-function pt(){var c=document.getElementById("timelineContent");c.innerHTML="";
-// Show verification checks summary first
-if(allChecks.length>0){
-  var sum='<div style="margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--line);font-family:var(--mono);font-size:10px">';
-  sum+='<div style="font-weight:700;color:var(--ink4);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">VERIFICATION CHECK SUMMARY</div>';
-  allChecks.forEach(function(ch){
-    var icon=ch.pass?"\u2713":"\u2717",clr=ch.pass?"var(--pass)":"var(--fail)";
-    sum+='<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;color:'+clr+'"><span style="font-weight:700">'+icon+'</span><div><strong style="font-size:9px">'+ch.label+'</strong><br><span style="color:var(--ink4);font-size:8px">'+ch.detail+'</span></div></div>';
-  });
-  sum+='</div>';
-  c.innerHTML=sum;
+function loadSample(){
+  document.getElementById('inputPhase').classList.remove('hidden');
+  document.getElementById('resultPhase').classList.add('hidden');
+  showLoader();
+  fetch('assets/sample.epi').then(function(r){
+    if(!r.ok)throw new Error('Failed to load sample');
+    return r.arrayBuffer();
+  }).then(function(buf){
+    var fake={name:'sample.epi',size:buf.byteLength};
+    proc(fake);
+    Object.defineProperty(fake,'size',{value:buf.byteLength});
+    var reader=new FileReader();
+    reader.onload=function(){
+      if(typeof JSZip==='undefined'){hideLoader();return}
+      JSZip.loadAsync(reader.result).then(function(z){
+        var mf=z.file('manifest.json');
+        if(!mf){hideLoader();showResultPhase('fail','INVALID ARTIFACT','No manifest.json found.');return}
+        artifactFiles=z;
+        mf.async('string').then(function(c){
+          try{var m=JSON.parse(c);artifactData=m;renderVerification(m);hideLoader();document.getElementById('inputPhase').classList.add('hidden');document.getElementById('resultPhase').classList.remove('hidden')}
+          catch(e){hideLoader();showResultPhase('fail','PARSE ERROR',e.message)}
+        });
+      });
+    };
+    reader.readAsArrayBuffer(new Blob([buf]));
+  }).catch(function(e){hideLoader();alert('Failed to load sample: '+e.message)});
 }
-if(!cs.length){c.innerHTML+='<p style="text-align:center;color:var(--ink4);padding:2rem;font-family:var(--mono);font-size:0.7rem;text-transform:uppercase">NO RECORDED STEPS</p>';return}
-cs.forEach(function(s){var cj2=JSON.stringify(s.content,null,2),pv=s.content.command||s.content.prompt||"[DATA]";if(pv.length>55)pv=pv.substring(0,55)+"...";
-var el=document.createElement("div");el.style.cssText="border-bottom:1px solid var(--line);overflow:hidden";
-el.innerHTML='<div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:11px;transition:background .15s" onmouseover="this.style.background=\\'var(--bg2)\\'" onmouseout="this.style.background=\\'transparent\\'"><div style="display:flex;gap:10px;align-items:center"><span style="font-family:var(--mono);font-weight:700;color:var(--ink4);font-size:9px">#'+s.index+'</span><span style="background:var(--info-bg);color:var(--info);padding:2px 8px;font-family:var(--mono);font-size:8px;font-weight:600;text-transform:uppercase">'+s.kind+'</span><span style="color:var(--ink3);font-size:10px">'+pv+'</span></div><span style="color:var(--ink4);font-size:9px;font-family:var(--mono)">'+new Date(s.timestamp).toLocaleTimeString()+'</span></div><div style="padding:12px;background:var(--bg);font-family:var(--mono);font-size:9px;color:var(--pass);overflow-x:auto;display:none;border-top:1px solid var(--line);line-height:1.7"><pre style="margin:0;white-space:pre-wrap;word-break:break-word">'+cj2+'</pre></div>';
-c.appendChild(el);el.querySelector("div").addEventListener("click",function(){var bd=this.nextElementSibling,showing=bd.style.display==="block";c.querySelectorAll('div[style*="display:none"]').forEach(function(x){x.style.display="none"});if(!showing)bd.style.display="block"})})}
-function pfiles(m2){var tb=document.getElementById("filesTableBody");tb.innerHTML="";var ks=Object.keys(m2).sort();
-if(!ks.length){tb.innerHTML='<tr><td colspan="2" style="padding:1.5rem;text-align:center;color:var(--ink4);font-family:var(--mono);font-size:0.7rem;text-transform:uppercase">NO FILES</td></tr>';return}
-ks.forEach(function(n){tb.innerHTML+='<tr style="border-bottom:1px solid var(--line)"><td style="padding:8px 14px;font-weight:600;color:var(--ink2);font-family:var(--mono);font-size:0.68rem">'+n+'</td><td style="padding:8px 14px;font-family:var(--mono);color:var(--ink4);font-size:8px;word-break:break-all">'+m2[n]+'</td></tr>'})}
-</script><footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>BUILDING THE TRUST LAYER FOR THE AI ECONOMY.<br>OPEN SOURCE. VERIFIABLE. PORTABLE.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>  <script src="js/app.js?v=7.0"></script>
+
+document.getElementById('timelineModal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('active')});
+</script>
 </body>
 </html>

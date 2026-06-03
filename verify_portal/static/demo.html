@@ -1,171 +1,208 @@
-<!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>LIVE DEMO — EPI LABS</title>
-<meta name="description" content="See EPI work in your browser. No install needed. Record, seal, and verify an AI agent decision live.">
-<meta property="og:title" content="Live Demo — EPI LABS"><meta property="og:description" content="Try EPI in your browser. No install.">
-<meta property="og:url" content="https://epilabs.org/demo.html"><meta property="og:image" content="https://epilabs.org/assets/logo.png">
-<meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><link rel="icon" type="image/png" href="assets/logo.png">
-<link rel="stylesheet" href="css/epi-v9.css?v=9.0">
-</head><body>
-<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div><div class="grid-tex"></div>
-    <nav class="nav"><div class="nav-inner">
-  <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI Labs"></a>
-  <div class="nav-links">
-    <a href="index.html#how">How It Works</a>
-    <a href="index.html#devs">Developers</a>
-    <a href="index.html#compliance">Compliance</a>
-    <a href="use-cases.html">Use Cases</a>
-    <a href="technology.html">Technology</a>
-    <a href="pricing.html">Pricing</a>
-    <a href="vision.html">Vision</a>
-  </div>
-  <div class="nav-actions">
-    <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-sm" target="_blank">GitHub</a>
-    <a href="contact.html" class="btn btn-p btn-sm">Contact Us</a>
-  </div>
-  <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-</div></nav>
-    <div class="mobile-menu">
-  <a href="index.html#how">How It Works</a><a href="index.html#devs">Developers</a>
-  <a href="index.html#compliance">Compliance</a><a href="use-cases.html">Use Cases</a>
-  <a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
-  <a href="vision.html">Vision</a><a href="demo.html">Demo</a>
-  <a href="contact.html">Contact</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-p" target="_blank">GitHub</a>
-</div>
-<section class="hero" style="min-height:auto;padding:6rem 0 2rem"><div class="container hero-inner">
-  <div class="diag-label reveal"><span class="diag-dot"></span>NO INSTALLATION REQUIRED</div>
-  <h1 class="reveal">LIVE <span style="color:var(--info)">DEMO</span></h1>
-  <p class="hero-desc reveal">See EPI work entirely in your browser. This simulation records a mock AI decision, seals it with a digital signature, and verifies it — exactly how the real product works, minus the Python install.</p>
-</div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Live Demo — EPI Labs</title>
+<meta name="description" content="See EPI work in your browser. No install needed. Record, seal, and verify an AI agent decision.">
+<meta property="og:title" content="Live Demo — EPI Labs">
+<meta property="og:description" content="Try EPI in your browser. No install.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/design-system.css?v=10.0">
+<style>
+.typing{font-family:var(--mono);font-size:0.74rem;line-height:2;overflow-y:auto}
+.typing .t-g{color:var(--verified)}.typing .t-b{color:var(--seal-light)}.typing .t-m{color:var(--ink-muted)}.typing .t-w{color:var(--warn)}
+.typing .t-cursor{animation:blink 0.8s step-end infinite}@keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
 
-<section class="section" style="padding-top:0"><div class="container" style="max-width:700px">
-
-<div id="scenario-phase">
-  <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1rem;text-align:center">// 1.0 CHOOSE A SCENARIO</div>
-  <div class="g2" style="margin-bottom:2rem">
-    <div class="card reveal" style="cursor:pointer;text-align:center" onclick="startDemo('loan')">
-      <div class="card-icon">&#x1F3E6;</div>
-      <h3>LOAN ASSESSMENT</h3>
-      <div class="card-bar"></div>
-      <p style="font-size:0.78rem">AI checks credit, runs risk analysis, approves a personal loan.</p>
-    </div>
-    <div class="card reveal" style="cursor:pointer;text-align:center" onclick="startDemo('refund')">
-      <div class="card-icon">&#x1F4B0;</div>
-      <h3>REFUND DECISION</h3>
-      <div class="card-bar"></div>
-      <p style="font-size:0.78rem">AI checks order, verifies policy, decides on a refund claim.</p>
-    </div>
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand">
+      <img src="assets/logo.png" alt="EPI Labs">
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#how">How It Works</a></li>
+      <li><a href="index.html#trust">Trust</a></li>
+      <li><a href="index.html#compliance">Compliance</a></li>
+      <li><a href="use-cases.html">Use Cases</a></li>
+      <li><a href="technology.html">Technology</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="verify.html" class="nav-link-cta">Verify</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
-  <div class="card reveal" style="text-align:center;padding:1.5rem">
-    <h3 style="color:var(--pass);margin-bottom:0.5rem">ALREADY HAVE AN .EPI FILE?</h3>
-    <p style="font-size:0.78rem;margin-bottom:0.8rem">If you recorded with epi-recorder or downloaded the sample, verify it here.</p>
-    <a href="verify.html" class="btn btn-p btn-sm">GO TO VERIFIER</a>
-    <a href="assets/sample.epi" class="btn btn-sm" download="sample.epi" style="margin-left:0.5rem">&#x2B07; SAMPLE .EPI</a>
-  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="index.html#how">How It Works</a><a href="index.html#trust">Trust</a><a href="index.html#compliance">Compliance</a>
+  <a href="use-cases.html">Use Cases</a><a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
+  <a href="vision.html">Vision</a><a href="contact.html">Contact</a><a href="verify.html">Verify</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
 </div>
 
-<div id="run-phase" class="hidden" style="text-align:center">
-  <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1rem">// 2.0 RECORDING</div>
-  <div class="card" style="padding:2rem;margin-bottom:1.5rem" id="recording-card">
-    <div id="recording-log" style="font-family:var(--mono);font-size:0.72rem;text-align:left;max-height:320px;overflow-y:auto;line-height:1.9;min-height:120px"></div>
-    <div id="recording-status" style="margin-top:1rem;font-family:var(--mono);font-size:0.68rem;color:var(--ink4);text-transform:uppercase;letter-spacing:0.05em">INITIALIZING...</div>
+<section style="min-height:auto;padding:7rem 0 2rem">
+  <div class="container" style="text-align:center;max-width:660px">
+    <div class="section-label reveal">No Installation Required</div>
+    <h1 class="reveal d1">Live demo</h1>
+    <p class="reveal d2" style="font-size:0.95rem;color:var(--ink-soft);line-height:1.7;margin-top:0.8rem">See EPI work entirely in your browser. Pick a scenario, watch the AI simulate a decision, and see the cryptographically sealed result.</p>
   </div>
-  <div id="sealed-phase" class="hidden">
-    <div style="font-family:var(--mono);font-size:0.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1rem">// 3.0 VERIFICATION RESULT</div>
-    <div class="card" style="text-align:center;padding:2.5rem 2rem;border-color:var(--pass-line)">
-      <div style="display:inline-flex;align-items:center;gap:0.6rem;padding:0.6rem 1.5rem;border:1px solid var(--pass-line);margin-bottom:1rem;font-family:var(--mono);font-size:0.85rem;font-weight:700;color:var(--pass);background:var(--pass-bg)">
-        <span>&#x2713;</span><span style="text-transform:uppercase">VERIFIED AUTHENTIC</span>
+</section>
+
+<section style="padding-top:0">
+  <div class="container" style="max-width:700px">
+
+    <div id="scenario-phase">
+      <div class="section-label reveal" style="justify-content:center;margin-bottom:1rem">1. Choose a Scenario</div>
+      <div class="g2 reveal d1" style="margin-bottom:1.5rem">
+        <div class="card" style="cursor:pointer;text-align:center;padding:2rem" onclick="startDemo('loan')">
+          <div style="font-size:2rem;margin-bottom:0.6rem">&#x1F3E6;</div>
+          <h3 style="margin-bottom:0.3rem">Loan Assessment</h3>
+          <p style="font-size:0.82rem">AI checks credit, runs risk analysis, approves a personal loan.</p>
+        </div>
+        <div class="card" style="cursor:pointer;text-align:center;padding:2rem" onclick="startDemo('refund')">
+          <div style="font-size:2rem;margin-bottom:0.6rem">&#x1F4B0;</div>
+          <h3 style="margin-bottom:0.3rem">Refund Decision</h3>
+          <p style="font-size:0.82rem">AI checks order history, verifies policy, decides on a refund claim.</p>
+        </div>
       </div>
-      <p style="font-size:0.82rem;color:var(--pass);margin-bottom:1.5rem;max-width:420px;margin-left:auto;margin-right:auto">All five cryptographic checks passed. This evidence package is intact and has not been modified since sealing.</p>
-      <div style="font-family:var(--mono);font-size:0.7rem;text-align:left;max-width:420px;margin:0 auto;color:var(--pass);line-height:2">
-        <div>&#x2713; SHA-256 FILE INTEGRITY — ALL FILES VERIFIED</div>
-        <div>&#x2713; ED25519 SIGNATURE VALID — SIGNED BY KEY: DEMO</div>
-        <div>&#x2713; PREV-HASH CHAIN INTACT — ALL STEPS LINKED</div>
-        <div>&#x2713; STEP COUNT ATTESTATION — MATCHES MANIFEST</div>
-        <div>&#x2713; SEQUENCE COMPLETE — ALL CALLS ANSWERED</div>
+      <div class="card reveal d2" style="text-align:center;padding:1.5rem">
+        <h3 style="color:var(--seal);margin-bottom:0.4rem">Already have a .epi file?</h3>
+        <p style="font-size:0.82rem;margin-bottom:0.6rem">Verify it with our full cryptographic verifier.</p>
+        <a href="verify.html" class="btn btn-primary btn-sm">Go to Verifier</a>
+        <a href="assets/sample.epi" class="btn btn-secondary btn-sm" download="sample.epi">Download Sample .epi</a>
       </div>
     </div>
-    <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;margin-top:1.2rem">
-      <a href="verify.html" class="btn btn-p btn-sm">VERIFY A REAL FILE</a>
-      <a href="assets/sample.epi" class="btn btn-sm" download="sample.epi">&#x2B07; DOWNLOAD .EPI</a>
-      <a href="https://pypi.org/project/epi-recorder/" class="btn btn-sm" target="_blank">pip install</a>
+
+    <div id="run-phase" class="hidden" style="text-align:center">
+      <div class="section-label reveal" style="justify-content:center;margin-bottom:0.8rem">2. Recording</div>
+      <div class="card reveal" style="padding:2rem;margin-bottom:1.5rem">
+        <div id="recording-log" class="typing" style="text-align:left;max-height:300px;min-height:120px"></div>
+        <div id="recording-status" style="margin-top:1rem;font-family:var(--mono);font-size:0.66rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.05em">Initializing...</div>
+      </div>
+      <div id="sealed-phase" class="hidden reveal">
+        <div class="section-label" style="justify-content:center;margin-bottom:0.8rem">3. Verification Result</div>
+        <div class="card" style="text-align:center;padding:2.5rem 2rem;border:1.5px solid var(--verified-line);background:linear-gradient(160deg,var(--surface),var(--verified-soft))">
+          <div class="status status--pass" style="justify-content:center;padding:0.6rem 1.5rem;font-size:0.82rem;margin:0 auto 1rem">
+            <span>&#x2713; VERIFIED AUTHENTIC</span>
+          </div>
+          <p style="font-size:0.82rem;color:var(--verified);margin-bottom:1.5rem;max-width:420px;margin-left:auto;margin-right:auto">All five cryptographic checks passed. This evidence package is intact and has not been modified since sealing.</p>
+          <div class="meta-grid" style="max-width:420px;margin:0 auto 1.5rem">
+            <div class="meta-item"><div class="meta-k">Signer</div><div class="meta-v" id="dmSigner">--</div></div>
+            <div class="meta-item"><div class="meta-k">Workflow</div><div class="meta-v" id="dmWorkflow">--</div></div>
+            <div class="meta-item"><div class="meta-k">Steps</div><div class="meta-v" id="dmSteps">--</div></div>
+          </div>
+          <button onclick="resetDemo()" class="btn btn-secondary btn-sm">Try Another Scenario</button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-</div></section>
-<footer class="footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a href="index.html"><img src="assets/logo.png" alt="EPI"></a><p>Open source. Verifiable. Portable.<br>Built in India, engineered for the world.</p></div><div class="footer-col"><h4>PRODUCT</h4><a href="how-it-works.html">How It Works</a><a href="technology.html">Technology</a><a href="use-cases.html">Use Cases</a><a href="pricing.html">Pricing</a></div><div class="footer-col"><h4>DEVELOPERS</h4><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a><a href="https://github.com/mohdibrahimaiml/epi-recorder#readme" target="_blank">Docs</a></div><div class="footer-col"><h4>COMPANY</h4><a href="vision.html">Vision</a><a href="vision.html#founder">Team</a><a href="contact.html">Contact</a></div></div><div class="footer-bottom"><span>&copy; 2026 EPI LABS. MIT LICENSE.</span><span>BUILT IN INDIA. ENGINEERED FOR THE WORLD.</span></div></div></footer>
 <script>
-var scenarios={
-  loan:{goal:"Assess personal loan application",steps:[
-    {kind:"tool.call",tool:"credit_check",input:{customer_id:"CUST-0042",loan_amount:25000}},
-    {kind:"tool.response",tool:"credit_check",output:{credit_score:720,status:"PASS",debt_to_income:0.31}},
-    {kind:"tool.call",tool:"risk_assessment",input:{credit_score:720,loan_amount:25000}},
-    {kind:"tool.response",tool:"risk_assessment",output:{risk_level:"LOW",recommended_rate:7.25,max_approval:30000}},
-    {kind:"agent.decision",decision:"APPROVED",reasoning:"Credit score above threshold (720 > 650). DTI acceptable (0.31 < 0.43). Risk LOW."}
-  ]},
-  refund:{goal:"Assess refund for order #ORD-8841",steps:[
-    {kind:"tool.call",tool:"order_lookup",input:{order_id:"ORD-8841"}},
-    {kind:"tool.response",tool:"order_lookup",output:{status:"DELIVERED",amount:149.99,days_since:12}},
-    {kind:"tool.call",tool:"policy_check",input:{refund_reason:"DEFECTIVE_ITEM"}},
-    {kind:"tool.response",tool:"policy_check",output:{policy_allows:true,window:"30 days"}},
-    {kind:"agent.decision",decision:"REFUND_APPROVED",reasoning:"Within 30-day window. Defective item claim verified. Policy allows."}
-  ]}
+var scenarios = {
+  loan: {
+    title: 'LOAN ASSESSMENT',
+    workflow: 'loan-approval-v2',
+    signer: 'production-signer-v4',
+    steps: [
+      {t:'t-g',l:'[EPI RECORDER v4.2.0] Init capture session.'},
+      {t:'t-b',l:'> Starting agent: loan-approval-v2'},
+      {t:'t-m',l:'  Loading policy: lending-regulatory.json'},
+      {t:'t-m',l:'  Connecting to: gpt-4-turbo'},
+      {t:'t-b',l:'> [LLM Call] Assess loan applicant #421'},
+      {t:'t-m',l:'  Input: credit_score=720, income=85000, amount=25000'},
+      {t:'t-m',l:'  Model: gpt-4-turbo @ OpenAI'},
+      {t:'t-m',l:'  Tokens: 847 in, 312 out'},
+      {t:'t-b',l:'> [Tool Call] compute_risk_score'},
+      {t:'t-m',l:'  Risk score: 0.18 (LOW)'},
+      {t:'t-m',l:'  Debt-to-income ratio: 0.28 (within threshold)'},
+      {t:'t-b',l:'> [Decision] APPROVED'},
+      {t:'t-m',l:'  Interest rate: 6.5% (APR)'},
+      {t:'t-m',l:'  Approval reason: Low risk, strong credit'},
+      {t:'t-g',l:'[SEALED] agent.epi — 17 steps, Ed25519 signed'},
+      {t:'t-g',l:'✓ VERIFIED — Trust Level: HIGH'}
+    ]
+  },
+  refund: {
+    title: 'REFUND DECISION',
+    workflow: 'refund-processor-v1',
+    signer: 'production-signer-v4',
+    steps: [
+      {t:'t-g',l:'[EPI RECORDER v4.2.0] Init capture session.'},
+      {t:'t-b',l:'> Starting agent: refund-processor-v1'},
+      {t:'t-m',l:'  Loading policy: refund-rules.json'},
+      {t:'t-m',l:'  Connecting to: gpt-4'},
+      {t:'t-b',l:'> [LLM Call] Process refund claim #7823'},
+      {t:'t-m',l:'  Order: #ORD-9921, $89.99, 3 days ago'},
+      {t:'t-m',l:'  Reason: "Item arrived damaged"'},
+      {t:'t-m',l:'  Model: gpt-4 @ OpenAI'},
+      {t:'t-b',l:'> [Tool Call] verify_order'},
+      {t:'t-m',l:'  Order confirmed. Within 30-day window.'},
+      {t:'t-w',l:'> [Policy Check] Refund eligibility'},
+      {t:'t-m',l:'  Category: electronics — standard policy applies'},
+      {t:'t-m',l:'  Photo evidence: attached'},
+      {t:'t-b',l:'> [Decision] APPROVED — Full refund'},
+      {t:'t-m',l:'  Refund amount: $89.99'},
+      {t:'t-g',l:'[SEALED] refund.epi — 15 steps, Ed25519 signed'},
+      {t:'t-g',l:'✓ VERIFIED — Trust Level: HIGH'}
+    ]
+  }
 };
 
-function startDemo(id){
-  document.getElementById("scenario-phase").classList.add("hidden");
-  document.getElementById("run-phase").classList.remove("hidden");
-  document.getElementById("sealed-phase").classList.add("hidden");
-  var s=scenarios[id],log=document.getElementById("recording-log"),st=document.getElementById("recording-status");
-  log.innerHTML="";
-  st.textContent="INITIALIZING RECORDING SESSION...";
+function startDemo(scenario){
+  document.getElementById('scenario-phase').classList.add('hidden');
+  document.getElementById('run-phase').classList.remove('hidden');
+  document.getElementById('sealed-phase').classList.add('hidden');
+  var log=document.getElementById('recording-log');
+  var status=document.getElementById('recording-status');
+  log.innerHTML='';status.textContent='INITIALIZING...';
+  var s=scenarios[scenario];
   var i=0;
-  function next(){
+  function typeNext(){
     if(i>=s.steps.length){
-      st.textContent="SEALING WITH ED25519 SIGNATURE...";
-      var l1=document.createElement("div");
-      l1.innerHTML='<span style="color:var(--pass);font-weight:700">[SEAL]</span> <span style="color:var(--ink2)">Signing manifest.json with Ed25519 key: demo</span>';
-      log.appendChild(l1);log.scrollTop=log.scrollHeight;
+      status.textContent='SEALED + VERIFIED';
+      document.getElementById('dmSigner').textContent=s.signer;
+      document.getElementById('dmWorkflow').textContent=s.workflow;
+      document.getElementById('dmSteps').textContent=s.steps.length;
       setTimeout(function(){
-        st.textContent="COMPUTING PREV-HASH CHAIN...";
-        var l2=document.createElement("div");
-        l2.innerHTML='<span style="color:var(--pass);font-weight:700">[CHAIN]</span> <span style="color:var(--ink2)">Linking '+s.steps.length+' steps via prev_hash</span>';
-        log.appendChild(l2);log.scrollTop=log.scrollHeight;
-        setTimeout(function(){
-          st.textContent="RUNNING VERIFICATION...";
-          var l3=document.createElement("div");l3.innerHTML='';
-          ["SHA-256 file manifest","Ed25519 signature validation","Prev-hash chain integrity","Step count attestation","Sequence completeness"].forEach(function(ch,idx){
-            setTimeout(function(){
-              var d=document.createElement("div");
-              d.innerHTML='<span style="color:var(--pass);font-weight:700">[PASS]</span> <span style="color:var(--ink2)">'+ch+'</span>';
-              log.appendChild(d);log.scrollTop=log.scrollHeight;
-              if(idx===4) setTimeout(function(){
-                document.getElementById("sealed-phase").classList.remove("hidden");
-                st.textContent="COMPLETE";
-                document.getElementById("sealed-phase").scrollIntoView({behavior:"smooth"});
-              },200);
-            },idx*180);
-          });
-        },500);
-      },400);
+        document.getElementById('sealed-phase').classList.remove('hidden');
+        document.getElementById('sealed-phase').classList.add('visible');
+        var sv=document.querySelectorAll('#sealed-phase .reveal');
+        for(var j=0;j<sv.length;j++)sv[j].classList.add('visible');
+      },500);
       return;
     }
-    var step=s.steps[i],ts=new Date().toISOString().substr(11,12);
-    var lbl=step.kind.startsWith("tool.call")?"[TOOL CALL]":step.kind.startsWith("tool.response")?"[TOOL RESP]":"[DECISION]";
-    var detail=step.tool?("tool="+step.tool+"  input="+JSON.stringify(step.input||{}).substring(0,50)):step.decision||"";
-    if(detail.length>65)detail=detail.substring(0,62)+"...";
-    var color=step.kind==="agent.decision"?"var(--info)":"var(--ink2)";
-    var l=document.createElement("div");
-    l.innerHTML='<span style="color:var(--ink4);font-size:0.62rem">'+ts+'</span>  <span style="color:var(--pass);font-weight:700">'+lbl+'</span>  <span style="color:'+color+'">'+detail+'</span>';
-    log.appendChild(l);log.scrollTop=log.scrollHeight;
-    st.textContent="STEP "+(i+1)+"/"+s.steps.length+"  |  GOAL: "+s.goal;
+    var step=s.steps[i];
+    status.textContent='STEP '+(i+1)+'/'+s.steps.length;
+    var div=document.createElement('div');
+    div.innerHTML='<span class="'+step.t+'">'+step.l+'</span>';
+    log.appendChild(div);
+    log.scrollTop=log.scrollHeight;
     i++;
-    setTimeout(next,600);
+    setTimeout(typeNext,300+Math.random()*500);
   }
-  setTimeout(next,300);
+  setTimeout(typeNext,300);
 }
+
+function resetDemo(){
+  document.getElementById('scenario-phase').classList.remove('hidden');
+  document.getElementById('run-phase').classList.add('hidden');
+  document.getElementById('sealed-phase').classList.add('hidden');
+  document.getElementById('recording-log').innerHTML='';
+}
+
+(function(){
+  'use strict';
+  var nav=document.getElementById('nav'),mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+  window.addEventListener('scroll',function(){if(nav)nav.classList.toggle('scrolled',scrollY>30)});
+  if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+  if('IntersectionObserver' in window){var obs=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)})}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
+})();
 </script>
-  <script src="js/app.js?v=8.0"></script>
-</body></html>
+</body>
+</html>
