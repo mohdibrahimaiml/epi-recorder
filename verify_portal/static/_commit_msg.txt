@@ -1,0 +1,11 @@
+Relaunch epi-official website: single-page editorial layout
+
+- New single-page index.html with Pramaana-inspired editorial structure
+- New CSS (css/epi.css) with full dark mode, CSS variables, Inter + JetBrains Mono
+- Hero with large logo, interactive 6-phase terminal demo, browser verify drop zone
+- Accurate browser-side EPI verification: SHA-256 integrity, Ed25519 signature
+- Three contact cards: Email, Pilot Program, Enterprise
+- Dark mode with system preference auto-detection and nav toggle
+- Unified sections: Thesis, How It Works, Verify, Trust Model, Use Cases, Contact, CTA
+- Fixed nav positioning on all sub-pages, updated CSS versions, missing footers
+- OG meta tags, favicon, semantic HTML throughout

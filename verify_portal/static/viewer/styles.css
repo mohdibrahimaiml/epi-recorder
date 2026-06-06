@@ -1,20 +1,20 @@
 :root {
-  --bg: #f4efe7;
-  --surface: #fffaf2;
-  --surface-strong: #fffdf8;
-  --line: #decfbc;
-  --line-strong: #c7b49b;
-  --ink: #18222c;
-  --muted: #5c6470;
-  --accent: #0f766e;
-  --accent-soft: #d8f0ec;
-  --accent-strong: #0b5f59;
-  --warning: #9a5b00;
-  --warning-soft: #fcefd2;
-  --danger: #a4381f;
-  --danger-soft: #f8e2dc;
-  --success: #116a4f;
-  --success-soft: #ddefe6;
+  --bg: #F7F6F1;
+  --surface: #FDFCF9;
+  --surface-strong: #FFFFFF;
+  --line: rgba(26,28,30,0.08);
+  --line-strong: rgba(26,28,30,0.14);
+  --ink: #1A1C1E;
+  --muted: #6B6F76;
+  --accent: #1B385C;
+  --accent-soft: rgba(27,56,92,0.06);
+  --accent-strong: #2A5080;
+  --warning: #8B6914;
+  --warning-soft: rgba(139,105,20,0.06);
+  --danger: #B52626;
+  --danger-soft: rgba(181,38,38,0.06);
+  --success: #1B7A3D;
+  --success-soft: rgba(27,122,61,0.06);
   --shadow: 0 4px 16px rgba(56, 40, 15, 0.07), 0 1px 3px rgba(56, 40, 15, 0.05);
   --shadow-lg: 0 16px 48px rgba(56, 40, 15, 0.10), 0 2px 6px rgba(56, 40, 15, 0.06);
   --radius-card: 24px;
@@ -35,9 +35,9 @@ body {
 
 body {
   background:
-    radial-gradient(ellipse at top left, rgba(15, 118, 110, 0.10) 0%, transparent 40%),
-    radial-gradient(ellipse at bottom right, rgba(15, 118, 110, 0.06) 0%, transparent 40%),
-    linear-gradient(180deg, #f7f1e8 0%, #f2eadf 100%);
+    radial-gradient(ellipse at top left, rgba(27,56,92,0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at bottom right, rgba(27,56,92,0.04) 0%, transparent 40%),
+    linear-gradient(180deg, ##F0EFE9 0%, ##E8E7E0 100%);
   color: var(--ink);
   font-family: "Aptos", "Segoe UI", sans-serif;
   line-height: 1.55;
@@ -47,7 +47,7 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  font-family: "Cormorant Garamond", "Palatino Linotype", serif;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -557,7 +557,7 @@ button[disabled] {
   display: block;
   margin-top: 4px;
   font-size: 2.2rem;
-  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  font-family: "Cormorant Garamond", "Palatino Linotype", serif;
   line-height: 1;
 }
 
