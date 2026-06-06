@@ -158,7 +158,7 @@ export const Scene3_Solution: React.FC = () => {
                 {/* Big Tagline */}
                 <GlowText
                     text="The PDF for AI Evidence"
-                    subtitle="Execution Proof Infrastructure"
+                    subtitle="Evidence Packaged Infrastructure"
                     startFrame={taglineFrame}
                     fontSize={64}
                     glowColor={COLORS.primary}
