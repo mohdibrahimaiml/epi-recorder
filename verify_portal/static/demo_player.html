@@ -3,21 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta property="og:title" content="EPI Timeline Viewer — EPI Labs">
+<meta property="og:description" content="Standalone .epi timeline viewer — metadata, steps, verification status.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <title>EPI Timeline Viewer — EPI Labs</title>
 <meta name="description" content="Standalone .epi timeline viewer — metadata, steps, verification status.">
 <link rel="icon" type="image/png" href="assets/logo.png">
-<link rel="stylesheet" href="css/design-system.css?v=10.0">
+<link rel="stylesheet" href="css/design-system.css?v=16.0">
 </head>
-<body style="background:var(--surface)">
+<body>
 
-<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:0.9rem 0;position:sticky;top:0;z-index:100">
-  <div class="container" style="display:flex;justify-content:space-between;align-items:center">
-    <a href="index.html" style="display:flex;align-items:center;gap:0.5rem;font-weight:600;font-size:0.9rem;color:var(--ink)">
-      <img src="assets/logo.png" alt="EPI" style="height:20px"> EPI Viewer
+<!-- ====== NAV ====== -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand">
+      <img src="assets/logo.png" alt="EPI Labs" width="120">
     </a>
-    <div class="status status--pass">✓ VERIFIED</div>
+    <ul class="nav-links">
+      <li><a href="how-it-works.html">How It Works</a></li>
+      <li><a href="technology.html">Technology</a></li>
+      <li><a href="use-cases.html">Use Cases</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="vision.html">Vision</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <li><a href="verify.html" class="nav-link-cta">Verify</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
-</header>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="how-it-works.html">How It Works</a>
+  <a href="technology.html">Technology</a>
+  <a href="use-cases.html">Use Cases</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="vision.html">Vision</a>
+  <a href="contact.html">Contact</a>
+  <a href="verify.html">Verify a File</a>
+  <a href="viewer/">Decision Ops</a>
+  <a href="demo.html">Live Demo</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+</div>
+
 
 <section style="padding:2rem 0">
   <div class="container" style="max-width:760px">
@@ -52,5 +81,62 @@
 <script>
 if('IntersectionObserver' in window){var obs=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:0.08});document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)})}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
 </script>
+
+<!-- ====== FOOTER ====== -->
+
+<!-- ====== DARK MODE TOGGLE ====== -->
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">&#9788;</button>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html"><img src="assets/logo.png" alt="EPI Labs" loading="lazy"></a>
+        <p>Open source. Verifiable. Portable.<br>Built in India. Engineered for the world.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="technology.html">Technology</a>
+        <a href="use-cases.html">Use Cases</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="demo.html">Live Demo</a>
+      </div>
+      <div class="footer-col">
+        <h4>Developers</h4>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EPI-SPEC.md" target="_blank" rel="noopener">Specification</a>
+        <a href="viewer/">Decision Ops</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="vision.html">Vision</a>
+        <a href="contact.html">Contact</a>
+        <a href="mailto:mohdibrahim@epilabs.org">Email</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 EPI LABS. MIT License.</span>
+      <span>Built in India. Engineered for the world.</span>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+(function(){
+  var t=localStorage.getItem('epi-theme');
+  if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}
+  var b=document.getElementById('themeToggle');
+  if(!b)return;
+  b.textContent=document.documentElement.hasAttribute('data-theme')?'☀':'☾';
+  b.addEventListener('click',function(){
+    var r=document.documentElement;
+    if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light');b.textContent='☾';}
+    else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark');b.textContent='☀';}
+  });
+})();
+</script>
+
 </body>
 </html>

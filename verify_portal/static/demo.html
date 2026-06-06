@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
-<link rel="stylesheet" href="css/design-system.css?v=10.0">
+<link rel="stylesheet" href="css/design-system.css?v=16.0">
 <style>
 .typing{font-family:var(--mono);font-size:0.74rem;line-height:2;overflow-y:auto}
 .typing .t-g{color:var(--verified)}.typing .t-b{color:var(--seal-light)}.typing .t-m{color:var(--ink-muted)}.typing .t-w{color:var(--warn)}
@@ -204,5 +204,62 @@ function resetDemo(){
   if('IntersectionObserver' in window){var obs=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)})}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
 })();
 </script>
+
+<!-- ====== FOOTER ====== -->
+
+<!-- ====== DARK MODE TOGGLE ====== -->
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">&#9788;</button>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html"><img src="assets/logo.png" alt="EPI Labs" loading="lazy"></a>
+        <p>Open source. Verifiable. Portable.<br>Built in India. Engineered for the world.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="technology.html">Technology</a>
+        <a href="use-cases.html">Use Cases</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="demo.html">Live Demo</a>
+      </div>
+      <div class="footer-col">
+        <h4>Developers</h4>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EPI-SPEC.md" target="_blank" rel="noopener">Specification</a>
+        <a href="viewer/">Decision Ops</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="vision.html">Vision</a>
+        <a href="contact.html">Contact</a>
+        <a href="mailto:mohdibrahim@epilabs.org">Email</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 EPI LABS. MIT License.</span>
+      <span>Built in India. Engineered for the world.</span>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+(function(){
+  var t=localStorage.getItem('epi-theme');
+  if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}
+  var b=document.getElementById('themeToggle');
+  if(!b)return;
+  b.textContent=document.documentElement.hasAttribute('data-theme')?'☀':'☾';
+  b.addEventListener('click',function(){
+    var r=document.documentElement;
+    if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light');b.textContent='☾';}
+    else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark');b.textContent='☀';}
+  });
+})();
+</script>
+
 </body>
 </html>

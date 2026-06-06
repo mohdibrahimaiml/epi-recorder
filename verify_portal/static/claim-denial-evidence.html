@@ -8,8 +8,10 @@
 <meta property="og:title" content="AI Claim Denial Evidence — EPI Labs">
 <meta property="og:description" content="When your AI denies a claim, what evidence do you have?">
 <meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
-<link rel="stylesheet" href="css/design-system.css?v=10.0">
+<link rel="stylesheet" href="css/design-system.css?v=16.0">
 </head>
 <body>
 
@@ -87,6 +89,9 @@
 
 <div class="hash-mark">SHA256 a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4</div>
 
+
+<!-- ====== DARK MODE TOGGLE ====== -->
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">&#9788;</button>
 <footer class="footer">
   <div class="container">
     <div class="footer-grid">
@@ -108,5 +113,21 @@
   if('IntersectionObserver' in window){var obs=new IntersectionObserver(function(e){e.forEach(function(en){if(en.isIntersecting){en.target.classList.add('visible');obs.unobserve(en.target)}})},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)})}else{document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('visible')})}
 })();
 </script>
+
+<script>
+(function(){
+  var t=localStorage.getItem('epi-theme');
+  if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}
+  var b=document.getElementById('themeToggle');
+  if(!b)return;
+  b.textContent=document.documentElement.hasAttribute('data-theme')?'☀':'☾';
+  b.addEventListener('click',function(){
+    var r=document.documentElement;
+    if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light');b.textContent='☾';}
+    else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark');b.textContent='☀';}
+  });
+})();
+</script>
+
 </body>
 </html>

@@ -3,26 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta property="og:title" content="Pricing — EPI Labs">
+<meta property="og:description" content="EPI Recorder is open source and MIT licensed. Team and enterprise tiers coming soon.">
+<meta property="og:image" content="https://epilabs.org/assets/logo.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 <title>Pricing — EPI Labs</title>
 <meta name="description" content="EPI Recorder is open source and MIT licensed. Team and enterprise tiers coming soon.">
-<meta property="og:image" content="https://epilabs.org/assets/logo.png">
 <link rel="icon" type="image/png" href="assets/logo.png">
-<link rel="stylesheet" href="css/design-system.css?v=14.0">
+<link rel="stylesheet" href="css/design-system.css?v=18">
 </head>
 <body>
-
 <nav class="nav" id="nav">
   <div class="nav-inner">
-    <a href="index.html" class="nav-brand">
-      <img src="assets/logo.png" alt="EPI Labs">
-    </a>
+    <a href="index.html" class="nav-brand"><img src="assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links">
-      <li><a href="index.html#how">How It Works</a></li>
-      <li><a href="index.html#trust">Trust</a></li>
-      <li><a href="index.html#compliance">Compliance</a></li>
-      <li><a href="use-cases.html">Use Cases</a></li>
-      <li><a href="technology.html">Technology</a></li>
-      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="index.html#how">How It Works</a></li><li><a href="index.html#trust">Trust</a></li><li><a href="index.html#compliance">Compliance</a></li>
+      <li><a href="use-cases.html">Use Cases</a></li><li><a href="technology.html">Technology</a></li><li><a href="pricing.html">Pricing</a></li>
       <li><a href="verify.html" class="nav-link-cta">Verify</a></li>
     </ul>
     <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
@@ -32,20 +29,17 @@
   <a href="index.html#how">How It Works</a><a href="index.html#trust">Trust</a><a href="index.html#compliance">Compliance</a>
   <a href="use-cases.html">Use Cases</a><a href="technology.html">Technology</a><a href="pricing.html">Pricing</a>
   <a href="vision.html">Vision</a><a href="contact.html">Contact</a><a href="verify.html">Verify</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
 </div>
-
 <div class="hero-glow" style="width:400px;height:400px;top:0"></div>
-<section style="min-height:auto;padding:7rem 0 3rem">
+<section style="padding:6rem 0 1.2rem">
   <div class="container" style="text-align:center;max-width:640px">
     <div class="section-label reveal">Pricing</div>
-    <h1 class="reveal d1">Open source. <span class="accent-text">Always free core.</span></h1>
-    <p class="reveal d2" style="font-size:1rem;color:var(--ink-soft);line-height:1.7;margin-top:1rem">Recording, sealing, and verifying is MIT licensed — forever. Team and enterprise tiers coming soon.</p>
+    <h1 class="reveal d1" style="font-size:clamp(1.8rem,4vw,2.8rem)">Open source. <span class="accent-text">Always free core.</span></h1>
+    <p class="reveal d2" style="font-size:0.94rem;color:var(--ink-soft);line-height:1.6;margin-top:0.3rem">Recording, sealing, and verifying is MIT licensed — forever. Team and enterprise tiers coming soon.</p>
   </div>
 </section>
-
-<section class="section-alt" style="padding-top:0">
+<section class="section-alt" style="padding:1.2rem 0 2.5rem">
   <div class="container" style="max-width:760px">
     <div class="g2 reveal">
       <div class="card card-glow" style="text-align:center;padding:2.5rem">
@@ -69,9 +63,8 @@
     </div>
   </div>
 </section>
-
 <div class="hash-mark">SHA256 710ca5063f50dc08d056c375fd175f7961ee502e3a49fa21</div>
-
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">&#9788;</button>
 <footer class="footer">
   <div class="container">
     <div class="footer-grid">
@@ -84,5 +77,6 @@
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('nav'),m=document.getElementById('mobBtn'),o=document.getElementById('mobMenu');window.addEventListener('scroll',function(){if(n)n.classList.toggle('scrolled',scrollY>30)});if(m&&o){m.addEventListener('click',function(){var p=o.classList.contains('open');m.classList.toggle('open');o.classList.toggle('open');m.setAttribute('aria-expanded',String(!p));document.body.style.overflow=p?'':'hidden'});o.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){o.classList.remove('open');m.classList.remove('open');m.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}if('IntersectionObserver' in window){var r=new IntersectionObserver(function(e){e.forEach(function(t){if(t.isIntersecting){t.target.classList.add('visible');r.unobserve(t.target)}})},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal').forEach(function(e){r.observe(e)})}else{document.querySelectorAll('.reveal').forEach(function(e){e.classList.add('visible')})}})();</script>
+<script>(function(){var t=localStorage.getItem('epi-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}var b=document.getElementById('themeToggle');if(!b)return;b.textContent=document.documentElement.hasAttribute('data-theme')?'☀':'☾';b.addEventListener('click',function(){var r=document.documentElement;if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light');b.textContent='☾';}else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark');b.textContent='☀';}});})();</script>
 </body>
 </html>

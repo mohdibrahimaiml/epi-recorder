@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   EPI LABS — Design System v14 | Cache-bust 20260603
+   EPI LABS — Design System v16 | Cache-bust 20260606
    Editorial authority for AI governance infrastructure.
 
    Pramaana-warmth meets institutional precision.
    Cormorant headings. Inter body. JetBrains Mono code.
    Paper textures. Naval accent. Refined whitespace.
+   Dark mode via [data-theme="dark"] on <html>
    ═══════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,14..72,400;0,14..72,500;0,14..72,600;0,14..72,700;1,14..72,400;1,14..72,500;1,14..72,600&display=swap');
@@ -52,6 +53,68 @@
   --ease:    cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* ── DARK MODE ──────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:           #0D1117;
+  --bg-alt:       #111820;
+  --surface:      #161B22;
+  --surface-alt:  #1C2333;
+  --surface-warm: #1A1F2A;
+
+  --ink:          #E6EDF3;
+  --ink-soft:     #C4CDD7;
+  --ink-muted:    #8B949E;
+  --ink-dim:      #586069;
+  --ink-faint:    #373D48;
+
+  --accent:       #58A6FF;
+  --accent-light: #79C0FF;
+  --accent-glow:  rgba(88,166,255,0.08);
+  --accent-line:  rgba(88,166,255,0.18);
+
+  --verified:     #3FB950;
+  --verified-bg:  rgba(63,185,80,0.08);
+  --verified-line: rgba(63,185,80,0.18);
+
+  --warn:         #D29922;
+  --warn-bg:      rgba(210,153,34,0.08);
+  --warn-line:    rgba(210,153,34,0.18);
+
+  --tamper:       #F85149;
+  --tamper-bg:    rgba(248,81,73,0.08);
+  --tamper-line:  rgba(248,81,73,0.18);
+
+  --border:       rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.13);
+}
+[data-theme="dark"] body::before { opacity: 0.008; background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 3px); }
+[data-theme="dark"] .nav { background: rgba(13,17,23,0.94); }
+[data-theme="dark"] .nav.scrolled { background: rgba(13,17,23,0.94); }
+[data-theme="dark"] .nav-link-cta { color: var(--bg) !important; }
+[data-theme="dark"] .mob-menu { background: rgba(13,17,23,0.98); }
+[data-theme="dark"] .nav-mob span { background: var(--ink); }
+[data-theme="dark"] .btn-primary { color: var(--bg); }
+[data-theme="dark"] .btn-primary:hover { box-shadow: 0 6px 24px rgba(88,166,255,0.18); }
+[data-theme="dark"] .card:hover { box-shadow: 0 2px 16px rgba(0,0,0,0.20); }
+[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.7); }
+[data-theme="dark"] .spec-banner:hover { border-color: var(--accent-line); }
+[data-theme="dark"] .drop-zone { background: var(--surface); }
+[data-theme="dark"] .drop-zone:hover { background: var(--accent-glow); }
+[data-theme="dark"] .hero-glow { opacity: 0.3; }
+[data-theme="dark"] .hash-mark { opacity: 0.3; }
+
+/* ── DARK MODE TOGGLE ── */
+.theme-toggle {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 2000;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--surface); border: 1.5px solid var(--border-strong);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; transition: all 0.3s var(--ease);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.theme-toggle:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.10); }
+@media (max-width: 768px) { .theme-toggle { bottom: 1rem; right: 1rem; width: 40px; height: 40px; } }
+
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:16px}
 body{font-family:var(--sans);background:var(--bg);color:var(--ink-soft);line-height:1.6;overflow-x:hidden}
@@ -83,6 +146,9 @@ strong{color:var(--ink);font-weight:600}
   letter-spacing:0.14em;color:var(--accent);display:inline-flex;align-items:center;gap:10px;
 }
 .eyebrow::before{content:'';width:24px;height:1px;background:var(--accent);opacity:0.4}
+
+.section-label{font-family:var(--mono);font-size:0.66rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:var(--accent);display:inline-flex;align-items:center;gap:10px}
+.section-label::before{content:'';width:24px;height:1px;background:var(--accent);opacity:0.4}
 
 code{font-family:var(--mono);font-size:0.84em;color:var(--accent);background:var(--accent-glow);padding:0.1em 0.4em}
 
