@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: epi-verify
+    runtime: python
+    plan: free
+    buildCommand: pip install -e ".[gateway]"
+    startCommand: python -m verify_portal.main
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12
+      - key: PORT
+        value: 10000
+      - key: EPI_ATTESTATION_PRIVATE_KEY
+        sync: false
+      - key: EPI_SCITT_SERVICE_PRIVATE_KEY
+        sync: false
+    domains:
+      - verify.epilabs.org
