@@ -162,3 +162,4 @@ v2.8.5.ipynb
 !verify_portal/static/viewer/*.html
 !verify_portal/static/verify/*.html
 .aider*
+data/ 
