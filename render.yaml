@@ -1,9 +1,6 @@
-# Render Blueprint — Free Tier Deployment
-# https://render.com/docs/blueprint-spec
-
 services:
   - type: web
-    name: epi-verify-portal
+    name: epi-verify
     runtime: python
     plan: free
     buildCommand: pip install -e ".[gateway]"
@@ -14,6 +11,8 @@ services:
       - key: PORT
         value: 10000
       - key: EPI_ATTESTATION_PRIVATE_KEY
-        sync: false  # Set manually in Render dashboard — never commit secrets
+        sync: false
       - key: EPI_SCITT_SERVICE_PRIVATE_KEY
-        sync: false  # Set manually in Render dashboard — never commit secrets
+        sync: false
+    domains:
+      - verify.epilabs.org

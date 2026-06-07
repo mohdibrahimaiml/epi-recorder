@@ -5,6 +5,8 @@ COSE_Sign1 statement/receipt creation and verification.
 
 from __future__ import annotations
 
+import cbor2
+
 from pathlib import Path
 from uuid import uuid4
 
@@ -92,7 +94,12 @@ class TestSCITTStatement:
         stmt = parse_scitt_statement(cose_bytes)
 
         expected_hash = get_canonical_hash(signed_manifest, exclude_fields={"signature", "governance"})
-        assert stmt.payload.decode("utf-8") == expected_hash
+        claims = cbor2.loads(stmt.payload)
+        if isinstance(claims, dict):
+            actual_hash = claims.get("manifest_hash", b"").decode("utf-8", errors="replace")
+        else:
+            actual_hash = ""
+        assert actual_hash == expected_hash
         assert stmt.subject == expected_hash
 
     def test_verify_scitt_statement_with_key(self, signed_manifest, private_key):

@@ -10,15 +10,11 @@ published by AIUC-1 (https://aiuc-1.org):
     D. Reliability
     E. Accountability
     F. Society
-
-This module does NOT invent control IDs. AIUC-1 does not publish individual
-control IDs publicly. Instead, it maps to the domains that AIUC-1 has declared.
-When speaking with the AIUC-1 team, ask: "What specific controls within each
-domain should our evidence artifacts address?" and refine this mapping afterward.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,62 +26,105 @@ class AIUC1DomainStatus:
 
     domain: str
     label: str
-    status: str  # "PASS", "FAIL", "PARTIAL", "NOT_APPLICABLE"
+    status: str
     evidence: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
 
 
-# Mapping of EPI verification facts to AIUC-1 domains
-# Each domain lists the evidence features that would satisfy it.
+_REDACTION_PLACEHOLDER_RE = re.compile(
+    r"\*\*\*REDACTED\*\*\*"
+    r":(?P<description>[^:]+)"
+    r":HMAC-SHA256"
+    r":(?P<hex>[a-f0-9]{64})"
+    r"\*\*\*"
+)
+
+
 _DOMAIN_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "A": {
         "name": "Data & Privacy",
         "evidence_keys": [
-            "redaction_applied",  # HMAC-SHA256 placeholders present
-            "environment_isolated",  # environment.json captured separately
+            "redaction_verifiable",
+            "redaction_coverage",
+            "redaction_format_valid",
+            "environment_isolated",
         ],
     },
     "B": {
         "name": "Security",
         "evidence_keys": [
-            "signature_valid",  # Ed25519 manifest signature
-            "integrity_ok",  # SHA-256 file manifest matches
-            "scitt_receipt_present",  # SCITT transparency receipt embedded
-            "chain_ok",  # prev_hash chain unbroken
+            "signature_valid",
+            "integrity_ok",
+            "scitt_receipt_present",
+            "chain_ok",
         ],
     },
     "C": {
         "name": "Safety",
         "evidence_keys": [
-            "chain_ok",  # prev_hash chain = tamper-evident sequence
-            "sequence_ok",  # monotonic step indices
-            "timestamp_monotonic",  # time moves forward
+            "chain_ok",
+            "sequence_ok",
+            "timestamp_monotonic",
         ],
     },
     "D": {
         "name": "Reliability",
         "evidence_keys": [
-            "completeness_ok",  # every request has a response
-            "error_steps_present",  # errors are captured, not hidden
+            "completeness_ok",
+            "error_steps_present",
         ],
     },
     "E": {
         "name": "Accountability",
         "evidence_keys": [
-            "signature_valid",  # someone signed this
-            "identity_known",  # signer is in a trust registry
-            "human_review_present",  # review.json exists
-            "policy_present",  # policy.json exists
+            "signature_valid",
+            "identity_known",
+            "review_bound_to_artifact",
+            "review_signed",
+            "policy_present",
         ],
     },
     "F": {
         "name": "Society",
         "evidence_keys": [
-            "analysis_present",  # analysis.json exists
-            "redaction_audit_trail",  # redaction is verifiable (HMAC)
+            "analysis_has_findings",
+            "analysis_passes_complete",
+            "redaction_audit_trail",
         ],
     },
 }
+
+
+_SENSITIVE_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"[a-z]{2,3}-[a-zA-Z0-9]{32,}",
+        r"Bearer\s+[A-Za-z0-9_\-.]{20,}",
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b",
+        r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
+    ]
+]
+
+_REDACTION_CATEGORIES: dict[str, list[str]] = {
+    "api_key": ["api key", "token", "bearer", "access key", "secret key", "github"],
+    "pii": ["email", "phone", "ssn", "social security", "card", "credit", "amex"],
+    "credential": ["password", "connection string", "private key", "database", "jwt"],
+}
+
+
+def _detect_redaction_categories(steps: list[dict] | None) -> set[str]:
+    if not steps:
+        return set()
+    categories: set[str] = set()
+    for step in steps:
+        text = str(step.get("content", {}))
+        for m in _REDACTION_PLACEHOLDER_RE.finditer(text):
+            desc = m.group("description").lower()
+            for cat, keywords in _REDACTION_CATEGORIES.items():
+                if any(kw in desc for kw in keywords):
+                    categories.add(cat)
+                    break
+    return categories
 
 
 def map_verification_to_aiuc1(
@@ -94,24 +133,9 @@ def map_verification_to_aiuc1(
     steps: list[dict] | None = None,
     epi_path: Path | None = None,
 ) -> dict[str, AIUC1DomainStatus]:
-    """
-    Map an EPI verification report to AIUC-1 trust domains.
-
-    Args:
-        report: The verification report dict from create_verification_report().
-        manifest: Optional ManifestModel for additional metadata.
-        steps: Optional list of steps for forensic analysis.
-        epi_path: Optional path to the .epi file for checking mutable files
-            (e.g. review.json) that are excluded from the cryptographic
-            file_manifest but may still exist in the ZIP.
-
-    Returns:
-        Dict mapping domain letter -> AIUC1DomainStatus.
-    """
     facts = report.get("facts", {})
     identity = report.get("identity", {})
 
-    # Extract evidence booleans from the report
     evidence = {
         "signature_valid": facts.get("signature_valid") is True,
         "integrity_ok": facts.get("integrity_ok", False),
@@ -122,14 +146,18 @@ def map_verification_to_aiuc1(
             (identity.get("scitt") or {}).get("entry_id")
         ),
         "identity_known": identity.get("status") == "KNOWN",
-        "human_review_present": _has_file_in_manifest(manifest, "review.json", epi_path),
         "policy_present": _has_file_in_manifest(manifest, "policy.json", epi_path),
-        "analysis_present": _has_file_in_manifest(manifest, "analysis.json", epi_path),
         "environment_isolated": _has_file_in_manifest(manifest, "environment.json", epi_path),
-        "redaction_applied": _detect_redaction_in_steps(steps),
-        "redaction_audit_trail": _detect_redaction_in_steps(steps),
         "timestamp_monotonic": _check_timestamp_monotonicity(steps),
         "error_steps_present": _detect_error_steps(steps),
+        "redaction_verifiable": _validate_redaction_quality(steps),
+        "redaction_coverage": _check_redaction_coverage(steps),
+        "redaction_format_valid": _validate_redaction_placeholders(steps),
+        "review_bound_to_artifact": _check_review_binding(epi_path, manifest),
+        "review_signed": _check_review_signed(epi_path),
+        "analysis_has_findings": _check_analysis_has_findings(manifest, epi_path),
+        "analysis_passes_complete": _check_analysis_passes_complete(manifest, epi_path),
+        "redaction_audit_trail": _check_redaction_completeness(steps),
     }
 
     result: dict[str, AIUC1DomainStatus] = {}
@@ -163,18 +191,10 @@ def map_verification_to_aiuc1(
 def _has_file_in_manifest(
     manifest: Any | None, filename: str, epi_path: Path | None = None
 ) -> bool:
-    """Check if a file exists in the manifest's file_manifest or ZIP contents.
-
-    Mutable review files (e.g. review.json) are intentionally excluded from
-    the cryptographic file_manifest.  When ``epi_path`` is provided, this
-    function also checks the actual ZIP member list so those files are still
-    counted as present for AIUC-1 evidence mapping.
-    """
     if manifest is not None:
         file_manifest = getattr(manifest, "file_manifest", None) or {}
         if any(key == filename or key.endswith(f"/{filename}") for key in file_manifest.keys()):
             return True
-
     if epi_path is not None:
         try:
             from epi_core.container import EPIContainer
@@ -182,12 +202,129 @@ def _has_file_in_manifest(
             return filename in members
         except Exception:
             pass
-
     return False
 
 
+def _validate_redaction_quality(steps: list[dict] | None) -> bool:
+    if not steps:
+        return False
+    found = 0
+    for step in steps:
+        text = str(step.get("content", {}))
+        for m in _REDACTION_PLACEHOLDER_RE.finditer(text):
+            hex_val = m.group("hex")
+            if len(hex_val) == 64 and all(c in "0123456789abcdef" for c in hex_val):
+                found += 1
+    return found >= 1
+
+
+def _validate_redaction_placeholders(steps: list[dict] | None) -> bool:
+    if not steps:
+        return False
+    redacted_total = 0
+    well_formed = 0
+    for step in steps:
+        text = str(step.get("content", {}))
+        occurrences = text.count("***REDACTED")
+        if occurrences == 0:
+            continue
+        redacted_total += occurrences
+        well_formed += len(_REDACTION_PLACEHOLDER_RE.findall(text))
+    if redacted_total == 0:
+        return False
+    return well_formed == redacted_total
+
+
+def _check_redaction_coverage(steps: list[dict] | None) -> bool:
+    if not steps:
+        return False
+    categories = _detect_redaction_categories(steps)
+    return len(categories) >= 1
+
+
+def _check_redaction_completeness(steps: list[dict] | None) -> bool:
+    if not steps:
+        return False
+    categories = _detect_redaction_categories(steps)
+    return len(categories) >= 2
+
+
+def _check_review_binding(epi_path: Path | None, manifest: Any | None) -> bool:
+    if epi_path is None:
+        return False
+    try:
+        from epi_core.review import build_artifact_binding, read_review_records
+    except ImportError:
+        return False
+    try:
+        expected_binding = build_artifact_binding(epi_path)
+        records = read_review_records(epi_path)
+        for record in records:
+            if record.artifact_binding is not None:
+                if record.artifact_binding == expected_binding:
+                    return True
+        return False
+    except Exception:
+        return False
+
+
+def _check_review_signed(epi_path: Path | None) -> bool:
+    if epi_path is None:
+        return False
+    try:
+        from epi_core.review import read_review_records
+        records = read_review_records(epi_path)
+        for record in records:
+            if record.review_signature:
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _read_analysis_from_artifact(manifest: Any | None, epi_path: Path | None) -> dict | None:
+    if epi_path is not None:
+        try:
+            from epi_core.container import EPIContainer
+            data = EPIContainer.read_member_json(epi_path, "analysis.json")
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+    return None
+
+
+def _check_analysis_has_findings(manifest: Any | None, epi_path: Path | None) -> bool:
+    analysis = _read_analysis_from_artifact(manifest, epi_path)
+    if analysis is None:
+        return False
+    if analysis.get("fault_detected") is True:
+        return True
+    if analysis.get("primary_fault") is not None:
+        return True
+    secondary = analysis.get("secondary_flags") or []
+    if isinstance(secondary, list) and len(secondary) > 0:
+        return True
+    summary = analysis.get("summary") or {}
+    if summary.get("secondary_count", 0) > 0:
+        return True
+    return False
+
+
+def _check_analysis_passes_complete(manifest: Any | None, epi_path: Path | None) -> bool:
+    analysis = _read_analysis_from_artifact(manifest, epi_path)
+    if analysis is None:
+        return False
+    for field in ("analyzer_version", "analysis_timestamp", "coverage", "fault_detected", "summary"):
+        if field not in analysis:
+            return False
+    coverage = analysis.get("coverage") or {}
+    if coverage.get("status") != "complete":
+        return False
+    return True
+
+
 def _detect_redaction_in_steps(steps: list[dict] | None) -> bool:
-    """Detect if any step contains HMAC-SHA256 redaction placeholders."""
     if not steps:
         return False
     for step in steps:
@@ -199,25 +336,13 @@ def _detect_redaction_in_steps(steps: list[dict] | None) -> bool:
 
 
 def _check_timestamp_monotonicity(steps: list[dict] | None) -> bool:
-    """Check that step timestamps are monotonically increasing.
-
-    Prefer ``timestamp_ns`` (nanoseconds since epoch, stored in
-    ``step["content"]["timestamp_ns"]``) because that is what the main
-    verification pipeline uses.  Fall back to the legacy ``timestamp``
-    ISO string only when ``timestamp_ns`` is absent.
-    """
     if not steps or len(steps) < 2:
         return True
     try:
         from datetime import datetime
-
-        # Determine which field to use.  If *any* step has timestamp_ns,
-        # we use exclusively timestamp_ns so that mixed artifacts do not
-        # compare incompatible types.
         has_ns = any(
             step.get("content", {}).get("timestamp_ns") is not None for step in steps
         )
-
         timestamps: list[int | datetime] = []
         for step in steps:
             if has_ns:
@@ -225,8 +350,6 @@ def _check_timestamp_monotonicity(steps: list[dict] | None) -> bool:
                 if t_ns is not None:
                     timestamps.append(int(t_ns))
                 else:
-                    # Missing timestamp_ns in a step when others have it
-                    # breaks monotonicity verification.
                     return False
             else:
                 ts = step.get("timestamp")
@@ -235,28 +358,19 @@ def _check_timestamp_monotonicity(steps: list[dict] | None) -> bool:
                 elif isinstance(ts, datetime):
                     timestamps.append(ts)
                 else:
-                    # Missing timestamp when none of the steps have timestamp_ns
                     return False
-
         return all(timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1))
     except Exception:
-        return False  # Cannot verify monotonicity — assume tampering
+        return False
 
 
 def _detect_error_steps(steps: list[dict] | None) -> bool:
-    """Detect if any error steps are present in the timeline."""
     if not steps:
         return False
     return any(step.get("kind", "").startswith("llm.error") for step in steps)
 
 
 def aiuc1_summary(statuses: dict[str, AIUC1DomainStatus]) -> dict:
-    """
-    Produce a JSON-serializable summary of AIUC-1 domain compliance.
-
-    Returns:
-        Dict suitable for embedding in verification report JSON.
-    """
     domains = {}
     for domain_id, status in statuses.items():
         domains[domain_id] = {

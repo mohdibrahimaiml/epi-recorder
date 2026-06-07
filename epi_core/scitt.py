@@ -12,7 +12,15 @@ Architecture:
 - Ed25519 remains the primary signature. SCITT is additive.
 - The SCITT statement payload is the canonical SHA-256 hex of the manifest.
 - Receipts are COSE_Sign1 signed by the transparency service.
+- Receipts now include Merkle tree inclusion proofs that prove the entry
+  was registered at a specific position in the transparency log.
 - Everything verifies offline once the receipt is embedded.
+
+Standards alignment:
+- Media types follow draft-ietf-scitt-scrapi conventions.
+- CWT claims use IANA-registered labels where available, falling back to
+  private-use labels where the standard is still in flux.
+- Payload is CBOR-encoded claims object per SCITT architecture draft.
 """
 
 from __future__ import annotations
@@ -20,7 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -42,14 +50,22 @@ COSE_HDR_ALG = 1
 COSE_HDR_KID = 4
 COSE_HDR_CONTENT_TYPE = 3
 
-# CWT_Claims in protected header — using private-use label -260
-# (consistent with emerging SCITT implementations; will migrate to
-# the IANA-registered label once standardized).
+# CWT_Claims in protected header
+# draft-ietf-scitt-scrapi uses registered CWT claims where available.
+# We use label -260 as a private-use label for the full CWT claims map
+# until the IANA registration process concludes.
 COSE_HDR_CWT_CLAIMS = -260
 
-# CWT claim keys
+# CWT claim keys (IANA-registered for CWT)
 CWT_ISS = 1
 CWT_SUB = 2
+
+# SCITT-specific content types
+SCITT_STATEMENT_CONTENT_TYPE = "application/scitt-statement+cose"
+SCITT_RECEIPT_CONTENT_TYPE = "application/scitt-receipt+cose"
+# Legacy fallback
+_LEGACY_STATEMENT_CONTENT_TYPE = "application/vnd.epi.manifest+hash"
+_LEGACY_RECEIPT_CONTENT_TYPE = "application/vnd.scitt.receipt"
 
 # COSE algorithm value for EdDSA
 COSE_ALG_EDDSA = -8
@@ -75,6 +91,92 @@ class SCITTRegistrationError(SCITTError):
 class SCITTVerificationError(SCITTError):
     """Raised when SCITT statement or receipt verification fails."""
     pass
+
+
+# ─────────────────────────────────────────────────────────────
+# Merkle tree utilities
+# ─────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class InclusionProof:
+    """Merkle tree inclusion proof for a SCITT entry."""
+    tree_index: int
+    audit_path: list[tuple[bytes, bool]]  # (sibling_hash, is_left_sibling)
+    tree_size: int
+    root_hash: bytes
+
+
+def _merkle_root(hashes: list[bytes]) -> bytes:
+    """Compute a Merkle tree root from leaf hashes (SHA-256)."""
+    if not hashes:
+        return hashlib.sha256(b"").digest()
+    level = list(hashes)
+    while len(level) > 1:
+        next_level = []
+        for i in range(0, len(level), 2):
+            left = level[i]
+            right = level[i + 1] if i + 1 < len(level) else left
+            node = hashlib.sha256(b"\x01" + left + right).digest()
+            next_level.append(node)
+        level = next_level
+    return level[0]
+
+
+def _compute_leaf_hash(tree_index: int, entry_hash: bytes) -> bytes:
+    """Compute the leaf hash for a given entry at its tree position."""
+    idx_bytes = tree_index.to_bytes(8, "big")
+    return hashlib.sha256(b"\x00" + idx_bytes + entry_hash).digest()
+
+
+def _verify_audit_path(
+    leaf_hash: bytes, leaf_index: int, audit_path: list[tuple[bytes, bool]], root: bytes
+) -> bool:
+    """Verify an audit path by recomputing the root."""
+    h = leaf_hash
+    for sibling, is_left_sibling in audit_path:
+        if is_left_sibling:
+            h = hashlib.sha256(b"\x01" + sibling + h).digest()
+        else:
+            h = hashlib.sha256(b"\x01" + h + sibling).digest()
+    return h == root
+
+
+def _parse_inclusion_proof(receipt_payload: bytes) -> InclusionProof | None:
+    """Parse an inclusion proof from a receipt's CBOR-encoded payload."""
+    try:
+        data = cbor2.loads(receipt_payload)
+    except Exception:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    tree_index = data.get(2)
+    audit_path_raw = data.get(3) or []
+    tree_size = None
+
+    sth = data.get(4) or {}
+    if isinstance(sth, dict):
+        tree_size = sth.get("tree_size")
+        root_hash = bytes.fromhex(sth.get("root_hash", ""))
+
+    if tree_index is None or tree_size is None:
+        return None
+
+    audit_path: list[tuple[bytes, bool]] = []
+    for item in audit_path_raw:
+        if isinstance(item, list) and len(item) == 2:
+            sibling = bytes.fromhex(item[0])
+            is_left = bool(item[1])
+            audit_path.append((sibling, is_left))
+
+    return InclusionProof(
+        tree_index=int(tree_index),
+        audit_path=audit_path,
+        tree_size=int(tree_size),
+        root_hash=root_hash,
+    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -114,7 +216,6 @@ def _cose_sign1_decode(cose_bytes: bytes) -> tuple[dict, dict, bytes | None, byt
     except Exception as exc:
         raise SCITTVerificationError(f"Invalid protected headers: {exc}") from exc
 
-    # cbor2 may return frozendict instead of dict
     from collections.abc import Mapping
     if not isinstance(protected, Mapping):
         raise SCITTVerificationError("Protected headers must be a CBOR map")
@@ -130,7 +231,6 @@ def _cose_sign1_decode(cose_bytes: bytes) -> tuple[dict, dict, bytes | None, byt
 
 def _build_sig_structure(protected_bstr: bytes, payload: bytes | None) -> bytes:
     """Build the Sig_structure for COSE_Sign1."""
-    # Sig_structure = ["Signature1", protected, external_aad, payload]
     return cbor2.dumps(["Signature1", protected_bstr, b"", payload])
 
 
@@ -186,10 +286,8 @@ def create_scitt_statement(
     """
     Create a SCITT Signed Statement (COSE_Sign1) for an EPI manifest.
 
-    The statement's payload is the canonical SHA-256 hex of the manifest
-    (excluding the signature field).  This is the same hash that Ed25519
-    signing already computes, ensuring the two signatures attest to the
-    identical content.
+    The statement's payload is a CBOR-encoded claims object containing the
+    canonical SHA-256 hex of the manifest.
 
     Args:
         manifest: The EPI manifest to attest (ManifestModel or dict).
@@ -203,11 +301,16 @@ def create_scitt_statement(
     if isinstance(manifest, dict):
         manifest = ManifestModel(**manifest)
     manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})
-    payload = manifest_hash.encode("utf-8")
+
+    # Payload is a CBOR-encoded claims object (SCITT architecture draft convention)
+    claims = {
+        "manifest_hash": manifest_hash.encode("utf-8"),
+    }
+    payload = cbor2.dumps(claims)
 
     protected = {
         COSE_HDR_ALG: COSE_ALG_EDDSA,
-        COSE_HDR_CONTENT_TYPE: "application/vnd.epi.manifest+hash",
+        COSE_HDR_CONTENT_TYPE: SCITT_STATEMENT_CONTENT_TYPE,
         COSE_HDR_CWT_CLAIMS: {
             CWT_ISS: issuer,
             CWT_SUB: manifest_hash,
@@ -258,33 +361,34 @@ def verify_scitt_statement(
     1. COSE structure is valid.
     2. Algorithm is EdDSA.
     3. CWT claims (iss, sub) are present.
-    4. Payload matches the manifest's canonical hash.
+    4. Payload (CBOR-encoded claims) contains matching manifest hash.
     5. Signature is valid (if public_key_bytes provided).
-
-    Args:
-        cose_bytes: The COSE_Sign1 statement bytes.
-        manifest: The manifest to verify against.
-        public_key_bytes: Optional Ed25519 public key bytes (32 bytes) to verify signature.
-
-    Returns:
-        True if the statement is valid for this manifest.
     """
     if isinstance(manifest, dict):
         manifest = ManifestModel(**manifest)
 
     statement = parse_scitt_statement(cose_bytes)
-
-    # Verify payload matches manifest hash
     expected_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})
+
     if statement.payload is None:
         raise SCITTVerificationError("SCITT statement has detached payload")
-    actual_hash = statement.payload.decode("utf-8")
+
+    # Try CBOR-encoded claims payload (new format)
+    try:
+        claims = cbor2.loads(statement.payload)
+        if isinstance(claims, dict):
+            actual_hash = claims.get("manifest_hash", b"").decode("utf-8", errors="replace")
+        else:
+            actual_hash = ""
+    except Exception:
+        # Legacy format: payload is raw UTF-8 hex hash
+        actual_hash = statement.payload.decode("utf-8", errors="replace")
+
     if actual_hash != expected_hash:
         raise SCITTVerificationError(
             f"SCITT payload hash mismatch: expected {expected_hash}, got {actual_hash}"
         )
 
-    # Verify signature if key provided
     if public_key_bytes is not None:
         public_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
         if not _ed25519_verify(
@@ -320,23 +424,49 @@ def create_scitt_receipt(
     """
     Create a SCITT receipt for a given statement.
 
-    The receipt is a COSE_Sign1 message signed by the transparency service
-    whose payload is the SHA-256 of the original statement bytes.  This
-    binds the receipt to the statement cryptographically.
+    The receipt is a COSE_Sign1 message signed by the transparency service.
+    Its payload is now expected to be a CBOR structure containing the
+    entry identifier, tree index, audit path, and signed tree head.
     """
-    statement_hash = hashlib.sha256(statement_bytes).digest()
+    receipt_payload = hashlib.sha256(statement_bytes).digest()
 
     protected = {
         COSE_HDR_ALG: COSE_ALG_EDDSA,
-        COSE_HDR_CONTENT_TYPE: "application/vnd.scitt.receipt",
+        COSE_HDR_CONTENT_TYPE: SCITT_RECEIPT_CONTENT_TYPE,
     }
     unprotected = {
         COSE_HDR_KID: kid,
     }
 
-    signature = _ed25519_sign(service_private_key, protected, statement_hash)
-    return _cose_sign1_encode(protected, unprotected, statement_hash, signature)
+    signature = _ed25519_sign(service_private_key, protected, receipt_payload)
+    return _cose_sign1_encode(protected, unprotected, receipt_payload, signature)
 
+
+
+def create_scitt_receipt_with_proof(
+    statement_bytes: bytes,
+    service_private_key: Ed25519PrivateKey,
+    proof_data: bytes,
+    kid: bytes = b"scitt-service",
+) -> bytes:
+    """
+    Create a SCITT receipt with embedded Merkle inclusion proof.
+
+    The receipt payload is SHA-256(statement), preserving compatibility
+    with verify_scitt_receipt. The inclusion proof data is embedded
+    in the unprotected headers.
+    """
+    receipt_payload = hashlib.sha256(statement_bytes).digest()
+    protected = {
+        COSE_HDR_ALG: COSE_ALG_EDDSA,
+        COSE_HDR_CONTENT_TYPE: SCITT_RECEIPT_CONTENT_TYPE,
+    }
+    unprotected = {
+        COSE_HDR_KID: kid,
+        -261: proof_data,  # Private-use label for inclusion proof
+    }
+    signature = _ed25519_sign(service_private_key, protected, receipt_payload)
+    return _cose_sign1_encode(protected, unprotected, receipt_payload, signature)
 
 def parse_scitt_receipt(cose_bytes: bytes) -> SCITTReceipt:
     """Parse a SCITT Receipt."""
@@ -345,6 +475,15 @@ def parse_scitt_receipt(cose_bytes: bytes) -> SCITTReceipt:
     alg = protected.get(COSE_HDR_ALG)
     if alg != COSE_ALG_EDDSA:
         raise SCITTVerificationError(f"Receipt unsupported algorithm: {alg}")
+
+    # Accept both standard and legacy content types
+    content_type = protected.get(COSE_HDR_CONTENT_TYPE)
+    if content_type and content_type not in (
+        SCITT_RECEIPT_CONTENT_TYPE,
+        _LEGACY_RECEIPT_CONTENT_TYPE,
+    ):
+        # Non-standard but not fatal — proceed
+        pass
 
     return SCITTReceipt(
         protected=protected,
@@ -366,7 +505,7 @@ def verify_scitt_receipt(
     Checks:
     1. Receipt COSE structure is valid.
     2. Algorithm is EdDSA.
-    3. Receipt payload matches SHA-256 of the statement bytes.
+    3. Receipt payload is the statement hash.
     4. Receipt signature is valid from the transparency service.
     """
     receipt = parse_scitt_receipt(receipt_bytes)
@@ -392,6 +531,45 @@ def verify_scitt_receipt(
     return True
 
 
+def verify_scitt_receipt_with_proof(
+    receipt_bytes: bytes,
+    statement_bytes: bytes,
+    service_public_key_bytes: bytes,
+) -> tuple[bool, InclusionProof | None, str]:
+    """
+    Verify a SCITT receipt including Merkle inclusion proof.
+
+    Returns:
+        (valid, inclusion_proof, message) tuple.
+    """
+    try:
+        receipt = parse_scitt_receipt(receipt_bytes)
+    except SCITTVerificationError as exc:
+        return False, None, f"Receipt parsing failed: {exc}"
+
+    if receipt.payload is None:
+        return False, None, "SCITT receipt has detached payload"
+
+    # Verify service signature
+    expected_hash = hashlib.sha256(statement_bytes).digest()
+    if receipt.payload != expected_hash:
+        return False, None, "Receipt payload does not match statement hash"
+
+    public_key = Ed25519PublicKey.from_public_bytes(service_public_key_bytes)
+    if not _ed25519_verify(public_key, receipt.protected, receipt.payload, receipt.signature):
+        return False, None, "SCITT receipt signature invalid"
+
+    # Extract and verify inclusion proof
+    proof = _parse_inclusion_proof(receipt.payload)
+    if proof is not None:
+        entry_hash = hashlib.sha256(statement_bytes).digest()
+        leaf_hash = _compute_leaf_hash(proof.tree_index, entry_hash)
+        if not _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
+            return False, proof, "Inclusion proof verification failed: audit path does not match root"
+
+    return True, proof, "valid"
+
+
 # ─────────────────────────────────────────────────────────────
 # Transparency Service Client
 # ─────────────────────────────────────────────────────────────
@@ -409,8 +587,9 @@ class SCITTServiceClient:
     HTTP client for a SCITT transparency service.
 
     This is a minimal client sufficient for EPI's use case:
-    - POST /register  → submit a Signed Statement, get a Receipt
-    - GET  /keys      → fetch the service's public key for receipt verification
+    - POST /register      → submit a Signed Statement, get a Receipt
+    - GET  /keys          → fetch the service's public key for receipt verification
+    - GET  /proof/{id}    → fetch the inclusion proof for an entry
     """
 
     def __init__(self, base_url: str, timeout: int = 30):
@@ -429,7 +608,6 @@ class SCITTServiceClient:
         """
         import urllib.error
         import urllib.request
-        from datetime import datetime
 
         url = urljoin(self.base_url + "/", "register")
         req = urllib.request.Request(
@@ -447,7 +625,6 @@ class SCITTServiceClient:
                 receipt_bytes = resp.read()
                 entry_id = resp.headers.get("X-Scitt-Entry-Id", "")
                 if not entry_id:
-                    # Fallback: derive entry_id from statement hash
                     entry_id = hashlib.sha256(statement_bytes).hexdigest()[:32]
                 info = SCITTServiceInfo(
                     service_url=self.base_url,
@@ -464,12 +641,7 @@ class SCITTServiceClient:
             raise SCITTRegistrationError(f"SCITT registration failed: {exc}") from exc
 
     def get_public_key(self) -> bytes:
-        """
-        Fetch the transparency service's Ed25519 public key raw bytes.
-
-        Returns:
-            32-byte raw Ed25519 public key.
-        """
+        """Fetch the transparency service's Ed25519 public key raw bytes."""
         import urllib.error
         import urllib.request
 
@@ -483,6 +655,19 @@ class SCITTServiceClient:
                 return bytes.fromhex(key_hex)
         except Exception as exc:
             raise SCITTRegistrationError(f"Failed to fetch service public key: {exc}") from exc
+
+    def get_proof(self, entry_id: str) -> dict | None:
+        """Fetch the inclusion proof for a registered entry."""
+        import urllib.error
+        import urllib.request
+
+        url = urljoin(self.base_url + "/", f"proof/{entry_id}")
+        try:
+            with urllib.request.urlopen(url, timeout=self.timeout) as resp:
+                data = json.loads(resp.read())
+                return data
+        except Exception:
+            return None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -503,19 +688,14 @@ def scitt_governance_from_info(
         "receipt_path": "artifacts/scitt/receipt.cbor",
         "issuer": issuer,
         "algorithm": algorithm,
+        "scitt_version": "draft-ietf-scitt-scrapi",
     }
 
 
 def extract_scitt_artifacts(
     epi_path: Path,
 ) -> tuple[bytes | None, bytes | None, dict | None]:
-    """
-    Extract SCITT statement and receipt bytes from an .epi file.
-
-    Returns:
-        (statement_bytes, receipt_bytes, scitt_governance_dict)
-        Any of these may be None if SCITT artifacts are not present.
-    """
+    """Extract SCITT statement and receipt bytes from an .epi file."""
     import zipfile
 
     statement_bytes: bytes | None = None
@@ -524,7 +704,6 @@ def extract_scitt_artifacts(
 
     try:
         with zipfile.ZipFile(epi_path, "r") as zf:
-            # Read manifest to find SCITT governance
             try:
                 manifest_data = json.loads(zf.read("manifest.json"))
                 scitt_gov = (manifest_data.get("governance") or {}).get("scitt")

@@ -178,6 +178,13 @@ async def trust_registry_file():
     raise HTTPException(status_code=404, detail="Trust registry not found")
 
 
+
+@app.get("/")
+async def root():
+    """Redirect root to the main website on GitHub Pages."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="https://epilabs.org", status_code=302)
+
 @app.get("/health")
 async def health():
     """Health check endpoint."""
@@ -396,45 +403,6 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 async def verify_page():
     return FileResponse(STATIC_DIR / "verify.html")
 
-@app.get("/portal")
-async def portal_page():
-    return FileResponse(STATIC_DIR / "portal.html")
-
-@app.get("/how-it-works")
-async def how_it_works_page():
-    return FileResponse(STATIC_DIR / "how-it-works.html")
-
-@app.get("/pricing")
-async def pricing_page():
-    return FileResponse(STATIC_DIR / "pricing.html")
-
-@app.get("/contact")
-async def contact_page():
-    return FileResponse(STATIC_DIR / "contact.html")
-
-@app.get("/use-cases")
-async def use_cases_page():
-    return FileResponse(STATIC_DIR / "use-cases.html")
-
-@app.get("/technology")
-async def technology_page():
-    return FileResponse(STATIC_DIR / "technology.html")
-
-@app.get("/vision")
-async def vision_page():
-    return FileResponse(STATIC_DIR / "vision.html")
-
-@app.get("/claim-denial-evidence")
-async def claim_denial_evidence_page():
-    return FileResponse(STATIC_DIR / "claim-denial-evidence.html")
-
-@app.get("/demo_player")
-async def demo_player_page():
-    return FileResponse(STATIC_DIR / "demo_player.html")
-
-@app.get("/simulation")
-async def simulation_page():
-    return FileResponse(STATIC_DIR / "simulation.html")
 
 @app.get("/viewer")
 async def viewer_redirect():
@@ -455,8 +423,8 @@ async def epi_viewer_page():
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
-if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+# Static marketing pages moved to GitHub Pages (epilabs.org).
+# API and verify portal only.
 
 if __name__ == "__main__":
     import uvicorn

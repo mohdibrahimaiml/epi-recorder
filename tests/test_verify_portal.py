@@ -73,12 +73,10 @@ def test_portal_html(client: TestClient) -> None:
     assert "EPI Verify" in r.text or "verify" in r.text.lower()
 
 
-def test_root_serves_index(client: TestClient) -> None:
-    r = client.get("/")
-    assert r.status_code == 200
-    assert "text/html" in r.headers["content-type"]
-    # Should be the EPI-OFFICIAL website, not the barebones landing page.
-    assert "EPI LABS" in r.text or "EPI Labs" in r.text
+def test_root_redirects_to_website(client: TestClient) -> None:
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "https://epilabs.org"
 
 
 # ---------------------------------------------------------------------------
