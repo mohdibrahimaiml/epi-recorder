@@ -12,6 +12,27 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="stylesheet" href="css/epi.css?v=23">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "EPI Recorder",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Cross-platform",
+  "description": "Cryptographic evidence recording and verification framework for AI agents. Ed25519 signatures, SHA-256 integrity, SCITT transparency.",
+  "url": "https://epilabs.org",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "EPI Labs",
+    "url": "https://epilabs.org"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -484,7 +505,7 @@ async function verifyEd25519(sigStr,pubKeyHex,hashHex){
 
 function detectContainer(buffer){
   var prefix=new TextDecoder().decode(buffer.slice(0,4));
-  if(prefix===EPI_ENVELOPE_MAGIC)return'envelope-v2';
+  if(prefix==='EPI1')return'envelope-v2';
   var sig=new Uint8Array(buffer.slice(0,4));
   if(sig[0]===0x50&&sig[1]===0x4B&&sig[2]===0x03&&sig[3]===0x04)return'legacy-zip';
   return null;
@@ -493,8 +514,10 @@ function detectContainer(buffer){
 function extractZIPPayload(buffer,fmt){
   if(fmt==='legacy-zip')return buffer;
   var view=new Uint8Array(buffer);
+  // EPI1 envelope: skip binary header to find ZIP PK marker
   var marker=[0x50,0x4B,0x03,0x04];
-  for(var i=128;i<view.length-4;i++){if(view[i]===marker[0]&&view[i+1]===marker[1]&&view[i+2]===marker[2]&&view[i+3]===marker[3])return buffer.slice(i)}
+  var start=Math.max(128, view.indexOf(marker[0]));
+  for(var i=start;i<view.length-4;i++){if(view[i]===marker[0]&&view[i+1]===marker[1]&&view[i+2]===marker[2]&&view[i+3]===marker[3])return buffer.slice(i)}
   return buffer.slice(128);
 }
 
