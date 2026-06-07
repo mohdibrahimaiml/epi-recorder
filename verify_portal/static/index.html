@@ -24,6 +24,9 @@
       <li><a href="#verify">Verify</a></li>
       <li><a href="#trust">Trust Model</a></li>
       <li><a href="#cases">Use Cases</a></li>
+      <li><a href="#integrations">Integrations</a></li>
+      <li><a href="#audit">Audit & SCITT</a></li>
+      <li><a href="#standards">Standards</a></li>
       <li><a href="#contact">Contact</a></li>
       <li><a href="#cta" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
@@ -33,7 +36,7 @@
 </nav>
 <div class="mob-menu" id="mobMenu">
   <a href="#how">How It Works</a><a href="#verify">Verify a File</a><a href="#trust">Trust Model</a>
-  <a href="#cases">Use Cases</a><a href="#cta">Get Started</a>
+  <a href="#cases">Use Cases</a><a href="#integrations">Integrations</a><a href="#audit">Audit &amp; SCITT</a><a href="#standards">Standards</a><a href="#cta">Get Started</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
   <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a>
 </div>
@@ -210,6 +213,113 @@ pip install epi-recorder
       <div class="uc-card reveal"><div class="uc-icon">&#x1F3DB;</div><h3>Government</h3><p>Benefits, procurement, law enforcement AI. Forensic records for OMB M-24-10 and NIST AI RMF.</p></div>
       <div class="uc-card reveal d1"><div class="uc-icon">&#x1F6E1;</div><h3>AI Safety & Alignment</h3><p>Red-teaming, evaluation, audit. Reproducible evidence for AIUC-1, SOC 2, ISO 42001.</p></div>
       <div class="uc-card reveal d2"><div class="uc-icon">&#x2696;</div><h3>Legal Tech</h3><p>Document review, contract AI. Verifiable evidence for FRCP 26(g) and ABA 483 compliance.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ INTEGRATIONS ═══ -->
+<section id="integrations">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:48px">
+      <div class="section-label reveal" style="justify-content:center">Integrations</div>
+      <h2 class="section-title reveal d1">Plugs into your existing stack</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">One callback, one wrapper, one line. EPI sits between your LLM and your compliance team.</p>
+    </div>
+    <div class="integrations-grid">
+      <div class="int-card reveal">
+        <div class="int-icon">&#x1F916;</div>
+        <h3>OpenAI / Anthropic</h3>
+        <p>wrap_openai(client) or wrap_anthropic(client) — full chat capture, streaming support, token usage, latency.</p>
+        <code class="int-code">client = wrap_openai(OpenAI())</code>
+      </div>
+      <div class="int-card reveal d1">
+        <div class="int-icon">&#x1F517;</div>
+        <h3>LangChain / LangGraph</h3>
+        <p>Drop-in callback handlers for chains, tools, retrievers, and agents. Checkpoint saver for agent state.</p>
+        <code class="int-code">ChatOpenAI(callbacks=[EPICallbackHandler()])</code>
+      </div>
+      <div class="int-card reveal d2">
+        <div class="int-icon">&#x1F310;</div>
+        <h3>LiteLLM</h3>
+        <p>One callback captures calls across 100+ providers — Azure, Bedrock, Vertex AI, Ollama, and more.</p>
+        <code class="int-code">litellm.callbacks = [EPICallback()]</code>
+      </div>
+      <div class="int-card reveal">
+        <div class="int-icon">&#x1F9EA;</div>
+        <h3>pytest</h3>
+        <p>pytest --epi generates signed .epi evidence per test. CI/CD pipelines leave portable proof.</p>
+        <code class="int-code">$ pytest --epi</code>
+      </div>
+      <div class="int-card reveal d1">
+        <div class="int-icon">&#x1F4E1;</div>
+        <h3>OpenTelemetry</h3>
+        <p>Bridge OTel spans into signed .epi files. Integrate into existing observability without changing pipelines.</p>
+        <code class="int-code">setup_epi_tracing()</code>
+      </div>
+      <div class="int-card reveal d2">
+        <div class="int-icon">&#x1F3E2;</div>
+        <h3>FastAPI Gateway</h3>
+        <p>epi serve starts a shared capture proxy for team workflows — configurable retention, auth, webhooks.</p>
+        <code class="int-code">$ epi serve</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SELF-AUDIT & SCITT ═══ -->
+<section class="section-alt" id="audit">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:48px">
+      <div class="section-label reveal" style="justify-content:center">Compliance</div>
+      <h2 class="section-title reveal d1">Built-in self-audit. SCITT-anchored.</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">EPI audits itself — and anchors evidence to a transparency ledger so you don't have to trust the producer.</p>
+    </div>
+    <div class="audit-grid">
+      <div class="audit-col reveal">
+        <h3 style="font-size:1.25rem;margin-bottom:16px;color:var(--ink)">&#x1F4CB; Self-Audit</h3>
+        <div class="audit-deco">
+<span style="color:var(--ink-dim);font-family:var(--mono);font-size:0.75rem">$ epi audit agent-run.epi</span>
+<span style="color:var(--ink-dim);font-family:var(--mono);font-size:0.72rem">──────────────────────────────────────</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Overall Score:</span> <span style="color:var(--verified)">9.5/10</span> Production-Ready</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">AIUC-1</span>   ██████████ <span style="color:var(--verified)">10/10</span>  ALL DOMAINS PASS</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">SCITT</span>    ████████░░  <span style="color:var(--warn)">8/10</span>  Receipt valid</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Review</span>   ██████████ <span style="color:var(--verified)">10/10</span>  Ed25519 signed</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Analysis</span> ██████████ <span style="color:var(--verified)">10/10</span>  9-pass, 0 faults</span>
+</div>
+        <p style="margin-top:16px;font-size:0.92rem;color:var(--ink-soft)">Scores every .epi across AIUC-1 (6 domains), SCITT transparency, review binding, and fault analysis. Outputs terminal, JSON, or Markdown.</p>
+      </div>
+      <div class="audit-col reveal d1">
+        <h3 style="font-size:1.25rem;margin-bottom:16px;color:var(--ink)">&#x1F333; SCITT Transparency</h3>
+        <div class="audit-deco">
+<span style="color:var(--ink-dim);font-family:var(--mono);font-size:0.75rem">$ epi scitt register agent-run.epi</span>
+<span style="color:var(--ink-dim);font-family:var(--mono);font-size:0.72rem">──────────────────────────────────────</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Statement:</span> COSE Sign1 (cbor2 + crypto)</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Receipt:</span>   application/scitt-receipt+cose</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Proof:</span>     Merkle inclusion (audit path)</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Ledger:</span>    SQLite WAL — survives restarts</span>
+<span style="font-family:var(--mono);font-size:0.72rem"><span style="color:var(--ink-dim)">Status:</span>    <span style="color:var(--verified)">ANCHORED</span> — entry #42</span>
+</div>
+        <p style="margin-top:16px;font-size:0.92rem;color:var(--ink-soft)">Anchor artifacts to a persistent SCITT transparency service with Merkle inclusion proofs. Verify receipts independently — no trust in the log operator required.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ STANDARDS ═══ -->
+<section id="standards">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:48px">
+      <div class="section-label reveal" style="justify-content:center">Standards</div>
+      <h2 class="section-title reveal d1">Built on open standards</h2>
+      <p class="section-desc reveal d2" style="margin:0 auto">No proprietary formats. No vendor lock-in. Evidence built on specifications that regulators and auditors already understand.</p>
+    </div>
+    <div class="standards-grid reveal">
+      <div class="std-card"><div class="std-badge">IETF</div><h3>SCITT</h3><p>COSE Sign1 statements, transparency receipts with Merkle inclusion proofs, persistent SQLite-backed ledger. Verify independently.</p></div>
+      <div class="std-card"><div class="std-badge">Compliance</div><h3>AIUC-1</h3><p>All 6 risk domains validated with substantive cryptographic checks — redaction quality, review binding, analysis completeness.</p></div>
+      <div class="std-card"><div class="std-badge">RFC 8032</div><h3>Ed25519</h3><p>Industry-standard digital signatures with DID:WEB identity resolution. Same primitive as Signal, SSH, TLS 1.3.</p></div>
+      <div class="std-card"><div class="std-badge">OWASP</div><h3>CycloneDX</h3><p>SBOM preservation under artifacts/sbom/ for software supply chain transparency and risk assessment.</p></div>
+      <div class="std-card"><div class="std-badge">CNCF</div><h3>in-toto</h3><p>Roadmap: Exporting steps.jsonl as in-toto link files for execution supply chain verification across the software lifecycle.</p></div>
+      <div class="std-card"><div class="std-badge">W3C</div><h3>DID:WEB</h3><p>Zero-cost decentralized identity. Publish your public key at yourdomain/.well-known/did.json. No third-party CA required.</p></div>
     </div>
   </div>
 </section>

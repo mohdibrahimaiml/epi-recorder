@@ -307,3 +307,28 @@ footer{border-top:1px solid var(--border);padding:48px 0;background:var(--bg-alt
   .product-grid{gap:32px}
   .terminal-body{font-size:0.66rem;padding:18px;min-height:280px}
 }
+
+/* ── INTEGRATIONS GRID ── */
+.integrations-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.int-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;transition:all 0.4s var(--ease)}
+.int-card:hover{border-color:var(--border-accent);transform:translateY(-2px)}
+.int-icon{font-size:1.8rem;margin-bottom:16px}
+.int-card h3{font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--ink)}
+.int-card p{font-size:0.85rem;color:var(--ink-muted);line-height:1.65;margin-bottom:14px}
+.int-code{display:block;font-family:var(--mono);font-size:0.72rem;color:var(--accent-lt);background:var(--bg-dark);padding:8px 12px;border-radius:6px;overflow-x:auto;white-space:pre}
+
+/* ── AUDIT / SCITT GRID ── */
+.audit-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.audit-col{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:32px 28px}
+.audit-deco{background:var(--bg-dark);border-radius:var(--radius-sm);padding:16px 18px;display:flex;flex-direction:column;gap:4px;line-height:1.8;font-family:var(--mono)}
+
+/* ── STANDARDS GRID ── */
+.standards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.std-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;transition:all 0.4s var(--ease)}
+.std-card:hover{border-color:var(--border-accent);transform:translateY(-2px)}
+.std-badge{display:inline-block;font-family:var(--mono);font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);background:var(--accent-glow);padding:3px 10px;border-radius:100px;margin-bottom:14px;border:1px solid var(--accent-line)}
+.std-card h3{font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--ink)}
+.std-card p{font-size:0.85rem;color:var(--ink-muted);line-height:1.65}
+
+@media(max-width:1024px){.integrations-grid,.standards-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.integrations-grid,.standards-grid,.audit-grid{grid-template-columns:1fr}}
