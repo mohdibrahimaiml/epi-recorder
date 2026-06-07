@@ -54,7 +54,7 @@ def test_current_public_docs_describe_envelope_format():
     walkthrough = _read(REPO_ROOT / "docs" / "EPI-CODEBASE-WALKTHROUGH.md")
     spec = _read(REPO_ROOT / "docs" / "EPI-SPEC.md")
 
-    assert "Wrap with EPI1 Envelope" in readme
+    assert "Envelope v2" in readme and "polyglot HTML+ZIP" in readme
     assert 'E -->|"ZIP"| G["agent.epi"]' not in readme
     assert "binary envelope with a" in walkthrough
     assert "ZIP container with a defined layout." not in walkthrough
