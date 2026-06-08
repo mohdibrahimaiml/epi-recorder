@@ -76,10 +76,14 @@ def test_artifact_full_flow_capture_verify_view_export_share_download_offline(tm
         EPIContainer.read_manifest(downloaded)
     )
 
+    import hashlib
     assert integrity_ok is True
     assert mismatches == {}
     assert signature_valid is True
-    assert signer == "test"
+    expected_key_name = hashlib.sha256(
+        EPIContainer.read_manifest(downloaded).public_key.encode("utf-8")
+    ).hexdigest()[:16]
+    assert signer == expected_key_name
 
 
 def test_pytest_epi_keeps_failed_artifact_and_only_keeps_passed_with_flag(tmp_path: Path):

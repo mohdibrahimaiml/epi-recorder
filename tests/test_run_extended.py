@@ -117,13 +117,14 @@ class TestVerifyRecordingEdgeCases:
         success, msg = _verify_recording(epi)
         assert not success
 
-    def test_legacy_base64_public_key_signature_verifies(self, tmp_path):
+    def test_legacy_base64_public_key_signature_rejected(self, tmp_path):
+        """Base64-encoded public keys are no longer accepted (hex only)."""
         from epi_cli.run import _verify_recording
 
         epi = _make_legacy_base64_public_key_epi(tmp_path)
         success, msg = _verify_recording(epi)
-        assert success is True
-        assert "signed" in msg.lower()
+        assert success is False
+        assert "invalid embedded public key" in msg.lower()
 
 
 # ─────────────────────────────────────────────────────────────

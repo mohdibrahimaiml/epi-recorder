@@ -560,12 +560,18 @@ def verify_scitt_receipt_with_proof(
         return False, None, "SCITT receipt signature invalid"
 
     # Extract and verify inclusion proof
-    proof = _parse_inclusion_proof(receipt.payload)
-    if proof is not None:
-        entry_hash = hashlib.sha256(statement_bytes).digest()
-        leaf_hash = _compute_leaf_hash(proof.tree_index, entry_hash)
-        if not _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
-            return False, proof, "Inclusion proof verification failed: audit path does not match root"
+    proof_data = receipt.unprotected.get(-261)
+    if proof_data is None:
+        return False, None, "Receipt does not contain inclusion proof"
+
+    proof = _parse_inclusion_proof(proof_data)
+    if proof is None:
+        return False, None, "Receipt contains malformed inclusion proof"
+
+    entry_hash = hashlib.sha256(statement_bytes).digest()
+    leaf_hash = _compute_leaf_hash(proof.tree_index, entry_hash)
+    if not _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
+        return False, proof, "Inclusion proof verification failed: audit path does not match root"
 
     return True, proof, "valid"
 

@@ -6,6 +6,7 @@ through digital signatures.
 """
 
 import base64
+import hashlib
 from enum import StrEnum
 from pathlib import Path
 
@@ -78,9 +79,10 @@ def sign_manifest(
         # Sign the hash
         signature_bytes = private_key.sign(hash_bytes)
 
-        # Encode as hex with key name prefix
+        # Encode as hex with derived key name prefix (cryptographically bound to public key)
         signature_hex = signature_bytes.hex()
-        signature_str = f"ed25519:{key_name}:{signature_hex}"
+        derived_key_name = hashlib.sha256(public_key_hex.encode("utf-8")).hexdigest()[:16]
+        signature_str = f"ed25519:{derived_key_name}:{signature_hex}"
 
         # Create new manifest with signature
         manifest_dict = manifest.model_dump()
@@ -118,6 +120,11 @@ def verify_signature(manifest: ManifestModel, public_key_bytes: bytes) -> tuple[
         if algorithm != "ed25519":
             return (False, f"Unsupported signature algorithm: {algorithm}")
 
+        # Cryptographically bind key_name to public key
+        expected_key_name = hashlib.sha256(public_key_bytes.hex().encode("utf-8")).hexdigest()[:16]
+        if key_name != expected_key_name:
+            return (False, "Key name does not match public key")
+
         # Decode signature — hex (current format) or base64 (legacy format)
         try:
             signature_bytes = bytes.fromhex(signature_hex)
@@ -141,24 +148,18 @@ def verify_signature(manifest: ManifestModel, public_key_bytes: bytes) -> tuple[
 
     except InvalidSignature:
         return (False, "Invalid signature - data may have been tampered")
-    except Exception as e:
-        return (False, f"Verification error: {str(e)}")
 
 
 def decode_embedded_public_key(public_key_value: str) -> bytes:
     """
     Decode an embedded manifest public key.
 
-    Current artifacts store the key as raw hex, but some legacy or externally
-    produced artifacts may still carry a base64-encoded raw key string.
+    Public keys must be hex-encoded raw Ed25519 key bytes (64 hex chars).
     """
     try:
         return bytes.fromhex(public_key_value)
-    except ValueError:
-        try:
-            return base64.b64decode(public_key_value)
-        except Exception as e:
-            raise VerificationError(f"Invalid embedded public key: {e}") from e
+    except ValueError as e:
+        raise VerificationError(f"Invalid embedded public key: {e}") from e
 
 
 def verify_embedded_manifest_signature(

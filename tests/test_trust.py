@@ -165,13 +165,15 @@ class TestSigning:
     
     def test_sign_manifest(self, test_manifest, test_keypair):
         """Test signing a manifest."""
+        import hashlib
         
-        private_key, _ = test_keypair
+        private_key, public_key_bytes = test_keypair
+        expected_key_name = hashlib.sha256(public_key_bytes.hex().encode("utf-8")).hexdigest()[:16]
         
         signed_manifest = sign_manifest(test_manifest, private_key, "test_key")
         
         assert signed_manifest.signature is not None
-        assert signed_manifest.signature.startswith("ed25519:test_key:")
+        assert signed_manifest.signature.startswith(f"ed25519:{expected_key_name}:")
         assert signed_manifest.workflow_id == test_manifest.workflow_id
     
     def test_verify_signature_valid(self, test_manifest, test_keypair):
@@ -207,7 +209,7 @@ class TestSigning:
         is_valid, message = verify_signature(signed_manifest, different_public)
         
         assert not is_valid, "Signature should be invalid"
-        assert "invalid" in message.lower() or "tamper" in message.lower()
+        assert any(word in message.lower() for word in ("invalid", "tamper", "key name"))
     
     def test_verify_unsigned_manifest(self, test_manifest, test_keypair):
         """Test verifying unsigned manifest."""
@@ -220,6 +222,7 @@ class TestSigning:
     
     def test_sign_manifest_inplace(self, test_manifest):
         """Test signing manifest file in-place."""
+        import hashlib
         
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest_path = Path(tmpdir) / "manifest.json"
@@ -229,6 +232,8 @@ class TestSigning:
             
             # Generate keypair
             private_key = Ed25519PrivateKey.generate()
+            public_key_bytes = private_key.public_key().public_bytes_raw()
+            expected_key_name = hashlib.sha256(public_key_bytes.hex().encode("utf-8")).hexdigest()[:16]
             
             # Sign in-place
             sign_manifest_inplace(manifest_path, private_key, "test_key")
@@ -238,7 +243,7 @@ class TestSigning:
             signed_data = json.loads(manifest_path.read_text())
             
             assert "signature" in signed_data
-            assert signed_data["signature"].startswith("ed25519:test_key:")
+            assert signed_data["signature"].startswith(f"ed25519:{expected_key_name}:")
     
     def test_get_signer_name(self):
         """Test extracting signer name from signature."""
@@ -408,8 +413,8 @@ class TestVerificationReport:
         assert not is_valid
         assert "format" in message.lower()
     
-    def test_verify_signature_generic_error(self):
-        """Test verify_signature handles generic errors."""
+    def test_verify_signature_key_name_mismatch(self):
+        """Test that a signature with a spoofed key_name is rejected."""
         from cryptography.hazmat.primitives import serialization
         
         test_manifest = ManifestModel(cli_command="test")
@@ -419,13 +424,47 @@ class TestVerificationReport:
             format=serialization.PublicFormat.Raw
         )
         
-        # Invalid base64 in signature
-        test_manifest.signature = "ed25519:test:not-valid-base64!!!"
+        # Create a valid signature, then swap the key_name
+        signed = sign_manifest(test_manifest, private_key, "real-key")
+        parts = signed.signature.split(":")
+        spoofed_sig = f"ed25519:spoofed-key:{parts[2]}"
+        signed.signature = spoofed_sig
+        
+        is_valid, message = verify_signature(signed, public_key_bytes)
+        assert not is_valid
+        assert "key name" in message.lower()
+    
+    def test_verify_signature_generic_error(self):
+        """Test verify_signature handles generic errors."""
+        import hashlib
+        from cryptography.hazmat.primitives import serialization
+        
+        test_manifest = ManifestModel(cli_command="test")
+        private_key = Ed25519PrivateKey.generate()
+        public_key_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
+        
+        # Invalid base64 in signature — use correct derived key_name so we reach decoding
+        expected_key_name = hashlib.sha256(public_key_bytes.hex().encode("utf-8")).hexdigest()[:16]
+        test_manifest.signature = f"ed25519:{expected_key_name}:not-valid-base64!!!"
         is_valid, message = verify_signature(test_manifest, public_key_bytes)
 
         assert not is_valid
         # Message may say "encoding" or "error" depending on which path fails
         assert any(word in message.lower() for word in ("error", "invalid", "encoding"))
+    
+    def test_decode_embedded_public_key_rejects_base64(self):
+        """Base64-encoded public keys must be rejected."""
+        import base64
+        from epi_core.trust import decode_embedded_public_key, VerificationError
+        
+        raw_bytes = b"\x00" * 32
+        b64_key = base64.b64encode(raw_bytes).decode("ascii")
+        
+        with pytest.raises(VerificationError, match="Invalid embedded public key"):
+            decode_embedded_public_key(b64_key)
     
     def test_sign_manifest_error_handling(self):
         """Test sign_manifest error handling."""

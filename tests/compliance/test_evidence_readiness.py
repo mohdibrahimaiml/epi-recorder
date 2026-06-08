@@ -33,8 +33,10 @@ def test_artifact_meets_evidence_readiness_checklist(tmp_path: Path):
     assert review["reviews"][0]["reviewer"] == "qa@example.com"
     assert integrity_ok is True
     assert mismatches == {}
+    import hashlib
     assert signature_valid is True
-    assert signer == "test"
+    expected_key_name = hashlib.sha256(manifest.public_key.encode("utf-8")).hexdigest()[:16]
+    assert signer == expected_key_name
 
 
 def test_eu_evidence_prep_guide_uses_non_legal_advice_boundary():

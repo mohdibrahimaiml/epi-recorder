@@ -17,11 +17,13 @@ from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 from epi_core.scitt import (
     SCITTVerificationError,
+    create_scitt_receipt,
     create_scitt_statement,
     extract_scitt_artifacts,
     parse_scitt_statement,
     scitt_governance_from_info,
     verify_scitt_receipt,
+    verify_scitt_receipt_with_proof,
     verify_scitt_statement,
 )
 from epi_core.serialize import get_canonical_hash
@@ -181,6 +183,48 @@ class TestSCITTReceipt:
 
         with pytest.raises(SCITTVerificationError, match="signature invalid"):
             verify_scitt_receipt(receipt_bytes, statement_bytes, other_service.public_key_bytes)
+
+    def test_receipt_with_proof_verifies(self, signed_manifest, private_key, mock_service):
+        """verify_scitt_receipt_with_proof succeeds for a valid receipt."""
+        statement_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")
+        receipt_bytes, _ = mock_service.register(statement_bytes)
+
+        valid, proof, message = verify_scitt_receipt_with_proof(
+            receipt_bytes, statement_bytes, mock_service.public_key_bytes
+        )
+        assert valid is True
+        assert proof is not None
+        assert "valid" in message.lower()
+
+    def test_receipt_without_proof_fails(self, signed_manifest, private_key, mock_service):
+        """A plain receipt (no inclusion proof data) fails verify_scitt_receipt_with_proof."""
+        statement_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")
+        # Create a plain receipt without proof headers
+        plain_receipt = create_scitt_receipt(
+            statement_bytes, mock_service._private_key, kid=b"test"
+        )
+
+        valid, proof, message = verify_scitt_receipt_with_proof(
+            plain_receipt, statement_bytes, mock_service.public_key_bytes
+        )
+        assert valid is False
+        assert proof is None
+        assert "does not contain inclusion proof" in message.lower()
+
+    def test_receipt_with_malformed_proof_fails(self, signed_manifest, private_key, mock_service):
+        """A receipt with malformed proof data in unprotected headers fails."""
+        statement_bytes = create_scitt_statement(signed_manifest, private_key, issuer="test")
+        from epi_core.scitt import create_scitt_receipt_with_proof
+        bad_receipt = create_scitt_receipt_with_proof(
+            statement_bytes, mock_service._private_key, proof_data=b"not-cbor-proof", kid=b"test"
+        )
+
+        valid, proof, message = verify_scitt_receipt_with_proof(
+            bad_receipt, statement_bytes, mock_service.public_key_bytes
+        )
+        assert valid is False
+        assert proof is None
+        assert "malformed inclusion proof" in message.lower()
 
 
 # ─────────────────────────────────────────────────────────────

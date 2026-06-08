@@ -85,7 +85,7 @@ def test_share_rejects_invalid_or_tampered_artifact(tmp_path):
 
     result = runner.invoke(app, ["share", str(artifact)])
     assert result.exit_code == 1
-    assert "signature" in result.stdout.lower()
+    assert any(word in result.stdout.lower() for word in ("signature", "key name"))
 
 
 def test_share_success_prints_hosted_url(tmp_path):

@@ -137,7 +137,7 @@ def test_gateway_share_rejects_integrity_and_signature_failures(tmp_path):
 
         response = client.post("/api/share", content=bad_signature.read_bytes(), headers={"Content-Type": "application/vnd.epi+zip"})
         assert response.status_code == 400
-        assert "signature" in response.json()["detail"].lower()
+        assert any(word in response.json()["detail"].lower() for word in ("signature", "key name"))
 
 
 def test_gateway_share_enforces_size_limit(tmp_path):

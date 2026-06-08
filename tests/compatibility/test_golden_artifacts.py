@@ -57,9 +57,11 @@ class TestGoldenLegacy:
         int(manifest.public_key, 16)
 
     def test_embedded_signature_verifies(self, manifest):
+        import hashlib
         valid, signer, message = verify_embedded_manifest_signature(manifest)
         assert valid is True, f"Golden artifact signature failed: {message}"
-        assert signer == "golden"
+        expected_key_name = hashlib.sha256(manifest.public_key.encode("utf-8")).hexdigest()[:16]
+        assert signer == expected_key_name
 
     def test_container_format_is_legacy(self, manifest):
         assert manifest.container_format == "legacy-zip"
@@ -103,9 +105,11 @@ class TestGoldenEnvelope:
         int(manifest.public_key, 16)
 
     def test_embedded_signature_verifies(self, manifest):
+        import hashlib
         valid, signer, message = verify_embedded_manifest_signature(manifest)
         assert valid is True, f"Golden artifact signature failed: {message}"
-        assert signer == "golden"
+        expected_key_name = hashlib.sha256(manifest.public_key.encode("utf-8")).hexdigest()[:16]
+        assert signer == expected_key_name
 
     def test_container_format_is_envelope(self, manifest):
         assert manifest.container_format == "envelope-v2"

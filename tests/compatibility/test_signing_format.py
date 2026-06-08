@@ -21,6 +21,7 @@ def _make_deterministic_key():
 
 def test_signature_string_format():
     """Signature must match ed25519:<key_name>:<128_hex_chars>."""
+    import hashlib
     manifest = ManifestModel(spec_version="4.0.1")
     key = _make_deterministic_key()
     signed = sign_manifest(manifest, key, key_name="compat-test")
@@ -28,7 +29,8 @@ def test_signature_string_format():
     assert SIG_REGEX.match(signed.signature), (
         f"Signature format invalid: {signed.signature}"
     )
-    assert get_signer_name(signed.signature) == "compat-test"
+    expected_key_name = hashlib.sha256(signed.public_key.encode("utf-8")).hexdigest()[:16]
+    assert get_signer_name(signed.signature) == expected_key_name
 
 
 def test_public_key_is_raw_hex_64_chars():
@@ -43,13 +45,15 @@ def test_public_key_is_raw_hex_64_chars():
 
 def test_signature_verifies_with_embedded_key():
     """A signed manifest must verify using only the embedded public key."""
+    import hashlib
     manifest = ManifestModel(spec_version="4.0.1")
     key = _make_deterministic_key()
     signed = sign_manifest(manifest, key, key_name="k")
 
     valid, signer, message = verify_embedded_manifest_signature(signed)
     assert valid is True
-    assert signer == "k"
+    expected_key_name = hashlib.sha256(signed.public_key.encode("utf-8")).hexdigest()[:16]
+    assert signer == expected_key_name
     assert "valid" in message.lower()
 
 
@@ -114,7 +118,7 @@ def test_invalid_signature_format_rejected():
 
 def test_legacy_base64_signature_still_accepted():
     """Base64-encoded signatures (legacy) must still verify if valid."""
-    import base64
+    import base64, hashlib
     manifest = ManifestModel(spec_version="4.0.1")
     key = _make_deterministic_key()
     signed = sign_manifest(manifest, key, key_name="k")
@@ -122,7 +126,8 @@ def test_legacy_base64_signature_still_accepted():
     # Replace hex with base64 of same bytes
     sig_hex = signed.signature.split(":")[2]
     sig_b64 = base64.b64encode(bytes.fromhex(sig_hex)).decode("ascii")
-    signed.signature = f"ed25519:k:{sig_b64}"
+    derived_key_name = hashlib.sha256(signed.public_key.encode("utf-8")).hexdigest()[:16]
+    signed.signature = f"ed25519:{derived_key_name}:{sig_b64}"
 
     valid, signer, message = verify_embedded_manifest_signature(signed)
     assert valid is True, f"Base64 signature should still verify: {message}"

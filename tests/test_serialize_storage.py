@@ -349,6 +349,7 @@ class TestSignManifestInplace:
             sign_manifest_inplace(tmp_path / "nonexistent.json", key)
 
     def test_signs_manifest_file(self, tmp_path):
+        import hashlib
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         key = Ed25519PrivateKey.generate()
         m = ManifestModel(
@@ -361,5 +362,6 @@ class TestSignManifestInplace:
         sign_manifest_inplace(manifest_path, key, "testkey")
         data = json.loads(manifest_path.read_text())
         assert data["signature"] is not None
-        assert "ed25519:testkey:" in data["signature"]
+        expected_key_name = hashlib.sha256(data["public_key"].encode("utf-8")).hexdigest()[:16]
+        assert f"ed25519:{expected_key_name}:" in data["signature"]
 
