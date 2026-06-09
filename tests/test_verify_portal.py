@@ -73,10 +73,10 @@ def test_portal_html(client: TestClient) -> None:
     assert "EPI Verify" in r.text or "verify" in r.text.lower()
 
 
-def test_root_redirects_to_website(client: TestClient) -> None:
+def test_root_serves_landing_page(client: TestClient) -> None:
     r = client.get("/", follow_redirects=False)
-    assert r.status_code == 302
-    assert r.headers["location"] == "https://epilabs.org"
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
 
 
 # ---------------------------------------------------------------------------
