@@ -15,4 +15,6 @@ services:
       - key: EPI_SCITT_SERVICE_PRIVATE_KEY
         sync: false
     domains:
+      - epilabs.org
+      - www.epilabs.org
       - verify.epilabs.org
