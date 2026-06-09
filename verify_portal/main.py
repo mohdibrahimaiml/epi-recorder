@@ -181,9 +181,8 @@ async def trust_registry_file():
 
 @app.get("/")
 async def root():
-    """Redirect root to the main website on GitHub Pages."""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="https://epilabs.org", status_code=302)
+    """Serve the EPI-OFFICIAL landing page."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 @app.get("/health")
 async def health():
@@ -423,8 +422,8 @@ async def epi_viewer_page():
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
-# Static marketing pages moved to GitHub Pages (epilabs.org).
-# API and verify portal only.
+if STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
