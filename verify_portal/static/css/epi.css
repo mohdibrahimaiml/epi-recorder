@@ -118,7 +118,6 @@ nav.scrolled{background:rgba(250,250,248,0.92);backdrop-filter:blur(20px) satura
 [data-theme="dark"] .hero h1 em{color:var(--accent)}
 .epi-badge{display:inline-block;font-family:var(--mono);font-size:0.55em;color:#3d3d6e;background:rgba(26,26,46,0.1);border:1px solid rgba(26,26,46,0.22);padding:0.12em 0.35em;border-radius:6px;font-weight:500;letter-spacing:0.02em;vertical-align:middle;margin-left:0.15em;line-height:1}
 [data-theme="dark"] .epi-badge{color:var(--accent-lt);background:rgba(124,124,255,0.12);border-color:rgba(124,124,255,0.25)}
-.hero h1 em{font-style:italic;color:var(--accent)}
 [data-theme="dark"] .hero-logo{filter:brightness(0) invert(1)}
 .hero-sub{font-size:clamp(1.15rem,2.2vw,1.4rem);color:var(--ink-muted);line-height:1.6;max-width:640px;margin:0 auto 48px;font-weight:400;animation:fadeUp 0.8s var(--ease) 0.2s both}
 .hero-code{display:inline-flex;align-items:center;gap:10px;padding:12px 28px;background:var(--bg-dark);color:#D0D0D8;font-family:var(--mono);font-size:0.9rem;border-radius:100px;margin-bottom:44px;animation:fadeUp 0.8s var(--ease) 0.25s both}
