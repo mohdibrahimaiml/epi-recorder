@@ -114,8 +114,10 @@ nav.scrolled{background:rgba(250,250,248,0.92);backdrop-filter:blur(20px) satura
 .hero-badge{display:none}
 .hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:seal-pulse 3s ease-in-out infinite}
 .hero h1{font-family:var(--sans);font-size:clamp(3.6rem,9vw,6.4rem);font-weight:600;line-height:1.08;letter-spacing:-0.04em;margin-bottom:32px;color:var(--ink);animation:fadeUp 0.8s var(--ease) 0.1s both}
-.hero h1 em{font-style:italic;color:var(--accent)}
-.epi-badge{display:inline-block;font-family:var(--mono);font-size:0.55em;color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent-line);padding:0.12em 0.35em;border-radius:6px;font-weight:500;letter-spacing:0.02em;vertical-align:middle;margin-left:0.15em;line-height:1}
+.hero h1 em{font-style:italic;color:#3d3d6e}
+[data-theme="dark"] .hero h1 em{color:var(--accent)}
+.epi-badge{display:inline-block;font-family:var(--mono);font-size:0.55em;color:#3d3d6e;background:rgba(26,26,46,0.1);border:1px solid rgba(26,26,46,0.22);padding:0.12em 0.35em;border-radius:6px;font-weight:500;letter-spacing:0.02em;vertical-align:middle;margin-left:0.15em;line-height:1}
+[data-theme="dark"] .epi-badge{color:var(--accent-lt);background:rgba(124,124,255,0.12);border-color:rgba(124,124,255,0.25)}
 .hero h1 em{font-style:italic;color:var(--accent)}
 [data-theme="dark"] .hero-logo{filter:brightness(0) invert(1)}
 .hero-sub{font-size:clamp(1.15rem,2.2vw,1.4rem);color:var(--ink-muted);line-height:1.6;max-width:640px;margin:0 auto 48px;font-weight:400;animation:fadeUp 0.8s var(--ease) 0.2s both}
