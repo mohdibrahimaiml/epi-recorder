@@ -146,7 +146,7 @@ def _get_json_canonical_hash(data: Any) -> str:
         data,
         sort_keys=True,
         separators=(',', ':'),
-        ensure_ascii=True
+        ensure_ascii=False
     ).encode("utf-8")
     
     return hashlib.sha256(json_bytes).hexdigest()

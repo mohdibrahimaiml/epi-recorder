@@ -61,8 +61,8 @@
         "name": "Müller",
         "score": 100
       },
-      "canonical_json": "{\"name\":\"M\\u00fcller\",\"score\":100}",
-      "expected_hash": "110682b58dd77c4e29ca2bd7fff0445598b55df28a7cbe8fc35a7c7430d6302e"
+      "canonical_json": "{\"name\":\"Müller\",\"score\":100}",
+      "expected_hash": "8b2a33c27c1e94e4b6fa87ed8956190ddb76effecc81cc3cb9121950e881a09b"
     }
   ]
 }

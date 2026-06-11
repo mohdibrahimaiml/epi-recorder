@@ -53,7 +53,7 @@ Apply JCS RFC 8785 to the normalized dictionary:
 1. Serialize to JSON with:
    - `sort_keys=True` — object keys sorted lexicographically by Unicode code point
    - `separators=(',', ':')` — compact form with no whitespace
-   - `ensure_ascii=True` — non-ASCII characters escaped as `\uXXXX` (JCS §3.4)
+   - `ensure_ascii=False` — non-ASCII characters emitted as literal UTF-8 bytes (JCS §3.4). This aligns with AlgoVoi and other cross-validated JCS implementations.
 2. Encode the resulting JSON string as UTF-8 bytes.
 3. Compute SHA-256 of the UTF-8 bytes.
 4. Return the hex digest (64 lowercase hex characters).
@@ -147,9 +147,10 @@ assert hashlib.sha256(jcs).hexdigest() == expected_hash
 {"name":"M\u00fcller","score":100}
 ```
 
-Note: JCS §3.4 requires non-ASCII characters to be escaped as `\uXXXX`. The string
-`Müller` becomes `M\u00fcller` in the canonical form. This ensures that the same
-input produces the same hash regardless of the filesystem encoding or Python build.
+Note: JCS §3.4 allows non-ASCII characters to be represented as literal UTF-8 bytes
+or as `\uXXXX` escapes. EPI uses literal UTF-8 bytes to align with AlgoVoi's cross-
+validated conformance corpus. The string `Müller` becomes `Müller` (2-byte UTF-8) in
+the canonical form, not `M\u00fcller`.
 
 ## Float Handling
 
@@ -191,4 +192,4 @@ ISO 8601 strings before hashing.
 | Version | Date | Change |
 |---------|------|--------|
 | 2.0 | 2025-06-08 | Initial specification. Fixed `ensure_ascii=False` → `True` for JCS compliance. Documented `source_type` exclusion. Added conformance test vectors. |
-| 2.1 | 2026-06-11 | Replaced placeholder hashes with real computed values. Documented timestamp encoding divergence vs epoch-millisecond models. Added null-field participation note. |
+| 2.2 | 2026-06-11 | Switched `ensure_ascii=True` → `False` for AlgoVoi cross-compatibility. Non-ASCII characters now emit as literal UTF-8 bytes. Updated all conformance vectors and tests. |

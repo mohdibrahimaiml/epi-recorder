@@ -36,7 +36,7 @@ def _normalize_value(value):
 
 
 def _canonical_json(data: dict) -> str:
-    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def main() -> None:

@@ -31,7 +31,7 @@ def test_v2_manifest_uses_json_canonicalization():
     # normalize datetime/UUID
     model_dict["created_at"] = manifest.created_at.replace(microsecond=0, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     model_dict["workflow_id"] = str(manifest.workflow_id)
-    json_bytes = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    json_bytes = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     expected = hashlib.sha256(json_bytes).hexdigest()
 
     assert hash_hex == expected, "v2+ canonical hash does not match expected JSON canonicalization"
@@ -46,7 +46,7 @@ def test_v1_manifest_uses_cbor_canonicalization():
     model_dict = manifest.model_dump()
     model_dict["created_at"] = manifest.created_at.replace(microsecond=0, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     model_dict["workflow_id"] = str(manifest.workflow_id)
-    json_bytes = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    json_bytes = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     json_hash = hashlib.sha256(json_bytes).hexdigest()
 
     assert hash_hex != json_hash, "v1 manifest should use CBOR, not JSON"
@@ -128,17 +128,16 @@ def test_golden_vectors_match_reference_implementation():
 
     # Vector 3: Unicode_ensure_ascii
     v3 = vectors["Unicode_ensure_ascii"]
-    canon = json.dumps({"name": "Müller", "score": 100}, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canon = json.dumps({"name": "Müller", "score": 100}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     expected = hashlib.sha256(canon.encode("utf-8")).hexdigest()
     assert expected == v3["expected_hash"], "Unicode_ensure_ascii vector mismatch"
 
 
-def test_non_ascii_ensure_ascii_true():
-    r"""Non-ASCII characters must be escaped as \uXXXX to match JCS §3.4."""
+def test_non_ascii_uses_literal_utf8():
+    r"""Non-ASCII characters are emitted as literal UTF-8 bytes for AlgoVoi cross-compatibility."""
     manifest = ManifestModel(spec_version="4.0.1", goal="Müller test")
     hash_hex = get_canonical_hash(manifest)
 
-    # If ensure_ascii were False, the hash would differ.
     model_dict = manifest.model_dump()
     model_dict["created_at"] = manifest.created_at.replace(microsecond=0, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     model_dict["workflow_id"] = str(manifest.workflow_id)
@@ -146,7 +145,9 @@ def test_non_ascii_ensure_ascii_true():
     with_false = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     with_true = json.dumps(model_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
 
-    assert hash_hex == hashlib.sha256(with_true).hexdigest()
-    assert hash_hex != hashlib.sha256(with_false).hexdigest(), (
-        "ensure_ascii=False must produce a different hash for non-ASCII content"
+    assert hash_hex == hashlib.sha256(with_false).hexdigest(), (
+        "ensure_ascii=False (literal UTF-8) must match the canonical hash"
+    )
+    assert hash_hex != hashlib.sha256(with_true).hexdigest(), (
+        "ensure_ascii=True (escaped) must produce a different hash for non-ASCII content"
     )
