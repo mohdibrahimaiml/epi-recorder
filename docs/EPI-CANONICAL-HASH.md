@@ -18,6 +18,10 @@ canonical_hash(model) = SHA-256(JCS(model_dump_without_excluded_fields))
 Extract all fields from the Pydantic model via `model.model_dump()`. The result is a
 flat dictionary. Nested dictionaries and lists are preserved as-is.
 
+**Note:** Pydantic `model_dump()` includes unset optional fields as `null` by default.
+These `null` values participate in the canonical hash. Test vectors below reflect the
+full model state, not a trimmed subset.
+
 ### Step 2: Exclude fields
 
 Exclude the following fields from the dictionary **before** normalization. These
@@ -80,10 +84,10 @@ SHA-256(JCS_JSON_bytes) → hex digest
 
 **Expected canonical JSON (JCS):**
 ```
-{"cli_command":"epi record --out test.epi","created_at":"2025-06-08T12:00:00Z","file_manifest":{"policy.json":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","steps.jsonl":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"spec_version":"v2.0","workflow_id":"550e8400-e29b-41d4-a716-446655440000"}
+{"analysis_error":null,"analysis_status":null,"approved_by":null,"cli_command":"epi record --out test.epi","container_format":null,"corrected":null,"created_at":"2025-06-08T12:00:00Z","env_snapshot_hash":null,"failed":null,"file_manifest":{"policy.json":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","steps.jsonl":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"goal":null,"governance":null,"metrics":null,"notes":null,"passed":null,"policy":null,"public_key":null,"signature":null,"source":null,"spec_version":"v2.0","tags":null,"total_llm_calls":null,"total_steps":null,"total_validators":null,"trust":null,"viewer_version":null,"workflow_id":"550e8400-e29b-41d4-a716-446655440000"}
 ```
 
-**Expected hash:** `a1b2c3d4e5f6...` (computed from the canonical JSON above)
+**Expected hash:** `b132da411e56c8364c7c5e4d5a00b65a03467fe7ce7709ec13a1b81bb2d8e8ec`
 
 To verify independently:
 ```python
@@ -109,19 +113,24 @@ assert hashlib.sha256(jcs).hexdigest() == expected_hash
 **After excluding `source_type`:**
 ```json
 {
+  "content": {"prompt": "Hello"},
+  "governance": null,
   "index": 0,
-  "timestamp": "2025-06-08T12:00:00Z",
   "kind": "llm.request",
-  "content": {"prompt": "Hello"}
+  "parent_span_id": null,
+  "prev_hash": null,
+  "span_id": null,
+  "timestamp": "2025-06-08T12:00:00Z",
+  "trace_id": null
 }
 ```
 
 **Expected canonical JSON (JCS):**
 ```
-{"content":{"prompt":"Hello"},"index":0,"kind":"llm.request","timestamp":"2025-06-08T12:00:00Z"}
+{"content":{"prompt":"Hello"},"governance":null,"index":0,"kind":"llm.request","parent_span_id":null,"prev_hash":null,"span_id":null,"timestamp":"2025-06-08T12:00:00Z","trace_id":null}
 ```
 
-**Expected hash:** Computed from the canonical JSON above.
+**Expected hash:** `d324120ef801294f0f74e39a4f18c00666e38bcd97852a77e15c915c1ba5538a`
 
 ### Test Vector 3: Unicode (ensure_ascii=True)
 
@@ -166,8 +175,20 @@ Independent implementations must reproduce the algorithm described above, not
 the specific Python code. The conformance test vectors are the source of truth
 for cross-implementation compatibility.
 
+## Timestamp Encoding Note
+
+EPI canonical hashes encode `datetime` values as **ISO 8601 strings**
+(`YYYY-MM-DDTHH:MM:SSZ`). This prioritizes human readability in the canonical JSON.
+
+Other portable evidence formats (e.g., compliance-receipt-v1) encode timestamps as
+**epoch millisecond integers** to eliminate string-parsing ambiguity during cross-
+validation. The two preimages hash to different digests and will not cross-validate.
+This is an explicit interop boundary: EPI consumers must normalize timestamps to
+ISO 8601 strings before hashing.
+
 ## Version History
 
 | Version | Date | Change |
 |---------|------|--------|
 | 2.0 | 2025-06-08 | Initial specification. Fixed `ensure_ascii=False` → `True` for JCS compliance. Documented `source_type` exclusion. Added conformance test vectors. |
+| 2.1 | 2026-06-11 | Replaced placeholder hashes with real computed values. Documented timestamp encoding divergence vs epoch-millisecond models. Added null-field participation note. |

@@ -1,0 +1,68 @@
+{
+  "vectors": [
+    {
+      "name": "ManifestModel_basic",
+      "input": {
+        "spec_version": "v2.0",
+        "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
+        "created_at": "2025-06-08T12:00:00Z",
+        "cli_command": "epi record --out test.epi",
+        "env_snapshot_hash": null,
+        "file_manifest": {
+          "steps.jsonl": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "policy.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "public_key": null,
+        "signature": null,
+        "container_format": null,
+        "analysis_status": null,
+        "analysis_error": null,
+        "goal": null,
+        "notes": null,
+        "metrics": null,
+        "source": null,
+        "total_steps": null,
+        "total_validators": null,
+        "total_llm_calls": null,
+        "passed": null,
+        "failed": null,
+        "corrected": null,
+        "trust": null,
+        "approved_by": null,
+        "tags": null,
+        "governance": null,
+        "viewer_version": null,
+        "policy": null
+      },
+      "canonical_json": "{\"analysis_error\":null,\"analysis_status\":null,\"approved_by\":null,\"cli_command\":\"epi record --out test.epi\",\"container_format\":null,\"corrected\":null,\"created_at\":\"2025-06-08T12:00:00Z\",\"env_snapshot_hash\":null,\"failed\":null,\"file_manifest\":{\"policy.json\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"steps.jsonl\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"goal\":null,\"governance\":null,\"metrics\":null,\"notes\":null,\"passed\":null,\"policy\":null,\"public_key\":null,\"signature\":null,\"source\":null,\"spec_version\":\"v2.0\",\"tags\":null,\"total_llm_calls\":null,\"total_steps\":null,\"total_validators\":null,\"trust\":null,\"viewer_version\":null,\"workflow_id\":\"550e8400-e29b-41d4-a716-446655440000\"}",
+      "expected_hash": "b132da411e56c8364c7c5e4d5a00b65a03467fe7ce7709ec13a1b81bb2d8e8ec"
+    },
+    {
+      "name": "StepModel_source_type_excluded",
+      "input": {
+        "index": 0,
+        "timestamp": "2025-06-08T12:00:00Z",
+        "kind": "llm.request",
+        "content": {
+          "prompt": "Hello"
+        },
+        "trace_id": null,
+        "span_id": null,
+        "parent_span_id": null,
+        "prev_hash": null,
+        "governance": null
+      },
+      "canonical_json": "{\"content\":{\"prompt\":\"Hello\"},\"governance\":null,\"index\":0,\"kind\":\"llm.request\",\"parent_span_id\":null,\"prev_hash\":null,\"span_id\":null,\"timestamp\":\"2025-06-08T12:00:00Z\",\"trace_id\":null}",
+      "expected_hash": "d324120ef801294f0f74e39a4f18c00666e38bcd97852a77e15c915c1ba5538a"
+    },
+    {
+      "name": "Unicode_ensure_ascii",
+      "input": {
+        "name": "Müller",
+        "score": 100
+      },
+      "canonical_json": "{\"name\":\"M\\u00fcller\",\"score\":100}",
+      "expected_hash": "110682b58dd77c4e29ca2bd7fff0445598b55df28a7cbe8fc35a7c7430d6302e"
+    }
+  ]
+}
