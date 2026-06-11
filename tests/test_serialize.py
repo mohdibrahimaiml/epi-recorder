@@ -294,8 +294,8 @@ class TestExplicitFormatParameter:
 
         # JSON and CBOR must differ
         assert h_json != h_cbor
-        # Default (auto-detect) for StepModel (no spec_version) should be CBOR
-        assert h_default == h_cbor
+        # Default (auto-detect) for StepModel (no spec_version) should be JSON
+        assert h_default == h_json
 
     def test_manifest_json_auto_detect(self):
         """ManifestModel with v4 spec_version uses JSON by default."""

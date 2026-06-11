@@ -123,6 +123,11 @@ def get_canonical_hash(
     elif format == "cbor":
         return _get_cbor_canonical_hash(model_dict)
 
+    # StepModel always uses JSON -- it has no spec_version field but
+    # is stored and distributed as JSON (see EPI-CANONICAL-HASH.md).
+    if model.__class__.__name__ == "StepModel":
+        return _get_json_canonical_hash(model_dict)
+
     # Auto-detect from spec_version when no override is given
     spec_version = model_dict.get("spec_version", "")
     try:

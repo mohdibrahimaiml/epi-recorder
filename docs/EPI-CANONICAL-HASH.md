@@ -93,7 +93,7 @@ To verify independently:
 ```python
 import json, hashlib
 data = { ... }  # the normalized dict above
-jcs = json.dumps(data, sort_keys=True, separators=(',',':'), ensure_ascii=True).encode('utf-8')
+jcs = json.dumps(data, sort_keys=True, separators=(',',':'), ensure_ascii=False).encode('utf-8')
 assert hashlib.sha256(jcs).hexdigest() == expected_hash
 ```
 
@@ -132,7 +132,7 @@ assert hashlib.sha256(jcs).hexdigest() == expected_hash
 
 **Expected hash:** `d324120ef801294f0f74e39a4f18c00666e38bcd97852a77e15c915c1ba5538a`
 
-### Test Vector 3: Unicode (ensure_ascii=True)
+### Test Vector 3: Unicode (literal UTF-8)
 
 **Input:**
 ```json
