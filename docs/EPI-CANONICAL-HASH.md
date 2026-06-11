@@ -53,7 +53,7 @@ Apply JCS RFC 8785 to the normalized dictionary:
 1. Serialize to JSON with:
    - `sort_keys=True` — object keys sorted lexicographically by Unicode code point
    - `separators=(',', ':')` — compact form with no whitespace
-   - `ensure_ascii=False` — non-ASCII characters emitted as literal UTF-8 bytes (JCS §3.4). This aligns with AlgoVoi and other cross-validated JCS implementations.
+   - `ensure_ascii=False` — non-ASCII characters emitted as literal UTF-8 bytes. **This is required by JCS RFC 8785 §3.4**, which mandates that Unicode code points outside the ASCII control range be serialized "as is" (literal UTF-8), not as `\uXXXX` escapes. This also aligns with AlgoVoi's cross-validated conformance corpus.
 2. Encode the resulting JSON string as UTF-8 bytes.
 3. Compute SHA-256 of the UTF-8 bytes.
 4. Return the hex digest (64 lowercase hex characters).
@@ -144,13 +144,13 @@ assert hashlib.sha256(jcs).hexdigest() == expected_hash
 
 **Expected canonical JSON (JCS):**
 ```
-{"name":"M\u00fcller","score":100}
+{"name":"Müller","score":100}
 ```
 
-Note: JCS §3.4 allows non-ASCII characters to be represented as literal UTF-8 bytes
-or as `\uXXXX` escapes. EPI uses literal UTF-8 bytes to align with AlgoVoi's cross-
-validated conformance corpus. The string `Müller` becomes `Müller` (2-byte UTF-8) in
-the canonical form, not `M\u00fcller`.
+Note: JCS RFC 8785 §3.4 **requires** non-ASCII characters to be serialized as
+literal UTF-8 bytes, not as `\uXXXX` escapes. The string `Müller` becomes `Müller`
+(2-byte UTF-8) in the canonical form. `\u00fc` escaping (Python's `ensure_ascii=True`)
+is **not** JCS-compliant for non-ASCII strings.
 
 ## Float Handling
 
@@ -179,17 +179,19 @@ for cross-implementation compatibility.
 ## Timestamp Encoding Note
 
 EPI canonical hashes encode `datetime` values as **ISO 8601 strings**
-(`YYYY-MM-DDTHH:MM:SSZ`). This prioritizes human readability in the canonical JSON.
+(`YYYY-MM-DDTHH:MM:SSZ`). This is an EPI-specific choice.
 
-Other portable evidence formats (e.g., compliance-receipt-v1) encode timestamps as
-**epoch millisecond integers** to eliminate string-parsing ambiguity during cross-
-validation. The two preimages hash to different digests and will not cross-validate.
-This is an explicit interop boundary: EPI consumers must normalize timestamps to
-ISO 8601 strings before hashing.
+Other portable evidence formats (e.g., AlgoVoi's compliance-receipt-v1) encode
+timestamps as **epoch millisecond integers** (`timestamp_ms`). That choice is
+**not** required by JCS RFC 8785 — it is a format-level convention. The two
+preimages hash to different digests and will not cross-validate. EPI consumers
+must normalize timestamps to ISO 8601 strings before hashing.
+
+See `EPI-ALGOVOI-INTEROP.md` for the full interoperability boundary.
 
 ## Version History
 
 | Version | Date | Change |
 |---------|------|--------|
-| 2.0 | 2025-06-08 | Initial specification. Fixed `ensure_ascii=False` → `True` for JCS compliance. Documented `source_type` exclusion. Added conformance test vectors. |
-| 2.2 | 2026-06-11 | Switched `ensure_ascii=True` → `False` for AlgoVoi cross-compatibility. Non-ASCII characters now emit as literal UTF-8 bytes. Updated all conformance vectors and tests. |
+| 2.0 | 2025-06-08 | Initial specification. Incorrectly used `ensure_ascii=True`. Documented `source_type` exclusion. Added conformance test vectors. |
+| 2.2 | 2026-06-11 | Fixed `ensure_ascii=True` → `False` to comply with JCS RFC 8785 §3.4 (literal UTF-8 for non-ASCII). Also aligns with AlgoVoi's cross-validated conformance corpus. Updated all conformance vectors and tests. |

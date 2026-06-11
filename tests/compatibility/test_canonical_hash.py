@@ -126,7 +126,7 @@ def test_golden_vectors_match_reference_implementation():
     )
     assert get_canonical_hash(s2) == v2["expected_hash"], "StepModel_source_type_excluded vector mismatch"
 
-    # Vector 3: Unicode_ensure_ascii
+    # Vector 3: Unicode_literal_utf8
     v3 = vectors["Unicode_ensure_ascii"]
     canon = json.dumps({"name": "Müller", "score": 100}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     expected = hashlib.sha256(canon.encode("utf-8")).hexdigest()
@@ -134,7 +134,7 @@ def test_golden_vectors_match_reference_implementation():
 
 
 def test_non_ascii_uses_literal_utf8():
-    r"""Non-ASCII characters are emitted as literal UTF-8 bytes for AlgoVoi cross-compatibility."""
+    r"""Non-ASCII characters are emitted as literal UTF-8 bytes per JCS RFC 8785 §3.4."""
     manifest = ManifestModel(spec_version="4.0.1", goal="Müller test")
     hash_hex = get_canonical_hash(manifest)
 
