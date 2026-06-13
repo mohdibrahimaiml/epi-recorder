@@ -247,7 +247,7 @@ async def contact(request: Request):
     form = await request.form()
     import logging
     log = logging.getLogger("epi.contact")
-    log.info(f"Contact inquiry: {form.get("name")} from {form.get("company")} - {form.get("tier")}")
+    log.info(f"Contact inquiry from " + str(form.get("name", "unknown")) + " at " + str(form.get("company", "unknown")) + " for tier " + str(form.get("tier", "unknown")))
     return JSONResponse(content={"status": "ok", "message": "Thank you! We will respond within 1 business day."})
 @app.post("/api/keys")
 async def create_api_key(request: Request):
