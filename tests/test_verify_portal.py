@@ -221,3 +221,45 @@ def test_rate_limit_headers_present(client: TestClient, valid_epi: Path) -> None
     # The portal does not currently expose rate-limit headers, but the
     # response should be well-formed JSON.
     assert "application/json" in r.headers.get("content-type", "")
+
+
+def test_pricing_page(client):  
+    r = client.get("/pricing")  
+    assert r.status_code == 200  
+  
+def test_docs_page(client):  
+    r = client.get("/docs")  
+    assert r.status_code == 200  
+  
+def test_openapi_json(client):  
+    r = client.get("/openapi.json")  
+    assert r.status_code == 200  
+    assert "openapi" in r.json()  
+  
+def test_contact_endpoint(client):  
+    r = client.post("/api/contact", data={"name": "T", "email": "t@c.com", "company": "C", "tier": "pro", "use_case": "x"})  
+    assert r.status_code == 200  
+    assert r.json()["status"] == "ok"  
+  
+def test_create_api_key(client):  
+    r = client.post("/api/keys", json={"tier": "free", "name": "test"})  
+    assert r.status_code == 200  
+    d = r.json()  
+    assert d["tier"] == "free"  
+    assert d["api_key"].startswith("epi_")  
+  
+def test_create_api_key_bad_tier(client):  
+    r = client.post("/api/keys", json={"tier": "bad", "name": "x"})  
+    assert r.status_code == 400  
+  
+def test_list_api_keys(client):  
+    r = client.get("/api/keys")  
+    assert r.status_code == 200  
+    assert "keys" in r.json()  
+  
+def test_verify_with_pro_key(client, valid_epi):  
+    r = client.post("/api/keys", json={"tier": "pro", "name": "p"})  
+    assert r.status_code == 200  
+    key = r.json()["api_key"]  
+    with open(valid_epi, "rb") as f:  
+        r2 = client.post("/api/verify", files={"file": ("test.epi", f, "application/epi+zip")}, headers={"X-API-Key": key})  

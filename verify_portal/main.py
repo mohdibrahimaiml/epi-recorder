@@ -1,4 +1,4 @@
-﻿"""
+"""
 EPI Verify Portal — FastAPI backend for web-based .epi verification.
 
 Endpoints:
@@ -77,6 +77,41 @@ def _check_rate_limit(client_ip: str) -> bool:
         return False
     _rate_limit_store[client_ip] = (count + 1, reset_time)
     return True
+
+# API key storage: key_hash -> (tier, name, created_at)
+_api_keys: dict = {}
+
+def _init_api_keys_store():
+    global _api_keys
+    import sqlite3
+    db_path = Path(os.environ.get("EPI_STORAGE_DIR", "./data")) / "api_keys.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    conn.execute("""CREATE TABLE IF NOT EXISTS api_keys (
+        id INTEGER PRIMARY KEY,
+        key_hash TEXT UNIQUE,
+        tier TEXT DEFAULT 'free',
+        name TEXT,
+        created_at REAL,
+        last_used_at REAL,
+        active INTEGER DEFAULT 1
+    )""")
+    conn.commit()
+    for row in conn.execute("SELECT key_hash, tier, name, created_at FROM api_keys WHERE active = 1"):
+        _api_keys[row["key_hash"]] = (row["tier"], row["name"], row["created_at"])
+    return conn
+
+def _load_api_key_tier(request) -> tuple | None:
+    api_key = request.headers.get("X-API-Key")
+    if not api_key or not api_key.startswith("epi_"):
+        return None
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    if key_hash in _api_keys:
+        tier, name, _ = _api_keys[key_hash]
+        return (tier, name)
+    return None
+
 
 
 def _load_attestation_private_key():
@@ -214,6 +249,54 @@ async def contact(request: Request):
     log = logging.getLogger("epi.contact")
     log.info(f"Contact inquiry: {form.get("name")} from {form.get("company")} - {form.get("tier")}")
     return JSONResponse(content={"status": "ok", "message": "Thank you! We will respond within 1 business day."})
+@app.post("/api/keys")
+async def create_api_key(request: Request):
+    """Create an API key for the verify portal."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON body required")
+    tier = body.get("tier", "free")
+    name = body.get("name", "unnamed")
+    if tier not in ("free", "pro", "enterprise"):
+        raise HTTPException(status_code=400, detail="Tier must be free, pro, or enterprise")
+    import secrets
+    api_key = "epi_" + secrets.token_hex(24)
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    db = _init_api_keys_store()
+    db.execute(
+        "INSERT INTO api_keys (key_hash, tier, name, created_at, last_used_at, active) VALUES (?, ?, ?, ?, 0, 1)",
+        (key_hash, tier, name, time.time()),
+    )
+    db.commit()
+    _api_keys[key_hash] = (tier, name, time.time())
+    return JSONResponse(content={
+        "api_key": api_key,
+        "tier": tier,
+        "name": name,
+        "note": "Store this key securely. It will not be shown again.",
+    })
+
+@app.get("/api/keys")
+async def list_api_keys(request: Request):
+    """List active API keys (hashed)."""
+    db = _init_api_keys_store()
+    rows = db.execute(
+        "SELECT key_hash, tier, name, created_at, last_used_at FROM api_keys WHERE active = 1 ORDER BY created_at DESC"
+    ).fetchall()
+    return JSONResponse(content={
+        "keys": [
+            {
+                "key_hash": r["key_hash"][:16] + "...",
+                "tier": r["tier"],
+                "name": r["name"],
+                "created_at": r["created_at"],
+                "last_used_at": r["last_used_at"] or None,
+            }
+            for r in rows
+        ]
+    })
+
 
 async def health():
     """Health check endpoint."""
@@ -243,10 +326,17 @@ async def verify(
         client_ip = client_ip.split(",")[0].strip()
     else:
         client_ip = request.client.host if request.client else "unknown"
-    if not _check_rate_limit(client_ip):
+    # Check API key first — Pro/Enterprise keys bypass rate limit
+    key_info = _load_api_key_tier(request)
+    if key_info:
+        tier, key_name = key_info
+        if tier not in ("pro", "enterprise"):
+            if not _check_rate_limit(client_ip):
+                raise HTTPException(status_code=429, detail="Rate limit exceeded. Upgrade to Pro or Enterprise at /pricing.")
+    elif not _check_rate_limit(client_ip):
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded. Upgrade for unlimited verifications.",
+            detail="Rate limit exceeded. Upgrade at /pricing for unlimited verifications.",
         )
 
     # Validate file extension
@@ -419,7 +509,10 @@ async def verify_page():
     if portal_path.exists():
         return FileResponse(portal_path)
     return FileResponse(STATIC_DIR / "index.html")
-    return FileResponse(STATIC_DIR / "verify.html")
+    portal_path = STATIC_DIR / "portal.html"
+    if portal_path.exists():
+        return FileResponse(portal_path)
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/viewer")
