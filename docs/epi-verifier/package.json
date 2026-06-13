@@ -1,0 +1,22 @@
+{  
+  "name": "@epi-labs/verify",  
+  "version": "1.0.0",  
+  "description": "Zero-dependency EPI (.epi) evidence file verifier. Ed25519 + SHA-256 + JCS RFC 8785.",  
+  "license": "Apache-2.0",  
+  "author": {  
+    "name": "EPI Labs",  
+    "email": "mohdibrahim@epilabs.org",  
+    "url": "https://epilabs.org"  
+  },  
+  "repository": {  
+    "type": "git",  
+    "url": "https://github.com/mohdibrahimaiml/epi-recorder",  
+    "directory": "docs/epi-verifier"  
+  },  
+  "keywords": ["epi", "evidence", "verification", "ed25519", "compliance", "ai"],  
+  "type": "module",  
+  "main": "./verify.js",  
+  "exports": { ".": "./verify.js" },  
+  "files": ["verify.js", "README.md"],  
+  "optionalDependencies": { "jszip": "^3.10.0" }  
+} 
