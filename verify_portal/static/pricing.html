@@ -1,8 +1,28 @@
-<!DOCTYPE html>  
-<html lang="en">  
-<head>  
-<meta charset="UTF-8">  
-<meta name="viewport" content="width=device-width, initial-scale=1.0">  
-<title>EPI Verify - Pricing</title>  
-<link rel="stylesheet" href="/css/epi.css">  
- 
+<!DOCTYPE html>
+<html lang=en>
+<head>
+<meta charset=UTF-8>
+<title>EPI Pricing</title>
+<link rel=stylesheet href=/css/epi.css>
+<style>
+body{font-family:system-ui;margin:40px}
+h1{text-align:center}
+.tier-box{display:flex;gap:20px;justify-content:center}
+.card{border:1px solid #ddd;border-radius:12px;padding:30px;width:250px}
+.card h3{margin:0;font-size:20px}
+.price{font-size:36px;font-weight:700;margin:15px 0}
+.price span{font-size:14px;color:#888}
+.card ul{list-style:none;padding:0}
+.card li{padding:6px 0;font-size:14px;border-bottom:1px solid #eee}
+.cta{display:block;text-align:center;padding:12px;border-radius:8px;font-weight:600;text-decoration:none;margin-top:15px;background:#2563eb;color:white}
+</style>
+</head>
+<body>
+<h1>EPI Verify Pricing</h1>
+<div class=tier-box>
+<div class=card><h3>Free</h3><div class=price>$0<span>/mo</span></div><ul><li>3 verifications/day</li><li>Web UI</li></ul><a href=/verify class=cta>Start</a></div>
+<div class=card><h3>Pro</h3><div class=price>$500<span>/mo</span></div><ul><li>Unlimited</li><li>SCITT</li><li>API keys</li></ul><a href=#contact class=cta>Contact</a></div>
+<div class=card><h3>Enterprise</h3><div class=price>$5000<span>/mo</span></div><ul><li>All Pro features</li><li>SSO</li><li>SLA</li></ul><a href=#contact class=cta>Contact</a></div>
+</div>
+</body>
+</html>
