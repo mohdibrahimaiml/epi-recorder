@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for verify_portal FastAPI backend.
 
 Covers: health, static routes, .well-known, /api/verify upload,
@@ -122,7 +122,7 @@ def test_verify_valid_epi(client: TestClient, valid_epi: Path) -> None:
     assert "trust_level" in report
     # Integrity may be FAILED for test artifacts that lack complete
     # step sequences or total_steps; we just verify the pipeline ran.
-    assert report["summary"].get("integrity") in ("VERIFIED", "FAILED")
+    assert report["summary"].get("integrity") in ("VALID", "FAILED")
     # AIUC-1 mapping should be present.
     assert "aiuc1" in report
     assert "overall" in report["aiuc1"]

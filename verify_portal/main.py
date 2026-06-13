@@ -1,4 +1,4 @@
-"""
+﻿"""
 EPI Verify Portal — FastAPI backend for web-based .epi verification.
 
 Endpoints:
@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import serialization
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from epi_core.aiuc1_mapping import aiuc1_summary, map_verification_to_aiuc1
@@ -41,10 +42,21 @@ app = FastAPI(
     title="EPI Verify Portal",
     description="Verify .epi artifacts in your browser. No installation required.",
     version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
 )
 
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
+
+# CORS - allow browser uploads from any origin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # SCITT transparency service routes
 app.include_router(scitt_router, prefix="/scitt")
@@ -186,6 +198,24 @@ async def root():
 
 @app.get("/health")
 async def health():
+    return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
+
+@app.get("/pricing")
+async def pricing_page():
+    pricing_path = STATIC_DIR / "pricing.html"
+    if pricing_path.exists():
+        return FileResponse(pricing_path)
+    raise HTTPException(status_code=404, detail="Pricing page not found")
+
+@app.post("/api/contact")
+async def contact(request: Request):
+    form = await request.form()
+    import logging
+    log = logging.getLogger("epi.contact")
+    log.info(f"Contact inquiry: {form.get("name")} from {form.get("company")} - {form.get("tier")}")
+    return JSONResponse(content={"status": "ok", "message": "Thank you! We will respond within 1 business day."})
+
+async def health():
     """Health check endpoint."""
     return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
 
@@ -272,45 +302,30 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 
     try:
         import hashlib as _hashlib
-        import zipfile
+        steps = EPIContainer.read_steps(epi_file)
 
-        with zipfile.ZipFile(epi_file, "r") as zf:
-            members = zf.namelist()
-            steps_member = next((m for m in members if m.endswith("steps.jsonl")), None)
-            if steps_member:
-                raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
-                steps = [json.loads(line) for line in raw_steps]
-
-                # Sequence monotonicity
-                indices = [s.get("index", 0) for s in steps]
-                sequence_ok = (
-                    all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
-                    if indices else True
-                )
-
-                # Timestamp monotonicity
-                times = []
-                for s in steps:
-                    t_ns = s.get("content", {}).get("timestamp_ns")
-                    times.append(t_ns if t_ns is not None else s.get("timestamp", ""))
-                is_time_monotonic = (
-                    all(times[i] >= times[i - 1] for i in range(1, len(times))) if times else True
-                )
-                sequence_ok = sequence_ok and is_time_monotonic
-
-                # Completeness
-                from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
-                seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
-                completeness_ok = seq_comp_ok
-
-                # Chain
-                chain_ok, chain_breaks = _verify_step_chain(steps)
-
-                # Step count
-                actual_step_count = len(steps)
-                claimed_step_count = manifest.total_steps
-                if claimed_step_count is not None:
-                    step_count_ok = actual_step_count == claimed_step_count
+        if steps:
+            indices = [s.get("index", 0) for s in steps]
+            sequence_ok = (
+                all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
+                if indices else True
+            )
+            times = []
+            for s in steps:
+                t_ns = s.get("content", {}).get("timestamp_ns")
+                times.append(t_ns if t_ns is not None else s.get("timestamp", ""))
+            is_time_monotonic = (
+                all(times[i] .ge. times[i - 1] for i in range(1, len(times))) if times else True
+            )
+            sequence_ok = sequence_ok and is_time_monotonic
+            from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
+            seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
+            completeness_ok = seq_comp_ok
+            chain_ok, chain_breaks = _verify_step_chain(steps)
+            actual_step_count = len(steps)
+            claimed_step_count = manifest.total_steps
+            if claimed_step_count is not None:
+                step_count_ok = actual_step_count != claimed_step_count
     except Exception:
         pass
 
@@ -400,6 +415,10 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 # These must come BEFORE the catch-all static mount.
 @app.get("/verify")
 async def verify_page():
+    portal_path = STATIC_DIR / "portal.html"
+    if portal_path.exists():
+        return FileResponse(portal_path)
+    return FileResponse(STATIC_DIR / "index.html")
     return FileResponse(STATIC_DIR / "verify.html")
 
 
