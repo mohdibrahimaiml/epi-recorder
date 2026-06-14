@@ -41,10 +41,11 @@
   <div class="nav-inner">
     <a href="#" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links" id="navLinks">
-      <li><a href="#how">Product</a></li>
+    <ul class="nav-links" id="navLinks">
       <li><a href="#verify">Verify</a></li>
       <li><a href="#audit">SCITT</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="#audit">SCITT</a></li>
+      <li><a href="/pricing">Pricing</a></li>
       <li><a href="#cta" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
     </ul>
@@ -53,8 +54,10 @@
 </nav>
 <div class="mob-menu" id="mobMenu">
   <a href="#how">Product</a><a href="#verify">Verify</a><a href="#audit">SCITT</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="#cta">Get Started</a>
+  <a href="/pricing">Pricing</a>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/pricing">Pricing</a><a href="#cta">Get Started</a>
 </div>
 
 <!-- ═══ HERO ═══ -->
@@ -432,7 +435,8 @@ pip install epi-recorder
       <span class="footer-copy">&copy; 2026 EPI LABS. MIT License. Built in India. Engineered for the world.</span>
     </div>
     <ul class="footer-links">
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing">Pricing</a>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
       <li><a href="viewer/">Decision Ops</a></li>
       <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
@@ -444,7 +448,7 @@ pip install epi-recorder
 (function(){
 /* ── DARK MODE ── */
 var stored=localStorage.getItem('epi-theme'),prefersDark=matchMedia('(prefers-color-scheme:dark)').matches;
-if(stored==='dark'||(!stored&&prefersDark))document.documentElement.setAttribute('data-theme','dark');
+if(stored==='dark')document.documentElement.setAttribute('data-theme','dark');
 function updateToggles(){
   var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
   document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color=isDark?'#E6EDF3':'var(--ink)'});

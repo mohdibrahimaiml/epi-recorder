@@ -2,52 +2,79 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPI Verify - Pricing</title>
-<link rel="stylesheet" href="/css/epi.css">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI Labs — Pricing</title>
+<meta name="description" content="EPI Verify pricing: Free, Pro, and Enterprise plans for AI compliance evidence verification.">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/epi.css?v=24">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f1115;color:#e6e6e6;min-height:100vh}
-.header{text-align:center;padding:60px 20px 20px}
-.header h1{font-size:34px;font-weight:800;margin-bottom:8px;color:#fff}
-.header p{color:#9aa0a6;font-size:16px}
-.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 60px;max-width:1000px;margin:0 auto}
-.tier{background:#181b21;border:1px solid #2c3038;border-radius:16px;padding:36px 28px;width:300px;display:flex;flex-direction:column}
-.tier.featured{border-color:#4fc3f7;box-shadow:0 0 32px rgba(79,195,247,0.08)}
-.tier h3{font-size:18px;font-weight:700;color:#fff;margin-bottom:4px}
-.tier .subtitle{font-size:13px;color:#9aa0a6;margin-bottom:20px}
-.tier .price{font-size:42px;font-weight:800;color:#fff;margin-bottom:4px}
-.tier .price span{font-size:15px;font-weight:400;color:#9aa0a6}
-.tier .price-note{font-size:12px;color:#9aa0a6;margin-bottom:24px}
+.pricing-hero{text-align:center;padding:120px 20px 60px}
+.pricing-hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;color:var(--ink);margin-bottom:12px}
+.pricing-hero h1 em{font-style:normal;color:var(--accent)}
+.pricing-hero .subtitle{font-size:1.15rem;color:var(--ink-soft);max-width:600px;margin:0 auto}
+.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 80px;max-width:1050px;margin:0 auto}
+.tier{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 28px;width:300px;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
+.tier:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
+.tier.featured{border-color:var(--accent);box-shadow:0 0 32px rgba(0,0,0,.06)}
+.tier h3{font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.tier .tier-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px}
+.tier .price{font-size:42px;font-weight:800;color:var(--ink);margin-bottom:4px}
+.tier .price span{font-size:15px;font-weight:400;color:var(--ink-soft)}
+.tier .price-note{font-size:12px;color:var(--ink-soft);margin-bottom:24px}
 .tier ul{list-style:none;padding:0;margin:0 0 24px;flex:1}
-.tier ul li{padding:10px 0;border-bottom:1px solid #2c3038;font-size:14px;color:#b0b7bf}
+.tier ul li{padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--ink-soft)}
 .tier ul li:last-child{border-bottom:none}
 .tier .cta{display:block;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin-top:auto}
-.tier .cta.free{background:#2c3038;color:#e6e6e6}
-.tier .cta.pro{background:#4fc3f7;color:#0f1115}
-.tier .cta.enterprise{background:linear-gradient(135deg,#4fc3f7,#81c784);color:#0f1115}
+.cta-free{background:var(--surface-2);color:var(--ink)}
+.cta-pro{background:var(--accent);color:#fff}
+.cta-enterprise{background:var(--ink);color:var(--bg)}
 .contact-section{max-width:500px;margin:0 auto 80px;padding:32px 20px}
-.contact-section h2{font-size:24px;font-weight:700;color:#fff;margin-bottom:8px;text-align:center}
-.contact-section .contact-sub{text-align:center;color:#9aa0a6;font-size:14px;margin-bottom:32px}
+.contact-section h2{font-size:24px;font-weight:700;color:var(--ink);margin-bottom:8px;text-align:center}
+.contact-sub{text-align:center;color:var(--ink-soft);font-size:14px;margin-bottom:32px}
 .form-group{margin-bottom:18px}
-.form-group label{display:block;font-size:13px;font-weight:600;color:#b0b7bf;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;background:#181b21;border:1px solid #2c3038;border-radius:10px;color:#e6e6e6;font-size:14px;outline:none}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#4fc3f7}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--ink);font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
 .form-group textarea{height:90px;resize:vertical}
-button[type=submit]{width:100%;padding:14px;background:#4fc3f7;color:#0f1115;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
-button[type=submit]:hover{background:#81d4fa}
-.note{text-align:center;color:#9aa0a6;font-size:12px;margin-top:12px}
+.btn-submit{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-submit:hover{opacity:.9}
+.note{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:12px}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>EPI Verify &mdash; Pricing</h1>
-<p>Cryptographic verification for AI compliance evidence</p>
+
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/#how">Product</a></li>
+      <li><a href="/#verify">Verify</a></li>
+      <li><a href="/#audit">SCITT</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+      <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode"></button></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/#how">Product</a><a href="/#verify">Verify</a><a href="/#audit">SCITT</a>
+  <a href="/pricing">Pricing</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/#cta">Get Started</a>
 </div>
-<div class="tiers">
+
+<div class="pricing-hero">
+<div class="section-label">Pricing</div>
+<h1>Evidence infrastructure for <em>every</em> team.</h1>
+<p class="subtitle">From individual developers to regulated enterprises. Cryptographic verification that scales.</p>
+</div>
+
+<div class="tiers reveal">
 <div class="tier">
 <h3>Free</h3>
-<div class="subtitle">For individual developers</div>
+<div class="tier-sub">For individual developers</div>
 <div class="price">$0<span>/month</span></div>
 <div class="price-note">No credit card required</div>
 <ul>
@@ -57,11 +84,12 @@ button[type=submit]:hover{background:#81d4fa}
 <li>Full forensic viewer</li>
 <li>Signed attestations</li>
 </ul>
-<a href="/verify" class="cta free">Get Started</a>
+<a href="/verify" class="cta cta-free">Get Started</a>
 </div>
+
 <div class="tier featured">
 <h3>Pro</h3>
-<div class="subtitle">For compliance teams</div>
+<div class="tier-sub">For compliance teams</div>
 <div class="price">$500<span>/month</span></div>
 <div class="price-note">Annual billing available</div>
 <ul>
@@ -72,11 +100,12 @@ button[type=submit]:hover{background:#81d4fa}
 <li>Priority email support</li>
 <li>Custom policy evaluation</li>
 </ul>
-<a href="#contact" class="cta pro">Contact Us</a>
+<a href="#contact" class="cta cta-pro">Contact Us</a>
 </div>
+
 <div class="tier">
 <h3>Enterprise</h3>
-<div class="subtitle">For regulated organizations</div>
+<div class="tier-sub">For regulated organizations</div>
 <div class="price">$5,000<span>/month</span></div>
 <div class="price-note">Custom pricing available</div>
 <ul>
@@ -88,21 +117,50 @@ button[type=submit]:hover{background:#81d4fa}
 <li>Dedicated support engineer</li>
 <li>On-premise / air-gap deployment</li>
 </ul>
-<a href="#contact" class="cta enterprise">Contact Us</a>
+<a href="#contact" class="cta cta-enterprise">Contact Us</a>
 </div>
 </div>
+
 <div class="contact-section" id="contact">
 <h2>Get in touch</h2>
-<p class="contact-sub">Tell us about your use case and we will respond within 1 business day.</p>
+<p class="contact-sub">Tell us about your use case. We respond within 1 business day.</p>
 <form action="/api/contact" method="POST">
 <div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your full name"></div>
 <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@company.com"></div>
 <div class="form-group"><label>Company</label><input type="text" name="company" required placeholder="Company name"></div>
 <div class="form-group"><label>Plan</label><select name="tier"><option value="pro">Pro ($500/month)</option><option value="enterprise">Enterprise ($5,000/month)</option><option value="custom">Custom / Other</option></select></div>
 <div class="form-group"><label>Use Case</label><textarea name="use_case" placeholder="Describe your AI compliance needs, team size, and timeline..."></textarea></div>
-<button type="submit">Send Inquiry</button>
+<button type="submit" class="btn-submit">Send Inquiry</button>
 </form>
 <p class="note">No spam. No auto-sales. We respond personally.</p>
 </div>
+
+<footer style="text-align:center;padding:40px 20px;color:var(--ink-soft);font-size:13px;border-top:1px solid var(--border)">
+  <img src="assets/logo.png" alt="EPI Labs" style="height:24px;margin-bottom:8px"><br>
+  &copy; 2026 EPI LABS. Built in India. Engineered for the world.
+</footer>
+
+<script>
+(function(){
+var stored=localStorage.getItem('epi-theme');
+if(stored==='dark')document.documentElement.setAttribute('data-theme','dark');
+function updateToggles(){
+  var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
+  document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color=isDark?'#E6EDF3':'var(--ink)'});
+}
+updateToggles();
+function flip(){
+  var r=document.documentElement;
+  if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}
+  else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}
+  updateToggles();
+}
+document.getElementById('themeToggleNav').addEventListener('click',flip);
+var mobBtn=document.getElementById('mobBtn'),mobMenu=document.getElementById('mobMenu');
+if(mobBtn&&mobMenu){mobBtn.addEventListener('click',function(){mobMenu.classList.toggle('open');mobBtn.classList.toggle('open')})}
+var observer=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add('visible');observer.unobserve(el.target)}})},{threshold:.15});
+document.querySelectorAll('.reveal').forEach(function(el){observer.observe(el)});
+})();
+</script>
 </body>
 </html>
