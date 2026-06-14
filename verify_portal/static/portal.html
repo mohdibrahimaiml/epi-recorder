@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -429,8 +429,8 @@
 
             try {
                 progressFill.style.width = '60%';
-                const res = await fetch('/api/verify', {
-                    method: 'POST',
+                const apiBase = location.hostname === "epilabs.org" ? "https://epi-verify-portal.onrender.com" : "";
+                const res = await fetch(apiBase + "" + "/api/verify", {
                     body: formData,
                 });
                 progressFill.style.width = '90%';
