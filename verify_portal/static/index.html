@@ -41,11 +41,11 @@
   <div class="nav-inner">
     <a href="#" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links" id="navLinks">
-    <ul class="nav-links" id="navLinks">
+      <li><a href="#how">Product</a></li>
       <li><a href="#verify">Verify</a></li>
       <li><a href="#audit">SCITT</a></li>
-      <li><a href="#audit">SCITT</a></li>
       <li><a href="/pricing">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="#cta" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
     </ul>
@@ -55,9 +55,8 @@
 <div class="mob-menu" id="mobMenu">
   <a href="#how">Product</a><a href="#verify">Verify</a><a href="#audit">SCITT</a>
   <a href="/pricing">Pricing</a>
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="/pricing">Pricing</a>
-  <a href="/pricing">Pricing</a><a href="#cta">Get Started</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="#cta">Get Started</a>
 </div>
 
 <!-- ═══ HERO ═══ -->
@@ -416,10 +415,10 @@ pip install epi-recorder
       <div class="enterprise-card" style="border:1px solid #e0e0e0;border-radius:12px;padding:24px;width:260px">
         <h3 style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Procurement</h3>
         <ul style="list-style:none;padding:0;font-size:13px;color:#555;line-height:2">
-          <li>Free: 3 verifications/day</li>
-          <li>Pro: $500/month</li>
-          <li>Enterprise: from $5K/mo</li>
-          <li>SLA available</li>
+          <li>Free: $0 forever</li>
+          <li>Team: $200/month</li>
+          <li>Compliance: $2,000/month</li>
+          <li>Enterprise: Custom</li>
         </ul>
         <a href="/pricing" class="btn btn-primary" style="display:inline-block;margin-top:12px;font-size:13px;padding:8px 16px">View pricing</a>
       </div>
@@ -435,8 +434,7 @@ pip install epi-recorder
       <span class="footer-copy">&copy; 2026 EPI LABS. MIT License. Built in India. Engineered for the world.</span>
     </div>
     <ul class="footer-links">
-      <li><a href="/pricing">Pricing</a>
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
       <li><a href="viewer/">Decision Ops</a></li>
       <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
@@ -447,7 +445,7 @@ pip install epi-recorder
 <script>
 (function(){
 /* ── DARK MODE ── */
-var stored=localStorage.getItem('epi-theme'),prefersDark=matchMedia('(prefers-color-scheme:dark)').matches;
+var stored=localStorage.getItem('epi-theme');
 if(stored==='dark')document.documentElement.setAttribute('data-theme','dark');
 function updateToggles(){
   var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
@@ -461,9 +459,7 @@ function flip(){
   updateToggles();
 }
 document.getElementById('themeToggleNav').addEventListener('click',flip);
-matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){
-  if(!localStorage.getItem('epi-theme')){e.matches?document.documentElement.setAttribute('data-theme','dark'):document.documentElement.removeAttribute('data-theme');updateToggles()}
-});
+
 
 /* ── NAV ── */
 var nav=document.getElementById('nav');
