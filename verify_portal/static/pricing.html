@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>EPI Labs — Pricing</title>
-<meta name="description" content="EPI Verify pricing: Free, Pro, and Enterprise plans for AI compliance evidence verification.">
+<meta name="description" content="EPI pricing: Free, Team, Compliance, and Enterprise plans.">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="stylesheet" href="css/epi.css?v=24">
 <style>
 .pricing-hero{text-align:center;padding:120px 20px 60px}
 .pricing-hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;color:var(--ink);margin-bottom:12px}
 .pricing-hero h1 em{font-style:normal;color:var(--accent)}
-.pricing-hero .subtitle{font-size:1.15rem;color:var(--ink-soft);max-width:600px;margin:0 auto}
-.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 80px;max-width:1050px;margin:0 auto}
-.tier{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 28px;width:300px;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
+.pricing-hero .subtitle{font-size:1.15rem;color:var(--ink-soft);max-width:620px;margin:0 auto}
+.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 80px;max-width:1100px;margin:0 auto}
+.tier{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 28px;width:260px;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
 .tier:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
 .tier.featured{border-color:var(--accent);box-shadow:0 0 32px rgba(0,0,0,.06)}
 .tier h3{font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px}
-.tier .tier-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px}
+.tier .tier-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px;line-height:1.5}
 .tier .price{font-size:42px;font-weight:800;color:var(--ink);margin-bottom:4px}
 .tier .price span{font-size:15px;font-weight:400;color:var(--ink-soft)}
 .tier .price-note{font-size:12px;color:var(--ink-soft);margin-bottom:24px}
@@ -26,9 +26,15 @@
 .tier ul li:last-child{border-bottom:none}
 .tier .cta{display:block;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin-top:auto}
 .cta-free{background:var(--surface-2);color:var(--ink)}
-.cta-pro{background:var(--accent);color:#fff}
+.cta-team{background:var(--accent);color:#fff}
+.cta-compliance{background:var(--accent);color:#fff}
 .cta-enterprise{background:var(--ink);color:var(--bg)}
-.contact-section{max-width:500px;margin:0 auto 80px;padding:32px 20px}
+.faq{max-width:700px;margin:0 auto 80px;padding:0 20px}
+.faq h2{font-size:22px;font-weight:700;color:var(--ink);margin-bottom:32px;text-align:center}
+.faq-item{margin-bottom:24px}
+.faq-item h4{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.faq-item p{font-size:14px;color:var(--ink-soft);line-height:1.6}
+.contact-section{max-width:500px;margin:0 auto 80px;padding:0 20px}
 .contact-section h2{font-size:24px;font-weight:700;color:var(--ink);margin-bottom:8px;text-align:center}
 .contact-sub{text-align:center;color:var(--ink-soft);font-size:14px;margin-bottom:32px}
 .form-group{margin-bottom:18px}
@@ -42,7 +48,6 @@
 </style>
 </head>
 <body>
-
 <nav id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
@@ -68,56 +73,98 @@
 <div class="pricing-hero">
 <div class="section-label">Pricing</div>
 <h1>Evidence infrastructure for <em>every</em> team.</h1>
-<p class="subtitle">From individual developers to regulated enterprises. Cryptographic verification that scales.</p>
+<p class="subtitle">The core .epi format and browser verifier are free forever. Paid tiers add hosted convenience for teams that need compliance readiness, audit packages, and SCITT anchoring.</p>
 </div>
 
 <div class="tiers reveal">
 <div class="tier">
 <h3>Free</h3>
-<div class="tier-sub">For individual developers</div>
+<div class="tier-sub">For individual developers and open-source projects</div>
 <div class="price">$0<span>/month</span></div>
-<div class="price-note">No credit card required</div>
+<div class="price-note">Free forever. No account needed.</div>
 <ul>
-<li>3 verifications per day</li>
-<li>Web UI drag &amp; drop upload</li>
+<li>Unlimited local verification</li>
+<li>Browser forensic viewer</li>
 <li>AIUC-1 trust domain mapping</li>
-<li>Full forensic viewer</li>
-<li>Signed attestations</li>
+<li>Ed25519 signature verification</li>
+<li>JCS RFC 8785 conformance</li>
 </ul>
-<a href="/verify" class="cta cta-free">Get Started</a>
+<a href="/verify" class="cta cta-free">Verify a file</a>
 </div>
-
 <div class="tier featured">
-<h3>Pro</h3>
-<div class="tier-sub">For compliance teams</div>
-<div class="price">$500<span>/month</span></div>
-<div class="price-note">Annual billing available</div>
+<h3>Team</h3>
+<div class="tier-sub">For funded startups and small AI teams</div>
+<div class="price">$200<span>/month</span></div>
+<div class="price-note">Stripe checkout. Cancel anytime.</div>
 <ul>
-<li>Unlimited verifications</li>
+<li>Everything in Free</li>
+<li>Hosted verify portal</li>
+<li>1,000 verifications/month</li>
 <li>SCITT transparency anchoring</li>
-<li>API access with API keys</li>
-<li>Batch verification</li>
-<li>Priority email support</li>
-<li>Custom policy evaluation</li>
+<li>API access with keys</li>
+<li>Email support within 24h</li>
 </ul>
-<a href="#contact" class="cta cta-pro">Contact Us</a>
+<a href="#contact" class="cta cta-team">Subscribe</a>
 </div>
-
+<div class="tier">
+<h3>Compliance</h3>
+<div class="tier-sub">For regulated teams facing quarterly audits</div>
+<div class="price">$2,000<span>/month</span></div>
+<div class="price-note">Annual billing. Integration support included.</div>
+<ul>
+<li>Everything in Team</li>
+<li>Unlimited verifications</li>
+<li>Custom compliance reports</li>
+<li>AIUC-1, ISO 42001, NIST AI RMF mapping</li>
+<li>Batch verification</li>
+<li>SSO / OIDC</li>
+<li>7-year evidence retention</li>
+</ul>
+<a href="#contact" class="cta cta-compliance">Talk to us</a>
+</div>
 <div class="tier">
 <h3>Enterprise</h3>
-<div class="tier-sub">For regulated organizations</div>
-<div class="price">$5,000<span>/month</span></div>
-<div class="price-note">Custom pricing available</div>
+<div class="tier-sub">For banks, insurers, and government AI systems</div>
+<div class="price">Custom<span></span></div>
+<div class="price-note">Tailored to your procurement process.</div>
 <ul>
-<li>Everything in Pro</li>
-<li>SSO / OIDC authentication</li>
-<li>Custom compliance reports</li>
-<li>SLA guarantee (99.9%)</li>
-<li>Audit log with 7-year retention</li>
-<li>Dedicated support engineer</li>
+<li>Everything in Compliance</li>
 <li>On-premise / air-gap deployment</li>
+<li>Custom policy engine</li>
+<li>Custom compliance framework mapping</li>
+<li>Dedicated SOC 2 for EPI</li>
+<li>SLA with 99.9% uptime guarantee</li>
+<li>Dedicated support engineer</li>
 </ul>
-<a href="#contact" class="cta cta-enterprise">Contact Us</a>
+<a href="#contact" class="cta cta-enterprise">Contact sales</a>
+</div>
+</div>
+
+<div class="faq reveal">
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+<h4>Why is the .epi format and browser verifier free?</h4>
+<p>The .epi format is an open standard — like PDF or HTTP. Free distribution means every .epi file advertises EPI. Every browser becomes a verifier. The format spreads through use, not through pricing. Paid tiers add hosted infrastructure on top of the already-adopted free product.</p>
+</div>
+<div class="faq-item">
+<h4>What happens if I exceed 1,000 verifications on the Team plan?</h4>
+<p>You will not be cut off. We will notify you and suggest upgrading to Compliance. The limit is soft — we want you to upgrade because you are getting value, not because we shut you down.</p>
+</div>
+<div class="faq-item">
+<h4>Do I need the hosted portal to verify .epi files?</h4>
+<p>No. Every .epi file embeds its own browser verifier. Drop it into any browser and it verifies itself — zero servers, zero accounts, zero cost. The hosted portal adds batch verification, compliance reports, and SCITT anchoring for teams that need those at scale.</p>
+</div>
+<div class="faq-item">
+<h4>Can I switch plans?</h4>
+<p>Yes. Upgrade or downgrade anytime. Your evidence history and API keys remain intact.</p>
+</div>
+<div class="faq-item">
+<h4>How does SCITT anchoring work?</h4>
+<p>When you verify through the hosted portal, the evidence hash is registered in a SCITT transparency ledger with a Merkle inclusion proof. This provides cryptographic proof that the evidence existed at a specific point in time — critical for regulatory audits with multi-year retention requirements.</p>
+</div>
+<div class="faq-item">
+<h4>What compliance frameworks do you support?</h4>
+<p>AIUC-1 (6 trust domains), EU AI Act Article 12, NIST AI RMF, ISO 42001, and SOC 2. Custom framework mapping is available on the Enterprise plan. Every verification report includes AIUC-1 domain mapping by default.</p>
 </div>
 </div>
 
@@ -128,7 +175,7 @@
 <div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your full name"></div>
 <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@company.com"></div>
 <div class="form-group"><label>Company</label><input type="text" name="company" required placeholder="Company name"></div>
-<div class="form-group"><label>Plan</label><select name="tier"><option value="pro">Pro ($500/month)</option><option value="enterprise">Enterprise ($5,000/month)</option><option value="custom">Custom / Other</option></select></div>
+<div class="form-group"><label>Plan</label><select name="tier"><option value="team">Team ($200/month)</option><option value="compliance">Compliance ($2,000/month)</option><option value="enterprise">Enterprise (Custom)</option><option value="other">Other / Question</option></select></div>
 <div class="form-group"><label>Use Case</label><textarea name="use_case" placeholder="Describe your AI compliance needs, team size, and timeline..."></textarea></div>
 <button type="submit" class="btn-submit">Send Inquiry</button>
 </form>
@@ -142,24 +189,24 @@
 
 <script>
 (function(){
-var stored=localStorage.getItem('epi-theme');
-if(stored==='dark')document.documentElement.setAttribute('data-theme','dark');
+var stored=localStorage.getItem("epi-theme");
+if(stored==="dark")document.documentElement.setAttribute("data-theme","dark");
 function updateToggles(){
-  var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
-  document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color=isDark?'#E6EDF3':'var(--ink)'});
+  var isDark=document.documentElement.hasAttribute("data-theme"),ico=isDark?"&#9788;":"&#9789;";
+  document.querySelectorAll("#themeToggleNav").forEach(function(b){b.innerHTML=ico;b.style.color=isDark?"#E6EDF3":"var(--ink)"});
 }
 updateToggles();
 function flip(){
   var r=document.documentElement;
-  if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}
-  else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}
+  if(r.hasAttribute("data-theme")){r.removeAttribute("data-theme");localStorage.setItem("epi-theme","light")}
+  else{r.setAttribute("data-theme","dark");localStorage.setItem("epi-theme","dark")}
   updateToggles();
 }
-document.getElementById('themeToggleNav').addEventListener('click',flip);
-var mobBtn=document.getElementById('mobBtn'),mobMenu=document.getElementById('mobMenu');
-if(mobBtn&&mobMenu){mobBtn.addEventListener('click',function(){mobMenu.classList.toggle('open');mobBtn.classList.toggle('open')})}
-var observer=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add('visible');observer.unobserve(el.target)}})},{threshold:.15});
-document.querySelectorAll('.reveal').forEach(function(el){observer.observe(el)});
+document.getElementById("themeToggleNav").addEventListener("click",flip);
+var mobBtn=document.getElementById("mobBtn"),mobMenu=document.getElementById("mobMenu");
+if(mobBtn&&mobMenu){mobBtn.addEventListener("click",function(){mobMenu.classList.toggle("open");mobBtn.classList.toggle("open")})}
+var observer=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add("visible");observer.unobserve(el.target)}})},{threshold:.15});
+document.querySelectorAll(".reveal").forEach(function(el){observer.observe(el)});
 })();
 </script>
 </body>
