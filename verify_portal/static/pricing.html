@@ -1,28 +1,108 @@
 <!DOCTYPE html>
-<html lang=en>
+<html lang="en">
 <head>
-<meta charset=UTF-8>
-<title>EPI Pricing</title>
-<link rel=stylesheet href=/css/epi.css>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Verify - Pricing</title>
+<link rel="stylesheet" href="/css/epi.css">
 <style>
-body{font-family:system-ui;margin:40px}
-h1{text-align:center}
-.tier-box{display:flex;gap:20px;justify-content:center}
-.card{border:1px solid #ddd;border-radius:12px;padding:30px;width:250px}
-.card h3{margin:0;font-size:20px}
-.price{font-size:36px;font-weight:700;margin:15px 0}
-.price span{font-size:14px;color:#888}
-.card ul{list-style:none;padding:0}
-.card li{padding:6px 0;font-size:14px;border-bottom:1px solid #eee}
-.cta{display:block;text-align:center;padding:12px;border-radius:8px;font-weight:600;text-decoration:none;margin-top:15px;background:#2563eb;color:white}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f1115;color:#e6e6e6;min-height:100vh}
+.header{text-align:center;padding:60px 20px 20px}
+.header h1{font-size:34px;font-weight:800;margin-bottom:8px;color:#fff}
+.header p{color:#9aa0a6;font-size:16px}
+.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 60px;max-width:1000px;margin:0 auto}
+.tier{background:#181b21;border:1px solid #2c3038;border-radius:16px;padding:36px 28px;width:300px;display:flex;flex-direction:column}
+.tier.featured{border-color:#4fc3f7;box-shadow:0 0 32px rgba(79,195,247,0.08)}
+.tier h3{font-size:18px;font-weight:700;color:#fff;margin-bottom:4px}
+.tier .subtitle{font-size:13px;color:#9aa0a6;margin-bottom:20px}
+.tier .price{font-size:42px;font-weight:800;color:#fff;margin-bottom:4px}
+.tier .price span{font-size:15px;font-weight:400;color:#9aa0a6}
+.tier .price-note{font-size:12px;color:#9aa0a6;margin-bottom:24px}
+.tier ul{list-style:none;padding:0;margin:0 0 24px;flex:1}
+.tier ul li{padding:10px 0;border-bottom:1px solid #2c3038;font-size:14px;color:#b0b7bf}
+.tier ul li:last-child{border-bottom:none}
+.tier .cta{display:block;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin-top:auto}
+.tier .cta.free{background:#2c3038;color:#e6e6e6}
+.tier .cta.pro{background:#4fc3f7;color:#0f1115}
+.tier .cta.enterprise{background:linear-gradient(135deg,#4fc3f7,#81c784);color:#0f1115}
+.contact-section{max-width:500px;margin:0 auto 80px;padding:32px 20px}
+.contact-section h2{font-size:24px;font-weight:700;color:#fff;margin-bottom:8px;text-align:center}
+.contact-section .contact-sub{text-align:center;color:#9aa0a6;font-size:14px;margin-bottom:32px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#b0b7bf;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;background:#181b21;border:1px solid #2c3038;border-radius:10px;color:#e6e6e6;font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#4fc3f7}
+.form-group textarea{height:90px;resize:vertical}
+button[type=submit]{width:100%;padding:14px;background:#4fc3f7;color:#0f1115;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+button[type=submit]:hover{background:#81d4fa}
+.note{text-align:center;color:#9aa0a6;font-size:12px;margin-top:12px}
 </style>
 </head>
 <body>
-<h1>EPI Verify Pricing</h1>
-<div class=tier-box>
-<div class=card><h3>Free</h3><div class=price>$0<span>/mo</span></div><ul><li>3 verifications/day</li><li>Web UI</li></ul><a href=/verify class=cta>Start</a></div>
-<div class=card><h3>Pro</h3><div class=price>$500<span>/mo</span></div><ul><li>Unlimited</li><li>SCITT</li><li>API keys</li></ul><a href=#contact class=cta>Contact</a></div>
-<div class=card><h3>Enterprise</h3><div class=price>$5000<span>/mo</span></div><ul><li>All Pro features</li><li>SSO</li><li>SLA</li></ul><a href=#contact class=cta>Contact</a></div>
+<div class="header">
+<h1>EPI Verify &mdash; Pricing</h1>
+<p>Cryptographic verification for AI compliance evidence</p>
+</div>
+<div class="tiers">
+<div class="tier">
+<h3>Free</h3>
+<div class="subtitle">For individual developers</div>
+<div class="price">$0<span>/month</span></div>
+<div class="price-note">No credit card required</div>
+<ul>
+<li>3 verifications per day</li>
+<li>Web UI drag &amp; drop upload</li>
+<li>AIUC-1 trust domain mapping</li>
+<li>Full forensic viewer</li>
+<li>Signed attestations</li>
+</ul>
+<a href="/verify" class="cta free">Get Started</a>
+</div>
+<div class="tier featured">
+<h3>Pro</h3>
+<div class="subtitle">For compliance teams</div>
+<div class="price">$500<span>/month</span></div>
+<div class="price-note">Annual billing available</div>
+<ul>
+<li>Unlimited verifications</li>
+<li>SCITT transparency anchoring</li>
+<li>API access with API keys</li>
+<li>Batch verification</li>
+<li>Priority email support</li>
+<li>Custom policy evaluation</li>
+</ul>
+<a href="#contact" class="cta pro">Contact Us</a>
+</div>
+<div class="tier">
+<h3>Enterprise</h3>
+<div class="subtitle">For regulated organizations</div>
+<div class="price">$5,000<span>/month</span></div>
+<div class="price-note">Custom pricing available</div>
+<ul>
+<li>Everything in Pro</li>
+<li>SSO / OIDC authentication</li>
+<li>Custom compliance reports</li>
+<li>SLA guarantee (99.9%)</li>
+<li>Audit log with 7-year retention</li>
+<li>Dedicated support engineer</li>
+<li>On-premise / air-gap deployment</li>
+</ul>
+<a href="#contact" class="cta enterprise">Contact Us</a>
+</div>
+</div>
+<div class="contact-section" id="contact">
+<h2>Get in touch</h2>
+<p class="contact-sub">Tell us about your use case and we will respond within 1 business day.</p>
+<form action="/api/contact" method="POST">
+<div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your full name"></div>
+<div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@company.com"></div>
+<div class="form-group"><label>Company</label><input type="text" name="company" required placeholder="Company name"></div>
+<div class="form-group"><label>Plan</label><select name="tier"><option value="pro">Pro ($500/month)</option><option value="enterprise">Enterprise ($5,000/month)</option><option value="custom">Custom / Other</option></select></div>
+<div class="form-group"><label>Use Case</label><textarea name="use_case" placeholder="Describe your AI compliance needs, team size, and timeline..."></textarea></div>
+<button type="submit">Send Inquiry</button>
+</form>
+<p class="note">No spam. No auto-sales. We respond personally.</p>
 </div>
 </body>
 </html>
