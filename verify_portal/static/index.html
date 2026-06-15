@@ -600,7 +600,44 @@ async function processFile(f){
   try{
     var buf=await f.arrayBuffer();
     var containerFmt=detectContainer(buf);
-    if(!containerFmt){window.location.href='/verify';return}
+    // Upload to server API for robust verification (handles all .epi formats)
+    var form=new FormData();
+    form.append('file',f,'uploaded.epi');
+    form.append('aiuc1','true');
+    try{
+      var resp=await fetch('/api/verify',{method:'POST',body:form});
+      var report=await resp.json();
+      if(resp.ok){
+        var trust=report.trust_level||'UNKNOWN';
+        var icon=trust==='HIGH'?'\u2705':trust==='MEDIUM'?'\u26a0\ufe0f':'\u274c';
+        var msg=report.trust_message||(report.decision||{}).reason||'';
+        var html='<div style="text-align:center;margin-top:24px">'+
+          '<div style="font-size:48px;margin-bottom:16px">'+icon+'</div>'+
+          '<h2 style="color:var(--ink);margin-bottom:8px">'+trust+' TRUST</h2>'+
+          '<p style="color:var(--ink-soft);max-width:500px;margin:0 auto 24px">'+msg+'</p>'+
+          '<a href="/verify" class="btn btn-primary">Full report and AIUC-1 domains</a>'+
+          '</div>';
+        var aiuc=report.aiuc1;
+        if(aiuc&&aiuc.domains){
+          html+='<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:20px;max-width:620px;margin-left:auto;margin-right:auto">';
+          for(var id in aiuc.domains){
+            var d=aiuc.domains[id];
+            var cls=d.status==='PASS'?'color:var(--verified);background:var(--verified-bg)':d.status==='PARTIAL'?'color:var(--warn);background:rgba(255,183,77,0.1)':'color:var(--error);background:rgba(229,115,115,0.1)';
+            html+='<span style="'+cls+';padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600">'+d.label+': '+d.status+'</span>';
+          }
+          html+='</div>';
+        }
+        dr.innerHTML=html;
+      }else{
+        var emsg=report.detail||'Verification failed';
+        dr.innerHTML='<div style="text-align:center;margin-top:24px"><div style="font-size:48px">\u274c</div><h2 style="color:var(--error)">Verification Failed</h2><p style="color:var(--ink-soft)">'+emsg+'</p><a href="/verify" class="btn btn-primary" style="display:inline-block;margin-top:12px">Try again</a></div>';
+      }
+      _hideSpinner();
+    }catch(e){
+      dr.innerHTML='<div style="text-align:center;margin-top:24px"><div style="font-size:48px">\u26a0\ufe0f</div><h2>Service Unavailable</h2><p style="color:var(--ink-soft)">The verification service is starting up. Please try again in a moment.</p><a href="/verify" class="btn btn-primary" style="display:inline-block;margin-top:12px">Open Verify Portal</a></div>';
+      _hideSpinner();
+    }
+    return
 
     var zipBuf=extractZIPPayload(buf,containerFmt);
     var zip;
