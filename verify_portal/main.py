@@ -535,8 +535,6 @@ async def epi_viewer_page():
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
-if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 
 # --- Contact Form Endpoint ---
@@ -694,3 +692,81 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+if STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
+
+# --- Contact Form Endpoint ---
+class ContactSubmission(BaseModel):
+    name: str
+    email: str
+    company: str = ""
+    tier: str = ""
+    use_case: str = ""
+
+@app.post("/api/contact")
+async def submit_contact(submission: ContactSubmission):
+    """Receive contact form submissions and forward to admin."""
+    logger.info(f"CONTACT | {submission.tier} | {submission.name} ({submission.email}) from {submission.company}: {submission.use_case[:200]}")
+    
+    # Try email via SMTP if configured
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if smtp_host:
+        _send_contact_email(submission)
+    
+    # Write to local log file
+    log_dir = Path("contact_submissions")
+    log_dir.mkdir(exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"{ts}_{submission.name.replace(' ', '_')}.json"
+    log_file.write_text(submission.model_dump_json(indent=2), encoding="utf-8")
+    
+    return {"status": "received", "message": "Thank you for your inquiry. We will respond within 1 business day."}
+
+def _send_contact_email(submission: ContactSubmission):
+    """Send contact form data via SMTP with SendGrid fallback."""
+    import smtplib
+    from email.mime.text import MIMEText
+    
+    body = f"""New EPI Inquiry
+
+Plan: {submission.tier}
+Name: {submission.name}
+Email: {submission.email}
+Company: {submission.company}
+
+Use Case:
+{submission.use_case}
+"""
+    msg = MIMEText(body)
+    msg["Subject"] = f"EPI Contact: {submission.tier} - {submission.company}"
+    msg["From"] = os.getenv("SMTP_FROM", "noreply@epilabs.org")
+    msg["To"] = os.getenv("SMTP_TO", "mohdibrahim@epilabs.org")
+    
+    try:
+        # Try SendGrid first if key present
+        sg_key = os.getenv("SENDGRID_API_KEY")
+        if sg_key:
+            import urllib.request, json
+            data = json.dumps({
+                "personalizations": [{"to": [{"email": os.getenv("SMTP_TO", "mohdibrahim@epilabs.org")}]}],
+                "from": {"email": os.getenv("SMTP_FROM", "noreply@epilabs.org")},
+                "subject": f"EPI Contact: {submission.tier} - {submission.company}",
+                "content": [{"type": "text/plain", "value": body}]
+            }).encode()
+            req = urllib.request.Request("https://api.sendgrid.com/v3/mail/send", data=data,
+                headers={"Authorization": f"Bearer {sg_key}", "Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=10)
+        else:
+            # Fallback SMTP
+            with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587")), timeout=10) as server:
+                server.starttls()
+                server.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+                server.send_message(msg)
+        logger.info("CONTACT email sent successfully")
+    except Exception as e:
+        logger.warning(f"CONTACT email failed (submission saved to disk): {e}")
+
+
