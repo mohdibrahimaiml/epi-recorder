@@ -301,6 +301,7 @@ class TestReportStructureStability:
             "workflow_id",
             "created_at",
             "files_checked",
+            "steps_count",
             "verifier_version",
         }
         assert set(report["summary"].keys()) == {"integrity", "trust", "transparency"}
