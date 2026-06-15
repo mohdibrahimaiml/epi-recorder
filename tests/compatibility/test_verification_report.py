@@ -31,6 +31,7 @@ FROZEN_REPORT_KEYS = {
     "created_at",
     "spec_version",
     "trust_message",
+    "steps_count",
 }
 
 FROZEN_FAILURE_KEYS = {
