@@ -536,6 +536,14 @@ async def epi_viewer_page():
 # Mount static files at root for the full EPI-OFFICIAL website.
 # This must come AFTER all API routes so that /api/verify, /scitt/*,
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
+
+@app.get("/scitt")
+async def scitt_page():
+    page = STATIC_DIR / "scitt.html"
+    if page.exists():
+        return FileResponse(page)
+    raise HTTPException(404, "SCITT page not found")
+
 app.include_router(share_router)
 
 if STATIC_DIR.exists():
