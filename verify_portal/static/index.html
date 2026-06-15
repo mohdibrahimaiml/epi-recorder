@@ -600,7 +600,7 @@ async function processFile(f){
   try{
     var buf=await f.arrayBuffer();
     var containerFmt=detectContainer(buf);
-    if(!containerFmt){showResult('fail','<strong>Not a valid EPI file</strong><br>No EPI envelope or ZIP header detected.');return}
+    if(!containerFmt){window.location.href='/verify';return}
 
     var zipBuf=extractZIPPayload(buf,containerFmt);
     var zip;
