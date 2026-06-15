@@ -22,7 +22,7 @@ from epi_cli.view import _resolve_epi_file
 
 console = Console()
 
-DEFAULT_SHARE_API_URL = "https://api.epilabs.org"
+DEFAULT_SHARE_API_URL = "https://epi-verify-portal.onrender.com"
 MAX_LOCAL_SHARE_BYTES = 5 * 1024 * 1024
 
 
@@ -54,7 +54,7 @@ def share(
     api_base_url: str | None = typer.Option(
         None,
         "--api-base-url",
-        help="Override the share API base URL (default: EPI_SHARE_API_URL or https://api.epilabs.org).",
+        help="Override the share API base URL (default: EPI_SHARE_API_URL or https://epi-verify-portal.onrender.com).",
     ),
 ):
     """
@@ -96,7 +96,7 @@ def share(
         console.print("[dim]To fix this, either:[/dim]")
         console.print("[dim]  • Deploy the EPI gateway and set EPI_SHARE_API_URL=http://your-host:8765[/dim]")
         console.print("[dim]  • Use --api-base-url http://your-gateway-host:8765[/dim]")
-        console.print("[dim]  • Deploy api.epilabs.org (see docs/internal/HOSTED-PILOT-RUNBOOK.md)[/dim]")
+        console.print("[dim]  • Deploy epi-verify-portal.onrender.com (see docs/internal/HOSTED-PILOT-RUNBOOK.md)[/dim]")
         raise typer.Exit(1) from exc
 
     if json_output:
