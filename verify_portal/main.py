@@ -21,7 +21,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -536,6 +536,157 @@ async def epi_viewer_page():
 # /.well-known/*, /health, and /portal are handled by FastAPI routes.
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
+
+# --- Contact Form Endpoint ---
+class ContactSubmission(BaseModel):
+    name: str
+    email: str
+    company: str = ""
+    tier: str = ""
+    use_case: str = ""
+
+@app.post("/api/contact")
+async def submit_contact(submission: ContactSubmission):
+    """Receive contact form submissions and forward to admin."""
+    logger.info(f"CONTACT | {submission.tier} | {submission.name} ({submission.email}) from {submission.company}: {submission.use_case[:200]}")
+    
+    # Try email via SMTP if configured
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if smtp_host:
+        _send_contact_email(submission)
+    
+    # Write to local log file
+    log_dir = Path("contact_submissions")
+    log_dir.mkdir(exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"{ts}_{submission.name.replace(' ', '_')}.json"
+    log_file.write_text(submission.model_dump_json(indent=2), encoding="utf-8")
+    
+    return {"status": "received", "message": "Thank you for your inquiry. We will respond within 1 business day."}
+
+def _send_contact_email(submission: ContactSubmission):
+    """Send contact form data via SMTP with SendGrid fallback."""
+    import smtplib
+    from email.mime.text import MIMEText
+    
+    body = f"""New EPI Inquiry
+
+Plan: {submission.tier}
+Name: {submission.name}
+Email: {submission.email}
+Company: {submission.company}
+
+Use Case:
+{submission.use_case}
+"""
+    msg = MIMEText(body)
+    msg["Subject"] = f"EPI Contact: {submission.tier} - {submission.company}"
+    msg["From"] = os.getenv("SMTP_FROM", "noreply@epilabs.org")
+    msg["To"] = os.getenv("SMTP_TO", "mohdibrahim@epilabs.org")
+    
+    try:
+        # Try SendGrid first if key present
+        sg_key = os.getenv("SENDGRID_API_KEY")
+        if sg_key:
+            import urllib.request, json
+            data = json.dumps({
+                "personalizations": [{"to": [{"email": os.getenv("SMTP_TO", "mohdibrahim@epilabs.org")}]}],
+                "from": {"email": os.getenv("SMTP_FROM", "noreply@epilabs.org")},
+                "subject": f"EPI Contact: {submission.tier} - {submission.company}",
+                "content": [{"type": "text/plain", "value": body}]
+            }).encode()
+            req = urllib.request.Request("https://api.sendgrid.com/v3/mail/send", data=data,
+                headers={"Authorization": f"Bearer {sg_key}", "Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=10)
+        else:
+            # Fallback SMTP
+            with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587")), timeout=10) as server:
+                server.starttls()
+                server.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+                server.send_message(msg)
+        logger.info("CONTACT email sent successfully")
+    except Exception as e:
+        logger.warning(f"CONTACT email failed (submission saved to disk): {e}")
+
+
+# --- EPI Share Endpoint ---
+@app.post("/api/share")
+async def share_epi_file(
+    request: Request,
+    expires_days: int = Query(30, ge=1, le=30),
+):
+    """Accept uploaded .epi files and return a hosted share link."""
+    import uuid, shutil
+    
+    body = await request.body()
+    filename = request.headers.get("X-EPI-Filename", "untitled.epi")
+    
+    # Validate size
+    max_bytes = 5 * 1024 * 1024
+    if len(body) > max_bytes:
+        raise HTTPException(413, f"File too large. Max {max_bytes // 1024 // 1024} MB")
+    
+    # Generate share ID and save
+    share_id = uuid.uuid4().hex[:12]
+    share_dir = Path("shared_cases")
+    share_dir.mkdir(exist_ok=True)
+    
+    share_path = share_dir / f"{share_id}.epi"
+    share_path.write_bytes(body)
+    
+    # Save metadata
+    import json
+    meta = {
+        "share_id": share_id,
+        "filename": filename,
+        "size": len(body),
+        "created_at": datetime.utcnow().isoformat(),
+        "expires_at": (datetime.utcnow() + timedelta(days=expires_days)).isoformat(),
+        "downloads": 0,
+    }
+    meta_path = share_dir / f"{share_id}.json"
+    meta_path.write_text(json.dumps(meta, indent=2))
+    
+    share_url = f"https://epilabs.org/cases/?id={share_id}"
+    logger.info(f"SHARE | {share_id} | {filename} | {len(body)} bytes")
+    
+    return {
+        "share_id": share_id,
+        "url": share_url,
+        "expires_in_days": expires_days,
+    }
+
+@app.get("/api/share/{share_id}")
+async def download_shared_epi(share_id: str):
+    """Download a shared .epi file."""
+    share_path = Path(f"shared_cases/{share_id}.epi")
+    meta_path = Path(f"shared_cases/{share_id}.json")
+    
+    if not share_path.exists():
+        raise HTTPException(404, "Share not found or expired")
+    
+    # Update download count
+    if meta_path.exists():
+        import json
+        meta = json.loads(meta_path.read_text())
+        meta["downloads"] = meta.get("downloads", 0) + 1
+        meta_path.write_text(json.dumps(meta, indent=2))
+    
+    return FileResponse(
+        share_path,
+        media_type="application/vnd.epi+zip",
+        filename=f"{share_id}.epi",
+        headers={"Content-Disposition": f'attachment; filename="{share_id}.epi"'}
+    )
+
+@app.get("/api/share/{share_id}/meta")
+async def get_share_meta(share_id: str):
+    """Get metadata about a shared file."""
+    meta_path = Path(f"shared_cases/{share_id}.json")
+    if not meta_path.exists():
+        raise HTTPException(404, "Share not found or expired")
+    return json.loads(meta_path.read_text())
 
 if __name__ == "__main__":
     import uvicorn

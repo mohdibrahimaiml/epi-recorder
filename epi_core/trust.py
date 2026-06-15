@@ -473,6 +473,7 @@ def create_verification_report(
             "workflow_id": str(manifest.workflow_id),
             "created_at": manifest.created_at.isoformat(),
             "files_checked": len(manifest.file_manifest),
+                    "steps_count": manifest.total_steps or 0,
             "verifier_version": _get_verifier_version(),
         },
     }
@@ -519,6 +520,7 @@ def create_verification_report(
     report["mismatches_count"] = len(mismatches)
     report["signer"] = signer_name
     report["files_checked"] = len(manifest.file_manifest)
+    report["steps_count"] = manifest.total_steps or 0
     report["workflow_id"] = str(manifest.workflow_id)
     report["created_at"] = manifest.created_at.isoformat()
     report["spec_version"] = manifest.spec_version
