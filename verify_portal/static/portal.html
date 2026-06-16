@@ -369,6 +369,16 @@
                 <div class="grid" id="identityGrid"></div>
             </div>
 
+            <div class="section" id="scittSection" style="display:none">
+                <div class="section-title">
+                    SCITT Transparency
+                    <span class="tooltip" data-tip="Supply Chain Integrity, Transparency, and Trust (RFC 9162)">?</span>
+                </div>
+                <div class="grid" id="scittGrid"></div>
+                <a href="/scitt" class="btn btn-secondary" style="display:inline-block;margin-top:12px;font-size:0.85rem">View Transparency Ledger</a>
+            </div>
+
+
             <div class="section" id="aiuc1Section">
                 <div class="section-title">
                     AIUC-1 Trust Domains
@@ -579,6 +589,37 @@
                 else if (val === null || val === undefined) { cls = 'warn'; text = item.none || 'N/A'; }
                 factsGrid.innerHTML += `<div class="item"><span class="item-label">${item.label}</span><span class="item-value ${cls}">${text}</span></div>`;
             }
+            // SCITT Transparency details
+            const scittSectionEl = document.getElementById('scittSection');
+            const scittGridEl = document.getElementById('scittGrid');
+            if (facts.transparency_ok === true) {
+                scittSectionEl.style.display = 'block';
+                scittGridEl.innerHTML = `<div class="item" style="grid-column:1/-1">
+                    <span class="item-label">Receipt</span>
+                    <span class="item-value pass">VERIFIED</span>
+                </div>
+                <div class="item" style="grid-column:1/-1">
+                    <span class="item-label">Proof</span>
+                    <span class="item-value pass">Merkle Inclusion</span>
+                </div>
+                <div class="item" style="grid-column:1/-1">
+                    <span class="item-label">Ledger</span>
+                    <span class="item-value pass">RFC 9162</span>
+                </div>
+                <div style="grid-column:1/-1;font-size:0.82rem;color:var(--ink-soft);padding:8px 0;line-height:1.5">
+                    This evidence is cryptographically anchored in the SCITT transparency ledger. The Merkle inclusion proof guarantees that this artifact existed at a specific point in time and cannot be modified or deleted without detection.
+                </div>`;
+            } else if (facts.transparency_ok === false) {
+                scittSectionEl.style.display = 'block';
+                scittGridEl.innerHTML = `<div class="item" style="grid-column:1/-1">
+                    <span class="item-label">Receipt</span>
+                    <span class="item-value fail">FAILED</span>
+                </div>
+                <div style="grid-column:1/-1;font-size:0.82rem;color:var(--ink-soft);padding:8px 0;line-height:1.5">
+                    SCITT transparency verification failed. The receipt could not be validated against the service key. This may indicate a tampered or incomplete SCITT receipt.
+                </div>`;
+            }
+
 
             // Identity
             const identity = report.identity || {};

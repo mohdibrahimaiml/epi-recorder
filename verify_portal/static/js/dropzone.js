@@ -54,7 +54,7 @@
     fd.append('aiuc1','true');
 
     try{
-      var r=await fetch('/api/verify',{method:'POST',body:fd});
+      var r=await fetch('https://epi-verify-portal.onrender.com/api/verify',{method:'POST',body:fd});
       var d=await r.json();
 
       if(!r.ok){
