@@ -1,5 +1,3 @@
-# Cloudflare Pages - static site for epilabs.org
-
 /verify https://epi-verify-portal.onrender.com/verify 200
 /verify/* https://epi-verify-portal.onrender.com/verify/:splat 200
 /api/* https://epi-verify-portal.onrender.com/api/:splat 200
