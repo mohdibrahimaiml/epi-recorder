@@ -45,6 +45,7 @@
       <li><a href="#verify">Verify</a></li>
       <li><a href="#audit">SCITT</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing">Pricing</a></li>
       <li><a href="#cta" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
     </ul>
@@ -600,6 +601,18 @@ function playTerminal(){if(!termEl)return;if(termRunning)resetTerminal();termRun
 window.replayTerminal=function(){resetTerminal();setTimeout(playTerminal,200)};
 var termObs=new IntersectionObserver(function(e){if(e[0].isIntersecting&&!termObs.triggered){termObs.triggered=true;setTimeout(playTerminal,300);termObs.unobserve(termEl)}},{threshold:0.2});
 if(termEl)termObs.observe(termEl);
+window._terminalPlayed=false;
+window.ensureTerminalPlays=function(){
+  if(window._terminalPlayed||!termEl)return;
+  var rect=termEl.getBoundingClientRect();
+  if(rect.top<window.innerHeight&&rect.bottom>0){
+    window._terminalPlayed=true;
+    setTimeout(playTerminal,400);
+  }
+};
+setTimeout(window.ensureTerminalPlays,500);
+setTimeout(window.ensureTerminalPlays,1200);
+setTimeout(window.ensureTerminalPlays,2500);
 
 })();
 <script src="js/dropzone.js?v=3"></script>
