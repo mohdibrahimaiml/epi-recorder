@@ -11,7 +11,7 @@
       var d=document.createElement('div');
       d.style.cssText='width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:epiSpin 1s linear infinite';
       sp.appendChild(d);
-      sp.appendChild(document.createTextNode('Verifying integrity, signature, SCITT, and AIUC-1 compliance...'));
+      sp.appendChild(document.createTextNode('Running EPI-SPEC v4.2 verification: structural, integrity, signature, chain, SCITT...'));
       dz.parentNode.insertBefore(sp,dz.nextSibling);
       var style=document.createElement('style');
       style.textContent='@keyframes epiSpin{to{transform:rotate(360deg)}}';
@@ -30,21 +30,30 @@
   function _showError(msg,hint){
     _hideLoading();
     if(!dr)return;
-    var h='<div style="text-align:center;padding:30px;border:1px solid var(--border);border-radius:12px;background:var(--surface);margin-top:16px">'+
-      '<div style="font-size:48px;margin-bottom:12px">&#10060;</div>'+
-      '<h3 style="color:var(--error);margin-bottom:8px">Verification Failed</h3>'+
-      '<p style="color:var(--ink-soft);margin-bottom:4px">'+msg+'</p>'+
-      (hint?'<p style="color:var(--ink-soft);font-size:0.85rem">'+hint+'</p>':'')+
-      '<a href="/verify" style="display:inline-block;margin-top:16px;background:var(--accent);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600">Open Verify Portal</a>'+
+    dr.style.display='block';
+    var h='<div style=\"text-align:center;padding:30px;border:1px solid var(--border);border-radius:12px;background:var(--surface);margin-top:16px\">'+
+      '<div style=\"font-size:48px;margin-bottom:12px\">&#10060;</div>'+
+      '<h3 style=\"color:var(--error);margin-bottom:8px\">Verification Failed</h3>'+
+      '<p style=\"color:var(--ink-soft);margin-bottom:4px\">'+msg+'</p>'+
+      (hint?'<p style=\"color:var(--ink-soft);font-size:0.85rem\">'+hint+'</p>':'')+
+      '<a href=\"/verify\" style=\"display:inline-block;margin-top:16px;background:var(--accent);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600\">Open Verify Portal</a>'+
       '</div>';
     dr.innerHTML=h;
-    dr.style.display='block';
   }
 
-  function _badge(label,val,okColor,failColor){
-    var cls=val===true?'color:'+okColor+';background:'+okColor+'15':val===false?'color:'+failColor+';background:'+failColor+'15':'color:var(--ink-soft);background:var(--surface-2)';
-    var text=val===true?'PASS':val===false?'FAIL':'---';
-    return '<span style="'+cls+';padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">'+label+' '+text+'</span>';
+  function _checkBadge(num,label,val,goodHint,badHint){
+    var ok=val===true;
+    var clr=ok?'#2e7d32':'#c62828';
+    var bg=ok?'rgba(46,125,50,0.08)':'rgba(198,40,40,0.08)';
+    var icon=ok?'&#9745;':'&#9746;';
+    if(val===null||val===undefined){
+      clr='var(--ink-soft)';bg='var(--surface-2)';icon='&#9633;';ok=null;
+    }
+    var text=ok===true?goodHint:ok===false?badHint:'N/A';
+    return '<div style=\"display:flex;align-items:center;gap:10px;padding:10px 14px;background:'+bg+';border-radius:8px;border:1px solid '+(ok===null?'var(--border)':(ok?'rgba(46,125,50,0.25)':'rgba(198,40,40,0.25)'))+'\">'+
+      '<span style=\"font-size:18px;color:'+clr+'\">'+icon+'</span>'+
+      '<div><div style=\"font-weight:700;font-size:13px;color:'+clr+'\">'+num+'. '+label+'</div>'+
+      '<div style=\"font-size:11px;color:var(--ink-soft)\">'+text+'</div></div></div>';
   }
 
   async function handleEPIFile(f){
@@ -71,40 +80,47 @@
       var msg=d.trust_message||(d.decision||{}).reason||'';
       var tc=trust==='HIGH'?'#2e7d32':trust==='MEDIUM'?'#e65100':'#c62828';
       var fcts=d.facts||{};
+      var meta=d.metadata||{};
+      var specVer=meta.spec_version||'?';
+      var steps=meta.steps_count||0;
 
-      var h='<div style="margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:30px;text-align:center">'+
-        '<div style="font-size:48px;margin-bottom:16px">'+icon+'</div>'+
-        '<h2 style="color:'+tc+';margin-bottom:8px;font-size:clamp(1.3rem,3vw,1.8rem)">'+trust+' TRUST</h2>'+
-        '<p style="color:var(--ink-soft);max-width:500px;margin:0 auto 20px;line-height:1.5">'+msg+'</p>'+
+      var structuralOk=!!specVer;
+      var countOk=steps>0;
+      var countHint=countOk?steps+' execution steps recorded':'Step count unavailable';
 
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:620px;margin:0 auto 16px">'+
-          _badge('Integrity',fcts.integrity_ok,'#2e7d32','#c62828')+
-          _badge('Signature',fcts.signature_valid,'#2e7d32','#c62828')+
-          _badge('Sequence',fcts.sequence_ok,'#2e7d32','#e65100')+
-          _badge('Complete',fcts.completeness_ok,'#2e7d32','#e65100')+
-          _badge('Chain',fcts.chain_ok,'#2e7d32','#c62828')+
-          _badge('SCITT',fcts.transparency_ok,'#1565c0','#c62828')+
+      var h='<div style=\"margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center\">'+
+        '<div style=\"font-size:48px;margin-bottom:16px\">'+icon+'</div>'+
+        '<h2 style=\"color:'+tc+';margin-bottom:4px;font-size:clamp(1.3rem,3vw,1.8rem)\">'+trust+' TRUST</h2>'+
+        '<div style=\"color:var(--ink-soft);font-size:12px;margin-bottom:16px\">EPI-SPEC v'+specVer+' \u00b7 '+steps+' steps</div>'+
+        '<p style=\"color:var(--ink-soft);max-width:500px;margin:0 auto 20px;line-height:1.5\">'+msg+'</p>'+
+
+        '<div style=\"display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto 16px;text-align:left\">'+
+          _checkBadge(1,'Structural',structuralOk,'Valid EPI envelope or ZIP container','Invalid or corrupted format')+
+          _checkBadge(2,'Integrity',fcts.integrity_ok,'All file hashes match manifest SHA-256','Hash mismatch detected')+
+          _checkBadge(3,'Signature',fcts.signature_valid,'Ed25519 signature verified against manifest','Invalid or tampered signature')+
+          _checkBadge(4,'Chain',fcts.chain_ok,'prev_hash links intact; hash-linked timeline','Chain broken - steps modified or reordered')+
+          _checkBadge(5,'Sequence',fcts.sequence_ok,'Step indices monotonic, timestamps chronological','Sequence gap or out-of-order step')+
+          _checkBadge(6,'Count',countOk,countHint,'Step count unavailable')+
+          _checkBadge(7,'SCITT',fcts.transparency_ok,'Merkle inclusion proof verified; RFC 9162 compliant','SCITT transparency not available')+
         '</div>'+
 
-        (fcts.transparency_ok?
-          '<div style="background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.25);border-radius:8px;padding:10px 14px;max-width:600px;margin:0 auto 12px;font-size:13px;color:#1565c0">&#128274; SCITT-anchored: Cryptographic inclusion proof verified. Registered in transparency ledger.</div>'
-          :fcts.transparency_ok===false?
-          '<div style="background:rgba(198,40,40,0.06);border:1px solid rgba(198,40,40,0.25);border-radius:8px;padding:10px 14px;max-width:600px;margin:0 auto 12px;font-size:13px;color:var(--ink-soft)">&#9888; SCITT transparency not available for this artifact.</div>'
+        (fcts.transparency_ok===true?
+          '<div style=\"background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.25);border-radius:8px;padding:10px 14px;max-width:560px;margin:12px auto;font-size:13px;color:#1565c0\">&#128274; SCITT-anchored: Merkle inclusion proof verified. Evidence registered in transparency ledger per RFC 9162.</div>'
           :'')+
 
-        '<a href="/verify" style="display:inline-block;background:var(--accent);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px">Full Report &#8594;</a>'+
+        '<a href=\"/verify\" style=\"display:inline-block;background:var(--accent);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px\">Full Report &#8594;</a>'+
         '</div>';
 
       var aiuc=d.aiuc1;
       if(aiuc&&aiuc.domains){
-        h+='<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;max-width:660px;margin-left:auto;margin-right:auto;padding:0 16px">';
+        h+='<div style=\"display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;max-width:660px;margin-left:auto;margin-right:auto;padding:0 16px\">';
         var keys=Object.keys(aiuc.domains).sort();
         for(var i=0;i<keys.length;i++){
           var dm=aiuc.domains[keys[i]];
           var bg='#e8f5e9',clr='#2e7d32';
           if(dm.status==='PARTIAL'){bg='#fff3e0';clr='#e65100';}
           else if(dm.status==='FAIL'){bg='#ffebee';clr='#c62828';}
-          h+='<span style="background:'+bg+';color:'+clr+';padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap">'+dm.label+' &#8226; '+dm.status+'</span>';
+          h+='<span style=\"background:'+bg+';color:'+clr+';padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap\">'+dm.label+' &#8226; '+dm.status+'</span>';
         }
         h+='</div>';
       }
