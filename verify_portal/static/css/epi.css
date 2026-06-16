@@ -285,7 +285,9 @@ footer{border-top:1px solid var(--border);padding:48px 0;background:var(--bg-alt
 .theme-toggle:hover{border-color:var(--accent);transform:scale(1.05)}
 
 /* ── SCROLL REVEAL ── */
-.reveal{opacity:0;transform:translateY(30px);transition:all 0.7s var(--ease)}
+.reveal{opacity:1;transform:none;transition:all 0.7s var(--ease)}
+.js .reveal{opacity:0;transform:translateY(30px)}
+.js .reveal.visible{opacity:1;transform:translateY(0)}
 .reveal.visible{opacity:1;transform:translateY(0)}
 .d1{transition-delay:0.1s}.d2{transition-delay:0.2s}.d3{transition-delay:0.3s}.d4{transition-delay:0.35s}
 
