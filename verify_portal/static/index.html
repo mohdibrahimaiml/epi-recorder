@@ -472,8 +472,6 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){
 /* ── NAV ── */
 var nav=document.getElementById('nav');
 if(nav){window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'));}
-if(nav){window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'));}
-window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',scrollY>40)});
 var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
 if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
 mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
