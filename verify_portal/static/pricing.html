@@ -206,7 +206,23 @@ function flip(){
 }
 document.getElementById("themeToggleNav").addEventListener("click",flip);
 var mobBtn=document.getElementById("mobBtn"),mobMenu=document.getElementById("mobMenu");
-if(mobBtn&&mobMenu){mobBtn.addEventListener("click",function(){mobMenu.classList.toggle("open");mobBtn.classList.toggle("open")})}
+if(mobBtn&&mobMenu){
+  mobBtn.addEventListener("click",function(){
+    var isOpen=mobMenu.classList.contains("open");
+    mobMenu.classList.toggle("open");
+    mobBtn.classList.toggle("open");
+    mobBtn.setAttribute("aria-expanded",String(!isOpen));
+    document.body.style.overflow=isOpen?"":"hidden";
+  });
+  mobMenu.querySelectorAll("a").forEach(function(a){
+    a.addEventListener("click",function(){
+      mobMenu.classList.remove("open");
+      mobBtn.classList.remove("open");
+      mobBtn.setAttribute("aria-expanded","false");
+      document.body.style.overflow="";
+    });
+  });
+}
 var observer=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add("visible");observer.unobserve(el.target)}})},{threshold:.15});
 document.querySelectorAll(".reveal").forEach(function(el){observer.observe(el)});
 })();
