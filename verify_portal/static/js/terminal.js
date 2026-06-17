@@ -123,5 +123,3 @@ window.ensureTerminalPlays=function(){
 setTimeout(window.ensureTerminalPlays,500);
 setTimeout(window.ensureTerminalPlays,1200);
 setTimeout(window.ensureTerminalPlays,2500);
-
-})();
