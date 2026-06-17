@@ -131,10 +131,10 @@ Double-click any `.epi` — they open natively as HTML in any browser.
 | `epi verify <file.epi>` | Cryptographic integrity + signature verification |
 | `epi view <file.epi>` | Open the offline forensic timeline viewer |
 | `epi audit <file.epi>` | Self-audit scoring across AIUC-1, SCITT, and review domains |
-| `epi keygen` | Generate an Ed25519 signing key pair |
-| `epi keys list` | List trusted public keys |
-| `epi keys trust <key>` | Trust a signing key |
-| `epi keys revoke <name>` | Revoke a trusted key |
+| `epi keys generate` | Generate an Ed25519 signing key pair |
+| `epi keys list` | List signing key pairs |
+| `epi keys trust <key>` | Trust a signing key in the local registry |
+| `epi keys revoke <name>` | Revoke a trusted or signing key |
 | `epi serve` | Start a FastAPI capture gateway for team workflows |
 | `epi policy init` | Create an `epi_policy.json` rulebook |
 | `epi review <file.epi>` | Sign and attest a human review of the artifact |

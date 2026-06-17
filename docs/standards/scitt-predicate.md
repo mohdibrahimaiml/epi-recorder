@@ -19,6 +19,8 @@ EPI implements **Mode B: SCITT Producer** as defined in the emerging IETF SCITT 
 
 When registered, the transparency registry issues a cryptographic **SCITT Receipt**, which is embedded back into the `.epi` archive under `artifacts/scitt/receipt.cbor`. Together with the **SCITT Signed Statement** (`artifacts/scitt/statement.cbor`), this enables completely offline, independent verification of the container's integrity and regulatory audit-trail authenticity.
 
+> **Operational note:** Public transparency endpoints such as `https://epilabs.org/scitt` may be protected by Cloudflare and can return HTTP 403 when accessed from automated CLI contexts. For CI, local development, or offline testing, run a local or mock SCITT service and point `--service` at it.
+
 ---
 
 ## 2. COSE_Sign1 Implementation

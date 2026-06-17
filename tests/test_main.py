@@ -222,7 +222,7 @@ class TestKeysCommand:
         mock_km.export_public_key.return_value = "base64pubkey=="
         with patch("epi_cli.main.console", _mock_console()), \
              patch("epi_cli.keys.KeyManager", return_value=mock_km):
-            code = _call(keys, action="export", name="default", overwrite=False)
+            code = _call(keys, action="export", name="default", overwrite=False, export_format="base64")
         assert code == 0
 
     def test_export_not_found_exits_1(self):
@@ -234,12 +234,80 @@ class TestKeysCommand:
             code = _call(keys, action="export", name="default", overwrite=False)
         assert code == 1
 
+    def test_export_hex_format(self):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.export_public_key.return_value = "YWJjZGVmZ2hpamtsbW5vcA=="  # base64 of 16 bytes
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km):
+            code = _call(keys, action="export", name="default", export_format="hex", overwrite=False)
+        assert code == 0
+
+    def test_export_unknown_format_exits_1(self):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.export_public_key.return_value = "dummy"
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km):
+            code = _call(keys, action="export", name="default", export_format="binary", overwrite=False)
+        assert code == 1
+
     def test_unknown_action_exits_1(self):
         from epi_cli.main import keys
         mock_km = MagicMock()
         with patch("epi_cli.main.console", _mock_console()), \
              patch("epi_cli.keys.KeyManager", return_value=mock_km):
             code = _call(keys, action="invalid", name="default", overwrite=False)
+        assert code == 1
+
+    def test_trust_action_succeeds(self, tmp_path):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.trust_key.return_value = tmp_path / "trusted.pub"
+        mock_registry = MagicMock()
+        mock_registry.trusted_keys_dir = tmp_path / "trusted_keys"
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km), \
+             patch("epi_core.trust.TrustRegistry", return_value=mock_registry):
+            code = _call(keys, action="trust", key="mykey", name="default", overwrite=False)
+        assert code == 0
+        mock_km.trust_key.assert_called_once()
+
+    def test_revoke_action_succeeds(self, tmp_path):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.revoke_key.return_value = tmp_path / "mykey.revoked"
+        mock_registry = MagicMock()
+        mock_registry.trusted_keys_dir = tmp_path / "trusted_keys"
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km), \
+             patch("epi_core.trust.TrustRegistry", return_value=mock_registry):
+            code = _call(keys, action="revoke", key="mykey", name="default", overwrite=False)
+        assert code == 0
+        mock_km.revoke_key.assert_called_once_with("mykey", trusted_keys_dir=mock_registry.trusted_keys_dir)
+
+    def test_trust_action_missing_key_exits_1(self, tmp_path):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.trust_key.side_effect = FileNotFoundError("not found")
+        mock_registry = MagicMock()
+        mock_registry.trusted_keys_dir = tmp_path / "trusted_keys"
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km), \
+             patch("epi_core.trust.TrustRegistry", return_value=mock_registry):
+            code = _call(keys, action="trust", key="missing", name="default", overwrite=False)
+        assert code == 1
+
+    def test_revoke_action_missing_key_exits_1(self, tmp_path):
+        from epi_cli.main import keys
+        mock_km = MagicMock()
+        mock_km.revoke_key.side_effect = FileNotFoundError("not found")
+        mock_registry = MagicMock()
+        mock_registry.trusted_keys_dir = tmp_path / "trusted_keys"
+        with patch("epi_cli.main.console", _mock_console()), \
+             patch("epi_cli.keys.KeyManager", return_value=mock_km), \
+             patch("epi_core.trust.TrustRegistry", return_value=mock_registry):
+            code = _call(keys, action="revoke", key="missing", name="default", overwrite=False)
         assert code == 1
 
 

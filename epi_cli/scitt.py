@@ -75,6 +75,10 @@ def scitt_register(
     This creates a SCITT Signed Statement (COSE_Sign1) for the manifest,
     submits it to the transparency service, and embeds the returned receipt
     into a new .epi file.
+
+    Note: Public endpoints such as https://epilabs.org/scitt may be protected
+    by Cloudflare and can return 403 in automated/CLI contexts. For CI or
+    offline testing, use a local or mock SCITT service instead.
     """
     epi_path = Path(epi_file).resolve()
     if not epi_path.exists():

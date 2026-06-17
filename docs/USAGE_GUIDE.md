@@ -16,6 +16,18 @@ This creates:
 - `~/.epi/keys/default.key` — your private key (keep safe)
 - `~/.epi/keys/default.pub` — your public key (can be shared)
 
+To make a key recognizable as a trusted identity in `epi verify`:
+
+```bash
+epi keys trust default
+```
+
+To revoke a compromised key:
+
+```bash
+epi keys revoke default
+```
+
 ### 3. Record a Workflow
 ```bash
 epi record --out refund.epi -- python process_refund.py

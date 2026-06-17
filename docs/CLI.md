@@ -52,7 +52,11 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi associate` | Register file association support. Best used as a repair or developer path on Windows. |
 | `epi unassociate` | Remove file association support. |
 | `epi doctor` | Run self-healing diagnostics. |
-| `epi keys` | Manage signing keys. |
+| `epi keys generate` | Generate an Ed25519 signing key pair. |
+| `epi keys list` | List signing key pairs. |
+| `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
+| `epi keys trust <name-or-path>` | Copy a public key into the local trust registry. |
+| `epi keys revoke <name>` | Create a revocation marker for a trusted/signing key. |
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
 
@@ -434,14 +438,49 @@ The bridge stays local to the machine by default and is meant for self-hosted se
 
 ---
 
+## `epi keys`
+
+Manage Ed25519 signing keys and the local trust registry.
+
+```bash
+epi keys generate
+epi keys generate --name team-key
+epi keys list
+epi keys export default
+epi keys export default --format hex
+epi keys trust team-key
+epi keys trust /path/to/key.pub --name external-signer
+epi keys revoke team-key
+```
+
+Actions:
+
+- `generate` — Create a new Ed25519 key pair in `~/.epi/keys/`.
+- `list` — Show all signing key pairs.
+- `export` — Print a public key. Use `--format hex` to get the raw 64-character hex string (useful for DID documents).
+- `trust` — Copy a public key into `~/.epi/trusted_keys/` so `epi verify` can recognize it as a known identity.
+- `revoke` — Write a `.revoked` marker for a key so `epi verify` treats it as untrusted.
+
 ## `epi review <file.epi>`
 
 Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the case file as review notes without replacing the original sealed evidence files.
 
 ```bash
 epi review payment_run.epi
+epi review payment_run.epi --reviewer alice@example.com --key default
 epi review payment_run.epi show
+epi review payment_run.epi bind --reviewer alice@example.com
 ```
+
+Options:
+
+- `--reviewer`, `-r` — Reviewer identity (email or name).
+- `--key`, `-k` — Name of the signing key to use for the review signature (default: `default`).
+
+Subcommands:
+
+- `show` — Display the existing review record, if present.
+- `bind` — Promote the latest unbound review into a signed, artifact-bound review entry.
 
 ---
 

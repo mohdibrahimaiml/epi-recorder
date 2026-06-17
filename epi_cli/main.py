@@ -437,7 +437,7 @@ def run(
     return run_command(script, no_verify, no_open, goal, notes, metric, approved_by, tag)
 
 # Phase 1: verify command
-from typing import Annotated
+from typing import Annotated, Optional
 
 from epi_cli.verify import verify_command
 from epi_core.trust import VerificationPolicy
@@ -961,14 +961,18 @@ def unassociate():
 # Phase 1: keys command (for manual key management)
 @app.command()
 def keys(
-    action: str = typer.Argument(..., help="Action: generate, list, or export"),
-    name: str = typer.Option("default", "--name", "-n", help="Key pair name"),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing keys")
+    action: str = typer.Argument(..., help="Action: generate, list, export, trust, or revoke"),
+    key: Optional[str] = typer.Argument(None, help="Key name or path (for trust/revoke)"),
+    name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing keys"),
+    export_format: str = typer.Option("base64", "--format", "-f", help="Export format: base64 or hex"),
 ):
-    """Manage Ed25519 key pairs for signing."""
+    """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
+    from epi_core.trust import TrustRegistry
     
     key_manager = KeyManager()
+    trusted_keys_dir = TrustRegistry().trusted_keys_dir
     
     if action == "generate":
         try:
@@ -987,15 +991,53 @@ def keys(
     elif action == "export":
         try:
             public_key_b64 = key_manager.export_public_key(name)
-            console.print(f"\n[bold]Public key for '{name}':[/bold] [dim](base64-encoded Ed25519 raw public key, 32 bytes)[/dim]")
-            console.print(f"[cyan]{public_key_b64}[/cyan]\n")
+            fmt = export_format.lower().strip()
+            if fmt == "hex":
+                import base64
+                public_key_out = base64.b64decode(public_key_b64).hex()
+                label = "hex-encoded Ed25519 raw public key (64 hex chars)"
+            elif fmt in ("base64", "b64"):
+                public_key_out = public_key_b64
+                label = "base64-encoded Ed25519 raw public key, 32 bytes"
+            else:
+                console.print(f"[red][FAIL] Unknown export format:[/red] {export_format}")
+                console.print("[dim]Valid formats: base64, hex[/dim]")
+                raise typer.Exit(1)
+            console.print(f"\n[bold]Public key for '{name}':[/bold] [dim]({label})[/dim]")
+            console.print(f"[cyan]{public_key_out}[/cyan]\n")
         except FileNotFoundError as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+    
+    elif action == "trust":
+        if not key:
+            console.print("[red][FAIL] trust requires a key name or path.[/red]")
+            console.print("[dim]Usage: epi keys trust <name-or-path> [--name <trusted-name>][/dim]")
+            raise typer.Exit(1)
+        try:
+            target = key_manager.trust_key(
+                key,
+                trusted_keys_dir=trusted_keys_dir,
+                trusted_name=name if name != "default" else None,
+                overwrite=overwrite,
+            )
+            console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}\n")
+        except (FileExistsError, FileNotFoundError, ValueError) as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+    
+    elif action == "revoke":
+        target_name = key or name
+        try:
+            target = key_manager.revoke_key(target_name, trusted_keys_dir=trusted_keys_dir)
+            console.print(f"\n[bold green][OK] Revoked key:[/bold green] {target}\n")
+        except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
     
     else:
         console.print(f"[red][FAIL] Unknown action:[/red] {action}")
-        console.print("[dim]Valid actions: generate, list, export[/dim]")
+        console.print("[dim]Valid actions: generate, list, export, trust, revoke[/dim]")
         raise typer.Exit(1)
 
 

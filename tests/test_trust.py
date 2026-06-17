@@ -134,6 +134,93 @@ class TestKeyManagement:
         
         assert key_manager.has_default_key()
 
+    def test_trust_key_by_name_creates_hex_pub_file(self, temp_keys_dir):
+        """Trusting a key by name writes its public key as hex to the trust registry."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        key_manager.generate_keypair("signing_key")
+        trusted_dir = temp_keys_dir / "trusted_keys"
+
+        target = key_manager.trust_key(
+            "signing_key", trusted_keys_dir=trusted_dir
+        )
+
+        assert target == trusted_dir / "signing_key.pub"
+        assert target.exists()
+        hex_key = target.read_text(encoding="utf-8").strip()
+        assert len(bytes.fromhex(hex_key)) == 32
+
+    def test_trust_key_by_pem_path(self, temp_keys_dir):
+        """Trusting a key by PEM path writes its public key as hex."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        _, pub_path = key_manager.generate_keypair("signing_key")
+        trusted_dir = temp_keys_dir / "trusted_keys"
+
+        target = key_manager.trust_key(
+            pub_path, trusted_keys_dir=trusted_dir, trusted_name="external"
+        )
+
+        assert target == trusted_dir / "external.pub"
+        assert target.exists()
+        hex_key = target.read_text(encoding="utf-8").strip()
+        assert len(bytes.fromhex(hex_key)) == 32
+
+    def test_trust_key_respects_overwrite(self, temp_keys_dir):
+        """trust_key raises FileExistsError unless overwrite=True."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        key_manager.generate_keypair("signing_key")
+        trusted_dir = temp_keys_dir / "trusted_keys"
+
+        key_manager.trust_key("signing_key", trusted_keys_dir=trusted_dir)
+        with pytest.raises(FileExistsError):
+            key_manager.trust_key("signing_key", trusted_keys_dir=trusted_dir)
+
+        # Overwrite should succeed
+        target = key_manager.trust_key(
+            "signing_key", trusted_keys_dir=trusted_dir, overwrite=True
+        )
+        assert target.exists()
+
+    def test_revoke_key_from_signing_key(self, temp_keys_dir):
+        """revoke_key can create a .revoked marker from a signing key."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        key_manager.generate_keypair("signing_key")
+        trusted_dir = temp_keys_dir / "trusted_keys"
+
+        target = key_manager.revoke_key(
+            "signing_key", trusted_keys_dir=trusted_dir
+        )
+
+        assert target == trusted_dir / "signing_key.revoked"
+        assert target.exists()
+        hex_key = target.read_text(encoding="utf-8").strip()
+        assert len(bytes.fromhex(hex_key)) == 32
+
+    def test_revoke_key_from_trusted_key(self, temp_keys_dir):
+        """revoke_key can create a .revoked marker from an already-trusted key."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        key_manager.generate_keypair("signing_key")
+        trusted_dir = temp_keys_dir / "trusted_keys"
+        key_manager.trust_key("signing_key", trusted_keys_dir=trusted_dir)
+
+        target = key_manager.revoke_key(
+            "signing_key", trusted_keys_dir=trusted_dir
+        )
+
+        assert target.exists()
+        trusted_hex = (trusted_dir / "signing_key.pub").read_text(
+            encoding="utf-8"
+        ).strip()
+        revoked_hex = target.read_text(encoding="utf-8").strip()
+        assert trusted_hex == revoked_hex
+
+    def test_revoke_missing_key_raises(self, temp_keys_dir):
+        """revoke_key raises FileNotFoundError when the key is unknown."""
+        key_manager = KeyManager(keys_dir=temp_keys_dir)
+        trusted_dir = temp_keys_dir / "trusted_keys"
+
+        with pytest.raises(FileNotFoundError):
+            key_manager.revoke_key("missing", trusted_keys_dir=trusted_dir)
+
 
 class TestSigning:
     """Test Ed25519 signing operations."""

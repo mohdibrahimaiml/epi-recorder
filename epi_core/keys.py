@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 
 def _is_writable_dir(path: Path) -> bool:
@@ -177,6 +177,104 @@ class KeyManager:
     def has_default_key(self) -> bool:
         """Check if default key pair exists."""
         return (self.keys_dir / "default.key").exists()
+
+    def _load_public_key_raw_bytes(self, name: str) -> bytes:
+        """Load the raw 32-byte Ed25519 public key for a key name."""
+        return self.load_public_key(name)
+
+    def _load_public_key_raw_bytes_from_file(self, path: Path) -> bytes:
+        """Load raw 32-byte Ed25519 public key from a PEM file."""
+        public_key = serialization.load_pem_public_key(path.read_bytes())
+        if not isinstance(public_key, Ed25519PublicKey):
+            raise ValueError(f"Public key in {path} is not an Ed25519 key")
+        return public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+
+    def trust_key(
+        self,
+        source: str | Path,
+        *,
+        trusted_keys_dir: Path,
+        trusted_name: str | None = None,
+        overwrite: bool = False,
+    ) -> Path:
+        """
+        Copy/convert a public key into the local trust registry.
+
+        Args:
+            source: Either a key name in the managed keys directory or a path
+                to a PEM-encoded public key file.
+            trusted_keys_dir: Directory where trusted public keys are stored.
+            trusted_name: Optional name for the trusted key entry. Defaults to
+                the key name or the stem of the provided file path.
+            overwrite: Replace an existing trusted key file with the same name.
+
+        Returns:
+            Path to the written trusted key file.
+
+        Raises:
+            FileExistsError: If the trusted key already exists and overwrite=False.
+            FileNotFoundError: If the source key name or path cannot be found.
+            ValueError: If the source file does not contain an Ed25519 public key.
+        """
+        trusted_keys_dir = Path(trusted_keys_dir)
+        trusted_keys_dir.mkdir(parents=True, exist_ok=True)
+
+        source_path = Path(source)
+        if source_path.exists():
+            raw_bytes = self._load_public_key_raw_bytes_from_file(source_path)
+            name = trusted_name or source_path.stem
+        else:
+            raw_bytes = self._load_public_key_raw_bytes(str(source))
+            name = trusted_name or str(source)
+
+        target = trusted_keys_dir / f"{name}.pub"
+        if target.exists() and not overwrite:
+            raise FileExistsError(
+                f"Trusted key '{name}' already exists. Use --overwrite to replace."
+            )
+
+        target.write_text(raw_bytes.hex(), encoding="utf-8")
+        return target
+
+    def revoke_key(self, name: str, *, trusted_keys_dir: Path) -> Path:
+        """
+        Create a revocation marker for a public key.
+
+        The marker is written as ``<trusted_keys_dir>/<name>.revoked`` and
+        contains the hex-encoded public key, matching the format expected by
+        ``TrustRegistry``.
+
+        Args:
+            name: Name of the trusted or signing key to revoke.
+            trusted_keys_dir: Directory where trusted public keys are stored.
+
+        Returns:
+            Path to the written revocation marker.
+
+        Raises:
+            FileNotFoundError: If no public key can be located for ``name``.
+        """
+        trusted_keys_dir = Path(trusted_keys_dir)
+        trusted_keys_dir.mkdir(parents=True, exist_ok=True)
+
+        trusted_pub = trusted_keys_dir / f"{name}.pub"
+        signing_pub = self.keys_dir / f"{name}.pub"
+
+        if trusted_pub.exists():
+            hex_key = trusted_pub.read_text(encoding="utf-8").strip()
+        elif signing_pub.exists():
+            hex_key = self._load_public_key_raw_bytes(name).hex()
+        else:
+            raise FileNotFoundError(
+                f"No public key found for '{name}'. Generate or trust the key first."
+            )
+
+        revoked_path = trusted_keys_dir / f"{name}.revoked"
+        revoked_path.write_text(hex_key, encoding="utf-8")
+        return revoked_path
 
 
 __all__ = ["KeyManager"]

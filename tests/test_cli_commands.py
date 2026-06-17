@@ -318,3 +318,18 @@ class TestViewEdgeCases:
              patch("webbrowser.open") as mock_wb:
             _open_in_browser(viewer)
         mock_wb.assert_called_once()
+
+
+# ─────────────────────────────────────────────────────────────
+# audit callback tests
+# ─────────────────────────────────────────────────────────────
+
+class TestAuditCommand:
+    def test_audit_artifact_no_crash_and_signature_is_bool(self, tmp_path):
+        """audit_artifact must accept a Path and return a bool/None signature field."""
+        from epi_cli.audit import audit_artifact
+        epi = _make_epi(tmp_path)
+        report = audit_artifact(epi)
+        assert isinstance(report, dict)
+        sig_valid = report["pipeline"]["cryptographic"]["signature_valid"]
+        assert sig_valid is None or isinstance(sig_valid, bool)

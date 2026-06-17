@@ -65,7 +65,7 @@ def audit_artifact(
     steps = _read_steps(epi_path)
 
     # 1. Cryptographic integrity
-    sig_valid = verify_embedded_manifest_signature(epi_path)
+    sig_valid, signer_name, _sig_message = verify_embedded_manifest_signature(manifest)
     report["pipeline"]["cryptographic"] = {
         "signature_valid": sig_valid,
         "integrity_checked": True,
@@ -76,7 +76,7 @@ def audit_artifact(
     ver_report = create_verification_report(
         integrity_ok=True,
         signature_valid=sig_valid,
-        signer_name=manifest.signature.split(":")[1] if manifest.signature else "unknown",
+        signer_name=signer_name or "unknown",
         mismatches={},
         manifest=manifest,
         trusted_registry=TrustRegistry(),
@@ -84,7 +84,7 @@ def audit_artifact(
     )
     applicable = apply_policy(ver_report, policy)
     report["pipeline"]["verification"] = {
-        "trust_level": applicable.trust_level,
+        "trust_level": applicable["trust_level"],
         "policy": str(policy.name),
         "integrity": ver_report["summary"]["integrity"],
     }
