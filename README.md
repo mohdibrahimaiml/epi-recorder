@@ -12,20 +12,32 @@
 [![AIUC-1 Ready](https://img.shields.io/badge/AIUC--1-Ready-success?style=for-the-badge)](docs/standards/aiuc-1-evidence.md)
 [![Test Suite](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
-[Quick Start](#-quick-start) · [What EPI Does](#-what-epi-does) · [Integrations](#-integrations) · [CLI Reference](#-commands) · [Regulatory Mapping](#-regulatory-compliance-mapping) · [Standards](#-standards-alignment)
+```bash
+pip install epi-recorder
+```
 
----
-
-*When a regulator asks what your AI agent did six months ago,*  
-*the answer should be a file — not a shrug.*
+[Quick Start](#-quick-start) · [What EPI Does](#-what-epi-does) ·
+[Why EPI](#-why-epi-vs-observability) · [Integrations](#-integrations) ·
+[CLI Reference](#-commands) · [Regulatory Mapping](#-regulatory-compliance-mapping) ·
+[Founding Pilot](#-founding-pilot-program)
 
 </div>
 
 ---
 
+> **EPI Labs builds the evidence layer for the AI economy.**
+> `epi-recorder` is our flagship open-core tool for capturing, sealing, and verifying AI decisions.
+
+*When a regulator asks what your AI agent did six months ago,*  
+*the answer should be a file — not a shrug.*
+
+---
+
 ## 💎 What EPI Does
 
-EPI captures an AI agent's **complete decision trail** — every LLM call, tool invocation, approval, error, and environmental context — and seals it into a single **`.epi` file**: a cryptographically signed, tamper-evident, self-contained forensic container.
+EPI captures an AI agent's **complete decision trail** — every LLM call, tool invocation,
+approval, error, and environmental context — and seals it into a single **`.epi` file**: a
+cryptographically signed, tamper-evident, self-contained forensic container.
 
 **Three lines of Python.** That's it.
 
@@ -42,7 +54,30 @@ with record("loan-approval.epi", goal="Assess mortgage application #421"):
     )
 ```
 
-The resulting `.epi` file can be **emailed to an auditor**, **archived for 10 years**, or **opened on an air-gapped machine** — without calling home, without the original runtime, and without trusting the producer.
+The resulting `.epi` file can be **emailed to an auditor**, **archived for 10 years**, or
+**opened on an air-gapped machine** — without calling home, without the original runtime, and
+without trusting the producer.
+
+### Evidence Lifecycle
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ CAPTURE  │───→│  SEAL    │───→│  SHARE   │───→│ VERIFY   │───→│  AUDIT   │
+│          │    │          │    │          │    │          │    │          │
+│ One-line │    │ Ed25519  │    │ Email,   │    │ Offline  │    │ AIUC-1,  │
+│ wrapper  │    │ signed   │    │ shared   │    │ browser  │    │ SCITT,   │
+│          │    │ container│    │ drive    │    │ verifier │    │ policy   │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+```
+
+### Built For
+
+- **AI Engineers** — Drop in `wrap_openai()`, `wrap_anthropic()`, or a LiteLLM callback. No
+  redesign required.
+- **Compliance & Audit Teams** — Open any `.epi` in a browser and verify signatures, integrity,
+  and chain of custody without installing software.
+- **Enterprise Buyers** — Evidence maps to EU AI Act, FDA 21 CFR Part 11, HIPAA, NIST AI RMF,
+  and AIUC-1 requirements out of the box.
 
 ### What's Inside an `.epi` File
 
@@ -74,7 +109,10 @@ loan-approval.epi
 
 ```bash
 pip install epi-recorder
+epi demo
 ```
+
+`epi demo` records a sample AI run, opens it in your browser, and verifies it — all in one command.
 
 ### 1. Record a Workflow
 
@@ -98,19 +136,25 @@ with record("agent-run.epi", goal="Classify support ticket"):
 epi verify agent-run.epi
 ```
 ```
-────────────────────────────────────────────────────
-  EPI Verification Report (v4.2.0)
-────────────────────────────────────────────────────
-  Trust Level:  HIGH
-  Signature:    VALID   (Ed25519)
-  Integrity:    OK      (SHA-256 manifest, 15 files)
-  Chain:        INTACT  (prev_hash verified, 32 steps)
-  Identity:     KNOWN   (production-signer-v4)
-  Analysis:     PASSED  (0 faults in 9 passes)
-
-  This artifact has not been modified since sealing.
-────────────────────────────────────────────────────
+┌─────────────────────── ✔ EPI Verification Report v4.2.0 ────────────────────┐
+│ DECISION: TRUSTED                                                           │
+│ Policy: standard                                                            │
+│                                                                             │
+│ FACTS (Objective Proofs)                                                    │
+│   - Integrity:    Verified                                                  │
+│   - Signature:    Valid                                                     │
+│   - Forensic:     PASS                                                      │
+│                                                                             │
+│ IDENTITY (Trust Context)                                                    │
+│   - Status:       KNOWN                                                     │
+│   - Name:         production-signer-v4                                      │
+│   - Key ID:       ba6b26ccc38af21c...                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+> **First run?** You may see `DECISION: WARN` because the signer's public key is not yet in your
+> trusted registry. Integrity and signature are still valid — identity just needs to be trusted:
+> `epi keys trust <public-key-file>`.
 
 ### 3. Open the Forensic Viewer
 
@@ -123,10 +167,28 @@ Double-click any `.epi` — they open natively as HTML in any browser.
 
 ---
 
+## ⚔️ Why EPI vs. Observability Tools
+
+Observability platforms show you *what probably happened*. EPI proves *what actually
+happened* — and makes that proof portable.
+
+| Capability | EPI | Traditional Logs / Tracing |
+|:---|:---|:---|
+| **Tamper evidence** | SHA-256 manifest + signature catches any modification | Logs can be edited or deleted silently |
+| **Offline verification** | `.epi` verifies in any browser without a backend | Requires live platform access |
+| **Producer independence** | Auditor verifies without trusting the producer | Audit relies on the same system that created the log |
+| **Regulatory format** | AIUC-1, SCITT, EU AI Act mapped out of the box | Generic telemetry, manual mapping |
+| **Long-term archival** | Self-contained file, 10-year stable format | Vendor-dependent retention and query APIs |
+
+Use EPI alongside your existing observability stack — not instead of it.
+
+---
+
 ## 🔧 Commands
 
 | Command | What It Does |
 |---------|--------------|
+| `epi demo` | Try EPI in 60 seconds — record, view, and verify a sample run |
 | `epi run <script>` | Record an AI workflow and seal it into a `.epi` file |
 | `epi verify <file.epi>` | Cryptographic integrity + signature verification |
 | `epi view <file.epi>` | Open the offline forensic timeline viewer |
@@ -135,7 +197,7 @@ Double-click any `.epi` — they open natively as HTML in any browser.
 | `epi keys list` | List signing key pairs |
 | `epi keys trust <key>` | Trust a signing key in the local registry |
 | `epi keys revoke <name>` | Revoke a trusted or signing key |
-| `epi serve` | Start a FastAPI capture gateway for team workflows |
+| `epi gateway serve` | Start the FastAPI AI capture gateway for team workflows |
 | `epi policy init` | Create an `epi_policy.json` rulebook |
 | `epi review <file.epi>` | Sign and attest a human review of the artifact |
 | `epi scitt register <file.epi>` | Anchor an artifact to a SCITT transparency ledger |
@@ -156,7 +218,7 @@ EPI plugs into your existing stack — one callback, one wrapper, one line.
 | **LiteLLM** | `litellm.callbacks = [EPICallback()]` | 100+ providers through one callback |
 | **pytest** | `pytest --epi` | Signed forensic evidence per test — CI-ready |
 | **OpenTelemetry** | `setup_epi_tracing()` | Bridge OTel spans into signed `.epi` files |
-| **FastAPI Gateway** | `epi serve` | Team capture proxy, configurable retention, webhooks |
+| **FastAPI Gateway** | `epi gateway serve` | Team capture proxy, configurable retention, webhooks |
 
 ---
 
@@ -189,7 +251,10 @@ Output formats: terminal (Rich), JSON, and Markdown.
 
 ## ⚖️ Regulatory Compliance Mapping
 
-EPI produces evidence that addresses specific global regulatory requirements. EPI is not a compliance guarantee and does not provide legal advice. Whether the enclosed evidence satisfies a specific regulatory threshold is for the auditor or notified body to determine.
+EPI produces evidence that addresses specific global regulatory requirements.
+EPI is not a compliance guarantee and does not provide legal advice. Whether the
+enclosed evidence satisfies a specific regulatory threshold is for the auditor or
+notified body to determine.
 
 | Requirement | Framework | .epi Evidence |
 |:---|:---|:---|
@@ -206,7 +271,8 @@ EPI produces evidence that addresses specific global regulatory requirements. EP
 
 ## 🏛️ Standards Alignment
 
-- **SCITT (IETF)** — COSE Sign1 statements, transparency receipts with Merkle inclusion proofs, persistent SQLite-backed ledger
+- **SCITT (IETF)** — COSE Sign1 statements, transparency receipts with Merkle inclusion proofs,
+  persistent SQLite-backed ledger
 - **AIUC-1** — All 6 risk domains validated with substantive cryptographic checks (not file-existence stubs)
 - **Ed25519 (RFC 8032)** — Industry-standard digital signatures with DID:WEB identity resolution
 - **CycloneDX** — SBOM preservation under `artifacts/sbom/`
@@ -227,6 +293,37 @@ EPI produces evidence that addresses specific global regulatory requirements. EP
 
 ---
 
+## 🆓 Open Core
+
+`epi-recorder` is free and open-source forever.
+
+| Free / Open Source | Hosted / Team (EPI Labs) |
+|:---|:---|
+| CLI recording & verification | `epi gateway serve` capture gateway |
+| Local Ed25519 signing keys | Shared team workspaces |
+| Offline browser viewer | Hosted share links (`epi share`) |
+| AIUC-1 & SCITT local audit | Compliance report dashboards |
+| pytest plugin | Enterprise support & SLAs |
+
+The core `.epi` format and verifier will always be free. Hosted features make team-wide compliance workflows easier.
+
+---
+
+## 🚀 Founding Pilot Program
+
+EPI Labs is working with regulated enterprises to define the future of AI compliance evidence.
+
+If you operate AI agents under the **EU AI Act**, **FDA 21 CFR Part 11**, or **SOC 2**, and you
+need portable, independently-verifiable evidence:
+
+- **Direct Integration Support** — hands-on assistance from the maintainers
+- **Priority Roadmap Influence** — shape the standard based on your compliance needs
+- **Founding Partner Recognition** — optional listing as an early adopter
+
+**Contact:** [mohdibrahim@epilabs.org][pilot-email]
+
+---
+
 ## 📑 Documentation
 
 - 📖 **[Protocol Specification](docs/EPI-SPEC.md)** — The technical wire format
@@ -236,25 +333,15 @@ EPI produces evidence that addresses specific global regulatory requirements. EP
 
 ---
 
-## 🤝 Founding Pilot Program
-
-EPI is seeking regulated enterprises to pilot AI compliance evidence packaging.
-
-If you operate AI agents under the **EU AI Act**, **FDA 21 CFR Part 11**, or **SOC 2**, and you need portable, independently-verifiable evidence:
-
-- **Direct Integration Support** — hands-on assistance from the maintainers
-- **Priority Roadmap Influence** — shape the standard based on your compliance needs
-- **Founding Partner Recognition** — optional listing as an early adopter
-
-**Contact:** [mohdibrahim@epilabs.org](mailto:mohdibrahim@epilabs.org) — Subject: `EPI Pilot — [Your Organization]`
-
----
-
 <div align="center">
 
 **Built by EPI Labs.**
 *Ensuring that as AI moves faster, accountability stays ahead.*
 
-[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security Policy](SECURITY.md) · [epilabs.org](https://epilabs.org)
+[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security Policy](SECURITY.md) ·
+[epilabs.org](https://epilabs.org)
 
 </div>
+
+<!-- Reference definitions -->
+[pilot-email]: mailto:mohdibrahim@epilabs.org?subject=EPI%20Pilot%20—%20%5BYour%20Organization%5D
