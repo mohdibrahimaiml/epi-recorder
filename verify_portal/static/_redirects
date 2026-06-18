@@ -1,4 +1,5 @@
 /verify https://epi-verify-portal.onrender.com/verify 200
+/verify/ https://epi-verify-portal.onrender.com/verify 200
 /verify/* https://epi-verify-portal.onrender.com/verify/:splat 200
 /api/* https://epi-verify-portal.onrender.com/api/:splat 200
 /scitt https://epi-verify-portal.onrender.com/scitt 200

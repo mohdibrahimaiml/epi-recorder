@@ -1,4 +1,4 @@
-﻿# Cloudflare Pages - caching headers
+# Cloudflare Pages - caching headers
 
 # Assets - cache for 1 year
 /assets/*
@@ -7,9 +7,25 @@
 /css/*
   Cache-Control: public, max-age=31536000, immutable
 
-# HTML - never cache
+# JavaScript - cache for 1 year (bust cache with ?v= query params)
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Embedded viewer assets - cache for 1 year
+/viewer/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Case pages - cache for 1 year
+/cases/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Verifier (proxied from Render) - short cache to survive cold starts
+/verify*
+  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+
+# HTML - revalidate immediately, but allow stale-while-revalidate for 5 min
 *.html
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=0, must-revalidate, stale-while-revalidate=300
 
 # Security headers
 /*
