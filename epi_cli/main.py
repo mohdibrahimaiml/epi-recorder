@@ -1367,7 +1367,9 @@ print(f"\\n[OK] Done! Open with: epi view {output_file}")
     console.print(f"[dim]Open the case file with:[/dim] epi view {artifact_path}")
     try:
         from epi_core.telemetry import track_event
+        from epi_core import telemetry as telemetry_core
 
+        telemetry_core.record_first_use()
         track_event(
             "epi.init.completed",
             {

@@ -10,7 +10,7 @@ from rich.console import Console
 
 from epi_core import telemetry as telemetry_core
 
-HintContext = Literal["init", "verify", "integrate"]
+HintContext = Literal["init", "verify", "integrate", "demo", "share"]
 
 
 def _is_interactive() -> bool:
@@ -34,6 +34,12 @@ def maybe_print_telemetry_hint(console: Console, context: HintContext) -> None:
     elif context == "integrate":
         console.print("[bold]You just set up an EPI integration path.[/bold]")
         console.print("Want early access to framework roadmap input, dashboard features, and priority support?")
+    elif context == "demo":
+        console.print("[bold]Your first EPI demo is ready.[/bold]")
+        console.print("Want early access to the artifact dashboard, compliance reports UI, and priority support?")
+    elif context == "share":
+        console.print("[bold]You just shared an EPI artifact.[/bold]")
+        console.print("Want a team workspace with shared case inbox, audit trails, and compliance dashboards?")
     else:
         console.print("[bold]Your first EPI artifact is ready.[/bold]")
         console.print("Want early access to artifact dashboard, compliance reports UI, and priority support?")

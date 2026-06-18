@@ -24,8 +24,10 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Confirm
 
 from epi_core.container import EPIContainer
+from epi_core import telemetry as telemetry_core
 
 console = Console()
 
@@ -590,6 +592,21 @@ def dev(
         case_source = "simulated"
         console.print("[yellow]  [DEMO] Simulated case added (not a real capture)[/yellow]")
 
+    # ── [4a] Privacy-first opt-in telemetry for the demo flow ─────────────
+    try:
+        telemetry_core.record_first_use()
+        telemetry_core.track_event(
+            "epi.demo.completed",
+            {
+                "command": "demo",
+                "source": "cli",
+                "success": bool(case_id),
+                "case_source": case_source,
+            },
+        )
+    except Exception:
+        pass
+
     # ── [5] Open browser ──────────────────────────────────────────────────
     console.print()
     if not no_browser:
@@ -643,7 +660,23 @@ def dev(
             console.print("  [dim]To re-verify later:[/dim]")
             console.print("  [dim]  epi verify refund_case.epi[/dim]")
 
-    # ── [8] Persistence note ──────────────────────────────────────────────
+    # ── [8] Telemetry/pilot CTA (non-blocking) ────────────────────────────
+    try:
+        from epi_cli.telemetry_hint import maybe_print_telemetry_hint, _is_interactive
+        maybe_print_telemetry_hint(console, "demo")
+        if (
+            case_id
+            and _is_interactive()
+            and not telemetry_core.is_enabled()
+            and not str(os.getenv("EPI_TELEMETRY_HINTS") or "").strip().lower() in {"0", "false", "no", "off"}
+        ):
+            join = Confirm.ask("Join the EPI Pilot now?", default=False)
+            if join:
+                subprocess.run([sys.executable, "-m", "epi_cli", "telemetry", "enable", "--join-pilot"], check=False)
+    except Exception:
+        pass
+
+    # ── [9] Persistence note ──────────────────────────────────────────────
     console.print()
     console.rule()
     console.print()
@@ -653,7 +686,7 @@ def dev(
     console.print("  Press [bold]Ctrl+C[/bold] to close the local review workspace.")
     console.print()
 
-    # ── [9] Keep gateway alive ────────────────────────────────────────────
+    # ── [10] Keep gateway alive ───────────────────────────────────────────
     try:
         while True:
             if gateway_proc.poll() is not None:

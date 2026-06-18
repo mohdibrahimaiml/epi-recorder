@@ -507,3 +507,31 @@ def submit_pilot_signup(signup: dict[str, Any]) -> bool:
 
     save_pilot_signup(signup)
     return send_json(pilot_signup_url(), signup)
+
+
+def is_first_use_recorded() -> bool:
+    """Return True if this installation has already emitted epi.first_use."""
+    return bool(load_config().get("first_use_recorded"))
+
+
+def record_first_use() -> bool:
+    """Emit a one-time epi.first_use event if telemetry is enabled.
+
+    Returns True if the event was emitted (or was already recorded), False otherwise.
+    Network failures are ignored: the flag is set locally and the event is queued.
+    """
+    if not is_enabled():
+        return False
+    if is_first_use_recorded():
+        return True
+
+    config = load_config()
+    config["first_use_recorded"] = True
+    config["first_use_recorded_at"] = utc_now_iso()
+    save_config(config)
+
+    track_event(
+        "epi.first_use",
+        {"command": "first_use", "source": "cli", "success": True},
+    )
+    return True

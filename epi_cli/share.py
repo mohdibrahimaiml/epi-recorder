@@ -19,6 +19,7 @@ from rich.console import Console
 from epi_core.artifact_inspector import ArtifactInspectionError, ensure_shareable_artifact
 from epi_core.container import EPIContainer
 from epi_cli.view import _resolve_epi_file
+from epi_core import telemetry as telemetry_core
 
 console = Console()
 
@@ -102,6 +103,28 @@ def share(
     if json_output:
         sys.stdout.write(json.dumps(response_payload, indent=2) + "\n")
         raise typer.Exit(0)
+
+    # Privacy-first opt-in telemetry for share flow.
+    try:
+        telemetry_core.record_first_use()
+        telemetry_core.track_event(
+            "epi.share.completed",
+            {
+                "command": "share",
+                "source": "cli",
+                "success": True,
+                "artifact_count": 1,
+                "artifact_bytes": len(payload_bytes),
+            },
+        )
+    except Exception:
+        pass
+
+    try:
+        from epi_cli.telemetry_hint import maybe_print_telemetry_hint
+        maybe_print_telemetry_hint(console, "share")
+    except Exception:
+        pass
 
     console.print("Uploading... [green]done[/green]")
     console.print("")

@@ -95,3 +95,72 @@ def test_validate_inbound_event_rejects_unknown_metadata():
         assert "banned" in str(exc).lower()
     else:
         raise AssertionError("expected validation failure")
+
+
+import os
+from pathlib import Path
+
+
+def test_record_first_use_emits_only_once(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    telemetry.enable()
+
+    # Mock send_json to force queuing.
+    monkeypatch.setattr(telemetry, "send_json", lambda url, payload, *, timeout=2.0: False)
+
+    assert telemetry.is_first_use_recorded() is False
+    assert telemetry.record_first_use() is True
+    assert telemetry.is_first_use_recorded() is True
+
+    # Second call should be a no-op but still return True.
+    assert telemetry.record_first_use() is True
+
+    queue = telemetry._read_jsonl(telemetry.telemetry_queue_path())
+    first_use_events = [q for q in queue if q["payload"]["event_name"] == "epi.first_use"]
+    assert len(first_use_events) == 1
+
+
+def test_record_first_use_is_no_op_when_disabled(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("EPI_TELEMETRY_OPT_IN", raising=False)
+
+    assert telemetry.is_enabled() is False
+    assert telemetry.record_first_use() is False
+    assert telemetry.is_first_use_recorded() is False
+
+
+def test_recording_emits_record_completed_event(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    telemetry.enable()
+    monkeypatch.setattr(telemetry, "send_json", lambda url, payload, *, timeout=2.0: False)
+
+    from epi_recorder import EpiRecorderSession
+
+    output = tmp_path / "test.epi"
+    with EpiRecorderSession(str(output), workflow_name="test"):
+        pass
+
+    assert output.exists()
+    queue = telemetry._read_jsonl(telemetry.telemetry_queue_path())
+    record_events = [q for q in queue if q["payload"]["event_name"] == "epi.record.completed"]
+    assert len(record_events) == 1
+    assert record_events[0]["payload"]["metadata"]["success"] is True
+    assert record_events[0]["payload"]["metadata"]["artifact_count"] == 1
+
+    # A first_use event should also be queued.
+    first_use_events = [q for q in queue if q["payload"]["event_name"] == "epi.first_use"]
+    assert len(first_use_events) == 1
+
+
+def test_recording_does_not_emit_telemetry_when_disabled(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("EPI_TELEMETRY_OPT_IN", raising=False)
+
+    from epi_recorder import EpiRecorderSession
+
+    output = tmp_path / "test.epi"
+    with EpiRecorderSession(str(output), workflow_name="test"):
+        pass
+
+    assert output.exists()
+    assert telemetry.telemetry_queue_path().exists() is False

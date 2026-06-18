@@ -902,6 +902,25 @@ class EpiRecorderSession:
             if signed:
                 self._auto_scitt_anchor()
 
+            # Privacy-first opt-in telemetry: record that an artifact was created.
+            # This is a no-op unless the user ran `epi telemetry enable`.
+            try:
+                from epi_core import telemetry as telemetry_core
+                telemetry_core.record_first_use()
+                telemetry_core.track_event(
+                    "epi.record.completed",
+                    {
+                        "command": "record",
+                        "source": "sdk",
+                        "success": exc_type is None,
+                        "artifact_count": 1,
+                        "artifact_bytes": self.output_path.stat().st_size,
+                    },
+                )
+            except Exception:
+                # Telemetry must never break recording.
+                pass
+
             self._print_session_summary(signed)
 
         finally:
