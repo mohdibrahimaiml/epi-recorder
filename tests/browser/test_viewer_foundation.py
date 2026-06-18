@@ -61,7 +61,7 @@ def test_viewer_loads_offline_and_shows_decision_evidence_policy_and_trust(
     assert "evidence" in body_lower
     assert "policy" in body_lower
     assert "review" in body_lower
-    assert "cryptographic artifact" in body_lower
+    assert "verified by epi" in body_lower
     assert external_requests == []
 
 
