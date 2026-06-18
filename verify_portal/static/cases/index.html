@@ -4,466 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shared EPI Case | EPI LABS</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.min.js"></script>
-    <link rel="stylesheet" href="../css/style.css?v=8.0">
-    <link rel="stylesheet" href="../css/terminal.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="../assets/epi-favicon.png" type="image/x-icon">
+    <link rel="canonical" href="https://epilabs.org/cases/">
     <style>
-        .page-container {
-            min-height: calc(100vh - 80px);
+        :root {
+            --bg: #0f1115;
+            --surface: #181b21;
+            --border: #2c3038;
+            --text: #e6e6e6;
+            --text-dim: #9aa0a6;
+            --accent: #4fc3f7;
+            --error: #e57373;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
+            line-height: 1.6;
+        }
+        nav {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+        }
+        nav a { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 600; }
+        nav img { height: 28px; }
+        main {
+            flex: 1;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: var(--space-xl) var(--space-md);
-            position: relative;
-            z-index: 10;
+            padding: 40px 20px;
         }
-
-        .case-card {
-            background: rgba(10, 13, 21, 0.7);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: var(--radius-xl);
-            padding: var(--space-xl);
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 560px;
             width: 100%;
-            max-width: 860px;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            text-align: center;
         }
-
-        .status-badge {
+        .badge {
+            display: inline-block;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: rgba(79, 195, 247, 0.08);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 1.75rem; margin-bottom: 12px; }
+        p { color: var(--text-dim); margin-bottom: 24px; }
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+        .btn {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 99px;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
             font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: var(--space-md);
+            font-size: 0.95rem;
         }
-
-        .status-success { color: var(--color-success); background: rgba(48, 209, 88, 0.1); border: 1px solid rgba(48, 209, 88, 0.2); }
-        .status-warning { color: var(--color-warning); background: rgba(255, 214, 10, 0.1); border: 1px solid rgba(255, 214, 10, 0.2); }
-        .status-error { color: var(--color-error); background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.2); }
-
-        .metadata-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: var(--space-sm) var(--space-md);
-            margin: var(--space-md) 0 var(--space-lg) 0;
-            background: rgba(0,0,0,0.2);
-            padding: var(--space-md);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-subtle);
-        }
-
-        .meta-label { color: var(--color-gray-500); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-        .meta-value { color: var(--color-white); font-size: 0.9rem; word-break: break-word; }
-        .meta-value.mono { font-family: var(--font-mono); color: var(--color-teal-400); }
-
-        .action-row {
-            display: flex;
-            gap: var(--space-sm);
-            flex-wrap: wrap;
-        }
-
-        .timeline-item {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            margin-bottom: var(--space-md);
-            overflow: hidden;
-        }
-        .timeline-header {
-            padding: var(--space-sm) var(--space-md);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.02);
-        }
-        .timeline-body {
-            padding: var(--space-md);
-            background: #000;
-            border-top: 1px solid var(--border-subtle);
-            color: var(--color-teal-400);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            overflow-x: auto;
-            display: none;
-        }
-        .timeline-body.active { display: block; }
-
-        .glass-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 2000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-md);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        .glass-modal.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .glass-modal-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            width: 100%;
-            max-width: 900px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: var(--shadow-xl);
-        }
-        .modal-header {
-            padding: var(--space-md) var(--space-lg);
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-body {
-            padding: var(--space-lg);
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .hidden { display: none !important; }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        footer { text-align: center; padding: 24px; color: var(--text-dim); font-size: 0.85rem; border-top: 1px solid var(--border); }
     </style>
 </head>
 <body>
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="../index.html" title="Go to Home">
-                    <img src="../assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="../how-it-works.html#top">How It Works</a>
-                <a href="../technology.html">Technology</a>
-                <a href="../use-cases.html#top">Use Cases</a>
-                <a href="../verify.html">Verify</a>
-                <a href="../contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary" target="_blank">GitHub</a>
-                <a href="../verify.html" class="btn-primary">Verify Another File</a>
-            </div>
-        </div>
+    <nav>
+        <a href="../">
+            <img src="../assets/logo.png" alt="EPI LABS">
+            <span>EPI LABS</span>
+        </a>
     </nav>
-
-    <main class="page-container">
-        <canvas id="particle-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none; opacity: 0.6;"></canvas>
-
-        <div class="case-card">
-            <div style="text-align: center; margin-bottom: var(--space-xl);">
-                <div class="hero-badge" style="border-color: var(--color-primary); color: var(--color-primary); background: rgba(10, 132, 255, 0.1); margin-bottom: var(--space-md); padding: 0.25rem 0.75rem; display:inline-block; border-radius:99px; font-weight:600; font-size:0.8rem;">SHARED CASE LINK</div>
-                <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;" class="text-gradient">Review Shared Case</h1>
-                <p id="pageCopy" style="font-size: 1rem;">Loading the shared `.epi` case file...</p>
-            </div>
-
-            <div id="statusBadge" class="status-badge status-warning">
-                <span id="statusIcon">...</span> <span id="statusText">Loading case</span>
-            </div>
-            <p id="statusDesc" style="color: var(--color-gray-300); font-size: 0.95rem;"></p>
-
-            <div class="metadata-grid">
-                <div>
-                    <div class="meta-label">Filename</div>
-                    <div id="metaFilename" class="meta-value mono">--</div>
-                </div>
-                <div>
-                    <div class="meta-label">Workflow ID</div>
-                    <div id="metaWorkflow" class="meta-value mono">--</div>
-                </div>
-                <div>
-                    <div class="meta-label">Created At</div>
-                    <div id="metaCreatedAt" class="meta-value">--</div>
-                </div>
-                <div>
-                    <div class="meta-label">Expires</div>
-                    <div id="metaExpiresAt" class="meta-value">--</div>
-                </div>
-                <div>
-                    <div class="meta-label">Signer</div>
-                    <div id="metaSigner" class="meta-value mono">--</div>
-                </div>
-                <div>
-                    <div class="meta-label">Steps Recorded</div>
-                    <div id="metaSteps" class="meta-value">--</div>
-                </div>
-            </div>
-
-            <div class="action-row">
-                <button id="timelineButton" class="btn-primary" style="padding: 0.75rem;" disabled>
-                    Inspect Timeline
-                </button>
-                <button id="filesButton" class="btn-secondary" style="padding: 0.75rem; border-color: rgba(255,255,255,0.2); color: #fff;" disabled>
-                    File Manifest
-                </button>
-                <a id="downloadButton" class="btn-secondary hidden" style="padding: 0.75rem; border-color: rgba(255,255,255,0.2); color: #fff;" href="#">
-                    Download .epi
-                </a>
+    <main>
+        <div class="card">
+            <div class="badge">SHARED CASE LINK</div>
+            <h1>Shared case links need the hosted service</h1>
+            <p>
+                This page is for case IDs shared through the hosted EPI portal.
+                The static version cannot fetch hosted cases by ID.
+                Ask the sender to share the <code>.epi</code> file directly, or open it in the verifier below.
+            </p>
+            <div class="actions">
+                <a href="../verify.html" class="btn btn-primary">Open Verify Portal</a>
+                <a href="../" class="btn btn-secondary">Back Home</a>
             </div>
         </div>
     </main>
-
-    <div id="timelineModal" class="glass-modal">
-        <div class="glass-modal-content">
-            <div class="modal-header">
-                <div>
-                    <h3 style="margin-bottom: 0;">Evidence Timeline</h3>
-                    <p style="font-size: 0.8rem; margin:0;">Execution trace reconstructed from `steps.jsonl`.</p>
-                </div>
-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" id="closeTimelineButton">X</button>
-            </div>
-            <div class="modal-body" id="timelineContent"></div>
-        </div>
-    </div>
-
-    <div id="filesModal" class="glass-modal">
-        <div class="glass-modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <div>
-                    <h3 style="margin-bottom: 0;">File Manifest</h3>
-                    <p style="font-size: 0.8rem; margin:0;">Cryptographic inventory (SHA-256)</p>
-                </div>
-                <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border:none;" id="closeFilesButton">X</button>
-            </div>
-            <div class="modal-body" style="padding: 0;">
-                <table style="width: 100%; text-align: left; border-collapse: collapse;">
-                    <thead style="background: rgba(0,0,0,0.5); border-bottom: 1px solid var(--border-subtle);">
-                        <tr>
-                            <th style="padding: 0.75rem 1rem; color: var(--color-gray-400); font-size: 0.8rem; text-transform: uppercase;">Filename</th>
-                            <th style="padding: 0.75rem 1rem; color: var(--color-gray-400); font-size: 0.8rem; text-transform: uppercase;">SHA-256 Hash</th>
-                        </tr>
-                    </thead>
-                    <tbody id="filesTableBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="../index.html" title="Go to Home">
-                        <img src="../assets/logo.png" alt="EPI LABS" class="footer-logo">
-                    </a>
-                    <p>Portable repro artifacts for AI systems.</p>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <script type="module">
-        import { analyzeArtifactBlob } from '../js/epi-verify-core.js';
-
-        const API_BASE_URL = 'https://api.epilabs.org';
-        let currentSteps = [];
-        let currentFileManifest = {};
-
-        const statusBadge = document.getElementById('statusBadge');
-        const statusIcon = document.getElementById('statusIcon');
-        const statusText = document.getElementById('statusText');
-        const statusDesc = document.getElementById('statusDesc');
-        const pageCopy = document.getElementById('pageCopy');
-        const timelineButton = document.getElementById('timelineButton');
-        const filesButton = document.getElementById('filesButton');
-        const downloadButton = document.getElementById('downloadButton');
-
-        document.getElementById('closeTimelineButton').addEventListener('click', () => {
-            document.getElementById('timelineModal').classList.remove('active');
-        });
-        document.getElementById('closeFilesButton').addEventListener('click', () => {
-            document.getElementById('filesModal').classList.remove('active');
-        });
-        timelineButton.addEventListener('click', () => document.getElementById('timelineModal').classList.add('active'));
-        filesButton.addEventListener('click', () => document.getElementById('filesModal').classList.add('active'));
-
-        void loadSharedCase();
-
-        async function loadSharedCase() {
-            const shareId = new URLSearchParams(window.location.search).get('id');
-            if (!shareId) {
-                setStatus('error', 'Missing case link', 'This link is missing a case id. Ask the sender for the full share URL.');
-                pageCopy.textContent = 'The shared link is incomplete.';
-                return;
-            }
-
-            try {
-                const metaResponse = await fetch(`${API_BASE_URL}/api/share/${encodeURIComponent(shareId)}/meta`);
-                if (metaResponse.status === 404) {
-                    setStatus('error', 'Case link not found', 'This shared link does not exist or has already been removed.');
-                    pageCopy.textContent = 'The shared case could not be found.';
-                    return;
-                }
-                if (metaResponse.status === 410) {
-                    setStatus('warning', 'Case link expired', 'This shared link has expired. Ask the sender to upload the case again.');
-                    pageCopy.textContent = 'The shared case is no longer available.';
-                    return;
-                }
-                if (!metaResponse.ok) {
-                    throw new Error(`Share metadata request failed with status ${metaResponse.status}`);
-                }
-
-                const meta = await metaResponse.json();
-                const downloadUrl = `${API_BASE_URL}/api/share/${encodeURIComponent(shareId)}`;
-                const artifactResponse = await fetch(downloadUrl);
-                if (artifactResponse.status === 410) {
-                    setStatus('warning', 'Case link expired', 'This shared link has expired. Ask the sender to upload the case again.');
-                    pageCopy.textContent = 'The shared case is no longer available.';
-                    return;
-                }
-                if (!artifactResponse.ok) {
-                    throw new Error(`Shared case download failed with status ${artifactResponse.status}`);
-                }
-
-                const artifactBlob = await artifactResponse.blob();
-                const artifact = await analyzeArtifactBlob(artifactBlob, { allowEmbeddedViewer: false });
-                currentSteps = artifact.steps;
-                currentFileManifest = artifact.fileManifest;
-                renderCase(meta, artifact, downloadUrl);
-            } catch (error) {
-                setStatus('error', 'Could not load case', error.message || String(error));
-                pageCopy.textContent = 'The hosted case could not be loaded right now.';
-            }
-        }
-
-        function renderCase(meta, artifact, downloadUrl) {
-            const verification = artifact.verification;
-            const stateText = verification.state === 'success'
-                ? 'Verified case'
-                : verification.state === 'warning'
-                    ? 'Unsigned case'
-                    : verification.state === 'tampered'
-                        ? 'Tampered case'
-                        : 'Verification failed';
-            setStatus(verification.state, stateText, verification.description);
-            pageCopy.textContent = 'This hosted page reads the raw `.epi` bytes and renders the case timeline without executing the artifact\'s embedded viewer.';
-
-            document.getElementById('metaFilename').textContent = meta.filename || '--';
-            document.getElementById('metaWorkflow').textContent = meta.workflow_id || artifact.manifest.workflow_id || '--';
-            document.getElementById('metaCreatedAt').textContent = formatDate(meta.artifact_created_at || artifact.manifest.created_at);
-            document.getElementById('metaExpiresAt').textContent = formatDate(meta.expires_at);
-            document.getElementById('metaSigner').textContent = verification.signerLabel || meta.signer || 'Unsigned';
-            document.getElementById('metaSteps').textContent = String(meta.steps_count || artifact.steps.length || 0);
-
-            downloadButton.href = downloadUrl;
-            downloadButton.classList.remove('hidden');
-            timelineButton.disabled = false;
-            filesButton.disabled = false;
-            populateTimeline();
-            populateFiles();
-        }
-
-        function populateTimeline() {
-            const container = document.getElementById('timelineContent');
-            container.innerHTML = '';
-            if (!currentSteps.length) {
-                container.innerHTML = '<p style="text-align:center; color: var(--color-gray-500); padding: 2rem;">No recorded steps found in this artifact.</p>';
-                return;
-            }
-
-            currentSteps.forEach((step) => {
-                const contentJson = JSON.stringify(step.content, null, 2);
-                const preview = truncate(step.content?.command || step.content?.prompt || contentJson, 80);
-                const item = document.createElement('div');
-                item.className = 'timeline-item';
-                item.innerHTML = `
-                    <div class="timeline-header">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="color: var(--color-gray-500); font-family: var(--font-mono);">#${step.index ?? '--'}</span>
-                            <span style="background: rgba(255,255,255,0.1); padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.75rem; text-transform: uppercase;">${escapeHtml(step.kind || 'step')}</span>
-                            <span style="color: var(--color-white);">${escapeHtml(preview)}</span>
-                        </div>
-                        <span style="color: var(--color-gray-500); font-size: 0.8rem;">${formatDate(step.timestamp)}</span>
-                    </div>
-                    <div class="timeline-body"><pre style="margin: 0;">${escapeHtml(contentJson)}</pre></div>
-                `;
-                item.querySelector('.timeline-header').addEventListener('click', function () {
-                    const body = this.nextElementSibling;
-                    const isOpen = body.classList.contains('active');
-                    document.querySelectorAll('.timeline-body').forEach((element) => element.classList.remove('active'));
-                    if (!isOpen) {
-                        body.classList.add('active');
-                    }
-                });
-                container.appendChild(item);
-            });
-        }
-
-        function populateFiles() {
-            const tbody = document.getElementById('filesTableBody');
-            tbody.innerHTML = '';
-            const entries = Object.entries(currentFileManifest || {});
-            if (!entries.length) {
-                tbody.innerHTML = '<tr><td colspan="2" style="padding: 1rem; text-align:center; color: var(--color-gray-500);">No files mapped.</td></tr>';
-                return;
-            }
-            entries.forEach(([name, hash]) => {
-                tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <td style="padding: 1rem; color: var(--color-white); font-weight: 500;">${escapeHtml(name)}</td>
-                        <td style="padding: 1rem; font-family: var(--font-mono); color: var(--color-gray-400); font-size: 0.85rem; word-break: break-all;">${escapeHtml(hash)}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function setStatus(state, label, description) {
-            statusBadge.className = 'status-badge';
-            if (state === 'success') {
-                statusBadge.classList.add('status-success');
-                statusIcon.textContent = 'OK';
-            } else if (state === 'warning') {
-                statusBadge.classList.add('status-warning');
-                statusIcon.textContent = 'WARN';
-            } else {
-                statusBadge.classList.add('status-error');
-                statusIcon.textContent = state === 'tampered' ? '!' : 'X';
-            }
-            statusText.textContent = label;
-            statusDesc.textContent = description;
-        }
-
-        function formatDate(value) {
-            if (!value) {
-                return '--';
-            }
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) {
-                return String(value);
-            }
-            return date.toLocaleString();
-        }
-
-        function truncate(value, maxLength) {
-            const text = String(value || '');
-            return text.length <= maxLength ? text : text.slice(0, maxLength - 3) + '...';
-        }
-
-        function escapeHtml(value) {
-            const div = document.createElement('div');
-            div.textContent = String(value ?? '');
-            return div.innerHTML;
-        }
-    </script>
-    <script src="../js/app.js?v=8.0"></script>
-    <script src="../js/particles.js?v=4.0.1"></script>
+    <footer>&copy; 2026 EPI LABS. Built in India. Engineered for the world.</footer>
 </body>
 </html>

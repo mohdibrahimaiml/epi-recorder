@@ -7,10 +7,7 @@
 <link rel="shortcut icon" href="assets/epi-favicon.png" type="image/png">
 <link rel="stylesheet" href="css/epi.css?v=24">
 <style>
-  body{font-family:var(--sans);background:var(--bg);color:var(--ink);margin:0}
-  nav#nav{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;z-index:100}
-  nav a{text-decoration:none;color:var(--ink);font-weight:500;font-size:14px}
-  nav a:hover{color:var(--accent)}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);margin:0;padding-top:72px}
   .hero{text-align:center;padding:80px 20px 40px}
   .hero h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;margin-bottom:8px}
   .hero h1 em{font-style:normal;color:var(--accent)}
@@ -28,7 +25,6 @@
   .empty-state{text-align:center;padding:60px;color:var(--ink-soft)}
   .empty-icon{font-size:48px;margin-bottom:16px}
   footer{text-align:center;padding:30px;color:var(--ink-soft);font-size:13px;border-top:1px solid var(--border)}
-  .theme-toggle-nav{border:1px solid var(--border);border-radius:100px;background:0;padding:6px 12px;cursor:pointer;font-size:14px;margin-left:auto}
 </style>
 </head>
 <body>
@@ -97,7 +93,12 @@
   var obs=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add('visible');obs.unobserve(el.target)}})},{threshold:.15});
   document.querySelectorAll('.reveal').forEach(function(el){obs.observe(el)});
 
-  // Fetch ledger entries
+  // Fetch ledger entries (skip on local static/file-system preview)
+  var host=location.hostname;
+  if(host==='localhost'||host==='127.0.0.1'||location.protocol==='file:'){
+    document.getElementById('ledger').innerHTML='<div class="empty-state"><div class="empty-icon">&#x26A0;</div><h3>Ledger preview</h3><p>The SCITT ledger is populated by the hosted transparency service. Entries will appear here automatically when the service is running.</p></div>';
+    return;
+  }
   fetch('/scitt/entries?limit=20')
     .then(function(r){return r.json()})
     .then(function(data){

@@ -1,28 +1,27 @@
-const CACHE_NAME = 'epi-verifier-v7';
+const CACHE_NAME = 'epi-verifier-v8';
 const ASSETS = [
-    './verify/',
+    './',
+    './index.html',
     './verify.html',
-    './cases/',
-    './manifest.json',
-    './js/epi-verify-core.js',
+    './pricing.html',
+    './scitt.html',
+    './portal.html',
+    './css/epi.css?v=24',
+    './js/terminal.js',
+    './js/dropzone.js?v=3',
+    './assets/logo.png',
     './assets/logo.svg',
-    'https://esm.sh/@noble/ed25519@2.0.0'
+    './assets/epi-favicon.png'
 ];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            // We try to cache local assets. External CDNs might be opaque/cors issues but we try.
-            // For a robust offline app, we should bundle dependencies locally. 
-            // For this MVP, we cache the main HTML which is most important.
-            return cache.addAll(['./verify/', './verify.html', './cases/', './manifest.json', './js/epi-verify-core.js', './assets/logo.svg']);
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
     );
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    // Clean up old caches if any
     event.waitUntil(
         caches.keys().then((keys) => {
             return Promise.all(
@@ -34,8 +33,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    const acceptHeader = event.request.headers.get('accept') || '';
     // Network-First Strategy for HTML to ensure we always get the latest layout
-    if (event.request.headers.get('accept').includes('text/html')) {
+    if (acceptHeader.includes('text/html')) {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
@@ -45,9 +45,7 @@ self.addEventListener('fetch', (event) => {
                     });
                     return response;
                 })
-                .catch(() => {
-                    return caches.match(event.request);
-                })
+                .catch(() => caches.match(event.request))
         );
     } else {
         // Cache-First for static assets

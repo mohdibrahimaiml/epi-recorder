@@ -444,18 +444,14 @@ globalThis.noble = noble;
 // ==========================================
 
 async function verifyManifestSignature(manifest) {
-    console.log("Verifying manifest signature...", manifest);
-
     // 1. Check if signature exists
     if (!manifest.signature) {
-        console.warn("No signature found");
         return { valid: false, reason: "No signature" };
     }
 
     // 2. Parse signature string "ed25519:<name>:<hex>"
     const parts = manifest.signature.split(':');
     if (parts.length !== 3 || parts[0] !== 'ed25519') {
-        console.error("Invalid signature format");
         return { valid: false, reason: "Invalid format" };
     }
 
@@ -464,7 +460,6 @@ async function verifyManifestSignature(manifest) {
 
     // 3. Get Public Key
     if (!manifest.public_key) {
-        console.warn("Manifest missing public_key field for verification");
         return { valid: false, reason: "Missing Public Key" };
     }
 

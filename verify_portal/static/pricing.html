@@ -46,8 +46,6 @@
 .btn-submit:hover{opacity:.9}
 .note{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:12px}
 </style>
-
-<link rel="shortcut icon" href="assets/epi-favicon.png" type="image/x-icon">
 </head>
 <body>
 <nav id="nav">
@@ -173,7 +171,7 @@
 <div class="contact-section" id="contact">
 <h2>Get in touch</h2>
 <p class="contact-sub">Tell us about your use case. We respond within 1 business day.</p>
-<form action="/api/contact" method="POST">
+<form action="mailto:mohdibrahim@epilabs.org?subject=EPI%20Pricing%20Inquiry" method="POST" enctype="text/plain">
 <div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your full name"></div>
 <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@company.com"></div>
 <div class="form-group"><label>Company</label><input type="text" name="company" required placeholder="Company name"></div>
