@@ -20,8 +20,8 @@ from uuid import uuid4
 from epi_core import __version__
 from epi_core.time_utils import utc_now_iso
 
-DEFAULT_TELEMETRY_URL = "https://api.epilabs.org/api/telemetry/events"
-DEFAULT_PILOT_SIGNUP_URL = "https://api.epilabs.org/api/telemetry/pilot-signups"
+DEFAULT_TELEMETRY_URL = "https://epi-verify-portal.onrender.com/api/telemetry/events"
+DEFAULT_PILOT_SIGNUP_URL = "https://epi-verify-portal.onrender.com/api/telemetry/pilot-signups"
 TELEMETRY_SCHEMA_VERSION = "telemetry/v1"
 PILOT_SIGNUP_SCHEMA_VERSION = "pilot-signup/v1"
 TELEMETRY_QUEUE_MAX_FAILURES = 3

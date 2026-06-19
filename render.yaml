@@ -14,7 +14,10 @@ services:
         sync: false
       - key: EPI_SCITT_SERVICE_PRIVATE_KEY
         sync: false
+      - key: EPI_VERIFY_TELEMETRY_ENABLED
+        value: true
     domains:
       - epilabs.org
       - www.epilabs.org
       - verify.epilabs.org
+      - api.epilabs.org

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import io
+import json
 from pathlib import Path
 from typing import Any
 
@@ -263,3 +264,81 @@ def test_verify_with_pro_key(client, valid_epi):
     key = r.json()["api_key"]  
     with open(valid_epi, "rb") as f:  
         r2 = client.post("/api/verify", files={"file": ("test.epi", f, "application/epi+zip")}, headers={"X-API-Key": key})  
+
+
+# ---------------------------------------------------------------------------
+# Telemetry ingestion
+# ---------------------------------------------------------------------------
+
+
+def _telemetry_event_payload() -> dict[str, Any]:
+    from epi_core import telemetry
+    return {
+        "schema_version": telemetry.TELEMETRY_SCHEMA_VERSION,
+        "install_id": "install-verify-portal-1",
+        "event_name": "epi.record.completed",
+        "timestamp": "2026-04-12T00:00:00Z",
+        "epi_version": "4.2.0",
+        "python_version": "3.11",
+        "os": "Linux",
+        "environment": "ci",
+        "ci": True,
+        "metadata": {"command": "record", "artifact_bytes": 123, "success": True},
+    }
+
+
+def test_verify_portal_accepts_telemetry_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("EPI_STORAGE_DIR", str(tmp_path))
+    response = client.post("/api/telemetry/events", json=_telemetry_event_payload())
+    assert response.status_code == 202, response.text
+    output = tmp_path / "telemetry" / "events.jsonl"
+    assert output.exists()
+    record = json.loads(output.read_text(encoding="utf-8").strip())
+    assert record["payload"]["event_name"] == "epi.record.completed"
+    assert record["payload"]["metadata"]["artifact_bytes"] == 123
+
+
+def test_verify_portal_rejects_banned_telemetry_fields(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("EPI_STORAGE_DIR", str(tmp_path))
+    payload = _telemetry_event_payload()
+    payload["metadata"]["repo_name"] = "private/repo"
+    response = client.post("/api/telemetry/events", json=payload)
+    assert response.status_code == 400
+
+
+def test_verify_portal_accepts_pilot_signup(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from epi_core import telemetry
+    monkeypatch.setenv("EPI_STORAGE_DIR", str(tmp_path))
+    response = client.post(
+        "/api/telemetry/pilot-signups",
+        json={
+            "schema_version": telemetry.PILOT_SIGNUP_SCHEMA_VERSION,
+            "email": "pilot@example.com",
+            "org": "EPI Labs",
+            "role": "founder",
+            "use_case": "agt integration",
+            "consent_to_contact": True,
+            "link_telemetry": False,
+            "created_at": "2026-04-12T00:00:00Z",
+        },
+    )
+    assert response.status_code == 202, response.text
+    output = tmp_path / "telemetry" / "pilot_signups.jsonl"
+    record = json.loads(output.read_text(encoding="utf-8").strip())
+    assert record["payload"]["email"] == "pilot@example.com"
+
+
+def test_verify_portal_telemetry_can_be_disabled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("verify_portal.main._VERIFY_TELEMETRY_ENABLED", False)
+    monkeypatch.setenv("EPI_STORAGE_DIR", str(tmp_path))
+    response = client.post("/api/telemetry/events", json=_telemetry_event_payload())
+    assert response.status_code == 404
+    assert not (tmp_path / "telemetry" / "events.jsonl").exists()

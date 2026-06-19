@@ -31,9 +31,24 @@ CNAME   verify   epi-verify.onrender.com
 2. In Render dashboard → epi-verify service → Settings → Custom Domain:
    - Add: `verify.epilabs.org`
 
+## Subdomain: api.epilabs.org → Render
+
+The same `epi-verify` Render service also hosts the opt-in telemetry and pilot-signup endpoints.
+
+1. At your domain registrar, add:
+
+```
+Type    Name     Value
+CNAME   api      epi-verify-portal.onrender.com
+```
+
+2. In Render dashboard → epi-verify service → Settings → Custom Domain:
+   - Add: `api.epilabs.org`
+
 ## What lives where
 
 | Domain | Hosting | Content |
 |--------|---------|---------|
 | epilabs.org | GitHub Pages | index.html, pricing, demo, docs, viewer |
 | verify.epilabs.org | Render | /verify, /api/verify, /health, /.well-known/* |
+| api.epilabs.org | Render | /api/telemetry/events, /api/telemetry/pilot-signups, /api/share |

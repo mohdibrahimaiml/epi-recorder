@@ -37,6 +37,11 @@ from epi_core.trust import (
     create_verification_report,
     verify_embedded_manifest_signature,
 )
+from epi_core.telemetry import (
+    TelemetryError,
+    validate_event_payload,
+    validate_pilot_signup_payload,
+)
 from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
 
@@ -545,6 +550,56 @@ async def scitt_page():
     raise HTTPException(404, "SCITT page not found")
 
 app.include_router(share_router)
+
+
+# --- Telemetry ingestion endpoints ---
+# These mirror the gateway's /api/telemetry endpoints so the hosted
+# verify portal can receive opt-in telemetry and pilot signups.
+
+_VERIFY_TELEMETRY_ENABLED = str(
+    os.getenv("EPI_VERIFY_TELEMETRY_ENABLED", "true")
+).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _append_telemetry_record(filename: str, payload: dict[str, Any]) -> Path:
+    telemetry_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data")) / "telemetry"
+    telemetry_dir.mkdir(parents=True, exist_ok=True)
+    output = telemetry_dir / filename
+    record = {"ts": datetime.now(UTC).isoformat(), "payload": payload}
+    with output.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, default=str) + "\n")
+    return output
+
+
+@app.post("/api/telemetry/events", status_code=202)
+async def telemetry_event(payload: dict[str, Any]):
+    """Receive an anonymous telemetry event from opted-in clients."""
+    if not _VERIFY_TELEMETRY_ENABLED:
+        raise HTTPException(status_code=404, detail="Telemetry ingestion is not enabled.")
+    try:
+        normalized = validate_event_payload(payload)
+        _append_telemetry_record("events.jsonl", normalized)
+        return {"ok": True, "status": "accepted"}
+    except TelemetryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Internal Server Error") from exc
+
+
+@app.post("/api/telemetry/pilot-signups", status_code=202)
+async def telemetry_pilot_signup(payload: dict[str, Any]):
+    """Receive a pilot signup linked to an opted-in install."""
+    if not _VERIFY_TELEMETRY_ENABLED:
+        raise HTTPException(status_code=404, detail="Telemetry ingestion is not enabled.")
+    try:
+        normalized = validate_pilot_signup_payload(payload)
+        _append_telemetry_record("pilot_signups.jsonl", normalized)
+        return {"ok": True, "status": "accepted"}
+    except TelemetryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Internal Server Error") from exc
+
 
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
