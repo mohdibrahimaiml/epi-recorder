@@ -124,8 +124,8 @@ function summarizeStep(step) {
       }
 
       case 'tool.call': {
-        const name = c.name || c.tool_name || 'unknown';
-        const inputStr = JSON.stringify(c.input || c.tool_input || c.parameters || {});
+        const name = c.name || c.tool_name || (c.agt_data && (c.agt_data.tool || c.agt_data.tool_name)) || 'unknown';
+        const inputStr = JSON.stringify(c.input || c.tool_input || c.parameters || c.agt_data || {});
         return `Called ${name}(${trunc(inputStr, 100)})`;
       }
 
@@ -179,8 +179,8 @@ function summarizeStep(step) {
       }
 
       case 'policy.check': {
-        const ruleId = c.rule_id || c.id || '?';
-        const status = c.status || '?';
+        const ruleId = c.rule_id || c.id || c.matched_rule || (c.agt_data && c.agt_data.policy_name) || '?';
+        const status = c.status || c.policy_decision || '?';
         const note = c.note || c.message || '';
         return `Rule ${ruleId}: ${status}${note ? ' — ' + trunc(note, 120) : ''}`;
       }
@@ -585,14 +585,23 @@ function renderVerdict(caseData) {
   const analysis = caseData.analysis || null;
   const pe = caseData.policy_evaluation || null;
 
-  // Find last agent.decision step
+  // Find last agent.decision or policy.check with known outcome
   let decisionStep = null;
   for (let i = steps.length - 1; i >= 0; i--) {
-    if (steps[i].kind === 'agent.decision') { decisionStep = steps[i]; break; }
+    const sk = steps[i].kind || '';
+    if (sk === 'agent.decision') { decisionStep = steps[i]; break; }
+    // policy.check with final status is also a decision
+    if (sk === 'policy.check') {
+      const sc = steps[i].content || {};
+      const st = String(sc.status || sc.policy_decision || '').toLowerCase();
+      if (st === 'deny' || st === 'blocked' || st === 'allow' || st === 'passed') {
+        decisionStep = steps[i]; break;
+      }
+    }
   }
 
   const decisionContent = decisionStep?.content || {};
-  const rawDecision = String(decisionContent.decision || decisionContent.verdict || '').toUpperCase();
+  const rawDecision = String(decisionContent.decision || decisionContent.verdict || decisionContent.policy_decision || decisionContent.status || '').toUpperCase();
 
   // Check human review — it overrides the system verdict when present
   const humanReview = normalizeReview(caseData.review);

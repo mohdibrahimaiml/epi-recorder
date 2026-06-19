@@ -64,11 +64,11 @@ class AGTFileAuditEntry(BaseModel):
     event_type: str  # Not enum — future types must parse
     agent_did: str
     action: str
-    resource: str = ""
+    resource: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
     outcome: str
-    policy_decision: str = ""
-    trace_id: str = ""
+    policy_decision: str | None = None
+    trace_id: str | None = None
     entry_hash: str = ""
     content_hash: str = ""
     previous_hash: str = ""
@@ -85,11 +85,11 @@ class AGTExportEntry(BaseModel):
     event_type: str
     agent_did: str
     action: str
-    resource: str = ""
+    resource: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
     outcome: str
-    policy_decision: str = ""
-    trace_id: str = ""
+    policy_decision: str | None = None
+    trace_id: str | None = None
     entry_hash: str = ""
 
 

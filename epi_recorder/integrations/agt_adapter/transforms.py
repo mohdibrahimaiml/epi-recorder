@@ -23,6 +23,8 @@ EVENT_TYPE_TO_KIND = {
     "policy_violation": "policy.violation",
     "rogue_detection": "security.alert",
     "agent_invocation": "agent.delegate",
+    "agent_action": "tool.call",
+    "policy_decision": "policy.check",
 }
 
 KIND_TO_EVENT_TYPE = {v: k for k, v in EVENT_TYPE_TO_KIND.items()}
@@ -176,7 +178,7 @@ def build_step_content(entry: dict, report: MappingReport) -> dict:
         )
 
     # Map policy_decision if present
-    if "policy_decision" in entry and entry["policy_decision"]:
+    if "policy_decision" in entry and entry["policy_decision"] is not None:
         content["policy_decision"] = entry["policy_decision"]
         report.field_mappings.append(
             FieldMapping(
@@ -188,7 +190,7 @@ def build_step_content(entry: dict, report: MappingReport) -> dict:
         )
 
     # Map trace_id if present
-    if "trace_id" in entry and entry["trace_id"]:
+    if "trace_id" in entry and entry["trace_id"] is not None:
         content["trace_id"] = entry["trace_id"]
         report.field_mappings.append(
             FieldMapping(

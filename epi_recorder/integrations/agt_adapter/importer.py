@@ -117,6 +117,13 @@ def _entry_to_step(
     # Map agent name
     step["content"]["agent_name"] = map_agent_did(entry.agent_did, report)
 
+    # Extract matched_rule from data.policy_name if not at top level
+    data = entry_dict.get("data", {}) or {}
+    matched_rule = entry_dict.get("matched_rule") or data.get("policy_name") or ""
+    if matched_rule:
+        step["content"]["matched_rule"] = matched_rule
+        step["governance"]["policy_name"] = matched_rule
+
     # Map entry_id → step trace reference
     add_exact(report, "entry_id", "governance.agt_entry_id", entry.entry_id)
     step["content"]["agt_entry_id"] = entry.entry_id
