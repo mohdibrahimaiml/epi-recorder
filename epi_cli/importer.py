@@ -17,6 +17,7 @@ from epi_recorder.integrations.agt import AGTInputError, export_agt_to_epi, load
 from epi_recorder.integrations.agt.loader import DEFAULT_AGT_IMPORT_MANIFEST
 from epi_recorder.integrations.agt.report import AnalysisMode
 from epi_recorder.integrations.agt_adapter import import_agt as import_agt_raw
+from epi_recorder.integrations.agt_adapter.detect import detect_file_format, AGTArtifactType
 
 _ALLOWED_DEDUP = {"prefer-audit", "keep-both", "fail"}
 _ALLOWED_ANALYSIS = {"synthesized", "none"}
@@ -69,7 +70,7 @@ def import_agt(
         ...,
         help=(
             "Path to AGT input: neutral bundle JSON, AGT evidence directory, "
-            "or AGT import manifest JSON."
+            "native AGT export, or AGT import manifest JSON."
         ),
     ),
     out: Path = typer.Option(..., "--out", "-o", help="Output .epi file path."),
@@ -92,9 +93,66 @@ def import_agt(
         "--analysis",
         help="Whether to synthesize analysis.json for imported artifacts.",
     ),
+    raw: bool = typer.Option(
+        False, "--raw", hidden=True,
+        help="Force raw AGT import (bypass auto-detect).",
+    ),
 ):
-    """Convert AGT evidence into a normal .epi artifact."""
+    """Convert AGT evidence into a normal .epi artifact.
 
+    Auto-detects the input format: native AGT export, EPI neutral bundle,
+    AGT evidence directory, or AGT import manifest.
+    """
+    # Auto-detect: is this a native AGT format or a bundle/directory?
+    use_raw = raw
+    if not use_raw and agt_input.is_file():
+        try:
+            atype, _ = detect_file_format(agt_input)
+            use_raw = atype in (
+                AGTArtifactType.EXPORT_BUNDLE,
+                AGTArtifactType.FILE_AUDIT_SINK,
+                AGTArtifactType.CLOUDEVENTS,
+                AGTArtifactType.SINGLE_ENTRY,
+            )
+        except Exception:
+            use_raw = False  # Not a native format, try bundle path
+
+    if use_raw:
+        # Route to native AGT raw pipeline
+        try:
+            epi_path, report = import_agt_raw(
+                source=agt_input,
+                output_dir=out.parent,
+                workflow_name="agt-import",
+                tags=["agt-import"],
+            )
+        except Exception as exc:
+            console.print(f"[red][FAIL][/red] Native AGT import failed: {exc}")
+            raise typer.Exit(1)
+
+        if str(epi_path) != str(out):
+            import shutil
+            shutil.move(str(epi_path), str(out))
+            epi_path = out
+
+        signed = bool(EPIContainer.read_manifest(epi_path).signature)
+        console.print("")
+        panel = Panel(
+            f"[bold]Input:[/bold] {agt_input}\n"
+            f"[bold]Output:[/bold] {epi_path}\n"
+            f"[bold]Signed:[/bold] {'Yes' if signed else 'No'}\n"
+            f"[bold]AGT Version:[/bold] {report.agt_version_detected}\n"
+            f"[bold]Fields Mapped:[/bold] {report.exact_count} exact, "
+            f"{report.dropped_count} dropped, {report.preserved_count} preserved\n"
+            f"[bold]Mapping Report:[/bold] mapping_report.json\n"
+            f"[dim]Verify:[/dim] epi verify {epi_path}",
+            title="[OK] AGT import complete",
+            border_style="green",
+        )
+        console.print(panel)
+        return
+
+    # Bundle/directory route (original behavior)
     try:
         bundle = load_agt_input(agt_input)
     except FileNotFoundError as exc:
@@ -188,11 +246,11 @@ def import_agt_raw_cmd(
     workflow_name: str = typer.Option("", "--name", help="Override workflow name."),
     tag: list[str] = typer.Option([], "--tag", help="Additional tags for the artifact."),
 ):
-    """Import raw AGT audit evidence into a sealed .epi artifact.
+    """[DEPRECATED] Use 'epi import agt' instead — auto-detects formats.
 
+    Import raw AGT audit evidence into a sealed .epi artifact.
     Detects artifact format from content (JSON bundle, JSONL FileAuditSink,
     CloudEvents) and preserves raw AGT evidence verbatim inside the .epi file.
-    Every field mapping is recorded in mapping_report.json.
     """
     if not source.exists():
         console.print(f"[red][X] File not found:[/red] {source}")
