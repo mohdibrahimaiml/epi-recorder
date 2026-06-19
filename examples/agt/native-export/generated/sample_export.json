@@ -1,0 +1,35 @@
+{
+  "exported_at": "2026-06-19T16:43:47.486296+00:00",
+  "merkle_root": "4ab58b4538f16fa42cc98f009c5c442ab0702147c0dfac9b506faa7f37c9b92a",
+  "chain_root": "4ab58b4538f16fa42cc98f009c5c442ab0702147c0dfac9b506faa7f37c9b92a",
+  "entry_count": 1,
+  "entries": [
+    {
+      "entry_id": "audit_5aaf9eb687d44915",
+      "timestamp": "2026-06-19 16:43:47.486296+00:00",
+      "issued_at": null,
+      "completed_at": null,
+      "event_type": "agent_action",
+      "agent_did": "d",
+      "action": "x",
+      "arguments_hash": null,
+      "resource": null,
+      "target_did": null,
+      "approver_did": null,
+      "data": {
+        "a": 1
+      },
+      "outcome": "success",
+      "policy_decision": null,
+      "matched_rule": null,
+      "policy_version": null,
+      "previous_hash": "",
+      "entry_hash": "4ab58b4538f16fa42cc98f009c5c442ab0702147c0dfac9b506faa7f37c9b92a",
+      "trace_id": null,
+      "session_id": null,
+      "sandbox_id": null,
+      "environment": null,
+      "compute_driver": null
+    }
+  ]
+}

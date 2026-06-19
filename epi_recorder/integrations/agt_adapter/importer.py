@@ -205,7 +205,7 @@ def _build_epi_artifact(
         output_path=epi_path,
         signer_function=signer_function,
         preserve_generated=True,
-        generate_analysis=False,
+        generate_analysis=True,
     )
 
     # Cleanup temp source dir

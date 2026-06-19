@@ -1,51 +1,66 @@
-# AGT Import Examples
+# AGT -> EPI Examples
 
-`epi import agt` accepts three AGT input shapes:
+This directory demonstrates importing Microsoft Agent Governance Toolkit (AGT)
+evidence into EPI portable forensic artifacts.
 
-- `examples/agt/sample_bundle.json`
-- `examples/agt/evidence-dir`
-- `examples/agt/manifest-input/agt_import_manifest.json`
-
-From the repo root:
+## Quick start (no AGT SDK needed)
 
 ```bash
-epi import agt examples/agt/evidence-dir --out case.epi
+pip install epi-recorder
+cd epi-recorder
+epi import agt examples/agt/native-export/sample_export.json --out case.epi
 epi verify case.epi
-epi view --extract review case.epi
-```
-
-Use the other two inputs the same way:
-
-```bash
-epi import agt examples/agt/sample_bundle.json --out case.epi
-epi import agt examples/agt/manifest-input/agt_import_manifest.json --out case.epi
-```
-
-Which input should you use?
-
-- `sample_bundle.json`: you already have one aggregated AGT JSON file
-- `evidence-dir/`: AGT outputs multiple files with standard names like `audit_logs.json`
-- `agt_import_manifest.json`: your AGT filenames differ and need explicit mapping
-
-Expected result:
-
-- `sample.epi` or `case.epi` verifies cleanly
-- `review/viewer.html` is extracted
-- the artifact contains `steps.jsonl`, `policy.json`, `policy_evaluation.json`, and `artifacts/agt/mapping_report.json`
-
-Optional interactive review:
-
-```bash
 epi view case.epi
 ```
 
-If directory import fails:
+## Native AGT export demo (requires AGT SDK)
 
-- make sure the directory contains at least `audit_logs.json` or `flight_recorder.json`
-- if filenames differ, add `agt_import_manifest.json`
+```bash
+# Install AGT
+pip install agent-governance-toolkit-core
 
-Related docs:
+# Generate evidence and import
+python examples/agt/native-export/generate_evidence.py
+epi import agt examples/agt/native-export/agt_export.json --out case.epi
+epi verify case.epi
+```
 
-- [AGT quickstart](../../docs/AGT-IMPORT-QUICKSTART.md)
-- [AGT -> EPI demo](../agt-epi-demo/README.md)
-- [AGT + .EPI docs](../../docs/agt-epi/README.md)
+## What the native export contains
+
+The script uses Microsoft's actual `AuditService` to log:
+- **agent_action**: FICO credit check (score 712, DTI 28%)
+- **agent_action**: GPT-4 decision letter generation
+- **policy_decision: allow**: LENDING-POLICY-V2-ART3 passed
+- **policy_decision: deny**: EUAI-ART9-RISK triggered ($75k exceeds $50k threshold)
+
+The EPI adapter maps these to `tool.call` and `policy.check` step kinds,
+extracts the matched rule from AGT's `data.policy_name`, and preserves all
+raw AGT evidence (including the Merkle chain root) inside the .epi artifact.
+
+## Other input formats
+
+```bash
+# AGT evidence directory
+epi import agt examples/agt/evidence-dir --out case.epi
+
+# AGT neutral bundle
+epi import agt examples/agt/sample_bundle.json --out case.epi
+
+# AGT import manifest
+epi import agt examples/agt/manifest-input/agt_import_manifest.json --out case.epi
+```
+
+## Expected output
+
+After import, `epi verify` shows:
+
+```
+Integrity:    Verified
+Signature:    Valid
+Forensic:     PASS
+```
+
+The extracted `review/` folder contains:
+- `viewer.html` - browser-viewable forensic report
+- `steps.jsonl` - mapped agent steps
+- `artifacts/agt/` - raw AGT evidence preserved verbatim
