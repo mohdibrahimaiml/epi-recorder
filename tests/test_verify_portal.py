@@ -80,7 +80,10 @@ def test_admin_telemetry_html(client: TestClient) -> None:
     assert "text/html" in r.headers["content-type"]
     assert "Telemetry Dashboard" in r.text
     assert "/api/admin/telemetry/metrics" in r.text
-    assert "/css/epi.css" in r.text
+    assert "/css/epi.css?v=24" in r.text
+    assert 'href="/#how"' in r.text
+    assert 'href="/#verify"' in r.text
+    assert 'href="/#audit"' in r.text
 
 
 def test_root_serves_landing_page(client: TestClient) -> None:
