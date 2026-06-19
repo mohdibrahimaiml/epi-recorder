@@ -10,10 +10,10 @@ By default:
 
 - telemetry is off
 - no network calls are made
-- no install ID is created
+- an anonymous install ID is created locally on the first CLI run so events can be attributed after you opt in
 - importing EPI packages does not send anything
 - running normal capture/verify commands does not send anything
-- local opt-in reminders after high-intent commands do not create an install ID or send anything
+- local opt-in reminders after high-intent commands do not send anything
 
 Check local status with:
 
@@ -107,3 +107,25 @@ Enabled gateways accept:
 - `POST /api/telemetry/pilot-signups`
 
 Records are appended under the gateway storage directory. Pilot signup records are stored separately from anonymous telemetry events.
+
+
+## Organization Discovery
+
+When telemetry is enabled, EPI may derive non-identifying organization signals from your local git config:
+
+- `email_domain`: extracted from `git config user.email` (e.g., `microsoft.com`). The full email address is never sent.
+- `github_org`: extracted from `git remote -v` for `github.com` remotes (e.g., `openai`). The repository name is never sent.
+
+These signals are only collected if git is available and the working directory is inside a git repository. They help EPI Labs understand which organizations are finding value in EPI, without identifying individual users.
+
+## Optional Account System
+
+`epi login` is entirely optional and only required for cloud-only features such as registry, cloud sync, team collaboration, and enterprise features. When you log in:
+
+- EPI opens a browser-based GitHub OAuth flow.
+- A bearer token is stored locally in `~/.epi/auth.json`.
+- Telemetry events may include `user_id` and `org_id` so usage can be linked to your account.
+
+You can log out at any time with `epi logout`.
+
+Core local commands (`epi record`, `epi verify`, `epi view`, `epi demo`) never require an account.

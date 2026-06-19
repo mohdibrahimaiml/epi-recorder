@@ -462,6 +462,24 @@ def _refresh_viewer_html(extracted_dir: Path, resolved_path: Path) -> Path:
         raise
 
 
+def _emit_view_telemetry(resolved_path: Path, *, success: bool = True) -> None:
+    """Emit a privacy-safe epi.view.completed event."""
+    try:
+        from epi_core.telemetry import track_event
+        track_event(
+            "epi.view.completed",
+            {
+                "command": "view",
+                "source": "cli",
+                "success": success,
+                "artifact_count": 1,
+                "artifact_bytes": resolved_path.stat().st_size,
+            },
+        )
+    except Exception:
+        pass
+
+
 def view(
     ctx: typer.Context,
     epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
@@ -511,12 +529,14 @@ def view(
         console.print(f"[green][OK][/green] Extracted to: {dest}")
         console.print(f"   Open in browser: {dest / 'viewer.html'}")
         _print_share_hint()
+        _emit_view_telemetry(resolved_path)
         raise typer.Exit(0)
 
     if native and _open_native_viewer(resolved_path):
         console.print(f"[green][OK][/green] Opened native viewer: {resolved_path.name}")
         console.print("[dim]Use [cyan]epi view[/cyan] to open the browser review flow instead.[/dim]")
         _print_share_hint()
+        _emit_view_telemetry(resolved_path)
         return
 
     # Use a persistent viewer cache (Docker-volume approach): no race condition
@@ -546,6 +566,7 @@ def view(
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
         _print_share_hint()
+        _emit_view_telemetry(resolved_path)
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly

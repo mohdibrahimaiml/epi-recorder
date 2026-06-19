@@ -4,6 +4,7 @@ EPI CLI Main - Entry point for the EPI command-line interface.
 Provides the main CLI application with frictionless first-run experience.
 """
 
+import sys
 import tempfile
 import time
 
@@ -16,6 +17,10 @@ from epi_core.container import (
     EPI_CONTAINER_FORMAT_ENVELOPE,
     EPI_CONTAINER_FORMAT_LEGACY,
 )
+
+def _is_interactive() -> bool:
+    return sys.stdin.isatty() if sys.stdin else False
+
 
 # Create callback that handles --version
 def version_callback(value: bool):
@@ -294,6 +299,18 @@ def main_callback(
 
     # Auto-register .epi file association (idempotent — skips if already done)
     _auto_repair_windows_association(interactive=interactive, command_name=ctx.invoked_subcommand)
+
+    # Ensure a stable install_id exists locally on first run (no network call).
+    # If telemetry is enabled, emit a cli_started event.
+    try:
+        from epi_core import telemetry as telemetry_core
+        telemetry_core.get_install_id(create=True)
+        telemetry_core.track_event(
+            "cli_started",
+            {"command": ctx.invoked_subcommand or "unknown", "source": "cli"},
+        )
+    except Exception:
+        pass
 
 
 @app.command()
@@ -659,6 +676,69 @@ app.add_typer(import_app, name="import", help="Import external evidence into a s
 
 from epi_cli.telemetry import app as telemetry_app
 app.add_typer(telemetry_app, name="telemetry", help="Manage opt-in telemetry and pilot signup")
+
+from epi_cli.auth_cmd import app as auth_app
+app.add_typer(auth_app, name="auth", help="EPI Cloud identity (optional)")
+
+
+@app.command("join-pilot")
+def join_pilot(
+    email: str = typer.Option("", "--email", help="Your email"),
+    name: str = typer.Option("", "--name", help="Your full name"),
+    org: str = typer.Option("", "--org", help="Your organization"),
+    role: str = typer.Option("", "--role", help="Your role"),
+    use_case: str = typer.Option(
+        "other",
+        "--use-case",
+        help="Pilot use case: debugging | governance | compliance | agt integration | ci/cd | other",
+    ),
+    consent_to_contact: bool = typer.Option(False, "--consent-to-contact", help="Allow EPI to contact you"),
+) -> None:
+    """Join the EPI Pilot program. Telemetry will be enabled so we can link your install ID."""
+    from epi_core import telemetry as telemetry_core
+    from rich.prompt import Confirm, Prompt
+
+    telemetry_core.enable()
+
+    if _is_interactive():
+        if not email:
+            email = Prompt.ask("Email")
+        if not name:
+            name = Prompt.ask("Name", default="")
+        if not org:
+            org = Prompt.ask("Organization", default="")
+        if not role:
+            role = Prompt.ask("Role", default="")
+        if use_case == "other":
+            use_case = Prompt.ask(
+                "Use case",
+                choices=["debugging", "governance", "compliance", "agt integration", "ci/cd", "other"],
+                default="other",
+            )
+        if not consent_to_contact:
+            consent_to_contact = Confirm.ask("Allow EPI to contact you about the pilot", default=False)
+
+    try:
+        signup = telemetry_core.build_pilot_signup(
+            email=email,
+            org=org,
+            role=role,
+            use_case=use_case,
+            consent_to_contact=consent_to_contact,
+            link_telemetry=True,
+        )
+        if name:
+            signup["name"] = name.strip()[:200]
+    except telemetry_core.TelemetryError as exc:
+        console.print(f"[red][FAIL][/red] {exc}")
+        raise typer.Exit(1) from exc
+
+    delivered = telemetry_core.submit_pilot_signup(signup)
+    if delivered:
+        console.print("[green][OK][/green] Pilot signup submitted")
+    else:
+        console.print("[yellow][!][/yellow] Pilot signup saved locally; backend submission will retry later.")
+    console.print(f"[dim]Local signup: {telemetry_core.pilot_signup_path()}[/dim]")
 
 try:
     from epi_cli.scitt import app as scitt_app

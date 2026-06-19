@@ -18,6 +18,7 @@ from typing import Any
 from uuid import uuid4
 
 from epi_core import __version__
+from epi_core import identity_signals
 from epi_core.time_utils import utc_now_iso
 
 DEFAULT_TELEMETRY_URL = "https://epi-verify-portal.onrender.com/api/telemetry/events"
@@ -32,12 +33,16 @@ TELEMETRY_ALLOWED_METADATA_KEYS = frozenset(
         "artifact_count",
         "ci",
         "command",
+        "email_domain",
         "error_type",
+        "github_org",
         "integration_type",
+        "org_id",
         "source",
         "source_command",
         "success",
         "target",
+        "user_id",
         "workflow_created",
     }
 )
@@ -276,6 +281,7 @@ def build_event(event_name: str, metadata: dict[str, Any] | None = None) -> dict
     if not _EVENT_NAME_RE.match(event_name):
         raise TelemetryError(f"invalid telemetry event name: {event_name!r}")
     install_id = get_install_id(create=True)
+    metadata = identity_signals.attach_identity_signals(metadata or {})
     return {
         "schema_version": TELEMETRY_SCHEMA_VERSION,
         "install_id": install_id,

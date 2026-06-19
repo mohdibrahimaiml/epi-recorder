@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import webbrowser
 
 import typer
 from rich.console import Console
@@ -128,6 +130,21 @@ def disable() -> None:
     telemetry_core.disable()
     console.print("[green][OK][/green] Telemetry disabled")
     console.print("[dim]No telemetry events will be sent unless EPI_TELEMETRY_OPT_IN=true is set.[/dim]")
+
+
+@app.command("dashboard")
+def dashboard() -> None:
+    """Open the EPI telemetry dashboard in your browser."""
+    url = os.getenv("EPI_TELEMETRY_DASHBOARD_URL") or telemetry_core.telemetry_url().replace(
+        "/api/telemetry/events", "/admin/telemetry.html"
+    )
+    console.print(f"[bold]EPI Telemetry Dashboard[/bold]")
+    console.print(f"[dim]{url}[/dim]")
+    try:
+        webbrowser.open(url)
+    except Exception as exc:
+        console.print(f"[yellow]Could not open browser:[/yellow] {exc}")
+        console.print(f"[cyan]Please open the URL manually.[/cyan]")
 
 
 @app.command("test")

@@ -13,8 +13,10 @@ import base64
 import hashlib
 import json
 import os
+import secrets
 import tempfile
 import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -42,8 +44,17 @@ from epi_core.telemetry import (
     validate_event_payload,
     validate_pilot_signup_payload,
 )
+from verify_portal import auth as auth_module
+from verify_portal import telemetry_metrics
 from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.init_auth_for_app(storage_dir)
+    yield
+
 
 app = FastAPI(
     title="EPI Verify Portal",
@@ -51,6 +62,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     openapi_url="/openapi.json",
+    lifespan=_lifespan,
 )
 
 # Static files directory
@@ -599,6 +611,72 @@ async def telemetry_pilot_signup(payload: dict[str, Any]):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Internal Server Error") from exc
+
+
+# --- Admin telemetry dashboard endpoints ---
+
+def _require_admin_key(request: Request) -> None:
+    expected = os.getenv("EPI_ADMIN_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=403, detail="Admin access is not configured.")
+    provided = request.headers.get("X-Admin-Key")
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=403, detail="Invalid admin key.")
+
+
+@app.get("/api/admin/telemetry/metrics")
+async def admin_telemetry_metrics(request: Request):
+    """Return aggregated telemetry metrics for the admin dashboard."""
+    _require_admin_key(request)
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    return telemetry_metrics.compute_telemetry_metrics(storage_dir)
+
+
+# --- GitHub OAuth login endpoints ---
+
+@app.get("/api/auth/github/start")
+async def github_auth_start(
+    state: str = Query(..., description="Opaque state used to correlate the callback"),
+    redirect_uri: str | None = Query(None, description="Where to send the token after login (CLI only)"),
+):
+    """Redirect the browser to GitHub OAuth authorization."""
+    url = auth_module.start_github_oauth(state=state, redirect_uri=redirect_uri)
+    return RedirectResponse(url)
+
+
+@app.get("/api/auth/github/callback")
+async def github_auth_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+):
+    """GitHub OAuth callback. Issues a bearer token and redirects back to the CLI."""
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    return await auth_module.handle_github_callback(storage_dir, code=code, state=state)
+
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    """Return the authenticated user for a bearer token."""
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    user = auth_module.verify_token(storage_dir, token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    return {
+        "id": user["id"],
+        "login": user["login"],
+        "email": user["email"],
+        "org": user["org"],
+    }
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(request: Request):
+    """Revoke the current bearer token."""
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.revoke_token(storage_dir, token)
+    return {"ok": True}
 
 
 if STATIC_DIR.exists():

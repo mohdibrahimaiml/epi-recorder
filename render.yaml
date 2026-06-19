@@ -16,6 +16,12 @@ services:
         sync: false
       - key: EPI_VERIFY_TELEMETRY_ENABLED
         value: true
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: EPI_ADMIN_API_KEY
+        sync: false
     domains:
       - epilabs.org
       - www.epilabs.org
