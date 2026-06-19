@@ -74,6 +74,15 @@ def test_portal_html(client: TestClient) -> None:
     assert "EPI Verify" in r.text or "verify" in r.text.lower()
 
 
+def test_admin_telemetry_html(client: TestClient) -> None:
+    r = client.get("/admin/telemetry.html")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Telemetry Dashboard" in r.text
+    assert "/api/admin/telemetry/metrics" in r.text
+    assert "/css/epi.css" in r.text
+
+
 def test_root_serves_landing_page(client: TestClient) -> None:
     r = client.get("/", follow_redirects=False)
     assert r.status_code == 200
