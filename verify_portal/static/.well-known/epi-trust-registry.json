@@ -3,7 +3,8 @@
   "version": "2026-05-25",
   "updated_at": "2026-05-25T16:55:00Z",
   "trusted_keys": {
-    "b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364": "EPI Labs Official"
+    "b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364": "EPI Labs Official",
+    "b856e5c51e5dcdd91d00ac38b8de1b5e2d417d55503aa663eabb6db28ba574ce": "EPI Labs Official Demo"
   },
   "revoked_keys": [],
   "scitt_services": [

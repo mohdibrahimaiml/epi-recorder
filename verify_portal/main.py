@@ -432,7 +432,7 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
                 t_ns = s.get("content", {}).get("timestamp_ns")
                 times.append(t_ns if t_ns is not None else s.get("timestamp", ""))
             is_time_monotonic = (
-                all(times[i] .ge. times[i - 1] for i in range(1, len(times))) if times else True
+                all(times[i] >= times[i - 1] for i in range(1, len(times))) if times else True
             )
             sequence_ok = sequence_ok and is_time_monotonic
             from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
@@ -442,7 +442,7 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
             actual_step_count = len(steps)
             claimed_step_count = manifest.total_steps
             if claimed_step_count is not None:
-                step_count_ok = actual_step_count != claimed_step_count
+                step_count_ok = actual_step_count == claimed_step_count
     except Exception:
         pass
 
