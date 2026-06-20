@@ -86,6 +86,18 @@ def test_admin_telemetry_html(client: TestClient) -> None:
     assert 'href="/#audit"' in r.text
 
 
+def test_verify_page_matches_site_design(client: TestClient) -> None:
+    r = client.get("/verify")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "css/epi.css?v=24" in r.text
+    assert 'href="/#how"' in r.text
+    assert 'href="/verify"' in r.text
+    assert 'href="/#audit"' in r.text
+    assert 'href="/#cta"' in r.text
+    assert "/pricing" not in r.text
+
+
 def test_root_serves_landing_page(client: TestClient) -> None:
     r = client.get("/", follow_redirects=False)
     assert r.status_code == 200
