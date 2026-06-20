@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telemetry Dashboard — EPI Labs</title>
+  <meta name="description" content="Anonymous, opt-in telemetry dashboard for EPI Recorder.">
+  <link rel="icon" type="image/png" href="/assets/logo.png">
+  <link rel="stylesheet" href="/css/epi.css?v=24">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* Dashboard-specific layout layered on top of the site design system. */
+    .dash-main { padding-top: 96px; }
+    .dash-hero { padding: clamp(60px, 10vw, 100px) 0 40px; text-align: center; }
+    .dash-hero .section-desc { margin: 0 auto; }
+
+    .key-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 640px;
+      margin: 0 auto 40px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .key-form { display: flex; gap: 12px; flex-wrap: wrap; }
+    .key-form input {
+      flex: 1 1 220px;
+      padding: 12px 16px;
+      border-radius: 100px;
+      border: 1.5px solid var(--border-str);
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .key-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .key-form input::placeholder { color: var(--ink-dim); }
+
+    .status-msg {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.92rem;
+      min-height: 1.4em;
+    }
+    .status-msg.error { color: var(--tamper); }
+    .status-msg.loading { color: var(--ink-muted); }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: transform 0.3s var(--ease), border-color 0.3s var(--ease);
+    }
+    .metric-card:hover { transform: translateY(-2px); border-color: var(--border-accent); }
+    .metric-label {
+      margin: 0 0 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-muted);
+    }
+    .metric-value {
+      font-size: clamp(1.8rem, 4vw, 2.4rem);
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .chart-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0 0 16px;
+      color: var(--ink);
+    }
+
+    .lists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .org-list { list-style: none; padding: 0; margin: 0; }
+    .org-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+    .org-list li:last-child { border-bottom: none; }
+    .org-list .empty { color: var(--ink-dim); font-style: italic; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 640px) {
+      .key-form .btn { width: 100%; justify-content: center; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .metric-card { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/#how">Product</a></li>
+      <li><a href="/#verify">Verify</a></li>
+      <li><a href="/#audit">SCITT</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+      <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/#how">Product</a>
+  <a href="/#verify">Verify</a>
+  <a href="/#audit">SCITT</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/#cta">Get Started</a>
+</div>
+
+<main class="dash-main">
+  <section class="dash-hero">
+    <div class="container">
+      <div class="section-label" style="justify-content:center">Admin</div>
+      <h1 class="section-title">Telemetry Dashboard</h1>
+      <p class="section-desc">Privacy-first usage intelligence for EPI Recorder. Anonymous by default, opt-in only.</p>
+    </div>
+  </section>
+
+  <section class="section-alt" style="padding-top:0">
+    <div class="container">
+      <div class="key-card">
+        <div class="key-form">
+          <input id="adminKey" type="password" placeholder="Admin API key" autocomplete="off" />
+          <button id="loadBtn" class="btn btn-primary">Load Metrics</button>
+        </div>
+        <div id="status" class="status-msg"></div>
+      </div>
+
+      <div id="dashboard" class="hidden">
+        <div class="metric-grid">
+          <div class="metric-card"><h3 class="metric-label">Total Installs</h3><div class="metric-value" id="totalInstalls">-</div></div>
+          <div class="metric-card"><h3 class="metric-label">Daily Active</h3><div class="metric-value" id="dau">-</div></div>
+          <div class="metric-card"><h3 class="metric-label">Weekly Active</h3><div class="metric-value" id="wau">-</div></div>
+          <div class="metric-card"><h3 class="metric-label">Monthly Active</h3><div class="metric-value" id="mau">-</div></div>
+          <div class="metric-card"><h3 class="metric-label">Returning Users</h3><div class="metric-value" id="returning">-</div></div>
+          <div class="metric-card"><h3 class="metric-label">Pilot Signups</h3><div class="metric-value" id="pilotSignups">-</div></div>
+        </div>
+
+        <div class="chart-grid">
+          <div class="chart-card"><h3>Command Usage</h3><canvas id="commandsChart"></canvas></div>
+          <div class="chart-card"><h3>Version Distribution</h3><canvas id="versionsChart"></canvas></div>
+        </div>
+
+        <div class="lists-grid">
+          <div class="chart-card"><h3>Email Domains Detected</h3><ul class="org-list" id="domainsList"></ul></div>
+          <div class="chart-card"><h3>GitHub Organizations Detected</h3><ul class="org-list" id="githubsList"></ul></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="container"><div class="footer-inner">
+    <div class="footer-left">
+      <img src="/assets/logo.png" alt="EPI Labs" class="footer-logo">
+      <span class="footer-copy">&copy; 2026 EPI LABS. MIT License. Built in India. Engineered for the world.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
+      <li><a href="/viewer/">Decision Ops</a></li>
+      <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
+    </ul>
+  </div></div>
+</footer>
+
+<script>
+(function(){
+/* ── DARK MODE ── */
+var stored=localStorage.getItem('epi-theme'),prefersDark=matchMedia('(prefers-color-scheme:dark)').matches;
+if(stored==='dark'||(!stored&&prefersDark))document.documentElement.setAttribute('data-theme','dark');
+function updateToggles(){
+  var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
+  document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color=isDark?'#E6EDF3':'var(--ink)'});
+}
+updateToggles();
+function flip(){
+  var r=document.documentElement;
+  if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}
+  else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}
+  updateToggles();
+  recreateCharts();
+}
+document.getElementById('themeToggleNav').addEventListener('click',flip);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){
+  if(!localStorage.getItem('epi-theme')){e.matches?document.documentElement.setAttribute('data-theme','dark'):document.documentElement.removeAttribute('data-theme');updateToggles();recreateCharts();}
+});
+
+/* ── NAV ── */
+var nav=document.getElementById('nav');
+window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',scrollY>40)});
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
+mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})});}
+
+/* ── TELEMETRY DASHBOARD ── */
+let charts = [];
+let lastData = null;
+
+function destroyCharts() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+}
+
+function getChartColors() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    accent: style.getPropertyValue('--accent').trim() || '#1B2E4A',
+    muted: style.getPropertyValue('--ink-muted').trim() || '#6B6760',
+    border: style.getPropertyValue('--border-str').trim() || 'rgba(22,24,26,0.12)'
+  };
+}
+
+function renderBar(canvasId, labels, data, label) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const colors = getChartColors();
+  charts.push(new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label, data, backgroundColor: colors.accent, borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: colors.muted }, grid: { color: colors.border } },
+        x: { ticks: { color: colors.muted }, grid: { display: false } }
+      }
+    }
+  }));
+}
+
+function recreateCharts() {
+  if (!lastData) return;
+  destroyCharts();
+  const commands = lastData.top_commands || {};
+  renderBar('commandsChart', Object.keys(commands), Object.values(commands), 'Events');
+  const versions = lastData.version_distribution || {};
+  renderBar('versionsChart', Object.keys(versions), Object.values(versions), 'Events');
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg || '';
+  el.className = 'status-msg' + (type ? ' ' + type : '');
+}
+
+async function loadMetrics() {
+  const key = document.getElementById('adminKey').value.trim();
+  const dashboard = document.getElementById('dashboard');
+  if (!key) { setStatus('Admin key is required', 'error'); return; }
+
+  setStatus('Loading metrics…', 'loading');
+  dashboard.classList.add('hidden');
+  destroyCharts();
+  lastData = null;
+
+  try {
+    const res = await fetch('/api/admin/telemetry/metrics', { headers: { 'X-Admin-Key': key } });
+    if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
+    const data = await res.json();
+    lastData = data;
+    setStatus('');
+    dashboard.classList.remove('hidden');
+
+    document.getElementById('totalInstalls').textContent = data.total_installs;
+    document.getElementById('dau').textContent = data.active_installs.dau;
+    document.getElementById('wau').textContent = data.active_installs.wau;
+    document.getElementById('mau').textContent = data.active_installs.mau;
+    document.getElementById('returning').textContent = data.returning_users;
+    document.getElementById('pilotSignups').textContent = data.pilot_signups;
+
+    recreateCharts();
+
+    const domains = data.organizations_detected?.email_domains || [];
+    document.getElementById('domainsList').innerHTML = domains.length
+      ? domains.map(d => `<li>${escapeHtml(d)}</li>`).join('')
+      : '<li class="empty">None yet</li>';
+    const githubs = data.organizations_detected?.github_orgs || [];
+    document.getElementById('githubsList').innerHTML = githubs.length
+      ? githubs.map(g => `<li>${escapeHtml(g)}</li>`).join('')
+      : '<li class="empty">None yet</li>';
+  } catch (e) {
+    setStatus(e.message, 'error');
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+document.getElementById('loadBtn').addEventListener('click', loadMetrics);
+document.getElementById('adminKey').addEventListener('keydown', e => { if (e.key === 'Enter') loadMetrics(); });
+})();
+</script>
+</body>
+</html>

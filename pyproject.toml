@@ -177,7 +177,7 @@ py-modules = ["epi_postinstall"]
 epi_core = ["assets/*.ico"]
 epi_viewer_static = ["*.html", "*.js", "*.css"]
 web_viewer = ["*.html", "*.js", "*.css"]
-verify_portal = ["static/*", "static/.well-known/*", "static/.well-known/**/*"]
+verify_portal = ["static/**/*"]
 
 [project.entry-points.pytest11]
 epi = "pytest_epi.plugin"
