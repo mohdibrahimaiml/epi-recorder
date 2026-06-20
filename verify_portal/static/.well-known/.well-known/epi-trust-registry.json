@@ -1,7 +1,7 @@
 {
   "name": "EPI Labs Official Trust Registry",
-  "version": "2026-05-23",
-  "updated_at": "2026-05-23T07:20:11Z",
+  "version": "2026-05-25",
+  "updated_at": "2026-05-25T16:55:00Z",
   "trusted_keys": {
     "b9c61599ef007f9cb23a527d735dfd9192b9b3f9305a03f598296a7e8943c364": "EPI Labs Official",
     "b856e5c51e5dcdd91d00ac38b8de1b5e2d417d55503aa663eabb6db28ba574ce": "EPI Labs Official Demo"
@@ -9,9 +9,10 @@
   "revoked_keys": [],
   "scitt_services": [
     {
-      "url": "https://scitt.epilabs.org",
+      "url": "https://epilabs.org/scitt",
       "name": "EPI Labs SCITT Transparency Service",
-      "status": "active"
+      "status": "active",
+      "public_key": "467a65b7775439823ce3caa788a5dbfa6ab202d9855115a953a7d5ab2ed8c83d"
     }
   ],
   "policy": {
