@@ -164,3 +164,10 @@ v2.8.5.ipynb
 !verify_portal/static/verify/*.html
 .aider*
 data/ 
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
