@@ -259,6 +259,14 @@ async def pricing_page():
     pricing_path = STATIC_DIR / "pricing.html"
     if pricing_path.exists():
         return FileResponse(pricing_path)
+@app.get("/agt")
+async def agt_page():
+    """Serve the AGT -> EPI integration page."""
+    agt_path = STATIC_DIR / "agt.html"
+    if agt_path.exists():
+        return FileResponse(agt_path)
+    return FileResponse(STATIC_DIR / "index.html")
+
     raise HTTPException(status_code=404, detail="Pricing page not found")
 
 @app.post("/api/contact")
