@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import secrets
+import shutil
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -390,142 +391,193 @@ async def verify(
         tmp_path.unlink(missing_ok=True)
 
 
+def _load_bundled_registry_keys() -> Path | None:
+    """Create a temporary trusted_keys dir from the bundled registry file."""
+    registry_path = STATIC_DIR / ".well-known" / "epi-trust-registry.json"
+    if not registry_path.exists():
+        return None
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+        trusted = data.get("trusted_keys", {})
+        if not trusted:
+            return None
+        tmp_dir = Path(tempfile.mkdtemp(prefix="epi_registry_"))
+        for pub_hex, name in trusted.items():
+            safe_name = str(name).replace(" ", "_").replace("/", "_")
+            (tmp_dir / f"{safe_name}.pub").write_text(pub_hex, encoding="utf-8")
+        return tmp_dir
+    except Exception:
+        return None
+
+
+def _merge_keys_dir(bundled_keys_dir: Path | None, user_keys_dir: Path | None) -> Path | None:
+    """Return a fresh temp dir containing bundled keys plus user/env keys."""
+    if not bundled_keys_dir and not (user_keys_dir and user_keys_dir.exists()):
+        return None
+    merged = Path(tempfile.mkdtemp(prefix="epi_merged_keys_"))
+    seen: set[str] = set()
+    for src in (bundled_keys_dir, user_keys_dir):
+        if not src or not src.exists():
+            continue
+        for f in src.iterdir():
+            if f.suffix not in (".pub", ".revoked"):
+                continue
+            # Bundled defaults come first; user keys take precedence for conflicts.
+            if f.name in seen:
+                continue
+            seen.add(f.name)
+            shutil.copy2(f, merged / f.name)
+    return merged
+
+
 def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
     """Run the full EPI verification pipeline."""
-    registry = TrustRegistry()
+    bundled_keys_dir = _load_bundled_registry_keys()
+    env_dir = os.environ.get("EPI_TRUSTED_KEYS_DIR")
+    user_keys_dir = Path(env_dir) if env_dir else Path.home() / ".epi" / "trusted_keys"
+    merged_keys_dir = _merge_keys_dir(bundled_keys_dir, user_keys_dir)
+    try:
+        registry = TrustRegistry(trusted_keys_dir=merged_keys_dir)
+    except Exception:
+        registry = TrustRegistry()
     manifest = None
     integrity_ok = False
     signature_valid = None
     signer_name = None
     mismatches = {}
     steps: list[dict] = []
-
-    # Structural + integrity
     try:
-        manifest = EPIContainer.read_manifest(epi_file)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Cannot read manifest: {exc}")
+        # Structural + integrity
+        try:
+            manifest = EPIContainer.read_manifest(epi_file)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Cannot read manifest: {exc}")
 
-    integrity_ok, mismatches = EPIContainer.verify_integrity(epi_file)
+        integrity_ok, mismatches = EPIContainer.verify_integrity(epi_file)
 
-    # Load steps for forensic checks
-    sequence_ok = True
-    completeness_ok = True
-    chain_ok = True
-    chain_breaks = []
-    seq_comp_gaps = []
-    step_count_ok = True
-    transparency_ok = None
+        # Load steps for forensic checks
+        sequence_ok = True
+        completeness_ok = True
+        chain_ok = True
+        chain_breaks = []
+        seq_comp_gaps = []
+        step_count_ok = True
+        transparency_ok = None
 
-    try:
-        import hashlib as _hashlib
-        steps = EPIContainer.read_steps(epi_file)
+        try:
+            import hashlib as _hashlib
+            steps = EPIContainer.read_steps(epi_file)
 
-        if steps:
-            indices = [s.get("index", 0) for s in steps]
-            sequence_ok = (
-                all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
-                if indices else True
+            if steps:
+                indices = [s.get("index", 0) for s in steps]
+                sequence_ok = (
+                    all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
+                    if indices else True
+                )
+                times = []
+                for s in steps:
+                    t_ns = s.get("content", {}).get("timestamp_ns")
+                    times.append(t_ns if t_ns is not None else s.get("timestamp", ""))
+                is_time_monotonic = (
+                    all(times[i] >= times[i - 1] for i in range(1, len(times))) if times else True
+                )
+                sequence_ok = sequence_ok and is_time_monotonic
+                from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
+                seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
+                completeness_ok = seq_comp_ok
+                chain_ok, chain_breaks = _verify_step_chain(steps)
+                actual_step_count = len(steps)
+                claimed_step_count = manifest.total_steps
+                if claimed_step_count is not None:
+                    step_count_ok = actual_step_count == claimed_step_count
+        except Exception:
+            pass
+
+        integrity_ok = integrity_ok and chain_ok and step_count_ok
+
+        # Signature verification
+        if manifest.signature:
+            signature_valid, signer_name, _ = verify_embedded_manifest_signature(manifest)
+        else:
+            signature_valid = None
+            signer_name = None
+
+        # SCITT receipt check — full cryptographic verification
+        transparency_ok = None
+        try:
+            from epi_core.scitt import (
+                extract_scitt_artifacts,
+                verify_scitt_receipt,
+                verify_scitt_statement,
             )
-            times = []
-            for s in steps:
-                t_ns = s.get("content", {}).get("timestamp_ns")
-                times.append(t_ns if t_ns is not None else s.get("timestamp", ""))
-            is_time_monotonic = (
-                all(times[i] >= times[i - 1] for i in range(1, len(times))) if times else True
-            )
-            sequence_ok = sequence_ok and is_time_monotonic
-            from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
-            seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
-            completeness_ok = seq_comp_ok
-            chain_ok, chain_breaks = _verify_step_chain(steps)
-            actual_step_count = len(steps)
-            claimed_step_count = manifest.total_steps
-            if claimed_step_count is not None:
-                step_count_ok = actual_step_count == claimed_step_count
-    except Exception:
-        pass
+            stmt_bytes, rcpt_bytes, scitt_gov = extract_scitt_artifacts(epi_file)
+            if stmt_bytes and rcpt_bytes and scitt_gov:
+                # 1. Verify statement structure and payload hash match
+                verify_scitt_statement(stmt_bytes, manifest, public_key_bytes=None)
 
-    integrity_ok = integrity_ok and chain_ok and step_count_ok
-
-    # Signature verification
-    if manifest.signature:
-        signature_valid, signer_name, _ = verify_embedded_manifest_signature(manifest)
-    else:
-        signature_valid = None
-        signer_name = None
-
-    # SCITT receipt check — full cryptographic verification
-    transparency_ok = None
-    try:
-        from epi_core.scitt import (
-            extract_scitt_artifacts,
-            verify_scitt_receipt,
-            verify_scitt_statement,
-        )
-        stmt_bytes, rcpt_bytes, scitt_gov = extract_scitt_artifacts(epi_file)
-        if stmt_bytes and rcpt_bytes and scitt_gov:
-            # 1. Verify statement structure and payload hash match
-            verify_scitt_statement(stmt_bytes, manifest, public_key_bytes=None)
-
-            # 2. Load SCITT service public key
-            service_pub_key = _load_scitt_service_public_key()
-            if service_pub_key:
-                # 3. Verify receipt signature cryptographically
-                verify_scitt_receipt(rcpt_bytes, stmt_bytes, service_pub_key)
-                transparency_ok = True
-            else:
-                # Service key unavailable — fallback to structural check
-                import cbor2
-                receipt = cbor2.loads(rcpt_bytes)
-                if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
+                # 2. Load SCITT service public key
+                service_pub_key = _load_scitt_service_public_key()
+                if service_pub_key:
+                    # 3. Verify receipt signature cryptographically
+                    verify_scitt_receipt(rcpt_bytes, stmt_bytes, service_pub_key)
                     transparency_ok = True
                 else:
-                    transparency_ok = False
-        elif stmt_bytes or rcpt_bytes:
+                    # Service key unavailable — fallback to structural check
+                    import cbor2
+                    receipt = cbor2.loads(rcpt_bytes)
+                    if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
+                        transparency_ok = True
+                    else:
+                        transparency_ok = False
+            elif stmt_bytes or rcpt_bytes:
+                transparency_ok = False
+        except Exception:
             transparency_ok = False
-    except Exception:
-        transparency_ok = False
 
-    # Build report
-    report = create_verification_report(
-        integrity_ok=integrity_ok,
-        signature_valid=signature_valid,
-        signer_name=signer_name,
-        mismatches=mismatches,
-        manifest=manifest,
-        trusted_registry=registry,
-        sequence_ok=sequence_ok,
-        completeness_ok=completeness_ok,
-        chain_ok=chain_ok,
-        transparency_ok=transparency_ok,
-    )
-    apply_policy(report, VerificationPolicy.STANDARD)
+        # Build report
+        report = create_verification_report(
+            integrity_ok=integrity_ok,
+            signature_valid=signature_valid,
+            signer_name=signer_name,
+            mismatches=mismatches,
+            manifest=manifest,
+            trusted_registry=registry,
+            sequence_ok=sequence_ok,
+            completeness_ok=completeness_ok,
+            chain_ok=chain_ok,
+            transparency_ok=transparency_ok,
+        )
+        apply_policy(report, VerificationPolicy.STANDARD)
 
-    # AIUC-1 mapping
-    if aiuc1:
-        aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps)
-        report["aiuc1"] = aiuc1_summary(aiuc1_statuses)
+        # AIUC-1 mapping
+        if aiuc1:
+            aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps)
+            report["aiuc1"] = aiuc1_summary(aiuc1_statuses)
 
-    # Signed attestation
-    attestation_payload = {
-        "verified_at": datetime.now(UTC).isoformat(),
-        "workflow_id": str(manifest.workflow_id),
-        "trust_level": report.get("trust_level", "NONE"),
-        "integrity": report["summary"].get("integrity", "FAILED"),
-        "identity": report["identity"].get("status", "UNKNOWN"),
-        "transparency": report["summary"].get("transparency", "MISSING"),
-        "aiuc1_overall": report.get("aiuc1", {}).get("overall", "N/A"),
-    }
-    attestation_sig = _sign_attestation(attestation_payload)
-    if attestation_sig:
-        report["attestation"] = {
-            "payload": attestation_payload,
-            "signature": f"ed25519:epilabs:{attestation_sig}",
-            "did": "did:web:epilabs.org",
+        # Signed attestation
+        attestation_payload = {
+            "verified_at": datetime.now(UTC).isoformat(),
+            "workflow_id": str(manifest.workflow_id),
+            "trust_level": report.get("trust_level", "NONE"),
+            "integrity": report["summary"].get("integrity", "FAILED"),
+            "identity": report["identity"].get("status", "UNKNOWN"),
+            "transparency": report["summary"].get("transparency", "MISSING"),
+            "aiuc1_overall": report.get("aiuc1", {}).get("overall", "N/A"),
         }
+        attestation_sig = _sign_attestation(attestation_payload)
+        if attestation_sig:
+            report["attestation"] = {
+                "payload": attestation_payload,
+                "signature": f"ed25519:epilabs:{attestation_sig}",
+                "did": "did:web:epilabs.org",
+            }
 
-    return report
+        return report
+    finally:
+        if bundled_keys_dir:
+            shutil.rmtree(bundled_keys_dir, ignore_errors=True)
+        if merged_keys_dir:
+            shutil.rmtree(merged_keys_dir, ignore_errors=True)
 
 
 # Explicit HTML page routes (ensure clean URLs work without trailing slashes).
