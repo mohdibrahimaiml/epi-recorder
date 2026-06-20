@@ -358,6 +358,11 @@ def serve(
     """
     Start the shared local EPI gateway for the browser Decision Ops flow.
     """
+    from epi_cli._shared import require_extra
+
+    require_extra("gateway", "uvicorn", "epi connect serve")
+    require_extra("gateway", "fastapi", "epi connect serve")
+
     previous_access_token = os.environ.get("EPI_GATEWAY_ACCESS_TOKEN")
     previous_users_file = os.environ.get("EPI_GATEWAY_USERS_FILE")
     if access_token:
@@ -445,6 +450,11 @@ def open_workspace(
     """
     Start the local gateway and Decision Ops app together, then open the browser.
     """
+    from epi_cli._shared import require_extra
+
+    require_extra("gateway", "uvicorn", "epi connect open")
+    require_extra("gateway", "fastapi", "epi connect open")
+
     servers: list[Any] = []
     viewer_url = f"http://{host}:{web_port}{VIEWER_PATH}"
     query = {"bridgeUrl": f"http://{host}:{bridge_port}"}

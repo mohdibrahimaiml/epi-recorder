@@ -103,6 +103,10 @@ def scitt_register(
     private_key = _load_signing_key(key)
     issuer = _derive_issuer(manifest)
 
+    from epi_cli._shared import require_service
+
+    require_service(service, label="SCITT service")
+
     console.print("[bold]SCITT Registration[/bold]")
     console.print(f"  Artifact: {epi_path}")
     console.print(f"  Service:  {service}")
@@ -196,6 +200,10 @@ def scitt_anchor(
             "[red][FAIL][/red] No SCITT service URL. Set EPI_SCITT_URL or use --service."
         )
         raise typer.Exit(1)
+
+    from epi_cli._shared import require_service
+
+    require_service(service_url, label="SCITT service")
 
     anchor = AutoSCITTAnchor(service_url=service_url)
     console.print(f"[bold]Anchoring to SCITT:[/bold] {service_url}")

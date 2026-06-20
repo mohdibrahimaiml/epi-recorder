@@ -74,6 +74,11 @@ def serve(
     consequential LLM traffic without building a control plane first.
     """
 
+    from epi_cli._shared import require_extra
+
+    require_extra("gateway", "uvicorn", "epi gateway serve")
+    require_extra("gateway", "fastapi", "epi gateway serve")
+
     import uvicorn
 
     storage_dir = storage_dir.resolve()

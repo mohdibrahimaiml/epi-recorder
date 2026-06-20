@@ -502,6 +502,11 @@ def dev(
     if ctx.invoked_subcommand is not None:
         return
 
+    from epi_cli._shared import require_extra
+
+    require_extra("gateway", "uvicorn", "epi demo")
+    require_extra("gateway", "fastapi", "epi demo")
+
     storage_dir = storage_dir.resolve()
     demo_script = demo_script.resolve()
 

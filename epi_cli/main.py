@@ -700,6 +700,10 @@ def join_pilot(
 
     telemetry_core.enable()
 
+    from epi_cli._shared import require_service
+
+    require_service(telemetry_core.pilot_signup_url(), label="EPI pilot signup service")
+
     if _is_interactive():
         if not email:
             email = Prompt.ask("Email")

@@ -28,6 +28,7 @@ def test_telemetry_enable_with_pilot_signup(monkeypatch, tmp_path):
         return True
 
     monkeypatch.setattr("epi_core.telemetry.send_json", _fake_send)
+    monkeypatch.setattr("epi_cli.telemetry.require_service", lambda *a, **k: None)
     result = runner.invoke(
         app,
         [

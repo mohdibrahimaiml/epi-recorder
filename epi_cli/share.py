@@ -72,6 +72,11 @@ def share(
         raise typer.Exit(1) from exc
 
     api_root = _resolve_share_api_base_url(api_base_url)
+
+    from epi_cli._shared import require_service
+
+    require_service(api_root, label="EPI share service")
+
     request_url = f"{api_root}/api/share?{urllib.parse.urlencode({'expires_days': expires})}"
     payload_bytes = resolved_file.read_bytes()
     request = urllib.request.Request(

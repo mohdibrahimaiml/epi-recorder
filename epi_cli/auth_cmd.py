@@ -136,6 +136,10 @@ def _open_login_url(port: int, state: str) -> None:
 @app.command("login")
 def login() -> None:
     """Log in to EPI Cloud via GitHub OAuth."""
+    from epi_cli._shared import require_service
+
+    require_service(_base_portal_url(), label="EPI cloud portal")
+
     port = _find_free_port()
     state = secrets.token_urlsafe(16)
     server = _start_local_server(port)

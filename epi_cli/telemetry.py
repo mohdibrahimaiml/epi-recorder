@@ -10,6 +10,7 @@ import typer
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
+from epi_cli._shared import require_service
 from epi_core import telemetry as telemetry_core
 
 app = typer.Typer(help="Manage privacy-first opt-in telemetry and pilot signup.")
@@ -79,6 +80,9 @@ def enable(
         console.print("[dim]Pilot signup skipped. You can run this later with: epi telemetry enable --join-pilot[/dim]")
         return
 
+    pilot_url = telemetry_core.pilot_signup_url()
+    require_service(pilot_url, label="EPI pilot signup service")
+
     if not email and _is_interactive():
         email = Prompt.ask("Email")
     if not org and _is_interactive():
@@ -138,6 +142,7 @@ def dashboard() -> None:
     url = os.getenv("EPI_TELEMETRY_DASHBOARD_URL") or telemetry_core.telemetry_url().replace(
         "/api/telemetry/events", "/admin/telemetry.html"
     )
+    require_service(url, label="EPI telemetry dashboard")
     console.print(f"[bold]EPI Telemetry Dashboard[/bold]")
     console.print(f"[dim]{url}[/dim]")
     try:
@@ -151,6 +156,7 @@ def dashboard() -> None:
 def test() -> None:
     """Send a harmless test event if telemetry is enabled."""
 
+    require_service(telemetry_core.telemetry_url(), label="EPI telemetry service")
     flush = telemetry_core.flush_queued_events()
     sent = telemetry_core.track_event(
         "telemetry.test",

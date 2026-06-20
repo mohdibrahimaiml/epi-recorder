@@ -6,10 +6,79 @@ Centralised here to avoid duplication and ensure bug fixes apply everywhere.
 
 import os
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import List
 
+import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+
 from epi_core.workspace import create_recording_workspace
+
+
+console = Console()
+
+
+def require_extra(
+    extra_name: str,
+    module_name: str | None = None,
+    command: str | None = None,
+) -> None:
+    """
+    Verify that an optional dependency extra is installed.
+
+    If the import fails, print a friendly message explaining how to install the
+    required extra and exit the CLI cleanly.
+    """
+    module = module_name or extra_name
+    try:
+        __import__(module)
+    except ImportError as exc:
+        cmd = command or "This command"
+        message = Text.assemble(
+            (cmd, "bold red"),
+            " requires the ",
+            (extra_name, "cyan"),
+            " extra.\n\nInstall it with:\n",
+            ("pip install epi-recorder[", "bold"),
+            (extra_name, "bold cyan"),
+            ("]", "bold"),
+        )
+        console.print(
+            Panel.fit(
+                message,
+                title="Missing optional dependency",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(1) from exc
+
+
+def require_service(url: str, timeout: float = 5.0, label: str | None = None) -> None:
+    """
+    Check that a remote service is reachable.
+
+    Prints a clear error and exits if the service cannot be reached. HTTP error
+    responses (4xx/5xx) are treated as reachable; only network-level failures
+    trigger an exit, because the CLI command will handle the HTTP error itself.
+    """
+    display = label or url
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        urllib.request.urlopen(req, timeout=timeout)
+    except urllib.error.HTTPError:
+        # Service is reachable; let the command handle the HTTP status.
+        return
+    except urllib.error.URLError as exc:
+        console.print(f"[red][FAIL][/red] Cannot reach {display} ({url})")
+        console.print(
+            "[dim]If you are offline or running a self-hosted service, "
+            "set the appropriate EPI_*_URL environment variable.[/dim]"
+        )
+        raise typer.Exit(1) from exc
 
 
 def ensure_python_command(cmd: List[str]) -> List[str]:
