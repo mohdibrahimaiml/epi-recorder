@@ -688,21 +688,17 @@ def join_pilot(
     org: str = typer.Option("", "--org", help="Your organization"),
     role: str = typer.Option("", "--role", help="Your role"),
     use_case: str = typer.Option(
-        "other",
+        "",
         "--use-case",
         help="Pilot use case: debugging | governance | compliance | agt integration | ci/cd | other",
     ),
     consent_to_contact: bool = typer.Option(False, "--consent-to-contact", help="Allow EPI to contact you"),
 ) -> None:
     """Join the EPI Pilot program. Telemetry will be enabled so we can link your install ID."""
-    from epi_core import telemetry as telemetry_core
     from rich.prompt import Confirm, Prompt
+    from epi_core import telemetry as telemetry_core
 
     telemetry_core.enable()
-
-    from epi_cli._shared import require_service
-
-    require_service(telemetry_core.pilot_signup_url(), label="EPI pilot signup service")
 
     if _is_interactive():
         if not email:
@@ -713,7 +709,7 @@ def join_pilot(
             org = Prompt.ask("Organization", default="")
         if not role:
             role = Prompt.ask("Role", default="")
-        if use_case == "other":
+        if not use_case:
             use_case = Prompt.ask(
                 "Use case",
                 choices=["debugging", "governance", "compliance", "agt integration", "ci/cd", "other"],

@@ -91,18 +91,17 @@ def verify_evidence_receipt(
         True if receipt is valid for this artifact
     """
     from epi_core.scitt import verify_scitt_statement
-    from epi_core.keys import KeyManager
 
     manifest = EPIContainer.read_manifest(Path(epi_path))
-    km = KeyManager()
     pub_key_hex = manifest.public_key or ""
-    key_name = _find_key_by_pubkey(km, pub_key_hex) or "default"
-    pub_key = km.load_public_key(key_name)
+    if not pub_key_hex:
+        return False
 
     try:
+        pub_key = bytes.fromhex(pub_key_hex)
         verify_scitt_statement(receipt_bytes, manifest, pub_key)
         return True
-    except SCITTVerificationError:
+    except (SCITTVerificationError, ValueError):
         return False
 
 

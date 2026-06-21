@@ -9,15 +9,14 @@ import json
 import os
 import secrets
 import socket
-import sys
 import threading
 import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import typer
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from rich.console import Console
 
 from epi_core.telemetry import telemetry_url
@@ -41,12 +40,24 @@ def _base_portal_url() -> str:
     return telemetry_url().replace("/api/telemetry/events", "")
 
 
-def save_auth(token: str, user_id: str, org: str | None = None) -> None:
+def save_auth(
+    token: str,
+    user_id: str,
+    org: str | None = None,
+    *,
+    local: bool = False,
+) -> None:
     path = _auth_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
-            {"token": token, "user_id": user_id, "org": org or "", "saved_at": _utc_now_iso()},
+            {
+                "token": token,
+                "user_id": user_id,
+                "org": org or "",
+                "local": bool(local),
+                "saved_at": _utc_now_iso(),
+            },
             indent=2,
         ),
         encoding="utf-8",
@@ -134,8 +145,24 @@ def _open_login_url(port: int, state: str) -> None:
 
 
 @app.command("login")
-def login() -> None:
-    """Log in to EPI Cloud via GitHub OAuth."""
+def login(
+    local: bool = typer.Option(
+        False,
+        "--local",
+        help="Create a local-only development session without contacting EPI Cloud.",
+    ),
+) -> None:
+    """Log in to EPI Cloud via GitHub OAuth (or create a local dev session with --local)."""
+    if local:
+        token = "dev-" + secrets.token_urlsafe(32)
+        save_auth(token, "local-dev", "local", local=True)
+        console.print("[green][OK][/green] Local development session created")
+        console.print("[dim]User ID: local-dev[/dim]")
+        console.print(
+            "[yellow][!][/yellow] This session is local-only and cannot access EPI Cloud features."
+        )
+        return
+
     from epi_cli._shared import require_service
 
     require_service(_base_portal_url(), label="EPI cloud portal")

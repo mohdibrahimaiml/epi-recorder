@@ -8,11 +8,13 @@ actionable error messages instead of raw tracebacks.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 import tempfile
 import venv
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -85,6 +87,7 @@ def _run_in_fresh_venv(
     return subprocess.run(
         [str(python), "-m", "epi_cli.main", *args],
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=60,
@@ -153,10 +156,11 @@ def test_fresh_venv_demo_shows_missing_extra(fresh_venv: tuple[Path, Path]) -> N
 
 
 @pytest.mark.slow
-def test_fresh_venv_share_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi share` fails gracefully when the share service is unreachable."""
+def test_fresh_venv_share_offline_fallback_works(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi share` saves to a local directory when EPI_SHARE_OFFLINE is set."""
     python, epi_home = fresh_venv
     artifact = epi_home / "share_test.epi"
+    share_dir = epi_home / "offline-shares"
     # Create a small signed recording using the fresh venv's own default key.
     record_result = _run_in_fresh_venv(
         fresh_venv,
@@ -170,28 +174,41 @@ def test_fresh_venv_share_shows_service_unavailable(fresh_venv: tuple[Path, Path
     result = _run_in_fresh_venv(
         fresh_venv,
         ["share", str(artifact), "--no-open"],
-        env_vars={"EPI_SHARE_API_URL": UNREACHABLE_URL},
+        env_vars={
+            "EPI_SHARE_API_URL": UNREACHABLE_URL,
+            "EPI_SHARE_OFFLINE": str(share_dir),
+        },
     )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "cannot reach" in combined.lower()
+    assert result.returncode == 0, (
+        f"offline share failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "offline share directory" in combined.lower()
+    assert any(share_dir.glob("*.epi")), "Expected an .epi file in the offline share directory"
+    assert any(share_dir.glob("*.epi.share.json")), "Expected a sidecar JSON file"
 
 
 @pytest.mark.slow
-def test_fresh_venv_auth_login_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi auth login` fails gracefully when the cloud portal is unreachable."""
+def test_fresh_venv_auth_login_local_fallback_works(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi auth login --local` creates a local dev session without contacting the cloud portal."""
+    python, epi_home = fresh_venv
     result = _run_in_fresh_venv(
         fresh_venv,
-        ["auth", "login"],
+        ["auth", "login", "--local"],
         env_vars={"EPI_TELEMETRY_URL": f"{UNREACHABLE_URL}/api/telemetry/events"},
     )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "cannot reach" in combined.lower()
+    assert result.returncode == 0, (
+        f"auth login --local failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "local development session" in combined.lower()
+    assert (epi_home / "auth.json").exists()
 
 
 @pytest.mark.slow
-def test_fresh_venv_telemetry_dashboard_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
+def test_fresh_venv_telemetry_dashboard_shows_service_unavailable(
+    fresh_venv: tuple[Path, Path],
+) -> None:
     """`epi telemetry dashboard` fails gracefully when the dashboard is unreachable."""
     result = _run_in_fresh_venv(
         fresh_venv,
@@ -204,16 +221,18 @@ def test_fresh_venv_telemetry_dashboard_shows_service_unavailable(fresh_venv: tu
 
 
 @pytest.mark.slow
-def test_fresh_venv_telemetry_test_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi telemetry test` fails gracefully when the telemetry service is unreachable."""
+def test_fresh_venv_telemetry_test_warns_when_offline(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi telemetry test` warns but does not fail when the telemetry endpoint is unreachable."""
     result = _run_in_fresh_venv(
         fresh_venv,
         ["telemetry", "test"],
         env_vars={"EPI_TELEMETRY_URL": f"{UNREACHABLE_URL}/api/telemetry/events"},
     )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "cannot reach" in combined.lower()
+    assert result.returncode == 0, (
+        f"telemetry test offline failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "test event was not sent" in combined.lower()
 
 
 @pytest.mark.slow
@@ -232,8 +251,10 @@ def test_fresh_venv_telemetry_enable_offline_works(fresh_venv: tuple[Path, Path]
 
 
 @pytest.mark.slow
-def test_fresh_venv_telemetry_enable_join_pilot_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi telemetry enable --join-pilot` fails gracefully when the signup service is unreachable."""
+def test_fresh_venv_telemetry_enable_join_pilot_works_offline(
+    fresh_venv: tuple[Path, Path],
+) -> None:
+    """`epi telemetry enable --join-pilot` saves the signup locally when offline."""
     result = _run_in_fresh_venv(
         fresh_venv,
         [
@@ -248,13 +269,16 @@ def test_fresh_venv_telemetry_enable_join_pilot_shows_service_unavailable(fresh_
         env_vars={"EPI_PILOT_SIGNUP_URL": f"{UNREACHABLE_URL}/api/telemetry/pilot-signups"},
     )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "cannot reach" in combined.lower()
+    assert result.returncode == 0, (
+        "telemetry enable --join-pilot offline failed.\n"
+        f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "saved locally" in combined.lower()
 
 
 @pytest.mark.slow
-def test_fresh_venv_join_pilot_shows_service_unavailable(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi join-pilot` fails gracefully when the signup service is unreachable."""
+def test_fresh_venv_join_pilot_works_offline(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi join-pilot` saves the signup locally when the service is unreachable."""
     result = _run_in_fresh_venv(
         fresh_venv,
         [
@@ -269,5 +293,109 @@ def test_fresh_venv_join_pilot_shows_service_unavailable(fresh_venv: tuple[Path,
         env_vars={"EPI_PILOT_SIGNUP_URL": f"{UNREACHABLE_URL}/api/telemetry/pilot-signups"},
     )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "cannot reach" in combined.lower()
+    assert result.returncode == 0, (
+        f"join-pilot offline failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "saved locally" in combined.lower()
+
+
+@pytest.mark.slow
+def test_fresh_venv_scitt_register_local_works(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi scitt register --local` works offline on a signed artifact."""
+    python, epi_home = fresh_venv
+    artifact = epi_home / "scitt_register.epi"
+    record_result = _run_in_fresh_venv(
+        fresh_venv,
+        ["record", "--out", str(artifact), "--", str(python), "-c", "print('hello')"],
+    )
+    assert record_result.returncode == 0, (
+        "Could not create test artifact.\n"
+        f"STDOUT:\n{record_result.stdout}\nSTDERR:\n{record_result.stderr}"
+    )
+
+    result = _run_in_fresh_venv(
+        fresh_venv,
+        ["scitt", "register", "--local", str(artifact)],
+        env_vars={"EPI_SCITT_URL": UNREACHABLE_URL},
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, (
+        f"scitt register --local failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "local scitt registration complete" in combined.lower()
+    with zipfile.ZipFile(artifact) as zf:
+        assert "artifacts/scitt/statement.cbor" in zf.namelist()
+        assert "artifacts/scitt/receipt.cbor" in zf.namelist()
+
+
+@pytest.mark.slow
+def test_fresh_venv_scitt_anchor_local_works(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi scitt anchor --local` works offline on a signed artifact."""
+    python, epi_home = fresh_venv
+    artifact = epi_home / "scitt_anchor.epi"
+    record_result = _run_in_fresh_venv(
+        fresh_venv,
+        ["record", "--out", str(artifact), "--", str(python), "-c", "print('hello')"],
+    )
+    assert record_result.returncode == 0, (
+        "Could not create test artifact.\n"
+        f"STDOUT:\n{record_result.stdout}\nSTDERR:\n{record_result.stderr}"
+    )
+
+    result = _run_in_fresh_venv(
+        fresh_venv,
+        ["scitt", "anchor", "--local", str(artifact)],
+        env_vars={"EPI_SCITT_URL": UNREACHABLE_URL},
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, (
+        f"scitt anchor --local failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "local scitt registration complete" in combined.lower()
+    with zipfile.ZipFile(artifact) as zf:
+        assert "artifacts/scitt/statement.cbor" in zf.namelist()
+        assert "artifacts/scitt/receipt.cbor" in zf.namelist()
+
+
+@pytest.mark.slow
+def test_fresh_venv_scitt_local_verify_reaches_medium_trust(fresh_venv: tuple[Path, Path]) -> None:
+    """A local SCITT receipt verifies offline and reaches at least MEDIUM trust."""
+    python, epi_home = fresh_venv
+    artifact = epi_home / "scitt_local_medium.epi"
+    record_result = _run_in_fresh_venv(
+        fresh_venv,
+        ["record", "--out", str(artifact), "--", str(python), "-c", "print('hello')"],
+    )
+    assert record_result.returncode == 0, (
+        "Could not create test artifact.\n"
+        f"STDOUT:\n{record_result.stdout}\nSTDERR:\n{record_result.stderr}"
+    )
+
+    register_result = _run_in_fresh_venv(
+        fresh_venv,
+        ["scitt", "register", "--local", str(artifact)],
+        env_vars={"EPI_SCITT_URL": UNREACHABLE_URL},
+    )
+    assert register_result.returncode == 0, (
+        "Could not anchor artifact locally.\n"
+        f"STDOUT:\n{register_result.stdout}\nSTDERR:\n{register_result.stderr}"
+    )
+
+    verify_result = _run_in_fresh_venv(
+        fresh_venv,
+        ["verify", "--json", str(artifact)],
+        env_vars={"EPI_SCITT_URL": UNREACHABLE_URL},
+    )
+    assert verify_result.returncode == 0, (
+        "Verify failed for local SCITT artifact.\n"
+        f"STDOUT:\n{verify_result.stdout}\nSTDERR:\n{verify_result.stderr}"
+    )
+    report = json.loads(verify_result.stdout.strip())
+    assert report["integrity_ok"] is True
+    assert report["signature_valid"] is True
+    assert report["trust_level"] in ("MEDIUM", "HIGH"), (
+        f"Expected MEDIUM or HIGH trust, got {report['trust_level']}"
+    )
+
+    facts = report.get("facts") or report
+    assert facts.get("transparency_ok") is True, "Local SCITT receipt did not verify transparently"

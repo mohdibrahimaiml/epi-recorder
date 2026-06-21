@@ -20,7 +20,7 @@ from rich.panel import Panel
 
 from epi_cli.view import _resolve_epi_file
 from epi_core._version import get_version
-from epi_core.aiuc1_mapping import map_verification_to_aiuc1, aiuc1_summary
+from epi_core.aiuc1_mapping import aiuc1_summary, map_verification_to_aiuc1
 from epi_core.container import EPIContainer
 from epi_core.review import verify_review_trust
 from epi_core.trust import (
@@ -46,6 +46,12 @@ def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
     """
     if not service_url:
         return None
+
+    # Local/offline SCITT service: read the service public key from disk.
+    if service_url.lower() == "local":
+        from epi_core.local_scitt import service_public_key
+
+        return service_public_key()
 
     import hashlib
     from pathlib import Path
@@ -132,17 +138,17 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
       - Every agent.approval.request has a corresponding agent.approval.response
     """
     gaps: list[str] = []
-    
+
     pending_tool_calls: list[tuple[int, str | None]] = []
     pending_llm_requests: list[tuple[int, str | None]] = []
     pending_approvals: list[tuple[int, str | None]] = []
-    
+
     for s in steps:
         kind = s.get("kind", "")
         content = s.get("content", {}) or {}
         idx = s.get("index", 0)
         span_id = s.get("span_id")
-        
+
         if kind == "tool.call":
             call_id = content.get("call_id")
             pending_tool_calls.append((idx, call_id))
@@ -157,7 +163,7 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
                         break
             if not matched and pending_tool_calls:
                 pending_tool_calls.pop(0)
-                
+
         elif kind == "llm.request":
             pending_llm_requests.append((idx, span_id))
         elif kind in ("llm.response", "llm.error"):
@@ -170,7 +176,7 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
                         break
             if not matched and pending_llm_requests:
                 pending_llm_requests.pop(0)
-                
+
         elif kind == "agent.approval.request":
             action = content.get("action")
             pending_approvals.append((idx, action))
@@ -185,14 +191,14 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
                         break
             if not matched and pending_approvals:
                 pending_approvals.pop(0)
-                
+
     for idx, call_id in pending_tool_calls:
         gaps.append(f"tool.call at step {idx} is missing a corresponding tool.response")
     for idx, span_id in pending_llm_requests:
         gaps.append(f"llm.request at step {idx} is missing a corresponding response or error")
     for idx, action in pending_approvals:
         gaps.append(f"agent.approval.request for '{action}' at step {idx} is missing a response")
-        
+
     return len(gaps) == 0, gaps
 
 
@@ -755,7 +761,7 @@ def verify_command(
         if web and not json_output:
             portal_url = "https://epilabs.org/verify"
             console.print(f"\n[bold cyan]Opening {portal_url}...[/bold cyan]")
-            console.print(f"[dim]Upload this file to verify in your browser:[/dim]")
+            console.print("[dim]Upload this file to verify in your browser:[/dim]")
             console.print(f"[green]{epi_file.resolve()}[/green]\n")
             try:
                 import webbrowser
@@ -766,7 +772,7 @@ def verify_command(
 
         if qr and not json_output:
             portal_url = "https://epilabs.org/verify"
-            console.print(f"\n[bold cyan]Scan this QR code to verify on your phone:[/bold cyan]")
+            console.print("\n[bold cyan]Scan this QR code to verify on your phone:[/bold cyan]")
             _print_qr_code(portal_url)
             console.print(f"[dim]Or visit: {portal_url}[/dim]\n")
 

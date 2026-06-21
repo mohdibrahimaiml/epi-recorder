@@ -6,18 +6,21 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
 
 from epi_core.artifact_inspector import ArtifactInspectionError, ensure_shareable_artifact
 from epi_core.container import EPIContainer
+from epi_core.time_utils import utc_now_iso
 from epi_cli.view import _resolve_epi_file
 from epi_core import telemetry as telemetry_core
 
@@ -47,6 +50,70 @@ def _parse_error_body(exc: urllib.error.HTTPError) -> str:
     return payload.get("detail") or payload.get("error") or exc.reason or f"HTTP {exc.code}"
 
 
+def _offline_share_dir() -> Path | None:
+    raw = os.getenv("EPI_SHARE_OFFLINE")
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
+
+
+def _share_offline(
+    epi_file: Path,
+    expires: int,
+    inspection: Any,
+    json_output: bool,
+) -> None:
+    share_dir = _offline_share_dir()
+    assert share_dir is not None
+    share_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = utc_now_iso().replace(":", "-").replace("+", "_")
+    dest_name = f"{epi_file.stem}_{timestamp}{epi_file.suffix}"
+    dest_path = share_dir / dest_name
+    shutil.copy2(epi_file, dest_path)
+
+    sidecar = {
+        "created_at": utc_now_iso(),
+        "expires_days": expires,
+        "filename": epi_file.name,
+        "local_path": str(dest_path),
+        "local_url": dest_path.as_uri(),
+        "size_bytes": dest_path.stat().st_size,
+        "offline": True,
+    }
+    sidecar_path = share_dir / f"{dest_name}.share.json"
+    sidecar_path.write_text(json.dumps(sidecar, indent=2), encoding="utf-8")
+
+    payload_bytes = epi_file.read_bytes()
+    try:
+        telemetry_core.record_first_use()
+        telemetry_core.track_event(
+            "epi.share.completed",
+            {
+                "command": "share",
+                "source": "cli",
+                "success": True,
+                "offline": True,
+                "artifact_count": 1,
+                "artifact_bytes": len(payload_bytes),
+            },
+        )
+    except Exception:
+        pass
+
+    if json_output:
+        sys.stdout.write(json.dumps(sidecar, indent=2) + "\n")
+        raise typer.Exit(0)
+
+    console.print("[green][OK][/green] Artifact saved to offline share directory")
+    console.print(f"[cyan]{dest_path.as_uri()}[/cyan]")
+    console.print(f"[dim]Local path: {dest_path}[/dim]")
+    console.print(f"[dim]Link expires in {expires} days.[/dim]")
+    if inspection.signature_valid is None:
+        console.print("[dim]This artifact is unsigned but its integrity was checked locally before saving.[/dim]")
+    raise typer.Exit(0)
+
+
 def share(
     file: Path = typer.Argument(..., exists=False, dir_okay=False, help="Path to the .epi file to share."),
     expires: int = typer.Option(30, "--expires", min=1, help="Days until the share link expires (max 30)."),
@@ -72,6 +139,9 @@ def share(
         raise typer.Exit(1) from exc
 
     api_root = _resolve_share_api_base_url(api_base_url)
+
+    if _offline_share_dir() is not None:
+        _share_offline(resolved_file, expires, inspection, json_output)
 
     from epi_cli._shared import require_service
 

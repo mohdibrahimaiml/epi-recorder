@@ -47,7 +47,7 @@ def enable(
     org: str = typer.Option("", "--org", help="Pilot signup organization."),
     role: str = typer.Option("", "--role", help="Pilot signup role."),
     use_case: str = typer.Option(
-        "other",
+        "",
         "--use-case",
         help="Pilot use case: debugging | governance | compliance | agt integration | ci/cd | other.",
     ),
@@ -80,20 +80,17 @@ def enable(
         console.print("[dim]Pilot signup skipped. You can run this later with: epi telemetry enable --join-pilot[/dim]")
         return
 
-    pilot_url = telemetry_core.pilot_signup_url()
-    require_service(pilot_url, label="EPI pilot signup service")
-
     if not email and _is_interactive():
         email = Prompt.ask("Email")
     if not org and _is_interactive():
         org = Prompt.ask("Org", default="")
     if not role and _is_interactive():
         role = Prompt.ask("Role", default="")
-    if (not use_case or use_case == "other") and _is_interactive():
+    if not use_case and _is_interactive():
         use_case = Prompt.ask(
             "Use case",
             choices=["debugging", "governance", "compliance", "agt integration", "ci/cd", "other"],
-            default=use_case or "other",
+            default="other",
         )
     if not link_telemetry and _is_interactive():
         link_telemetry = Confirm.ask(
@@ -156,7 +153,6 @@ def dashboard() -> None:
 def test() -> None:
     """Send a harmless test event if telemetry is enabled."""
 
-    require_service(telemetry_core.telemetry_url(), label="EPI telemetry service")
     flush = telemetry_core.flush_queued_events()
     sent = telemetry_core.track_event(
         "telemetry.test",
