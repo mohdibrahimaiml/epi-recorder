@@ -164,3 +164,23 @@ v2.8.5.ipynb
 !verify_portal/static/verify/*.html
 .aider*
 data/ 
+
+# Eval workspaces
+.eval_workspace/
+audit_sandbox/
+epi-official-check/
+epi-official-fresh/
+fresh_pristine_eval/
+github_clone/
+scratch_clone/
+guardrails-fork/
+
+# Temp scripts
+_gen.py
+_portal_upgrade.py
+.tmp_live_*
+
+# Runtime generated
+
+# JS untracked
+verify_portal/static/js/
