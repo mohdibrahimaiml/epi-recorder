@@ -584,13 +584,6 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 # These must come BEFORE the catch-all static mount.
 @app.get("/verify")
 async def verify_page():
-    portal_path = STATIC_DIR / "portal.html"
-    if portal_path.exists():
-        return FileResponse(portal_path)
-    return FileResponse(STATIC_DIR / "index.html")
-    portal_path = STATIC_DIR / "portal.html"
-    if portal_path.exists():
-        return FileResponse(portal_path)
     return FileResponse(STATIC_DIR / "index.html")
 
 

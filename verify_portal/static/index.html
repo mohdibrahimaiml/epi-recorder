@@ -686,7 +686,7 @@ function auditStepCompleteness(steps){
     var span_id=s.span_id;
     if(kind==='tool.call'){
       pendingToolCalls.push({idx:idx,call_id:content.call_id});
-    }else if(kind==='tool.response'){
+    }else if(kind==='tool.response'||kind==='tool.result'){
       var call_id=content.call_id;
       var matched=false;
       if(call_id!==undefined&&call_id!==null){
@@ -699,9 +699,9 @@ function auditStepCompleteness(steps){
         }
       }
       if(!matched&&pendingToolCalls.length>0)pendingToolCalls.shift();
-    }else if(kind==='llm.request'){
+    }else if(kind==='llm.request'||kind==='llm.call'){
       pendingLlmRequests.push({idx:idx,span_id:span_id});
-    }else if(kind==='llm.response'||kind==='llm.error'){
+    }else if(kind==='llm.response'||kind==='llm.error'||kind==='llm.result'){
       var matched=false;
       if(span_id!==undefined&&span_id!==null){
         for(var li=pendingLlmRequests.length-1;li>=0;li--){
@@ -713,9 +713,17 @@ function auditStepCompleteness(steps){
         }
       }
       if(!matched&&pendingLlmRequests.length>0)pendingLlmRequests.shift();
-    }else if(kind==='agent.approval.request'){
-      pendingApprovals.push({idx:idx,action:content.action});
-    }else if(kind==='agent.approval.response'){
+    }else if(kind==='agent.approval.request'||kind==='approval'){
+      pendingApprovals.push({idx:idx,action:content.action||content.decision||content.status||''});
+      // Single-step approval: pop immediately (no separate response step)
+      if(kind==='approval'&&(content.action||content.decision||content.status)){
+        for(var _ai=pendingApprovals.length-1;_ai>=0;_ai--){
+          if(pendingApprovals[_ai].action===(content.action||content.decision||content.status)){
+            pendingApprovals.splice(_ai,1);break;
+          }
+        }
+      }
+    }else if(kind==='agent.approval.response'||kind==='approval.response'||kind==='approval_result'){
       var action=content.action;
       var matched=false;
       if(action!==undefined&&action!==null){
