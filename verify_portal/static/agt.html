@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Microsoft AGT → EPI Integration | EPI LABS</title>
+<meta name="description" content="EPI imports native Microsoft Agent Governance Toolkit (AGT) audit evidence into signed, offline-verifiable .epi artifacts. Field-level mapping, semantic preservation, end-to-end reproduction.">
+<link rel="canonical" href="https://epilabs.org/agt">
+<link rel="shortcut icon" href="assets/epi-favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="css/epi.css?v=24">
+<style>
+.agt-page{padding-top:120px;padding-bottom:80px}
+.agt-header{text-align:center;margin-bottom:56px}
+.agt-header h1{font-size:clamp(2rem,4.5vw,3.2rem);font-weight:700;letter-spacing:-0.03em;line-height:1.12;margin-bottom:16px;color:var(--ink)}
+.agt-header h1 span{color:var(--accent)}
+.agt-header p{font-size:1.1rem;color:var(--ink-muted);max-width:640px;margin:0 auto;line-height:1.7}
+
+.agt-section{margin-bottom:48px}
+.agt-section h2{font-size:1.4rem;font-weight:700;margin-bottom:12px;color:var(--ink);letter-spacing:-0.02em}
+.agt-section h3{font-size:1.05rem;font-weight:600;margin-bottom:8px;color:var(--ink-soft);letter-spacing:-0.01em}
+.agt-section p,.agt-section li{font-size:0.95rem;color:var(--ink-soft);line-height:1.7}
+.agt-section ul{padding-left:20px;list-style:disc}
+.agt-section ul li{margin-bottom:4px}
+
+.agt-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;margin-bottom:16px;transition:border-color 0.3s var(--ease)}
+.agt-card:hover{border-color:var(--border-accent)}
+
+.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:24px 0}
+.flow-step{text-align:center;padding:16px 8px;background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--radius-sm);transition:all 0.3s var(--ease)}
+.flow-step:hover{background:var(--accent-glow);border-color:var(--accent-line)}
+.flow-icon{font-size:1.5rem;margin-bottom:8px;display:block}
+.flow-label{font-family:var(--mono);font-size:0.68rem;color:var(--ink-muted);line-height:1.5}
+.flow-arrow{display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--ink-dim)}
+
+@media(max-width:860px){.flow-grid{grid-template-columns:1fr;gap:4px}.flow-arrow{transform:rotate(90deg)}}
+
+.mapping-table{width:100%;border-collapse:collapse;font-size:0.88rem;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.mapping-table th{font-family:var(--mono);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-muted);text-align:left;padding:12px 16px;border-bottom:1.5px solid var(--border-str);background:var(--accent-glow)}
+.mapping-table td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--ink-soft);font-family:var(--mono);font-size:0.82rem}
+.mapping-table tr:last-child td{border-bottom:none}
+.mapping-table tr:hover td{background:var(--accent-glow)}
+.mapping-tag{display:inline-block;font-family:var(--mono);font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;padding:2px 8px;border-radius:var(--radius-sm);margin-left:6px;vertical-align:middle}
+.mapping-tag--ok{background:var(--verified-bg);color:var(--verified)}
+.mapping-tag--warn{background:var(--warn-bg);color:var(--warn)}
+
+.code-block{background:var(--bg-dark);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-sm);padding:16px 18px;font-family:var(--mono);font-size:0.78rem;line-height:2;color:#C8CDD5;overflow-x:auto;margin:12px 0}
+.code-block .cmt{color:#6E7681;font-style:italic}
+.code-block .kw{color:#79C0FF}
+.code-block .fn{color:#D2A8FF}
+.code-block .ok{color:#3FB950}
+.code-block .warn{color:#D29922}
+.code-block .dim{color:#8B949E}
+
+.paths-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+@media(max-width:768px){.paths-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/#how">Product</a></li>
+      <li><a href="/verify">Verify</a></li>
+      <li><a href="/scitt">SCITT</a></li>
+      <li><a href="/agt" style="color:var(--accent);font-weight:600">AGT</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+      <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode"></button></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/#how">Product</a>
+  <a href="/verify">Verify</a>
+  <a href="/scitt">SCITT</a>
+  <a href="/agt">AGT</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/#cta">Get Started</a>
+</div>
+
+<div class="container agt-page">
+
+  <div class="agt-header">
+    <h1>Microsoft <span>AGT</span> → EPI</h1>
+    <p>Native import of Microsoft Agent Governance Toolkit audit evidence into signed, portable, offline-verifiable .epi artifacts. Field-level mapping documented. End-to-end reproduction from a fresh clone.</p>
+  </div>
+
+  <!-- Flow -->
+  <div class="agt-card">
+    <h2>Pipeline</h2>
+    <p style="margin-bottom:16px">AGT audit evidence flows through four stages to become a verifiable EPI artifact. No manual assembly required.</p>
+    <div class="flow-grid">
+      <div class="flow-step"><span class="flow-icon">&#x1F6E1;</span><div class="flow-label">AGT<br>AuditService</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-icon">&#x1F4E4;</span><div class="flow-label">Native<br>Export</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-icon">&#x1F4E6;</span><div class="flow-label">epi import agt<br>Auto-detect</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-icon">&#x1F4C1;</span><div class="flow-label">Signed<br>.epi File</div></div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step"><span class="flow-icon">&#x2705;</span><div class="flow-label">epi verify<br>Offline</div></div>
+    </div>
+  </div>
+
+  <!-- Two paths -->
+  <div class="agt-card">
+    <h2>Two ways to try it</h2>
+    <div class="paths-grid">
+      <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+        <h3 style="color:var(--verified)">Quick Path</h3>
+        <p style="font-size:0.88rem">No AGT installation. Uses pre-generated evidence.</p>
+        <div class="code-block"><span class="dim">$</span> git clone https://github.com/mohdibrahimaiml/epi-recorder<br><span class="dim">$</span> <span class="kw">cd</span> epi-recorder<br><span class="dim">$</span> pip install -e .<br><br><span class="dim">$</span> epi import agt examples/agt/native-export/sample_export.json \<br>  --out case.epi<br><span class="ok">[OK] AGT import complete</span><br><br><span class="dim">$</span> epi verify case.epi<br><span class="ok">Integrity:    Verified<br>Signature:    Valid</span></div>
+        <p style="font-size:0.85rem;color:var(--ink-dim);margin-top:8px">Good for documentation, screenshots, conference talks.</p>
+      </div>
+      <div style="background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+        <h3>Full Validation Path</h3>
+        <p style="font-size:0.88rem">Installs AGT SDK and generates live evidence.</p>
+        <div class="code-block"><span class="dim">$</span> git clone https://github.com/microsoft/<br>  agent-governance-toolkit<br><span class="dim">$</span> <span class="kw">cd</span> agent-governance-python/<br>  agent-governance-toolkit-core<br><span class="dim">$</span> pip install .<br><br><span class="dim">$</span> <span class="kw">cd</span> epi-recorder<br><span class="dim">$</span> python examples/agt/native-export/<br>  generate_evidence.py<br><span class="ok">Evidence written to agt_export.json</span><br><br><span class="dim">$</span> epi import agt agt_export.json \<br>  --out case.epi<br><span class="dim">$</span> epi verify case.epi<br><span class="ok">Integrity:    Verified<br>Signature:    Valid</span></div>
+        <p style="font-size:0.85rem;color:var(--ink-dim);margin-top:8px">Good for auditors, maintainers, engineers validating the pipeline.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bugs found & fixed -->
+  <div class="agt-card">
+    <h2>Interoperability bugs found and fixed</h2>
+    <p style="margin-bottom:12px">These four issues were discovered by feeding real AGT SDK output into the EPI adapter. All were adapter mapping problems, not format incompatibilities.</p>
+    <table class="mapping-table">
+      <thead><tr><th>#</th><th>AGT Output</th><th>EPI Before Fix</th><th>EPI After Fix</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><span class="code-inline">event_type: "agent_action"</span></td><td><span class="warn">agt.unknown.agent_action</span></td><td><span class="ok">tool.call</span></td></tr>
+        <tr><td>2</td><td><span class="code-inline">event_type: "policy_decision"</span></td><td><span class="warn">agt.unknown.policy_decision</span></td><td><span class="ok">policy.check</span></td></tr>
+        <tr><td>3</td><td><span class="code-inline">policy_decision: null</span></td><td><span style="color:var(--tamper)">Pydantic validation crash</span></td><td><span class="ok">str | None = None</span></td></tr>
+        <tr><td>4</td><td><span class="code-inline">data.policy_name: "EUAI-ART9-RISK"</span></td><td><span class="warn">matched_rule: ""</span></td><td><span class="ok">matched_rule extracted</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Field mapping -->
+  <div class="agt-card">
+    <h2>AGT → EPI field mapping</h2>
+    <p style="margin-bottom:12px">Every AGT field is either translated to an EPI equivalent or preserved verbatim. The mapping report inside each .epi artifact documents every transformation.</p>
+    <table class="mapping-table">
+      <thead><tr><th>AGT Field</th><th>EPI Field</th><th>Mapping</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>event_type</td><td>kind</td><td>translated <span class="mapping-tag mapping-tag--ok">done</span></td><td>agent_action &rarr; tool.call, policy_decision &rarr; policy.check</td></tr>
+        <tr><td>agent_did</td><td>governance.agent_did</td><td>exact <span class="mapping-tag mapping-tag--ok">done</span></td><td>Preserved verbatim</td></tr>
+        <tr><td>action</td><td>governance.action</td><td>translated <span class="mapping-tag mapping-tag--ok">done</span></td><td>AGT &rarr; EPI action vocabulary</td></tr>
+        <tr><td>outcome</td><td>governance.outcome</td><td>translated <span class="mapping-tag mapping-tag--ok">done</span></td><td>success &rarr; completed, denied &rarr; blocked</td></tr>
+        <tr><td>entry_id</td><td>content.agt_entry_id</td><td>exact <span class="mapping-tag mapping-tag--ok">done</span></td><td>Reference back to original AGT entry</td></tr>
+        <tr><td>entry_hash</td><td>content.agt_entry_hash</td><td>preserved <span class="mapping-tag mapping-tag--ok">done</span></td><td>Hash chain integrity preserved</td></tr>
+        <tr><td>data.policy_name</td><td>matched_rule, governance.policy_name</td><td>derived <span class="mapping-tag mapping-tag--ok">done</span></td><td>Extracted from AGT data payload</td></tr>
+        <tr><td>data.*</td><td>content.agt_data.*</td><td>preserved <span class="mapping-tag mapping-tag--ok">done</span></td><td>All AGT data fields preserved verbatim</td></tr>
+        <tr><td>merkle_root</td><td>artifacts/agt/</td><td>preserved <span class="mapping-tag mapping-tag--ok">done</span></td><td>Raw export preserved, Merkle chain in metadata</td></tr>
+        <tr><td>timestamp</td><td>timestamp</td><td>exact <span class="mapping-tag mapping-tag--ok">done</span></td><td>ISO-8601 preserved</td></tr>
+        <tr><td>resource</td><td>content.resource</td><td>exact <span class="mapping-tag mapping-tag--ok">done</span></td><td>Resource identifier preserved</td></tr>
+        <tr><td>unknown fields</td><td>content.agt_unknown_fields</td><td>preserved <span class="mapping-tag mapping-tag--warn">future</span></td><td>Forward-compatible with new AGT fields</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- What the .epi contains -->
+  <div class="agt-card">
+    <h2>Inside the artifact</h2>
+    <p style="margin-bottom:12px">A loan underwriting scenario with 4 AGT events, imported and verified.</p>
+    <div class="code-block"><span class="cmt"># steps.jsonl — 4 EPI-native steps</span>
+[0] kind=<span class="kw">tool.call</span>       action=assess_credit_risk        <span class="cmt"># agent_action → tool.call</span>
+[1] kind=<span class="kw">policy.check</span>   action=assess_credit_risk        <span class="ok">rule=LENDING-V2-ART3</span>
+[2] kind=<span class="kw">tool.call</span>       action=generate_decision_letter <span class="cmt"># agent_action → tool.call</span>
+[3] kind=<span class="kw">policy.check</span>   action=approve_above_threshold   <span class="warn">rule=EUAI-ART9-RISK  (DENIED)</span>
+
+<span class="cmt"># artifacts/agt/ — 8 raw AGT files preserved</span>
+  bundle.json          <span class="dim">(full AGT export)</span>
+  audit_logs.json      flight_recorder.json
+  compliance_report.json   policy_document.json
+  runtime_context.json     slo_data.json
+  mapping_report.json      <span class="dim">(every field mapped)</span></div>
+  </div>
+
+  <!-- Test results -->
+  <div class="agt-card">
+    <h2>Test suite</h2>
+    <p>130 tests across the AGT adapter, container layer, envelope format, serialization, CLI, framework adapters, guardrails, and integration end-to-end tests — all passing with zero regressions from the adapter fixes.</p>
+    <div class="code-block" style="margin-top:12px"><span class="ok">130 passed</span> in 62.00s
+<span class="dim">agt_adapter .......... 31/31</span>
+<span class="dim">container ........... 27/27</span>
+<span class="dim">envelope ........... 10/10</span>
+<span class="dim">serialize ........... 17/17</span>
+<span class="dim">integration ........ 30/30</span>
+<span class="dim">unit ............... 15/15</span></div>
+  </div>
+
+  <!-- What is and isn't -->
+  <div class="agt-card">
+    <h2>What this integration is and isn't</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div style="background:var(--verified-bg);border:1px solid var(--verified);border-radius:var(--radius-sm);padding:16px">
+        <p style="font-weight:600;color:var(--verified);margin-bottom:6px;font-size:0.88rem">ESTABLISHED</p>
+        <ul style="font-size:0.82rem;color:var(--ink-soft);padding-left:16px">
+          <li>AGT AuditService exports importable</li>
+          <li>Field-level mapping documented</li>
+          <li>Governance semantics preserved</li>
+          <li>Integrity + signature verified</li>
+          <li>Reproduceable from fresh clone</li>
+          <li>130/130 tests pass</li>
+        </ul>
+      </div>
+      <div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:var(--radius-sm);padding:16px">
+        <p style="font-weight:600;color:var(--warn);margin-bottom:6px;font-size:0.88rem">NOT ESTABLISHED</p>
+        <ul style="font-size:0.82rem;color:var(--ink-soft);padding-left:16px">
+          <li>AGT natively exports .epi</li>
+          <li>Adapter lives in Microsoft's repo</li>
+          <li>Microsoft adopted EPI as standard</li>
+          <li>Independent third-party reproduced</li>
+          <li>Deprecation warning suppressed</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Links -->
+  <div class="agt-card" style="text-align:center">
+    <p style="margin-bottom:16px">Try the integration yourself.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/examples/agt/native-export/generate_evidence.py" class="btn btn-primary">View generate_evidence.py</a>
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/tree/main/examples/agt" class="btn btn-secondary">examples/agt/ on GitHub</a>
+      <a href="https://github.com/microsoft/agent-governance-toolkit" class="btn btn-secondary">Microsoft AGT on GitHub</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="container"><div class="footer-inner">
+    <div class="footer-left">
+      <img src="assets/logo.png" alt="EPI Labs" class="footer-logo">
+      <span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/rfcs/agt-portable-evidence-mapping.md" target="_blank" rel="noopener">RFC</a></li>
+      <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
+    </ul>
+  </div></div>
+</footer>
+
+<script>
+(function(){
+var stored=localStorage.getItem('epi-theme'),prefersDark=matchMedia('(prefers-color-scheme:dark)').matches;
+if(stored==='dark'||(!stored&&prefersDark))document.documentElement.setAttribute('data-theme','dark');
+function ut(){var d=document.documentElement.hasAttribute('data-theme'),ico=d?'&#9788;':'&#9789;';
+document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color=d?'#E6EDF3':'var(--ink)'})}
+ut();
+function flip(){var r=document.documentElement;if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}ut()}
+document.getElementById('themeToggleNav').addEventListener('click',flip);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){if(!localStorage.getItem('epi-theme')){e.matches?document.documentElement.setAttribute('data-theme','dark'):document.documentElement.removeAttribute('data-theme');ut()}});
+var nav=document.getElementById('nav');if(nav){window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'))}
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
+mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+})();
+</script>
+</body>
+</html>
