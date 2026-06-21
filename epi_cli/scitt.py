@@ -458,6 +458,14 @@ def _build_scitt_artifact(
     # Re-sign the manifest
     signed_manifest = sign_manifest(updated_manifest, private_key, key_name)
 
+    # Re-create SCITT statement with updated manifest hash
+    # (original statement was created before governance was added)
+    from epi_core.local_scitt import register_statement as _register_local
+    fresh_statement = create_scitt_statement(updated_manifest, private_key, issuer=_derive_issuer(updated_manifest), kid=key_name.encode())
+    fresh_receipt, _ = _register_local(fresh_statement)
+    statement_bytes = fresh_statement
+    receipt_bytes = fresh_receipt
+
     manifest_json = signed_manifest.model_dump_json(indent=2).encode("utf-8")
     extra_files = {
         "artifacts/scitt/statement.cbor": statement_bytes,
