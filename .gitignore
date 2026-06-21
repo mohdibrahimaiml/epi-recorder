@@ -184,3 +184,6 @@ _portal_upgrade.py
 
 # JS untracked
 verify_portal/static/js/
+
+# Runtime review artifacts
+review/artifacts/
