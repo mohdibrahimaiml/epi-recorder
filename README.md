@@ -8,55 +8,40 @@
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![SCITT Compatible](https://img.shields.io/badge/SCITT-COSE%20Sign1-orange?style=for-the-badge)](docs/standards/scitt-predicate.md)
-[![AIUC-1 Ready](https://img.shields.io/badge/AIUC--1-Ready-success?style=for-the-badge)](docs/standards/aiuc-1-evidence.md)
-[![Test Suite](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
+[![SCITT Compliant](https://img.shields.io/badge/SCITT-COSE_Sign1-orange?style=for-the-badge)](docs/standards/scitt-predicate.md)
+[![AIUC-1 + EU AI Act](https://img.shields.io/badge/AIUC--1-EU%20AI%20Act-success?style=for-the-badge)](docs/standards/aiuc-1-evidence.md)
+[![AGT Compatible](https://img.shields.io/badge/Microsoft%20AGT-Importer-blue?style=for-the-badge)](epi_recorder/integrations/agt_adapter/)
+[![Tests](https://img.shields.io/badge/tests-1300%2B%20passing-brightgreen?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
-```bash
+```
 pip install epi-recorder
+epi demo
 ```
 
-[Quick Start](#-quick-start) · [What EPI Does](#-what-epi-does) ·
-[Why EPI](#-why-epi-vs-observability) · [Integrations](#-integrations) ·
-[CLI Reference](#-commands) · [Regulatory Mapping](#-regulatory-compliance-mapping) ·
-[Founding Pilot](#-founding-pilot-program)
+[Quick Start](#-quick-start) · [Developer API](#-developer-api) ·
+[Enterprise Features](#-enterprise-features) · [AGT Import](#-microsoft-agt-import) ·
+[SCITT & AIUC-1](#-standards) · [CLI Reference](#-commands)
 
 </div>
 
 ---
 
 > **EPI Labs builds the evidence layer for the AI economy.**
-> `epi-recorder` is our flagship open-core tool for capturing, sealing, and verifying AI decisions.
+> `epi-recorder` is the open-source CLI and Python SDK for capturing, signing, and
+> verifying AI agent decisions into portable `.epi` files.
 
-*When a regulator asks what your AI agent did six months ago,*  
-*the answer should be a file — not a shrug.*
+*A regulator asks what your AI agent did six months ago. The answer is a file.*
 
 ---
 
-## 💎 What EPI Does
+## What EPI Does
 
 EPI captures an AI agent's **complete decision trail** — every LLM call, tool invocation,
-approval, error, and environmental context — and seals it into a single **`.epi` file**: a
-cryptographically signed, tamper-evident, self-contained forensic container.
+approval, error, and environmental context — and seals it into a single `.epi` file:
+a cryptographically signed, tamper-evident, self-contained forensic container.
 
-**Three lines of Python.** That's it.
-
-```python
-from epi_recorder import record, wrap_openai
-from openai import OpenAI
-
-client = wrap_openai(OpenAI())
-
-with record("loan-approval.epi", goal="Assess mortgage application #421"):
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": "Review applicant credit history"}]
-    )
-```
-
-The resulting `.epi` file can be **emailed to an auditor**, **archived for 10 years**, or
-**opened on an air-gapped machine** — without calling home, without the original runtime, and
-without trusting the producer.
+**Verification never requires calling home.** Open any `.epi` on an air-gapped machine,
+email it to an auditor, archive it for 10 years — it proves itself.
 
 ### Evidence Lifecycle
 
@@ -64,284 +49,404 @@ without trusting the producer.
 ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
 │ CAPTURE  │───→│  SEAL    │───→│  SHARE   │───→│ VERIFY   │───→│  AUDIT   │
 │          │    │          │    │          │    │          │    │          │
-│ One-line │    │ Ed25519  │    │ Email,   │    │ Offline  │    │ AIUC-1,  │
-│ wrapper  │    │ signed   │    │ shared   │    │ browser  │    │ SCITT,   │
-│          │    │ container│    │ drive    │    │ verifier │    │ policy   │
+│ 3 lines  │    │ Ed25519  │    │ Email,   │    │ Offline  │    │ AIUC-1, │
+│ of code  │    │ signed   │    │ local,   │    │ browser  │    │ SCITT,  │
+│          │    │ container│    │ gateway  │    │ verifier │    │ policy  │
 └──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
 ```
 
 ### Built For
 
-- **AI Engineers** — Drop in `wrap_openai()`, `wrap_anthropic()`, or a LiteLLM callback. No
-  redesign required.
-- **Compliance & Audit Teams** — Open any `.epi` in a browser and verify signatures, integrity,
-  and chain of custody without installing software.
-- **Enterprise Buyers** — Evidence maps to EU AI Act, FDA 21 CFR Part 11, HIPAA, NIST AI RMF,
-  and AIUC-1 requirements out of the box.
-
-### What's Inside an `.epi` File
-
-```text
-loan-approval.epi
-├── [Envelope v2] Binary header — magic bytes, version, payload SHA-256
-└── [Payload] Signed polyglot HTML+ZIP
-    ├── manifest.json       — Ed25519-signed root of trust + SHA-256 file hashes
-    ├── steps.jsonl         — Immutable execution timeline (prev_hash chain)
-    ├── environment.json    — Full runtime snapshot (host, Python, packages)
-    ├── analysis.json       — 9-pass policy-grounded fault analysis
-    ├── policy.json         — The rulebook that governed this run
-    ├── review.json         — Signed human review & approval ledger
-    ├── viewer.html         — Self-contained offline forensic viewer
-    └── VERIFY.txt          — Human-readable verification instructions
-```
-
-### Three Pillars of Trust
-
-| Pillar | Mechanism | What It Catches |
-|--------|-----------|-----------------|
-| **Integrity** | SHA-256 manifest over every file | Any byte modified, added, or removed after sealing |
-| **Identity** | Ed25519 signature (RFC 8032) | Spoofed or unknown signers; key revocation supported |
-| **Chain** | `prev_hash` linking every step | Inserted, removed, or reordered steps in the timeline |
+- **AI Engineers** — Drop in one wrapper: `wrap_openai()`, `wrap_anthropic()`, or a LiteLLM callback. No redesign.
+- **Compliance Teams** — Open any `.epi` in a browser. Verify signatures, integrity, and chain of custody without installing anything.
+- **Enterprises** — Evidence maps to EU AI Act, FDA 21 CFR Part 11, HIPAA, NIST AI RMF, AIUC-1, and SCITT requirements out of the box.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
+
+### Install
 
 ```bash
 pip install epi-recorder
-epi demo
 ```
 
-`epi demo` records a sample AI run, opens it in your browser, and verifies it — all in one command.
-
-### 1. Record a Workflow
+### Record + Verify in 60 Seconds
 
 ```python
-# my_agent.py
+# agent.py
 from epi_recorder import record, wrap_openai
 from openai import OpenAI
 
 client = wrap_openai(OpenAI())
 
-with record("agent-run.epi", goal="Classify support ticket"):
+with record("agent.epi", goal="Analyze sales data"):
     response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": "Route ticket #58291"}]
+        messages=[{"role": "user", "content": "Who are our top 3 customers?"}]
     )
 ```
 
-### 2. Verify Integrity
+```bash
+python agent.py
+epi verify agent.epi
+```
+
+You'll see a verification report with:
+
+| Check | Result |
+|-------|--------|
+| Integrity (SHA-256) | ✅ Verified — every byte accounted for |
+| Signature (Ed25519) | ✅ Valid — signed by a known key |
+| Identity | ✅ KNOWN — key in trusted registry |
+| Policy Decision | ✅ TRUSTED — no policy violations |
+
+### Open the Viewer (No Install Required)
 
 ```bash
-epi verify agent-run.epi
-```
-```
-┌─────────────────────── ✔ EPI Verification Report v4.2.0 ────────────────────┐
-│ DECISION: TRUSTED                                                           │
-│ Policy: standard                                                            │
-│                                                                             │
-│ FACTS (Objective Proofs)                                                    │
-│   - Integrity:    Verified                                                  │
-│   - Signature:    Valid                                                     │
-│   - Forensic:     PASS                                                      │
-│                                                                             │
-│ IDENTITY (Trust Context)                                                    │
-│   - Status:       KNOWN                                                     │
-│   - Name:         production-signer-v4                                      │
-│   - Key ID:       ba6b26ccc38af21c...                                       │
-└─────────────────────────────────────────────────────────────────────────────┘
+epi view agent.epi
 ```
 
-> **First run?** You may see `DECISION: WARN` because the signer's public key is not yet in your
-> trusted registry. Integrity and signature are still valid — identity just needs to be trusted:
-> `epi keys trust <public-key-file>`.
+Double-click any `.epi` file — it opens natively as HTML in any browser. The viewer is **self-contained**: no server, no internet, no dependencies.
 
-### 3. Open the Forensic Viewer
+### Sign & Anchor
 
 ```bash
-epi view agent-run.epi
-# Opens viewer.html in your browser — zero dependencies, offline-ready.
-```
+# Generate a key (first time only)
+epi keys generate
 
-Double-click any `.epi` — they open natively as HTML in any browser.
+# Sign the artifact
+epi sign agent.epi
+
+# Anchor to a local SCITT transparency ledger
+epi scitt register agent.epi
+
+# Verify with SCITT trust
+epi verify agent.epi --aiuc1
+```
 
 ---
 
-## ⚔️ Why EPI vs. Observability Tools
+## Developer API
 
-Observability platforms show you *what probably happened*. EPI proves *what actually
-happened* — and makes that proof portable.
+### OpenAI / Anthropic
 
-| Capability | EPI | Traditional Logs / Tracing |
-|:---|:---|:---|
-| **Tamper evidence** | SHA-256 manifest + signature catches any modification | Logs can be edited or deleted silently |
-| **Offline verification** | `.epi` verifies in any browser without a backend | Requires live platform access |
-| **Producer independence** | Auditor verifies without trusting the producer | Audit relies on the same system that created the log |
-| **Regulatory format** | AIUC-1, SCITT, EU AI Act mapped out of the box | Generic telemetry, manual mapping |
-| **Long-term archival** | Self-contained file, 10-year stable format | Vendor-dependent retention and query APIs |
+```python
+from epi_recorder import record, wrap_openai, wrap_anthropic
 
-Use EPI alongside your existing observability stack — not instead of it.
+# OpenAI
+with record("run.epi"):
+    client = wrap_openai(OpenAI())
+    client.chat.completions.create(model="gpt-4o", messages=[...])
+
+# Anthropic
+with record("run.epi"):
+    client = wrap_anthropic(Anthropic())
+    client.messages.create(model="claude-3-opus", messages=[...])
+```
+
+### LangChain
+
+```python
+from epi_recorder.integrations.langchain import EPICallbackHandler
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o", callbacks=[EPICallbackHandler()])
+```
+
+### LiteLLM (100+ Providers)
+
+```python
+from epi_recorder.integrations.litellm import EPICallback
+
+litellm.callbacks = [EPICallback()]
+response = litellm.completion(model="gpt-4o", messages=[...])
+```
+
+### OpenTelemetry
+
+```python
+from epi_recorder.integrations.opentelemetry import setup_epi_tracing
+
+setup_epi_tracing()
+# All OTel spans are bridged into signed .epi files
+```
+
+### pytest Plugin
+
+```bash
+pytest --epi                # Generates .epi for each test
+pytest --epi-store-failed   # Only keeps failing test evidence
+```
+
+### API-Only (No CLI)
+
+```python
+from epi_recorder import EpiRecorder
+
+recorder = EpiRecorder()
+with recorder.session(goal="Process loan") as session:
+    session.log_tool_call("Calculator", input="23 * 17", output="391")
+    artifact = session.capture()
+```
 
 ---
 
-## 🔧 Commands
+## Enterprise Features
+
+### Tamper-Proof Audit Trail
+
+Every `.epi` file contains:
+
+```
+agent.epi
+├── manifest.json       — Ed25519-signed root of trust + SHA-256 file hashes
+├── steps.jsonl         — Immutable timeline (linked list via prev_hash)
+├── environment.json    — Full runtime snapshot (host, Python, deps)
+├── analysis.json       — 9-pass policy-grounded fault analysis
+├── policy.json         — The rulebook that governed execution
+├── review.json         — Signed human review & approval ledger
+├── viewer.html         — Self-contained offline browser viewer
+└── VERIFY.txt          — Plain-text verification instructions for auditors
+```
+
+| Pillar | Mechanism | What It Catches |
+|--------|-----------|-----------------|
+| **Integrity** | SHA-256 manifest over every file | Any byte modified, added, or removed after sealing |
+| **Identity** | Ed25519 signature (RFC 8032) | Spoofed signers; key revocation via `epi keys revoke` |
+| **Chain** | `prev_hash` linking every step | Inserted, removed, or reordered steps |
+| **Redaction** | HMAC-SHA256 PII replacement | API keys, tokens, secrets never leave the machine in plaintext |
+| **Transparency** | SCITT COSE_Sign1 + Merkle receipt | Public ledger anchoring for non-repudiation |
+
+### Gateway (Team Capture Proxy)
+
+```bash
+epi gateway serve
+```
+
+Starts a FastAPI proxy that captures all AI traffic for a team:
+- Automatic .epi generation for every request
+- Configurable retention and storage
+- OAuth2 / GitHub login for access control
+- Webhook integration for SIEM pipelines
+
+### SCITT Transparency Service
+
+```bash
+# Local (no dependencies — works offline)
+epi scitt register agent.epi
+
+# Remote transparency service
+epi scitt register agent.epi --service https://your-scitt-service
+```
+
+EPI ships with a **built-in local SCITT service** powered by SQLite + Ed25519. Every registration produces a COSE_Sign1 statement and a Merkle-inclusion receipt — the same structure used by IETF SCITT transparency services.
+
+### Compliance Mapping
+
+| Requirement | Framework | Evidence in .epi |
+|-------------|-----------|-------------------|
+| Logs of system operation | **EU AI Act Art. 12** | `steps.jsonl` + `environment.json` |
+| 10-year technical retention | **EU AI Act Art. 19** | Self-contained `.epi` (format-stable) |
+| Human oversight proof | **EU AI Act Art. 14** | `review.json` — signed approval ledger |
+| Audit trail (21 CFR Part 11) | **FDA** | Signed `steps.jsonl` + electronic signatures |
+| Non-repudiation | **HIPAA § 164.312** | Ed25519 signature over the manifest |
+| AI risk management | **NIST AI RMF** | `policy.json` + `analysis.json` |
+| Verifiable risk evaluation | **AIUC-1** | 6-domain scoring over full evidence |
+| Transparency anchoring | **SCITT (IETF)** | COSE_Sign1 + Merkle inclusion proof |
+
+> EPI is not a compliance guarantee and does not provide legal advice. Whether evidence
+> satisfies a specific regulatory threshold is for the auditor or notified body to determine.
+
+---
+
+## Microsoft AGT Import
+
+EPI natively consumes **Microsoft Agent Governance Toolkit (AGT)** evidence — audit logs, flight
+recorder data, policy decisions — and converts it into signed `.epi` forensic containers.
+
+```bash
+# Auto-detect format and import
+epi import agt evidence.json
+
+# Import from a directory
+epi import agt evidence/
+
+# Import with strict deduplication
+epi import agt evidence.json --strict
+```
+
+Supports all AGT export formats: native JSON, CloudEvents, manifest bundles, and directory conventions.
+The adapter preserves every AGT field and maps it to the corresponding EPI step types — tool calls,
+policy decisions, errors, and metadata — with zero data loss.
+
+[Full AGT integration docs →](epi_recorder/integrations/agt_adapter/)
+
+---
+
+## Standards
+
+### SCITT (IETF Draft)
+
+EPI implements `draft-ietf-scitt-scrapi` with:
+- **COSE_Sign1** statements over **Ed25519** — signed statement per artifact
+- **Transparency receipts** with Merkle inclusion proofs
+- **Local or remote** service: built-in SQLite-backed ledger or any SCITT-compatible service
+- **Trust upgrade**: verification reports show `TRANSPARENCY: VERIFIED` when a SCITT receipt is present, raising the trust level from LOW to MEDIUM
+
+[SCITT details →](verify_portal/static/scitt.html)
+
+### AIUC-1
+
+EPI scores artifacts against all **6 AIUC-1 domains** with deterministic, evidence-based checks:
+
+| Domain | Check | Evidence Required |
+|--------|-------|-------------------|
+| A — Data & Privacy | Redaction quality, env snapshot | `environment.json`, steps with redacted PII |
+| B — Security | Signature, integrity | Signed manifest |
+| C — Safety | Step integrity chain | `prev_hash` linked timeline |
+| D — Reliability | Error handling | Error step detection |
+| E — Accountability | Human review binding | Signed `review.json` |
+| F — Society | Analysis findings | `analysis.json` with substantive findings |
+
+```bash
+epi verify agent.epi --aiuc1
+```
+
+Each domain scores PASS / PARTIAL / FAIL with specific evidence gaps reported. An overall summary
+determines whether the artifact meets AIUC-1 evidence thresholds.
+
+[AIUC-1 details →](verify_portal/static/aiuc1.html)
+
+### Format Commitment
+
+- **Ed25519** (RFC 8032) — industry-standard digital signatures
+- **SCITT** (IETF draft) — COSE Sign1, transparency receipts, Merkle proofs
+- **AIUC-1** — all 6 published domains, substantive checks
+- **CycloneDX** — SBOM preservation under `artifacts/sbom/`
+- **DID:WEB** — decentralized identity resolution for enterprise trust registries
+
+---
+
+## Commands
 
 | Command | What It Does |
 |---------|--------------|
-| `epi demo` | Try EPI in 60 seconds — record, view, and verify a sample run |
-| `epi run <script>` | Record an AI workflow and seal it into a `.epi` file |
-| `epi verify <file.epi>` | Cryptographic integrity + signature verification |
-| `epi view <file.epi>` | Open the offline forensic timeline viewer |
-| `epi audit <file.epi>` | Self-audit scoring across AIUC-1, SCITT, and review domains |
-| `epi keys generate` | Generate an Ed25519 signing key pair |
-| `epi keys list` | List signing key pairs |
-| `epi keys trust <key>` | Trust a signing key in the local registry |
-| `epi keys revoke <name>` | Revoke a trusted or signing key |
-| `epi gateway serve` | Start the FastAPI AI capture gateway for team workflows |
-| `epi policy init` | Create an `epi_policy.json` rulebook |
-| `epi review <file.epi>` | Sign and attest a human review of the artifact |
-| `epi scitt register <file.epi>` | Anchor an artifact to a SCITT transparency ledger |
-| `epi scitt verify <file.epi>` | Verify SCITT receipt and Merkle inclusion proof |
-| `pytest --epi` | Generate signed `.epi` evidence for each test |
+| `epi demo` | Record + verify in 60 seconds |
+| `epi run <script>` | Record an AI workflow |
+| `epi record <session>` | Start an interactive recording session |
+| `epi verify <file.epi>` | Integrity, signature, and policy verification |
+| `epi verify <file.epi> --aiuc1` | Full AIUC-1 compliance scoring |
+| `epi view <file.epi>` | Open the offline forensic viewer |
+| `epi audit <file.epi>` | Self-audit across all trust domains |
+| `epi sign <file.epi>` | Sign an artifact with Ed25519 |
+| `epi keys generate` | Create a signing key pair |
+| `epi keys list` | List all keys |
+| `epi keys trust <key>` | Trust a public key |
+| `epi keys revoke <name>` | Revoke a key |
+| `epi share <file.epi> --local` | Share offline (writes to `~/.epi/shares/`) |
+| `epi share <file.epi>` | Upload to share portal (no sign-in needed) |
+| `epi import agt <file>` | Import AGT evidence |
+| `epi scitt register <file.epi>` | Anchor to SCITT (defaults to local) |
+| `epi scitt verify <file.epi>` | Verify SCITT receipt |
+| `epi review <file.epi>` | Sign a human review |
+| `epi gateway serve` | Start the team capture proxy |
+| `epi auth login --local` | Local dev session |
+| `epi policy init` | Create `epi_policy.json` |
+| `pytest --epi` | Generate .epi per test |
 
 ---
 
-## 🔌 Integrations
+## Troubleshooting
 
-EPI plugs into your existing stack — one callback, one wrapper, one line.
+**`epi: command not found`** — activate your virtual environment or run `pip install epi-recorder` in the same shell.
 
-| Integration | How | What You Get |
-|-------------|-----|--------------|
-| **OpenAI / Anthropic** | `wrap_openai(client)` / `wrap_anthropic(client)` | Full chat capture, streaming support, token usage, latency |
-| **LangChain** | `ChatOpenAI(callbacks=[EPICallbackHandler()])` | Chain, tool, retriever, and agent traces |
-| **LangGraph** | `EPICheckpointSaver` | Agent graph state snapshots |
-| **LiteLLM** | `litellm.callbacks = [EPICallback()]` | 100+ providers through one callback |
-| **pytest** | `pytest --epi` | Signed forensic evidence per test — CI-ready |
-| **OpenTelemetry** | `setup_epi_tracing()` | Bridge OTel spans into signed `.epi` files |
-| **FastAPI Gateway** | `epi gateway serve` | Team capture proxy, configurable retention, webhooks |
+**`DECISION: WARN` on first verify** — the signing key isn't in your trusted registry yet. Run `epi keys trust <public-key>` to add it. The artifact's integrity and signature are still valid.
 
----
+**`Integrity: FAILED`** — the `.epi` file was modified after creation. Discard it and re-run.
 
-## 🧪 Self-Audit
+**`Transparency: FAILED`** — you registered with a remote SCITT service but the receipt verification failed. Use `--local` for an offline receipt that always verifies.
 
-EPI ships with a built-in self-audit command that produces machine-readable compliance reports.
+**Share upload fails** — the default share portal may have a transient outage. Use `--local` to write to your local share directory instead.
 
-```bash
-epi audit agent-run.epi
-```
-```
-────────────────────────────────────────────────────
-  EPI Self-Audit Report
-────────────────────────────────────────────────────
-  Artifact:      agent-run.epi
-  Overall Score: 9.5/10  (Production-Ready)
-
-  AIUC-1 Compliance   ██████████  10/10  ALL DOMAINS PASS
-  SCITT Transparency  ████████░░   8/10  Receipt valid, proof included
-  Review Binding      ██████████  10/10  Ed25519-signed review present
-  Analysis Coverage   ██████████  10/10  9-pass analysis, 0 faults
-
-  Rating: PRODUCTION-READY — suitable for regulatory submission
-────────────────────────────────────────────────────
-```
-
-Output formats: terminal (Rich), JSON, and Markdown.
+**AGT import fails** — ensure the input file is a valid AGT export (JSON, JSONL, or directory). Use `--debug` to see the detection steps.
 
 ---
 
-## ⚖️ Regulatory Compliance Mapping
+## Integration Matrix
 
-EPI produces evidence that addresses specific global regulatory requirements.
-EPI is not a compliance guarantee and does not provide legal advice. Whether the
-enclosed evidence satisfies a specific regulatory threshold is for the auditor or
-notified body to determine.
-
-| Requirement | Framework | .epi Evidence |
-|:---|:---|:---|
-| Logs of operation appropriate to lifecycle | **EU AI Act Art. 12** | `steps.jsonl` + `environment.json` |
-| Technical documentation retention (10yr) | **EU AI Act Art. 19** | Sealed `.epi` (format-stable) |
-| Evidence of human oversight | **EU AI Act Art. 14** | `review.json` approval ledger |
-| Audit trail for regulated software | **FDA 21 CFR Part 11** | Signed `steps.jsonl` + `manifest.json` |
-| Non-repudiation of data | **HIPAA § 164.312** | Ed25519 signature over manifest |
-| AI risk management documentation | **NIST AI RMF** | `policy.json` + `analysis.json` |
-| Verifiable risk evaluation & HITL audit proof | **AIUC-1** (6 domains) | `steps.jsonl` + `review.json` + `analysis.json` |
-| Transparency log anchoring | **SCITT (IETF)** | COSE Sign1 statements + Merkle inclusion proofs |
+| Integration | Status | How |
+|-------------|--------|-----|
+| OpenAI | ✅ Stable | `wrap_openai()` |
+| Anthropic | ✅ Stable | `wrap_anthropic()` |
+| LangChain | ✅ Stable | `EPICallbackHandler` |
+| LangGraph | ✅ Stable | `EPICheckpointSaver` |
+| LiteLLM | ✅ Stable | `EPICallback` — 100+ providers |
+| pytest | ✅ Stable | `pytest --epi` |
+| OpenTelemetry | ✅ Stable | `setup_epi_tracing()` |
+| Microsoft AGT | ✅ Stable | `epi import agt` — auto-detect format |
+| FastAPI Gateway | ✅ Stable | `epi gateway serve` |
 
 ---
 
-## 🏛️ Standards Alignment
-
-- **SCITT (IETF)** — COSE Sign1 statements, transparency receipts with Merkle inclusion proofs,
-  persistent SQLite-backed ledger
-- **AIUC-1** — All 6 risk domains validated with substantive cryptographic checks (not file-existence stubs)
-- **Ed25519 (RFC 8032)** — Industry-standard digital signatures with DID:WEB identity resolution
-- **CycloneDX** — SBOM preservation under `artifacts/sbom/`
-- **in-toto (CNCF)** — Roadmap: steps.jsonl as in-toto link files
-
----
-
-## 🛡️ Security Model
+## Security Model
 
 | Threat | Mitigation |
-|:---|:---|
-| **Post-Seal Tampering** | SHA-256 file manifest + Ed25519 signature over the manifest |
-| **Evidence Replay** | Unique `workflow_id` + time-anchored `created_at` |
-| **Secret Leakage** | Automatic forensic redaction of API keys, tokens, and PII (HMAC-SHA256 placeholders) |
-| **Signature Spoofing** | Strict `ed25519:<keyname>:<hex>` format enforcement |
-| **Step Manipulation** | Prev-hash chain — inserting, removing, or reordering steps breaks verification |
-| **Key Compromise** | Revocation files at `~/.epi/trusted_keys/*.revoked` |
+|--------|------------|
+| Post-seal tampering | SHA-256 manifest + Ed25519 signature |
+| Evidence replay | Unique `workflow_id` + `created_at` timestamp |
+| Secret leakage | HMAC-SHA256 redaction of API keys, tokens, PII |
+| Signature spoofing | Strict `ed25519:<key>:<sig>` format enforcement |
+| Step manipulation | `prev_hash` chain — breaks on insert/remove/reorder |
+| Key compromise | `epi keys revoke <name>` — revocation files in `~/.epi/` |
 
 ---
 
-## 🆓 Open Core
-
-`epi-recorder` is free and open-source forever.
+## Open Core
 
 | Free / Open Source | Hosted / Team (EPI Labs) |
-|:---|:---|
-| CLI recording & verification | `epi gateway serve` capture gateway |
+|--------------------|--------------------------|
+| CLI recording & verification | `epi gateway serve` capture proxy |
 | Local Ed25519 signing keys | Shared team workspaces |
-| Offline browser viewer | Hosted share links (`epi share`) |
-| AIUC-1 & SCITT local audit | Compliance report dashboards |
-| pytest plugin | Enterprise support & SLAs |
+| Offline browser viewer | Hosted share links |
+| AIUC-1 & SCITT auto-audit | Compliance dashboards |
+| AGT importer | Enterprise support & SLAs |
+| pytest plugin | Priority roadmap influence |
 
-The core `.epi` format and verifier will always be free. Hosted features make team-wide compliance workflows easier.
-
----
-
-## 🚀 Founding Pilot Program
-
-EPI Labs is working with regulated enterprises to define the future of AI compliance evidence.
-
-If you operate AI agents under the **EU AI Act**, **FDA 21 CFR Part 11**, or **SOC 2**, and you
-need portable, independently-verifiable evidence:
-
-- **Direct Integration Support** — hands-on assistance from the maintainers
-- **Priority Roadmap Influence** — shape the standard based on your compliance needs
-- **Founding Partner Recognition** — optional listing as an early adopter
-
-**Contact:** [mohdibrahim@epilabs.org][pilot-email]
+The core `.epi` format and verifier will always be free.
 
 ---
 
-## 📑 Documentation
+## Founding Pilot Program
 
-- 📖 **[Protocol Specification](docs/EPI-SPEC.md)** — The technical wire format
-- ⚖️ **[Governance Guide](docs/POLICY.md)** — Managing rulebooks and evaluations
-- 🇪🇺 **[EU AI Act Prep](docs/EU-AI-ACT-EVIDENCE-PREP.md)** — Evidence workflow guide for EU compliance
-- 🛠️ **[CLI Reference](docs/CLI.md)** — Comprehensive command reference
+Working under the EU AI Act, FDA 21 CFR Part 11, or SOC 2? EPI Labs offers hands-on
+support for regulated enterprises evaluating EPI as an evidence pipeline.
+
+- **Direct integration support** from maintainers
+- **Priority roadmap influence** — shape the standard
+- **Founding partner recognition** — optional listing
+
+**Contact:** [mohdibrahim@epilabs.org](mailto:mohdibrahim@epilabs.org?subject=EPI%20Pilot)
+
+---
+
+## Documentation
+
+- [Protocol Specification](docs/EPI-SPEC.md) — technical wire format
+- [CLI Reference](docs/CLI.md) — full command reference
+- [EU AI Act Evidence Prep](docs/EU-AI-ACT-EVIDENCE-PREP.md) — compliance workflow guide
+- [AGT Integration](epi_recorder/integrations/agt_adapter/) — Microsoft AGT importer docs
+- [SCITT Conformance](verify_portal/static/scitt.html) — SCITT standard alignment
+- [AIUC-1 Compliance](verify_portal/static/aiuc1.html) — AIUC-1 domain scoring
+- [AGT Integration Page](verify_portal/static/agt.html) — AGT ↔ EPI pipeline
 
 ---
 
 <div align="center">
 
-**Built by EPI Labs.**
+**Built by [EPI Labs](https://epilabs.org).**
 *Ensuring that as AI moves faster, accountability stays ahead.*
 
-[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security Policy](SECURITY.md) ·
-[epilabs.org](https://epilabs.org)
+[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security Policy](SECURITY.md)
 
 </div>
-
-<!-- Reference definitions -->
-[pilot-email]: mailto:mohdibrahim@epilabs.org?subject=EPI%20Pilot%20—%20%5BYour%20Organization%5D
