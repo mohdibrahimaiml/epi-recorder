@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SCITT Transparency Service | EPI LABS</title>
+<meta name="description" content="EPI implements IETF SCITT (Supply Chain Integrity, Transparency and Trust) as a COSE_Sign1 producer. Independent verification, Merkle inclusion proofs, offline receipts.">
+<link rel="canonical" href="https://epilabs.org/scitt">
+<link rel="shortcut icon" href="assets/epi-favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="css/epi.css?v=24">
+<style>
+.standards-page{padding-top:120px;padding-bottom:80px}
+.standards-header{text-align:center;margin-bottom:56px}
+.standards-header h1{font-size:clamp(2rem,4.5vw,3.2rem);font-weight:700;letter-spacing:-0.03em;line-height:1.12;margin-bottom:16px;color:var(--ink)}
+.standards-header h1 span{color:var(--accent)}
+.standards-header p{font-size:1.1rem;color:var(--ink-muted);max-width:640px;margin:0 auto;line-height:1.7}
+.section-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;margin-bottom:16px;transition:border-color 0.3s var(--ease)}
+.section-card:hover{border-color:var(--border-accent)}
+.section-card h2{font-size:1.25rem;font-weight:700;margin-bottom:16px;color:var(--ink);letter-spacing:-0.02em}
+.section-card h3{font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--ink-soft)}
+.section-card p,.section-card li{font-size:0.92rem;color:var(--ink-soft);line-height:1.7}
+.section-card ul{padding-left:20px;list-style:disc}
+.section-card ul li{margin-bottom:4px}
+.code-block{background:var(--bg-dark);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-sm);padding:16px 18px;font-family:var(--mono);font-size:0.78rem;line-height:2;color:#C8CDD5;overflow-x:auto;margin:12px 0}
+.code-block .cmt{color:#6E7681;font-style:italic}
+.code-block .kw{color:#79C0FF}
+.code-block .ok{color:#3FB950}
+.code-block .dim{color:#8B949E}
+.conformance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:768px){.conformance-grid{grid-template-columns:1fr}}
+.std-badge{display:inline-block;font-family:var(--mono);font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);background:var(--accent-glow);padding:3px 10px;border-radius:100px;margin-bottom:14px;border:1px solid var(--accent-line)}
+</style>
+</head>
+<body>
+<nav id="nav"><div class="nav-inner">
+<a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+<ul class="nav-links">
+<li><a href="/#how">Product</a></li>
+<li><a href="/verify">Verify</a></li>
+<li><a href="/scitt" style="color:var(--accent);font-weight:600">SCITT</a></li>
+<li><a href="/aiuc1">AIUC-1</a></li>
+<li><a href="/agt">AGT</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+<li><a href="/pricing">Pricing</a></li>
+<li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+<li><button class="theme-toggle-nav" id="themeToggleNav"></button></li>
+</ul>
+<button class="nav-mob" id="mobBtn"><span></span><span></span><span></span></button>
+</div></nav>
+<div class="mob-menu" id="mobMenu">
+<a href="/#how">Product</a><a href="/verify">Verify</a><a href="/scitt">SCITT</a><a href="/aiuc1">AIUC-1</a>
+<a href="/agt">AGT</a><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
+<a href="/pricing">Pricing</a><a href="/#cta">Get Started</a>
+</div>
+
+<div class="container standards-page">
+<div class="standards-header">
+<h1><span>SCITT</span> Transparency</h1>
+<p>Supply Chain Integrity, Transparency and Trust — IETF draft-ietf-scitt-scrapi. EPI implements Mode B (SCITT Producer) with Merkle inclusion proofs, independent service keys, and offline receipt verification.</p>
+</div>
+
+<div class="section-card">
+<h2>Specification</h2>
+<p>EPI implements the IETF SCITT architecture as a COSE_Sign1 producer. The full specification is documented in the project repository.</p>
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/standards/scitt-predicate.md" class="btn btn-primary btn-sm">Read SCITT Predicate Spec</a>
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/epi_core/scitt.py" class="btn btn-secondary btn-sm">View Source (epi_core/scitt.py)</a>
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/epi_core/local_scitt.py" class="btn btn-secondary btn-sm">Local Service Source</a>
+</div>
+</div>
+
+<div class="section-card">
+<h2>IETF draft-ietf-scitt-scrapi conformance</h2>
+<div class="conformance-grid">
+<div><h3 style="color:var(--verified)">Implemented</h3>
+<ul>
+<li>COSE_Sign1 (CBOR tag 18) with Ed25519 (alg -8)</li>
+<li>CWT claims: iss (1), sub (2) in protected header</li>
+<li>Content-type: application/scitt-statement+cose</li>
+<li>Content-type: application/scitt-receipt+cose</li>
+<li>SHA-256 payload binding to manifest hash</li>
+<li>Merkle tree inclusion proofs with audit paths</li>
+<li>Independent service keypair (separation of duties)</li>
+<li>Append-only JSONL transparency ledger</li>
+<li>Offline receipt verification</li>
+<li>Trust level upgrade on valid SCITT receipt</li>
+</ul></div>
+<div><h3 style="color:var(--warn)">Roadmap</h3>
+<ul>
+<li>draft-ietf-scitt-architecture full compliance</li>
+<li>IANA-registered CWT labels (currently using private -260)</li>
+<li>Multiple concurrent transparency services</li>
+<li>Cross-service receipt aggregation</li>
+<li>Automatic re-registration on manifest update</li>
+</ul></div>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Architecture</h2>
+<p style="margin-bottom:12px">Two independent keypairs enforce separation of duties. The artifact signing key never touches the transparency service.</p>
+<div class="code-block"><span class="dim">┌─────────────────────────────────────────────────────────┐</span>
+<span class="dim">│                    EPI Artifact                         │</span>
+<span class="dim">│  ┌──────────────┐  ┌──────────────────────────────┐   │</span>
+<span class="dim">│  │ manifest.json │  │ artifacts/scitt/             │   │</span>
+<span class="dim">│  │ Ed25519 signed│  │  statement.cbor (COSE_Sign1) │   │</span>
+<span class="dim">│  │               │  │  receipt.cbor  (COSE_Sign1) │   │</span>
+<span class="dim">│  └──────────────┘  └──────────────────────────────┘   │</span>
+<span class="dim">└─────────────────────────────────────────────────────────┘</span>
+<span class="dim">         │                                                    </span>
+<span class="dim">         ▼                                                    </span>
+<span class="dim">┌──────────────────────┐       ┌──────────────────────┐       </span>
+<span class="dim">│ Artifact Signing Key │       │ SCITT Service Key    │       </span>
+<span class="dim">│ (~/.epi/keys/)       │       │ (~/.epi/local-scitt/)│       </span>
+<span class="dim">│ Signs manifest       │       │ Signs receipt        │       </span>
+<span class="dim">└──────────────────────┘       └──────────────────────┘       </span></div>
+</div>
+
+<div class="section-card">
+<h2>Registration flow</h2>
+<div class="code-block"><span class="cmt"># Local (CI, air-gap, development)</span>
+<span class="dim">$</span> epi scitt register case.epi <span class="kw">--local</span>
+<span class="ok">[OK] Local SCITT Registration Complete</span>
+<span class="dim">  Service:  local</span>
+<span class="dim">  Entry:    8c2576b5f92a348a74e5088fef295a02</span>
+
+<span class="cmt"># Production (remote transparency service)</span>
+<span class="dim">$</span> epi scitt register case.epi <span class="kw">--service https://scitt.epilabs.org</span>
+<span class="ok">[OK] Registration Complete</span>
+<span class="dim">  Entry ID:  ...</span>
+<span class="dim">  Trust Level upgraded to MEDIUM</span>
+
+<span class="cmt"># Verification includes SCITT check</span>
+<span class="dim">$</span> epi verify case.epi
+<span class="ok">  Integrity:    Verified</span>
+<span class="ok">  Signature:    Valid</span>
+<span class="ok">  Transparency: VERIFIED (Merkle inclusion)</span>
+<span class="dim">  Trust Level:  MEDIUM (SCITT anchored)</span></div>
+</div>
+
+<div class="section-card">
+<h2>Merkle inclusion proofs</h2>
+<p>Every receipt embeds a Merkle audit path that proves the statement was registered at a specific position in the transparency log. The proof is verified during <code>epi verify</code> without contacting the service.</p>
+<div class="code-block"><span class="dim">Leaf hash    sha256(0x00 || tree_index || entry_hash)</span>
+<span class="dim">Internal     sha256(0x01 || left || right)</span>
+<span class="dim">Root         recomputed from leaf + audit path</span>
+<span class="dim">Verification  audit_path → root == signed_tree_head</span></div>
+</div>
+
+<div class="section-card">
+<h2>Local service</h2>
+<p>The built-in local SCITT service works offline with no extra dependencies. State is stored at <code>~/.epi/local-scitt/</code>.</p>
+<div class="code-block"><span class="dim">~/.epi/local-scitt/</span>
+<span class="dim">  service.key     Ed25519 private key (independent from artifact key)</span>
+<span class="dim">  service.pub     Ed25519 public key</span>
+<span class="dim">  log.jsonl       Append-only transparency ledger</span></div>
+<p style="margin-top:8px">The service keypair is generated automatically on first use. It is separate from the artifact signing key, satisfying SCITT's separation-of-duties model.</p>
+</div>
+
+<div class="section-card" style="text-align:center">
+<p>Try it yourself.</p>
+<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/tests/test_scitt.py" class="btn btn-secondary btn-sm">View SCITT Tests (21 cases)</a>
+<a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn btn-primary btn-sm">pip install epi-recorder</a>
+</div>
+</div>
+</div>
+
+<footer><div class="container"><div class="footer-inner">
+<div class="footer-left"><img src="assets/logo.png" alt="EPI Labs" class="footer-logo"><span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span></div>
+<ul class="footer-links">
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a></li>
+<li><a href="/pricing">Pricing</a></li>
+<li><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a></li>
+<li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
+</ul>
+</div></div></footer>
+
+<script>
+(function(){
+var s=localStorage.getItem('epi-theme'),p=matchMedia('(prefers-color-scheme:dark)').matches;
+if(s==='dark'||(!s&&p))document.documentElement.setAttribute('data-theme','dark');
+function u(){var d=document.documentElement.hasAttribute('data-theme'),i=d?'&#9788;':'&#9789;';
+document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=i;b.style.color=d?'#E6EDF3':'var(--ink)'})}
+u();
+document.getElementById('themeToggleNav').addEventListener('click',function(){var r=document.documentElement;if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}u()});
+var n=document.getElementById('nav');if(n){window.addEventListener('scroll',function(){n.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'))}
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
+mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+})();
+</script>
+</body>
+</html>

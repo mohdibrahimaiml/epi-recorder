@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AIUC-1 Trust Domains | EPI LABS</title>
+<meta name="description" content="EPI maps cryptographic verification results to AIUC-1's six trust domains. Reproducible PASS/PARTIAL/FAIL scoring with evidence-based checks.">
+<link rel="canonical" href="https://epilabs.org/aiuc1">
+<link rel="shortcut icon" href="assets/epi-favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="css/epi.css?v=24">
+<style>
+.standards-page{padding-top:120px;padding-bottom:80px}
+.standards-header{text-align:center;margin-bottom:56px}
+.standards-header h1{font-size:clamp(2rem,4.5vw,3.2rem);font-weight:700;letter-spacing:-0.03em;line-height:1.12;margin-bottom:16px;color:var(--ink)}
+.standards-header h1 span{color:var(--accent)}
+.standards-header p{font-size:1.1rem;color:var(--ink-muted);max-width:640px;margin:0 auto;line-height:1.7}
+.section-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;margin-bottom:16px;transition:border-color 0.3s var(--ease)}
+.section-card:hover{border-color:var(--border-accent)}
+.section-card h2{font-size:1.25rem;font-weight:700;margin-bottom:16px;color:var(--ink);letter-spacing:-0.02em}
+.section-card h3{font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--ink-soft)}
+.section-card p,.section-card li{font-size:0.92rem;color:var(--ink-soft);line-height:1.7}
+.code-block{background:var(--bg-dark);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-sm);padding:16px 18px;font-family:var(--mono);font-size:0.78rem;line-height:2;color:#C8CDD5;overflow-x:auto;margin:12px 0}
+.code-block .cmt{color:#6E7681;font-style:italic}
+.code-block .kw{color:#79C0FF}
+.code-block .ok{color:#3FB950}
+.code-block .warn{color:#D29922}
+.code-block .dim{color:#8B949E}
+.domain-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:768px){.domain-grid{grid-template-columns:1fr}}
+.domain-card{background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--radius-sm);padding:20px}
+.domain-card h3{font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--ink)}
+.domain-card .domain-id{font-family:var(--mono);font-size:0.72rem;color:var(--accent);margin-bottom:4px}
+.domain-card p{font-size:0.85rem;color:var(--ink-muted);margin-bottom:8px}
+.domain-card ul{padding-left:16px;font-size:0.82rem;color:var(--ink-soft);list-style:disc}
+.domain-card ul li{margin-bottom:2px}
+.summary-table{width:100%;border-collapse:collapse;font-size:0.88rem;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.summary-table th{font-family:var(--mono);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-muted);text-align:left;padding:12px 16px;border-bottom:1.5px solid var(--border-str);background:var(--accent-glow)}
+.summary-table td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--ink-soft)}
+.summary-table tr:last-child td{border-bottom:none}
+.summary-table tr:hover td{background:var(--accent-glow)}
+.tag-pass{display:inline-block;background:var(--verified-bg);color:var(--verified);font-family:var(--mono);font-size:0.68rem;font-weight:600;padding:2px 10px;border-radius:999px}
+.tag-partial{display:inline-block;background:var(--warn-bg);color:var(--warn);font-family:var(--mono);font-size:0.68rem;font-weight:600;padding:2px 10px;border-radius:999px}
+.tag-fail{display:inline-block;background:var(--tamper-bg);color:var(--tamper);font-family:var(--mono);font-size:0.68rem;font-weight:600;padding:2px 10px;border-radius:999px}
+</style>
+</head>
+<body>
+<nav id="nav"><div class="nav-inner">
+<a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+<ul class="nav-links">
+<li><a href="/#how">Product</a></li>
+<li><a href="/verify">Verify</a></li>
+<li><a href="/scitt">SCITT</a></li>
+<li><a href="/aiuc1" style="color:var(--accent);font-weight:600">AIUC-1</a></li>
+<li><a href="/agt">AGT</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a></li>
+<li><a href="/pricing">Pricing</a></li>
+<li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+<li><button class="theme-toggle-nav" id="themeToggleNav"></button></li>
+</ul>
+<button class="nav-mob" id="mobBtn"><span></span><span></span><span></span></button>
+</div></nav>
+<div class="mob-menu" id="mobMenu">
+<a href="/#how">Product</a><a href="/verify">Verify</a><a href="/scitt">SCITT</a><a href="/aiuc1">AIUC-1</a>
+<a href="/agt">AGT</a><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a>
+<a href="/pricing">Pricing</a><a href="/#cta">Get Started</a>
+</div>
+
+<div class="container standards-page">
+<div class="standards-header">
+<h1><span>AIUC-1</span> Trust Domains</h1>
+<p>EPI maps every verification report to AIUC-1's six publicly declared trust domains. Scores are reproducible, evidence-based, and independently verifiable — no heuristics, no black boxes.</p>
+</div>
+
+<div class="section-card">
+<h2>How scoring works</h2>
+<p>Each AIUC-1 domain is evaluated against a set of cryptographic evidence checks extracted from the <code>.epi</code> artifact. A domain passes only when all its required checks pass. Results are deterministic — the same artifact always produces the same scores.</p>
+<div class="code-block"><span class="cmt"># Example: verifying an artifact produces AIUC-1 scores automatically</span>
+<span class="dim">$</span> epi verify case.epi --json | jq .aiuc1
+{
+  <span class="kw">"overall"</span>: <span class="ok">"PASS"</span>,
+  <span class="kw">"domains"</span>: {
+    <span class="kw">"A"</span>: { <span class="kw">"label"</span>: <span class="ok">"Data & Privacy"</span>,      <span class="kw">"status"</span>: <span class="ok">"PASS"</span> },
+    <span class="kw">"B"</span>: { <span class="kw">"label"</span>: <span class="ok">"Security"</span>,            <span class="kw">"status"</span>: <span class="ok">"PASS"</span> },
+    <span class="kw">"C"</span>: { <span class="kw">"label"</span>: <span class="ok">"Safety"</span>,              <span class="kw">"status"</span>: <span class="ok">"PASS"</span> },
+    <span class="kw">"D"</span>: { <span class="kw">"label"</span>: <span class="ok">"Reliability"</span>,         <span class="kw">"status"</span>: <span class="ok">"PASS"</span> },
+    <span class="kw">"E"</span>: { <span class="kw">"label"</span>: <span class="ok">"Accountability"</span>,      <span class="kw">"status"</span>: <span class="ok">"PARTIAL"</span> },
+    <span class="kw">"F"</span>: { <span class="kw">"label"</span>: <span class="ok">"Society"</span>,             <span class="kw">"status"</span>: <span class="ok">"PASS"</span> }
+  }
+}</div>
+</div>
+
+<div class="section-card">
+<h2>Six trust domains</h2>
+<div class="domain-grid">
+<div class="domain-card"><div class="domain-id">A</div><h3>Data &amp; Privacy</h3><p>Personal and sensitive data is properly redacted with verifiable HMAC-SHA256 placeholders. Environment isolation is confirmed.</p><ul><li>Redaction placeholder HMAC valid</li><li>Redaction coverage (sensitive categories detected)</li><li>Redaction format (all placeholders well-formed)</li><li>environment.json present</li></ul></div>
+<div class="domain-card"><div class="domain-id">B</div><h3>Security</h3><p>Artifact integrity is cryptographically verified. Signature is valid. SCITT transparency anchoring is present and verified.</p><ul><li>Ed25519 signature valid</li><li>SHA-256 file manifest integrity verified</li><li>SCITT receipt present</li><li>Hash chain unbroken</li></ul></div>
+<div class="domain-card"><div class="domain-id">C</div><h3>Safety</h3><p>Execution trace is complete and correctly ordered. Timestamps are monotonic. Hash chain is intact from first to last step.</p><ul><li>Hash chain integrity verified</li><li>Step sequence is monotonic</li><li>Timestamps are non-decreasing</li></ul></div>
+<div class="domain-card"><div class="domain-id">D</div><h3>Reliability</h3><p>Execution recording is complete. Error states are captured and preserved. No gaps in the event sequence.</p><ul><li>Step coverage complete</li><li>Error/exception steps detected</li></ul></div>
+<div class="domain-card"><div class="domain-id">E</div><h3>Accountability</h3><p>Signer identity is known or traceable. Human review is bound to the artifact and cryptographically signed.</p><ul><li>Signature valid</li><li>Identity known (or SCITT-anchored)</li><li>Review bound to artifact hash</li><li>Review signed</li><li>Policy present</li></ul></div>
+<div class="domain-card"><div class="domain-id">F</div><h3>Society</h3><p>Analysis is complete with substantive findings. Redaction audit trail is preserved for regulator review.</p><ul><li>Analysis has findings</li><li>Analysis is complete</li><li>Redaction audit trail preserved (2+ categories)</li></ul></div>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Evidence matrix</h2>
+<table class="summary-table">
+<thead><tr><th>Evidence</th><th>Domain(s)</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Ed25519 signature valid</td><td>B, E</td><td>epi verify cryptographic check</td></tr>
+<tr><td>SHA-256 integrity verified</td><td>B</td><td>File manifest checksum comparison</td></tr>
+<tr><td>SCITT receipt present & verified</td><td>B</td><td>artifacts/scitt/receipt.cbor</td></tr>
+<tr><td>Hash chain unbroken</td><td>B, C</td><td>steps.jsonl prev_hash chain</td></tr>
+<tr><td>Timestamp monotonicity</td><td>C</td><td>Step timestamps compared</td></tr>
+<tr><td>Completeness verified</td><td>D</td><td>Coverage analysis from analysis.json</td></tr>
+<tr><td>Error step detection</td><td>D</td><td>llm.error step kinds in steps.jsonl</td></tr>
+<tr><td>Identity known</td><td>E</td><td>Trust registry lookup</td></tr>
+<tr><td>Review artifact binding</td><td>E</td><td>review.json artifact_binding hash</td></tr>
+<tr><td>Review signature</td><td>E</td><td>review record has review_signature</td></tr>
+<tr><td>Policy present</td><td>E</td><td>policy.json in file manifest</td></tr>
+<tr><td>Redaction HMAC-SHA256 valid</td><td>A</td><td>***REDACTED***:desc:HMAC-SHA256:hex*** in steps</td></tr>
+<tr><td>Redaction coverage</td><td>A</td><td>Sensitive categories detected (api_key, pii, credential)</td></tr>
+<tr><td>Environment isolation</td><td>A</td><td>environment.json in file manifest</td></tr>
+<tr><td>Analysis has findings</td><td>F</td><td>analysis.json fault_detected / secondary_flags</td></tr>
+<tr><td>Analysis complete</td><td>F</td><td>analysis.json coverage.status == complete</td></tr>
+<tr><td>Redaction audit trail</td><td>F</td><td>2+ redaction categories detected</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="section-card">
+<h2>Reproducibility</h2>
+<p>AIUC-1 scores are deterministic. The same <code>.epi</code> file always produces the same domain statuses. Scores are computed from cryptographic evidence only — no heuristics, no learned models, no external API calls.</p>
+<div class="code-block"><span class="cmt"># Anyone can independently verify</span>
+<span class="dim">$</span> pip install epi-recorder
+<span class="dim">$</span> epi verify case.epi --json | jq .aiuc1.overall
+<span class="ok">"PASS"</span></div>
+</div>
+
+<div class="section-card" style="text-align:center">
+<p>View the source and test suite.</p>
+<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/epi_core/aiuc1_mapping.py" class="btn btn-primary btn-sm">View Mapping Source</a>
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/tests/test_aiuc1_mapping.py" class="btn btn-secondary btn-sm">View Tests (50 cases)</a>
+<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/standards/aiuc-1-evidence.md" class="btn btn-secondary btn-sm">Read Evidence Spec</a>
+</div>
+</div>
+</div>
+
+<footer><div class="container"><div class="footer-inner">
+<div class="footer-left"><img src="assets/logo.png" alt="EPI Labs" class="footer-logo"><span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span></div>
+<ul class="footer-links">
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a></li>
+<li><a href="/pricing">Pricing</a></li>
+<li><a href="https://pypi.org/project/epi-recorder/" target="_blank">PyPI</a></li>
+<li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
+</ul>
+</div></div></footer>
+
+<script>
+(function(){
+var s=localStorage.getItem('epi-theme'),p=matchMedia('(prefers-color-scheme:dark)').matches;
+if(s==='dark'||(!s&&p))document.documentElement.setAttribute('data-theme','dark');
+function u(){var d=document.documentElement.hasAttribute('data-theme'),i=d?'&#9788;':'&#9789;';
+document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=i;b.style.color=d?'#E6EDF3':'var(--ink)'})}
+u();
+document.getElementById('themeToggleNav').addEventListener('click',function(){var r=document.documentElement;if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}u()});
+var n=document.getElementById('nav');if(n){window.addEventListener('scroll',function(){n.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'))}
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
+mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+})();
+</script>
+</body>
+</html>

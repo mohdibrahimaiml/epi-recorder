@@ -893,6 +893,16 @@ async def get_share_meta(share_id: str):
         raise HTTPException(404, "Share not found or expired")
     return json.loads(meta_path.read_text())
 
+
+
+@app.get("/aiuc1")
+async def aiuc1_page():
+    """Serve the AIUC-1 trust domains page."""
+    aiuc1_path = STATIC_DIR / "aiuc1.html"
+    if aiuc1_path.exists():
+        return FileResponse(aiuc1_path)
+    return FileResponse(STATIC_DIR / "index.html")
+
 if __name__ == "__main__":
     import uvicorn
 
