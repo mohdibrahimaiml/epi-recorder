@@ -126,8 +126,13 @@ def scitt_register(
     submits it to the transparency service, and embeds the returned receipt
     into a new .epi file.
 
-    Use --local to create an offline self-signed receipt. This is useful for
-    CI, air-gapped environments, or testing without a live SCITT service.
+    Defaults to local (offline) registration if neither --service nor --local
+    is specified. Use --service to register with a remote SCITT transparency
+    service for full public verification.
+
+    Use --local to explicitly create an offline self-signed receipt. This is
+    useful for CI, air-gapped environments, or testing without a live SCITT
+    service. --local is the implicit default when --service is omitted.
 
     Note: Public endpoints such as https://epilabs.org/scitt may be protected
     by Cloudflare and can return 403 in automated/CLI contexts. For CI or
@@ -166,8 +171,14 @@ def scitt_register(
         raise typer.Exit(0)
 
     if not service:
-        console.print("[red][FAIL][/red] --service is required unless --local is used.")
-        raise typer.Exit(1)
+        console.print("[yellow][WARN][/yellow] No --service URL provided. Defaulting to --local (offline SCITT receipt).")
+        service_label = LOCAL_SCITT_SERVICE_URL
+        console.print("[bold]Local SCITT Registration[/bold]")
+        console.print(f"  Artifact: {epi_path}")
+        console.print(f"  Service:  {service_label}")
+        console.print(f"  Issuer:   {issuer}")
+        _register_offline(epi_path, output_path, manifest, private_key, key, issuer, service_label)
+        raise typer.Exit(0)
 
     from epi_cli._shared import require_service
 

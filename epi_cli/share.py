@@ -50,7 +50,14 @@ def _parse_error_body(exc: urllib.error.HTTPError) -> str:
     return payload.get("detail") or payload.get("error") or exc.reason or f"HTTP {exc.code}"
 
 
-def _offline_share_dir() -> Path | None:
+def _offline_share_dir(*, local_mode: bool = False) -> Path | None:
+    if local_mode:
+        raw = os.getenv("EPI_SHARE_OFFLINE")
+        if raw:
+            return Path(raw).expanduser().resolve()
+        default = Path.home() / ".epi" / "shares"
+        default.mkdir(parents=True, exist_ok=True)
+        return default
     raw = os.getenv("EPI_SHARE_OFFLINE")
     if not raw:
         return None
@@ -63,7 +70,7 @@ def _share_offline(
     inspection: Any,
     json_output: bool,
 ) -> None:
-    share_dir = _offline_share_dir()
+    share_dir = _offline_share_dir(local_mode=True)
     assert share_dir is not None
     share_dir.mkdir(parents=True, exist_ok=True)
 
@@ -119,6 +126,7 @@ def share(
     expires: int = typer.Option(30, "--expires", min=1, help="Days until the share link expires (max 30)."),
     json_output: bool = typer.Option(False, "--json", help="Print the share response as JSON."),
     no_open: bool = typer.Option(False, "--no-open", help="Do not open the hosted share link in your browser."),
+    local: bool = typer.Option(False, "--local", help="Share offline to local directory instead of uploading to cloud."),
     api_base_url: str | None = typer.Option(
         None,
         "--api-base-url",
@@ -137,6 +145,9 @@ def share(
     except (ValueError, ArtifactInspectionError) as exc:
         console.print(f"[red][FAIL][/red] {exc}")
         raise typer.Exit(1) from exc
+
+    if local:
+        _share_offline(resolved_file, expires, inspection, json_output)
 
     api_root = _resolve_share_api_base_url(api_base_url)
 
