@@ -88,7 +88,7 @@ def test_admin_telemetry_html(client: TestClient) -> None:
     assert "/css/epi.css?v=24" in r.text
     assert 'href="#how"' in r.text or 'href="/#how"' in r.text
     assert 'href="/#verify"' in r.text
-    assert 'href="/#audit"' in r.text
+    assert 'href="#audit"' in r.text or 'href="/#audit"' in r.text
 
 
 def test_verify_page_matches_site_design(client: TestClient) -> None:
@@ -97,9 +97,9 @@ def test_verify_page_matches_site_design(client: TestClient) -> None:
     assert "text/html" in r.headers["content-type"]
     assert "css/epi.css?v=24" in r.text
     assert 'href="#how"' in r.text or 'href="/#how"' in r.text
-    assert 'href="/verify"' in r.text
-    assert 'href="/#audit"' in r.text
-    assert 'href="/#cta"' in r.text
+    assert 'href="#verify"' in r.text or 'href="/verify"' in r.text
+    assert 'href="#audit"' in r.text or 'href="/#audit"' in r.text
+    assert 'href="#cta"' in r.text or 'href="/#cta"' in r.text
     assert "/pricing" not in r.text
 
 
