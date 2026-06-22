@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Write — EPI Labs Blog</title>
+<link rel="icon" type="image/x-icon" href="../assets/epi.ico">
+<link rel="stylesheet" href="../css/epi.css">
+</head>
+<body style="max-width:800px;margin:0 auto;padding:60px 24px;color:#333;">
+<h1>Write a Blog Post</h1>
+<p style="color:#666;">Fill in the fields. Copy the generated markdown to <code>blog/posts/</code> and run <code>python scripts/build_blog.py</code>.</p>
+<label>Title</label><input id="title" placeholder="Your Post Title" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;display:block;margin-bottom:16px;">
+<label>Date</label><input id="date" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;display:block;margin-bottom:16px;">
+<label>Body (Markdown)</label><textarea id="body" placeholder="Write in markdown..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:monospace;min-height:300px;box-sizing:border-box;display:block;margin-bottom:16px;line-height:1.6;"></textarea>
+<button onclick="generate()" style="background:#0066ff;color:#fff;border:none;padding:12px 32px;border-radius:6px;font-size:1rem;cursor:pointer;">Generate Markdown</button>
+<pre id="output" style="background:#1a1a2e;color:#e0e0e0;padding:16px;border-radius:6px;margin-top:16px;display:none;white-space:pre-wrap;font-size:0.85rem;max-height:400px;overflow:auto;"></pre>
+<script>
+function generate(){
+    var t=document.getElementById("title").value;
+    var d=document.getElementById("date").value||new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+    var b=document.getElementById("body").value;
+    var slug=t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"untitled";
+    var md="---\ntitle: "+t+"\ndate: "+d+"\ndescription: \nexcerpt: \n---\n\n"+b;
+    document.getElementById("output").textContent=md;
+    document.getElementById("output").style.display="block";
+}
+<\/script>
+</body>
+</html>
