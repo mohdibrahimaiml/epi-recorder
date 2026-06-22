@@ -49,6 +49,7 @@ from verify_portal import auth as auth_module
 from verify_portal import telemetry_metrics
 from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
+from verify_portal.blog_routes import router as blog_router
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -615,6 +616,7 @@ async def scitt_page():
     raise HTTPException(404, "SCITT page not found")
 
 app.include_router(share_router)
+app.include_router(blog_router)
 
 
 # --- Telemetry ingestion endpoints ---

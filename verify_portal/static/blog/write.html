@@ -7,24 +7,27 @@
 <link rel="icon" type="image/x-icon" href="../assets/epi.ico">
 <link rel="stylesheet" href="../css/epi.css">
 </head>
-<body style="max-width:800px;margin:0 auto;padding:60px 24px;color:#333;">
-<h1>Write a Blog Post</h1>
-<p style="color:#666;">Fill in the fields. Copy the generated markdown to <code>blog/posts/</code> and run <code>python scripts/build_blog.py</code>.</p>
-<label>Title</label><input id="title" placeholder="Your Post Title" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;display:block;margin-bottom:16px;">
-<label>Date</label><input id="date" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;display:block;margin-bottom:16px;">
-<label>Body (Markdown)</label><textarea id="body" placeholder="Write in markdown..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:monospace;min-height:300px;box-sizing:border-box;display:block;margin-bottom:16px;line-height:1.6;"></textarea>
-<button onclick="generate()" style="background:#0066ff;color:#fff;border:none;padding:12px 32px;border-radius:6px;font-size:1rem;cursor:pointer;">Generate Markdown</button>
-<pre id="output" style="background:#1a1a2e;color:#e0e0e0;padding:16px;border-radius:6px;margin-top:16px;display:none;white-space:pre-wrap;font-size:0.85rem;max-height:400px;overflow:auto;"></pre>
+<body style="max-width:720px;margin:0 auto;padding:60px 24px;color:#333;">
+<h1 style="font-size:1.6rem;margin-bottom:4px;">New Blog Post</h1>
+<p style="color:#666;margin-bottom:32px;">Write in markdown and publish directly.</p>
+<form id="f">
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Title</label>
+<input name="title" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;">
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Date</label>
+<input name="date" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;">
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Description</label>
+<input name="description" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;">
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Excerpt</label>
+<input name="excerpt" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;">
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Body (Markdown)</label>
+<textarea name="body" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:monospace;min-height:300px;box-sizing:border-box;line-height:1.6;"></textarea>
+<label style="font-weight:600;display:block;margin-top:16px;margin-bottom:4px;">Secret</label>
+<input name="secret" type="password" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;">
+<button type="submit" style="background:#0066ff;color:#fff;border:none;padding:12px 32px;border-radius:6px;font-size:1rem;cursor:pointer;margin-top:20px;">Publish</button>
+<div id="r" style="margin-top:20px;padding:16px;border-radius:6px;display:none;"></div>
+</form>
 <script>
-function generate(){
-    var t=document.getElementById("title").value;
-    var d=document.getElementById("date").value||new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
-    var b=document.getElementById("body").value;
-    var slug=t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"untitled";
-    var md="---\ntitle: "+t+"\ndate: "+d+"\ndescription: \nexcerpt: \n---\n\n"+b;
-    document.getElementById("output").textContent=md;
-    document.getElementById("output").style.display="block";
-}
-<\/script>
+document.getElementById("f").addEventListener("submit",async function(e){e.preventDefault();var d={};new FormData(this).forEach(function(v,k){d[k]=v});var r=document.getElementById("r");r.style.display="block";r.style.background="#fff3cd";r.innerHTML="Publishing...";try{var x=await fetch("/api/blog/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});var j=await x.json();if(x.ok){r.style.background="#d4edda";r.innerHTML="Published!"+j.url}else{r.style.background="#f8d7da";r.innerHTML="Error: "+(j.detail||"unknown")}}catch(e){r.style.background="#f8d7da";r.innerHTML="Failed: "+e.message}});
+</script>
 </body>
 </html>
