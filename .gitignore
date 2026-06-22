@@ -162,6 +162,9 @@ v2.8.5.ipynb
 !verify_portal/static/epi-viewer/*.html
 !verify_portal/static/viewer/*.html
 !verify_portal/static/verify/*.html
+!verify_portal/static/blog/*.html
+!verify_portal/static/blog/posts/*.html
+!blog/templates/*.html
 .aider*
 data/ 
 

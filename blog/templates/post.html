@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{{ title }} — EPI Labs</title>
+<meta name="description" content="{{ description }}">
+<link rel="icon" type="image/x-icon" href="../../assets/epi.ico">
+<link rel="stylesheet" href="../../css/epi.css">
+</head>
+<body>
+<nav id="nav"><div class="nav-inner"><a href="/" class="nav-logo"><img src="../../assets/logo.png" alt="EPI Labs"></a>
+<ul class="nav-links" id="navLinks">
+<li><a href="/">Home</a></li>
+<li><a href="/blog/" class="active">Blog</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a></li>
+</ul>
+<button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+</div></nav>
+<main style="padding-top:100px;padding-bottom:80px;max-width:720px;margin:0 auto;padding-left:24px;padding-right:24px;">
+<time style="font-size:0.85rem;color:#666;display:block;margin-bottom:8px;">{{ date }}</time>
+<div style="font-size:1.05rem;line-height:1.8;color:#444;">
+{{ content }}
+</div>
+</main>
+<footer style="text-align:center;padding:40px 24px;font-size:0.85rem;color:#888;border-top:1px solid rgba(0,0,0,0.06);max-width:720px;margin:0 auto;"><p><a href="/" style="color:#888;text-decoration:none;">EPI Labs</a> — Evidence infrastructure for AI agents.</p></footer>
+</body>
+</html>
