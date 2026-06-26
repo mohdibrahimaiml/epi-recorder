@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI Labs — Pricing</title>
+<meta name="description" content="EPI pricing: Free, Pro, Compliance, and Enterprise plans.">
+<link rel="shortcut icon" href="assets/epi-favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="css/epi.css?v=24">
+<style>
+.pricing-hero{text-align:center;padding:120px 20px 60px}
+.pricing-hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;color:var(--ink);margin-bottom:12px}
+.pricing-hero h1 em{font-style:normal;color:var(--accent)}
+.pricing-hero .subtitle{font-size:1.15rem;color:var(--ink-soft);max-width:620px;margin:0 auto}
+.tiers{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;padding:20px 20px 80px;max-width:1100px;margin:0 auto}
+.tier{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 28px;width:260px;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
+.tier:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
+.tier.featured{border-color:var(--accent);box-shadow:0 0 32px rgba(0,0,0,.06)}
+.tier h3{font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.tier .tier-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px;line-height:1.5}
+.tier .price{font-size:42px;font-weight:800;color:var(--ink);margin-bottom:4px}
+.tier .price span{font-size:15px;font-weight:400;color:var(--ink-soft)}
+.tier .price-note{font-size:12px;color:var(--ink-soft);margin-bottom:24px}
+.tier ul{list-style:none;padding:0;margin:0 0 24px;flex:1}
+.tier ul li{padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--ink-soft)}
+.tier ul li:last-child{border-bottom:none}
+.tier .cta{display:block;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin-top:auto}
+.cta-free{background:var(--surface-2);color:var(--ink)}
+
+.cta-compliance{background:var(--accent);color:#fff}
+.cta-enterprise{background:var(--ink);color:var(--bg)}
+.faq{max-width:700px;margin:0 auto 80px;padding:0 20px}
+.faq h2{font-size:22px;font-weight:700;color:var(--ink);margin-bottom:32px;text-align:center}
+.faq-item{margin-bottom:24px}
+.faq-item h4{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.faq-item p{font-size:14px;color:var(--ink-soft);line-height:1.6}
+.contact-section{max-width:500px;margin:0 auto 80px;padding:0 20px}
+.contact-section h2{font-size:24px;font-weight:700;color:var(--ink);margin-bottom:8px;text-align:center}
+.contact-sub{text-align:center;color:var(--ink-soft);font-size:14px;margin-bottom:32px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--ink);font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group textarea{height:90px;resize:vertical}
+.btn-submit{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-submit:hover{opacity:.9}
+.note{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:12px}
+.services-section{max-width:700px;margin:0 auto 80px;padding:0 20px;text-align:center}
+.services-section h2{font-size:22px;font-weight:700;color:var(--ink);margin-bottom:12px}
+.services-section p{font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:24px}
+.services-grid{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.service-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:200px;text-align:left}
+.service-card h4{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.service-card p{font-size:12px;color:var(--ink-soft);margin:0;line-height:1.5}
+.service-cta{display:inline-block;margin-top:20px;padding:12px 28px;background:var(--accent);color:#fff;border-radius:100px;text-decoration:none;font-weight:600;font-size:14px}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/#how">Product</a></li>
+      <li><a href="/#verify">Verify</a></li>
+      <li><a href="/#audit">SCITT</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+      <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode"></button></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/#how">Product</a><a href="/#verify">Verify</a><a href="/#audit">SCITT</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/#cta">Get Started</a>
+</div>
+
+<div class="pricing-hero">
+<div class="section-label">Pricing</div>
+<h1>Evidence infrastructure for <em>every</em> team.</h1>
+<p class="subtitle">The core .epi format and browser verifier are free forever. Paid plans add hosted convenience, team collaboration, and compliance tooling for teams that need them.</p>
+</div>
+
+<div class="tiers reveal">
+<div class="tier">
+<h3>Free</h3>
+<div class="tier-sub">For individual developers and open-source projects</div>
+<div class="price">$0<span>/month</span></div>
+<div class="price-note">Free forever. No account needed.</div>
+<ul>
+<li>Unlimited local verification</li>
+<li>Browser forensic viewer</li>
+<li>AIUC-1 trust domain mapping</li>
+<li>Ed25519 signature verification</li>
+<li>JCS RFC 8785 conformance</li>
+</ul>
+<a href="/verify" class="cta cta-free">Verify a file</a>
+</div>
+<div class="tier featured">
+<h3>Pro</h3>
+<div class="tier-sub">For teams managing AI evidence at scale</div>
+<div class="price">$299<span>/month</span></div>
+<div class="price-note">Stripe checkout. Cancel anytime.</div>
+<ul>
+<li>Everything in Free</li>
+<li>Evidence file management &amp; search</li>
+<li>Team sharing &amp; collaboration</li>
+<li>SCITT transparency anchoring</li>
+<li>API access with keys</li>
+<li>Priority email support</li>
+</ul>
+<a href="#contact" class="cta cta-pro">Subscribe</a>
+</div>
+<div class="tier">
+<h3>Compliance</h3>
+<div class="tier-sub">For regulated teams facing quarterly audits</div>
+<div class="price">$2,000<span>/month</span></div>
+<div class="price-note">Annual billing. Integration support included.</div>
+<ul>
+<li>Everything in Pro</li>
+<li>Unlimited verifications</li>
+<li>Custom compliance reports</li>
+<li>AIUC-1, ISO 42001, NIST AI RMF mapping</li>
+<li>SSO / OIDC</li>
+<li>7-year evidence retention</li>
+</ul>
+<a href="#contact" class="cta cta-compliance">Talk to us</a>
+</div>
+<div class="tier">
+<h3>Enterprise</h3>
+<div class="tier-sub">For banks, insurers, and government AI systems</div>
+<div class="price">Custom<span></span></div>
+<div class="price-note">Tailored to your procurement process.</div>
+<ul>
+<li>Everything in Compliance</li>
+<li>On-premise / air-gap deployment</li>
+<li>Custom policy engine</li>
+<li>Custom compliance framework mapping</li>
+<li>Dedicated SOC 2 for EPI</li>
+<li>SLA with 99.9% uptime guarantee</li>
+<li>Dedicated support engineer</li>
+</ul>
+<a href="#contact" class="cta cta-enterprise">Contact sales</a>
+</div>
+</div>
+
+<div class="services-section reveal">
+<h2>Need custom implementation?</h2>
+<p>We offer fixed-scope engagements for teams that need hands-on help adopting EPI into their compliance pipeline. Every engagement teaches us what to build next.</p>
+<div class="services-grid">
+<div class="service-card">
+<h4>Implementation</h4>
+<p>Integrate EPI into your AI pipeline. Custom wrappers, CI/CD setup, team onboarding.</p>
+</div>
+<div class="service-card">
+<h4>Compliance Mapping</h4>
+<p>Map EPI evidence to your specific regulatory framework. AIUC-1, EU AI Act, SOC 2, HIPAA, or custom.</p>
+</div>
+<div class="service-card">
+<h4>Audit Support</h4>
+<p>Prepare evidence packages for upcoming audits. Retrospective sealing, review workflows, report generation.</p>
+</div>
+</div>
+<p style="margin-top:12px;font-size:14px;color:var(--ink-soft)">Engagements from <strong>$8K</strong> to <strong>$20K</strong>, depending on scope.</p>
+<a href="#contact" class="service-cta">Talk to us about your needs</a>
+</div>
+
+<div class="faq reveal">
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+<h4>Why is the .epi format and browser verifier free?</h4>
+<p>The .epi format is an open standard — like PDF or HTTP. Free distribution means every .epi file advertises EPI. Every browser becomes a verifier. The format spreads through use, not through pricing. Paid plans add hosted infrastructure on top of the already-adopted free product.</p>
+</div>
+<div class="faq-item">
+<h4>What if I outgrow the Pro plan?</h4>
+<p>Upgrade to Compliance at any time. Your evidence history and API keys remain intact. If you need something custom, the Enterprise tier or a services engagement can cover it.</p>
+</div>
+<div class="faq-item">
+<h4>Do I need a paid plan to verify .epi files?</h4>
+<p>No. Every .epi file embeds its own browser verifier. Drop it into any browser and it verifies itself — zero servers, zero accounts, zero cost. Paid plans add hosted storage, team collaboration, and compliance tooling for teams that need those at scale.</p>
+</div>
+<div class="faq-item">
+<h4>How does SCITT anchoring work?</h4>
+<p>When you verify through the hosted portal, the evidence hash is registered in a SCITT transparency ledger with a Merkle inclusion proof. This provides cryptographic proof that the evidence existed at a specific point in time — critical for regulatory audits with multi-year retention requirements.</p>
+</div>
+<div class="faq-item">
+<h4>What compliance frameworks do you support?</h4>
+<p>AIUC-1 (6 trust domains), EU AI Act Article 12, NIST AI RMF, ISO 42001, and SOC 2. Custom framework mapping is available on the Enterprise plan. Every verification report includes AIUC-1 domain mapping by default.</p>
+</div>
+</div>
+
+<div class="contact-section" id="contact">
+<h2>Get in touch</h2>
+<p class="contact-sub">Tell us about your use case. We respond within 1 business day.</p>
+<form action="mailto:mohdibrahim@epilabs.org" method="GET" enctype="text/plain">
+<div class="form-group"><label>Name</label><input type="text" name="name" required placeholder="Your full name"></div>
+<div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="you@company.com"></div>
+<div class="form-group"><label>Company</label><input type="text" name="company" required placeholder="Company name"></div>
+<div class="form-group"><label>Interest</label><select name="subject"><option value="pro">Pro ($299/month)</option><option value="Compliance plan">Compliance ($2,000/month)</option><option value="Enterprise">Enterprise (Custom)</option>
+<option value="Services">Services / Consulting</option><option value="other">Other / Question</option></select></div>
+<div class="form-group"><label>Message</label><textarea name="body" placeholder="Describe your AI compliance needs, team size, and timeline..."></textarea></div>
+<button type="submit" class="btn-submit">Send Inquiry</button>
+</form>
+<p class="note">No spam. No auto-sales. We respond personally. (This opens your email client.)</p>
+</div>
+
+<footer style="text-align:center;padding:40px 20px;color:var(--ink-soft);font-size:13px;border-top:1px solid var(--border)">
+  <img src="assets/logo.png" alt="EPI Labs" style="height:24px;margin-bottom:8px"><br>
+  &copy; 2026 EPI LABS. Built in India. Engineered for the world.
+</footer>
+
+<script>
+(function(){
+var stored=localStorage.getItem("epi-theme");
+if(stored==="dark")document.documentElement.setAttribute("data-theme","dark");
+function updateToggles(){
+  var isDark=document.documentElement.hasAttribute("data-theme"),ico=isDark?"&#9788;":"&#9789;";
+  document.querySelectorAll("#themeToggleNav").forEach(function(b){b.innerHTML=ico;b.style.color=isDark?"#E6EDF3":"var(--ink)"});
+}
+updateToggles();
+function flip(){
+  var r=document.documentElement;
+  if(r.hasAttribute("data-theme")){r.removeAttribute("data-theme");localStorage.setItem("epi-theme","light")}
+  else{r.setAttribute("data-theme","dark");localStorage.setItem("epi-theme","dark")}
+  updateToggles();
+}
+document.getElementById("themeToggleNav").addEventListener("click",flip);
+var mobBtn=document.getElementById("mobBtn"),mobMenu=document.getElementById("mobMenu");
+if(mobBtn&&mobMenu){
+  mobBtn.addEventListener("click",function(){
+    var isOpen=mobMenu.classList.contains("open");
+    mobMenu.classList.toggle("open");
+    mobBtn.classList.toggle("open");
+    mobBtn.setAttribute("aria-expanded",String(!isOpen));
+    document.body.style.overflow=isOpen?"":"hidden";
+  });
+  mobMenu.querySelectorAll("a").forEach(function(a){
+    a.addEventListener("click",function(){
+      mobMenu.classList.remove("open");
+      mobBtn.classList.remove("open");
+      mobBtn.setAttribute("aria-expanded","false");
+      document.body.style.overflow="";
+    });
+  });
+}
+var observer=new IntersectionObserver(function(e){e.forEach(function(el){if(el.isIntersecting){el.target.classList.add("visible");observer.unobserve(el.target)}})},{threshold:.15});
+document.querySelectorAll(".reveal").forEach(function(el){observer.observe(el)});
+})();
+</script>
+</body>
+</html>
