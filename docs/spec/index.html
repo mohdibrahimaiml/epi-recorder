@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI File Format Specification — spec.epilabs.org</title>
+<style>
+  :root {
+    --ink: #111113;
+    --ink-soft: #555;
+    --bg: #fff;
+    --accent: #1a1a2e;
+    --accent-glow: rgba(26,26,46,0.05);
+    --border: #e5e5e5;
+    --mono: 'SF Mono','Fira Code','Consolas',monospace;
+    --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme:dark) {
+    :root { --ink: #E6EDF3; --ink-soft: #8B949E; --bg: #0D1117; --accent: #58A6FF; --border: #30363D; --accent-glow: rgba(88,166,255,0.08); }
+  }
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { font-family: var(--sans); background: var(--bg); color: var(--ink); line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 60px 24px }
+  .header { margin-bottom: 48px }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); background: var(--accent-glow); padding: 5px 12px; border-radius: 100px; margin-bottom: 16px }
+  h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em }
+  .subtitle { font-size: 1.05rem; color: var(--ink-soft); margin-bottom: 32px }
+  .links { display: flex; gap: 16px; flex-wrap: wrap }
+  .link-card { display: block; padding: 20px 24px; border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; color: var(--ink); flex: 1; min-width: 200px; transition: border-color 0.2s, transform 0.2s }
+  .link-card:hover { border-color: var(--accent); transform: translateY(-2px) }
+  .link-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 4px }
+  .link-card p { font-size: 0.85rem; color: var(--ink-soft) }
+  .section { margin-top: 48px }
+  .section h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px }
+  .file-list { list-style: none }
+  .file-list li { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 0.9rem }
+  .file-list li:last-child { border-bottom: none }
+  .file-list .icon { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); min-width: 50px }
+  .file-list a { color: var(--accent); text-decoration: none; font-weight: 500 }
+  .file-list a:hover { text-decoration: underline }
+  .file-list .size { color: var(--ink-soft); font-size: 0.8rem; margin-left: auto }
+  .note { background: var(--accent-glow); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-top: 48px; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.6 }
+  .note strong { color: var(--ink) }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="badge">Open Standard</div>
+  <h1>EPI File Format Specification</h1>
+  <p class="subtitle">The language-agnostic reference for the EPI container format, cryptographic protocol, and verification model. Anyone may implement <code>.epi</code> file producers and consumers conforming to this specification.</p>
+</div>
+
+<div class="links">
+  <a href="EPI-SPEC.md" class="link-card">
+    <h3>Full Specification →</h3>
+    <p>Complete wire format spec — container structure, manifest schema, crypto, verification, trust model</p>
+  </a>
+  <a href="schemas/" class="link-card">
+    <h3>JSON Schemas →</h3>
+    <p>Formal JSON Schema (draft 2020-12) for manifest, step, environment, analysis, and policy</p>
+  </a>
+  <a href="test-vectors/" class="link-card">
+    <h3>Test Vectors →</h3>
+    <p>Conformance vectors from real .epi containers — canonical hashes, file integrity, header structure</p>
+  </a>
+</div>
+
+<div class="section">
+  <h2>Specification Files</h2>
+  <ul class="file-list">
+    <li><span class="icon">📄 MD</span><a href="EPI-SPEC.md">EPI-SPEC.md</a><span class="size">20 KB</span></li>
+    <li><span class="icon">📄 MD</span><a href="README.md">README.md</a><span class="size">—</span></li>
+  </ul>
+</div>
+
+<div class="section">
+  <h2>JSON Schemas</h2>
+  <ul class="file-list">
+    <li><span class="icon">📋 JSON</span><a href="schemas/manifest.schema.json">manifest.schema.json</a><span class="size">—</span></li>
+    <li><span class="icon">📋 JSON</span><a href="schemas/step.schema.json">step.schema.json</a><span class="size">—</span></li>
+    <li><span class="icon">📋 JSON</span><a href="schemas/environment.schema.json">environment.schema.json</a><span class="size">—</span></li>
+    <li><span class="icon">📋 JSON</span><a href="schemas/analysis.schema.json">analysis.schema.json</a><span class="size">—</span></li>
+    <li><span class="icon">📋 JSON</span><a href="schemas/policy.schema.json">policy.schema.json</a><span class="size">—</span></li>
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Conformance Test Vectors</h2>
+  <ul class="file-list">
+    <li><span class="icon">🧪 JSON</span><a href="test-vectors/test-vectors.json">test-vectors.json</a><span class="size">7 vectors</span></li>
+    <li><span class="icon">📄 MD</span><a href="test-vectors/README.md">README.md</a><span class="size">—</span></li>
+  </ul>
+</div>
+
+<div class="note">
+  <strong>Reference Implementation:</strong> <code>epi-recorder</code> (Python, MIT) — <a href="https://pypi.org/project/epi-recorder/">PyPI</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder">GitHub</a><br>
+  <strong>Website:</strong> <a href="https://epilabs.org/">epilabs.org</a><br><br>
+  This specification is an <strong>open standard</strong>. The <code>.epi</code> file format carries no intellectual property restrictions — it is a documented format free for anyone to implement. Contributions and errata via <a href="https://github.com/mohdibrahimaiml/epi-recorder/issues">GitHub Issues</a>.
+</div>
+</body>
+</html>
