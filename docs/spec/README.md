@@ -2,7 +2,7 @@
 
 **Status:** Open Standard | **Version:** 4.2.0 | **Date:** 2026-06
 
-This directory contains the language-agnostic specification for the EPI
+This directory contains the open, language-agnostic specification for the EPI
 container format. Anyone may implement `.epi` file producers and consumers
 conforming to this specification without depending on the Python reference
 implementation.
@@ -31,7 +31,7 @@ implementation passing the test vectors produces valid `.epi` files.
 
 ## License
 
-This specification is licensed under the MIT License. Implementations may
+This specification is an open standard, licensed under the MIT License. Implementations may
 carry their own licensing terms. The `.epi` format itself carries no
 intellectual property restrictions — it is a documented file format.
 
