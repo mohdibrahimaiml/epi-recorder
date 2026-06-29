@@ -157,9 +157,9 @@
 <h3>Required Fields</h3>
 <table>
 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-<tr><td><code>spec_version</code></td><td>string</td><td>EPI version (e.g. <code>"4.2.0"</code>)</td></tr>
-<tr><td><code>workflow_id</code></td><td>UUID</td><td>Unique execution identifier</td></tr>
-<tr><td><code>created_at</code></td><td>datetime</td><td>UTC ISO 8601: <code>YYYY-MM-DDTHH:MM:SSZ</code></td></tr>
+<tr><td><code>spec_version</code></td><td>string</td><td>EPI version (auto-populated from package, e.g. <code>"4.2.0"</code>)</td></tr>
+<tr><td><code>workflow_id</code></td><td>UUID</td><td>Unique execution identifier (auto-generated UUID v4)</td></tr>
+<tr><td><code>created_at</code></td><td>datetime</td><td>UTC ISO 8601 (auto-set to current time): <code>YYYY-MM-DDTHH:MM:SSZ</code></td></tr>
 <tr><td><code>file_manifest</code></td><td>object</td><td>File paths mapped to 64-char hex SHA-256 hashes</td></tr>
 </table>
 
@@ -233,9 +233,9 @@
 <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
 <tr><td><code>index</code></td><td>integer</td><td>Yes</td><td>Monotonically increasing, 0-indexed</td></tr>
 <tr><td><code>kind</code></td><td>string</td><td>Yes</td><td>Step type identifier</td></tr>
-<tr><td><code>timestamp</code></td><td>datetime</td><td>Yes</td><td>UTC ISO 8601</td></tr>
-<tr><td><code>content</code></td><td>object</td><td>Yes</td><td>Step-specific payload</td></tr>
-<tr><td><code>prev_hash</code></td><td>string|null</td><td>Yes</td><td>SHA-256 of previous step</td></tr>
+<tr><td><code>timestamp</code></td><td>datetime</td><td>Auto</td><td>UTC ISO 8601 (auto-populated)</td></tr>
+<tr><td><code>content</code></td><td>object</td><td>Auto</td><td>Step-specific payload (defaults to empty object)</td></tr>
+<tr><td><code>prev_hash</code></td><td>string|null</td><td>Auto</td><td>SHA-256 of previous step (auto-computed)</td></tr>
 <tr><td><code>trace_id</code></td><td>string</td><td>No</td><td>W3C trace identifier</td></tr>
 <tr><td><code>span_id</code></td><td>string</td><td>No</td><td>W3C span identifier</td></tr>
 <tr><td><code>governance</code></td><td>object</td><td>No</td><td>Step-level governance</td></tr>
