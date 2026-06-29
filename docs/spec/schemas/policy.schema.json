@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epilabs.org/spec/schemas/policy.schema.json",
+  "title": "EPI Policy",
+  "description": "Schema for policy.json \u2014 governance rulebook.",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "policy_version",
+    "rules"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "description": "Unique policy identifier"
+    },
+    "policy_version": {
+      "type": "string",
+      "description": "Policy version"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable policy description"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata"
+    },
+    "rules": {
+      "type": "array",
+      "description": "Policy rules",
+      "items": {
+        "type": "object",
+        "required": [
+          "rule_id",
+          "severity",
+          "mode"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "rule_name": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "detect",
+              "block",
+              "warn"
+            ]
+          },
+          "conditions": {
+            "type": "array",
+            "description": "Rule conditions"
+          },
+          "action": {
+            "type": "string",
+            "description": "Action to take when triggered"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

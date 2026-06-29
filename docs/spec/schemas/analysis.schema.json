@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epilabs.org/spec/schemas/analysis.schema.json",
+  "title": "EPI Analysis",
+  "description": "Schema for analysis.json \u2014 9-pass deterministic fault analysis output.",
+  "type": "object",
+  "required": [
+    "fault_detected",
+    "verdict_short",
+    "coverage",
+    "mode"
+  ],
+  "properties": {
+    "fault_detected": {
+      "type": "boolean",
+      "description": "Whether any fault was detected"
+    },
+    "verdict_short": {
+      "type": "string",
+      "description": "Summary verdict (e.g., 'No faults detected', 'Faults found')"
+    },
+    "primary_fault": {
+      "type": "object",
+      "description": "Primary fault details",
+      "properties": {
+        "rule_id": {
+          "type": "string"
+        },
+        "rule_name": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "secondary_flags": {
+      "type": "array",
+      "description": "Secondary fault details"
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Analysis coverage statistics"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "policy",
+        "heuristic_only"
+      ],
+      "description": "Analysis mode"
+    },
+    "analysis_version": {
+      "type": "string",
+      "description": "Fault analyzer version"
+    },
+    "total_passes": {
+      "type": "integer",
+      "description": "Number of analysis passes executed (typically 9)"
+    }
+  },
+  "additionalProperties": true
+}

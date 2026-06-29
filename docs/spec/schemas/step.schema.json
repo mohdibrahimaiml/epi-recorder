@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epilabs.org/spec/schemas/step.schema.json",
+  "title": "EPI Step",
+  "description": "Schema for a single entry (line) in steps.jsonl.",
+  "type": "object",
+  "required": [
+    "index",
+    "timestamp",
+    "kind",
+    "content",
+    "prev_hash"
+  ],
+  "properties": {
+    "index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sequential step number (0-indexed)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO 8601 timestamp"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Step type identifier",
+      "examples": [
+        "session.start",
+        "llm.request",
+        "llm.response",
+        "tool.call",
+        "agent.decision",
+        "agent.approval.request",
+        "validation.pass",
+        "validation.fail",
+        "security.redaction"
+      ]
+    },
+    "content": {
+      "type": "object",
+      "description": "Step-specific payload"
+    },
+    "prev_hash": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ],
+      "description": "SHA-256 hex of previous step's canonical hash. null for step 0."
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "W3C trace identifier (32 hex chars)"
+    },
+    "span_id": {
+      "type": "string",
+      "description": "W3C span identifier (16 hex chars)"
+    },
+    "parent_span_id": {
+      "type": "string",
+      "description": "W3C parent span identifier (16 hex chars)"
+    },
+    "governance": {
+      "type": "object",
+      "description": "Step-level governance metadata"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "tool",
+        "reasoning",
+        "system"
+      ],
+      "description": "Actor type. Excluded from canonical hash."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epilabs.org/spec/schemas/environment.schema.json",
+  "title": "EPI Environment",
+  "description": "Schema for environment.json \u2014 runtime environment snapshot.",
+  "type": "object",
+  "required": [
+    "python_version",
+    "platform",
+    "epi_version"
+  ],
+  "properties": {
+    "python_version": {
+      "type": "string",
+      "description": "Python interpreter version (e.g., '3.11.9')"
+    },
+    "platform": {
+      "type": "string",
+      "description": "Operating system identifier (e.g., 'Linux-5.15.0-x86_64')"
+    },
+    "epi_version": {
+      "type": "string",
+      "description": "EPI package version (e.g., '4.2.0')"
+    },
+    "hostname": {
+      "type": "string",
+      "description": "Machine hostname (may be redacted)"
+    },
+    "packages": {
+      "type": "object",
+      "description": "Installed package names mapped to version strings",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "environment_variables": {
+      "type": "object",
+      "description": "Environment variable names mapped to '[REDACTED:...]' placeholders",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

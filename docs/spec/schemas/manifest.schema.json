@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epilabs.org/spec/schemas/manifest.schema.json",
+  "title": "EPI Manifest",
+  "description": "Schema for manifest.json \u2014 the root of trust in an EPI container.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "workflow_id",
+    "created_at",
+    "file_manifest"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "description": "EPI specification version (e.g., '4.2.0')"
+    },
+    "workflow_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this workflow execution (UUID v4)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO 8601 timestamp when container was created (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    "file_manifest": {
+      "type": "object",
+      "description": "Mapping of ZIP-relative file paths to SHA-256 hex hashes",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "minProperties": 1
+    },
+    "cli_command": {
+      "type": "string",
+      "description": "Command-line invocation that produced this workflow"
+    },
+    "env_snapshot_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hex hash of environment.json"
+    },
+    "public_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "32-byte Ed25519 public key as 64-character hex"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^ed25519:[a-f0-9]{16}:[a-f0-9]{128}$",
+      "description": "Ed25519 signature: ed25519:<key_id>:<sig_hex>"
+    },
+    "container_format": {
+      "type": "string",
+      "enum": [
+        "legacy-zip",
+        "envelope-v2"
+      ],
+      "description": "Physical container format"
+    },
+    "analysis_status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "skipped",
+        "error"
+      ],
+      "description": "Whether deterministic analysis completed"
+    },
+    "analysis_error": {
+      "type": "string",
+      "description": "Non-sensitive error message when analysis_status is 'error'"
+    },
+    "goal": {
+      "type": "string",
+      "description": "Human-readable workflow goal"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes"
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Key-value metrics",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string"
+        ]
+      }
+    },
+    "source": {
+      "type": "object",
+      "description": "Integration metadata",
+      "properties": {
+        "integration": {
+          "type": "string"
+        },
+        "framework": {
+          "type": "string"
+        },
+        "agent": {
+          "type": "string"
+        }
+      }
+    },
+    "total_steps": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of recorded steps"
+    },
+    "total_validators": {
+      "type": "integer"
+    },
+    "total_llm_calls": {
+      "type": "integer"
+    },
+    "passed": {
+      "type": "integer"
+    },
+    "failed": {
+      "type": "integer"
+    },
+    "corrected": {
+      "type": "integer"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Identity of approving reviewer"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Categorization tags"
+    },
+    "viewer_version": {
+      "type": "string",
+      "description": "Preferred viewer shell version"
+    },
+    "trust": {
+      "type": "object",
+      "description": "Immediate cryptographic verification state",
+      "properties": {
+        "payload_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifact_uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mimetype": {
+          "type": "string"
+        },
+        "envelope_version": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "description": "Governance metadata (DID, SCITT registration, trust score)"
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "policy_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "compliant",
+            "violation",
+            "warning"
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "violation_count": {
+          "type": "integer",
+          "default": 0
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of previous container's manifest (for container chaining)"
+    }
+  },
+  "additionalProperties": true
+}
