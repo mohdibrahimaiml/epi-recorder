@@ -315,6 +315,11 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded',function(){
+  var navEl=document.querySelector('nav');
+  if(navEl&&window.location.pathname!=='/')navEl.classList.add('scrolled');
+  window.addEventListener('scroll',function(){if(navEl)navEl.classList.toggle('scrolled',window.scrollY>40)});
+});
 (function(){
 var stored=localStorage.getItem("epi-theme");
 if(stored==="dark")document.documentElement.setAttribute("data-theme","dark");
