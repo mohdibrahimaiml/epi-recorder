@@ -1,9 +1,9 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="220"/>
 
-# EPI — The PDF for AI Evidence
+# EPI — Tamper-Evident Evidence Infrastructure for AI Agents
 
-### One file. One signature. 100% offline verification.
+### Every decision. Every action. Cryptographically sealed. Browser-verifiable. Offline-auditable.
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
@@ -27,7 +27,7 @@ epi demo
 
 ---
 
-> **EPI Labs builds the evidence layer for the AI economy.**
+> **EPI Labs builds tamper-evident evidence infrastructure for AI agents.**
 > `epi-recorder` is the open-source CLI and Python SDK for capturing, signing, and
 > verifying AI agent decisions into portable `.epi` files.
 
