@@ -134,9 +134,11 @@ def map_agent_did(did: str, report: MappingReport) -> str:
     """
     if did.startswith("did:web:"):
         host = did[8:].split(":")[0]  # Remove did:web: prefix
-        name = host.split(".")[0]  # Take first subdomain
+        name = host.split(".")[0] if "." in host else host
+    elif ":" in did:
+        name = did.split(":")[-1]
     else:
-        name = did.split(":")[-1] if ":" in did else did
+        name = did
 
     report.field_mappings.append(
         FieldMapping(

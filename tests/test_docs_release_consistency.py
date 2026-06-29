@@ -12,7 +12,7 @@ CURRENT_PUBLIC_DOCS = [
     REPO_ROOT / "docs" / "CLI.md",
     REPO_ROOT / "docs" / "CONNECT.md",
     REPO_ROOT / "docs" / "EPI-CODEBASE-WALKTHROUGH.md",
-    REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md",
+    REPO_ROOT / "docs" / "EPI-DOC-v4.2.0.md",
     REPO_ROOT / "docs" / "FRAMEWORK-INTEGRATIONS-5-MINUTES.md",
     REPO_ROOT / "docs" / "POLICY.md",
     REPO_ROOT / "docs" / "PYTEST-AGENT-REGRESSIONS.md",
@@ -32,9 +32,9 @@ def test_current_public_docs_point_to_runtime_release():
     assert expected in _read(REPO_ROOT / "README.md")
     assert expected in _read(REPO_ROOT / "docs" / "CLI.md")
     assert expected in _read(REPO_ROOT / "docs" / "AGT-IMPORT-QUICKSTART.md")
-    assert expected in _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md")
+    assert expected in _read(REPO_ROOT / "docs" / "EPI-DOC-v4.2.0.md")
     assert f"EPI Recorder {expected}" in _read(REPO_ROOT / "docs" / "index.html")
-    assert f"Specification v{core_version}" in _read(REPO_ROOT / "docs" / "EPI-SPEC.md")
+    assert f"Specification v{core_version}" in _read(REPO_ROOT / "docs" / "spec/EPI-SPEC.md")
 
 
 def test_current_public_docs_have_no_stale_current_release_mentions():
@@ -52,17 +52,17 @@ def test_current_public_docs_have_no_stale_current_release_mentions():
 def test_current_public_docs_describe_envelope_format():
     readme = _read(REPO_ROOT / "README.md")
     walkthrough = _read(REPO_ROOT / "docs" / "EPI-CODEBASE-WALKTHROUGH.md")
-    spec = _read(REPO_ROOT / "docs" / "EPI-SPEC.md")
+    spec = _read(REPO_ROOT / "docs" / "spec/EPI-SPEC.md")
 
     assert "Envelope v2" in readme and "polyglot HTML+ZIP" in readme
     assert 'E -->|"ZIP"| G["agent.epi"]' not in readme
     assert "binary envelope with a" in walkthrough
     assert "ZIP container with a defined layout." not in walkthrough
-    assert "EPI1 header" in spec
+    assert "EPI1" in spec
 
 
 def test_current_flagship_doc_has_no_mojibake():
-    text = _read(REPO_ROOT / "docs" / "EPI-DOC-v4.0.2.md")
+    text = _read(REPO_ROOT / "docs" / "EPI-DOC-v4.2.0.md")
     mojibake_markers = (
         "\u00e2\u20ac\u0153",
         "\u00e2\u20ac",

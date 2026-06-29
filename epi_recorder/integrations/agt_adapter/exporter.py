@@ -62,8 +62,18 @@ def export_evidence_receipt(
 
     # Find the key that signed this artifact
     pub_key_hex = manifest.public_key or ""
-    key_name = _find_key_by_pubkey(km, pub_key_hex) or "default"
-
+    key_name = ""
+    if pub_key_hex:
+        for k in km.list_keys():
+            try:
+                raw = km._load_public_key_raw_bytes(k["name"]).hex()
+                if raw == pub_key_hex:
+                    key_name = k["name"]
+                    break
+            except Exception:
+                continue
+    if not key_name:
+        key_name = "default"
     priv_key = km.load_private_key(key_name)
 
     # Create SCITT-style signed statement
@@ -109,7 +119,7 @@ def _find_key_by_pubkey(km, pub_key_hex: str) -> str | None:
     """Find key name by public key hex."""
     for key_info in km.list_keys():
         # Compare key identifiers — exact match not required
-        if pub_key_hex and pub_key_hex in str(key_info.get("public_key", "")):
+        if pub_key_hex and pub_key_hex == str(key_info.get("public_key", "")):
             return key_info["name"]
     return None
 

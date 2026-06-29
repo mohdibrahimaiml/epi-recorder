@@ -73,7 +73,7 @@ def detect_file_format(path: str | Path) -> tuple[AGTArtifactType, list[dict]]:
         raise AGTArtifactError(f"Empty file: {path}")
 
     # Try JSONL first (FileAuditSink format)
-    if "\n" in raw and all(line.strip() for line in raw.split("\n")):
+    if "\n" in raw and any(line.strip() for line in raw.split("\n")):
         try:
             entries = [json.loads(line) for line in raw.split("\n") if line.strip()]
             if entries and all("entry_id" in e for e in entries):

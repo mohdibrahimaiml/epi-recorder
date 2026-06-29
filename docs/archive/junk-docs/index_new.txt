@@ -1,0 +1,4 @@
+# EPI Labs — Redesigned Landing Page
+
+This is a placeholder for the redesigned index.html.
+The full implementation is being built in stages.

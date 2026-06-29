@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from epi_core.schemas import StepModel, ManifestModel
+from epi_core.schemas import ManifestModel
 
 from .detect import detect_file_format, AGTArtifactType, detect_agt_version
 from .errors import AGTArtifactError
@@ -42,6 +42,8 @@ def import_agt(
         (epi_file_path, mapping_report)
     """
     source = Path(source)
+    if not source.exists():
+        raise AGTArtifactError("AGT file not found: " + str(source))
 
     # Step 1: Detect format and load entries
     artifact_type, raw_entries = detect_file_format(source)
@@ -199,17 +201,16 @@ def _build_epi_artifact(
         return sign_manifest(m, priv_key, key_name)
 
     epi_path = output_dir / f"{workflow_name}.epi"
-    EPIContainer.pack(
-        source_dir=source_dir,
-        manifest=manifest,
-        output_path=epi_path,
-        signer_function=signer_function,
-        preserve_generated=True,
-        generate_analysis=True,
-    )
-
-    # Cleanup temp source dir
-    import shutil
-    shutil.rmtree(source_dir, ignore_errors=True)
-
+    try:
+        EPIContainer.pack(
+            source_dir=source_dir,
+            manifest=manifest,
+            output_path=epi_path,
+            signer_function=signer_function,
+            preserve_generated=True,
+            generate_analysis=True,
+        )
+    finally:
+        import shutil
+        shutil.rmtree(source_dir, ignore_errors=True)
     return epi_path
