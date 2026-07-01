@@ -237,7 +237,10 @@ def _print_qr_code(url: str) -> None:
 
 def _emit_json_report(report: dict) -> None:
     """Write a machine-readable verification report directly to stdout."""
-    sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    try:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    except BrokenPipeError:
+        pass
     sys.stdout.flush()
 
 
@@ -395,6 +398,7 @@ def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -
         "Verified by EPI (Evidence Packaged Infrastructure)",
         f"epi verify {epi_file.name}",
     ]
+    report_out.parent.mkdir(parents=True, exist_ok=True)
     report_out.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -436,7 +440,7 @@ def verify_command(
     """
     try:
         epi_file = _resolve_epi_file(str(epi_file))
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError, OSError):
         _handle_verification_error(
             message=f"File not found: {epi_file}",
             json_output=json_output,
