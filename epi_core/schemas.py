@@ -26,6 +26,16 @@ class PolicyModel(BaseModel):
 
 class ManifestModel(BaseModel):
 
+    @model_validator(mode="before")
+    def _ensure_tz(cls, data):
+        from datetime import timezone
+        for f in ["created_at"]:
+            if isinstance(data, dict) and data.get(f) is not None:
+                val = data[f]
+                if hasattr(val, "tzinfo") and val.tzinfo is None:
+                    data[f] = val.replace(tzinfo=timezone.utc)
+        return data
+
     @field_validator("cli_command","env_snapshot_hash","public_key","signature","analysis_error","goal","notes","approved_by",mode="before")
     @classmethod
     def _strip_empty(cls, v):
