@@ -67,7 +67,7 @@ def audit_artifact(
     # 1. Cryptographic integrity
     sig_valid, signer_name, _sig_message = verify_embedded_manifest_signature(manifest)
     report["pipeline"]["cryptographic"] = {
-        "signature_valid": sig_valid,
+        "signature_valid": sig_valid is True,
         "integrity_checked": True,
         "container_format": EPIContainer.detect_container_format(epi_path),
     }
