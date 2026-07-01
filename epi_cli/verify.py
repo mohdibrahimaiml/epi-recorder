@@ -686,6 +686,50 @@ def verify_command(
                 if verbose:
                     console.print(f"  [yellow][WARN][/yellow] SCITT verification failed: {exc}")
 
+        
+        # ========== STEP 4.75: ANNEX IV COMPLIANCE CHECK ==========
+        annex_iv_ok = True
+        try:
+            annex_members = [m for m in EPIContainer.list_members(epi_file) if m.startswith("artifacts/annex_iv/")]
+            if annex_members:
+                if verbose:
+                    console.print("\n[bold]Step 4.75: Annex IV Compliance[/bold]")
+                for am in annex_members:
+                    sig = EPIContainer.read_member_text(epi_file, am)
+                    data = json.loads(sig)
+                    appr = data.get("approval",{})
+                    if appr.get("signature"):
+                        parts = appr["signature"].split(":",2)
+                        if len(parts)==3 and parts[0]=="ed25519":
+                            ac = {k:v for k,v in appr.items() if k!="signature"}
+                            cd = dict(data); cd["approval"] = ac; cd.pop("signature",None)
+                            can = json.dumps(cd, sort_keys=True, separators=(",",":"), default=str)
+                            try:
+                                from epi_core.keys import KeyManager
+                                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+                                pb = KeyManager().load_public_key(parts[1])
+                                ed = Ed25519PublicKey.from_public_bytes(pb)
+                                ed.verify(bytes.fromhex(parts[2]), can.encode("utf-8"))
+                                if verbose:
+                                    color = "green"
+                                    console.print(f"  [green][OK][/green] Signed: {am}")
+                            except Exception:
+                                annex_iv_ok = False
+                                if verbose:
+                                    console.print(f"  [red][FAIL][/red] Invalid signature: {am}")
+                        else:
+                            annex_iv_ok = False
+                            if verbose:
+                                console.print(f"  [red][FAIL][/red] Bad signature format: {am}")
+                    else:
+                        if verbose:
+                            console.print(f"  [yellow][INFO][/yellow] Unsigned: {am}")
+        except Exception as exc:
+            annex_iv_ok = False
+            if verbose:
+                console.print(f"  [red][FAIL][/red] Annex IV check error: {exc}")
+        if annex_iv_ok and verbose:
+            console.print(f"  [green]All Annex IV sections validated.[/green]")
         # ========== STEP 5: CREATE REPORT & APPLY POLICY ==========
         report = create_verification_report(
             integrity_ok=integrity_ok,

@@ -111,3 +111,46 @@ def report(dir:Path=Path("."),out:Path=Path(".")):
     html=REPORT_HTML.replace("TIMESTAMP",ts).replace("PCT",f"{tp:.0f}").replace("ROWS",rows)
     op=out.resolve();op=op/"annex-iv-compliance-report.html"if op.is_dir()else op
     op.write_text(html,encoding="utf-8");console.print(f"Report: {op}")
+@annex_app.command("pack")
+def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:str="annex",force:bool=False):
+    """Generate all sections, sign, and pack into a signed .epi."""
+    import tempfile,shutil
+    from epi_core.schemas import ManifestModel
+    from epi_core.container import EPIContainer
+    from epi_core.trust import sign_manifest
+    b=dir/D
+    if not b.exists()or force:
+        console.print("Init...")
+        b.mkdir(parents=True,exist_ok=True)
+        for n,t in SEC.items():
+            f=b/f"section-0{n}.json"
+            if f.exists()and not force:continue
+            m=CLS[n]().model_dump(mode="json")
+            f.write_text(json.dumps(m,indent=2,default=str))
+            console.print(f"  OK Section {n}")
+    console.print("Signing...");pk=_key(key_name)
+    for n in SEC:
+        f=b/f"section-0{n}.json"
+        if not f.exists():continue
+        d=json.loads(f.read_text());a=d.setdefault("approval",{})
+        a["signed_by"]=f"epi:key:{key_name}";a["signed_at"]=datetime.now(timezone.utc).isoformat()
+        c=_canon(d);sg=pk.sign(c.encode("utf-8"));a["signature"]=f"ed25519:{key_name}:{sg.hex()}"
+        f.write_text(json.dumps(d,indent=2,default=str))
+    console.print("Compiling...");ss=[];pop=0
+    for n,t in SEC.items():
+        f=b/f"section-0{n}.json";d=json.loads(f.read_text());st=d.get("meta",{}).get("status","draft")
+        if st in ("complete","approved"):pop+=1
+        ss.append({"section":n,"title":t,"status":st,"approved_by":d.get("approval",{}).get("signed_by","-")})
+    sm={"system_name":"","system_version":"","generated_at":datetime.now(timezone.utc).isoformat(),"sections":ss,"overall_completion_pct":round(pop*100/9,1),"approved_sections":pop,"total_sections":9}
+    (b/"compliance-summary.json").write_text(json.dumps(sm,indent=2))
+    console.print("Packing...")
+    with tempfile.TemporaryDirectory() as td:
+        sd=Path(td)/"src"
+        for n in SEC:
+            sf=b/f"section-0{n}.json";df=sd/D/f"section-0{n}.json";df.parent.mkdir(parents=True,exist_ok=True)
+            df.write_bytes(sf.read_bytes())
+        csf=b/"compliance-summary.json";(sd/D/"compliance-summary.json").write_bytes(csf.read_bytes())
+        mn=ManifestModel(cli_command="annex pack",goal="EU AI Act Annex IV compliance")
+        smn=sign_manifest(mn,pk,key_name)
+        EPIContainer.pack(sd,smn,out,preserve_generated=True,generate_analysis=False,container_format="legacy-zip")
+    console.print(Panel(f"Written to {out.resolve()}",title="Annex IV Pack"))

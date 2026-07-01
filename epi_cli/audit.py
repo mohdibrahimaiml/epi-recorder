@@ -144,6 +144,20 @@ def audit_artifact(
     except Exception:
         report["pipeline"]["human_review"] = {"status": "unavailable"}
 
+    # ANNEX IV PIPELINE
+    try:
+        annex_members = EPIContainer.list_members(epi_path)
+        files = [m for m in annex_members if m.startswith("artifacts/annex_iv/")]
+        signed = 0
+        for am in files:
+            data = json.loads(EPIContainer.read_member_text(epi_path, am))
+            if data.get("approval",{}).get("signature"):
+                signed += 1
+        report["pipeline"]["annex_iv"] = {"status": "present", "files": len(files), "signed": signed}
+    except Exception as exc:
+        report["pipeline"]["annex_iv"] = {"status": "unavailable", "error": str(exc)}
+    report["pipeline"]["human_review"] = {"status": "unavailable"}
+
     # 7. Overall compliance score
     passing = sum(
         1 for d in aiuc1_sum.get("domains", {}).values()
