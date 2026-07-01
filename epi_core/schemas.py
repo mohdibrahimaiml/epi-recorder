@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, List, Union, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 
 from epi_core._version import get_version
 from epi_core.time_utils import utc_now
@@ -16,7 +16,7 @@ class PolicyModel(BaseModel):
     """
     Formal schema for policy enforcement outcomes.
     """
-    policy_id: str = Field(..., description="Unique identifier for the policy set applied")
+    policy_id: str = Field(..., min_length=1, description="Unique identifier for the policy set applied")
     version: str = Field(..., description="Version of the policy definition")
     status: Literal["compliant", "violation", "warning"] = Field(...)
     rules: List[str] = Field(default_factory=list, description="List of rule IDs evaluated")
@@ -25,6 +25,12 @@ class PolicyModel(BaseModel):
 
 
 class ManifestModel(BaseModel):
+
+    @field_validator("cli_command","env_snapshot_hash","public_key","signature","analysis_error","goal","notes","approved_by",mode="before")
+    @classmethod
+    def _strip_empty(cls, v):
+        if isinstance(v, str) and not v.strip(): return None
+        return v
     """
     Manifest model for .epi files.
     
@@ -185,7 +191,7 @@ class StepModel(BaseModel):
     Each step is an immutable record in steps.jsonl (NDJSON format).
     """
     
-    index: int = Field(
+    index: int = Field(ge=0,
         description="Sequential step number (0-indexed)"
     )
     
@@ -194,7 +200,7 @@ class StepModel(BaseModel):
         description="Timestamp when this step occurred (UTC)"
     )
     
-    kind: str = Field(
+    kind: str = Field(min_length=1,
         description="Step type: shell.command, python.call, llm.request, llm.response, file.write, security.redaction, validation.pass, validation.fail, validation.corrected, validation.start"
     )
     
