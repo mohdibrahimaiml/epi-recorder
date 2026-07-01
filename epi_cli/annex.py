@@ -97,6 +97,22 @@ def verify(sec:str=typer.Argument("all"),dir:Path=Path(".")):
     if fl:raise typer.Exit(1)
 
 @annex_app.command()
+@annex_app.command("multi-sign")
+def multi_sign(signer:str=typer.Argument(...,help="Name/role e.g. CTO"),key_name:str=typer.Option("annex","--key","-k",help="Key to sign with"),dir:Path=Path("."),secs:str=typer.Option("all","--secs","-s",help="Sections 1-9 or all")):
+    """Append a multi-signer approval to the compliance summary."""
+    b=dir/D;cf=b/"compliance-summary.json"
+    assert b.exists()and cf.exists(),"Run compile first"
+    d=json.loads(cf.read_text());pk=_key(key_name);ts=datetime.now(timezone.utc).isoformat()
+    scope=list(SEC.keys())if secs=="all"else secs.split(",")
+    for s in scope:s=s.strip();assert s in SEC,f"Invalid {s}"
+    signers=d.setdefault("signers",[]);sig_scope=",".join(scope)
+    ap=json.dumps({"signer":signer,"scope":sig_scope,"ts":ts},sort_keys=True,separators=(",",":"),default=str)
+    sg=pk.sign(ap.encode("utf-8"))
+    signers.append({"name":signer,"key_name":key_name,"scope":sig_scope,"sections_signed":len(scope),"signed_at":ts,"signature":sg.hex()})
+    d["signer_count"]=len(signers)
+    cf.write_text(json.dumps(d,indent=2,default=str))
+    console.print(f"  [green][OK][/green] {signer} signed {len(scope)} sections")
+
 def report(dir:Path=Path("."),out:Path=Path(".")):
     from epi_core.annex_report_template import REPORT_HTML
     b=dir/D;assert b.exists(),"Run init first"
@@ -136,12 +152,20 @@ def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:st
         a["signed_by"]=f"epi:key:{key_name}";a["signed_at"]=datetime.now(timezone.utc).isoformat()
         c=_canon(d);sg=pk.sign(c.encode("utf-8"));a["signature"]=f"ed25519:{key_name}:{sg.hex()}"
         f.write_text(json.dumps(d,indent=2,default=str))
+    # Preserve existing signers
+    try:
+        ecf = (b/"compliance-summary.json")
+        if ecf.exists():
+            ed = json.loads(ecf.read_text())
+            existing_signers = ed.get("signers", [])
+    except Exception:
+        existing_signers = []
     console.print("Compiling...");ss=[];pop=0
     for n,t in SEC.items():
         f=b/f"section-0{n}.json";d=json.loads(f.read_text());st=d.get("meta",{}).get("status","draft")
         if st in ("complete","approved"):pop+=1
         ss.append({"section":n,"title":t,"status":st,"approved_by":d.get("approval",{}).get("signed_by","-")})
-    sm={"system_name":"","system_version":"","generated_at":datetime.now(timezone.utc).isoformat(),"sections":ss,"overall_completion_pct":round(pop*100/9,1),"approved_sections":pop,"total_sections":9}
+    sm={"system_name":"","system_version":"","generated_at":datetime.now(timezone.utc).isoformat(),"sections":ss,"overall_completion_pct":round(pop*100/9,1),"approved_sections":pop,"total_sections":9,"signers":existing_signers,"signer_count":len(existing_signers)}
     (b/"compliance-summary.json").write_text(json.dumps(sm,indent=2))
     console.print("Packing...")
     with tempfile.TemporaryDirectory() as td:
@@ -153,4 +177,25 @@ def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:st
         mn=ManifestModel(cli_command="annex pack",goal="EU AI Act Annex IV compliance")
         smn=sign_manifest(mn,pk,key_name)
         EPIContainer.pack(sd,smn,out,preserve_generated=True,generate_analysis=False,container_format="legacy-zip")
+    # Auto-register key in local trust registry  
+    try:  
+        import shutil
+        trust_dir = Path.home() / '.epi' / 'trusted_keys'  
+        trust_dir.mkdir(parents=True, exist_ok=True)  
+        kh = KeyManager().load_public_key(key_name).hex()
+        (trust_dir / f"{key_name}.pub").write_text(kh)  
+        console.print(f"  [green][OK][/green] Key [bold]{key_name}[/bold] trusted")  
+    except Exception as e:  
+        console.print(f"  [yellow][INFO][/yellow] Trust reg: {e}")  
+    # Auto-register with local SCITT service  
+    try:  
+        from epi_core.scitt import create_scitt_statement  
+        from epi_core.local_scitt import register_statement  
+        from epi_core.schemas import ManifestModel  
+        mn2 = ManifestModel(cli_command="annex pack", goal="EU AI Act Annex IV compliance")  
+        stmt = create_scitt_statement(mn2, pk, issuer=f"epi:key:{key_name}")  
+        rcpt, info = register_statement(stmt)  
+        console.print(f"  [green][OK][/green] SCITT ({info.entry_id[:16]}...)")  
+    except Exception as e:  
+        console.print(f"  [yellow][INFO][/yellow] SCITT: {e}")  
     console.print(Panel(f"Written to {out.resolve()}",title="Annex IV Pack"))
