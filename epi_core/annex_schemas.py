@@ -9,6 +9,13 @@ from pydantic import Field, field_validator
 
 
 class GovernanceModel(BaseModel):
+    @model_validator(mode="after")
+    def check_fields(self):
+        if self.notified_body_name and not self.notified_body_id:
+            raise ValueError("notified_body_id required when notified_body_name set")
+        if self.notified_body_id and not self.notified_body_name:
+            raise ValueError("notified_body_name required when notified_body_id set")
+        return self
     system_name: str = Field(default="", min_length=1)
     system_version: str = Field(default="", min_length=1)
     provider_name: str = Field(default="", min_length=1)
@@ -50,6 +57,13 @@ class GovernanceModel(BaseModel):
 
 
 class DeclarationOfConformity(BaseModel):
+    @model_validator(mode="after")
+    def check_notified_body(self):
+        if self.notified_body_name and not self.notified_body_id:
+            raise ValueError("notified_body_id required when notified_body_name set")
+        if self.notified_body_id and not self.notified_body_name:
+            raise ValueError("notified_body_name required when notified_body_id set")
+        return self
     declaration_id: str = Field(default="", min_length=1)
     system_name: str = Field(default="", min_length=1)
     system_type: str = Field(default="", min_length=1)

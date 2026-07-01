@@ -299,7 +299,10 @@ def create_scitt_statement(
         COSE_Sign1 bytes.
     """
     if isinstance(manifest, dict):
-        manifest = ManifestModel(**manifest)
+        try:
+            manifest = ManifestModel(**manifest)
+        except Exception as e:
+            raise SCITTError(f"Invalid manifest dict: {e}") from e
     manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})
 
     # Payload is a CBOR-encoded claims object (SCITT architecture draft convention)
@@ -365,7 +368,10 @@ def verify_scitt_statement(
     5. Signature is valid (if public_key_bytes provided).
     """
     if isinstance(manifest, dict):
-        manifest = ManifestModel(**manifest)
+        try:
+            manifest = ManifestModel(**manifest)
+        except Exception as e:
+            raise SCITTError(f"Invalid manifest dict: {e}") from e
 
     statement = parse_scitt_statement(cose_bytes)
     expected_hash = get_canonical_hash(manifest, exclude_fields={"signature", "governance"})

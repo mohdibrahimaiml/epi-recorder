@@ -70,10 +70,11 @@ def sign_manifest(
         ).hex()
 
         # We must update the manifest BEFORE hashing so the public key is signed
-        manifest.public_key = public_key_hex
+        manifest_copy = manifest.model_copy(deep=True)
+        manifest_copy.public_key = public_key_hex
 
         # Compute canonical hash (excluding signature field)
-        manifest_hash = get_canonical_hash(manifest, exclude_fields={"signature"})
+        manifest_hash = get_canonical_hash(manifest_copy, exclude_fields={"signature"})
         hash_bytes = bytes.fromhex(manifest_hash)
 
         # Sign the hash
@@ -85,7 +86,7 @@ def sign_manifest(
         signature_str = f"ed25519:{derived_key_name}:{signature_hex}"
 
         # Create new manifest with signature
-        manifest_dict = manifest.model_dump()
+        manifest_dict = manifest_copy.model_dump()
         manifest_dict["signature"] = signature_str
 
         return ManifestModel(**manifest_dict)
