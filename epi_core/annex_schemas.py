@@ -55,11 +55,11 @@ class DesignDecision(BaseModel):
     approved_by: Optional[str] = None
 
 class SystemDescription(BaseModel):
-    system_name: str
-    version: str
+    system_name: str = ""
+    version: str = ""
     workflow_id: Optional[str] = None
     goal: Optional[str] = None
-    intended_purpose: str
+    intended_purpose: str = ""
     deployment_context: Optional[str] = None
     users: list[str] = Field(default_factory=list)
     scope_limitations: Optional[str] = None
@@ -236,12 +236,12 @@ class Section07Standards(BaseModel):
     approval: ApprovalStamp = Field(default_factory=ApprovalStamp)
 
 class ManufacturerInfo(BaseModel):
-    name: str; address: Optional[str] = None
+    name: str = ""; address: Optional[str] = None
     contact: Optional[str] = None
     registration_number: Optional[str] = None
 
 class Signatory(BaseModel):
-    name: str; role: str
+    name: str = ""; role: str = ""
     organisation: Optional[str] = None
     did: Optional[str] = None
 
