@@ -190,3 +190,7 @@ verify_portal/static/js/
 
 # Runtime review artifacts
 review/artifacts/
+
+epi_bootstrap_*
+.epi_temp_*
+epi_policy.json

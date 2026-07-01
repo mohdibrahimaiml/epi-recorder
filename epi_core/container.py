@@ -141,8 +141,8 @@ class EPIContainer:
             return create_recording_workspace(prefix)
         except RecordingWorkspaceError:
             candidates = [
-                lambda: Path(tempfile.gettempdir()) / f"{prefix}{id(object())}",
-                lambda: Path.cwd() / f".{prefix}{id(object())}",
+                lambda: Path(tempfile.gettempdir()) / f"{prefix}{str(uuid.uuid4())}",
+                lambda: Path.cwd() / f".{prefix}{str(uuid.uuid4())}",
             ]
 
             last_error = None
