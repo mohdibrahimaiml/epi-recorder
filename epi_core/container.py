@@ -1062,6 +1062,8 @@ class EPIContainer:
         if not source_path.exists():
             raise FileNotFoundError(f"EPI file not found: {source_path}")
 
+        import warnings
+        warnings.warn("refresh_viewer invalidates the manifest signature. Re-sign after refresh.")
         destination = Path(output_path) if output_path is not None else source_path
         container_format = EPIContainer.detect_container_format(source_path)
         manifest = EPIContainer.read_manifest(source_path)
