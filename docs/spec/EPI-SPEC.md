@@ -7,6 +7,12 @@
 
 ---
 
+### EU AI Act Annex IV Technical Documentation
+
+EPI provides structured JSON schemas for all 9 sections of EU AI Act Annex IV.
+See [schemas/annex-iv.schema.json](schemas/annex-iv.schema.json) for the full JSON Schema.
+The `epi annex` CLI subsystem generates, signs, and verifies Annex IV artifacts.
+
 ## Abstract
 
 The EPI (Evidence Portable Infrastructure) format defines a portable,

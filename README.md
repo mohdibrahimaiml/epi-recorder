@@ -300,6 +300,12 @@ EPI implements `draft-ietf-scitt-scrapi` with:
 
 [SCITT details →](verify_portal/static/scitt.html)
 
+### EU AI Act Annex IV
+
+EPI now covers all 9 sections of Annex IV technical documentation with
+structured JSON schemas, Ed25519 signing, and compliance reporting.
+Use `epi annex *` commands. See [docs/ANNEX-IV.md](docs/ANNEX-IV.md).
+
 ### AIUC-1
 
 EPI scores artifacts against all **6 AIUC-1 domains** with deterministic, evidence-based checks:

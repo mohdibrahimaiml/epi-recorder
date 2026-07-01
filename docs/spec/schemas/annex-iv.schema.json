@@ -1,0 +1,2059 @@
+{
+  "$defs": {
+    "AnnexComplianceSummary": {
+      "properties": {
+        "system_name": {
+          "default": "",
+          "title": "System Name",
+          "type": "string"
+        },
+        "system_version": {
+          "default": "",
+          "title": "System Version",
+          "type": "string"
+        },
+        "generated_at": {
+          "default": "",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "container_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Hash"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/SectionSummary"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "overall_completion_pct": {
+          "default": 0.0,
+          "title": "Overall Completion Pct",
+          "type": "number"
+        },
+        "approved_sections": {
+          "default": 0,
+          "title": "Approved Sections",
+          "type": "integer"
+        },
+        "total_sections": {
+          "default": 9,
+          "title": "Total Sections",
+          "type": "integer"
+        }
+      },
+      "title": "AnnexComplianceSummary",
+      "type": "object"
+    },
+    "ApprovalStamp": {
+      "properties": {
+        "signed_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signed By"
+        },
+        "signed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signed At"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signature"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "ApprovalStamp",
+      "type": "object"
+    },
+    "ArchitectureDescription": {
+      "properties": {
+        "system_architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "System Architecture"
+        },
+        "algorithm_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Algorithm Summary"
+        },
+        "key_design_choices": {
+          "items": {
+            "$ref": "#/$defs/DesignDecision"
+          },
+          "title": "Key Design Choices",
+          "type": "array"
+        },
+        "computational_resources": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Computational Resources"
+        },
+        "data_requirements": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Requirements"
+        },
+        "training_methodology": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Methodology"
+        }
+      },
+      "title": "ArchitectureDescription",
+      "type": "object"
+    },
+    "BiasAnalysis": {
+      "properties": {
+        "demographic_parity_diff": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demographic Parity Diff"
+        },
+        "equal_opportunity_diff": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equal Opportunity Diff"
+        },
+        "disparate_impact_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disparate Impact Ratio"
+        },
+        "analysis_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Date"
+        },
+        "mitigations_applied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mitigations Applied",
+          "type": "array"
+        }
+      },
+      "title": "BiasAnalysis",
+      "type": "object"
+    },
+    "ChangeLogEntry": {
+      "properties": {
+        "change_id": {
+          "title": "Change Id",
+          "type": "string"
+        },
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "minor",
+            "substantial"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger"
+        },
+        "re_certification_required": {
+          "default": false,
+          "title": "Re Certification Required",
+          "type": "boolean"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        }
+      },
+      "required": [
+        "change_id",
+        "date",
+        "description",
+        "type"
+      ],
+      "title": "ChangeLogEntry",
+      "type": "object"
+    },
+    "ComponentSpec": {
+      "properties": {
+        "component": {
+          "title": "Component",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "input_schema": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Schema"
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Schema"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "component",
+        "version",
+        "description"
+      ],
+      "title": "ComponentSpec",
+      "type": "object"
+    },
+    "CybersecurityMeasures": {
+      "properties": {
+        "measures": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Measures",
+          "type": "array"
+        },
+        "standards_applied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Standards Applied",
+          "type": "array"
+        },
+        "last_assessment_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Assessment Date"
+        }
+      },
+      "title": "CybersecurityMeasures",
+      "type": "object"
+    },
+    "DatasetDatasheet": {
+      "properties": {
+        "dataset_name": {
+          "title": "Dataset Name",
+          "type": "string"
+        },
+        "version": {
+          "default": "1.0.0",
+          "title": "Version",
+          "type": "string"
+        },
+        "dataset_type": {
+          "enum": [
+            "training",
+            "validation",
+            "test"
+          ],
+          "title": "Dataset Type",
+          "type": "string"
+        },
+        "collection_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection Date"
+        },
+        "jurisdiction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jurisdiction"
+        },
+        "provenance": {
+          "additionalProperties": true,
+          "title": "Provenance",
+          "type": "object"
+        },
+        "num_samples": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Num Samples"
+        },
+        "num_features": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Num Features"
+        },
+        "feature_types": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Feature Types",
+          "type": "object"
+        },
+        "class_distribution": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Class Distribution"
+        },
+        "sensitive_attributes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sensitive Attributes",
+          "type": "array"
+        },
+        "bias_analysis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BiasAnalysis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "preprocessing": {
+          "items": {
+            "$ref": "#/$defs/PreprocessingStep"
+          },
+          "title": "Preprocessing",
+          "type": "array"
+        },
+        "exclusion_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclusion Criteria",
+          "type": "array"
+        },
+        "governance": {
+          "additionalProperties": true,
+          "title": "Governance",
+          "type": "object"
+        },
+        "status": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "complete",
+            "approved"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "last_modified": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Modified"
+        }
+      },
+      "required": [
+        "dataset_name",
+        "dataset_type"
+      ],
+      "title": "DatasetDatasheet",
+      "type": "object"
+    },
+    "DesignAndDevelopment": {
+      "properties": {
+        "architecture_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Architecture Summary"
+        },
+        "architecture_diagram_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Architecture Diagram Ref"
+        },
+        "component_specifications": {
+          "items": {
+            "$ref": "#/$defs/ComponentSpec"
+          },
+          "title": "Component Specifications",
+          "type": "array"
+        },
+        "development_methodology": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Development Methodology"
+        },
+        "design_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Design Tools",
+          "type": "array"
+        },
+        "design_decisions": {
+          "items": {
+            "$ref": "#/$defs/DesignDecision"
+          },
+          "title": "Design Decisions",
+          "type": "array"
+        }
+      },
+      "title": "DesignAndDevelopment",
+      "type": "object"
+    },
+    "DesignDecision": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        }
+      },
+      "required": [
+        "id",
+        "decision",
+        "rationale"
+      ],
+      "title": "DesignDecision",
+      "type": "object"
+    },
+    "HarmonisedStandard": {
+      "properties": {
+        "standard_id": {
+          "title": "Standard Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "applied",
+            "partial",
+            "under_review",
+            "not_applied"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope"
+        },
+        "conformity_assessment": {
+          "default": "self-declaration",
+          "enum": [
+            "self-declaration",
+            "notified-body"
+          ],
+          "title": "Conformity Assessment",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "remediation_plan": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation Plan"
+        }
+      },
+      "required": [
+        "standard_id",
+        "title",
+        "status"
+      ],
+      "title": "HarmonisedStandard",
+      "type": "object"
+    },
+    "HumanOversightMeasures": {
+      "properties": {
+        "oversight_strategy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oversight Strategy"
+        },
+        "human_in_the_loop": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Human In The Loop"
+        },
+        "override_mechanisms": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Override Mechanisms"
+        },
+        "escalation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Path"
+        }
+      },
+      "title": "HumanOversightMeasures",
+      "type": "object"
+    },
+    "ManufacturerInfo": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "contact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contact"
+        },
+        "registration_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registration Number"
+        }
+      },
+      "title": "ManufacturerInfo",
+      "type": "object"
+    },
+    "MetricJustification": {
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "justification": {
+          "title": "Justification",
+          "type": "string"
+        },
+        "limitations": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limitations"
+        }
+      },
+      "required": [
+        "metric",
+        "justification"
+      ],
+      "title": "MetricJustification",
+      "type": "object"
+    },
+    "OverallRiskAssessment": {
+      "properties": {
+        "highest_rpn": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Highest Rpn"
+        },
+        "mean_rpn": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean Rpn"
+        },
+        "risks_above_threshold": {
+          "default": 0,
+          "title": "Risks Above Threshold",
+          "type": "integer"
+        },
+        "residual_risks_above_threshold": {
+          "default": 0,
+          "title": "Residual Risks Above Threshold",
+          "type": "integer"
+        },
+        "assessment_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assessment Date"
+        },
+        "conclusion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conclusion"
+        }
+      },
+      "title": "OverallRiskAssessment",
+      "type": "object"
+    },
+    "PredeterminedChanges": {
+      "properties": {
+        "change_id": {
+          "title": "Change Id",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "trigger_condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Condition"
+        },
+        "expected_impact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Impact"
+        },
+        "validation_required": {
+          "default": true,
+          "title": "Validation Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "change_id",
+        "description"
+      ],
+      "title": "PredeterminedChanges",
+      "type": "object"
+    },
+    "PreprocessingStep": {
+      "properties": {
+        "step": {
+          "title": "Step",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "step",
+        "method"
+      ],
+      "title": "PreprocessingStep",
+      "type": "object"
+    },
+    "RiskEntry": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "risk_description": {
+          "title": "Risk Description",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "health",
+            "safety",
+            "fundamental_rights",
+            "discrimination",
+            "cybersecurity",
+            "operational"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "probability": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Probability",
+          "type": "integer"
+        },
+        "severity": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Severity",
+          "type": "integer"
+        },
+        "rpn_score": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rpn Score"
+        },
+        "risk_level": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Level"
+        },
+        "controls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Controls",
+          "type": "array"
+        },
+        "residual_probability": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Residual Probability"
+        },
+        "residual_severity": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Residual Severity"
+        },
+        "residual_rpn": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Residual Rpn"
+        },
+        "residual_risk_level": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Residual Risk Level"
+        },
+        "risk_treatment": {
+          "default": "mitigation",
+          "enum": [
+            "mitigation",
+            "avoidance",
+            "transfer",
+            "acceptance"
+          ],
+          "title": "Risk Treatment",
+          "type": "string"
+        },
+        "risk_owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Owner"
+        },
+        "sign_off": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApprovalStamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "risk_description",
+        "category",
+        "probability",
+        "severity"
+      ],
+      "title": "RiskEntry",
+      "type": "object"
+    },
+    "RiskManagementSummary": {
+      "properties": {
+        "methodology": {
+          "default": "ISO 14971 / EU AI Act Article 9",
+          "title": "Methodology",
+          "type": "string"
+        },
+        "risk_register_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Register Ref"
+        },
+        "overall_residual_risk": {
+          "default": "acceptable_with_monitoring",
+          "enum": [
+            "acceptable",
+            "acceptable_with_monitoring",
+            "unacceptable"
+          ],
+          "title": "Overall Residual Risk",
+          "type": "string"
+        },
+        "risk_review_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Review Date"
+        },
+        "risk_officer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Officer"
+        }
+      },
+      "title": "RiskManagementSummary",
+      "type": "object"
+    },
+    "Section01System": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "system_description": {
+          "$ref": "#/$defs/SystemDescription"
+        },
+        "design_and_development": {
+          "$ref": "#/$defs/DesignAndDevelopment"
+        },
+        "risk_management_summary": {
+          "$ref": "#/$defs/RiskManagementSummary"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section01System",
+      "type": "object"
+    },
+    "Section02Development": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "architecture": {
+          "$ref": "#/$defs/ArchitectureDescription"
+        },
+        "datasheets": {
+          "items": {
+            "$ref": "#/$defs/DatasetDatasheet"
+          },
+          "title": "Datasheets",
+          "type": "array"
+        },
+        "human_oversight": {
+          "$ref": "#/$defs/HumanOversightMeasures"
+        },
+        "predetermined_changes": {
+          "items": {
+            "$ref": "#/$defs/PredeterminedChanges"
+          },
+          "title": "Predetermined Changes",
+          "type": "array"
+        },
+        "validation_testing": {
+          "$ref": "#/$defs/ValidationAndTesting"
+        },
+        "cybersecurity": {
+          "$ref": "#/$defs/CybersecurityMeasures"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section02Development",
+      "type": "object"
+    },
+    "Section03Monitoring": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "capabilities_and_limitations": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capabilities And Limitations"
+        },
+        "subgroup_accuracy": {
+          "items": {
+            "$ref": "#/$defs/SubgroupAccuracy"
+          },
+          "title": "Subgroup Accuracy",
+          "type": "array"
+        },
+        "unintended_outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unintended Outcomes",
+          "type": "array"
+        },
+        "human_oversight_measures": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Human Oversight Measures"
+        },
+        "input_data_specifications": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Data Specifications"
+        },
+        "runtime_logging_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "steps.jsonl",
+          "title": "Runtime Logging Ref"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section03Monitoring",
+      "type": "object"
+    },
+    "Section04Metrics": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/MetricJustification"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "overall_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overall Rationale"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section04Metrics",
+      "type": "object"
+    },
+    "Section05RiskManagement": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "risk_register": {
+          "items": {
+            "$ref": "#/$defs/RiskEntry"
+          },
+          "title": "Risk Register",
+          "type": "array"
+        },
+        "overall_assessment": {
+          "$ref": "#/$defs/OverallRiskAssessment"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section05RiskManagement",
+      "type": "object"
+    },
+    "Section06Lifecycle": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/ChangeLogEntry"
+          },
+          "title": "Changes",
+          "type": "array"
+        },
+        "change_classification_matrix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Change Classification Matrix"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section06Lifecycle",
+      "type": "object"
+    },
+    "Section07Standards": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "harmonised_standards": {
+          "items": {
+            "$ref": "#/$defs/HarmonisedStandard"
+          },
+          "title": "Harmonised Standards",
+          "type": "array"
+        },
+        "other_applicable_standards": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Other Applicable Standards",
+          "type": "array"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section07Standards",
+      "type": "object"
+    },
+    "Section08Declaration": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "regulation": {
+          "default": "Regulation (EU) 2024/1689",
+          "title": "Regulation",
+          "type": "string"
+        },
+        "annex_ref": {
+          "default": "IV",
+          "title": "Annex Ref",
+          "type": "string"
+        },
+        "manufacturer": {
+          "$ref": "#/$defs/ManufacturerInfo"
+        },
+        "system_name": {
+          "default": "",
+          "title": "System Name",
+          "type": "string"
+        },
+        "system_version": {
+          "default": "",
+          "title": "System Version",
+          "type": "string"
+        },
+        "system_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "System Type"
+        },
+        "notified_body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notified Body"
+        },
+        "declares_under_sole_responsibility": {
+          "default": "",
+          "title": "Declares Under Sole Responsibility",
+          "type": "string"
+        },
+        "applied_standards": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Applied Standards",
+          "type": "array"
+        },
+        "ce_marking_year": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ce Marking Year"
+        },
+        "declaration_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declaration Date"
+        },
+        "signatory": {
+          "$ref": "#/$defs/Signatory"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signature"
+        }
+      },
+      "title": "Section08Declaration",
+      "type": "object"
+    },
+    "Section09PostMarket": {
+      "properties": {
+        "meta": {
+          "additionalProperties": true,
+          "title": "Meta",
+          "type": "object"
+        },
+        "monitoring_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monitoring Scope"
+        },
+        "drift_detection_thresholds": {
+          "additionalProperties": true,
+          "title": "Drift Detection Thresholds",
+          "type": "object"
+        },
+        "subgroup_monitoring_schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subgroup Monitoring Schedule"
+        },
+        "human_override_rate_tracking": {
+          "default": false,
+          "title": "Human Override Rate Tracking",
+          "type": "boolean"
+        },
+        "cross_system_interaction_monitoring": {
+          "default": false,
+          "title": "Cross System Interaction Monitoring",
+          "type": "boolean"
+        },
+        "serious_incident_definition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Serious Incident Definition"
+        },
+        "escalation_runbook": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Escalation Runbook"
+        },
+        "reporting_deadlines": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Reporting Deadlines",
+          "type": "object"
+        },
+        "feedback_loop_to_technical_file": {
+          "default": false,
+          "title": "Feedback Loop To Technical File",
+          "type": "boolean"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalStamp"
+        }
+      },
+      "title": "Section09PostMarket",
+      "type": "object"
+    },
+    "SectionSummary": {
+      "properties": {
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "draft",
+            "complete",
+            "approved"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "fields_populated": {
+          "default": 0,
+          "title": "Fields Populated",
+          "type": "integer"
+        },
+        "fields_total": {
+          "default": 0,
+          "title": "Fields Total",
+          "type": "integer"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        }
+      },
+      "required": [
+        "section",
+        "title",
+        "status"
+      ],
+      "title": "SectionSummary",
+      "type": "object"
+    },
+    "Signatory": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "organisation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Organisation"
+        },
+        "did": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Did"
+        }
+      },
+      "title": "Signatory",
+      "type": "object"
+    },
+    "SubgroupAccuracy": {
+      "properties": {
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "sample_size": {
+          "title": "Sample Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "group",
+        "metric",
+        "value",
+        "sample_size"
+      ],
+      "title": "SubgroupAccuracy",
+      "type": "object"
+    },
+    "SystemDescription": {
+      "properties": {
+        "system_name": {
+          "default": "",
+          "title": "System Name",
+          "type": "string"
+        },
+        "version": {
+          "default": "",
+          "title": "Version",
+          "type": "string"
+        },
+        "workflow_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow Id"
+        },
+        "goal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Goal"
+        },
+        "intended_purpose": {
+          "default": "",
+          "title": "Intended Purpose",
+          "type": "string"
+        },
+        "deployment_context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deployment Context"
+        },
+        "users": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Users",
+          "type": "array"
+        },
+        "scope_limitations": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope Limitations"
+        },
+        "provider_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Name"
+        },
+        "provider_contact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Contact"
+        }
+      },
+      "title": "SystemDescription",
+      "type": "object"
+    },
+    "ValidationAndTesting": {
+      "properties": {
+        "methodology": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Methodology"
+        },
+        "test_logs_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Test Logs Ref"
+        },
+        "accuracy_metrics": {
+          "additionalProperties": true,
+          "title": "Accuracy Metrics",
+          "type": "object"
+        },
+        "robustness_metrics": {
+          "additionalProperties": true,
+          "title": "Robustness Metrics",
+          "type": "object"
+        },
+        "discriminatory_impact_analysis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discriminatory Impact Analysis"
+        },
+        "test_reports": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Test Reports",
+          "type": "array"
+        },
+        "responsible_persons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Responsible Persons",
+          "type": "array"
+        }
+      },
+      "title": "ValidationAndTesting",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "meta": {
+      "additionalProperties": true,
+      "title": "Meta",
+      "type": "object"
+    },
+    "section_01": {
+      "$ref": "#/$defs/Section01System"
+    },
+    "section_02": {
+      "$ref": "#/$defs/Section02Development"
+    },
+    "section_03": {
+      "$ref": "#/$defs/Section03Monitoring"
+    },
+    "section_04": {
+      "$ref": "#/$defs/Section04Metrics"
+    },
+    "section_05": {
+      "$ref": "#/$defs/Section05RiskManagement"
+    },
+    "section_06": {
+      "$ref": "#/$defs/Section06Lifecycle"
+    },
+    "section_07": {
+      "$ref": "#/$defs/Section07Standards"
+    },
+    "section_08": {
+      "$ref": "#/$defs/Section08Declaration"
+    },
+    "section_09": {
+      "$ref": "#/$defs/Section09PostMarket"
+    },
+    "datasheets": {
+      "items": {
+        "$ref": "#/$defs/DatasetDatasheet"
+      },
+      "title": "Datasheets",
+      "type": "array"
+    },
+    "compliance_summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnnexComplianceSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "AnnexIVTechnicalFile",
+  "type": "object"
+}
