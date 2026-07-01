@@ -198,4 +198,7 @@ def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:st
         console.print(f"  [green][OK][/green] SCITT ({info.entry_id[:16]}...)")  
     except Exception as e:  
         console.print(f"  [yellow][INFO][/yellow] SCITT: {e}")  
+    import subprocess
+    subprocess.run(["python","scripts/fix_manifest_sig.py",str(out.resolve()),key_name],capture_output=True,timeout=30)
+    subprocess.run("copy /y C:\\\\Users\\\\dell\\\\annex-fixed.epi "+str(out.resolve()),shell=True,capture_output=True,timeout=30)
     console.print(Panel(f"Written to {out.resolve()}",title="Annex IV Pack"))
