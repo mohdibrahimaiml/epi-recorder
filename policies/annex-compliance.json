@@ -1,0 +1,48 @@
+{
+  "policy_name": "EU AI Act Annex IV Compliance",
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "annex-1a-required",
+      "description": "System description must be present",
+      "severity": "block",
+      "check": "file_exists('artifacts/annex/section-01-system-description.json')"
+    },
+    {
+      "id": "annex-1b-complete",
+      "description": "Design methodology must include architecture specs",
+      "severity": "warn",
+      "check": "schema_valid('artifacts/annex/section-01-system-description.json','section_01_system')"
+    },
+    {
+      "id": "annex-2d-datasheets",
+      "description": "Data governance requires training/validation/test datasheets",
+      "severity": "block",
+      "check": "files_exist(['datasheets/training-datasheet.json','datasheets/validation-datasheet.json','datasheets/test-datasheet.json'])"
+    },
+    {
+      "id": "annex-5-risk-register",
+      "description": "Must have formal risk register with RPN scores",
+      "severity": "block",
+      "check": "schema_valid('artifacts/annex/section-05-risk-management.json','section_05_risk')"
+    },
+    {
+      "id": "annex-7-standards",
+      "description": "Must list applied harmonised standards",
+      "severity": "warn",
+      "check": "schema_valid('artifacts/annex/section-07-standards.json','section_07_standards')"
+    },
+    {
+      "id": "annex-8-declaration",
+      "description": "EU Declaration of Conformity must be signed",
+      "severity": "block",
+      "check": "signed('artifacts/annex/section-08-declaration.json')"
+    },
+    {
+      "id": "annex-9-post-market",
+      "description": "Post-market monitoring plan required",
+      "severity": "warn",
+      "check": "file_exists('artifacts/annex/section-09-post-market.json')"
+    }
+  ]
+}

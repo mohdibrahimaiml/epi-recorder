@@ -756,7 +756,9 @@ from epi_cli.integrate import integrate_command
 app.command(name="integrate", help="Generate EPI integration examples and CI workflows")(integrate_command)
 
 from epi_cli.audit import audit_app
-app.add_typer(audit_app, name="audit", help="Run a self-audit on .epi artifacts producing machine-readable compliance reports")
+from epi_cli.annex import annex_app
+app.add_typer(annex_app, name='annex', help='Annex IV compliance artifacts')
+app.add_typer(audit_app, name='audit', help="Run a self-audit on .epi artifacts producing machine-readable compliance reports")
 
 
 @app.command()
