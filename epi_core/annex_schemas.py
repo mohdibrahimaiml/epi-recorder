@@ -2,6 +2,85 @@ from __future__ import annotations
 from typing import Any, Optional, Literal
 from pydantic import BaseModel, Field, model_validator
 
+
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone
+from pydantic import Field, field_validator
+
+
+class GovernanceModel(BaseModel):
+    system_name: str = Field(default="", min_length=1)
+    system_version: str = Field(default="", min_length=1)
+    provider_name: str = Field(default="", min_length=1)
+    provider_contact: str = Field(default="")
+    responsible_person: str = Field(default="")
+    jurisdiction: str = Field(default="EU")
+    data_classification: str = Field(default="")
+    data_retention_days: int = Field(default=0, ge=0)
+    consent_obtained: bool = Field(default=False)
+    processing_purpose: str = Field(default="")
+    data_subject_rights_mechanism: str = Field(default="")
+    dpia_conducted: bool = Field(default=False)
+    dpia_reference: str = Field(default="")
+    data_protection_officer: str = Field(default="")
+    third_country_transfer_safeguards: str = Field(default="")
+    automated_decision_making_disclosure: bool = Field(default=False)
+    human_oversight_measures: List[str] = Field(default_factory=list)
+    accuracy_metrics: Dict[str, float] = Field(default_factory=dict)
+    robustness_measures: List[str] = Field(default_factory=list)
+    cybersecurity_measures: List[str] = Field(default_factory=list)
+    bias_assessment: str = Field(default="")
+    training_data_description: str = Field(default="")
+    validation_data_description: str = Field(default="")
+    testing_data_description: str = Field(default="")
+    intended_purpose: str = Field(default="", min_length=1)
+    system_description: str = Field(default="", min_length=1)
+    risk_assessment: str = Field(default="")
+    conformity_assessment_procedure: str = Field(default="Annex VI")
+    scitt: Optional[Dict[str, Any]] = Field(default=None)
+    did: Optional[str] = Field(default=None)
+    extra: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("system_name","provider_name","intended_purpose","system_description")
+    @classmethod
+    def non_empty(cls, v):
+        s = v.strip()
+        if not s: raise ValueError("required field cannot be empty")
+        return s
+
+
+class DeclarationOfConformity(BaseModel):
+    declaration_id: str = Field(default="", min_length=1)
+    system_name: str = Field(default="", min_length=1)
+    system_type: str = Field(default="", min_length=1)
+    provider_name: str = Field(default="", min_length=1)
+    provider_address: str = Field(default="", min_length=1)
+    provider_country: str = Field(default="", min_length=1)
+    declaration_statement: str = Field(default="", min_length=1)
+    conformity_assessment_procedure: str = Field(default="Annex VI")
+    notified_body_name: Optional[str] = Field(default=None)
+    notified_body_id: Optional[int] = Field(default=None)
+    certificate_number: Optional[str] = Field(default=None)
+    harmonized_standards: List[str] = Field(default_factory=list)
+    common_specifications: List[str] = Field(default_factory=list)
+    additional_certificates: List[str] = Field(default_factory=list)
+    declaration_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    declaration_place: str = Field(default="", min_length=1)
+    signatory_name: str = Field(default="", min_length=1)
+    signatory_function: str = Field(default="", min_length=1)
+    signatory_signature: str = Field(default="")
+    applicable_regulations: List[str] = Field(default_factory=lambda: ["(EU) 2024/1689"])
+    ce_marking_applied: bool = Field(default=False)
+    ce_marking_year: Optional[int] = Field(default=None)
+    signature: Optional[str] = Field(default=None)
+
+    @field_validator("declaration_id","system_name","system_type","provider_name","provider_address","provider_country","declaration_statement","declaration_place","signatory_name","signatory_function")
+    @classmethod
+    def non_empty(cls, v):
+        s = v.strip()
+        if not s: raise ValueError("required field cannot be empty")
+        return s
+
 class BiasAnalysis(BaseModel):
     demographic_parity_diff: Optional[float] = None
     equal_opportunity_diff: Optional[float] = None
