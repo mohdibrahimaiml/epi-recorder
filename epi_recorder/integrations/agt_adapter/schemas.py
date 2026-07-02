@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from datetime import timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, Field, field_validator
 
 from epi_core._version import get_version
 
@@ -59,10 +60,10 @@ class AGTFileAuditEntry(BaseModel):
 
     model_config = {"extra": "allow"}
 
-    entry_id: str
+    entry_id: str = Field(..., min_length=1)
     timestamp: datetime
     event_type: str  # Not enum — future types must parse
-    agent_did: str
+    agent_did: str = Field(..., min_length=1)
     action: str
     resource: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
@@ -80,10 +81,10 @@ class AGTExportEntry(BaseModel):
 
     model_config = {"extra": "allow"}
 
-    entry_id: str
+    entry_id: str = Field(..., min_length=1)
     timestamp: datetime
     event_type: str
-    agent_did: str
+    agent_did: str = Field(..., min_length=1)
     action: str
     resource: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
