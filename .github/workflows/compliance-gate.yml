@@ -1,0 +1,47 @@
+name: Compliance Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  compliance-check:
+    name: Annex IV Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate and verify compliance artifact
+        uses: ./.github/actions/annex-iv-compliance
+        with:
+          signing-key: ${{ secrets.EPI_SIGNING_KEY }}
+          key-name: ci-compliance
+          fail-on-block: true
+          generate-report: true
+          report-format: pdf
+
+  verify-consumer:
+    name: Independent Verification (Auditor Simulation)
+    needs: compliance-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download compliance artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: annex-iv-compliance
+          path: ./evidence
+
+      - name: Install EPI
+        shell: bash
+        run: pip install epi-recorder
+
+      - name: Verify independently (no shared secrets)
+        shell: bash
+        run: |
+          epi verify ./evidence/annex-iv-compliance.epi --verbose
+          echo "Independent verification complete - artifact proves itself without shared secrets."

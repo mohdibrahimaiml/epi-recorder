@@ -1,0 +1,101 @@
+name: 'EPI Annex IV Compliance'
+description: 'Generate signed .epi evidence with EU AI Act Annex IV compliance in CI/CD'
+author: 'EPI Labs'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  signing-key:
+    description: 'Ed25519 private key for signing (hex-encoded)'
+    required: true
+  key-name:
+    description: 'Key identifier'
+    required: false
+    default: 'ci-compliance'
+  fail-on-block:
+    description: 'Fail workflow on block-severity policy violations'
+    required: false
+    default: 'true'
+  generate-report:
+    description: 'Generate compliance report'
+    required: false
+    default: 'true'
+  report-format:
+    description: 'Report format: html or pdf'
+    required: false
+    default: 'pdf'
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.11'
+
+outputs:
+  decision:
+    description: 'Overall verification result: PASS or FAIL'
+    value: ${{ steps.pack.outputs.decision }}
+  score:
+    description: 'Compliance completion percentage (0-100)'
+    value: ${{ steps.pack.outputs.score }}
+  epi-artifact:
+    description: 'Path to the generated .epi artifact'
+    value: 'annex-iv-compliance.epi'
+  pdf-report:
+    description: 'Path to the PDF report'
+    value: 'annex-iv-compliance-report.pdf'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install EPI Recorder with PDF support
+      shell: bash
+      run: pip install "epi-recorder[pdf]"
+
+    - name: Generate Annex IV compliance artifact
+      id: pack
+      shell: bash
+      env:
+        EPI_SIGNING_KEY: ${{ inputs.signing-key }}
+      run: |
+        set -e
+        epi annex pack --force --key-name ${{ inputs.key-name }}
+        epi verify annex-iv-compliance.epi --verbose 2>&1 | tee verify-output.txt
+        if grep -q "DECISION: PASS" verify-output.txt; then
+          echo "decision=PASS" >> $GITHUB_OUTPUT
+        else
+          echo "decision=FAIL" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate compliance report
+      if: ${{ inputs.generate-report == 'true' }}
+      shell: bash
+      run: |
+        epi annex report --format ${{ inputs.report-format }}
+
+    - name: Upload .epi artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: annex-iv-compliance
+        path: annex-iv-compliance.epi
+        if-no-files-found: error
+
+    - name: Upload PDF report
+      if: ${{ inputs.generate-report == 'true' && inputs.report-format == 'pdf' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: annex-iv-compliance-report
+        path: annex-iv-compliance-report.pdf
+        if-no-files-found: warn
+
+    - name: Fail on block violations
+      if: ${{ inputs.fail-on-block == 'true' && steps.pack.outputs.decision == 'FAIL' }}
+      shell: bash
+      run: |
+        echo "Compliance gate failed. Review the verification output above."
+        exit 1
