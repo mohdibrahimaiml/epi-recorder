@@ -153,6 +153,7 @@ def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:st
         c=_canon(d);sg=pk.sign(c.encode("utf-8"));a["signature"]=f"ed25519:{key_name}:{sg.hex()}"
         f.write_text(json.dumps(d,indent=2,default=str))
     # Preserve existing signers
+    existing_signers = []
     try:
         ecf = (b/"compliance-summary.json")
         if ecf.exists():

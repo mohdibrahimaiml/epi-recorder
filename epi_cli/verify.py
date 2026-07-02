@@ -79,6 +79,9 @@ def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
         client = SCITTServiceClient(service_url)
         key_bytes = client.get_public_key()
         cache_file.write_text(key_bytes.hex())
+        tmp = cache_file.with_suffix(".tmp")
+        tmp.write_text(key_bytes.hex())
+        tmp.replace(cache_file)
         return key_bytes
     except Exception:
         return None
