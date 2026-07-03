@@ -423,8 +423,8 @@ def pack(out:Path=Path("annex-iv-compliance.epi"),dir:Path=Path("."),key_name:st
             df.write_bytes(sf.read_bytes())
         csf=b/"compliance-summary.json";(sd/D/"compliance-summary.json").write_bytes(csf.read_bytes())
         mn=ManifestModel(cli_command="annex pack",goal="EU AI Act Annex IV compliance")
-        smn=sign_manifest(mn,pk,key_name)
-        EPIContainer.pack(sd,smn,out,preserve_generated=True,generate_analysis=False,container_format="legacy-zip")
+        EPIContainer.pack(sd,mn,out,preserve_generated=True,generate_analysis=False,container_format="legacy-zip",
+            signer_function=lambda m: sign_manifest(m, pk, key_name))
     # Auto-register key in local trust registry  
     try:  
         import shutil
