@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI Labs — Tamper-Evident Evidence Infrastructure for AI Agents</title>
+<title>EPI Labs — Evidence infrastructure for AI agents.</title>
 <meta name="description" content="pip install epi-recorder. Signed, sealed, verifiable evidence for every AI decision. The PDF for AI evidence.">
 <meta property="og:title" content="EPI Labs — Evidence infrastructure for AI agents.">
 <meta property="og:description" content="pip install epi-recorder. Signed, sealed, verifiable evidence for every AI decision. Ed25519, SHA-256, browser-verifiable.">
 <meta property="og:image" content="https://epilabs.org/assets/logo.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/x-icon" href="assets/epi.ico">
+<link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="stylesheet" href="css/epi.css?v=24">
 <script type="application/ld+json">
 {
@@ -33,6 +33,7 @@
   }
 }
 </script>
+    <script defer data-domain="epilabs.org" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 
@@ -45,10 +46,6 @@
       <li><a href="#verify">Verify</a></li>
       <li><a href="#audit">SCITT</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
-      <li><a href="/pricing">Pricing</a></li>
-      <li><a href="https://spec.epilabs.org/spec/">Spec</a></li>
-      <li><a href="/blog/">Blog</a></li>
-      <li><a href="#contact">Contact</a></li>
       <li><a href="#cta" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
     </ul>
@@ -58,10 +55,6 @@
 <div class="mob-menu" id="mobMenu">
   <a href="#how">Product</a><a href="#verify">Verify</a><a href="#audit">SCITT</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="/pricing">Pricing</a>
-  <a href="https://spec.epilabs.org/spec/">Spec</a>
-  <a href="/blog/" target="_blank" rel="noopener">Blog</a>
-  <a href="#contact">Contact</a>
   <a href="#cta">Get Started</a>
 </div>
 
@@ -71,7 +64,7 @@
   <div class="hero-content">
 
     <h1>AI has models.<br>The world needs <em>Evidence</em> <span class="epi-badge">.epi</span></h1>
-    <p class="hero-sub" style="font-size:clamp(1.3rem,2.6vw,1.6rem);font-weight:500;color:var(--ink-soft);margin-bottom:16px">Tamper-evident evidence infrastructure for AI agents. Every decision, cryptographically sealed.</p>
+    <p class="hero-sub" style="font-size:clamp(1.3rem,2.6vw,1.6rem);font-weight:500;color:var(--ink-soft);margin-bottom:16px">The evidence layer for the AI economy.</p>
     <p class="hero-sub" style="max-width:680px">Every AI decision. Every agent action. Every workflow. Cryptographically verifiable.</p>
     <div class="hero-actions">
       <a href="#verify" class="btn btn-primary btn-lg">See a Receipt <span class="btn-arrow">&rarr;</span></a>
@@ -392,6 +385,27 @@ pip install epi-recorder
 </section>
 
 <!-- ═══ FOOTER ═══ -->
+<!-- Pilot Signup -->
+<section id="pilot" style="padding:80px 24px;text-align:center;max-width:600px;margin:0 auto">
+  <h2 style="font-size:1.6rem;color:var(--ink);margin:0 0 8px">Start a 14-day Enterprise pilot</h2>
+  <p style="color:var(--ink-soft);margin:0 0 32px;font-size:.95rem">Full Enterprise tier. No credit card. No commitment. Includes a dedicated onboarding call.</p>
+  <form action="https://docs.google.com/forms/d/e/EPI_PILOT_FORM_ID/formResponse" method="POST" target="_blank" style="display:flex;flex-direction:column;gap:12px;max-width:420px;margin:0 auto">
+    <input type="email" name="entry.EMAIL" placeholder="your@company.com" required style="padding:14px 16px;border:1px solid var(--border-str);border-radius:10px;font-family:var(--sans);font-size:.95rem;background:var(--bg-card);color:var(--ink)">
+    <select name="entry.USE_CASE" style="padding:14px 16px;border:1px solid var(--border-str);border-radius:10px;font-family:var(--sans);font-size:.95rem;background:var(--bg-card);color:var(--ink)">
+      <option value="">Select your use case</option>
+      <option>Financial Services</option>
+      <option>Healthcare</option>
+      <option>Insurance</option>
+      <option>Government</option>
+      <option>AI Safety</option>
+      <option>Legal Tech</option>
+      <option>Other</option>
+    </select>
+    <button type="submit" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:var(--sans);font-size:.95rem;font-weight:600;cursor:pointer">Request Pilot Access</button>
+  </form>
+  <p style="color:var(--ink-dim);font-size:.78rem;margin-top:16px">No spam. We'll email you within 24 hours to schedule your onboarding call.</p>
+</section>
+
 <footer>
   <div class="container"><div class="footer-inner">
     <div class="footer-left">
@@ -692,7 +706,7 @@ function auditStepCompleteness(steps){
     var span_id=s.span_id;
     if(kind==='tool.call'){
       pendingToolCalls.push({idx:idx,call_id:content.call_id});
-    }else if(kind==='tool.response'||kind==='tool.result'){
+    }else if(kind==='tool.response'){
       var call_id=content.call_id;
       var matched=false;
       if(call_id!==undefined&&call_id!==null){
@@ -705,9 +719,9 @@ function auditStepCompleteness(steps){
         }
       }
       if(!matched&&pendingToolCalls.length>0)pendingToolCalls.shift();
-    }else if(kind==='llm.request'||kind==='llm.call'){
+    }else if(kind==='llm.request'){
       pendingLlmRequests.push({idx:idx,span_id:span_id});
-    }else if(kind==='llm.response'||kind==='llm.error'||kind==='llm.result'){
+    }else if(kind==='llm.response'||kind==='llm.error'){
       var matched=false;
       if(span_id!==undefined&&span_id!==null){
         for(var li=pendingLlmRequests.length-1;li>=0;li--){
@@ -719,17 +733,9 @@ function auditStepCompleteness(steps){
         }
       }
       if(!matched&&pendingLlmRequests.length>0)pendingLlmRequests.shift();
-    }else if(kind==='agent.approval.request'||kind==='approval'){
-      pendingApprovals.push({idx:idx,action:content.action||content.decision||content.status||''});
-      // Single-step approval: pop immediately (no separate response step)
-      if(kind==='approval'&&(content.action||content.decision||content.status)){
-        for(var _ai=pendingApprovals.length-1;_ai>=0;_ai--){
-          if(pendingApprovals[_ai].action===(content.action||content.decision||content.status)){
-            pendingApprovals.splice(_ai,1);break;
-          }
-        }
-      }
-    }else if(kind==='agent.approval.response'||kind==='approval.response'||kind==='approval_result'){
+    }else if(kind==='agent.approval.request'){
+      pendingApprovals.push({idx:idx,action:content.action});
+    }else if(kind==='agent.approval.response'){
       var action=content.action;
       var matched=false;
       if(action!==undefined&&action!==null){

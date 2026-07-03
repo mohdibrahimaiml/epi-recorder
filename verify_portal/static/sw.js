@@ -1,12 +1,18 @@
-const CACHE_NAME = 'epi-verifier-v7';
+const CACHE_NAME = 'epi-verifier-v8';
 const ASSETS = [
+    './',
+    './index.html',
     './verify/',
-    './verify.html',
+    './how-it-works.html',
+    './pricing.html',
+    './viewer/',
     './cases/',
-    './manifest.json',
+    './css/epi.css',
     './js/epi-verify-core.js',
+    './js/theme.js',
+    './assets/logo.png',
     './assets/logo.svg',
-    'https://esm.sh/@noble/ed25519@2.0.0'
+    './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -15,7 +21,21 @@ self.addEventListener('install', (event) => {
             // We try to cache local assets. External CDNs might be opaque/cors issues but we try.
             // For a robust offline app, we should bundle dependencies locally. 
             // For this MVP, we cache the main HTML which is most important.
-            return cache.addAll(['./verify/', './verify.html', './cases/', './manifest.json', './js/epi-verify-core.js', './assets/logo.svg']);
+            return cache.addAll([
+                './',
+                './index.html',
+                './verify/',
+                './how-it-works.html',
+                './pricing.html',
+                './viewer/',
+                './cases/',
+                './css/epi.css',
+                './js/epi-verify-core.js',
+                './js/theme.js',
+                './assets/logo.png',
+                './assets/logo.svg',
+                './manifest.json'
+            ]);
         })
     );
     self.skipWaiting();

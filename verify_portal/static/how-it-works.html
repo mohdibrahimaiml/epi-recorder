@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>How EPI Works — Evidence infrastructure for AI agents</title>
+<meta name="description" content="EPI records, seals, and verifies AI agent decisions into portable .epi files. Three phases: Record, Seal, Verify.">
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/epi.css?v=23">
+<style>
+.how-main{max-width:900px;margin:0 auto;padding:120px 24px 80px}
+.step-section{margin-bottom:60px;padding:32px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border-str)}
+.step-section h2{font-size:1.3rem;color:var(--accent);margin:0 0 16px}
+.step-section p{color:var(--ink-soft);line-height:1.7;margin:0 0 16px}
+.step-section pre{background:var(--bg-code);color:#E6EDF3;padding:16px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.5;margin:16px 0}
+.step-number{display:inline-block;background:var(--accent);color:#fff;width:32px;height:32px;border-radius:50%;text-align:center;line-height:32px;font-weight:700;margin-right:12px;font-size:.9rem}
+.back-link{display:inline-block;margin-top:32px;color:var(--accent);text-decoration:none;font-size:.9rem}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="how-main">
+  <h1 style="font-size:2rem;color:var(--ink);margin:0 0 12px">How EPI Works</h1>
+  <p style="color:var(--ink-soft);margin:0 0 48px;font-size:1.05rem">Three phases. One portable file. Verifiable forever.</p>
+
+  <div class="step-section">
+    <h2><span class="step-number">1</span> Record</h2>
+    <p>Wrap your AI agent with EPI's context manager. Every LLM call, tool invocation, approval decision, and error is captured automatically into a portable .epi file.</p>
+    <pre>from epi_recorder import record
+
+with record("agent-run.epi", goal="Loan decision pipeline"):
+    response = client.chat.completions.create(...)
+
+# agent-run.epi written — signed and sealed</pre>
+    <p><strong>What's captured:</strong> Every API call (request + response + tokens), every tool invocation, every approval, environmental context, timing metadata. Integrated with OpenAI, Anthropic, LangChain, LangGraph, LiteLLM, Guardrails, pytest, and OpenTelemetry.</p>
+  </div>
+
+  <div class="step-section">
+    <h2><span class="step-number">2</span> Seal</h2>
+    <p>EPI computes a cryptographic hash chain across every step, signs the manifest with Ed25519, and optionally anchors it to a SCITT transparency service. Once sealed, any modification is detectable.</p>
+    <pre>$ epi verify agent-run.epi --verbose
+
+  [1/5] Structure  PASS
+  [2/5] Manifest   PASS  (SHA-256: d4e2f1a8b3c7...)
+  [3/5] Integrity  PASS  (all files match)
+  [4/5] Hash Chain PASS  (42 steps intact)
+  [5/5] Signature  PASS  (Ed25519 verified)
+
+  DECISION: PASS</pre>
+    <p><strong>What sealing proves:</strong> The file hasn't been modified. Signatures trace to known keys. Hash chain is intact. SCITT receipt provides third-party transparency.</p>
+  </div>
+
+  <div class="step-section">
+    <h2><span class="step-number">3</span> Verify</h2>
+    <p>Verification is completely offline. No server. No API key. No calling home. A .epi file proves itself — email it to an auditor, archive it for a decade, or open it on an air-gapped machine.</p>
+    <p><strong>Verification methods:</strong></p>
+    <ul style="color:var(--ink-soft);line-height:2">
+      <li><strong>Browser:</strong> Drop on <a href="/verify/" style="color:var(--accent)">epilabs.org/verify</a> — Web Crypto + JSZip, entirely client-side</li>
+      <li><strong>CLI:</strong> <code>epi verify file.epi</code> — same checks, terminal output</li>
+      <li><strong>CI/CD:</strong> <code>uses: epi-recorder/.github/actions/verify-epi@main</code> — automatic in pipelines</li>
+    </ul>
+  </div>
+
+  <div class="step-section">
+    <h2>EU AI Act Annex IV</h2>
+    <p>EPI's Annex IV subsystem generates all 9 required compliance sections with Ed25519 signatures, multi-signer approval chains, SCITT anchoring, PDF reports, and RBAC enforcement. For details, see the <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/COMPLIANCE-QUICKSTART.md" style="color:var(--accent)">compliance quickstart</a>.</p>
+  </div>
+
+  <a href="/" class="back-link">&#8592; Back to EPI Labs</a>
+</main>
+</body>
+</html>
