@@ -86,9 +86,10 @@ img{max-width:100%;height:auto;display:block}
 .container{max-width:var(--max-w);margin:0 auto;padding:0 clamp(20px,4vw,48px)}
 
 /* ── NAV ── */
-nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:0 clamp(20px,4vw,48px);transition:all 0.4s var(--ease)}
-nav.scrolled{background:rgba(250,250,248,0.92);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 1px 0 rgba(0,0,0,0.04)}
-[data-theme="dark"] nav.scrolled{background:rgba(12,12,14,0.92);box-shadow:0 1px 0 rgba(255,255,255,0.04)}
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:0 clamp(20px,4vw,48px);transition:all 0.4s var(--ease);background:rgba(250,250,248,0.92);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4)}
+nav.scrolled{box-shadow:0 1px 0 rgba(0,0,0,0.04)}
+[data-theme="dark"] nav{background:rgba(12,12,14,0.92)}
+[data-theme="dark"] nav.scrolled{box-shadow:0 1px 0 rgba(255,255,255,0.04)}
 .nav-inner{max-width:var(--max-w);margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:72px}
 .nav-logo{display:flex;align-items:center}
 .nav-logo img{height:65px;width:auto}
