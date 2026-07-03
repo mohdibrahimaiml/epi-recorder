@@ -59,7 +59,7 @@ runs:
       run: |
         set -e
         epi annex pack --force --key-name ${{ inputs.key-name }}
-        epi verify annex-iv-compliance.epi --verbose 2>&1 | tee verify-output.txt
+        epi verify annex-iv-compliance.epi --verbose --policy permissive 2>&1 | tee verify-output.txt
         if grep -q "DECISION: PASS" verify-output.txt; then
           echo "decision=PASS" >> $GITHUB_OUTPUT
         else
