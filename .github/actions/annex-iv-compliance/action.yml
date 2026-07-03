@@ -38,12 +38,6 @@ outputs:
   score:
     description: 'Compliance completion percentage (0-100)'
     value: ${{ steps.pack.outputs.score }}
-  epi-artifact:
-    description: 'Path to the generated .epi artifact'
-    value: 'annex-iv-compliance.epi'
-  pdf-report:
-    description: 'Path to the PDF report'
-    value: 'annex-iv-compliance-report.pdf'
 
 runs:
   using: 'composite'
@@ -53,9 +47,9 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install EPI Recorder with PDF support
+    - name: Install EPI Recorder from source with PDF support
       shell: bash
-      run: pip install "epi-recorder[pdf]"
+      run: pip install ".[pdf]"
 
     - name: Generate Annex IV compliance artifact
       id: pack
