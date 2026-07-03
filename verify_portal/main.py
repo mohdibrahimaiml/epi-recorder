@@ -585,7 +585,7 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 # These must come BEFORE the catch-all static mount.
 @app.get("/verify")
 async def verify_page():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(STATIC_DIR / "verify" / "index.html")
 
 
 @app.get("/viewer")
