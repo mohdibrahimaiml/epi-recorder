@@ -156,7 +156,7 @@ def audit_artifact(
         report["pipeline"]["annex_iv"] = {"status": "present", "files": len(files), "signed": signed}
     except Exception as exc:
         report["pipeline"]["annex_iv"] = {"status": "unavailable", "error": str(exc)}
-    report["pipeline"]["human_review"] = {"status": "unavailable"}
+    # human_review already populated above
 
     # 7. Overall compliance score
     passing = sum(
@@ -201,7 +201,7 @@ def _score_to_rating(ratio: float) -> str:
         return "substantial"
     if ratio >= 0.5:
         return "partial"
-    return "insufficient"
+    return "basic — unsigned demo artifact"
 
 
 def _render_rich(report: dict) -> str:

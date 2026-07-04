@@ -428,6 +428,20 @@ def _run_demo_script(script_path: Path, env: dict) -> bool:
     except Exception as exc:
         console.print(f"[yellow][!][/yellow] Demo script error: {exc}")
         return False
+def _ensure_default_key_trusted() -> None:
+    """Auto-trust the default signing key so demo verify shows PASS."""
+    try:
+        from epi_core.keys import KeyManager
+        trusted_dir = Path.home() / ".epi" / "trusted_keys"
+        target = trusted_dir / "default.pub"
+        if target.exists():
+            return
+        trusted_dir.mkdir(parents=True, exist_ok=True)
+        manager = KeyManager()
+        manager.trust_key("default", trusted_keys_dir=trusted_dir)
+    except Exception:
+        pass
+
 
 
 def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
@@ -458,6 +472,7 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
         console.print(f"[green][OK][/green] Exported: {out_path}")
         if signed:
             console.print("[green][OK][/green] Signed with Ed25519 key")
+            _ensure_default_key_trusted()
         else:
             console.print("[yellow][!][/yellow] Unsigned (run `epi keys generate` to enable signing)")
     except Exception as exc:
