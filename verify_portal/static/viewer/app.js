@@ -3606,17 +3606,27 @@ async function buildReviewedArtifactBytes(caseRecord, reviewRecord) {
   sourceEntries.forEach((entry) => entries.push(entry));
 
   const viewerHtml = buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries);
+  const viewerHtmlBytes = textToBytes(viewerHtml);
+  const newViewerHash = await sha256Hex(viewerHtmlBytes.buffer);
+
+  const updatedManifest = JSON.parse(JSON.stringify(caseRecord.manifest));
+  if (!updatedManifest.file_manifest) {
+    updatedManifest.file_manifest = {};
+  }
+  updatedManifest.file_manifest['viewer.html'] = newViewerHash;
+  delete updatedManifest.signature;
+
   entries.push({
     name: 'review.json',
     data: textToBytes(JSON.stringify(reviewRecord, null, 2)),
   });
   entries.push({
     name: 'viewer.html',
-    data: textToBytes(viewerHtml),
+    data: viewerHtmlBytes,
   });
   entries.push({
     name: 'manifest.json',
-    data: textToBytes(JSON.stringify(caseRecord.manifest, null, 2)),
+    data: textToBytes(JSON.stringify(updatedManifest, null, 2)),
   });
 
   return createZipArchive(entries);

@@ -1149,6 +1149,14 @@ function buildEmbeddedViewerHtml(caseData, reviewRecord) {
   return html;
 }
 
+async function sha256Hex(buffer) {
+  const hash = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+
 async function buildReviewedArtifactBytes(caseData, reviewRecord) {
   if (typeof JSZip === 'undefined') {
     throw new Error('JSZip is not available. Cannot build artifact in browser.');
@@ -1167,11 +1175,6 @@ async function buildReviewedArtifactBytes(caseData, reviewRecord) {
     }
     zip.file(name, base64ToUint8Array(b64));
   }
-
-  // Manifest (keep original, just ensure container_format reflects legacy ZIP)
-  const manifest = JSON.parse(JSON.stringify(caseData.manifest || {}));
-  manifest.container_format = 'legacy-zip';
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
   // Review in ledger format
   const outcomeMap = {
@@ -1194,6 +1197,19 @@ async function buildReviewedArtifactBytes(caseData, reviewRecord) {
   // Rebuilt viewer HTML with review embedded
   const viewerHtml = buildEmbeddedViewerHtml(caseData, reviewRecord);
   zip.file('viewer.html', viewerHtml);
+
+  // Recompute viewer hash and update manifest
+  const viewerHtmlBytes = new TextEncoder().encode(viewerHtml);
+  const newViewerHash = await sha256Hex(viewerHtmlBytes.buffer);
+
+  const manifest = JSON.parse(JSON.stringify(caseData.manifest || {}));
+  manifest.container_format = 'legacy-zip';
+  if (!manifest.file_manifest) {
+    manifest.file_manifest = {};
+  }
+  manifest.file_manifest['viewer.html'] = newViewerHash;
+  delete manifest.signature;
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
   // Generate ZIP bytes as Blob
   const blob = await zip.generateAsync({ type: 'blob' });
