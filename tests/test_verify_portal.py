@@ -96,10 +96,9 @@ def test_verify_page_matches_site_design(client: TestClient) -> None:
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "css/epi.css?v=24" in r.text
-    assert 'href="#how"' in r.text or 'href="/#how"' in r.text
-    assert 'href="#verify"' in r.text or 'href="/verify"' in r.text
-    assert 'href="#audit"' in r.text or 'href="/#audit"' in r.text
-    assert 'href="#cta"' in r.text or 'href="/#cta"' in r.text
+    assert 'href="/how-it-works"' in r.text
+    assert 'href="/verify/"' in r.text
+    assert 'href="/pricing"' in r.text
 
 
 def test_root_serves_landing_page(client: TestClient) -> None:
