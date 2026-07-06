@@ -3,8 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-    paths:
-      - 'epi-official/**'
   workflow_dispatch:
 
 permissions:
