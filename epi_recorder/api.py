@@ -448,6 +448,7 @@ class AgentRun:
         approved: bool,
         reviewer: Optional[str] = None,
         notes: Optional[str] = None,
+        approval_source: str = "raw_api_unverified",
         **metadata: Any,
     ) -> None:
         self._log(
@@ -457,6 +458,7 @@ class AgentRun:
                 "approved": approved,
                 "reviewer": reviewer,
                 "notes": notes,
+                "approval_source": approval_source,
                 **metadata,
             },
         )
@@ -468,6 +470,7 @@ class AgentRun:
         approved: bool,
         reviewer: Optional[str] = None,
         notes: Optional[str] = None,
+        approval_source: str = "raw_api_unverified",
         **metadata: Any,
     ) -> None:
         await self._alog(
@@ -477,6 +480,7 @@ class AgentRun:
                 "approved": approved,
                 "reviewer": reviewer,
                 "notes": notes,
+                "approval_source": approval_source,
                 **metadata,
             },
         )

@@ -181,6 +181,7 @@ def audit_artifact(
         "max": max_score,
         "percentage": round(score / max_score * 100),
         "rating": _score_to_rating(score / max_score),
+        "note": "EPI's proprietary scoring methodology — not a published industry standard.",
     }
 
     return report
@@ -229,7 +230,7 @@ def _render_rich(report: dict) -> str:
     ))
 
     # AIUC-1 domains
-    table = Table(title="AIUC-1 Trust Domains")
+    table = Table(title="AIUC-1 Trust Domains (EPI's proprietary scoring methodology)")
     table.add_column("Domain", style="bold")
     table.add_column("Status")
     table.add_column("Evidence")
@@ -293,7 +294,7 @@ def _render_markdown(report: dict) -> str:
         f"**Score:** {score['score']}/{score['max']} ({score['percentage']}%) — **{score['rating'].upper()}**",
         f"**Timestamp:** {report['audit_timestamp']}",
         "",
-        "## AIUC-1 Trust Domains",
+        "## AIUC-1 Trust Domains (EPI's proprietary scoring methodology)",
         "",
         "| Domain | Status | Evidence |",
         "|---|---|---|",

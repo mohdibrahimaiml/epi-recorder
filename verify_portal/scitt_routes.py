@@ -294,7 +294,7 @@ async def scitt_register(request: Request) -> Response:
     return Response(
         content=receipt_bytes,
         media_type="application/cose",
-        headers={"X-Scitt-Entry-Id": entry_id},
+        headers={"X-Scitt-Entry-Id": entry_id, "X-Scitt-Timestamp": now_ts},
     )
 
 

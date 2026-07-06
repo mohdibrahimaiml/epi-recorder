@@ -617,7 +617,8 @@ class EPIContainer:
                 if steps_file.exists():
                     steps_content = steps_file.read_text(encoding="utf-8")
 
-                    analyzer = FaultAnalyzer(policy=policy)
+                    manifest_meta = manifest.model_dump() if manifest else {}
+                    analyzer = FaultAnalyzer(policy=policy, manifest_meta=manifest_meta)
                     analysis = analyzer.analyze(steps_content)
 
                     (source_dir / "analysis.json").write_text(analysis.to_json(), encoding="utf-8")

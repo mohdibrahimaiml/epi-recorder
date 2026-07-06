@@ -1422,6 +1422,7 @@ def create_app(
                 "approved": approved,
                 "reviewer": _clean(reviewer) or "approval-link",
                 "reason": response_reason,
+                "approval_source": "gateway_human",
                 "requested_from": _clean(request_content.get("requested_from") or request_content.get("requested_by")),
                 "response_source": "approval-link",
             },

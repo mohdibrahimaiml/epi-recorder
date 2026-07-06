@@ -638,10 +638,12 @@ class SCITTServiceClient:
                 entry_id = resp.headers.get("X-Scitt-Entry-Id", "")
                 if not entry_id:
                     entry_id = hashlib.sha256(statement_bytes).hexdigest()[:32]
+                server_ts = resp.headers.get("X-Scitt-Timestamp", "")
+                registered_at = server_ts if server_ts else datetime.now(UTC).isoformat()
                 info = SCITTServiceInfo(
                     service_url=self.base_url,
                     entry_id=entry_id,
-                    registered_at=datetime.now(UTC).isoformat(),
+                    registered_at=registered_at,
                 )
                 return receipt_bytes, info
         except urllib.error.HTTPError as exc:

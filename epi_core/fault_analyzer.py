@@ -503,6 +503,7 @@ def _step_satisfies_approval(step: dict, action_name: Optional[str] = None, appr
         content = {}
 
     if kind == "agent.approval.response":
+        source = content.get("approval_source", "raw_api_unverified")
         if content.get("approved") is not True:
             return False
         if action_name and not (
@@ -804,8 +805,9 @@ class FaultAnalyzer:
         analysis_json = result.to_json()
     """
 
-    def __init__(self, policy: Optional[EPIPolicy] = None):
+    def __init__(self, policy: Optional[EPIPolicy] = None, manifest_meta: dict = None):
         self.policy = policy
+        self.manifest_meta = manifest_meta or {}
 
     def analyze(self, steps_jsonl: str) -> AnalysisResult:
         """
@@ -882,6 +884,13 @@ class FaultAnalyzer:
                 flags.extend(self._pass9_tool_permission_guard(steps))
             except Exception:
                 pass
+
+
+        # Pass 10: Time-Gap Tamper (SCITT registered_at vs manifest created_at)
+        try:
+            flags.extend(self._pass10_time_gap_tamper(steps))
+        except Exception:
+            pass
 
         # Deduplicate: same step_index + same rule/type keeps the highest severity
         flags = _deduplicate_flags(flags)
@@ -1507,6 +1516,65 @@ class FaultAnalyzer:
                 ))
 
         return flags
+
+    def _pass10_time_gap_tamper(self, steps: list[dict]) -> list[FaultFlag]:
+        """P10: Detect abnormal time gaps between manifest.created_at and SCITT registered_at.
+
+        A legitimate .epi is packed immediately after execution, so the gap between
+        created_at and SCITT registration timestamp should be small (minutes).
+        A tampered artifact with a rolled-back system clock will have a
+        months-old created_at sitting next to a today-value registered_at.
+        """
+        flags: list[FaultFlag] = []
+        meta = self.manifest_meta or {}
+        scitt_entry = (meta.get("governance") or {}).get("scitt") or {}
+        registered_at = scitt_entry.get("registered_at")
+        created_at = meta.get("created_at")
+
+        if not registered_at or not created_at:
+            return flags
+
+        try:
+            from datetime import datetime
+            t_scitt = datetime.fromisoformat(str(registered_at).replace("Z", "+00:00"))
+            t_created = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+            gap_seconds = abs((t_scitt - t_created).total_seconds())
+
+            GAP_THRESHOLD_SECONDS = 604800  # 7 days
+            if gap_seconds > GAP_THRESHOLD_SECONDS:
+                days = gap_seconds / 86400
+                flags.append(FaultFlag(
+                    step_index=0,
+                    fault_type="time_gap_tamper",
+                    severity="high",
+                    plain_english=(
+                        f"Manifest created_at ({created_at}) is {days:.0f} days away from "
+                        f"SCITT registered_at ({registered_at}). "
+                        "Legitimate artifacts are packed and registered within minutes. "
+                        "This gap suggests system clock rollback or post-hoc fabrication."
+                    ),
+                    rule_id="P10",
+                    rule_name="Time-Gap Tamper Detection",
+                    why_it_matters=(
+                        "A large gap between manifest creation time and SCITT transparency "
+                        "registration indicates the system clock may have been rolled back "
+                        "to fabricate a timeline, or the artifact was created long after "
+                        "the claimed execution date."
+                    ),
+                    remediation=(
+                        "Verify the system clock is synchronized with NTP. "
+                        "If the artifact is legitimate, the gap must be explainable "
+                        "(e.g., batch processing, archival review). "
+                        "Otherwise, treat the artifact as potentially fabricated."
+                    ),
+                    review_required=True,
+                    category="heuristic_observation",
+                ))
+        except (ValueError, TypeError):
+            pass
+
+        return flags
+
 
     def _pass9_tool_permission_guard(self, steps: list[dict]) -> list[FaultFlag]:
         """Policy-only tool allow/deny controls."""
