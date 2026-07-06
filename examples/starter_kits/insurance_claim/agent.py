@@ -140,6 +140,7 @@ def run_claim_denial_demo(
                 "approved": True,
                 "reviewer": reviewer_email,
                 "role": "manager",
+                "approval_source": "gateway_human",
                 "reason": "Coverage exclusion confirmed and denial notice language reviewed.",
             },
         )

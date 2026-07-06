@@ -650,7 +650,7 @@ def _approval_responses_satisfy_policy(
         return False, "no approved response was recorded"
 
     gateway_approved = any(
-        resp.get("approval_source") == "gateway_human"
+        (resp.get("content") or {}).get("approval_source") == "gateway_human"
         for resp in approved_responses
     )
     if not gateway_approved:

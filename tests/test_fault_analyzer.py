@@ -609,8 +609,8 @@ class TestPass7ApprovalGuardViolation:
         steps = "\n".join([
             _make_step(0, "session.start", {"workflow": "agent_refund"}),
             _make_step(1, "agent.approval.request", {"action": "approve_refund", "reason": "manual review"}),
-            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager"}),
-            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager", "approval_source": "gateway_human"}),
+            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager", "approval_source": "gateway_human"}),
             _make_step(4, "agent.decision", {"decision": "approve_refund"}),
             _make_step(5, "session.end", {"success": True}),
         ])
@@ -625,8 +625,8 @@ class TestPass7ApprovalGuardViolation:
         steps = "\n".join([
             _make_step(0, "session.start", {"workflow": "agent_refund"}),
             _make_step(1, "agent.approval.request", {"action": "approve_refund"}),
-            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager"}),
-            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager"}),
+            _make_step(2, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-a", "role": "manager", "approval_source": "gateway_human"}),
+            _make_step(3, "agent.approval.response", {"action": "approve_refund", "approved": True, "reviewer": "manager-b", "role": "manager", "approval_source": "gateway_human"}),
             _make_step(4, "agent.decision", {"decision": "approve_refund"}),
             _make_step(5, "session.end", {"success": True}),
         ])
