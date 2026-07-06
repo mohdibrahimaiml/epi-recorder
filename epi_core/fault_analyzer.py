@@ -649,6 +649,13 @@ def _approval_responses_satisfy_policy(
     if not approved_responses:
         return False, "no approved response was recorded"
 
+    gateway_approved = any(
+        resp.get("approval_source") == "gateway_human"
+        for resp in approved_responses
+    )
+    if not gateway_approved:
+        return False, "all approvals are self-reported (raw_api_unverified) - no gateway-human approval recorded"
+
     return True, ""
 
 
@@ -1334,6 +1341,7 @@ class FaultAnalyzer:
                     "index": step_idx,
                     "action": action,
                     "approved": bool(step.get("content", {}).get("approved")),
+                    "content": step.get("content", {}),
                 })
                 continue
 
@@ -1415,6 +1423,48 @@ class FaultAnalyzer:
                         },
                     ],
                 ))
+
+            # Check for self-reported vs gateway-verified approval
+            elif latest_response["approved"] is True:
+                approval_source = latest_response.get("content", {}).get("approval_source", "raw_api_unverified")
+                if approval_source != "gateway_human":
+                    flags.append(FaultFlag(
+                        step_index=step_idx,
+                        fault_type="HEURISTIC_OBSERVATION",
+                        severity="medium",
+                        plain_english=(
+                            f"At step {step_idx + 1}, action '{action}' was executed after a "
+                            f"self-reported approval (source: {approval_source}). "
+                            "The approval was not verified through the gateway human review flow."
+                        ),
+                        rule_id="P6",
+                        rule_name="Agent Approval Gap — Self-Reported",
+                        why_it_matters=(
+                            "A self-reported approval carries no independent verification. "
+                            "Only gateway-human approvals provide strong provenance that a "
+                            "real person reviewed and authorized the action."
+                        ),
+                        remediation=(
+                            "Require approvals to flow through the gateway human review "
+                            "pipeline rather than self-attested approved=true flags."
+                        ),
+                        review_required=False,
+                        category="heuristic_observation",
+                        fault_chain=[
+                            {
+                                "step_index": latest_response["index"],
+                                "step_number": latest_response["index"] + 1,
+                                "role": "self_reported_approval",
+                                "detail": f"Approval from source: {approval_source}",
+                            },
+                            {
+                                "step_index": step_idx,
+                                "step_number": step_idx + 1,
+                                "role": "action_executed",
+                                "detail": f"Action '{action}' executed after self-reported approval",
+                            },
+                        ],
+                    ))
 
         return flags
 

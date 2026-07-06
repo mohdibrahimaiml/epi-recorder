@@ -387,7 +387,7 @@ def aiuc1_summary(statuses: dict[str, AIUC1DomainStatus]) -> dict:
         overall = "PARTIAL"
 
     return {
-        "framework": "AIUC-1",
+        "framework": "AIUC-1 (EPI's proprietary scoring methodology - not a published industry standard)",
         "overall": overall,
         "domains": domains,
         "note": (
