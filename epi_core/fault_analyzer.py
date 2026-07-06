@@ -1574,31 +1574,29 @@ class FaultAnalyzer:
         return flags
 
     def _pass11_coverage_gap(self, steps: list[dict]) -> list[FaultFlag]:
-        """P11: Flag when manifest signals tool/LLM usage but zero steps were recorded.
+        """P11: Flag when manifest signals agent activity but zero steps were recorded.
 
-        If patch_all() or relevant wrappers weren't active during recording,
-        entire categories of agent behavior produce zero telemetry with no
-        warning.  This pass flags that gap so a reviewer knows the artifact
-        may be incomplete — even though cryptographic checks still pass.
+        Only fires when BOTH tool AND LLM steps are absent, because the words
+        "loan", "agent", "decision", "workflow" appear in nearly every manifest
+        goal — a workflow that uses only LLM calls with zero tools is a normal,
+        non-broken pattern.  The flag means "no recorded agent activity at all,"
+        not "some framework might be uninstrumented."
         """
         flags: list[FaultFlag] = []
         meta = self.manifest_meta or {}
 
-        # Collect step kinds that would indicate instrumentation
-        tool_kinds = {
-            "tool.call", "tool.use", "tool.response", "tool.error",
-        }
-        llm_kinds = {
-            "llm.request", "llm.response", "llm.error", "llm.call",
-        }
-        action_kinds = tool_kinds | llm_kinds
-
+        tool_kinds = {"tool.call", "tool.use", "tool.response", "tool.error"}
+        llm_kinds = {"llm.request", "llm.response", "llm.error", "llm.call"}
         step_kinds = {step.get("kind", "") for step in steps}
 
         has_tool_steps = bool(step_kinds & tool_kinds)
         has_llm_steps = bool(step_kinds & llm_kinds)
 
-        # Check if manifest signals tool/LLM usage
+        # Only fire when NEITHER tool nor LLM steps exist — an empty shell artifact
+        if has_tool_steps or has_llm_steps:
+            return flags
+
+        # Check if manifest signals any agent/LLM activity at all
         manifest_text = " ".join(
             str(v) for v in [
                 meta.get("goal"),
@@ -1610,76 +1608,50 @@ class FaultAnalyzer:
             ] if v
         ).lower()
 
-        tool_signal_words = {
-            "agent", "tool", "claim", "loan", "refund", "approval",
-            "decision", "review", "workflow", "insurance", "fraud",
-            "underwrit", "pipeline", "orchestrat", "multi-step",
+        activity_signal_words = {
+            "agent", "tool", "approval", "handoff", "pipeline", "orchestrat",
+            "multi-step", "multi-agent",
         }
         llm_signal_words = {
-            "llm", "gpt", "claude", "model", "openai", "anthropic",
-            "chat", "prompt", "completion", "reasoning", "gemini",
-            "analyze", "analysis", "classif", "summariz",
+            "llm", "gpt", "claude", "openai", "anthropic", "gemini",
+            "chat", "completion", "model", "prompt", "reasoning",
         }
 
-        signals_tool = any(w in manifest_text for w in tool_signal_words)
-        signals_llm = any(w in manifest_text for w in llm_signal_words)
+        signals_any = any(w in manifest_text for w in activity_signal_words | llm_signal_words)
 
-        if signals_tool and not has_tool_steps:
-            flags.append(FaultFlag(
-                step_index=0,
-                fault_type="HEURISTIC_OBSERVATION",
-                severity="high",
-                plain_english=(
-                    "Manifest metadata references tool/agent workflows "
-                    f"(goal: '{meta.get('goal', '')}', notes: '{meta.get('notes', '')}'), "
-                    "but the step timeline contains zero tool.call / tool.response events. "
-                    "EPI's patch_all() only wraps OpenAI, Gemini, and requests.Session — "
-                    "other frameworks (Anthropic SDK, LangChain, LiteLLM, direct Python) "
-                    "may have run without producing any telemetry."
-                ),
-                rule_id="P11",
-                rule_name="Instrumentation Coverage Gap",
-                why_it_matters=(
-                    "If the manifest describes a tool-using agent but no tool steps "
-                    "were recorded, the artifact is incomplete.  The cryptographic "
-                    "signature and hashes will still verify, but critical agent "
-                    "actions that happened outside instrumented paths are invisible "
-                    "to any downstream auditor, policy evaluator, or reviewer."
-                ),
-                remediation=(
-                    "Ensure the correct wrappers are active: wrap_anthropic(), "
-                    "EPICallbackHandler() for LangChain, EPICallback() for LiteLLM, "
-                    "or epi_recorder.auto.patch_all() for full coverage.  "
-                    "Re-run the workflow with instrumentation enabled."
-                ),
-                review_required=True,
-                category="heuristic_observation",
-            ))
+        if not signals_any:
+            return flags
 
-        if signals_llm and not has_llm_steps and not has_tool_steps:
-            flags.append(FaultFlag(
-                step_index=0,
-                fault_type="HEURISTIC_OBSERVATION",
-                severity="medium",
-                plain_english=(
-                    "Manifest metadata references LLM/model usage "
-                    f"(goal: '{meta.get('goal', '')}', notes: '{meta.get('notes', '')}'), "
-                    "but the step timeline contains zero llm.request / llm.response events. "
-                    "LLM calls may have executed through uninstrumented paths."
-                ),
-                rule_id="P11",
-                rule_name="Instrumentation Coverage Gap — LLM",
-                why_it_matters=(
-                    "Unrecorded LLM calls mean prompts, completions, token usage, "
-                    "and model identity are absent from the evidence record."
-                ),
-                remediation=(
-                    "Use epi_recorder.auto.patch_all() or call log_llm_call() "
-                    "directly for each model interaction."
-                ),
-                review_required=True,
-                category="heuristic_observation",
-            ))
+        flags.append(FaultFlag(
+            step_index=0,
+            fault_type="coverage_gap",
+            severity="high",
+            plain_english=(
+                "Manifest metadata references agent/LLM activity "
+                f"(goal: '{meta.get('goal', '')}', notes: '{meta.get('notes', '')}'), "
+                "but the step timeline contains zero tool.call, tool.response, "
+                "llm.request, or llm.response events.  EPI's patch_all() only wraps "
+                "OpenAI, Gemini, and requests.Session — other frameworks "
+                "(Anthropic SDK, LangChain, LiteLLM, direct Python) may have "
+                "executed without producing any telemetry."
+            ),
+            rule_id="P11",
+            rule_name="Instrumentation Coverage Gap",
+            why_it_matters=(
+                "An artifact whose manifest describes agent behavior but contains "
+                "zero recorded execution steps is functionally empty.  The "
+                "cryptographic signature and hashes will still verify, but no "
+                "auditor, policy evaluator, or reviewer can see what happened."
+            ),
+            remediation=(
+                "Ensure the correct wrappers are active: wrap_anthropic(), "
+                "EPICallbackHandler() for LangChain, EPICallback() for LiteLLM, "
+                "or epi_recorder.auto.patch_all() for full coverage.  "
+                "Re-run the workflow with instrumentation enabled."
+            ),
+            review_required=True,
+            category="heuristic_observation",
+        ))
 
         return flags
 
