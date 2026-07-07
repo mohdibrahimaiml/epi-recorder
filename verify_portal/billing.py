@@ -1,15 +1,16 @@
-"""EPI billing module — Stripe webhook, plan helpers."""
+"""EPI billing module — Lemon Squeezy webhook, plan helpers."""
+import hashlib
+import hmac
+import json
 import os
 import sqlite3
 from pathlib import Path
 
-import stripe
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+LEMONSQUEEZY_WEBHOOK_SECRET = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
 
 
 def _billing_db_path(storage_dir):
@@ -26,7 +27,7 @@ def init_billing_columns(storage_dir):
     except sqlite3.OperationalError:
         pass
     try:
-        c.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT")
+        c.execute("ALTER TABLE users ADD COLUMN customer_id TEXT")
     except sqlite3.OperationalError:
         pass
     c.commit()
@@ -42,14 +43,14 @@ def get_user_plan(storage_dir, user_id):
     return r["plan"] if r else "free"
 
 
-def set_user_plan_by_email(storage_dir, email, *, plan, cid=None):
+def set_user_plan_by_email(storage_dir, email, *, plan, customer_id=None):
     if not email:
         return False
     db = _billing_db_path(storage_dir)
     c = sqlite3.connect(str(db))
     c.execute(
-        "UPDATE users SET plan = ?, stripe_customer_id = COALESCE(?, stripe_customer_id) WHERE email = ?",
-        (plan, cid, email),
+        "UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id) WHERE email = ?",
+        (plan, customer_id, email),
     )
     ok = c.total_changes > 0
     c.commit()
@@ -57,11 +58,11 @@ def set_user_plan_by_email(storage_dir, email, *, plan, cid=None):
     return ok
 
 
-def set_user_plan_by_stripe_customer(storage_dir, cid, *, plan):
+def set_user_plan_by_customer_id(storage_dir, cid, *, plan):
     db = _billing_db_path(storage_dir)
     c = sqlite3.connect(str(db))
     c.execute(
-        "UPDATE users SET plan = ? WHERE stripe_customer_id = ?",
+        "UPDATE users SET plan = ? WHERE customer_id = ?",
         (plan, cid),
     )
     ok = c.total_changes > 0
@@ -70,37 +71,41 @@ def set_user_plan_by_stripe_customer(storage_dir, cid, *, plan):
     return ok
 
 
-
 @router.get("/api/stripe/payment-link")
 async def get_payment_link():
     url = os.getenv("STRIPE_PAYMENT_LINK", "")
     return {"url": url}
 
 
-@router.post("/api/stripe/webhook")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-    try:
-        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except (ValueError, stripe.error.SignatureVerificationError):
-        raise HTTPException(status_code=400, detail="Invalid signature")
+@router.post("/api/lemonsqueezy/webhook")
+async def lemonsqueezy_webhook(request: Request):
+    raw_body = await request.body()
+    signature = request.headers.get("x-signature", "")
+    digest = hmac.new(
+        LEMONSQUEEZY_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(digest, signature):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    event = json.loads(raw_body)
+    event_name = request.headers.get("x-event-name", "")
+    attrs = event.get("data", {}).get("attributes", {})
+    email = attrs.get("user_email")
+    customer_id = str(attrs.get("customer_id", ""))
 
     storage_dir = os.getenv("EPI_STORAGE_DIR", "./data")
     init_billing_columns(storage_dir)
 
-    event_type = event["type"]
-    data = event["data"]["object"]
-
-    if event_type == "checkout.session.completed":
-        email = (data.get("customer_details") or {}).get("email")
-        customer_id = data.get("customer")
+    if event_name in ("subscription_created", "subscription_updated") and attrs.get(
+        "status"
+    ) == "active":
         if email:
-            set_user_plan_by_email(storage_dir, email, plan="pro", cid=customer_id)
+            set_user_plan_by_email(
+                storage_dir, email, plan="pro", customer_id=customer_id
+            )
 
-    elif event_type == "customer.subscription.deleted":
-        customer_id = data.get("customer")
+    elif event_name in ("subscription_cancelled", "subscription_expired"):
         if customer_id:
-            set_user_plan_by_stripe_customer(storage_dir, customer_id, plan="free")
+            set_user_plan_by_customer_id(storage_dir, customer_id, plan="free")
 
     return {"status": "ok"}

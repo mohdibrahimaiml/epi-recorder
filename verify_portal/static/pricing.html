@@ -233,5 +233,14 @@
 </main>
 <script src="js/theme.js"></script>
 <script src="js/nav.js"></script>
+<script>
+(function(){
+  var btn = document.getElementById("pro-subscribe-btn");
+  if (!btn) return;
+  fetch("/api/stripe/payment-link").then(function(r){return r.json()}).then(function(d){
+    if (d.url) btn.href = d.url;
+  }).catch(function(){});
+})();
+</script>
 </body>
 </html>
