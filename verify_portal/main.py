@@ -50,6 +50,7 @@ from verify_portal import telemetry_metrics
 from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
 from verify_portal.blog_routes import router as blog_router
+from verify_portal.billing import router as billing_router, init_billing_columns, get_user_plan
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -280,13 +281,28 @@ async def contact(request: Request):
     return JSONResponse(content={"status": "ok", "message": "Thank you! We will respond within 1 business day."})
 @app.post("/api/keys")
 async def create_api_key(request: Request):
-    """Create an API key for the verify portal."""
+    """Create an API key. Tier is read from user plan, not client input."""
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="JSON body required")
-    tier = body.get("tier", "free")
+        body = {}
     name = body.get("name", "unnamed")
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    try:
+        init_billing_columns(storage_dir)
+    except Exception:
+        pass
+    user = None
+    if token:
+        try:
+            user = auth_module.verify_token(storage_dir, token)
+        except Exception:
+            pass
+    if user:
+        tier = get_user_plan(storage_dir, user["id"])
+    else:
+        tier = "free"
     if tier not in ("free", "pro", "enterprise"):
         raise HTTPException(status_code=400, detail="Tier must be free, pro, or enterprise")
     import secrets
@@ -617,6 +633,7 @@ async def scitt_page():
 
 app.include_router(share_router)
 app.include_router(blog_router)
+app.include_router(billing_router)
 
 
 # --- Telemetry ingestion endpoints ---
