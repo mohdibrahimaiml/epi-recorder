@@ -70,6 +70,13 @@ def set_user_plan_by_stripe_customer(storage_dir, cid, *, plan):
     return ok
 
 
+
+@router.get("/api/stripe/payment-link")
+async def get_payment_link():
+    url = os.getenv("STRIPE_PAYMENT_LINK", "")
+    return {"url": url}
+
+
 @router.post("/api/stripe/webhook")
 async def stripe_webhook(request: Request):
     payload = await request.body()
