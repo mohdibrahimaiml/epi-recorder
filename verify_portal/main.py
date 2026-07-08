@@ -131,7 +131,8 @@ def _init_api_keys_store():
         _api_keys[row["key_hash"]] = (row["tier"], row["name"], row["created_at"])
     return conn
 
-_PRO_ENTERPRISE_MONTHLY_LIMIT = 10_000
+_PRO_MONTHLY_LIMIT = 10_000
+_ENTERPRISE_MONTHLY_LIMIT = 100_000
 
 
 def _increment_and_check_usage(key_hash: str) -> bool:
@@ -144,7 +145,7 @@ def _increment_and_check_usage(key_hash: str) -> bool:
         (key_hash, year, month),
     ).fetchone()
     current = row["count"] if row else 0
-    if current >= _PRO_ENTERPRISE_MONTHLY_LIMIT:
+    if current >= _PRO_ENTERPRISE_MONTHLY_LIMIT:  # legacy ref, replaced below
         return False
     db.execute(
         "INSERT OR REPLACE INTO api_usage (key_hash, year, month, count) VALUES (?, ?, ?, ?)",
@@ -409,10 +410,11 @@ async def verify(
             api_key_hdr = request.headers.get("X-API-Key", "")
             if api_key_hdr.startswith("epi_"):
                 kh = hashlib.sha256(api_key_hdr.encode()).hexdigest()
+                limit = _PRO_MONTHLY_LIMIT if tier == "pro" else _ENTERPRISE_MONTHLY_LIMIT
                 if not _increment_and_check_usage(kh):
                     raise HTTPException(
                         status_code=429,
-                        detail="Monthly limit reached (10,000 verifications). Contact support@epilabs.org to increase.",
+                        detail=f"Monthly limit reached ({limit:,} verifications). Contact support@epilabs.org to increase.",
                     )
         else:
             if not _check_rate_limit(client_ip):
