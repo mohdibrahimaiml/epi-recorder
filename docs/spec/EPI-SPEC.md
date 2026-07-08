@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.2.0
+# EPI File Format Specification v4.3.0
 
 **Status:** Active  
 **Date:** 2026-06-29  
-**Version:** 4.2.0  
+**Version:** 4.3.0  
 **Category:** Standards Track
 
 ---
@@ -170,7 +170,7 @@ manifest object itself.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `spec_version` | string | EPI specification version (e.g., `"4.2.0"`) |
+| `spec_version` | string | EPI specification version (e.g., `"4.3.0"`) |
 | `workflow_id` | UUID (string) | Unique identifier for this workflow execution |
 | `created_at` | datetime (string) | UTC ISO 8601 timestamp when the container was created |
 | `file_manifest` | object (string→string) | Mapping of ZIP-relative file paths to SHA-256 hex hashes |
@@ -521,7 +521,7 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4.2.0 | 2026-06-29 | Gateway fail-closed, key encryption, EPI_ENFORCE, formal schemas |
+| 4.3.0 | 2026-06-29 | Gateway fail-closed, key encryption, EPI_ENFORCE, formal schemas |
 | 4.1.0 | 2026-05-14 | SCITT, AGT adapter, AIUC-1 mapping |
 | 4.0.3 | 2026-05-03 | Viewer redesign, DID:WEB |
 | 4.0.0 | 2026-04-08 | Envelope v2 (polyglot HTML+ZIP) |
