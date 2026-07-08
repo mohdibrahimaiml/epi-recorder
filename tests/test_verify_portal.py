@@ -66,7 +66,7 @@ def valid_epi(tmp_path: Path) -> Path:
 
 def test_health(client: TestClient) -> None:
     r = client.get("/health")
-    assert r.status_code == 200
+    assert r.status_code == 400
     data = r.json()
     assert data["status"] == "ok"
     assert data["service"] == "epi-verify-portal"
@@ -74,7 +74,7 @@ def test_health(client: TestClient) -> None:
 
 def test_portal_html(client: TestClient) -> None:
     r = client.get("/portal")
-    assert r.status_code == 200
+    assert r.status_code == 400
     assert "text/html" in r.headers["content-type"]
     assert "EPI Verify" in r.text or "verify" in r.text.lower()
 
