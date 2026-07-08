@@ -40,6 +40,21 @@ async def share_epi_file(
     }
     Path(f"shared_cases/{sid}.json").write_text(json.dumps(meta, indent=2))
     logger.info(f"SHARE {sid} {filename} {len(content)}")
+    try:
+        import zipfile, hashlib as hl, json as j
+        zpath = Path(f"shared_cases/{sid}.epi")
+        if zpath.exists():
+            with zipfile.ZipFile(zpath, "r") as zf:
+                m = j.loads(zf.read("manifest.json"))
+            from verify_portal.dashboard import _dashboard_db
+            db = _dashboard_db()
+            db.execute(
+                "INSERT OR REPLACE INTO team_runs (run_id, user_id, workflow, filename, share_id, trust_level, review_status, fault_count, created_at, sha256) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (sid, "shared", m.get("workflow_name", m.get("system_name","unknown")), filename, sid, "MEDIUM", "pending", 0, datetime.now(UTC).isoformat(), hl.sha256(content).hexdigest()),
+            )
+            db.commit(); db.close()
+    except Exception:
+        pass
     return {
         "share_id": sid,
         "url": f"https://epilabs.org/cases/?id={sid}",

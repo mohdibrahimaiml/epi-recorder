@@ -51,6 +51,7 @@ from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
 from verify_portal.blog_routes import router as blog_router
 from verify_portal.billing import router as billing_router, init_billing_columns, get_user_plan
+from verify_portal.dashboard import router as dashboard_router
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):

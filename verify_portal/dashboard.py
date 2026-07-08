@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 STORAGE_DIR = Path(os.getenv("EPI_STORAGE_DIR", "./data"))
@@ -137,7 +137,8 @@ async def create_key(request: Request):
     from epi_core.keys import KeyManager
     km = KeyManager()
     km.generate_keypair(name)
-    pub = km.get_public_key_hex(name)
+    pub_bytes = km.load_public_key(name)
+    pub = pub_bytes.hex()
     db = _dashboard_db()
     kid = f"tk_{int(time.time())}_{name}"
     db.execute(
