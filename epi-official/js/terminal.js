@@ -5,9 +5,9 @@
 
   var lines = [
     {c:'pip install epi-recorder',              cls:'code-cmt', t:500},
-    {c:'  Downloading epi-recorder-4.2.0...',    cls:'code-cmt', t:250},
+    {c:'  Downloading epi-recorder-4.3.0...',    cls:'code-cmt', t:250},
     {c:'  Installing collected packages...',      cls:'code-cmt', t:250},
-    {c:'Successfully installed epi-recorder-4.2.0', cls:'code-cmt', t:600},
+    {c:'Successfully installed epi-recorder-4.3.0', cls:'code-cmt', t:600},
     {c:'', cls:'', t:400},
     {c:'cat agent.py',            cls:'code-cmt', t:400},
     {c:'', cls:'', t:250},
@@ -41,7 +41,7 @@
     liveTerm.textContent='';
     var f=document.createElement('div');
     f.style.cssText='position:absolute;bottom:12px;right:16px;font-size:0.6rem;color:rgba(255,255,255,0.12);letter-spacing:0.06em;font-family:var(--mono)';
-    f.textContent='EPI_TERMINAL v4.2.0';
+    f.textContent='EPI_TERMINAL v4.3.0';
     liveTerm.appendChild(f);
   }
 

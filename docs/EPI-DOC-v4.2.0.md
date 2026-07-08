@@ -1,9 +1,9 @@
-# EPI DOC v4.2.0
+# EPI DOC v4.3.0
 
 Author: Codex
 Date: 2026-05-16
 Repo analyzed: `C:\Users\dell\epi-recorder`
-Release line observed in source: `v4.2.0`
+Release line observed in source: `v4.3.0`
 
 ---
 
@@ -22,9 +22,9 @@ The product center is the artifact itself, not a hosted dashboard. One file, por
 
 ---
 
-## 2. What v4.2.0 adds over v4.0.3
+## 2. What v4.3.0 adds over v4.0.3
 
-`v4.2.0` is a security and ecosystem compatibility release. It hardens the trust chain and ensures the toolchain works across modern Python environments. The key improvements are:
+`v4.3.0` is a security and ecosystem compatibility release. It hardens the trust chain and ensures the toolchain works across modern Python environments. The key improvements are:
 
 ### 2.1 Step-level `prev_hash` chain verification
 EPI now builds a hash chain across all steps in the timeline. Each step contains the hash of the previous step, preventing out-of-order tampering or step omission that might bypass the manifest-level file hash.
