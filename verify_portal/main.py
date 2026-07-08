@@ -119,10 +119,40 @@ def _init_api_keys_store():
         last_used_at REAL,
         active INTEGER DEFAULT 1
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS api_usage (
+        key_hash TEXT,
+        year INTEGER,
+        month INTEGER,
+        count INTEGER DEFAULT 0,
+        PRIMARY KEY (key_hash, year, month)
+    )""")
     conn.commit()
     for row in conn.execute("SELECT key_hash, tier, name, created_at FROM api_keys WHERE active = 1"):
         _api_keys[row["key_hash"]] = (row["tier"], row["name"], row["created_at"])
     return conn
+
+_PRO_ENTERPRISE_MONTHLY_LIMIT = 10_000
+
+
+def _increment_and_check_usage(key_hash: str) -> bool:
+    now = time.time()
+    now_dt = datetime.fromtimestamp(now, tz=UTC)
+    year, month = now_dt.year, now_dt.month
+    db = _init_api_keys_store()
+    row = db.execute(
+        "SELECT count FROM api_usage WHERE key_hash = ? AND year = ? AND month = ?",
+        (key_hash, year, month),
+    ).fetchone()
+    current = row["count"] if row else 0
+    if current >= _PRO_ENTERPRISE_MONTHLY_LIMIT:
+        return False
+    db.execute(
+        "INSERT OR REPLACE INTO api_usage (key_hash, year, month, count) VALUES (?, ?, ?, ?)",
+        (key_hash, year, month, current + 1),
+    )
+    db.commit()
+    return True
+
 
 def _load_api_key_tier(request) -> tuple | None:
     api_key = request.headers.get("X-API-Key")
@@ -375,7 +405,16 @@ async def verify(
     key_info = _load_api_key_tier(request)
     if key_info:
         tier, key_name = key_info
-        if tier not in ("pro", "enterprise"):
+        if tier in ("pro", "enterprise"):
+            api_key_hdr = request.headers.get("X-API-Key", "")
+            if api_key_hdr.startswith("epi_"):
+                kh = hashlib.sha256(api_key_hdr.encode()).hexdigest()
+                if not _increment_and_check_usage(kh):
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Monthly limit reached (10,000 verifications). Contact support@epilabs.org to increase.",
+                    )
+        else:
             if not _check_rate_limit(client_ip):
                 raise HTTPException(status_code=429, detail="Rate limit exceeded. Upgrade to Pro or Enterprise at /pricing.")
     elif not _check_rate_limit(client_ip):
