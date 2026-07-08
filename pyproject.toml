@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "4.2.0"
+version = "4.3.0"
 description = "Tamper-evident evidence infrastructure for AI agents. Capture, seal, verify, and audit AI decisions in a single portable file."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"

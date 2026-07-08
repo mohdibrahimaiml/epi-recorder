@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI&style=for-the-badge)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg?style=for-the-badge)](https://python.org)
-[![Version v4.2.0](https://img.shields.io/badge/version-v4.2.0-purple?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.3.0](https://img.shields.io/badge/version-v4.3.0-purple?style=for-the-badge)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![SCITT Compliant](https://img.shields.io/badge/SCITT-COSE_Sign1-orange?style=for-the-badge)](docs/standards/scitt-predicate.md)
 [![AIUC-1 + EU AI Act](https://img.shields.io/badge/AIUC--1-EU%20AI%20Act-success?style=for-the-badge)](docs/standards/aiuc-1-evidence.md)
