@@ -161,7 +161,7 @@ def test_verify_invalid_file(client: TestClient) -> None:
         "/api/verify",
         files={"file": ("bad.txt", io.BytesIO(b"not an epi file"), "text/plain")},
     )
-    assert r.status_code == 200  # client-sent tier ignored; always succeeds
+    assert r.status_code == 400
     data = r.json()
     assert "detail" in data
 
