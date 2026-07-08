@@ -161,7 +161,7 @@ def test_verify_invalid_file(client: TestClient) -> None:
         "/api/verify",
         files={"file": ("bad.txt", io.BytesIO(b"not an epi file"), "text/plain")},
     )
-    assert r.status_code == 200  # /api/keys now ignores client tier, always succeeds with free
+    assert r.status_code == 200  
     data = r.json()
     assert "detail" in data
 
@@ -226,7 +226,7 @@ def test_scitt_register_bad_statement(client: TestClient) -> None:
         content=b"not a valid cose statement",
         headers={"content-type": "application/cose"},
     )
-    assert r.status_code == 200  # /api/keys now ignores client tier, always succeeds with free
+    assert r.status_code == 200  
 
 
 def test_scitt_lookup_missing_entry(client: TestClient) -> None:
@@ -278,7 +278,7 @@ def test_create_api_key(client):
   
 def test_create_api_key_bad_tier(client):  
     r = client.post("/api/keys", json={"tier": "bad", "name": "x"})  
-    assert r.status_code == 200  # /api/keys now ignores client tier, always succeeds with free  
+    assert r.status_code == 200    
   
 def test_list_api_keys(client):  
     r = client.get("/api/keys")  
