@@ -43,10 +43,11 @@ EPI_ENVELOPE_VERSION = 2
 EPI_PAYLOAD_FORMAT_ZIP_V1 = 0x01
 EPI_ENVELOPE_HEADER_SIZE = 128
 EPI_ZIP_MARKER = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
+VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n===============================\n\nArtifact UUID: %(filename)s\nStep Count:    %(steps_count)s\n\nVERIFY:\n  epi verify <this_file>.epi\n"""
 # Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), Padding(56)
 _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
-_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html", "VERIFY.txt"}
+_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 _MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
 
