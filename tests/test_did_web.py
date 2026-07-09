@@ -31,7 +31,7 @@ class TestResolveDidWeb:
             doc = resolve_did_web("did:web:example.com")
 
         assert doc == {"id": "did:web:example.com"}
-        mock_get.assert_called_once_with("https://example.com/.well-known/did.json", timeout=10)
+        mock_get.assert_called_once_with("https://example.com/.well-known/did.json", timeout=10, headers={"User-Agent": "EPI/4.3.0"})
 
     def test_host_with_path(self):
         mock_resp = MagicMock()
@@ -42,7 +42,7 @@ class TestResolveDidWeb:
             doc = resolve_did_web("did:web:example.com:users:alice")
 
         assert doc == {"id": "did:web:example.com:users:alice"}
-        mock_get.assert_called_once_with("https://example.com/users/alice/did.json", timeout=10)
+        mock_get.assert_called_once_with("https://example.com/users/alice/did.json", timeout=10, headers={"User-Agent": "EPI/4.3.0"})
 
     def test_invalid_prefix_raises(self):
         with pytest.raises(DidResolutionError):
