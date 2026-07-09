@@ -36,7 +36,7 @@ class _RequestsShim:
             return json.loads(self._body.decode("utf-8"))
 
     def get(self, url: str, *, timeout: int = 10, **kwargs: Any) -> "_RequestsShim._Response":
-        req = Request(url, headers={"Accept": "application/json"})
+        req = Request(url, headers={"Accept": "application/json", "User-Agent": "EPI/4.3.0"})
         try:
             with urlopen(req, timeout=timeout) as resp:
                 return self._Response(resp.status, resp.read())
@@ -93,7 +93,7 @@ def resolve_did_web(did: str, timeout: int = 10) -> dict[str, Any]:
     url = _did_to_url(did)
 
     try:
-        resp = requests.get(url, timeout=timeout)
+        resp = requests.get(url, timeout=timeout, headers={"User-Agent": "EPI/4.3.0"})
     except (ConnectionError, OSError, Exception) as exc:
         raise DidResolutionError(str(exc)) from exc
 
