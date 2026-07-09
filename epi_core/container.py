@@ -949,8 +949,9 @@ class EPIContainer:
                             "review.json", review_json, compress_type=zipfile.ZIP_DEFLATED
                         )
 
+            manifest = EPIContainer.read_manifest(epi_path)
             EPIContainer._write_artifact_from_payload(
-                tmp_zip, tmp_out, container_format=container_format
+                tmp_zip, tmp_out, container_format=container_format, manifest=manifest
             )
             shutil.move(str(tmp_out), str(epi_path))
         finally:
@@ -1054,6 +1055,15 @@ class EPIContainer:
                 compress_type=zipfile.ZIP_DEFLATED,
             )
 
+            zf.writestr(
+                "VERIFY.txt",
+                VERIFY_TXT_TEMPLATE % {
+                    "filename": manifest.workflow_id or "unknown",
+                    "steps_count": len(manifest.file_manifest),
+                },
+                compress_type=zipfile.ZIP_DEFLATED,
+            )
+
     @staticmethod
     def refresh_viewer(
         epi_path: Path,
@@ -1085,6 +1095,7 @@ class EPIContainer:
                 temp_payload,
                 temp_output,
                 container_format=container_format,
+                manifest=manifest,
             )
 
             destination.parent.mkdir(parents=True, exist_ok=True)
