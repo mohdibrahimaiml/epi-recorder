@@ -158,10 +158,10 @@ def capture_working_directory() -> Dict[str, str]:
     Returns:
         dict: Working directory details
     """
+    # Do not capture absolute working directory path to avoid leaking
+    # project or client names embedded in directory structures.
     cwd = Path.cwd()
     return {
-        "path": str(cwd),
-        "absolute": str(cwd.absolute()),
         "exists": cwd.exists(),
     }
 

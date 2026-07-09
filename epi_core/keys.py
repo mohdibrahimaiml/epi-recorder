@@ -107,13 +107,14 @@ class KeyManager:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
 
-        private_key_path.write_bytes(private_pem)
+        # Write to temp file then atomically rename to avoid TOCTOU race
+        private_tmp = private_key_path.with_suffix(private_key_path.suffix + ".tmp")
+        private_tmp.write_bytes(private_pem)
         if os.name != "nt":
-            os.chmod(private_key_path, 0o600)
+            os.chmod(private_tmp, 0o600)
         else:
-            import stat
-
-            os.chmod(private_key_path, stat.S_IREAD | stat.S_IWRITE)
+            os.chmod(private_tmp, stat.S_IREAD | stat.S_IWRITE)
+        private_tmp.replace(private_key_path)
 
         public_key_path.write_bytes(public_pem)
         if os.name != "nt":

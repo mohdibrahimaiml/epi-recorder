@@ -522,7 +522,14 @@ class EPIContainer:
             if viewer_html:
                 # Close the header comment, add HTML, then start a new comment for the binary ZIP
                 dst.write(b" -->\n")
-                dst.write(viewer_html.encode("utf-8"))
+                # Guard: viewer HTML must not contain the ZIP payload sentinel
+                html_bytes = viewer_html.encode("utf-8")
+                if EPI_ZIP_MARKER in html_bytes:
+                    raise RuntimeError(
+                        "Viewer HTML contains EPI_ZIP_MARKER sentinel bytes; "
+                        "this would corrupt extraction. Cannot pack this artifact."
+                    )
+                dst.write(html_bytes)
                 dst.write(EPI_ZIP_MARKER)
 
             with open(payload_path, "rb") as src:
@@ -1116,7 +1123,12 @@ class EPIContainer:
 
         with EPIContainer._payload_zip_path(epi_path) as payload_zip:
             with zipfile.ZipFile(payload_zip, "r") as zf:
-                zf.extractall(dest_dir)
+                # Prevent zip-slip path traversal
+                for member in zf.infolist():
+                    member_path = (dest_dir / member.filename).resolve()
+                    if not str(member_path).startswith(str(dest_dir.resolve())):
+                        raise ValueError(f"Path traversal detected in .epi archive: {member.filename}")
+                    zf.extract(member, dest_dir)
 
         return dest_dir
 
