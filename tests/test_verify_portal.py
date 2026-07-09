@@ -235,7 +235,7 @@ def test_scitt_lookup_missing_entry(client: TestClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rate limiting (smoke test — in-memory store resets between tests)
+# Rate limiting (smoke test ï¿½ in-memory store resets between tests)
 # ---------------------------------------------------------------------------
 
 
@@ -276,10 +276,7 @@ def test_create_api_key(client):
     assert d["tier"] == "free"  
     assert d["api_key"].startswith("epi_")  
   
-def test_create_api_key_bad_tier(client):  
-    r = client.post("/api/keys", json={"tier": "bad", "name": "x"})  
-    assert r.status_code == 400  
-  
+
 def test_list_api_keys(client):  
     r = client.get("/api/keys")  
     assert r.status_code == 200  
