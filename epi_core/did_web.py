@@ -15,6 +15,12 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
+try:
+    from epi_core._version import get_version
+    _EPI_VERSION = get_version()
+except Exception:
+    _EPI_VERSION = "unknown"
+
 
 class DidResolutionError(Exception):
     """Raised when a DID:WEB document cannot be fetched (network, HTTP error, etc.)."""
@@ -36,7 +42,7 @@ class _RequestsShim:
             return json.loads(self._body.decode("utf-8"))
 
     def get(self, url: str, *, timeout: int = 10, **kwargs: Any) -> "_RequestsShim._Response":
-        req = Request(url, headers={"Accept": "application/json", "User-Agent": "EPI/4.3.0"})
+        req = Request(url, headers={"Accept": "application/json", "User-Agent": f"EPI/{_EPI_VERSION}"})
         try:
             with urlopen(req, timeout=timeout) as resp:
                 return self._Response(resp.status, resp.read())
@@ -93,7 +99,7 @@ def resolve_did_web(did: str, timeout: int = 10) -> dict[str, Any]:
     url = _did_to_url(did)
 
     try:
-        resp = requests.get(url, timeout=timeout, headers={"User-Agent": "EPI/4.3.0"})
+        resp = requests.get(url, timeout=timeout, headers={"User-Agent": f"EPI/{_EPI_VERSION}"})
     except (ConnectionError, OSError, Exception) as exc:
         raise DidResolutionError(str(exc)) from exc
 
