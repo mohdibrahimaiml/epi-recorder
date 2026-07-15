@@ -241,16 +241,9 @@ async def handle_github_callback(
         url = f"{cli_redirect}{separator}token={bearer}&user_id={user['id']}&org={httpx.QueryParams({'org': user.get('org') or ''})}"
         return RedirectResponse(url)
 
-    # Browser-only flow: redirect to the account page, setting the token as a cookie.
-    response = RedirectResponse("/account")
-    response.set_cookie(
-        key="epi_token",
-        value=bearer,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=int(timedelta(days=_TOKEN_TTL_DAYS).total_seconds()),
-    )
+    # Browser-only flow: redirect back to epilabs.org with the token in the URL
+    # so the frontend can store it in localStorage (cross-domain cookie won't work)
+    response = RedirectResponse(f"https://epilabs.org/account#token={bearer}")
     return response
 
 
