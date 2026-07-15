@@ -85,7 +85,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-)
 
 
 # SCITT transparency service routes
