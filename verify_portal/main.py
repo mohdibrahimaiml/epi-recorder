@@ -72,10 +72,11 @@ app = FastAPI(
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
 
-# CORS - allow browser uploads from any origin
+# CORS - allow browser requests from our frontend (cross-origin for Render backend)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
