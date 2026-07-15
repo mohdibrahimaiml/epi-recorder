@@ -3,15 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI Labs — Evidence infrastructure for AI agents.</title>
-<meta name="description" content="pip install epi-recorder. Signed, sealed, verifiable evidence for every AI decision. The PDF for AI evidence.">
-<meta property="og:title" content="EPI Labs — Evidence infrastructure for AI agents.">
-<meta property="og:description" content="pip install epi-recorder. Signed, sealed, verifiable evidence for every AI decision. Ed25519, SHA-256, browser-verifiable.">
+<title>EPI Labs | Tamper-Evident Evidence Infrastructure for AI Agents</title>
+<meta name="description" content="EPI Labs builds cryptographic evidence infrastructure for AI agents. Signed, sealed, verifiable .epi files. Ed25519 signatures, SHA-256 integrity, SCITT transparency. The PDF for AI evidence.">
+<meta property="og:title" content="EPI Labs | Tamper-Evident Evidence Infrastructure for AI Agents">
+<meta property="og:description" content="EPI Labs builds cryptographic evidence infrastructure for AI agents. Signed, sealed, verifiable .epi files. Ed25519 signatures, SHA-256 integrity, SCITT transparency.">
 <meta property="og:image" content="https://epilabs.org/assets/logo.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.ico">
 <link rel="stylesheet" href="css/epi.css?v=24">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "EPI Labs",
+  "url": "https://epilabs.org",
+  "logo": "https://epilabs.org/assets/logo.png",
+  "description": "EPI Labs builds tamper-evident evidence infrastructure for AI agents. Cryptographic signing, verification, and compliance for every AI decision.",
+  "sameAs": [
+    "https://github.com/mohdibrahimaiml/epi-recorder",
+    "https://pypi.org/project/epi-recorder/"
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -42,7 +58,6 @@
   <div class="nav-inner">
     <a href="#" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links" id="navLinks">
-      <li><a href="#use">How to Use</a></li>
       <li><a href="/how-it-works">How It Works</a></li>
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
@@ -98,53 +113,11 @@
           <div class="terminal-dot terminal-dot--y"></div>
           <div class="terminal-dot terminal-dot--g"></div>
         </div>
-        <span class="terminal-title">EPI_TERMINAL v4.2.0</span>
+        <span class="terminal-title">EPI_TERMINAL v4.3.0</span>
         <button class="terminal-title-replay" onclick="replayTerminal()" aria-label="Replay terminal">&#x21BA; Replay</button>
       </div>
       <div class="terminal-body" id="terminalBody">
         <span class="terminal-cursor"></span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ HOW TO USE ═══ -->
-<section id="use">
-  <div class="container">
-    <div class="how-header">
-      <div class="section-label reveal" style="justify-content:center">Get Started</div>
-      <h2 class="section-title reveal d1">How to use EPI</h2>
-      <p class="section-desc reveal d2">Install. Integrate. Record. Three steps from zero to cryptographically sealed evidence.</p>
-    </div>
-    <div class="steps-grid">
-      <div class="use-step reveal">
-        <div class="use-step-number">01</div>
-        <div class="use-step-badge">&lt;5 sec</div>
-        <div class="pillar-deco" style="margin:16px 0 0">
-<span class="pillar-deco-g">$</span> pip install epi-recorder
-        </div>
-        <div class="pillar-content"><h3>Install</h3><p>One pip command. No server. No API keys. No configuration. Works on any machine with Python 3.11+.</p></div>
-      </div>
-      <div class="use-step reveal d1">
-        <div class="use-step-number">02</div>
-        <div class="use-step-badge">3 lines</div>
-        <div class="pillar-deco" style="margin:16px 0 0">
-<span class="pillar-deco-g">from</span> epi_recorder <span class="pillar-deco-g">import</span> record, wrap_openai
-<span class="pillar-deco-g">from</span> openai <span class="pillar-deco-g">import</span> OpenAI
-client = <span class="pillar-deco-a">wrap_openai</span>(OpenAI())
-        </div>
-        <div class="pillar-content"><h3>Integrate</h3><p>Wrap your LLM client. EPI silently captures every API call, response, tool invocation, and decision — no code changes needed.</p></div>
-      </div>
-      <div class="use-step reveal d2">
-        <div class="use-step-number">03</div>
-        <div class="use-step-badge">4 commands</div>
-        <div class="pillar-deco" style="margin:16px 0 0">
-<span class="pillar-deco-g">$</span> epi run agent.py
-<span class="pillar-deco-g">$</span> epi view agent.epi
-<span class="pillar-deco-g">$</span> epi verify agent.epi
-<span class="pillar-deco-g">$</span> epi share agent.epi
-        </div>
-        <div class="pillar-content"><h3>Record, View, Verify, Share</h3><p>Run your script. Open the sealed .epi in any browser. Verify integrity offline. Share a hosted link — all from the CLI.</p></div>
       </div>
     </div>
   </div>
@@ -458,10 +431,10 @@ pip install epi-recorder
     <ul class="footer-links">
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
+      <li><a href="viewer/">Decision Ops</a></li>
       <li><a href="/terms">Terms of Service</a></li>
       <li><a href="/privacy">Privacy Policy</a></li>
       <li><a href="/refund">Refund Policy</a></li>
-      <li><a href="viewer/">Decision Ops</a></li>
       <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
     </ul>
   </div></div>
@@ -978,10 +951,10 @@ var terminalSteps=[
   {text:'',delay:20},
   {text:'<span class="term-dim">$</span> <span class="term-kw">pip</span> <span class="term-fn">install</span> epi-recorder',delay:40},
   {text:'<span class="term-dim">Collecting epi-recorder</span>',delay:30},
-  {text:'<span class="term-dim">  Downloading epi_recorder-4.2.0-py3-none-any.whl (124 kB)</span>',delay:40},
+  {text:'<span class="term-dim">  Downloading epi_recorder-4.3.0-py3-none-any.whl (124 kB)</span>',delay:40},
   {text:'<span class="term-dim">Requirement already satisfied: openai&gt;=1.0.0 in ./venv</span>',delay:30},
   {text:'<span class="term-dim">Requirement already satisfied: cryptography&gt;=41.0.0 in ./venv</span>',delay:30},
-  {text:'<span class="term-green">Successfully installed epi-recorder-4.2.0</span>',delay:70},
+  {text:'<span class="term-green">Successfully installed epi-recorder-4.3.0</span>',delay:70},
   {text:'',delay:50},
 
   /* ── PHASE 2: WRITE THE CODE ── */
@@ -1047,7 +1020,7 @@ var terminalSteps=[
   {text:'',delay:20},
   {text:'<span class="term-dim">$</span> <span class="term-green">epi verify</span> loan-decision.epi',delay:40},
   {text:'',delay:30},
-  {text:'<span class="term-dim">  ── EPI VERIFIER v4.2.0 ──</span>',delay:40},
+  {text:'<span class="term-dim">  ── EPI VERIFIER v4.3.0 ──</span>',delay:40},
   {text:'',delay:20},
   {text:'<span class="term-dim">  [1/5]</span> Structure  <span class="term-dim">········</span> <span class="term-green">PASS</span>  <span class="term-dim">(valid polyglot ZIP+HTML)</span>',delay:50},
   {text:'<span class="term-dim">  [2/5]</span> Manifest     <span class="term-dim">······</span> <span class="term-green">PASS</span>  <span class="term-dim">(SHA-256: d4e2f1a8b3c7...)</span>',delay:50},
