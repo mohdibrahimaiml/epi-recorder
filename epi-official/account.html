@@ -31,10 +31,11 @@
 .plan-badge.free{background:var(--accent-glow);color:var(--accent)}
 .plan-badge.pro{background:var(--verified-bg);color:var(--verified)}
 .plan-badge.enterprise{background:rgba(139,105,20,.1);color:var(--warn)}
-.signin-hero{text-align:center;padding:80px 0 40px}
+.signin-hero{text-align:center;padding:80px 0 0}
 .signin-btn{padding:16px 40px;font-size:1.05rem;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:12px;cursor:pointer;transition:all .15s}
 .signin-btn:hover{background:var(--accent-lt);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.15)}
 .signin-footer{text-align:center;margin-top:16px;color:var(--ink-dim);font-size:.8rem}
+.error-msg{background:var(--tamper-bg);border:1px solid rgba(181,38,38,0.3);border-radius:8px;padding:14px 20px;margin-top:20px;color:var(--tamper);font-size:.88rem;display:none}
 </style>
 </head>
 <body>
@@ -51,8 +52,20 @@
 </nav>
 
 <main class="acct-main">
-  <div id="loading" class="acct-loading">Loading your account…</div>
+  <!-- UNAUTHENTICATED — shown when no token exists -->
+  <div id="login-prompt">
+    <div class="signin-hero">
+      <h2 style="font-size:1.6rem;color:var(--ink);margin-bottom:8px">Sign in to manage your account</h2>
+      <p style="color:var(--ink-soft);margin-bottom:28px;font-size:.95rem">Use GitHub to sign in. We only ask for your public profile and email.</p>
+      <button class="signin-btn" onclick="startLogin()">Sign in with GitHub</button>
+      <p class="signin-footer">No password. No email verification. Just your GitHub account.</p>
+    </div>
+  </div>
 
+  <!-- LOADING — shown while checking auth -->
+  <div id="loading" class="acct-loading" style="display:none">Checking your session…</div>
+
+  <!-- AUTHENTICATED ACCOUNT -->
   <div id="account-content" style="display:none">
     <h1 id="acct-name">Your Account</h1>
     <p class="subtitle">Manage your subscription, API keys, and settings.</p>
@@ -72,7 +85,7 @@
         <span id="apikey-value">—</span>
         <button onclick="copyApiKey()">Copy</button>
       </div>
-      <div id="no-apikey" style="display:none;margin-top:12px">
+      <div id="no-apikey" style="margin-top:12px">
         <p style="color:var(--ink-muted);font-size:.88rem;margin-bottom:8px">No API key generated yet.</p>
         <button class="acct-btn primary" onclick="createApiKey()">Generate API Key</button>
       </div>
@@ -84,15 +97,8 @@
       <div id="acct-org" style="margin-bottom:12px;color:var(--ink-dim);font-size:.85rem"></div>
       <button class="acct-btn danger" onclick="logout()">Sign Out</button>
     </div>
-  </div>
 
-  <div id="login-prompt" style="display:none">
-    <div class="signin-hero">
-      <h2 style="font-size:1.6rem;color:var(--ink);margin-bottom:8px">Sign in to manage your account</h2>
-      <p style="color:var(--ink-soft);margin-bottom:28px;font-size:.95rem">Use GitHub to sign in. We only ask for your public profile and email.</p>
-      <button class="signin-btn" onclick="startLogin()">Sign in with GitHub</button>
-      <p class="signin-footer">No password. No email verification. Just your GitHub account.</p>
-    </div>
+    <div class="error-msg" id="error-msg"></div>
   </div>
 </main>
 
@@ -106,32 +112,57 @@
 </footer>
 
 <script>
-// API calls go to the Render backend, not Cloudflare static hosting
 var API_BASE = 'https://epi-verify-portal.onrender.com';
 var userData = null;
 var apiKey = null;
+var loggedIn = false;
+
+// Check if token came via redirect and clean the URL
+(function() {
+  var hash = window.location.hash;
+  if (hash && hash.indexOf('token=') === 1) {
+    var token = hash.substring(7).split('&')[0];
+    localStorage.setItem('epi_token', token);
+    history.replaceState(null, '', '/account');
+  }
+})();
 
 async function loadAccount() {
-  var loadingEl = document.getElementById('loading');
-  var contentEl = document.getElementById('account-content');
-  var loginPrompt = document.getElementById('login-prompt');
+  var token = localStorage.getItem('epi_token');
+
+  // No token = show signin immediately, no loading flash
+  if (!token) {
+    document.getElementById('login-prompt').style.display = 'block';
+    document.getElementById('loading').style.display = 'none';
+    updateNav(false);
+    return;
+  }
+
+  // Have a token — show loading while we verify
+  document.getElementById('login-prompt').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('account-content').style.display = 'none';
 
   try {
     var r = await fetch(API_BASE + '/api/auth/me', {
       credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (r.status === 401) {
-      loadingEl.style.display = 'none';
-      loginPrompt.style.display = 'block';
-      updateNavAuth(false);
+
+    if (r.status === 401 || !r.ok) {
+      // Token expired or invalid — clear and show signin
+      localStorage.removeItem('epi_token');
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('login-prompt').style.display = 'block';
+      updateNav(false);
       return;
     }
-    if (!r.ok) throw new Error('Server error');
+
     userData = await r.json();
-    loadingEl.style.display = 'none';
-    contentEl.style.display = 'block';
-    updateNavAuth(true);
+    loggedIn = true;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('account-content').style.display = 'block';
+    updateNav(true);
 
     document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
     document.getElementById('acct-email').textContent = userData.email || '';
@@ -142,33 +173,45 @@ async function loadAccount() {
     await loadPlan();
     await loadApiKeys();
   } catch (e) {
-    loadingEl.textContent = 'Could not load account. Make sure you are signed in. Try refreshing the page.';
-    loginPrompt.style.display = 'block';
-    updateNavAuth(false);
+    // Network error — keep token, show helpful message
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('login-prompt').style.display = 'block';
+    updateNav(false);
   }
 }
 
+function showError(msg) {
+  var el = document.getElementById('error-msg');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
 async function loadPlan() {
-  try {
-    var plan = userData.plan || 'free';
-    var badge = document.getElementById('plan-badge');
+  var plan = userData.plan || 'free';
+  var badge = document.getElementById('plan-badge');
+  if (badge) {
     badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
     badge.className = 'plan-badge ' + plan;
-    if (plan !== 'free') {
-      document.getElementById('upgrade-link').style.display = 'none';
-    }
-  } catch (e) {}
+  }
+  if (plan !== 'free') {
+    var up = document.getElementById('upgrade-link');
+    if (up) up.style.display = 'none';
+  }
 }
 
 async function loadApiKeys() {
   try {
-    var r = await fetch(API_BASE + '/api/keys', { credentials: 'include' });
+    var r = await fetch(API_BASE + '/api/keys', {
+      credentials: 'include',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
+    });
+    if (!r.ok) throw new Error('Failed');
     var data = await r.json();
     var keys = data.keys || [];
     if (keys.length > 0) {
       apiKey = keys[0].key || keys[0].token || keys[0];
+      var displayKey = typeof apiKey === 'string' ? apiKey : (apiKey.key || '');
       document.getElementById('apikey-section').style.display = 'flex';
-      document.getElementById('apikey-value').textContent = typeof apiKey === 'string' ? apiKey : (apiKey.prefix || 'epi_') + '...' + (apiKey.suffix || '');
+      document.getElementById('apikey-value').textContent = displayKey || '—';
       document.getElementById('no-apikey').style.display = 'none';
     } else {
       document.getElementById('no-apikey').style.display = 'block';
@@ -176,6 +219,7 @@ async function loadApiKeys() {
     }
   } catch (e) {
     document.getElementById('no-apikey').style.display = 'block';
+    document.getElementById('apikey-section').style.display = 'none';
   }
 }
 
@@ -184,7 +228,10 @@ async function createApiKey() {
     var r = await fetch(API_BASE + '/api/keys', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '')
+      },
       body: JSON.stringify({ name: 'default' })
     });
     if (r.ok) {
@@ -193,13 +240,13 @@ async function createApiKey() {
       alert('Could not create API key. Upgrade your plan to enable API access.');
     }
   } catch (e) {
-    alert('Could not create API key. Try again.');
+    showError('Could not create API key — server may be unavailable. Try again in a moment.');
   }
 }
 
 function copyApiKey() {
   if (apiKey) {
-    var val = typeof apiKey === 'string' ? apiKey : apiKey.value || '';
+    var val = typeof apiKey === 'string' ? apiKey : apiKey.key || '';
     navigator.clipboard.writeText(val).then(function() {
       alert('API key copied to clipboard');
     });
@@ -212,24 +259,13 @@ function startLogin() {
   window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
 }
 
-// Check for token in URL hash (set by the backend after OAuth callback)
-(function() {
-  var hash = window.location.hash;
-  if (hash && hash.indexOf('token=') === 1) {
-    var token = hash.substring(7).split('&')[0];
-    localStorage.setItem('epi_token', token);
-    // Clean the URL
-    history.replaceState(null, '', '/account');
-  }
-})();
-
-function updateNavAuth(isLoggedIn) {
-  var navAuth = document.getElementById('nav-auth');
-  if (!navAuth) return;
+function updateNav(isLoggedIn) {
+  var nav = document.getElementById('nav-auth');
+  if (!nav) return;
   if (isLoggedIn && userData) {
-    navAuth.innerHTML = '<a href="/account">' + (userData.login || 'Account') + '</a>';
+    nav.innerHTML = '<a href="/account">' + (userData.login || 'Account') + '</a>';
   } else {
-    navAuth.innerHTML = '<a href="/account" class="nav-link-cta">Sign In</a>';
+    nav.innerHTML = '<a href="/account" class="nav-link-cta">Sign In</a>';
   }
 }
 
@@ -240,8 +276,8 @@ async function logout() {
       credentials: 'include',
       headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
     });
-    localStorage.removeItem('epi_token');
   } catch (e) {}
+  localStorage.removeItem('epi_token');
   window.location.href = '/';
 }
 

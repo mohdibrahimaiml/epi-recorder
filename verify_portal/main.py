@@ -72,13 +72,19 @@ app = FastAPI(
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
 
-# CORS - allow browser requests from our frontend (cross-origin for Render backend)
+# CORS - allow browser requests from epilabs.org (Render backend is cross-origin)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://epilabs.org",
+        "https://www.epilabs.org",
+        "https://verify.epilabs.org",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+)
 )
 
 
