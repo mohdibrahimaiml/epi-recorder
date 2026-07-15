@@ -98,7 +98,7 @@ def start_github_oauth(*, state: str, redirect_uri: str | None = None) -> str:
         "scope": "read:user user:email",
         "state": state,
     }
-    query = "&".join(f"{k}={httpx.QueryParams({k: v})}" for k, v in params.items())
+    query = "&".join(f"{k}={v}" for k, v in params.items())
     return f"{GITHUB_AUTHORIZE_URL}?{query}"
 
 
