@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import HTTPException, Request
@@ -98,7 +99,7 @@ def start_github_oauth(*, state: str, redirect_uri: str | None = None) -> str:
         "scope": "read:user user:email",
         "state": state,
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
+    query = urlencode(params)
     return f"{GITHUB_AUTHORIZE_URL}?{query}"
 
 
