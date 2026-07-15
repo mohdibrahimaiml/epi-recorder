@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI Labs — Account</title>
+<meta name="description" content="Your EPI Labs account. Manage your subscription, API keys, and settings.">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
+<link rel="stylesheet" href="css/epi.css?v=25">
+<style>
+.acct-main{max-width:700px;margin:0 auto;padding:120px 24px 80px}
+.acct-main h1{font-size:1.8rem;color:var(--ink);margin:0 0 4px}
+.acct-main .subtitle{color:var(--ink-muted);font-size:.95rem;margin-bottom:40px}
+.acct-card{background:var(--bg-card);border:1px solid var(--border-str);border-radius:12px;padding:28px;margin-bottom:20px}
+.acct-card h3{font-size:.95rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 16px;font-weight:500}
+.acct-card .val{font-size:1.05rem;color:var(--ink);font-weight:500}
+.acct-card .val-mono{font-family:var(--mono);font-size:.88rem;color:var(--ink);word-break:break-all}
+.acct-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.acct-btn{padding:10px 22px;border-radius:8px;font-family:var(--sans);font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.acct-btn.primary{background:var(--accent);color:#fff}
+.acct-btn.primary:hover{background:var(--accent-lt)}
+.acct-btn.danger{background:transparent;color:var(--tamper);border:1.5px solid rgba(181,38,38,0.3)}
+.acct-btn.danger:hover{background:var(--tamper-bg)}
+.acct-btn.secondary{background:transparent;color:var(--accent);border:1.5px solid var(--accent-line)}
+.apikey-box{background:var(--bg-dark);border-radius:8px;padding:16px 20px;font-family:var(--mono);font-size:.82rem;color:#C8CDD5;display:flex;align-items:center;gap:12px;margin-top:12px;justify-content:space-between}
+.apikey-box button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 14px;border-radius:6px;font-family:var(--mono);font-size:.75rem;cursor:pointer}
+.apikey-box button:hover{background:rgba(255,255,255,.15)}
+.acct-loading{color:var(--ink-dim);font-style:italic;font-size:.9rem}
+.plan-badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.plan-badge.free{background:var(--accent-glow);color:var(--accent)}
+.plan-badge.pro{background:var(--verified-bg);color:var(--verified)}
+.plan-badge.enterprise{background:rgba(139,105,20,.1);color:var(--warn)}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li id="nav-auth"></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="acct-main">
+  <div id="loading" class="acct-loading">Loading your account...</div>
+  <div id="account-content" style="display:none">
+    <h1 id="acct-name">Your Account</h1>
+    <p class="subtitle">Manage your subscription, API keys, and settings.</p>
+
+    <div class="acct-card">
+      <h3>Plan</h3>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="plan-badge" class="plan-badge free">Free</span>
+        <a href="/pricing" class="acct-btn secondary" id="upgrade-link">Upgrade</a>
+      </div>
+    </div>
+
+    <div class="acct-card">
+      <h3>API Key</h3>
+      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">Use this key with the EPI CLI and API for hosted verification and SCITT anchoring.</p>
+      <div class="apikey-box" id="apikey-section" style="display:none">
+        <span id="apikey-value">—</span>
+        <button onclick="copyApiKey()">Copy</button>
+      </div>
+      <div id="no-apikey" style="display:none;margin-top:12px">
+        <p style="color:var(--ink-muted);font-size:.88rem;margin-bottom:8px">No API key generated yet.</p>
+        <button class="acct-btn primary" id="create-key-btn" onclick="createApiKey()">Generate API Key</button>
+      </div>
+    </div>
+
+    <div class="acct-card">
+      <h3>Account</h3>
+      <div id="acct-email" style="margin-bottom:8px;color:var(--ink-soft)"></div>
+      <div id="acct-org" style="margin-bottom:12px;color:var(--ink-dim);font-size:.85rem"></div>
+      <button class="acct-btn danger" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="login-prompt" style="display:none;text-align:center;padding:60px 0">
+    <h2 style="font-size:1.5rem;color:var(--ink);margin-bottom:12px">Sign in to manage your account</h2>
+    <p style="color:var(--ink-soft);margin-bottom:24px">Use GitHub to sign in. We only ask for your public profile and email.</p>
+    <button class="acct-btn primary" onclick="startLogin()" style="font-size:1rem;padding:14px 36px">
+      Sign in with GitHub
+    </button>
+  </div>
+</main>
+
+<footer style="text-align:center;padding:60px 24px;border-top:1px solid var(--border)">
+  <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
+    &copy; 2026 EPI Labs &middot;
+    <a href="/terms" style="color:var(--accent)">Terms</a> &middot;
+    <a href="/privacy" style="color:var(--accent)">Privacy</a> &middot;
+    <a href="/refund" style="color:var(--accent)">Refunds</a>
+  </p>
+</footer>
+
+<script>
+var userData = null;
+var apiKey = null;
+
+async function loadAccount() {
+  var loadingEl = document.getElementById('loading');
+  var contentEl = document.getElementById('account-content');
+  var loginPrompt = document.getElementById('login-prompt');
+
+  try {
+    var r = await fetch('/api/auth/me', { credentials: 'include' });
+    if (r.status === 401) {
+      loadingEl.style.display = 'none';
+      loginPrompt.style.display = 'block';
+      updateNavAuth(false);
+      return;
+    }
+    userData = await r.json();
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    updateNavAuth(true);
+
+    document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
+    document.getElementById('acct-email').textContent = userData.email || '';
+    if (userData.org) {
+      document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
+    }
+
+    await loadPlan();
+    await loadApiKeys();
+  } catch (e) {
+    loadingEl.textContent = 'Could not load account. Try refreshing.';
+  }
+}
+
+async function loadPlan() {
+  try {
+    var r = await fetch('/api/auth/me', { credentials: 'include' });
+    var u = await r.json();
+    var plan = u.plan || 'free';
+    var badge = document.getElementById('plan-badge');
+    badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+    badge.className = 'plan-badge ' + plan;
+    var upgradeLink = document.getElementById('upgrade-link');
+    if (plan !== 'free') {
+      upgradeLink.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+async function loadApiKeys() {
+  try {
+    var r = await fetch('/api/keys', { credentials: 'include' });
+    var data = await r.json();
+    var keys = data.keys || [];
+    if (keys.length > 0) {
+      apiKey = keys[0].key || keys[0].token || keys[0];
+      document.getElementById('apikey-section').style.display = 'flex';
+      document.getElementById('apikey-value').textContent = typeof apiKey === 'string' ? apiKey : apiKey.prefix + '...' + (apiKey.suffix || '');
+      document.getElementById('no-apikey').style.display = 'none';
+    } else {
+      document.getElementById('apikey-section').style.display = 'none';
+      document.getElementById('no-apikey').style.display = 'block';
+    }
+  } catch (e) {
+    document.getElementById('apikey-section').style.display = 'none';
+    document.getElementById('no-apikey').style.display = 'block';
+  }
+}
+
+async function createApiKey() {
+  try {
+    var r = await fetch('/api/keys', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'default' })
+    });
+    if (r.ok) {
+      await loadApiKeys();
+    } else {
+      alert('Could not create API key. Upgrade your plan to enable API access.');
+    }
+  } catch (e) {
+    alert('Could not create API key. Try again.');
+  }
+}
+
+function copyApiKey() {
+  if (apiKey) {
+    var val = typeof apiKey === 'string' ? apiKey : apiKey.value || '';
+    navigator.clipboard.writeText(val).then(function() {
+      alert('API key copied to clipboard');
+    });
+  }
+}
+
+function startLogin() {
+  var state = 'auth_' + Math.random().toString(36).substring(2, 15);
+  sessionStorage.setItem('epi_auth_state', state);
+  window.location.href = '/api/auth/github/start?state=' + encodeURIComponent(state);
+}
+
+function updateNavAuth(isLoggedIn) {
+  var navAuth = document.getElementById('nav-auth');
+  if (!navAuth) return;
+  if (isLoggedIn && userData) {
+    navAuth.innerHTML = '<a href="/account">' + (userData.login || 'Account') + '</a>';
+  } else {
+    navAuth.innerHTML = '<a href="/account" class="nav-link-cta">Sign In</a>';
+  }
+}
+
+async function logout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch (e) {}
+  window.location.href = '/';
+}
+
+loadAccount();
+</script>
+</body>
+</html>

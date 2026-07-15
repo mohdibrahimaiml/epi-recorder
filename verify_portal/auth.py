@@ -241,8 +241,17 @@ async def handle_github_callback(
         url = f"{cli_redirect}{separator}token={bearer}&user_id={user['id']}&org={httpx.QueryParams({'org': user.get('org') or ''})}"
         return RedirectResponse(url)
 
-    # Browser-only flow: redirect to a simple success page.
-    return RedirectResponse(f"/auth/success?token={bearer}")
+    # Browser-only flow: redirect to the account page, setting the token as a cookie.
+    response = RedirectResponse("/account")
+    response.set_cookie(
+        key="epi_token",
+        value=bearer,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=int(timedelta(days=_TOKEN_TTL_DAYS).total_seconds()),
+    )
+    return response
 
 
 def init_auth_for_app(storage_dir: Path | str) -> None:

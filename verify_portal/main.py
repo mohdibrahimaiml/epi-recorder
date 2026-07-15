@@ -795,8 +795,10 @@ async def github_auth_callback(
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
-    """Return the authenticated user for a bearer token."""
+    """Return the authenticated user for a bearer token or session cookie."""
     token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        token = request.cookies.get("epi_token", "")
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     user = auth_module.verify_token(storage_dir, token)
     if not user:
@@ -811,11 +813,23 @@ async def auth_me(request: Request):
 
 @app.post("/api/auth/logout")
 async def auth_logout(request: Request):
-    """Revoke the current bearer token."""
+    """Revoke the current bearer token and clear the session cookie."""
     token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        token = request.cookies.get("epi_token", "")
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     auth_module.revoke_token(storage_dir, token)
-    return {"ok": True}
+    response = JSONResponse({"ok": True})
+    response.delete_cookie("epi_token")
+    return response
+
+
+@app.get("/account")
+async def account_page():
+    account_path = STATIC_DIR / "account.html"
+    if account_path.exists():
+        return FileResponse(account_path)
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 if STATIC_DIR.exists():
