@@ -1,8 +1,9 @@
-"""EPI billing module — Lemon Squeezy webhook, plan helpers."""
+"""EPI billing module — Paddle webhook handler, plan helpers."""
 import hashlib
 import hmac
 import json
 import os
+import secrets
 import sqlite3
 from pathlib import Path
 
@@ -10,102 +11,171 @@ from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
-LEMONSQUEEZY_WEBHOOK_SECRET = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
+PADDLE_API_KEY = os.getenv("PADDLE_API_KEY", "")
+PADDLE_WEBHOOK_SECRET = os.getenv("PADDLE_WEBHOOK_SECRET", "")
 
+# ── Database ────────────────────────────────────────────────────────
 
-def _billing_db_path(storage_dir):
+def _billing_db_path(storage_dir) -> Path:
     db_dir = Path(storage_dir) / "data"
     db_dir.mkdir(parents=True, exist_ok=True)
     return db_dir / "auth.db"
 
 
-def init_billing_columns(storage_dir):
+def init_billing_columns(storage_dir: str) -> None:
     db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
+    conn = sqlite3.connect(str(db))
     try:
-        c.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'")
+        conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'")
     except sqlite3.OperationalError:
         pass
     try:
-        c.execute("ALTER TABLE users ADD COLUMN customer_id TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN customer_id TEXT")
     except sqlite3.OperationalError:
         pass
-    c.commit()
-    c.close()
+    conn.commit()
+    conn.close()
 
 
-def get_user_plan(storage_dir, user_id):
+# ── Plan helpers ─────────────────────────────────────────────────────
+
+def get_user_plan(storage_dir: str, user_id: str) -> str:
     db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.row_factory = sqlite3.Row
-    r = c.execute("SELECT plan FROM users WHERE id = ?", (user_id,)).fetchone()
-    c.close()
-    return r["plan"] if r else "free"
+    conn = sqlite3.connect(str(db))
+    row = conn.execute("SELECT plan FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return row[0] if row else "free"
 
 
-def set_user_plan_by_email(storage_dir, email, *, plan, customer_id=None):
-    if not email:
-        return False
+def set_user_plan_by_customer_id(storage_dir: str, customer_id: str, plan: str) -> None:
     db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.execute(
-        "UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id) WHERE email = ?",
-        (plan, customer_id, email),
-    )
-    ok = c.total_changes > 0
-    c.commit()
-    c.close()
-    return ok
-
-
-def set_user_plan_by_customer_id(storage_dir, cid, *, plan):
-    db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.execute(
+    conn = sqlite3.connect(str(db))
+    conn.execute(
         "UPDATE users SET plan = ? WHERE customer_id = ?",
-        (plan, cid),
+        (plan, customer_id),
     )
-    ok = c.total_changes > 0
-    c.commit()
-    c.close()
-    return ok
+    conn.commit()
+    conn.close()
 
 
-@router.get("/api/stripe/payment-link")
-async def get_payment_link():
-    url = os.getenv("STRIPE_PAYMENT_LINK", "")
-    return {"url": url}
+def set_user_plan_by_email(storage_dir: str, email: str, plan: str) -> None:
+    db = _billing_db_path(storage_dir)
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "UPDATE users SET plan = ? WHERE email = ?",
+        (plan, email),
+    )
+    conn.commit()
+    conn.close()
 
 
-@router.post("/api/lemonsqueezy/webhook")
-async def lemonsqueezy_webhook(request: Request):
-    raw_body = await request.body()
-    signature = request.headers.get("x-signature", "")
-    digest = hmac.new(
-        LEMONSQUEEZY_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256
+# ── API key plan helpers ─────────────────────────────────────────────
+
+_PRO_MONTHLY_LIMIT = 10_000
+_ENTERPRISE_MONTHLY_LIMIT = 100_000
+
+
+def get_plan_rate_limit(plan: str) -> int | None:
+    if plan == "pro" or plan == "starter":
+        return _PRO_MONTHLY_LIMIT
+    if plan == "advanced":
+        return _ENTERPRISE_MONTHLY_LIMIT
+    return None
+
+
+# ── Paddle Webhook ───────────────────────────────────────────────────
+
+def _verify_paddle_signature(request: Request, body: bytes) -> bool:
+    if not PADDLE_WEBHOOK_SECRET:
+        return True
+    received = request.headers.get("paddle-signature", "")
+    expected = hmac.new(
+        PADDLE_WEBHOOK_SECRET.encode(),
+        body,
+        hashlib.sha256,
     ).hexdigest()
-    if not hmac.compare_digest(digest, signature):
+    return hmac.compare_digest(received, expected)
+
+
+@router.post("/api/paddle/webhook")
+async def paddle_webhook(request: Request) -> dict:
+    body = await request.body()
+
+    if not _verify_paddle_signature(request, body):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
-    event = json.loads(raw_body)
-    event_name = request.headers.get("x-event-name", "")
-    attrs = event.get("data", {}).get("attributes", {})
-    email = attrs.get("user_email")
-    customer_id = str(attrs.get("customer_id", ""))
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    storage_dir = os.getenv("EPI_STORAGE_DIR", "./data")
+    event_type = payload.get("event_type", "")
+    data = payload.get("data", {})
+
+    storage_dir = os.getenv("STORAGE_DIR", "./evidence_vault")
     init_billing_columns(storage_dir)
 
-    if event_name in ("subscription_created", "subscription_updated") and attrs.get(
-        "status"
-    ) == "active":
-        if email:
-            set_user_plan_by_email(
-                storage_dir, email, plan="pro", customer_id=customer_id
-            )
-
-    elif event_name in ("subscription_cancelled", "subscription_expired"):
+    if event_type == "subscription.activated":
+        customer_id = data.get("customer_id", "")
+        items = data.get("items", [])
+        plan = "starter"
+        for item in items:
+            price = item.get("price", {})
+            pid = price.get("id", "")
+            if "pro" in pid:
+                plan = "pro"
+            elif "advanced" in pid or "enterprise" in pid:
+                plan = "advanced"
         if customer_id:
-            set_user_plan_by_customer_id(storage_dir, customer_id, plan="free")
+            set_user_plan_by_customer_id(storage_dir, customer_id, plan)
+
+    elif event_type == "subscription.updated":
+        customer_id = data.get("customer_id", "")
+        status = data.get("status", "")
+        if status == "canceled":
+            set_user_plan_by_customer_id(storage_dir, customer_id, "free")
+
+    elif event_type == "subscription.canceled":
+        customer_id = data.get("customer_id", "")
+        if customer_id:
+            set_user_plan_by_customer_id(storage_dir, customer_id, "free")
 
     return {"status": "ok"}
+
+
+# ── Price lookup endpoint (server-side, no API key exposure) ─────────
+
+@router.get("/api/paddle/prices")
+async def paddle_prices(request: Request) -> dict:
+    env = os.getenv("PADDLE_ENV", "live")
+    if not env:
+        raise HTTPException(status_code=500, detail="PADDLE_ENV not configured")
+
+    price_ids = {
+        "starter": {
+            "month": os.getenv("PADDLE_PRICE_STARTER_MONTH", ""),
+            "year": os.getenv("PADDLE_PRICE_STARTER_YEAR", ""),
+        },
+        "pro": {
+            "month": os.getenv("PADDLE_PRICE_PRO_MONTH", ""),
+            "year": os.getenv("PADDLE_PRICE_PRO_YEAR", ""),
+        },
+        "advanced": {
+            "month": os.getenv("PADDLE_PRICE_ADVANCED_MONTH", ""),
+            "year": os.getenv("PADDLE_PRICE_ADVANCED_YEAR", ""),
+        },
+    }
+
+    return {
+        "price_ids": price_ids,
+        "client_token": os.getenv("PADDLE_CLIENT_TOKEN", ""),
+        "env": env,
+    }
+
+
+@router.get("/api/paddle/config")
+async def paddle_config() -> dict:
+    return {
+        "client_token": os.getenv("PADDLE_CLIENT_TOKEN", ""),
+        "env": os.getenv("PADDLE_ENV", "live"),
+    }

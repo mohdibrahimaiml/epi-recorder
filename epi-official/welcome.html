@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Welcome to EPI Labs</title>
+<meta name="description" content="Your EPI Labs subscription is active. Start building cryptographic evidence for your AI agents.">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="stylesheet" href="css/epi.css?v=25">
+<style>
+.welcome-main { max-width: 600px; margin: 0 auto; padding: 140px 24px 80px; text-align: center; }
+.welcome-main h1 { font-size: 2rem; color: var(--ink); margin: 0 0 12px; }
+.welcome-main p { color: var(--ink-soft); font-size: 1.05rem; line-height: 1.7; }
+.welcome-main .check-icon { font-size: 3rem; color: var(--verified); margin-bottom: 20px; }
+.welcome-next { margin-top: 40px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.welcome-next a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: .95rem; transition: all .15s; }
+.welcome-next a.primary { background: var(--accent); color: #fff; }
+.welcome-next a.primary:hover { background: var(--accent-lt); }
+.welcome-next a.secondary { background: transparent; color: var(--accent); border: 1.5px solid var(--accent-line); }
+.welcome-next a.secondary:hover { background: var(--accent-glow); }
+</style>
+</head>
+<body>
+<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="welcome-main">
+  <div class="check-icon">&#10003;</div>
+  <h1>You're all set.</h1>
+  <p>Your subscription is active. You now have access to hosted verification, API key access, and all features in your plan.</p>
+
+  <div class="welcome-next">
+    <a href="/api/keys" class="primary">Get your API key &#8594;</a>
+    <a href="/viewer/" class="secondary">Open Decision Ops viewer</a>
+    <a href="/verify/" class="secondary">Verify a .epi file</a>
+  </div>
+
+  <p style="margin-top:48px;font-size:.85rem;color:var(--ink-muted)">
+    Questions? Reach us at <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">mohdibrahim@epilabs.org</a>
+  </p>
+</main>
+
+<footer style="text-align:center;padding:60px 24px;border-top:1px solid var(--border)">
+  <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
+    &copy; 2026 EPI Labs &middot;
+    <a href="/terms" style="color:var(--accent)">Terms</a> &middot;
+    <a href="/privacy" style="color:var(--accent)">Privacy</a> &middot;
+    <a href="/refund" style="color:var(--accent)">Refunds</a>
+  </p>
+</footer>
+</body>
+</html>
