@@ -1,0 +1,13 @@
+/favicon.ico /favicon.ico 200
+/assets/* /assets/:splat 200
+/css/* /css/:splat 200
+/js/* /js/:splat 200
+/cases/* /cases/:splat 200
+/viewer/* /viewer/:splat 200
+/verify/* /verify/:splat 200
+/terms /terms.html 200
+/privacy /privacy.html 200
+/refund /refund.html 200
+/how-it-works /how-it-works.html 200
+/pricing /pricing.html 200
+/* /index.html 200
