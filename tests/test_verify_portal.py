@@ -46,6 +46,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
     # Disable in-memory rate limiting for tests.
     monkeypatch.setattr("verify_portal.main._check_rate_limit", lambda _ip: True)
+    # Disable SCITT tier gate for tests.
+    monkeypatch.setenv("PYTEST_RUNNING", "1")
     # Import here so env vars are patched first.
     from verify_portal.main import app
 
