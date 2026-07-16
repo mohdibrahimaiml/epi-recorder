@@ -2,7 +2,7 @@
 /api/* https://epi-verify-portal.onrender.com/api/:splat 200
 /scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
 /.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
-/account https://epi-verify-portal.onrender.com/account 200
+/account /account.html 200
 
 # Static assets — serve locally
 /favicon.ico /favicon.ico 200
