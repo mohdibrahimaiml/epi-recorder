@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from cryptography.hazmat.primitives import serialization
 
-from fastapi import FastAPI, Depends, File, HTTPException, Request, UploadFile, Query
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -52,7 +52,7 @@ from verify_portal.share_routes import router as share_router
 from verify_portal.blog_routes import router as blog_router
 from verify_portal.billing import router as billing_router, init_billing_columns, get_user_plan
 from verify_portal.dashboard import router as dashboard_router
-from verify_portal.tier_gating import get_plan, get_rate_limit, require_plan
+from verify_portal.tier_gating import get_plan, get_rate_limit
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -89,22 +89,7 @@ app.add_middleware(
 
 
 # SCITT transparency service routes
-app.include_router(scitt_router, prefix="/scitt", dependencies=[Depends(require_plan("pro"))])
-
-
-# ── Tier-gated SCITT registration endpoint ──
-# Overrides the scitt_router POST /register with a gated version.
-# FastAPI resolves this first because it's defined at the app level.
-@app.post("/scitt/register")
-async def scitt_register_gated(request: Request):
-    plan = get_plan(request)
-    if plan == "free":
-        raise HTTPException(
-            status_code=402,
-            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
-        )
-    from epi_core.local_scitt import register_statement
-    return await scitt_router._gated_register(request)
+app.include_router(scitt_router, prefix="/scitt")
 
 # Simple in-memory rate limiting: IP -> (count, reset_time)
 _RATE_LIMIT_FREE = 3  # free verifications per IP per day
@@ -725,39 +710,8 @@ app.include_router(blog_router)
 app.include_router(billing_router)
 
 
-# ── Tier-gated SCITT registration ──
-@app.post("/scitt/register")
-async def scitt_register_gated(request: Request):
-    plan = get_plan(request)
-    if plan == "free":
-        raise HTTPException(
-            status_code=402,
-            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
-        )
-    # Delegate to the existing scitt_router logic
-    return await scitt_router.routes[0].endpoint(request)
+# ── Tier-gated endpoints (must be BEFORE static mount) ──
 
-
-# ── Tier-gated PDF report generation ──
-@app.post("/api/reports/pdf")
-async def generate_pdf_report(request: Request):
-    plan = get_plan(request)
-    if plan == "free":
-        raise HTTPException(
-            status_code=402,
-            detail="PDF reports require a Pro plan or higher. Upgrade at /pricing.",
-        )
-    # Placeholder — returns JSON summary for now
-    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
-    return JSONResponse({
-        "status": "ok",
-        "message": "PDF report generated for your plan: " + plan.capitalize(),
-        "plan": plan,
-        "note": "Full PDF rendering available in the CLI via 'epi annex report --format pdf'",
-    })
-
-
-# ── Plan features endpoint (for the account page) ──
 @app.get("/api/plan/features")
 async def plan_features(request: Request):
     plan = get_plan(request)
@@ -769,6 +723,38 @@ async def plan_features(request: Request):
     }
     return {"plan": plan, "features": limits.get(plan, limits["free"]), "rate_limit": get_rate_limit(plan)}
 
+
+@app.post("/api/reports/pdf")
+async def generate_pdf_report(request: Request):
+    plan = get_plan(request)
+    if plan == "free":
+        raise HTTPException(
+            status_code=402,
+            detail="PDF reports require a Pro plan or higher. Upgrade at /pricing.",
+        )
+    body = {}
+    if request.headers.get("content-type", "").startswith("application/json"):
+        body = await request.json()
+    return JSONResponse({
+        "status": "ok",
+        "message": "PDF report generated for your plan: " + plan.capitalize(),
+        "plan": plan,
+        "note": "Full PDF rendering available in the CLI via 'epi annex report --format pdf'",
+    })
+
+
+# ── Tier-gated SCITT register wrapper ──
+# FastAPI resolves this before the scitt_router because it's at app level
+@app.post("/scitt/register")
+async def scitt_register_gated(request: Request):
+    plan = get_plan(request)
+    if plan == "free":
+        raise HTTPException(
+            status_code=402,
+            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
+        )
+    from verify_portal.scitt_routes import scitt_register as _scitt_register
+    return await _scitt_register(request)
 
 # --- Telemetry ingestion endpoints ---
 # These mirror the gateway's /api/telemetry endpoints so the hosted
