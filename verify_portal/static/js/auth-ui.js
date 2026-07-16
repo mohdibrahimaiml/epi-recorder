@@ -1,6 +1,9 @@
 // EPI Auth UI — injects sign-in/sign-out button into the nav on all pages
-// API calls go to the Render backend, token stored in localStorage
+// Does NOT run on /account page (that page manages its own nav)
 (function(){
+  // Skip on account page — it has its own auth handling
+  if (window.location.pathname === '/account') return;
+
   var API_BASE = 'https://epi-verify-portal.onrender.com';
   var navLinks = document.getElementById('navLinks');
   if (!navLinks) return;
@@ -16,20 +19,20 @@
       throw new Error('not logged in');
     })
     .then(function(user) {
-      var li = document.getElementById('nav-auth');
-      if (li) { li.innerHTML = '<a href="/account">' + (user.login || 'Account') + '</a>'; return; }
-      li = document.createElement('li');
+      if (document.getElementById('nav-auth')) return;
+      var li = document.createElement('li');
       li.id = 'nav-auth';
       var a = document.createElement('a');
       a.href = '/account';
       a.textContent = user.login || 'Account';
       li.appendChild(a);
+      var cta = navLinks.querySelector('.nav-link-cta');
+      if (cta) cta.remove();
       navLinks.appendChild(li);
     })
     .catch(function() {
-      var li = document.getElementById('nav-auth');
-      if (li) { li.innerHTML = '<a href="/account" class="nav-link-cta">Sign In</a>'; return; }
-      li = document.createElement('li');
+      if (document.getElementById('nav-auth')) return;
+      var li = document.createElement('li');
       li.id = 'nav-auth';
       var a = document.createElement('a');
       a.href = '/account';
