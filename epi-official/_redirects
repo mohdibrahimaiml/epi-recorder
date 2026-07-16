@@ -1,5 +1,11 @@
-# ── Routes that go to static files ──
-/account /account.html 200
+# ── API routes — proxy to Render backend ──
+# These must come FIRST to take priority over other rules
+/api/* https://epi-verify-portal.onrender.com/api/:splat 200
+/scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
+/.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
+
+# ── Static HTML pages ──
+/ /index.html 200
 /favicon.ico /favicon.ico 200
 /assets/* /assets/:splat 200
 /css/* /css/:splat 200
@@ -8,19 +14,13 @@
 /viewer/* /viewer/:splat 200
 /verify/* /verify/:splat 200
 
-# ── Legal pages ──
+# ── Page routes ──
 /terms /terms.html 200
 /privacy /privacy.html 200
 /refund /refund.html 200
-
-# ── Other static routes ──
 /how-it-works /how-it-works.html 200
 /pricing /pricing.html 200
+/account /account.html 200
 
-# ── API routes — proxy to Render ──
-/api/* https://epi-verify-portal.onrender.com/api/:splat 200
-/scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
-/.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
-
-# ── SPA fallback — everything else goes to index.html ──
+# ── SPA fallback — everything unmatched goes to the homepage ──
 /* /index.html 200
