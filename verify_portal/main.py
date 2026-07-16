@@ -88,21 +88,7 @@ app.add_middleware(
 )
 
 
-# SCITT transparency service routes
 app.include_router(scitt_router, prefix="/scitt")
-
-# Tier-gated SCITT register — overrides the scitt_router version
-# because app-level routes take priority over router sub-routes
-@app.post("/scitt/register")
-async def scitt_register_gated(request: Request):
-    plan = get_plan(request)
-    if plan == "free":
-        raise HTTPException(
-            status_code=402,
-            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
-        )
-    from verify_portal.scitt_routes import scitt_register as _scitt_register
-    return await _scitt_register(request)
 
 # Simple in-memory rate limiting: IP -> (count, reset_time)
 _RATE_LIMIT_FREE = 3  # free verifications per IP per day

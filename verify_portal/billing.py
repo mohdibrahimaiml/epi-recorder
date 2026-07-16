@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from starlette.responses import JSONResponse
 
 router = APIRouter()
 
