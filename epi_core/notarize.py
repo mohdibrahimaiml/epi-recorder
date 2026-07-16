@@ -44,11 +44,43 @@ class NotarizationResult:
         self.evidence: dict = {}
 
 
+def _build_rfc3161_query(digest_bytes: bytes) -> bytes:
+    """Build a DER-encoded RFC 3161 TimeStampReq (pure Python, no OpenSSL CLI needed).
+
+    Structure (no nonce, no certReq):
+      TimeStampReq ::= SEQUENCE {
+          version         INTEGER { v1(1) },
+          messageImprint  MessageImprint,
+      }
+    """
+    # SHA-256 OID = 2.16.840.1.101.3.4.2.1
+    sha256_oid = bytes.fromhex("0609608648016503040201")
+    null_param = bytes.fromhex("0500")
+    # AlgorithmIdentifier = SEQUENCE { algorithm OID, parameters NULL }
+    # content bytes: 11 (oid) + 2 (null) = 13 bytes = 0x0D
+    alg_id = bytes([0x30, 0x0D]) + sha256_oid + null_param  # 15 bytes total
+
+    # OCTET STRING wrapping 32-byte digest
+    octet_str = bytes([0x04, 0x20]) + digest_bytes  # 34 bytes total
+
+    # MessageImprint = SEQUENCE { hashAlgorithm AlgorithmIdentifier, hashedMessage OCTET STRING }
+    # content: algId(15) + octetStr(34) = 49 bytes = 0x31
+    msg_imprint = bytes([0x30, 0x31]) + alg_id + octet_str  # 51 bytes total
+
+    # INTEGER version = 1
+    version = bytes.fromhex("020101")  # 3 bytes
+
+    # TimeStampReq = SEQUENCE { version, messageImprint }
+    # content: version(3) + msgImprint(51) = 54 bytes = 0x36
+    return bytes([0x30, 0x36]) + version + msg_imprint  # 56 bytes total
+
+
 def _submit_rfc3161(digest_hex: str, tsa_url: str = DEFAULT_TSA_URL) -> Optional[bytes]:
     """
     Submit a SHA-256 digest to a Time Stamp Authority and return the .tsr token.
 
-    Uses openssl ts command-line tool (requires OpenSSL installed).
+    Pure Python implementation — builds the DER-encoded TimeStampReq directly.
+    No external CLI dependency.
     Returns None if timestamping is unavailable.
     """
     try:
@@ -58,61 +90,27 @@ def _submit_rfc3161(digest_hex: str, tsa_url: str = DEFAULT_TSA_URL) -> Optional
     except (ValueError, TypeError):
         return None
 
-    with tempfile.TemporaryDirectory() as td:
-        query_path = Path(td) / "tsa_query.tsq"
-        reply_path = Path(td) / "tsa_reply.tsr"
+    # Build the RFC 3161 TimeStampReq query
+    query_bytes = _build_rfc3161_query(digest_bytes)
 
-        # Generate the TS query
-        try:
-            subprocess.run(
-                [
-                    "openssl", "ts", "-query",
-                    "-data", "-",
-                    "-sha256",
-                    "-no_nonce",
-                    "-out", str(query_path),
-                ],
-                input=digest_bytes,
-                check=True,
-                capture_output=True,
-                timeout=10,
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            return None
+    # POST query to TSA, get reply
+    try:
+        resp = httpx.post(
+            tsa_url,
+            content=query_bytes,
+            headers={"Content-Type": "application/timestamp-query"},
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+    except (httpx.HTTPError, OSError):
+        return None
 
-        # POST query to TSA, get reply
-        try:
-            query_bytes = query_path.read_bytes()
-            resp = httpx.post(
-                tsa_url,
-                content=query_bytes,
-                headers={"Content-Type": "application/timestamp-query"},
-                timeout=30.0,
-            )
-            resp.raise_for_status()
-            reply_path.write_bytes(resp.content)
-        except (httpx.HTTPError, OSError):
-            return None
+    # Basic sanity: response should be DER-encoded PKCS#7 SignedData
+    token = resp.content
+    if len(token) < 10 or token[0] != 0x30:
+        return None
 
-        # Verify the reply is a valid timestamp token
-        try:
-            subprocess.run(
-                [
-                    "openssl", "ts", "-verify",
-                    "-data", "-",
-                    "-in", str(reply_path),
-                    "-CAfile", "/dev/null",  # Skip full chain verification
-                ],
-                input=digest_bytes,
-                check=True,
-                capture_output=True,
-                timeout=10,
-            )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            # Verification failed but we still return the token
-            pass
-
-        return reply_path.read_bytes()
+    return token
 
 
 def _submit_opentimestamps(digest_hex: str) -> tuple[Optional[bytes], str]:
