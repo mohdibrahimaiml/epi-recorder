@@ -85,7 +85,10 @@
 
     <div class="acct-card">
       <h3>API Key</h3>
-      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">Use this key with the EPI CLI and API for hosted verification and SCITT anchoring.</p>
+      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">
+        Use this key with the EPI CLI for hosted verification and SCITT anchoring.
+        <br><span style="color:var(--ink-dim);font-size:.78rem">Set it via <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">export EPI_API_KEY=epi_...</code> or pass <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">--api-key epi_...</code> to any <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">epi</code> command.</span>
+      </p>
       <div class="apikey-box" id="apikey-section" style="display:none">
         <span id="apikey-value">—</span>
         <button onclick="copyApiKey()">Copy</button>
