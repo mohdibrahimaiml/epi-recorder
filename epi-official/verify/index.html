@@ -60,11 +60,11 @@
   </div>
   <a href="/" class="back-link">&#8592; Back to EPI Labs</a>
 
-  <div id="plan-banner" style="display:none;margin-top:40px;padding:20px 24px;background:var(--accent-glow);border:1px solid var(--accent-line);border-radius:12px;text-align:center">
-    <span id="plan-banner-text" style="color:var(--ink-soft);font-size:.88rem;margin:0 0 8px;display:block">
-      Free tier: 3 verifications/day per IP.
-    </span>
-    <a href="/account" id="plan-banner-link" style="color:var(--accent);font-weight:600;font-size:.9rem">Sign in with GitHub →</a>
+  <div style="margin-top:40px;padding:20px 24px;background:var(--accent-glow);border:1px solid var(--accent-line);border-radius:12px;text-align:center">
+    <p style="color:var(--ink-soft);font-size:.88rem;margin:0 0 8px">
+      Free tier: 3 verifications/day per IP. <strong>Sign in to get 10K/month.</strong>
+    </p>
+    <a href="/account" style="color:var(--accent);font-weight:600;font-size:.9rem">Sign in with GitHub →</a>
   </div>
 </main>
 
@@ -103,44 +103,5 @@ async function handleFile(file){
 <script src="../js/theme.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/auth-ui.js"></script>
-<script>
-// ── Plan-aware verify banner ──
-(function(){
-  var banner = document.getElementById('plan-banner');
-  var bannerText = document.getElementById('plan-banner-text');
-  var bannerLink = document.getElementById('plan-banner-link');
-  if (!banner) return;
-
-  banner.style.display = 'block';
-
-  // Check cached user in localStorage first
-  var cached = localStorage.getItem('epi_user');
-  if (cached) {
-    try {
-      var user = JSON.parse(cached);
-      var plan = user.plan || 'free';
-      if (plan === 'free') {
-        bannerText.innerHTML = 'You are signed in as <strong>' + (user.login || 'user') + '</strong>. Free tier: <strong>100 verifications/month</strong>.';
-        bannerLink.textContent = 'Upgrade to Pro →';
-        bannerLink.href = '/pricing';
-      } else if (plan === 'pro') {
-        bannerText.innerHTML = 'Pro plan active. <strong>10,000 verifications/month.</strong>';
-        bannerLink.textContent = 'Manage Plan →';
-        bannerLink.href = '/account';
-      } else {
-        bannerText.innerHTML = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan active. Proceed with verification.';
-        bannerLink.textContent = 'Manage Plan →';
-        bannerLink.href = '/account';
-      }
-      return;
-    } catch(e) {}
-  }
-
-  // No cached user — show signed-out message
-  bannerText.innerHTML = 'Free tier: <strong>3 verifications/day</strong> per IP.';
-  bannerLink.textContent = 'Sign in with GitHub →';
-  bannerLink.href = '/account';
-})();
-</script>
 </body>
 </html>
