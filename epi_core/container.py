@@ -788,6 +788,7 @@ class EPIContainer:
                     arc_name = f"artifacts/notarization/{notary_file.name}"
                     if not any(item[1] == arc_name for item in files_to_pack):
                         files_to_pack.append((notary_file, arc_name))
+                        manifest.file_manifest[arc_name] = EPIContainer._compute_file_hash(notary_file)
         files_to_pack.sort(key=lambda item: item[1])
 
         # Now that signing is done (public_key is set), write the real VERIFY.txt.
