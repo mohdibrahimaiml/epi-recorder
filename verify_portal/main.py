@@ -756,18 +756,8 @@ async def generate_pdf_report(request: Request):
     })
 
 
-# ── Tier-gated SCITT register wrapper ──
-# FastAPI resolves this before the scitt_router because it's at app level
-@app.post("/scitt/register")
-async def scitt_register_gated(request: Request):
-    plan = get_plan(request)
-    if plan == "free":
-        raise HTTPException(
-            status_code=402,
-            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
-        )
-    from verify_portal.scitt_routes import scitt_register as _scitt_register
-    return await _scitt_register(request)
+# ── SCITT gate already defined at app level above the scitt_router include
+
 
 # --- Telemetry ingestion endpoints ---
 # These mirror the gateway's /api/telemetry endpoints so the hosted
