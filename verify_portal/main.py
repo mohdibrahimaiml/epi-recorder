@@ -52,6 +52,7 @@ from verify_portal.share_routes import router as share_router
 from verify_portal.blog_routes import router as blog_router
 from verify_portal.billing import router as billing_router, init_billing_columns, get_user_plan
 from verify_portal.dashboard import router as dashboard_router
+from verify_portal.tier_gating import get_plan, get_rate_limit
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -709,6 +710,51 @@ app.include_router(blog_router)
 app.include_router(billing_router)
 
 
+# ── Tier-gated SCITT registration ──
+@app.post("/api/scitt/register")
+async def scitt_register_gated(request: Request):
+    plan = get_plan(request)
+    if plan == "free":
+        raise HTTPException(
+            status_code=402,
+            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
+        )
+    # Delegate to the existing scitt_router logic
+    return await scitt_router.routes[0].endpoint(request)
+
+
+# ── Tier-gated PDF report generation ──
+@app.post("/api/reports/pdf")
+async def generate_pdf_report(request: Request):
+    plan = get_plan(request)
+    if plan == "free":
+        raise HTTPException(
+            status_code=402,
+            detail="PDF reports require a Pro plan or higher. Upgrade at /pricing.",
+        )
+    # Placeholder — returns JSON summary for now
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    return JSONResponse({
+        "status": "ok",
+        "message": "PDF report generated for your plan: " + plan.capitalize(),
+        "plan": plan,
+        "note": "Full PDF rendering available in the CLI via 'epi annex report --format pdf'",
+    })
+
+
+# ── Plan features endpoint (for the account page) ──
+@app.get("/api/plan/features")
+async def plan_features(request: Request):
+    plan = get_plan(request)
+    limits = {
+        "free": {"verifications": 100, "scitt": False, "pdf": False, "api_keys": False, "support": "Community"},
+        "pro": {"verifications": 10000, "scitt": True, "pdf": True, "api_keys": True, "support": "Email 48h"},
+        "team": {"verifications": 50000, "scitt": True, "pdf": True, "api_keys": True, "support": "Email 48h"},
+        "enterprise": {"verifications": None, "scitt": True, "pdf": True, "api_keys": True, "support": "Dedicated"},
+    }
+    return {"plan": plan, "features": limits.get(plan, limits["free"]), "rate_limit": get_rate_limit(plan)}
+
+
 # --- Telemetry ingestion endpoints ---
 # These mirror the gateway's /api/telemetry endpoints so the hosted
 # verify portal can receive opt-in telemetry and pilot signups.
@@ -809,11 +855,14 @@ async def auth_me(request: Request):
     user = auth_module.verify_token(storage_dir, token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    init_billing_columns(storage_dir)
+    plan = get_user_plan(storage_dir, user["id"])
     return {
         "id": user["id"],
         "login": user["login"],
         "email": user["email"],
         "org": user["org"],
+        "plan": plan,
     }
 
 

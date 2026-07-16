@@ -76,6 +76,7 @@
         <span id="plan-badge" class="plan-badge free">Free</span>
         <a href="/pricing" class="acct-btn secondary" id="upgrade-link">Upgrade</a>
       </div>
+      <div id="plan-features" style="margin-top:16px;display:none"></div>
     </div>
 
     <div class="acct-card">
@@ -196,6 +197,33 @@ async function loadPlan() {
     var up = document.getElementById('upgrade-link');
     if (up) up.style.display = 'none';
   }
+
+  // Load plan features
+  try {
+    var r = await fetch(API_BASE + '/api/plan/features', {
+      credentials: 'include',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
+    });
+    if (r.ok) {
+      var f = await r.json();
+      var feat = f.features || {};
+      var list_items = [
+        { k: 'Hosted verifications', v: feat.verifications ? feat.verifications.toLocaleString() + '/mo' : 'Unlimited' },
+        { k: 'SCITT Remote Anchoring', v: feat.scitt ? 'Enabled' : '—' },
+        { k: 'PDF Reports', v: feat.pdf ? 'Enabled' : '—' },
+        { k: 'API Keys', v: feat.api_keys ? 'Enabled' : '—' },
+        { k: 'Support', v: feat.support || 'Community' },
+      ];
+      var html = '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">';
+      for (var i = 0; i < list_items.length; i++) {
+        var item = list_items[i];
+        html += '<li style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--ink-soft)">' + item.k + '</span><span style="color:var(--ink);font-weight:500">' + item.v + '</span></li>';
+      }
+      html += '</ul>';
+      var el = document.getElementById('plan-features');
+      if (el) { el.innerHTML = html; el.style.display = 'block'; }
+    }
+  } catch (e) {}
 }
 
 async function loadApiKeys() {
