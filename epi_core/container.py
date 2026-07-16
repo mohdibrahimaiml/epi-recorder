@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import shutil
 import struct
 import tempfile
@@ -717,6 +718,11 @@ class EPIContainer:
                 if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
                     continue
 
+                # Include notarization artifacts — they are embedded at seal time
+                if arc_name.startswith("artifacts/"):
+                    files_to_pack.append((file_path, arc_name))
+                    continue
+
                 # SCITT artifacts are verified cryptographically, not via file_manifest
                 if arc_name.startswith("artifacts/scitt/"):
                     files_to_pack.append((file_path, arc_name))
@@ -753,6 +759,33 @@ class EPIContainer:
         if signer_function:
             manifest = signer_function(manifest)
 
+        # ── Notarization (Tier 1: RFC 3161, Tier 2: OpenTimestamps/Bitcoin) ──
+        notarize_enabled = os.environ.get("EPI_NOTARIZE", "1").strip().lower() not in (
+            "0", "false", "no", "off",
+        )
+        notarization_result = None
+        if notarize_enabled:
+            try:
+                from epi_core.notarize import embed_notarization, notarize_manifest
+                from epi_core.serialize import get_canonical_hash
+
+                # Compute canonical hash of the unsigned manifest
+                unsigned_manifest = manifest.model_dump(mode="json")
+                unsigned_manifest.pop("signature", None)
+                canonical_hash = get_canonical_hash(
+                    manifest, exclude_fields=["signature"],
+                )
+                if canonical_hash:
+                    notarization_result = notarize_manifest(
+                        json.dumps(unsigned_manifest, sort_keys=True),
+                        canonical_hash,
+                    )
+                    embed_notarization(source_dir, notarization_result)
+            except Exception as _ne:
+                import sys as _sys
+                print(f"[EPI] Notarization unavailable ({_ne}), sealing without timestamp anchor", file=_sys.stderr)
+
+        # Now that signing is done (public_key is set), write the real VERIFY.txt.
         # Now that signing is done (public_key is set), write the real VERIFY.txt.
         gov_info_post = manifest.governance or {}
         did_line = f"DID:           {gov_info_post.get('did')}\n" if gov_info_post.get("did") else ""
