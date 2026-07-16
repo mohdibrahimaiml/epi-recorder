@@ -52,8 +52,11 @@
 </nav>
 
 <main class="acct-main">
-  <!-- UNAUTHENTICATED — shown when no token exists -->
-  <div id="login-prompt">
+  <noscript><p style="text-align:center;padding:40px;color:var(--tamper)">JavaScript is required to sign in and manage your account.</p></noscript>
+
+  <div id="state-loading" class="acct-loading">Checking your session…</div>
+
+  <div id="state-signin" style="display:none">
     <div class="signin-hero">
       <h2 style="font-size:1.6rem;color:var(--ink);margin-bottom:8px">Sign in to manage your account</h2>
       <p style="color:var(--ink-soft);margin-bottom:28px;font-size:.95rem">Use GitHub to sign in. We only ask for your public profile and email.</p>
@@ -62,11 +65,12 @@
     </div>
   </div>
 
-  <!-- LOADING — shown while checking auth -->
-  <div id="loading" class="acct-loading" style="display:none">Checking your session…</div>
+  <div id="state-error" style="display:none;text-align:center;padding:40px 0">
+    <p style="color:var(--tamper);font-size:.95rem;margin-bottom:12px" id="error-text">Something went wrong.</p>
+    <button class="signin-btn" onclick="location.reload()">Try Again</button>
+  </div>
 
-  <!-- AUTHENTICATED ACCOUNT -->
-  <div id="account-content" style="display:none">
+  <div id="state-account" style="display:none">
     <h1 id="acct-name">Your Account</h1>
     <p class="subtitle">Manage your subscription, API keys, and settings.</p>
 
@@ -131,18 +135,15 @@ var loggedIn = false;
 async function loadAccount() {
   var token = localStorage.getItem('epi_token');
 
-  // No token = show signin immediately, no loading flash
+  // No token → show signin
   if (!token) {
-    document.getElementById('login-prompt').style.display = 'block';
-    document.getElementById('loading').style.display = 'none';
+    showState('signin');
     updateNav(false);
     return;
   }
 
-  // Have a token — show loading while we verify
-  document.getElementById('login-prompt').style.display = 'none';
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('account-content').style.display = 'none';
+  // Have token → show loading while we verify
+  showState('loading');
 
   try {
     var r = await fetch(API_BASE + '/api/auth/me', {
@@ -151,18 +152,15 @@ async function loadAccount() {
     });
 
     if (r.status === 401 || !r.ok) {
-      // Token expired or invalid — clear and show signin
       localStorage.removeItem('epi_token');
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('login-prompt').style.display = 'block';
+      showState('signin');
       updateNav(false);
       return;
     }
 
     userData = await r.json();
     loggedIn = true;
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('account-content').style.display = 'block';
+    showState('account');
     updateNav(true);
 
     document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
@@ -174,16 +172,21 @@ async function loadAccount() {
     await loadPlan();
     await loadApiKeys();
   } catch (e) {
-    // Network error — keep token, show helpful message
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('login-prompt').style.display = 'block';
+    showState('signin');
     updateNav(false);
   }
 }
 
+function showState(state) {
+  document.getElementById('state-loading').style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('state-signin').style.display = state === 'signin' ? 'block' : 'none';
+  document.getElementById('state-error').style.display = state === 'error' ? 'block' : 'none';
+  document.getElementById('state-account').style.display = state === 'account' ? 'block' : 'none';
+}
+
 function showError(msg) {
-  var el = document.getElementById('error-msg');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  document.getElementById('error-text').textContent = msg;
+  showState('error');
 }
 
 async function loadPlan() {
