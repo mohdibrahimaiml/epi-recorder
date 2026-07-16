@@ -144,6 +144,11 @@ var loggedIn = false;
 
 async function loadAccount() {
   var token = localStorage.getItem('epi_token');
+  var cached = localStorage.getItem('epi_user');
+  var userFromCache = null;
+  if (cached) {
+    try { userFromCache = JSON.parse(cached); } catch(e) {}
+  }
 
   // No token → show signin
   if (!token) {
@@ -152,59 +157,62 @@ async function loadAccount() {
     return;
   }
 
-  // Try to decode user from localStorage (set during redirect from Render)
-  // This avoids cross-origin fetch issues between epilabs.org and Render
-  var cached = localStorage.getItem('epi_user');
-  if (cached) {
-    try {
-      userData = JSON.parse(cached);
-      loggedIn = true;
-      showState('account');
-      updateNav(true);
-      document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
-      document.getElementById('acct-email').textContent = userData.email || '';
-      if (userData.org) {
-        document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
-      }
-      await loadPlan();
-      await loadApiKeys();
-      return;
-    } catch(e) {}
-  }
-
-  // Have token → try to verify via Render
-  showState('loading');
-
-  try {
-    var r = await fetch(API_BASE + '/api/auth/me', {
-      credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-
-    if (r.status === 401 || !r.ok) {
-      localStorage.removeItem('epi_token');
-      showState('signin');
-      updateNav(false);
-      return;
-    }
-
-    userData = await r.json();
+  // If we already have user data in localStorage, show immediately
+  // Then verify in background — this avoids Render cold-start delays
+  if (userFromCache) {
+    userData = userFromCache;
     loggedIn = true;
     showState('account');
     updateNav(true);
-
     document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
     document.getElementById('acct-email').textContent = userData.email || '';
     if (userData.org) {
       document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
     }
+    loadPlan();
+    loadApiKeys();
+    // Background verify — silently re-validate token on Render
+    verifyInBackground(token);
+    return;
+  }
 
-    await loadPlan();
-    await loadApiKeys();
+  // No cached user data — show loading while Render wakes up
+  showState('loading');
+  try {
+    await verifyAndLoadUser(token);
   } catch (e) {
     showState('signin');
     updateNav(false);
   }
+}
+
+async function verifyAndLoadUser(token) {
+  var r = await fetch(API_BASE + '/api/auth/me', {
+    credentials: 'include',
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (r.status === 401 || !r.ok) {
+    localStorage.removeItem('epi_token');
+    throw new Error('invalid token');
+  }
+  userData = await r.json();
+  localStorage.setItem('epi_user', JSON.stringify(userData));
+  loggedIn = true;
+  showState('account');
+  updateNav(true);
+  document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
+  document.getElementById('acct-email').textContent = userData.email || '';
+  if (userData.org) {
+    document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
+  }
+  await loadPlan();
+  await loadApiKeys();
+}
+
+async function verifyInBackground(token) {
+  try {
+    await verifyAndLoadUser(token);
+  } catch(e) { /* token expired — will be handled on next full load */ }
 }
 
 function showState(state) {
@@ -315,6 +323,7 @@ function copyApiKey() {
 }
 
 function startLogin() {
+  showState('loading');
   var state = 'auth_' + Math.random().toString(36).substring(2, 15);
   sessionStorage.setItem('epi_auth_state', state);
   window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
