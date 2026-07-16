@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from cryptography.hazmat.primitives import serialization
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Query
+from fastapi import FastAPI, Depends, File, HTTPException, Request, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -52,7 +52,7 @@ from verify_portal.share_routes import router as share_router
 from verify_portal.blog_routes import router as blog_router
 from verify_portal.billing import router as billing_router, init_billing_columns, get_user_plan
 from verify_portal.dashboard import router as dashboard_router
-from verify_portal.tier_gating import get_plan, get_rate_limit
+from verify_portal.tier_gating import get_plan, get_rate_limit, require_plan
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -89,7 +89,22 @@ app.add_middleware(
 
 
 # SCITT transparency service routes
-app.include_router(scitt_router, prefix="/scitt")
+app.include_router(scitt_router, prefix="/scitt", dependencies=[Depends(require_plan("pro"))])
+
+
+# ── Tier-gated SCITT registration endpoint ──
+# Overrides the scitt_router POST /register with a gated version.
+# FastAPI resolves this first because it's defined at the app level.
+@app.post("/scitt/register")
+async def scitt_register_gated(request: Request):
+    plan = get_plan(request)
+    if plan == "free":
+        raise HTTPException(
+            status_code=402,
+            detail="SCITT remote anchoring requires a Pro plan or higher. Upgrade at /pricing.",
+        )
+    from epi_core.local_scitt import register_statement
+    return await scitt_router._gated_register(request)
 
 # Simple in-memory rate limiting: IP -> (count, reset_time)
 _RATE_LIMIT_FREE = 3  # free verifications per IP per day
@@ -711,7 +726,7 @@ app.include_router(billing_router)
 
 
 # ── Tier-gated SCITT registration ──
-@app.post("/api/scitt/register")
+@app.post("/scitt/register")
 async def scitt_register_gated(request: Request):
     plan = get_plan(request)
     if plan == "free":

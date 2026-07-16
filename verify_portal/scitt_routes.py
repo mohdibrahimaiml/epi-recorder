@@ -40,7 +40,7 @@ from epi_core.scitt import (
     parse_scitt_statement,
 )
 
-router = APIRouter()
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 # ─────────────────────────────────────────────────────────────
 # Key loading
