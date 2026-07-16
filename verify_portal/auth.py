@@ -242,9 +242,18 @@ async def handle_github_callback(
         url = f"{cli_redirect}{separator}token={bearer}&user_id={user['id']}&org={httpx.QueryParams({'org': user.get('org') or ''})}"
         return RedirectResponse(url)
 
-    # Browser-only flow: redirect back to epilabs.org with the token in the URL
-    # so the frontend can store it in localStorage (cross-domain cookie won't work)
-    response = RedirectResponse(f"https://epilabs.org/account#token={bearer}")
+    # Browser-only flow: redirect back to epilabs.org with user info encoded
+    import base64 as _b64, json as _json
+    user_payload = {"login": user["login"], "email": user.get("email",""), "org": user.get("org",""), "plan": "free"}
+    try:
+        from verify_portal.billing import init_billing_columns, get_user_plan
+        storage_dir_path = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+        init_billing_columns(str(storage_dir_path))
+        user_payload["plan"] = get_user_plan(str(storage_dir_path), user["id"])
+    except Exception:
+        pass
+    user_b64 = _b64.urlsafe_b64encode(_json.dumps(user_payload).encode()).decode()
+    response = RedirectResponse(f"https://epilabs.org/account#token={bearer}&user={user_b64}")
     return response
 
 

@@ -125,9 +125,19 @@ var loggedIn = false;
 // Check if token came via redirect and clean the URL
 (function() {
   var hash = window.location.hash;
-  if (hash && hash.indexOf('token=') === 1) {
-    var token = hash.substring(7).split('&')[0];
-    localStorage.setItem('epi_token', token);
+  if (!hash) return;
+  if (hash.indexOf('token=') === 1) {
+    var parts = hash.substring(1).split('&');
+    for (var i = 0; i < parts.length; i++) {
+      var kv = parts[i].split('=');
+      if (kv[0] === 'token' && kv[1]) { localStorage.setItem('epi_token', kv[1]); }
+      if (kv[0] === 'user' && kv[1]) {
+        try {
+          var user = JSON.parse(atob(kv[1].replace(/-/g,'+').replace(/_/g,'/')));
+          localStorage.setItem('epi_user', JSON.stringify(user));
+        } catch(e) {}
+      }
+    }
     history.replaceState(null, '', '/account');
   }
 })();
@@ -142,7 +152,27 @@ async function loadAccount() {
     return;
   }
 
-  // Have token → show loading while we verify
+  // Try to decode user from localStorage (set during redirect from Render)
+  // This avoids cross-origin fetch issues between epilabs.org and Render
+  var cached = localStorage.getItem('epi_user');
+  if (cached) {
+    try {
+      userData = JSON.parse(cached);
+      loggedIn = true;
+      showState('account');
+      updateNav(true);
+      document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
+      document.getElementById('acct-email').textContent = userData.email || '';
+      if (userData.org) {
+        document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
+      }
+      await loadPlan();
+      await loadApiKeys();
+      return;
+    } catch(e) {}
+  }
+
+  // Have token → try to verify via Render
   showState('loading');
 
   try {
