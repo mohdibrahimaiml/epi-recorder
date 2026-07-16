@@ -718,11 +718,6 @@ class EPIContainer:
                 if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
                     continue
 
-                # Include notarization artifacts — they are embedded at seal time
-                if arc_name.startswith("artifacts/"):
-                    files_to_pack.append((file_path, arc_name))
-                    continue
-
                 # SCITT artifacts are verified cryptographically, not via file_manifest
                 if arc_name.startswith("artifacts/scitt/"):
                     files_to_pack.append((file_path, arc_name))
@@ -784,6 +779,16 @@ class EPIContainer:
             except Exception as _ne:
                 import sys as _sys
                 print(f"[EPI] Notarization unavailable ({_ne}), sealing without timestamp anchor", file=_sys.stderr)
+
+        # Append any notarization files written after the file-walking loop
+        notary_dir = source_dir / "artifacts" / "notarization"
+        if notary_dir.is_dir():
+            for notary_file in sorted(notary_dir.iterdir()):
+                if notary_file.is_file():
+                    arc_name = f"artifacts/notarization/{notary_file.name}"
+                    if not any(item[1] == arc_name for item in files_to_pack):
+                        files_to_pack.append((notary_file, arc_name))
+        files_to_pack.sort(key=lambda item: item[1])
 
         # Now that signing is done (public_key is set), write the real VERIFY.txt.
         # Now that signing is done (public_key is set), write the real VERIFY.txt.
