@@ -1,0 +1,13 @@
+name: Keep Render Warm
+
+on:
+  schedule:
+    - cron: '0 */1 * * *'   # every hour (only 24 pings/day = 0.8 hrs/month)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        run: curl -sf https://epi-verify-portal.onrender.com/health || echo "Render starting up..."

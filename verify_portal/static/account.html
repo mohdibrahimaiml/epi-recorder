@@ -327,6 +327,10 @@ function copyApiKey() {
 
 function startLogin() {
   showState('loading');
+  var loadEl = document.getElementById('state-loading');
+  if (loadEl) {
+    loadEl.innerHTML = 'Waking up the server… <br><small style="color:var(--ink-dim);font-size:.8rem">Free tier takes ~30 seconds on first load. It will be faster next time.</small>';
+  }
   var state = 'auth_' + Math.random().toString(36).substring(2, 15);
   sessionStorage.setItem('epi_auth_state', state);
   window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
