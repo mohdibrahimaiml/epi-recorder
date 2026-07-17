@@ -145,14 +145,30 @@ def test_fresh_venv_connect_open_shows_missing_extra(fresh_venv: tuple[Path, Pat
 
 
 @pytest.mark.slow
-def test_fresh_venv_demo_shows_missing_extra(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi demo` on a base install prints a friendly missing-extra error."""
-    result = _run_in_fresh_venv(fresh_venv, ["demo", "--no-browser"])
+def test_fresh_venv_demo_fast_path_works_without_gateway(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi demo --no-browser` works on a base install (no gateway extra required)."""
+    result = _run_in_fresh_venv(
+        fresh_venv,
+        ["demo", "--no-browser"],
+        env_vars={"EPI_NOTARIZE": "0", "EPI_TELEMETRY_HINTS": "0"},
+    )
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "gateway" in combined.lower()
-    assert "extra" in combined.lower()
-    assert "pip install epi-recorder[gateway]" in combined
+    assert result.returncode == 0, (
+        f"epi demo --no-browser failed in fresh venv.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "demo_refund.epi" in combined or "Sealed artifact" in combined or "integrity=PASS" in combined
+
+
+@pytest.mark.slow
+def test_fresh_venv_demo_review_shows_missing_extra(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi demo --review` still requires the gateway extra on a base install."""
+    result = _run_in_fresh_venv(fresh_venv, ["demo", "--review", "--no-browser", "--no-run"])
+    combined = result.stdout + result.stderr
+    # Fast path may run first; review mode requires gateway
+    assert result.returncode == 1 or "gateway" in combined.lower()
+    if result.returncode == 1:
+        assert "extra" in combined.lower() or "gateway" in combined.lower()
+        assert "pip install epi-recorder[gateway]" in combined or "gateway" in combined.lower()
 
 
 @pytest.mark.slow

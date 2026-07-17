@@ -7,6 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
+[![Version v4.3.0](https://img.shields.io/badge/version-v4.3.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
@@ -99,7 +100,8 @@ API keys in prompts/headers are **redacted automatically** before they land in t
 
 ## What a `.epi` file is
 
-A polyglot **HTML + ZIP** container you can email, archive, or open offline:
+Every `.epi` uses the **Envelope v2** container format — a **polyglot HTML+ZIP**
+binary that opens natively in any browser and can be extracted programmatically.
 
 ```text
 demo.epi
@@ -171,7 +173,9 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](docs/FRAMEWORK-INTEGRATIONS-5-M
 
 ## Standards & compliance
 
-EPI produces **evidence files** that help with audit trails. It is **not** a compliance certificate or legal advice.
+EPI produces **evidence files** that help with audit trails. It is **not a compliance guarantee**
+and **does not provide legal advice**. Whether evidence satisfies a specific regulatory threshold
+is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|

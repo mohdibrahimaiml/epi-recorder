@@ -271,25 +271,64 @@ def test_contact_endpoint(client):
     assert r.status_code == 200  
     assert r.json()["status"] == "ok"  
   
-def test_create_api_key(client):  
-    r = client.post("/api/keys", json={"tier": "free", "name": "test"})  
-    assert r.status_code == 200  
-    d = r.json()  
-    assert d["tier"] == "free"  
-    assert d["api_key"].startswith("epi_")  
-  
+def _auth_bearer(tmp_path, monkeypatch, *, plan: str = "free", login: str = "portaluser") -> dict[str, str]:
+    """Create a durable auth user+token and return Authorization headers."""
+    from verify_portal import auth as auth_module
 
-def test_list_api_keys(client):  
-    r = client.get("/api/keys")  
-    assert r.status_code == 200  
-    assert "keys" in r.json()  
-  
-def test_verify_with_pro_key(client, valid_epi):  
-    r = client.post("/api/keys", json={"tier": "pro", "name": "p"})  
-    assert r.status_code == 200  
-    key = r.json()["api_key"]  
-    with open(valid_epi, "rb") as f:  
-        r2 = client.post("/api/verify", files={"file": ("test.epi", f, "application/epi+zip")}, headers={"X-API-Key": key})  
+    monkeypatch.setenv("EPI_STORAGE_DIR", str(tmp_path))
+    auth_module.init_auth_db(tmp_path)
+    conn = auth_module._connect(tmp_path)
+    uid = f"usr_{login}"
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO users
+        (id, github_id, login, email, org, plan, customer_id, avatar_url, created_at, updated_at)
+        VALUES (?, ?, ?, ?, '', ?, NULL, '', datetime('now'), datetime('now'))
+        """,
+        (uid, f"gh_{login}", login, f"{login}@example.com", plan),
+    )
+    conn.commit()
+    conn.close()
+    token = auth_module.create_token(tmp_path, uid)
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_api_key(client, tmp_path, monkeypatch):
+    headers = _auth_bearer(tmp_path, monkeypatch, plan="free")
+    r = client.post("/api/keys", json={"name": "test"}, headers=headers)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["tier"] == "free"
+    assert d["api_key"].startswith("epi_")
+
+
+def test_list_api_keys(client, tmp_path, monkeypatch):
+    headers = _auth_bearer(tmp_path, monkeypatch, plan="free", login="lister")
+    # create one first
+    assert client.post("/api/keys", json={"name": "k1"}, headers=headers).status_code == 200
+    r = client.get("/api/keys", headers=headers)
+    assert r.status_code == 200
+    assert "keys" in r.json()
+    assert len(r.json()["keys"]) >= 1
+
+
+def test_create_api_key_requires_auth(client):
+    r = client.post("/api/keys", json={"name": "anon"})
+    assert r.status_code == 401
+
+
+def test_verify_with_pro_key(client, valid_epi, tmp_path, monkeypatch):
+    headers = _auth_bearer(tmp_path, monkeypatch, plan="pro", login="prouser")
+    r = client.post("/api/keys", json={"name": "p"}, headers=headers)
+    assert r.status_code == 200
+    key = r.json()["api_key"]
+    with open(valid_epi, "rb") as f:
+        r2 = client.post(
+            "/api/verify",
+            files={"file": ("test.epi", f, "application/epi+zip")},
+            headers={"X-API-Key": key},
+        )
+    assert r2.status_code == 200 
 
 
 # ---------------------------------------------------------------------------

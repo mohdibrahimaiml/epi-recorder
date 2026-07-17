@@ -170,7 +170,8 @@ _PRO_MONTHLY_LIMIT = 10_000
 _ENTERPRISE_MONTHLY_LIMIT = 100_000
 
 
-def _increment_and_check_usage(key_hash: str) -> bool:
+def _increment_and_check_usage(key_hash: str, limit: int | None = None) -> bool:
+    """Increment monthly usage; return False if over limit. limit=None means unlimited."""
     now = time.time()
     now_dt = datetime.fromtimestamp(now, tz=UTC)
     year, month = now_dt.year, now_dt.month
@@ -180,7 +181,8 @@ def _increment_and_check_usage(key_hash: str) -> bool:
         (key_hash, year, month),
     ).fetchone()
     current = row["count"] if row else 0
-    if current >= _PRO_ENTERPRISE_MONTHLY_LIMIT:  # legacy ref, replaced below
+    cap = limit if limit is not None else _PRO_MONTHLY_LIMIT
+    if current >= cap:
         return False
     db.execute(
         "INSERT OR REPLACE INTO api_usage (key_hash, year, month, count) VALUES (?, ?, ?, ?)",
@@ -523,7 +525,7 @@ async def verify(
             if api_key_hdr.startswith("epi_"):
                 kh = hashlib.sha256(api_key_hdr.encode()).hexdigest()
                 limit = _PRO_MONTHLY_LIMIT if tier == "pro" else _ENTERPRISE_MONTHLY_LIMIT
-                if not _increment_and_check_usage(kh):
+                if not _increment_and_check_usage(kh, limit=limit):
                     raise HTTPException(
                         status_code=429,
                         detail=f"Monthly limit reached ({limit:,} verifications). Contact support@epilabs.org to increase.",
