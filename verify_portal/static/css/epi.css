@@ -180,6 +180,17 @@ section{padding:var(--section-pad) 0;position:relative}
 .terminal-cursor{display:inline-block;width:8px;height:17px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:blink 0.8s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
+/* ── HOW TO USE ── */
+.steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(24px,3vw,40px);margin-top:48px}
+.use-step{position:relative;display:flex;flex-direction:column;border:2px solid var(--ink);border-radius:var(--radius);background:#1a1a1e;overflow:hidden;transition:all 0.35s var(--ease);color:#e0e0e0}
+.use-step h3{color:#ffffff}
+.use-step p{color:#a0a0a8}
+.use-step .pillar-deco{background:#0f0f13;margin:20px 20px 0;padding:18px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);color:#ffffff;font-size:0.76rem;line-height:1.8;opacity:1;height:auto}
+.use-step:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.use-step-number{font-family:var(--mono);font-size:clamp(2.8rem,5vw,4rem);font-weight:700;color:#ffffff;line-height:1;padding:28px 28px 0;opacity:0.12}
+.use-step-badge{position:absolute;top:28px;right:28px;font-family:var(--mono);font-size:0.68rem;color:#a0a0a8;background:rgba(255,255,255,0.06);padding:4px 12px;border-radius:100px;font-weight:500;border:1px solid rgba(255,255,255,0.1)}
+@media(max-width:680px){.steps-grid{grid-template-columns:1fr}}
+
 /* ── THREE PILLARS ── */
 .pillars-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:60px}
 .pillar{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform 0.4s var(--ease),border-color 0.4s var(--ease);display:flex;flex-direction:column}

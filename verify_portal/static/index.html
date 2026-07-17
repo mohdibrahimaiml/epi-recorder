@@ -37,11 +37,11 @@
   "operatingSystem": "Cross-platform",
   "description": "Cryptographic evidence recording and verification framework for AI agents. Ed25519 signatures, SHA-256 integrity, SCITT transparency.",
   "url": "https://epilabs.org",
-  "offers": [
-    { "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Open Source" },
-    { "@type": "Offer", "price": "19", "priceCurrency": "USD", "name": "Pro", "unitText": "/month" },
-    { "@type": "Offer", "price": "499", "priceCurrency": "USD", "name": "Team", "unitText": "/month" }
-  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
   "author": {
     "@type": "Organization",
     "name": "EPI Labs",
@@ -62,7 +62,7 @@
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
-      <li><a href="/account" class="nav-link-cta">Get Started</a></li>
+      <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
       <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode" title="Toggle dark mode"></button></li>
     </ul>
     <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
@@ -71,7 +71,7 @@
 <div class="mob-menu" id="mobMenu">
   <a href="/how-it-works">How It Works</a><a href="/verify/">Verify</a><a href="/pricing">Pricing</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="/account">Get Started</a>
+  <a href="#cta">Get Started</a>
 </div>
 
 <!-- ═══ HERO ═══ -->
@@ -159,7 +159,7 @@ client = <span class="pillar-deco-a">wrap_openai</span>(OpenAI())
 <span class="pillar-deco-g">$</span> epi verify agent.epi
 <span class="pillar-deco-g">$</span> epi share agent.epi
         </div>
-        <div class="pillar-content"><h3>Record, View, Verify, Share</h3><p>Run your script. Open the sealed .epi in any browser. Verify integrity offline. Share a hosted link — all from the CLI.</p><div style="margin-top:16px"><a href="/account" class="btn btn-sm btn-primary">Sign in for hosted features →</a></div></div>
+        <div class="pillar-content"><h3>Record, View, Verify, Share</h3><p>Run your script. Open the sealed .epi in any browser. Verify integrity offline. Share a hosted link — all from the CLI.</p></div>
       </div>
     </div>
   </div>
@@ -474,7 +474,6 @@ pip install epi-recorder
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
       <li><a href="viewer/">Decision Ops</a></li>
-      <li><a href="#use">How to Use</a></li>
       <li><a href="/terms">Terms of Service</a></li>
       <li><a href="/privacy">Privacy Policy</a></li>
       <li><a href="/refund">Refund Policy</a></li>

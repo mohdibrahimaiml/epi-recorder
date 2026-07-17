@@ -22,5 +22,16 @@
 /pricing /pricing.html 200
 /account /account.html 200
 
+# ── Protect HTML files from the catch-all ──
+/index.html /index.html 200
+/account.html /account.html 200
+/pricing.html /pricing.html 200
+/terms.html /terms.html 200
+/privacy.html /privacy.html 200
+/refund.html /refund.html 200
+/how-it-works.html /how-it-works.html 200
+/portal.html /portal.html 200
+/viewer.html /viewer.html 200
+
 # ── SPA fallback — everything unmatched goes to the homepage ──
 /* /index.html 200

@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI Labs Privacy Policy | No Tracking, No Personal Data</title>
-<meta name="description" content="EPI Labs privacy policy. We don't collect personal data. We don't use tracking cookies. EPI Recorder runs entirely on your machine. Browser verification is client-side only.">
+<title>EPI Labs Privacy Policy</title>
+<meta name="description" content="EPI Labs privacy policy. No tracking, no telemetry in the CLI. Minimal data collection for hosted services.">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
 <link rel="apple-touch-icon" href="favicon.ico">
@@ -32,23 +32,38 @@
   <h1>Privacy Policy</h1>
   <p>Last updated: July 2026</p>
 
-  <h3>What we collect</h3>
-  <p><strong>Nothing by default.</strong> EPI Labs does not collect personal data when you visit epilabs.org. We don't use tracking cookies, fingerprinting scripts, or third-party advertising trackers.</p>
+  <h3>1. The CLI — Zero Telemetry</h3>
+  <p>When you install and run <strong>epi-recorder</strong> locally, nothing is sent to EPI Labs. The CLI generates .epi files entirely on your machine. Your prompts, responses, API keys, environment variables, and workflow data never leave your computer unless you explicitly upload them to a hosted service.</p>
 
-  <h3>Analytics</h3>
-  <p>We use Plausible Analytics — a privacy-first, cookie-free analytics service. Plausible does not use cookies, does not collect personal data, and does not track users across sessions or websites. We see aggregated page view counts and referrer sources only.</p>
+  <h3>2. Hosted Verification &amp; SCITT</h3>
+  <p>When you use hosted verification or SCITT remote anchoring, the .epi file is transmitted to our servers for processing. We process it ephemerally — verification results are returned immediately and the file is not retained after the operation completes unless you have explicitly opted into case storage (Pro/Team/Enterprise plans).</p>
 
-  <h3>Email signups</h3>
-  <p>When you sign up for the pilot program, we collect your email address and use case. This information is stored only for pilot communication purposes. We never share, sell, or transfer your email to third parties. You can request deletion at any time by emailing mohdibrahim@epilabs.org.</p>
+  <h3>3. Account Information</h3>
+  <p>When you sign in with GitHub, we receive your public profile information (username, avatar, email if public). This is used to identify your account and associate it with your subscription tier. We do not sell, share, or monetize this data.</p>
 
-  <h3>The EPI Recorder CLI</h3>
-  <p>The epi-recorder command-line tool and Python SDK run entirely on your machine. They do not send data to EPI Labs servers. The browser-based verification at epilabs.org/verify runs entirely client-side — your .epi files are never uploaded.</p>
+  <h3>4. Payment Information</h3>
+  <p>All payments are processed by Paddle, our payment partner. EPI Labs never receives or stores your credit card details. Paddle's privacy policy applies to your payment data.</p>
 
-  <h3>Hosted services</h3>
-  <p>Enterprise customers may opt into our hosted SCITT transparency service. Data transmitted to this service is limited to cryptographic hashes and signatures required for SCITT anchoring. No LLM prompts, responses, or agent decisions are transmitted.</p>
+  <h3>5. Analytics (Website Only)</h3>
+  <p>Our website uses Plausible Analytics, a privacy-focused analytics service that does not use cookies and does not track individuals. No personal data is collected. The CLI has no analytics or telemetry of any kind.</p>
 
-  <h3>Contact</h3>
-  <p>For privacy questions or data deletion requests: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">mohdibrahim@epilabs.org</a></p>
+  <h3>6. Cookies</h3>
+  <p>We do not use tracking cookies. Authentication tokens are stored in your browser's localStorage when you sign in, and are sent only to our API for session verification.</p>
+
+  <h3>7. Data Retention</h3>
+  <p>Account data is retained as long as your account is active. You may request deletion at any time by emailing us. Shared cases expire automatically based on the expiry period set at upload time (default 30 days). Verification requests are processed in memory and not retained.</p>
+
+  <h3>8. Your Rights</h3>
+  <p>You have the right to access, correct, or delete your account data. You may export your data or close your account at any time. Since we collect minimal data, most requests are straightforward — email us and we'll handle it.</p>
+
+  <h3>9. Security</h3>
+  <p>All hosted services communicate over HTTPS. API keys are hashed at rest. Our infrastructure is hosted on Render with encrypted volumes. We do not have access to your locally generated .epi files unless you explicitly share them.</p>
+
+  <h3>10. Changes to This Policy</h3>
+  <p>We may update this policy. Material changes will be communicated via email to active subscribers and posted on this page.</p>
+
+  <h3>11. Contact</h3>
+  <p>Privacy questions: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">mohdibrahim@epilabs.org</a></p>
 </main>
-  <script src="js/theme.js"></script><script src="js/nav.js"></script></body>
+<script src="js/theme.js"></script><script src="js/nav.js"></script></body>
 </html>

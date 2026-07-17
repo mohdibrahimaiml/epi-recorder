@@ -85,10 +85,7 @@
 
     <div class="acct-card">
       <h3>API Key</h3>
-      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">
-        Use this key with the EPI CLI for hosted verification and SCITT anchoring.
-        <br><span style="color:var(--ink-dim);font-size:.78rem">Set it via <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">export EPI_API_KEY=epi_...</code> or pass <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">--api-key epi_...</code> to any <code style="background:var(--bg-alt);padding:1px 6px;border-radius:4px;font-family:var(--mono)">epi</code> command.</span>
-      </p>
+      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">Use this key with the EPI CLI and API for hosted verification and SCITT anchoring.</p>
       <div class="apikey-box" id="apikey-section" style="display:none">
         <span id="apikey-value">—</span>
         <button onclick="copyApiKey()">Copy</button>
@@ -128,30 +125,15 @@ var loggedIn = false;
 // Check if token came via redirect and clean the URL
 (function() {
   var hash = window.location.hash;
-  if (!hash) return;
-  if (hash.indexOf('token=') === 1) {
-    var parts = hash.substring(1).split('&');
-    for (var i = 0; i < parts.length; i++) {
-      var kv = parts[i].split('=');
-      if (kv[0] === 'token' && kv[1]) { localStorage.setItem('epi_token', kv[1]); }
-      if (kv[0] === 'user' && kv[1]) {
-        try {
-          var user = JSON.parse(atob(kv[1].replace(/-/g,'+').replace(/_/g,'/')));
-          localStorage.setItem('epi_user', JSON.stringify(user));
-        } catch(e) {}
-      }
-    }
+  if (hash && hash.indexOf('token=') === 1) {
+    var token = hash.substring(7).split('&')[0];
+    localStorage.setItem('epi_token', token);
     history.replaceState(null, '', '/account');
   }
 })();
 
 async function loadAccount() {
   var token = localStorage.getItem('epi_token');
-  var cached = localStorage.getItem('epi_user');
-  var userFromCache = null;
-  if (cached) {
-    try { userFromCache = JSON.parse(cached); } catch(e) {}
-  }
 
   // No token → show signin
   if (!token) {
@@ -160,62 +142,39 @@ async function loadAccount() {
     return;
   }
 
-  // If we already have user data in localStorage, show immediately
-  // Then verify in background — this avoids Render cold-start delays
-  if (userFromCache) {
-    userData = userFromCache;
+  // Have token → show loading while we verify
+  showState('loading');
+
+  try {
+    var r = await fetch(API_BASE + '/api/auth/me', {
+      credentials: 'include',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (r.status === 401 || !r.ok) {
+      localStorage.removeItem('epi_token');
+      showState('signin');
+      updateNav(false);
+      return;
+    }
+
+    userData = await r.json();
     loggedIn = true;
     showState('account');
     updateNav(true);
+
     document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
     document.getElementById('acct-email').textContent = userData.email || '';
     if (userData.org) {
       document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
     }
-    loadPlan();
-    loadApiKeys();
-    // Background verify — silently re-validate token on Render
-    verifyInBackground(token);
-    return;
-  }
 
-  // No cached user data — show loading while Render wakes up
-  showState('loading');
-  try {
-    await verifyAndLoadUser(token);
+    await loadPlan();
+    await loadApiKeys();
   } catch (e) {
     showState('signin');
     updateNav(false);
   }
-}
-
-async function verifyAndLoadUser(token) {
-  var r = await fetch(API_BASE + '/api/auth/me', {
-    credentials: 'include',
-    headers: { 'Authorization': 'Bearer ' + token }
-  });
-  if (r.status === 401 || !r.ok) {
-    localStorage.removeItem('epi_token');
-    throw new Error('invalid token');
-  }
-  userData = await r.json();
-  localStorage.setItem('epi_user', JSON.stringify(userData));
-  loggedIn = true;
-  showState('account');
-  updateNav(true);
-  document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
-  document.getElementById('acct-email').textContent = userData.email || '';
-  if (userData.org) {
-    document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
-  }
-  await loadPlan();
-  await loadApiKeys();
-}
-
-async function verifyInBackground(token) {
-  try {
-    await verifyAndLoadUser(token);
-  } catch(e) { /* token expired — will be handled on next full load */ }
 }
 
 function showState(state) {
@@ -326,11 +285,6 @@ function copyApiKey() {
 }
 
 function startLogin() {
-  showState('loading');
-  var loadEl = document.getElementById('state-loading');
-  if (loadEl) {
-    loadEl.innerHTML = 'Waking up the server… <br><small style="color:var(--ink-dim);font-size:.8rem">Free tier takes ~30 seconds on first load. It will be faster next time.</small>';
-  }
   var state = 'auth_' + Math.random().toString(36).substring(2, 15);
   sessionStorage.setItem('epi_auth_state', state);
   window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
