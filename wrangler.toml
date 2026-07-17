@@ -1,0 +1,12 @@
+# Cloudflare Pages — static marketing site (epilabs.org)
+# Source of truth: website/  (copied to dist/ by npm run build)
+#
+# Dashboard fallback (if wrangler.toml is not used for settings):
+#   Framework preset:      None
+#   Build command:         npm run build
+#   Build output directory: dist
+#   Root directory:        (leave empty — repo root)
+
+name = "epilabs"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"

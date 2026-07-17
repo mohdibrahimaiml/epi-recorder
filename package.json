@@ -1,0 +1,12 @@
+{
+  "name": "epilabs-site",
+  "private": true,
+  "description": "Cloudflare Pages build for epilabs.org (static site from website/)",
+  "scripts": {
+    "build": "node scripts/cf-pages-build.mjs",
+    "pages:build": "node scripts/cf-pages-build.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
