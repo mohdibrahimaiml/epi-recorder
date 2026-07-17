@@ -666,7 +666,11 @@ app.add_typer(gateway_app, name="gateway", help="Advanced: run the open-source A
 from epi_cli.dev import app as dev_app
 app.add_typer(dev_app, name="dev", help="Zero-friction sample AI run -> browser repro -> verify flow")
 # 'epi demo' is an alias for 'epi dev' for discoverability
-app.add_typer(dev_app, name="demo", help="Try EPI in 60 seconds — capture, open, share, verify. Alias for 'epi dev'.")
+app.add_typer(
+    dev_app,
+    name="demo",
+    help="Try EPI in 60s: record → seal → verify → view (no API key). Use --review for team inbox UI.",
+)
 
 from epi_cli.export_summary import app as export_summary_app
 app.add_typer(export_summary_app, name="export-summary", help="Export a human-readable HTML or text summary of a .epi case file")

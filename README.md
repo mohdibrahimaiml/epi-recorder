@@ -12,6 +12,7 @@
 
 ```bash
 pip install epi-recorder
+epi demo --no-browser    # record → seal → verify (no API key)
 ```
 
 [60-second path](#-60-second-path) · [With OpenAI](#-with-openai) · [Integrations](#-integrations) · [CLI](#-cli) · [Standards](#-standards--compliance)

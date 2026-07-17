@@ -10,7 +10,7 @@ We fix **one item fully**, verify, then move on.
 | 4 | Core loop: record→seal→verify→view reliability | **DONE** |
 | 5 | Default secrets redaction (safe by default) | **DONE** |
 | 6 | README / golden-path focus | **DONE** |
-| 7 | `epi demo` magic | pending |
+| 7 | `epi demo` magic | **DONE** |
 | 8 | Free keep-warm + cold-start UX | pending |
 
 ## How we work
