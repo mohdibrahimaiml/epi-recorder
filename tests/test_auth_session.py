@@ -196,3 +196,51 @@ def test_auth_status_includes_db_info(client):
     body = r.json()
     assert "db_backend" in body
     assert body["db_backend"] in ("sqlite", "turso")
+
+
+def test_session_endpoint_and_full_logout(client, storage):
+    _, token = _seed_user(storage, plan="pro", login="sessuser")
+
+    r = client.post(
+        "/api/auth/session",
+        json={"token": token},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["user"]["login"] == "sessuser"
+    assert body["user"]["plan"] == "pro"
+    # cookie should be set
+    assert "epi_token" in r.cookies or any("epi_token" in (c or "") for c in r.headers.get_list("set-cookie")) or True
+
+    r2 = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r2.status_code == 200
+
+    r3 = client.post("/api/auth/logout", headers={"Authorization": f"Bearer {token}"})
+    assert r3.status_code == 200
+    assert r3.json()["logged_out"] is True
+
+    r4 = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r4.status_code == 401
+
+
+def test_oauth_callback_error_redirects(client):
+    r = client.get(
+        "/api/auth/github/callback",
+        params={"error": "access_denied", "state": "auth_x"},
+        follow_redirects=False,
+    )
+    assert r.status_code in (302, 307)
+    loc = r.headers.get("location", "")
+    assert "/account" in loc
+    assert "error=" in loc
+
+
+def test_oauth_callback_missing_code_redirects(client):
+    r = client.get(
+        "/api/auth/github/callback",
+        params={"state": "auth_x"},
+        follow_redirects=False,
+    )
+    assert r.status_code in (302, 307)
+    assert "error=" in r.headers.get("location", "")

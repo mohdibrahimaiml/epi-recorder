@@ -349,7 +349,19 @@ def _get_or_create_user(
     }
 
 
+def purge_expired_tokens(storage_dir: Path | str) -> None:
+    """Best-effort cleanup so Turso/sqlite don't accumulate dead sessions."""
+    try:
+        conn = _connect(storage_dir)
+        conn.execute("DELETE FROM tokens WHERE expires_at <= ?", (_now_iso(),))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 def create_token(storage_dir: Path | str, user_id: str) -> str:
+    purge_expired_tokens(storage_dir)
     conn = _connect(storage_dir)
     token = secrets.token_urlsafe(_TOKEN_BYTES)
     now = _utc_now()
@@ -481,12 +493,28 @@ def user_public_dict(user: dict[str, Any], plan: str | None = None) -> dict[str,
     }
 
 
+def _account_error_redirect(code: str = "oauth_failed") -> RedirectResponse:
+    return RedirectResponse(f"{_frontend_url()}/account?error={code}", status_code=302)
+
+
 async def handle_github_callback(
-    storage_dir: Path | str, *, code: str, state: str
+    storage_dir: Path | str,
+    *,
+    code: str | None,
+    state: str | None,
+    error: str | None = None,
 ) -> RedirectResponse:
     """Complete GitHub OAuth; set API-domain cookie and redirect to frontend."""
+    if error:
+        # User denied or GitHub rejected — never leave them on a blank API error page
+        safe = "access_denied" if "denied" in error.lower() else "oauth_failed"
+        return _account_error_redirect(safe)
+
+    if not code or not state:
+        return _account_error_redirect("missing_code")
+
     if not _client_id() or not _client_secret():
-        raise HTTPException(status_code=503, detail="GitHub OAuth is not configured.")
+        return _account_error_redirect("oauth_not_configured")
 
     # Validate CSRF state (must have been created by /start)
     redirect_uri = pop_oauth_state(storage_dir, state)
@@ -494,26 +522,22 @@ async def handle_github_callback(
         # Unknown/expired state — still allow browser completion if GitHub returned a code
         # only when state looks like our browser format (auth_*) to avoid open abuse.
         if not (state or "").startswith("auth_"):
-            raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please try signing in again.")
+            return _account_error_redirect("invalid_state")
         redirect_uri = ""
 
     try:
         token_data = _make_github_token_request(code)
         access_token = token_data.get("access_token")
         if not access_token:
-            raise HTTPException(status_code=400, detail="GitHub did not return an access token.")
+            return _account_error_redirect("no_github_token")
 
         github_user = _fetch_github_user(access_token)
         email = _fetch_primary_email(access_token)
         user = _get_or_create_user(storage_dir, github_user, email)
         bearer = create_token(storage_dir, user["id"])
         plan = normalize_plan(user.get("plan") or get_user_plan(storage_dir, user["id"]))
-    except HTTPException:
-        err = RedirectResponse(f"{_frontend_url()}/account?error=oauth_failed", status_code=302)
-        return err
     except Exception:
-        err = RedirectResponse(f"{_frontend_url()}/account?error=oauth_failed", status_code=302)
-        return err
+        return _account_error_redirect("oauth_failed")
 
     # CLI / custom redirect (token in query — local loopback only expected)
     if redirect_uri and redirect_uri.startswith(("http://127.0.0.1", "http://localhost", "epi://")):
@@ -527,15 +551,31 @@ async def handle_github_callback(
     # Browser flow: hash token so static frontend can store it (cross-domain safe).
     # Also set HttpOnly cookie on API host for credentials:include fetches.
     user_payload = user_public_dict(user, plan)
-    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode()
+    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, separators=(",", ":")).encode()).decode().rstrip("=")
     dest = f"{_frontend_url()}/account#token={bearer}&user={user_b64}"
     response = RedirectResponse(dest, status_code=302)
     set_session_cookie(response, bearer)
     return response
 
 
+def session_from_token(storage_dir: Path | str, token: str | None) -> JSONResponse:
+    """Validate bearer token, refresh cookie, return public user (post-OAuth handshake)."""
+    user = verify_token(storage_dir, token)
+    if not user:
+        resp = JSONResponse({"ok": False, "detail": "Invalid or expired session."}, status_code=401)
+        clear_session_cookie(resp)
+        return resp
+    plan = get_user_plan(storage_dir, user["id"])
+    body = {"ok": True, "user": user_public_dict(user, plan)}
+    resp = JSONResponse(body)
+    if token:
+        set_session_cookie(resp, token)
+    return resp
+
+
 def init_auth_for_app(storage_dir: Path | str) -> None:
     init_auth_db(storage_dir)
+    purge_expired_tokens(storage_dir)
 
 
 def logout_response(storage_dir: Path | str, token: str | None) -> JSONResponse:

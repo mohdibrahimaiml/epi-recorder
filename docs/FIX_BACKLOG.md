@@ -4,8 +4,8 @@ We fix **one item fully**, verify, then move on.
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Durable free auth DB (Turso optional, no paid disk) | **DONE** (code) — needs your free Turso env vars on Render |
-| 2 | Login/logout E2E harden + live verify | NEXT |
+| 1 | Durable free auth DB (Turso optional, no paid disk) | **DONE** (Turso live in prod) |
+| 2 | Login/logout E2E harden + live verify | **DONE** |
 | 3 | Single website source of truth | pending |
 | 4 | Core loop: record→seal→verify→view reliability | pending |
 | 5 | Default secrets redaction | pending |

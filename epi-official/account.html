@@ -54,14 +54,18 @@
 <main class="acct-main">
   <noscript><p style="text-align:center;padding:40px;color:var(--tamper)">JavaScript is required to sign in and manage your account.</p></noscript>
 
-  <div id="state-loading" class="acct-loading" style="display:none">Checking your session…</div>
+  <div id="state-loading" class="acct-loading" style="display:none">
+    <div id="loading-text">Checking your session…</div>
+    <p id="loading-sub" style="color:var(--ink-dim);font-size:.85rem;margin-top:10px;display:none">Waking the free server — this can take up to 30 seconds…</p>
+  </div>
 
   <div id="state-signin" style="display:none">
     <div class="signin-hero">
       <h2 style="font-size:1.6rem;color:var(--ink);margin-bottom:8px">Sign in to manage your account</h2>
       <p style="color:var(--ink-soft);margin-bottom:28px;font-size:.95rem">Use GitHub to sign in. We only ask for your public profile and email.</p>
-      <button class="signin-btn" onclick="startLogin()">Sign in with GitHub</button>
+      <button class="signin-btn" id="btn-signin" onclick="startLogin()">Sign in with GitHub</button>
       <p class="signin-footer">No password. No email verification. Just your GitHub account.</p>
+      <p id="signin-status" style="display:none;margin-top:16px;color:var(--ink-dim);font-size:.85rem"></p>
     </div>
   </div>
 
@@ -126,10 +130,12 @@ var lastPlainApiKey = null;
 var PLAN_LABELS = { free: 'Free', pro: 'Pro', team: 'Team / Advanced', advanced: 'Team / Advanced', enterprise: 'Enterprise' };
 
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
-function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); }
 function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  lastPlainApiKey = null;
+  userData = null;
 }
 function authHeaders() {
   var h = { 'Accept': 'application/json' };
@@ -147,6 +153,27 @@ function normalizePlan(p) {
   if (p === 'advanced' || p === 'advance') return 'team';
   return p;
 }
+function b64urlDecode(s) {
+  try {
+    s = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return atob(s);
+  } catch (e) { return ''; }
+}
+function setLoading(msg, showSub) {
+  var t = document.getElementById('loading-text');
+  var s = document.getElementById('loading-sub');
+  if (t && msg) t.textContent = msg;
+  if (s) s.style.display = showSub ? 'block' : 'none';
+}
+var ERROR_MSGS = {
+  oauth_failed: 'GitHub sign-in failed. Please try again. If the free server is waking up, wait ~30s and retry.',
+  access_denied: 'GitHub sign-in was cancelled. Click Sign in to try again.',
+  missing_code: 'Sign-in incomplete (missing code). Please try again.',
+  invalid_state: 'Sign-in session expired. Please try again.',
+  oauth_not_configured: 'GitHub login is not configured on the server. Contact support.',
+  no_github_token: 'GitHub did not return a token. Please try again.'
+};
 
 // Capture OAuth return: #token=...&user=...  or ?error=
 (function captureOAuthReturn() {
@@ -154,9 +181,7 @@ function normalizePlan(p) {
   var err = params.get('error');
   if (err) {
     history.replaceState(null, '', '/account');
-    window.__epi_oauth_error = err === 'oauth_failed'
-      ? 'GitHub sign-in failed. Please try again. If this keeps happening, the auth service may be waking up — wait 30s and retry.'
-      : ('Sign-in error: ' + err);
+    window.__epi_oauth_error = ERROR_MSGS[err] || ('Sign-in error: ' + err);
   }
   var hash = window.location.hash || '';
   if (hash.indexOf('token=') >= 0) {
@@ -165,10 +190,11 @@ function normalizePlan(p) {
     var userB64 = q.get('user');
     if (token) {
       setToken(token);
+      window.__epi_just_logged_in = true;
       if (userB64) {
         try {
-          var json = atob(userB64.replace(/-/g, '+').replace(/_/g, '/'));
-          localStorage.setItem(USER_KEY, json);
+          var json = b64urlDecode(userB64);
+          if (json) localStorage.setItem(USER_KEY, json);
         } catch (e) {}
       }
     }
@@ -177,23 +203,52 @@ function normalizePlan(p) {
 })();
 
 async function fetchWithRetry(url, opts, attempts) {
-  attempts = attempts || 4;
+  attempts = attempts || 5;
   var lastErr = null;
   for (var i = 0; i < attempts; i++) {
     try {
+      if (i > 0) setLoading('Still connecting…', true);
       var r = await fetch(url, opts);
-      // Render cold start sometimes 502/503/520
-      if (r.status >= 500 && i < attempts - 1) {
-        await new Promise(function(res) { setTimeout(res, 1500 * (i + 1)); });
+      // Render cold start sometimes 502/503/520/524
+      if ((r.status >= 500 || r.status === 429) && i < attempts - 1) {
+        await new Promise(function(res) { setTimeout(res, 2000 * (i + 1)); });
         continue;
       }
       return r;
     } catch (e) {
       lastErr = e;
-      if (i < attempts - 1) await new Promise(function(res) { setTimeout(res, 1500 * (i + 1)); });
+      if (i < attempts - 1) await new Promise(function(res) { setTimeout(res, 2000 * (i + 1)); });
     }
   }
   throw lastErr || new Error('Network error');
+}
+
+async function establishSession(token) {
+  // Sets API cookie + validates token after OAuth hash handoff
+  try {
+    var r = await fetchWithRetry(API_BASE + '/api/auth/session', {
+      method: 'POST',
+      credentials: 'include',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ token: token })
+    }, 4);
+    if (r.ok) {
+      var data = await r.json();
+      if (data.user) return data.user;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function renderAccount(user) {
+  userData = user;
+  userData.plan = normalizePlan(userData.plan);
+  localStorage.setItem(USER_KEY, JSON.stringify(userData));
+  showState('account');
+  updateNav(true);
+  document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || 'there');
+  document.getElementById('acct-email').textContent = userData.email || '';
+  document.getElementById('acct-org').textContent = userData.org ? ('Organization: ' + userData.org) : '';
 }
 
 async function loadAccount() {
@@ -211,7 +266,21 @@ async function loadAccount() {
   }
 
   showState('loading');
+  setLoading(window.__epi_just_logged_in ? 'Finishing sign-in…' : 'Checking your session…', false);
+
   try {
+    // After OAuth, establish cookie session first
+    if (window.__epi_just_logged_in) {
+      var sessUser = await establishSession(token);
+      if (sessUser) {
+        renderAccount(sessUser);
+        await loadPlan();
+        await loadApiKeys();
+        window.__epi_just_logged_in = false;
+        return;
+      }
+    }
+
     var r = await fetchWithRetry(API_BASE + '/api/auth/me', {
       credentials: 'include',
       headers: authHeaders()
@@ -228,22 +297,12 @@ async function loadAccount() {
       return;
     }
 
-    userData = await r.json();
-    userData.plan = normalizePlan(userData.plan);
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
-
-    showState('account');
-    updateNav(true);
-
-    document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || 'there');
-    document.getElementById('acct-email').textContent = userData.email || '';
-    document.getElementById('acct-org').textContent = userData.org ? ('Organization: ' + userData.org) : '';
-
+    renderAccount(await r.json());
     await loadPlan();
     await loadApiKeys();
   } catch (e) {
     showError('Could not reach the account service. It may be waking up — wait a few seconds and click Try Again.');
-    updateNav(false);
+    updateNav(!!getToken());
   }
 }
 
@@ -382,15 +441,25 @@ function copyApiKey() {
 }
 
 function startLogin() {
-  var btn = document.querySelector('.signin-btn');
+  var btn = document.getElementById('btn-signin') || document.querySelector('.signin-btn');
+  var st = document.getElementById('signin-status');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Redirecting to GitHub…';
+    btn.textContent = 'Connecting…';
+  }
+  if (st) {
+    st.style.display = 'block';
+    st.textContent = 'Waking auth service (free tier may take a few seconds)…';
   }
   var state = 'auth_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   sessionStorage.setItem('epi_auth_state', state);
   // Wake auth service, then redirect (improves cold-start UX)
-  fetch(API_BASE + '/api/auth/status', { credentials: 'include' }).catch(function(){}).finally(function() {
+  var wake = fetch(API_BASE + '/api/auth/status', { credentials: 'include' })
+    .then(function(r) { return r.json().catch(function(){ return {}; }); })
+    .catch(function() { return {}; });
+  wake.finally(function() {
+    if (btn) btn.textContent = 'Redirecting to GitHub…';
+    if (st) st.textContent = 'Redirecting to GitHub…';
     window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
   });
 }
@@ -406,7 +475,11 @@ function updateNav(isLoggedIn) {
 }
 
 async function logout() {
-  var token = getToken();
+  var btn = document.querySelector('.acct-btn.danger');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Signing out…';
+  }
   try {
     await fetch(API_BASE + '/api/auth/logout', {
       method: 'POST',
@@ -415,12 +488,23 @@ async function logout() {
     });
   } catch (e) {}
   clearSession();
-  userData = null;
-  lastPlainApiKey = null;
-  // Stay on account as signed-out (cleaner than homepage for confirmation)
   showState('signin');
   updateNav(false);
+  var st = document.getElementById('signin-status');
+  if (st) {
+    st.style.display = 'block';
+    st.textContent = 'You are signed out.';
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Sign Out';
+  }
 }
+
+// bfcache / back-button: re-check session
+window.addEventListener('pageshow', function(ev) {
+  if (ev.persisted) loadAccount();
+});
 
 loadAccount();
 </script>

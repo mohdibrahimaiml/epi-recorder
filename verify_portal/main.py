@@ -904,13 +904,19 @@ async def github_auth_start(
 
 @app.get("/api/auth/github/callback")
 async def github_auth_callback(
-    code: str = Query(...),
-    state: str = Query(...),
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+    error: str | None = Query(None),
+    error_description: str | None = Query(None),
 ):
     """GitHub OAuth callback. Issues a bearer token, sets cookie, redirects to frontend."""
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     auth_module.init_auth_db(storage_dir)
-    return await auth_module.handle_github_callback(storage_dir, code=code, state=state)
+    # error_description unused but accepted so GitHub query strings don't 422
+    _ = error_description
+    return await auth_module.handle_github_callback(
+        storage_dir, code=code, state=state, error=error
+    )
 
 
 @app.get("/api/auth/me")
@@ -924,6 +930,21 @@ async def auth_me(request: Request):
         raise HTTPException(status_code=401, detail="Invalid or expired session. Please sign in again.")
     plan = get_user_plan(storage_dir, user["id"])
     return auth_module.user_public_dict(user, plan)
+
+
+@app.post("/api/auth/session")
+async def auth_session(request: Request):
+    """Establish/refresh session after OAuth hash handoff (sets cookie, returns user)."""
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.init_auth_db(storage_dir)
+    token = auth_module.extract_token(request)
+    if not token:
+        try:
+            body = await request.json()
+            token = (body.get("token") or "").strip()
+        except Exception:
+            token = ""
+    return auth_module.session_from_token(storage_dir, token or None)
 
 
 @app.post("/api/auth/logout")
