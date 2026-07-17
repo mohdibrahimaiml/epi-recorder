@@ -301,20 +301,66 @@ async def root():
 async def health():
     return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
 
+def _static_page(name: str, *, fallback_index: bool = False):
+    """Serve STATIC_DIR/<name>.html (or 404 / index fallback)."""
+    path = STATIC_DIR / f"{name}.html"
+    if path.exists():
+        return FileResponse(path)
+    if fallback_index:
+        return FileResponse(STATIC_DIR / "index.html")
+    raise HTTPException(status_code=404, detail=f"{name} page not found")
+
+
 @app.get("/pricing")
 async def pricing_page():
-    pricing_path = STATIC_DIR / "pricing.html"
-    if pricing_path.exists():
-        return FileResponse(pricing_path)
+    return _static_page("pricing")
+
+
+@app.get("/account")
+async def account_page():
+    """User account dashboard. Auth is client-side via localStorage token."""
+    return _static_page("account")
+
+
+@app.get("/terms")
+async def terms_page():
+    return _static_page("terms")
+
+
+@app.get("/privacy")
+async def privacy_page():
+    return _static_page("privacy")
+
+
+@app.get("/refund")
+async def refund_page():
+    return _static_page("refund")
+
+
+@app.get("/how-it-works")
+async def how_it_works_page():
+    return _static_page("how-it-works")
+
+
+@app.get("/auth/success")
+async def auth_success_page():
+    """OAuth success landing. Saves token from URL (client) or redirect to /account."""
+    success_path = STATIC_DIR / "auth" / "success.html"
+    if success_path.exists():
+        return FileResponse(success_path)
+    return RedirectResponse(url="/account")
+
+
 @app.get("/agt")
 async def agt_page():
     """Serve the AGT -> EPI integration page."""
-    agt_path = STATIC_DIR / "agt.html"
-    if agt_path.exists():
-        return FileResponse(agt_path)
-    return FileResponse(STATIC_DIR / "index.html")
+    return _static_page("agt", fallback_index=True)
 
-    raise HTTPException(status_code=404, detail="Pricing page not found")
+
+@app.get("/aiuc1")
+async def aiuc1_page():
+    """Serve the AIUC-1 trust domains page."""
+    return _static_page("aiuc1", fallback_index=True)
 
 @app.post("/api/contact")
 async def contact(request: Request):
@@ -670,30 +716,11 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
             shutil.rmtree(merged_keys_dir, ignore_errors=True)
 
 
-# Explicit HTML page routes (ensure clean URLs work without trailing slashes).
-# These must come BEFORE the catch-all static mount.
-
-@app.get("/account")
-async def account_page():
-    """Serve the user account dashboard. No server-side auth — handled client-side via localStorage token."""
-    account_path = STATIC_DIR / "account.html"
-    if account_path.exists():
-        return FileResponse(account_path)
-    raise HTTPException(status_code=404, detail="Account page not found")
-
-
-@app.get("/auth/success")
-async def auth_success_page():
-    """Serve the OAuth success landing page. Saves token from URL and redirects to /account."""
-    success_path = STATIC_DIR / "auth" / "success.html"
-    if success_path.exists():
-        return FileResponse(success_path)
-    # Fallback: redirect to account page directly
-    return RedirectResponse(url="/account")
-
+# Directory-based pages (verify/viewer apps live under subfolders).
+# Explicit routes avoid StaticFiles trailing-slash redirect surprises.
 
 @app.get("/verify")
-async def verify_page():
+async def verify_html_page():
     return FileResponse(STATIC_DIR / "verify" / "index.html")
 
 
@@ -701,28 +728,28 @@ async def verify_page():
 async def viewer_redirect():
     return RedirectResponse(url="/viewer/")
 
+
 @app.get("/viewer/")
 async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer" / "index.html")
+
 
 @app.get("/epi-viewer")
 async def epi_viewer_redirect():
     return RedirectResponse(url="/epi-viewer/")
 
+
 @app.get("/epi-viewer/")
 async def epi_viewer_page():
-    return FileResponse(STATIC_DIR / "epi-viewer" / "index.html")
+    epi_viewer_index = STATIC_DIR / "epi-viewer" / "index.html"
+    if epi_viewer_index.exists():
+        return FileResponse(epi_viewer_index)
+    raise HTTPException(status_code=404, detail="EPI viewer not found")
 
-# Mount static files at root for the full EPI-OFFICIAL website.
-# This must come AFTER all API routes so that /api/verify, /scitt/*,
-# /.well-known/*, /health, and /portal are handled by FastAPI routes.
 
 @app.get("/scitt")
 async def scitt_page():
-    page = STATIC_DIR / "scitt.html"
-    if page.exists():
-        return FileResponse(page)
-    raise HTTPException(404, "SCITT page not found")
+    return _static_page("scitt")
 
 app.include_router(share_router)
 app.include_router(blog_router)
@@ -889,29 +916,6 @@ async def auth_logout(request: Request):
     return response
 
 
-@app.get("/auth/success")
-async def auth_success():
-    auth_success_path = STATIC_DIR / "auth" / "success.html"
-    if auth_success_path.exists():
-        return FileResponse(auth_success_path)
-    auth_alt = STATIC_DIR / "success.html"
-    if auth_alt.exists():
-        return FileResponse(auth_alt)
-    return FileResponse(STATIC_DIR / "index.html")
-
-
-@app.get("/account")
-async def account_page():
-    account_path = STATIC_DIR / "account.html"
-    if account_path.exists():
-        return FileResponse(account_path)
-    return FileResponse(STATIC_DIR / "index.html")
-
-
-if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
-
-
 # --- Contact Form Endpoint ---
 class ContactSubmission(BaseModel):
     name: str
@@ -1064,13 +1068,11 @@ async def get_share_meta(share_id: str):
 
 
 
-@app.get("/aiuc1")
-async def aiuc1_page():
-    """Serve the AIUC-1 trust domains page."""
-    aiuc1_path = STATIC_DIR / "aiuc1.html"
-    if aiuc1_path.exists():
-        return FileResponse(aiuc1_path)
-    return FileResponse(STATIC_DIR / "index.html")
+# Catch-all static mount MUST be last so explicit API and page routes win.
+# html=True serves foo.html for /foo when no directory conflict exists.
+if STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+
 
 if __name__ == "__main__":
     import uvicorn
