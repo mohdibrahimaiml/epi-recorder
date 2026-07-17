@@ -948,6 +948,14 @@ async def auth_status():
         "db_backend": db.get("backend"),
         "db_durable": db.get("durable"),
         "turso_configured": db.get("turso_configured"),
+        "turso_url_present": db.get("turso_url_present"),
+        "turso_token_present": db.get("turso_token_present"),
+        "turso_host_hint": db.get("turso_host_hint"),
+        "hint": (
+            "Set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN on this Render service, then Manual Deploy."
+            if not db.get("turso_configured")
+            else "Turso durable auth is active."
+        ),
     }
 
 

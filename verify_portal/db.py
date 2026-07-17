@@ -26,19 +26,44 @@ def turso_configured() -> bool:
     return bool(_turso_url() and _turso_token())
 
 
+def _clean_env(name: str) -> str:
+    """Read env var; strip whitespace and optional surrounding quotes."""
+    raw = os.getenv(name)
+    if raw is None:
+        return ""
+    val = str(raw).strip()
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        val = val[1:-1].strip()
+    return val
+
+
 def _turso_url() -> str:
-    return (
-        os.getenv("TURSO_DATABASE_URL", "").strip()
-        or os.getenv("LIBSQL_URL", "").strip()
-        or os.getenv("LIBSQL_DATABASE_URL", "").strip()
-    )
+    # Accept common names people type in dashboards
+    for name in (
+        "TURSO_DATABASE_URL",
+        "TURSO_URL",
+        "TURSO_DB_URL",
+        "LIBSQL_URL",
+        "LIBSQL_DATABASE_URL",
+    ):
+        val = _clean_env(name)
+        if val:
+            return val
+    return ""
 
 
 def _turso_token() -> str:
-    return (
-        os.getenv("TURSO_AUTH_TOKEN", "").strip()
-        or os.getenv("LIBSQL_AUTH_TOKEN", "").strip()
-    )
+    for name in (
+        "TURSO_AUTH_TOKEN",
+        "TURSO_TOKEN",
+        "TURSO_DB_TOKEN",
+        "LIBSQL_AUTH_TOKEN",
+        "LIBSQL_TOKEN",
+    ):
+        val = _clean_env(name)
+        if val:
+            return val
+    return ""
 
 
 def storage_dir() -> Path:
@@ -289,9 +314,18 @@ def connect_auth(storage_dir_path: Path | str | None = None):
 
 
 def db_status() -> dict[str, Any]:
+    url = _turso_url()
+    token = _turso_token()
+    # Never return secrets — only presence + safe host hint
+    host_hint = ""
+    if url:
+        host_hint = url.replace("libsql://", "").replace("https://", "").split("/")[0][:80]
     return {
         "backend": backend_name(),
         "turso_configured": turso_configured(),
+        "turso_url_present": bool(url),
+        "turso_token_present": bool(token),
+        "turso_host_hint": host_hint,
         "local_path": str(auth_db_path()),
         "durable": turso_configured(),
     }
