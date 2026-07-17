@@ -350,8 +350,8 @@ async def create_api_key(request: Request):
         tier = get_user_plan(storage_dir, user["id"])
     else:
         tier = "free"
-    if tier not in ("pro", "team", "enterprise"):
-        raise HTTPException(status_code=402, detail="API keys require a Pro plan or higher. Upgrade at /pricing.")
+    if tier not in ("free", "pro", "team", "enterprise"):
+        raise HTTPException(status_code=400, detail="Invalid tier")
     import secrets
     api_key = "epi_" + secrets.token_hex(24)
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
