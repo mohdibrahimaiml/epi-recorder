@@ -30,3 +30,13 @@ Portal-only extras (not in this folder):
 ```bash
 python scripts/sync_website.py
 ```
+
+## Deploy targets
+
+| Target | Path |
+|--------|------|
+| GitHub Pages | deploys website/ directly |
+| Cloudflare Pages | uses generated mirror site/ (output dir) |
+| Render portal | erify_portal/static/ via sync |
+
+Always edit **website/** only, then run python scripts/sync_website.py.

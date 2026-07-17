@@ -2,32 +2,35 @@
 
 The public site source of truth is **`website/`**.
 
-## Why builds failed after the website consolidation
+## Why builds failed
 
-Cloudflare Pages was still configured for the old layout (repo root / `epi-official` / wrong output dir).  
-We now ship an explicit build:
+Log:
 
-```bash
-npm run build   # → copies website/ to dist/
+```text
+Error: Output directory "site" not found.
 ```
 
-## Required dashboard settings
+Cloudflare is configured with **output directory = `site`** and **no build command**.  
+We moved the source of truth to `website/` and deleted the old `site/` tree, so CF failed.
 
-Cloudflare → **Workers & Pages** → your **epilabs** project → **Settings → Builds & deployments**:
+## Fix in the repo
+
+1. **`website/`** remains the only place you edit.
+2. **`site/`** is a **generated mirror** of `website/` (for Cloudflare).
+3. `python scripts/sync_website.py` copies `website/` → `site/`, `verify_portal/static/`, `epi-official/`.
+4. `npm run build` also copies `website/` → `site/` and `dist/`.
+
+## Dashboard settings (match what you already have)
 
 | Setting | Value |
 |---------|--------|
 | **Production branch** | `main` |
-| **Root directory** | *(empty / repo root)* |
+| **Root directory** | *(empty)* |
 | **Framework preset** | **None** |
-| **Build command** | `npm run build` |
-| **Build output directory** | `dist` |
+| **Build command** | *(empty)* **or** `npm run build` |
+| **Build output directory** | **`site`** |
 
-Or rely on repo `wrangler.toml`:
-
-```toml
-pages_build_output_dir = "dist"
-```
+If build command is empty, `site/` **must exist in git** (kept in sync from `website/`).
 
 ## After changing settings
 

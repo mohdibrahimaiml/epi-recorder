@@ -13,7 +13,9 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } fr
 import { join } from "node:path";
 
 const SRC = "website";
-const DEST = "dist";
+// Cloudflare dashboard currently uses output directory "site" (no build command).
+// Also write "dist" for wrangler.toml pages_build_output_dir.
+const DESTINATIONS = ["site", "dist"];
 
 if (!existsSync(SRC)) {
   console.error(`ERROR: ${SRC}/ not found. Cloudflare Pages must build from repo root.`);
@@ -24,13 +26,13 @@ if (!existsSync(join(SRC, "index.html"))) {
   process.exit(1);
 }
 
-rmSync(DEST, { recursive: true, force: true });
-mkdirSync(DEST, { recursive: true });
-cpSync(SRC, DEST, { recursive: true });
+for (const DEST of DESTINATIONS) {
+  rmSync(DEST, { recursive: true, force: true });
+  mkdirSync(DEST, { recursive: true });
+  cpSync(SRC, DEST, { recursive: true });
 
-// Ensure CF treats this as a static site (not a Worker-only project)
-const routesPath = join(DEST, "_routes.json");
-if (!existsSync(routesPath)) {
+  // Ensure CF treats this as a static site (not a Worker-only project)
+  const routesPath = join(DEST, "_routes.json");
   writeFileSync(
     routesPath,
     JSON.stringify(
@@ -43,15 +45,13 @@ if (!existsSync(routesPath)) {
       2,
     ),
   );
+
+  const count = (() => {
+    try {
+      return readFileSync(join(DEST, "index.html"), "utf8").length;
+    } catch {
+      return 0;
+    }
+  })();
+  console.log(`Cloudflare Pages build OK: copied ${SRC}/ → ${DEST}/ (index.html ${count} bytes)`);
 }
-
-const count = (() => {
-  // shallow count for log
-  try {
-    return readFileSync(join(DEST, "index.html"), "utf8").length;
-  } catch {
-    return 0;
-  }
-})();
-
-console.log(`Cloudflare Pages build OK: copied ${SRC}/ → ${DEST}/ (index.html ${count} bytes)`);

@@ -24,6 +24,9 @@ SOURCE = ROOT / "website"
 TARGETS = [
     ROOT / "verify_portal" / "static",
     ROOT / "epi-official",
+    # Cloudflare Pages dashboard is configured with output directory "site"
+    # (no build command). Keep this as a generated mirror of website/.
+    ROOT / "site",
 ]
 
 # Never delete these under verify_portal/static (portal-only)

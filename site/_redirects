@@ -1,0 +1,14 @@
+# Cloudflare Pages / static host proxies for epilabs.org
+#
+# SOURCE OF TRUTH: website/_redirects (synced elsewhere by scripts/sync_website.py)
+#
+# Do NOT add clean-URL → .html rewrites like:
+#   /account /account.html 200
+# Those cause infinite 308 redirect loops with pretty URLs.
+#
+# Do NOT use SPA fallback /* /index.html for this multi-page site.
+
+# ── API / backend proxy → Render ──
+/api/* https://epi-verify-portal.onrender.com/api/:splat 200
+/scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
+/.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
