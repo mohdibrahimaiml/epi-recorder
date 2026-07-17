@@ -129,6 +129,14 @@ var userData = null;
 var lastPlainApiKey = null;
 var PLAN_LABELS = { free: 'Free', pro: 'Pro', team: 'Team / Advanced', advanced: 'Team / Advanced', enterprise: 'Enterprise' };
 
+// Wake free-tier Render immediately on page open (before user clicks Sign in)
+(function wakeApiEarly() {
+  try {
+    fetch(API_BASE + '/api/ping', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
+    fetch(API_BASE + '/api/auth/status', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
+  } catch (e) {}
+})();
+
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
 function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); }
 function clearSession() {
@@ -449,19 +457,41 @@ function startLogin() {
   }
   if (st) {
     st.style.display = 'block';
-    st.textContent = 'Waking auth service (free tier may take a few seconds)…';
+    st.textContent = 'Waking free server (first hit can take up to ~30s)…';
   }
   var state = 'auth_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   sessionStorage.setItem('epi_auth_state', state);
-  // Wake auth service, then redirect (improves cold-start UX)
-  var wake = fetch(API_BASE + '/api/auth/status', { credentials: 'include' })
-    .then(function(r) { return r.json().catch(function(){ return {}; }); })
-    .catch(function() { return {}; });
-  wake.finally(function() {
+
+  // Multi-hit wake: ping + status, with retries, then redirect to OAuth
+  var attempts = 0;
+  var maxAttempts = 6;
+
+  function goGithub() {
     if (btn) btn.textContent = 'Redirecting to GitHub…';
     if (st) st.textContent = 'Redirecting to GitHub…';
     window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
-  });
+  }
+
+  function tryWake() {
+    attempts += 1;
+    if (st) {
+      st.textContent = attempts === 1
+        ? 'Waking free server…'
+        : ('Still waking free server (try ' + attempts + '/' + maxAttempts + ')…');
+    }
+    Promise.all([
+      fetch(API_BASE + '/api/ping', { cache: 'no-store', credentials: 'omit' }).then(function (r) { return r.ok; }).catch(function () { return false; }),
+      fetch(API_BASE + '/api/auth/status', { cache: 'no-store', credentials: 'omit' }).then(function (r) { return r.ok; }).catch(function () { return false; }),
+    ]).then(function (results) {
+      var awake = results[0] || results[1];
+      if (awake || attempts >= maxAttempts) {
+        goGithub();
+      } else {
+        setTimeout(tryWake, 2000 * attempts);
+      }
+    });
+  }
+  tryWake();
 }
 
 function updateNav(isLoggedIn) {

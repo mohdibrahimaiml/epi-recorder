@@ -11,7 +11,7 @@ We fix **one item fully**, verify, then move on.
 | 5 | Default secrets redaction (safe by default) | **DONE** |
 | 6 | README / golden-path focus | **DONE** |
 | 7 | `epi demo` magic | **DONE** |
-| 8 | Free keep-warm + cold-start UX | pending |
+| 8 | Free keep-warm + cold-start UX | **DONE** |
 
 ## How we work
 

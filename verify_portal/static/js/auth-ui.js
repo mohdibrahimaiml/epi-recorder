@@ -1,10 +1,24 @@
-// EPI Auth UI — nav sign-in / account label on all pages except /account
+// EPI Auth UI — nav + free-tier keep-warm wake on every page
 (function () {
-  if (window.location.pathname === '/account' || window.location.pathname === '/account/') return;
-
   var API_BASE = 'https://epi-verify-portal.onrender.com';
   var TOKEN_KEY = 'epi_token';
   var USER_KEY = 'epi_user';
+
+  // ── Always wake the free Render instance ASAP (fire-and-forget) ──
+  // Cheap /api/ping avoids DB; /api/auth/status warms OAuth config path.
+  function wakeApi() {
+    try {
+      if (navigator.sendBeacon) {
+        // sendBeacon is POST-only; use fetch keepalive for GET
+      }
+      fetch(API_BASE + '/api/ping', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
+      fetch(API_BASE + '/api/auth/status', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
+    } catch (e) {}
+  }
+  wakeApi();
+
+  // Skip nav injection on account page (it manages its own nav)
+  if (window.location.pathname === '/account' || window.location.pathname === '/account/') return;
 
   var navLinks = document.getElementById('navLinks');
   if (!navLinks) return;
@@ -19,10 +33,6 @@
     if (isCta) a.className = 'nav-link-cta';
     a.textContent = label;
     li.appendChild(a);
-    var oldCta = navLinks.querySelector('.nav-link-cta');
-    if (oldCta && !isCta) {
-      // keep pricing CTA; only remove duplicate "Get Started" if it points to account
-    }
     navLinks.appendChild(li);
   }
 
@@ -42,12 +52,13 @@
     injectNav('Account', false);
   }
 
-  // Revalidate session in background
+  // Revalidate session in background (also keeps instance warm)
   if (!token && !cached) return;
 
   fetch(API_BASE + '/api/auth/me', {
     credentials: 'include',
     headers: token ? { Authorization: 'Bearer ' + token } : {},
+    cache: 'no-store',
   })
     .then(function (r) {
       if (r.ok) return r.json();
@@ -59,7 +70,6 @@
     })
     .catch(function () {
       localStorage.removeItem(USER_KEY);
-      // keep token only if 401 would clear — network errors keep cache
       injectNav(token ? 'Account' : 'Sign In', !token);
     });
 })();

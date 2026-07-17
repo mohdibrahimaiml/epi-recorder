@@ -329,6 +329,12 @@ async def root():
 async def health():
     return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
 
+
+@app.get("/api/ping")
+async def api_ping():
+    """Ultra-cheap keep-warm endpoint (no DB). Used by GitHub Actions keep-warm."""
+    return {"ok": True, "pong": True, "ts": datetime.now(UTC).isoformat()}
+
 def _static_page(name: str, *, fallback_index: bool = False):
     """Serve STATIC_DIR/<name>.html (or 404 / index fallback)."""
     path = STATIC_DIR / f"{name}.html"
@@ -483,11 +489,6 @@ async def list_api_keys(request: Request):
             for r in rows
         ]
     })
-
-
-async def health():
-    """Health check endpoint."""
-    return {"status": "ok", "service": "epi-verify-portal", "version": "1.0.0"}
 
 
 @app.post("/api/verify")

@@ -1,22 +1,42 @@
 name: Keep Render Warm
 
+# Pings free-tier Render so cold starts are rare for login/API.
+# Free GitHub Actions minutes are enough for */10 cadence.
+# If the schedule stops after repo inactivity, re-run via workflow_dispatch.
+
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes
+    - cron: '*/10 * * * *'   # every 10 minutes
   workflow_dispatch:
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Wake auth + health
+      - name: Wake Render endpoints
+        env:
+          BASE: https://epi-verify-portal.onrender.com
         run: |
-          set -e
-          BASE="https://epi-verify-portal.onrender.com"
-          # Health
-          curl -sf --max-time 60 "$BASE/health" > /dev/null || echo "health cold"
-          # Auth readiness (loads app routes + OAuth config check)
-          curl -sf --max-time 60 "$BASE/api/auth/status" > /dev/null || echo "auth status cold"
-          # Touch plan features (cheap authenticated-free endpoint)
-          curl -sf --max-time 60 "$BASE/api/plan/features" > /dev/null || echo "plan cold"
-          echo "keep-warm done"
+          set +e
+          ok=0
+          for path in /api/ping /health /api/auth/status /api/plan/features; do
+            code=$(curl -sS -o /tmp/kw_body.txt -w "%{http_code}" --max-time 90 "${BASE}${path}" || echo "000")
+            echo "${path} -> HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              ok=1
+            fi
+            # brief pause between hits so free instance fully wakes
+            sleep 1
+          done
+          if [ "$ok" -eq 1 ]; then
+            echo "keep-warm: at least one endpoint warm"
+            exit 0
+          fi
+          echo "keep-warm: all endpoints cold/failed (Render may be sleeping hard)"
+          # Do not fail the workflow — free tier flakiness is expected
+          exit 0
