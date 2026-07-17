@@ -672,6 +672,26 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
 
 # Explicit HTML page routes (ensure clean URLs work without trailing slashes).
 # These must come BEFORE the catch-all static mount.
+
+@app.get("/account")
+async def account_page():
+    """Serve the user account dashboard. No server-side auth — handled client-side via localStorage token."""
+    account_path = STATIC_DIR / "account.html"
+    if account_path.exists():
+        return FileResponse(account_path)
+    raise HTTPException(status_code=404, detail="Account page not found")
+
+
+@app.get("/auth/success")
+async def auth_success_page():
+    """Serve the OAuth success landing page. Saves token from URL and redirects to /account."""
+    success_path = STATIC_DIR / "auth" / "success.html"
+    if success_path.exists():
+        return FileResponse(success_path)
+    # Fallback: redirect to account page directly
+    return RedirectResponse(url="/account")
+
+
 @app.get("/verify")
 async def verify_page():
     return FileResponse(STATIC_DIR / "verify" / "index.html")
