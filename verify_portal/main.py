@@ -54,8 +54,31 @@ from verify_portal.billing import router as billing_router, init_billing_columns
 from verify_portal.dashboard import router as dashboard_router
 from verify_portal.tier_gating import get_plan, get_rate_limit
 
+def _sync_website_static() -> None:
+    """Copy website/ (source of truth) into verify_portal/static on startup."""
+    try:
+        repo_root = Path(__file__).resolve().parent.parent
+        sync_script = repo_root / "scripts" / "sync_website.py"
+        if not sync_script.exists():
+            return
+        # Import and run without spawning a process
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("sync_website", sync_script)
+        if not spec or not spec.loader:
+            return
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if hasattr(mod, "sync"):
+            mod.sync()
+    except Exception as exc:
+        # Non-fatal: portal can still serve existing static/
+        print(f"[epi] website sync skipped: {exc}")
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    _sync_website_static()
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     auth_module.init_auth_for_app(storage_dir)
     yield

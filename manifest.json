@@ -1,7 +1,7 @@
 {
     "name": "EPI Verifier",
     "short_name": "EPI Verify",
-    "start_url": "./verify/",
+    "start_url": "/verify/",
     "display": "standalone",
     "background_color": "#0f172a",
     "theme_color": "#8b5cf6",

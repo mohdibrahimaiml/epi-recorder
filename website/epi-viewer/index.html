@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPI Viewer</title>
+    <script id="epi-view-context" type="application/json">{}</script>
+</head>
+<body>
+    <script id="epi-data" type="application/json">
+    {
+        "manifest": {},
+        "steps": [],
+        "analysis": null,
+        "policy": null,
+        "policy_evaluation": null,
+        "review": null
+    }
+    </script>
+
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar__inner">
+                <div class="brand-block">
+                    <div class="brand-block__eyebrow">Evidence Packaged Infrastructure for AI</div>
+                    <h1 class="brand-block__title">EPI Viewer</h1>
+                    <p class="brand-block__subtitle">Decision case file for review, trust, and policy checks.</p>
+                </div>
+                <div id="trust-badge" class="trust-badge"></div>
+            </div>
+        </header>
+
+        <main class="page">
+            <section id="goal-banner" class="goal-banner" hidden></section>
+
+            <div class="layout">
+                <aside class="sidebar">
+                    <article class="card">
+                        <div class="section-label">Trust</div>
+                        <h2 class="card__title">Evidence Status</h2>
+                        <div id="trust-summary" class="card-stack"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="section-label">Review Guide</div>
+                        <h2 class="card__title">What To Check First</h2>
+                        <div id="guide-summary" class="card-stack"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="section-label">Actions</div>
+                        <h2 class="card__title">Case Actions</h2>
+                        <div id="case-actions" class="card-stack"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="section-label">Manifest</div>
+                        <h2 class="card__title">Quick Facts</h2>
+                        <div id="manifest-facts" class="card-stack"></div>
+                    </article>
+
+                    <article id="analysis-card" class="card" hidden>
+                        <div class="section-label">Analyzer</div>
+                        <h2 class="card__title">Fault Analysis</h2>
+                        <div id="analysis-summary" class="card-stack"></div>
+                    </article>
+
+                    <article id="policy-card" class="card" hidden>
+                        <div class="section-label">Policy</div>
+                        <h2 class="card__title">Rules In Force</h2>
+                        <div id="policy-summary" class="card-stack"></div>
+                    </article>
+
+                    <article id="policy-evaluation-card" class="card" hidden>
+                        <div class="section-label">Policy v2</div>
+                        <h2 class="card__title">Control Outcomes</h2>
+                        <div id="policy-evaluation-summary" class="card-stack"></div>
+                    </article>
+
+                    <article id="review-card" class="card" hidden>
+                        <div class="section-label">Human Review</div>
+                        <h2 class="card__title">Disposition</h2>
+                        <div id="review-summary" class="card-stack"></div>
+                    </article>
+                </aside>
+
+                <section class="content">
+                    <article class="card card--summary">
+                        <div class="section-label">Case Summary</div>
+                        <h2 id="case-title" class="card__title">Decision Case File</h2>
+                        <p id="case-subtitle" class="card__subtitle"></p>
+                        <div id="reviewer-verdict" class="reviewer-verdict" hidden></div>
+                        <div id="fault-banner" class="fault-banner" hidden></div>
+                        <div id="summary-notices" class="notice-list" hidden></div>
+                        <div id="case-kpis" class="kpi-row"></div>
+                    </article>
+
+                    <article id="review-workspace-card" class="card">
+                        <div class="section-label">Review Workspace</div>
+                        <h2 class="card__title">Record A Review Decision</h2>
+                        <p class="card__subtitle">Choose the finding, capture a decision, and download a portable review record or case summary.</p>
+                        <div id="review-workspace" class="review-workspace"></div>
+                    </article>
+
+                    <article class="card">
+                        <div class="timeline-head">
+                            <div>
+                                <div class="section-label">Execution</div>
+                                <h2 class="card__title">Activity Timeline</h2>
+                                <p id="timeline-meta" class="card__subtitle"></p>
+                            </div>
+                            <div class="timeline-controls">
+                                <input id="step-search" class="input" type="search" placeholder="Search steps or content">
+                                <select id="step-filter" class="input">
+                                    <option value="all">All steps</option>
+                                    <option value="flagged">Flagged</option>
+                                    <option value="agent">Agent</option>
+                                    <option value="decision">Decision</option>
+                                    <option value="llm">LLM</option>
+                                    <option value="errors">Errors</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="timeline-highlights" class="meta-strip"></div>
+                        <div id="timeline" class="timeline-list"></div>
+                    </article>
+                </section>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="footer__inner">
+                <span>EPI Viewer __EPI_VERSION__</span>
+                <span>Offline artifact viewer</span>
+                <span>application/vnd.epi+zip</span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

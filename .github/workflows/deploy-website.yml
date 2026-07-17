@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+      - 'scripts/sync_website.py'
   workflow_dispatch:
 
 permissions:
@@ -23,11 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure website source exists
+        run: test -f website/index.html && test -f website/account.html && test -f website/CNAME
+
       - uses: actions/configure-pages@v4
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: epi-official
+          # Single source of truth
+          path: website
 
       - name: Deploy to GitHub Pages
         id: deployment
