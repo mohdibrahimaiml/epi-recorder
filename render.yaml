@@ -23,7 +23,5 @@ services:
       - key: EPI_ADMIN_API_KEY
         sync: false
     domains:
-      - epilabs.org
-      - www.epilabs.org
       - verify.epilabs.org
       - api.epilabs.org
