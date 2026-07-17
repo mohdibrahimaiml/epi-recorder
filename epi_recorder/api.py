@@ -1071,6 +1071,16 @@ class EpiRecorderSession:
             raise RuntimeError("Cannot log step outside of context manager")
         
         self.recording_context.add_step(kind, content)
+
+    def log(self, kind: str, content: Dict[str, Any] | None = None, **kwargs: Any) -> None:
+        """Alias for log_step. Accepts content dict or keyword fields."""
+        if content is None:
+            content = dict(kwargs)
+        elif kwargs:
+            merged = dict(content)
+            merged.update(kwargs)
+            content = merged
+        self.log_step(kind, content)
     
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
@@ -1811,36 +1821,54 @@ def record(
                     return func(*args, **kwargs)
             return sync_wrapper
 
-    # Check if this is being used as a decorator with arguments
-    # If the first argument is not a path but keyword arguments are provided,
-    # we need to return a decorator function
-    if output_path is None and (workflow_name is not None or goal is not None or notes is not None or
-                               metrics is not None or approved_by is not None or metadata_tags is not None):
-        return _wrap
+    class _RecordHandle:
+        """Supports both `with record(...)` and `@record(...)` for the same call."""
 
-    # Handle decorator usage: record is called without parentheses
+        def __init__(self, name_hint: str = "workflow"):
+            self._name_hint = name_hint
+            self._session: EpiRecorderSession | None = None
+
+        def __enter__(self):
+            self._session = _make_session(self._name_hint)
+            return self._session.__enter__()
+
+        def __exit__(self, exc_type, exc, tb):
+            assert self._session is not None
+            return self._session.__exit__(exc_type, exc, tb)
+
+        def __call__(self, func: Callable) -> Callable:
+            return _wrap(func)
+
+    # Bare decorator: @record
     if callable(output_path):
-        func = output_path
-        return _wrap(func)
-    
-    # Normal context manager usage
-    resolved_path = _resolve_output_path(output_path)
-    return EpiRecorderSession(
-        resolved_path,
-        workflow_name,
-        tags=tags,
-        auto_sign=auto_sign,
-        redact=redact,
-        default_key_name=default_key_name,
-        goal=goal,
-        notes=notes,
-        metrics=metrics,
-        approved_by=approved_by,
-        metadata_tags=metadata_tags,
-        legacy_patching=legacy_patching,
-        capture_prints=capture_prints,
-        capture_stderr=capture_stderr,
-    )
+        return _wrap(output_path)
+
+    # Path provided: normal context manager
+    if output_path is not None:
+        resolved_path = _resolve_output_path(output_path)
+        return EpiRecorderSession(
+            resolved_path,
+            workflow_name,
+            tags=tags,
+            auto_sign=auto_sign,
+            redact=redact,
+            default_key_name=default_key_name,
+            goal=goal,
+            notes=notes,
+            metrics=metrics,
+            approved_by=approved_by,
+            metadata_tags=metadata_tags,
+            legacy_patching=legacy_patching,
+            capture_prints=capture_prints,
+            capture_stderr=capture_stderr,
+        )
+
+    # Zero-config / metadata-only: works as both context manager and decorator
+    #   with record(goal="..."): ...
+    #   @record(goal="...")
+    #   def main(): ...
+    hint = workflow_name or "workflow"
+    return _RecordHandle(hint)
 
 
 class _BootstrapSessionProxy:
@@ -1851,6 +1879,15 @@ class _BootstrapSessionProxy:
 
     def log_step(self, kind: str, content: Dict[str, Any]) -> None:
         self._recording_context.add_step(kind, content)
+
+    def log(self, kind: str, content: Dict[str, Any] | None = None, **kwargs: Any) -> None:
+        if content is None:
+            content = dict(kwargs)
+        elif kwargs:
+            merged = dict(content)
+            merged.update(kwargs)
+            content = merged
+        self.log_step(kind, content)
 
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         self.log_step(kind, content)

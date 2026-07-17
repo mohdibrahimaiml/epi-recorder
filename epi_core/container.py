@@ -48,7 +48,9 @@ VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n======================
 # Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), Padding(56)
 _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
-_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html"}
+# Written explicitly via ZipFile.writestr (not from workspace rglob) so they
+# never appear twice in the archive (Python zipfile warns "Duplicate name").
+_RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html", "VERIFY.txt"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 _MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
 
@@ -792,7 +794,8 @@ class EPIContainer:
         files_to_pack.sort(key=lambda item: item[1])
 
         # Now that signing is done (public_key is set), write the real VERIFY.txt.
-        # Now that signing is done (public_key is set), write the real VERIFY.txt.
+        # VERIFY.txt is reserved: packed only via writestr below (never from rglob)
+        # so the archive cannot contain duplicate VERIFY.txt members.
         gov_info_post = manifest.governance or {}
         did_line = f"DID:           {gov_info_post.get('did')}\n" if gov_info_post.get("did") else ""
         verify_txt.write_text(
@@ -815,6 +818,8 @@ class EPIContainer:
         # Include VERIFY.txt in the cryptographic file_manifest so tampering is detected.
         verify_bytes = verify_txt.read_bytes()
         manifest.file_manifest["VERIFY.txt"] = hashlib.sha256(verify_bytes).hexdigest()
+        # Drop any stale VERIFY entry from files_to_pack (from pre-reserve walks)
+        files_to_pack = [(p, n) for (p, n) in files_to_pack if n != "VERIFY.txt"]
 
         # Re-sign if needed since file_manifest changed after signing above.
         if signer_function:
@@ -843,6 +848,8 @@ class EPIContainer:
             zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
 
             for file_path, arc_name in files_to_pack:
+                if arc_name in _RESERVED_ROOT_ARCHIVE_NAMES:
+                    continue
                 zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
 
             viewer_html_bytes = viewer_html.encode("utf-8")
