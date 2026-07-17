@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Decision Ops | EPI LABS</title>
+<meta name="description" content="Review EPI case files directly in your browser. 100% local, zero uploads. Cryptographic verification.">
+<link rel="canonical" href="https://epilabs.org/viewer/">
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon.ico">
+<link rel="apple-touch-icon" href="../favicon.ico">
+<link rel="stylesheet" href="../css/epi.css?v=25">
+<style>
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+.viewer-header{padding:100px 24px 40px;text-align:center;max-width:800px;margin:0 auto}
+.viewer-header h1{font-size:2rem;color:var(--ink);margin:0 0 8px}
+.viewer-header p{color:var(--ink-soft);font-size:1rem;margin:0 auto 24px;max-width:560px}
+.drop-zone{border:2px dashed var(--border-str);padding:48px 24px;text-align:center;cursor:pointer;background:var(--bg-card);transition:all .3s;border-radius:12px;max-width:560px;margin:0 auto}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);border-style:solid;background:var(--accent-glow)}
+.drop-zone.dragover{transform:scale(1.01)}
+.drop-icon{font-size:2.5rem;margin-bottom:16px}
+.drop-title{font-size:1.1rem;font-weight:600;color:var(--ink);margin:0 0 8px}
+.drop-hint{font-size:.85rem;color:var(--ink-muted)}
+.inline-code{font-family:var(--mono);font-size:.8rem;background:var(--accent-glow);padding:1px 6px;border-radius:4px}
+.status-banner{max-width:560px;margin:16px auto;padding:12px 16px;border-radius:8px;font-size:.85rem;text-align:center}
+.status-banner.info{background:var(--accent-glow);color:var(--accent)}
+.status-banner.error{background:var(--tamper-bg);color:var(--tamper)}
+.summary-strip{display:flex;gap:12px;max-width:560px;margin:24px auto;flex-wrap:wrap;justify-content:center}
+.summary-card{background:var(--bg-card);border:1px solid var(--border-str);border-radius:8px;padding:12px 20px;text-align:center;min-width:100px}
+.summary-card strong{display:block;font-size:1.5rem;color:var(--ink);margin:4px 0 0}
+.summary-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted)}
+.timeline{max-width:700px;margin:32px auto;padding:0 16px}
+.timeline-item{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;transition:all .2s}
+.timeline-item:hover{border-color:var(--accent-line)}
+.timeline-index{font-family:var(--mono);font-size:.75rem;color:var(--ink-dim);min-width:28px;text-align:right;padding-top:2px}
+.timeline-kind{font-family:var(--mono);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.timeline-content{font-size:.82rem;color:var(--ink-soft);line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.timeline-content::-webkit-scrollbar{width:4px}
+.timeline-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.kind-session{color:var(--accent)}
+.kind-llm{color:#7c4dff}
+.kind-tool{color:var(--verified)}
+.kind-decision{color:var(--warn)}
+.kind-error{color:var(--tamper)}
+.kind-default{color:var(--ink-dim)}
+.trust-bar{max-width:560px;margin:20px auto;text-align:center}
+.trust-badge{display:inline-block;padding:6px 18px;border-radius:20px;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.trust-badge.high{background:var(--verified-bg);color:var(--verified)}
+.trust-badge.low{background:var(--warn-bg);color:var(--warn)}
+.trust-badge.tampered{background:var(--tamper-bg);color:var(--tamper)}
+.file-input-hidden{display:none}
+footer{text-align:center;padding:60px 24px;border-top:1px solid var(--border);margin-top:60px}
+footer a{color:var(--accent);font-size:.85rem}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="../assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="viewer-header">
+  <h1>EPI Decision Ops</h1>
+  <p>Review, explain, and verify AI decisions. Open saved cases below — everything stays on this device. 100% local, zero uploads.</p>
+
+  <div class="drop-zone" id="dropZone" tabindex="0">
+    <div class="drop-icon">📦</div>
+    <div class="drop-title">Drop a <span class="inline-code">.epi</span> file here</div>
+    <p class="drop-hint">or click to browse. Nothing is uploaded.</p>
+  </div>
+  <input type="file" id="fileInput" class="file-input-hidden" accept=".epi,.zip" multiple>
+
+  <div id="status" class="status-banner info">No saved cases are open yet.</div>
+  <div class="summary-strip" id="summary" style="display:none"></div>
+  <div class="trust-bar" id="trustBar" style="display:none"></div>
+  <div class="timeline" id="timeline"></div>
+</main>
+
+<footer>
+  <p>&copy; 2026 EPI Labs &middot; <a href="/">Home</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/refund">Refunds</a></p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/nav.js"></script>
+<script src="../js/auth-ui.js"></script>
+<script>
+var state = { cases: [], selectedIdx: -1 };
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+var status = document.getElementById('status');
+var summary = document.getElementById('summary');
+var trustBar = document.getElementById('trustBar');
+var timeline = document.getElementById('timeline');
+
+dropZone.addEventListener('click', function(){ fileInput.click(); });
+dropZone.addEventListener('dragover', function(e){ e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', function(e){ e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', function(e){ handleFiles(e.target.files); });
+
+async function handleFiles(fileList) {
+  var files = Array.from(fileList).filter(function(f){ return f.name.endsWith('.epi'); });
+  if (!files.length) { setStatus('Please select .epi files.', 'error'); return; }
+  setStatus('Loading ' + files.length + ' case file(s)...', 'info');
+  for (var i = 0; i < files.length; i++) {
+    try { await loadEpiFile(files[i]); } catch(e) { setStatus('Failed: ' + e.message, 'error'); }
+  }
+  renderAll();
+  setStatus('Loaded ' + state.cases.length + ' case file(s). Click a case to review.', 'info');
+}
+
+async function loadEpiFile(file) {
+  var buf = await file.arrayBuffer();
+  var zip = await JSZip.loadAsync(buf);
+  var manifest = JSON.parse(await zip.file('manifest.json').async('string'));
+  var stepsRaw = await zip.file('steps.jsonl').async('string');
+  var steps = stepsRaw.trim().split('\n').map(function(l){ return JSON.parse(l); });
+  var analysis = await readJsonSafe(zip, 'analysis.json');
+  state.cases.push({ name: file.name, manifest: manifest, steps: steps, analysis: analysis, size: file.size });
+}
+
+async function readJsonSafe(zip, name) {
+  try { return JSON.parse(await zip.file(name).async('string')); } catch(e) { return null; }
+}
+
+function renderAll() {
+  summary.style.display = 'flex';
+  summary.innerHTML = '<div class="summary-card"><span class="summary-label">Cases</span><strong>' + state.cases.length + '</strong></div>';
+
+  timeline.innerHTML = '';
+  for (var ci = 0; ci < state.cases.length; ci++) {
+    var c = state.cases[ci];
+    var hash = c.manifest.signature ? 'VALID' : 'NONE';
+    var trust = c.manifest.signature ? 'low' : 'none';
+    timeline.innerHTML += '<div class="timeline-item" style="cursor:pointer" onclick="selectCase(' + ci + ')"><div class="timeline-index">' + (ci + 1) + '</div><div style="flex:1"><div style="font-weight:600;color:var(--ink);margin-bottom:4px">' + esc(c.name) + '</div><div style="font-size:.78rem;color:var(--ink-muted)">' + c.steps.length + ' steps &middot; ' + formatSize(c.size) + ' &middot; Signature: ' + hash + '</div></div></div>';
+  }
+  trustBar.style.display = 'none';
+}
+
+function selectCase(idx) {
+  state.selectedIdx = idx;
+  var c = state.cases[idx];
+  status.style.display = 'none';
+  trustBar.style.display = 'block';
+  var trustLabel = c.manifest.signature ? 'Signed' : 'Unsigned';
+  var trustClass = c.manifest.signature ? 'low' : 'tampered';
+  trustBar.innerHTML = '<span class="trust-badge ' + trustClass + '">' + trustLabel + '</span>';
+
+  var html = '<h2 style="margin-bottom:16px;color:var(--ink);font-size:1.1rem">' + esc(c.name) + ' — ' + c.steps.length + ' steps</h2>';
+  for (var i = 0; i < c.steps.length; i++) {
+    var s = c.steps[i];
+    var kindClass = s.kind.indexOf('session') === 0 ? 'kind-session' : s.kind.indexOf('llm') === 0 ? 'kind-llm' : s.kind.indexOf('tool') === 0 ? 'kind-tool' : s.kind.indexOf('decision') === 0 || s.kind.indexOf('agent') === 0 ? 'kind-decision' : s.kind.indexOf('error') >= 0 ? 'kind-error' : 'kind-default';
+    var content = typeof s.content === 'object' ? JSON.stringify(s.content, null, 2) : String(s.content || '');
+    html += '<div class="timeline-item"><div class="timeline-index">' + (i + 1) + '</div><div style="flex:1"><div class="timeline-kind ' + kindClass + '">' + esc(s.kind) + '</div><div class="timeline-content">' + esc(content.substring(0, 2000)) + '</div></div></div>';
+  }
+  timeline.innerHTML = html;
+  document.querySelector('.viewer-header').scrollIntoView({ behavior: 'smooth' });
+}
+
+function setStatus(msg, tone) { status.textContent = msg; status.className = 'status-banner ' + (tone || 'info'); status.style.display = 'block'; }
+function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function formatSize(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
+</script>
+</body>
+</html>
