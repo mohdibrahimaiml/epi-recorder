@@ -937,11 +937,17 @@ async def auth_logout(request: Request):
 @app.get("/api/auth/status")
 async def auth_status():
     """Lightweight readiness for keep-warm and client health checks."""
+    from verify_portal.db import db_status
+
     configured = bool(os.getenv("GITHUB_CLIENT_ID") and os.getenv("GITHUB_CLIENT_SECRET"))
+    db = db_status()
     return {
         "ok": True,
         "oauth_configured": configured,
         "service": "epi-verify-portal",
+        "db_backend": db.get("backend"),
+        "db_durable": db.get("durable"),
+        "turso_configured": db.get("turso_configured"),
     }
 
 

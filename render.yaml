@@ -5,8 +5,8 @@ services:
     plan: free
     buildCommand: pip install -e ".[gateway]"
     startCommand: python -m verify_portal.main
-    # PRODUCTION: In Render dashboard, add a persistent disk (e.g. mount /var/data)
-    # and set EPI_STORAGE_DIR=/var/data so auth.db survives redeploys.
+    # FREE durable auth: set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN (see docs/FREE_AUTH_DB_SETUP.md).
+    # No paid Render disk required when Turso free is configured.
     envVars:
       - key: PYTHON_VERSION
         value: 3.12
@@ -18,6 +18,10 @@ services:
         value: https://epi-verify-portal.onrender.com
       - key: EPI_FRONTEND_URL
         value: https://epilabs.org
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
       - key: EPI_ATTESTATION_PRIVATE_KEY
         sync: false
       - key: EPI_SCITT_SERVICE_PRIVATE_KEY

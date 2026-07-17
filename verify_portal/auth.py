@@ -22,6 +22,9 @@ import httpx
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse, Response
 
+from verify_portal.db import auth_db_path as _auth_db_path
+from verify_portal.db import backend_name, connect_auth, db_status, turso_configured
+
 
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -59,8 +62,8 @@ def _frontend_url() -> str:
 
 
 def auth_db_path(storage_dir: Path | str) -> Path:
-    """Single durable DB for users, tokens, oauth state, and plans."""
-    return Path(storage_dir) / "auth.db"
+    """Local path for auth.db (used when Turso is not configured)."""
+    return _auth_db_path(storage_dir)
 
 
 def normalize_plan(plan: str | None) -> str:
@@ -77,14 +80,13 @@ def _now_iso() -> str:
     return _utc_now().isoformat()
 
 
-def _connect(storage_dir: Path | str) -> sqlite3.Connection:
-    db = auth_db_path(storage_dir)
-    db.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db), timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+def _connect(storage_dir: Path | str):
+    """Open auth DB: Turso free remote if configured, else local SQLite."""
+    return connect_auth(storage_dir)
+
+
+def _rowcount(cur) -> int:
+    return int(getattr(cur, "rowcount", 0) or 0)
 
 
 def init_auth_db(storage_dir: Path | str) -> None:
@@ -108,91 +110,93 @@ def init_auth_db(storage_dir: Path | str) -> None:
             token TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             created_at TEXT,
-            expires_at TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            expires_at TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_tokens_user ON tokens(user_id);
         CREATE TABLE IF NOT EXISTS oauth_states (
             state TEXT PRIMARY KEY,
             redirect_uri TEXT,
             created_at TEXT NOT NULL
-        );
+        )
         """
     )
     # Migrations for older schemas
-    for col, ddl in (
-        ("plan", "ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'"),
-        ("customer_id", "ALTER TABLE users ADD COLUMN customer_id TEXT"),
-        ("avatar_url", "ALTER TABLE users ADD COLUMN avatar_url TEXT"),
+    for ddl in (
+        "ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'",
+        "ALTER TABLE users ADD COLUMN customer_id TEXT",
+        "ALTER TABLE users ADD COLUMN avatar_url TEXT",
     ):
         try:
             conn.execute(ddl)
-        except sqlite3.OperationalError:
+            conn.commit()
+        except Exception:
             pass
 
     # One-time import from legacy users.db if present and auth.db has no users
-    legacy = Path(storage_dir) / "users.db"
-    if legacy.exists():
-        count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-        if count == 0:
+    # (local SQLite only — skip when Turso is the backend)
+    if not turso_configured():
+        legacy = Path(storage_dir) / "users.db"
+        if legacy.exists():
             try:
-                legacy_conn = sqlite3.connect(str(legacy))
-                legacy_conn.row_factory = sqlite3.Row
-                for row in legacy_conn.execute("SELECT * FROM users"):
-                    cols = row.keys()
-                    conn.execute(
-                        """
-                        INSERT OR IGNORE INTO users
-                        (id, github_id, login, email, org, plan, customer_id, avatar_url, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            row["id"],
-                            row["github_id"] if "github_id" in cols else "",
-                            row["login"] if "login" in cols else "",
-                            row["email"] if "email" in cols else "",
-                            row["org"] if "org" in cols else "",
-                            normalize_plan(row["plan"]) if "plan" in cols else "free",
-                            row["customer_id"] if "customer_id" in cols else None,
-                            row["avatar_url"] if "avatar_url" in cols else "",
-                            row["created_at"] if "created_at" in cols else _now_iso(),
-                            row["updated_at"] if "updated_at" in cols else _now_iso(),
-                        ),
-                    )
-                for row in legacy_conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='tokens'"
-                ):
-                    for t in legacy_conn.execute("SELECT * FROM tokens"):
+                count_row = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()
+                count = int(count_row["c"]) if count_row else 0
+                if count == 0:
+                    legacy_conn = sqlite3.connect(str(legacy))
+                    legacy_conn.row_factory = sqlite3.Row
+                    for row in legacy_conn.execute("SELECT * FROM users"):
+                        cols = row.keys()
                         conn.execute(
-                            "INSERT OR IGNORE INTO tokens (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                            (t["token"], t["user_id"], t["created_at"], t["expires_at"]),
+                            """
+                            INSERT OR IGNORE INTO users
+                            (id, github_id, login, email, org, plan, customer_id, avatar_url, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                row["id"],
+                                row["github_id"] if "github_id" in cols else "",
+                                row["login"] if "login" in cols else "",
+                                row["email"] if "email" in cols else "",
+                                row["org"] if "org" in cols else "",
+                                normalize_plan(row["plan"]) if "plan" in cols else "free",
+                                row["customer_id"] if "customer_id" in cols else None,
+                                row["avatar_url"] if "avatar_url" in cols else "",
+                                row["created_at"] if "created_at" in cols else _now_iso(),
+                                row["updated_at"] if "updated_at" in cols else _now_iso(),
+                            ),
                         )
-                legacy_conn.close()
+                    for row in legacy_conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='tokens'"
+                    ):
+                        for t in legacy_conn.execute("SELECT * FROM tokens"):
+                            conn.execute(
+                                "INSERT OR IGNORE INTO tokens (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                                (t["token"], t["user_id"], t["created_at"], t["expires_at"]),
+                            )
+                    legacy_conn.close()
             except Exception:
                 pass
 
-    # Import plans from legacy billing path data/auth.db
-    legacy_billing = Path(storage_dir) / "data" / "auth.db"
-    if legacy_billing.exists():
-        try:
-            bconn = sqlite3.connect(str(legacy_billing))
-            bconn.row_factory = sqlite3.Row
-            for row in bconn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-            ):
-                for u in bconn.execute("SELECT id, email, plan, customer_id FROM users"):
-                    plan = normalize_plan(u["plan"] if "plan" in u.keys() else "free")
-                    if plan != "free" or u["customer_id"]:
-                        conn.execute(
-                            """
-                            UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id), updated_at = ?
-                            WHERE id = ? OR lower(email) = lower(?)
-                            """,
-                            (plan, u["customer_id"], _now_iso(), u["id"], u["email"] or ""),
-                        )
-            bconn.close()
-        except Exception:
-            pass
+        legacy_billing = Path(storage_dir) / "data" / "auth.db"
+        if legacy_billing.exists():
+            try:
+                bconn = sqlite3.connect(str(legacy_billing))
+                bconn.row_factory = sqlite3.Row
+                for row in bconn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+                ):
+                    for u in bconn.execute("SELECT id, email, plan, customer_id FROM users"):
+                        plan = normalize_plan(u["plan"] if "plan" in u.keys() else "free")
+                        if plan != "free" or u["customer_id"]:
+                            conn.execute(
+                                """
+                                UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id), updated_at = ?
+                                WHERE id = ? OR lower(email) = lower(?)
+                                """,
+                                (plan, u["customer_id"], _now_iso(), u["id"], u["email"] or ""),
+                            )
+                bconn.close()
+            except Exception:
+                pass
 
     conn.commit()
     conn.close()
@@ -442,23 +446,23 @@ def set_user_plan(
     conn = _connect(storage_dir)
     ok = False
     if user_id:
-        conn.execute(
+        cur = conn.execute(
             "UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id), updated_at = ? WHERE id = ?",
             (plan, customer_id, _now_iso(), user_id),
         )
-        ok = conn.total_changes > 0
+        ok = _rowcount(cur) > 0
     if not ok and email:
-        conn.execute(
+        cur = conn.execute(
             "UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id), updated_at = ? WHERE lower(email) = lower(?)",
             (plan, customer_id, _now_iso(), email),
         )
-        ok = conn.total_changes > 0
+        ok = _rowcount(cur) > 0
     if not ok and customer_id:
-        conn.execute(
+        cur = conn.execute(
             "UPDATE users SET plan = ?, updated_at = ? WHERE customer_id = ?",
             (plan, _now_iso(), customer_id),
         )
-        ok = conn.total_changes > 0
+        ok = _rowcount(cur) > 0
     conn.commit()
     conn.close()
     return ok

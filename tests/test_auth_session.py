@@ -167,3 +167,32 @@ def test_billing_and_auth_share_db(storage):
     assert ok
     assert get_user_plan(storage, uid) == "pro"
     assert auth_module.auth_db_path(storage) == storage / "auth.db"
+
+
+def test_db_backend_defaults_to_sqlite(storage, monkeypatch):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("LIBSQL_URL", raising=False)
+    monkeypatch.delenv("LIBSQL_AUTH_TOKEN", raising=False)
+    from verify_portal.db import backend_name, db_status, connect_auth
+
+    assert backend_name() == "sqlite"
+    status = db_status()
+    assert status["durable"] is False
+    conn = connect_auth(storage)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ping (id TEXT PRIMARY KEY)"
+    )
+    conn.execute("INSERT OR REPLACE INTO ping (id) VALUES (?)", ("ok",))
+    conn.commit()
+    row = conn.execute("SELECT id FROM ping WHERE id = ?", ("ok",)).fetchone()
+    assert row["id"] == "ok"
+    conn.close()
+
+
+def test_auth_status_includes_db_info(client):
+    r = client.get("/api/auth/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert "db_backend" in body
+    assert body["db_backend"] in ("sqlite", "turso")
