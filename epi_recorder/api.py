@@ -1599,18 +1599,28 @@ class EpiRecorderSession:
 
                 # Re-pack from the extracted workspace so file manifests, viewer content,
                 # and the outer envelope stay coherent after signing.
-                temp_output = self.output_path.with_suffix('.epi.tmp')
-                EPIContainer.pack(
-                    tmp_path,
-                    manifest,
-                    temp_output,
-                    signer_function=lambda current: sign_manifest(
-                        current, private_key, self.default_key_name
-                    ),
-                    preserve_generated=True,
-                    container_format=current_format,
-                    generate_analysis=False,
-                )
+                # Suppress notarization: first pack already notarized.
+                # Re-timestamping tsa_reply.tsr after hashing causes mismatch.
+                old_notarize = os.environ.get("EPI_NOTARIZE")
+                os.environ["EPI_NOTARIZE"] = "0"
+                try:
+                    temp_output = self.output_path.with_suffix('.epi.tmp')
+                    EPIContainer.pack(
+                        tmp_path,
+                        manifest,
+                        temp_output,
+                        signer_function=lambda current: sign_manifest(
+                            current, private_key, self.default_key_name
+                        ),
+                        preserve_generated=True,
+                        container_format=current_format,
+                        generate_analysis=False,
+                    )
+                finally:
+                    if old_notarize is None:
+                        os.environ.pop("EPI_NOTARIZE", None)
+                    else:
+                        os.environ["EPI_NOTARIZE"] = old_notarize
                 
                 # Successfully created signed file, now safely replace original
                 self.output_path.unlink()
