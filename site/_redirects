@@ -1,14 +1,17 @@
-# Cloudflare Pages / static host proxies for epilabs.org
+# Cloudflare Pages _redirects
 #
-# SOURCE OF TRUTH: website/_redirects (synced elsewhere by scripts/sync_website.py)
+# IMPORTANT: Cloudflare Pages does NOT allow proxy (status 200) rules that
+# point at absolute external URLs (e.g. https://…onrender.com/…).
+# Those lines are rejected with:
+#   "Proxy (200) redirects can only point to relative paths."
 #
-# Do NOT add clean-URL → .html rewrites like:
-#   /account /account.html 200
-# Those cause infinite 308 redirect loops with pretty URLs.
+# API proxying is implemented with Cloudflare Pages Functions:
+#   functions/api/[[path]].js
+#   functions/scitt/[[path]].js
+#   functions/well-known/[[path]].js
 #
-# Do NOT use SPA fallback /* /index.html for this multi-page site.
-
-# ── API / backend proxy → Render ──
-/api/* https://epi-verify-portal.onrender.com/api/:splat 200
-/scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
-/.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
+# Static pages use pretty URLs natively (account.html → /account).
+# Do NOT add /account /account.html 200 (causes infinite 308 loops).
+#
+# Optional: force apex (uncomment if needed and not handled in CF dashboard)
+# https://www.epilabs.org/* https://epilabs.org/:splat 301
