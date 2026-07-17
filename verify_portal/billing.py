@@ -1,23 +1,33 @@
-"""EPI billing module — Paddle webhook, plan helpers."""
+"""EPI billing module — Paddle webhook, plan helpers.
+
+Plans live in the same auth.db as users (see verify_portal.auth) so Pro / Team
+(Advanced) / Enterprise upgrades apply to the logged-in GitHub identity.
+"""
+from __future__ import annotations
+
 import hashlib
+import hmac
 import json
 import os
-import sqlite3
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from starlette.responses import JSONResponse
 
 try:
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
-    from cryptography.hazmat.primitives.hashes import SHA256, SHA1
-    from cryptography.x509 import load_pem_x509_certificate
+    from cryptography.hazmat.primitives import serialization  # noqa: F401
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
 
 import httpx
+
+from verify_portal.auth import (
+    auth_db_path,
+    get_user_plan as auth_get_user_plan,
+    init_auth_db,
+    normalize_plan,
+    set_user_plan,
+)
 
 router = APIRouter()
 
@@ -30,105 +40,55 @@ PADDLE_VENDOR_ID = os.getenv("PADDLE_VENDOR_ID", "")
 PADDLE_VENDOR_AUTH_CODE = os.getenv("PADDLE_VENDOR_AUTH_CODE", "")
 
 PADDLE_PRO_PRICE_ID = os.getenv("PADDLE_PRO_PRICE_ID", "")
+PADDLE_TEAM_PRICE_ID = os.getenv("PADDLE_TEAM_PRICE_ID", "") or os.getenv("PADDLE_ADVANCED_PRICE_ID", "")
+PADDLE_ENTERPRISE_PRICE_ID = os.getenv("PADDLE_ENTERPRISE_PRICE_ID", "")
 
 PADDLE_API_BASE = "https://sandbox-api.paddle.com" if PADDLE_SANDBOX else "https://api.paddle.com"
-PADDLE_PUBLIC_KEY_URL = f"{PADDLE_API_BASE}/notification-settings/public-key"
-
-
-def _billing_db_path(storage_dir):
-    db_dir = Path(storage_dir) / "data"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    return db_dir / "auth.db"
 
 
 def init_billing_columns(storage_dir):
-    db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN customer_id TEXT")
-    except sqlite3.OperationalError:
-        pass
-    c.commit()
-    c.close()
+    """Ensure auth.db exists with plan columns (delegates to auth)."""
+    init_auth_db(storage_dir)
 
 
 def get_user_plan(storage_dir, user_id):
-    db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.row_factory = sqlite3.Row
-    r = c.execute("SELECT plan FROM users WHERE id = ?", (user_id,)).fetchone()
-    c.close()
-    return r["plan"] if r else "free"
+    return auth_get_user_plan(storage_dir, user_id)
 
 
 def set_user_plan_by_email(storage_dir, email, *, plan, customer_id=None):
-    if not email:
-        return False
-    db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.execute(
-        "UPDATE users SET plan = ?, customer_id = COALESCE(?, customer_id) WHERE email = ?",
-        (plan, customer_id, email),
-    )
-    ok = c.total_changes > 0
-    c.commit()
-    c.close()
-    return ok
+    return set_user_plan(storage_dir, plan=plan, email=email, customer_id=customer_id)
 
 
 def set_user_plan_by_customer_id(storage_dir, cid, *, plan):
-    db = _billing_db_path(storage_dir)
-    c = sqlite3.connect(str(db))
-    c.execute(
-        "UPDATE users SET plan = ? WHERE customer_id = ?",
-        (plan, cid),
-    )
-    ok = c.total_changes > 0
-    c.commit()
-    c.close()
-    return ok
+    return set_user_plan(storage_dir, plan=plan, customer_id=cid)
 
 
-async def _fetch_paddle_public_key() -> bytes:
-    """Fetch Paddle's public key for webhook signature verification."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(PADDLE_PUBLIC_KEY_URL)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("data", {}).get("public_key", "").encode()
+def _plan_from_price_id(price_id: str) -> str:
+    if not price_id:
+        return "pro"
+    if PADDLE_ENTERPRISE_PRICE_ID and price_id == PADDLE_ENTERPRISE_PRICE_ID:
+        return "enterprise"
+    if PADDLE_TEAM_PRICE_ID and price_id == PADDLE_TEAM_PRICE_ID:
+        return "team"
+    if PADDLE_PRO_PRICE_ID and price_id == PADDLE_PRO_PRICE_ID:
+        return "pro"
+    # Fallback: name heuristics
+    low = price_id.lower()
+    if "enterprise" in low:
+        return "enterprise"
+    if "team" in low or "advanced" in low:
+        return "team"
+    return "pro"
 
 
-def _verify_paddle_signature(raw_body: bytes, signature_header: str, public_key_pem: bytes) -> bool:
-    """Verify a Paddle webhook signature using their public key."""
-    if not CRYPTO_AVAILABLE:
-        return True
-
-    try:
-        parts = signature_header.split(";")
-        sig_map = {}
-        for part in parts:
-            key, _, val = part.partition("=")
-            sig_map[key.strip()] = val.strip()
-
-        ts = sig_map.get("ts", "")
-        h1 = sig_map.get("h1", "")
-
-        if not ts or not h1:
-            return False
-
-        signed_payload = f"{ts}:{raw_body.decode()}".encode()
-        expected_hash = hashlib.sha256(signed_payload).hexdigest()
-
-        if not hmac.compare_digest(expected_hash, h1):
-            return False
-
-        return True
-    except Exception:
-        return False
+def _extract_price_id(event_data: dict) -> str:
+    items = event_data.get("items") or []
+    if items and isinstance(items[0], dict):
+        price = items[0].get("price") or {}
+        if isinstance(price, dict):
+            return str(price.get("id") or "")
+        return str(items[0].get("price_id") or "")
+    return str(event_data.get("price_id") or "")
 
 
 @router.get("/api/paddle/config")
@@ -137,6 +97,9 @@ async def get_paddle_config():
     return {
         "client_token": PADDLE_CLIENT_TOKEN,
         "pro_price_id": PADDLE_PRO_PRICE_ID,
+        "team_price_id": PADDLE_TEAM_PRICE_ID,
+        "advanced_price_id": PADDLE_TEAM_PRICE_ID,
+        "enterprise_price_id": PADDLE_ENTERPRISE_PRICE_ID,
         "sandbox": PADDLE_SANDBOX,
     }
 
@@ -147,7 +110,6 @@ async def paddle_webhook(request: Request):
     raw_body = await request.body()
     signature = request.headers.get("paddle-signature", "")
 
-    # Verify webhook signature
     if PADDLE_WEBHOOK_SECRET and signature:
         try:
             parts = signature.split(";")
@@ -169,12 +131,16 @@ async def paddle_webhook(request: Request):
 
     event = json.loads(raw_body)
     event_type = event.get("event_type", "")
-    event_data = event.get("data", {})
+    event_data = event.get("data", {}) or {}
 
     customer_id = event_data.get("customer_id", "") or event_data.get("id", "")
-    email = event_data.get("email", "") or event_data.get("custom_data", {}).get("email", "")
+    custom = event_data.get("custom_data") or {}
+    email = (
+        event_data.get("email", "")
+        or custom.get("email", "")
+        or (event_data.get("customer") or {}).get("email", "")
+    )
 
-    # Try to get email from customer endpoint if not in event
     if not email and customer_id and PADDLE_API_KEY:
         try:
             async with httpx.AsyncClient() as client:
@@ -191,18 +157,19 @@ async def paddle_webhook(request: Request):
     storage_dir = os.getenv("EPI_STORAGE_DIR", "./data")
     init_billing_columns(storage_dir)
 
-    if event_type in ("subscription.created", "subscription.updated"):
-        status = event_data.get("status", "")
-        if status == "active":
+    if event_type in ("subscription.created", "subscription.updated", "subscription.activated"):
+        status = (event_data.get("status") or "").lower()
+        if status in ("active", "trialing"):
+            plan = normalize_plan(_plan_from_price_id(_extract_price_id(event_data)))
             if email:
-                set_user_plan_by_email(storage_dir, email, plan="pro", customer_id=str(customer_id))
+                set_user_plan_by_email(storage_dir, email, plan=plan, customer_id=str(customer_id) if customer_id else None)
             elif customer_id:
-                set_user_plan_by_customer_id(storage_dir, str(customer_id), plan="pro")
+                set_user_plan_by_customer_id(storage_dir, str(customer_id), plan=plan)
 
-    elif event_type in ("subscription.canceled", "subscription.paused"):
+    elif event_type in ("subscription.canceled", "subscription.paused", "subscription.past_due"):
         if email:
-            set_user_plan_by_email(storage_dir, email, plan="free", customer_id=str(customer_id))
+            set_user_plan_by_email(storage_dir, email, plan="free", customer_id=str(customer_id) if customer_id else None)
         elif customer_id:
             set_user_plan_by_customer_id(storage_dir, str(customer_id), plan="free")
 
-    return {"status": "ok"}
+    return {"status": "ok", "db": str(auth_db_path(storage_dir))}

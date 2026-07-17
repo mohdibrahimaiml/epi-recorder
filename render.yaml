@@ -5,11 +5,19 @@ services:
     plan: free
     buildCommand: pip install -e ".[gateway]"
     startCommand: python -m verify_portal.main
+    # PRODUCTION: In Render dashboard, add a persistent disk (e.g. mount /var/data)
+    # and set EPI_STORAGE_DIR=/var/data so auth.db survives redeploys.
     envVars:
       - key: PYTHON_VERSION
         value: 3.12
       - key: PORT
         value: 10000
+      - key: EPI_STORAGE_DIR
+        value: ./data
+      - key: EPI_VERIFY_BASE_URL
+        value: https://epi-verify-portal.onrender.com
+      - key: EPI_FRONTEND_URL
+        value: https://epilabs.org
       - key: EPI_ATTESTATION_PRIVATE_KEY
         sync: false
       - key: EPI_SCITT_SERVICE_PRIVATE_KEY
@@ -21,6 +29,20 @@ services:
       - key: GITHUB_CLIENT_SECRET
         sync: false
       - key: EPI_ADMIN_API_KEY
+        sync: false
+      - key: PADDLE_API_KEY
+        sync: false
+      - key: PADDLE_CLIENT_TOKEN
+        sync: false
+      - key: PADDLE_WEBHOOK_SECRET
+        sync: false
+      - key: PADDLE_PRO_PRICE_ID
+        sync: false
+      - key: PADDLE_TEAM_PRICE_ID
+        sync: false
+      - key: PADDLE_ADVANCED_PRICE_ID
+        sync: false
+      - key: PADDLE_ENTERPRISE_PRICE_ID
         sync: false
     domains:
       - verify.epilabs.org

@@ -117,62 +117,132 @@
 </footer>
 
 <script>
+/* EPI Account — production login/logout for Free / Pro / Team(Advanced) / Enterprise */
 var API_BASE = 'https://epi-verify-portal.onrender.com';
+var TOKEN_KEY = 'epi_token';
+var USER_KEY = 'epi_user';
 var userData = null;
-var apiKey = null;
-var loggedIn = false;
+var lastPlainApiKey = null;
+var PLAN_LABELS = { free: 'Free', pro: 'Pro', team: 'Team / Advanced', advanced: 'Team / Advanced', enterprise: 'Enterprise' };
 
-// Check if token came via redirect and clean the URL
-(function() {
-  var hash = window.location.hash;
-  if (hash && hash.indexOf('token=') === 1) {
-    var token = hash.substring(7).split('&')[0];
-    localStorage.setItem('epi_token', token);
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+function authHeaders() {
+  var h = { 'Accept': 'application/json' };
+  var t = getToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
+}
+function planLabel(p) {
+  p = (p || 'free').toLowerCase();
+  if (p === 'advanced' || p === 'advance') p = 'team';
+  return PLAN_LABELS[p] || (p.charAt(0).toUpperCase() + p.slice(1));
+}
+function normalizePlan(p) {
+  p = (p || 'free').toLowerCase();
+  if (p === 'advanced' || p === 'advance') return 'team';
+  return p;
+}
+
+// Capture OAuth return: #token=...&user=...  or ?error=
+(function captureOAuthReturn() {
+  var params = new URLSearchParams(window.location.search);
+  var err = params.get('error');
+  if (err) {
+    history.replaceState(null, '', '/account');
+    window.__epi_oauth_error = err === 'oauth_failed'
+      ? 'GitHub sign-in failed. Please try again. If this keeps happening, the auth service may be waking up — wait 30s and retry.'
+      : ('Sign-in error: ' + err);
+  }
+  var hash = window.location.hash || '';
+  if (hash.indexOf('token=') >= 0) {
+    var q = new URLSearchParams(hash.replace(/^#/, ''));
+    var token = q.get('token');
+    var userB64 = q.get('user');
+    if (token) {
+      setToken(token);
+      if (userB64) {
+        try {
+          var json = atob(userB64.replace(/-/g, '+').replace(/_/g, '/'));
+          localStorage.setItem(USER_KEY, json);
+        } catch (e) {}
+      }
+    }
     history.replaceState(null, '', '/account');
   }
 })();
 
-async function loadAccount() {
-  var token = localStorage.getItem('epi_token');
+async function fetchWithRetry(url, opts, attempts) {
+  attempts = attempts || 4;
+  var lastErr = null;
+  for (var i = 0; i < attempts; i++) {
+    try {
+      var r = await fetch(url, opts);
+      // Render cold start sometimes 502/503/520
+      if (r.status >= 500 && i < attempts - 1) {
+        await new Promise(function(res) { setTimeout(res, 1500 * (i + 1)); });
+        continue;
+      }
+      return r;
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await new Promise(function(res) { setTimeout(res, 1500 * (i + 1)); });
+    }
+  }
+  throw lastErr || new Error('Network error');
+}
 
-  // No token → show signin
+async function loadAccount() {
+  if (window.__epi_oauth_error) {
+    showError(window.__epi_oauth_error);
+    updateNav(false);
+    return;
+  }
+
+  var token = getToken();
   if (!token) {
     showState('signin');
     updateNav(false);
     return;
   }
 
-  // Have token → show loading while we verify
   showState('loading');
-
   try {
-    var r = await fetch(API_BASE + '/api/auth/me', {
+    var r = await fetchWithRetry(API_BASE + '/api/auth/me', {
       credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: authHeaders()
     });
 
-    if (r.status === 401 || !r.ok) {
-      localStorage.removeItem('epi_token');
+    if (r.status === 401) {
+      clearSession();
       showState('signin');
       updateNav(false);
       return;
     }
+    if (!r.ok) {
+      showError('Account service returned an error (' + r.status + '). Please try again in a moment.');
+      return;
+    }
 
     userData = await r.json();
-    loggedIn = true;
+    userData.plan = normalizePlan(userData.plan);
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+
     showState('account');
     updateNav(true);
 
-    document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
+    document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || 'there');
     document.getElementById('acct-email').textContent = userData.email || '';
-    if (userData.org) {
-      document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
-    }
+    document.getElementById('acct-org').textContent = userData.org ? ('Organization: ' + userData.org) : '';
 
     await loadPlan();
     await loadApiKeys();
   } catch (e) {
-    showState('signin');
+    showError('Could not reach the account service. It may be waking up — wait a few seconds and click Try Again.');
     updateNav(false);
   }
 }
@@ -190,59 +260,68 @@ function showError(msg) {
 }
 
 async function loadPlan() {
-  var plan = userData.plan || 'free';
+  var plan = normalizePlan(userData && userData.plan);
   var badge = document.getElementById('plan-badge');
   if (badge) {
-    badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
-    badge.className = 'plan-badge ' + plan;
+    badge.textContent = planLabel(plan);
+    badge.className = 'plan-badge ' + (plan === 'team' ? 'pro' : plan);
   }
-  if (plan !== 'free') {
-    var up = document.getElementById('upgrade-link');
-    if (up) up.style.display = 'none';
+  var up = document.getElementById('upgrade-link');
+  if (up) {
+    if (plan === 'enterprise') {
+      up.style.display = 'none';
+    } else if (plan === 'pro' || plan === 'team') {
+      up.textContent = 'Manage plan';
+      up.style.display = 'inline-block';
+    } else {
+      up.textContent = 'Upgrade';
+      up.style.display = 'inline-block';
+    }
   }
 
-  // Load plan features
   try {
-    var r = await fetch(API_BASE + '/api/plan/features', {
+    var r = await fetchWithRetry(API_BASE + '/api/plan/features', {
       credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
-    });
-    if (r.ok) {
-      var f = await r.json();
-      var feat = f.features || {};
-      var list_items = [
-        { k: 'Hosted verifications', v: feat.verifications ? feat.verifications.toLocaleString() + '/mo' : 'Unlimited' },
-        { k: 'SCITT Remote Anchoring', v: feat.scitt ? 'Enabled' : '—' },
-        { k: 'PDF Reports', v: feat.pdf ? 'Enabled' : '—' },
-        { k: 'API Keys', v: feat.api_keys ? 'Enabled' : '—' },
-        { k: 'Support', v: feat.support || 'Community' },
-      ];
-      var html = '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">';
-      for (var i = 0; i < list_items.length; i++) {
-        var item = list_items[i];
-        html += '<li style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--ink-soft)">' + item.k + '</span><span style="color:var(--ink);font-weight:500">' + item.v + '</span></li>';
-      }
-      html += '</ul>';
-      var el = document.getElementById('plan-features');
-      if (el) { el.innerHTML = html; el.style.display = 'block'; }
+      headers: authHeaders()
+    }, 2);
+    if (!r.ok) return;
+    var f = await r.json();
+    var feat = f.features || {};
+    var verifs = feat.verifications == null ? 'Unlimited' : (Number(feat.verifications).toLocaleString() + '/mo');
+    var list_items = [
+      { k: 'Plan', v: planLabel(f.plan || plan) },
+      { k: 'Hosted verifications', v: verifs },
+      { k: 'SCITT remote anchoring', v: feat.scitt ? 'Enabled' : '—' },
+      { k: 'PDF reports', v: feat.pdf ? 'Enabled' : '—' },
+      { k: 'API keys', v: feat.api_keys ? ('Up to ' + (feat.api_key_limit == null ? 'unlimited' : feat.api_key_limit)) : '—' },
+      { k: 'Support', v: feat.support || 'Community' },
+    ];
+    var html = '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">';
+    for (var i = 0; i < list_items.length; i++) {
+      var item = list_items[i];
+      html += '<li style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--ink-soft)">' + item.k + '</span><span style="color:var(--ink);font-weight:500">' + item.v + '</span></li>';
     }
+    html += '</ul>';
+    var el = document.getElementById('plan-features');
+    if (el) { el.innerHTML = html; el.style.display = 'block'; }
   } catch (e) {}
 }
 
 async function loadApiKeys() {
   try {
-    var r = await fetch(API_BASE + '/api/keys', {
+    var r = await fetchWithRetry(API_BASE + '/api/keys', {
       credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
-    });
-    if (!r.ok) throw new Error('Failed');
+      headers: authHeaders()
+    }, 2);
+    if (r.status === 401) throw new Error('auth');
+    if (!r.ok) throw new Error('fail');
     var data = await r.json();
     var keys = data.keys || [];
     if (keys.length > 0) {
-      apiKey = keys[0].key || keys[0].token || keys[0];
-      var displayKey = typeof apiKey === 'string' ? apiKey : (apiKey.key || '');
+      // Server only returns hashes after create; keep lastPlainApiKey if we just created one
+      var display = lastPlainApiKey || (keys[0].key_hash || '••••••••');
       document.getElementById('apikey-section').style.display = 'flex';
-      document.getElementById('apikey-value').textContent = displayKey || '—';
+      document.getElementById('apikey-value').textContent = display;
       document.getElementById('no-apikey').style.display = 'none';
     } else {
       document.getElementById('no-apikey').style.display = 'block';
@@ -256,38 +335,64 @@ async function loadApiKeys() {
 
 async function createApiKey() {
   try {
-    var r = await fetch(API_BASE + '/api/keys', {
+    var r = await fetchWithRetry(API_BASE + '/api/keys', {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '')
-      },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
       body: JSON.stringify({ name: 'default' })
-    });
-    if (r.ok) {
-      await loadApiKeys();
-    } else {
-      alert('Could not create API key. Upgrade your plan to enable API access.');
+    }, 2);
+    if (r.status === 401) {
+      clearSession();
+      showState('signin');
+      return;
     }
+    if (r.status === 402) {
+      var body = {};
+      try { body = await r.json(); } catch (e) {}
+      alert(body.detail || 'Upgrade your plan to create more API keys.');
+      return;
+    }
+    if (!r.ok) {
+      alert('Could not create API key. Please try again.');
+      return;
+    }
+    var data = await r.json();
+    lastPlainApiKey = data.api_key || data.key || null;
+    if (lastPlainApiKey) {
+      document.getElementById('apikey-section').style.display = 'flex';
+      document.getElementById('apikey-value').textContent = lastPlainApiKey;
+      document.getElementById('no-apikey').style.display = 'none';
+      alert('API key created. Copy it now — it will not be shown in full again after you leave this page.');
+    }
+    await loadApiKeys();
   } catch (e) {
     showError('Could not create API key — server may be unavailable. Try again in a moment.');
   }
 }
 
 function copyApiKey() {
-  if (apiKey) {
-    var val = typeof apiKey === 'string' ? apiKey : apiKey.key || '';
-    navigator.clipboard.writeText(val).then(function() {
-      alert('API key copied to clipboard');
-    });
+  var val = lastPlainApiKey || document.getElementById('apikey-value').textContent || '';
+  if (!val || val.indexOf('…') >= 0 || val.indexOf('•') >= 0) {
+    alert('Full key is only shown once at creation. Generate a new key to copy it.');
+    return;
   }
+  navigator.clipboard.writeText(val).then(function() {
+    alert('API key copied to clipboard');
+  });
 }
 
 function startLogin() {
-  var state = 'auth_' + Math.random().toString(36).substring(2, 15);
+  var btn = document.querySelector('.signin-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Redirecting to GitHub…';
+  }
+  var state = 'auth_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   sessionStorage.setItem('epi_auth_state', state);
-  window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
+  // Wake auth service, then redirect (improves cold-start UX)
+  fetch(API_BASE + '/api/auth/status', { credentials: 'include' }).catch(function(){}).finally(function() {
+    window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
+  });
 }
 
 function updateNav(isLoggedIn) {
@@ -301,15 +406,20 @@ function updateNav(isLoggedIn) {
 }
 
 async function logout() {
+  var token = getToken();
   try {
     await fetch(API_BASE + '/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
+      headers: authHeaders()
     });
   } catch (e) {}
-  localStorage.removeItem('epi_token');
-  window.location.href = '/';
+  clearSession();
+  userData = null;
+  lastPlainApiKey = null;
+  // Stay on account as signed-out (cleaner than homepage for confirmation)
+  showState('signin');
+  updateNav(false);
 }
 
 loadAccount();

@@ -2,12 +2,21 @@ name: Keep Render Warm
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes (288/day = ~2.4 hrs/month from 750hr quota)
+    - cron: '*/5 * * * *'   # every 5 minutes
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Render
-        run: curl -sf https://epi-verify-portal.onrender.com/health > /dev/null || echo "Render waking up..."
+      - name: Wake auth + health
+        run: |
+          set -e
+          BASE="https://epi-verify-portal.onrender.com"
+          # Health
+          curl -sf --max-time 60 "$BASE/health" > /dev/null || echo "health cold"
+          # Auth readiness (loads app routes + OAuth config check)
+          curl -sf --max-time 60 "$BASE/api/auth/status" > /dev/null || echo "auth status cold"
+          # Touch plan features (cheap authenticated-free endpoint)
+          curl -sf --max-time 60 "$BASE/api/plan/features" > /dev/null || echo "plan cold"
+          echo "keep-warm done"

@@ -124,8 +124,13 @@ def _init_api_keys_store():
         name TEXT,
         created_at REAL,
         last_used_at REAL,
-        active INTEGER DEFAULT 1
+        active INTEGER DEFAULT 1,
+        user_id TEXT
     )""")
+    try:
+        conn.execute("ALTER TABLE api_keys ADD COLUMN user_id TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.execute("""CREATE TABLE IF NOT EXISTS api_usage (
         key_hash TEXT,
         year INTEGER,
@@ -371,56 +376,77 @@ async def contact(request: Request):
     return JSONResponse(content={"status": "ok", "message": "Thank you! We will respond within 1 business day."})
 @app.post("/api/keys")
 async def create_api_key(request: Request):
-    """Create an API key. Tier is read from user plan, not client input."""
+    """Create an API key for the authenticated user. Tier comes from their plan."""
+    from verify_portal.tier_gating import features_for_plan
+
     try:
         body = await request.json()
     except Exception:
         body = {}
-    name = body.get("name", "unnamed")
-    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    name = (body.get("name") or "default").strip()[:64] or "default"
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
-    try:
-        init_billing_columns(storage_dir)
-    except Exception:
-        pass
-    user = None
-    if token:
-        try:
-            user = auth_module.verify_token(storage_dir, token)
-        except Exception:
-            # Step forensics can fail for envelope-v2 .epi files
-            # where zipfile.ZipFile cannot parse the polyglot header.
-            # Integrity check (verify_integrity) already validates the envelope.
-            pass
-    if user:
-        tier = get_user_plan(storage_dir, user["id"])
-    else:
-        tier = "free"
-    if tier not in ("free", "pro", "team", "enterprise"):
-        raise HTTPException(status_code=400, detail="Invalid tier")
-    import secrets
+    init_billing_columns(storage_dir)
+    token = auth_module.extract_token(request)
+    user = auth_module.verify_token(storage_dir, token) if token else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in required to create an API key.")
+
+    tier = auth_module.normalize_plan(get_user_plan(storage_dir, user["id"]))
+    feats = features_for_plan(tier)
+    if not feats.get("api_keys"):
+        raise HTTPException(
+            status_code=402,
+            detail="API keys require a paid plan. Upgrade at /pricing.",
+        )
+
+    db = _init_api_keys_store()
+    existing = db.execute(
+        "SELECT COUNT(*) AS c FROM api_keys WHERE active = 1 AND user_id = ?",
+        (user["id"],),
+    ).fetchone()["c"]
+    limit = feats.get("api_key_limit")
+    if limit is not None and existing >= int(limit):
+        raise HTTPException(
+            status_code=402,
+            detail=f"Your {feats.get('label', tier)} plan allows {limit} API key(s). Upgrade at /pricing for more.",
+        )
+
     api_key = "epi_" + secrets.token_hex(24)
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    db = _init_api_keys_store()
+    now = time.time()
     db.execute(
-        "INSERT INTO api_keys (key_hash, tier, name, created_at, last_used_at, active) VALUES (?, ?, ?, ?, 0, 1)",
-        (key_hash, tier, name, time.time()),
+        "INSERT INTO api_keys (key_hash, tier, name, created_at, last_used_at, active, user_id) VALUES (?, ?, ?, ?, 0, 1, ?)",
+        (key_hash, tier, name, now, user["id"]),
     )
     db.commit()
-    _api_keys[key_hash] = (tier, name, time.time())
+    _api_keys[key_hash] = (tier, name, now)
     return JSONResponse(content={
         "api_key": api_key,
+        "key": api_key,
         "tier": tier,
         "name": name,
         "note": "Store this key securely. It will not be shown again.",
     })
 
+
 @app.get("/api/keys")
 async def list_api_keys(request: Request):
-    """List active API keys (hashed)."""
+    """List the authenticated user's active API keys (hashed)."""
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    token = auth_module.extract_token(request)
+    user = auth_module.verify_token(storage_dir, token) if token else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in required.")
+
     db = _init_api_keys_store()
     rows = db.execute(
-        "SELECT key_hash, tier, name, created_at, last_used_at FROM api_keys WHERE active = 1 ORDER BY created_at DESC"
+        """
+        SELECT key_hash, tier, name, created_at, last_used_at
+        FROM api_keys
+        WHERE active = 1 AND user_id = ?
+        ORDER BY created_at DESC
+        """,
+        (user["id"],),
     ).fetchall()
     return JSONResponse(content={
         "keys": [
@@ -760,14 +786,16 @@ app.include_router(billing_router)
 
 @app.get("/api/plan/features")
 async def plan_features(request: Request):
+    from verify_portal.tier_gating import features_for_plan
+
     plan = get_plan(request)
-    limits = {
-        "free": {"verifications": 100, "scitt": False, "pdf": False, "api_keys": False, "support": "Community"},
-        "pro": {"verifications": 10000, "scitt": True, "pdf": True, "api_keys": True, "support": "Email 48h"},
-        "team": {"verifications": 50000, "scitt": True, "pdf": True, "api_keys": True, "support": "Email 48h"},
-        "enterprise": {"verifications": None, "scitt": True, "pdf": True, "api_keys": True, "support": "Dedicated"},
+    feats = features_for_plan(plan)
+    return {
+        "plan": plan,
+        "features": feats,
+        "rate_limit": get_rate_limit(plan),
+        "label": feats.get("label", plan),
     }
-    return {"plan": plan, "features": limits.get(plan, limits["free"]), "rate_limit": get_rate_limit(plan)}
 
 
 @app.post("/api/reports/pdf")
@@ -868,8 +896,10 @@ async def github_auth_start(
     redirect_uri: str | None = Query(None, description="Where to send the token after login (CLI only)"),
 ):
     """Redirect the browser to GitHub OAuth authorization."""
-    url = auth_module.start_github_oauth(state=state, redirect_uri=redirect_uri)
-    return RedirectResponse(url)
+    storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.init_auth_db(storage_dir)
+    url = auth_module.start_github_oauth(storage_dir, state=state, redirect_uri=redirect_uri)
+    return RedirectResponse(url, status_code=302)
 
 
 @app.get("/api/auth/github/callback")
@@ -877,43 +907,42 @@ async def github_auth_callback(
     code: str = Query(...),
     state: str = Query(...),
 ):
-    """GitHub OAuth callback. Issues a bearer token and redirects back to the CLI."""
+    """GitHub OAuth callback. Issues a bearer token, sets cookie, redirects to frontend."""
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.init_auth_db(storage_dir)
     return await auth_module.handle_github_callback(storage_dir, code=code, state=state)
 
 
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
     """Return the authenticated user for a bearer token or session cookie."""
-    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-    if not token:
-        token = request.cookies.get("epi_token", "")
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
+    auth_module.init_auth_db(storage_dir)
+    token = auth_module.extract_token(request)
     user = auth_module.verify_token(storage_dir, token)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    init_billing_columns(storage_dir)
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please sign in again.")
     plan = get_user_plan(storage_dir, user["id"])
-    return {
-        "id": user["id"],
-        "login": user["login"],
-        "email": user["email"],
-        "org": user["org"],
-        "plan": plan,
-    }
+    return auth_module.user_public_dict(user, plan)
 
 
 @app.post("/api/auth/logout")
 async def auth_logout(request: Request):
     """Revoke the current bearer token and clear the session cookie."""
-    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-    if not token:
-        token = request.cookies.get("epi_token", "")
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
-    auth_module.revoke_token(storage_dir, token)
-    response = JSONResponse({"ok": True})
-    response.delete_cookie("epi_token")
-    return response
+    token = auth_module.extract_token(request)
+    return auth_module.logout_response(storage_dir, token)
+
+
+@app.get("/api/auth/status")
+async def auth_status():
+    """Lightweight readiness for keep-warm and client health checks."""
+    configured = bool(os.getenv("GITHUB_CLIENT_ID") and os.getenv("GITHUB_CLIENT_SECRET"))
+    return {
+        "ok": True,
+        "oauth_configured": configured,
+        "service": "epi-verify-portal",
+    }
 
 
 # --- Contact Form Endpoint ---
