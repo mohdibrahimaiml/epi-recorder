@@ -194,3 +194,6 @@ review/artifacts/
 epi_bootstrap_*
 .epi_temp_*
 epi_policy.json
+# Local agent noise
+.commandcode/
+
