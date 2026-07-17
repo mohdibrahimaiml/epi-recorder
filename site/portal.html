@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Verify — Verify .epi Artifacts in Your Browser | EPI LABS</title>
+<meta name="description" content="Verify .epi artifacts in your browser. Five cryptographic checks — integrity, signature, chain, completeness, SCITT transparency. No upload required.">
+<link rel="canonical" href="https://epilabs.org/verify/">
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+<link rel="preconnect" href="https://epi-verify-portal.onrender.com" crossorigin>
+<link rel="dns-prefetch" href="https://epi-verify-portal.onrender.com">
+<link rel="stylesheet" href="css/epi.css?v=24">
+<style>
+/* ── Verify page specific styles (extending epi.css) ── */
+.verify-page{padding-top:96px;padding-bottom:80px}
+.verify-section-alt{background:var(--bg-alt);padding:80px 0}
+.verify-header{text-align:center;margin-bottom:48px}
+.verify-header .section-label{justify-content:center}
+.verify-header code{font-family:var(--mono);background:var(--bg-alt);padding:2px 8px;border-radius:4px;font-size:0.9em}
+
+.dropzone{border:2px dashed var(--border-str);border-radius:var(--radius);padding:60px 40px;text-align:center;cursor:pointer;background:var(--bg-card);transition:all 0.3s var(--ease)}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);border-style:solid;background:var(--accent-glow);transform:translateY(-1px)}
+.dropzone-icon{font-size:3rem;margin-bottom:16px;display:block;opacity:0.35}
+.dropzone-title{font-family:var(--mono);font-size:0.85rem;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:0.06em}
+.dropzone-hint{font-size:0.85rem;color:var(--ink-muted);margin-top:6px}
+.dropzone-hint a{color:var(--accent);font-weight:500}
+input[type="file"]{display:none}
+
+.loading{display:none;text-align:center;padding:60px 20px;margin-top:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius)}
+.loading.active{display:block}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-bar{width:100%;max-width:280px;height:4px;background:var(--bg-alt);border-radius:2px;margin:16px auto 0;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);width:0%;transition:width 0.3s ease;border-radius:2px}
+
+.error-section{display:none;margin-top:24px;padding:24px;background:var(--tamper-bg);border:1px solid var(--tamper);border-radius:var(--radius)}
+.error-section.active{display:block}
+.error-title{font-weight:700;font-size:1rem;margin-bottom:8px;color:var(--tamper)}
+.retry-area{margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+.verify-results{display:none;margin-top:32px}
+.verify-results.active{display:block}
+.result-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.trust-badge{font-size:1.3rem;font-weight:700;padding:8px 24px;border-radius:999px;letter-spacing:-0.02em}
+.trust-badge.high{background:var(--verified-bg);color:var(--verified)}
+.trust-badge.medium{background:var(--warn-bg);color:var(--warn)}
+.trust-badge.low{background:var(--warn-bg);color:var(--warn)}
+.trust-badge.invalid,.trust-badge.fail{background:var(--tamper-bg);color:var(--tamper)}
+.trust-badge.none{background:var(--bg-alt);color:var(--ink-muted)}
+.verify-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color 0.3s var(--ease)}
+.verify-section:hover{border-color:var(--border-accent)}
+.verify-section-title{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-dim);margin-bottom:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.verify-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.verify-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-alt);border-radius:var(--radius-sm)}
+.verify-item-label{color:var(--ink-muted);font-size:0.88rem;font-family:var(--mono)}
+.verify-item-value{font-weight:600;font-size:0.92rem;font-family:var(--mono)}
+.verify-item-value.pass{color:var(--verified)}
+.verify-item-value.fail{color:var(--tamper)}
+.verify-item-value.warn{color:var(--warn)}
+.aiuc1-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.aiuc1-item{padding:10px 14px;background:var(--bg-alt);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center}
+.aiuc1-domain{font-weight:600;font-size:0.88rem;color:var(--ink-soft)}
+.aiuc1-status{font-size:0.75rem;font-weight:700;padding:2px 10px;border-radius:999px;text-transform:uppercase}
+.aiuc1-status.pass{background:var(--verified-bg);color:var(--verified)}
+.aiuc1-status.partial{background:var(--warn-bg);color:var(--warn)}
+.aiuc1-status.fail{background:var(--tamper-bg);color:var(--tamper)}
+.verify-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.verify-note{color:var(--ink-dim);font-size:0.82rem;margin-top:12px;line-height:1.6}
+.verify-note a{color:var(--accent)}
+@media(max-width:600px){
+  .verify-page{padding-top:100px;padding-bottom:60px}
+  .dropzone{padding:40px 20px}
+  .result-top{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV (same as epilabs.org) ═══ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/#how">Product</a></li>
+      <li><a href="/verify">Verify</a></li>
+      <li><a href="/#audit">SCITT</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/#cta" class="nav-link-cta">Get Started</a></li>
+      <li><button class="theme-toggle-nav" id="themeToggleNav" aria-label="Toggle dark mode"></button></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/#how">Product</a>
+  <a href="/verify">Verify</a>
+  <a href="/#audit">SCITT</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/#cta">Get Started</a>
+</div>
+
+<!-- ═══ VERIFY PAGE ═══ -->
+<section class="verify-section-alt">
+<div class="container verify-page">
+  <div class="verify-header">
+    <div class="section-label">Verify</div>
+    <h1 class="section-title"><em>EPI</em> Verify</h1>
+    <p class="section-desc">Upload a <code>.epi</code> artifact to verify its integrity, signature, and AIUC-1 compliance. No installation required.</p>
+  </div>
+
+  <!-- Dropzone -->
+  <div class="dropzone" id="dropzone" style="max-width:640px;margin:0 auto">
+    <span class="dropzone-icon">&#x1F4E6;</span>
+    <p class="dropzone-title">Drop a .epi file here</p>
+    <p class="dropzone-hint">or click to browse &middot; Free: 3 verifications/day</p>
+    <input type="file" id="fileInput" accept=".epi">
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p style="color:var(--ink-muted);font-size:0.95rem">Verifying artifact integrity, signature, and AIUC-1 compliance...</p>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-section" id="errorSection">
+    <div class="error-title" id="errorTitle">Verification Failed</div>
+    <p id="errorMessage" style="color:var(--ink-soft);font-size:0.92rem"></p>
+    <p id="errorHint" style="color:var(--ink-dim);font-size:0.85rem;margin-top:8px"></p>
+    <div class="retry-area" id="retryArea">
+      <button class="btn btn-secondary btn-sm" onclick="resetPage()">Try Another File</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="verify-results" id="verifyResults">
+    <div class="result-top">
+      <div id="trustBadge" class="trust-badge none">VERIFYING</div>
+      <div style="color:var(--ink-dim);font-size:0.85rem;font-family:var(--mono)">
+        Workflow: <span id="workflowId" style="color:var(--ink-soft)">—</span>
+      </div>
+    </div>
+
+    <!-- Facts -->
+    <div class="verify-section">
+      <div class="verify-section-title">Facts (Objective Proofs)</div>
+      <div class="verify-grid" id="factsGrid"></div>
+    </div>
+
+    <!-- Identity -->
+    <div class="verify-section">
+      <div class="verify-section-title">Identity (Trust Context)</div>
+      <div class="verify-grid" id="identityGrid"></div>
+    </div>
+
+    <!-- SCITT -->
+    <div class="verify-section" id="scittSection" style="display:none">
+      <div class="verify-section-title">SCITT Transparency</div>
+      <div class="verify-grid" id="scittGrid"></div>
+    </div>
+
+    <!-- AIUC-1 -->
+    <div class="verify-section" id="aiuc1Section">
+      <div class="verify-section-title">AIUC-1 Trust Domains</div>
+      <div class="aiuc1-grid" id="aiuc1Grid"></div>
+    </div>
+
+    <!-- Attestation -->
+    <div class="verify-section">
+      <div class="verify-section-title">Attestation</div>
+      <p style="color:var(--ink-dim);font-size:0.88rem;margin-bottom:12px">
+        Download a signed attestation for your legal or insurance filing.
+      </p>
+      <div class="verify-actions">
+        <button class="btn btn-primary btn-sm" id="downloadAttestation">Download Signed Attestation</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetPage()">Verify Another File</button>
+        <a href="/scitt" class="btn btn-secondary btn-sm">View Transparency Ledger</a>
+      </div>
+    </div>
+
+    <div class="verify-note">
+      Powered by <a href="https://epilabs.org">EPI Labs</a> &middot;
+      <a href="https://github.com/epi-labs/epi-recorder">Open Source</a> &middot;
+      DID: <a href="https://epilabs.org/.well-known/did.json">did:web:epilabs.org</a>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="container"><div class="footer-inner">
+    <div class="footer-left">
+      <img src="assets/logo.png" alt="EPI Labs" class="footer-logo">
+      <span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">PyPI</a></li>
+      <li><a href="/viewer/">Decision Ops</a></li>
+      <li><a href="/terms">Terms of Service</a></li>
+      <li><a href="/privacy">Privacy Policy</a></li>
+      <li><a href="/refund">Refund Policy</a></li>
+      <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
+    </ul>
+  </div></div>
+</footer>
+
+<script>
+(function(){
+/* ── DARK MODE ── */
+var stored=localStorage.getItem('epi-theme'),prefersDark=matchMedia('(prefers-color-scheme:dark)').matches;
+if(stored==='dark'||(!stored&&prefersDark))document.documentElement.setAttribute('data-theme','dark');
+function updateToggles(){
+  var isDark=document.documentElement.hasAttribute('data-theme'),ico=isDark?'&#9788;':'&#9789;';
+  document.querySelectorAll('#themeToggleNav').forEach(function(b){b.innerHTML=ico;b.style.color='var(--ink)'});
+}
+updateToggles();
+function flip(){
+  var r=document.documentElement;
+  if(r.hasAttribute('data-theme')){r.removeAttribute('data-theme');localStorage.setItem('epi-theme','light')}
+  else{r.setAttribute('data-theme','dark');localStorage.setItem('epi-theme','dark')}
+  updateToggles();
+}
+document.getElementById('themeToggleNav').addEventListener('click',flip);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){
+  if(!localStorage.getItem('epi-theme')){e.matches?document.documentElement.setAttribute('data-theme','dark'):document.documentElement.removeAttribute('data-theme');updateToggles()}
+});
+
+/* ── NAV SCROLL ── */
+var nav=document.getElementById('nav');
+if(nav){window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',window.scrollY>10)});window.dispatchEvent(new Event('scroll'));}
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
+mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+})();
+</script>
+
+<script>
+/* ── VERIFY LOGIC ── */
+const dropzone=document.getElementById('dropzone');
+const fileInput=document.getElementById('fileInput');
+const loading=document.getElementById('loading');
+const verifyResults=document.getElementById('verifyResults');
+const errorSection=document.getElementById('errorSection');
+const errorTitle=document.getElementById('errorTitle');
+const errorMessage=document.getElementById('errorMessage');
+const errorHint=document.getElementById('errorHint');
+const progressFill=document.getElementById('progressFill');
+
+dropzone.addEventListener('click',()=>fileInput.click());
+dropzone.addEventListener('dragover',(e)=>{e.preventDefault();dropzone.classList.add('dragover')});
+dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop',(e)=>{e.preventDefault();dropzone.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',(e)=>{if(e.target.files.length)handleFile(e.target.files[0])});
+
+function resetPage(){
+  errorSection.classList.remove('active');
+  verifyResults.classList.remove('active');
+  loading.classList.remove('active');
+  progressFill.style.width='0%';
+  dropzone.scrollIntoView({behavior:'smooth'});
+}
+
+async function handleFile(file){
+  if(!file.name.endsWith('.epi')){showError('Please upload a .epi file.','If your file has a different extension, it may not be a valid EPI artifact.');return}
+  if(file.size>50*1024*1024){showError('File too large. Maximum size is 50 MB.','Large artifacts can be split or compressed before verification.');return}
+  hideAll();loading.classList.add('active');progressFill.style.width='30%';
+  var fd=new FormData();fd.append('file',file);fd.append('aiuc1','true');
+  try{
+    progressFill.style.width='60%';
+    var apiBase=location.hostname==='epilabs.org'?'https://epi-verify-portal.onrender.com':'';
+    var res=await fetch(apiBase+'/api/verify',{method:'POST',body:fd});
+    progressFill.style.width='90%';
+    var data=await res.json();
+    if(!res.ok){handleServerError(res.status,data);return}
+    showResults(data);
+  }catch(err){showError('Network error: '+err.message,'Please check your connection and try again.')}
+  finally{loading.classList.remove('active');progressFill.style.width='0%'}
+}
+
+function hideAll(){
+  verifyResults.classList.remove('active');errorSection.classList.remove('active');loading.classList.remove('active')
+}
+
+function showError(msg,hint){
+  hideAll();errorTitle.textContent='Verification Failed';errorMessage.textContent=msg;errorHint.textContent=hint||'';
+  errorSection.classList.add('active')
+}
+
+function handleServerError(st,data){
+  var title='Verification Failed',msg=data.detail||'Unknown error.',hint='';
+  if(st===429){title='Rate Limit Reached';msg='Free verifications used for today.';hint='Contact EPI Labs for unlimited institutional access.'}
+  else if(st===413){title='File Too Large';msg=data.detail||'Exceeds size limit.'}
+  else if(st===400){title='Invalid File'}
+  else if(st>=500){title='Server Error';msg='Something went wrong on our end.';hint='Please try again in a few minutes.'}
+  errorTitle.textContent=title;errorMessage.textContent=msg;errorHint.textContent=hint;errorSection.classList.add('active')
+}
+
+function showResults(r){
+  hideAll();verifyResults.classList.add('active');
+  var tl=r.trust_level||'NONE',badge=document.getElementById('trustBadge');
+  badge.textContent=tl;badge.className='trust-badge '+tl.toLowerCase();
+  document.getElementById('workflowId').textContent=r.metadata?.workflow_id||'—';
+
+  var facts=r.facts||{},fg=document.getElementById('factsGrid');fg.innerHTML='';
+  var fi=[
+    {label:'Integrity',key:'integrity_ok',pass:'Verified',fail:'FAILED'},
+    {label:'Signature',key:'signature_valid',pass:'Valid',fail:'INVALID',none:'Unsigned'},
+    {label:'Sequence',key:'sequence_ok',pass:'Monotonic',fail:'GAP'},
+    {label:'Completeness',key:'completeness_ok',pass:'Complete',fail:'INCOMPLETE'},
+    {label:'Chain',key:'chain_ok',pass:'Unbroken',fail:'BROKEN'},
+    {label:'Transparency',key:'transparency_ok',pass:'VERIFIED',fail:'FAILED',none:'N/A'},
+  ];
+  fi.forEach(function(it){
+    var v=it.key.split('.').reduce(function(o,k){return o?o[k]:undefined},facts);
+    var cls='pass',txt=it.pass;
+    if(v===false){cls='fail';txt=it.fail}else if(v===null||v===undefined){cls='warn';txt=it.none||'N/A'}
+    fg.innerHTML+='<div class="verify-item"><span class="verify-item-label">'+it.label+'</span><span class="verify-item-value '+cls+'">'+txt+'</span></div>'
+  });
+
+  var idn=r.identity||{},ig=document.getElementById('identityGrid');ig.innerHTML='';
+  [['Status',idn.status||'UNKNOWN'],['Name',idn.name||'Unknown'],['DID',idn.did||'—'],['Key ID',idn.public_key_id?idn.public_key_id+'...':'—']].forEach(function(it){
+    ig.innerHTML+='<div class="verify-item"><span class="verify-item-label">'+it[0]+'</span><span class="verify-item-value">'+it[1]+'</span></div>'
+  });
+
+  var a1=r.aiuc1||{},ag=document.getElementById('aiuc1Grid');ag.innerHTML='';
+  var doms=a1.domains||{};
+  Object.keys(doms).forEach(function(k){
+    var d=doms[k],st=d.status||'UNKNOWN',cls=st==='PASS'?'pass':st==='PARTIAL'?'partial':'fail';
+    ag.innerHTML+='<div class="aiuc1-item"><span class="aiuc1-domain">'+k+'. '+d.label+'</span><span class="aiuc1-status '+cls+'">'+st+'</span></div>'
+  });
+
+  var scittEl=document.getElementById('scittSection'),scittG=document.getElementById('scittGrid');
+  if(facts.transparency_ok===true){
+    scittEl.style.display='block';
+    scittG.innerHTML='<div class="verify-item"><span class="verify-item-label">Receipt</span><span class="verify-item-value pass">VERIFIED</span></div>'
+      +'<div class="verify-item"><span class="verify-item-label">Proof</span><span class="verify-item-value pass">Merkle Inclusion</span></div>'
+  }else if(facts.transparency_ok===false){scittEl.style.display='block';
+    scittG.innerHTML='<div class="verify-item"><span class="verify-item-label">Receipt</span><span class="verify-item-value fail">FAILED</span></div>'
+  }
+
+  var att=r.attestation,dlBtn=document.getElementById('downloadAttestation');
+  if(att){dlBtn.style.display='inline-block';dlBtn.onclick=function(){
+    var b=new Blob([JSON.stringify(att,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=u;a.download='epi-attestation-'+(r.metadata?.workflow_id||'unknown')+'.json';a.click();URL.revokeObjectURL(u)
+  }}else{dlBtn.style.display='none'}
+}
+</script>
+</body>
+</html>

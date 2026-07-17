@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI Labs Verify | Cryptographic Evidence Verification for .epi Files</title>
+<meta name="description" content="EPI Labs verify — check .epi evidence files in your browser. Ed25519 signatures, SHA-256 integrity, hash chain verification. Works offline. No upload required.">
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon.ico">
+<link rel="apple-touch-icon" href="../favicon.ico">
+<link rel="stylesheet" href="../css/epi.css?v=24">
+<style>
+.verify-main{max-width:800px;margin:0 auto;padding:120px 24px 80px}
+.drop-zone{border:2px dashed var(--accent-line);border-radius:16px;padding:60px 40px;text-align:center;transition:all var(--ease) .2s;cursor:pointer;background:var(--bg-card)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-glow);border-style:solid}
+.drop-zone h2{font-size:1.4rem;color:var(--ink);margin:0 0 8px}
+.drop-zone p{color:var(--ink-muted);margin:0;font-size:.92rem}
+.result-box{display:none;margin-top:32px;padding:24px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border-str)}
+.result-box.visible{display:block}
+.check-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.check-row:last-child{border-bottom:none}
+.check-row .label{flex:1;font-size:.9rem;color:var(--ink-soft)}
+.check-row .status{font-weight:600;font-size:.85rem}
+.status.pass{color:var(--verified)}
+.status.fail{color:var(--tamper)}
+.status.pending{color:var(--warn)}
+.decision-box{margin-top:20px;padding:16px;border-radius:10px;text-align:center;font-weight:700;font-size:1.1rem}
+.decision-box.pass{background:var(--verified-bg);color:var(--verified)}
+.decision-box.fail{background:var(--tamper-bg);color:var(--tamper)}
+.verifier-hash{font-family:var(--mono);font-size:.75rem;color:var(--ink-muted);text-align:center;margin-top:12px;word-break:break-all}
+.back-link{display:inline-block;margin-top:32px;color:var(--accent);text-decoration:none;font-size:.9rem}
+</style>
+</head>
+<body>
+<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="../assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="verify-main">
+  <h1 style="font-size:1.8rem;color:var(--ink);margin:0 0 8px">Verify .epi Evidence</h1>
+  <p style="color:var(--ink-soft);margin:0 0 40px">Drop or select a .epi file. Verification runs entirely in your browser — no upload, no server, no calling home.</p>
+
+  <div id="dropZone" class="drop-zone">
+    <h2>Drop .epi file here</h2>
+    <p>or click to browse. Completely offline verification.</p>
+    <input type="file" id="fileInput" accept=".epi" style="display:none">
+  </div>
+
+  <div id="resultBox" class="result-box">
+    <div id="checks"></div>
+    <div id="decisionBox" class="decision-box"></div>
+    <div class="verifier-hash" id="verifierHash"></div>
+  </div>
+  <a href="/" class="back-link">&#8592; Back to EPI Labs</a>
+
+  <div style="margin-top:40px;padding:20px 24px;background:var(--accent-glow);border:1px solid var(--accent-line);border-radius:12px;text-align:center">
+    <p style="color:var(--ink-soft);font-size:.88rem;margin:0 0 8px">
+      Free tier: 3 verifications/day per IP. <strong>Sign in to get 10K/month.</strong>
+    </p>
+    <a href="/account" style="color:var(--accent);font-weight:600;font-size:.9rem">Sign in with GitHub →</a>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script src="../js/epi-verify-core.js"></script>
+<script>
+var dropZone=document.getElementById('dropZone'),fileInput=document.getElementById('fileInput'),resultBox=document.getElementById('resultBox'),checksEl=document.getElementById('checks'),decisionBox=document.getElementById('decisionBox'),verifierHash=document.getElementById('verifierHash');
+dropZone.addEventListener('click',function(){fileInput.click()});
+dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('drag-over')});
+dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('drag-over')});
+dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0])});
+function addCheck(label,status){var row=document.createElement('div');row.className='check-row';row.innerHTML='<span class="label">'+label+'</span><span class="status '+status+'">'+status.toUpperCase()+'</span>';checksEl.appendChild(row)}
+async function handleFile(file){
+  checksEl.innerHTML='';resultBox.classList.add('visible');decisionBox.className='decision-box';decisionBox.textContent='Verifying...';
+  try{
+    if(window.verifyEPI){
+      var result=await window.verifyEPI(file);
+      addCheck('Structural Integrity',result.structure?'pass':'fail');
+      addCheck('Manifest Schema',result.manifest?'pass':'fail');
+      addCheck('SHA-256 File Integrity',result.integrity?'pass':'fail');
+      addCheck('Hash Chain',result.hashChain?'pass':'fail');
+      addCheck('Ed25519 Signature',result.signature===true?'pass':(result.signature===null?'pending':'fail'));
+      var allPass=result.structure&&result.manifest&&result.integrity&&result.hashChain&&(result.signature===true||result.signature===null);
+      decisionBox.textContent=allPass?'DECISION: PASS':'DECISION: FAIL';
+      decisionBox.className='decision-box '+(allPass?'pass':'fail');
+      if(result.hash)verifierHash.textContent='SHA-256: '+result.hash;
+    }else{
+      addCheck('Engine','fail');decisionBox.textContent='ERROR: Engine not loaded';decisionBox.className='decision-box fail';
+    }
+  }catch(e){
+    addCheck('Verification','fail');decisionBox.textContent='ERROR: '+e.message;decisionBox.className='decision-box fail';
+  }
+}
+</script>
+<script src="../js/theme.js"></script>
+<script src="../js/nav.js"></script>
+<script src="../js/auth-ui.js"></script>
+</body>
+</html>
