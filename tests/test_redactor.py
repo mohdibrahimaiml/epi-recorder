@@ -188,8 +188,9 @@ class TestRedactor:
         assert redacted["username"] == "alice"
         assert redacted["password"] == REDACTION_PLACEHOLDER
         assert redacted["api_key"] == REDACTION_PLACEHOLDER
-        assert redacted["email"] == "alice@example.com"
-        assert count == 2
+        # Email is also pattern-redacted (PII) when nested values are scanned
+        assert REDACTION_PLACEHOLDER in redacted["email"]
+        assert count >= 2
     
     def test_redact_dict_keys_case_insensitive(self):
         """Test that dict key redaction is case-insensitive."""
@@ -349,3 +350,63 @@ class TestRedactor:
 
 
  
+    def test_sensitive_key_name_redaction(self):
+        """Dict keys like client_secret / access_token are fully redacted."""
+        redactor = Redactor()
+        data = {
+            "client_secret": "super-secret-value-xyz",
+            "access_token": "tok_live_abcdef1234567890",
+            "db_password": "hunter2",
+            "user_name": "alice",
+        }
+        redacted, count = redactor.redact(data)
+        assert redacted["client_secret"] == REDACTION_PLACEHOLDER
+        assert redacted["access_token"] == REDACTION_PLACEHOLDER
+        assert redacted["db_password"] == REDACTION_PLACEHOLDER
+        assert redacted["user_name"] == "alice"
+        assert count >= 3
+
+    def test_modern_provider_tokens(self):
+        redactor = Redactor()
+        data = {
+            "hf": "hf_" + "a" * 30,
+            "stripe": "sk_live_" + "b" * 24,
+            "slack": "xoxb-1234567890-abcdefghij",
+            "github_fine": "github_pat_" + "c" * 30,
+        }
+        redacted, count = redactor.redact(data)
+        assert count >= 4
+        for k in data:
+            assert REDACTION_PLACEHOLDER in redacted[k]
+
+    def test_connection_string_redaction(self):
+        redactor = Redactor()
+        data = {"url": "postgres://user:s3cret@db.example.com:5432/app"}
+        redacted, count = redactor.redact(data)
+        assert count >= 1
+        assert "s3cret" not in redacted["url"]
+        assert REDACTION_PLACEHOLDER in redacted["url"]
+
+    def test_record_path_redacts_by_default(self, tmp_path, monkeypatch):
+        """Integration: secrets in log_step do not appear in sealed steps."""
+        import json
+        import zipfile
+        from epi_recorder import record, get_current_session
+        from epi_core.container import EPIContainer
+
+        monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+        monkeypatch.setenv("EPI_NOTARIZE", "0")
+        out = tmp_path / "safe.epi"
+        secret = "sk-" + ("z" * 40)
+        with record(str(out), goal="redact-default"):
+            s = get_current_session()
+            s.log_step("llm.request", {
+                "headers": {"Authorization": f"Bearer {secret}"},
+                "api_key": secret,
+                "prompt": f"use key {secret}",
+            })
+        with EPIContainer._payload_zip_path(out) as payload:
+            with zipfile.ZipFile(payload) as zf:
+                steps = zf.read("steps.jsonl").decode("utf-8")
+        assert secret not in steps
+        assert "REDACTED" in steps or "***" in steps

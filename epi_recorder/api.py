@@ -762,6 +762,14 @@ class EpiRecorderSession:
         self.tags = tags or []
         self.auto_sign = auto_sign
         self.redact = redact
+        if not redact:
+            warnings.warn(
+                "EPI recording started with redact=False. Secrets in steps may be "
+                "written into the .epi artifact. Prefer redact=True (default) or "
+                "set EPI_REDACT=1.",
+                UserWarning,
+                stacklevel=2,
+            )
         self.default_key_name = default_key_name
         
         # New metadata fields

@@ -14,75 +14,126 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 
-# Default redaction patterns (security-first)
+# Default redaction patterns (security-first — always on unless explicitly disabled)
 DEFAULT_REDACTION_PATTERNS = [
-    # OpenAI API keys
-    (r'sk-[a-zA-Z0-9]{48}', 'OpenAI API key'),
-    (r'sk-proj-[a-zA-Z0-9_-]{48,}', 'OpenAI Project API key'),
-    
-    # Anthropic API keys
-    (r'sk-ant-[a-zA-Z0-9_-]{95,}', 'Anthropic API key'),
-    
-    # Google/Gemini API keys
+    # OpenAI / OpenAI-compatible
+    (r'sk-proj-[a-zA-Z0-9_-]{20,}', 'OpenAI Project API key'),
+    (r'sk-[a-zA-Z0-9]{20,}', 'OpenAI-style API key'),
+    # Anthropic
+    (r'sk-ant-[a-zA-Z0-9_-]{20,}', 'Anthropic API key'),
+    # Google / Gemini
     (r'AIza[a-zA-Z0-9_-]{35}', 'Google API key'),
-    
-    # Generic Bearer tokens
-    (r'Bearer\s+[a-zA-Z0-9_\-\.]{20,}', 'Bearer token'),
-    
-    # AWS credentials
+    # xAI / other sk- prefixes already covered; HF tokens
+    (r'hf_[a-zA-Z0-9]{20,}', 'Hugging Face token'),
+    (r'xai-[a-zA-Z0-9]{20,}', 'xAI API key'),
+    # Slack
+    (r'xox[baprs]-[a-zA-Z0-9-]{10,}', 'Slack token'),
+    # Stripe
+    (r'(?:sk|pk|rk)_(?:live|test)_[a-zA-Z0-9]{16,}', 'Stripe API key'),
+    # Twilio
+    (r'SK[a-f0-9]{32}', 'Twilio API key'),
+    # SendGrid
+    (r'SG\.[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}', 'SendGrid API key'),
+    # Discord
+    (r'[MN][A-Za-z\d]{23,}\.[\w-]{6}\.[\w-]{27}', 'Discord bot token'),
+    # Generic Bearer / Basic auth headers
+    (r'Bearer\s+[a-zA-Z0-9_\-\.=+/]{20,}', 'Bearer token'),
+    (r'Basic\s+[A-Za-z0-9+/=]{16,}', 'Basic auth credential'),
+    # AWS
     (r'AKIA[0-9A-Z]{16}', 'AWS Access Key'),
-    (r'aws_secret_access_key\s*=\s*[a-zA-Z0-9/+=]{40}', 'AWS Secret Key'),
-    
-    # GitHub tokens
-    (r'ghp_[a-zA-Z0-9]{36}', 'GitHub Personal Access Token'),
-    (r'gho_[a-zA-Z0-9]{36}', 'GitHub OAuth Token'),
-    
-    # Generic API keys (common patterns)
-    (r'api[_-]?key["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{32,})', 'Generic API key'),
-    (r'apikey["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{32,})', 'Generic API key'),
-    
-    # JWT tokens
+    (r'aws_secret_access_key\s*=\s*[a-zA-Z0-9/+=]{30,}', 'AWS Secret Key'),
+    # GitHub
+    (r'ghp_[a-zA-Z0-9]{20,}', 'GitHub Personal Access Token'),
+    (r'gho_[a-zA-Z0-9]{20,}', 'GitHub OAuth Token'),
+    (r'ghu_[a-zA-Z0-9]{20,}', 'GitHub user-to-server token'),
+    (r'ghs_[a-zA-Z0-9]{20,}', 'GitHub server-to-server token'),
+    (r'github_pat_[a-zA-Z0-9_]{20,}', 'GitHub fine-grained PAT'),
+    # Generic API key assignments in text
+    (r'api[_-]?key["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{20,})', 'Generic API key'),
+    (r'apikey["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{20,})', 'Generic API key'),
+    (r'(?:secret|password|token)["\']?\s*[:=]\s*["\']([^"\']{8,})["\']', 'Credential assignment'),
+    # JWT
     (r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', 'JWT token'),
-
-    # Common PII
+    # PII
     (r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', 'Email address'),
     (r'\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b', 'Phone number'),
-    
-    # Social Security Numbers (US)
     (r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b', 'Social Security Number'),
-    
-    # Credit / debit card numbers (16-digit and Amex 15-digit)
     (r'\b(?:\d{4}[- ]?){3}\d{4}\b', 'Credit card number'),
     (r'\b\d{4}[- ]?\d{6}[- ]?\d{5}\b', 'American Express'),
-    
-    # Masked card endings (e.g. ...4432, ****4432, ending in 4432)
     (r'(?:\.\.\.|\*\*\*\*|ending in)\s*\d{4}', 'Credit card last 4'),
-    
-    # Database connection strings
-    (r'postgres://[^:]+:[^@]+@[^/]+', 'PostgreSQL connection string'),
-    (r'mysql://[^:]+:[^@]+@[^/]+', 'MySQL connection string'),
-    (r'mongodb://[^:]+:[^@]+@[^/]+', 'MongoDB connection string'),
-    
-    # Private keys (PEM format)
-    (r'-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]+?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----', 'Private key'),
+    # Connection strings
+    (r'postgres(?:ql)?://[^:\s]+:[^@\s]+@[^\s/]+', 'PostgreSQL connection string'),
+    (r'mysql://[^:\s]+:[^@\s]+@[^\s/]+', 'MySQL connection string'),
+    (r'mongodb(?:\+srv)?://[^:\s]+:[^@\s]+@[^\s/]+', 'MongoDB connection string'),
+    (r'redis://[^:\s]+:[^@\s]+@[^\s/]+', 'Redis connection string'),
+    # Private keys (PEM)
+    (
+        r'-----BEGIN\s+(?:RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]+?-----END\s+(?:RSA\s+|EC\s+|OPENSSH\s+)?PRIVATE\s+KEY-----',
+        'Private key',
+    ),
 ]
 
-# Environment variable names to redact
+# Exact env / dict key names (case-insensitive match on uppercased key)
 REDACT_ENV_VARS = {
     'OPENAI_API_KEY',
     'ANTHROPIC_API_KEY',
     'GOOGLE_API_KEY',
     'GEMINI_API_KEY',
+    'XAI_API_KEY',
+    'AZURE_OPENAI_API_KEY',
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
+    'AWS_SESSION_TOKEN',
     'GITHUB_TOKEN',
+    'GH_TOKEN',
+    'HF_TOKEN',
+    'HUGGINGFACE_TOKEN',
+    'HUGGING_FACE_HUB_TOKEN',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_API_KEY',
+    'SLACK_BOT_TOKEN',
+    'SLACK_TOKEN',
+    'DISCORD_TOKEN',
+    'SENDGRID_API_KEY',
+    'TWILIO_AUTH_TOKEN',
+    'PADDLE_API_KEY',
+    'PADDLE_CLIENT_TOKEN',
+    'TURSO_AUTH_TOKEN',
+    'LIBSQL_AUTH_TOKEN',
     'API_KEY',
     'SECRET_KEY',
+    'CLIENT_SECRET',
+    'ACCESS_TOKEN',
+    'REFRESH_TOKEN',
+    'AUTH_TOKEN',
     'DATABASE_URL',
     'DB_PASSWORD',
+    'DB_PASS',
     'PASSWORD',
+    'PASSWD',
     'SECRET',
+    'PRIVATE_KEY',
+    'AUTHORIZATION',
 }
+
+# Substrings that mark a dict key as sensitive (normalized upper alnum form)
+SENSITIVE_KEY_TOKENS = (
+    'PASSWORD',
+    'PASSWD',
+    'SECRET',
+    'APIKEY',
+    'ACCESSKEY',
+    'PRIVATEKEY',
+    'CLIENTSECRET',
+    'AUTHTOKEN',
+    'ACCESSTOKEN',
+    'REFRESHTOKEN',
+    'SESSIONTOKEN',
+    'BEARER',
+    'CREDENTIAL',
+    'CONNSTRING',
+    'CONNECTIONSTRING',
+)
 
 class RedactionPlaceholderStr(str):
     def __eq__(self, other):
@@ -289,9 +340,9 @@ class Redactor:
         if isinstance(data, dict):
             redacted_dict = {}
             for key, value in data.items():
-                # Check if key is a sensitive env var
-                if key.upper() in self.env_vars_to_redact:
-                    redacted_dict[key] = self._get_placeholder(key, value)
+                # Key-name based redaction (exact env names + sensitive substrings)
+                if self._is_sensitive_key(str(key)):
+                    redacted_dict[key] = self._get_placeholder(str(key), value)
                     redaction_count += 1
                 else:
                     redacted_value, count = self.redact(value)
@@ -334,6 +385,25 @@ class Redactor:
             # Primitive types (int, float, bool, None)
             return data, 0
     
+    def _is_sensitive_key(self, key: str) -> bool:
+        """True if dict/env key should have its value fully redacted."""
+        if not key:
+            return False
+        ku = key.upper()
+        if ku in self.env_vars_to_redact:
+            return True
+        # alnum-only form: api_key → APIKEY, client-secret → CLIENTSECRET
+        kn = re.sub(r"[^A-Z0-9]", "", ku)
+        for token in SENSITIVE_KEY_TOKENS:
+            if token in kn:
+                return True
+        # Common suffix forms
+        if kn.endswith("TOKEN") or kn.endswith("SECRET") or kn.endswith("PASSWORD"):
+            return True
+        if kn.endswith("APIKEY") or kn.endswith("PRIVATEKEY"):
+            return True
+        return False
+
     def redact_dict_keys(self, data: Dict[str, Any], sensitive_keys: set[str]) -> Tuple[Dict[str, Any], int]:
         """
         Redact specific dictionary keys by name.
@@ -353,11 +423,14 @@ class Redactor:
         sensitive_keys_lower = {k.lower() for k in sensitive_keys}
         
         for key, value in data.items():
-            if key.lower() in sensitive_keys_lower:
+            if key.lower() in sensitive_keys_lower or self._is_sensitive_key(str(key)):
                 redacted_dict[key] = self._get_placeholder(key, value)
                 redaction_count += 1
             else:
-                redacted_dict[key] = value
+                # Still run pattern redaction on nested values
+                nested, c = self.redact(value)
+                redacted_dict[key] = nested
+                redaction_count += c
         
         return redacted_dict, redaction_count
 
