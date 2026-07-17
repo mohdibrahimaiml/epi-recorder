@@ -1,0 +1,37 @@
+# ── API routes — proxy to Render backend ──
+# These must come FIRST to take priority over other rules
+/api/* https://epi-verify-portal.onrender.com/api/:splat 200
+/scitt/* https://epi-verify-portal.onrender.com/scitt/:splat 200
+/.well-known/* https://epi-verify-portal.onrender.com/.well-known/:splat 200
+
+# ── Static HTML pages ──
+/ /index.html 200
+/favicon.ico /favicon.ico 200
+/assets/* /assets/:splat 200
+/css/* /css/:splat 200
+/js/* /js/:splat 200
+/cases/* /cases/:splat 200
+/viewer/* /viewer/:splat 200
+/verify/* /verify/:splat 200
+
+# ── Page routes ──
+/terms /terms.html 200
+/privacy /privacy.html 200
+/refund /refund.html 200
+/how-it-works /how-it-works.html 200
+/pricing /pricing.html 200
+/account /account.html 200
+
+# ── Protect HTML files from the catch-all ──
+/index.html /index.html 200
+/account.html /account.html 200
+/pricing.html /pricing.html 200
+/terms.html /terms.html 200
+/privacy.html /privacy.html 200
+/refund.html /refund.html 200
+/how-it-works.html /how-it-works.html 200
+/portal.html /portal.html 200
+/viewer.html /viewer.html 200
+
+# ── SPA fallback — everything unmatched goes to the homepage ──
+/* /index.html 200
