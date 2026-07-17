@@ -114,7 +114,7 @@
       <li><span class="icon dash">—</span> GitHub CI/CD Action</li>
       <li><span class="icon dash">—</span> RBAC</li>
     </ul>
-    <a id="pro-subscribe-btn" href="https://epilabs.org/pricing" class="cta-btn primary">Subscribe for $19/mo</a>
+    <a id="pro-subscribe-btn" href="#" class="cta-btn primary">Subscribe for $19/mo</a>
   </div>
 
   <div class="pricing-card">
@@ -231,15 +231,42 @@
 </footer>
 
 </main>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/nav.js"></script>
 <script>
 (function(){
   var btn = document.getElementById("pro-subscribe-btn");
   if (!btn) return;
-  fetch("/api/stripe/payment-link").then(function(r){return r.json()}).then(function(d){
-    if (d.url) btn.href = d.url;
-  }).catch(function(){});
+
+  var paddleConfig = null;
+
+  // Load Paddle config from API
+  fetch("/api/paddle/config").then(function(r){return r.json()}).then(function(cfg){
+    paddleConfig = cfg;
+
+    Paddle.Environment.set(cfg.sandbox ? "sandbox" : "production");
+    Paddle.Initialize({
+      token: cfg.client_token,
+      checkout: { settings: { displayMode: "overlay", variant: "one-page" } }
+    });
+
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      if (!cfg.pro_price_id) {
+        alert("Payment is not configured yet. Please contact mohdibrahim@epilabs.org to subscribe.");
+        return;
+      }
+      Paddle.Checkout.open({
+        items: [{ priceId: cfg.pro_price_id, quantity: 1 }]
+      });
+    });
+  }).catch(function(){
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      alert("Payment is currently unavailable. Please try again later or contact mohdibrahim@epilabs.org.");
+    });
+  });
 })();
 </script>
 </body>

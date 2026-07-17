@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EPI Labs — Signing In</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta http-equiv="refresh" content="0;url=/account">
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token');
+  if (token) {
+    localStorage.setItem('epi_token', token);
+    localStorage.setItem('epi_token_set_at', Date.now().toString());
+    window.location.replace('/account');
+  } else {
+    window.location.replace('/');
+  }
+})();
+</script>
+</head>
+<body style="background:#0a0a0a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<p style="font-size:1.2rem;opacity:0.6">Signing you in…</p>
+</body>
+</html>

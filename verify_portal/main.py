@@ -350,8 +350,8 @@ async def create_api_key(request: Request):
         tier = get_user_plan(storage_dir, user["id"])
     else:
         tier = "free"
-    if tier not in ("free", "pro", "enterprise"):
-        raise HTTPException(status_code=400, detail="Tier must be free, pro, or enterprise")
+    if tier not in ("pro", "team", "enterprise"):
+        raise HTTPException(status_code=402, detail="API keys require a Pro plan or higher. Upgrade at /pricing.")
     import secrets
     api_key = "epi_" + secrets.token_hex(24)
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
@@ -867,6 +867,17 @@ async def auth_logout(request: Request):
     response = JSONResponse({"ok": True})
     response.delete_cookie("epi_token")
     return response
+
+
+@app.get("/auth/success")
+async def auth_success():
+    auth_success_path = STATIC_DIR / "auth" / "success.html"
+    if auth_success_path.exists():
+        return FileResponse(auth_success_path)
+    auth_alt = STATIC_DIR / "success.html"
+    if auth_alt.exists():
+        return FileResponse(auth_alt)
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/account")

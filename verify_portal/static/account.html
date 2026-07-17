@@ -3,318 +3,989 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI Labs — Account</title>
-<meta name="description" content="Your EPI Labs account. Manage your subscription, API keys, and settings.">
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
-<link rel="stylesheet" href="css/epi.css?v=25">
+<title>My Account | EPI Labs</title>
+<meta name="description" content="Manage your EPI Labs account, API keys, and subscription plan.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/epi.css?v=24">
+<script defer data-domain="epilabs.org" src="https://plausible.io/js/script.js"></script>
 <style>
-.acct-main{max-width:700px;margin:0 auto;padding:120px 24px 80px}
-.acct-main h1{font-size:1.8rem;color:var(--ink);margin:0 0 4px}
-.acct-main .subtitle{color:var(--ink-muted);font-size:.95rem;margin-bottom:40px}
-.acct-card{background:var(--bg-card);border:1px solid var(--border-str);border-radius:12px;padding:28px;margin-bottom:20px}
-.acct-card h3{font-size:.95rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 16px;font-weight:500}
-.acct-card .val{font-size:1.05rem;color:var(--ink);font-weight:500}
-.acct-card .val-mono{font-family:var(--mono);font-size:.88rem;color:var(--ink);word-break:break-all}
-.acct-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
-.acct-btn{padding:10px 22px;border-radius:8px;font-family:var(--sans);font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
-.acct-btn.primary{background:var(--accent);color:#fff}
-.acct-btn.primary:hover{background:var(--accent-lt)}
-.acct-btn.danger{background:transparent;color:var(--tamper);border:1.5px solid rgba(181,38,38,0.3)}
-.acct-btn.danger:hover{background:var(--tamper-bg)}
-.acct-btn.secondary{background:transparent;color:var(--accent);border:1.5px solid var(--accent-line)}
-.apikey-box{background:var(--bg-dark);border-radius:8px;padding:16px 20px;font-family:var(--mono);font-size:.82rem;color:#C8CDD5;display:flex;align-items:center;gap:12px;margin-top:12px;justify-content:space-between}
-.apikey-box button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:6px 14px;border-radius:6px;font-family:var(--mono);font-size:.75rem;cursor:pointer}
-.apikey-box button:hover{background:rgba(255,255,255,.15)}
-.acct-loading{color:var(--ink-dim);font-style:italic;font-size:.9rem;text-align:center;padding:40px 0}
-.plan-badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.plan-badge.free{background:var(--accent-glow);color:var(--accent)}
-.plan-badge.pro{background:var(--verified-bg);color:var(--verified)}
-.plan-badge.enterprise{background:rgba(139,105,20,.1);color:var(--warn)}
-.signin-hero{text-align:center;padding:80px 0 0}
-.signin-btn{padding:16px 40px;font-size:1.05rem;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:12px;cursor:pointer;transition:all .15s}
-.signin-btn:hover{background:var(--accent-lt);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.15)}
-.signin-footer{text-align:center;margin-top:16px;color:var(--ink-dim);font-size:.8rem}
-.error-msg{background:var(--tamper-bg);border:1px solid rgba(181,38,38,0.3);border-radius:8px;padding:14px 20px;margin-top:20px;color:var(--tamper);font-size:.88rem;display:none}
+  /* ── Account Page Styles ── */
+  :root {
+    --acc-bg: #0a0e1a;
+    --acc-card: #111827;
+    --acc-card-border: rgba(99,102,241,0.18);
+    --acc-accent: #6366f1;
+    --acc-accent2: #818cf8;
+    --acc-green: #10b981;
+    --acc-red: #ef4444;
+    --acc-yellow: #f59e0b;
+    --acc-text: #f1f5f9;
+    --acc-muted: #94a3b8;
+    --acc-input-bg: #1e293b;
+    --acc-input-border: rgba(99,102,241,0.3);
+    --acc-radius: 14px;
+    --acc-radius-sm: 8px;
+    --acc-shadow: 0 4px 32px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--acc-bg);
+    color: var(--acc-text);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  .acc-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    background: rgba(10,14,26,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--acc-card-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .acc-nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--acc-text);
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .acc-nav-logo img { height: 32px; }
+  .acc-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .acc-nav-link {
+    color: var(--acc-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .acc-nav-link:hover { color: var(--acc-text); }
+  .btn-logout {
+    background: rgba(239,68,68,0.12);
+    color: var(--acc-red);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: var(--acc-radius-sm);
+    padding: 7px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-logout:hover {
+    background: rgba(239,68,68,0.22);
+    border-color: var(--acc-red);
+  }
+
+  /* MAIN LAYOUT */
+  .acc-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  .acc-header {
+    margin-bottom: 40px;
+  }
+  .acc-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f1f5f9 0%, var(--acc-accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .acc-header p {
+    color: var(--acc-muted);
+    font-size: 0.95rem;
+  }
+
+  /* GRID */
+  .acc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .acc-grid-full { grid-column: 1 / -1; }
+
+  @media (max-width: 720px) {
+    .acc-grid { grid-template-columns: 1fr; }
+  }
+
+  /* CARD */
+  .acc-card {
+    background: var(--acc-card);
+    border: 1px solid var(--acc-card-border);
+    border-radius: var(--acc-radius);
+    padding: 28px;
+    box-shadow: var(--acc-shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .acc-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--acc-accent), var(--acc-accent2));
+    opacity: 0.6;
+  }
+  .acc-card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--acc-muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .acc-card-title svg { opacity: 0.7; }
+
+  /* PROFILE SECTION */
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+  .profile-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--acc-accent) 0%, var(--acc-accent2) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    border: 2px solid var(--acc-card-border);
+    overflow: hidden;
+  }
+  .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-info h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--acc-text);
+  }
+  .profile-info .profile-login {
+    font-size: 0.85rem;
+    color: var(--acc-muted);
+    margin-top: 2px;
+  }
+  .profile-info .profile-email {
+    font-size: 0.82rem;
+    color: var(--acc-muted);
+    margin-top: 2px;
+  }
+
+  /* FIELD */
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .field-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .field-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--acc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .field-value {
+    font-size: 0.95rem;
+    color: var(--acc-text);
+    background: var(--acc-input-bg);
+    border: 1px solid var(--acc-input-border);
+    border-radius: var(--acc-radius-sm);
+    padding: 9px 14px;
+    font-family: inherit;
+  }
+
+  /* PLAN BADGE */
+  .plan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .plan-badge.free {
+    background: rgba(148,163,184,0.12);
+    color: var(--acc-muted);
+    border: 1px solid rgba(148,163,184,0.2);
+  }
+  .plan-badge.pro {
+    background: rgba(99,102,241,0.15);
+    color: var(--acc-accent2);
+    border: 1px solid rgba(99,102,241,0.3);
+  }
+  .plan-badge.enterprise {
+    background: rgba(245,158,11,0.12);
+    color: var(--acc-yellow);
+    border: 1px solid rgba(245,158,11,0.25);
+  }
+
+  .plan-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .plan-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--acc-text);
+  }
+
+  .plan-limit-bar {
+    margin-top: 18px;
+  }
+  .plan-limit-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--acc-muted);
+    margin-bottom: 6px;
+  }
+  .plan-limit-track {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .plan-limit-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--acc-accent), var(--acc-accent2));
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .btn-upgrade {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--acc-accent) 0%, var(--acc-accent2) 100%);
+    color: #fff;
+    border: none;
+    border-radius: var(--acc-radius-sm);
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    margin-top: 20px;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+  }
+  .btn-upgrade:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(99,102,241,0.4);
+  }
+
+  /* API KEYS */
+  .key-list { display: flex; flex-direction: column; gap: 10px; }
+  .key-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--acc-input-bg);
+    border: 1px solid var(--acc-input-border);
+    border-radius: var(--acc-radius-sm);
+    padding: 12px 14px;
+  }
+  .key-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--acc-green);
+    flex-shrink: 0;
+    box-shadow: 0 0 6px var(--acc-green);
+  }
+  .key-name {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--acc-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .key-hash {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.78rem;
+    color: var(--acc-muted);
+  }
+  .key-tier {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--acc-accent2);
+    background: rgba(99,102,241,0.1);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .btn-new-key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    background: rgba(99,102,241,0.08);
+    color: var(--acc-accent2);
+    border: 1px dashed rgba(99,102,241,0.35);
+    border-radius: var(--acc-radius-sm);
+    padding: 11px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 12px;
+  }
+  .btn-new-key:hover {
+    background: rgba(99,102,241,0.15);
+    border-color: var(--acc-accent);
+    color: var(--acc-text);
+  }
+
+  .key-new-form {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+  .key-new-form.open { display: flex; }
+  .key-input {
+    background: var(--acc-input-bg);
+    border: 1px solid var(--acc-input-border);
+    border-radius: var(--acc-radius-sm);
+    padding: 9px 14px;
+    color: var(--acc-text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: var(--acc-accent); }
+  .key-form-actions { display: flex; gap: 8px; }
+  .btn-create-key {
+    flex: 1;
+    background: var(--acc-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--acc-radius-sm);
+    padding: 9px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-create-key:hover { background: var(--acc-accent2); }
+  .btn-cancel-key {
+    background: transparent;
+    color: var(--acc-muted);
+    border: 1px solid rgba(148,163,184,0.2);
+    border-radius: var(--acc-radius-sm);
+    padding: 9px 16px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel-key:hover { color: var(--acc-text); }
+
+  /* KEY REVEAL */
+  .key-reveal-box {
+    display: none;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: var(--acc-radius-sm);
+    padding: 14px;
+    margin-top: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+  .key-reveal-box.open { display: block; }
+  .key-reveal-label {
+    font-size: 0.78rem;
+    color: var(--acc-green);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .key-reveal-value {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    color: var(--acc-text);
+    word-break: break-all;
+    background: var(--acc-input-bg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 8px;
+  }
+  .btn-copy-key {
+    background: transparent;
+    color: var(--acc-green);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-copy-key:hover { background: rgba(16,185,129,0.12); }
+  .key-warning {
+    font-size: 0.78rem;
+    color: var(--acc-yellow);
+    margin-top: 6px;
+  }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+  .stat-item {
+    background: var(--acc-input-bg);
+    border: 1px solid var(--acc-input-border);
+    border-radius: var(--acc-radius-sm);
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--acc-text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 0.78rem;
+    color: var(--acc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* STATES */
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--acc-muted);
+    font-size: 0.9rem;
+  }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(99,102,241,0.2);
+    border-top-color: var(--acc-accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  .error-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    text-align: center;
+    gap: 16px;
+  }
+  .error-state.visible { display: flex; }
+  .error-icon {
+    font-size: 3rem;
+    line-height: 1;
+  }
+  .error-state h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--acc-text);
+  }
+  .error-state p {
+    color: var(--acc-muted);
+    font-size: 0.9rem;
+    max-width: 340px;
+  }
+  .btn-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--acc-accent) 0%, var(--acc-accent2) 100%);
+    color: #fff;
+    border: none;
+    border-radius: var(--acc-radius-sm);
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+    transition: all 0.2s;
+  }
+  .btn-login:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(99,102,241,0.45);
+  }
+
+  /* Sections hidden until logged in */
+  .acc-content { display: none; }
+  .acc-content.visible { display: block; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--acc-card);
+    border: 1px solid var(--acc-card-border);
+    border-radius: var(--acc-radius-sm);
+    padding: 12px 20px;
+    font-size: 0.88rem;
+    color: var(--acc-text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 9999;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 320px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(16,185,129,0.4); }
+  .toast.error-t { border-color: rgba(239,68,68,0.4); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  /* FOOTER */
+  .acc-footer {
+    text-align: center;
+    color: var(--acc-muted);
+    font-size: 0.8rem;
+    padding: 32px 0 0;
+    border-top: 1px solid var(--acc-card-border);
+    margin-top: 40px;
+  }
+  .acc-footer a { color: var(--acc-muted); text-decoration: none; }
+  .acc-footer a:hover { color: var(--acc-text); }
+
+  /* empty state for keys */
+  .no-keys {
+    text-align: center;
+    color: var(--acc-muted);
+    font-size: 0.88rem;
+    padding: 24px;
+    background: var(--acc-input-bg);
+    border-radius: var(--acc-radius-sm);
+    border: 1px dashed rgba(148,163,184,0.15);
+  }
 </style>
 </head>
 <body>
-<nav id="nav">
-  <div class="nav-inner">
-    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nav-links">
-      <li><a href="/how-it-works">How It Works</a></li>
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/pricing">Pricing</a></li>
-      <li id="nav-auth"></li>
-    </ul>
+
+<!-- NAV -->
+<nav class="acc-nav">
+  <a href="/" class="acc-nav-logo">
+    <img src="/assets/logo.png" alt="EPI Labs">
+    <span>EPI Labs</span>
+  </a>
+  <div class="acc-nav-right">
+    <a href="/" class="acc-nav-link">Home</a>
+    <a href="/pricing" class="acc-nav-link">Pricing</a>
+    <a href="/verify/" class="acc-nav-link">Verify</a>
+    <button class="btn-logout" id="btnLogout" style="display:none" onclick="logout()">Sign Out</button>
   </div>
 </nav>
 
-<main class="acct-main">
-  <noscript><p style="text-align:center;padding:40px;color:var(--tamper)">JavaScript is required to sign in and manage your account.</p></noscript>
+<!-- UNAUTHENTICATED STATE -->
+<div class="error-state" id="loginPrompt">
+  <div class="error-icon">🔐</div>
+  <h2>Sign in to view your account</h2>
+  <p>Connect with GitHub to access your EPI Labs account, API keys, and subscription details.</p>
+  <button class="btn-login" id="btnLogin" onclick="startLogin()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+    </svg>
+    Continue with GitHub
+  </button>
+</div>
 
-  <div id="state-loading" class="acct-loading" style="display:none">Checking your session…</div>
+<!-- LOADING STATE -->
+<div class="loading-state" id="loadingState">
+  <div class="spinner"></div>
+  Loading your account…
+</div>
 
-  <div id="state-signin" style="display:none">
-    <div class="signin-hero">
-      <h2 style="font-size:1.6rem;color:var(--ink);margin-bottom:8px">Sign in to manage your account</h2>
-      <p style="color:var(--ink-soft);margin-bottom:28px;font-size:.95rem">Use GitHub to sign in. We only ask for your public profile and email.</p>
-      <button class="signin-btn" onclick="startLogin()">Sign in with GitHub</button>
-      <p class="signin-footer">No password. No email verification. Just your GitHub account.</p>
+<!-- MAIN CONTENT (shown when logged in) -->
+<div class="acc-content" id="accContent">
+  <main class="acc-main">
+
+    <div class="acc-header">
+      <h1>My Account</h1>
+      <p id="accSubtitle">Manage your profile, subscription, and API keys.</p>
     </div>
-  </div>
 
-  <div id="state-error" style="display:none;text-align:center;padding:40px 0">
-    <p style="color:var(--tamper);font-size:.95rem;margin-bottom:12px" id="error-text">Something went wrong.</p>
-    <button class="signin-btn" onclick="location.reload()">Try Again</button>
-  </div>
+    <div class="acc-grid">
 
-  <div id="state-account" style="display:none">
-    <h1 id="acct-name">Your Account</h1>
-    <p class="subtitle">Manage your subscription, API keys, and settings.</p>
-
-    <div class="acct-card">
-      <h3>Plan</h3>
-      <div style="display:flex;align-items:center;gap:12px">
-        <span id="plan-badge" class="plan-badge free">Free</span>
-        <a href="/pricing" class="acct-btn secondary" id="upgrade-link">Upgrade</a>
+      <!-- PROFILE CARD -->
+      <div class="acc-card">
+        <div class="acc-card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Profile
+        </div>
+        <div class="profile-row">
+          <div class="profile-avatar" id="profileAvatar">?</div>
+          <div class="profile-info">
+            <h2 id="profileName">—</h2>
+            <div class="profile-login" id="profileLogin">@—</div>
+            <div class="profile-email" id="profileEmail">—</div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-item">
+            <div class="field-label">GitHub Login</div>
+            <div class="field-value" id="fieldLogin">—</div>
+          </div>
+          <div class="field-item">
+            <div class="field-label">Organization</div>
+            <div class="field-value" id="fieldOrg">—</div>
+          </div>
+          <div class="field-item">
+            <div class="field-label">Member Since</div>
+            <div class="field-value" id="fieldSince">—</div>
+          </div>
+        </div>
       </div>
-      <div id="plan-features" style="margin-top:16px;display:none"></div>
-    </div>
 
-    <div class="acct-card">
-      <h3>API Key</h3>
-      <p style="color:var(--ink-soft);font-size:.88rem;margin-bottom:8px">Use this key with the EPI CLI and API for hosted verification and SCITT anchoring.</p>
-      <div class="apikey-box" id="apikey-section" style="display:none">
-        <span id="apikey-value">—</span>
-        <button onclick="copyApiKey()">Copy</button>
+      <!-- PLAN CARD -->
+      <div class="acc-card">
+        <div class="acc-card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Subscription
+        </div>
+        <div class="plan-info-row">
+          <div class="plan-name" id="planName">Free</div>
+          <div class="plan-badge free" id="planBadge">Free</div>
+        </div>
+        <div class="field-group">
+          <div class="field-item">
+            <div class="field-label">Monthly Verifications</div>
+            <div class="field-value" id="fieldVerifs">3 / 3 (free tier)</div>
+          </div>
+          <div class="field-item">
+            <div class="field-label">API Access</div>
+            <div class="field-value" id="fieldApiAccess">—</div>
+          </div>
+        </div>
+        <div class="plan-limit-bar" id="planLimitBar">
+          <div class="plan-limit-label">
+            <span>Usage this month</span>
+            <span id="planLimitPct">—</span>
+          </div>
+          <div class="plan-limit-track">
+            <div class="plan-limit-fill" id="planLimitFill" style="width:0%"></div>
+          </div>
+        </div>
+        <a href="/pricing" class="btn-upgrade" id="btnUpgrade">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Upgrade Plan
+        </a>
       </div>
-      <div id="no-apikey" style="margin-top:12px">
-        <p style="color:var(--ink-muted);font-size:.88rem;margin-bottom:8px">No API key generated yet.</p>
-        <button class="acct-btn primary" onclick="createApiKey()">Generate API Key</button>
+
+      <!-- API KEYS CARD -->
+      <div class="acc-card acc-grid-full">
+        <div class="acc-card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          API Keys
+        </div>
+
+        <div id="keysList" class="key-list">
+          <div class="loading-state" style="padding:20px">
+            <div class="spinner"></div> Loading keys…
+          </div>
+        </div>
+
+        <button class="btn-new-key" id="btnNewKey" onclick="openKeyForm()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Generate New API Key
+        </button>
+
+        <div class="key-new-form" id="keyNewForm">
+          <input class="key-input" type="text" id="keyNameInput" placeholder="Key name (e.g. production)" maxlength="60">
+          <div class="key-form-actions">
+            <button class="btn-create-key" onclick="createKey()">Create Key</button>
+            <button class="btn-cancel-key" onclick="closeKeyForm()">Cancel</button>
+          </div>
+        </div>
+
+        <div class="key-reveal-box" id="keyRevealBox">
+          <div class="key-reveal-label">✅ New API Key Created — Copy it now, it won't be shown again</div>
+          <div class="key-reveal-value" id="keyRevealValue"></div>
+          <button class="btn-copy-key" onclick="copyKey()">Copy Key</button>
+          <div class="key-warning">⚠️ Store this securely. This key grants access to EPI Labs API features.</div>
+        </div>
       </div>
+
+    </div><!-- /acc-grid -->
+
+    <div class="acc-footer">
+      <p>
+        <a href="/">epilabs.org</a> ·
+        <a href="/privacy">Privacy</a> ·
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+        &nbsp;·&nbsp; EPI Labs © 2025
+      </p>
     </div>
 
-    <div class="acct-card">
-      <h3>Account</h3>
-      <div id="acct-email" style="margin-bottom:8px;color:var(--ink-soft)"></div>
-      <div id="acct-org" style="margin-bottom:12px;color:var(--ink-dim);font-size:.85rem"></div>
-      <button class="acct-btn danger" onclick="logout()">Sign Out</button>
-    </div>
+  </main>
+</div><!-- /acc-content -->
 
-    <div class="error-msg" id="error-msg"></div>
-  </div>
-</main>
-
-<footer style="text-align:center;padding:60px 24px;border-top:1px solid var(--border)">
-  <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
-    &copy; 2026 EPI Labs &middot;
-    <a href="/terms" style="color:var(--accent)">Terms</a> &middot;
-    <a href="/privacy" style="color:var(--accent)">Privacy</a> &middot;
-    <a href="/refund" style="color:var(--accent)">Refunds</a>
-  </p>
-</footer>
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
 
 <script>
-var API_BASE = 'https://epi-verify-portal.onrender.com';
-var userData = null;
-var apiKey = null;
-var loggedIn = false;
+// ── Helpers ──────────────────────────────────────────────
+const TOKEN_KEY = 'epi_bearer_token';
 
-// Check if token came via redirect and clean the URL
-(function() {
-  var hash = window.location.hash;
-  if (hash && hash.indexOf('token=') === 1) {
-    var token = hash.substring(7).split('&')[0];
-    localStorage.setItem('epi_token', token);
-    history.replaceState(null, '', '/account');
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
+}
+
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+}
+
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (type === 'error' ? 'error-t' : 'success');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function el(id) { return document.getElementById(id); }
+
+// ── Page Init ────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check for token in URL (after OAuth callback)
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get('token');
+  if (urlToken) {
+    localStorage.setItem(TOKEN_KEY, urlToken);
+    // Clean URL without reload
+    window.history.replaceState({}, '', '/account');
   }
-})();
 
-async function loadAccount() {
-  var token = localStorage.getItem('epi_token');
+  const token = getToken();
 
-  // No token → show signin
+  el('loadingState').style.display = 'none';
+
   if (!token) {
-    showState('signin');
-    updateNav(false);
+    el('loginPrompt').classList.add('visible');
     return;
   }
 
-  // Have token → show loading while we verify
-  showState('loading');
+  // Show loading while fetching
+  el('loadingState').style.display = 'flex';
 
   try {
-    var r = await fetch(API_BASE + '/api/auth/me', {
-      credentials: 'include',
+    const user = await fetchUser(token);
+    renderProfile(user, token);
+    await loadApiKeys(token);
+  } catch (e) {
+    clearToken();
+    el('loadingState').style.display = 'none';
+    el('loginPrompt').classList.add('visible');
+  }
+});
+
+// ── OAuth Login ──────────────────────────────────────────
+function startLogin() {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('oauth_state', state);
+  const redirect = encodeURIComponent(window.location.origin + '/account');
+  window.location.href = `/api/auth/github/start?state=${state}&redirect_uri=${redirect}`;
+}
+
+// ── Fetch User ───────────────────────────────────────────
+async function fetchUser(token) {
+  const res = await fetch('/api/auth/me', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error('Unauthorized');
+  return res.json();
+}
+
+// ── Render Profile ───────────────────────────────────────
+function renderProfile(user, token) {
+  el('loadingState').style.display = 'none';
+  el('accContent').classList.add('visible');
+  el('btnLogout').style.display = 'inline-block';
+
+  const login = user.login || 'User';
+  const email = user.email || '';
+  const org = user.org || '—';
+
+  // Avatar
+  const avatarEl = el('profileAvatar');
+  const ghAvatarUrl = `https://avatars.githubusercontent.com/${login}`;
+  const img = document.createElement('img');
+  img.src = ghAvatarUrl;
+  img.alt = login;
+  img.onerror = () => { avatarEl.textContent = login.charAt(0).toUpperCase(); };
+  avatarEl.innerHTML = '';
+  avatarEl.appendChild(img);
+
+  el('profileName').textContent = login;
+  el('profileLogin').textContent = '@' + login;
+  el('profileEmail').textContent = email || 'No email set';
+  el('fieldLogin').textContent = login;
+  el('fieldOrg').textContent = org;
+  el('accSubtitle').textContent = `Signed in as @${login}`;
+
+  // Plan
+  const plan = user.plan || 'free';
+  el('planName').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const badge = el('planBadge');
+  badge.className = `plan-badge ${plan}`;
+  badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+
+  if (plan === 'pro') {
+    el('fieldApiAccess').textContent = 'Unlimited (Pro)';
+    el('planLimitPct').textContent = 'Pro plan';
+    el('planLimitFill').style.width = '0%';
+    el('btnUpgrade').textContent = '⚡ You\'re on Pro';
+    el('btnUpgrade').style.background = 'rgba(99,102,241,0.2)';
+    el('btnUpgrade').style.color = 'var(--acc-accent2)';
+    el('btnUpgrade').style.boxShadow = 'none';
+    el('btnUpgrade').href = '#';
+  } else if (plan === 'enterprise') {
+    el('fieldApiAccess').textContent = 'Unlimited (Enterprise)';
+    el('planLimitPct').textContent = 'Enterprise plan';
+    el('planLimitFill').style.width = '0%';
+    el('btnUpgrade').style.display = 'none';
+  } else {
+    el('fieldApiAccess').textContent = '3 / month (Free tier)';
+    el('planLimitPct').textContent = '3 / 3 max';
+    el('planLimitFill').style.width = '100%';
+  }
+}
+
+// ── API Keys ─────────────────────────────────────────────
+async function loadApiKeys(token) {
+  const list = el('keysList');
+  list.innerHTML = '<div class="loading-state" style="padding:16px"><div class="spinner"></div> Loading keys…</div>';
+  try {
+    const res = await fetch('/api/keys', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-
-    if (r.status === 401 || !r.ok) {
-      localStorage.removeItem('epi_token');
-      showState('signin');
-      updateNav(false);
-      return;
-    }
-
-    userData = await r.json();
-    loggedIn = true;
-    showState('account');
-    updateNav(true);
-
-    document.getElementById('acct-name').textContent = 'Hi, ' + (userData.login || (userData.email || '').split('@')[0] || 'there');
-    document.getElementById('acct-email').textContent = userData.email || '';
-    if (userData.org) {
-      document.getElementById('acct-org').textContent = 'Organization: ' + userData.org;
-    }
-
-    await loadPlan();
-    await loadApiKeys();
-  } catch (e) {
-    showState('signin');
-    updateNav(false);
-  }
-}
-
-function showState(state) {
-  document.getElementById('state-loading').style.display = state === 'loading' ? 'block' : 'none';
-  document.getElementById('state-signin').style.display = state === 'signin' ? 'block' : 'none';
-  document.getElementById('state-error').style.display = state === 'error' ? 'block' : 'none';
-  document.getElementById('state-account').style.display = state === 'account' ? 'block' : 'none';
-}
-
-function showError(msg) {
-  document.getElementById('error-text').textContent = msg;
-  showState('error');
-}
-
-async function loadPlan() {
-  var plan = userData.plan || 'free';
-  var badge = document.getElementById('plan-badge');
-  if (badge) {
-    badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
-    badge.className = 'plan-badge ' + plan;
-  }
-  if (plan !== 'free') {
-    var up = document.getElementById('upgrade-link');
-    if (up) up.style.display = 'none';
-  }
-
-  // Load plan features
-  try {
-    var r = await fetch(API_BASE + '/api/plan/features', {
-      credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
-    });
-    if (r.ok) {
-      var f = await r.json();
-      var feat = f.features || {};
-      var list_items = [
-        { k: 'Hosted verifications', v: feat.verifications ? feat.verifications.toLocaleString() + '/mo' : 'Unlimited' },
-        { k: 'SCITT Remote Anchoring', v: feat.scitt ? 'Enabled' : '—' },
-        { k: 'PDF Reports', v: feat.pdf ? 'Enabled' : '—' },
-        { k: 'API Keys', v: feat.api_keys ? 'Enabled' : '—' },
-        { k: 'Support', v: feat.support || 'Community' },
-      ];
-      var html = '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">';
-      for (var i = 0; i < list_items.length; i++) {
-        var item = list_items[i];
-        html += '<li style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--ink-soft)">' + item.k + '</span><span style="color:var(--ink);font-weight:500">' + item.v + '</span></li>';
-      }
-      html += '</ul>';
-      var el = document.getElementById('plan-features');
-      if (el) { el.innerHTML = html; el.style.display = 'block'; }
-    }
-  } catch (e) {}
-}
-
-async function loadApiKeys() {
-  try {
-    var r = await fetch(API_BASE + '/api/keys', {
-      credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
-    });
-    if (!r.ok) throw new Error('Failed');
-    var data = await r.json();
-    var keys = data.keys || [];
-    if (keys.length > 0) {
-      apiKey = keys[0].key || keys[0].token || keys[0];
-      var displayKey = typeof apiKey === 'string' ? apiKey : (apiKey.key || '');
-      document.getElementById('apikey-section').style.display = 'flex';
-      document.getElementById('apikey-value').textContent = displayKey || '—';
-      document.getElementById('no-apikey').style.display = 'none';
+    const data = await res.json();
+    const keys = data.keys || [];
+    if (!keys.length) {
+      list.innerHTML = '<div class="no-keys">No API keys yet. Generate one below.</div>';
     } else {
-      document.getElementById('no-apikey').style.display = 'block';
-      document.getElementById('apikey-section').style.display = 'none';
+      list.innerHTML = keys.map(k => `
+        <div class="key-item">
+          <div class="key-dot"></div>
+          <span class="key-name">${escHtml(k.name || 'unnamed')}</span>
+          <span class="key-hash">${escHtml(k.key_hash || '')}</span>
+          <span class="key-tier">${escHtml(k.tier || 'free')}</span>
+        </div>
+      `).join('');
     }
   } catch (e) {
-    document.getElementById('no-apikey').style.display = 'block';
-    document.getElementById('apikey-section').style.display = 'none';
+    list.innerHTML = '<div class="no-keys">Could not load API keys.</div>';
   }
 }
 
-async function createApiKey() {
+function openKeyForm() {
+  el('keyNewForm').classList.add('open');
+  el('keyRevealBox').classList.remove('open');
+  el('keyNameInput').focus();
+}
+function closeKeyForm() {
+  el('keyNewForm').classList.remove('open');
+  el('keyNameInput').value = '';
+}
+
+async function createKey() {
+  const name = el('keyNameInput').value.trim() || 'default';
+  const token = getToken();
   try {
-    var r = await fetch(API_BASE + '/api/keys', {
+    const res = await fetch('/api/keys', {
       method: 'POST',
-      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '')
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ name: 'default' })
+      body: JSON.stringify({ name })
     });
-    if (r.ok) {
-      await loadApiKeys();
-    } else {
-      alert('Could not create API key. Upgrade your plan to enable API access.');
-    }
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    closeKeyForm();
+    el('keyRevealValue').textContent = data.api_key;
+    el('keyRevealBox').classList.add('open');
+    await loadApiKeys(token);
+    showToast('✅ API key created!');
   } catch (e) {
-    showError('Could not create API key — server may be unavailable. Try again in a moment.');
+    showToast('Failed to create API key.', 'error');
   }
 }
 
-function copyApiKey() {
-  if (apiKey) {
-    var val = typeof apiKey === 'string' ? apiKey : apiKey.key || '';
-    navigator.clipboard.writeText(val).then(function() {
-      alert('API key copied to clipboard');
-    });
-  }
+function copyKey() {
+  const val = el('keyRevealValue').textContent;
+  navigator.clipboard.writeText(val).then(() => showToast('Copied to clipboard!'));
 }
 
-function startLogin() {
-  var state = 'auth_' + Math.random().toString(36).substring(2, 15);
-  sessionStorage.setItem('epi_auth_state', state);
-  window.location.href = API_BASE + '/api/auth/github/start?state=' + encodeURIComponent(state);
-}
-
-function updateNav(isLoggedIn) {
-  var nav = document.getElementById('nav-auth');
-  if (!nav) return;
-  if (isLoggedIn && userData) {
-    nav.innerHTML = '<a href="/account">' + (userData.login || 'Account') + '</a>';
-  } else {
-    nav.innerHTML = '<a href="/account" class="nav-link-cta">Sign In</a>';
-  }
-}
-
+// ── Logout ───────────────────────────────────────────────
 async function logout() {
+  const token = getToken();
   try {
-    await fetch(API_BASE + '/api/auth/logout', {
+    await fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('epi_token') || '') }
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-  } catch (e) {}
-  localStorage.removeItem('epi_token');
+  } catch (_) {}
+  clearToken();
   window.location.href = '/';
 }
 
-loadAccount();
+// ── Escape HTML ──────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
-<script src="js/theme.js"></script>
-<script src="js/nav.js"></script>
 </body>
 </html>
