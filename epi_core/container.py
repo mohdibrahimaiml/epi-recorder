@@ -933,7 +933,7 @@ class EPIContainer:
             ),
         })
 
-        controls_failed = sum(1 for r in results if r["status"] == "failed")
+        controls_failed = sum(1 for r in results if r["status"] == "failed" and r.get("severity") != "info")
 
         return {
             "policy_id": "epi.baseline",
