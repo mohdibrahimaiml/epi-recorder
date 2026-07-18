@@ -96,6 +96,24 @@ def capture_installed_packages() -> Dict[str, str]:
         except Exception:
             pass  # Fail silently
     
+    # Filter to only packages imported at runtime
+    try:
+        imported = set()
+        for m in sys.modules:
+            r = m.split('.')[0]
+            if len(r) > 2:
+                imported.add(r.lower())
+        pkgs = {}
+        for p, v in packages.items():
+            k = p.lower().replace('-', '_')
+            ok = any(k.startswith(r) or r in k for r in imported)
+            if ok:
+                pkgs[p] = v
+        if pkgs:
+            packages = pkgs
+    except Exception:
+        pass
+    
     return packages
 
 
