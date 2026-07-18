@@ -510,14 +510,9 @@ def verify_command(
         try:
             import hashlib as _hashlib
             import json
-            import zipfile
 
-            with zipfile.ZipFile(epi_file, "r") as zf:
-                members = zf.namelist()
-                steps_member = next((m for m in members if m.endswith("steps.jsonl")), None)
-                if steps_member:
-                    raw_steps = zf.read(steps_member).decode("utf-8").splitlines()
-                    steps = [json.loads(line) for line in raw_steps]
+            steps = EPIContainer.read_steps(epi_file)
+            if steps:
 
                     # 1. Index Sequence Audit (Monotonicity)
                     indices = [s.get("index", 0) for s in steps]
