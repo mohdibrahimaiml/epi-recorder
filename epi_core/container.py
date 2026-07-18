@@ -920,7 +920,7 @@ class EPIContainer:
             "rule_type": "baseline",
             "severity": "medium",
             "mode": "detect",
-            "status": "failed" if other_flags else "passed",
+            "status": "failed" if any(f.severity in ("critical","high") for f in other_flags) else "passed",
             "match_count": len(other_flags),
             "review_required": bool(other_flags and any(
                 f.severity in ("critical", "high") for f in other_flags
