@@ -136,7 +136,7 @@ def capture_environment_variables(
         "PYTHONPATH",
         "HOME",
         "USER",
-        "USERNAME",
+        "USER",
         "SHELL",
         "LANG",
         "LC_ALL",
