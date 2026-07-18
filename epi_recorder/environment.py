@@ -106,7 +106,7 @@ def capture_installed_packages() -> Dict[str, str]:
         pkgs = {}
         for p, v in packages.items():
             k = p.lower().replace('-', '_')
-            ok = any(k.startswith(r) or r in k for r in imported)
+            ok = (k in imported)
             if ok:
                 pkgs[p] = v
         if pkgs:
