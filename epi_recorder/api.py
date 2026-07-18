@@ -1532,7 +1532,7 @@ class EpiRecorderSession:
     def _capture_environment(self) -> None:
         """Capture environment snapshot and save to temp directory."""
         try:
-            env_data = capture_full_environment(include_all_env_vars=False, redact_env_vars=True)
+            env_data = capture_full_environment()
             env_file = self.temp_dir / "environment.json"
             env_file.write_text(json.dumps(env_data, indent=2), encoding="utf-8")
             
