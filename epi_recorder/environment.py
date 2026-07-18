@@ -115,7 +115,6 @@ def capture_environment_variables(
     """
     # Safe environment variables to capture by default
     SAFE_ENV_VARS = {
-        "PATH",
         "PYTHONPATH",
         "HOME",
         "USER",
