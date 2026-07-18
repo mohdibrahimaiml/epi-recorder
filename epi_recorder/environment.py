@@ -96,6 +96,23 @@ def capture_installed_packages() -> Dict[str, str]:
         except Exception:
             pass  # Fail silently
     
+    # Filter to only packages actually imported during this session
+    if True:
+        relevant = set()
+        for mod_name in sorted(sys.modules):
+            root = mod_name.split('.')[0]
+            if len(root) <= 2: continue  # skip single-char/abbrev modules
+            relevant.add(root)
+        # Always keep cryptography + epi packages
+        relevant.update({'cryptography', 'epi_core', 'epi_recorder', 'epi_cli', 'groq'})
+        filtered = {}
+        for pkg, ver in list(packages.items()):
+            pkg_root = pkg.split('-')[0].split('.')[0].lower().replace('_', '-')
+            if pkg_root in relevant or any(r in pkg.lower().replace('-','_') for r in relevant):
+                filtered[pkg] = ver
+        if filtered:
+            packages = filtered
+
     return packages
 
 
@@ -139,6 +156,26 @@ def capture_environment_variables(
     
     for key, value in os.environ.items():
         # Include based on policy
+            if key == "PATH" and redact:
+            # Keep only venv + Python + system bin paths
+            keep = set()
+            for pr in [os.path.dirname(sys.executable), os.path.dirname(os.path.dirname(sys.executable))]:
+                if pr: keep.add(pr.replace('\\', '/'))
+            venv = os.environ.get("VIRTUAL_ENV", "")
+            if venv:
+                for vp in [venv, venv + "/bin", venv + "/Scripts", venv + "/Library/bin"]:
+                    keep.add(vp.replace('\\', '/'))
+            parts = []
+            for p in value.split(os.pathsep):
+                pl = p.lower().replace('\\', '/')
+                if any(pl.startswith(k.lower().replace('\\', '/')) for k in keep if k):
+                    parts.append(p.replace(os.environ.get('USERPROFILE',''), '%HOME%'))
+                elif any(s in pl for s in ['/usr/bin','/usr/local/bin','/bin','/usr/sbin','system32','windows\\system32']):
+                    parts.append(p.replace(os.environ.get('USERPROFILE',''), '%HOME%'))
+                elif pl.endswith('scripts') or pl.endswith('bin'):
+                    parts.append(p.replace(os.environ.get('USERPROFILE',''), '%HOME%'))
+            value = os.pathsep.join(parts) if parts else '[system paths redacted]'
+        
         if not include_all and key not in SAFE_ENV_VARS:
             continue
         

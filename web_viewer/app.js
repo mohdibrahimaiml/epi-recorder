@@ -622,9 +622,17 @@ function renderVerdict(caseData) {
     }
   } else if (analysis) {
     if (analysis.fault_detected === true) {
-      systemVerdict = 'FAILED';
-      verdictClass = 'failed';
-      verdictDisplay = 'FAILED';
+      var flags = analysis.flags || [];
+      var allInfo = flags.length > 0 && flags.every(function(f) { return f.severity === 'info'; });
+      if (allInfo) {
+        systemVerdict = 'PASSED';
+        verdictClass = 'passed';
+        verdictDisplay = 'PASSED';
+      } else {
+        systemVerdict = 'FAILED';
+        verdictClass = 'failed';
+        verdictDisplay = 'FAILED';
+      }
     } else if (analysis.fault_detected === false) {
       systemVerdict = 'PASSED';
       verdictClass = 'passed';
