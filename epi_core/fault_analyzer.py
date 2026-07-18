@@ -198,7 +198,7 @@ class AnalysisResult:
 
     @property
     def fault_detected(self) -> bool:
-        return self.primary_fault is not None
+        return self.primary_fault is not None and self.primary_fault.severity not in ("info", "low")
 
     @property
     def mode(self) -> str:
