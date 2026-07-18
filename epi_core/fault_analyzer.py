@@ -1622,10 +1622,14 @@ class FaultAnalyzer:
         if not signals_any:
             return flags
 
+        # P11 fires when zero instrumented steps exist despite manifest
+        # metadata referencing agent activity. Severity "info" because
+        # the absence of instrumentation is expected when wrappers are
+        # not configured — it's not a runtime failure, it's a config gap.
         flags.append(FaultFlag(
             step_index=0,
             fault_type="coverage_gap",
-            severity="high",
+            severity="info",
             plain_english=(
                 "Manifest metadata references agent/LLM activity "
                 f"(goal: '{meta.get('goal', '')}', notes: '{meta.get('notes', '')}'), "
