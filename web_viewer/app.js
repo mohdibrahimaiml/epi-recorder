@@ -1211,7 +1211,7 @@ async function buildReviewedArtifactBytes(caseData, reviewRecord) {
   const newViewerHash = await sha256Hex(viewerHtmlBytes.buffer);
 
   const manifest = JSON.parse(JSON.stringify(caseData.manifest || {}));
-  manifest.container_format = 'legacy-zip';
+  // Preserve original container format (do not force legacy-zip)
   if (!manifest.file_manifest) {
     manifest.file_manifest = {};
   }
