@@ -636,16 +636,15 @@ def verify_command(
 
                 statement_bytes: bytes | None = None
                 receipt_bytes: bytes | None = None
-                with zipfile.ZipFile(epi_file, "r") as zf:
-                    try:
-                        statement_bytes = zf.read(stmt_path)
-                    except KeyError:
-                        pass
-                    try:
-                        receipt_bytes = zf.read(rcpt_path)
-                    except KeyError:
-                        pass
-
+                # Use EPIContainer.read_member_bytes for container-format safety
+                try:
+                    statement_bytes = EPIContainer.read_member_bytes(epi_file, stmt_path)
+                except (ValueError, KeyError):
+                    statement_bytes = None
+                try:
+                    receipt_bytes = EPIContainer.read_member_bytes(epi_file, rcpt_path)
+                except (ValueError, KeyError):
+                    receipt_bytes = None
                 if statement_bytes is None:
                     raise Exception(f"SCITT statement not found in archive: {stmt_path}")
                 if receipt_bytes is None:
