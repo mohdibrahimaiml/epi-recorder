@@ -463,7 +463,7 @@ function renderIntegrity(caseData, context) {
 
   const chainEl = document.getElementById('diag-chain');
   if (context?.facts?.chain_ok != null) {
-    const ok = context.facts.sequence_ok;
+    const ok = context.facts.chain_ok;
     chainEl.textContent = ok ? 'OK' : 'BROKEN';
     chainEl.className = 'diag-status ' + (ok ? 'ok' : 'flagged');
   } else {

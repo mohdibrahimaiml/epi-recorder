@@ -1625,7 +1625,7 @@ class FaultAnalyzer:
         # P11 fires when zero instrumented steps exist despite manifest
         # metadata referencing agent activity. Severity "info" because
         # the absence of instrumentation is expected when wrappers are
-        # not configured — it's not a runtime failure, it's a config gap.
+        # not configured---it's not a runtime failure, it's a config gap.
         flags.append(FaultFlag(
             step_index=0,
             fault_type="coverage_gap",
