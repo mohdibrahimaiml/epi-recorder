@@ -222,11 +222,9 @@ def _load_attestation_private_key():
             key_bytes = base64.b64decode(raw_b64)
             if len(key_bytes) == 32:
                 return Ed25519PrivateKey.from_private_bytes(key_bytes)
-        except Exception:
-            # Step forensics can fail for envelope-v2 .epi files
-            # where zipfile.ZipFile cannot parse the polyglot header.
-            # Integrity check (verify_integrity) already validates the envelope.
-            pass
+        except Exception as _forensic_err:
+            import logging
+            logging.getLogger(__name__).warning("Step forensics skipped (non-blocking): %s", _forensic_err)
 
     # Option 2: PEM-encoded key from env
     pem_b64 = os.environ.get("EPI_ATTESTATION_PRIVATE_KEY_PEM")
@@ -236,11 +234,9 @@ def _load_attestation_private_key():
 
             pem_bytes = base64.b64decode(pem_b64)
             return serialization.load_pem_private_key(pem_bytes, password=None)
-        except Exception:
-            # Step forensics can fail for envelope-v2 .epi files
-            # where zipfile.ZipFile cannot parse the polyglot header.
-            # Integrity check (verify_integrity) already validates the envelope.
-            pass
+        except Exception as _forensic_err:
+            import logging
+            logging.getLogger(__name__).warning("Step forensics skipped (non-blocking): %s", _forensic_err)
 
     # Option 3: Local key file (development)
     try:
@@ -675,11 +671,9 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
                 claimed_step_count = manifest.total_steps
                 if claimed_step_count is not None:
                     step_count_ok = actual_step_count == claimed_step_count
-        except Exception:
-            # Step forensics can fail for envelope-v2 .epi files
-            # where zipfile.ZipFile cannot parse the polyglot header.
-            # Integrity check (verify_integrity) already validates the envelope.
-            pass
+        except Exception as _forensic_err:
+            import logging
+            logging.getLogger(__name__).warning("Step forensics skipped (non-blocking): %s", _forensic_err)
 
         integrity_ok = integrity_ok and chain_ok and step_count_ok
 
