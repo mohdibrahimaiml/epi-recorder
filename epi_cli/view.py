@@ -81,7 +81,15 @@ def _resolve_epi_file(name_or_path: str) -> Path:
         if with_ext.exists():
             return with_ext
 
-    # 3. Try exact name in default directory
+    # 3. Try CWD first (for files downloaded from browser / other sources)
+    cwd_name = Path.cwd() / path.name
+    if cwd_name.exists():
+        return cwd_name
+    cwd_ext = Path.cwd() / f"{path.stem}.epi"
+    if cwd_ext.exists():
+        return cwd_ext
+
+    # 4. Try exact name in default directory
     in_default = DEFAULT_DIR / path.name
     if in_default.exists():
         return in_default
