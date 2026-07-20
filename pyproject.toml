@@ -160,6 +160,7 @@ test = [
 
 [project.scripts]
 epi = "epi_cli.main:cli_main"
+epi-register = "epi_postinstall:main"
 
 [project.urls]
 Homepage = "https://epilabs.org"

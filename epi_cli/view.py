@@ -512,8 +512,8 @@ def view(
         resolved_path = _resolve_epi_file(epi_file)
     except FileNotFoundError:
         console.print(f"[red][X] File not found:[/red] {epi_file}")
-        console.print("[dim]   Searched in: ./epi-recordings/[/dim]")
-        console.print("[dim]   Try: epi ls   to see available recordings[/dim]")
+        console.print("[dim]   Searched in: CWD & ./epi-recordings/[/dim]")
+        console.print("[dim]   Tip: use full path or cd to file folder[/dim]")
         raise typer.Exit(1)
 
     try:
@@ -609,7 +609,7 @@ def export_html(
         resolved_path = _resolve_epi_file(epi_file)
     except FileNotFoundError:
         console.print(f"[red][X] File not found:[/red] {epi_file}")
-        console.print("[dim]   Searched in: ./epi-recordings/[/dim]")
+        console.print("[dim]   Searched in: CWD & ./epi-recordings/[/dim]")
         raise typer.Exit(1)
 
     try:

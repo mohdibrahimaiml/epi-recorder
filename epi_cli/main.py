@@ -253,7 +253,7 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
         _mark_windows_association_probe()
         if interactive and is_critical:
-            console.print("[dim].epi double-click support checked on Windows.[/dim]")
+            console.print("[green][OK][/green] .epi file association registered. Double-click .epi files to open them.")
         return
 
     register_file_association(silent=True)
@@ -262,7 +262,7 @@ def _auto_repair_windows_association(interactive: bool, command_name: str | None
     _mark_windows_association_probe()
     if diag.get("status") == "OK" and diag.get("extension_progid") == "EPIRecorder.File":
         if interactive and is_critical:
-            console.print("[dim].epi double-click support checked on Windows.[/dim]")
+            console.print("[green][OK][/green] .epi file association registered. Double-click .epi files to open them.")
         return
 
     if interactive:
