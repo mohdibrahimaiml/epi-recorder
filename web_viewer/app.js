@@ -1,7 +1,7 @@
 'use strict';
 
 // ============================================================
-//  EPI FORENSIC VIEWER — app.js
+//  EPI FORENSIC VIEWER not verified app.js
 //  Loads injected JSON, renders all sections of the forensic
 //  document. No frameworks. No external dependencies beyond
 //  what viewer_assets.py inlines.
@@ -26,7 +26,7 @@ function trunc(s, maxLen) {
 
 /** Format an ISO timestamp as HH:MM:SS.mmm (local time). */
 function fmtTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'not verified';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
@@ -40,7 +40,7 @@ function fmtTime(iso) {
 
 /** Format an ISO timestamp as a readable date string. */
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'not verified';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
@@ -98,7 +98,7 @@ function summarizeStep(step) {
       case 'session.end': {
         const dur = c.duration_seconds != null ? c.duration_seconds : '?';
         const ok = c.success === true ? 'success' : (c.success === false ? 'error' : 'unknown');
-        return `Completed in ${dur}s — ${ok}`;
+        return `Completed in ${dur}s not verified ${ok}`;
       }
 
       case 'environment.captured': {
@@ -139,7 +139,7 @@ function summarizeStep(step) {
       case 'agent.decision': {
         const decision = String(c.decision || c.verdict || '?').toUpperCase();
         const rationale = c.rationale || c.reasoning || c.reason || '';
-        return `Decision: ${decision}${rationale ? ' — ' + trunc(rationale, 160) : ''}`;
+        return `Decision: ${decision}${rationale ? ' not verified ' + trunc(rationale, 160) : ''}`;
       }
 
       case 'agent.approval.request': {
@@ -175,14 +175,14 @@ function summarizeStep(step) {
         const dti = c.debt_to_income != null ? `DTI: ${c.debt_to_income}` : '';
         const result = c.result || c.status || '';
         const parts = [score, dti, result ? `Result: ${result}` : ''].filter(Boolean);
-        return `Credit check — ${parts.join(' · ')}`;
+        return `Credit check not verified ${parts.join(' · ')}`;
       }
 
       case 'policy.check': {
         const ruleId = c.rule_id || c.id || c.matched_rule || (c.agt_data && c.agt_data.policy_name) || '?';
         const status = c.status || c.policy_decision || '?';
         const note = c.note || c.message || '';
-        return `Rule ${ruleId}: ${status}${note ? ' — ' + trunc(note, 120) : ''}`;
+        return `Rule ${ruleId}: ${status}${note ? ' not verified ' + trunc(note, 120) : ''}`;
       }
 
       case 'source.record.loaded': {
@@ -321,10 +321,10 @@ function renderHeader(caseData, context) {
     || caseData.source_name?.slice(0, 8)
     || 'Unknown Artifact';
 
-  const uuid = m.workflow_id || m.artifact_uuid || caseData.source_name || '—';
-  const createdAt = m.created_at ? fmtDate(m.created_at) : '—';
+  const uuid = m.workflow_id || m.artifact_uuid || caseData.source_name || 'not verified';
+  const createdAt = m.created_at ? fmtDate(m.created_at) : 'not verified';
   const container = m.container_format || 'unknown';
-  const spec = m.spec_version || '—';
+  const spec = m.spec_version || 'not verified';
 
   document.getElementById('header-title').textContent = workflowName.replace(/_/g, ' ');
   document.getElementById('header-uuid').textContent = 'UUID: ' + uuid;
@@ -332,7 +332,7 @@ function renderHeader(caseData, context) {
   document.getElementById('meta-container').textContent = container;
   document.getElementById('meta-spec').textContent = spec;
   document.getElementById('meta-steps').textContent = steps.length + ' step' + (steps.length !== 1 ? 's' : '');
-  document.title = workflowName + ' — EPI Forensic Viewer';
+  document.title = workflowName + ' not verified EPI Forensic Viewer';
 
   // Status pills
   const pillsEl = document.getElementById('header-pills');
@@ -410,14 +410,14 @@ function renderIntegrity(caseData, context) {
     intEl.className = 'indicator failed';
   }
 
-  // Signature indicator — prefer live context, fall back to case payload sig
+  // Signature indicator not verified prefer live context, fall back to case payload sig
   const sigEl = document.getElementById('ind-signature');
   const resolvedSigValid = context != null ? context.signature_valid : sig.valid;
   if (resolvedSigValid === true) {
     sigEl.textContent = 'VALID';
     sigEl.className = 'indicator verified';
   } else if (resolvedSigValid === false && sig.valid === false && !context) {
-    // Baked viewer — can't verify without epi view
+    // Baked viewer not verified can't verify without epi view
     sigEl.textContent = 'OPEN VIA EPI VIEW TO VERIFY';
     sigEl.className = 'indicator unverified';
     sigEl.style.fontSize = '11px';
@@ -457,7 +457,7 @@ function renderIntegrity(caseData, context) {
     filesEl.textContent = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
     filesEl.className = 'diag-status ' + (mismatches === 0 ? 'ok' : 'flagged');
   } else {
-    filesEl.textContent = '—';
+    filesEl.textContent = 'not verified';
     filesEl.className = 'diag-status unknown';
   }
 
@@ -467,7 +467,7 @@ function renderIntegrity(caseData, context) {
     chainEl.textContent = ok ? 'OK' : 'BROKEN';
     chainEl.className = 'diag-status ' + (ok ? 'ok' : 'flagged');
   } else {
-    chainEl.textContent = '—';
+    chainEl.textContent = 'not verified';
     chainEl.className = 'diag-status unknown';
   }
 
@@ -477,7 +477,7 @@ function renderIntegrity(caseData, context) {
     compEl.textContent = ok ? 'OK' : 'INCOMPLETE';
     compEl.className = 'diag-status ' + (ok ? 'ok' : 'flagged');
   } else {
-    compEl.textContent = '—';
+    compEl.textContent = 'not verified';
     compEl.className = 'diag-status unknown';
   }
 
@@ -603,7 +603,7 @@ function renderVerdict(caseData) {
   const decisionContent = decisionStep?.content || {};
   const rawDecision = String(decisionContent.decision || decisionContent.verdict || decisionContent.policy_decision || decisionContent.status || '').toUpperCase();
 
-  // Check human review — it overrides the system verdict when present
+  // Check human review not verified it overrides the system verdict when present
   const humanReview = normalizeReview(caseData.review);
 
   // Determine verdict class and display text
@@ -664,8 +664,9 @@ function renderVerdict(caseData) {
     const total = pe.controls_evaluated || 0;
     const failed = pe.controls_failed || 0;
     const passed = total - failed;
+    const isBaseline = pe.baseline || pe.evaluation_mode === "heuristic_only";
     document.getElementById('compliance-stats').textContent =
-      `${passed}/${total} GOVERNANCE CONTROL${total !== 1 ? 'S' : ''} SATISFIED`;
+      `${passed}/${total} ${isBaseline ? "BASELINE HEURISTICS" : "GOVERNANCE CONTROL"}${total !== 1 ? "S" : ""} ${isBaseline ? "PASSED" : "SATISFIED"}`;
 
     const riskLevel = pe.risk_level || analysis?.risk_level || null;
     const riskEl = document.getElementById('risk-level-badge');
@@ -766,7 +767,7 @@ function renderEvidence(caseData) {
     // Chain hash
     const prevHash = step.prev_hash
       ? (step.prev_hash === 'CHAIN_START' ? 'START' : step.prev_hash.slice(0, 8))
-      : '—';
+      : 'not verified';
 
     // Build row
     const row = document.createElement('div');
@@ -796,7 +797,7 @@ function renderEvidence(caseData) {
     // Heatmap tick
     const tick = document.createElement('div');
     tick.className = 'heatmap-tick ' + tone.htClass;
-    tick.title = `${kind} — ${trunc(summary, 60)}`;
+    tick.title = `${kind} not verified ${trunc(summary, 60)}`;
     tick.addEventListener('click', () => {
       row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (!row.classList.contains('expanded')) row.classList.add('expanded');
@@ -963,7 +964,7 @@ function normalizeReview(raw) {
   const reviewedBy = raw.reviewed_by || raw.reviewer || null;
   if (!reviewedBy) return null;
 
-  // Already flat format with status — use as-is after key fix
+  // Already flat format with status not verified use as-is after key fix
   if (raw.status) {
     return {
       reviewed_by: reviewedBy,
@@ -999,7 +1000,7 @@ function normalizeReview(raw) {
     };
   }
 
-  // Fallback — at least we have reviewer identity
+  // Fallback not verified at least we have reviewer identity
   return {
     reviewed_by: reviewedBy,
     status: 'unknown',
@@ -1024,7 +1025,7 @@ function renderAttestation(caseData) {
     document.getElementById('review-content').textContent = review.notes;
     document.getElementById('reviewer-name').textContent = review.reviewed_by;
     document.getElementById('review-date').textContent =
-      review.reviewed_at ? fmtDate(review.reviewed_at) : '—';
+      review.reviewed_at ? fmtDate(review.reviewed_at) : 'not verified';
   } else {
     // Show form
     document.getElementById('review-display').classList.add('hidden');
@@ -1254,10 +1255,10 @@ function renderAppendix(caseData) {
   } else if (m.spec_version) {
     // Synthesize from manifest fields
     const envInfo = {
-      platform: m.platform || '—',
-      python_version: m.python_version || '—',
+      platform: m.platform || 'not verified',
+      python_version: m.python_version || 'not verified',
       spec_version: m.spec_version,
-      created_at: m.created_at || '—',
+      created_at: m.created_at || 'not verified',
     };
     envEl.textContent = JSON.stringify(envInfo, null, 2);
   } else {
@@ -1347,7 +1348,7 @@ function init() {
   const data = loadData();
 
   if (!data || data.cases.length === 0) {
-    // No data — show empty state
+    // No data not verified show empty state
     document.getElementById('boot-overlay').style.display = 'none';
     document.getElementById('header-title').textContent = 'No Artifact Data';
     document.getElementById('header-uuid').textContent =
