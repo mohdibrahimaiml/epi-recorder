@@ -13,7 +13,7 @@
   "properties": {
     "spec_version": {
       "type": "string",
-      "description": "EPI specification version (e.g., '4.2.0')"
+      "description": "EPI specification version (e.g., '4.3.0')"
     },
     "workflow_id": {
       "type": "string",

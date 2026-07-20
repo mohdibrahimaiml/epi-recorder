@@ -1,5 +1,5 @@
 {
-  "spec_version": "4.2.0",
+  "spec_version": "4.3.0",
   "workflow_id": "b4486ef1-716e-48c0-b97d-f2470b43eec7",
   "created_at": "2026-06-19T09:11:51.890777Z",
   "cli_command": null,
@@ -24,7 +24,7 @@
   "container_format": "envelope-v2",
   "analysis_status": "complete",
   "analysis_error": null,
-  "goal": "AGT → EPI: evidence from real Microsoft AuditService",
+  "goal": "AGT \u00e2\u2020\u2019 EPI: evidence from real Microsoft AuditService",
   "notes": "4 entries from agentmesh.services.audit.AuditService. Merkle root: 29f12c645b5ad2185ead062434053681...",
   "metrics": null,
   "source": null,

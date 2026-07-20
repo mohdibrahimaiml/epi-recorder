@@ -20,7 +20,7 @@
     },
     "epi_version": {
       "type": "string",
-      "description": "EPI package version (e.g., '4.2.0')"
+      "description": "EPI package version (e.g., '4.3.0')"
     },
     "hostname": {
       "type": "string",

@@ -1,6 +1,6 @@
 {
   "runtime": "agent-governance-toolkit",
-  "version": "4.1.0",
+  "version": "4.3.0",
   "deployment": {
     "region": "useast",
     "environment": "production"

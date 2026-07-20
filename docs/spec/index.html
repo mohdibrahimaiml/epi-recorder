@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI File Format Specification v4.2.0 — EPI Labs</title>
+<title>EPI File Format Specification v4.3.0 — EPI Labs</title>
 <meta name="description" content="Open standard for the EPI tamper-evident evidence container format. Language-agnostic specification with JSON Schemas and conformance test vectors.">
-<meta property="og:title" content="EPI File Format Specification v4.2.0">
+<meta property="og:title" content="EPI File Format Specification v4.3.0">
 <meta property="og:description" content="Open standard for tamper-evident AI evidence infrastructure.">
 <link rel="stylesheet" href="https://epilabs.org/css/epi.css?v=24">
 <link rel="shortcut icon" href="https://epilabs.org/assets/epi.ico" type="image/x-icon">
@@ -72,7 +72,7 @@
 
 <div style="text-align:center;padding:40px 0 48px;border-bottom:1px solid var(--border);margin-bottom:48px">
   <div class="spec-badge">Open Standard</div>
-  <h1 style="margin:0 auto 8px">EPI File Format Specification v4.2.0</h1>
+  <h1 style="margin:0 auto 8px">EPI File Format Specification v4.3.0</h1>
   <p style="font-size:1.05rem;color:var(--ink-muted);max-width:560px;margin:0 auto">Language-agnostic reference for the EPI container format, cryptographic protocol, and verification model. Anyone may implement <code>.epi</code> producers and consumers.</p>
 </div>
 
@@ -157,7 +157,7 @@
 <h3>Required Fields</h3>
 <table>
 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-<tr><td><code>spec_version</code></td><td>string</td><td>EPI version (auto-populated from package, e.g. <code>"4.2.0"</code>)</td></tr>
+<tr><td><code>spec_version</code></td><td>string</td><td>EPI version (auto-populated from package, e.g. <code>"4.3.0"</code>)</td></tr>
 <tr><td><code>workflow_id</code></td><td>UUID</td><td>Unique execution identifier (auto-generated UUID v4)</td></tr>
 <tr><td><code>created_at</code></td><td>datetime</td><td>UTC ISO 8601 (auto-set to current time): <code>YYYY-MM-DDTHH:MM:SSZ</code></td></tr>
 <tr><td><code>file_manifest</code></td><td>object</td><td>File paths mapped to 64-char hex SHA-256 hashes</td></tr>
