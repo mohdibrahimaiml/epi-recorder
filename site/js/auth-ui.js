@@ -1,4 +1,4 @@
-// EPI Auth UI — nav + free-tier keep-warm wake on every page
+// EPI Auth UI — nav slot + free-tier keep-warm wake on every page
 (function () {
   var API_BASE = (function () {
     var h = (location && location.hostname) || '';
@@ -8,8 +8,6 @@
   var TOKEN_KEY = 'epi_token';
   var USER_KEY = 'epi_user';
 
-  // ── Always wake the free Render instance ASAP (fire-and-forget) ──
-  // Same-origin /api/* is proxied by Cloudflare Pages Functions → Render.
   function wakeApi() {
     try {
       fetch(API_BASE + '/api/ping', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
@@ -18,26 +16,36 @@
   }
   wakeApi();
 
-  // Skip nav injection on account page (it manages its own nav)
   if (window.location.pathname === '/account' || window.location.pathname === '/account/') return;
 
+  // Prefer dedicated slot so nav stays slim
+  var slot = document.getElementById('nav-auth-slot');
   var navLinks = document.getElementById('navLinks');
-  if (!navLinks) return;
+  if (!slot && !navLinks) return;
 
   function injectNav(label, isCta) {
+    if (slot) {
+      slot.innerHTML = '';
+      var a = document.createElement('a');
+      a.href = '/account';
+      a.id = 'nav-auth';
+      a.textContent = label;
+      if (isCta) a.className = 'nav-auth-quiet';
+      slot.appendChild(a);
+      return;
+    }
+    // Fallback: append once
     var existing = document.getElementById('nav-auth');
-    if (existing) existing.remove();
+    if (existing) existing.parentElement.remove();
     var li = document.createElement('li');
-    li.id = 'nav-auth';
-    var a = document.createElement('a');
-    a.href = '/account';
-    if (isCta) a.className = 'nav-link-cta';
-    a.textContent = label;
-    li.appendChild(a);
+    var a2 = document.createElement('a');
+    a2.href = '/account';
+    a2.id = 'nav-auth';
+    a2.textContent = label;
+    li.appendChild(a2);
     navLinks.appendChild(li);
   }
 
-  // Instant UI from cache
   var cached = localStorage.getItem(USER_KEY);
   var token = localStorage.getItem(TOKEN_KEY) || '';
   if (cached) {
@@ -45,15 +53,14 @@
       var user = JSON.parse(cached);
       injectNav(user.login || 'Account', false);
     } catch (e) {
-      injectNav('Sign In', true);
+      injectNav('Sign in', false);
     }
   } else if (!token) {
-    injectNav('Sign In', true);
+    injectNav('Sign in', false);
   } else {
     injectNav('Account', false);
   }
 
-  // Revalidate session in background (also keeps instance warm)
   if (!token && !cached) return;
 
   fetch(API_BASE + '/api/auth/me', {
@@ -71,6 +78,6 @@
     })
     .catch(function () {
       localStorage.removeItem(USER_KEY);
-      injectNav(token ? 'Account' : 'Sign In', !token);
+      injectNav(token ? 'Account' : 'Sign in', false);
     });
 })();

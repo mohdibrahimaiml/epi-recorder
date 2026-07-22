@@ -59,25 +59,30 @@
 </style>
 </head>
 <body>
-<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+<nav id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nav-links">
-      <li><a href="/how-it-works">How It Works</a></li>
+    <ul class="nav-links" id="navLinks">
       <li><a href="/verify/">Verify</a></li>
-      <li><a href="/pricing">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/how-it-works">Docs</a></li>
+      <li><a href="/pricing" class="is-active">Pricing</a></li>
+      <li class="nav-icon-item"><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" class="nav-icon-link" aria-label="GitHub" title="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+      </a></li>
+      <li id="nav-auth-slot"></li>
       <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
     </ul>
     <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </nav>
 <div class="mob-menu" id="mobMenu">
-  <a href="/how-it-works">How It Works</a><a href="/verify/">Verify</a><a href="/pricing">Pricing</a>
+  <a href="/verify/">Verify</a>
+  <a href="/how-it-works">Docs</a>
+  <a href="/pricing">Pricing</a>
   <a href="/enterprise">Enterprise</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/pricing">Get Started</a>
 </div>
-
 <main style="padding-top:120px">
 
 <section style="text-align:center;padding:60px 24px 40px">
@@ -224,15 +229,18 @@
 </section>
 
 <footer style="text-align:center;padding:60px 24px;border-top:1px solid var(--border);margin-top:80px">
-  <img src="assets/logo.png" alt="EPI" width="40" style="margin-bottom:16px">
+<img src="assets/logo.png" alt="EPI" width="40" style="margin-bottom:16px">
   <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
     &copy; 2026 EPI Labs &middot;
+    <a href="/how-it-works" style="color:var(--accent)">Docs</a> &middot;
+    <a href="/verify/" style="color:var(--accent)">Verify</a> &middot;
+    <a href="/pricing" style="color:var(--accent)">Pricing</a> &middot;
+    <a href="/enterprise" style="color:var(--accent)">Enterprise</a> &middot;
+    <a href="/viewer/" style="color:var(--accent)">Decision Ops</a> &middot;
     <a href="https://github.com/mohdibrahimaiml/epi-recorder" style="color:var(--accent)">GitHub</a> &middot;
     <a href="https://pypi.org/project/epi-recorder/" style="color:var(--accent)">PyPI</a> &middot;
-    <a href="/viewer/" style="color:var(--accent)">Decision Ops</a> &middot;
     <a href="/terms" style="color:var(--accent)">Terms</a> &middot;
     <a href="/privacy" style="color:var(--accent)">Privacy</a> &middot;
-    <a href="/refund" style="color:var(--accent)">Refunds</a> &middot;
     <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">Contact</a>
   </p>
 </footer>
@@ -280,5 +288,6 @@ if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
   });
 })();
 </script>
+<script src="/js/auth-ui.js"></script>
 </body>
 </html>
