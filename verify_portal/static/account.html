@@ -122,7 +122,13 @@
 
 <script>
 /* EPI Account — production login/logout for Free / Pro / Team(Advanced) / Enterprise */
-var API_BASE = 'https://epi-verify-portal.onrender.com';
+// On epilabs.org / pages.dev use same-origin /api (Cloudflare Pages Functions proxy).
+// Elsewhere fall back to Render absolute URL (e.g. local file:// or GitHub Pages-only).
+var API_BASE = (function () {
+  var h = (location && location.hostname) || '';
+  if (h === 'epilabs.org' || h === 'www.epilabs.org' || h.endsWith('.pages.dev')) return '';
+  return 'https://epi-verify-portal.onrender.com';
+})();
 var TOKEN_KEY = 'epi_token';
 var USER_KEY = 'epi_user';
 var userData = null;

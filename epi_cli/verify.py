@@ -760,6 +760,13 @@ def verify_command(
                     console.print(f"  [{color}]{domain_id}. {status.label}: {status.status}[/{color}]")
 
         # ========== STEP 5: REVIEW TRUST CHECKS ==========
+        try:
+            from epi_core.review import read_review
+
+            _latest_review = read_review(epi_file)
+        except Exception:
+            _latest_review = None
+
         if review:
             if verbose:
                 console.print("\n[bold]Step 5: Review Trust Checks[/bold]")
@@ -785,6 +792,13 @@ def verify_command(
             print_trust_report(report, epi_file, verbose)
             if review_report is not None:
                 print_review_trust_report(review_report)
+            elif _latest_review is not None:
+                # Discoverability: surface that a review exists without failing the run
+                who = getattr(_latest_review, "reviewed_by", None) or "reviewer"
+                console.print(
+                    f"\n[dim]Human review present (by {who}). "
+                    f"Full binding check: [cyan]epi verify {epi_file.name} --review[/cyan][/dim]"
+                )
 
         # ========== WRITE REPORT FILE ==========
         if report_out is not None:

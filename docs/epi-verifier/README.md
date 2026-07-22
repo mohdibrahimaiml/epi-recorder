@@ -46,11 +46,15 @@ Returns `{ integrity, signature, trust_level, files_checked, mismatches }`
 Returns `{ valid, reason }`
 
 ### canonicalJson(obj)
-JCS RFC 8785 canonical JSON serialization.
+JCS-compatible (RFC 8785-style) canonical JSON serialization — sorted keys, compact
+separators, literal UTF-8. Same algorithm as `epi_core/serialize.py` (not a claim of
+full RFC 8785 library conformance).
 
 ## Conformance
 
-Cross-validated against AlgoVoi's JCS conformance corpus across 3 independent RFC 8785 implementations. All 8 EPI golden vectors satisfy: SHA-256(canonical_json) = expected_hash.
+EPI golden vectors require: SHA-256(canonical_json) = expected_hash under the EPI
+normalization rules. Cross-checked against AlgoVoi interop fixtures where shared.
+See `docs/EPI-CANONICAL-HASH.md` for known divergences from full JCS.
 
 ## License
 

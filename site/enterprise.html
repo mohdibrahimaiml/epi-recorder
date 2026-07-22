@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enterprise — EPI Labs</title>
+  <meta name="description" content="Enterprise path for EPI: org keys, strict verify, additive human review, air-gapped seal.">
+  <link rel="stylesheet" href="css/epi.css?v=24">
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="logo" href="/">EPI Labs</a>
+      <nav>
+        <a href="/how-it-works">How It Works</a>
+        <a href="/verify/">Verify</a>
+        <a href="/enterprise.html">Enterprise</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:4rem 1rem 6rem;max-width:48rem">
+    <div class="section-label">Enterprise</div>
+    <h1 class="section-title" style="margin-bottom:1rem">Org seals the run. Humans add bound reviews. Auditors verify offline.</h1>
+    <p class="section-desc" style="margin-bottom:2rem">
+      EPI is a <strong>file-first</strong> evidence layer — not a dashboard login.
+      Cryptography proves integrity and sealer keys; free-text names are claims, not HR identity.
+    </p>
+
+    <h2 style="margin-top:2.5rem">Acceptance gate</h2>
+    <pre style="background:var(--bg-elev, #111);padding:1rem;border-radius:8px;overflow:auto"><code>epi keys generate --name org-seal
+epi keys bundle-export --out org-trust-bundle.zip
+# … seal artifacts in CI with that key …
+
+# Auditor / CI:
+epi keys bundle-import org-trust-bundle.zip
+epi verify artifact.epi --policy strict
+epi verify artifact_reviewed.epi --review</code></pre>
+
+    <h2 style="margin-top:2.5rem">Modes</h2>
+    <ul>
+      <li><strong>Air-gapped seal:</strong> <code>EPI_NOTARIZE=0</code></li>
+      <li><strong>Standard seal:</strong> RFC 3161 notarization on by default (network at seal only)</li>
+      <li><strong>Verify/view:</strong> integrity + signature offline; identity from local trust store</li>
+    </ul>
+
+    <h2 style="margin-top:2.5rem">What PASS means</h2>
+    <ul>
+      <li><code>--policy strict</code> PASS → integrity OK + sealer key trusted + completeness OK</li>
+      <li><code>--review</code> Binding True → human review bound to sealed evidence (v1.1)</li>
+      <li>WARN under standard policy with unknown key is <em>expected</em> until trust import</li>
+    </ul>
+
+    <p style="margin-top:2.5rem">
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-PROFILE.md">Enterprise Trust Profile</a>
+      ·
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-BUNDLE.md">Trust bundle guide</a>
+      ·
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/evidence-profile/v0.1.json">Decision-grade profile v0.1</a>
+    </p>
+  </main>
+</body>
+</html>

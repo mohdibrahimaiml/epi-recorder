@@ -393,6 +393,133 @@ function renderHeader(caseData, context) {
   }
 }
 
+/**
+ * Resolve notarization evidence from the case payload.
+ * Sources (first match wins):
+ *   1. caseData.notarization (injected by epi view)
+ *   2. files['artifacts/notarization/notarization.json'] (base64)
+ * Returns null when absent (older artifacts / EPI_NOTARIZE=0).
+ */
+function resolveNotarization(caseData) {
+  if (caseData && caseData.notarization && typeof caseData.notarization === 'object') {
+    return caseData.notarization;
+  }
+  const files = (caseData && caseData.files) || {};
+  const path = 'artifacts/notarization/notarization.json';
+  const b64 = files[path];
+  if (!b64 || typeof b64 !== 'string') return null;
+  try {
+    const text = atob(b64);
+    return JSON.parse(text);
+  } catch (_e) {
+    return null;
+  }
+}
+
+/**
+ * Scan a DER RFC 3161 TimeStampResp for the first GeneralizedTime (tag 0x18).
+ * FreeTSA tokens use genTime like "20260719232946Z". Returns ISO-ish display or null.
+ */
+function extractGenTimeFromTsrBytes(bytes) {
+  if (!bytes || !(bytes instanceof Uint8Array) && !Array.isArray(bytes)) return null;
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  for (let i = 0; i < u8.length - 2; i++) {
+    if (u8[i] !== 0x18) continue; // GeneralizedTime
+    const len = u8[i + 1];
+    if (len < 10 || len > 32 || i + 2 + len > u8.length) continue;
+    let raw = '';
+    for (let j = 0; j < len; j++) raw += String.fromCharCode(u8[i + 2 + j]);
+    // YYYYMMDDHHmmssZ or with fractional seconds
+    const m = raw.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z$/);
+    if (m) {
+      return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`;
+    }
+    if (/^\d{4}/.test(raw) && raw.endsWith('Z')) return raw;
+  }
+  return null;
+}
+
+function resolveTsrGenTime(caseData) {
+  if (caseData && caseData.notarization_tsa_time) {
+    return caseData.notarization_tsa_time;
+  }
+  const files = (caseData && caseData.files) || {};
+  const b64 = files['artifacts/notarization/tsa_reply.tsr'];
+  if (!b64) return null;
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return extractGenTimeFromTsrBytes(bytes);
+  } catch (_e) {
+    return null;
+  }
+}
+
+function renderNotarization(caseData) {
+  const block = document.getElementById('notarization-block');
+  const diag = document.getElementById('diag-notary');
+  const evidence = resolveNotarization(caseData);
+
+  if (!block) return;
+
+  if (!evidence) {
+    block.classList.add('hidden');
+    if (diag) {
+      diag.textContent = 'not present';
+      diag.className = 'diag-status unknown';
+    }
+    return;
+  }
+
+  block.classList.remove('hidden');
+
+  const provider = (evidence.notarized_at && evidence.notarized_at.provider) || 'unknown';
+  const tsaUrl = (evidence.notarized_at && evidence.notarized_at.url) || '—';
+  const hash = (evidence.notarized_at && evidence.notarized_at.hash) || '—';
+  const tsaOk = evidence.tsa_token_available === true;
+  const otsOk = evidence.ots_proof_available === true;
+  const otsNote = evidence.ots_note || '';
+  const tsaTime = resolveTsrGenTime(caseData);
+
+  const ind = document.getElementById('ind-notarization');
+  if (ind) {
+    if (tsaOk) {
+      ind.textContent = otsOk ? 'RFC 3161 + OTS' : 'RFC 3161';
+      ind.className = 'indicator verified';
+    } else {
+      ind.textContent = 'RECORDED (no token)';
+      ind.className = 'indicator unverified';
+    }
+  }
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText('notary-provider', provider);
+  setText('notary-tsa', tsaUrl);
+  setText('notary-time', tsaTime || (tsaOk ? 'token present (time not parsed)' : '—'));
+  setText(
+    'notary-ots',
+    otsOk ? 'Yes — OpenTimestamps / Bitcoin anchoring present' : (otsNote || 'No — OTS proof not embedded')
+  );
+  setText('notary-hash', hash);
+
+  if (diag) {
+    if (tsaOk && otsOk) {
+      diag.textContent = 'RFC3161 + OTS';
+      diag.className = 'diag-status ok';
+    } else if (tsaOk) {
+      diag.textContent = 'RFC3161';
+      diag.className = 'diag-status ok';
+    } else {
+      diag.textContent = 'incomplete';
+      diag.className = 'diag-status flagged';
+    }
+  }
+}
+
 /** § 1  Trust & Integrity */
 function renderIntegrity(caseData, context) {
   const m = caseData.manifest || {};
@@ -489,6 +616,9 @@ function renderIntegrity(caseData, context) {
     pkEl.textContent = '(unsigned)';
     pkEl.className = 'diag-status unknown';
   }
+
+  // Notarization (RFC 3161 / OTS) — only when present; hide block if absent
+  renderNotarization(caseData);
 
   // Verify command
   const sourceName = caseData.source_name || m.workflow_id || 'artifact.epi';
@@ -957,6 +1087,18 @@ function renderAnalysis(caseData) {
  *   - ReviewRecord nested format: { reviewed_by, reviews: [{outcome, notes}] }
  *   - Legacy add_review format:    { reviewer, status, notes }
  */
+/** Map fault-ledger outcomes → human attestation labels for display. */
+function humanizeReviewOutcome(outcome) {
+  const o = String(outcome || '').toLowerCase();
+  if (o === 'dismissed') return 'Approved';
+  if (o === 'confirmed_fault') return 'Rejected';
+  if (o === 'skipped') return 'Escalated';
+  if (o === 'approved' || o === 'rejected' || o === 'escalated') {
+    return o.charAt(0).toUpperCase() + o.slice(1);
+  }
+  return String(outcome || 'Review').replace(/_/g, ' ');
+}
+
 function normalizeReview(raw) {
   if (!raw) return null;
 
@@ -964,7 +1106,9 @@ function normalizeReview(raw) {
   const reviewedBy = raw.reviewed_by || raw.reviewer || null;
   if (!reviewedBy) return null;
 
-  // Already flat format with status not verified use as-is after key fix
+  // Prefer explicit human attestation fields when present (Sign & Seal writes these).
+  // Do this even if reviews[] also exists — epi view loads review.json which used to
+  // only have fault-ledger outcomes ("dismissed"), which rendered as "1. DISMISSED: …".
   if (raw.status) {
     return {
       reviewed_by: reviewedBy,
@@ -985,12 +1129,24 @@ function normalizeReview(raw) {
     if (hasConfirmed) status = 'rejected';
     else if (allDismissed) status = 'approved';
 
-    const notes = raw.reviews
-      .map((r, i) => {
-        const line = `${i + 1}. ${(r.outcome || 'review').toUpperCase().replace(/_/g, ' ')}`;
-        return r.notes ? `${line}: ${r.notes}` : line;
-      })
-      .join('\n');
+    // Case-level single entry: show notes only (or a clear human label), never raw "DISMISSED".
+    const entryNotes = raw.reviews
+      .map((r) => (r.notes || r.comment || '').trim())
+      .filter(Boolean);
+    let notes;
+    if (raw.reviews.length === 1 && entryNotes.length === 1) {
+      notes = entryNotes[0];
+    } else if (raw.reviews.length === 1 && entryNotes.length === 0) {
+      notes = humanizeReviewOutcome(raw.reviews[0].outcome);
+    } else {
+      notes = raw.reviews
+        .map((r, i) => {
+          const label = humanizeReviewOutcome(r.outcome);
+          const line = `${i + 1}. ${label.toUpperCase()}`;
+          return r.notes ? `${line}: ${r.notes}` : line;
+        })
+        .join('\n');
+    }
 
     return {
       reviewed_by: reviewedBy,
@@ -1009,11 +1165,51 @@ function normalizeReview(raw) {
   };
 }
 
+function _attestationStorageKey(caseData) {
+  const m = caseData.manifest || {};
+  const id = m.workflow_id || caseData.source_name || 'unknown';
+  return 'epi.viewer.lastAttestation.v1:' + String(id);
+}
+
+function _rememberLocalAttestation(caseData, review, filename) {
+  try {
+    if (!globalThis.localStorage) return;
+    localStorage.setItem(_attestationStorageKey(caseData), JSON.stringify({
+      review: review,
+      filename: filename || null,
+      sealed_at: new Date().toISOString(),
+    }));
+  } catch (_e) {
+    // file:// / privacy mode — ignore
+  }
+}
+
+function _readLocalAttestation(caseData) {
+  try {
+    if (!globalThis.localStorage) return null;
+    const raw = localStorage.getItem(_attestationStorageKey(caseData));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_e) {
+    return null;
+  }
+}
+
 function renderAttestation(caseData) {
   const review = normalizeReview(caseData.review);
+  const hintEl = document.getElementById('review-original-hint');
+  const followupEl = document.getElementById('review-followup');
+  if (followupEl) {
+    followupEl.classList.add('hidden');
+    followupEl.textContent = '';
+  }
+  if (hintEl) {
+    hintEl.classList.add('hidden');
+    hintEl.textContent = '';
+  }
 
   if (review) {
-    // Show completed review
+    // Show completed review embedded in this artifact (or just sealed this session)
     document.getElementById('review-display').classList.remove('hidden');
     document.getElementById('review-form').classList.add('hidden');
 
@@ -1027,10 +1223,29 @@ function renderAttestation(caseData) {
     document.getElementById('review-date').textContent =
       review.reviewed_at ? fmtDate(review.reviewed_at) : 'not verified';
   } else {
-    // Show form
+    // Show form — this open file has no review.json yet
     document.getElementById('review-display').classList.add('hidden');
     document.getElementById('review-form').classList.remove('hidden');
     setupAttestationForm(caseData);
+
+    // Soft reminder if this browser sealed a review for the same workflow earlier
+    // (the original .epi on disk is never mutated — only the downloaded copy).
+    const cached = _readLocalAttestation(caseData);
+    if (hintEl && cached && cached.review) {
+      const r = cached.review;
+      const who = r.reviewed_by || 'reviewer';
+      const st = String(r.status || 'reviewed').toUpperCase();
+      const fn = cached.filename || '*_reviewed.epi';
+      hintEl.classList.remove('hidden');
+      hintEl.innerHTML =
+        '<strong>This original file has no attestation embedded.</strong> ' +
+        'In this browser you previously sealed <strong>' + st + '</strong> by <strong>' +
+        String(who).replace(/</g, '&lt;') + '</strong>. ' +
+        'That lives only in the downloaded file' +
+        (fn ? ' (<code>' + String(fn).replace(/</g, '&lt;') + '</code>)' : '') +
+        '. Open that file with <code>epi view</code> to see APPROVED permanently. ' +
+        'Reloading the original always shows this empty form by design.';
+    }
   }
 }
 
@@ -1067,7 +1282,7 @@ function setupAttestationForm(caseData) {
       return;
     }
 
-    statusEl.textContent = 'Cryptographically sealing artifact…';
+    statusEl.textContent = 'Cryptographically sealing artifact (envelope-v2 + Ed25519)…';
     statusEl.className = 'sign-status-msg';
 
     setTimeout(async () => {
@@ -1077,16 +1292,42 @@ function setupAttestationForm(caseData) {
         status: _selectedVerdict,
         notes: notes || 'No additional notes provided.',
       };
-      // Apply to caseData so the display reflects the seal
+      // Apply to caseData so THIS session shows APPROVED (original on disk still unsigned).
       caseData.review = review;
       renderAttestation(caseData);
 
       try {
-        await downloadReviewedArtifact(caseData, review);
-        statusEl.textContent = 'Artifact sealed. Download started.';
+        const built = await downloadReviewedArtifact(caseData, review);
+        const fp = built.keyInfo && built.keyInfo.fingerprint ? built.keyInfo.fingerprint : 'unknown';
+        const src = built.keyInfo && built.keyInfo.source === 'imported'
+          ? 'imported org key'
+          : 'device-local key (private key stays in this browser only)';
+        const m = built.manifest || caseData.manifest || {};
+        const workflowId = m.workflow_id || 'artifact';
+        const safeName = String(workflowId).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${safeName}_reviewed.epi`;
+        _rememberLocalAttestation(caseData, review, filename);
+
+        const msg =
+          `Bound review attached (v1.1, review key fp ${fp}, ${src}). ` +
+          `Original execution seal preserved. Downloaded: ${filename}. ` +
+          `Verify: epi verify ${filename} --review. ` +
+          `Reloading the original still shows an empty form (by design).`;
+
+        // statusEl is inside the hidden form; also write into the visible review panel
+        statusEl.textContent = msg;
         statusEl.className = 'sign-status-msg ok';
+        const followupEl = document.getElementById('review-followup');
+        if (followupEl) {
+          followupEl.textContent = msg;
+          followupEl.classList.remove('hidden');
+          followupEl.className = 'sign-status-msg ok';
+        }
       } catch (err) {
         console.error('Seal failed:', err);
+        // Seal failed — put the form back so the error is visible
+        caseData.review = null;
+        renderAttestation(caseData);
         statusEl.textContent = 'Seal failed: ' + (err.message || 'Could not build artifact');
         statusEl.className = 'sign-status-msg err';
       }
@@ -1135,6 +1376,8 @@ function buildEmbeddedViewerHtml(caseData, reviewRecord) {
       policy_evaluation: caseData.policy_evaluation || null,
       review: reviewRecord,
       environment: caseData.environment || null,
+      notarization: caseData.notarization || resolveNotarization(caseData),
+      notarization_tsa_time: caseData.notarization_tsa_time || resolveTsrGenTime(caseData),
       stdout: caseData.stdout || null,
       stderr: caseData.stderr || null,
       files: caseData.files || {},
@@ -1166,70 +1409,150 @@ async function sha256Hex(buffer) {
 }
 
 
+/**
+ * Model A Sign & Seal: additive v1.1 review (matches epi_core/review.add_review_to_artifact).
+ * - Preserves original manifest.json bytes + signature (org sealer unchanged)
+ * - Attaches reviews/<id>.json, review.json, review_index.json
+ * - Signs only review_signature with device-local or PEM seed
+ * Requires caseData.archive_base64 (full original .epi from epi view).
+ */
 async function buildReviewedArtifactBytes(caseData, reviewRecord) {
   if (typeof JSZip === 'undefined') {
     throw new Error('JSZip is not available. Cannot build artifact in browser.');
   }
+  if (typeof epiExtractInnerZipFromEpi !== 'function' || typeof epiBuildSignedReviewRecord !== 'function') {
+    throw new Error('Review binding helpers missing (crypto.js). Cannot Sign & Seal.');
+  }
 
-  const zip = new JSZip();
+  const archiveB64 = caseData.archive_base64 || caseData.archiveBase64 || null;
+  if (!archiveB64) {
+    throw new Error(
+      'Cannot attach a bound review: original .epi bytes were not loaded into this viewer. ' +
+      'Open the file with `epi view <file.epi>` (files under ~4MB include archive_base64), ' +
+      'or use the CLI: `epi review` / Python add_review_to_artifact.'
+    );
+  }
 
-  // mimetype must be first and uncompressed
-  zip.file('mimetype', 'application/vnd.epi+zip', { compression: 'STORE' });
+  const epiBytes = base64ToUint8Array(archiveB64);
+  const { zipBytes, containerFormat } = epiExtractInnerZipFromEpi(epiBytes);
+  const sourceZip = await JSZip.loadAsync(zipBytes.slice(0));
 
-  // Original files (base64 decode → binary)
-  const files = caseData.files || {};
-  for (const [name, b64] of Object.entries(files)) {
-    if (name === 'mimetype' || name === 'viewer.html' || name === 'manifest.json' || name === 'review.json') {
+  // Raw member map for binding (uncompressed content)
+  const memberBytesByPath = {};
+  const names = Object.keys(sourceZip.files).filter((n) => !sourceZip.files[n].dir);
+  for (const name of names) {
+    memberBytesByPath[name] = await sourceZip.file(name).async('uint8array');
+  }
+  if (!memberBytesByPath['manifest.json']) {
+    throw new Error('Source artifact is missing manifest.json');
+  }
+
+  const manifestText = new TextDecoder().decode(memberBytesByPath['manifest.json']);
+  const manifest = JSON.parse(manifestText);
+  const fileManifestPaths = Object.keys(manifest.file_manifest || {}).sort();
+
+  const artifactBinding = await epiBuildArtifactBinding({
+    workflowId: manifest.workflow_id,
+    manifestBytes: memberBytesByPath['manifest.json'],
+    manifestSignature: manifest.signature || null,
+    manifestPublicKey: manifest.public_key || null,
+    fileManifestPaths,
+    memberBytesByPath,
+    containerFormat,
+  });
+
+  // Chain onto existing v1.1 latest review if present
+  let previousReviewHash = null;
+  if (memberBytesByPath['review.json']) {
+    try {
+      const prev = JSON.parse(new TextDecoder().decode(memberBytesByPath['review.json']));
+      if (prev && prev.review_version && prev.review_version !== '1.0.0' && prev.review_hash) {
+        previousReviewHash = prev.review_hash;
+      }
+    } catch (_e) {
+      previousReviewHash = null;
+    }
+  }
+
+  const pemField = document.getElementById('id-signing-key');
+  const pemText = pemField ? pemField.value : '';
+  const seedInfo = await epiResolveSigningSeed(pemText);
+
+  const built = await epiBuildSignedReviewRecord({
+    reviewedBy: reviewRecord.reviewed_by,
+    reviewedAt: reviewRecord.reviewed_at,
+    humanStatus: reviewRecord.status,
+    notes: reviewRecord.notes || '',
+    artifactBinding,
+    previousReviewHash,
+    seedBytes: seedInfo.seed,
+  });
+  const record = built.record;
+  const reviewPath = 'reviews/' + record.review_id + '.json';
+  const recordJson = JSON.stringify(record, null, 2);
+
+  // Preserve existing reviews/* ledger entries; append this review
+  const priorRecords = [];
+  for (const name of names) {
+    if (!name.startsWith('reviews/') || !name.endsWith('.json')) continue;
+    try {
+      priorRecords.push(JSON.parse(new TextDecoder().decode(memberBytesByPath[name])));
+    } catch (_e) { /* skip bad */ }
+  }
+  const allRecords = priorRecords.filter((r) => r && r.review_id !== record.review_id).concat([record]);
+  const index = epiBuildReviewIndex(allRecords, record.review_id);
+
+  // Copy original ZIP members; replace review pointers only (do not touch manifest.json)
+  const outZip = new JSZip();
+  for (const name of names.sort()) {
+    if (name === 'review.json' || name === 'review_index.json') {
       continue;
     }
-    zip.file(name, base64ToUint8Array(b64));
+    // keep existing reviews/*; new review written below (overwrite same id if any)
+    if (name === reviewPath) continue;
+    const data = memberBytesByPath[name];
+    if (name === 'mimetype') {
+      outZip.file(name, data, { compression: 'STORE' });
+    } else {
+      outZip.file(name, data);
+    }
+  }
+  outZip.file(reviewPath, recordJson);
+  outZip.file('review.json', recordJson);
+  outZip.file('review_index.json', JSON.stringify(index, null, 2));
+
+  const newZipBytes = await outZip.generateAsync({ type: 'uint8array' });
+
+  let envelopeBytes;
+  if (containerFormat === 'legacy-zip') {
+    envelopeBytes = newZipBytes;
+  } else {
+    // Match CLI add_review: re-wrap envelope without polyglot HTML rewrite
+    envelopeBytes = await epiWrapEnvelopeV2(newZipBytes, manifest, null);
   }
 
-  // Review in ledger format
-  const outcomeMap = {
-    approved: 'dismissed',
-    rejected: 'confirmed_fault',
-    escalated: 'skipped',
+  return {
+    bytes: envelopeBytes,
+    manifest, // original, unsigned-by-us
+    keyInfo: {
+      source: seedInfo.source,
+      fingerprint: built.keyInfo.fingerprint,
+      publicKeyHex: built.keyInfo.publicKeyHex,
+      role: 'review',
+    },
+    reviewRecord: record,
+    model: 'A-additive',
+    filenameHint: null,
   };
-  const reviewLedger = {
-    reviewed_by: reviewRecord.reviewed_by,
-    reviewed_at: reviewRecord.reviewed_at,
-    reviews: [{
-      outcome: outcomeMap[reviewRecord.status] || 'skipped',
-      notes: reviewRecord.notes || '',
-      reviewed_at: reviewRecord.reviewed_at,
-    }],
-    review_version: '1.0.0',
-  };
-  zip.file('review.json', JSON.stringify(reviewLedger, null, 2));
-
-  // Rebuilt viewer HTML with review embedded
-  const viewerHtml = buildEmbeddedViewerHtml(caseData, reviewRecord);
-  zip.file('viewer.html', viewerHtml);
-
-  // Recompute viewer hash and update manifest
-  const viewerHtmlBytes = new TextEncoder().encode(viewerHtml);
-  const newViewerHash = await sha256Hex(viewerHtmlBytes.buffer);
-
-  const manifest = JSON.parse(JSON.stringify(caseData.manifest || {}));
-  // Preserve original container format (do not force legacy-zip)
-  if (!manifest.file_manifest) {
-    manifest.file_manifest = {};
-  }
-  manifest.file_manifest['viewer.html'] = newViewerHash;
-  delete manifest.signature;
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-
-  // Generate ZIP bytes as Blob
-  const blob = await zip.generateAsync({ type: 'blob' });
-  return blob;
 }
 
 async function downloadReviewedArtifact(caseData, reviewRecord) {
-  const blob = await buildReviewedArtifactBytes(caseData, reviewRecord);
+  const built = await buildReviewedArtifactBytes(caseData, reviewRecord);
+  const envelopeBytes = built.bytes;
+  const blob = new Blob([envelopeBytes], { type: 'application/vnd.epi' });
   const url = URL.createObjectURL(blob);
 
-  const manifest = caseData.manifest || {};
+  const manifest = built.manifest || caseData.manifest || {};
   const workflowId = manifest.workflow_id || 'artifact';
   const safeName = String(workflowId).replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `${safeName}_reviewed.epi`;
@@ -1242,6 +1565,7 @@ async function downloadReviewedArtifact(caseData, reviewRecord) {
   document.body.removeChild(a);
 
   setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return built;
 }
 
 /** § 8  Technical Appendix */

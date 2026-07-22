@@ -2,15 +2,42 @@
 
 ## Normative Reference
 
-EPI canonical hashes follow **JCS RFC 8785** (JSON Canonicalization Scheme) with the
-following clarifications and extensions for EPI-specific types.
+EPI canonical hashes are **JCS-compatible (RFC 8785-style)**, not a claim of full
+byte-for-byte [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) compliance.
 
-**Normative reference:** [RFC 8785 — JSON Canonicalization Scheme (JCS)](https://www.rfc-editor.org/rfc/rfc8785)
+The implementation (`epi_core/serialize.py` → `_get_json_canonical_hash`) uses:
+
+```python
+json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+```
+
+then SHA-256 over the UTF-8 encoding of that string. That matches the common
+“sorted keys + compact separators + literal UTF-8” subset of JCS, which is
+sufficient for EPI’s own cross-version and cross-language vectors when both sides
+use the same EPI normalization rules (below).
+
+**Informational reference (not a full-conformance claim):**
+[RFC 8785 — JSON Canonicalization Scheme (JCS)](https://www.rfc-editor.org/rfc/rfc8785)
+
+### Known divergences from full RFC 8785
+
+Do **not** assume interchange with a strict JCS library without shared test vectors.
+Known / expected divergence points:
+
+| Area | EPI behavior | Full JCS (RFC 8785) concern |
+|------|--------------|-----------------------------|
+| Numbers | Python `json.dumps` default number formatting for `int`/`float` | JCS has tighter rules for number serialization (e.g. no non-finite floats; specific number forms). Edge-case floats may not match a pure JCS encoder. |
+| Unicode | `ensure_ascii=False` (literal UTF-8 for non-ASCII) | Aligns with JCS §3.4 intent for ordinary BMP text; exotic edge cases (some escapes, unpaired surrogates) are not independently certified against a JCS suite. |
+| Implementation | stdlib `json.dumps` + EPI type normalization | Not a dedicated JCS encoder; no formal RFC 8785 conformance suite is run in CI. |
+| Pre-hash types | `datetime` / `UUID` normalized to EPI string forms first | JCS does not define those types; EPI’s hash is “normalize, then JCS-style JSON”. |
+
+Changing this algorithm to a true JCS library would be a **breaking hash-format
+change** for existing signed artifacts and must not be done silently.
 
 ## Algorithm
 
 ```
-canonical_hash(model) = SHA-256(JCS(model_dump_without_excluded_fields))
+canonical_hash(model) = SHA-256(JCS_style_JSON(model_dump_without_excluded_fields))
 ```
 
 ### Step 1: Serialize model to dictionary
@@ -46,22 +73,25 @@ Convert the following Python types to their canonical string representation:
 
 The normalization **must** be applied recursively to all nested dictionaries and lists.
 
-### Step 4: JCS RFC 8785 canonicalization
+### Step 4: JCS-compatible (RFC 8785-style) serialization
 
-Apply JCS RFC 8785 to the normalized dictionary:
+Serialize the normalized dictionary with stdlib JSON, using JCS-like rules:
 
 1. Serialize to JSON with:
-   - `sort_keys=True` — object keys sorted lexicographically by Unicode code point
+   - `sort_keys=True` — object keys sorted lexicographically
    - `separators=(',', ':')` — compact form with no whitespace
-   - `ensure_ascii=False` — non-ASCII characters emitted as literal UTF-8 bytes. **This is required by JCS RFC 8785 §3.4**, which mandates that Unicode code points outside the ASCII control range be serialized "as is" (literal UTF-8), not as `\uXXXX` escapes. This also aligns with AlgoVoi's cross-validated conformance corpus.
+   - `ensure_ascii=False` — non-ASCII emitted as literal UTF-8 (not `\uXXXX`), matching the usual JCS-oriented choice for text
 2. Encode the resulting JSON string as UTF-8 bytes.
 3. Compute SHA-256 of the UTF-8 bytes.
 4. Return the hex digest (64 lowercase hex characters).
 
+This step is intentionally documented as **RFC 8785-style**, not “must pass a full
+JCS conformance suite.” See [Known divergences](#known-divergences-from-full-rfc-8785).
+
 ### Step 5: Hash
 
 ```
-SHA-256(JCS_JSON_bytes) → hex digest
+SHA-256(JCS_style_JSON_bytes) → hex digest
 ```
 
 ## Conformance Test Vectors
@@ -82,19 +112,19 @@ SHA-256(JCS_JSON_bytes) → hex digest
 }
 ```
 
-**Expected canonical JSON (JCS):**
+**Expected canonical JSON (JCS-compatible / RFC 8785-style):**
 ```
 {"analysis_error":null,"analysis_status":null,"approved_by":null,"cli_command":"epi record --out test.epi","container_format":null,"corrected":null,"created_at":"2025-06-08T12:00:00Z","env_snapshot_hash":null,"failed":null,"file_manifest":{"policy.json":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","steps.jsonl":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"goal":null,"governance":null,"metrics":null,"notes":null,"passed":null,"policy":null,"public_key":null,"signature":null,"source":null,"spec_version":"v2.0","tags":null,"total_llm_calls":null,"total_steps":null,"total_validators":null,"trust":null,"viewer_version":null,"workflow_id":"550e8400-e29b-41d4-a716-446655440000"}
 ```
 
 **Expected hash:** `b132da411e56c8364c7c5e4d5a00b65a03467fe7ce7709ec13a1b81bb2d8e8ec`
 
-To verify independently:
+To verify independently (same algorithm as `epi_core/serialize.py`):
 ```python
 import json, hashlib
 data = { ... }  # the normalized dict above
-jcs = json.dumps(data, sort_keys=True, separators=(',',':'), ensure_ascii=False).encode('utf-8')
-assert hashlib.sha256(jcs).hexdigest() == expected_hash
+canonical = json.dumps(data, sort_keys=True, separators=(',',':'), ensure_ascii=False).encode('utf-8')
+assert hashlib.sha256(canonical).hexdigest() == expected_hash
 ```
 
 ### Test Vector 2: StepModel (with source_type excluded)
@@ -142,15 +172,15 @@ assert hashlib.sha256(jcs).hexdigest() == expected_hash
 }
 ```
 
-**Expected canonical JSON (JCS):**
+**Expected canonical JSON (JCS-compatible / RFC 8785-style):**
 ```
 {"name":"Müller","score":100}
 ```
 
-Note: JCS RFC 8785 §3.4 **requires** non-ASCII characters to be serialized as
-literal UTF-8 bytes, not as `\uXXXX` escapes. The string `Müller` becomes `Müller`
-(2-byte UTF-8) in the canonical form. `\u00fc` escaping (Python's `ensure_ascii=True`)
-is **not** JCS-compliant for non-ASCII strings.
+Note: EPI uses `ensure_ascii=False` so non-ASCII characters are literal UTF-8,
+not `\uXXXX` escapes — the same choice JCS §3.4 describes for ordinary text.
+The string `Müller` becomes `Müller` (UTF-8) in EPI’s canonical form.
+`\u00fc` escaping (`ensure_ascii=True`) does **not** match EPI’s algorithm.
 
 ## Float Handling
 
@@ -168,7 +198,7 @@ The canonical reference implementation is at `epi_core/serialize.py` in the
 EPI Recorder repository:
 
 - `get_canonical_hash(model, exclude_fields, format)` — main entry point
-- `_get_json_canonical_hash(data)` — JCS RFC 8785 canonicalization
+- `_get_json_canonical_hash(data)` — JCS-compatible (RFC 8785-style) JSON + SHA-256
 - `_get_cbor_canonical_hash(data)` — legacy CBOR canonicalization (v1.0 only)
 - `normalize_value(value)` — datetime/UUID normalization
 
@@ -183,7 +213,7 @@ EPI canonical hashes encode `datetime` values as **ISO 8601 strings**
 
 Other portable evidence formats (e.g., AlgoVoi's compliance-receipt-v1) encode
 timestamps as **epoch millisecond integers** (`timestamp_ms`). That choice is
-**not** required by JCS RFC 8785 — it is a format-level convention. The two
+**not** part of JCS itself — it is a format-level convention. The two
 preimages hash to different digests and will not cross-validate. EPI consumers
 must normalize timestamps to ISO 8601 strings before hashing.
 
@@ -194,4 +224,5 @@ See `EPI-ALGOVOI-INTEROP.md` for the full interoperability boundary.
 | Version | Date | Change |
 |---------|------|--------|
 | 2.0 | 2025-06-08 | Initial specification. Incorrectly used `ensure_ascii=True`. Documented `source_type` exclusion. Added conformance test vectors. |
-| 2.2 | 2026-06-11 | Fixed `ensure_ascii=True` → `False` to comply with JCS RFC 8785 §3.4 (literal UTF-8 for non-ASCII). Also aligns with AlgoVoi's cross-validated conformance corpus. Updated all conformance vectors and tests. |
+| 2.2 | 2026-06-11 | Fixed `ensure_ascii=True` → `False` for literal UTF-8 non-ASCII (JCS-oriented). Updated conformance vectors and tests. |
+| 2.3 | 2026-07-22 | Clarified scope: **JCS-compatible (RFC 8785-style)**, not full RFC 8785 compliance. Documented known divergences (numbers, Unicode edge cases). |

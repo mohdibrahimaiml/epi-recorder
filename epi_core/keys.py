@@ -279,4 +279,145 @@ class KeyManager:
         return revoked_path
 
 
-__all__ = ["KeyManager"]
+def export_trust_bundle(
+    key_manager: KeyManager,
+    out_path: Path,
+    *,
+    names: list[str] | None = None,
+    trusted_keys_dir: Path | None = None,
+) -> Path:
+    """
+    Export public keys only into a zip auditors can import.
+
+    Includes:
+    - README.txt with verify instructions
+    - keys/<name>.pub as hex raw Ed25519 (TrustRegistry format)
+    - Never includes private keys
+    """
+    import zipfile
+    from datetime import datetime, timezone
+
+    out_path = Path(out_path)
+    if out_path.suffix.lower() != ".zip":
+        out_path = out_path.with_suffix(".zip")
+
+    if names:
+        key_names = list(names)
+    else:
+        key_names = [k["name"] for k in key_manager.list_keys() if k.get("has_public")]
+
+    if not key_names:
+        raise FileNotFoundError(
+            "No public keys to export. Generate one with: epi keys generate"
+        )
+
+    pubs: list[tuple[str, bytes]] = []
+    for kn in key_names:
+        pub_path = key_manager.keys_dir / f"{kn}.pub"
+        if not pub_path.exists():
+            raise FileNotFoundError(f"Public key not found for '{kn}': {pub_path}")
+        raw = key_manager._load_public_key_raw_bytes(kn)
+        pubs.append((kn, raw.hex().encode("utf-8")))
+
+    readme = f"""EPI Trust Bundle
+================
+Generated: {datetime.now(timezone.utc).isoformat()}
+Keys: {", ".join(n for n, _ in pubs)}
+
+This archive contains PUBLIC keys only (safe to share with auditors).
+It does NOT contain private keys.
+
+On a verifier machine:
+  epi keys bundle-import {out_path.name}
+  epi verify artifact.epi --policy strict
+
+Enterprise docs:
+  docs/ENTERPRISE-TRUST-PROFILE.md
+  docs/ENTERPRISE-TRUST-BUNDLE.md
+"""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("README.txt", readme)
+        zf.writestr(
+            "manifest.json",
+            __import__("json").dumps(
+                {
+                    "format": "epi-trust-bundle-v1",
+                    "keys": [n for n, _ in pubs],
+                },
+                indent=2,
+            ),
+        )
+        for kn, hex_bytes in pubs:
+            zf.writestr(f"keys/{kn}.pub", hex_bytes.decode("utf-8") + "\n")
+
+    return out_path
+
+
+def import_trust_bundle(
+    bundle_path: Path,
+    *,
+    trusted_keys_dir: Path,
+    overwrite: bool = False,
+) -> list[Path]:
+    """
+    Import public keys from an epi-trust-bundle zip into trusted_keys_dir.
+    """
+    import zipfile
+
+    bundle_path = Path(bundle_path)
+    if not bundle_path.exists():
+        raise FileNotFoundError(f"Bundle not found: {bundle_path}")
+
+    trusted_keys_dir = Path(trusted_keys_dir)
+    trusted_keys_dir.mkdir(parents=True, exist_ok=True)
+    imported: list[Path] = []
+
+    with zipfile.ZipFile(bundle_path, "r") as zf:
+        names = [n for n in zf.namelist() if n.startswith("keys/") and n.endswith(".pub")]
+        if not names:
+            raise ValueError("No keys/*.pub entries found in trust bundle")
+        for member in names:
+            stem = Path(member).stem
+            target = trusted_keys_dir / f"{stem}.pub"
+            if target.exists() and not overwrite:
+                raise FileExistsError(
+                    f"Trusted key '{stem}' already exists. Use --overwrite to replace."
+                )
+            data = zf.read(member).decode("utf-8").strip()
+            # Accept hex raw or PEM
+            if "BEGIN" in data:
+                # write via temp trust_key path
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(
+                    "w", suffix=".pub", delete=False, encoding="utf-8"
+                ) as tmp:
+                    tmp.write(data)
+                    tmp_path = Path(tmp.name)
+                try:
+                    km = KeyManager()
+                    written = km.trust_key(
+                        tmp_path,
+                        trusted_keys_dir=trusted_keys_dir,
+                        trusted_name=stem,
+                        overwrite=overwrite,
+                    )
+                    imported.append(written)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
+            else:
+                # hex raw
+                try:
+                    raw = bytes.fromhex(data)
+                except ValueError as e:
+                    raise ValueError(f"Invalid key material in {member}: {e}") from e
+                if len(raw) != 32:
+                    raise ValueError(f"Expected 32-byte Ed25519 key in {member}, got {len(raw)}")
+                target.write_text(data + "\n", encoding="utf-8")
+                imported.append(target)
+
+    return imported
+
+
+__all__ = ["KeyManager", "export_trust_bundle", "import_trust_bundle"]

@@ -3540,11 +3540,15 @@ async function downloadReviewedArtifact() {
     renderCaseView();
     renderReportsView();
 
-    elements.reviewSaveStatus.textContent = 'Preparing reviewed .epi file...';
-    const archiveBytes = await buildReviewedArtifactBytes(caseRecord, reviewRecord);
+    elements.reviewSaveStatus.textContent = 'Preparing additive v1.1 reviewed .epi...';
+    const built = await buildReviewedArtifactBytes(caseRecord, reviewRecord);
     const filename = caseRecord.sourceName.replace(/\.epi$/i, '') + '-reviewed.epi';
-    downloadBlob(filename, archiveBytes, 'application/zip');
-    elements.reviewSaveStatus.textContent = `Downloaded ${filename}.${reviewRecord.review_signature ? ' The embedded review is signed.' : ' The embedded review is unsigned.'} The original artifact is unchanged.`;
+    downloadBlob(filename, built.bytes, 'application/vnd.epi');
+    const fp = built.keyInfo && built.keyInfo.fingerprint ? built.keyInfo.fingerprint : 'unknown';
+    const src = built.keyInfo && built.keyInfo.source === 'imported' ? 'imported key' : 'device-local key';
+    elements.reviewSaveStatus.textContent =
+      `Downloaded ${filename} (additive bound review, review key fp ${fp}, ${src}).` +
+      ' Original execution seal preserved. Verify with: epi verify ' + filename + ' --review';
   } catch (error) {
     elements.reviewSaveStatus.textContent = `Could not create reviewed .epi: ${error.message}`;
   }
@@ -3595,41 +3599,122 @@ async function signReviewRecord(reviewRecord, signingKeyText) {
 }
 
 async function buildReviewedArtifactBytes(caseRecord, reviewRecord) {
-  const entries = [];
-
-  entries.push({
-    name: 'mimetype',
-    data: textToBytes('application/vnd.epi+zip'),
-  });
-
-  const sourceEntries = await collectArtifactSourceEntries(caseRecord);
-  sourceEntries.forEach((entry) => entries.push(entry));
-
-  const viewerHtml = buildEmbeddedViewerHtml(caseRecord, reviewRecord, sourceEntries);
-  const viewerHtmlBytes = textToBytes(viewerHtml);
-  const newViewerHash = await sha256Hex(viewerHtmlBytes.buffer);
-
-  const updatedManifest = JSON.parse(JSON.stringify(caseRecord.manifest));
-  if (!updatedManifest.file_manifest) {
-    updatedManifest.file_manifest = {};
+  if (typeof epiExtractInnerZipFromEpi !== 'function' || typeof epiBuildSignedReviewRecord !== 'function') {
+    throw new Error('Review binding helpers missing (crypto.js). Cannot Sign & Seal.');
   }
-  updatedManifest.file_manifest['viewer.html'] = newViewerHash;
-  delete updatedManifest.signature;
 
-  entries.push({
-    name: 'review.json',
-    data: textToBytes(JSON.stringify(reviewRecord, null, 2)),
-  });
-  entries.push({
-    name: 'viewer.html',
-    data: viewerHtmlBytes,
-  });
-  entries.push({
-    name: 'manifest.json',
-    data: textToBytes(JSON.stringify(updatedManifest, null, 2)),
+  // Prefer full original .epi bytes (envelope or zip)
+  let epiBytes = null;
+  if (caseRecord.archiveBytes && caseRecord.archiveBytes.byteLength) {
+    epiBytes = caseRecord.archiveBytes instanceof Uint8Array
+      ? caseRecord.archiveBytes
+      : new Uint8Array(caseRecord.archiveBytes);
+  }
+  if (!epiBytes) {
+    throw new Error(
+      'Cannot attach a bound review without original .epi bytes. ' +
+      'Load the full artifact in this viewer, or use the CLI review path.'
+    );
+  }
+
+  if (typeof JSZip === 'undefined') {
+    throw new Error('The browser ZIP helper is unavailable.');
+  }
+
+  const { zipBytes, containerFormat } = epiExtractInnerZipFromEpi(epiBytes);
+  const sourceZip = await JSZip.loadAsync(zipBytes.slice(0));
+  const memberBytesByPath = {};
+  const names = Object.keys(sourceZip.files).filter((n) => !sourceZip.files[n].dir);
+  for (const name of names) {
+    memberBytesByPath[name] = await sourceZip.file(name).async('uint8array');
+  }
+  if (!memberBytesByPath['manifest.json']) {
+    throw new Error('Source artifact is missing manifest.json');
+  }
+
+  const manifest = JSON.parse(new TextDecoder().decode(memberBytesByPath['manifest.json']));
+  const fileManifestPaths = Object.keys(manifest.file_manifest || {}).sort();
+  const artifactBinding = await epiBuildArtifactBinding({
+    workflowId: manifest.workflow_id,
+    manifestBytes: memberBytesByPath['manifest.json'],
+    manifestSignature: manifest.signature || null,
+    manifestPublicKey: manifest.public_key || null,
+    fileManifestPaths,
+    memberBytesByPath,
+    containerFormat,
   });
 
-  return createZipArchive(entries);
+  let previousReviewHash = null;
+  if (memberBytesByPath['review.json']) {
+    try {
+      const prev = JSON.parse(new TextDecoder().decode(memberBytesByPath['review.json']));
+      if (prev && prev.review_version && prev.review_version !== '1.0.0' && prev.review_hash) {
+        previousReviewHash = prev.review_hash;
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  // Map multi-case draft (reviews[].outcome) or flat status to human status
+  let humanStatus = 'escalated';
+  let notes = '';
+  if (reviewRecord.status) {
+    humanStatus = String(reviewRecord.status).toLowerCase();
+    notes = reviewRecord.notes || '';
+  } else if (Array.isArray(reviewRecord.reviews) && reviewRecord.reviews[0]) {
+    const o = String(reviewRecord.reviews[0].outcome || '').toLowerCase();
+    if (o === 'dismissed') humanStatus = 'approved';
+    else if (o === 'confirmed_fault') humanStatus = 'rejected';
+    else humanStatus = 'escalated';
+    notes = reviewRecord.reviews[0].notes || '';
+  }
+
+  const signingKeyText = elements.reviewSigningKey ? elements.reviewSigningKey.value.trim() : '';
+  const seedInfo = await epiResolveSigningSeed(signingKeyText);
+  const built = await epiBuildSignedReviewRecord({
+    reviewedBy: reviewRecord.reviewed_by || 'reviewer',
+    reviewedAt: reviewRecord.reviewed_at || new Date().toISOString(),
+    humanStatus,
+    notes,
+    artifactBinding,
+    previousReviewHash,
+    seedBytes: seedInfo.seed,
+  });
+  const record = built.record;
+  const reviewPath = 'reviews/' + record.review_id + '.json';
+  const recordJson = JSON.stringify(record, null, 2);
+  const index = epiBuildReviewIndex([record], record.review_id);
+
+  const outZip = new JSZip();
+  for (const name of names.sort()) {
+    if (name === 'review.json' || name === 'review_index.json' || name.startsWith('reviews/')) continue;
+    const data = memberBytesByPath[name];
+    if (name === 'mimetype') outZip.file(name, data, { compression: 'STORE' });
+    else outZip.file(name, data);
+  }
+  outZip.file(reviewPath, recordJson);
+  outZip.file('review.json', recordJson);
+  outZip.file('review_index.json', JSON.stringify(index, null, 2));
+
+  const newZipBytes = await outZip.generateAsync({ type: 'uint8array' });
+  let envelopeBytes;
+  if (containerFormat === 'legacy-zip') {
+    envelopeBytes = newZipBytes;
+  } else {
+    envelopeBytes = await epiWrapEnvelopeV2(newZipBytes, manifest, null);
+  }
+
+  return {
+    bytes: envelopeBytes,
+    manifest,
+    keyInfo: {
+      source: seedInfo.source,
+      fingerprint: built.keyInfo.fingerprint,
+      publicKeyHex: built.keyInfo.publicKeyHex,
+      role: 'review',
+    },
+    reviewRecord: record,
+    model: 'A-additive',
+  };
 }
 
 async function collectArtifactSourceEntries(caseRecord) {

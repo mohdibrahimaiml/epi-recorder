@@ -123,7 +123,7 @@ with record("agent-decision.epi"):
     <li><strong>Hash chain</strong> — is the step timeline chain intact (no insertion, deletion, reordering)?</li>
     <li><strong>Signature</strong> — does the Ed25519 signature validate against the signer's public key?</li>
   </ol>
-  <p>All 5 checks pass → <strong>HIGH</strong> trust. The file is cryptographically identical to when it was sealed.</p>
+  <p>Integrity + signature can pass while identity stays <strong>UNKNOWN</strong> (trust level <strong>LOW</strong>, policy <strong>WARN</strong>) until you trust the sealer key. <strong>HIGH</strong> means known identity in your trust store — not the default first run.</p>
 
   <h2>5. View — Open in any browser</h2>
   <p>Because .epi files are valid HTML, you can open them in any web browser. The built-in viewer shows:</p>

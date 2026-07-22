@@ -1,16 +1,17 @@
 // EPI Auth UI — nav + free-tier keep-warm wake on every page
 (function () {
-  var API_BASE = 'https://epi-verify-portal.onrender.com';
+  var API_BASE = (function () {
+    var h = (location && location.hostname) || '';
+    if (h === 'epilabs.org' || h === 'www.epilabs.org' || h.endsWith('.pages.dev')) return '';
+    return 'https://epi-verify-portal.onrender.com';
+  })();
   var TOKEN_KEY = 'epi_token';
   var USER_KEY = 'epi_user';
 
   // ── Always wake the free Render instance ASAP (fire-and-forget) ──
-  // Cheap /api/ping avoids DB; /api/auth/status warms OAuth config path.
+  // Same-origin /api/* is proxied by Cloudflare Pages Functions → Render.
   function wakeApi() {
     try {
-      if (navigator.sendBeacon) {
-        // sendBeacon is POST-only; use fetch keepalive for GET
-      }
       fetch(API_BASE + '/api/ping', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
       fetch(API_BASE + '/api/auth/status', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
     } catch (e) {}

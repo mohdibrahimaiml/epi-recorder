@@ -37,7 +37,9 @@ from epi_core.viewer_assets import inline_viewer_assets, load_viewer_assets
 console = Console()
 
 DEFAULT_DIR = Path("epi-recordings")
-_MAX_INLINE_ARCHIVE_BYTES = 4 * 1024 * 1024
+# Full .epi is inlined for Model A browser Sign & Seal (artifact-bound review).
+# Raised from 4 MiB so typical sealed demos + notarization still qualify.
+_MAX_INLINE_ARCHIVE_BYTES = 32 * 1024 * 1024
 
 
 def _print_share_hint() -> None:
@@ -352,6 +354,40 @@ def _read_steps_if_exists(path: Path) -> list[dict]:
     return steps
 
 
+def _extract_tsr_gen_time(tsr_path: Path) -> str | None:
+    """
+    Best-effort parse of RFC 3161 TimeStampResp GeneralizedTime (ASN.1 tag 0x18).
+    Returns ISO-8601 UTC string (e.g. 2026-07-19T23:29:46Z) or None.
+    """
+    if not tsr_path.exists():
+        return None
+    try:
+        data = tsr_path.read_bytes()
+    except Exception:
+        return None
+    import re
+
+    i = 0
+    while i < len(data) - 2:
+        if data[i] == 0x18:  # GeneralizedTime
+            length = data[i + 1]
+            if 10 <= length <= 32 and i + 2 + length <= len(data):
+                raw = data[i + 2 : i + 2 + length]
+                try:
+                    text = raw.decode("ascii")
+                except UnicodeDecodeError:
+                    i += 1
+                    continue
+                m = re.fullmatch(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z", text)
+                if m:
+                    return (
+                        f"{m.group(1)}-{m.group(2)}-{m.group(3)}T"
+                        f"{m.group(4)}:{m.group(5)}:{m.group(6)}Z"
+                    )
+        i += 1
+    return None
+
+
 def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> dict:
     manifest = EPIContainer.read_manifest(resolved_path)
     integrity_ok, mismatches = EPIContainer.verify_integrity(resolved_path)
@@ -382,6 +418,20 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
     except Exception:
         pass
 
+    # Notarization members may be absent from older file_manifests; always surface
+    # them when present so the viewer can show TSA/OTS without a broken empty panel.
+    for rel in (
+        "artifacts/notarization/notarization.json",
+        "artifacts/notarization/tsa_reply.tsr",
+        "artifacts/notarization/digest.ots",
+    ):
+        fp = extracted_dir / rel
+        if fp.exists() and fp.is_file() and rel not in _files:
+            try:
+                _files[rel] = base64.b64encode(fp.read_bytes()).decode("ascii")
+            except Exception:
+                pass
+
     return {
         "source_name": _source_name,
         "file_size": resolved_path.stat().st_size if resolved_path.exists() else 0,
@@ -394,6 +444,14 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
         "review": _read_json_if_exists(extracted_dir / "review.json"),
         "environment": _read_json_if_exists(extracted_dir / "environment.json")
         or _read_json_if_exists(extracted_dir / "env.json"),
+        # Optional seal-time notarization (RFC 3161 / OTS). Absent when EPI_NOTARIZE=0
+        # or older artifacts — viewer hides the panel when null.
+        "notarization": _read_json_if_exists(
+            extracted_dir / "artifacts" / "notarization" / "notarization.json"
+        ),
+        "notarization_tsa_time": _extract_tsr_gen_time(
+            extracted_dir / "artifacts" / "notarization" / "tsa_reply.tsr"
+        ),
         "stdout": _read_text_if_exists(extracted_dir / "stdout.log"),
         "stderr": _read_text_if_exists(extracted_dir / "stderr.log"),
         "files": _files,

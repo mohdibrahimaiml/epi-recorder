@@ -32,7 +32,16 @@ def generate_default_keypair_if_missing(console_output: bool = True) -> bool:
         console.print("\n[dim]Generated default Ed25519 key pair for signing:[/dim]")
         console.print(f"  [cyan]Private:[/cyan] {private_path}")
         console.print(f"  [cyan]Public:[/cyan]  {public_path}")
-        console.print("\n[dim]Your .epi files will be automatically signed for authenticity.[/dim]\n")
+        console.print("\n[dim]Your .epi files will be automatically signed for authenticity.[/dim]")
+        console.print(
+            "[dim]First [cyan]epi verify[/cyan] may show [yellow]WARN[/yellow] "
+            "(valid signature, unknown identity) until auditors run:[/dim]"
+        )
+        console.print("[dim]  [cyan]epi keys trust default[/cyan][/dim]")
+        console.print(
+            "[dim]Enterprise: [cyan]epi keys bundle export[/cyan] then "
+            "[cyan]epi keys bundle import[/cyan] on verifier machines.[/dim]\n"
+        )
 
     return True
 

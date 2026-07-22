@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [4.3.0] - 2026-05-31
+## [4.3.0] - 2026-07-20
 
 ### Portal Launch, SCITT Service & AGT Interoperability
 

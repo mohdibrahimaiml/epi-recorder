@@ -26,7 +26,11 @@ epi demo --no-browser    # record → seal → verify (no API key)
 > the answer should be a **`.epi` file** — not a dashboard login and a shrug.
 
 `epi-recorder` captures agent decisions into a portable, signed, **offline-verifiable** artifact.  
-No phone-home required to open or verify.
+**View** and **integrity/signature verify** work offline. **Identity** checks may consult a local trust store and, if configured, DID/remote registry. **Seal** may contact a TSA for RFC 3161 notarization (`EPI_NOTARIZE=1` by default; `EPI_NOTARIZE=0` for offline seal).  
+Enterprise trust model: [`docs/ENTERPRISE-TRUST-PROFILE.md`](docs/ENTERPRISE-TRUST-PROFILE.md) ·  
+Trust bundle: `epi keys bundle-export` / `epi keys bundle-import` ·  
+[`docs/ENTERPRISE-TRUST-BUNDLE.md`](docs/ENTERPRISE-TRUST-BUNDLE.md) ·  
+Decision-grade content profile: [`docs/evidence-profile/v0.1.json`](docs/evidence-profile/v0.1.json).
 
 ---
 

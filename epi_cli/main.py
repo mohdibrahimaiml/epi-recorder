@@ -1049,33 +1049,42 @@ def unassociate():
 # Phase 1: keys command (for manual key management)
 @app.command()
 def keys(
-    action: str = typer.Argument(..., help="Action: generate, list, export, trust, or revoke"),
-    key: Optional[str] = typer.Argument(None, help="Key name or path (for trust/revoke)"),
+    action: str = typer.Argument(
+        ...,
+        help="Action: generate, list, export, trust, revoke, bundle-export, bundle-import",
+    ),
+    key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
     overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing keys"),
     export_format: str = typer.Option("base64", "--format", "-f", help="Export format: base64 or hex"),
+    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Output path (bundle-export)"),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
     from epi_core.trust import TrustRegistry
-    
+
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
-    
+
     if action == "generate":
         try:
             private_path, public_path = key_manager.generate_keypair(name, overwrite=overwrite)
             console.print(f"\n[bold green][OK] Generated key pair:[/bold green] {name}")
             console.print(f"  [cyan]Private:[/cyan] {private_path}")
-            console.print(f"  [cyan]Public:[/cyan]  {public_path}\n")
+            console.print(f"  [cyan]Public:[/cyan]  {public_path}")
+            console.print(
+                "\n[dim]Tip: first [cyan]epi verify[/cyan] may WARN until verifiers run "
+                "[cyan]epi keys trust "
+                f"{name}[/cyan] (or [cyan]epi keys bundle-export[/cyan]).[/dim]\n"
+            )
         except FileExistsError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
-    
+
     elif action == "list":
         keys_list = key_manager.list_keys()
         print_keys_table(keys_list)
-    
+
     elif action == "export":
         try:
             public_key_b64 = key_manager.export_public_key(name)
@@ -1096,7 +1105,7 @@ def keys(
         except FileNotFoundError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
-    
+
     elif action == "trust":
         if not key:
             console.print("[red][FAIL] trust requires a key name or path.[/red]")
@@ -1113,7 +1122,7 @@ def keys(
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
-    
+
     elif action == "revoke":
         target_name = key or name
         try:
@@ -1122,10 +1131,64 @@ def keys(
         except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
-    
+
+    elif action in ("bundle-export", "bundle_export", "bundle"):
+        # bundle-export [names...]  OR  bundle as alias when --out set
+        from epi_core.keys import export_trust_bundle
+
+        names: list[str] = []
+        if key:
+            names.append(key)
+        # Additional free args not available easily; support comma-separated in key
+        if key and "," in key:
+            names = [n.strip() for n in key.split(",") if n.strip()]
+        out_path = out or Path("epi-trust-bundle.zip")
+        try:
+            written = export_trust_bundle(
+                key_manager,
+                out_path,
+                names=names or None,
+                trusted_keys_dir=trusted_keys_dir,
+            )
+            console.print(f"\n[bold green][OK] Trust bundle written:[/bold green] {written}")
+            console.print(
+                "[dim]Share this zip with auditors (public keys only). "
+                "They run: [cyan]epi keys bundle-import "
+                f"{written.name}[/cyan][/dim]\n"
+            )
+        except (FileNotFoundError, ValueError) as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+
+    elif action in ("bundle-import", "bundle_import"):
+        from epi_core.keys import import_trust_bundle
+
+        if not key:
+            console.print("[red][FAIL] bundle-import requires a path to the zip.[/red]")
+            console.print("[dim]Usage: epi keys bundle-import epi-trust-bundle.zip[/dim]")
+            raise typer.Exit(1)
+        try:
+            imported = import_trust_bundle(
+                Path(key),
+                trusted_keys_dir=trusted_keys_dir,
+                overwrite=overwrite,
+            )
+            console.print(f"\n[bold green][OK] Imported {len(imported)} trusted key(s):[/bold green]")
+            for p in imported:
+                console.print(f"  [cyan]{p}[/cyan]")
+            console.print(
+                "\n[dim]Now [cyan]epi verify file.epi --policy strict[/cyan] can PASS for those sealers.[/dim]\n"
+            )
+        except (FileNotFoundError, ValueError) as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+
     else:
         console.print(f"[red][FAIL] Unknown action:[/red] {action}")
-        console.print("[dim]Valid actions: generate, list, export, trust, revoke[/dim]")
+        console.print(
+            "[dim]Valid actions: generate, list, export, trust, revoke, "
+            "bundle-export, bundle-import[/dim]"
+        )
         raise typer.Exit(1)
 
 

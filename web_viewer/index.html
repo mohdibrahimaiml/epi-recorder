@@ -84,6 +84,20 @@
               <span class="dl-key">Identity</span>
               <span id="ind-identity" class="indicator unknown" style="font-size:13px; word-break:break-all;">—</span>
             </div>
+            <!-- Notarization: only filled when artifacts/notarization/ is present -->
+            <div id="notarization-block" class="hidden" style="margin-top:18px;">
+              <div class="dl-row">
+                <span class="dl-key">Notarization</span>
+                <span id="ind-notarization" class="indicator unknown">—</span>
+              </div>
+              <div class="details-list" style="margin-top:10px; font-size:12px; line-height:1.5;">
+                <div class="dl-row"><span class="dl-key">Provider</span><span id="notary-provider">—</span></div>
+                <div class="dl-row" style="margin-top:6px;"><span class="dl-key">TSA URL</span><span id="notary-tsa" style="word-break:break-all;">—</span></div>
+                <div class="dl-row" style="margin-top:6px;"><span class="dl-key">TSA time</span><span id="notary-time">—</span></div>
+                <div class="dl-row" style="margin-top:6px;"><span class="dl-key">OTS / Bitcoin</span><span id="notary-ots">—</span></div>
+                <div class="dl-row" style="margin-top:6px;"><span class="dl-key">Manifest hash</span><span id="notary-hash" style="font-size:10px; word-break:break-all;">—</span></div>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Right: diagnostic matrix -->
@@ -105,6 +119,10 @@
             <div class="diag-item">
               <span class="diag-label">Public Key</span>
               <span id="diag-pubkey" class="diag-status unknown" style="font-size:9px; word-break:break-all;">—</span>
+            </div>
+            <div class="diag-item">
+              <span class="diag-label">Notarization</span>
+              <span id="diag-notary" class="diag-status unknown">—</span>
             </div>
           </div>
           <div id="verify-cmd-block" class="verify-cmd" title="Click to copy" onclick="copyVerifyCmd(this)">
@@ -165,7 +183,7 @@
     <div class="section-label">7.0 Human_Attestation_&amp;_Sign-Off</div>
     <div class="status-box" style="border-style:double; border-width:6px;">
 
-      <!-- Display if review already exists -->
+      <!-- Display if review already exists (in this file or just sealed this session) -->
       <div id="review-display" class="hidden">
         <div id="review-seal" class="verdict-seal">—</div>
         <div id="review-content" class="review-content"></div>
@@ -173,11 +191,22 @@
           <div>Certified By: <strong id="reviewer-name">—</strong></div>
           <div id="review-date">—</div>
         </div>
+        <div id="review-followup" class="sign-status-msg ok hidden" style="margin-top:14px;"></div>
       </div>
+
+      <!-- Shown when this open file has no review.json yet -->
+      <div id="review-original-hint" class="hidden" style="font-size:12px;line-height:1.45;color:var(--text-faint);margin-bottom:12px;padding:10px 12px;border:1px dashed var(--border, #444);"></div>
 
       <!-- Form if no review yet -->
       <div id="review-form" class="review-station">
         <p class="review-instruction">As the designated human auditor, review the evidence above and provide your final attestation verdict.</p>
+        <p class="review-instruction" style="font-size:12px;opacity:0.85;">
+          <strong>Sign &amp; Seal downloads a new</strong> <code>*_reviewed.epi</code> with an
+          <strong>additive v1.1 review</strong> (artifact-bound + review signature).
+          The <strong>original execution seal is preserved</strong> — only the review is signed with your local/PEM key.
+          Requires the file to be opened via <code>epi view</code> (so the full .epi is available).
+          Verify with <code>epi verify …_reviewed.epi --review</code>.
+        </p>
         <div class="form-group">
           <label>Reviewer Name / Identity</label>
           <input type="text" id="id-reviewer" placeholder="e.g. Senior Auditor — Jane Smith">
@@ -193,6 +222,15 @@
         <div class="form-group">
           <label>Audit Notes &amp; Rationale</label>
           <textarea id="id-notes" placeholder="Describe your findings..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Signing key (optional)</label>
+          <textarea id="id-signing-key" rows="3" placeholder="Leave blank to use a device-local key stored only in this browser. For enterprise identity, paste unencrypted PEM from: epi keys generate"></textarea>
+          <p style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.4;">
+            Private keys never leave this browser and are never written into the .epi file.
+            Default: a local Ed25519 seed is created once and reused on this device.
+            Org continuity: run <code>epi keys generate</code>, paste the <code>.key</code> PEM here, and trust the matching <code>.pub</code> with <code>epi keys trust</code>.
+          </p>
         </div>
         <button class="sign-button" id="sign-btn">Sign &amp; Seal This Artifact</button>
         <div id="sign-status" class="sign-status-msg"></div>

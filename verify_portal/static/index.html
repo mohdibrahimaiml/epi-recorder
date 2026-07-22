@@ -59,6 +59,7 @@
     <a href="#" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links" id="navLinks">
       <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/enterprise.html">Enterprise</a></li>
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
@@ -256,18 +257,19 @@ pip install epi-recorder
     <div style="text-align:center;margin-bottom:48px">
       <div class="section-label reveal" style="justify-content:center">Trust Model</div>
       <h2 class="section-title reveal d1">Who signed it. What it proves.</h2>
-      <p class="section-desc reveal d2" style="margin:0 auto">Every .epi carries a computed trust level based on cryptographic evidence — from HIGH to TAMPERED.</p>
+      <p class="section-desc reveal d2" style="margin:0 auto">Trust is three independent facts: integrity, signature, and identity. First-run <code>epi verify</code> often shows <strong>WARN</strong> (valid seal, unknown key) until you <code>epi keys trust</code> the sealer — that is correct, not a product bug.</p>
     </div>
     <div class="trust-table reveal">
       <table class="tt">
-        <thead><tr><th>Level</th><th>Integrity</th><th>Signature</th><th>Identity</th><th>Meaning</th></tr></thead>
+        <thead><tr><th>Level</th><th>Integrity</th><th>Signature</th><th>Identity</th><th>Meaning (matches <code>epi verify</code>)</th></tr></thead>
         <tbody>
-          <tr><td><span class="tt-tag tt-tag--h">HIGH</span></td><td>Pass</td><td>Valid</td><td style="color:var(--verified)">Known</td><td>Registry-verified signer identity</td></tr>
-          <tr><td><span class="tt-tag tt-tag--m">MEDIUM</span></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>SCITT ledger-anchored · independently verifiable</td></tr>
-          <tr><td><span class="tt-tag" style="border:1px solid var(--border-str);color:var(--ink-muted)">LOW</span></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>Valid signature, unverified identity</td></tr>
-          <tr><td><span class="tt-tag tt-tag--t">TAMPERED</span></td><td style="color:var(--tamper)">Fail</td><td style="color:var(--tamper)">Invalid</td><td>—</td><td>Integrity failure or signature mismatch</td></tr>
+          <tr><td><span class="tt-tag tt-tag--h">HIGH</span></td><td>Pass</td><td>Valid</td><td style="color:var(--verified)">Known</td><td>Signer public key is in your local trust store</td></tr>
+          <tr><td><span class="tt-tag tt-tag--m">MEDIUM</span></td><td>Pass</td><td>None / SCITT path</td><td>—</td><td>Unsigned but intact, or signed with SCITT upgrade path</td></tr>
+          <tr><td><span class="tt-tag" style="border:1px solid var(--border-str);color:var(--ink-muted)">LOW</span></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>Valid seal; sealer not yet trusted (common first run)</td></tr>
+          <tr><td><span class="tt-tag tt-tag--t">NONE / FAIL</span></td><td style="color:var(--tamper)">Fail</td><td style="color:var(--tamper)">Invalid / mismatch</td><td>—</td><td>Do not trust — tamper or identity mismatch</td></tr>
         </tbody>
       </table>
+      <p style="margin-top:1rem;font-size:0.85rem;color:var(--ink-muted);text-align:center;max-width:42rem;margin-left:auto;margin-right:auto">What EPI proves: the file bytes and who sealed them under a key. What it does not prove: free-text names are employees, or that the agent was “correct.” <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-PROFILE.md">Enterprise Trust Profile</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-BUNDLE.md">Trust bundle</a></p>
     </div>
   </div>
 </section>
@@ -544,9 +546,17 @@ function reportDOM(report){
   chks.push('Chain: '+(f.chain_ok!==false?'intact':'<span style="color:var(--tamper)">broken</span>'));
   chks.push('Identity: '+i.status);
 
+  var intLabel=f.integrity_ok?'PASS':'FAIL';
+  var sigLabel=!f.has_signature?'NONE':(f.signature_valid===true?'VALID':(f.signature_valid===false?'INVALID':'UNVERIFIED'));
+  var idLabel=i.status||'UNKNOWN';
   return '<div style="font-size:0.82rem;margin-bottom:0.6rem"><strong style="font-size:1.05rem;color:'+trustColor+'">'+trustIcon+' '+report.trust_level+' TRUST</strong> <span style="color:var(--ink-muted);font-size:0.72rem">v'+m.spec_version+steps+'</span></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.5rem 0 0.7rem;font-size:0.72rem">'
+    +'<span style="border:1px solid var(--border);padding:0.2rem 0.45rem;border-radius:4px">Integrity: <strong>'+intLabel+'</strong></span>'
+    +'<span style="border:1px solid var(--border);padding:0.2rem 0.45rem;border-radius:4px">Signature: <strong>'+sigLabel+'</strong></span>'
+    +'<span style="border:1px solid var(--border);padding:0.2rem 0.45rem;border-radius:4px">Identity: <strong>'+idLabel+'</strong></span>'
+    +'</div>'
     +chks.join('<br>')
-    +'<div style="margin-top:0.5rem;font-size:0.68rem;color:var(--ink-dim);border-top:1px solid var(--border);padding-top:0.5rem">'+report.trust_message+'</div>'
+    +'<div style="margin-top:0.5rem;font-size:0.68rem;color:var(--ink-dim);border-top:1px solid var(--border);padding-top:0.5rem">'+report.trust_message+(i.status==='UNKNOWN'?' · Trust the sealer with <code>epi keys trust</code> for HIGH.':'')+'</div>'
     +(i.detail?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+i.detail+'</div>':'');
 }
 

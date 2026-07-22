@@ -1,0 +1,38 @@
+{
+  "profile_id": "epi-decision-grade",
+  "version": "0.1.0",
+  "title": "EPI Decision-Grade Evidence Profile",
+  "description": "Minimum content expectations for decision-grade AI evidence artifacts. Container/crypto requirements are separate (envelope-v2, Ed25519, review v1.1).",
+  "required_members": [
+    "manifest.json",
+    "steps.jsonl"
+  ],
+  "recommended_members": [
+    "analysis.json",
+    "environment.json",
+    "policy_evaluation.json"
+  ],
+  "required_step_kinds_any_of": [
+    ["agent.decision", "decision", "llm.response", "tool.response"],
+    ["session.start", "session.end", "llm.request"]
+  ],
+  "redaction": {
+    "default_enabled": true,
+    "forbid_plaintext_secrets_patterns": true
+  },
+  "trust": {
+    "prefer_policy": "strict",
+    "require_review_for_human_attestation": true,
+    "review_version_min": "1.1.0"
+  },
+  "scoring": {
+    "pass_threshold": 0.7,
+    "weights": {
+      "has_steps": 0.25,
+      "has_decision_kind": 0.25,
+      "has_analysis": 0.15,
+      "has_signature": 0.20,
+      "has_bound_review": 0.15
+    }
+  }
+}
