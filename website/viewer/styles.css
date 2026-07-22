@@ -1229,7 +1229,7 @@ label {
 }
 
 /* ─── Responsive: 760px ──────────────────────────────── */
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   :root {
     --topnav-h: 52px;
   }
@@ -1405,6 +1405,12 @@ label {
   color: #fff !important;
   font-weight: 600 !important;
 }
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .topnav-app { display: none; }
+}
+
+/* topnav burger show 1100 */
+@media (max-width: 1100px) {
+  .topnav-links { display: none !important; }
+  .topnav-burger { display: flex !important; }
 }

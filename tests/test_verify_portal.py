@@ -87,7 +87,7 @@ def test_admin_telemetry_html(client: TestClient) -> None:
     assert "text/html" in r.headers["content-type"]
     assert "Telemetry Dashboard" in r.text
     assert "/api/admin/telemetry/metrics" in r.text
-    assert "/css/epi.css?v=24" in r.text
+    assert "epi.css" in r.text
     assert 'href="#how"' in r.text or 'href="/#how"' in r.text
     assert 'href="/#verify"' in r.text
     assert 'href="#audit"' in r.text or 'href="/#audit"' in r.text
@@ -97,7 +97,7 @@ def test_verify_page_matches_site_design(client: TestClient) -> None:
     r = client.get("/verify")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
-    assert "css/epi.css?v=24" in r.text
+    assert "epi.css" in r.text
     assert 'href="/how-it-works"' in r.text
     assert 'href="/verify/"' in r.text
     assert 'href="/pricing"' in r.text

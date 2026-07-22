@@ -1,4 +1,4 @@
-// EPI site nav — burger + scroll (single source for all marketing pages)
+// EPI site nav — burger + scroll
 (function () {
   function ready(fn) {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
@@ -20,15 +20,16 @@
 
     if (!btn || !menu) return;
 
-    // support both [hidden] and .open patterns
     function isOpen() {
-      return menu.classList.contains("open");
+      return menu.classList.contains("is-open");
     }
 
     function setOpen(open) {
+      menu.classList.toggle("is-open", open);
       menu.classList.toggle("open", open);
-      if (open) menu.removeAttribute("hidden");
-      else menu.setAttribute("hidden", "");
+      menu.removeAttribute("hidden"); // never use [hidden] — UA !important fights open state
+      menu.style.display = open ? "flex" : "none";
+      btn.classList.toggle("is-open", open);
       btn.classList.toggle("open", open);
       btn.setAttribute("aria-expanded", open ? "true" : "false");
       btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
@@ -39,6 +40,7 @@
 
     btn.addEventListener("click", function (e) {
       e.preventDefault();
+      e.stopPropagation();
       setOpen(!isOpen());
     });
 
