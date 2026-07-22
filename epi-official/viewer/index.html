@@ -13,21 +13,57 @@
 <body>
 <input type="file" id="file-input" accept=".epi" multiple hidden>
 
-<!-- Top navigation bar -->
+<!-- Top navigation bar (site-consistent + burger) -->
 <nav class="topnav" aria-label="Site navigation">
-  <a class="topnav-brand" href="https://epilabs.org/" aria-label="EPI LABS home">
+  <a class="topnav-brand" href="/" aria-label="EPI LABS home">
     <img src="../assets/logo.png" alt="EPI LABS" class="topnav-logo">
     <span class="topnav-name">EPI LABS</span>
+    <span class="topnav-app">Decision Ops</span>
   </a>
-  <div class="topnav-links">
-    <a href="https://epilabs.org/how-it-works.html" class="topnav-link">How it works</a>
-    <a href="https://epilabs.org/verify/" class="topnav-link">Verify</a>
-    <a href="https://epilabs.org/pricing.html" class="topnav-link">Pricing</a>
+  <div class="topnav-links" id="topnavLinks">
+    <a href="/verify/" class="topnav-link">Verify</a>
+    <a href="/how-it-works" class="topnav-link">Docs</a>
+    <a href="/pricing" class="topnav-link">Pricing</a>
     <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="topnav-link topnav-link-icon" target="_blank" rel="noopener" aria-label="GitHub">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
     </a>
+    <a href="/pricing" class="topnav-link topnav-cta">Get Started</a>
   </div>
+  <button class="topnav-burger" id="topnavBurger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="topnavDrawer">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+<div class="topnav-drawer" id="topnavDrawer" hidden>
+  <a href="/verify/">Verify</a>
+  <a href="/#how">How it works</a>
+  <a href="/#use">How to use</a>
+  <a href="/enterprise">Enterprise</a>
+  <a href="/how-it-works">Docs</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/viewer/" aria-current="page">Decision Ops</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/account">Sign in</a>
+  <a href="/pricing" class="topnav-drawer-cta">Get Started</a>
+</div>
+<script>
+(function(){
+  var btn=document.getElementById('topnavBurger');
+  var drawer=document.getElementById('topnavDrawer');
+  if(!btn||!drawer)return;
+  function setOpen(o){
+    drawer.classList.toggle('open',o);
+    if(o)drawer.removeAttribute('hidden'); else drawer.setAttribute('hidden','');
+    btn.classList.toggle('open',o);
+    btn.setAttribute('aria-expanded',o?'true':'false');
+    btn.setAttribute('aria-label',o?'Close menu':'Open menu');
+    document.body.style.overflow=o?'hidden':'';
+  }
+  setOpen(false);
+  btn.addEventListener('click',function(e){e.preventDefault();setOpen(!drawer.classList.contains('open'));});
+  drawer.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});
+})();
+</script>
 
 <div class="page-shell">
   <header class="hero">

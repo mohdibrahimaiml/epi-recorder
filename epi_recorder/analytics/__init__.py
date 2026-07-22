@@ -30,7 +30,11 @@ except ImportError:
     pd = None  # type: ignore[assignment]
     PANDAS_AVAILABLE = False
 
-MATPLOTLIB_AVAILABLE = find_spec("matplotlib.pyplot") is not None
+try:
+    MATPLOTLIB_AVAILABLE = find_spec("matplotlib.pyplot") is not None
+except (ImportError, ModuleNotFoundError, ValueError):
+    # Broken/partial matplotlib installs can make find_spec raise.
+    MATPLOTLIB_AVAILABLE = False
 
 
 class AgentAnalytics:
