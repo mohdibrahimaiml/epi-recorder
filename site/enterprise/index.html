@@ -23,6 +23,7 @@
 </style>
 </head>
 <body>
+<!-- ═══ SITE NAV (Option A) ═══ -->
 <nav id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
@@ -36,16 +37,18 @@
       <li id="nav-auth-slot"></li>
       <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
     </ul>
-    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+    <button class="nav-mob" id="mobBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
-<div class="mob-menu" id="mobMenu">
+<div class="mob-menu" id="mobMenu" hidden>
   <a href="/verify/">Verify</a>
   <a href="/how-it-works">Docs</a>
   <a href="/pricing">Pricing</a>
   <a href="/enterprise">Enterprise</a>
+  <a href="/viewer/">Decision Ops</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="/pricing">Get Started</a>
+  <a href="/account">Sign in</a>
+  <a href="/pricing" class="nav-link-cta">Get Started</a>
 </div>
 <main class="ent-main">
   <div class="section-label">Enterprise</div>
@@ -115,11 +118,8 @@ epi verify artifact_reviewed.epi --review</code></pre>
     <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">Contact</a>
   </p>
 </footer>
-<script>
-var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
-if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
-</script>
 <script src="js/theme.js"></script>
 <script src="/js/auth-ui.js"></script>
+<script src="/js/nav.js"></script>
 </body>
 </html>

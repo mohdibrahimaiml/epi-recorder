@@ -13,7 +13,7 @@
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
 <link rel="apple-touch-icon" href="favicon.ico">
-<link rel="stylesheet" href="css/epi.css?v=24">
+<link rel="stylesheet" href="css/epi.css?v=27">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -53,10 +53,10 @@
 </head>
 <body>
 
-<!-- ═══ NAV ═══ -->
+<!-- ═══ SITE NAV (Option A) ═══ -->
 <nav id="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
     <ul class="nav-links" id="navLinks">
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/how-it-works">Docs</a></li>
@@ -67,16 +67,18 @@
       <li id="nav-auth-slot"></li>
       <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
     </ul>
-    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+    <button class="nav-mob" id="mobBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobMenu"><span></span><span></span><span></span></button>
   </div>
 </nav>
-<div class="mob-menu" id="mobMenu">
+<div class="mob-menu" id="mobMenu" hidden>
   <a href="/verify/">Verify</a>
   <a href="/how-it-works">Docs</a>
   <a href="/pricing">Pricing</a>
   <a href="/enterprise">Enterprise</a>
+  <a href="/viewer/">Decision Ops</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <a href="/pricing">Get Started</a>
+  <a href="/account">Sign in</a>
+  <a href="/pricing" class="nav-link-cta">Get Started</a>
 </div>
 <!-- ═══ HERO ═══ -->
 <section class="hero">
@@ -514,9 +516,7 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){
 /* ── NAV ── */
 var nav=document.getElementById('nav');
 window.addEventListener('scroll',function(){nav.classList.toggle('scrolled',scrollY>40)});
-var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
-if(mb&&mm){mb.addEventListener('click',function(){var o=mm.classList.contains('open');mb.classList.toggle('open');mm.classList.toggle('open');mb.setAttribute('aria-expanded',String(!o));document.body.style.overflow=o?'':'hidden'});
-mm.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow=''})})}
+/* mob menu handled by /js/nav.js */
 document.querySelectorAll('a[href^="#"]').forEach(function(a){a.addEventListener('click',function(e){mm.classList.remove('open');mb.classList.remove('open');mb.setAttribute('aria-expanded','false');document.body.style.overflow='';var t=document.querySelector(this.getAttribute('href'));if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'})}})});
 
 /* ── SCROLL REVEAL ── */
@@ -1120,5 +1120,6 @@ if(termEl)termObs.observe(termEl);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <script src="js/auth-ui.js"></script>
+<script src="/js/nav.js"></script>
 </body>
 </html>

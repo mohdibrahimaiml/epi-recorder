@@ -142,28 +142,37 @@
 
         .hidden { display: none !important; }
     </style>
+<link rel="stylesheet" href="/css/epi.css?v=27">
 </head>
 <body>
-    <nav class="nav">
-        <div class="container nav-container">
-            <div class="nav-logo">
-                <a href="../index.html" title="Go to Home">
-                    <img src="../assets/logo.png" alt="EPI LABS" class="logo-img">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="../how-it-works.html#top">How It Works</a>
-                <a href="../technology.html">Technology</a>
-                <a href="../use-cases.html#top">Use Cases</a>
-                <a href="../verify.html">Verify</a>
-                <a href="../contact.html#top">Contact</a>
-            </div>
-            <div class="nav-cta">
-                <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="btn-secondary" target="_blank">GitHub</a>
-                <a href="../verify.html" class="btn-primary">Verify Another File</a>
-            </div>
-        </div>
-    </nav>
+    <!-- ═══ SITE NAV (Option A) ═══ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/how-it-works">Docs</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li class="nav-icon-item"><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" class="nav-icon-link" aria-label="GitHub" title="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+      </a></li>
+      <li id="nav-auth-slot"></li>
+      <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobMenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu" hidden>
+  <a href="/verify/">Verify</a>
+  <a href="/how-it-works">Docs</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/enterprise">Enterprise</a>
+  <a href="/viewer/">Decision Ops</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/account">Sign in</a>
+  <a href="/pricing" class="nav-link-cta">Get Started</a>
+</div>
+
 
     <main class="page-container">
         <canvas id="particle-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none; opacity: 0.6;"></canvas>
@@ -465,5 +474,7 @@
     </script>
     <script src="../js/app.js?v=8.0"></script>
     <script src="../js/particles.js?v=4.0.1"></script>
+<script src="/js/nav.js"></script>
+<script src="/js/auth-ui.js"></script>
 </body>
 </html>

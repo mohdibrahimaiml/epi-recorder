@@ -1243,8 +1243,11 @@ label {
     padding: 0 16px;
   }
 
-  .topnav-links .topnav-link:not(.topnav-link-icon) {
+  .topnav-links {
     display: none;
+  }
+  .topnav-burger {
+    display: flex;
   }
 
   .hero {
@@ -1317,4 +1320,91 @@ label {
     align-items: start;
     gap: 10px;
   }
+}
+
+/* ── Site-consistent topnav burger ───────────────────── */
+.topnav-app {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent, #0a84ff);
+  background: rgba(10, 132, 255, 0.1);
+  border: 1px solid rgba(10, 132, 255, 0.25);
+}
+.topnav-cta {
+  padding: 6px 12px !important;
+  border-radius: 8px;
+  background: var(--accent, #0a84ff);
+  color: #fff !important;
+  font-weight: 600;
+}
+.topnav-cta:hover { filter: brightness(1.05); }
+.topnav-burger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: inherit;
+}
+.topnav-burger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+.topnav-burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.topnav-burger.open span:nth-child(2) { opacity: 0; }
+.topnav-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.topnav-drawer {
+  display: none;
+  position: fixed;
+  top: var(--topnav-h, 58px);
+  left: 0; right: 0; bottom: 0;
+  z-index: 1200;
+  background: rgba(12, 14, 18, 0.96);
+  backdrop-filter: blur(16px);
+  flex-direction: column;
+  padding: 1.25rem 1.25rem 2rem;
+  gap: 0.25rem;
+  overflow-y: auto;
+}
+.topnav-drawer[hidden] { display: none !important; }
+.topnav-drawer.open { display: flex !important; }
+.topnav-drawer a {
+  display: block;
+  padding: 0.9rem 0.75rem;
+  color: #e8eaed;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.topnav-drawer a:hover,
+.topnav-drawer a[aria-current="page"] {
+  color: #fff;
+  background: rgba(10, 132, 255, 0.12);
+}
+.topnav-drawer-cta {
+  margin-top: 0.75rem;
+  text-align: center;
+  border-radius: 10px !important;
+  border-bottom: none !important;
+  background: #0a84ff !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+@media (max-width: 760px) {
+  .topnav-app { display: none; }
 }
