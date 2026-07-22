@@ -37,9 +37,16 @@
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
     </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/how-it-works">How It Works</a><a href="/verify/">Verify</a><a href="/pricing">Pricing</a>
+  <a href="/enterprise">Enterprise</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+</div>
 
 <main class="how-main">
   <h1>How EPI Works</h1>
@@ -181,5 +188,9 @@ with record("agent-decision.epi"):
     <a href="/refund" style="color:var(--accent)">Refunds</a>
   </p>
 </footer>
+<script>
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
+</script>
 <script src="js/theme.js"></script><script src="js/nav.js"></script></body>
 </html>

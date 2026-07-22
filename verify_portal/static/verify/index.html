@@ -39,9 +39,17 @@
       <li><a href="/how-it-works">How It Works</a></li>
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
     </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/how-it-works">How It Works</a><a href="/verify/">Verify</a><a href="/pricing">Pricing</a>
+  <a href="/enterprise">Enterprise</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+</div>
 
 <main class="verify-main">
   <h1 style="font-size:1.8rem;color:var(--ink);margin:0 0 8px">Verify .epi Evidence</h1>
@@ -49,7 +57,7 @@
 
   <div id="dropZone" class="drop-zone">
     <h2>Drop .epi file here</h2>
-    <p>or click to browse. Completely offline verification.</p>
+    <p>or click to browse. Envelope-v2 + ZIP supported. Crypto checks run offline.</p>
     <input type="file" id="fileInput" accept=".epi" style="display:none">
   </div>
 
@@ -68,7 +76,7 @@
   </div>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script src="../js/jszip.min.js" crossorigin="anonymous"></script>
 <script src="../js/epi-verify-core.js"></script>
 <script>
 var dropZone=document.getElementById('dropZone'),fileInput=document.getElementById('fileInput'),resultBox=document.getElementById('resultBox'),checksEl=document.getElementById('checks'),decisionBox=document.getElementById('decisionBox'),verifierHash=document.getElementById('verifierHash');
@@ -81,24 +89,35 @@ function addCheck(label,status){var row=document.createElement('div');row.classN
 async function handleFile(file){
   checksEl.innerHTML='';resultBox.classList.add('visible');decisionBox.className='decision-box';decisionBox.textContent='Verifying...';
   try{
-    if(window.verifyEPI){
+    if(typeof window.verifyEPI==='function'){
       var result=await window.verifyEPI(file);
-      addCheck('Structural Integrity',result.structure?'pass':'fail');
-      addCheck('Manifest Schema',result.manifest?'pass':'fail');
+      addCheck('Container / structure',result.structure?'pass':'fail');
+      addCheck('Manifest present',result.manifest?'pass':'fail');
       addCheck('SHA-256 File Integrity',result.integrity?'pass':'fail');
       addCheck('Hash Chain',result.hashChain?'pass':'fail');
-      addCheck('Ed25519 Signature',result.signature===true?'pass':(result.signature===null?'pending':'fail'));
-      var allPass=result.structure&&result.manifest&&result.integrity&&result.hashChain&&(result.signature===true||result.signature===null);
-      decisionBox.textContent=allPass?'DECISION: PASS':'DECISION: FAIL';
-      decisionBox.className='decision-box '+(allPass?'pass':'fail');
-      if(result.hash)verifierHash.textContent='SHA-256: '+result.hash;
+      addCheck('Ed25519 Signature',result.signature===true?'pass':(result.signature===false?'fail':'pending'));
+      if(!result.structure||!result.integrity||result.signature===false){
+        decisionBox.textContent='DECISION: FAIL';decisionBox.className='decision-box fail';
+      }else if(result.signature===true){
+        decisionBox.textContent='DECISION: WARN — valid seal, identity unknown in browser';
+        decisionBox.className='decision-box pass';
+        decisionBox.style.background='rgba(200,160,0,.12)';decisionBox.style.color='var(--warn)';
+      }else{
+        decisionBox.textContent='DECISION: PASS (integrity)';decisionBox.className='decision-box pass';
+      }
+      if(result.message){var m=document.createElement('div');m.style.cssText='margin-top:12px;font-size:.85rem;color:var(--ink-muted);line-height:1.5';m.textContent=result.message;checksEl.appendChild(m);}
+      if(result.hash)verifierHash.textContent='File SHA-256: '+result.hash;
     }else{
-      addCheck('Engine','fail');decisionBox.textContent='ERROR: Engine not loaded';decisionBox.className='decision-box fail';
+      addCheck('Engine','fail');decisionBox.textContent='ERROR: Engine not loaded (verifyEPI missing)';decisionBox.className='decision-box fail';
     }
   }catch(e){
     addCheck('Verification','fail');decisionBox.textContent='ERROR: '+e.message;decisionBox.className='decision-box fail';
   }
 }
+</script>
+<script>
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
 </script>
 <script src="../js/theme.js"></script>
 <script src="../js/nav.js"></script>

@@ -1,65 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Enterprise — EPI Labs</title>
-  <meta name="description" content="Enterprise path for EPI: org keys, strict verify, additive human review, air-gapped seal.">
-  <link rel="stylesheet" href="css/epi.css?v=24">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Enterprise — EPI Labs | Org keys, strict verify, bound review</title>
+<meta name="description" content="Enterprise path for EPI: org seal keys, trust bundles, strict verify, additive human review, air-gapped seal.">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="stylesheet" href="css/epi.css?v=25">
+<style>
+.ent-main{max-width:920px;margin:0 auto;padding:120px 24px 80px}
+.ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin:32px 0}
+.ent-card{background:var(--bg-card);border:1px solid var(--border-str);border-radius:16px;padding:28px 24px}
+.ent-card h3{margin:0 0 10px;font-size:1.05rem;color:var(--ink)}
+.ent-card p,.ent-card li{color:var(--ink-soft);font-size:.92rem;line-height:1.65;margin:0}
+.ent-card ul{margin:10px 0 0;padding-left:1.1rem}
+.ent-main pre{background:var(--bg-dark);border-radius:12px;padding:20px 22px;overflow-x:auto;border:1px solid var(--border)}
+.ent-main pre code{font-family:var(--mono);font-size:.82rem;color:#C8CDD5;background:transparent;padding:0}
+.ent-cta{display:inline-flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.ent-cta a{display:inline-block;padding:12px 22px;border-radius:10px;font-weight:600;text-decoration:none;font-size:.92rem}
+.ent-cta .primary{background:var(--accent);color:#fff}
+.ent-cta .secondary{border:1px solid var(--accent-line);color:var(--accent)}
+</style>
 </head>
 <body>
-  <header class="nav">
-    <div class="container nav-inner">
-      <a class="logo" href="/">EPI Labs</a>
-      <nav>
-        <a href="/how-it-works">How It Works</a>
-        <a href="/verify/">Verify</a>
-        <a href="/enterprise.html">Enterprise</a>
-        <a href="/pricing">Pricing</a>
-        <a href="https://github.com/mohdibrahimaiml/epi-recorder">GitHub</a>
-      </nav>
-    </div>
-  </header>
+<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links">
+      <li><a href="/how-it-works">How It Works</a></li>
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="/pricing" class="nav-link-cta">Get Started</a></li>
+    </ul>
+    <button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mob-menu" id="mobMenu">
+  <a href="/how-it-works">How It Works</a>
+  <a href="/verify/">Verify</a>
+  <a href="/pricing">Pricing</a>
+  <a href="/enterprise">Enterprise</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <a href="/pricing">Get Started</a>
+</div>
 
-  <main class="container" style="padding:4rem 1rem 6rem;max-width:48rem">
-    <div class="section-label">Enterprise</div>
-    <h1 class="section-title" style="margin-bottom:1rem">Org seals the run. Humans add bound reviews. Auditors verify offline.</h1>
-    <p class="section-desc" style="margin-bottom:2rem">
-      EPI is a <strong>file-first</strong> evidence layer — not a dashboard login.
-      Cryptography proves integrity and sealer keys; free-text names are claims, not HR identity.
-    </p>
+<main class="ent-main">
+  <div class="section-label">Enterprise</div>
+  <h1 style="font-size:clamp(1.8rem,3vw,2.4rem);color:var(--ink);margin:0 0 12px;line-height:1.2">
+    Org seals the run.<br>Humans add bound reviews.<br>Auditors verify offline.
+  </h1>
+  <p style="color:var(--ink-soft);font-size:1.05rem;max-width:36rem;line-height:1.65;margin:0 0 8px">
+    EPI is a <strong>file-first</strong> evidence layer — not a dashboard login.
+    Cryptography proves integrity and sealer keys; free-text names are claims, not HR identity.
+  </p>
+  <div class="ent-cta">
+    <a class="primary" href="https://pypi.org/project/epi-recorder/">pip install epi-recorder</a>
+    <a class="secondary" href="/verify/">Verify a file</a>
+  </div>
 
-    <h2 style="margin-top:2.5rem">Acceptance gate</h2>
-    <pre style="background:var(--bg-elev, #111);padding:1rem;border-radius:8px;overflow:auto"><code>epi keys generate --name org-seal
+  <h2 style="margin:56px 0 12px;font-size:1.35rem;color:var(--ink)">Acceptance gate</h2>
+  <p style="color:var(--ink-soft);font-size:.92rem;margin:0 0 16px">Commands security and CI should run.</p>
+  <pre><code>epi keys generate --name org-seal
 epi keys bundle-export --out org-trust-bundle.zip
-# … seal artifacts in CI with that key …
+# seal artifacts in CI with that key
 
 # Auditor / CI:
 epi keys bundle-import org-trust-bundle.zip
 epi verify artifact.epi --policy strict
 epi verify artifact_reviewed.epi --review</code></pre>
 
-    <h2 style="margin-top:2.5rem">Modes</h2>
-    <ul>
-      <li><strong>Air-gapped seal:</strong> <code>EPI_NOTARIZE=0</code></li>
-      <li><strong>Standard seal:</strong> RFC 3161 notarization on by default (network at seal only)</li>
-      <li><strong>Verify/view:</strong> integrity + signature offline; identity from local trust store</li>
-    </ul>
+  <div class="ent-grid">
+    <div class="ent-card">
+      <h3>Modes</h3>
+      <ul>
+        <li><strong>Air-gapped seal:</strong> <code>EPI_NOTARIZE=0</code></li>
+        <li><strong>Standard seal:</strong> RFC 3161 on by default (network at seal only)</li>
+        <li><strong>Verify / view:</strong> integrity + signature offline; identity from local trust store</li>
+      </ul>
+    </div>
+    <div class="ent-card">
+      <h3>What PASS means</h3>
+      <ul>
+        <li><code>--policy strict</code> → integrity + trusted sealer + completeness</li>
+        <li><code>--review</code> Binding True → v1.1 human review bound to sealed evidence</li>
+        <li>Standard-policy <strong>WARN</strong> with unknown key is expected until trust import</li>
+      </ul>
+    </div>
+    <div class="ent-card">
+      <h3>Docs</h3>
+      <ul>
+        <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-PROFILE.md" style="color:var(--accent)">Enterprise Trust Profile</a></li>
+        <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-BUNDLE.md" style="color:var(--accent)">Trust bundle guide</a></li>
+        <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/evidence-profile/v0.1.json" style="color:var(--accent)">Decision-grade profile v0.1</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
 
-    <h2 style="margin-top:2.5rem">What PASS means</h2>
-    <ul>
-      <li><code>--policy strict</code> PASS → integrity OK + sealer key trusted + completeness OK</li>
-      <li><code>--review</code> Binding True → human review bound to sealed evidence (v1.1)</li>
-      <li>WARN under standard policy with unknown key is <em>expected</em> until trust import</li>
-    </ul>
-
-    <p style="margin-top:2.5rem">
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-PROFILE.md">Enterprise Trust Profile</a>
-      ·
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-TRUST-BUNDLE.md">Trust bundle guide</a>
-      ·
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/evidence-profile/v0.1.json">Decision-grade profile v0.1</a>
-    </p>
-  </main>
+<footer style="text-align:center;padding:60px 24px;border-top:1px solid var(--border);margin-top:40px">
+  <img src="assets/logo.png" alt="EPI" width="40" style="margin-bottom:16px">
+  <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
+    &copy; 2026 EPI Labs ·
+    <a href="/" style="color:var(--accent)">Home</a> ·
+    <a href="/verify/" style="color:var(--accent)">Verify</a> ·
+    <a href="/pricing" style="color:var(--accent)">Pricing</a> ·
+    <a href="https://github.com/mohdibrahimaiml/epi-recorder" style="color:var(--accent)">GitHub</a>
+  </p>
+</footer>
+<script>
+var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
+if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
+</script>
+<script src="js/theme.js"></script>
 </body>
 </html>
