@@ -215,10 +215,10 @@
     var message = '';
     if (!integrity) {
       trust_level = 'NONE';
-      message = 'Integrity failed — do not trust';
+      message = 'Integrity failed - do not trust';
     } else if (sigResult.valid === false) {
       trust_level = 'NONE';
-      message = 'Signature invalid — do not trust';
+      message = 'Signature invalid - do not trust';
     } else if (sigResult.valid === true) {
       trust_level = 'LOW';
       identity = 'UNKNOWN';
@@ -226,7 +226,7 @@
     } else if (!manifest.signature) {
       trust_level = 'MEDIUM';
       identity = 'NONE';
-      message = 'Unsigned — integrity intact';
+      message = 'Unsigned - integrity intact';
     } else {
       trust_level = 'LOW';
       message = sigResult.reason || 'Signature check incomplete in this browser';
@@ -249,4 +249,8 @@
 
   global.verifyEPI = verifyEPI;
   global.epiExtractZipBytes = extractZipBytes;
+  if (typeof window !== 'undefined') {
+    window.verifyEPI = verifyEPI;
+    window.epiExtractZipBytes = extractZipBytes;
+  }
 })(typeof window !== 'undefined' ? window : globalThis);

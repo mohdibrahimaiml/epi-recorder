@@ -4,38 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>EPI Labs Verify | Cryptographic Evidence Verification for .epi Files</title>
-<meta name="description" content="EPI Labs verify — check .epi evidence files in your browser. Ed25519 signatures, SHA-256 integrity, hash chain verification. Works offline. No upload required.">
-<link rel="icon" type="image/x-icon" href="../favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="../favicon.ico">
-<link rel="apple-touch-icon" href="../favicon.ico">
-<link rel="stylesheet" href="../css/epi.css?v=24">
+<meta name="description" content="Verify .epi evidence files in your browser. Envelope-v2 + legacy ZIP, Ed25519, SHA-256. Offline. No upload.">
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/epi.css?v=26">
 <style>
 .verify-main{max-width:800px;margin:0 auto;padding:120px 24px 80px}
-.drop-zone{border:2px dashed var(--accent-line);border-radius:16px;padding:60px 40px;text-align:center;transition:all var(--ease) .2s;cursor:pointer;background:var(--bg-card)}
+.drop-zone{border:2px dashed var(--accent-line);border-radius:16px;padding:60px 40px;text-align:center;cursor:pointer;background:var(--bg-card);transition:all .2s}
 .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-glow);border-style:solid}
 .drop-zone h2{font-size:1.4rem;color:var(--ink);margin:0 0 8px}
 .drop-zone p{color:var(--ink-muted);margin:0;font-size:.92rem}
 .result-box{display:none;margin-top:32px;padding:24px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border-str)}
 .result-box.visible{display:block}
 .check-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.check-row:last-child{border-bottom:none}
 .check-row .label{flex:1;font-size:.9rem;color:var(--ink-soft)}
 .check-row .status{font-weight:600;font-size:.85rem}
-.status.pass{color:var(--verified)}
-.status.fail{color:var(--tamper)}
-.status.pending{color:var(--warn)}
-.decision-box{margin-top:20px;padding:16px;border-radius:10px;text-align:center;font-weight:700;font-size:1.1rem}
+.status.pass{color:var(--verified)}.status.fail{color:var(--tamper)}.status.pending{color:var(--warn)}
+.decision-box{margin-top:20px;padding:16px;border-radius:10px;text-align:center;font-weight:700;font-size:1.05rem}
 .decision-box.pass{background:var(--verified-bg);color:var(--verified)}
+.decision-box.warn{background:rgba(200,160,0,.12);color:var(--warn)}
 .decision-box.fail{background:var(--tamper-bg);color:var(--tamper)}
 .verifier-hash{font-family:var(--mono);font-size:.75rem;color:var(--ink-muted);text-align:center;margin-top:12px;word-break:break-all}
-.back-link{display:inline-block;margin-top:32px;color:var(--accent);text-decoration:none;font-size:.9rem}
+.engine-status{font-size:.8rem;color:var(--ink-muted);margin:0 0 16px}
+.engine-status.ok{color:var(--verified)}.engine-status.bad{color:var(--tamper)}
 </style>
 </head>
 <body>
-<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+<nav id="nav" style="background:var(--bg);backdrop-filter:blur(20px)">
   <div class="nav-inner">
-    <a href="/" class="nav-logo"><img src="../assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nav-links">
+    <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nav-links" id="navLinks">
       <li><a href="/how-it-works">How It Works</a></li>
       <li><a href="/verify/">Verify</a></li>
       <li><a href="/pricing">Pricing</a></li>
@@ -46,19 +43,25 @@
   </div>
 </nav>
 <div class="mob-menu" id="mobMenu">
-  <a href="/how-it-works">How It Works</a><a href="/verify/">Verify</a><a href="/pricing">Pricing</a>
+  <a href="/how-it-works">How It Works</a>
+  <a href="/verify/">Verify</a>
+  <a href="/pricing">Pricing</a>
   <a href="/enterprise">Enterprise</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
 </div>
 
 <main class="verify-main">
-  <h1 style="font-size:1.8rem;color:var(--ink);margin:0 0 8px">Verify .epi Evidence</h1>
-  <p style="color:var(--ink-soft);margin:0 0 40px">Drop or select a .epi file. Verification runs entirely in your browser — no upload, no server, no calling home.</p>
+  <div class="section-label">Verify</div>
+  <h1 style="font-size:1.9rem;color:var(--ink);margin:0 0 8px">Verify .epi evidence</h1>
+  <p style="color:var(--ink-soft);margin:0 0 12px;line-height:1.6">
+    Drop a sealed <code>.epi</code> file. Checks run in your browser (envelope-v2 + legacy ZIP). Nothing is uploaded.
+  </p>
+  <p id="engineStatus" class="engine-status">Loading verifier engine...</p>
 
   <div id="dropZone" class="drop-zone">
     <h2>Drop .epi file here</h2>
-    <p>or click to browse. Envelope-v2 + ZIP supported. Crypto checks run offline.</p>
-    <input type="file" id="fileInput" accept=".epi" style="display:none">
+    <p>or click to browse</p>
+    <input type="file" id="fileInput" accept=".epi,application/octet-stream" style="display:none">
   </div>
 
   <div id="resultBox" class="result-box">
@@ -66,61 +69,117 @@
     <div id="decisionBox" class="decision-box"></div>
     <div class="verifier-hash" id="verifierHash"></div>
   </div>
-  <a href="/" class="back-link">&#8592; Back to EPI Labs</a>
-
-  <div style="margin-top:40px;padding:20px 24px;background:var(--accent-glow);border:1px solid var(--accent-line);border-radius:12px;text-align:center">
-    <p style="color:var(--ink-soft);font-size:.88rem;margin:0 0 8px">
-      Free tier: 3 verifications/day per IP. <strong>Sign in to get 10K/month.</strong>
-    </p>
-    <a href="/account" style="color:var(--accent);font-weight:600;font-size:.9rem">Sign in with GitHub →</a>
-  </div>
+  <p style="margin-top:28px;font-size:.88rem;color:var(--ink-muted)">
+    CLI: <code>epi verify file.epi</code> ·
+    <a href="/enterprise" style="color:var(--accent)">Enterprise path</a>
+  </p>
 </main>
 
-<script src="../js/jszip.min.js" crossorigin="anonymous"></script>
-<script src="../js/epi-verify-core.js"></script>
+<footer style="text-align:center;padding:48px 24px;border-top:1px solid var(--border);margin-top:40px">
+  <p style="color:var(--ink-muted);font-size:.85rem;margin:0">
+    &copy; 2026 EPI Labs · <a href="/" style="color:var(--accent)">Home</a> ·
+    <a href="/enterprise" style="color:var(--accent)">Enterprise</a>
+  </p>
+</footer>
+
+<!-- Absolute paths (not ../) so /verify and /verify/ both resolve -->
+<script src="/js/jszip.min.js?v=26"></script>
+<script src="/js/epi-verify-core.js?v=26"></script>
 <script>
-var dropZone=document.getElementById('dropZone'),fileInput=document.getElementById('fileInput'),resultBox=document.getElementById('resultBox'),checksEl=document.getElementById('checks'),decisionBox=document.getElementById('decisionBox'),verifierHash=document.getElementById('verifierHash');
-dropZone.addEventListener('click',function(){fileInput.click()});
-dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('drag-over')});
-dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('drag-over')});
-dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');handleFile(e.dataTransfer.files[0])});
-fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0])});
-function addCheck(label,status){var row=document.createElement('div');row.className='check-row';row.innerHTML='<span class="label">'+label+'</span><span class="status '+status+'">'+status.toUpperCase()+'</span>';checksEl.appendChild(row)}
-async function handleFile(file){
-  checksEl.innerHTML='';resultBox.classList.add('visible');decisionBox.className='decision-box';decisionBox.textContent='Verifying...';
-  try{
+(function(){
+  var engineStatus=document.getElementById('engineStatus');
+  function markEngine(){
     if(typeof window.verifyEPI==='function'){
-      var result=await window.verifyEPI(file);
-      addCheck('Container / structure',result.structure?'pass':'fail');
-      addCheck('Manifest present',result.manifest?'pass':'fail');
-      addCheck('SHA-256 File Integrity',result.integrity?'pass':'fail');
-      addCheck('Hash Chain',result.hashChain?'pass':'fail');
-      addCheck('Ed25519 Signature',result.signature===true?'pass':(result.signature===false?'fail':'pending'));
-      if(!result.structure||!result.integrity||result.signature===false){
-        decisionBox.textContent='DECISION: FAIL';decisionBox.className='decision-box fail';
-      }else if(result.signature===true){
-        decisionBox.textContent='DECISION: WARN — valid seal, identity unknown in browser';
-        decisionBox.className='decision-box pass';
-        decisionBox.style.background='rgba(200,160,0,.12)';decisionBox.style.color='var(--warn)';
-      }else{
-        decisionBox.textContent='DECISION: PASS (integrity)';decisionBox.className='decision-box pass';
-      }
-      if(result.message){var m=document.createElement('div');m.style.cssText='margin-top:12px;font-size:.85rem;color:var(--ink-muted);line-height:1.5';m.textContent=result.message;checksEl.appendChild(m);}
-      if(result.hash)verifierHash.textContent='File SHA-256: '+result.hash;
-    }else{
-      addCheck('Engine','fail');decisionBox.textContent='ERROR: Engine not loaded (verifyEPI missing)';decisionBox.className='decision-box fail';
+      engineStatus.textContent='Verifier engine ready (envelope-v2 + ZIP).';
+      engineStatus.className='engine-status ok';
+      return true;
     }
-  }catch(e){
-    addCheck('Verification','fail');decisionBox.textContent='ERROR: '+e.message;decisionBox.className='decision-box fail';
+    engineStatus.textContent='Verifier engine failed to load. Hard-refresh (Ctrl+Shift+R) or try another browser.';
+    engineStatus.className='engine-status bad';
+    return false;
   }
-}
+  // Re-check after scripts; also on window load
+  markEngine();
+  window.addEventListener('load', markEngine);
+
+  var dropZone=document.getElementById('dropZone');
+  var fileInput=document.getElementById('fileInput');
+  var resultBox=document.getElementById('resultBox');
+  var checksEl=document.getElementById('checks');
+  var decisionBox=document.getElementById('decisionBox');
+  var verifierHash=document.getElementById('verifierHash');
+
+  dropZone.addEventListener('click',function(){fileInput.click()});
+  dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('drag-over')});
+  dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('drag-over')});
+  dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0])});
+  fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0])});
+
+  function addCheck(label,status){
+    var row=document.createElement('div');
+    row.className='check-row';
+    row.innerHTML='<span class="label">'+label+'</span><span class="status '+status+'">'+status.toUpperCase()+'</span>';
+    checksEl.appendChild(row);
+  }
+
+  async function handleFile(file){
+    checksEl.innerHTML='';
+    resultBox.classList.add('visible');
+    decisionBox.className='decision-box';
+    decisionBox.textContent='Verifying...';
+    decisionBox.style.background='';
+    decisionBox.style.color='';
+    verifierHash.textContent='';
+
+    if(typeof window.verifyEPI!=='function'){
+      addCheck('Engine','fail');
+      decisionBox.textContent='ERROR: Engine not loaded (verifyEPI missing). Hard-refresh the page.';
+      decisionBox.className='decision-box fail';
+      markEngine();
+      return;
+    }
+    if(typeof JSZip==='undefined'){
+      addCheck('JSZip','fail');
+      decisionBox.textContent='ERROR: JSZip failed to load from /js/jszip.min.js';
+      decisionBox.className='decision-box fail';
+      return;
+    }
+
+    try{
+      var result=await window.verifyEPI(file);
+      addCheck('Container / structure', result.structure?'pass':'fail');
+      addCheck('Manifest present', result.manifest?'pass':'fail');
+      addCheck('SHA-256 file integrity', result.integrity?'pass':'fail');
+      addCheck('Ed25519 signature', result.signature===true?'pass':(result.signature===false?'fail':'pending'));
+      addCheck('Identity (browser)', result.identity==='KNOWN'?'pass':'pending');
+
+      if(!result.structure||!result.integrity||result.signature===false){
+        decisionBox.textContent='DECISION: FAIL';
+        decisionBox.className='decision-box fail';
+      }else if(result.signature===true){
+        decisionBox.textContent='DECISION: WARN - valid seal, identity unknown in browser';
+        decisionBox.className='decision-box warn';
+      }else{
+        decisionBox.textContent='DECISION: PASS (integrity)';
+        decisionBox.className='decision-box pass';
+      }
+      if(result.message){
+        var m=document.createElement('div');
+        m.style.cssText='margin-top:12px;font-size:.85rem;color:var(--ink-muted);line-height:1.5';
+        m.textContent=result.message;
+        checksEl.appendChild(m);
+      }
+      if(result.hash) verifierHash.textContent='File SHA-256: '+result.hash;
+    }catch(e){
+      addCheck('Verification','fail');
+      decisionBox.textContent='ERROR: '+(e && e.message ? e.message : e);
+      decisionBox.className='decision-box fail';
+    }
+  }
+
+  var mb=document.getElementById('mobBtn'), mm=document.getElementById('mobMenu');
+  if(mb&&mm) mb.addEventListener('click', function(){ mm.classList.toggle('open'); });
+})();
 </script>
-<script>
-var mb=document.getElementById('mobBtn'),mm=document.getElementById('mobMenu');
-if(mb&&mm)mb.addEventListener('click',function(){mm.classList.toggle('open')});
-</script>
-<script src="../js/theme.js"></script>
-<script src="../js/nav.js"></script>
-<script src="../js/auth-ui.js"></script>
 </body>
 </html>
