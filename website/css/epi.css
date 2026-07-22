@@ -383,3 +383,156 @@ footer{border-top:1px solid var(--border);padding:48px 0;background:var(--bg-alt
 @media (max-width: 1100px) {
   .nav-links .nav-icon-item { display:none; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE / PHONE POLISH (phones ≠ desktop — intentional layout,
+   but must be readable, non-overflowing, and nav-usable)
+   ═══════════════════════════════════════════════════════════ */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+
+/* Always solid nav on small screens so content never shows through */
+@media (max-width: 1100px) {
+  nav {
+    background: rgba(250,250,248,0.97) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+  }
+  [data-theme="dark"] nav {
+    background: rgba(12,12,14,0.97) !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .nav-inner { height: 60px; gap: 8px; }
+  .nav-logo img { height: 42px !important; width: auto; max-width: 42vw; object-fit: contain; }
+  .nav-mob {
+    display: flex !important;
+    min-width: 48px;
+    min-height: 48px;
+    margin-left: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-links { display: none !important; }
+
+  .mob-menu {
+    top: calc(60px + env(safe-area-inset-top, 0px));
+    z-index: 1100;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+    background: rgba(250,250,248,0.99) !important;
+  }
+  [data-theme="dark"] .mob-menu {
+    background: rgba(13,17,23,0.99) !important;
+  }
+  .mob-menu a {
+    font-size: 1.05rem;
+    padding: 14px 12px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .mob-menu a.nav-link-cta {
+    margin-top: 12px;
+    justify-content: center;
+    border-radius: 12px !important;
+    border-bottom: none !important;
+    background: var(--accent) !important;
+    color: #fff !important;
+  }
+}
+
+/* Phones (≤480) — tighter type & spacing */
+@media (max-width: 480px) {
+  body { font-size: 16px; }
+  .hero {
+    min-height: auto;
+    padding: 96px 16px 56px !important;
+  }
+  .hero h1 {
+    font-size: clamp(1.85rem, 8.5vw, 2.6rem) !important;
+    letter-spacing: -0.03em;
+    margin-bottom: 18px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .hero-sub {
+    font-size: 0.98rem !important;
+    margin-bottom: 28px !important;
+    max-width: 100%;
+  }
+  .hero-actions {
+    width: 100%;
+    gap: 10px;
+  }
+  .hero-actions .btn {
+    width: 100%;
+    max-width: none;
+    font-size: 0.95rem;
+    padding: 14px 18px;
+  }
+  .section-title { font-size: clamp(1.45rem, 6vw, 1.85rem) !important; }
+  .section-desc { font-size: 0.95rem !important; max-width: 100%; }
+  .container { padding-left: 16px; padding-right: 16px; }
+  .thesis-quote { font-size: 1.15rem !important; line-height: 1.45 !important; }
+  .epi-badge { font-size: 0.45em; }
+
+  /* Tables: horizontal scroll instead of blowing layout */
+  .trust-table,
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trust-table table,
+  .trust-table {
+    max-width: 100%;
+  }
+
+  .terminal-frame { border-radius: 12px; margin-left: 0; margin-right: 0; }
+  .terminal-body {
+    font-size: 0.62rem !important;
+    padding: 14px !important;
+    min-height: 220px !important;
+    max-height: 360px !important;
+  }
+
+  .footer-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 16px !important;
+  }
+  .footer-copy { font-size: 0.78rem; line-height: 1.5; }
+
+  pre, code, .int-code, .demo-code {
+    max-width: 100%;
+    overflow-x: auto;
+    word-break: break-word;
+  }
+
+  .pillar, .int-card, .std-card, .pricing-card {
+    max-width: 100%;
+  }
+}
+
+/* Mid phones / large phones */
+@media (max-width: 768px) {
+  .nav-logo img { height: 48px !important; }
+  .hero h1 { font-size: clamp(2rem, 9vw, 3rem) !important; }
+  /* prevent horizontal page scroll from wide children */
+  section, .container, main {
+    max-width: 100vw;
+    overflow-x: clip;
+  }
+  img { max-width: 100%; height: auto; }
+}
+
+/* Ensure burger always wins over any leftover desktop flex */
+@media (max-width: 1100px) {
+  #navLinks { display: none !important; }
+  #mobBtn { display: flex !important; }
+}
