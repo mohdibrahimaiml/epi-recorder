@@ -536,3 +536,86 @@ body { overflow-x: hidden; }
   #navLinks { display: none !important; }
   #mobBtn { display: flex !important; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE OVERLAP FIXES — scroll cue + floating controls
+   ═══════════════════════════════════════════════════════════ */
+
+/* Fixed nav must not cover section anchors when scrolling */
+html {
+  scroll-padding-top: 76px;
+}
+
+/* Desktop: keep scroll cue clear of hero buttons */
+.scroll-ind {
+  pointer-events: none;
+  z-index: 2;
+  bottom: 28px;
+}
+.hero {
+  /* room so absolute scroll cue does not sit on CTAs */
+  padding-bottom: 140px;
+}
+
+/* Phones/tablets: the "Scroll" cue overlaps hero buttons — hide it */
+@media (max-width: 900px) {
+  .scroll-ind {
+    display: none !important;
+  }
+  .hero {
+    padding-bottom: 64px !important;
+  }
+  html {
+    scroll-padding-top: 68px;
+  }
+}
+
+/* Floating theme button must not cover CTAs / footers on small screens */
+@media (max-width: 768px) {
+  .theme-toggle {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    right: max(12px, env(safe-area-inset-right));
+    width: 40px;
+    height: 40px;
+    opacity: 0.92;
+    z-index: 900; /* below open mobile menu (1100) */
+  }
+  /* When mobile menu is open, hide floating controls completely */
+  body:has(.mob-menu.is-open) .theme-toggle,
+  body:has(.mob-menu.open) .theme-toggle {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Terminal internal scrollbar should not feel like a second page scroll */
+@media (max-width: 768px) {
+  .terminal-body {
+    overscroll-behavior: contain;
+  }
+  /* Nested scroll areas: give a clear edge so they don't look "stuck on" content */
+  .terminal-frame {
+    margin-bottom: 8px;
+  }
+  .trust-table {
+    margin-bottom: 8px;
+    border-radius: 12px;
+  }
+  /* Extra bottom breathing room so last sections aren't under home indicator */
+  footer {
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+}
+
+/* iOS momentum: avoid double-scroll fight between body and fixed layers */
+@media (max-width: 1100px) {
+  .mob-menu {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body {
+    overscroll-behavior-x: none;
+  }
+}
+
