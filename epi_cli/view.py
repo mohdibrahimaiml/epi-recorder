@@ -235,184 +235,106 @@ def _open_native_viewer(epi_path: Path) -> bool:
     except Exception:
         return False
 
-def _open_via_local_http(viewer_path: Path) -> tuple[str | None, object | None]:
-    """
-    Serve the viewer directory over http://127.0.0.1.
+def _pick_free_localhost_port() -> int | None:
+    import socket
 
-    Returns (url, httpd). Caller MUST keep the process alive and call
-    httpd.shutdown() when done — daemon threads die when epi view exits,
-    which caused ERR_CONNECTION_REFUSED for users.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return int(sock.getsockname()[1])
+    except OSError:
+        return None
 
-    file:// breaks for many real users (Edge/Chrome restrictions, large HTML).
+
+def _spawn_detached_viewer_server(
+    viewer_path: Path,
+    *,
+    lifetime_seconds: float = 900.0,
+) -> str | None:
     """
-    import http.server
-    import socketserver
+    Start a background process that serves the viewer over localhost.
+
+    Simple UX: `epi view` opens the browser and returns to the prompt immediately.
+    No "leave this window open / press Enter" ceremony.
+    """
+    port = _pick_free_localhost_port()
+    if port is None:
+        return None
 
     directory = viewer_path.parent.resolve()
     filename = viewer_path.name
+    url = f"http://127.0.0.1:{port}/{filename}"
 
-    class _QuietHandler(http.server.SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=str(directory), **kwargs)
+    cmd = [
+        sys.executable,
+        "-m",
+        "epi_cli.view_server",
+        str(directory),
+        str(port),
+        str(int(lifetime_seconds)),
+    ]
 
-        def log_message(self, format: str, *args) -> None:  # noqa: A003
-            return
+    popen_kwargs: dict = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if sys.platform == "win32":
+        # Detach so closing the user's PowerShell does not kill the server.
+        create_flags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+        create_flags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+        create_flags |= getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        popen_kwargs["creationflags"] = create_flags
+    else:
+        popen_kwargs["start_new_session"] = True
 
     try:
-        socketserver.TCPServer.allow_reuse_address = True
-        httpd = socketserver.TCPServer(("127.0.0.1", 0), _QuietHandler)
-        port = int(httpd.server_address[1])
-    except OSError:
-        return None, None
-
-    def _serve() -> None:
-        try:
-            httpd.serve_forever(poll_interval=0.5)
-        except Exception:
-            pass
-        try:
-            httpd.server_close()
-        except Exception:
-            pass
-
-    # Non-daemon: process must stay alive for the browser to load the page.
-    threading.Thread(target=_serve, name="epi-view-http", daemon=False).start()
-    return f"http://127.0.0.1:{port}/{filename}", httpd
-
-
-def _shutdown_viewer_server(httpd: object | None) -> None:
-    if httpd is None:
-        return
-    try:
-        httpd.shutdown()  # type: ignore[attr-defined]
+        subprocess.Popen(cmd, **popen_kwargs)
     except Exception:
-        pass
-    try:
-        httpd.server_close()  # type: ignore[attr-defined]
-    except Exception:
-        pass
+        return None
+
+    # Brief wait so the first browser request does not race bind()
+    time.sleep(0.35)
+    return url
 
 
-def _keep_viewer_server_alive(
-    httpd: object | None,
-    *,
-    lifetime_seconds: float = 900.0,
-) -> None:
-    """
-    Block until the user finishes or lifetime elapses.
-
-    Interactive terminals: wait for Enter / Ctrl+C.
-    Double-click / no TTY: sleep so Explorer-launched epi.exe does not exit
-    immediately (which would kill the server → connection refused).
-    """
-    if httpd is None:
-        return
-    # Tests must not block for 15 minutes when view() opens a real HTTP server.
-    if os.environ.get("EPI_VIEW_NO_WAIT") == "1" or os.environ.get("PYTEST_CURRENT_TEST"):
-        _shutdown_viewer_server(httpd)
-        return
-    try:
-        if sys.stdin is not None and sys.stdin.isatty():
-            console.print("")
-            console.print(
-                "[bold yellow]Leave this window open while you use the viewer.[/bold yellow]"
-            )
-            console.print(
-                "[dim]Press [cyan]Enter[/cyan] here when finished "
-                f"(or wait {int(lifetime_seconds // 60)} min).[/dim]"
-            )
-            try:
-                # Cross-platform-ish wait with timeout via select when available
-                if sys.platform == "win32":
-                    # msvcrt cannot wait on stdin with timeout easily; use input in a thread
-                    done = threading.Event()
-
-                    def _wait_enter() -> None:
-                        try:
-                            input()
-                        except EOFError:
-                            pass
-                        done.set()
-
-                    threading.Thread(target=_wait_enter, daemon=True).start()
-                    done.wait(timeout=lifetime_seconds)
-                else:
-                    import select
-
-                    select.select([sys.stdin], [], [], lifetime_seconds)
-            except (EOFError, KeyboardInterrupt, OSError):
-                pass
-        else:
-            console.print(
-                f"[dim]Viewer server running ~{int(lifetime_seconds // 60)} min "
-                "(no interactive console).[/dim]"
-            )
-            time.sleep(lifetime_seconds)
-    finally:
-        _shutdown_viewer_server(httpd)
-
-
-def _open_in_browser(viewer_path: Path) -> object | None:
-    """
-    Open viewer in the default browser (prefer localhost HTTP over file://).
-
-    Returns the live HTTP server object when HTTP mode is used (caller should
-    keep process alive via _keep_viewer_server_alive), else None.
-    """
+def _open_in_browser(viewer_path: Path) -> None:
+    """Open the viewer simply: background server + browser, then return."""
     opened = False
-    open_target: str | None = None
-    httpd: object | None = None
-    http_url: str | None = None
 
-    # 1) Local HTTP — works in Edge/Chrome when file:// does not
-    http_url, httpd = _open_via_local_http(viewer_path)
+    # 1) Detached localhost HTTP (reliable in Edge/Chrome; CLI can exit)
+    http_url = _spawn_detached_viewer_server(viewer_path)
     if http_url:
-        open_target = http_url
         try:
             webbrowser.open(http_url)
             opened = True
-            console.print(f"[bold green]Browser URL:[/bold green] {http_url}")
+            console.print(f"[green]Opened viewer[/green]  {http_url}")
         except Exception:
             opened = False
-            _shutdown_viewer_server(httpd)
-            httpd = None
 
-    # 2) Windows: open the HTML path (file association)
+    # 2) Windows file association / startfile
     if not opened and sys.platform == "win32":
         try:
-            import os
-
             os.startfile(str(viewer_path))  # type: ignore[attr-defined]
             opened = True
-            open_target = str(viewer_path)
+            console.print(f"[green]Opened viewer[/green]  {viewer_path}")
         except Exception:
             pass
 
-    # 3) file:// URI fallback
+    # 3) file:// last resort
     if not opened:
         try:
-            uri = viewer_path.as_uri()
-            webbrowser.open(uri)
+            webbrowser.open(viewer_path.as_uri())
             opened = True
-            open_target = uri
+            console.print(f"[green]Opened viewer[/green]  {viewer_path}")
         except Exception:
             pass
 
     if not opened:
-        console.print("\n[yellow]Could not open browser automatically.[/yellow]")
-        console.print("   Open this file manually in your browser:")
-        console.print(f"   {viewer_path}")
-        if http_url:
-            console.print(f"   or: {http_url}")
-            return httpd
-        return None
-
-    if open_target and str(open_target).startswith("file:"):
-        console.print(
-            "[dim]Tip: if the page stays blank, re-run [cyan]epi view[/cyan] "
-            "(uses a local http:// link) or open https://epilabs.org/verify[/dim]"
-        )
-    return httpd
+        console.print("[yellow]Could not open the browser automatically.[/yellow]")
+        console.print(f"  Open this file yourself: {viewer_path}")
+        console.print("  Or upload at: https://epilabs.org/verify")
 
 
 def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 30.0) -> None:
@@ -814,17 +736,14 @@ def view(
             viewer = _refresh_viewer_html(viewer_dir, resolved_path)
             _inject_viewer_context(viewer, viewer_context)
 
-        httpd = _open_in_browser(viewer)
+        _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
         console.print(
-            "[dim]Seal check is host-verified. "
-            "Identity UNKNOWN/WARN is normal until [cyan]epi keys trust[/cyan].[/dim]"
+            "[dim]Seal OK + new signer is normal. "
+            "Optional: [cyan]epi keys trust[/cyan] then [cyan]epi verify[/cyan].[/dim]"
         )
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
-        # Must not exit while the local HTTP server is serving the page
-        # (otherwise the browser shows ERR_CONNECTION_REFUSED).
-        _keep_viewer_server_alive(httpd)
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly
