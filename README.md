@@ -134,7 +134,10 @@ demo.epi
 | **Privacy** | Default redaction (API keys, tokens, common secrets) |
 | **Human review** | Additive bound review — does **not** rewrite the original seal |
 
-Sample artifact used for docs: [`docs/assets/readme-demo.epi`](docs/assets/readme-demo.epi).
+Sample artifacts (current seal shell): [`docs/assets/readme-demo.epi`](docs/assets/readme-demo.epi),
+[`sample-hello.epi`](docs/assets/sample-hello.epi) — see [`docs/assets/SAMPLES.md`](docs/assets/SAMPLES.md).
+`epi verify` on these samples is **WARN** (signature valid, signer not pinned) until
+`epi keys trust docs/assets/sample-hello.epi --name sample`.
 
 ---
 
