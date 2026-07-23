@@ -237,14 +237,19 @@ class EPIContainer:
                 if filename not in _RESERVED_ROOT_ARCHIVE_NAMES and (source_dir / filename).exists()
             },
             "integrity": {
+                # Seal-time placeholder; sealed viewer re-checks preloaded file hashes in-browser.
                 "ok": True,
                 "checked": len(manifest.file_manifest),
                 "mismatches": [],
             },
             "signature": {
+                # Do not claim VALID at seal time — browser runs noble-ed25519 self-check on open.
                 "valid": False,
+                "self_check_pending": bool(manifest.signature),
                 "reason": (
-                    "Open this case file through epi view to verify the signer and file integrity."
+                    "Browser will self-check Ed25519 on open (noble-ed25519). "
+                    "For full trust/identity policy use: epi verify <path-to-file.epi> "
+                    "or https://epilabs.org/verify"
                     if manifest.signature
                     else "No signer attached to this case file"
                 ),
@@ -256,6 +261,13 @@ class EPIContainer:
             "ui": {
                 "view": "case",
                 "embeddedArtifactMode": True,
+                # Declares what the sealed shell can do offline (readers may show "legacy" if absent).
+                "viewer_capabilities": [
+                    "self_check_ed25519_v1",
+                    "integrity_preload_v1",
+                    "integrity_archive_v1",
+                    "trust_scorecard_v1",
+                ],
             },
         }
 
@@ -809,8 +821,18 @@ class EPIContainer:
             f"1. Extract manifest.json from this ZIP archive.\n"
             f"2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.\n"
             f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n\n"
-            f"COMMAND LINE:\n"
-            f"  python -m epi_cli verify <this_file>.epi\n\n"
+            f"COMMAND LINE (use a full path if the file is not in your current folder):\n"
+            f"  epi verify \"C:\\path\\to\\this_file.epi\"\n"
+            f"  python -m epi_cli verify \"C:\\path\\to\\this_file.epi\"\n\n"
+            f"SIMPLE PATH:\n"
+            f"  1. Open viewer.html (quick seal check in the browser)\n"
+            f"  2. Or:  epi verify \"C:\\\\path\\\\to\\\\this_file.epi\"\n"
+            f"  3. Or:  https://epilabs.org/verify  (no install)\n\n"
+            f"OPTIONAL (teams — remember who signed):\n"
+            f"  epi keys trust \"C:\\\\path\\\\to\\\\this_file.epi\" --name sealer\n"
+            f"  epi verify \"C:\\\\path\\\\to\\\\this_file.epi\"\n\n"
+            f"Note: a valid signature means the package seal checks out.\n"
+            f"It does not by itself prove which company you trust — pin keys for that.\n\n"
             f"This artifact is a signed, tamper-evident record.\n",
             encoding="utf-8"
         )

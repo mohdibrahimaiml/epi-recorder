@@ -1,7 +1,7 @@
 'use strict';
 
 // ============================================================
-//  EPI FORENSIC VIEWER not verified app.js
+//  EPI FORENSIC VIEWER — app.js
 //  Loads injected JSON, renders all sections of the forensic
 //  document. No frameworks. No external dependencies beyond
 //  what viewer_assets.py inlines.
@@ -26,7 +26,7 @@ function trunc(s, maxLen) {
 
 /** Format an ISO timestamp as HH:MM:SS.mmm (local time). */
 function fmtTime(iso) {
-  if (!iso) return 'not verified';
+  if (!iso) return '—';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
@@ -40,7 +40,7 @@ function fmtTime(iso) {
 
 /** Format an ISO timestamp as a readable date string. */
 function fmtDate(iso) {
-  if (!iso) return 'not verified';
+  if (!iso) return '—';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
@@ -98,7 +98,7 @@ function summarizeStep(step) {
       case 'session.end': {
         const dur = c.duration_seconds != null ? c.duration_seconds : '?';
         const ok = c.success === true ? 'success' : (c.success === false ? 'error' : 'unknown');
-        return `Completed in ${dur}s not verified ${ok}`;
+        return `Completed in ${dur}s — ${ok}`;
       }
 
       case 'environment.captured': {
@@ -139,7 +139,7 @@ function summarizeStep(step) {
       case 'agent.decision': {
         const decision = String(c.decision || c.verdict || '?').toUpperCase();
         const rationale = c.rationale || c.reasoning || c.reason || '';
-        return `Decision: ${decision}${rationale ? ' not verified ' + trunc(rationale, 160) : ''}`;
+        return `Decision: ${decision}${rationale ? ' — ' + trunc(rationale, 160) : ''}`;
       }
 
       case 'agent.approval.request': {
@@ -175,14 +175,14 @@ function summarizeStep(step) {
         const dti = c.debt_to_income != null ? `DTI: ${c.debt_to_income}` : '';
         const result = c.result || c.status || '';
         const parts = [score, dti, result ? `Result: ${result}` : ''].filter(Boolean);
-        return `Credit check not verified ${parts.join(' · ')}`;
+        return `Credit check — ${parts.join(' · ')}`;
       }
 
       case 'policy.check': {
         const ruleId = c.rule_id || c.id || c.matched_rule || (c.agt_data && c.agt_data.policy_name) || '?';
         const status = c.status || c.policy_decision || '?';
         const note = c.note || c.message || '';
-        return `Rule ${ruleId}: ${status}${note ? ' not verified ' + trunc(note, 120) : ''}`;
+        return `Rule ${ruleId}: ${status}${note ? ' — ' + trunc(note, 120) : ''}`;
       }
 
       case 'source.record.loaded': {
@@ -321,10 +321,10 @@ function renderHeader(caseData, context) {
     || caseData.source_name?.slice(0, 8)
     || 'Unknown Artifact';
 
-  const uuid = m.workflow_id || m.artifact_uuid || caseData.source_name || 'not verified';
-  const createdAt = m.created_at ? fmtDate(m.created_at) : 'not verified';
+  const uuid = m.workflow_id || m.artifact_uuid || caseData.source_name || '—';
+  const createdAt = m.created_at ? fmtDate(m.created_at) : '—';
   const container = m.container_format || 'unknown';
-  const spec = m.spec_version || 'not verified';
+  const spec = m.spec_version || '—';
 
   document.getElementById('header-title').textContent = workflowName.replace(/_/g, ' ');
   document.getElementById('header-uuid').textContent = 'UUID: ' + uuid;
@@ -332,34 +332,69 @@ function renderHeader(caseData, context) {
   document.getElementById('meta-container').textContent = container;
   document.getElementById('meta-spec').textContent = spec;
   document.getElementById('meta-steps').textContent = steps.length + ' step' + (steps.length !== 1 ? 's' : '');
-  document.title = workflowName + ' not verified EPI Forensic Viewer';
+  document.title = workflowName + ' — EPI Forensic Viewer';
 
-  // Status pills
+  // Status pills — separate crypto vs identity (never one green "trusted")
   const pillsEl = document.getElementById('header-pills');
-  const intOk = caseData.integrity?.ok !== false;
-  // Prefer live context sig_valid, fall back to case payload signature.valid
-  const sigValid = context != null ? context.signature_valid : caseData.signature?.valid;
-  const sigVerified = sigValid === true;
+  const intScope = (caseData.integrity && caseData.integrity.scope)
+    || (context && context.integrity_scope)
+    || null;
+  const intOk = caseData.integrity?.ok !== false
+    && (context ? context.integrity_ok !== false : true);
+  const sigValid = context != null && context.signature_valid != null
+    ? context.signature_valid
+    : caseData.signature?.valid;
+  const idStatus = (context && context.identity && context.identity.status)
+    || (caseData.signature && caseData.signature.identity_status)
+    || 'UNKNOWN';
 
   pillsEl.innerHTML = '';
 
+  // Keep three facts, but use everyday words in the header
   const intPill = document.createElement('span');
-  intPill.className = 'pill ' + (intOk ? 'pass' : 'fail');
-  intPill.innerHTML = `<span class="pill-dot"></span>${intOk ? 'INTEGRITY VERIFIED' : 'INTEGRITY FAILED'}`;
+  if (!intOk) {
+    intPill.className = 'pill fail';
+    intPill.innerHTML = `<span class="pill-dot"></span>FILES CHANGED`;
+  } else if (intScope === 'partial') {
+    intPill.className = 'pill pass';
+    intPill.innerHTML = `<span class="pill-dot"></span>FILES OK`;
+    intPill.title = 'Embedded snapshot checked (partial). Full archive: epi verify.';
+  } else if (intScope === 'full') {
+    intPill.className = 'pill pass';
+    intPill.innerHTML = `<span class="pill-dot"></span>FILES OK`;
+  } else {
+    intPill.className = 'pill ' + (intOk ? 'pass' : 'fail');
+    intPill.innerHTML = `<span class="pill-dot"></span>${intOk ? 'FILES OK' : 'FILES CHANGED'}`;
+  }
   pillsEl.appendChild(intPill);
 
-  const sigPill = document.createElement('span');
-  if (sigValid == null) {
-    sigPill.className = 'pill gray';
-    sigPill.innerHTML = `<span class="pill-dot"></span>SIGNATURE UNVERIFIED`;
-  } else if (sigVerified) {
-    sigPill.className = 'pill pass';
-    sigPill.innerHTML = `<span class="pill-dot"></span>SIGNED`;
+  const cryptoPill = document.createElement('span');
+  if (sigValid === true) {
+    cryptoPill.className = 'pill pass';
+    cryptoPill.innerHTML = `<span class="pill-dot"></span>SIGNATURE OK`;
+  } else if (sigValid === false) {
+    cryptoPill.className = 'pill fail';
+    cryptoPill.innerHTML = `<span class="pill-dot"></span>SIGNATURE BAD`;
   } else {
-    sigPill.className = 'pill warn';
-    sigPill.innerHTML = `<span class="pill-dot"></span>UNSIGNED`;
+    cryptoPill.className = 'pill gray';
+    cryptoPill.innerHTML = `<span class="pill-dot"></span>SIGNATURE ?`;
   }
-  pillsEl.appendChild(sigPill);
+  pillsEl.appendChild(cryptoPill);
+
+  const idPill = document.createElement('span');
+  const idUpper = String(idStatus).toUpperCase();
+  if (idUpper === 'KNOWN' || idUpper === 'TRUSTED' || idUpper === 'LOCAL') {
+    idPill.className = 'pill pass';
+    idPill.innerHTML = `<span class="pill-dot"></span>SIGNER KNOWN`;
+  } else if (idUpper === 'REVOKED' || idUpper === 'MISMATCH') {
+    idPill.className = 'pill fail';
+    idPill.innerHTML = `<span class="pill-dot"></span>SIGNER BLOCKED`;
+  } else {
+    idPill.className = 'pill warn';
+    idPill.innerHTML = `<span class="pill-dot"></span>SIGNER NEW`;
+    idPill.title = 'Key not on this computer’s trust list yet';
+  }
+  pillsEl.appendChild(idPill);
 
   // Human review status pill
   const humanReview = normalizeReview(caseData.review);
@@ -526,49 +561,73 @@ function renderIntegrity(caseData, context) {
   const integrity = caseData.integrity || {};
   const sig = caseData.signature || {};
 
-  // Integrity indicator
+  // Integrity: FULL / PARTIAL / FAIL (never overclaim preload-only as full archive)
   const intEl = document.getElementById('ind-integrity');
+  const intScope = integrity.scope || (context && context.integrity_scope) || null;
   const intOk = integrity.ok !== false && (context ? context.integrity_ok !== false : true);
-  if (intOk) {
-    intEl.textContent = 'VERIFIED';
+  if (!intOk) {
+    intEl.textContent = 'Changed / failed';
+    intEl.className = 'indicator failed';
+  } else if (intScope === 'partial') {
+    intEl.textContent = 'OK (snapshot)';
+    intEl.className = 'indicator verified';
+    intEl.title = 'Embedded files checked. Full package: epi verify.';
+  } else if (intScope === 'full') {
+    intEl.textContent = 'OK';
+    intEl.className = 'indicator verified';
+  } else if (intOk) {
+    intEl.textContent = 'OK';
     intEl.className = 'indicator verified';
   } else {
-    intEl.textContent = 'COMPROMISED';
+    intEl.textContent = 'Failed';
     intEl.className = 'indicator failed';
   }
 
-  // Signature indicator not verified prefer live context, fall back to case payload sig
+  // Crypto (signature) — separate from identity
   const sigEl = document.getElementById('ind-signature');
-  const resolvedSigValid = context != null ? context.signature_valid : sig.valid;
+  const resolvedSigValid = context != null && context.signature_valid != null
+    ? context.signature_valid
+    : sig.valid;
   if (resolvedSigValid === true) {
-    sigEl.textContent = 'VALID';
+    sigEl.textContent = context && context.self_verified ? 'OK (checked here)' : 'OK';
     sigEl.className = 'indicator verified';
-  } else if (resolvedSigValid === false && sig.valid === false && !context) {
-    // Baked viewer not verified can't verify without epi view
-    sigEl.textContent = 'OPEN VIA EPI VIEW TO VERIFY';
+  } else if (resolvedSigValid === false && context && context.self_verified) {
+    sigEl.textContent = 'FAILED';
+    sigEl.className = 'indicator failed';
+  } else if (resolvedSigValid === false && !context && sig.self_check_pending) {
+    sigEl.textContent = 'Checking…';
+    sigEl.className = 'indicator unverified';
+  } else if (resolvedSigValid === false && sig.valid === false && !context && !sig.self_verified) {
+    sigEl.textContent = 'Not checked — use epi verify';
     sigEl.className = 'indicator unverified';
     sigEl.style.fontSize = '11px';
   } else if (resolvedSigValid === false) {
-    sigEl.textContent = 'INVALID';
+    sigEl.textContent = 'FAILED';
     sigEl.className = 'indicator failed';
   } else {
-    sigEl.textContent = 'NOT VERIFIED';
+    sigEl.textContent = 'Not checked';
     sigEl.className = 'indicator unverified';
   }
 
-  // Identity
+  // Identity — never green just because crypto is VALID
   const idEl = document.getElementById('ind-identity');
   const did = m.governance?.did || context?.identity?.did || '';
   const pubkey = m.public_key ? m.public_key.slice(0, 16) : '';
   const signer = context?.signer || context?.identity?.name || '';
-  if (did) {
+  const idStatus = (context && context.identity && context.identity.status) || 'UNKNOWN';
+  if (did && (idStatus === 'KNOWN' || idStatus === 'TRUSTED')) {
     idEl.textContent = did;
     idEl.className = 'indicator verified';
     idEl.style.fontSize = '11px';
+  } else if (idStatus === 'KNOWN' || idStatus === 'TRUSTED' || idStatus === 'LOCAL') {
+    idEl.textContent = (signer || pubkey || 'pinned') + ' (' + idStatus + ')';
+    idEl.className = 'indicator verified';
+    idEl.style.fontSize = '11px';
   } else if (pubkey) {
-    idEl.textContent = pubkey + '...';
+    idEl.textContent = 'Not recognized yet · key ' + pubkey + '…';
     idEl.className = 'indicator unknown';
     idEl.style.fontSize = '12px';
+    idEl.title = 'Optional: epi keys trust "file.epi" --name sealer';
   } else {
     idEl.textContent = signer || '(unsigned)';
     idEl.className = 'indicator unknown';
@@ -577,12 +636,20 @@ function renderIntegrity(caseData, context) {
 
   // Diagnostic matrix
   const checked = integrity.checked || 0;
+  const expected = integrity.expected != null
+    ? integrity.expected
+    : Object.keys(m.file_manifest || {}).length;
   const mismatches = Array.isArray(integrity.mismatches) ? integrity.mismatches.length : 0;
+  const missing = Array.isArray(integrity.missing) ? integrity.missing.length : 0;
 
   const filesEl = document.getElementById('diag-files');
   if (checked > 0 || integrity.ok != null) {
-    filesEl.textContent = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
-    filesEl.className = 'diag-status ' + (mismatches === 0 ? 'ok' : 'flagged');
+    const scopeLabel = intScope ? ` [${String(intScope).toUpperCase()}]` : '';
+    filesEl.textContent =
+      `${checked}/${expected || '?'} checked · ${mismatches} mismatch · ${missing} missing${scopeLabel}`;
+    filesEl.className = 'diag-status ' + (
+      !intOk ? 'flagged' : (intScope === 'partial' || missing > 0 ? 'unknown' : 'ok')
+    );
   } else {
     filesEl.textContent = 'not verified';
     filesEl.className = 'diag-status unknown';
@@ -620,10 +687,79 @@ function renderIntegrity(caseData, context) {
   // Notarization (RFC 3161 / OTS) — only when present; hide block if absent
   renderNotarization(caseData);
 
-  // Verify command
+  // One clear action for normal users
   const sourceName = caseData.source_name || m.workflow_id || 'artifact.epi';
-  const cmdText = `epi verify ${sourceName}`;
-  document.getElementById('verify-cmd-text').textContent = cmdText;
+  const safeName = String(sourceName).endsWith('.epi') ? sourceName : `${sourceName}.epi`;
+  const cmdText = `epi verify "${safeName}"`;
+  const cmdEl = document.getElementById('verify-cmd-text');
+  if (cmdEl) cmdEl.textContent = cmdText;
+  const hintEl = document.getElementById('verify-cmd-hint');
+  if (hintEl) {
+    if (resolvedSigValid === false) {
+      hintEl.textContent = 'Signature failed — do not trust this copy. Ask for the original file.';
+    } else if (idStatus === 'UNKNOWN' || !idStatus) {
+      hintEl.textContent =
+        'Optional for teams: epi keys trust "' + safeName + '" --name sealer  (then epi verify again)';
+    } else {
+      hintEl.textContent = 'Use a full path if the terminal is not in the file’s folder.';
+    }
+  }
+
+  // Plain-language headline (normal users never need L0/L1 jargon)
+  renderTrustPlainSummary({
+    intOk,
+    intScope,
+    sigValid: resolvedSigValid,
+    idStatus,
+    selfVerified: !!(context && context.self_verified),
+  });
+}
+
+/**
+ * One sentence a non-expert can act on. Details stay in Advanced.
+ */
+function renderTrustPlainSummary({ intOk, intScope, sigValid, idStatus, selfVerified }) {
+  const headline = document.getElementById('trust-plain-headline');
+  const body = document.getElementById('trust-plain-body');
+  if (!headline || !body) return;
+
+  const idUpper = String(idStatus || 'UNKNOWN').toUpperCase();
+
+  if (sigValid === false || intOk === false) {
+    headline.textContent = 'Problem found';
+    headline.style.color = 'var(--fail, #b91c1c)';
+    body.textContent =
+      'This package failed a seal check (files and/or signature). ' +
+      'Do not use it as evidence. Ask the sender for the original .epi file.';
+    return;
+  }
+
+  if (sigValid === true && (idUpper === 'KNOWN' || idUpper === 'TRUSTED' || idUpper === 'LOCAL')) {
+    headline.textContent = 'Looks good';
+    headline.style.color = 'var(--pass, #15803d)';
+    body.textContent =
+      'The seal checks out and the signer is recognized on this machine. ' +
+      'For formal review, teams still run epi verify on the original file.';
+    return;
+  }
+
+  if (sigValid === true) {
+    headline.textContent = 'Seal looks OK — signer not recognized yet';
+    headline.style.color = 'var(--warn, #b45309)';
+    const partialNote = intScope === 'partial'
+      ? ' (this page checked the embedded snapshot; full archive check uses epi verify).'
+      : '.';
+    body.textContent =
+      'The signature is valid, so the package does not look tampered' + partialNote +
+      ' “Who signed” is unknown until your team pins that key once. ' +
+      'Everyday users can stop here if they trust the person who sent the file.';
+    return;
+  }
+
+  headline.textContent = 'Could not finish the check';
+  headline.style.color = '';
+  body.textContent =
+    'Open with epi view, or run epi verify "file.epi", or use https://epilabs.org/verify';
 }
 
 window.copyVerifyCmd = function(el) {
@@ -733,7 +869,7 @@ function renderVerdict(caseData) {
   const decisionContent = decisionStep?.content || {};
   const rawDecision = String(decisionContent.decision || decisionContent.verdict || decisionContent.policy_decision || decisionContent.status || '').toUpperCase();
 
-  // Check human review not verified it overrides the system verdict when present
+  // Check human review — it overrides the system verdict when present
   const humanReview = normalizeReview(caseData.review);
 
   // Determine verdict class and display text
@@ -897,7 +1033,7 @@ function renderEvidence(caseData) {
     // Chain hash
     const prevHash = step.prev_hash
       ? (step.prev_hash === 'CHAIN_START' ? 'START' : step.prev_hash.slice(0, 8))
-      : 'not verified';
+      : '—';
 
     // Build row
     const row = document.createElement('div');
@@ -927,7 +1063,7 @@ function renderEvidence(caseData) {
     // Heatmap tick
     const tick = document.createElement('div');
     tick.className = 'heatmap-tick ' + tone.htClass;
-    tick.title = `${kind} not verified ${trunc(summary, 60)}`;
+    tick.title = `${kind} — ${trunc(summary, 60)}`;
     tick.addEventListener('click', () => {
       row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (!row.classList.contains('expanded')) row.classList.add('expanded');
@@ -1156,7 +1292,7 @@ function normalizeReview(raw) {
     };
   }
 
-  // Fallback not verified at least we have reviewer identity
+  // Fallback — at least we have reviewer identity
   return {
     reviewed_by: reviewedBy,
     status: 'unknown',
@@ -1221,7 +1357,7 @@ function renderAttestation(caseData) {
     document.getElementById('review-content').textContent = review.notes;
     document.getElementById('reviewer-name').textContent = review.reviewed_by;
     document.getElementById('review-date').textContent =
-      review.reviewed_at ? fmtDate(review.reviewed_at) : 'not verified';
+      review.reviewed_at ? fmtDate(review.reviewed_at) : '—';
   } else {
     // Show form — this open file has no review.json yet
     document.getElementById('review-display').classList.add('hidden');
@@ -1579,10 +1715,10 @@ function renderAppendix(caseData) {
   } else if (m.spec_version) {
     // Synthesize from manifest fields
     const envInfo = {
-      platform: m.platform || 'not verified',
-      python_version: m.python_version || 'not verified',
+      platform: m.platform || '—',
+      python_version: m.python_version || '—',
       spec_version: m.spec_version,
-      created_at: m.created_at || 'not verified',
+      created_at: m.created_at || '—',
     };
     envEl.textContent = JSON.stringify(envInfo, null, 2);
   } else {
@@ -1603,19 +1739,205 @@ function renderAppendix(caseData) {
   }
 }
 
+// ── Offline cryptographic self-check (noble-ed25519 via crypto.js) ─
+
+/**
+ * SHA-256 hex of raw bytes (WebCrypto).
+ */
+async function _epiSha256HexBytes(bytes) {
+  const hashBuf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Decode base64 to Uint8Array.
+ */
+function _epiB64ToBytes(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * When the sealed viewer has no live `epi view` context, run browser-side
+ * Ed25519 + SHA-256 checks so §1 shows VALID/INVALID and FULL/PARTIAL integrity.
+ *
+ * Integrity FULL only if every file_manifest member is hashed (via archive_base64+JSZip
+ * or complete preload). Preload-only with missing members => PARTIAL.
+ * Live host context always wins over self-check.
+ */
+async function selfVerifyEmbeddedCase(caseData, context) {
+  // Host-injected verification report wins (epi view / Decision Ops).
+  // Seal-time context often only has envelope metadata — still run self-check.
+  if (context && context.signature_valid != null && context.self_verified !== true) {
+    return { caseData, context };
+  }
+  if (context && context.self_verified === true && context.signature_valid != null) {
+    return { caseData, context };
+  }
+
+  const manifest = caseData.manifest || {};
+  const nextCase = caseData;
+  const fileManifest = manifest.file_manifest || {};
+  const expectedNames = Object.keys(fileManifest);
+  const expected = expectedNames.length;
+  const files = caseData.files || {};
+  const mismatchNames = [];
+  const missingNames = [];
+  let checked = 0;
+  let scope = 'none';
+  let memberBytes = null; // name -> Uint8Array when full zip available
+
+  // Prefer full archive when host/preload provided original zip bytes
+  const archiveB64 = caseData.archive_base64 || caseData.archiveBase64 || null;
+  if (archiveB64 && typeof JSZip !== 'undefined' && expected > 0 && crypto?.subtle) {
+    try {
+      let zipBytes = _epiB64ToBytes(archiveB64);
+      // Envelope-v2 may prefix HTML before ZIP local file header (PK\x03\x04)
+      const pk = [0x50, 0x4b, 0x03, 0x04];
+      let zipStart = 0;
+      for (let i = 0; i < Math.min(zipBytes.length - 4, 512 * 1024); i++) {
+        if (zipBytes[i] === pk[0] && zipBytes[i + 1] === pk[1]
+          && zipBytes[i + 2] === pk[2] && zipBytes[i + 3] === pk[3]) {
+          zipStart = i;
+          break;
+        }
+      }
+      if (zipStart > 0) zipBytes = zipBytes.slice(zipStart);
+      const zip = await JSZip.loadAsync(zipBytes.slice(0));
+      memberBytes = {};
+      for (const name of expectedNames) {
+        const entry = zip.file(name);
+        if (!entry) {
+          missingNames.push(name);
+          continue;
+        }
+        const bytes = new Uint8Array(await entry.async('uint8array'));
+        memberBytes[name] = bytes;
+        const actual = await _epiSha256HexBytes(bytes);
+        checked += 1;
+        if (actual !== String(fileManifest[name]).toLowerCase()) mismatchNames.push(name);
+      }
+      scope = (missingNames.length === 0 && checked === expected) ? 'full' : 'partial';
+    } catch (e) {
+      console.warn('[EPI] full-archive integrity check failed, falling back to preload', e);
+      memberBytes = null;
+    }
+  }
+
+  // Preload-only path (typical sealed viewer.html)
+  if (!memberBytes && expected > 0 && crypto?.subtle) {
+    for (const name of expectedNames) {
+      if (!Object.prototype.hasOwnProperty.call(files, name) || files[name] == null) {
+        missingNames.push(name);
+        continue;
+      }
+      try {
+        const bytes = _epiB64ToBytes(files[name]);
+        const actual = await _epiSha256HexBytes(bytes);
+        checked += 1;
+        if (actual !== String(fileManifest[name]).toLowerCase()) mismatchNames.push(name);
+      } catch (_e) {
+        mismatchNames.push(name);
+        checked += 1;
+      }
+    }
+    if (checked === expected && missingNames.length === 0) {
+      scope = 'full';
+    } else if (checked > 0) {
+      scope = 'partial';
+    } else {
+      scope = 'none';
+    }
+  }
+
+  const integrity = {
+    ok: mismatchNames.length === 0 && (checked > 0 || expected === 0),
+    checked,
+    expected,
+    mismatches: mismatchNames,
+    missing: missingNames,
+    scope,
+    self_verified: true,
+  };
+  nextCase.integrity = integrity;
+
+  let sigResult = { valid: null, reason: 'No signature check run' };
+  const verifyFn = (typeof verifyManifestSignature === 'function')
+    ? verifyManifestSignature
+    : (globalThis.verifyManifestSignature || null);
+
+  if (!manifest.signature) {
+    sigResult = { valid: false, reason: 'No signature on manifest' };
+  } else if (verifyFn) {
+    try {
+      sigResult = await verifyFn(manifest);
+    } catch (e) {
+      sigResult = { valid: false, reason: (e && e.message) || String(e) };
+    }
+  } else {
+    sigResult = { valid: null, reason: 'Ed25519 verifier not loaded in this page' };
+  }
+
+  const signerName = (typeof manifest.signature === 'string' && manifest.signature.includes(':'))
+    ? manifest.signature.split(':')[1]
+    : null;
+
+  nextCase.signature = {
+    valid: sigResult.valid === true,
+    reason: sigResult.reason || '',
+    self_verified: true,
+    identity_status: 'UNKNOWN',
+  };
+
+  const selfContext = {
+    signature_valid: sigResult.valid === true ? true : (sigResult.valid === false ? false : null),
+    integrity_ok: integrity.ok === true,
+    integrity_scope: scope,
+    self_verified: true,
+    signer: signerName,
+    identity: {
+      status: 'UNKNOWN',
+      name: signerName || null,
+      detail:
+        'L0 browser cannot read ~/.epi/trusted_keys. '
+        + 'Pin with: epi keys trust "<this.epi>" --name <label>  then re-run epi verify.',
+    },
+    facts: {
+      chain_ok: context && context.facts ? context.facts.chain_ok : null,
+      completeness_ok: context && context.facts ? context.facts.completeness_ok : null,
+    },
+    trust_level: sigResult.valid === true ? 'LOW' : 'NONE',
+    trust_message: sigResult.valid === true
+      ? 'CRYPTO VALID (L0). IDENTITY UNKNOWN until key is pinned locally.'
+      : (sigResult.reason || 'Signature not verified'),
+    viewer_capabilities: [
+      'self_check_ed25519_v1',
+      scope === 'full' ? 'integrity_full_v1' : 'integrity_partial_v1',
+    ],
+  };
+
+  return { caseData: nextCase, context: selfContext };
+}
+
 // ── Boot Animation ────────────────────────────────────────────
 
 function runBoot(onDone) {
   const overlay = document.getElementById('boot-overlay');
   const log = document.getElementById('boot-log');
-  if (!overlay || !log) { onDone(); return; }
+  if (!overlay || !log) {
+    Promise.resolve(onDone()).catch(() => {});
+    return;
+  }
 
   const lines = [
-    'BOOTING FORENSIC ENGINE',
-    'PARSING MANIFEST HASHES',
-    'VERIFYING CHAIN INTEGRITY',
-    'CALIBRATING EVIDENCE LOG',
-    'RENDER READY',
+    'Opening evidence package…',
+    'Checking file seals…',
+    'Checking signature…',
+    'Ready',
   ];
 
   let i = 0;
@@ -1628,7 +1950,9 @@ function runBoot(onDone) {
         overlay.classList.add('fade-out');
         setTimeout(() => {
           overlay.style.display = 'none';
-          onDone();
+          Promise.resolve(onDone()).catch((err) => {
+            console.error('[EPI] boot render failed', err);
+          });
         }, 420);
       }, 180);
       return;
@@ -1672,7 +1996,7 @@ function init() {
   const data = loadData();
 
   if (!data || data.cases.length === 0) {
-    // No data not verified show empty state
+    // No data — show empty state
     document.getElementById('boot-overlay').style.display = 'none';
     document.getElementById('header-title').textContent = 'No Artifact Data';
     document.getElementById('header-uuid').textContent =
@@ -1681,8 +2005,8 @@ function init() {
   }
 
   // Render first case (single-case viewer)
-  const caseData = data.cases[0];
-  const context = data.context;
+  let caseData = data.cases[0];
+  let context = data.context;
 
   // Mobile nav toggle
   const navToggle = document.getElementById('nav-toggle');
@@ -1701,7 +2025,16 @@ function init() {
     });
   }
 
-  runBoot(() => {
+  runBoot(async () => {
+    // Offline self-check so §1 shows real crypto without `epi view`
+    try {
+      const verified = await selfVerifyEmbeddedCase(caseData, context);
+      caseData = verified.caseData;
+      context = verified.context;
+    } catch (err) {
+      console.warn('[EPI] self-verify failed', err);
+    }
+
     renderHeader(caseData, context);
     renderIntegrity(caseData, context);
     renderCaseContext(caseData);

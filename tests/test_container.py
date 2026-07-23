@@ -436,6 +436,40 @@ class TestEPIContainer:
         assert "epi-preloaded-cases" in viewer_html
         assert "test" in viewer_html
 
+    def test_embedded_viewer_bakes_offline_crypto_self_check(self, temp_workspace, sample_files):
+        """New seals must ship noble self-check + trust UX hints in viewer + VERIFY.txt."""
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from epi_core.trust import sign_manifest
+
+        steps_file = sample_files / "steps.jsonl"
+        steps_file.write_text(
+            '{"index": 0, "kind": "session.start", "content": {"workflow_name": "crypto_selfcheck"}}\n',
+            encoding="utf-8",
+        )
+        output_path = temp_workspace / "selfcheck.epi"
+        key = Ed25519PrivateKey.generate()
+        manifest = ManifestModel(cli_command="test command", goal="offline crypto")
+        EPIContainer.pack(
+            sample_files,
+            manifest,
+            output_path,
+            signer_function=lambda m: sign_manifest(m, key, "test"),
+        )
+
+        extract_dir = EPIContainer.unpack(output_path)
+        viewer_html = (extract_dir / "viewer.html").read_text(encoding="utf-8")
+        verify_txt = (extract_dir / "VERIFY.txt").read_text(encoding="utf-8")
+
+        assert "selfVerifyEmbeddedCase" in viewer_html
+        assert "verifyManifestSignature" in viewer_html
+        assert "self_check_pending" in viewer_html
+        assert "OPEN VIA EPI VIEW TO VERIFY" not in viewer_html
+        assert "epilabs.org/verify" in viewer_html
+        assert "trust-plain-summary" in viewer_html or "renderTrustPlainSummary" in viewer_html
+        assert "epi verify" in verify_txt
+        assert "epilabs.org/verify" in verify_txt
+        assert "epi keys trust" in verify_txt or "SIMPLE PATH" in verify_txt
+
     def test_embedded_viewer_escapes_script_breakout_sequences(self, temp_workspace, sample_files):
         """Embedded JSON must be safe even when recorded text contains </script>."""
         steps_file = sample_files / "steps.jsonl"

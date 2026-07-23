@@ -548,6 +548,9 @@ async function verifyManifestSignature(manifest) {
     }
 }
 
+// Expose for embedded forensic viewer self-check (web_viewer/app.js)
+globalThis.verifyManifestSignature = verifyManifestSignature;
+
 // ==========================================
 // EPI Browser Sign & Seal (envelope-v2 + Ed25519)
 // ==========================================

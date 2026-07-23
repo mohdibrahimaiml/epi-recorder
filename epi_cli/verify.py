@@ -444,10 +444,17 @@ def verify_command(
     try:
         epi_file = _resolve_epi_file(str(epi_file))
     except (FileNotFoundError, PermissionError, OSError):
+        tip = (
+            f"[red][FAIL] Error:[/red] File not found: {epi_file}\n"
+            "[dim]Tip: epi looks relative to your current folder. Use a full path, e.g.[/dim]\n"
+            '[dim]  epi verify "C:\\Users\\you\\project\\artifact.epi"[/dim]\n'
+            "[dim]Or: cd into the folder that contains the .epi, then re-run.[/dim]\n"
+            "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
+        )
         _handle_verification_error(
             message=f"File not found: {epi_file}",
             json_output=json_output,
-            console_message=f"[red][FAIL] Error:[/red] File not found: {epi_file}",
+            console_message=tip,
             error_type="file_not_found",
         )
 
@@ -1016,6 +1023,27 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
         content_lines.append("[bold yellow]Warnings:[/bold yellow]")
         for w in report["warnings"]:
             content_lines.append(f"  [yellow]![/yellow] {w}")
+
+    # Optional team step when seal is fine but signer is new on this machine
+    if (
+        signature_valid is True
+        and str(identity_status).upper() in ("UNKNOWN", "")
+        and decision_status in ("WARN", "PASS", "FAIL")
+    ):
+        content_lines.append("")
+        content_lines.append(
+            "[dim]Signer not on this computer’s trust list yet (optional for teams):[/dim]"
+        )
+        content_lines.append(
+            f'[dim]  epi keys trust "{epi_file}" --name sealer[/dim]'
+        )
+        content_lines.append(
+            f'[dim]  epi verify "{epi_file}"[/dim]'
+        )
+        content_lines.append(
+            "[dim]Everyday check is enough for many readers. "
+            "Pin keys only when you want “known signer” on re-check.[/dim]"
+        )
 
     content = "\n".join(content_lines)
 

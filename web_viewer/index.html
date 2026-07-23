@@ -64,30 +64,45 @@
     <div id="header-pills" class="header-status-pills"></div>
   </header>
 
-  <!-- § 1 — Trust & Integrity -->
+  <!-- § 1 — Trust & Integrity (simple first, advanced folded) -->
   <section id="integrity-status">
-    <div class="section-label">1.0 Trust_&amp;_Integrity_Verification</div>
+    <div class="section-label">1.0 Trust_&amp;_Integrity</div>
+
+    <!-- Plain-language summary for normal users -->
+    <div id="trust-plain-summary" class="status-box" style="margin-bottom:14px;">
+      <div id="trust-plain-headline" style="font-size:1.15rem;font-weight:700;margin-bottom:6px;">Checking…</div>
+      <p id="trust-plain-body" style="font-size:13px;line-height:1.5;margin:0;max-width:40rem;opacity:0.9;">
+        This page checks whether the evidence package was altered and whether its signature is valid.
+      </p>
+      <ol id="trust-plain-steps" style="font-size:13px;line-height:1.55;margin:12px 0 0 1.1rem;padding:0;max-width:40rem;opacity:0.9;">
+        <li>Open the file (you are here).</li>
+        <li>If something looks wrong, stop and ask the sender to re-send the original <code>.epi</code>.</li>
+        <li>For a stronger check: <code>epi verify "file.epi"</code> or
+          <a href="https://epilabs.org/verify" target="_blank" rel="noopener">epilabs.org/verify</a>.</li>
+      </ol>
+    </div>
+
     <div class="status-box">
       <div class="trust-grid">
-        <!-- Left: status indicators -->
+        <!-- Left: three status rows only -->
         <div>
           <div class="details-list">
             <div class="dl-row">
-              <span class="dl-key">Integrity</span>
-              <span id="ind-integrity" class="indicator verified">VERIFIED</span>
+              <span class="dl-key">Files</span>
+              <span id="ind-integrity" class="indicator verified">—</span>
             </div>
             <div class="dl-row" style="margin-top:14px;">
               <span class="dl-key">Signature</span>
               <span id="ind-signature" class="indicator unknown">UNKNOWN</span>
             </div>
             <div class="dl-row" style="margin-top:14px;">
-              <span class="dl-key">Identity</span>
+              <span class="dl-key">Who signed</span>
               <span id="ind-identity" class="indicator unknown" style="font-size:13px; word-break:break-all;">—</span>
             </div>
-            <!-- Notarization: only filled when artifacts/notarization/ is present -->
+            <!-- Notarization: only filled when present -->
             <div id="notarization-block" class="hidden" style="margin-top:18px;">
               <div class="dl-row">
-                <span class="dl-key">Notarization</span>
+                <span class="dl-key">Timestamp</span>
                 <span id="ind-notarization" class="indicator unknown">—</span>
               </div>
               <div class="details-list" style="margin-top:10px; font-size:12px; line-height:1.5;">
@@ -100,38 +115,62 @@
             </div>
           </div>
         </div>
-        <!-- Right: diagnostic matrix -->
+        <!-- Right: one action -->
         <div>
-          <div style="font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:var(--text-faint); margin-bottom:10px;">Diagnostic Matrix</div>
-          <div class="diagnostic-matrix">
-            <div class="diag-item">
-              <span class="diag-label">File Integrity</span>
-              <span id="diag-files" class="diag-status unknown">—</span>
-            </div>
-            <div class="diag-item">
-              <span class="diag-label">Chain Integrity</span>
-              <span id="diag-chain" class="diag-status unknown">—</span>
-            </div>
-            <div class="diag-item">
-              <span class="diag-label">Completeness</span>
-              <span id="diag-completeness" class="diag-status unknown">—</span>
-            </div>
-            <div class="diag-item">
-              <span class="diag-label">Public Key</span>
-              <span id="diag-pubkey" class="diag-status unknown" style="font-size:9px; word-break:break-all;">—</span>
-            </div>
-            <div class="diag-item">
-              <span class="diag-label">Notarization</span>
-              <span id="diag-notary" class="diag-status unknown">—</span>
-            </div>
-          </div>
           <div id="verify-cmd-block" class="verify-cmd" title="Click to copy" onclick="copyVerifyCmd(this)">
-            <span class="verify-cmd-label">Verify</span>
-            <span id="verify-cmd-text" class="verify-cmd-text">epi verify ...</span>
+            <span class="verify-cmd-label">Stronger check</span>
+            <span id="verify-cmd-text" class="verify-cmd-text">epi verify "artifact.epi"</span>
             <span class="copy-hint">click to copy</span>
+          </div>
+          <div id="verify-cmd-hint" class="verify-cmd-hint" style="margin-top:10px;font-size:12px;opacity:0.8;line-height:1.45;">
+            Use the full path to the file if your terminal is in another folder.
           </div>
         </div>
       </div>
+
+      <!-- Advanced: diagnostics + authority model (hidden by default) -->
+      <details id="trust-advanced" style="margin-top:16px;border-top:1px solid rgba(128,128,128,0.25);padding-top:12px;">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:0.85;">
+          Advanced details (auditors / security)
+        </summary>
+        <p id="trust-axis-blurb" style="font-size:12px;line-height:1.45;opacity:0.85;margin:12px 0;max-width:52rem;">
+          <strong>Signature valid</strong> = the cryptographic seal matches this package.
+          <strong>Who signed = unknown</strong> = you have not pinned that key yet
+          (<code>epi keys trust "file.epi" --name sealer</code>).
+          Valid signature does <em>not</em> by itself prove which company you trust.
+        </p>
+        <div style="font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:var(--text-faint); margin-bottom:10px;">Diagnostic matrix</div>
+        <div class="diagnostic-matrix">
+          <div class="diag-item">
+            <span class="diag-label">File Integrity</span>
+            <span id="diag-files" class="diag-status unknown">—</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Chain Integrity</span>
+            <span id="diag-chain" class="diag-status unknown">—</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Completeness</span>
+            <span id="diag-completeness" class="diag-status unknown">—</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Public Key</span>
+            <span id="diag-pubkey" class="diag-status unknown" style="font-size:9px; word-break:break-all;">—</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Notarization</span>
+            <span id="diag-notary" class="diag-status unknown">—</span>
+          </div>
+        </div>
+        <div id="authority-ladder" class="authority-ladder" style="margin-top:14px;font-size:11px;line-height:1.5;opacity:0.85;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">How strong is this check?</div>
+          <div><strong>This page</strong> — quick seal check in the browser (convenience)</div>
+          <div><strong>epi verify</strong> — full local check (recommended for teams)</div>
+          <div><strong><a href="https://epilabs.org/verify" target="_blank" rel="noopener">epilabs.org/verify</a></strong> — check in any browser, no install</div>
+          <div><strong>Independent tool</strong> — third party re-checks the original bytes</div>
+          <div style="margin-top:6px;">If you need a formal audit, do not rely on this page alone.</div>
+        </div>
+      </details>
     </div>
   </section>
 

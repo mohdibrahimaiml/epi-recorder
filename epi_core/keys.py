@@ -206,8 +206,10 @@ class KeyManager:
         Copy/convert a public key into the local trust registry.
 
         Args:
-            source: Either a key name in the managed keys directory or a path
-                to a PEM-encoded public key file.
+            source: Either a key name in the managed keys directory, a path
+                to a PEM-encoded public key file, a path to a 64-hex-char
+                raw Ed25519 ``.pub`` file, or a path to a signed ``.epi``
+                artifact (uses ``manifest.public_key``).
             trusted_keys_dir: Directory where trusted public keys are stored.
             trusted_name: Optional name for the trusted key entry. Defaults to
                 the key name or the stem of the provided file path.
@@ -226,11 +228,16 @@ class KeyManager:
 
         source_path = Path(source)
         if source_path.exists():
-            raw_bytes = self._load_public_key_raw_bytes_from_file(source_path)
+            raw_bytes = self._load_public_key_raw_bytes_from_any(source_path)
             name = trusted_name or source_path.stem
         else:
             raw_bytes = self._load_public_key_raw_bytes(str(source))
             name = trusted_name or str(source)
+
+        if len(raw_bytes) != 32:
+            raise ValueError(
+                f"Ed25519 public key must be 32 raw bytes (got {len(raw_bytes)})"
+            )
 
         target = trusted_keys_dir / f"{name}.pub"
         if target.exists() and not overwrite:
@@ -240,6 +247,54 @@ class KeyManager:
 
         target.write_text(raw_bytes.hex(), encoding="utf-8")
         return target
+
+    def _load_public_key_raw_bytes_from_any(self, path: Path) -> bytes:
+        """
+        Load 32-byte Ed25519 public key from PEM, hex .pub, or signed .epi.
+
+        This is the implementation behind ``trust_key`` when ``source`` is a path.
+        """
+        path = Path(path)
+        suffix = path.suffix.lower()
+
+        # Signed EPI artifact: pin manifest.public_key (hex raw Ed25519)
+        if suffix == ".epi":
+            from epi_core.container import EPIContainer
+
+            manifest = EPIContainer.read_manifest(path)
+            pub_hex = getattr(manifest, "public_key", None)
+            if not pub_hex or not isinstance(pub_hex, str):
+                raise ValueError(
+                    f"No public_key in manifest of {path}. "
+                    "File is unsigned or not a valid EPI artifact."
+                )
+            pub_hex = pub_hex.strip().lower()
+            if len(pub_hex) != 64:
+                raise ValueError(
+                    f"manifest.public_key in {path} is not 64 hex chars "
+                    f"(got length {len(pub_hex)})"
+                )
+            try:
+                return bytes.fromhex(pub_hex)
+            except ValueError as exc:
+                raise ValueError(
+                    f"manifest.public_key in {path} is not valid hex"
+                ) from exc
+
+        # Trust-registry style: raw hex in a .pub text file
+        text = path.read_text(encoding="utf-8", errors="ignore").strip()
+        if len(text) == 64 and all(c in "0123456789abcdefABCDEF" for c in text):
+            return bytes.fromhex(text)
+
+        # PEM public key
+        try:
+            return self._load_public_key_raw_bytes_from_file(path)
+        except Exception as pem_exc:
+            raise ValueError(
+                f"Could not load Ed25519 public key from {path}. "
+                "Expected PEM, 64-char hex .pub, or signed .epi. "
+                f"Detail: {pem_exc}"
+            ) from pem_exc
 
     def revoke_key(self, name: str, *, trusted_keys_dir: Path) -> Path:
         """

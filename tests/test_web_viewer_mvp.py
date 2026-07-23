@@ -30,7 +30,28 @@ def test_web_viewer_app_supports_forensic_rendering():
     assert "function renderVerdict" in js
     assert "function renderEvidence" in js
     assert "function renderAttestation" in js
-    assert "COMPROMISED" in js
+    assert "INTEGRITY FAIL" in js or "FAIL" in js
+
+
+def test_web_viewer_self_checks_crypto_offline():
+    """§1 Trust & Integrity must run noble-ed25519 self-check without epi view."""
+    js = _read("web_viewer/app.js")
+    crypto = _read("epi_viewer_static/crypto.js")
+    html = _read("web_viewer/index.html")
+
+    assert "async function selfVerifyEmbeddedCase" in js
+    assert "verifyManifestSignature" in js
+    assert "OPEN VIA EPI VIEW TO VERIFY" not in js
+    assert "globalThis.verifyManifestSignature" in crypto
+    assert "noble-ed25519" in crypto
+    assert "verify-cmd-hint" in html
+    assert "epilabs.org/verify" in html
+    assert "integrity_scope" in js or "scope === 'partial'" in js or 'scope === "partial"' in js
+    assert "renderTrustPlainSummary" in js
+    assert "trust-plain-summary" in html
+    assert "authority-ladder" in html
+    assert "Advanced details" in html
+    assert "epi keys trust" in html or "keys trust" in html
 
 
 def test_web_viewer_readme_describes_forensic_model():

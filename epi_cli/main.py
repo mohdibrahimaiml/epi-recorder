@@ -1108,17 +1108,44 @@ def keys(
 
     elif action == "trust":
         if not key:
-            console.print("[red][FAIL] trust requires a key name or path.[/red]")
-            console.print("[dim]Usage: epi keys trust <name-or-path> [--name <trusted-name>][/dim]")
+            console.print("[red][FAIL] trust requires a key name, PEM path, or .epi path.[/red]")
+            console.print(
+                "[dim]Usage:[/dim]\n"
+                "[dim]  epi keys trust default[/dim]\n"
+                "[dim]  epi keys trust sealer.pub --name sealer[/dim]\n"
+                '[dim]  epi keys trust "C:\\path\\artifact.epi" --name sealer[/dim]\n'
+                "[dim]  (from .epi: pins manifest.public_key into ~/.epi/trusted_keys/)[/dim]"
+            )
             raise typer.Exit(1)
         try:
+            # For .epi sources, default trusted name to workflow/stem if --name left at default
+            trusted_name = None if name == "default" else name
+            source_path = Path(key)
+            if source_path.exists() and source_path.suffix.lower() == ".epi" and trusted_name is None:
+                try:
+                    from epi_core.container import EPIContainer
+
+                    man = EPIContainer.read_manifest(source_path)
+                    sig = getattr(man, "signature", None) or ""
+                    if isinstance(sig, str) and sig.startswith("ed25519:") and sig.count(":") >= 2:
+                        trusted_name = sig.split(":")[1][:32]
+                    else:
+                        trusted_name = source_path.stem[:32]
+                except Exception:
+                    trusted_name = source_path.stem[:32]
+
             target = key_manager.trust_key(
                 key,
                 trusted_keys_dir=trusted_keys_dir,
-                trusted_name=name if name != "default" else None,
+                trusted_name=trusted_name,
                 overwrite=overwrite,
             )
-            console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}\n")
+            console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}")
+            console.print(
+                "[dim]Re-run:[/dim] [cyan]epi verify "
+                f'"{key if source_path.suffix.lower() == ".epi" else "artifact.epi"}"'
+                "[/cyan]  — identity should leave UNKNOWN if this key sealed the file.\n"
+            )
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
