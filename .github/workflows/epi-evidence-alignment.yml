@@ -1,0 +1,51 @@
+# Phase 6: prove golden samples still verify as expected (and tamper fails).
+name: EPI evidence alignment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/assets/**"
+      - "scripts/check_verify_alignment.py"
+      - "epi_core/**"
+      - "epi_cli/verify.py"
+      - "epi_cli/main.py"
+      - ".github/workflows/epi-evidence-alignment.yml"
+  pull_request:
+    paths:
+      - "docs/assets/**"
+      - "scripts/check_verify_alignment.py"
+      - "epi_core/**"
+      - "epi_cli/verify.py"
+  workflow_dispatch:
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package (editable)
+        run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+
+      - name: Verify golden sample (standard policy)
+        run: |
+          epi verify docs/assets/sample-hello.epi --json | tee /tmp/verify.json
+          python - <<'PY'
+          import json, sys
+          text = open("/tmp/verify.json", encoding="utf-8").read()
+          # CLI may print non-JSON lines; extract object
+          i, j = text.find("{"), text.rfind("}")
+          rep = json.loads(text[i : j + 1])
+          facts = rep.get("facts") or rep
+          assert facts.get("integrity_ok") is True, facts
+          assert facts.get("signature_valid") is True, facts
+          print("golden OK", rep.get("decision"))
+          PY
+
+      - name: Alignment script (golden + one-byte tamper)
+        run: python scripts/check_verify_alignment.py

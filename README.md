@@ -183,6 +183,8 @@ EPI separates three facts:
 
 **EPI does not prove** that free-text names are real employees, or that the agent’s decision was *correct* — only that the recorded evidence was sealed and not altered.
 
+Enterprise playbook (one page): [docs/ENTERPRISE-EVIDENCE-PLAYBOOK.md](docs/ENTERPRISE-EVIDENCE-PLAYBOOK.md)
+
 Enterprise / org trust bundles:
 
 - Profile: [`docs/ENTERPRISE-TRUST-PROFILE.md`](docs/ENTERPRISE-TRUST-PROFILE.md)  
