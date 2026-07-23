@@ -188,6 +188,9 @@ Enterprise / org trust bundles:
 - Profile: [`docs/ENTERPRISE-TRUST-PROFILE.md`](docs/ENTERPRISE-TRUST-PROFILE.md)  
 - Bundles: `epi keys bundle-export` / `epi keys bundle-import` · [`docs/ENTERPRISE-TRUST-BUNDLE.md`](docs/ENTERPRISE-TRUST-BUNDLE.md)
 
+**Format contract:** [epi-spec SPEC v0.2](https://github.com/mohdibrahimaiml/epi-spec/blob/main/SPEC.md)  
+**Alignment proof:** [`docs/EVIDENCE-ALIGNMENT.md`](docs/EVIDENCE-ALIGNMENT.md) · `python scripts/check_verify_alignment.py`
+
 ---
 
 ## Integrations
