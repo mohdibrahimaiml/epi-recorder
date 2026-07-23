@@ -36,28 +36,31 @@ epi demo --no-browser   # record → seal → verify (no API key)
 
 ---
 
-## See a real `.epi` case
+## See a real `.epi` file
 
-This is what a sealed decision looks like when you open it — **local browser UI**, not a remote dashboard:
+Open a sealed artifact in any browser — this is the **embedded forensic viewer inside the `.epi` itself** (polyglot HTML+ZIP), not a remote dashboard:
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/epi-case-viewer.png"
-    alt="EPI .epi case viewer — decision, trust, and review panels for a sealed agent case"
+    src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/epi-file-viewer-full.png"
+    alt="EPI .epi forensic artifact viewer — integrity, verdict, evidence timeline, and attestation"
     width="920"
   />
 </p>
 
 <p align="center">
-  <em>Decision Ops view of a sealed <code>.epi</code> case: outcome, trust state, and human review — all from the file.</em>
+  <em>Official forensic record from a sealed <code>.epi</code>: integrity, case context, verdict, chronological evidence log, and sign-off — all offline.</em>
 </p>
 
 Try it yourself:
 
 ```bash
 # After any record/demo:
-epi view your-run.epi          # browser case UI
+epi view your-run.epi          # opens the .epi forensic viewer
 epi verify your-run.epi        # CLI integrity + signature
+
+# Or open the sample shipped with this repo:
+epi view docs/assets/readme-demo.epi
 ```
 
 Or drop a file into the hosted verifier: **[epilabs.org/verify](https://epilabs.org/verify/)** (checks run in your browser).
