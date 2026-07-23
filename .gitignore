@@ -67,6 +67,8 @@ installer/windows/Output/
 
 # EPI-specific
 *.epi
+# Allow documented sample artifacts in docs/
+!docs/assets/*.epi
 .epi/
 temp_epi_*/
 epi-recordings/
