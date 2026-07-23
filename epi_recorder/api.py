@@ -702,6 +702,36 @@ class AgentRun:
         return False
 
 
+_PLACEHOLDER_WORKFLOW_NAMES = frozenset(
+    {"", "untitled", "unnamed", "workflow", "unknown", "unknown artifact"}
+)
+
+
+def _resolve_workflow_display_name(
+    workflow_name: Optional[str] = None,
+    *,
+    goal: Optional[str] = None,
+    output_path: Optional[Path | str] = None,
+) -> str:
+    """
+    Pick a human-visible workflow title for session.start / viewer header.
+
+    Prefer an explicit non-placeholder name, then goal, then the output file stem.
+    """
+    name = (workflow_name or "").strip()
+    if name and name.lower() not in _PLACEHOLDER_WORKFLOW_NAMES:
+        return name
+    goal_text = (goal or "").strip()
+    if goal_text:
+        # Keep titles readable in the forensic header
+        return goal_text if len(goal_text) <= 96 else goal_text[:93].rstrip() + "..."
+    if output_path is not None:
+        stem = Path(output_path).stem.strip()
+        if stem and stem.lower() not in _PLACEHOLDER_WORKFLOW_NAMES:
+            return stem.replace("_", " ").replace("-", " ")
+    return "untitled"
+
+
 class EpiRecorderSession:
     """
     Context manager for recording EPI packages.
@@ -758,7 +788,11 @@ class EpiRecorderSession:
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
 
         self.output_path = Path(output_path)
-        self.workflow_name = workflow_name or "untitled"
+        # Prefer explicit name, then goal, then output stem — never silent "untitled"
+        # when the caller already gave a goal or path (viewer title / verify cmd).
+        self.workflow_name = _resolve_workflow_display_name(
+            workflow_name, goal=goal, output_path=self.output_path
+        )
         self.tags = tags or []
         self.auto_sign = auto_sign
         self.redact = redact

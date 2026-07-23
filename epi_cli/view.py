@@ -559,9 +559,21 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
     _session_start = next(
         (s for s in _steps if isinstance(s, dict) and s.get("kind") == "session.start"), None
     )
-    _workflow_name = (_session_start or {}).get("content", {}).get("workflow_name") or getattr(manifest, "workflow_name", None)
-    _source_name = _workflow_name or resolved_path.name
-
+    _raw_wn = (_session_start or {}).get("content", {}).get("workflow_name") or getattr(
+        manifest, "workflow_name", None
+    )
+    _placeholders = {"", "untitled", "unnamed", "workflow", "unknown"}
+    if not _raw_wn or str(_raw_wn).strip().lower() in _placeholders:
+        _workflow_name = (
+            getattr(manifest, "goal", None)
+            or resolved_path.name
+        )
+    else:
+        _workflow_name = _raw_wn
+    # Prefer real on-disk file name for verify/copy commands
+    _source_name = resolved_path.name if resolved_path.suffix.lower() == ".epi" else (
+        _workflow_name or resolved_path.name
+    )
     # Embed source files so the browser viewer can rebuild the artifact
     # after in-browser review (Sign & Seal)
     _files = {}

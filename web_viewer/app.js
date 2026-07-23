@@ -308,25 +308,64 @@ function loadData() {
 
 // ── Section Renderers ─────────────────────────────────────────
 
+/** Prefer a real human title over placeholders like "untitled". */
+function resolveDisplayTitle(caseData) {
+  const m = caseData.manifest || {};
+  const steps = caseData.steps || [];
+  const sessionStart = steps.find(s => s.kind === 'session.start');
+  const placeholders = /^(untitled|unnamed|workflow|unknown|unknown artifact)$/i;
+  let name = sessionStart?.content?.workflow_name
+    || m.workflow_name
+    || m.goal
+    || caseData.source_name
+    || m.workflow_id
+    || 'Unknown Artifact';
+  name = String(name || '').trim();
+  if (!name || placeholders.test(name)) {
+    name = (m.goal || caseData.source_name || m.workflow_id || 'Unknown Artifact');
+    name = String(name || '').trim();
+  }
+  if (name.toLowerCase().endsWith('.epi')) {
+    name = name.slice(0, -4);
+  }
+  // source_name may be a path — use basename
+  if (name.includes('/') || name.includes('\\')) {
+    name = name.split(/[/\\]/).pop() || name;
+    if (name.toLowerCase().endsWith('.epi')) name = name.slice(0, -4);
+  }
+  return name.replace(/_/g, ' ').replace(/-/g, ' ');
+}
+
+/** File name for epi verify / keys trust copy commands. */
+function resolveVerifyFileName(caseData) {
+  const m = caseData.manifest || {};
+  const placeholders = /^(untitled|unnamed|workflow)(\.epi)?$/i;
+  let name = caseData.source_name || '';
+  name = String(name || '').trim();
+  if (!name || placeholders.test(name) || name === m.workflow_id) {
+    const title = resolveDisplayTitle(caseData);
+    name = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'artifact';
+  }
+  if (name.includes('/') || name.includes('\\')) {
+    name = name.split(/[/\\]/).pop() || name;
+  }
+  if (!name.toLowerCase().endsWith('.epi')) name = name + '.epi';
+  return name;
+}
+
 /** § 0  Document Header */
 function renderHeader(caseData, context) {
   const m = caseData.manifest || {};
   const steps = caseData.steps || [];
 
-  // Resolve workflow name: session.start content > manifest > short UUID
-  const sessionStart = steps.find(s => s.kind === 'session.start');
-  const workflowName = sessionStart?.content?.workflow_name
-    || m.goal  // fallback to goal as title if no workflow name
-    || m.workflow_id?.slice(0, 8)
-    || caseData.source_name?.slice(0, 8)
-    || 'Unknown Artifact';
+  const workflowName = resolveDisplayTitle(caseData);
 
   const uuid = m.workflow_id || m.artifact_uuid || caseData.source_name || '—';
   const createdAt = m.created_at ? fmtDate(m.created_at) : '—';
   const container = m.container_format || 'unknown';
   const spec = m.spec_version || '—';
 
-  document.getElementById('header-title').textContent = workflowName.replace(/_/g, ' ');
+  document.getElementById('header-title').textContent = workflowName;
   document.getElementById('header-uuid').textContent = 'UUID: ' + uuid;
   document.getElementById('meta-created').textContent = createdAt;
   document.getElementById('meta-container').textContent = container;
@@ -688,8 +727,7 @@ function renderIntegrity(caseData, context) {
   renderNotarization(caseData);
 
   // One clear action for normal users
-  const sourceName = caseData.source_name || m.workflow_id || 'artifact.epi';
-  const safeName = String(sourceName).endsWith('.epi') ? sourceName : `${sourceName}.epi`;
+  const safeName = resolveVerifyFileName(caseData);
   const cmdText = `epi verify "${safeName}"`;
   const cmdEl = document.getElementById('verify-cmd-text');
   if (cmdEl) cmdEl.textContent = cmdText;
