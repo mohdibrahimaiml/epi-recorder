@@ -1,0 +1,13 @@
+{
+  "golden": "docs/assets/sample-hello.epi",
+  "good": {
+    "integrity_ok": true,
+    "signature_valid": true,
+    "identity_status": "UNKNOWN",
+    "decision_status": "WARN"
+  },
+  "tampered_expects": {
+    "must_not_be_clean_pass": true,
+    "note": "integrity and/or signature must fail or decision FAIL/WARN with failed facts"
+  }
+}

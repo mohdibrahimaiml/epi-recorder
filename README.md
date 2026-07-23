@@ -139,6 +139,9 @@ Sample artifacts (current seal shell): [`docs/assets/readme-demo.epi`](docs/asse
 `epi verify` on these samples is **WARN** (signature valid, signer not pinned) until
 `epi keys trust docs/assets/sample-hello.epi --name sample`.
 
+**Alignment proof** (CLI vs tamper vs hosted): [`docs/EVIDENCE-ALIGNMENT.md`](docs/EVIDENCE-ALIGNMENT.md) —
+run `python scripts/check_verify_alignment.py`.
+
 ---
 
 ## With OpenAI
