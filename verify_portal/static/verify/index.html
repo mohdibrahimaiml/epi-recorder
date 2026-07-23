@@ -68,6 +68,13 @@
   <p style="color:var(--ink-soft);margin:0 0 12px;line-height:1.6">
     Drop a sealed <code>.epi</code> file. Checks run in your browser (envelope-v2 + legacy ZIP). Nothing is uploaded.
   </p>
+  <p style="color:var(--ink-muted);margin:0 0 16px;font-size:.88rem;line-height:1.5">
+    <strong>How to read results:</strong>
+    structure + integrity + signature <strong>PASS</strong> means the seal is good.
+    Identity <strong>PENDING</strong> / decision <strong>WARN</strong> only means the browser
+    does not know your org keys — that is normal. Use
+    <code>epi keys trust file.epi</code> + <code>epi verify</code> for known-signer PASS.
+  </p>
   <p id="engineStatus" class="engine-status">Loading verifier engine...</p>
 
   <div id="dropZone" class="drop-zone">
@@ -104,24 +111,27 @@
 </footer>
 
 <!-- Absolute paths (not ../) so /verify and /verify/ both resolve -->
-<script src="/js/jszip.min.js?v=26"></script>
-<script src="/js/epi-verify-core.js?v=26"></script>
+<script src="/js/jszip.min.js?v=31"></script>
+<script src="/js/epi-verify-core.js?v=31"></script>
 <script>
 (function(){
   var engineStatus=document.getElementById('engineStatus');
   function markEngine(){
-    if(typeof window.verifyEPI==='function'){
+    if(typeof window.verifyEPI==='function' && typeof JSZip!=='undefined'){
       engineStatus.textContent='Verifier engine ready (envelope-v2 + ZIP).';
       engineStatus.className='engine-status ok';
       return true;
     }
-    engineStatus.textContent='Verifier engine failed to load. Hard-refresh (Ctrl+Shift+R) or try another browser.';
+    if(typeof JSZip==='undefined'){
+      engineStatus.textContent='JSZip failed to load from /js/jszip.min.js — hard-refresh (Ctrl+Shift+R).';
+    }else{
+      engineStatus.textContent='Verifier engine failed to load (verifyEPI missing). Hard-refresh (Ctrl+Shift+R).';
+    }
     engineStatus.className='engine-status bad';
     return false;
   }
-  // Re-check after scripts; also on window load
   markEngine();
-  window.addEventListener('load', markEngine);
+  window.addEventListener('load', function(){ setTimeout(markEngine, 0); setTimeout(markEngine, 250); });
 
   var dropZone=document.getElementById('dropZone');
   var fileInput=document.getElementById('fileInput');
@@ -136,10 +146,12 @@
   dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0])});
   fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0])});
 
-  function addCheck(label,status){
+  function addCheck(label,status,note){
     var row=document.createElement('div');
     row.className='check-row';
-    row.innerHTML='<span class="label">'+label+'</span><span class="status '+status+'">'+status.toUpperCase()+'</span>';
+    var statusText=String(status||'').toUpperCase();
+    var noteHtml=note ? ' <span style="font-weight:400;color:var(--ink-muted)">— '+note+'</span>' : '';
+    row.innerHTML='<span class="label">'+label+noteHtml+'</span><span class="status '+status+'">'+statusText+'</span>';
     checksEl.appendChild(row);
   }
 
@@ -152,16 +164,9 @@
     decisionBox.style.color='';
     verifierHash.textContent='';
 
-    if(typeof window.verifyEPI!=='function'){
+    if(!markEngine()){
       addCheck('Engine','fail');
-      decisionBox.textContent='ERROR: Engine not loaded (verifyEPI missing). Hard-refresh the page.';
-      decisionBox.className='decision-box fail';
-      markEngine();
-      return;
-    }
-    if(typeof JSZip==='undefined'){
-      addCheck('JSZip','fail');
-      decisionBox.textContent='ERROR: JSZip failed to load from /js/jszip.min.js';
+      decisionBox.textContent='ERROR: Engine not loaded. Hard-refresh (Ctrl+Shift+R).';
       decisionBox.className='decision-box fail';
       return;
     }
@@ -170,19 +175,29 @@
       var result=await window.verifyEPI(file);
       addCheck('Container / structure', result.structure?'pass':'fail');
       addCheck('Manifest present', result.manifest?'pass':'fail');
-      addCheck('SHA-256 file integrity', result.integrity?'pass':'fail');
-      addCheck('Ed25519 signature', result.signature===true?'pass':(result.signature===false?'fail':'pending'));
-      addCheck('Identity (browser)', result.identity==='KNOWN'?'pass':'pending');
+      addCheck('SHA-256 file integrity (seal)', result.integrity?'pass':'fail');
+      addCheck('Ed25519 signature (seal)', result.signature===true?'pass':(result.signature===false?'fail':'pending'));
+      addCheck(
+        'Signer identity (browser)',
+        result.identity==='KNOWN'?'pass':'pending',
+        result.identity==='KNOWN'?null:'not checked here — normal'
+      );
 
-      if(!result.structure||!result.integrity||result.signature===false){
-        decisionBox.textContent='DECISION: FAIL';
+      var sealOk=!!(result.structure && result.integrity && result.signature===true);
+      var sealBroken=!result.structure||!result.integrity||result.signature===false;
+
+      if(sealBroken){
+        decisionBox.textContent='SEAL FAIL — do not trust this copy';
         decisionBox.className='decision-box fail';
-      }else if(result.signature===true){
-        decisionBox.textContent='DECISION: WARN - valid seal, identity unknown in browser';
+      }else if(sealOk && result.identity==='KNOWN'){
+        decisionBox.textContent='SEAL OK + SIGNER KNOWN';
+        decisionBox.className='decision-box pass';
+      }else if(sealOk){
+        decisionBox.textContent='SEAL OK — signature valid (signer not known in browser)';
         decisionBox.className='decision-box warn';
       }else{
-        decisionBox.textContent='DECISION: PASS (integrity)';
-        decisionBox.className='decision-box pass';
+        decisionBox.textContent='SEAL PARTIAL — integrity only (unsigned or incomplete)';
+        decisionBox.className='decision-box warn';
       }
       if(result.message){
         var m=document.createElement('div');
@@ -190,6 +205,17 @@
         m.textContent=result.message;
         checksEl.appendChild(m);
       }
+      var help=document.createElement('div');
+      help.style.cssText='margin-top:14px;font-size:.85rem;color:var(--ink-muted);line-height:1.55';
+      if(sealOk){
+        help.innerHTML='Seal checks passed. For known-signer on your PC: <code>epi keys trust "'+
+          (file && file.name ? file.name : 'file.epi')+
+          '" --name sealer</code> then <code>epi verify</code>.';
+      }else{
+        help.textContent='If this keeps failing, try another browser or: epi verify "'+
+          (file && file.name ? file.name : 'file.epi')+'"';
+      }
+      checksEl.appendChild(help);
       if(result.hash) verifierHash.textContent='File SHA-256: '+result.hash;
     }catch(e){
       addCheck('Verification','fail');
@@ -199,7 +225,11 @@
   }
 
   var mb=document.getElementById('mobBtn'), mm=document.getElementById('mobMenu');
-  if(mb&&mm) mb.addEventListener('click', function(){ mm.classList.toggle('open'); });
+  if(mb&&mm) mb.addEventListener('click', function(){
+    var open=mm.classList.toggle('open');
+    mm.style.display=open?'block':'none';
+    mb.setAttribute('aria-expanded', open?'true':'false');
+  });
 })();
 </script>
 <script src="/js/auth-ui.js"></script>

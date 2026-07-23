@@ -750,9 +750,11 @@ function renderTrustPlainSummary({ intOk, intScope, sigValid, idStatus, selfVeri
       ? ' (this page checked the embedded snapshot; full archive check uses epi verify).'
       : '.';
     body.textContent =
-      'The signature is valid, so the package does not look tampered' + partialNote +
-      ' “Who signed” is unknown until your team pins that key once. ' +
-      'Everyday users can stop here if they trust the person who sent the file.';
+      'Good news: the cryptographic seal is valid — this is not a broken/tampered package' +
+      partialNote +
+      ' “Who signed” stays unknown in the browser until someone runs: ' +
+      'epi keys trust "file.epi" --name sealer  (then epi verify). ' +
+      'WARN/unknown signer is normal, not a failed seal.';
     return;
   }
 

@@ -234,32 +234,104 @@ def _open_native_viewer(epi_path: Path) -> bool:
     except Exception:
         return False
 
-def _open_in_browser(viewer_path: Path):
-    """Cross-platform browser open with fallbacks."""
-    import sys
-    uri = viewer_path.as_uri()
-    opened = False
+def _open_via_local_http(viewer_path: Path, *, lifetime_seconds: float = 600.0) -> str | None:
+    """
+    Serve the viewer directory over http://127.0.0.1 and return the URL.
 
-    if sys.platform == "win32":
+    file:// breaks for many real users (Edge/Chrome restrictions, large HTML,
+    double-click flows). Localhost HTTP is the reliable open path.
+    """
+    import http.server
+    import socketserver
+
+    directory = viewer_path.parent.resolve()
+    filename = viewer_path.name
+
+    class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(directory), **kwargs)
+
+        def log_message(self, format: str, *args) -> None:  # noqa: A003
+            return
+
+    try:
+        # Allow address reuse so rapid re-open does not fail on Windows.
+        socketserver.TCPServer.allow_reuse_address = True
+        httpd = socketserver.TCPServer(("127.0.0.1", 0), _QuietHandler)
+        port = int(httpd.server_address[1])
+    except OSError:
+        return None
+
+    def _serve() -> None:
+        try:
+            httpd.serve_forever(poll_interval=0.5)
+        except Exception:
+            pass
+        try:
+            httpd.server_close()
+        except Exception:
+            pass
+
+    def _stop_later() -> None:
+        time.sleep(lifetime_seconds)
+        try:
+            httpd.shutdown()
+        except Exception:
+            pass
+
+    threading.Thread(target=_serve, name="epi-view-http", daemon=True).start()
+    threading.Thread(target=_stop_later, name="epi-view-http-stop", daemon=True).start()
+    return f"http://127.0.0.1:{port}/{filename}"
+
+
+def _open_in_browser(viewer_path: Path):
+    """Open viewer in the default browser (prefer localhost HTTP over file://)."""
+    opened = False
+    open_target: str | None = None
+
+    # 1) Local HTTP — works in Edge/Chrome when file:// does not
+    http_url = _open_via_local_http(viewer_path)
+    if http_url:
+        open_target = http_url
+        try:
+            webbrowser.open(http_url)
+            opened = True
+            console.print(f"[dim]Browser URL: {http_url}[/dim]")
+        except Exception:
+            opened = False
+
+    # 2) Windows: open the HTML path (file association)
+    if not opened and sys.platform == "win32":
         try:
             import os
-            os.startfile(str(viewer_path))
+
+            os.startfile(str(viewer_path))  # type: ignore[attr-defined]
             opened = True
+            open_target = str(viewer_path)
         except Exception:
             pass
 
+    # 3) file:// URI fallback
     if not opened:
         try:
+            uri = viewer_path.as_uri()
             webbrowser.open(uri)
             opened = True
+            open_target = uri
         except Exception:
             pass
 
     if not opened:
-        print(f"\n📂 Could not open browser automatically.")
-        print(f"   Open this file manually in your browser:")
-        print(f"   {viewer_path}")
-
+        console.print("\n[yellow]Could not open browser automatically.[/yellow]")
+        console.print("   Open this file manually in your browser:")
+        console.print(f"   {viewer_path}")
+        if http_url:
+            console.print(f"   or: {http_url}")
+    elif open_target and open_target.startswith("file:"):
+        console.print(
+            "[dim]Tip: if the page stays blank, re-run [cyan]epi view[/cyan] "
+            "(uses a local http:// link) or open https://epilabs.org/verify[/dim]"
+        )
 def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 30.0) -> None:
     """
     Remove a temp directory after a delay (gives browser time to load).
@@ -589,11 +661,16 @@ def view(
         try:
             viewer_html = _create_decision_ops_viewer(dest, resolved_path)
             viewer_path.write_text(viewer_html, encoding="utf-8")
+            _inject_viewer_context(viewer_path, _build_viewer_context(resolved_path))
         except Exception:
             viewer_path = _refresh_viewer_html(dest, resolved_path)
             _inject_viewer_context(viewer_path, _build_viewer_context(resolved_path))
         console.print(f"[green][OK][/green] Extracted to: {dest}")
-        console.print(f"   Open in browser: {dest / 'viewer.html'}")
+        console.print(f"   File: {dest / 'viewer.html'}")
+        console.print(
+            "[dim]Tip: run [cyan]epi view file.epi[/cyan] (no --extract) to open via "
+            "http://127.0.0.1 — more reliable than double-clicking the HTML.[/dim]"
+        )
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
         raise typer.Exit(0)
@@ -625,12 +702,19 @@ def view(
                 raise ValueError("Forensic shell requested")
             viewer_html = _create_decision_ops_viewer(viewer_dir, resolved_path)
             viewer.write_text(viewer_html, encoding="utf-8")
+            # Always inject host-side verify results so the UI does not depend
+            # solely on browser self-check (which fails for some users on file://).
+            _inject_viewer_context(viewer, viewer_context)
         except Exception:
             viewer = _refresh_viewer_html(viewer_dir, resolved_path)
             _inject_viewer_context(viewer, viewer_context)
 
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
+        console.print(
+            "[dim]Seal check is host-verified. "
+            "Identity UNKNOWN/WARN is normal until [cyan]epi keys trust[/cyan].[/dim]"
+        )
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
 

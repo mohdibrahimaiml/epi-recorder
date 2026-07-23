@@ -259,14 +259,17 @@ class TestOpenInBrowser:
             _open_in_browser(viewer)
         mock_wb.assert_called_once()
 
-    def test_windows_uses_startfile(self, tmp_path):
+    def test_windows_prefers_local_http_over_file(self, tmp_path):
+        """Browsers often break on file://; open via http://127.0.0.1 first."""
         from epi_cli.view import _open_in_browser
         viewer = tmp_path / "viewer.html"
         viewer.write_text("<html></html>")
         with patch("sys.platform", "win32"), \
-             patch("os.startfile") as mock_sf:
+             patch("webbrowser.open") as mock_wb:
             _open_in_browser(viewer)
-        mock_sf.assert_called_once_with(str(viewer))
+        mock_wb.assert_called_once()
+        opened = mock_wb.call_args[0][0]
+        assert str(opened).startswith("http://127.0.0.1:"), opened
 
 
 # ─────────────────────────────────────────────────────────────
