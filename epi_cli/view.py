@@ -12,6 +12,7 @@ Features (v2.8.0):
 """
 
 import hashlib
+import os
 import shutil
 import tempfile
 import threading
@@ -234,12 +235,15 @@ def _open_native_viewer(epi_path: Path) -> bool:
     except Exception:
         return False
 
-def _open_via_local_http(viewer_path: Path, *, lifetime_seconds: float = 600.0) -> str | None:
+def _open_via_local_http(viewer_path: Path) -> tuple[str | None, object | None]:
     """
-    Serve the viewer directory over http://127.0.0.1 and return the URL.
+    Serve the viewer directory over http://127.0.0.1.
 
-    file:// breaks for many real users (Edge/Chrome restrictions, large HTML,
-    double-click flows). Localhost HTTP is the reliable open path.
+    Returns (url, httpd). Caller MUST keep the process alive and call
+    httpd.shutdown() when done — daemon threads die when epi view exits,
+    which caused ERR_CONNECTION_REFUSED for users.
+
+    file:// breaks for many real users (Edge/Chrome restrictions, large HTML).
     """
     import http.server
     import socketserver
@@ -255,12 +259,11 @@ def _open_via_local_http(viewer_path: Path, *, lifetime_seconds: float = 600.0) 
             return
 
     try:
-        # Allow address reuse so rapid re-open does not fail on Windows.
         socketserver.TCPServer.allow_reuse_address = True
         httpd = socketserver.TCPServer(("127.0.0.1", 0), _QuietHandler)
         port = int(httpd.server_address[1])
     except OSError:
-        return None
+        return None, None
 
     def _serve() -> None:
         try:
@@ -272,33 +275,107 @@ def _open_via_local_http(viewer_path: Path, *, lifetime_seconds: float = 600.0) 
         except Exception:
             pass
 
-    def _stop_later() -> None:
-        time.sleep(lifetime_seconds)
-        try:
-            httpd.shutdown()
-        except Exception:
-            pass
-
-    threading.Thread(target=_serve, name="epi-view-http", daemon=True).start()
-    threading.Thread(target=_stop_later, name="epi-view-http-stop", daemon=True).start()
-    return f"http://127.0.0.1:{port}/{filename}"
+    # Non-daemon: process must stay alive for the browser to load the page.
+    threading.Thread(target=_serve, name="epi-view-http", daemon=False).start()
+    return f"http://127.0.0.1:{port}/{filename}", httpd
 
 
-def _open_in_browser(viewer_path: Path):
-    """Open viewer in the default browser (prefer localhost HTTP over file://)."""
+def _shutdown_viewer_server(httpd: object | None) -> None:
+    if httpd is None:
+        return
+    try:
+        httpd.shutdown()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    try:
+        httpd.server_close()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def _keep_viewer_server_alive(
+    httpd: object | None,
+    *,
+    lifetime_seconds: float = 900.0,
+) -> None:
+    """
+    Block until the user finishes or lifetime elapses.
+
+    Interactive terminals: wait for Enter / Ctrl+C.
+    Double-click / no TTY: sleep so Explorer-launched epi.exe does not exit
+    immediately (which would kill the server → connection refused).
+    """
+    if httpd is None:
+        return
+    # Tests must not block for 15 minutes when view() opens a real HTTP server.
+    if os.environ.get("EPI_VIEW_NO_WAIT") == "1" or os.environ.get("PYTEST_CURRENT_TEST"):
+        _shutdown_viewer_server(httpd)
+        return
+    try:
+        if sys.stdin is not None and sys.stdin.isatty():
+            console.print("")
+            console.print(
+                "[bold yellow]Leave this window open while you use the viewer.[/bold yellow]"
+            )
+            console.print(
+                "[dim]Press [cyan]Enter[/cyan] here when finished "
+                f"(or wait {int(lifetime_seconds // 60)} min).[/dim]"
+            )
+            try:
+                # Cross-platform-ish wait with timeout via select when available
+                if sys.platform == "win32":
+                    # msvcrt cannot wait on stdin with timeout easily; use input in a thread
+                    done = threading.Event()
+
+                    def _wait_enter() -> None:
+                        try:
+                            input()
+                        except EOFError:
+                            pass
+                        done.set()
+
+                    threading.Thread(target=_wait_enter, daemon=True).start()
+                    done.wait(timeout=lifetime_seconds)
+                else:
+                    import select
+
+                    select.select([sys.stdin], [], [], lifetime_seconds)
+            except (EOFError, KeyboardInterrupt, OSError):
+                pass
+        else:
+            console.print(
+                f"[dim]Viewer server running ~{int(lifetime_seconds // 60)} min "
+                "(no interactive console).[/dim]"
+            )
+            time.sleep(lifetime_seconds)
+    finally:
+        _shutdown_viewer_server(httpd)
+
+
+def _open_in_browser(viewer_path: Path) -> object | None:
+    """
+    Open viewer in the default browser (prefer localhost HTTP over file://).
+
+    Returns the live HTTP server object when HTTP mode is used (caller should
+    keep process alive via _keep_viewer_server_alive), else None.
+    """
     opened = False
     open_target: str | None = None
+    httpd: object | None = None
+    http_url: str | None = None
 
     # 1) Local HTTP — works in Edge/Chrome when file:// does not
-    http_url = _open_via_local_http(viewer_path)
+    http_url, httpd = _open_via_local_http(viewer_path)
     if http_url:
         open_target = http_url
         try:
             webbrowser.open(http_url)
             opened = True
-            console.print(f"[dim]Browser URL: {http_url}[/dim]")
+            console.print(f"[bold green]Browser URL:[/bold green] {http_url}")
         except Exception:
             opened = False
+            _shutdown_viewer_server(httpd)
+            httpd = None
 
     # 2) Windows: open the HTML path (file association)
     if not opened and sys.platform == "win32":
@@ -327,11 +404,17 @@ def _open_in_browser(viewer_path: Path):
         console.print(f"   {viewer_path}")
         if http_url:
             console.print(f"   or: {http_url}")
-    elif open_target and open_target.startswith("file:"):
+            return httpd
+        return None
+
+    if open_target and str(open_target).startswith("file:"):
         console.print(
             "[dim]Tip: if the page stays blank, re-run [cyan]epi view[/cyan] "
             "(uses a local http:// link) or open https://epilabs.org/verify[/dim]"
         )
+    return httpd
+
+
 def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 30.0) -> None:
     """
     Remove a temp directory after a delay (gives browser time to load).
@@ -642,8 +725,18 @@ def view(
         resolved_path = _resolve_epi_file(epi_file)
     except FileNotFoundError:
         console.print(f"[red][X] File not found:[/red] {epi_file}")
-        console.print("[dim]   Searched in: CWD & ./epi-recordings/[/dim]")
-        console.print("[dim]   Tip: use full path or cd to file folder[/dim]")
+        console.print(f"[dim]   Current folder: {Path.cwd()}[/dim]")
+        console.print("[dim]   Searched in: current folder & ./epi-recordings/[/dim]")
+        console.print(
+            "[dim]   Fix (order matters): [cyan]cd[/cyan] into the folder with the file, "
+            "THEN [cyan]epi view your.epi[/cyan][/dim]"
+        )
+        console.print(
+            '[dim]   Or from any folder use a full path:[/dim]'
+        )
+        console.print(
+            '[dim]   epi view "C:\\path\\to\\your.epi"[/dim]'
+        )
         raise typer.Exit(1)
 
     try:
@@ -709,7 +802,7 @@ def view(
             viewer = _refresh_viewer_html(viewer_dir, resolved_path)
             _inject_viewer_context(viewer, viewer_context)
 
-        _open_in_browser(viewer)
+        httpd = _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
         console.print(
             "[dim]Seal check is host-verified. "
@@ -717,6 +810,9 @@ def view(
         )
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
+        # Must not exit while the local HTTP server is serving the page
+        # (otherwise the browser shows ERR_CONNECTION_REFUSED).
+        _keep_viewer_server_alive(httpd)
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly

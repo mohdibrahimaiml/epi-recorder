@@ -251,26 +251,31 @@ class TestMakeTempDir:
 
 class TestOpenInBrowser:
     def test_calls_webbrowser_open(self, tmp_path):
-        from epi_cli.view import _open_in_browser
+        from epi_cli.view import _open_in_browser, _shutdown_viewer_server
         viewer = tmp_path / "viewer.html"
         viewer.write_text("<html></html>")
         with patch("webbrowser.open") as mock_wb, \
              patch("sys.platform", "linux"):
-            _open_in_browser(viewer)
+            httpd = _open_in_browser(viewer)
         mock_wb.assert_called_once()
+        _shutdown_viewer_server(httpd)
 
     def test_windows_prefers_local_http_over_file(self, tmp_path):
         """Browsers often break on file://; open via http://127.0.0.1 first."""
-        from epi_cli.view import _open_in_browser
+        from epi_cli.view import _open_in_browser, _shutdown_viewer_server
         viewer = tmp_path / "viewer.html"
         viewer.write_text("<html></html>")
         with patch("sys.platform", "win32"), \
              patch("webbrowser.open") as mock_wb:
-            _open_in_browser(viewer)
+            httpd = _open_in_browser(viewer)
         mock_wb.assert_called_once()
         opened = mock_wb.call_args[0][0]
         assert str(opened).startswith("http://127.0.0.1:"), opened
-
+        # Server must still be reachable until we shut it down (not daemon-killed)
+        import urllib.request
+        with urllib.request.urlopen(opened, timeout=5) as resp:
+            assert resp.status == 200
+        _shutdown_viewer_server(httpd)
 
 # ─────────────────────────────────────────────────────────────
 # view._cleanup_after_delay
