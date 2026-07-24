@@ -25,7 +25,7 @@ epi demo --no-browser   # record → seal → verify (no API key)
 > When someone asks what your agent did six months ago,  
 > the answer should be a **`.epi` file** — not a dashboard login and a shrug.
 
-**EPI** (`epi-recorder`) captures agent runs into a **portable, signed, offline-verifiable** artifact.
+**EPI** (`epi-recorder`) **v4.3.0** captures agent runs into a **portable, signed, offline-verifiable** artifact.
 
 | You can… | Offline? | Notes |
 |----------|----------|--------|
@@ -33,6 +33,8 @@ epi demo --no-browser   # record → seal → verify (no API key)
 | **Verify integrity + signature** | Yes | No upload required |
 | **View in the browser** | Yes | Self-contained embedded viewer (`epi view`) or https://epilabs.org/verify |
 | **Know who the sealer is** | Local trust store | First run often **WARN** until you `epi keys trust` |
+
+EPI produces evidence for audit trails. It is **not a compliance guarantee** and does not provide legal advice.
 
 ---
 
@@ -113,7 +115,7 @@ epi verify demo.epi       # identity can become KNOWN
 
 ## What’s a `.epi` file?
 
-A **polyglot Envelope-v2** container: valid **HTML + archive**, signed and hash-linked.
+A **polyglot Envelope v2** container (polyglot HTML+ZIP): valid **HTML + archive**, signed and hash-linked.
 
 ```text
 demo.epi
@@ -251,8 +253,6 @@ epi verify agent.epi --review           # check bound human review
 ---
 
 ## Docs & standards
-
-EPI produces **evidence files** for audit trails. It is **not** a compliance guarantee or legal advice.
 
 | Topic | Link |
 |-------|------|

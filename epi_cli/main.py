@@ -46,6 +46,9 @@ Everyday:
   epi share <file.epi>
   epi doctor
 
+Team review:
+  epi connect open
+
 In code:
   from epi_recorder import record, wrap_openai
   with record("my_agent.epi"):

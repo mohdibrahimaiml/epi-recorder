@@ -20,7 +20,15 @@ console = Console()
 
 
 def _resolve_option_value(value, default=None):
-    return default if isinstance(value, OptionInfo) else value
+    """Normalize Typer Option/Argument defaults when calling functions in-process."""
+    try:
+        from typer.models import ArgumentInfo, OptionInfo as TyperOptionInfo
+        param_types = (OptionInfo, TyperOptionInfo, ArgumentInfo)
+    except Exception:
+        param_types = (OptionInfo,)
+    if isinstance(value, param_types):
+        return default
+    return value
 
 
 def _format_ts(ts: str | None) -> str:
@@ -866,6 +874,13 @@ def export_summary_command(
     Legacy (still works):
       epi export-summary summary case.epi
     """
+    # When invoked as a Python function (tests/library), Typer ParameterInfo
+    # defaults can leak in; normalize them to real values.
+    maybe_file = _resolve_option_value(maybe_file, None)
+    out = _resolve_option_value(out, None)
+    output_dir = _resolve_option_value(output_dir, None)
+    text = bool(_resolve_option_value(text, False))
+
     if target == "summary":
         if not maybe_file:
             console.print(
