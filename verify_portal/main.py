@@ -762,8 +762,9 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
             shutil.rmtree(merged_keys_dir, ignore_errors=True)
 
 
-# Directory-based pages (verify/viewer apps live under subfolders).
+# Directory-based pages (verify / single-case epi-viewer live under subfolders).
 # Explicit routes avoid StaticFiles trailing-slash redirect surprises.
+# Hosted multi-case Decision Ops (/viewer/) was removed — redirect to verify.
 
 @app.get("/verify")
 async def verify_html_page():
@@ -771,13 +772,13 @@ async def verify_html_page():
 
 
 @app.get("/viewer")
-async def viewer_redirect():
-    return RedirectResponse(url="/viewer/")
+async def viewer_legacy_redirect():
+    return RedirectResponse(url="/verify/", status_code=301)
 
 
 @app.get("/viewer/")
-async def viewer_page():
-    return FileResponse(STATIC_DIR / "viewer" / "index.html")
+async def viewer_legacy_slash_redirect():
+    return RedirectResponse(url="/verify/", status_code=301)
 
 
 @app.get("/epi-viewer")
@@ -791,7 +792,6 @@ async def epi_viewer_page():
     if epi_viewer_index.exists():
         return FileResponse(epi_viewer_index)
     raise HTTPException(status_code=404, detail="EPI viewer not found")
-
 
 @app.get("/scitt")
 async def scitt_page():

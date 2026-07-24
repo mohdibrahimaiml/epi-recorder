@@ -85,7 +85,7 @@ def generate(
         from epi_core.schemas import ManifestModel
 
         mn = ManifestModel(
-            cli_command="annex notify",
+            cli_command="notify generate",
             goal=f"EU database notification for {system_name}",
         )
         stmt = create_scitt_statement(mn, pk, issuer=f"epi:key:{key_name}")
@@ -116,7 +116,7 @@ def generate(
 def status(notifications_dir: Path = typer.Option(Path("notifications"), "--dir", "-d", help="Notifications directory")):
     """List all generated notification records and their status."""
     if not notifications_dir.exists():
-        console.print("No notifications directory found. Generate one with: epi annex notify generate")
+        console.print("No notifications directory found. Generate one with: epi notify generate")
         return
 
     files = sorted(notifications_dir.glob("eu-notification-*.json"))

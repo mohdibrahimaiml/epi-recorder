@@ -1,26 +1,11 @@
-"""CI guard: deploy mirrors of multi-case viewer must match viewer/ source."""
+"""CI guard: local web_viewer and crypto packages stay consistent.
+
+Hosted multi-case Decision Ops (website/viewer + root viewer/) was removed.
+"""
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-
-MIRRORS = [
-    ROOT / "website" / "viewer" / "app.js",
-    ROOT / "website" / "viewer" / "crypto.js",
-]
-
-
-def test_website_viewer_matches_source_viewer():
-    src_app = (ROOT / "viewer" / "app.js").read_bytes()
-    src_crypto = (ROOT / "viewer" / "crypto.js").read_bytes()
-    assert (ROOT / "website" / "viewer" / "app.js").read_bytes() == src_app
-    assert (ROOT / "website" / "viewer" / "crypto.js").read_bytes() == src_crypto
-
-
-def test_crypto_js_synced_between_packages():
-    a = (ROOT / "epi_viewer_static" / "crypto.js").read_bytes()
-    b = (ROOT / "viewer" / "crypto.js").read_bytes()
-    assert a == b
 
 
 def test_web_viewer_model_a_not_model_b():
@@ -32,3 +17,13 @@ def test_web_viewer_model_a_not_model_b():
         "async function downloadReviewedArtifact"
     )[0]
     assert "epiSignManifest" not in fn
+
+
+def test_hosted_decision_ops_viewer_removed():
+    """Public Decision Ops surface must stay gone."""
+    assert not (ROOT / "viewer").exists()
+    assert not (ROOT / "website" / "viewer").exists()
+    # Old URLs should redirect via static stub / _redirects, not serve an app
+    stub = (ROOT / "website" / "viewer.html").read_text(encoding="utf-8")
+    assert "/verify/" in stub
+    assert "Decision Ops" in stub  # only as removal notice

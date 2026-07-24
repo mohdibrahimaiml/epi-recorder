@@ -438,6 +438,14 @@ def _make_epi_file(tmp_path: Path) -> Path:
 
 
 class TestExportSummary:
+    def test_flat_form_text_output(self, tmp_path):
+        """Preferred form: epi export-summary file.epi (no nested summary)."""
+        epi = _make_epi_file(tmp_path)
+        result = runner.invoke(cli_app, ["export-summary", str(epi), "--text"])
+        assert result.exit_code == 0, result.output
+        assert "EPI DECISION RECORD" in result.output
+        assert "CASE OVERVIEW" in result.output
+
     def test_text_output_contains_headers(self, tmp_path):
         epi = _make_epi_file(tmp_path)
         result = runner.invoke(cli_app, ["export-summary", "summary", str(epi), "--text"])

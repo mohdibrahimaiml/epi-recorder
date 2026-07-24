@@ -1120,10 +1120,19 @@ class EPIContainer:
             viewer_html_bytes = viewer_html.encode("utf-8")
             zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-            # Update the viewer.html hash in the manifest so that verify_integrity
-            # correctly detects a stale viewer after refresh (signature will be
-            # invalid — that is intentional and correct; re-sign to fix it).
+            # Keep file_manifest hashes aligned with rewritten chrome files so
+            # integrity stays valid after a viewer refresh.
             manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+
+            verify_bytes = (
+                VERIFY_TXT_TEMPLATE
+                % {
+                    "filename": manifest.workflow_id or "unknown",
+                    "steps_count": len(manifest.file_manifest),
+                }
+            ).encode("utf-8")
+            manifest.file_manifest["VERIFY.txt"] = hashlib.sha256(verify_bytes).hexdigest()
+            zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
             zf.writestr(
                 "manifest.json",
@@ -1131,29 +1140,50 @@ class EPIContainer:
                 compress_type=zipfile.ZIP_DEFLATED,
             )
 
-            zf.writestr(
-                "VERIFY.txt",
-                VERIFY_TXT_TEMPLATE % {
-                    "filename": manifest.workflow_id or "unknown",
-                    "steps_count": len(manifest.file_manifest),
-                },
-                compress_type=zipfile.ZIP_DEFLATED,
-            )
+    @staticmethod
+    def _replace_zip_member(zip_path: Path, member_name: str, data: bytes) -> None:
+        """Replace one ZIP member while preserving other members and mimetype-first order."""
+        temp_path = zip_path.with_suffix(zip_path.suffix + ".rewritetmp")
+        with zipfile.ZipFile(zip_path, "r") as zin, zipfile.ZipFile(temp_path, "w") as zout:
+            for info in zin.infolist():
+                if info.filename == member_name:
+                    continue
+                # Preserve original compression (mimetype must stay ZIP_STORED).
+                payload = zin.read(info.filename)
+                zout.writestr(info, payload)
+            zout.writestr(member_name, data, compress_type=zipfile.ZIP_DEFLATED)
+        temp_path.replace(zip_path)
 
     @staticmethod
     def refresh_viewer(
         epi_path: Path,
         output_path: Path | None = None,
+        signer_function: Callable[[ManifestModel], ManifestModel] | None = None,
+        *,
+        clear_signature: bool = False,
     ) -> Path:
+        """Regenerate embedded viewer.html.
+
+        Updates viewer/VERIFY hashes in the manifest. If the artifact was signed,
+        pass ``signer_function`` to re-seal, or ``clear_signature=True`` to drop
+        the old signature deliberately. Leaving a stale signature is not allowed
+        when the hashed fields changed.
+        """
         source_path = Path(epi_path)
         if not source_path.exists():
             raise FileNotFoundError(f"EPI file not found: {source_path}")
 
-        import warnings
-        warnings.warn("refresh_viewer invalidates the manifest signature. Re-sign after refresh.")
         destination = Path(output_path) if output_path is not None else source_path
         container_format = EPIContainer.detect_container_format(source_path)
         manifest = EPIContainer.read_manifest(source_path)
+        was_signed = bool(getattr(manifest, "signature", None))
+
+        if was_signed and signer_function is None and not clear_signature:
+            raise ValueError(
+                "Refreshing the viewer changes sealed hashes. "
+                "Re-sign with a key, write to --out and clear the signature, "
+                "or pass clear_signature=True only when you accept an unsigned result."
+            )
 
         temp_dir = EPIContainer._make_temp_dir("epi_refresh_viewer_")
         unpack_dir = temp_dir / "unpacked"
@@ -1166,7 +1196,27 @@ class EPIContainer:
                 with zipfile.ZipFile(payload_zip, "r") as zf:
                     zf.extractall(unpack_dir)
 
+            # Drop the old seal before hash updates so we never leave a mismatched signature.
+            if was_signed and (clear_signature or signer_function is not None):
+                manifest.signature = None
+
+            # Pass 1: rebuild chrome + hashes (signature intentionally absent).
             EPIContainer._rebuild_payload_with_viewer(unpack_dir, manifest, temp_payload)
+
+            if signer_function is not None:
+                # Provisional sign installs public_key (viewer/VERIFY may depend on it).
+                manifest = signer_function(manifest)
+                # Pass 2: rebuild chrome with public_key present, updating hashes.
+                EPIContainer._rebuild_payload_with_viewer(unpack_dir, manifest, temp_payload)
+                # Final sign over the stable file_manifest hashes, then inject only
+                # manifest.json so viewer/VERIFY bytes (and their hashes) stay fixed.
+                manifest = signer_function(manifest)
+                EPIContainer._replace_zip_member(
+                    temp_payload,
+                    "manifest.json",
+                    manifest.model_dump_json(indent=2).encode("utf-8"),
+                )
+
             EPIContainer._write_artifact_from_payload(
                 temp_payload,
                 temp_output,

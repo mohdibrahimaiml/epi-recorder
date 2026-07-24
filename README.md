@@ -31,7 +31,7 @@ epi demo --no-browser   # record → seal → verify (no API key)
 |----------|----------|--------|
 | **Record + seal** | Yes* | `*Seal may contact a TSA if `EPI_NOTARIZE=1` (default). Use `EPI_NOTARIZE=0` for air-gap. |
 | **Verify integrity + signature** | Yes | No upload required |
-| **View in the browser** | Yes | Self-contained viewer / Decision Ops UI |
+| **View in the browser** | Yes | Self-contained embedded viewer (`epi view`) or https://epilabs.org/verify |
 | **Know who the sealer is** | Local trust store | First run often **WARN** until you `epi keys trust` |
 
 ---

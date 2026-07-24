@@ -221,7 +221,7 @@ def whoami() -> None:
     """Show the currently logged-in EPI Cloud user."""
     auth = load_auth()
     if not auth:
-        console.print("[dim]Not logged in. Run [cyan]epi login[/cyan] to connect.[/dim]")
+        console.print("[dim]Not logged in. Run [cyan]epi auth login[/cyan] to connect.[/dim]")
         return
 
     try:
@@ -239,4 +239,4 @@ def whoami() -> None:
         console.print(f"  Org:     {data.get('org') or 'not set'}")
     except Exception as exc:
         console.print(f"[yellow]Could not fetch profile:[/yellow] {exc}")
-        console.print("[dim]Your local session may have expired. Run [cyan]epi login[/cyan].[/dim]")
+        console.print("[dim]Your local session may have expired. Run [cyan]epi auth login[/cyan].[/dim]")

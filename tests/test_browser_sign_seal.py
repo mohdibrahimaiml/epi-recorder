@@ -1,7 +1,7 @@
 """
 Regression tests for browser Sign & Seal (Item 1).
 
-Historical bug: web_viewer/app.js and viewer/app.js buildReviewedArtifactBytes()
+Historical bug: web_viewer/app.js buildReviewedArtifactBytes()
 produced a bare unsigned ZIP (legacy-zip), deleting manifest.signature and never
 wrapping envelope-v2. That fails enterprise evidence use.
 
@@ -72,17 +72,6 @@ def test_web_viewer_sign_seal_is_model_a_additive():
     assert "epiWrapEnvelopeV2" in fn_body
 
 
-def test_viewer_app_sign_seal_is_model_a_additive():
-    js = _read("viewer/app.js")
-    fn_body = js.split("async function buildReviewedArtifactBytes")[1].split(
-        "async function collectArtifactSourceEntries"
-    )[0]
-    assert "epiBuildSignedReviewRecord" in fn_body
-    assert "epiBuildArtifactBinding" in fn_body
-    assert "epiSignManifest" not in fn_body
-    assert "A-additive" in fn_body
-
-
 def test_crypto_js_exports_sign_and_envelope_helpers():
     crypto = _read("epi_viewer_static/crypto.js")
     assert "signAsync" in crypto
@@ -92,9 +81,6 @@ def test_crypto_js_exports_sign_and_envelope_helpers():
     assert "function epiBuildArtifactBinding" in crypto
     assert "function epiBuildSignedReviewRecord" in crypto
     assert "function epiExtractInnerZipFromEpi" in crypto
-    # Both crypto copies must stay in sync (viewer/ is a duplicate bundle).
-    assert _read("viewer/crypto.js") == crypto
-
 
 def test_old_bare_zip_sign_seal_shape_is_legacy_and_unsigned(tmp_path: Path):
     """
