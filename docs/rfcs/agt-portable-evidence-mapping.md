@@ -1,6 +1,6 @@
 # AGT → EPI Portable Evidence Mapping
 
-- **Status**: Draft
+- **Status**: Draft — open for community review and discussion
 - **Date**: 2026-05-13
 - **Author**: Mohd Ibrahim Afridi (mohdibrahim@epilabs.org)
 - **Related**: [AGT Discussion #806](https://github.com/microsoft/agent-governance-toolkit/discussions/806)
