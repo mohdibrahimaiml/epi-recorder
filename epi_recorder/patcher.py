@@ -250,12 +250,59 @@ def _patch_openai_v1() -> bool:
                 "presence_penalty": kwargs.get("presence_penalty"),
             }
             
+            # Capture full request including tools (was missing)
+            for extra in ("tools", "tool_choice", "response_format", "stream_options", "functions", "function_call", "n", "stop", "seed", "response_format"):
+                if extra in kwargs and kwargs[extra] is not None:
+                    request_data[extra] = kwargs[extra]
             # Remove None values
             request_data = {k: v for k, v in request_data.items() if v is not None}
             
+            # Canonical pre_commit hash (was vacuous len+time, now messages+model)
+            try:
+                import hashlib as _hl
+                import json as _js
+                _canon = _js.dumps(request_data.get("messages", []), sort_keys=True, ensure_ascii=False, default=str)
+                _pre_hash = _hl.sha256((_canon + str(request_data.get("model", ""))).encode("utf-8")).hexdigest()
+                request_data["pre_commit_hash"] = _pre_hash
+            except Exception:
+                _pre_hash = None
             # Log request step
             context.add_step("llm.request", request_data)
+            if _pre_hash:
+                context.add_step("llm.pre_commit", {"model": request_data.get("model"), "messages_hash": _pre_hash, "message_count": len(request_data.get("messages") or [])})
             
+            # Streaming branch (was missing — fell through to response.model AttributeError)
+            if kwargs.get("stream"):
+                try:
+                    stream = original_create(self, *args, **kwargs)
+                    # Return iterator wrapper that accumulates and logs on completion
+                    def _iter():
+                        acc = []
+                        tcs: dict = {}
+                        for chunk in stream:
+                            if hasattr(chunk, "choices") and chunk.choices:
+                                d = chunk.choices[0].delta
+                                if getattr(d, "content", None):
+                                    acc.append(d.content)
+                                if getattr(d, "tool_calls", None):
+                                    for tc in d.tool_calls:
+                                        idx = getattr(tc, "index", 0) or 0
+                                        e = tcs.setdefault(idx, {"function": {"name": "", "arguments": ""}})
+                                        if getattr(tc, "function", None):
+                                            if getattr(tc.function, "name", None):
+                                                e["function"]["name"] = tc.function.name
+                                            if getattr(tc.function, "arguments", None):
+                                                e["function"]["arguments"] += tc.function.arguments
+                            yield chunk
+                        msg = {"role": "assistant", "content": "".join(acc)}
+                        if tcs:
+                            msg["tool_calls"] = [tcs[k] for k in sorted(tcs)]
+                        context.add_step("llm.response", {"model": request_data.get("model"), "choices": [{"message": msg}], "stream": True})
+                    return _iter()
+                except Exception as e:
+                    context.add_step("llm.error", {"provider": "openai", "error": str(e), "error_type": type(e).__name__, "stream": True})
+                    raise
+
             # Execute original call
             try:
                 response = original_create(self, *args, **kwargs)

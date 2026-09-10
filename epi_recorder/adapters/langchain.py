@@ -403,8 +403,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        if parent_run_id is not None:
-            return  # nested chains — skip
+        # Captured nested chains too (was early return) — include parent_run_id for trace
         name = _component_name(serialized, default="chain")
         self._log(
             "chain.start",
@@ -413,6 +412,8 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "name": name,
                 "inputs": _safe_mapping(inputs),
                 "run_id": _run_id_str(run_id),
+                "parent_run_id": _run_id_str(parent_run_id) if parent_run_id else None,
+                "is_nested": parent_run_id is not None,
             },
         )
 
@@ -424,13 +425,13 @@ class EpiCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        if parent_run_id is not None:
-            return
         self._log(
             "chain.end",
             {
                 "outputs": _safe_mapping(outputs),
                 "run_id": _run_id_str(run_id),
+                "parent_run_id": _run_id_str(parent_run_id) if parent_run_id else None,
+                "is_nested": parent_run_id is not None,
             },
         )
 
