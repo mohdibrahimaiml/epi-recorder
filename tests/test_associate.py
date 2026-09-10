@@ -105,6 +105,9 @@ class TestWindowsLauncherScripts:
         # Byte-string needle: plain Unicode needle makes InStrB silently
         # return 0 against the byte array (proven under real cscript)
         assert "ChrB" in content
+        # Stale temp cleanup: previous epi_view_* folders older than a day
+        assert "epi_view_" in content
+        assert "DateDiff" in content
         assert "skipBytes = 64" not in content
         assert "NameSpace(zipPath)" in content
 

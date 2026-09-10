@@ -173,6 +173,23 @@ If Not fso.FileExists(epiPath) Then
 End If
 epiPath = fso.GetAbsolutePathName(epiPath)
 
+' -- Housekeeping: remove stale epi_view_* folders from previous runs --
+' The viewer file must stay on disk while the browser reads it, so this only
+' deletes folders older than a day -- never anything created in this run.
+Dim parentFolder, subFolder
+Set parentFolder = fso.GetFolder(fso.GetSpecialFolder(2))
+If Err.Number = 0 Then
+    For Each subFolder In parentFolder.SubFolders
+        If Err.Number <> 0 Then Exit For
+        If Left(subFolder.Name, 9) = "epi_view_" Then
+            If DateDiff("h", subFolder.DateLastModified, Now) > 24 Then
+                subFolder.Delete True
+            End If
+        End If
+    Next
+End If
+Err.Clear
+
 ' -- Primary path: delegate to the installed CLI --
 Set sh = CreateObject("WScript.Shell")
 viewerCommand = "{escaped_view_command}"
