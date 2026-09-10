@@ -1613,9 +1613,18 @@ class EpiRecorderSession:
             anchor.anchor_if_configured(
                 manifest, self.output_path, private_key, self.default_key_name
             )
-        except Exception:
-            # Fail-open: SCITT anchoring must never block artifact creation
-            pass
+        except Exception as exc:
+            # Fail-open but visible: log + deadletter so transparency gap is auditable
+            import warnings as _warnings
+            _warnings.warn(f"EPI SCITT auto-anchor failed: {exc}", RuntimeWarning, stacklevel=3)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "scitt.auto_anchor", "deadletter": True, "error": str(exc)}) + "\n")
+            except Exception:
+                pass
 
     def _sign_epi_file(self) -> bool:
         """Sign the .epi file with default key. Returns True if signed successfully."""

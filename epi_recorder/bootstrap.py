@@ -82,8 +82,17 @@ class _BootstrapStreamCapture:
 
         try:
             self._context.add_step("stdout.print", payload)
-        except Exception:
-            pass
+        except Exception as exc:
+            import warnings as _warnings
+            _warnings.warn(f"EPI bootstrap stdout capture failed: {exc}", RuntimeWarning, stacklevel=3)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "stdout.print", "deadletter": True, "error": str(exc)}) + "\n")
+            except Exception:
+                pass
 
 
 def _install_stdio_capture(context) -> None:
