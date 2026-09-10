@@ -4,6 +4,22 @@ This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
 
+## Fixed in 4.4.6 (2026-09-10 batch)
+
+The following were gaps and are now fixed — kept here for audit trail:
+
+- **Streaming pre_commit** — `openai.py`/`anthropic.py` streaming now emits `llm.pre_commit` with canonical `sha256(messages+model)` and TSA binding; `delta.tool_calls/reasoning` captured (was `delta.content` only)
+- **Vacuous pre_hash** — `sha256(model+len+time)` replaced with `sha256(canonical_json(messages)+model)`
+- **Trust ranking** — `UNSIGNED` now `LOW` not above `signed-unknown`; `32B/64B` sig/pubkey length enforced
+- **Envelope trailing bytes & header transplant** — `extract_inner_payload` fails on extra bytes; `verify_integrity` cross-checks `header uuid/timestamp`
+- **Viewer 4MiB cap** — outer viewer hash scans full gap, not `4MiB`
+- **payload_hash stale** — recomputed after `viewer.html/VERIFY.txt/notarization`
+- **Guardrails truncation** — `epi_guardrails/session.py [:2000]` removed, full content sealed
+- **Gateway defaults** — `retention_mode full_content`, `proxy_failure_mode fail-closed`, streaming `501`
+- **SCITT fallback** — missing service key now `transparency_ok=None` not `PASS`
+- **Billing** — unknown `price_id` now `ValueError` (empty keeps `hosted` compat)
+- **Packaging** — `cryptography<51 typer<0.28 rich<16`, `setup.py` gateways, `docker 3.12`, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced, demos re-sealed
+
 ---
 
 ## Pre-execution commitment (llm.pre_commit)
@@ -14,7 +30,7 @@ paths (`stream=True`) silently fall back to the old behavior with no pre-commit
 entry. No error, no warning — the chain just doesn't include the commitment step.
 
 This affects anyone using streaming responses. The pricing page now notes
-"(non-streaming calls)" next to this feature.
+"(non-streaming calls)" next to this feature. **Fixed in 4.4.6 for wrappers — see above; `patcher.py` legacy path still has gap.**
 
 ---
 
