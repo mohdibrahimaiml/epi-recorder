@@ -1,0 +1,274 @@
+/* ==========================================================================
+   EPI LABS — IMPECCABLE DESIGN SYSTEM OVERRIDES
+   Based on Impeccable Principles (pbakaus/impeccable)
+   Transforming epilabs.org into an infrastructure-grade slate portal
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* --- 1. Core Variables & Theme Tokens --- */
+:root {
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+
+  --bg-canvas: #0B0F19;
+  --bg-surface-1: #111827;
+  --bg-surface-2: #1E293B;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-code: #38BDF8;
+
+  --accent-cyan: #06B6D4;
+  --accent-emerald: #10B981;
+  --accent-amber: #F59E0B;
+  --accent-crimson: #EF4444;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(6, 182, 212, 0.35);
+  --border-emerald: rgba(16, 185, 129, 0.35);
+
+  --shadow-glow-cyan: 0 0 30px rgba(6, 182, 212, 0.25);
+  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.25);
+}
+
+[data-theme="light"] {
+  --bg-canvas: #F8FAFC;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F1F5F9;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-bright: rgba(6, 182, 212, 0.4);
+}
+
+/* --- 2. Global Reset & Overrides --- */
+body, .v2-home, .epi-instrument {
+  background-color: var(--bg-canvas) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-body) !important;
+  line-height: 1.6 !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+h1, h2, h3, h4, h5, h6, .section-title, .hero-title, .v2-hero-copy h1 {
+  font-family: var(--font-display) !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.025em !important;
+}
+
+p, .hero-sub, .section-desc {
+  color: var(--text-secondary) !important;
+  font-family: var(--font-body) !important;
+}
+
+code, pre, .cmd, .n, .v2-file-name, .v2-install-chip code, .epi-badge {
+  font-family: var(--font-mono) !important;
+}
+
+/* --- 3. Navigation Bar (Impeccable Glassmorphism) --- */
+#nav, nav, .nav-inner {
+  background: rgba(11, 15, 25, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.nav-links a {
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  transition: all 0.15s ease !important;
+}
+
+.nav-links a:hover {
+  color: var(--text-primary) !important;
+}
+
+/* --- 4. Hero Section & Typography --- */
+.hero, #hero {
+  background: radial-gradient(circle at 50% 20%, rgba(6, 182, 212, 0.14) 0%, rgba(16, 185, 129, 0.05) 45%, transparent 75%) !important;
+  padding-top: 8.5rem !important;
+  padding-bottom: 5rem !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.hero-eyebrow {
+  color: var(--accent-cyan) !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  font-size: 0.85rem !important;
+  background: rgba(6, 182, 212, 0.12) !important;
+  border: 1px solid var(--border-bright) !important;
+  padding: 0.35rem 0.85rem !important;
+  border-radius: 9999px !important;
+  display: inline-block !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.v2-hero-copy h1 {
+  font-size: clamp(2.5rem, 5.5vw, 4.25rem) !important;
+  line-height: 1.12 !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.v2-hero-copy h1 em {
+  font-style: normal !important;
+  background: linear-gradient(135deg, #06B6D4 0%, #10B981 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.epi-badge {
+  background: rgba(6, 182, 212, 0.15) !important;
+  color: var(--accent-cyan) !important;
+  border: 1px solid var(--border-bright) !important;
+  padding: 0.2rem 0.6rem !important;
+  border-radius: 6px !important;
+  font-size: 0.85rem !important;
+  vertical-align: middle !important;
+}
+
+/* --- 5. Interactive Buttons & Install Chip --- */
+.btn-primary, .btn-lg.btn-primary {
+  background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: var(--shadow-glow-cyan) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  padding: 0.85rem 1.85rem !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 0 45px rgba(6, 182, 212, 0.45) !important;
+}
+
+.btn-secondary, .btn-lg.btn-secondary {
+  background: var(--bg-surface-1) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  padding: 0.85rem 1.85rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-surface-2) !important;
+  border-color: var(--border-bright) !important;
+  transform: translateY(-2px) !important;
+}
+
+.v2-install-chip {
+  background: var(--bg-surface-1) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-glow-cyan) !important;
+  padding: 0.6rem 0.8rem 0.6rem 1.25rem !important;
+}
+
+.v2-install-chip code {
+  color: var(--text-code) !important;
+  font-size: 1rem !important;
+}
+
+.v2-install-chip button {
+  background: var(--accent-cyan) !important;
+  color: #FFFFFF !important;
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  border: none !important;
+  padding: 0.4rem 0.9rem !important;
+  transition: all 0.15s ease !important;
+}
+
+.v2-install-chip button:hover {
+  background: #0891B2 !important;
+}
+
+/* --- 6. De-nested File Card & Dropzone (No Carditis) --- */
+.v2-file-card {
+  background: var(--bg-surface-1) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-top: 3px solid var(--accent-cyan) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45) !important;
+  padding: 1.75rem !important;
+}
+
+.v2-seal-pill {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: var(--accent-emerald) !important;
+  border: 1px solid var(--border-emerald) !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+  padding: 0.25rem 0.75rem !important;
+}
+
+.drop-zone {
+  background: rgba(6, 182, 212, 0.03) !important;
+  border: 2px dashed var(--border-bright) !important;
+  border-radius: 16px !important;
+  padding: 3rem 2rem !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.drop-zone:hover {
+  border-color: var(--accent-emerald) !important;
+  background: rgba(16, 185, 129, 0.06) !important;
+}
+
+.truth-card {
+  background: var(--bg-surface-1) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 16px !important;
+  padding: 2.25rem !important;
+  transition: all 0.25s ease !important;
+}
+
+.truth-card:hover {
+  border-color: var(--border-bright) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: var(--shadow-glow-cyan) !important;
+}
+
+.truth-kicker {
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  color: var(--accent-cyan) !important;
+}
+
+/* --- 7. Command Strip & Step Workflow --- */
+.command-strip ol li {
+  background: var(--bg-surface-1) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 14px !important;
+  padding: 1.5rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.command-strip ol li:hover {
+  border-color: var(--border-bright) !important;
+  background: var(--bg-surface-2) !important;
+}
+
+.command-strip .n {
+  background: rgba(6, 182, 212, 0.15) !important;
+  color: var(--accent-cyan) !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}

@@ -1,0 +1,15 @@
+WEBVTT
+Kind: captions
+Language: en
+
+00:00.000 --> 00:05.000
+[Screen: Terminal — pip install epi-recorder completes successfully]
+
+00:05.000 --> 00:10.000
+[Screen: Python code — record() context manager wrapping an OpenAI agent call]
+
+00:10.000 --> 00:15.000
+[Screen: Terminal — epi verify run.epi — outputs: Seal OK, Ed25519 valid]
+
+00:15.000 --> 00:20.000
+[Screen: Browser — epi view opens a forensic timeline showing all agent steps]
