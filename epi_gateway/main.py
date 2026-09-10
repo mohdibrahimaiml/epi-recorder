@@ -126,6 +126,7 @@ class GatewayRuntimeSettings(BaseModel):
     smtp_password: str | None = None
     smtp_from: str | None = None
     telemetry_enabled: bool = False
+    redis_url: str | None = None  # optional shared rate-limit backend (EPI_GATEWAY_REDIS_URL)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -186,6 +187,7 @@ class GatewayRuntimeSettings(BaseModel):
         self.smtp_user = _clean(self.smtp_user)
         self.smtp_password = _clean(self.smtp_password)
         self.smtp_from = _clean(self.smtp_from)
+        self.redis_url = _clean(self.redis_url)
         self.allowed_origins = [origin for origin in self.allowed_origins if _clean(origin)] or ["*"]
         return self
 
@@ -328,6 +330,7 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         smtp_password=os.getenv("EPI_SMTP_PASSWORD"),
         smtp_from=os.getenv("EPI_SMTP_FROM"),
         telemetry_enabled=_truthy(os.getenv("EPI_GATEWAY_TELEMETRY_ENABLED")),
+        redis_url=os.getenv("EPI_GATEWAY_REDIS_URL"),
     )
 
 
@@ -503,6 +506,79 @@ class _SlidingWindowRateLimiter:
     def reset(self, key: str) -> None:
         with self._lock:
             self._windows.pop(key, None)
+
+
+class _RedisSlidingWindowRateLimiter:
+    """Shared sliding-window limiter backed by Redis sorted sets.
+
+    Opt-in via EPI_GATEWAY_REDIS_URL. Same is_allowed/reset interface as
+    _SlidingWindowRateLimiter so ShareService and capture middleware work
+    unchanged. Survives restarts and is shared across workers.
+    Falls back to fail-closed (deny) only on Redis errors? No — fail-open
+    would bypass limits; we deny (return False) and log, so abuse cannot
+    slip through during an outage. Use ZADD/ZREMRANGEBYSCORE/ZCARD/EXPIRE.
+    """
+
+    def __init__(self, client: Any, max_requests: int, window_seconds: float, prefix: str) -> None:
+        self._client = client
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._prefix = prefix
+
+    def _redis_key(self, key: str) -> str:
+        safe = "".join(c if c.isalnum() or c in {"-", "_", ".", ":"} else "-" for c in str(key))
+        return f"epi:ratelimit:{self._prefix}:{safe}"
+
+    def is_allowed(self, key: str) -> bool:
+        import time as _time
+
+        now_ms = int(_time.time() * 1000)
+        window_ms = int(self.window_seconds * 1000)
+        cutoff = now_ms - window_ms
+        rkey = self._redis_key(key)
+        member = f"{now_ms}:{threading.get_ident()}"
+        try:
+            pipe = self._client.pipeline()
+            pipe.zremrangebyscore(rkey, 0, cutoff)
+            pipe.zadd(rkey, {member: now_ms})
+            pipe.zcard(rkey)
+            pipe.expire(rkey, int(self.window_seconds) + 5)
+            _, _, count, _ = pipe.execute()
+            return int(count) <= self.max_requests
+        except Exception as exc:
+            logger.warning("Redis rate-limit check failed, denying: %s", exc)
+            return False
+
+    def reset(self, key: str) -> None:
+        try:
+            self._client.delete(self._redis_key(key))
+        except Exception:
+            pass
+
+
+def _build_rate_limiter(
+    max_requests: int, window_seconds: float, prefix: str, redis_url: str | None
+) -> _SlidingWindowRateLimiter | _RedisSlidingWindowRateLimiter:
+    """Return a Redis-backed limiter when EPI_GATEWAY_REDIS_URL is set.
+
+    Lazy-imports redis so single-process deploys need no extra dependency.
+    Falls back to in-memory with a warning when redis is unavailable.
+    """
+    if redis_url:
+        try:
+            import redis as _redis  # type: ignore
+
+            client = _redis.Redis.from_url(redis_url, socket_timeout=2.0)
+            client.ping()
+            logger.info("Rate limiter '%s' using Redis backend", prefix)
+            return _RedisSlidingWindowRateLimiter(client, max_requests, window_seconds, prefix)
+        except Exception as exc:
+            logger.warning(
+                "EPI_GATEWAY_REDIS_URL set but Redis unavailable (%s) — "
+                "falling back to in-memory limiter (limits reset on restart)",
+                exc,
+            )
+    return _SlidingWindowRateLimiter(max_requests, window_seconds)
 
 
 class _LoginThrottle:
@@ -843,13 +919,17 @@ def create_app(
     runtime_settings = settings or _build_settings_from_env()
     runtime_worker = worker or _build_worker_from_env(runtime_settings)
 
-    _capture_limiter: _SlidingWindowRateLimiter | None = (
-        _SlidingWindowRateLimiter(runtime_settings.capture_rate_limit)
+    _capture_limiter: _SlidingWindowRateLimiter | _RedisSlidingWindowRateLimiter | None = (
+        _build_rate_limiter(
+            runtime_settings.capture_rate_limit, 60.0, "capture", runtime_settings.redis_url
+        )
         if runtime_settings.capture_rate_limit > 0
         else None
     )
-    _share_limiter: _SlidingWindowRateLimiter | None = (
-        _SlidingWindowRateLimiter(runtime_settings.share_rate_limit_per_hour, window_seconds=3600.0)
+    _share_limiter: _SlidingWindowRateLimiter | _RedisSlidingWindowRateLimiter | None = (
+        _build_rate_limiter(
+            runtime_settings.share_rate_limit_per_hour, 3600.0, "share", runtime_settings.redis_url
+        )
         if runtime_settings.share_rate_limit_per_hour > 0
         else None
     )
