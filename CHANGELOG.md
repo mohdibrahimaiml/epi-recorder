@@ -37,6 +37,9 @@ All notable changes to EPI Recorder are documented here.
 - **D1 Redis persistence** opt-in `EPI_GATEWAY_REDIS_URL` shared sliding-window limiter `gateway/main.py` (fail-deny on outage); quota already SQLite-persistent
 - **D2 auth local users** plaintext `password_hash` rejected `auth_local.py:37`; `password:` warns deprecation; `epi gateway hash-password` migration helper; world-readable users-file warning
 - **Leak** OTel best-effort deadletter gated behind `EPI_DEADLETTER=1` `opentelemetry.py:425` (was unconditional raw-steps write); `*.epi.deadletter` gitignored
+- **Legacy EPI1** header-size probe instead of fixed 16B `container.py` (was rejecting spec-conformant files); audit tool + SPEC §2.2 aligned
+- **Windows fallback** VBS launcher probes payload start (bare/EPI1/envelope) + `ChrB` InStrB fix + stale temp sweep + cscript compile gate `platform/associate.py`
+- **Tests** aligned stale expectations (nested chains captured, UNSIGNED LOW) + demo subprocess works without pip install `dev.py`
 
 ## [4.4.5] - 2026-09-07
 
