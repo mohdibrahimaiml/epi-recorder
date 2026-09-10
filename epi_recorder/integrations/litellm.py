@@ -141,6 +141,16 @@ class EPICallback:
         """Called before making the API call."""
         session = self._get_session()
         if not session:
+            import warnings as _warnings
+            _warnings.warn("EPI litellm callback outside record() — evidence not captured", stacklevel=2)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "llm.request", "provider": self._extract_provider(kwargs), "model": model, "deadletter": True, "reason": "no session"}) + "\n")
+            except Exception:
+                pass
             return
 
         provider = self._extract_provider(kwargs)
@@ -157,6 +167,16 @@ class EPICallback:
         """Called after a successful API call."""
         session = self._get_session()
         if not session:
+            import warnings as _warnings
+            _warnings.warn("EPI litellm success outside record() — evidence not captured", stacklevel=2)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "llm.response", "deadletter": True, "reason": "no session"}) + "\n")
+            except Exception:
+                pass
             return
 
         model = kwargs.get("model", "unknown")
@@ -191,6 +211,16 @@ class EPICallback:
         """Called after a failed API call."""
         session = self._get_session()
         if not session:
+            import warnings as _warnings
+            _warnings.warn("EPI litellm failure outside record() — evidence not captured", stacklevel=2)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "llm.error", "deadletter": True, "reason": "no session"}) + "\n")
+            except Exception:
+                pass
             return
 
         model = kwargs.get("model", "unknown")

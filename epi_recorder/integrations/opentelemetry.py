@@ -165,7 +165,17 @@ class EPISpanExporter(SpanExporter):
                     self._trace_last_activity[trace_id] = time.time()
 
             return SpanExportResult.SUCCESS
-        except Exception:
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger("epi.otel").error("EPI OTel export failed for %d spans: %s", len(spans), exc, exc_info=True)
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "otel.export.failure", "deadletter": True, "span_count": len(spans), "error": str(exc)}) + "\n")
+            except Exception:
+                pass
             return SpanExportResult.FAILURE
 
     def shutdown(self) -> None:
