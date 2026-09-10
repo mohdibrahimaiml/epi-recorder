@@ -201,7 +201,7 @@ Err.Clear
 
 zipPath = fso.BuildPath(tempFolder, "archive.zip")
 
-Dim adoIn, adoOut, fileBytes, fileLen, zipStart, probeEnd, markerPos, i
+Dim adoIn, adoOut, fileBytes, fileLen, zipStart, probeEnd, markerPos, needle, nc, i
 Dim m0, m1, m2, m3
 Set adoIn = CreateObject("ADODB.Stream")
 If Err.Number <> 0 Then WScript.Quit 7
@@ -232,9 +232,15 @@ If fileLen >= 4 Then
             End If
         Next
     ElseIf m0 = 60 And m1 = 33 And m2 = 45 And m3 = 45 Then
-        ' Envelope-v2 ("<!--"): payload follows the EPI_ZIP_PAYLOAD_START marker
+        ' Envelope-v2 ("<!--"): payload follows the EPI_ZIP_PAYLOAD_START marker.
+        ' NOTE: the needle must be a byte string (ChrB). A plain Unicode
+        ' string needle makes InStrB silently return 0 against a byte array.
         Err.Clear
-        markerPos = InStrB(1, fileBytes, "EPI_ZIP_PAYLOAD_START")
+        needle = ""
+        For Each nc In Array(69,80,73,95,90,73,80,95,80,65,89,76,79,65,68,95,83,84,65,82,84)
+            needle = needle & ChrB(nc)
+        Next
+        markerPos = InStrB(1, fileBytes, needle)
         If Err.Number = 0 And markerPos > 0 Then
             ' 21 (needle) + 1 (space) + 3 ("-->") + 1 (newline) past needle start
             zipStart = markerPos - 1 + 26
