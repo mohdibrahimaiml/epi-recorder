@@ -119,6 +119,26 @@ class TestWindowsLauncherScripts:
         raw = launcher.read_bytes()
         assert not raw.startswith(b"\xef\xbb\xbf")
 
+    def test_launcher_compiles_under_cscript(self, tmp_path):
+        """The generated VBS must compile: duplicate Dim etc. abort the
+        whole script at parse time (proven by real cscript execution)."""
+        import shutil
+        import subprocess
+
+        if sys.platform != "win32" or shutil.which("cscript") is None:
+            pytest.skip("requires Windows cscript")
+        local_app_data = tmp_path / "LocalAppData"
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(local_app_data)}, clear=False):
+            launcher = _get_epi_launcher_vbs()
+
+        # No args → script must reach `WScript.Quit 1`, not a compile error
+        proc = subprocess.run(
+            ["cscript", "//Nologo", str(launcher)],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert "compilation error" not in (proc.stdout + proc.stderr).lower()
+        assert proc.returncode == 1
+
     def test_self_heal_prefers_adjacent_epi_exe(self, tmp_path):
         python_exe = tmp_path / "python.exe"
         python_exe.write_text("", encoding="ascii")

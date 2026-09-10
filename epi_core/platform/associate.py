@@ -218,7 +218,7 @@ Err.Clear
 
 zipPath = fso.BuildPath(tempFolder, "archive.zip")
 
-Dim adoIn, adoOut, fileBytes, fileLen, zipStart, probeEnd, markerPos, needle, nc, i
+Dim adoIn, adoOut, fileBytes, fileLen, zipStart, probeEnd, markerPos, needle, nc
 Dim m0, m1, m2, m3
 Set adoIn = CreateObject("ADODB.Stream")
 If Err.Number <> 0 Then WScript.Quit 7
