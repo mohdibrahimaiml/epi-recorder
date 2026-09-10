@@ -375,6 +375,17 @@ class EPIContainer:
         with open(epi_path, "rb") as handle:
             prefix = handle.read(4)
 
+        if prefix == b'EPI1':
+            # Legacy EPI1 (spec 2.2) — header is 16 bytes (magic + version), payload is raw ZIP after. Support read.
+            try:
+                with open(epi_path, "rb") as fh:
+                    fh.seek(16)
+                    head = fh.read(2)
+                if head == b'PK':
+                    return EPI_CONTAINER_FORMAT_LEGACY
+            except Exception:
+                pass
+            raise ValueError("Legacy EPI1 artifact detected — legacy ZIP payload after 16-byte header; use epi convert or legacy reader")
         if prefix == EPI_ENVELOPE_MAGIC:
             EPIContainer._read_envelope_header(epi_path)
             return EPI_CONTAINER_FORMAT_ENVELOPE
@@ -535,6 +546,14 @@ class EPIContainer:
             mimetype_info = infolist[0]
             if mimetype_info.compress_type != zipfile.ZIP_STORED:
                 raise ValueError("Forensic Violation: 'mimetype' MUST be stored without compression (ZIP_STORED).")
+            if mimetype_info.extra:
+                raise ValueError("Forensic Violation: 'mimetype' MUST have no extra field")
+            if mimetype_info.flag_bits & 0x08:
+                raise ValueError("Forensic Violation: 'mimetype' MUST not use data descriptor")
+            if mimetype_info.comment:
+                raise ValueError("Forensic Violation: 'mimetype' MUST have no comment")
+            if any(info.filename == "mimetype" for info in infolist[1:]):
+                raise ValueError("Forensic Violation: duplicate 'mimetype' entry")
 
             try:
                 mimetype_data = zf.read("mimetype").decode("utf-8").strip()
@@ -632,6 +651,21 @@ class EPIContainer:
     @staticmethod
     @contextmanager
     def _payload_zip_path(epi_path: Path) -> Iterator[Path]:
+        # EPI1 legacy: strip 16-byte header before zip
+        with open(epi_path, "rb") as _fh:
+            _pref = _fh.read(4)
+        if _pref == b'EPI1':
+            temp_dir = EPIContainer._make_temp_dir("epi_payload_legacy_")
+            payload_path = temp_dir / "payload.zip"
+            with open(epi_path, "rb") as src, open(payload_path, "wb") as dst:
+                src.seek(16)
+                shutil.copyfileobj(src, dst)
+            try:
+                EPIContainer._validate_zip_payload(payload_path)
+                yield payload_path
+            finally:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            return
         fmt = EPIContainer.detect_container_format(epi_path)
         if fmt == EPI_CONTAINER_FORMAT_LEGACY:
             EPIContainer._validate_zip_payload(epi_path)
