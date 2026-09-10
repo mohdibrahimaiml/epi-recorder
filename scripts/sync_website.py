@@ -103,6 +103,18 @@ def sync() -> None:
 
     _purge_stale_pricing_dirs()
 
+    # Sync .well-known canonical to root and assets mirrors (drift fixed P3)
+    for mirror in [ROOT / ".well-known", ROOT / "assets" / "well-known"]:
+        src_well = SOURCE / ".well-known"
+        if src_well.is_dir():
+            for p in src_well.rglob("*"):
+                if p.is_file():
+                    rel = p.relative_to(src_well)
+                    out = mirror / rel
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(p, out)
+            print(f"Synced .well-known -> {mirror.relative_to(ROOT)}")
+
     # Ensure portal-only dirs exist
     static = ROOT / "verify_portal" / "static"
     (static / "auth").mkdir(parents=True, exist_ok=True)
