@@ -2,6 +2,33 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.4.6] - 2026-09-10
+
+### Breaking — Stricter verification (correctness)
+
+- **Trust ranking** `UNSIGNED` now `LOW` not `MEDIUM` above `signed-unknown`; `32B/64B` length enforced `trust.py:239,124`
+- **Trailing bytes** after `EOCD` now `FAIL` `container.py:623` (was `PASS` injection)
+- **Header transplant** `artifact_uuid/created_at_micros` cross-checked `container.py:1648`
+- **payload_hash** recomputed after `viewer.html/VERIFY.txt` `container.py:1177` (was stale)
+- **Gateway** `retention_mode full_content` + `proxy_failure_mode fail-closed` `gateway/main.py:95` (was `redacted_hashes/fail-open`), streaming `501`
+- **Billing** unknown `price_id` now `ValueError` `billing.py:127` (was silent `hosted`)
+- **Auth** `TOKEN_TTL 90->7` + strict CSRF `auth.py:36,522`
+
+### Fixed — Evidence completeness (14 MUST)
+
+- Streaming `pre_commit` canonical `sha256(messages+model)` + `tool_calls/reasoning` captured `wrappers/openai.py:72, anthropic.py:54, patcher.py:230`
+- Guardrails `[:2000]` truncation removed `guardrails/session.py:609`
+- SCITT fallback `transparency_ok=None` not `PASS` `verify_portal/main.py:813`
+- Verification `verification_class` single-source `schemas.py:compute_verification_class` never `None`
+- LangGraph `put/get/list` running-loop safe + nested chains captured `adapters/langchain.py:406`
+- Deadletter `litellm/otel/langchain/bootstrap/api` warn + `.epi-deadletter.jsonl`
+- Rate-limit `XFF last-entry + CF-Connecting-IP` `verify_portal/main.py:583`
+- Packaging `cryptography<51 typer<0.28 rich<16` `pyproject.toml:58`, `setup.py` gateways, `docker 3.12`, demos re-sealed `payload_hash` fix
+
+### Docs
+
+- `KNOWN_LIMITATIONS.md` `Fixed in 4.4.6` audit trail, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced
+
 ## [4.4.5] - 2026-09-07
 
 ### Fixed — TRACE integration unblocked
