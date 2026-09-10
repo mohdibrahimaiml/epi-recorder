@@ -42,7 +42,9 @@ def verify_password(password: str, stored_value: str) -> bool:
 
     prefix = f"{PASSWORD_HASH_PREFIX}$"
     if not stored.startswith(prefix):
-        return hmac.compare_digest(candidate, stored)
+        # Fail-closed: plaintext or unknown hash formats never verify.
+        # Migrate with `epi gateway hash-password`.
+        return False
 
     try:
         _, iteration_text, salt, expected = stored.split("$", 3)
@@ -70,6 +72,21 @@ def load_auth_users(users_file: str | Path | None) -> list[dict[str, str]]:
     if not path.exists():
         raise FileNotFoundError(f"EPI gateway users file not found: {path}")
 
+    # Warn on overly permissive file modes (POSIX) — users file holds credentials.
+    try:
+        mode = path.stat().st_mode & 0o777
+        if mode & 0o077:
+            import warnings
+
+            warnings.warn(
+                f"Users file {path} is group/world-readable (mode {oct(mode)}); "
+                "chmod 600 to protect password hashes.",
+                UserWarning,
+                stacklevel=2,
+            )
+    except OSError:
+        pass
+
     payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, dict):
         raw_users = payload.get("users")
@@ -91,8 +108,21 @@ def load_auth_users(users_file: str | Path | None) -> list[dict[str, str]]:
         password_hash = _clean(item.get("password_hash"))
         password = item.get("password")
         if password_hash:
+            if not password_hash.startswith(f"{PASSWORD_HASH_PREFIX}$"):
+                raise ValueError(
+                    f"Auth user entry '{username}' has a plaintext/unknown password_hash — "
+                    "run `epi gateway hash-password` and store the pbkdf2_sha256 value."
+                )
             stored_password = password_hash
         elif _clean(password):
+            import warnings
+
+            warnings.warn(
+                f"Auth user entry '{username}' uses plaintext 'password'; "
+                "migrate to 'password_hash' via `epi gateway hash-password`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             stored_password = hash_password(str(password))
         else:
             raise ValueError(f"Auth user entry '{username}' must define 'password' or 'password_hash'.")

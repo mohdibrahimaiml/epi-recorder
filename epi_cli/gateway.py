@@ -267,6 +267,22 @@ def list_users(
     console.print(table)
 
 
+@app.command("hash-password")
+def hash_password_cmd(
+    password: str = typer.Option("", "--password", "-p", help="Password (prompted if not given)."),
+) -> None:
+    """Hash a password for EPI_GATEWAY_USERS_FILE (pbkdf2_sha256, 200k iters)."""
+    from epi_core.auth_local import hash_password as _hash
+
+    if not password:
+        password = typer.prompt("Password", hide_input=True, confirmation_prompt=True)
+    try:
+        console.print(_hash(password))
+    except ValueError as exc:
+        console.print(f"[red][FAIL][/red] {exc}")
+        raise typer.Exit(1) from exc
+
+
 @app.command("backup")
 def backup(
     out: Path = typer.Option(..., "--out", "-o", help="Output .zip backup file."),
