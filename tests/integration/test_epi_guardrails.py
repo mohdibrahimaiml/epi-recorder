@@ -595,17 +595,18 @@ class TestFailureModes:
                 with pytest.raises(RuntimeError, match="simulated disk full"):
                     exporter._flush_trace("deadtrace00")
 
-    def test_otel_best_effort_writes_deadletter_not_raises(self):
+    def test_otel_best_effort_writes_deadletter_not_raises(self, monkeypatch):
         """
-        When strict_export=False (best-effort mode), a failed trace export
-        must write a .deadletter file and NOT raise. The deadletter file
-        must contain the original trace_id and error so it is clearly
+        When strict_export=False (best-effort mode) + EPI_DEADLETTER=1, a failed
+        trace export must write a .deadletter file and NOT raise. The deadletter
+        file must contain the original trace_id and error so it is clearly
         flagged as failed, not silently lost.
         """
         from unittest.mock import patch
         from epi_recorder.integrations.opentelemetry import EPISpanExporter
 
         pytest.importorskip("opentelemetry.sdk.trace")
+        monkeypatch.setenv("EPI_DEADLETTER", "1")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             exporter = EPISpanExporter(
@@ -634,6 +635,32 @@ class TestFailureModes:
             assert data["trace_id"] == "deadtrace01"
             assert "simulated disk full" in data["error"]
             assert isinstance(data["steps"], list), "Steps must be preserved in deadletter"
+
+    def test_otel_best_effort_drops_trace_without_deadletter_opt_in(self, monkeypatch):
+        """Without EPI_DEADLETTER=1, best-effort mode must NOT write raw steps to disk."""
+        from unittest.mock import patch
+        from epi_recorder.integrations.opentelemetry import EPISpanExporter
+
+        pytest.importorskip("opentelemetry.sdk.trace")
+        monkeypatch.delenv("EPI_DEADLETTER", raising=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            exporter = EPISpanExporter(
+                output_dir=tmpdir,
+                strict_export=False,  # best-effort
+            )
+            exporter._traces["deadtrace02"] = [{"kind": "span.end", "content": {}, "timestamp": "2025-01-01T00:00:00Z"}]
+            exporter._trace_last_activity["deadtrace02"] = 0
+
+            with patch(
+                "epi_recorder.api.EpiRecorderSession",
+                side_effect=RuntimeError("simulated disk full"),
+            ):
+                # Must NOT raise and must NOT write a deadletter file
+                exporter._flush_trace("deadtrace02")
+
+            assert not list(Path(tmpdir).glob("*.deadletter")), "No deadletter without opt-in"
+            assert not list(Path(tmpdir).glob("*.epi")), "No .epi on failed export"
 
     # ------------------------------------------------------------------
     # 4. Agent Identity Cryptographic Binding

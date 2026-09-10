@@ -95,6 +95,7 @@ installer/windows/Output/
 !tests/goldens/*.epi
 .epi/
 .epi-deadletter.jsonl
+*.epi.deadletter
 temp_epi_*/
 epi-recordings/
 

@@ -422,8 +422,18 @@ class EPISpanExporter(SpanExporter):
             if self._strict_export:
                 # Fail-closed: propagate so the caller knows evidence was lost.
                 raise
-            # Best-effort mode: persist raw steps to a deadletter file.
+            # Best-effort mode: persist raw steps to a deadletter file, but only
+            # when explicitly opted in — the file contains full step content.
+            import os as _os
+
+            if _os.getenv("EPI_DEADLETTER", "0") != "1":
+                _log.warning(
+                    "[EPI] Dropping failed trace %s (set EPI_DEADLETTER=1 to persist deadletter)",
+                    trace_id,
+                )
+                return
             import json as _json
+
             dl_path = self._output_dir / f"{trace_id}.epi.deadletter"
             try:
                 dl_path.write_text(
