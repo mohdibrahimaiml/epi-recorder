@@ -29,6 +29,14 @@ All notable changes to EPI Recorder are documented here.
 
 - `KNOWN_LIMITATIONS.md` `Fixed in 4.4.6` audit trail, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced
 
+### Fixed — NICE batches (B1/C1/D1/D2/B2)
+
+- **B1 viewer genTime** `TSTInfo.genTime` parsed at seal into `notarization.json:tsa_genTime` `notarize.py`; extractor hardened (UTCTime/fractions/TZ) `view.py:434`; viewer shows `host · time` `web_viewer/app.js:636`
+- **B2 TRACE strict** signed export fail-closed on placeholder `transcript_uri`/`transparency` `trace_exporter.py:strict`; CLI `--sign` requires `--transcript-uri`; golden updated to `steps.jsonl` hash
+- **C1 Merkle RFC6962** leaf `sha256(0x00||entry_hash)` `scitt.py:126` (was index-prefixed); verify accepts legacy receipts; portal + mock synced
+- **D1 Redis persistence** opt-in `EPI_GATEWAY_REDIS_URL` shared sliding-window limiter `gateway/main.py` (fail-deny on outage); quota already SQLite-persistent
+- **D2 auth local users** plaintext `password_hash` rejected `auth_local.py:37`; `password:` warns deprecation; `epi gateway hash-password` migration helper; world-readable users-file warning
+
 ## [4.4.5] - 2026-09-07
 
 ### Fixed — TRACE integration unblocked
