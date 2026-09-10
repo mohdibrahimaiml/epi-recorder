@@ -12,6 +12,28 @@ from epi_core._version import get_version
 from epi_core.time_utils import utc_now
 
 
+def compute_verification_class(kind: str, content: dict | None) -> str | None:
+    """Single source for verification_class — used by packer and validator.
+
+    Returns recomputable only when epi_deterministic is explicitly True for
+    tool-like steps; all other known kinds are attested_only; unknown kinds
+    default to attested_only with no silent None.
+    """
+    if not kind:
+        return None
+    if kind in ("tool.call", "tool.response", "shell.command", "python.call", "file.write", "validation.check"):
+        is_det = (content or {}).get("epi_deterministic") is True
+        return "recomputable" if is_det else "attested_only"
+    if kind in ("llm.request", "llm.response", "llm.pre_commit", "llm.pre_commit_notarized",
+                "agent.decision", "agent.approval.request", "agent.approval.response",
+                "agent.run.start", "agent.run.end", "agent.handoff", "agent.message",
+                "session.start", "session.end", "environment.captured", "stdout.print",
+                "policy.check", "validation.response", "security.redaction"):
+        return "attested_only"
+    # Unknown kind — default to attested_only (never silent None) so new step_types are covered
+    return "attested_only"
+
+
 class PolicyModel(BaseModel):
     """
     Formal schema for policy enforcement outcomes.
@@ -282,6 +304,7 @@ class StepModel(BaseModel):
     @classmethod
     def populate_source_type(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            # source_type inference (kept) + single-source verification_class
             if data.get("source_type") is None and "kind" in data:
                 kind = data["kind"]
                 if kind in ("tool.response",):
@@ -296,16 +319,10 @@ class StepModel(BaseModel):
                         data["source_type"] = "system"
                     else:
                         data["source_type"] = "reasoning"
-                elif kind in ("llm.request", "llm.response", "agent.decision"):
-                    data["source_type"] = "reasoning"
                 elif kind in ("tool.call", "tool.response", "shell.command", "python.call"):
                     data["source_type"] = "tool"
-                    is_deterministic = (data.get("content") or {}).get("epi_deterministic") is True
-                    data["verification_class"] = "recomputable" if is_deterministic else "attested_only"
-                elif kind in ("llm.request", "llm.response"):
+                elif kind in ("llm.request", "llm.response", "agent.decision"):
                     data["source_type"] = "reasoning"
-                elif kind in ("llm.pre_commit", "agent.decision", "agent.approval.request", "agent.approval.response"):
-                    data["verification_class"] = "attested_only"
                 elif kind in ("agent.run.start",):
                     data["source_type"] = "user"
                 elif kind in ("llm.request", "llm.response", "agent.decision", "agent.handoff", "agent.run.end", "tool.call", "agent.approval.request"):
@@ -314,6 +331,9 @@ class StepModel(BaseModel):
                     data["source_type"] = "system"
                 else:
                     data["source_type"] = "reasoning"
+            # Single-source verification_class
+            if "kind" in data and data.get("verification_class") is None:
+                data["verification_class"] = compute_verification_class(data.get("kind", ""), data.get("content"))
         return data
     
     model_config = ConfigDict(

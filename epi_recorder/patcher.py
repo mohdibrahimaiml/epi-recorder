@@ -38,15 +38,18 @@ def _truncate_content(data: Any, max_length: int = VIEWER_PREVIEW_MAX_LENGTH) ->
 
 
 def _compute_verification_class(kind: str, content: dict) -> str | None:
-    if not kind:
-        return None
-    if kind in ("tool.call", "tool.response", "shell.command", "python.call"):
-        is_deterministic = (content or {}).get("epi_deterministic") is True
-        return "recomputable" if is_deterministic else "attested_only"
-    if kind in ("llm.request", "llm.response", "llm.pre_commit", "agent.decision",
-                "agent.approval.request", "agent.approval.response"):
+    # Single source — delegates to epi_core.schemas to avoid drift (KNOWN_LIMITATIONS #37-42)
+    try:
+        from epi_core.schemas import compute_verification_class as _core_vc
+        return _core_vc(kind, content)
+    except Exception:
+        # Fallback local (never silently None for unknown)
+        if not kind:
+            return None
+        if kind in ("tool.call", "tool.response", "shell.command", "python.call", "file.write", "validation.check"):
+            is_deterministic = (content or {}).get("epi_deterministic") is True
+            return "recomputable" if is_deterministic else "attested_only"
         return "attested_only"
-    return None
 
 
 class RecordingContext:
