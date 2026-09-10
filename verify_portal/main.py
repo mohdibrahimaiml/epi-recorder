@@ -579,13 +579,24 @@ async def verify(
     Returns:
         JSON verification report with optional AIUC-1 mapping and signed attestation.
     """
-    # Rate limiting — use X-Forwarded-For for real client IP behind proxy
-    client_ip = request.headers.get("x-forwarded-for")
-    if client_ip:
-        # X-Forwarded-For can be "client, proxy1, proxy2" — take the outermost (first)
-        client_ip = client_ip.split(",")[0].strip()
-    else:
-        client_ip = request.client.host if request.client else "unknown"
+    # Rate limiting — prefer CF-Connecting-IP (not spoofable behind Cloudflare), fallback to XFF last-entry
+    client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-real-ip")
+    if not client_ip:
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            # XFF is "client, proxy1, proxy2" — first is most spoofable, last is closest to trusted proxy
+            # Use EPI_TRUSTED_PROXY_COUNT to peel trusted proxies (default 1 for Render/Cloudflare)
+            try:
+                trusted = int(os.getenv("EPI_TRUSTED_PROXY_COUNT", "1"))
+            except Exception:
+                trusted = 1
+            parts = [p.strip() for p in xff.split(",") if p.strip()]
+            if trusted >= len(parts):
+                client_ip = parts[0]
+            else:
+                client_ip = parts[-trusted] if trusted > 0 else parts[-1]
+        else:
+            client_ip = request.client.host if request.client else "unknown"
     # Quotas (simplest path first):
     # 1) API key → monthly plan limit
     # 2) Signed-in session (Pro/Team/Enterprise) → monthly plan limit by user
