@@ -40,6 +40,9 @@ All notable changes to EPI Recorder are documented here.
 - **Legacy EPI1** header-size probe instead of fixed 16B `container.py` (was rejecting spec-conformant files); audit tool + SPEC §2.2 aligned
 - **Windows fallback** VBS launcher probes payload start (bare/EPI1/envelope) + `ChrB` InStrB fix + stale temp sweep + cscript compile gate `platform/associate.py`
 - **Tests** aligned stale expectations (nested chains captured, UNSIGNED LOW) + demo subprocess works without pip install `dev.py`
+- **Redact** user-declared literal secrets via `record(redact_secrets=[...])`, `EPI_REDACT_SECRETS`, config `literal_secrets`
+- **Audit** resurrected as plain command (group callback never parsed ARTIFACT) + honest low rating for signed artifacts
+- **Policy** prohibition scans ignore redaction receipts instead of flagging them
 
 ## [4.4.5] - 2026-09-07
 
