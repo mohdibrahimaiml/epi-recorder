@@ -191,9 +191,20 @@ class EPICheckpointSaver(BaseCheckpointSaver):
                 "timestamp": utc_now_iso()
             })
         else:
-            # No active session - checkpoint will be logged when graph completes
-            # This is expected for graph.invoke() calls without explicit record()
-            pass
+            import warnings as _warnings
+            _warnings.warn(
+                "EPI langgraph checkpoint outside record() — evidence not captured; wrap graph.invoke() in with record():",
+                stacklevel=2,
+            )
+            # Deadletter for forensics when session missing
+            try:
+                from pathlib import Path as _Path
+                p = _Path.cwd() / ".epi-deadletter.jsonl"
+                import json as _json
+                with open(p, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"kind": "langgraph.checkpoint.save", "thread_id": thread_id, "checkpoint_id": checkpoint_id, "deadletter": True}) + "\n")
+            except Exception:
+                pass
     
     async def aget(
         self,
@@ -269,22 +280,44 @@ class EPICheckpointSaver(BaseCheckpointSaver):
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata
     ) -> None:
-        """Synchronous version of aput()"""
-        asyncio.run(self.aput(config, checkpoint, metadata))
+        """Synchronous version of aput() — handles running loop"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            fut = asyncio.run_coroutine_threadsafe(self.aput(config, checkpoint, metadata), loop)
+            fut.result()
+        else:
+            asyncio.run(self.aput(config, checkpoint, metadata))
     
     def get(self, config: Dict[str, Any]) -> Optional[Checkpoint]:
-        """Synchronous version of aget()"""
+        """Synchronous version of aget() — handles running loop"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            fut = asyncio.run_coroutine_threadsafe(self.aget(config), loop)
+            return fut.result()
         return asyncio.run(self.aget(config))
     
     def list(self, config: Dict[str, Any]) -> Iterator[Checkpoint]:
-        """Synchronous version of alist()"""
+        """Synchronous version of alist() — handles running loop"""
         async def _alist():
             checkpoints = []
             async for cp in self.alist(config):
                 checkpoints.append(cp)
             return checkpoints
-        
-        checkpoints = asyncio.run(_alist())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            fut = asyncio.run_coroutine_threadsafe(_alist(), loop)
+            checkpoints = fut.result()
+        else:
+            checkpoints = asyncio.run(_alist())
         return iter(checkpoints)
 
 
