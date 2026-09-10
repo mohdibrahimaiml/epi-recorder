@@ -67,16 +67,21 @@ def main(epi_path: Path) -> int:
     try:
         header_size: int = EPIContainer.envelope_header_size(epi_path)  # type: ignore[attr-defined]
     except AttributeError:
-        # Older builds without envelope_header_size — skip the magic header only.
-        # Read the first 4 bytes to check the magic; if EPI1, skip 38 bytes
-        # (4 magic + 2 version + 32 hash).  This is the ONLY place a format
-        # assumption is made and it is well-documented here.
+        # Older builds without envelope_header_size — probe for the payload
+        # start via the container reader instead of a hardcoded header size.
+        # (A previous revision assumed 38 bytes here; no writer, test, or spec
+        # supports that layout, so it is not trusted.)
         with epi_path.open("rb") as fh:
             magic = fh.read(4)
         if magic == b"EPI1":
-            header_size = 4 + 2 + 32  # EPI1 | 2-byte version | 32-byte SHA-256
+            probed = EPIContainer.legacy_zip_offset(epi_path)
+            if probed is None:
+                print("[ERROR] EPI1 magic but no ZIP payload found after header.")
+                return 1
+            header_size = probed
         elif magic == b"EPI2":
-            header_size = 4 + 2 + 32  # same layout for EPI2
+            probed = EPIContainer.legacy_zip_offset(epi_path)
+            header_size = probed if probed is not None else 0
         else:
             header_size = 0
             print("[WARN] Unknown magic bytes — hashing entire file content.")

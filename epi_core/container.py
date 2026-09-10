@@ -39,6 +39,15 @@ EPI_SUPPORTED_UPLOAD_MIMETYPES = {
 EPI_CONTAINER_FORMAT_LEGACY = "legacy-zip"
 EPI_CONTAINER_FORMAT_ENVELOPE = "envelope-v2"
 
+# Legacy EPI1 (pre-v4.0.0) containers start with magic `EPI1` followed by a
+# header of historically varying length, then the raw ZIP payload. No single
+# header size is authoritative (4 per spec §2.2; 16/38/64 cited elsewhere, and
+# no writer of any variant survives in-tree), so readers probe a bounded
+# window for the ZIP local-file-header signature instead of trusting an offset.
+_EPI1_LEGACY_MAGIC = b"EPI1"
+_EPI1_LEGACY_PROBE_BYTES = 64
+_ZIP_LOCAL_FILE_HEADER = b"PK\x03\x04"
+
 # The "Polyglot" Magic: Starts with <!-- to be a valid HTML comment
 EPI_ENVELOPE_MAGIC = b"<!--" 
 EPI_ENVELOPE_VERSION = 2
@@ -367,6 +376,28 @@ class EPIContainer:
 </html>"""
 
     @staticmethod
+    def legacy_zip_offset(epi_path: Path | str) -> int | None:
+        """Byte offset where the ZIP payload starts in a legacy EPI1 container.
+
+        Returns None when the file does not start with EPI1 magic or no ZIP
+        signature is found within the probe window. Probing (instead of a
+        fixed header size) accepts every historically cited layout.
+        """
+        try:
+            with open(epi_path, "rb") as handle:
+                # Read past the window edge so a signature starting exactly
+                # at the boundary is still fully visible.
+                window = handle.read(_EPI1_LEGACY_PROBE_BYTES + len(_ZIP_LOCAL_FILE_HEADER))
+        except OSError:
+            return None
+        if not window.startswith(_EPI1_LEGACY_MAGIC):
+            return None
+        offset = window.find(_ZIP_LOCAL_FILE_HEADER)
+        if 0 < offset <= _EPI1_LEGACY_PROBE_BYTES:
+            return offset
+        return None
+
+    @staticmethod
     def detect_container_format(epi_path: Path | str) -> str:
         epi_path = Path(epi_path)
         if not epi_path.exists():
@@ -375,17 +406,13 @@ class EPIContainer:
         with open(epi_path, "rb") as handle:
             prefix = handle.read(4)
 
-        if prefix == b'EPI1':
-            # Legacy EPI1 (spec 2.2) — header is 16 bytes (magic + version), payload is raw ZIP after. Support read.
-            try:
-                with open(epi_path, "rb") as fh:
-                    fh.seek(16)
-                    head = fh.read(2)
-                if head == b'PK':
-                    return EPI_CONTAINER_FORMAT_LEGACY
-            except Exception:
-                pass
-            raise ValueError("Legacy EPI1 artifact detected — legacy ZIP payload after 16-byte header; use epi convert or legacy reader")
+        if prefix == _EPI1_LEGACY_MAGIC:
+            # Legacy EPI1 (spec §2.2) — magic + header, then raw ZIP.
+            # Probe for the ZIP start; spec-conformant files have it at
+            # offset 4, but other cited layouts strip to the same result.
+            if EPIContainer.legacy_zip_offset(epi_path) is not None:
+                return EPI_CONTAINER_FORMAT_LEGACY
+            raise ValueError("Legacy EPI1 artifact detected — no ZIP payload found after header; use epi convert or legacy reader")
         if prefix == EPI_ENVELOPE_MAGIC:
             EPIContainer._read_envelope_header(epi_path)
             return EPI_CONTAINER_FORMAT_ENVELOPE
@@ -586,8 +613,16 @@ class EPIContainer:
         dest_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
         if fmt == EPI_CONTAINER_FORMAT_LEGACY:
-            EPIContainer._validate_zip_payload(epi_path)
-            shutil.copyfile(epi_path, dest_zip_path)
+            legacy_offset = EPIContainer.legacy_zip_offset(epi_path)
+            if legacy_offset is not None:
+                # EPI1-prefixed legacy: strip the header before copying
+                with open(epi_path, "rb") as src, open(dest_zip_path, "wb") as dst:
+                    src.seek(legacy_offset)
+                    shutil.copyfileobj(src, dst)
+                EPIContainer._validate_zip_payload(dest_zip_path)
+            else:
+                EPIContainer._validate_zip_payload(epi_path)
+                shutil.copyfile(epi_path, dest_zip_path)
             return dest_zip_path
 
         header = EPIContainer._read_envelope_header(epi_path)
@@ -651,14 +686,13 @@ class EPIContainer:
     @staticmethod
     @contextmanager
     def _payload_zip_path(epi_path: Path) -> Iterator[Path]:
-        # EPI1 legacy: strip 16-byte header before zip
-        with open(epi_path, "rb") as _fh:
-            _pref = _fh.read(4)
-        if _pref == b'EPI1':
+        # EPI1 legacy: strip everything before the probed ZIP start
+        legacy_offset = EPIContainer.legacy_zip_offset(epi_path)
+        if legacy_offset is not None:
             temp_dir = EPIContainer._make_temp_dir("epi_payload_legacy_")
             payload_path = temp_dir / "payload.zip"
             with open(epi_path, "rb") as src, open(payload_path, "wb") as dst:
-                src.seek(16)
+                src.seek(legacy_offset)
                 shutil.copyfileobj(src, dst)
             try:
                 EPIContainer._validate_zip_payload(payload_path)

@@ -104,7 +104,11 @@ Prior to v4.0.0, `.epi` files used a non-polyglot binary header with magic
 bytes `EPI1` (0x45 0x50 0x49 0x31). The ZIP payload followed immediately.
 
 Implementers SHOULD support reading legacy `EPI1` containers but SHOULD NOT
-produce them.
+produce them. Because historical writers varied in header length, readers
+MUST NOT assume a fixed legacy header size: after matching `EPI1` magic,
+probe a bounded window (at least the first 64 bytes) for the ZIP
+local-file-header signature (`PK\x03\x04`) and treat everything before it as
+header. If no signature is found, the file is not a valid legacy container.
 
 The legacy MIME type is `application/vnd.epi+zip`.
 
