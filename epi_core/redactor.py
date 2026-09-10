@@ -73,6 +73,31 @@ DEFAULT_REDACTION_PATTERNS = [
     ),
 ]
 
+# Env var carrying user-declared literal secrets (JSON list preferred;
+# a bare single value is also accepted). Exact-match redaction, zero
+# false positives — covers custom token formats no regex can enumerate.
+REDACT_SECRETS_ENV_VAR = "EPI_REDACT_SECRETS"
+
+
+def load_literal_secrets_from_env() -> List[str]:
+    """Read user-declared literal secrets from EPI_REDACT_SECRETS."""
+    import json as _json
+
+    raw = os.environ.get(REDACT_SECRETS_ENV_VAR, "")
+    if not raw or not raw.strip():
+        return []
+    text = raw.strip()
+    if text.startswith("["):
+        try:
+            parsed = _json.loads(text)
+            if isinstance(parsed, list):
+                return [s for s in (str(v) for v in parsed) if s.strip()]
+        except Exception:
+            pass
+        return []
+    return [text]
+
+
 # Exact env / dict key names (case-insensitive match on uppercased key)
 REDACT_ENV_VARS = {
     'OPENAI_API_KEY',
@@ -194,7 +219,8 @@ class Redactor:
     from captured workflow data.
     """
     
-    def __init__(self, config_path: Path | None = None, enabled: bool = True, allowlist: List[str] = None):
+    def __init__(self, config_path: Path | None = None, enabled: bool = True, allowlist: List[str] = None,
+                 literal_secrets: List[str] | None = None):
         """
         Initialize redactor with optional custom configuration.
         
@@ -202,11 +228,34 @@ class Redactor:
             config_path: Optional path to config.toml with custom patterns
             enabled: Whether redaction is enabled (default: True)
             allowlist: Optional list of strings to NEVER redact
+            literal_secrets: Optional list of exact secret values to redact
+                (re.escape'd, HMAC placeholders like everything else).
+                EPI_REDACT_SECRETS env (JSON list or single value) and
+                config `literal_secrets` are always merged in.
         """
         self.enabled = enabled
         self.patterns: List[Tuple[re.Pattern, str]] = []
         self.env_vars_to_redact = REDACT_ENV_VARS.copy()
         self.allowlist = set(allowlist) if allowlist else set()
+
+        # User-declared literal secrets: exact values, applied FIRST so they
+        # win over (and are never mangled by) generic patterns.
+        declared: List[str] = []
+        seen: set[str] = set()
+        for source in (
+            list(literal_secrets or []),
+            load_literal_secrets_from_env(),
+        ):
+            for value in source:
+                text = str(value or "")
+                if len(text) >= 4 and text not in seen:
+                    seen.add(text)
+                    declared.append(text)
+        for secret in declared:
+            try:
+                self.patterns.append((re.compile(re.escape(secret)), "Declared secret"))
+            except re.error:
+                pass
         
         # Derive redaction secret from environment or generated file
         # Never use a hardcoded fallback — that would make redaction forgeable
@@ -262,6 +311,20 @@ class Redactor:
             # Load allowlist
             if 'redaction' in config and 'allowlist' in config['redaction']:
                 self.allowlist.update(config['redaction']['allowlist'])
+
+            # Load literal secrets (exact values, TOML list)
+            if 'redaction' in config and 'literal_secrets' in config['redaction']:
+                for value in config['redaction']['literal_secrets'] or []:
+                    text = str(value or "")
+                    if len(text) >= 4 and not any(
+                        p.pattern == re.escape(text) for p, _ in self.patterns
+                    ):
+                        try:
+                            self.patterns.insert(
+                                0, (re.compile(re.escape(text)), "Declared secret")
+                            )
+                        except re.error:
+                            pass
         
         except Exception as e:
             print(f"Warning: Could not load config from {config_path}: {e}")
@@ -460,13 +523,18 @@ enabled = true
 
 # Allowlist: Strings that should NEVER be redacted (exact match)
 # allowlist = ["sk-not-actually-a-key", "my-public-token"]
+
+# Literal secrets: exact values to redact (custom formats no regex covers).
+# Prefer the EPI_REDACT_SECRETS env var (JSON list, or a single value) so
+# secrets never live in files; TOML list also works:
+# literal_secrets = ["my-lab-token-123"]
 """
     
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(config_content)
 
 
-def get_default_redactor() -> Redactor:
+def get_default_redactor(literal_secrets: List[str] | None = None) -> Redactor:
     """
     Get a redactor with default configuration.
     
@@ -484,6 +552,9 @@ def get_default_redactor() -> Redactor:
         except Exception:
             pass  # Fail silently, use defaults
     
-    return Redactor(config_path=config_path if config_path.exists() else None)
+    return Redactor(
+        config_path=config_path if config_path.exists() else None,
+        literal_secrets=literal_secrets,
+    )
 
 

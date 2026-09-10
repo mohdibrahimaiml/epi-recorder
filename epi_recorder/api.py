@@ -765,6 +765,7 @@ class EpiRecorderSession:
         capture_prints: bool = True,
         capture_stderr: bool = False,
         did_web: Optional[str] = None,
+        redact_secrets: Optional[List[str]] = None,
     ):
         """
         Initialize EPI recording session.
@@ -783,6 +784,8 @@ class EpiRecorderSession:
             metadata_tags: Tags for categorizing this workflow (renamed from tags to avoid conflict)
             legacy_patching: Enable deprecated monkey patching mode (default: False)
             did_web: Optional DID:WEB identifier for zero-cost identity binding (e.g. "did:web:example.com")
+            redact_secrets: Optional exact secret values to redact in addition to
+                built-in patterns (also merged from EPI_REDACT_SECRETS env).
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -805,6 +808,7 @@ class EpiRecorderSession:
                 stacklevel=2,
             )
         self.default_key_name = default_key_name
+        self.redact_secrets = list(redact_secrets) if redact_secrets else []
         
         # New metadata fields
         self.goal = goal
@@ -853,7 +857,8 @@ class EpiRecorderSession:
             # Initialize recording context
             self.recording_context = RecordingContext(
                 output_dir=self.temp_dir,
-                enable_redaction=self.redact
+                enable_redaction=self.redact,
+                literal_secrets=self.redact_secrets,
             )
         except RecordingWorkspaceError:
             if self.temp_dir and self.temp_dir.exists():
@@ -1793,6 +1798,7 @@ def record(
     legacy_patching: bool = False,
     capture_prints: bool = True,
     capture_stderr: bool = False,
+    redact_secrets: Optional[List[str]] = None,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -1867,6 +1873,7 @@ def record(
             legacy_patching=legacy_patching,
             capture_prints=capture_prints,
             capture_stderr=capture_stderr,
+            redact_secrets=redact_secrets,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -1924,6 +1931,7 @@ def record(
             legacy_patching=legacy_patching,
             capture_prints=capture_prints,
             capture_stderr=capture_stderr,
+            redact_secrets=redact_secrets,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

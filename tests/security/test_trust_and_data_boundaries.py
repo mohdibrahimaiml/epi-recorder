@@ -138,6 +138,44 @@ def test_api_keys_and_pii_redaction_work():
     assert REDACTION_PLACEHOLDER in redacted["nested"]["Authorization"]
 
 
+def test_declared_literal_secrets_redacted_param_and_env(monkeypatch: pytest.MonkeyPatch):
+    custom = "AKIA-TEST-SECRET-99ZXCV"
+    # Param route: exact value redacted with HMAC placeholder
+    redacted, count = Redactor(literal_secrets=[custom]).redact(f"token is {custom} ok")
+    assert count == 1
+    assert custom not in redacted
+    assert "Declared secret" in redacted
+    # Env route: JSON list
+    monkeypatch.setenv("EPI_REDACT_SECRETS", f'["{custom}"]')
+    redacted, count = Redactor().redact(f"token is {custom} ok")
+    assert count == 1
+    assert custom not in redacted
+    # Env route: bare single value
+    monkeypatch.setenv("EPI_REDACT_SECRETS", custom)
+    redacted, count = Redactor().redact(f"token is {custom} ok")
+    assert count == 1
+    assert custom not in redacted
+    # Clean text untouched when nothing declared
+    monkeypatch.delenv("EPI_REDACT_SECRETS", raising=False)
+    redacted, count = Redactor().redact("nothing sensitive here")
+    assert count == 0
+    assert redacted == "nothing sensitive here"
+
+
+def test_declared_secrets_reach_sealed_artifact(tmp_path: Path):
+    """record(redact_secrets=[...]) must scrub the value from the .epi."""
+    from epi_recorder import record
+
+    out = tmp_path / "declared.epi"
+    custom = "AKIA-TEST-SECRET-99ZXCV"
+    with record(out, workflow_name="declared-secret", auto_sign=False,
+                redact_secrets=[custom]) as session:
+        session.log_step("llm.request", {"prompt": f"token is {custom} ok"})
+    raw = out.read_bytes().decode("utf-8", "ignore")
+    assert custom not in raw
+    assert "Declared secret" in raw
+
+
 def test_gateway_capture_redacts_remote_prompt_bodies_by_default(tmp_path: Path):
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     gateway = create_app(

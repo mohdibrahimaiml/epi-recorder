@@ -59,18 +59,20 @@ class RecordingContext:
     Stores steps during recording and provides thread-safe access.
     """
     
-    def __init__(self, output_dir: Path, enable_redaction: bool = True):
+    def __init__(self, output_dir: Path, enable_redaction: bool = True,
+                 literal_secrets: list | None = None):
         """
         Initialize recording context.
 
         Args:
             output_dir: Directory where steps.jsonl will be written
             enable_redaction: Whether to redact secrets (default: True)
+            literal_secrets: Optional exact secret values to redact
         """
         self.output_dir = output_dir
         self.step_index = 0
         self.enable_redaction = enable_redaction
-        self.redactor = get_default_redactor() if enable_redaction else None
+        self.redactor = get_default_redactor(literal_secrets=literal_secrets) if enable_redaction else None
         self._lock = threading.Lock()
         # Tracks count of each step kind for the post-run summary
         self._step_counts: Dict[str, int] = {}
