@@ -178,6 +178,56 @@ class RedactionPlaceholderStr(str):
 REDACTION_PLACEHOLDER = RedactionPlaceholderStr("***REDACTED***")
 
 
+# Matches redaction placeholder spans in any emitted shape:
+#   ***REDACTED***, ***REDACTED***:desc:HMAC-SHA256:hex***,
+#   ***REDACTED:...***, lowercase ***redacted***:... variants.
+# The tail after "redacted" is consumed too: placeholders embed the match
+# description (e.g. ":api_key:..."), which is exactly what prohibition
+# scanners must not see. Used to keep those scanners from flagging EPI's
+# own redaction receipts.
+_PLACEHOLDER_SPAN_RE = re.compile(
+    r"\*{3,}\s*redacted\b\*{0,3}\s*[A-Za-z0-9_: .\-/=+,]*\*{3,}", re.IGNORECASE
+)
+
+
+def strip_placeholders(text: str | None) -> str:
+    """Remove redaction placeholder spans so scanners see only real content."""
+    if not text:
+        return ""
+    return _PLACEHOLDER_SPAN_RE.sub(" ", str(text))
+
+
+def scrub_redacted_pairs(data: Any) -> Any:
+    """Drop proven-safe entries before prohibition scanning.
+
+    A dict pair like `"api_key": "***redacted***:..."` proves its value is
+    NOT present — but the key *name* still matches prohibition patterns
+    (`api[_-]?key`), so scanners cry wolf on every redacted secret. This
+    renames such keys to inert tokens (keeping any surviving real text in
+    the value, which still scans). Bare-string placeholders are left for
+    strip_placeholders().
+    """
+    counter = [0]
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            out: dict[Any, Any] = {}
+            for k, v in node.items():
+                v2 = _walk(v)
+                if isinstance(v2, str) and _PLACEHOLDER_SPAN_RE.search(v2):
+                    key = f"__redacted_{counter[0]}__"
+                    counter[0] += 1
+                    out[key] = strip_placeholders(v2)
+                else:
+                    out[k] = v2
+            return out
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        return node
+
+    return _walk(data)
+
+
 def _load_or_generate_redaction_secret() -> bytes:
     """
     Load the redaction secret from ~/.epi/.redaction_secret,

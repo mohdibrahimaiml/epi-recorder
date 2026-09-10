@@ -328,6 +328,14 @@ class RuntimePolicyEngine:
         content_text = self._extract_text(context)
         if not content_text:
             return EnforcementAction.ALLOW, "", {}
+        # Never flag our own redaction receipts: placeholders embed words
+        # like "api_key" that prohibition patterns match. (Only values are
+        # extracted here, so plain span-stripping suffices — no key names.)
+        try:
+            from epi_core.redactor import strip_placeholders
+            content_text = strip_placeholders(content_text)
+        except Exception:
+            pass
 
         try:
             regex = re.compile(pattern, re.IGNORECASE)

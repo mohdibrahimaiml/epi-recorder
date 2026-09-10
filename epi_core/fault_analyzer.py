@@ -1338,8 +1338,13 @@ class FaultAnalyzer:
                 continue
 
             for i, step in enumerate(steps):
-                content_text = _content_str(step)
-                match = pattern.search(content_text)
+                # Never flag our own redaction receipts: placeholders embed
+                # words like "api_key" that prohibition patterns match, and
+                # redacted pairs ("api_key": "***...***") prove the value is
+                # absent — flagging them punishes good hygiene.
+                from epi_core.redactor import scrub_redacted_pairs, strip_placeholders
+                content_text = _content_str(scrub_redacted_pairs(step))
+                match = pattern.search(strip_placeholders(content_text))
                 if not match:
                     continue
 

@@ -551,6 +551,38 @@ class TestPass5ProhibitionViolation:
         prohibition_flags = [f for f in all_flags if f and f.rule_id == "R020"]
         assert len(prohibition_flags) == 0
 
+    def test_redacted_pairs_never_flag(self):
+        # A redacted pair proves its value is absent — flagging the key name
+        # or placeholder punishes good hygiene (false CRITICAL on clean runs).
+        policy = _make_policy_with_prohibition()
+        analyzer = FaultAnalyzer(policy=policy)
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "test"}),
+            _make_step(1, "config.note", {
+                "note": "demo only",
+                "api_key": "***redacted***:api_key:hmac-sha256:0c77cfee***",
+            }),
+            _make_step(2, "session.end", {"success": True}),
+        ])
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        prohibition_flags = [f for f in all_flags if f and f.rule_id == "R020"]
+        assert len(prohibition_flags) == 0
+
+    def test_real_secret_value_still_flags(self):
+        # ...while a genuine unredacted value must still fire.
+        policy = _make_policy_with_prohibition()
+        analyzer = FaultAnalyzer(policy=policy)
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "test"}),
+            _make_step(1, "llm.response", {"text": "here is sk-live-abcdef1234567890 use it"}),
+            _make_step(2, "session.end", {"success": True}),
+        ])
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        prohibition_flags = [f for f in all_flags if f and f.rule_id == "R020"]
+        assert len(prohibition_flags) == 1
+
 
 class TestPass6AgentApprovalGap:
     def test_detects_pending_approval_gap(self):
