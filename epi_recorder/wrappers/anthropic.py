@@ -52,12 +52,20 @@ class TracedMessages:
 
         # Log request if session is active
         if session:
+            import hashlib as _hashlib
+            import json as _json
+            try:
+                _canonical_msg = _json.dumps(messages, sort_keys=True, ensure_ascii=False, default=str)
+            except Exception:
+                _canonical_msg = str(messages)
+            pre_hash_hex = _hashlib.sha256((_canonical_msg + str(model)).encode("utf-8")).hexdigest()
             request_data = {
                 "provider": self._provider,
                 "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "timestamp": utc_now_iso(),
+                "pre_commit_hash": pre_hash_hex,
             }
             
             # Add optional parameters if present
@@ -72,16 +80,13 @@ class TracedMessages:
             session.log_step("llm.pre_commit", {
                 "provider": self._provider,
                 "model": model,
+                "messages_hash": pre_hash_hex,
                 "message_count": len(messages),
                 "timestamp": utc_now_iso(),
             })
             try:
-                import hashlib
                 from epi_core.notarize import notarize_hash
-                pre_hash = hashlib.sha256(
-                    (str(model) + str(len(messages)) + utc_now_iso()).encode()
-                ).hexdigest()
-                self._last_pre_commit_ts = notarize_hash(pre_hash, label="llm.pre_commit")
+                self._last_pre_commit_ts = notarize_hash(pre_hash_hex, label="llm.pre_commit")
             except Exception:
                 self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
         
@@ -151,18 +156,41 @@ class TracedMessages:
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
         
-        # Log request if session is active
+        # Log request + pre_commit for streaming (was missing)
         if session:
+            import hashlib as _hashlib2
+            import json as _json2
+            try:
+                _canonical_msg2 = _json2.dumps(messages, sort_keys=True, ensure_ascii=False, default=str)
+            except Exception:
+                _canonical_msg2 = str(messages)
+            pre_hash_hex2 = _hashlib2.sha256((_canonical_msg2 + str(model)).encode("utf-8")).hexdigest()
             session.log_step("llm.request", {
                 "provider": self._provider,
                 "model": model,
                 "messages": messages,
                 "stream": True,
                 "timestamp": utc_now_iso(),
+                "pre_commit_hash": pre_hash_hex2,
             })
+            session.log_step("llm.pre_commit", {
+                "provider": self._provider,
+                "model": model,
+                "messages_hash": pre_hash_hex2,
+                "message_count": len(messages),
+                "stream": True,
+                "timestamp": utc_now_iso(),
+            })
+            try:
+                from epi_core.notarize import notarize_hash as _notarize2
+                self._last_pre_commit_ts = _notarize2(pre_hash_hex2, label="llm.pre_commit")
+            except Exception:
+                self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
         
         start_time = time.time()
         accumulated_text = []
+        accumulated_tool_blocks: list[dict] = []
+        usage_accum: dict | None = None
         
         try:
             # Stream the response
@@ -170,8 +198,26 @@ class TracedMessages:
             
             for chunk in stream:
                 # Accumulate text for logging
-                if hasattr(chunk, "delta") and hasattr(chunk.delta, "text"):
+                if hasattr(chunk, "delta") and hasattr(chunk.delta, "text") and chunk.delta.text:
                     accumulated_text.append(chunk.delta.text)
+                # Tool use blocks (Anthropic streams tool_use deltas as content_block_delta with type tool_use)
+                if hasattr(chunk, "content_block") and getattr(chunk.content_block, "type", None) == "tool_use":
+                    accumulated_tool_blocks.append({"type": "tool_use", "id": getattr(chunk.content_block, "id", ""), "name": getattr(chunk.content_block, "name", "")})
+                if hasattr(chunk, "delta") and hasattr(chunk.delta, "partial_json") and chunk.delta.partial_json:
+                    if accumulated_tool_blocks:
+                        accumulated_tool_blocks[-1].setdefault("input_json", "")
+                        accumulated_tool_blocks[-1]["input_json"] += str(chunk.delta.partial_json)
+                # Usage from message_delta
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_accum = {
+                        "input_tokens": getattr(chunk.usage, "input_tokens", 0),
+                        "output_tokens": getattr(chunk.usage, "output_tokens", 0),
+                    }
+                if hasattr(chunk, "message") and getattr(chunk.message, "usage", None):
+                    usage_accum = {
+                        "input_tokens": getattr(chunk.message.usage, "input_tokens", 0),
+                        "output_tokens": getattr(chunk.message.usage, "output_tokens", 0),
+                    }
                 
                 yield chunk
             
@@ -179,14 +225,16 @@ class TracedMessages:
             
             # Log complete response after streaming
             if session:
+                content_blocks: list[dict] = []
+                if accumulated_text:
+                    content_blocks.append({"type": "text", "text": "".join(accumulated_text)})
+                content_blocks.extend(accumulated_tool_blocks)
                 session.log_step("llm.response", {
                     "provider": self._provider,
                     "model": model,
                     "role": "assistant",
-                    "content": [{
-                        "type": "text",
-                        "text": "".join(accumulated_text)
-                    }],
+                    "content": content_blocks,
+                    "usage": usage_accum,
                     "stream": True,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),

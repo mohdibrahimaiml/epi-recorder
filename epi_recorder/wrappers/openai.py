@@ -58,36 +58,39 @@ class TracedCompletions:
 
         # Log request if session is active
         if session:
+            import hashlib as _hashlib
+            import json as _json
+            try:
+                _canonical_msg = _json.dumps(messages, sort_keys=True, ensure_ascii=False, default=str)
+            except Exception:
+                _canonical_msg = str(messages)
+            pre_hash_hex = _hashlib.sha256((_canonical_msg + str(model)).encode("utf-8")).hexdigest()
             session.log_step("llm.request", {
                 "provider": self._provider,
                 "model": model,
                 "messages": messages,
                 "timestamp": utc_now_iso(),
+                "pre_commit_hash": pre_hash_hex,
             })
             # Pre-execution commitment: log intent before the API call fires.
-            # Chain ordering proves this commitment existed before the response
-            # that references it. Full chronology requires RFC 3161 notarization
-            # (EPI_NOTARIZE=1), which timestamps the pre-commit with an external
-            # authority after this entry is written.
-            msg_digest = {"model": model, "message_count": len(messages)}
             session.log_step("llm.pre_commit", {
                 "provider": self._provider,
                 "model": model,
+                "messages_hash": pre_hash_hex,
                 "message_count": len(messages),
                 "timestamp": utc_now_iso(),
             })
-            # Tier 1 notarization: RFC 3161 timestamp from external TSA
-            # proves this pre-commit existed by a specific point in external time.
-            # Always attempted. On success stores TSA receipt; on failure records
-            # evidence of the attempt so auditors can distinguish "never attempted"
-            # from "attempted but TSA unreachable."
             try:
-                import hashlib
                 from epi_core.notarize import notarize_hash
-                pre_hash = hashlib.sha256(
-                    (str(model) + str(len(messages)) + utc_now_iso()).encode()
-                ).hexdigest()
-                self._last_pre_commit_ts = notarize_hash(pre_hash, label="llm.pre_commit")
+                self._last_pre_commit_ts = notarize_hash(pre_hash_hex, label="llm.pre_commit")
+                # Bind TSA receipt into the pre_commit step content if available
+                if isinstance(self._last_pre_commit_ts, dict) and self._last_pre_commit_ts.get("tsa_token"):
+                    session.log_step("llm.pre_commit_notarized", {
+                        "provider": self._provider,
+                        "hash": pre_hash_hex,
+                        "receipt": self._last_pre_commit_ts,
+                        "timestamp": utc_now_iso(),
+                    })
             except Exception:
                 self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
         
@@ -160,21 +163,44 @@ class TracedCompletions:
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
         
-        # Log request if session is active
+        # Log request + pre_commit for streaming (was missing)
         if session:
+            import hashlib as _hashlib2
+            import json as _json2
+            try:
+                _canonical_msg2 = _json2.dumps(messages, sort_keys=True, ensure_ascii=False, default=str)
+            except Exception:
+                _canonical_msg2 = str(messages)
+            pre_hash_hex2 = _hashlib2.sha256((_canonical_msg2 + str(model)).encode("utf-8")).hexdigest()
             session.log_step("llm.request", {
                 "provider": self._provider,
                 "model": model,
                 "messages": messages,
                 "stream": True,
                 "timestamp": utc_now_iso(),
+                "pre_commit_hash": pre_hash_hex2,
             })
+            session.log_step("llm.pre_commit", {
+                "provider": self._provider,
+                "model": model,
+                "messages_hash": pre_hash_hex2,
+                "message_count": len(messages),
+                "stream": True,
+                "timestamp": utc_now_iso(),
+            })
+            try:
+                from epi_core.notarize import notarize_hash as _notarize2
+                self._last_pre_commit_ts = _notarize2(pre_hash_hex2, label="llm.pre_commit")
+            except Exception:
+                self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
         
         # Force stream=True
         kwargs["stream"] = True
         
         start_time = time.time()
         accumulated_content = []
+        accumulated_tool_calls: dict[int, dict] = {}
+        accumulated_reasoning: list[str] = []
         finish_reason = None
         usage = None
         
@@ -182,11 +208,39 @@ class TracedCompletions:
             stream = self._completions.create(*args, **kwargs)
             
             for chunk in stream:
-                # Accumulate content from delta
+                # Accumulate content + tool_calls + reasoning from delta
                 if hasattr(chunk, "choices") and chunk.choices:
                     delta = chunk.choices[0].delta
                     if hasattr(delta, "content") and delta.content:
                         accumulated_content.append(delta.content)
+                    # Tool calls in streaming delta
+                    if hasattr(delta, "tool_calls") and delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            idx = getattr(tc, "index", 0) or 0
+                            entry = accumulated_tool_calls.setdefault(idx, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                            if getattr(tc, "id", None):
+                                entry["id"] = tc.id
+                            if getattr(tc, "type", None):
+                                entry["type"] = tc.type
+                            if getattr(tc, "function", None):
+                                fn = tc.function
+                                if getattr(fn, "name", None):
+                                    entry["function"]["name"] = fn.name
+                                if getattr(fn, "arguments", None):
+                                    entry["function"]["arguments"] += fn.arguments
+                    # Legacy function_call
+                    if hasattr(delta, "function_call") and delta.function_call:
+                        fc = delta.function_call
+                        accumulated_tool_calls.setdefault(0, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                        if getattr(fc, "name", None):
+                            accumulated_tool_calls[0]["function"]["name"] = fc.name
+                        if getattr(fc, "arguments", None):
+                            accumulated_tool_calls[0]["function"]["arguments"] += fc.arguments
+                    # Reasoning / refusal
+                    if hasattr(delta, "reasoning") and getattr(delta, "reasoning", None):
+                        accumulated_reasoning.append(str(delta.reasoning))
+                    if hasattr(delta, "refusal") and getattr(delta, "refusal", None):
+                        accumulated_reasoning.append(str(delta.refusal))
                     if hasattr(chunk.choices[0], "finish_reason") and chunk.choices[0].finish_reason:
                         finish_reason = chunk.choices[0].finish_reason
                 
@@ -204,14 +258,19 @@ class TracedCompletions:
             
             # Log assembled response after streaming completes
             if session:
+                msg: dict = {
+                    "role": "assistant",
+                    "content": "".join(accumulated_content),
+                }
+                if accumulated_tool_calls:
+                    msg["tool_calls"] = [accumulated_tool_calls[k] for k in sorted(accumulated_tool_calls)]
+                if accumulated_reasoning:
+                    msg["reasoning"] = "".join(accumulated_reasoning)
                 response_data = {
                     "provider": self._provider,
                     "model": model,
                     "choices": [{
-                        "message": {
-                            "role": "assistant",
-                            "content": "".join(accumulated_content),
-                        },
+                        "message": msg,
                         "finish_reason": finish_reason,
                     }],
                     "stream": True,

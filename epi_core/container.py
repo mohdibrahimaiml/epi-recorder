@@ -456,9 +456,21 @@ class EPIContainer:
         if fmt == EPI_CONTAINER_FORMAT_LEGACY:
             return None
 
+        file_size = epi_path.stat().st_size
+        header = EPIContainer._read_envelope_header(epi_path)
+        max_viewer = file_size - EPI_ENVELOPE_HEADER_SIZE - header.payload_length - len(EPI_ZIP_MARKER)
+        if max_viewer < 0:
+            max_viewer = file_size - EPI_ENVELOPE_HEADER_SIZE
+        read_size = min(file_size - EPI_ENVELOPE_HEADER_SIZE, max_viewer + len(EPI_ZIP_MARKER) + 1024)
+        if read_size <= 0:
+            return None
         with open(epi_path, "rb") as f:
             f.seek(EPI_ENVELOPE_HEADER_SIZE)
-            chunk = f.read(4 * 1024 * 1024)
+            chunk = f.read(read_size)
+            # If viewer larger than expected, fallback to scanning entire gap
+            if EPI_ZIP_MARKER not in chunk and file_size > EPI_ENVELOPE_HEADER_SIZE + header.payload_length:
+                f.seek(EPI_ENVELOPE_HEADER_SIZE)
+                chunk = f.read(file_size - EPI_ENVELOPE_HEADER_SIZE - header.payload_length)
 
         marker_idx = chunk.find(EPI_ZIP_MARKER)
         if marker_idx == -1:
@@ -604,10 +616,15 @@ class EPIContainer:
                 written += len(chunk)
                 remaining -= len(chunk)
 
-        if written != header.payload_length:
-            raise ValueError("Unexpected payload length while extracting EPI envelope")
-        if sha256.digest() != header.payload_sha256:
-            raise ValueError("EPI envelope payload hash mismatch")
+            if written != header.payload_length:
+                raise ValueError("Unexpected payload length while extracting EPI envelope")
+            if sha256.digest() != header.payload_sha256:
+                raise ValueError("EPI envelope payload hash mismatch")
+            # Trailing bytes detection: after payload there must be no extra data
+            trailing = src.read(1)
+            if trailing != b"":
+                extra_remaining = 1 + len(src.read())
+                raise ValueError(f"EPI envelope has {extra_remaining} trailing bytes after payload — possible injection")
 
         EPIContainer._validate_zip_payload(dest_zip_path)
         return dest_zip_path
@@ -1158,6 +1175,13 @@ class EPIContainer:
             # Include viewer.html in the cryptographic file_manifest so that a
             # visual-deception attack (swapping the UI layer) is detectable.
             manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+            # Recompute payload_hash now that file_manifest is final (was stale after viewer/VERIFY/notarization)
+            _manifest_canon_final = json.dumps(
+                dict(sorted(manifest.file_manifest.items())), ensure_ascii=False, separators=(",", ":")
+            )
+            _payload_hash_final = hashlib.sha256(_manifest_canon_final.encode()).hexdigest()
+            if manifest.trust is not None:
+                manifest.trust = {**(manifest.trust or {}), "payload_hash": _payload_hash_final}
 
             zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
@@ -1630,6 +1654,20 @@ class EPIContainer:
 
         manifest = EPIContainer.read_manifest(epi_path)
         mismatches: dict[str, str] = {}
+        # Envelope header vs manifest cross-check (UUID/timestamp transplant detection)
+        try:
+            fmt = EPIContainer.detect_container_format(epi_path)
+            if fmt == EPI_CONTAINER_FORMAT_ENVELOPE:
+                hdr = EPIContainer._read_envelope_header(epi_path)
+                if hdr.artifact_uuid != manifest.workflow_id.bytes:
+                    mismatches["__envelope_header__"] = "Header artifact_uuid does not match manifest workflow_id — header transplant"
+                # Compare truncated timestamp (allow 1s drift due to micros truncation)
+                hdr_ts = hdr.created_at_micros / 1_000_000
+                manifest_ts = manifest.created_at.timestamp()
+                if abs(hdr_ts - manifest_ts) > 1:
+                    mismatches["__envelope_header__"] = mismatches.get("__envelope_header__", "") + "; header timestamp mismatches manifest"
+        except Exception:
+            pass
         temp_path = EPIContainer._make_temp_dir("epi_verify_")
         try:
             EPIContainer.unpack(epi_path, temp_path)

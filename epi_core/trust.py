@@ -131,9 +131,13 @@ def verify_signature(manifest: ManifestModel, public_key_bytes: bytes) -> tuple[
             signature_bytes = bytes.fromhex(signature_hex)
         except ValueError:
             try:
-                signature_bytes = base64.b64decode(signature_hex)
+                signature_bytes = base64.b64decode(signature_hex, validate=True)
             except Exception:
                 return (False, "Invalid signature encoding (not hex or base64)")
+        if len(signature_bytes) != 64:
+            return (False, f"Invalid signature length: expected 64 bytes, got {len(signature_bytes)}")
+        if len(public_key_bytes) != 32:
+            return (False, f"Invalid public key length: expected 32 bytes, got {len(public_key_bytes)}")
 
         # Dispatch by spec_version: CBOR (1.x) vs legacy json vs JCS (no trial)
         from epi_core._version import JCS_INTRODUCED_TUPLE, JCS_INTRODUCED_VERSION
@@ -240,12 +244,15 @@ def decode_embedded_public_key(public_key_value: str) -> bytes:
     """
     Decode an embedded manifest public key.
 
-    Public keys must be hex-encoded raw Ed25519 key bytes (64 hex chars).
+    Public keys must be hex-encoded raw Ed25519 key bytes (64 hex chars = 32 bytes).
     """
     try:
-        return bytes.fromhex(public_key_value)
+        raw = bytes.fromhex(public_key_value.strip())
     except ValueError as e:
         raise VerificationError(f"Invalid embedded public key: {e}") from e
+    if len(raw) != 32:
+        raise VerificationError(f"Invalid embedded public key length: expected 32 bytes, got {len(raw)}")
+    return raw
 
 
 def verify_embedded_manifest_signature(
@@ -661,7 +668,7 @@ def create_verification_report(
     elif integrity_ok and signature_valid is True:
         report["trust_level"] = "LOW"  # Valid signature but unknown identity
     elif integrity_ok and signature_valid is None:
-        report["trust_level"] = "MEDIUM"
+        report["trust_level"] = "LOW"  # Unsigned ranks LOW, not above valid-unknown
     else:
         report["trust_level"] = "NONE"
     report["mismatches_count"] = len(mismatches)
@@ -684,7 +691,9 @@ def create_verification_report(
             "Seal OK; sealer matches a key on this computer (not org-pinned)"
         )
     elif report["trust_level"] == "MEDIUM":
-        report["trust_message"] = "Unsigned but integrity intact"
+        report["trust_message"] = "Seal OK with transparency anchor (SCITT) — identity not pinned"
+    elif report["trust_level"] == "LOW" and signature_valid is None:
+        report["trust_message"] = "Unsigned but integrity intact (no signature) — lower trust than signed-unknown"
     elif report["trust_level"] == "LOW":
         report["trust_message"] = (
             "Seal OK (valid signature); signer not pinned in trust list yet — "
