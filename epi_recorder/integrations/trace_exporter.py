@@ -48,11 +48,16 @@ def _sha256_hex(data: bytes) -> str:
 
 
 def _epi_file_hash(epi_path: Path) -> str:
-    h = hashlib.sha256()
-    with open(epi_path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return f"sha256:{h.hexdigest()}"
+    # Prefer hash of canonical transcript (steps.jsonl) not whole envelope, for per-step audit
+    try:
+        steps_bytes = EPIContainer.read_member_bytes(epi_path, "steps.jsonl")
+        return f"sha256:{_sha256_hex(steps_bytes)}"
+    except Exception:
+        h = hashlib.sha256()
+        with open(epi_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return f"sha256:{h.hexdigest()}"
 
 
 def _count_steps(epi_path: Path) -> int:
