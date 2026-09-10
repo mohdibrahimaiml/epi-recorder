@@ -22,6 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import typer
+
 from epi_core.container import EPIContainer
 from epi_core.scitt import (
     SCITTVerificationError,
@@ -180,7 +182,10 @@ def audit_artifact(
         "score": score,
         "max": max_score,
         "percentage": round(score / max_score * 100),
-        "rating": _score_to_rating(score / max_score),
+        "rating": _score_to_rating(
+            score / max_score,
+            signed=bool(report["pipeline"]["cryptographic"].get("signature_valid")),
+        ),
         "note": "EPI's proprietary scoring methodology — not a published industry standard.",
     }
 
@@ -195,14 +200,16 @@ def _read_steps(epi_path: Path) -> list[dict]:
         return []
 
 
-def _score_to_rating(ratio: float) -> str:
+def _score_to_rating(ratio: float, signed: bool = False) -> str:
     if ratio >= 0.9:
         return "production-ready"
     if ratio >= 0.7:
         return "substantial"
     if ratio >= 0.5:
         return "partial"
-    return "basic — unsigned demo artifact"
+    # Bottom bucket must not claim "unsigned" for signed artifacts that
+    # merely lack SCITT/review/analysis points.
+    return "basic" if signed else "basic — unsigned demo artifact"
 
 
 def _render_rich(report: dict) -> str:
@@ -256,13 +263,12 @@ def _render_rich(report: dict) -> str:
 
 
 def audit_command(
-    artifact: Path,
-    *,
-    output_format: str = "rich",
-    strict: bool = True,
-    output: Optional[Path] = None,
+    artifact: Path = typer.Argument(..., help="Path to .epi artifact"),
+    output_format: str = typer.Option("rich", "--format", "-f", help="Output format: rich, json, md"),
+    strict: bool = typer.Option(True, "--strict/--no-strict", help="Strict verification mode"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write report to file"),
 ) -> None:
-    """Run self-audit and output the report."""
+    """Run a comprehensive compliance audit on an EPI artifact."""
     if not artifact.exists():
         raise typer.BadParameter(f"Artifact not found: {artifact}")
 
@@ -314,20 +320,9 @@ def _render_markdown(report: dict) -> str:
     return "\n".join(lines)
 
 
-# Typer integration — call this from epi_cli/main.py
-import typer
-audit_app = typer.Typer(help="Run a self-audit on an EPI artifact producing a machine-readable compliance report.")
-
-
-@audit_app.callback(invoke_without_command=True)
-def audit_entry(
-    ctx: typer.Context,
-    artifact: Path = typer.Argument(..., help="Path to .epi artifact", exists=True),
-    output_format: str = typer.Option("rich", "--format", "-f", help="Output format: rich, json, md"),
-    strict: bool = typer.Option(True, "--strict/--no-strict", help="Strict verification mode"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write report to file"),
-):
-    """Run a comprehensive compliance audit on an EPI artifact."""
-    if ctx.invoked_subcommand is not None:
-        return
-    audit_command(artifact, output_format=output_format, strict=strict, output=output)
+# NOTE: audit is registered as a plain command on the main app
+# (see main.py). It was previously a Typer group whose callback carried the
+# ARTIFACT argument — options placed after the file (e.g. `--format json`)
+# were misparsed and every invocation died with "Missing argument 'ARTIFACT'".
+# Plain commands are the codebase norm (verify, export trace) and parse
+# arguments in any order.

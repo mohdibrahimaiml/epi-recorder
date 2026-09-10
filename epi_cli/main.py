@@ -1027,18 +1027,17 @@ app.command(
     rich_help_panel="Advanced",
 )(integrate_command)
 
-from epi_cli.audit import audit_app
+from epi_cli.audit import audit_command
 from epi_cli.annex import annex_app
 from epi_cli.notify import notify_app
 from epi_cli.enterprise import enterprise_app
 app.add_typer(annex_app, name="annex", help="Annex IV compliance artifacts", rich_help_panel="Advanced")
 app.add_typer(notify_app, name="notify", help="EU database notification", rich_help_panel="Advanced")
-app.add_typer(
-    audit_app,
+app.command(
     name="audit",
     help="Run a self-audit on .epi artifacts producing machine-readable compliance reports",
     rich_help_panel="Advanced",
-)
+)(audit_command)
 app.add_typer(
     enterprise_app,
     name="enterprise",
