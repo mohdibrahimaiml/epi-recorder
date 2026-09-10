@@ -405,12 +405,30 @@ def _seed_simulated_case(storage_dir: Path) -> str:
     return case_id
 
 
+def _demo_subprocess_env(env: dict) -> dict:
+    """Child-process env for demo subprocesses.
+
+    Ensures the EPI packages are importable when running from a source
+    checkout without a pip install (pytest/CI and `python -m` users).
+    Installed environments already have epi_recorder on sys.path, so the
+    PYTHONPATH entry is a harmless duplicate there.
+    """
+    repo_root = str(Path(__file__).resolve().parents[1])
+    merged = {**env, "PYTHONUTF8": "1"}
+    existing = merged.get("PYTHONPATH", "")
+    parts = [p for p in existing.split(os.pathsep) if p]
+    if repo_root not in parts:
+        parts.insert(0, repo_root)
+    merged["PYTHONPATH"] = os.pathsep.join(parts)
+    return merged
+
+
 def _run_demo_script(script_path: Path, env: dict) -> bool:
     """Run the demo script. Returns True if it exited with code 0."""
     try:
         result = subprocess.run(
             [sys.executable, str(script_path)],
-            env={**env, "PYTHONUTF8": "1"},
+            env=_demo_subprocess_env(env),
             timeout=60,
             encoding="utf-8",
             errors="replace",
@@ -565,6 +583,7 @@ def _run_fast_demo(
             capture_output=True,
             text=True,
             timeout=30,
+            env=_demo_subprocess_env(dict(os.environ)),
         )
         integrity = signature = "?"
         if result.returncode == 0 and result.stdout.strip():

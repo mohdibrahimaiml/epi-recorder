@@ -153,12 +153,13 @@ def test_report_trust_levels_are_frozen():
     )
     assert report["trust_level"] == "LOW"
 
-    # MEDIUM (unsigned but intact)
+    # LOW (unsigned but intact) — since 4.4.6 unsigned ranks LOW, never
+    # above a valid signature with unknown identity (trust.py)
     report = create_verification_report(
         integrity_ok=True, signature_valid=None, signer_name=None,
         mismatches={}, manifest=manifest, trusted_registry=registry,
     )
-    assert report["trust_level"] == "MEDIUM"
+    assert report["trust_level"] == "LOW"
 
     # NONE (integrity compromised)
     report = create_verification_report(

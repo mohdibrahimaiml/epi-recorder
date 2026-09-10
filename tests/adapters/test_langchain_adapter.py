@@ -131,6 +131,8 @@ def test_llm_error_maps_to_llm_response_ok_false():
 
 
 def test_chain_events_only_top_level():
+    # Nested chains are captured (not dropped) with parent_run_id/is_nested
+    # for trace completeness — see on_chain_start "Captured nested chains too".
     session = _CaptureSession()
     handler = EpiCallbackHandler(session)
     top = uuid4()
@@ -143,8 +145,10 @@ def test_chain_events_only_top_level():
     handler.on_chain_end({"output": "inner"}, run_id=child, parent_run_id=top)
 
     kinds = [k for k, _ in session.steps]
-    assert kinds == ["chain.start", "chain.end"]
+    assert kinds == ["chain.start", "chain.start", "chain.end", "chain.end"]
     assert session.steps[0][1]["chain"] == "AgentExecutor"
+    assert session.steps[1][1]["is_nested"] is True
+    assert session.steps[1][1]["parent_run_id"] == str(top)
 
 
 def test_llm_end_extracts_generations():

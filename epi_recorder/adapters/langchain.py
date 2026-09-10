@@ -110,7 +110,8 @@ class EpiCallbackHandler(BaseCallbackHandler):
       applies ``epi_core.redactor`` when the session was opened with redact=True.
     - Tool start always emits ``tool.call``; tool end *and* tool error both emit
       ``tool.response`` so AUD-CO-01 completeness stays PASS on failure paths.
-    - Only top-level chains (``parent_run_id is None``) emit chain.start / chain.end.
+    - Nested chains are captured too (with parent_run_id/is_nested) so
+      nested agent work is not silently dropped from evidence.
     - LLM steps use kind ``llm.call`` (not ``llm.request``). AUD-CO-01 currently
       pairs ``llm.request`` only; tool completeness is fully covered via ``call_id``.
     """
