@@ -519,6 +519,11 @@ def _verify_review_signature(record: ReviewRecord, expected_hash: str) -> tuple[
     parts = str(record.review_signature).split(":", 2)
     if len(parts) != 3 or parts[0] != "ed25519":
         return False, "Invalid review signature format"
+    # Review pub is self-asserted, not registry-bound — verify length and note
+    if len(parts[1]) != 64:
+        return False, f"Invalid review pubkey length: expected 64 hex, got {len(parts[1])}"
+    if len(parts[2]) != 128:
+        return False, f"Invalid review sig length: expected 128 hex, got {len(parts[2])}"
     try:
         public_key = Ed25519PublicKey.from_public_bytes(bytes.fromhex(parts[1]))
         signature = bytes.fromhex(parts[2])
