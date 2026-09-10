@@ -92,8 +92,8 @@ class GatewayRuntimeSettings(BaseModel):
     storage_dir: str = "./evidence_vault"
     batch_size: int = 50
     batch_timeout: float = 2.0
-    retention_mode: str = "redacted_hashes"
-    proxy_failure_mode: str = "fail-open"
+    retention_mode: str = "full_content"
+    proxy_failure_mode: str = "fail-closed"
     access_token: str | None = None
     users_file: str | None = None
     webhook_url: str | None = None
@@ -1190,6 +1190,9 @@ def create_app(
         except Exception as exc:
             raise HTTPException(status_code=400, detail="Invalid JSON request body") from exc
 
+        if payload.get("stream") is True:
+            raise HTTPException(status_code=501, detail="Streaming not supported via EPI gateway proxy — use wrap_openai streaming wrapper with record() for captured streams, or send with stream=false")
+
         inbound_headers = dict(request.headers)
         failure_mode = _resolve_failure_mode(inbound_headers, runtime_settings)
         if failure_mode == "fail-closed" and not runtime_worker.snapshot().get("ready"):
@@ -1248,8 +1251,16 @@ def create_app(
         except Exception as exc:
             raise HTTPException(status_code=400, detail="Invalid JSON request body") from exc
 
+        if payload.get("stream") is True:
+            raise HTTPException(status_code=501, detail="Streaming not supported via EPI gateway proxy — use wrap_anthropic streaming wrapper with record()")
+
         inbound_headers = dict(request.headers)
         failure_mode = _resolve_failure_mode(inbound_headers, runtime_settings)
+        if failure_mode == "fail-closed" and not runtime_worker.snapshot().get("ready"):
+            return _capture_failure_response(
+                "EPI Gateway worker not ready - cannot accept requests in fail-closed mode.",
+                settings=runtime_settings,
+            )
         try:
             result, capture_request = relay_anthropic_messages(payload, inbound_headers)
             try:

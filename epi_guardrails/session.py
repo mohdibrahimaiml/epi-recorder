@@ -606,13 +606,13 @@ class GuardrailsRecorderSession:
                     llm_response_info = getattr(outputs, "llm_response_info", None)
                     if llm_response_info:
                         try:
-                            raw_output = str(getattr(llm_response_info, "output", "") or "")[:2000]
+                            raw_output = str(getattr(llm_response_info, "output", "") or "")
                         except Exception:
                             pass
 
                     parsed_out = getattr(outputs, "parsed_output", None)
                     if parsed_out is not None:
-                        parsed_output = str(parsed_out)[:2000]
+                        parsed_output = str(parsed_out)
                         original_output_hash = _hash_payload(parsed_output)
 
                     val_resp = getattr(outputs, "validation_response", None)
@@ -621,7 +621,7 @@ class GuardrailsRecorderSession:
                         if passed is not None:
                             validation_passed = bool(passed)
                             if validation_passed:
-                                validated_output = str(val_resp)[:2000] if val_resp else None
+                                validated_output = str(val_resp) if val_resp else None
                         else:
                             from guardrails_ai.types.reask import ReAsk
 
@@ -630,11 +630,11 @@ class GuardrailsRecorderSession:
                                 validated_output = None
                             else:
                                 validation_passed = True
-                                validated_output = str(val_resp)[:2000] if val_resp else None
+                                validated_output = str(val_resp) if val_resp else None
 
                     guarded_out = getattr(outputs, "guarded_output", None)
                     if guarded_out is not None:
-                        guarded_output = str(guarded_out)[:2000]
+                        guarded_output = str(guarded_out)
                         if guarded_output != parsed_output:
                             correction_applied = True
 
