@@ -13,7 +13,7 @@
 ;   2. Open this file in Inno Setup Compiler <- builds Output/epi-setup-X.Y.Z.exe
 
 #define MyAppName "EPI Recorder"
-#define MyAppVersion "4.4.5"
+#define MyAppVersion "4.4.6"
 #define MyAppPublisher "EPI Labs"
 #define MyAppURL "https://epilabs.org"
 #define MyAppExeName "epi.exe"

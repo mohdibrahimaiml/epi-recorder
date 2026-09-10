@@ -134,7 +134,7 @@ def _compute_leaf_hash(tree_index: int, entry_hash: bytes) -> bytes:
 
 
 def _compute_leaf_hash_legacy(tree_index: int, entry_hash: bytes) -> bytes:
-    """Pre-4.4.6 leaf hash (custom domain separation, kept for verification)."""
+    """Legacy leaf hash (custom domain separation, kept for verifying old receipts)."""
     idx_bytes = int(tree_index).to_bytes(8, "big")
     return hashlib.sha256(b"\x00" + idx_bytes + bytes(entry_hash)).digest()
 
@@ -609,7 +609,7 @@ def verify_scitt_receipt_with_proof(
     leaf_hash = _compute_leaf_hash(proof.tree_index, entry_hash)
     if _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
         return True, proof, "valid"
-    # Backward compat: pre-4.4.6 receipts used index-prefixed leaf hash
+    # Backward compat: old receipts used index-prefixed leaf hash
     legacy_leaf = _compute_leaf_hash_legacy(proof.tree_index, entry_hash)
     if _verify_audit_path(legacy_leaf, proof.tree_index, proof.audit_path, proof.root_hash):
         return True, proof, "valid (legacy leaf hash)"
