@@ -51,7 +51,7 @@ Full narrative (internal / investor): [COMPLETE-PRODUCT-GUIDE.md](./COMPLETE-PRO
 | [ENTERPRISE-TRUST-BUNDLE.md](./ENTERPRISE-TRUST-BUNDLE.md) | Org trust bundles |
 | [ENTERPRISE-EVIDENCE-PLAYBOOK.md](./ENTERPRISE-EVIDENCE-PLAYBOOK.md) | Org process for evidence |
 | [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md) | Self-host paths |
-| [SITE.md](./SITE.md) | Public site source of truth (`website/`) |
+| [archive/SITE.md](./archive/SITE.md) | Public site source of truth (`website/`) |
 
 ---
 
@@ -87,7 +87,7 @@ If a file has a banner **“historical / not current”**, treat it as non-canon
 |------|------|
 | `website/` | **Production** public site source (`epilabs.org`) |
 | `website-v2/` | **Sandbox redesign** — not deployed by default |
-| [SITE.md](./SITE.md) | Sync rules (`python scripts/sync_website.py`) |
+| [archive/SITE.md](./archive/SITE.md) | Sync rules (`python scripts/sync_website.py`) |
 
 ---
 

@@ -274,7 +274,7 @@ epi verify agent.epi --aiuc1   # optional domain scoring
 | `docs/` | Start at [docs/README.md](docs/README.md) |
 | `tests/test_core_loop_golden.py` | Golden path regression |
 
-Website edits: only under `website/`, then `python scripts/sync_website.py`. See [docs/SITE.md](docs/SITE.md).
+Website edits: only under `website/`, then `python scripts/sync_website.py`. See [docs/archive/SITE.md](docs/archive/SITE.md).
 
 ---
 

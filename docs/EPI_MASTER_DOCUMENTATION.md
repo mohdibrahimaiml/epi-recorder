@@ -99,7 +99,7 @@ recording.epi (ZIP Archive)
 
 ```json
 {
-  "spec_version": "4.4.3",
+  "spec_version": "4.4.5",
   "container_version": "1.1",
   "created_at": "2026-08-09T19:50:00Z",
   "workflow_id": "demo_banking_aml",
