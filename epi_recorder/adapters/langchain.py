@@ -152,14 +152,16 @@ class EpiCallbackHandler(BaseCallbackHandler):
             if self.raise_error:
                 raise
             _logger.debug("EpiCallbackHandler failed to log %s: %s", kind, exc, exc_info=True)
-            try:
-                import json as _json
-                from pathlib import Path as _Path
-                p = _Path.cwd() / ".epi-deadletter.jsonl"
-                with open(p, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps({"kind": kind, "deadletter": True, "error": str(exc), "error_type": type(exc).__name__}) + "\n")
-            except Exception:
-                pass
+            import os as _os
+            if _os.getenv("EPI_DEADLETTER", "0") == "1":
+                try:
+                    import json as _json
+                    from pathlib import Path as _Path
+                    p = _Path.cwd() / ".epi-deadletter.jsonl"
+                    with open(p, "a", encoding="utf-8") as _f:
+                        _f.write(_json.dumps({"kind": kind, "deadletter": True, "error": str(exc), "error_type": type(exc).__name__}) + "\n")
+                except Exception:
+                    pass
             if not self._log_error_warned:
                 self._log_error_warned = True
                 warnings.warn(

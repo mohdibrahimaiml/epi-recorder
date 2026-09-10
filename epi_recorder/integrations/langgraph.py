@@ -196,15 +196,16 @@ class EPICheckpointSaver(BaseCheckpointSaver):
                 "EPI langgraph checkpoint outside record() — evidence not captured; wrap graph.invoke() in with record():",
                 stacklevel=2,
             )
-            # Deadletter for forensics when session missing
-            try:
-                from pathlib import Path as _Path
-                p = _Path.cwd() / ".epi-deadletter.jsonl"
-                import json as _json
-                with open(p, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps({"kind": "langgraph.checkpoint.save", "thread_id": thread_id, "checkpoint_id": checkpoint_id, "deadletter": True}) + "\n")
-            except Exception:
-                pass
+            import os as _os
+            if _os.getenv("EPI_DEADLETTER", "0") == "1":
+                try:
+                    from pathlib import Path as _Path
+                    p = _Path.cwd() / ".epi-deadletter.jsonl"
+                    import json as _json
+                    with open(p, "a", encoding="utf-8") as _f:
+                        _f.write(_json.dumps({"kind": "langgraph.checkpoint.save", "thread_id": thread_id, "checkpoint_id": checkpoint_id, "deadletter": True}) + "\n")
+                except Exception:
+                    pass
     
     async def aget(
         self,

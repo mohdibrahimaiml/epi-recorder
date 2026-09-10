@@ -94,6 +94,7 @@ installer/windows/Output/
 # Frozen preimage goldens — never regenerate
 !tests/goldens/*.epi
 .epi/
+.epi-deadletter.jsonl
 temp_epi_*/
 epi-recordings/
 
