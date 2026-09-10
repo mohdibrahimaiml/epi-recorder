@@ -41,5 +41,8 @@ def test_verify_paddle_signature_rejects_plain_sha256_mistake():
 
 
 def test_plan_from_price_id_defaults_hosted():
+    import pytest as _pytest
+    # Empty env-not-configured keeps hosted for backward compat; unknown non-empty must fail loudly (P2 fix)
     assert _plan_from_price_id("") == "hosted"
-    assert _plan_from_price_id("pri_something_pro_month") == "hosted"
+    with _pytest.raises(ValueError):
+        _plan_from_price_id("pri_something_pro_month")

@@ -125,6 +125,9 @@ def _plan_from_price_id(price_id: str) -> str:
         return "hosted"
 
     # ── Fallback: unknown price must fail loudly, not silently map to hosted
+    # Empty price_id happens in tests / env-not-configured; keep legacy hosted for backward compat
+    if not price_id:
+        return "hosted"
     raise ValueError(f"Unknown Paddle price_id: {price_id} — add to PADDLE_*_PRICE_ID env")
 
 
