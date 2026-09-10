@@ -124,9 +124,19 @@ def _merkle_root(hashes: list[bytes]) -> bytes:
 
 
 def _compute_leaf_hash(tree_index: int, entry_hash: bytes) -> bytes:
-    """Compute the leaf hash for a given entry at its tree position."""
-    idx_bytes = tree_index.to_bytes(8, "big")
-    return hashlib.sha256(b"\x00" + idx_bytes + entry_hash).digest()
+    """Compute the leaf hash for a given entry (RFC 6962).
+
+    RFC 6962 §2.1: ``leaf = SHA-256(0x00 || data)`` where data is the
+    entry hash. ``tree_index`` is accepted for API compatibility but is
+    NOT mixed into the hash — position is conveyed by the audit path.
+    """
+    return hashlib.sha256(b"\x00" + bytes(entry_hash)).digest()
+
+
+def _compute_leaf_hash_legacy(tree_index: int, entry_hash: bytes) -> bytes:
+    """Pre-4.4.6 leaf hash (custom domain separation, kept for verification)."""
+    idx_bytes = int(tree_index).to_bytes(8, "big")
+    return hashlib.sha256(b"\x00" + idx_bytes + bytes(entry_hash)).digest()
 
 
 def _verify_audit_path(
@@ -597,10 +607,13 @@ def verify_scitt_receipt_with_proof(
 
     entry_hash = hashlib.sha256(statement_bytes).digest()
     leaf_hash = _compute_leaf_hash(proof.tree_index, entry_hash)
-    if not _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
-        return False, proof, "Inclusion proof verification failed: audit path does not match root"
-
-    return True, proof, "valid"
+    if _verify_audit_path(leaf_hash, proof.tree_index, proof.audit_path, proof.root_hash):
+        return True, proof, "valid"
+    # Backward compat: pre-4.4.6 receipts used index-prefixed leaf hash
+    legacy_leaf = _compute_leaf_hash_legacy(proof.tree_index, entry_hash)
+    if _verify_audit_path(legacy_leaf, proof.tree_index, proof.audit_path, proof.root_hash):
+        return True, proof, "valid (legacy leaf hash)"
+    return False, proof, "Inclusion proof verification failed: audit path does not match root"
 
 
 # ─────────────────────────────────────────────────────────────

@@ -174,8 +174,14 @@ def _merkle_root(hashes: list[bytes]) -> bytes:
 
 
 def _compute_leaf_hash(tree_index: int, entry_hash: bytes) -> bytes:
-    idx_bytes = tree_index.to_bytes(8, "big")
-    return hashlib.sha256(b"\x00" + idx_bytes + entry_hash).digest()
+    # RFC 6962 §2.1: leaf = SHA-256(0x00 || data); index conveyed by audit path.
+    return hashlib.sha256(b"\x00" + bytes(entry_hash)).digest()
+
+
+def _compute_leaf_hash_legacy(tree_index: int, entry_hash: bytes) -> bytes:
+    # Pre-4.4.6 custom domain separation — verification fallback only.
+    idx_bytes = int(tree_index).to_bytes(8, "big")
+    return hashlib.sha256(b"\x00" + idx_bytes + bytes(entry_hash)).digest()
 
 
 def _audit_path(leaf_hashes: list[bytes], index: int) -> list[tuple[bytes, bool]]:

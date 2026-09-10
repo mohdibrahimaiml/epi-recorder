@@ -48,8 +48,14 @@ def _merkle_root(hashes: list[bytes]) -> bytes:
 
 def _compute_leaf_hash(tree_index: int, entry_hash: bytes) -> bytes:
     import hashlib
-    idx_bytes = tree_index.to_bytes(8, "big")
-    return hashlib.sha256(b"\x00" + idx_bytes + entry_hash).digest()
+    # RFC 6962 §2.1 — matches epi_core.scitt
+    return hashlib.sha256(b"\x00" + bytes(entry_hash)).digest()
+
+
+def _compute_leaf_hash_legacy(tree_index: int, entry_hash: bytes) -> bytes:
+    import hashlib
+    idx_bytes = int(tree_index).to_bytes(8, "big")
+    return hashlib.sha256(b"\x00" + idx_bytes + bytes(entry_hash)).digest()
 
 
 def _audit_path(leaf_hashes: list[bytes], index: int) -> list[tuple[bytes, bool]]:
@@ -215,7 +221,10 @@ class MockSCITTService:
         hashes = [e["leaf_hash"] for e in self._registry]
         root = _merkle_root(hashes)
 
-        return _verify_audit_path(leaf_hash, proof["tree_index"], proof["audit_path"], root)
+        if _verify_audit_path(leaf_hash, proof["tree_index"], proof["audit_path"], root):
+            return True
+        legacy_leaf = _compute_leaf_hash_legacy(proof["tree_index"], entry_hash)
+        return _verify_audit_path(legacy_leaf, proof["tree_index"], proof["audit_path"], root)
 
     def get_public_key_hex(self) -> str:
         """Return the service public key as hex."""
