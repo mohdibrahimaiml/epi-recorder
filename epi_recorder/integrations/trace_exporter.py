@@ -127,6 +127,18 @@ def _build_references_entry(
     }
 
 
+_PLACEHOLDER_TRANSCRIPT_HOST = "epilabs.org/artifacts"
+_PLACEHOLDER_TRANSPARENCY = "https://epilabs.org/transparency/receipt"
+
+
+def _is_placeholder_transcript_uri(uri: str) -> bool:
+    return _PLACEHOLDER_TRANSCRIPT_HOST in (uri or "")
+
+
+def _is_placeholder_transparency(uri: str) -> bool:
+    return (uri or "") == _PLACEHOLDER_TRANSPARENCY
+
+
 def epi_to_trace_record(
     epi_path: Path | str,
     transcript_uri: Optional[str] = None,
@@ -138,6 +150,7 @@ def epi_to_trace_record(
     extra_transparency: str = "https://epilabs.org/transparency/receipt",
     appraiser: str = "https://epilabs.org/verifier",
     references: str = "auto",
+    strict: bool = False,
 ) -> Dict[str, Any]:
     """
     Build an unsigned TRACE v0.2 Trust Record from a sealed .epi.
@@ -150,6 +163,11 @@ def epi_to_trace_record(
         installed agentrust_trace.SCHEMA declares it (runtime detection).
       on: force emission (test post-release path; will fail validation on 0.9.0).
       off: force omission.
+
+    strict: when True, fail-closed (ValueError) on placeholder transcript_uri
+      or transparency instead of attaching soft _epi_warnings. CLI passes
+      strict=True when --sign is used so signed records never carry
+      non-resolvable placeholder URLs.
     """
     epi_path = Path(epi_path)
     if not epi_path.exists():
@@ -288,7 +306,19 @@ def epi_to_trace_record(
                 should_emit = False
             else:
                 record["references"] = [entry]
-    # Attach warnings for placeholder URLs so CLI can surface them
+    # Attach warnings for placeholder URLs so CLI can surface them.
+    # In strict mode (signed export) fail closed instead of warning.
+    if strict:
+        if not transcript_uri_provided or _is_placeholder_transcript_uri(transcript_uri):
+            raise ValueError(
+                "transcript_uri is required for signed TRACE export — pass --transcript-uri "
+                "with the real hosted .epi URL (placeholder epilabs.org/artifacts/* does not resolve)"
+            )
+        if _is_placeholder_transparency(transparency_uri):
+            raise ValueError(
+                "transparency is required for signed TRACE export — pass a SCITT log entry "
+                "or TSA receipt URL via extra_transparency (placeholder does not resolve)"
+            )
     record["_epi_warnings"] = []
     if "artifacts" in transcript_uri and "epilabs.org/artifacts" in transcript_uri:
         record["_epi_warnings"].append(

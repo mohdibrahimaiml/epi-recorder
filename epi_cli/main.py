@@ -380,8 +380,8 @@ def export_agt(
 def export_trace(
     epi_file: Path = typer.Argument(..., help="Path to .epi file to export as TRACE Trust Record"),
     out: Path | None = typer.Option(None, "--out", "-o", help="Output TRACE JSON file path"),
-    transcript_uri: str | None = typer.Option(None, "--transcript-uri", help="URI where the .epi transcript is hosted (required for production; placeholder used if omitted)"),
-    sign: bool = typer.Option(True, "--sign/--no-sign", help="Sign the record (default: sign with sealing identity key)"),
+    transcript_uri: str | None = typer.Option(None, "--transcript-uri", help="URI where the .epi transcript is hosted (required when --sign; placeholder only with --no-sign)"),
+    sign: bool = typer.Option(True, "--sign/--no-sign", help="Sign the record (default: sign with sealing identity key; requires --transcript-uri)"),
     ephemeral: bool = typer.Option(False, "--ephemeral", help="Force ephemeral key (demo only — not verifiable as sealer)"),
     key_name: str | None = typer.Option(None, "--key", help="Local key name that sealed the .epi (default: auto-match sealing key)"),
     references: str = typer.Option("auto", "--references", help="Emit behavior-trace references: auto (schema-detected), on (force), off (omit)"),
@@ -409,7 +409,15 @@ def export_trace(
         console.print("[red][X] --references must be auto|on|off[/red]")
         raise typer.Exit(1)
     out_path = Path(out) if out is not None else epi_file.with_suffix(".trace.json")
-    rec = epi_to_trace_record(epi_file, transcript_uri=transcript_uri, references=references)
+    try:
+        # Fail-closed when signing: placeholder URLs raise ValueError.
+        # Demo path (--no-sign) keeps soft warnings.
+        rec = epi_to_trace_record(
+            epi_file, transcript_uri=transcript_uri, references=references, strict=sign
+        )
+    except ValueError as exc:
+        console.print(f"[red][X] {exc}[/red]")
+        raise typer.Exit(1)
 
     # Surface placeholder warnings
     for w in rec.pop("_epi_warnings", []):

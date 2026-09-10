@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from epi_recorder.integrations.trace_exporter import epi_to_trace_record, _schema_supports_references
+from epi_recorder.integrations.trace_exporter import epi_to_trace_record, _schema_supports_references, _epi_file_hash
 
 GOLDEN_EPI = Path(__file__).resolve().parent / "goldens" / "spec-4.4.3.epi"
 GOLDEN_TRACE_REFS = Path(__file__).resolve().parent / "goldens" / "trace-with-references.json"
@@ -177,10 +177,10 @@ def test_monkeypatched_schema_auto_emits_and_validates(monkeypatch):
     assert entry["rel"] == "behavior-trace"
     assert entry["id"] == "https://example.com/artifacts/spec-4.4.3.epi"
     assert entry["resolver"] == "https://example.com"
-    # digest equals sha256 of .epi bytes
-    want = "sha256:" + hashlib.sha256(GOLDEN_EPI.read_bytes()).hexdigest()
+    # digest equals sha256 of canonical transcript (steps.jsonl), not whole envelope
+    want = _epi_file_hash(GOLDEN_EPI)
     assert entry["digest"] == want
-    assert rec["tool_transcript"]["hash"] == want, "references digest and tool_transcript.hash must match same .epi sha256"
+    assert rec["tool_transcript"]["hash"] == want, "references digest and tool_transcript.hash must match same transcript sha256"
     # Still valid
     from agentrust_trace import iter_errors, sign_record, verify_record
 

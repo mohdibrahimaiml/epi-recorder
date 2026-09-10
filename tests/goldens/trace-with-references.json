@@ -33,7 +33,7 @@
   },
   "references": [
     {
-      "digest": "sha256:a4cc0a22dd392baa1b3264e319fca78d819328f5f4eacb3826b9844647ab1f9a",
+      "digest": "sha256:00c65f53131ef9700a895df6c045cac12d5ba5d5fad1f8b7fd45ce4995c1d4f0",
       "id": "https://example.com/artifacts/spec-4.4.3.epi",
       "rel": "behavior-trace",
       "resolver": "https://example.com"
@@ -46,7 +46,7 @@
   "subject": "spiffe://epilabs.org/epi-recorder/559aeb43-af8c-488f-baf5-5cd33ab54ef3",
   "tool_transcript": {
     "call_count": 4,
-    "hash": "sha256:a4cc0a22dd392baa1b3264e319fca78d819328f5f4eacb3826b9844647ab1f9a",
+    "hash": "sha256:00c65f53131ef9700a895df6c045cac12d5ba5d5fad1f8b7fd45ce4995c1d4f0",
     "transcript_uri": "https://example.com/artifacts/spec-4.4.3.epi"
   },
   "transparency": "https://epilabs.org/transparency/receipt"
