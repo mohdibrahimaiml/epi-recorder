@@ -433,7 +433,8 @@ def _read_steps_if_exists(path: Path) -> list[dict]:
 
 def _extract_tsr_gen_time(tsr_path: Path) -> str | None:
     """
-    Best-effort parse of RFC 3161 TimeStampResp GeneralizedTime (ASN.1 tag 0x18).
+    Best-effort parse of RFC 3161 TSTInfo.genTime (UTCTime 0x17 / GeneralizedTime 0x18).
+    Handles fractional seconds and Z / ±HHMM / ±HH:MM offsets.
     Returns ISO-8601 UTC string (e.g. 2026-07-19T23:29:46Z) or None.
     """
     if not tsr_path.exists():
@@ -442,6 +443,12 @@ def _extract_tsr_gen_time(tsr_path: Path) -> str | None:
         data = tsr_path.read_bytes()
     except Exception:
         return None
+    try:
+        from epi_core.notarize import _parse_tsr_gen_time as _parse_token_time
+
+        return _parse_token_time(data)
+    except Exception:
+        pass
     import re
 
     i = 0
@@ -532,6 +539,13 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
             except Exception:
                 pass
 
+    _notarization_evidence = _read_json_if_exists(
+        extracted_dir / "artifacts" / "notarization" / "notarization.json"
+    )
+    _notarization_tsa_time = (_notarization_evidence or {}).get("tsa_genTime") or (
+        _extract_tsr_gen_time(extracted_dir / "artifacts" / "notarization" / "tsa_reply.tsr")
+    )
+
     return {
         "source_name": _source_name,
         "file_size": resolved_path.stat().st_size if resolved_path.exists() else 0,
@@ -546,12 +560,8 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
         or _read_json_if_exists(extracted_dir / "env.json"),
         # Optional seal-time notarization (RFC 3161 / OTS). Absent when EPI_NOTARIZE=0
         # or older artifacts — viewer hides the panel when null.
-        "notarization": _read_json_if_exists(
-            extracted_dir / "artifacts" / "notarization" / "notarization.json"
-        ),
-        "notarization_tsa_time": _extract_tsr_gen_time(
-            extracted_dir / "artifacts" / "notarization" / "tsa_reply.tsr"
-        ),
+        "notarization": _notarization_evidence,
+        "notarization_tsa_time": _notarization_tsa_time,
         "stdout": _read_text_if_exists(extracted_dir / "stdout.log"),
         "stderr": _read_text_if_exists(extracted_dir / "stderr.log"),
         "files": _files,

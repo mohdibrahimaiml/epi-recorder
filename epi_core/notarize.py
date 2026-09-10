@@ -75,6 +75,72 @@ def _build_rfc3161_query(digest_bytes: bytes) -> bytes:
     return bytes([0x30, 0x36]) + version + msg_imprint  # 56 bytes total
 
 
+def _parse_tsr_gen_time(token: bytes | None) -> str | None:
+    """Best-effort parse of TSTInfo.genTime from a RFC 3161 TimeStampResp.
+
+    Handles GeneralizedTime (0x18) and UTCTime (0x17), fractional seconds,
+    and trailing Z / ±HHMM / ±HH:MM offsets. Returns UTC ISO-8601
+    (YYYY-MM-DDTHH:MM:SSZ) or None when unparseable.
+    """
+    if not token:
+        return None
+    import re
+    from datetime import datetime, timedelta, timezone
+
+    # UTCTime: YYMMDDHHMMSSZ (13) with optional fractions/TZ; GeneralizedTime:
+    # YYYYMMDDHHMMSS with optional fractions/TZ (15+).
+    patterns = [
+        # GeneralizedTime with fractions + TZ
+        r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?",
+        # UTCTime with fractions + TZ
+        r"(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?",
+    ]
+    i = 0
+    while i < len(token) - 2:
+        tag = token[i]
+        if tag in (0x17, 0x18):
+            length = token[i + 1]
+            # Long-form length (rare in TSRs but handle it)
+            hdr = 2
+            if length & 0x80:
+                n = length & 0x7F
+                if n == 0 or n > 2 or i + 2 + n > len(token):
+                    i += 1
+                    continue
+                length = int.from_bytes(token[i + 2 : i + 2 + n], "big")
+                hdr = 2 + n
+            if 11 <= length <= 32 and i + hdr + length <= len(token):
+                try:
+                    text = token[i + hdr : i + hdr + length].decode("ascii")
+                except UnicodeDecodeError:
+                    i += 1
+                    continue
+                text = text.strip()
+                m = re.fullmatch(patterns[0], text) if tag == 0x18 else re.fullmatch(patterns[1], text)
+                if m:
+                    try:
+                        if tag == 0x18:
+                            y, mo, d, h, mi, s, _frac, tz = m.groups()
+                            dt = datetime(int(y), int(mo), int(d), int(h), int(mi), int(s))
+                        else:
+                            yy, mo, d, h, mi, s, _frac, tz = m.groups()
+                            year = int(yy)
+                            year += 2000 if year < 50 else 1900
+                            dt = datetime(year, int(mo), int(d), int(h), int(mi), int(s))
+                        if tz and tz != "Z":
+                            sign = 1 if tz[0] == "+" else -1
+                            digits = tz[1:].replace(":", "")
+                            off_h = int(digits[:2])
+                            off_m = int(digits[2:4]) if len(digits) >= 4 else 0
+                            dt = dt - sign * timedelta(hours=off_h, minutes=off_m)
+                        dt = dt.replace(tzinfo=timezone.utc)
+                        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    except ValueError:
+                        pass
+        i += 1
+    return None
+
+
 def _submit_rfc3161(digest_hex: str, tsa_url: str = DEFAULT_TSA_URL) -> Optional[bytes]:
     """
     Submit a SHA-256 digest to a Time Stamp Authority and return the .tsr token.
@@ -207,6 +273,7 @@ def notarize_manifest(manifest_json: str, manifest_hash: str) -> NotarizationRes
     result.evidence = {
         "notarized_at": {"provider": "rfc3161", "url": tsa_url, "hash": manifest_hash},
         "tsa_token_available": result.tsa_token is not None,
+        "tsa_genTime": _parse_tsr_gen_time(result.tsa_token),
         "ots_proof_available": result.ots_proof is not None,
     }
 
