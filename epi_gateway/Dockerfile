@@ -1,5 +1,5 @@
-# Lightweight Python Image
-FROM python:3.10-slim
+# Lightweight Python Image - pinned to 3.12 to match root Dockerfile
+FROM python:3.12-slim
 
 # Prevent python buffering
 ENV PYTHONUNBUFFERED=1

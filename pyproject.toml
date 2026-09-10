@@ -55,12 +55,12 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.0.0,<3.0.0",
-    "cryptography>=41.0.0,<44",
+    "cryptography>=41.0.0,<51",
     "cbor2>=5.6.0",
     "rfc8785>=0.1.4",
-    "typer>=0.16.0,<0.26.0",
+    "typer>=0.16.0,<0.28.0",
     "click>=8.1.0,<9.0.0",
-    "rich>=13.0.0,<14",
+    "rich>=13.0.0,<16",
     "httpx>=0.27.0",
 ]
 

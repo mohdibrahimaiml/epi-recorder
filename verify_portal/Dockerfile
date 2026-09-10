@@ -2,7 +2,7 @@
 # Build: docker build -f verify_portal/Dockerfile -t epi-verify .
 # Run:  docker run -p 8000:8000 -e EPI_ATTESTATION_PRIVATE_KEY=<key> epi-verify
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
