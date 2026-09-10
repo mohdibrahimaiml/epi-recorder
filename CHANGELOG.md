@@ -36,6 +36,7 @@ All notable changes to EPI Recorder are documented here.
 - **C1 Merkle RFC6962** leaf `sha256(0x00||entry_hash)` `scitt.py:126` (was index-prefixed); verify accepts legacy receipts; portal + mock synced
 - **D1 Redis persistence** opt-in `EPI_GATEWAY_REDIS_URL` shared sliding-window limiter `gateway/main.py` (fail-deny on outage); quota already SQLite-persistent
 - **D2 auth local users** plaintext `password_hash` rejected `auth_local.py:37`; `password:` warns deprecation; `epi gateway hash-password` migration helper; world-readable users-file warning
+- **Leak** OTel best-effort deadletter gated behind `EPI_DEADLETTER=1` `opentelemetry.py:425` (was unconditional raw-steps write); `*.epi.deadletter` gitignored
 
 ## [4.4.5] - 2026-09-07
 
