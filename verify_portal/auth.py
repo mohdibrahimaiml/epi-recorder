@@ -33,7 +33,7 @@ GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 
 COOKIE_NAME = "epi_token"
 _TOKEN_BYTES = 32
-_TOKEN_TTL_DAYS = 90
+_TOKEN_TTL_DAYS = 7
 _OAUTH_STATE_TTL_MINUTES = 15
 
 # Plan hierarchy used across auth, billing, and tier gating.
@@ -518,14 +518,10 @@ async def handle_github_callback(
     if not _client_id() or not _client_secret():
         return _account_error_redirect("oauth_not_configured")
 
-    # Validate CSRF state (must have been created by /start)
+    # Validate CSRF state strictly — no fallback for unknown/expired state
     redirect_uri = pop_oauth_state(storage_dir, state)
     if redirect_uri is None:
-        # Unknown/expired state — still allow browser completion if GitHub returned a code
-        # only when state looks like our browser format (auth_*) to avoid open abuse.
-        if not (state or "").startswith("auth_"):
-            return _account_error_redirect("invalid_state")
-        redirect_uri = ""
+        return _account_error_redirect("invalid_state")
 
     try:
         token_data = _make_github_token_request(code)
