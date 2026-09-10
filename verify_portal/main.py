@@ -815,13 +815,8 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
                     verify_scitt_receipt(rcpt_bytes, stmt_bytes, service_pub_key)
                     transparency_ok = True
                 else:
-                    # Service key unavailable — fallback to structural check
-                    import cbor2
-                    receipt = cbor2.loads(rcpt_bytes)
-                    if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
-                        transparency_ok = True
-                    else:
-                        transparency_ok = False
+                    # Service key unavailable — no cryptographic proof, mark MISSING not PASS
+                    transparency_ok = None
             elif stmt_bytes or rcpt_bytes:
                 transparency_ok = False
         except Exception:

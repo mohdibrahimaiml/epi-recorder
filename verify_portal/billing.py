@@ -124,13 +124,8 @@ def _plan_from_price_id(price_id: str) -> str:
     if PADDLE_SPRINT_PRICE_ID and price_id == PADDLE_SPRINT_PRICE_ID:
         return "hosted"
 
-    # ── Fallback: heuristics on price-ID string ───────────────────────────────
-    low = price_id.lower()
-    if "enterprise" in low:
-        return "enterprise"
-    if "team" in low or "advanced" in low:
-        return "team"
-    return "hosted"
+    # ── Fallback: unknown price must fail loudly, not silently map to hosted
+    raise ValueError(f"Unknown Paddle price_id: {price_id} — add to PADDLE_*_PRICE_ID env")
 
 
 def _extract_price_id(event_data: dict) -> str:
