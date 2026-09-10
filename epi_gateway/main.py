@@ -942,9 +942,8 @@ def create_app(
         protected_api_path = request.url.path.startswith("/api")
         if runtime_settings.auth_required and request.method != "OPTIONS" and (protected_api_path or protected_capture_path):
             auth_exempt_paths = {"/api/auth/login"}
-            is_share_path = request.url.path == "/api/share" or request.url.path.startswith("/api/share/")
             is_approval_path = request.url.path.startswith("/api/approve/")
-            if request.url.path not in auth_exempt_paths and not is_share_path and not is_approval_path:
+            if request.url.path not in auth_exempt_paths and not is_approval_path:
                 principal = _build_auth_principal(request, runtime_settings, runtime_worker)
                 if not principal:
                     return JSONResponse(status_code=401, content={"ok": False, "error": "Unauthorized"})
