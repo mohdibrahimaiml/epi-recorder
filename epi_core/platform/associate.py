@@ -184,11 +184,13 @@ End If
 Err.Clear
 
 ' -- Fallback: extract viewer.html directly from the archive --
-' EPI files may be in "envelope-v2" format: a 64-byte binary header followed
-' by a standard ZIP payload. Shell.Application cannot open the file directly
-' because it chokes on the header bytes, so we use ADODB.Stream to read the
-' raw bytes, detect the magic ("EPI1" = 0x45 0x50 0x49 0x31), skip the header
-' when present, and write the clean ZIP payload to a temp file.
+' The ZIP payload does not start at a fixed offset: bare legacy ZIPs start
+' at 0, legacy EPI1 has a varying-length header, and envelope-v2 has a
+' 128-byte header plus variable-length viewer HTML before the payload. So we
+' locate the payload start instead of trusting an offset: bare PK at 0,
+' first PK signature in a bounded window after EPI1 magic, or the sentinel
+' marker after "<!--" envelope magic. Unknown layouts quit (10) rather than
+' feeding header bytes to Shell.Application as a fake ZIP.
 
 tempFolder = fso.BuildPath(fso.GetSpecialFolder(2), "epi_view_" & Replace(fso.GetTempName, ".tmp", ""))
 If Not fso.FolderExists(tempFolder) Then
@@ -199,7 +201,8 @@ Err.Clear
 
 zipPath = fso.BuildPath(tempFolder, "archive.zip")
 
-Dim adoIn, adoOut, magic, b0, b1, b2, b3, skipBytes
+Dim adoIn, adoOut, fileBytes, fileLen, zipStart, probeEnd, markerPos, i
+Dim m0, m1, m2, m3
 Set adoIn = CreateObject("ADODB.Stream")
 If Err.Number <> 0 Then WScript.Quit 7
 adoIn.Type = 1
@@ -207,16 +210,39 @@ adoIn.Open
 adoIn.LoadFromFile epiPath
 If Err.Number <> 0 Then WScript.Quit 8
 adoIn.Position = 0
-magic = adoIn.Read(4)
-b0 = AscB(MidB(magic, 1, 1))
-b1 = AscB(MidB(magic, 2, 1))
-b2 = AscB(MidB(magic, 3, 1))
-b3 = AscB(MidB(magic, 4, 1))
-skipBytes = 0
-If b0 = 69 And b1 = 80 And b2 = 73 And b3 = 49 Then
-    skipBytes = 64
+fileBytes = adoIn.Read()
+fileLen = LenB(fileBytes)
+zipStart = -1
+If fileLen >= 4 Then
+    m0 = AscB(MidB(fileBytes, 1, 1))
+    m1 = AscB(MidB(fileBytes, 2, 1))
+    m2 = AscB(MidB(fileBytes, 3, 1))
+    m3 = AscB(MidB(fileBytes, 4, 1))
+    If m0 = 80 And m1 = 75 And m2 = 3 And m3 = 4 Then
+        ' Bare ZIP (legacy-zip): payload starts at byte 0
+        zipStart = 0
+    ElseIf m0 = 69 And m1 = 80 And m2 = 73 And m3 = 49 Then
+        ' Legacy EPI1 ("EPI1"): probe bounded window for the ZIP start
+        probeEnd = 68
+        If fileLen < probeEnd Then probeEnd = fileLen
+        For i = 5 To probeEnd - 3
+            If AscB(MidB(fileBytes, i, 1)) = 80 And AscB(MidB(fileBytes, i + 1, 1)) = 75 And AscB(MidB(fileBytes, i + 2, 1)) = 3 And AscB(MidB(fileBytes, i + 3, 1)) = 4 Then
+                zipStart = i - 1
+                Exit For
+            End If
+        Next
+    ElseIf m0 = 60 And m1 = 33 And m2 = 45 And m3 = 45 Then
+        ' Envelope-v2 ("<!--"): payload follows the EPI_ZIP_PAYLOAD_START marker
+        Err.Clear
+        markerPos = InStrB(1, fileBytes, "EPI_ZIP_PAYLOAD_START")
+        If Err.Number = 0 And markerPos > 0 Then
+            ' 21 (needle) + 1 (space) + 3 ("-->") + 1 (newline) past needle start
+            zipStart = markerPos - 1 + 26
+        End If
+    End If
 End If
-adoIn.Position = skipBytes
+If zipStart < 0 Then WScript.Quit 10
+adoIn.Position = zipStart
 
 Set adoOut = CreateObject("ADODB.Stream")
 adoOut.Type = 1
