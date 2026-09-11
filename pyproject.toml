@@ -157,6 +157,9 @@ test = [
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
     "wrapt>=1.16.0",
+    "anyio",
+    "agentrust-trace>=0.9.0",
+    "agentrust-trace-tests>=0.5.1",
 ]
 
 [project.scripts]
