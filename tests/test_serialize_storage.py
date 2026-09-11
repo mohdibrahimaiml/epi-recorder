@@ -293,9 +293,12 @@ class TestCreateVerificationReport:
         assert report["trust_level"] == "HIGH"
 
     def test_medium_trust_unsigned_but_intact(self):
+        # Since 4.4.6 unsigned ranks LOW, never above a valid signature
+        # with unknown identity (trust.py) — the MEDIUM name is kept for
+        # the pre-existing test ID only.
         m = self._make_manifest()
         report = create_verification_report(True, None, None, {}, m)
-        assert report["trust_level"] == "MEDIUM"
+        assert report["trust_level"] == "LOW"
 
     def test_none_trust_invalid_signature(self):
         m = self._make_manifest()

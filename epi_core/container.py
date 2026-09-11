@@ -725,6 +725,12 @@ class EPIContainer:
         payload_hash = hashlib.sha256()
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        if manifest is None:
+            # Preserve the payload's own identity in the header. Writing
+            # zero UUID/timestamp breaks the transplant check on verify —
+            # this bit every review round-trip (add_review_to_artifact).
+            manifest = EPIContainer._read_manifest_from_payload_zip(payload_path)
+
         uuid_bytes = manifest.workflow_id.bytes if manifest else b"\x00" * 16
         created_at_micros = int(manifest.created_at.timestamp() * 1_000_000) if manifest else 0
 
@@ -780,6 +786,16 @@ class EPIContainer:
 
         with open(output_path, "r+b") as dst:
             dst.write(final_header)
+
+    @staticmethod
+    def _read_manifest_from_payload_zip(payload_path: Path) -> ManifestModel | None:
+        """Best-effort manifest read from a bare payload ZIP (no envelope)."""
+        try:
+            with zipfile.ZipFile(payload_path, "r") as zf:
+                raw = zf.read("manifest.json")
+            return ManifestModel.model_validate_json(raw)
+        except Exception:
+            return None
 
     @staticmethod
     def _write_artifact_from_payload(
