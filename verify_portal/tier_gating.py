@@ -37,7 +37,7 @@ PLAN_FEATURES = {
         "label": "Free / Open Source",
     },
     "hosted": {
-        # Self-serve paid tier on pricing.html (~$15/mo). Aliases: pro, starter.
+        # Self-serve paid tier on /plans ($199/mo). Aliases: pro, starter.
         "verifications": 10_000,
         "scitt": True,
         "pdf": False,
@@ -47,7 +47,7 @@ PLAN_FEATURES = {
         "label": "Hosted",
     },
     "team": {
-        # Higher volume / design-partner path — not always listed as fixed public price.
+        # Higher volume tier on /plans ($799/mo).
         "verifications": 50_000,
         "scitt": True,
         "pdf": False,

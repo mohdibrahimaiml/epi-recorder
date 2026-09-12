@@ -17,10 +17,10 @@ window.EPI_PADDLE_CONFIG = {
       description: "For teams shipping agents into regulated workflows. 10k hosted verifications, remote SCITT, 10 API keys.",
       features: [
         "10,000 hosted verifications / month",
-        "Remote SCITT anchoring",
+        "Remote SCITT registration",
         "10 API keys",
         "Offline verify + embedded viewer (always free)",
-        "Community support"
+        "Support via GitHub issues"
       ],
       featured: true,
       priceId: { month: "pri_01m0y54canxd7z63ykf928qs04", year: "pri_01m0y54ckbm8vj32dsms9xfeev" },
@@ -30,13 +30,11 @@ window.EPI_PADDLE_CONFIG = {
     },
     {
       name: "Team",
-      description: "Hosted custody, retention, and SCITT at volume for enterprises.",
+      description: "Hosted custody and SCITT at volume for enterprises.",
       features: [
         "50,000 hosted verifications / month",
         "Remote SCITT registration",
-        "50 API keys",
-        "Hosted receipts + retention",
-        "Priority support"
+        "50 API keys"
       ],
       featured: false,
       priceId: { month: "pri_01m0y54d6t0q3ehgqmmepg45vj", year: "pri_01m0y54df4smpc7qq4p21j4v9s" },
