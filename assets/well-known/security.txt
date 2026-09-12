@@ -1,0 +1,5 @@
+Contact: mailto:mohdibrahim@epilabs.org
+Expires: 2027-08-22T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://epilabs.org/.well-known/security.txt
+Policy: https://github.com/mohdibrahimaiml/epi-recorder/blob/main/SECURITY.md

@@ -14,6 +14,8 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
+import click
+import typer
 from typer.testing import CliRunner
 
 from epi_core.schemas import ManifestModel
@@ -126,6 +128,7 @@ def _call_debug(epi_path, output_json=False, export=None, verbose=False,
                 mock_mistakes=None, mock_summary="OK"):
     """Call debug() directly with mocked detector and console."""
     import click
+    import typer
     from epi_cli.debug import debug
     mock_detector = MagicMock()
     mock_detector.analyze.return_value = mock_mistakes or []
@@ -137,8 +140,8 @@ def _call_debug(epi_path, output_json=False, export=None, verbose=False,
             debug(ctx=ctx, epi_file=epi_path, output_json=output_json,
                   export=export, verbose=verbose)
         return 0
-    except (SystemExit, click.exceptions.Exit) as e:
-        return getattr(e, 'code', getattr(e, 'exit_code', 1))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+        return getattr(e, 'exit_code', getattr(e, 'code', 1))
 
 
 def _invoke_main_debug(
@@ -187,6 +190,7 @@ class TestDebugCallback:
 
     def test_file_not_found_exits_2(self, tmp_path):
         import click
+        import typer
         from epi_cli.debug import debug
         ctx = MagicMock()
         with patch("epi_cli.debug.MistakeDetector",
@@ -196,8 +200,8 @@ class TestDebugCallback:
                 debug(ctx=ctx, epi_file=tmp_path / "ghost.epi",
                       output_json=False, export=None, verbose=False)
                 code = 0
-            except (SystemExit, click.exceptions.Exit) as e:
-                code = getattr(e, 'code', getattr(e, 'exit_code', 1))
+            except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+                code = getattr(e, 'exit_code', getattr(e, 'code', 1))
         assert code == 2
 
     def test_verbose_with_mistakes_no_crash(self, tmp_path):
@@ -253,12 +257,13 @@ class TestVerifyCommand:
         """Invoke verify_command, return exit code (0 = success)."""
         from epi_cli.verify import verify_command
         import click
+        import typer
         ctx = MagicMock()
         try:
             verify_command(ctx=ctx, epi_file=epi_path, **kwargs)
             return 0
-        except (SystemExit, click.exceptions.Exit) as e:
-            return getattr(e, 'code', getattr(e, 'exit_code', 1))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            return getattr(e, 'exit_code', getattr(e, 'code', 1))
 
     def test_valid_file_exits_0(self, tmp_path):
         epi = _make_epi(tmp_path)

@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 import click
+import typer
 
 from epi_core.schemas import ManifestModel
 from epi_core import __version__ as core_version
@@ -30,8 +31,10 @@ def _call(func, **kwargs):
     try:
         func(**kwargs)
         code = 0
-    except (SystemExit, click.exceptions.Exit) as e:
-        code = getattr(e, 'code', getattr(e, 'exit_code', None))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+        code = getattr(e, 'exit_code', getattr(e, 'code', None))
+        if code is None and isinstance(e, SystemExit):
+            code = 0
     return code
 
 
@@ -43,7 +46,7 @@ class TestVersionCallback:
     def test_raises_exit_when_true(self):
         from epi_cli.main import version_callback
         with patch("epi_cli.main.console", _mock_console()):
-            with pytest.raises((SystemExit, click.exceptions.Exit)):
+            with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
                 version_callback(True)
 
     def test_does_nothing_when_false(self):

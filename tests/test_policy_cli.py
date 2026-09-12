@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import click
+import typer
 from epi_core import __version__ as core_version
 
 from epi_cli.policy import _create_policy_editor_html, init, show, validate
@@ -350,8 +351,8 @@ def test_policy_show_missing_embedded_policy_exits_1():
         with patch("epi_cli.policy.console", MagicMock()):
             show(policy_file=str(artifact_path), raw=False)
         code = 0
-    except (SystemExit, click.exceptions.Exit) as exc:
-        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as exc:
+        code = getattr(exc, "exit_code", getattr(exc, "code", 1))
 
     assert code == 1
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -394,8 +395,8 @@ def test_policy_validate_reports_json_line_and_column():
         with patch("epi_cli.policy.console", mock_console):
             validate(policy_file=str(policy_path))
         code = 0
-    except (SystemExit, click.exceptions.Exit) as exc:
-        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as exc:
+        code = getattr(exc, "exit_code", getattr(exc, "code", 1))
 
     printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
     assert code == 1
@@ -432,8 +433,8 @@ def test_policy_validate_reports_schema_field_errors():
         with patch("epi_cli.policy.console", mock_console):
             validate(policy_file=str(policy_path))
         code = 0
-    except (SystemExit, click.exceptions.Exit) as exc:
-        code = getattr(exc, "code", getattr(exc, "exit_code", 1))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as exc:
+        code = getattr(exc, "exit_code", getattr(exc, "code", 1))
 
     printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
     assert code == 1

@@ -11,6 +11,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import click
+import typer
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -380,6 +382,7 @@ def test_scitt_derive_issuer_and_load_key(tmp_path, monkeypatch):
     from epi_core.schemas import ManifestModel
     from epi_core.keys import KeyManager
     import click
+    import typer
 
     _home(tmp_path, monkeypatch)
     km = KeyManager()
@@ -391,7 +394,7 @@ def test_scitt_derive_issuer_and_load_key(tmp_path, monkeypatch):
     key = s._load_signing_key("scitt_cov")
     assert key is not None
 
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         s._load_signing_key("definitely-missing-key-xyz")
 
     m = ManifestModel(cli_command="t", goal="g", public_key="abc123def4567890extra")
@@ -448,13 +451,14 @@ def test_scitt_register_missing_file(tmp_path):
 def test_scitt_verify_no_metadata(tmp_path, monkeypatch):
     from epi_cli.scitt import scitt_verify
     import click
+    import typer
 
     epi = _sample_epi()
     dest = tmp_path / "s.epi"
     shutil.copy(epi, dest)
     try:
         scitt_verify(dest, service=None)
-    except (SystemExit, click.exceptions.Exit):
+    except (SystemExit, click.exceptions.Exit, typer.Exit):
         pass
 
 

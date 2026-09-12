@@ -636,8 +636,10 @@ function renderIntegrity(caseData, context) {
     if (notarization?.tsa_token_available) {
       const tsaUrl = notarization.notarized_at?.url || '';
       const tsaHost = tsaUrl ? tsaUrl.replace(/^https?:\/\//, '').split('/')[0] : 'TSA';
-      rfcEl.textContent = '\u2713 ' + tsaHost;
+      const genTime = notarization.tsa_genTime || caseData.notarization_tsa_time || '';
+      rfcEl.textContent = '\u2713 ' + tsaHost + (genTime ? ' · ' + genTime : '');
       rfcEl.className = 'diag-status ok';
+      if (genTime) rfcEl.title = 'TSTInfo.genTime (TSA time over sealed manifest hash): ' + genTime;
     } else if (notarization) {
       rfcEl.textContent = 'Unavailable';
       rfcEl.className = 'diag-status unknown';

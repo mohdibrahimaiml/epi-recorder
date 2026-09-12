@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import click
+import typer
 
 from epi_cli.install import (
     EPI_BLOCK_START,
@@ -213,8 +214,8 @@ class TestCliInstall:
             with patch("epi_cli.install.console", _mock_console()):
                 cli_install(**kwargs)
             return 0
-        except (SystemExit, click.exceptions.Exit) as e:
-            return getattr(e, 'code', getattr(e, 'exit_code', 1))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            return getattr(e, 'exit_code', getattr(e, 'code', 1))
 
     def test_show_path_exits_0(self, tmp_path):
         sc = tmp_path / "sitecustomize.py"
@@ -246,8 +247,8 @@ class TestCliUninstall:
             with patch("epi_cli.install.console", _mock_console()):
                 cli_uninstall()
             return 0
-        except (SystemExit, click.exceptions.Exit) as e:
-            return getattr(e, 'code', getattr(e, 'exit_code', 1))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            return getattr(e, 'exit_code', getattr(e, 'code', 1))
 
     def test_successful_uninstall_exits_0(self):
         with patch("epi_cli.install.uninstall_global", return_value=(True, "Removed")):

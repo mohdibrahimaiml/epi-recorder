@@ -8,6 +8,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import click
+import typer
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -34,8 +36,9 @@ def test_load_steps_from_epi():
 
 def _expect_exit(fn):
     import click
+    import typer
 
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         fn()
 
 
@@ -356,7 +359,8 @@ def test_annex_multi_sign_rbac_block(tmp_path, monkeypatch):
         "check_role_authorized",
         lambda role, pk: (False, "not authorized for role"),
     )
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    import typer
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         annex_mod.multi_sign(
             "Stranger",
             key_name="annex_rbac",

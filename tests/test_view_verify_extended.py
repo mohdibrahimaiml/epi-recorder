@@ -14,6 +14,7 @@ from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 import click
+import typer
 
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
@@ -61,8 +62,8 @@ def _call_view(epi_file_str, extract=None, browser=False):
              patch("webbrowser.open", return_value=True), \
              patch("os.startfile", side_effect=OSError("no startfile")):
             view(ctx=MagicMock(), epi_file=epi_file_str, extract=extract, browser=browser, native=False)
-    except (SystemExit, click.exceptions.Exit) as e:
-        code = getattr(e, 'code', getattr(e, 'exit_code', None))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+        code = getattr(e, 'exit_code', getattr(e, 'code', None))
     return code
 
 
@@ -128,8 +129,8 @@ class TestViewCommand:
                  patch("webbrowser.open", return_value=True), \
                  patch("os.startfile", side_effect=OSError()):
                 view(ctx=MagicMock(), epi_file="my_recording", extract=None, browser=False, native=False)
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', None))
         assert code is None or code == 0
 
     def test_native_viewer_short_circuits_browser_flow(self, tmp_path):
@@ -247,8 +248,8 @@ class TestVerifyCommandExtended:
             with patch("epi_cli.verify.console", MagicMock()):
                 verify_command(ctx=MagicMock(), epi_file=epi_path, **kwargs)
             code = 0
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', None))
         return code
 
     def test_verbose_valid_file(self, tmp_path):

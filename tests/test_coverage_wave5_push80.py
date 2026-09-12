@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+import click
+import typer
 from typer.testing import CliRunner
 
 from epi_core.schemas import ManifestModel
@@ -133,7 +135,7 @@ def test_view_browser_flow_mocked(tmp_path, monkeypatch):
 
     try:
         v.view(Ctx(), str(dest), extract=None, browser=True, native=False)
-    except (SystemExit, click.exceptions.Exit):
+    except (SystemExit, click.exceptions.Exit, typer.Exit):
         pass
     except Exception:
         # unpack/viewer may fail on edge installs
@@ -142,7 +144,7 @@ def test_view_browser_flow_mocked(tmp_path, monkeypatch):
     # invalid file
     bad = tmp_path / "bad.epi"
     bad.write_text("not epi")
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         v.view(Ctx(), str(bad), extract=None, browser=True, native=False)
 
     # native success short-circuit
@@ -153,6 +155,7 @@ def test_view_browser_flow_mocked(tmp_path, monkeypatch):
 def test_export_html_function(tmp_path, monkeypatch):
     from epi_cli import view as v
     import click
+    import typer
 
     epi = _sample()
     dest = tmp_path / "e.epi"
@@ -164,12 +167,12 @@ def test_export_html_function(tmp_path, monkeypatch):
 
     try:
         v.export_html(Ctx(), str(dest), output=str(out))
-    except (SystemExit, click.exceptions.Exit):
+    except (SystemExit, click.exceptions.Exit, typer.Exit):
         pass
     except Exception:
         pass
 
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         v.export_html(Ctx(), str(tmp_path / "missing.epi"), output=str(out))
 
 

@@ -9,6 +9,8 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+import click
+import typer
 from typer.testing import CliRunner
 
 from epi_core.schemas import ManifestModel
@@ -107,10 +109,11 @@ def test_main_cli_state_and_windows_probe(tmp_path, monkeypatch):
 def test_main_is_interactive_and_version_callback():
     from epi_cli import main as m
     import click
+    import typer
 
     # just call
     _ = m._is_interactive()
-    with pytest.raises((SystemExit, click.exceptions.Exit)):
+    with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
         m.version_callback(True)
     m.version_callback(False)
 

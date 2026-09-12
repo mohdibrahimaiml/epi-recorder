@@ -9,6 +9,7 @@ from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 import click
+import typer
 
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now
@@ -66,8 +67,8 @@ def _call_record(tmp_path, command=None, out_name="out.epi",
                 include_all_env=include_all_env,
                 command=cmd,
             )
-    except (SystemExit, click.exceptions.Exit) as e:
-        code = getattr(e, 'code', getattr(e, 'exit_code', None))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+        code = getattr(e, 'exit_code', getattr(e, 'code', None))
 
     return code
 
@@ -106,8 +107,8 @@ class TestRecordFunction:
                     include_all_env=False,
                     command=[],
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', None))
         assert code == 1
 
     def test_output_adds_epi_extension(self, tmp_path):
@@ -134,8 +135,8 @@ class TestRecordFunction:
                     include_all_env=False,
                     command=["python", "-c", "pass"],
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', None))
         assert code == 0
         assert (tmp_path / "myoutput.epi").exists()
 
@@ -165,6 +166,6 @@ class TestRecordFunction:
                     include_all_env=False,
                     command=["python", "-c", "pass"],
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', None))
         assert code == 0

@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 import click
+import typer
 
 from epi_core.schemas import ManifestModel
 from epi_core.serialize import get_canonical_hash
@@ -168,8 +169,8 @@ def _call_run(tmp_path, script_name="test_script.py",
                 approved_by=approved_by,
                 tag=tag,
             )
-    except (SystemExit, click.exceptions.Exit) as e:
-        exit_code = getattr(e, 'code', getattr(e, 'exit_code', None))
+    except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+        exit_code = getattr(e, 'exit_code', getattr(e, 'code', None))
 
     return exit_code
 
@@ -232,8 +233,8 @@ class TestRunFunction:
                  patch("pathlib.Path.cwd", return_value=tmp_path):
                 run(script=script, no_verify=False, no_open=False,
                     goal=None, notes=None, metric=None, approved_by=None, tag=None)
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, 'code', getattr(e, 'exit_code', 1))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, 'exit_code', getattr(e, 'code', 1))
         assert code == 1
 
     def test_subprocess_failure_exits_nonzero(self, tmp_path):
@@ -251,18 +252,19 @@ class TestRunFunction:
                 with patch("epi_cli.run.console", MagicMock()):
                     run(script=None, no_verify=False, no_open=False,
                         goal=None, notes=None, metric=None, approved_by=None, tag=None)
-            except (SystemExit, click.exceptions.Exit) as e:
-                code = getattr(e, 'code', getattr(e, 'exit_code', 1))
+            except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+                code = getattr(e, 'exit_code', getattr(e, 'code', 1))
         finally:
             os.chdir(original)
         assert code == 1
 
     def test_verify_fails_exits_1(self, tmp_path):
-        code = _call_run(tmp_path, verify_result=(False, "Integrity fail"))
+        code = _call_run(tmp_path, verify_result=(False, "Integrity check failed"))
         assert code == 1
 
-    def test_workspace_failure_exits_1(self, tmp_path):
+    def test_cannot_create_workspace_exits_1(self, tmp_path):
         from epi_cli.run import run
+        from epi_core.workspace import RecordingWorkspaceError
 
         script = tmp_path / "test_script.py"
         script.write_text("print('hello')", encoding="utf-8")
@@ -282,8 +284,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 1
         printed = "\n".join(str(call.args[0]) for call in mock_console.print.call_args_list if call.args)
@@ -321,8 +323,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 0
         assert (workspace / "environment.json").exists()
@@ -424,8 +426,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 0
         artifacts = sorted(recordings_dir.glob("manual_log_*.epi"))
@@ -473,8 +475,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 0
         artifacts = sorted(recordings_dir.glob("manual_agent_*.epi"))
@@ -531,8 +533,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 0
         artifacts = sorted(recordings_dir.glob("plain_print_*.epi"))
@@ -587,8 +589,8 @@ class TestRunFunction:
                     approved_by=None,
                     tag=None,
                 )
-        except (SystemExit, click.exceptions.Exit) as e:
-            code = getattr(e, "code", getattr(e, "exit_code", None))
+        except (SystemExit, click.exceptions.Exit, typer.Exit) as e:
+            code = getattr(e, "exit_code", getattr(e, "code", None))
 
         assert code == 0
         assert child_artifact.exists()
