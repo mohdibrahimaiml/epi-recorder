@@ -43,6 +43,9 @@ All notable changes to EPI Recorder are documented here.
 - **Redact** user-declared literal secrets via `record(redact_secrets=[...])`, `EPI_REDACT_SECRETS`, config `literal_secrets`
 - **Audit** resurrected as plain command (group callback never parsed ARTIFACT) + honest low rating for signed artifacts
 - **Policy** prohibition scans ignore redaction receipts instead of flagging them
+- **Billing** empty/unknown Paddle price_id raises (non-2xx, retried) instead of minting Hosted
+- **Site** undeliverable Team bullets removed; honest support/SCITT wording
+- **CI** gate deps derived from pyproject (no stale pins); fresh-venv harness skips cleanly, Windows venv paths fixed
 
 ## [4.4.5] - 2026-09-07
 

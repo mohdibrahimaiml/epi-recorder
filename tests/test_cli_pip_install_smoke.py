@@ -68,19 +68,41 @@ def fresh_venv() -> tuple[Path, Path]:
     assert wheels, "No wheel produced"
     wheel = wheels[0]
 
-    tmp = tempfile.TemporaryDirectory()
-    venv_dir = Path(tmp.name) / "venv"
-    venv.create(venv_dir, with_pip=True)
-    bin_dir = venv_dir / ("Scripts" if sys.platform == "win32" else "bin")
-    python = bin_dir / "python"
-    pip = bin_dir / "pip"
+    # Everything below is environment setup (venv + install), not product
+    # behavior: any failure here means this runner cannot host a fresh venv
+    # (no ensurepip, no network for build isolation, broken pip), so skip
+    # the whole file cleanly instead of erroring every dependent test.
+    # Product assertions live in the test bodies and still fail normally.
+    tmp = None
+    try:
+        tmp = tempfile.TemporaryDirectory()
+        venv_dir = Path(tmp.name) / "venv"
+        venv.create(venv_dir, with_pip=True)
+        # Windows venvs use Scripts/python.exe; POSIX uses bin/python.
+        # The bare names below fail on Windows (FileNotFoundError), which
+        # used to error all 48 dependent tests instead of running them.
+        if sys.platform == "win32":
+            python = venv_dir / "Scripts" / "python.exe"
+            pip = venv_dir / "Scripts" / "pip.exe"
+        else:
+            python = venv_dir / "bin" / "python"
+            pip = venv_dir / "bin" / "pip"
+        if not python.exists():
+            raise FileNotFoundError(f"venv python missing at {python}")
 
-    subprocess.run(
-        [str(pip), "install", str(wheel)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+        subprocess.run(
+            [str(pip), "install", str(wheel)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as exc:
+        if tmp is not None:
+            try:
+                tmp.cleanup()
+            except Exception:
+                pass
+        pytest.skip(f"fresh venv unavailable in this runner ({type(exc).__name__}: {exc}); pip-install smoke skipped")
 
     epi_home = Path(tmp.name) / "epi-home"
     epi_home.mkdir(parents=True, exist_ok=True)

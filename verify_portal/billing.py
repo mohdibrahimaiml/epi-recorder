@@ -83,9 +83,13 @@ def _plan_from_price_id(price_id: str) -> str:
 
     Checked in order from most-specific to least-specific so that every
     price ID served by the live /plans page maps to the right tier.
+
+    Empty or unknown price IDs raise ValueError (never a default plan):
+    the webhook route turns that into a non-2xx response, which Paddle
+    retries and which can be replayed from the dashboard.
     """
     if not price_id:
-        return "hosted"
+        raise ValueError("Empty Paddle price_id: refusing to map to a plan — check PADDLE_*_PRICE_ID env")
 
     # ── Enterprise ───────────────────────────────────────────────────────────
     if PADDLE_ENTERPRISE_PRICE_ID and price_id == PADDLE_ENTERPRISE_PRICE_ID:
@@ -124,10 +128,11 @@ def _plan_from_price_id(price_id: str) -> str:
     if PADDLE_SPRINT_PRICE_ID and price_id == PADDLE_SPRINT_PRICE_ID:
         return "hosted"
 
-    # ── Fallback: unknown price must fail loudly, not silently map to hosted
-    # Empty price_id happens in tests / env-not-configured; keep legacy hosted for backward compat
-    if not price_id:
-        return "hosted"
+    # ── Fallback: unknown price must fail loudly, not silently map to hosted.
+    # Raising yields a non-2xx response, which Paddle retries (60 attempts over
+    # ~3 days on live accounts) and which can be replayed from the dashboard;
+    # nothing real is ever silently dropped. Callers must let this propagate
+    # instead of catching it into a default plan.
     raise ValueError(f"Unknown Paddle price_id: {price_id} — add to PADDLE_*_PRICE_ID env")
 
 
