@@ -18,6 +18,13 @@
 /viewer/ /verify/ 301
 /viewer/* /verify/ 301
 #
+# Canonical verify tool lives at /verify/ (verify/index.html). The bare
+# /verify path would otherwise serve the legacy verify.html redirect stub,
+# which non-JS clients (crawlers, link checkers, social unfurlers) render as
+# a "Moved to /verify/" page pointing at itself. Force the trailing slash.
+# (Exact-path 301: cannot loop — source and target differ.)
+/verify /verify/ 301
+#
 # Pricing: unified canonical page is /plans
 /pricing /plans 301
 /pricing/ /plans 301

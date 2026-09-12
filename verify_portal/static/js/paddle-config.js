@@ -23,7 +23,10 @@ window.EPI_PADDLE_CONFIG = {
         "Community support"
       ],
       featured: true,
-      priceId: { month: "pri_01m0y54canxd7z63ykf928qs04", year: "pri_01m0y54ckbm8vj32dsms9xfeev" }
+      priceId: { month: "pri_01m0y54canxd7z63ykf928qs04", year: "pri_01m0y54ckbm8vj32dsms9xfeev" },
+      /* USD base shown ONLY when live localized pricing is unreachable
+         (see the watchdog in plans.html). Keep in sync with Paddle. */
+      fallbackUSD: 199
     },
     {
       name: "Team",
@@ -36,7 +39,10 @@ window.EPI_PADDLE_CONFIG = {
         "Priority support"
       ],
       featured: false,
-      priceId: { month: "pri_01m0y54d6t0q3ehgqmmepg45vj", year: "pri_01m0y54df4smpc7qq4p21j4v9s" }
+      priceId: { month: "pri_01m0y54d6t0q3ehgqmmepg45vj", year: "pri_01m0y54df4smpc7qq4p21j4v9s" },
+      /* USD base shown ONLY when live localized pricing is unreachable
+         (see the watchdog in plans.html). Keep in sync with Paddle. */
+      fallbackUSD: 799
     }
   ]
 };

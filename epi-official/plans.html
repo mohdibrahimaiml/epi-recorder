@@ -174,7 +174,7 @@
     <div class="an">Five focused days with the founder: one agent workflow instrumented end-to-end, sealed artifacts your team can re-verify offline, and a short findings report. Priced against unblocking enterprise deals — not billable hours.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>How does the 7-day free trial work?</h3></div>
+    <div><h3>Is there a free trial?</h3></div>
     <div class="an">No trial — you are charged at checkout. Cancel anytime with one click in your account portal; Paddle handles pro-rated refunds per their Merchant of Record terms.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
@@ -250,7 +250,7 @@
 
 <footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
   <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.4.5</span>
+    <span>&copy; 2026 EPI LABS · MIT License · v4.4.6</span>
     <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="/plans" style="color:var(--acc)">Pricing</a> · <a href="/account" style="color:var(--acc)">Account</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
   </div>
 </footer>
@@ -349,6 +349,34 @@
   }
 
   /* ── Live Prices via Paddle PricePreview ───────────────────── */
+  var pricesResolved = false;
+
+  /* Fail-safe: if live pricing never resolves (revoked token, blocked CDN,
+     adblock, Paddle outage), show USD base prices instead of stranding
+     visitors on "Loading prices…". Fallback figures live in paddle-config.js
+     (fallbackUSD per tier) — keep them in sync with Paddle. */
+  function showFallback(reason){
+    var st = document.getElementById('pStatus');
+    document.querySelectorAll('.tier').forEach(function(card){
+      var name = card.getAttribute('data-tier');
+      var tier = CFG.tiers.find(function(t){ return t.name === name; });
+      var amt = card.querySelector('[data-price-for]');
+      var per = card.querySelector('.per');
+      if(amt && tier && tier.fallbackUSD && !prices[tier.priceId[freq]]){
+        amt.textContent = 'From $' + tier.fallbackUSD;
+      }
+      if(per) per.textContent = ' / month, USD base';
+    });
+    if (st) st.innerHTML = 'Live localized pricing unavailable'
+      + (reason ? ' (' + reason + ')' : '')
+      + ' — showing USD base. <a href="/plans" style="color:var(--acc)">Retry</a>.';
+  }
+  // Watchdog: 8s after page init, no resolved prices means something upstream
+  // failed silently. Never leave "Loading prices…" on screen.
+  setTimeout(function(){
+    if(!pricesResolved) showFallback('preview timeout');
+  }, 8000);
+
   function refreshPrices(){
     if(!paddle) return;
     var st = document.getElementById('pStatus');
@@ -372,10 +400,11 @@
         var total = ft && ft.total;
         if (id && total) prices[id] = total;
       });
+      if (Object.keys(prices).length > 0) pricesResolved = true;
       updateAmounts();
     }).catch(function(err){
       console.warn('PricePreview error:', err);
-      if (st) st.textContent = '';
+      showFallback('preview rejected');
     });
   }
 
@@ -510,10 +539,18 @@
         checkAutoOpenCheckout();
       } catch (err) {
         console.error('Paddle.Initialize error:', err);
+        var st0 = document.getElementById('pStatus');
+        if (st0) st0.innerHTML = '<span style="color:var(--bad)">Checkout unavailable (init failed).</span>';
+        showFallback('init failed');
       }
       return;
     }
     if(attempt < 20) setTimeout(function(){ loadPaddle(attempt + 1); }, 250);
+    else {
+      // Paddle.js never arrived (blocked CDN/adblock): say so + fallback.
+      console.error('Paddle.js failed to load after 20 attempts.');
+      showFallback('library blocked');
+    }
   })();
 })();
 </script>
