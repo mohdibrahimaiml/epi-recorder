@@ -44,7 +44,16 @@ def bootstrap(
         "org-seal",
         "--key-name",
         "-k",
-        help="Ed25519 key name for org sealing",
+        help="Label for the org key inside the kit (display only, not a key lookup).",
+    ),
+    org_pubkey: Path | None = typer.Option(
+        None,
+        "--org-pubkey",
+        help=(
+            "Path to the org's PUBLIC sealing key (PEM, 64-hex .pub, or signed .epi). "
+            "Generate it on your own hardware with: epi keys generate --name org-seal. "
+            "EPI never accepts a private key here."
+        ),
     ),
     policy_profile: str = typer.Option(
         "starter",
@@ -74,21 +83,31 @@ def bootstrap(
     out.mkdir(parents=True, exist_ok=True)
     km = KeyManager()
 
-    # 1) Org signing key
-    try:
-        priv, pub = km.generate_keypair(key_name, overwrite=force)
-        console.print(f"[green]✓[/green] Generated key [cyan]{key_name}[/cyan]")
-        console.print(f"  private: {priv}")
-        console.print(f"  public:  {pub}")
-    except FileExistsError:
-        console.print(f"[dim]Key {key_name} already exists — reusing.[/dim]")
+    # 1) Org public sealing key — customer-supplied ONLY.
+    # EPI never generates or accepts a customer private key in this flow:
+    # generation happens on customer hardware, and only public material
+    # crosses into this command. This is structural, not advisory.
+    if org_pubkey is None:
+        console.print(
+            "[red]Refusing:[/red] no org public key provided.\n"
+            "[dim]Generate one on your own hardware, then re-run with its public half:\n"
+            "  epi keys generate --name org-seal\n"
+            f"  epi enterprise bootstrap --org-pubkey <path-to-org-seal.pub>\n"
+            "Accepted public formats: PEM, 64-hex .pub, or a signed .epi "
+            "(pins manifest.public_key). Private key material is never accepted here.[/dim]"
+        )
+        raise typer.Exit(2)
+    org_pubkey = org_pubkey.resolve()
+    if not org_pubkey.exists():
+        console.print(f"[red]Org public key not found:[/red] {org_pubkey}")
+        raise typer.Exit(2)
 
     # 2) Pin public key into local trust store
     trusted_name = f"enterprise-{key_name}"
     try:
         tr = TrustRegistry()
         trust_path = km.trust_key(
-            key_name,
+            org_pubkey,
             trusted_keys_dir=tr.trusted_keys_dir,
             trusted_name=trusted_name,
             overwrite=force,
@@ -96,16 +115,23 @@ def bootstrap(
         console.print(f"[green]✓[/green] Trusted as [cyan]{trusted_name}[/cyan] → {trust_path}")
     except FileExistsError:
         console.print(f"[dim]Trusted key {trusted_name} already exists — reusing.[/dim]")
+        trust_path = tr.trusted_keys_dir / f"{trusted_name}.pub"
     except Exception as exc:
-        console.print(f"[yellow]![/yellow] Trust pin skipped: {exc}")
+        console.print(f"[red]Org public key rejected:[/red] {exc}")
         console.print(
-            f"  [dim]Manual: epi keys trust {key_name} --name {trusted_name}[/dim]"
+            "  [dim]Expected PEM, 64-hex .pub, or a signed .epi artifact.[/dim]"
         )
+        raise typer.Exit(2)
 
-    # 3) Trust bundle (public keys only)
+    # 3) Trust bundle (public keys only — exactly the pinned org key, nothing
+    # swept in from the local signing namespace)
     bundle_path = out / "org-trust-bundle.zip"
     try:
-        export_trust_bundle(km, bundle_path)
+        export_trust_bundle(
+            km,
+            bundle_path,
+            pubs=[(trusted_name, trust_path.read_text(encoding="utf-8"))],
+        )
         console.print(f"[green]✓[/green] Trust bundle: {bundle_path}")
     except Exception as exc:
         console.print(f"[yellow]![/yellow] Bundle export failed: {exc}")

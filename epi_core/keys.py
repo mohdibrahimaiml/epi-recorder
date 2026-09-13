@@ -358,6 +358,7 @@ def export_trust_bundle(
     *,
     names: list[str] | None = None,
     trusted_keys_dir: Path | None = None,
+    pubs: list[tuple[str, str]] | None = None,
 ) -> Path:
     """
     Export public keys only into a zip auditors can import.
@@ -366,6 +367,13 @@ def export_trust_bundle(
     - README.txt with verify instructions
     - keys/<name>.pub as hex raw Ed25519 (TrustRegistry format)
     - Never includes private keys
+
+    Args:
+        pubs: Optional explicit (name, hex) public keys to export instead of
+            looking names up in the key manager's signing directory. Used when
+            the keys belong to someone else (e.g. an org bundle built from a
+            customer-supplied public key) and must not enter the local
+            signing namespace.
     """
     import zipfile
     from datetime import datetime, timezone
@@ -374,23 +382,43 @@ def export_trust_bundle(
     if out_path.suffix.lower() != ".zip":
         out_path = out_path.with_suffix(".zip")
 
-    if names:
-        key_names = list(names)
+    pub_entries: list[tuple[str, bytes]] = []
+    if pubs is not None:
+        for entry_name, entry_hex in pubs:
+            try:
+                raw = bytes.fromhex(str(entry_hex).strip())
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid key material for '{entry_name}': not hex"
+                ) from exc
+            if len(raw) != 32:
+                raise ValueError(
+                    f"Expected 32-byte Ed25519 key for '{entry_name}', got {len(raw)}"
+                )
+            pub_entries.append((str(entry_name), raw))
     else:
-        key_names = [k["name"] for k in key_manager.list_keys() if k.get("has_public")]
+        if names:
+            key_names = list(names)
+        else:
+            key_names = [k["name"] for k in key_manager.list_keys() if k.get("has_public")]
 
-    if not key_names:
+        if not key_names:
+            raise FileNotFoundError(
+                "No public keys to export. Generate one with: epi keys generate"
+            )
+
+        for kn in key_names:
+            pub_path = key_manager.keys_dir / f"{kn}.pub"
+            if not pub_path.exists():
+                raise FileNotFoundError(f"Public key not found for '{kn}': {pub_path}")
+            raw = key_manager._load_public_key_raw_bytes(kn)
+            pub_entries.append((kn, raw))
+
+    if not pub_entries:
         raise FileNotFoundError(
             "No public keys to export. Generate one with: epi keys generate"
         )
-
-    pubs: list[tuple[str, bytes]] = []
-    for kn in key_names:
-        pub_path = key_manager.keys_dir / f"{kn}.pub"
-        if not pub_path.exists():
-            raise FileNotFoundError(f"Public key not found for '{kn}': {pub_path}")
-        raw = key_manager._load_public_key_raw_bytes(kn)
-        pubs.append((kn, raw.hex().encode("utf-8")))
+    pubs = [(n, r.hex().encode("utf-8")) for n, r in pub_entries]
 
     readme = f"""EPI Trust Bundle
 ================
