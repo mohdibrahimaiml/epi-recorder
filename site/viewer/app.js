@@ -546,12 +546,21 @@ function renderIntegrity(caseData, context) {
   // Identity
   const idEl = document.getElementById('ind-identity');
   const did = m.governance?.did || context?.identity?.did || '';
+  const orgRoot = (m.governance && m.governance.org_root) || '';
   const pubkey = m.public_key ? m.public_key.slice(0, 16) : '';
   const signer = context?.signer || context?.identity?.name || '';
   if (did) {
     idEl.textContent = did;
     idEl.className = 'indicator verified';
     idEl.style.fontSize = '11px';
+  } else if (orgRoot) {
+    // Named org root only — the browser never verifies a bundle, so this is
+    // deliberately NOT green. Confirm offline:
+    //   epi org bundle verify file.epi org-bundle.json
+    idEl.textContent = 'org ' + String(orgRoot).slice(0, 16) + '...';
+    idEl.className = 'indicator unknown';
+    idEl.style.fontSize = '12px';
+    idEl.title = 'Org root named by this artifact (unverified in browser). Confirm offline: epi org bundle verify file.epi org-bundle.json';
   } else if (pubkey) {
     idEl.textContent = pubkey + '...';
     idEl.className = 'indicator unknown';
