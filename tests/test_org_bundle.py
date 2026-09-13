@@ -217,6 +217,43 @@ def test_seal_writes_org_root(tmp_path: Path):
     assert (manifest.governance or {}).get("org_root") == fingerprint
 
 
+def test_unsigned_artifact_keeps_org_root(tmp_path: Path):
+    """org_root is an identity claim about the run: it must survive even
+    when the artifact is unsigned (verifiable only once signed)."""
+    from epi_recorder import record
+
+    _, root_pub = _keypair()
+    fingerprint = fingerprint_pubkey(root_pub)
+    out = tmp_path / "orgroot-unsigned.epi"
+    with record(str(out), workflow_name="org-root-unsigned", auto_sign=False,
+                org_root=fingerprint) as session:
+        session.log_step("custom.test", {"ok": True})
+    manifest = EPIContainer.read_manifest(out)
+    assert manifest.signature is None
+    assert (manifest.governance or {}).get("org_root") == fingerprint
+
+
+def test_verify_names_org_root(tmp_path: Path, capsys):
+    """epi verify surfaces the named org root with the confirm command."""
+    from epi_cli.verify import print_trust_report
+
+    report = {
+        "facts": {
+            "integrity_ok": True, "signature_valid": True,
+            "sequence_ok": True, "completeness_ok": True, "chain_ok": True,
+        },
+        "identity": {"status": "UNKNOWN", "name": None, "detail": "x"},
+        "decision": {"status": "WARN", "policy": "none", "reason": "y"},
+    }
+    print_trust_report(report, tmp_path / "f.epi", False, org_root="b2" * 32)
+    out = capsys.readouterr().out
+    assert "Org root" in out
+    assert "epi org bundle verify" in out
+    # Without org_root, no line at all (no noise on ordinary artifacts).
+    print_trust_report(report, tmp_path / "f.epi", False)
+    assert "Org root" not in capsys.readouterr().out
+
+
 def test_cli_issue_and_verify_roundtrip(tmp_path: Path):
     root_priv, root_pub = _keypair()
     seal_priv = Ed25519PrivateKey.generate()

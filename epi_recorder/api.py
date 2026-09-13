@@ -953,14 +953,18 @@ class EpiRecorderSession:
             if self.recording_context:
                 self.recording_context.finalize()
 
-            # Create manifest with metadata
+            # Create manifest with metadata.
+            # Org root binding lives here (not in _sign_epi_file) so it
+            # applies to unsigned artifacts too — it is an identity claim
+            # about the run, verifiable only when the artifact is signed.
             manifest = ManifestModel(
                 created_at=self.start_time,
                 goal=self.goal,
                 notes=self.notes,
                 metrics=self.metrics,
                 approved_by=self.approved_by,
-                tags=self.metadata_tags
+                tags=self.metadata_tags,
+                governance={"org_root": self.org_root} if self.org_root else None,
             )
 
             # Pack into .epi file
@@ -1058,14 +1062,18 @@ class EpiRecorderSession:
             if self.recording_context:
                 await loop.run_in_executor(None, self.recording_context.finalize)
 
-            # Create manifest with metadata
+            # Create manifest with metadata.
+            # Org root binding lives here (not in _sign_epi_file) so it
+            # applies to unsigned artifacts too — it is an identity claim
+            # about the run, verifiable only when the artifact is signed.
             manifest = ManifestModel(
                 created_at=self.start_time,
                 goal=self.goal,
                 notes=self.notes,
                 metrics=self.metrics,
                 approved_by=self.approved_by,
-                tags=self.metadata_tags
+                tags=self.metadata_tags,
+                governance={"org_root": self.org_root} if self.org_root else None,
             )
 
             # Pack into .epi file (run in executor to avoid blocking)
@@ -1684,26 +1692,24 @@ class EpiRecorderSession:
             current_format = EPIContainer.detect_container_format(self.output_path)
             manifest = EPIContainer.read_manifest(self.output_path)
             
-            # Embed DID:WEB identity binding if configured
+            # Embed DID:WEB identity binding if configured (merged, so a
+            # construction-time org_root binding survives).
             if self.did_web:
                 public_key_bytes = private_key.public_key().public_bytes(
                     encoding=serialization.Encoding.Raw,
                     format=serialization.PublicFormat.Raw,
                 )
                 fingerprint = hashlib.sha256(public_key_bytes).hexdigest()[:16]
-                manifest.governance = {"did": self.did_web}
+                existing_gov = manifest.governance or {}
+                if not isinstance(existing_gov, dict):
+                    existing_gov = {}
+                manifest.governance = {**existing_gov, "did": self.did_web}
                 manifest.trust = {
                     "public_key_id": self.default_key_name,
                     "fingerprint": fingerprint,
                 }
-
-            # Embed org trust-bundle binding if configured. Merge into any
-            # existing governance (did/scitt) rather than overwriting it.
-            if self.org_root:
-                existing = manifest.governance or {}
-                if not isinstance(existing, dict):
-                    existing = {}
-                manifest.governance = {**existing, "org_root": self.org_root}
+            # NOTE: org_root binding is applied at manifest construction
+            # (__exit__/__aexit__), not here, so unsigned artifacts carry it.
             
             tmp_path = create_recording_workspace("epi_signing_")
             try:

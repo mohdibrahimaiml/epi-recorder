@@ -954,7 +954,9 @@ def verify_command(
             _emit_json_report(report)
         else:
             # Rich formatted output
-            print_trust_report(report, epi_file, verbose)
+            gov = getattr(manifest, "governance", None) or {}
+            org_root = gov.get("org_root") if isinstance(gov, dict) else None
+            print_trust_report(report, epi_file, verbose, org_root=org_root)
             if review_report is not None:
                 print_review_trust_report(review_report)
             elif _latest_review is not None:
@@ -1056,7 +1058,7 @@ def verify_command(
         raise typer.Exit(1)
 
 
-def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
+def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_root: str | None = None):
     """Print the human-readable verification results with Facts/Identity/Decision separation.
 
     Supports both the new nested report format (facts/identity/decision) and
@@ -1165,6 +1167,13 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False):
     did_identity = identity.get("did") if isinstance(identity, dict) else None
     if did_identity:
         content_lines.append(f"  - DID:          {did_identity}")
+    if org_root:
+        # Named only — this command never verifies a bundle. Point at the
+        # command that does, same honesty as the browser viewer tooltip.
+        content_lines.append(
+            f"  - Org root:     {str(org_root)[:16]}… (named, not verified here — "
+            f"confirm: epi org bundle verify {epi_file.name} <bundle.json>)"
+        )
     content_lines.append(f"  - Detail:       {identity_detail}")
     content_lines.append("")
 
