@@ -766,6 +766,7 @@ class EpiRecorderSession:
         capture_stderr: bool = False,
         did_web: Optional[str] = None,
         redact_secrets: Optional[List[str]] = None,
+        org_root: Optional[str] = None,
     ):
         """
         Initialize EPI recording session.
@@ -786,6 +787,9 @@ class EpiRecorderSession:
             did_web: Optional DID:WEB identifier for zero-cost identity binding (e.g. "did:web:example.com")
             redact_secrets: Optional exact secret values to redact in addition to
                 built-in patterns (also merged from EPI_REDACT_SECRETS env).
+            org_root: Optional SHA-256 fingerprint (64 hex) of the customer org
+                root public key, bound into manifest.governance at seal time
+                for offline bundle verification (EPI_ORG_ROOT env fallback).
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -819,7 +823,13 @@ class EpiRecorderSession:
         
         # DID:WEB identity binding (zero-cost, issuer-independent)
         self.did_web = did_web
-        
+
+        # Org trust bundle binding (design docs/design/org-trust-bundle.md).
+        # Fingerprint (sha256 hex) of the customer root public key, bound
+        # into manifest.governance at seal time. Explicit param wins, then
+        # EPI_ORG_ROOT env. Validated eagerly so typos fail fast, not silent.
+        self.org_root = self._resolve_org_root(org_root)
+
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
         self.capture_prints = capture_prints
@@ -834,6 +844,22 @@ class EpiRecorderSession:
         self._stderr_capture: Optional[_StdStreamCapture] = None
         self._original_stdout: Optional[TextIO] = None
         self._original_stderr: Optional[TextIO] = None
+
+    @staticmethod
+    def _resolve_org_root(org_root: Optional[str]) -> Optional[str]:
+        import os as _os
+
+        value = org_root if org_root is not None else _os.getenv("EPI_ORG_ROOT")
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if len(text) != 64 or any(c not in "0123456789abcdef" for c in text):
+            raise ValueError(
+                "org_root must be the 64-hex SHA-256 fingerprint of the org "
+                f"root public key, got: {value!r}"
+            )
+        return text
+
         
     def __enter__(self) -> "EpiRecorderSession":
         """
@@ -1670,6 +1696,14 @@ class EpiRecorderSession:
                     "public_key_id": self.default_key_name,
                     "fingerprint": fingerprint,
                 }
+
+            # Embed org trust-bundle binding if configured. Merge into any
+            # existing governance (did/scitt) rather than overwriting it.
+            if self.org_root:
+                existing = manifest.governance or {}
+                if not isinstance(existing, dict):
+                    existing = {}
+                manifest.governance = {**existing, "org_root": self.org_root}
             
             tmp_path = create_recording_workspace("epi_signing_")
             try:
@@ -1799,6 +1833,7 @@ def record(
     capture_prints: bool = True,
     capture_stderr: bool = False,
     redact_secrets: Optional[List[str]] = None,
+    org_root: Optional[str] = None,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -1874,6 +1909,7 @@ def record(
             capture_prints=capture_prints,
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
+            org_root=org_root,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -1932,6 +1968,7 @@ def record(
             capture_prints=capture_prints,
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
+            org_root=org_root,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

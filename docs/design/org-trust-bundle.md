@@ -73,6 +73,7 @@ Single JSON file (emailable, readable, diffable):
   "version": 5,
   "issued_at": "2028-03-14T09:00:00Z",
   "issuer_root_fingerprint": "<hex sha256 of root pub>",
+  "root_public_key": "<64-hex root pub — required: envelope verification needs the key itself, the fingerprint alone cannot verify a signature>",
   "keys": [
     {"key_id": "seal-2026", "public_key": "<64-hex>",
      "not_before": "2026-01-05T00:00:00Z", "not_after": null,

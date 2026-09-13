@@ -1010,6 +1010,17 @@ except ImportError:
     pass  # cbor2 missing — should never happen since it's a core dependency
 
 try:
+    from epi_cli.org_cmd import app as org_app
+    app.add_typer(
+        org_app,
+        name="org",
+        help="Org trust bundles: customer-signed key history for offline verification",
+        rich_help_panel="Team",
+    )
+except ImportError:
+    pass
+
+try:
     from epi_cli.agt_cmd import app as agt_cmd_app
     app.add_typer(
         agt_cmd_app,
