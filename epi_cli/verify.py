@@ -1175,9 +1175,13 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     if org_root:
         # Named only — this command never verifies a bundle. Point at the
         # command that does, same honesty as the browser viewer tooltip.
+        # Two lines, command first on its own: a narrow terminal can only
+        # wrap after the variable tail, never inside the command phrase.
         content_lines.append(
-            f"  - Org root:     {str(org_root)[:16]}… (named, not verified here — "
-            f"confirm: epi org bundle verify {epi_file.name} <bundle.json>)"
+            f"  - Org root:     {str(org_root)[:16]}… (named, not verified here)"
+        )
+        content_lines.append(
+            f"  confirm: epi org bundle verify {epi_file.name} <bundle.json>"
         )
     content_lines.append(f"  - Detail:       {identity_detail}")
     content_lines.append("")
