@@ -10,7 +10,7 @@
 Γöé   - Integrity:    Verified                                                   Γöé
 Γöé   - Signature:    Valid                                                      Γöé
 Γöé   - Forensic:     PASS                                                       Γöé
-Γöé   - Notarized:    Timestamped (rfc3161) via https://freetsa.org/tsr          Γöé
+Γöé   - Notarized:    RFC 3161 token present (genTime read, signature not validated) via https://freetsa.org/tsr          Γöé
 Γöé                                                                              Γöé
 Γöé IDENTITY (Trust Context ΓÇö separate from seal)                                Γöé
 Γöé   - Status:       LOCAL                                                      Γöé

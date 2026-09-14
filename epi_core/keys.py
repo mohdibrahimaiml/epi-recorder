@@ -26,8 +26,27 @@ def _is_writable_dir(path: Path) -> bool:
         return False
 
 
+def _dir_has_keys(path: Path) -> bool:
+    """True if *path* already holds key material (no side effects)."""
+    try:
+        if not path.is_dir():
+            return False
+        return any(path.glob("*.key")) or any(path.glob("*.pub"))
+    except Exception:
+        return False
+
+
 def _resolve_default_keys_dir() -> Path:
     """Resolve a writable default keys directory with fallbacks.
+
+    Precedence: ``EPI_KEYS_DIR`` > ``EPI_HOME`` > ``~/.epi/keys`` > ``cwd``.
+    ``EPI_HOME`` names the state dir (same convention as telemetry), so keys
+    live at ``$EPI_HOME/keys`` (with legacy ``$EPI_HOME/.epi/keys`` honoured).
+
+    Anti-confusion rule: when ``EPI_HOME`` is set but holds no keys while the
+    real-home keystore does, we keep using the real-home keystore *and* warn
+    loudly instead of silently switching to a fresh empty keystore (which
+    would surface as a baffling "key not found").
 
     The tmpdir fallback is now fail-closed: it will only be used if
     EPI_ALLOW_TMP_KEYS=1 is set, or if the caller explicitly passes a
@@ -35,9 +54,40 @@ def _resolve_default_keys_dir() -> Path:
     because keys in tmpdir may be lost on reboot and make artifacts
     permanently unverifiable.
     """
+    import warnings
+
     env_dir = os.environ.get("EPI_KEYS_DIR")
+    if env_dir:
+        candidate = Path(env_dir).expanduser()
+        if _is_writable_dir(candidate):
+            return candidate
+    else:
+        epi_home = os.environ.get("EPI_HOME")
+        if epi_home:
+            base = Path(epi_home).expanduser()
+            home_style = base / "keys"
+            nested_style = base / ".epi" / "keys"
+            for epi_candidate in (home_style, nested_style):
+                if _dir_has_keys(epi_candidate):
+                    if _is_writable_dir(epi_candidate):
+                        return epi_candidate
+            real_home_keys = Path.home() / ".epi" / "keys"
+            if _dir_has_keys(real_home_keys):
+                warnings.warn(
+                    f"EPI_HOME is set ({base}) but holds no keys; using existing "
+                    f"keystore at {real_home_keys}. Set EPI_KEYS_DIR explicitly "
+                    "to choose, or generate keys under EPI_HOME.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                if _is_writable_dir(real_home_keys):
+                    return real_home_keys
+            # Newcomer path: no keys anywhere — create under EPI_HOME so a
+            # user setting only EPI_HOME finds their keys where they look.
+            if _is_writable_dir(home_style):
+                return home_style
     candidates = [
-        Path(env_dir) if env_dir else Path.home() / ".epi" / "keys",
+        Path(env_dir).expanduser() if env_dir else Path.home() / ".epi" / "keys",
         Path.cwd() / ".epi" / "keys",
     ]
     # Check primary candidates first

@@ -34,6 +34,22 @@ from epi_recorder.patcher import (
 from epi_recorder.environment import capture_full_environment
 
 
+def _allow_unsigned_artifacts() -> bool:
+    """Opt-out for callers that explicitly accept unsigned output.
+
+    Default is fail-closed: when ``auto_sign=True`` was requested but signing
+    failed, the context manager raises instead of silently leaving an
+    unsigned artifact. Set ``EPI_ALLOW_UNSIGNED=1`` to restore the old
+    warn-and-continue behaviour (e.g. offline demos).
+    """
+    return os.getenv("EPI_ALLOW_UNSIGNED", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 # Thread-local storage for active recording sessions
 _thread_local = threading.local()
 
@@ -974,10 +990,19 @@ class EpiRecorderSession:
                 output_path=self.output_path
             )
 
-            # Sign if requested
+            # Sign if requested — fail closed so callers never mistake an
+            # unsigned artifact for a signed one.
             signed = False
             if self.auto_sign:
                 signed = self._sign_epi_file()
+                if not signed and not _allow_unsigned_artifacts():
+                    detail = getattr(self, "_last_sign_error", None) or "unknown error"
+                    raise RuntimeError(
+                        "EPI auto_sign=True but signing failed "
+                        f"({detail}); artifact left unsigned. "
+                        "Fix keys (epi keys generate) or set "
+                        "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
+                    )
 
             # Auto-SCITT anchor if configured
             if signed:
@@ -1085,10 +1110,18 @@ class EpiRecorderSession:
                 self.output_path
             )
 
-            # Sign if requested (run in executor)
+            # Sign if requested (run in executor) — fail closed, same as sync.
             signed = False
             if self.auto_sign:
                 signed = await loop.run_in_executor(None, self._sign_epi_file)
+                if not signed and not _allow_unsigned_artifacts():
+                    detail = getattr(self, "_last_sign_error", None) or "unknown error"
+                    raise RuntimeError(
+                        "EPI auto_sign=True but signing failed "
+                        f"({detail}); artifact left unsigned. "
+                        "Fix keys (epi keys generate) or set "
+                        "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
+                    )
 
             self._print_session_summary(signed)
 
@@ -1668,7 +1701,13 @@ class EpiRecorderSession:
                     pass
 
     def _sign_epi_file(self) -> bool:
-        """Sign the .epi file with default key. Returns True if signed successfully."""
+        """Sign the .epi file with default key. Returns True if signed successfully.
+
+        On failure the detail is kept on ``self._last_sign_error`` and also
+        printed to stderr; callers that requested ``auto_sign=True`` fail
+        closed in ``__exit__``/``__aexit__`` unless ``EPI_ALLOW_UNSIGNED=1``.
+        """
+        self._last_sign_error: str | None = None
         try:
             from epi_core.keys import KeyManager
             from epi_core.trust import sign_manifest
@@ -1750,6 +1789,7 @@ class EpiRecorderSession:
 
         except Exception as e:
             import sys
+            self._last_sign_error = str(e)
             print(f"Warning: Failed to sign .epi file: {e}", file=sys.stderr)
             return False
 

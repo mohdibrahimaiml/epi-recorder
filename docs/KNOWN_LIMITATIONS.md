@@ -15,7 +15,7 @@ The following were gaps and are now fixed — kept here for audit trail:
 - **Viewer 4MiB cap** — outer viewer hash scans full gap, not `4MiB`
 - **payload_hash stale** — recomputed after `viewer.html/VERIFY.txt/notarization`
 - **Guardrails truncation** — `epi_guardrails/session.py [:2000]` removed, full content sealed
-- **Gateway defaults** — `retention_mode full_content`, `proxy_failure_mode fail-closed`, streaming `501`
+- **Gateway defaults** — `epi gateway serve` defaults to `retention_mode redacted_hashes` and `proxy_failure_mode fail-open` (direct-uvicorn runs default to `full_content`/`fail-closed` instead). Pass the flags explicitly when you need full capture + fail-closed; streaming `501` either way
 - **SCITT fallback** — missing service key now `transparency_ok=None` not `PASS`
 - **Billing** — unknown `price_id` now `ValueError` (empty keeps `hosted` compat)
 - **Packaging** — `cryptography<51 typer<0.28 rich<16`, `setup.py` gateways, `docker 3.12`, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced, demos re-sealed
@@ -204,7 +204,7 @@ On a clean artifact the header copies **match** the manifest (`workflow_id` / `c
 
 The header UUID/timestamp are therefore **redundant, unsealed copies**. They are not a silent evidence-time or identity rewrite for current CLI/viewer/TRACE/SCITT paths. Do not treat envelope bytes 16–39 as the source of truth.
 
-RFC 3161 is implemented (`artifacts/notarization/`) but the viewer today shows TSA **availability** (host / token present), not the token’s `genTime`. The independent time claim is the TSA token over the sealed manifest hash, not `created_at_micros`.
+RFC 3161 is implemented (`artifacts/notarization/`) but the viewer and CLI report TSA **presence** (host / token present, `genTime` read) — never validity. The token's CMS signature, chain, and `messageImprint` are not validated. The independent time claim is the TSA token over the sealed manifest hash, not `created_at_micros`.
 
 ---
 
@@ -220,6 +220,16 @@ TRACE specifies `policy.bundle_hash` as the SHA-256 of the Cedar policy bundle t
 
 The seal proves that a `.epi` file was not altered **after** it was sealed. It does not prove that every LLM call, tool call, or subprocess was recorded. In-process `record()` is self-attestation. Prefer the gateway proxy (fail-closed) when that distinction matters.
 
+The gateway complements `record()` — it does not prove artifact completeness:
+
+- It only witnesses **LLM traffic routed through the proxy** (`/v1/chat/completions`, `/v1/messages`). Tool calls, approvals, and decisions are still recorded in-process and are exactly what the completeness check audits.
+- **Streaming requests are rejected with 501**, so streaming apps either fail or bypass the proxy entirely.
+- Capture is **async-enqueued**: fail-closed covers enqueue-time failure, but a worker crash after acceptance still leaves a gap.
+
+## RFC 3161 timestamps are presence-only (no token validation yet)
+
+The sealed artifact records a timestamp token (`artifacts/notarization/tsa_reply.tsr`) and its `genTime`, but **the verifier does not currently validate the token's CMS signature, certificate chain, or that its `messageImprint` matches the manifest hash**. The viewer and `epi verify` report "RFC 3161 token present (genTime read, signature not validated)" in neutral styling — never a green tick. Treat the timestamp as an unverified corroborating field until validation lands (planned: CMS signature check, chain to a trust anchor **embedded at seal time**, critical `id-kp-timeStamping` EKU, imprint match, genTime within signing-cert validity — offline by construction, no fetch).
+
 ## Historical step-content truncation (through 4.4.1)
 
 Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` shortened strings in sealed `steps.jsonl` at **2000 characters** (`[...truncated: N chars total]`). **Every `.epi` sealed with that recorder may be missing the tail of long prompts and responses.** Those files are not complete transcripts.
@@ -232,7 +242,7 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 
 ## Last updated
 
-2026-08-29 — 4.4.3: first PyPI with full sealed step payloads; 4.4.2 withdrawn; truncation documented for 4.4.1 and earlier.
+2026-09-14 — RFC 3161 display honesty (viewer + CLI neutral, no green tick); timestamp + gateway completeness documented as unverified.
 
 2026-08-29 — unsealed header 0–3/16–39 documented; header vs sealed manifest authority; Level 0 TRACE; offset-658 both 4.4.0/4.4.1 FAIL
 

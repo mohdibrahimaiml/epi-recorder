@@ -426,11 +426,11 @@ class TrustRegistry:
         Returns:
             tuple: (is_trusted: bool, identity_name: str, status_detail: str)
         """
-        # 1. Check Revocation First
+        # 1. Check Revocation First (exact match — substring would false-hit)
         if self.trusted_keys_dir.exists():
             for rev_file in self.trusted_keys_dir.glob("*.revoked"):
                 try:
-                    if public_key_hex in rev_file.read_text().strip():
+                    if public_key_hex.strip().lower() == rev_file.read_text().strip().lower():
                         return (
                             False,
                             rev_file.stem,
@@ -439,11 +439,11 @@ class TrustRegistry:
                 except Exception:
                     continue
 
-        # 2. Local trusted keys
+        # 2. Local trusted keys (exact match)
         if self.trusted_keys_dir.exists():
             for pub_file in self.trusted_keys_dir.glob("*.pub"):
                 try:
-                    if public_key_hex in pub_file.read_text().strip():
+                    if public_key_hex.strip().lower() == pub_file.read_text().strip().lower():
                         return True, pub_file.stem, "Verified via local trusted registry"
                 except Exception:
                     continue

@@ -189,10 +189,11 @@ def _verify_step_chain(steps: list[dict], spec_version: str | None = None) -> tu
             if claimed_prev != expected:
                 chain_breaks.append(f"step {i}: prev_hash mismatch")
         return len(chain_breaks) == 0, chain_breaks
-    except (ValueError, TypeError):
-        # Old artifacts (CBOR-hashed chains) or steps with unexpected field
-        # types: default to True so legacy artifacts do not falsely fail.
-        return True, []
+    except (ValueError, TypeError) as exc:
+        # Malformed steps must fail loudly — a silent True here would let a
+        # corrupted steps.jsonl verify clean. (Old CBOR-hash mismatches surface
+        # as normal "prev_hash mismatch" breaks above, not as exceptions.)
+        return False, [f"chain verification error: malformed step ({exc})"]
     except Exception as exc:  # noqa: BLE001
         # Unexpected error: do not silently pass — report it as a chain break
         # so operators are aware something went wrong during chain validation.
@@ -793,18 +794,22 @@ def verify_command(
                         if verbose:
                             console.print(f"  [red][FAIL][/red] SCITT receipt signature invalid: {exc}")
                 else:
-                    # Fallback: structural check only if service key unavailable
+                    # Service key unavailable: structural shape alone is NOT proof.
+                    # Report unknown (None) so callers cannot mistake it for a
+                    # cryptographic verification.
                     receipt = cbor2.loads(receipt_bytes)
                     if isinstance(receipt, cbor2.CBORTag) and receipt.tag == 18:
-                        transparency_ok = True
+                        transparency_ok = None
                         if verbose:
-                            console.print("  [yellow][WARN][/yellow] SCITT receipt structurally valid (service key unavailable for crypto verification)")
+                            console.print("  [yellow][WARN][/yellow] SCITT receipt structurally shaped (COSE tag 18) but service key unavailable — transparency UNVERIFIED, not verified")
                     else:
                         transparency_ok = False
 
                 if verbose:
-                    if transparency_ok:
-                        console.print("  [green][OK][/green] SCITT receipt structurally valid")
+                    if transparency_ok is True:
+                        console.print("  [green][OK][/green] SCITT receipt cryptographically verified")
+                    elif transparency_ok is None:
+                        console.print("  [yellow][WARN][/yellow] SCITT transparency unverified (receipt present, no service key)")
                     else:
                         console.print("  [red][FAIL][/red] SCITT receipt invalid")
             except Exception as exc:
@@ -1212,7 +1217,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         detail = f" — {f_reason}" if f_reason else ""
         content_lines.append(f"  [{f_color}]- Forensic:     {f_text}{detail}[/{f_color}]")
 
-    # Notarization status — RFC 3161 timestamp evidence
+    # Notarization status — RFC 3161 token presence only. The token's CMS
+    # signature, chain, and messageImprint are NOT validated (see
+    # KNOWN_LIMITATIONS.md), so this never renders green.
     notarization_status = "dim]Not available"
     try:
         epi_path = Path(epi_file) if isinstance(epi_file, str) else epi_file
@@ -1222,9 +1229,13 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 notar_data = json.loads(zf.read("artifacts/notarization/notarization.json"))
                 provider = (notar_data.get("notarized_at") or {}).get("provider", "unknown")
                 tsa_url = (notar_data.get("notarized_at") or {}).get("url", "")
-                notarization_status = f"green]Timestamped ({provider})"
+                gen_time = notar_data.get("tsa_genTime") or ""
+                notarization_status = f"yellow]RFC 3161 token present ({provider}"
                 if tsa_url:
                     notarization_status += f" via {tsa_url}"
+                if gen_time:
+                    notarization_status += f" · genTime {gen_time}"
+                notarization_status += "; signature not validated)"
     except Exception:
         pass
     content_lines.append(f"  - Notarized:    [{notarization_status}")

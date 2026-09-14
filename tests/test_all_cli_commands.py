@@ -72,8 +72,14 @@ def test_keys_generate_and_export_are_isolated_to_epi_home(tmp_path: Path):
 
     assert generated.returncode == 0, generated.stdout + generated.stderr
     assert exported.returncode == 0, exported.stdout + exported.stderr
-    assert (epi_home / ".epi" / "keys" / "test-key.key").exists()
-    assert (epi_home / ".epi" / "keys" / "test-key.pub").exists()
+    # EPI_HOME names the state dir (same convention as telemetry): keys live
+    # at $EPI_HOME/keys, with legacy $EPI_HOME/.epi/keys honoured.
+    assert (epi_home / "keys" / "test-key.key").exists() or (
+        epi_home / ".epi" / "keys" / "test-key.key"
+    ).exists()
+    assert (epi_home / "keys" / "test-key.pub").exists() or (
+        epi_home / ".epi" / "keys" / "test-key.pub"
+    ).exists()
 
 
 def test_verify_view_and_export_summary_use_explicit_artifact(tmp_path: Path):

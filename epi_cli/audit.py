@@ -66,20 +66,54 @@ def audit_artifact(
     manifest = EPIContainer.read_manifest(epi_path)
     steps = _read_steps(epi_path)
 
-    # 1. Cryptographic integrity
+    # 1. Cryptographic integrity — actually verify file hashes, never assume.
     sig_valid, signer_name, _sig_message = verify_embedded_manifest_signature(manifest)
+    try:
+        integrity_ok, mismatches = EPIContainer.verify_integrity(epi_path)
+    except Exception as exc:
+        integrity_ok, mismatches = False, {"__verify_error__": str(exc)}
+    try:
+        _steps_hash_ok = True
+        _execution_data: dict = {}
+        try:
+            _execution_data = EPIContainer.read_member_json(epi_path, "execution.json")
+        except Exception:
+            _execution_data = {}
+        _claimed_hash = _execution_data.get("steps_hash") or (manifest.trust or {}).get(
+            "steps_hash"
+        )
+        if _claimed_hash:
+            import hashlib as _hashlib
+
+            _actual_hash = _hashlib.sha256(
+                EPIContainer.read_member_bytes(epi_path, "steps.jsonl")
+            ).hexdigest()
+            _steps_hash_ok = _actual_hash == _claimed_hash
+            if not _steps_hash_ok:
+                mismatches = {
+                    **mismatches,
+                    "__steps_hash__": "steps.jsonl hash does not match sealed steps_hash",
+                }
+        integrity_ok = bool(integrity_ok and _steps_hash_ok)
+    except Exception as exc:
+        integrity_ok, mismatches = False, {
+            **mismatches,
+            "__steps_hash_error__": str(exc),
+        }
     report["pipeline"]["cryptographic"] = {
         "signature_valid": sig_valid is True,
+        "integrity_ok": bool(integrity_ok),
         "integrity_checked": True,
+        "mismatches": mismatches,
         "container_format": EPIContainer.detect_container_format(epi_path),
     }
 
     # 2. Full verification report
     ver_report = create_verification_report(
-        integrity_ok=True,
+        integrity_ok=bool(integrity_ok),
         signature_valid=sig_valid,
         signer_name=signer_name or "unknown",
-        mismatches={},
+        mismatches=mismatches,
         manifest=manifest,
         trusted_registry=TrustRegistry(),
         chain_ok=True,
@@ -91,18 +125,42 @@ def audit_artifact(
         "integrity": ver_report["summary"]["integrity"],
     }
 
-    # 3. SCITT transparency
+    # 3. SCITT transparency — statement shape is necessary but not sufficient;
+    # a receipt is only "verified" with a cryptographic check against the
+    # transparency service key. Anything less is "unverified", never "verified".
     try:
         stmt_bytes, rcpt_bytes, scitt_gov = extract_scitt_artifacts(epi_path)
         if stmt_bytes and rcpt_bytes:
             try:
                 verify_scitt_statement(stmt_bytes, manifest, public_key_bytes=None)
-                report["pipeline"]["scitt"] = {
-                    "status": "verified",
-                    "entry_id": (scitt_gov or {}).get("entry_id", "unknown"),
-                    "service_url": (scitt_gov or {}).get("service_url", "unknown"),
-                    "registered_at": (scitt_gov or {}).get("registered_at", "unknown"),
-                }
+                _service_url = (scitt_gov or {}).get("service_url")
+                _service_key = None
+                try:
+                    if _service_url and str(_service_url).lower() == "local":
+                        from epi_core.local_scitt import service_public_key
+
+                        _service_key = service_public_key()
+                except Exception:
+                    _service_key = None
+                if _service_key is not None:
+                    try:
+                        verify_scitt_receipt(rcpt_bytes, stmt_bytes, _service_key)
+                        report["pipeline"]["scitt"] = {
+                            "status": "verified",
+                            "entry_id": (scitt_gov or {}).get("entry_id", "unknown"),
+                            "service_url": (scitt_gov or {}).get("service_url", "unknown"),
+                            "registered_at": (scitt_gov or {}).get("registered_at", "unknown"),
+                        }
+                    except SCITTVerificationError as exc:
+                        report["pipeline"]["scitt"] = {"status": "failed", "error": str(exc)}
+                else:
+                    report["pipeline"]["scitt"] = {
+                        "status": "unverified",
+                        "detail": "statement valid; receipt signature not checked (service key unavailable offline)",
+                        "entry_id": (scitt_gov or {}).get("entry_id", "unknown"),
+                        "service_url": (scitt_gov or {}).get("service_url", "unknown"),
+                        "registered_at": (scitt_gov or {}).get("registered_at", "unknown"),
+                    }
             except SCITTVerificationError as exc:
                 report["pipeline"]["scitt"] = {"status": "failed", "error": str(exc)}
         else:

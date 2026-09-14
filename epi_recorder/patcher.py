@@ -478,13 +478,19 @@ def patch_gemini() -> bool:
             
             # Extract prompt from args/kwargs
             contents = args[0] if args else kwargs.get("contents", "")
-            
+            contents_str = str(contents)
+            if len(contents_str) > 2000:
+                contents_str = (
+                    contents_str[:2000]
+                    + f" [...truncated: {len(contents_str)} chars total]"
+                )
+
             # Capture request
             request_data = {
                 "provider": "google",
                 "method": "GenerativeModel.generate_content",
                 "model": getattr(self, '_model_name', getattr(self, 'model_name', 'gemini')),
-                "contents": str(contents)[:2000],  # Truncate long prompts
+                "contents": contents_str,
                 "generation_config": str(kwargs.get("generation_config", {})),
             }
             
@@ -496,13 +502,26 @@ def patch_gemini() -> bool:
                 response = original_generate_content(self, *args, **kwargs)
                 elapsed = time.time() - start_time
                 
-                # Capture response
+                # Capture response (truncation is marked, never silent)
                 response_text = ""
                 try:
                     if hasattr(response, 'text'):
-                        response_text = response.text[:2000]  # Truncate long responses
+                        _raw = response.text
+                        if not isinstance(_raw, str):
+                            _raw = str(_raw)
+                        response_text = (
+                            _raw[:2000] + f" [...truncated: {len(_raw)} chars total]"
+                            if len(_raw) > 2000
+                            else _raw
+                        )
                     elif hasattr(response, 'parts'):
-                        response_text = str(response.parts)[:2000]
+                        _raw_parts = str(response.parts)
+                        response_text = (
+                            _raw_parts[:2000]
+                            + f" [...truncated: {len(_raw_parts)} chars total]"
+                            if len(_raw_parts) > 2000
+                            else _raw_parts
+                        )
                 except Exception:
                     response_text = "[Response text extraction failed]"
                 

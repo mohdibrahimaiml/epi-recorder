@@ -1478,7 +1478,10 @@ class EPIContainer:
         """
         with _zip_pack_lock:
             # New seals assert full step payloads. Viewer previews may still truncate.
-            manifest.content_truncated = False
+            # Preserve an explicit True set by callers that shortened payloads
+            # pre-seal — never silently upgrade it to False.
+            if manifest.content_truncated is not True:
+                manifest.content_truncated = False
             manifest.container_format = container_format
             temp_dir = EPIContainer._make_temp_dir("epi_pack_payload_")
             payload_path = temp_dir / "payload.zip"

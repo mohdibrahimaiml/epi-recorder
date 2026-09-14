@@ -82,6 +82,7 @@ REDACT_SECRETS_ENV_VAR = "EPI_REDACT_SECRETS"
 def load_literal_secrets_from_env() -> List[str]:
     """Read user-declared literal secrets from EPI_REDACT_SECRETS."""
     import json as _json
+    import warnings as _warnings
 
     raw = os.environ.get(REDACT_SECRETS_ENV_VAR, "")
     if not raw or not raw.strip():
@@ -92,10 +93,44 @@ def load_literal_secrets_from_env() -> List[str]:
             parsed = _json.loads(text)
             if isinstance(parsed, list):
                 return [s for s in (str(v) for v in parsed) if s.strip()]
-        except Exception:
-            pass
+        except Exception as exc:
+            _warnings.warn(
+            f"{REDACT_SECRETS_ENV_VAR} looks like a JSON list but does not parse "
+            f"— no env secrets loaded (nothing redacted from it). Error: {exc}",
+            UserWarning,
+            stacklevel=2,
+        )
         return []
     return [text]
+
+
+def _filter_declared_secrets(values: list, source: str) -> list[str]:
+    """Keep usable secrets; warn loudly about skipped ones instead of why-nots.
+
+    Values shorter than 4 chars are refused: exact-substring redaction of
+    very short strings would nuke ordinary prose (and usually indicates the
+    user pasted a placeholder rather than a secret).
+    """
+    import warnings as _warnings
+
+    kept: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "")
+        if not text.strip():
+            continue
+        if len(text) < 4:
+            _warnings.warn(
+                f"Ignoring declared secret from {source}: {text!r} is shorter "
+                "than 4 characters and will NOT be redacted. Declare the full value.",
+                UserWarning,
+                stacklevel=3,
+            )
+            continue
+        if text not in seen:
+            seen.add(text)
+            kept.append(text)
+    return kept
 
 
 # Exact env / dict key names (case-insensitive match on uppercased key)
@@ -289,18 +324,12 @@ class Redactor:
         self.allowlist = set(allowlist) if allowlist else set()
 
         # User-declared literal secrets: exact values, applied FIRST so they
-        # win over (and are never mangled by) generic patterns.
-        declared: List[str] = []
-        seen: set[str] = set()
-        for source in (
-            list(literal_secrets or []),
-            load_literal_secrets_from_env(),
-        ):
-            for value in source:
-                text = str(value or "")
-                if len(text) >= 4 and text not in seen:
-                    seen.add(text)
-                    declared.append(text)
+        # win over (and are never mangled by) generic patterns. Short values
+        # are refused with a warning, never silently.
+        declared: List[str] = _filter_declared_secrets(
+            [*list(literal_secrets or []), *load_literal_secrets_from_env()],
+            source="Redactor(literal_secrets=)/EPI_REDACT_SECRETS",
+        )
         for secret in declared:
             try:
                 self.patterns.append((re.compile(re.escape(secret)), "Declared secret"))
@@ -364,17 +393,39 @@ class Redactor:
 
             # Load literal secrets (exact values, TOML list)
             if 'redaction' in config and 'literal_secrets' in config['redaction']:
-                for value in config['redaction']['literal_secrets'] or []:
-                    text = str(value or "")
-                    if len(text) >= 4 and not any(
-                        p.pattern == re.escape(text) for p, _ in self.patterns
-                    ):
-                        try:
-                            self.patterns.insert(
-                                0, (re.compile(re.escape(text)), "Declared secret")
-                            )
-                        except re.error:
-                            pass
+                raw_literals = config['redaction']['literal_secrets']
+                if isinstance(raw_literals, str) or not isinstance(raw_literals, list):
+                    import warnings as _warnings
+
+                    _warnings.warn(
+                        "redaction.literal_secrets must be a TOML list — ignoring "
+                        f"malformed value of type {type(raw_literals).__name__}.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    for value in raw_literals or []:
+                        text = str(value or "")
+                        if len(text) < 4:
+                            if text.strip():
+                                import warnings as _warnings
+
+                                _warnings.warn(
+                                    f"Ignoring literal_secrets entry {text!r}: shorter than "
+                                    "4 characters, will NOT be redacted.",
+                                    UserWarning,
+                                    stacklevel=2,
+                                )
+                            continue
+                        if not any(
+                            p.pattern == re.escape(text) for p, _ in self.patterns
+                        ):
+                            try:
+                                self.patterns.insert(
+                                    0, (re.compile(re.escape(text)), "Declared secret")
+                                )
+                            except re.error:
+                                pass
         
         except Exception as e:
             print(f"Warning: Could not load config from {config_path}: {e}")

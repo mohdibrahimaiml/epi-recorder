@@ -640,15 +640,17 @@ function renderIntegrity(caseData, context) {
   if (notarization || envelope) {
     noteBlock.classList.remove('hidden');
 
-    // RFC 3161 TSA
+    // RFC 3161 TSA — presence only. The token's CMS signature, certificate
+    // chain, and messageImprint are NOT cryptographically validated here.
+    // Treat the timestamp as an unverified corroborating field.
     const rfcEl = document.getElementById('diag-rfc3161');
     if (notarization?.tsa_token_available) {
       const tsaUrl = notarization.notarized_at?.url || '';
       const tsaHost = tsaUrl ? tsaUrl.replace(/^https?:\/\//, '').split('/')[0] : 'TSA';
       const genTime = notarization.tsa_genTime || caseData.notarization_tsa_time || '';
-      rfcEl.textContent = '\u2713 ' + tsaHost + (genTime ? ' · ' + genTime : '');
-      rfcEl.className = 'diag-status ok';
-      if (genTime) rfcEl.title = 'TSTInfo.genTime (TSA time over sealed manifest hash): ' + genTime;
+      rfcEl.textContent = 'RFC 3161 token present (' + tsaHost + (genTime ? ' · genTime ' + genTime : '') + '; signature not validated)';
+      rfcEl.className = 'diag-status unknown';
+      rfcEl.title = 'Token present, genTime read. Signature, chain, and messageImprint are not validated — see KNOWN_LIMITATIONS.md.';
     } else if (notarization) {
       rfcEl.textContent = 'Unavailable';
       rfcEl.className = 'diag-status unknown';

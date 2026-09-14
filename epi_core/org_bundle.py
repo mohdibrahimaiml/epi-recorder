@@ -86,6 +86,14 @@ def _validate_key_entry(entry: dict, index: int) -> dict:
     status = entry.get("status", "active")
     if not isinstance(status, str):
         raise ValueError(f"Bundle key '{key_id}' status must be a string")
+    not_after = entry.get("not_after")
+    if not_after is not None:
+        nb = _parse_time(not_before, f"keys[{index}].not_before")
+        na = _parse_time(not_after, f"keys[{index}].not_after")
+        if na <= nb:
+            raise ValueError(
+                f"Bundle key '{key_id}' not_after must be after not_before"
+            )
     return {
         "key_id": key_id,
         "public_key": public_key.strip().lower(),
@@ -147,6 +155,13 @@ def issue_bundle(
     }
     _parse_time(body["issued_at"], "issued_at")
 
+    seen_ids: set[str] = set()
+    for entry in body["keys"]:
+        kid = entry["key_id"]
+        if kid in seen_ids:
+            raise ValueError(f"Duplicate key_id '{kid}' in bundle keys")
+        seen_ids.add(kid)
+
     digest = hashlib.sha256(_canonical_bytes(body)).digest()
     signature_hex = root_private_key.sign(digest).hex()
     derived = hashlib.sha256(root_public_hex.encode("utf-8")).hexdigest()[:16]
@@ -183,10 +198,17 @@ def load_bundle(path: Path | str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _verify_envelope_signature(bundle: dict) -> tuple[bool, bytes, str]:
-    """Check the bundle envelope signature. Returns (ok, root_pub_bytes, msg)."""
+    """Check the bundle envelope signature. Returns (ok, root_pub_bytes, msg).
+
+    Fail-closed: exactly one signature, and its ``ed25519:<derived>:<sig>``
+    prefix must cryptographically bind to the bundle's root public key.
+    Extra signatures are rejected rather than silently ignored.
+    """
     signatures = bundle.get("signatures") or []
     if not signatures or not isinstance(signatures, list):
         return False, b"", "Bundle has no signatures"
+    if len(signatures) != 1:
+        return False, b"", "Bundle must carry exactly one envelope signature"
     sig_entry = signatures[0]
     if not isinstance(sig_entry, dict):
         return False, b"", "Bundle signature entry malformed"
@@ -199,7 +221,12 @@ def _verify_envelope_signature(bundle: dict) -> tuple[bool, bytes, str]:
         return False, b"", "Bundle root_public_key must be 32 bytes"
     raw_sig = str(sig_entry.get("signature") or "")
     parts = raw_sig.split(":")
-    signature_hex = parts[-1] if parts else ""
+    if len(parts) != 3 or parts[0] != "ed25519" or not parts[1] or not parts[2]:
+        return False, b"", "Bundle signature must be ed25519:<derived>:<hex>"
+    derived_claimed, signature_hex = parts[1], parts[2]
+    expected_derived = hashlib.sha256(root_public_hex.strip().lower().encode("utf-8")).hexdigest()[:16]
+    if derived_claimed != expected_derived:
+        return False, b"", "Bundle signature key id does not match root public key"
     try:
         signature_bytes = bytes.fromhex(signature_hex)
     except ValueError:
@@ -255,6 +282,21 @@ def verify_artifact_against_bundle(manifest: Any, bundle: dict) -> dict:
     else:
         return {"status": "INVALID", "reason": "Artifact has no usable created_at"}
 
+    if not isinstance(bundle.get("bundle_id"), str) or not bundle.get("bundle_id"):
+        return {"status": "INVALID", "reason": "Bundle is missing bundle_id"}
+    if type(bundle.get("version")) is not int or bundle.get("version", 0) < 1:
+        return {"status": "INVALID", "reason": "Bundle version must be a positive integer"}
+    if not isinstance(bundle.get("keys"), list):
+        return {"status": "INVALID", "reason": "Bundle keys must be a list"}
+    _seen: set[str] = set()
+    for _entry in bundle.get("keys") or []:
+        if isinstance(_entry, dict) and _entry.get("key_id"):
+            if _entry["key_id"] in _seen:
+                return {
+                    "status": "INVALID",
+                    "reason": f"Bundle has duplicate key_id '{_entry['key_id']}' — ambiguous",
+                }
+            _seen.add(_entry["key_id"])
     sig_ok, root_pub, sig_msg = _verify_envelope_signature(bundle)
     if not sig_ok:
         return {"status": "INVALID", "reason": sig_msg}
@@ -286,11 +328,6 @@ def verify_artifact_against_bundle(manifest: Any, bundle: dict) -> dict:
             break
     if match is None:
         return {"status": "UNKNOWN", "reason": "Sealing key not present in bundle (stale bundle or foreign key)"}
-    if str(match.get("status", "active")) != "active":
-        return {
-            "status": "UNKNOWN",
-            "reason": f"Key '{match.get('key_id')}' has status '{match.get('status')}' — non-active keys require a v1 verifier",
-        }
 
     try:
         not_before = _parse_time(match["not_before"], "key.not_before")
@@ -314,6 +351,12 @@ def verify_artifact_against_bundle(manifest: Any, bundle: dict) -> dict:
             "status": "INVALID",
             "reason": f"Artifact sealed {t_seal.isoformat()} after key '{match.get('key_id')}' validity ended",
         }
+    # Validity windows are evaluated at T_seal: a key revoked after sealing
+    # stays VALID for artifacts sealed inside its window (never retroactively
+    # revoked). Surface the later status change in the reason instead.
+    _status_note = ""
+    if str(match.get("status", "active")) != "active":
+        _status_note = f" (key status is now '{match.get('status')}' — valid at sealing time)"
 
     try:
         from epi_core.trust import verify_signature
@@ -326,7 +369,7 @@ def verify_artifact_against_bundle(manifest: Any, bundle: dict) -> dict:
 
     return {
         "status": "VALID",
-        "reason": f"Sealing key '{match.get('key_id')}' was valid at sealing time; manifest signature verifies",
+        "reason": f"Sealing key '{match.get('key_id')}' was valid at sealing time; manifest signature verifies{_status_note}",
         "key_id": match.get("key_id"),
         "bundle_version": bundle.get("version"),
         "bundle_id": bundle.get("bundle_id"),

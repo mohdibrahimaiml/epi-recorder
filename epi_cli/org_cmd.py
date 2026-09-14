@@ -59,11 +59,43 @@ def _load_root_private_key(ref: str):
 
 
 def _read_pubkey_hex(ref: str) -> str:
-    """Read a 32-byte Ed25519 public key as hex from hex text, PEM, or .pub path."""
+    """Read a 32-byte Ed25519 public key as hex from hex text, PEM, or .pub path.
+
+    ``.epi`` sources are fail-closed: the artifact's embedded manifest
+    signature must verify before its key is pinned, unless
+    ``EPI_ALLOW_UNVERIFIED_ORG_KEY=1`` is set (auditable, explicit).
+    """
     from epi_core.keys import KeyManager
 
     candidate = Path(ref)
     if candidate.exists():
+        if candidate.suffix.lower() == ".epi":
+            import os as _os
+
+            from epi_core.container import EPIContainer
+            from epi_core.trust import verify_signature
+
+            manifest = EPIContainer.read_manifest(candidate)
+            pub_hex = str(getattr(manifest, "public_key", None) or "").strip().lower()
+            if not pub_hex:
+                raise typer.BadParameter(
+                    f"Key '{ref}' is an unsigned .epi (no manifest.public_key); "
+                    "use a signed artifact or pass the raw public key"
+                )
+            try:
+                valid, _msg = verify_signature(manifest, bytes.fromhex(pub_hex))
+            except Exception as exc:
+                raise typer.BadParameter(
+                    f"Key '{ref}': cannot verify source artifact signature ({exc})"
+                )
+            if not valid and _os.getenv(
+                "EPI_ALLOW_UNVERIFIED_ORG_KEY", "0"
+            ).strip().lower() not in ("1", "true", "yes", "on"):
+                raise typer.BadParameter(
+                    f"Key '{ref}': source artifact signature does not verify; "
+                    "verify it first (epi verify) or set "
+                    "EPI_ALLOW_UNVERIFIED_ORG_KEY=1 to pin anyway"
+                )
         return KeyManager()._load_public_key_raw_bytes_from_any(candidate).hex()
     text = ref.strip().lower()
     try:

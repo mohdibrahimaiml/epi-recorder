@@ -3965,8 +3965,9 @@ function renderIntegrity(caseData, context) {
     if (notarization?.tsa_token_available) {
       const tsaUrl = notarization.notarized_at?.url || '';
       const tsaHost = tsaUrl ? tsaUrl.replace(/^https?:\/\//, '').split('/')[0] : 'TSA';
-      rfcEl.textContent = '\u2713 ' + tsaHost;
-      rfcEl.className = 'diag-status ok';
+      rfcEl.textContent = 'RFC 3161 token present (' + tsaHost + '; signature not validated)';
+      rfcEl.className = 'diag-status unknown';
+      rfcEl.title = 'Token present. Signature, chain, and messageImprint are not validated.';
     } else if (notarization) {
       rfcEl.textContent = 'Unavailable';
       rfcEl.className = 'diag-status unknown';
