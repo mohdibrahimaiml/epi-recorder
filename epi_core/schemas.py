@@ -72,7 +72,19 @@ class ManifestModel(BaseModel):
     
     spec_version: str = Field(
         default_factory=get_version,
-        description="EPI specification version"
+        description="EPI envelope/canonicalization version (selects legacy json vs JCS vs CBOR)"
+    )
+
+    producer_version: Optional[str] = Field(
+        default=None,
+        description=(
+            "epi-recorder package version that sealed this artifact "
+            "(epi_recorder.__version__ at SEAL time). Displayed in the viewer "
+            "header and §8. Distinct from spec_version, which selects the "
+            "signature canonicalization. Absent (None) on artifacts sealed "
+            "before this field existed; omitted from the signature preimage "
+            "when None so old signatures still verify."
+        ),
     )
     
     workflow_id: UUID = Field(

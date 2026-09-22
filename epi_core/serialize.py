@@ -18,7 +18,7 @@ from pydantic import BaseModel
 # them as None; hashing that null changes the Ed25519 preimage. Keep true/false.
 # Any new Optional field that is absent from tests/goldens/legacy-spec-4.3.0.epi
 # must be listed here — test_legacy_preimage.py enforces it.
-MANIFEST_OMIT_NONE_FROM_HASH: frozenset[str] = frozenset({"content_truncated", "policy_load_status"})
+MANIFEST_OMIT_NONE_FROM_HASH: frozenset[str] = frozenset({"content_truncated", "policy_load_status", "producer_version"})
 
 
 def omit_absent_optional_hash_fields(model_dict: dict[str, Any], class_name: str) -> None:

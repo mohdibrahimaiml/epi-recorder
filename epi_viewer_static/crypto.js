@@ -539,6 +539,9 @@ function prepareManifestCopy(manifest) {
     if (copy.policy_load_status === null || copy.policy_load_status === undefined) {
         delete copy.policy_load_status;
     }
+    if (copy.producer_version === null || copy.producer_version === undefined) {
+        delete copy.producer_version;
+    }
     return copy;
 }
 
@@ -632,6 +635,7 @@ async function verifyManifestSignature(manifest, rawManifestText) {
             delete parsed.signature;
             if (parsed.content_truncated === null || parsed.content_truncated === undefined) delete parsed.content_truncated;
             if (parsed.policy_load_status === null || parsed.policy_load_status === undefined) delete parsed.policy_load_status;
+            if (parsed.producer_version === null || parsed.producer_version === undefined) delete parsed.producer_version;
             // normalize datetimes
             _normalizeDatetimeRec(parsed);
             // sorted JSON preserving __num raw text

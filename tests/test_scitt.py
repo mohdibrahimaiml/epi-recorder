@@ -389,6 +389,109 @@ class TestSCITTCLI:
 
         assert report["facts"]["transparency_ok"] is False
 
+    def test_verify_missing_service_key_reports_unknown_never_pass(
+        self, tmp_path: Path, signed_manifest, private_key, mock_service,
+    ):
+        """``epi verify`` with a SCITT receipt but no service key.
+
+        Regression: structural receipt shape alone must never read as
+        verified. transparency_ok stays None (MISSING) and the overall
+        decision never reaches PASS.
+        """
+        import json
+        import shutil
+        import zipfile
+
+        from typer.testing import CliRunner
+
+        from epi_cli.main import app
+
+        # 1. Seal + sign a base artifact (envelope-safe pack path).
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "steps.jsonl").write_text('{"index":0}\n')
+        epi_path = tmp_path / "scitt_nokey.epi"
+        EPIContainer.pack(
+            source_dir,
+            signed_manifest,
+            epi_path,
+            signer_function=lambda m: sign_manifest(m, private_key, "test"),
+        )
+
+        # 2. Statement binds the sealed manifest (hash excludes
+        # signature+governance, so later governance/re-sign is stable).
+        sealed = EPIContainer.read_manifest(epi_path)
+        statement_bytes = create_scitt_statement(sealed, private_key, issuer="test")
+        receipt_bytes, info = mock_service.register(statement_bytes)
+        gov = scitt_governance_from_info(info, issuer="test")
+        gov["service_url"] = "https://unreachable-scitt.example.com"
+
+        # 3. Embed envelope-safely (mirrors add_review): unpack payload,
+        # add members, set governance, re-sign, rewrite artifact.
+        work = tmp_path / "work"
+        EPIContainer.unpack(epi_path, work)
+        scitt_dir = work / "artifacts" / "scitt"
+        scitt_dir.mkdir(parents=True, exist_ok=True)
+        (scitt_dir / "statement.cbor").write_bytes(statement_bytes)
+        (scitt_dir / "receipt.cbor").write_bytes(receipt_bytes)
+
+        updated = EPIContainer.read_manifest(epi_path)
+        updated_dict = updated.model_dump(mode="json")
+        if not isinstance(updated_dict.get("governance"), dict):
+            updated_dict["governance"] = {}
+        updated_dict["governance"]["scitt"] = gov
+        updated = sign_manifest(
+            ManifestModel(**updated_dict),
+            private_key,
+            "test",
+        )
+        (work / "manifest.json").write_text(
+            updated.model_dump_json(indent=2), encoding="utf-8"
+        )
+
+        payload_zip = tmp_path / "payload.zip"
+        with zipfile.ZipFile(payload_zip, "w", zipfile.ZIP_DEFLATED) as zf_out:
+            # mimetype MUST be the first entry (forensic structural rule).
+            zf_out.write(
+                work / "mimetype", "mimetype", compress_type=zipfile.ZIP_STORED
+            )
+            for path in sorted(work.rglob("*")):
+                if not path.is_file():
+                    continue
+                arc = str(path.relative_to(work)).replace("\\", "/")
+                if arc == "mimetype":
+                    continue
+                zf_out.write(path, arc, compress_type=zipfile.ZIP_DEFLATED)
+        EPIContainer._write_artifact_from_payload(
+            payload_zip,
+            epi_path,
+            container_format=EPIContainer.detect_container_format(epi_path),
+            manifest=updated,
+        )
+        shutil.rmtree(work, ignore_errors=True)
+
+        # 4. Service key unavailable → transparency unknown, never PASS.
+        import epi_cli.verify
+
+        original_fetcher = epi_cli.verify._fetch_scitt_service_key
+        epi_cli.verify._fetch_scitt_service_key = lambda url: None
+        try:
+            runner = CliRunner()
+            result = runner.invoke(app, ["verify", str(epi_path), "--json"])
+            assert result.exit_code == 0, f"CLI failed: {result.output}"
+            text = result.output or ""
+            start, end = text.find("{"), text.rfind("}")
+            report = json.loads(text[start : end + 1])
+        finally:
+            epi_cli.verify._fetch_scitt_service_key = original_fetcher
+
+        facts = report.get("facts", report)
+        assert facts.get("integrity_ok") is True
+        assert facts.get("signature_valid") is True
+        assert facts.get("transparency_ok") is None
+        assert report.get("summary", {}).get("transparency") == "MISSING"
+        assert report.get("decision", {}).get("status") != "PASS"
+
     def test_cli_verify_full_crypto(
         self, tmp_path: Path, signed_manifest, private_key, mock_service,
     ):

@@ -352,7 +352,15 @@ class EPIContainer:
 
         from epi_core._version import get_version
 
-        current_version_marker = f"v{get_version()}"
+        # Display the SEAL-time producer version baked into the manifest,
+        # not the verifier's installed version. Fall back to spec_version
+        # for artifacts sealed before producer_version existed.
+        _seal_version = (
+            getattr(manifest, "producer_version", None)
+            or getattr(manifest, "spec_version", None)
+            or get_version()
+        )
+        current_version_marker = f"v{_seal_version}"
         if "__EPI_VERSION__" in html_with_scripts:
             html_with_version = html_with_scripts.replace("__EPI_VERSION__", current_version_marker)
         else:
@@ -1482,6 +1490,17 @@ class EPIContainer:
             # pre-seal — never silently upgrade it to False.
             if manifest.content_truncated is not True:
                 manifest.content_truncated = False
+            # Stamp the sealing package version so the viewer shows what
+            # actually produced the file (not the verifier's version).
+            # Preserve an explicitly set value (e.g. tests); never overwrite
+            # a version already present, and never backfill on load paths.
+            if not getattr(manifest, "producer_version", None):
+                try:
+                    from epi_core._version import get_version as _get_ver
+
+                    manifest.producer_version = _get_ver()
+                except Exception:
+                    pass
             manifest.container_format = container_format
             temp_dir = EPIContainer._make_temp_dir("epi_pack_payload_")
             payload_path = temp_dir / "payload.zip"
