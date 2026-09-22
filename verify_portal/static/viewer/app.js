@@ -325,12 +325,17 @@ function renderHeader(caseData, context) {
   const createdAt = m.created_at ? fmtDate(m.created_at) : '—';
   const container = m.container_format || 'unknown';
   const spec = m.spec_version || '—';
+  // Seal-time producer version; fall back to spec_version for artifacts
+  // sealed before producer_version existed.
+  const producer = m.producer_version || m.spec_version || '—';
 
   document.getElementById('header-title').textContent = workflowName.replace(/_/g, ' ');
   document.getElementById('header-uuid').textContent = 'UUID: ' + uuid;
   document.getElementById('meta-created').textContent = createdAt;
   document.getElementById('meta-container').textContent = container;
   document.getElementById('meta-spec').textContent = spec;
+  const producerEl = document.getElementById('meta-producer');
+  if (producerEl) producerEl.textContent = producer;
   document.getElementById('meta-steps').textContent = steps.length + ' step' + (steps.length !== 1 ? 's' : '');
   document.title = workflowName + ' — EPI Forensic Viewer';
 
@@ -1605,6 +1610,8 @@ function renderAppendix(caseData) {
       platform: m.platform || '—',
       python_version: m.python_version || '—',
       spec_version: m.spec_version,
+      producer_version: m.producer_version || m.spec_version || '—',
+      'epi-recorder': m.producer_version || m.spec_version || '—',
       created_at: m.created_at || '—',
     };
     envEl.textContent = JSON.stringify(envInfo, null, 2);

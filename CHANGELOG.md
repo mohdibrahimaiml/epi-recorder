@@ -4,6 +4,14 @@ All notable changes to EPI Recorder are documented here.
 
 ## [4.4.6] - 2026-09-10
 
+### Fixed — Viewer shows the version that sealed the file (Task 1)
+
+- **Seal-time `producer_version`** `schemas.py:ManifestModel` new optional field, stamped by `container.py:pack` from the sealing package version (never backfilled on load; omitted from the signature preimage when absent so pre-4.4.6 seals still verify)
+- **Viewer header/footer** `container.py:_create_embedded_viewer` + `view.py:_create_decision_ops_viewer` now render `manifest.producer_version` (fallback `spec_version`) instead of the verifier's installed version — a 4.4.1 artifact opened with 4.4.6 installed reports 4.4.1
+- **Two labelled fields**: header shows `Spec_Version (envelope)` (canonicalization selector, unchanged) alongside `Producer_Version (sealed by)`; §8 appendix carries both plus `"epi-recorder"`
+- Browser preimages (`epi_viewer_static/crypto.js`, `epi-manifest-preimage.js`, `epi-verify-core.js` mirrors) omit null `producer_version`, matching `serialize.py:MANIFEST_OMIT_NONE_FROM_HASH`
+- Regression test `tests/test_producer_version.py` (seal → manifest version == package version)
+
 ### Breaking — Stricter verification (correctness)
 
 - **Trust ranking** `UNSIGNED` now `LOW` not `MEDIUM` above `signed-unknown`; `32B/64B` length enforced `trust.py:239,124`

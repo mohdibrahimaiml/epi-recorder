@@ -1180,8 +1180,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"  - Org root:     {str(org_root)[:16]}… (named, not verified here)"
         )
+        file_name = Path(epi_file).name if hasattr(epi_file, "name") or isinstance(epi_file, str) else str(epi_file)
         content_lines.append(
-            f"  confirm: epi org bundle verify {epi_file.name} <bundle.json>"
+            f"  confirm: epi org bundle verify {file_name} <bundle.json>"
         )
     content_lines.append(f"  - Detail:       {identity_detail}")
     content_lines.append("")

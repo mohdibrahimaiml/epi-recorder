@@ -610,7 +610,19 @@ def _create_decision_ops_viewer(extracted_dir: Path, resolved_path: Path) -> str
 
     from epi_core._version import get_version
 
-    current_version_marker = f"v{get_version()}"
+    # Display the SEAL-time producer version from the manifest, not the
+    # verifier's installed version. Fall back to spec_version for artifacts
+    # sealed before producer_version existed.
+    try:
+        _manifest = EPIContainer.read_manifest(resolved_path)
+        _seal_version = (
+            getattr(_manifest, "producer_version", None)
+            or getattr(_manifest, "spec_version", None)
+            or get_version()
+        )
+    except Exception:
+        _seal_version = get_version()
+    current_version_marker = f"v{_seal_version}"
     if "__EPI_VERSION__" in html:
         return html.replace("__EPI_VERSION__", current_version_marker)
     return html

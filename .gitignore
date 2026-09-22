@@ -245,6 +245,9 @@ contact_submissions/
 attic/
 # Large media not tracked
 *.mp4
+# Launch film ships with the site
+!website/assets/epi-brag.mp4
+!website/assets/epi-brag-vertical.mp4
 *.trace.json
 build-v4.4.1.trace.json
 # Local OAuth helper output (public client_id + single-use PKCE nonces, never commit)

@@ -3,7 +3,7 @@
  * Dispatch matches epi_core._version.JCS_INTRODUCED_TUPLE (4, 4, 1):
  *   spec < 4.4.1 → json.dumps(sort_keys) with preserved float text (900.0)
  *   spec >= 4.4.1 → JCS-equivalent JSON.parse numbers (900.0 → 900)
- * Omit null content_truncated and policy_load_status (MANIFEST_OMIT_NONE_FROM_HASH).
+ * Omit null content_truncated, policy_load_status, producer_version (MANIFEST_OMIT_NONE_FROM_HASH).
  */
 (function (global) {
   'use strict';
@@ -151,6 +151,9 @@
     }
     if (manifest.policy_load_status === null || manifest.policy_load_status === undefined) {
       delete manifest.policy_load_status;
+    }
+    if (manifest.producer_version === null || manifest.producer_version === undefined) {
+      delete manifest.producer_version;
     }
     return manifest;
   }

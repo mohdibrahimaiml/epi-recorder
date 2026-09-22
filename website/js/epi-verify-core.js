@@ -235,6 +235,9 @@
     if (copy.policy_load_status === null || copy.policy_load_status === undefined) {
       delete copy.policy_load_status;
     }
+    if (copy.producer_version === null || copy.producer_version === undefined) {
+      delete copy.producer_version;
+    }
     return copy;
   }
 

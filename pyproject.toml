@@ -171,7 +171,6 @@ Homepage = "https://epilabs.org"
 Documentation = "https://epilabs.org/docs"
 Repository = "https://github.com/mohdibrahimaiml/epi-recorder"
 Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
-Discussions = "https://github.com/mohdibrahimaiml/epi-recorder/discussions"
 
 [tool.setuptools.packages.find]
 where = ["."]

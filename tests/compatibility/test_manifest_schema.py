@@ -35,6 +35,7 @@ FROZEN_MANIFEST_FIELDS = {
     "policy",
     "content_truncated",
     "policy_load_status",
+    "producer_version",
 }
 
 
