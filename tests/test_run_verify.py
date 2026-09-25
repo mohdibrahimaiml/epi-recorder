@@ -384,7 +384,7 @@ class TestStepSequenceCompleteness:
         ok, gaps = _audit_step_sequence_completeness(steps)
         assert ok is False
         assert len(gaps) == 1
-        assert "tool.call at step 0 is missing a corresponding tool.response" in gaps[0]
+        assert "tool.call at step 1 is missing a corresponding tool.response" in gaps[0]
 
     def test_missing_llm_response(self):
         from epi_cli.verify import _audit_step_sequence_completeness
@@ -397,7 +397,7 @@ class TestStepSequenceCompleteness:
         ok, gaps = _audit_step_sequence_completeness(steps)
         assert ok is False
         assert len(gaps) == 1
-        assert "llm.request at step 0 is missing a corresponding response or error" in gaps[0]
+        assert "llm.request at step 1 is missing a corresponding response or error" in gaps[0]
 
     def test_missing_approval_response(self):
         from epi_cli.verify import _audit_step_sequence_completeness
@@ -410,5 +410,5 @@ class TestStepSequenceCompleteness:
         ok, gaps = _audit_step_sequence_completeness(steps)
         assert ok is False
         assert len(gaps) == 1
-        assert "agent.approval.request for 'action-1' at step 0 is missing a response" in gaps[0]
+        assert "agent.approval.request for 'action-1' at step 1 is missing a response" in gaps[0]
 
