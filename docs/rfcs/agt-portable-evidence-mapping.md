@@ -95,7 +95,7 @@ AGT is a multi-language toolkit. The Python implementation in `agent-governance-
 
 `Policy` is a declarative document with `apiVersion` (`governance.toolkit/v1`), `metadata`, and `rules`. `PolicyRule` defines `name`, `description`, `stage` (`pre_input`, `pre_tool`, `post_tool`, `pre_output`), `condition` (expression string), `action` (`allow`, `deny`, `warn`, `require_approval`, `log`), `limit`, `approvers`, `priority`, and `enabled`. `PolicyDecision` is the runtime outcome: `allowed`, `blocked`, or `error`. The `condition` field contains free-form expression logic that cannot be flattened into JSON without loss of semantics.
 
-**Mapping note:** `allowed` maps to EPI `validation.pass`, `blocked` maps to `validation.fail`, and `error` maps to `validation.corrected` in `steps.jsonl`.
+**Mapping note:** `allowed` maps to EPI `validation.pass` and `blocked` maps to `validation.fail` in `steps.jsonl`. An `error` outcome is preserved as an error — the adapter keeps `governance.outcome: error`, the converter uses the `agent.run.error` kind. An error does not establish that any correction occurred, so it must never be restated as `validation.corrected`.
 
 ### 4.4 AnnexIVDocument
 
