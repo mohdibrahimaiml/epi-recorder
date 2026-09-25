@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.4.7] - 2026-09-26
 
 ### Fixed — Viewer/CLI agreement on findings (screenshot-review follow-ups)
 

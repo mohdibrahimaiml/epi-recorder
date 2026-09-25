@@ -204,6 +204,7 @@ class EPIContainer:
         manifest: ManifestModel,
         viewer_version: str = "minimal",
         envelope_header: EPIEnvelopeHeader | None = None,
+        output_path: Path | str | None = None,
     ) -> str:
         assets = load_viewer_assets(version=viewer_version)
         template_html = assets["template_html"]
@@ -232,23 +233,31 @@ class EPIContainer:
         mimetype_compliant = True 
 
         # Derive a human-readable source name:
-        # 1. workflow_name from session.start step content (most reliable)
-        # 2. cli_command tail
-        # 3. short UUID fallback
+        # Use the actual artifact filename when available (so `epi verify <file>` is copy-pasteable).
+        # Fallback to workflow_name / cli_command for legacy callers that don't pass output_path.
         _steps_for_name = _read_steps_if_exists(source_dir / "steps.jsonl")
-        _session_start = next(
-            (s for s in _steps_for_name if isinstance(s, dict) and s.get("kind") == "session.start"),
-            None,
-        )
-        _workflow_name = (
-            (_session_start or {}).get("content", {}).get("workflow_name")
-            or getattr(manifest, "workflow_name", None)
-        )
-        _source_name = (
-            _workflow_name
-            or (manifest.cli_command.split()[-1] if manifest.cli_command else None)
-            or f"{str(manifest.workflow_id)[:8]}.epi"
-        )
+        if output_path is not None:
+            _raw_name = Path(output_path).name
+            # Signing uses a .epi.tmp temp file then renames to .epi — viewer should show the final .epi name
+            if _raw_name.endswith(".epi.tmp"):
+                _raw_name = _raw_name[:-4]
+            elif _raw_name.endswith(".tmp"):
+                _raw_name = _raw_name[: -len(".tmp")]
+            _source_name = _raw_name
+        else:
+            _session_start = next(
+                (s for s in _steps_for_name if isinstance(s, dict) and s.get("kind") == "session.start"),
+                None,
+            )
+            _workflow_name = (
+                (_session_start or {}).get("content", {}).get("workflow_name")
+                or getattr(manifest, "workflow_name", None)
+            )
+            _source_name = (
+                _workflow_name
+                or (manifest.cli_command.split()[-1] if manifest.cli_command else None)
+                or f"{str(manifest.workflow_id)[:8]}.epi"
+            )
 
         case_payload = {
             "source_name": _source_name,
@@ -288,7 +297,7 @@ class EPIContainer:
             },
             "integrity": {
                 "ok": True,
-                "checked": len(manifest.file_manifest),
+                "checked": len(manifest.file_manifest) + (0 if "viewer.html" in manifest.file_manifest else 1),
                 "mismatches": [],
             },
             "signature": {
@@ -837,6 +846,7 @@ class EPIContainer:
         preserve_generated: bool = False,
         generate_analysis: bool = True,
         embed_agt: bool = False,
+        output_path: Path | str | None = None,
         **kwargs,
     ) -> str:
         if not source_dir.exists():
@@ -1251,8 +1261,10 @@ class EPIContainer:
             reserved_tail=b"\x00" * 56
         )
 
+        # Prefer the real filename for the Verify command; fall back to workflow_name for legacy callers
+        _output_for_viewer = output_path if output_path is not None else kwargs.get("output_path")
         viewer_html = EPIContainer._create_embedded_viewer(
-            source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header
+            source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header, output_path=_output_for_viewer
         )
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1515,6 +1527,7 @@ class EPIContainer:
                     preserve_generated=preserve_generated,
                     generate_analysis=generate_analysis,
                     embed_agt=embed_agt,
+                    output_path=output_path,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
@@ -1551,11 +1564,12 @@ class EPIContainer:
         manifest: ManifestModel,
         payload_path: Path,
         signer_function: Callable[[ManifestModel], ManifestModel] | None = None,
+        output_path: Path | str | None = None,
         **kwargs,
     ) -> str:
         viewer_version = str(kwargs.get("viewer_version", "minimal"))
         viewer_html = EPIContainer._create_embedded_viewer(
-            source_dir, manifest, viewer_version=viewer_version
+            source_dir, manifest, viewer_version=viewer_version, output_path=output_path
         )
         payload_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1639,7 +1653,8 @@ class EPIContainer:
                     zf.extractall(unpack_dir)
 
             viewer_html = EPIContainer._rebuild_payload_with_viewer(
-                unpack_dir, manifest, temp_payload, signer_function=signer_function
+                unpack_dir, manifest, temp_payload, signer_function=signer_function,
+                output_path=destination,
             )
 
             EPIContainer._write_artifact_from_payload(
