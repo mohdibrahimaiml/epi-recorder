@@ -4,6 +4,17 @@ This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
 
+## Sealed `controls_failed` may undercount (fixed after 4.4.6)
+
+**Artifacts sealed through 4.4.6 can report `policy_evaluation.json`
+`controls_failed` lower than the failed entries in `results`.** When
+auto-extracted policy rules were merged alongside baseline heuristics at
+pack time, the baseline failure count was reset instead of preserved
+(`container.py`). The `results` array itself was always complete — recount
+failed controls from `results`, not the header field. Fixed for new seals;
+old seals verify byte-identical as before (their bytes are unchanged, the
+field included).
+
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
 The following were gaps and are now fixed — kept here for audit trail:

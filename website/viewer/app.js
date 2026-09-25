@@ -946,10 +946,14 @@ function renderVerdict(caseData) {
   if (humanReview) {
     parts.push(`Human attestation by ${humanReview.reviewed_by}: ${humanReview.status.toUpperCase()}.`);
   }
+  // Name every pattern in the count: the headline alone names only the
+  // primary fault while secondary flags go unmentioned.
+  const nFlags = (analysis?.primary_fault ? 1 : 0)
+    + (analysis?.secondary_flags?.length || 0);
   if (rationale) {
     parts.push(trunc(rationale, 300));
   } else if (headline) {
-    parts.push(headline);
+    parts.push(nFlags > 1 ? `${nFlags} patterns detected — primary: ${headline}` : headline);
   } else if (systemVerdict && humanReview) {
     parts.push(`System verdict was ${systemVerdict}.`);
   }
@@ -1223,7 +1227,16 @@ function renderAnalysis(caseData) {
     f.category === 'heuristic_observation' || f.fault_type === 'HEURISTIC_OBSERVATION'
   );
   if (analysis.fault_detected === false) {
-    html += `<div class="no-fault-block">&#10003; ${esc(headline || 'No faults detected.')}</div>`;
+    if (allFlags.length > 0) {
+      // Advisory-only observations: never render the green all-clear
+      // around a "triggered" headline.
+      html += `<div class="fault-block noted-block">
+      <div class="fault-block-title">Pattern Noted (advisory — not a fault)</div>
+      <div class="fault-detail">${esc(headline)}</div>
+    </div>`;
+    } else {
+      html += `<div class="no-fault-block">&#10003; ${esc(headline || 'No faults detected.')}</div>`;
+    }
   } else if (analysis.fault_detected === true) {
     const title = isHeuristicOnly ? 'Pattern Noted' : 'Fault Detected';
     html += `<div class="fault-block">
@@ -1241,7 +1254,7 @@ function renderAnalysis(caseData) {
         <div class="fault-block-title">${isHeuristicOnly ? 'Pattern: ' : 'Primary Fault: '}${esc(pf.fault_type || '?')}</div>
         <div class="fault-detail">
           Severity: <strong>${esc(sevLabel)}</strong>
-          ${pf.step_index != null ? ` · At step index: ${esc(pf.step_index)}` : ''}
+          ${pf.step_index != null ? ` · At step ${esc(Number(pf.step_index) + 1)}` : ''}
           ${pf.category ? ` · Category: ${esc(pf.category)}` : ''}
           ${pf.description ? `<br>${esc(pf.description)}` : ''}
         </div>
@@ -1259,7 +1272,7 @@ function renderAnalysis(caseData) {
         <div class="flag-item">
           <strong>${esc(f.fault_type || f.type || '?')}</strong>
           ${sev ? ` <span class="risk-badge ${isH ? 'low' : (f.severity || 'medium').toLowerCase()}">${esc(sev)}</span>` : ''}
-          ${f.step_index != null ? ` · Step ${esc(f.step_index)}` : ''}
+          ${f.step_index != null ? ` · Step ${esc(Number(f.step_index) + 1)}` : ''}
           ${f.description ? `<br><span style="font-size:10px; color:#555;">${esc(f.description)}</span>` : ''}
         </div>`;
     });

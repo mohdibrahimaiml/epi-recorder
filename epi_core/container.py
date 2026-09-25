@@ -950,9 +950,11 @@ class EPIContainer:
                             auto_eval["baseline"] = False
                             auto_eval["note"] = auto_policy.get("note", "")
                             # Append auto-extracted rule results alongside baseline ones.
-                            # Keep the existing controls_evaluated count from baseline results;
-                            # auto-policy rules increment it further below.
-                            auto_eval["controls_failed"] = 0
+                            # Keep the baseline controls_failed count from
+                            # _build_baseline_policy_evaluation (resetting it
+                            # to 0 here used to drop baseline failures from
+                            # sealed artifacts); auto-policy rules increment
+                            # both counters further below.
                             auto_eval["note"] = (auto_policy.get("note", "") + 
                                 " Auto-extracted policy rules from this recording. Baseline heuristics are still evaluated alongside.")
                             auto_eval["auto_extracted"] = True

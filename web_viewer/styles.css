@@ -783,6 +783,16 @@ body {
   color: var(--pass);
 }
 
+/* Advisory-only findings: must never wear the green all-clear. */
+.noted-block {
+  border-left-color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.noted-block .fault-block-title {
+  color: var(--warn);
+}
+
 .secondary-flags { margin-top: 14px; }
 
 .flag-item {
