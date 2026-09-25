@@ -116,7 +116,7 @@ def capture_installed_packages() -> Dict[str, str]:
 
     # Seal-time version must match header producer_version (get_version reads
     # pyproject at seal time). importlib.metadata.distributions() can return a
-    # stale site-packages 4.4.5 that overwrites the local 4.4.6 egg-info, so
+    # stale installed copy that overwrites the local checkout version, so
     # pin epi-recorder explicitly to avoid header/appendix drift.
     try:
         from epi_core._version import get_version as _seal_version
