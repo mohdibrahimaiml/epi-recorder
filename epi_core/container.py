@@ -1650,7 +1650,16 @@ class EPIContainer:
         try:
             with EPIContainer._payload_zip_path(source_path) as payload_zip:
                 with zipfile.ZipFile(payload_zip, "r") as zf:
-                    zf.extractall(unpack_dir)
+                    resolved_unpack = unpack_dir.resolve()
+                    for member in zf.infolist():
+                        member_path = (unpack_dir / member.filename).resolve()
+                        try:
+                            member_path.relative_to(resolved_unpack)
+                        except ValueError:
+                            raise ValueError(
+                                f"Path traversal detected in .epi archive: {member.filename}"
+                            )
+                        zf.extract(member, unpack_dir)
 
             viewer_html = EPIContainer._rebuild_payload_with_viewer(
                 unpack_dir, manifest, temp_payload, signer_function=signer_function,

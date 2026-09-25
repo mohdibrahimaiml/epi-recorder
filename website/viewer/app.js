@@ -422,7 +422,8 @@ async function verifyCaseInBrowser(caseData) {
   const hasSig = !!(manifest.signature || (caseData.signature && caseData.signature.present));
 
   // ── Signature (Ed25519 over canonical manifest hash) ──
-  // Pass raw manifest JSON text to preserve Python's float format (900.0 vs 900)
+  // Pass raw manifest JSON text so the verifier re-encodes numbers/strings
+  // per JCS exactly like Python's rfc8785 (900.0 hashes as "900").
   const rawManifestText = caseData.files && caseData.files['manifest.json']
     ? atob(caseData.files['manifest.json'])
     : null;

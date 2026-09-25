@@ -464,10 +464,20 @@ function _tokenizeJSON(str) {
       i++; var s = '';
       while (i < str.length) {
         var ch = str[i];
-        if (ch === '\\') { i++; s += str[i]; i++; }
+        if (ch === '\\') {
+          i++;
+          var esc = str[i];
+          if (esc === 'u') {
+            var hex = str.substr(i + 1, 4);
+            if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw new Error('Bad unicode escape at ' + i);
+            s += String.fromCharCode(parseInt(hex, 16)); i += 5;
+          } else {
+            var _map = {n:'\n', t:'\t', r:'\r', b:'\b', f:'\f', '"':'"', '\\':'\\', '/':'/'};
+            s += (esc in _map) ? _map[esc] : esc; i++;
+          }
+        }
         else if (ch === '"') { break; }
         else { s += ch; i++; }
-        i++;
       }
       tokens.push({type: 'string', value: s}); i++; continue;
     }
@@ -494,10 +504,8 @@ function _normalizeDatetimeRec(obj) {
   if (Array.isArray(obj)) { obj.forEach(_normalizeDatetimeRec); return; }
   if (obj && typeof obj === 'object') {
     for (var k in obj) {
-      if (typeof obj[k] === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(obj[k])) {
-        var v = obj[k].replace(/\.\d+/, '');
-        if (!v.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(v)) v += 'Z';
-        obj[k] = v;
+      if (typeof obj[k] === 'string') {
+        obj[k] = _epiUtcZ(obj[k]);
       } else {
         _normalizeDatetimeRec(obj[k]);
       }
@@ -506,18 +514,64 @@ function _normalizeDatetimeRec(obj) {
 }
 
 function _sortedJson(obj) {
-  if (obj && typeof obj === 'object' && obj.__num !== undefined) return obj.__num;
+  if (obj && typeof obj === 'object' && obj.__num !== undefined) return _jcsNumberFromRaw(obj.__num);
   if (obj === null) return 'null';
-  if (typeof obj === 'string') return JSON.stringify(obj);
+  if (typeof obj === 'string') return _jcsString(obj);
   if (typeof obj === 'number') return String(Number.isFinite(obj) ? obj : 'null');
   if (typeof obj === 'boolean') return String(obj);
   if (Array.isArray(obj)) return '[' + obj.map(_sortedJson).join(',') + ']';
   var keys = Object.keys(obj).sort(), p = [];
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
-    if (obj[k] !== undefined) p.push(JSON.stringify(k) + ':' + _sortedJson(obj[k]));
+    if (obj[k] !== undefined) p.push(_jcsString(k) + ':' + _sortedJson(obj[k]));
   }
   return '{' + p.join(',') + '}';
+}
+
+// JCS (RFC 8785) primitives shared by every canonicalizer in this file.
+// Must match Python rfc8785.dumps exactly: integers verbatim, 900.0 -> "900",
+// non-ASCII and control chars \u-escaped, object keys sorted by UTF-16 units
+// (Object.keys().sort() already does that).
+
+// JCS string encoding: the Python rfc8785 implementation emits non-ASCII as
+// raw UTF-8 and escapes only ", \ and control characters — exactly what
+// JSON.stringify does. Do NOT \u-escape non-ASCII here: that was tried and
+// diverges from the signer. This wrapper exists as a single choke point.
+function _jcsString(s) {
+  return JSON.stringify(s);
+}
+
+// JCS number encoding from raw JSON number text: integer literals round-trip
+// verbatim (exact even beyond 2^53, matching Python ints); anything else goes
+// through ES number-to-string, which is what JCS specifies (900.0 -> "900").
+function _jcsNumberFromRaw(raw) {
+  if (/^-?(0|[1-9][0-9]*)$/.test(raw)) return raw;
+  var n = Number(raw);
+  if (!isFinite(n)) return 'null';
+  return String(n);
+}
+
+// Normalize an ISO-8601 datetime string the way Python serialize.normalize_value
+// does: explicit numeric offsets convert to UTC, fractions are dropped (no
+// rounding), output is always ...Z. Strings WITHOUT a tz marker are returned
+// untouched: in raw manifest text those were plain strings, not datetimes
+// (a real datetime object always serializes with Z or an offset).
+function _epiUtcZ(s) {
+  if (typeof s !== 'string') return s;
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$/.exec(s);
+  if (!m || !m[8]) return s;
+  var ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  var off = m[8];
+  if (off !== 'Z') {
+    var sign = off[0] === '+' ? 1 : -1;
+    var parts = off.slice(1).split(':');
+    var omin = (parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10)) * sign;
+    ms -= omin * 60000;
+  }
+  var d = new Date(ms);
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) +
+    'T' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + 'Z';
 }
 
 function isPreJcsSpec(sv) {
@@ -558,6 +612,13 @@ async function verifyManifestSignature(manifest, rawManifestText) {
         return { valid: false, reason: "No signature" };
     }
 
+    // CBOR-sealed v1.x manifests cannot be verified in the browser (no CBOR
+    // canonicalizer here). Fail with directions, not a tamper verdict.
+    var _svMaj = parseInt(String((manifest && manifest.spec_version) || '').replace(/^v/i, '').split('.')[0], 10);
+    if (_svMaj === 1) {
+        return { valid: false, reason: "Legacy CBOR manifest (v1.x) — verify with epi verify on the CLI" };
+    }
+
     // 2. Parse signature string "ed25519:<name>:<hex>"
     const parts = manifest.signature.split(':');
     if (parts.length !== 3 || parts[0] !== 'ed25519') {
@@ -576,31 +637,39 @@ async function verifyManifestSignature(manifest, rawManifestText) {
 
     const pubKeyBytes = noble.etc.hexToBytes(manifest.public_key);
 
+    // Bind key_name to the manifest public key (matches trust.py
+    // verify_signature). Without this, a relabeled key id is accepted here
+    // while the CLI rejects it.
+    try {
+        var _khBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(manifest.public_key).toLowerCase()));
+        var _khHex = Array.from(new Uint8Array(_khBuf), function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
+        if (String(keyName).toLowerCase() !== _khHex.slice(0, 16)) {
+            return { valid: false, reason: "Key name does not match public key" };
+        }
+    } catch (_kbErr) {
+        return { valid: false, reason: "Key binding check failed" };
+    }
+
     // 4. Compute Canonical JSON Hash of Manifest (excluding signature)
     //
-    // CRITICAL: Python's json.dumps preserves ".0" on floats (900.0 stays 900.0).
-    // JS's JSON.parse strips ".0" (900.0 becomes 900). So if we parse-and-reserialize,
-    // the hash differs from what Python signed.
-    //
-    // Fix: when rawManifestText is available, use it directly for canonicalization.
-    // Strip the signature field from the raw text, sort keys, normalize datetimes,
-    // and compute the hash — matching Python's get_canonical_hash exactly.
+    // JCS agreement notes (must match Python rfc8785.dumps byte-for-byte):
+    // - Numbers: raw text is re-encoded, NOT preserved (900.0 -> "900",
+    //   integers verbatim). Preserving "900.0" was a previous bug.
+    // - Strings: decoded then re-encoded with JCS escapes (non-ASCII -> \uXXXX).
+    // - Datetimes: numeric offsets convert to UTC, fractions dropped;
+    //   tz-less strings are left untouched (they were plain strings, since a
+    //   real datetime object always serializes with Z or an offset).
 
     // Normalize datetime strings to match Python's canonical form
-    const normalizeDatetime = (s) => {
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
-            let v = s.replace(/\.\d+/, '');
-            if (!v.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(v)) v += 'Z';
-            return v;
-        }
-        return s;
-    };
+    // (offset -> UTC, fractions dropped; tz-less strings untouched)
+    const normalizeDatetime = (s) => _epiUtcZ(s);
 
-    // Recursive canonical JSON stringify (RFC 8785 style)
+    // Recursive canonical JSON stringify (RFC 8785 style, JCS string escapes)
     const canonicalJson = (obj) => {
         if (obj === null) return 'null';
-        if (typeof obj === 'string') return JSON.stringify(normalizeDatetime(obj));
-        if (typeof obj !== 'object') return JSON.stringify(obj);
+        if (typeof obj === 'string') return _jcsString(normalizeDatetime(obj));
+        if (typeof obj === 'number') return String(Number.isFinite(obj) ? obj : 'null');
+        if (typeof obj === 'boolean') return String(obj);
         if (Array.isArray(obj)) return '[' + obj.map(canonicalJson).join(',') + ']';
 
         const keys = Object.keys(obj).sort();
@@ -608,7 +677,7 @@ async function verifyManifestSignature(manifest, rawManifestText) {
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
             if (i > 0) result += ',';
-            result += JSON.stringify(key) + ':' + canonicalJson(obj[key]);
+            result += _jcsString(key) + ':' + canonicalJson(obj[key]);
         }
         return result + '}';
     };
@@ -703,24 +772,20 @@ const EPI_LEGACY_MIMETYPE = 'application/vnd.epi+zip';
 const EPI_BROWSER_SEED_STORAGE_KEY = 'epi.viewer.signingSeed.v1';
 
 function epiNormalizeDatetimeForCanonical(s) {
-    if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
-        let v = s.replace(/\.\d+/, '');
-        if (!v.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(v)) v += 'Z';
-        return v;
-    }
-    return s;
+    return _epiUtcZ(s);
 }
 
 function epiCanonicalJson(obj) {
     if (obj === null) return 'null';
-    if (typeof obj === 'string') return JSON.stringify(epiNormalizeDatetimeForCanonical(obj));
-    if (typeof obj !== 'object') return JSON.stringify(obj);
+    if (typeof obj === 'string') return _jcsString(_epiUtcZ(obj));
+    if (typeof obj === 'number') return String(Number.isFinite(obj) ? obj : 'null');
+    if (typeof obj === 'boolean') return String(obj);
     if (Array.isArray(obj)) return '[' + obj.map(epiCanonicalJson).join(',') + ']';
     const keys = Object.keys(obj).sort();
     let result = '{';
     for (let i = 0; i < keys.length; i++) {
         if (i > 0) result += ',';
-        result += JSON.stringify(keys[i]) + ':' + epiCanonicalJson(obj[keys[i]]);
+        result += _jcsString(keys[i]) + ':' + epiCanonicalJson(obj[keys[i]]);
     }
     return result + '}';
 }

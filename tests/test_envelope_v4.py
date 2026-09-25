@@ -222,6 +222,39 @@ def test_refresh_viewer_signed_re_seals_and_keeps_integrity(sample_workspace, tm
     assert True  # refresh succeeded, signature invalidation is expected
 
 
+def test_refresh_viewer_rejects_path_traversal(sample_workspace, tmp_path):
+    """Crafted payload with ../ entry must not escape the unpack dir (zip-slip)."""
+    import io
+
+    workspace, source = sample_workspace
+    output = workspace / "case.epi"
+    EPIContainer.pack(source, ManifestModel(cli_command="test"), output)
+
+    with EPIContainer._payload_zip_path(output) as payload_zip:
+        raw = Path(payload_zip).read_bytes()
+
+    buf = io.BytesIO(raw)
+    out_buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "r") as zin:
+        with zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                zout.writestr(item, zin.read(item.filename))
+            zout.writestr("../../epi_traversal_probe.txt", "evil")
+
+    poisoned_payload = tmp_path / "payload.zip"
+    poisoned_payload.write_bytes(out_buf.getvalue())
+    poisoned = workspace / "poisoned.epi"
+    EPIContainer._write_artifact_from_payload(
+        poisoned_payload,
+        poisoned,
+        container_format=EPI_CONTAINER_FORMAT_ENVELOPE,
+        manifest=EPIContainer.read_manifest(output),
+    )
+
+    with pytest.raises(ValueError, match="Path traversal"):
+        EPIContainer.refresh_viewer(poisoned)
+
+
 def test_refresh_viewer_signed_refuses_without_resign_or_force(sample_workspace, tmp_path):
     from epi_core.keys import KeyManager
     from epi_core.trust import sign_manifest
