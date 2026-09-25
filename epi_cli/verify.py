@@ -269,14 +269,16 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
             if not matched and pending_approvals:
                 pending_approvals.pop(0)
 
+    # Step references are 1-based throughout every surface (viewer §3/§4/§6,
+    # analyzer step_number): a gap at list index i is reported as step i+1.
     for idx, call_id in pending_tool_calls:
-        gaps.append(f"tool.call at step {idx} is missing a corresponding tool.response")
+        gaps.append(f"tool.call at step {idx + 1} is missing a corresponding tool.response")
     for idx, call_id in pending_pre_commits:
-        gaps.append(f"llm.pre_commit at step {idx} was committed but never executed — response never arrived (crash, timeout, or cancellation)")
+        gaps.append(f"llm.pre_commit at step {idx + 1} was committed but never executed — response never arrived (crash, timeout, or cancellation)")
     for idx, span_id in pending_llm_requests:
-        gaps.append(f"llm.request at step {idx} is missing a corresponding response or error")
+        gaps.append(f"llm.request at step {idx + 1} is missing a corresponding response or error")
     for idx, action in pending_approvals:
-        gaps.append(f"agent.approval.request for '{action}' at step {idx} is missing a response")
+        gaps.append(f"agent.approval.request for '{action}' at step {idx + 1} is missing a response")
 
     return len(gaps) == 0, gaps
 

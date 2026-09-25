@@ -2,6 +2,16 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [Unreleased]
+
+### Fixed — Viewer/CLI agreement on findings (screenshot-review follow-ups)
+
+- **§6 advisory styling**: heuristic-only observations no longer render inside the green all-clear block; they get an amber "Pattern Noted (advisory — not a fault)" block `web_viewer/app.js, styles.css`
+- **§3 banner counts all patterns**: the verdict note names the total detected count with the primary headline instead of the primary alone
+- **1-based step numbers everywhere**: CLI completeness gaps (`verify.py`), viewer primary/secondary flag steps now use 1-based step numbers matching the analyzer `step_number` and the §4 log
+- **Sealed `controls_failed` undercount**: auto-extracted policy evaluation no longer resets the baseline failure count (`container.py`) — new seals report the true total
+- **Disclosure**: artifacts sealed before this fix may report `controls_failed` lower than the failed entries in `results` (baseline failures were dropped when auto-extracted rules were present). The `results` array itself was always complete — recount from `results`, not the header field. See `KNOWN_LIMITATIONS.md`
+
 ## [4.4.6] - 2026-09-10
 
 ### Fixed — Viewer shows the version that sealed the file (Task 1)
