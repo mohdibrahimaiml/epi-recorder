@@ -865,6 +865,45 @@ function renderVerdict(caseData) {
   verdictEl.textContent = verdictDisplay;
   verdictEl.className = 'verdict-text ' + verdictClass;
 
+  // Provenance: a verdict display must never read as system adjudication
+  // when it only echoes a recorded claim. Name the source (agent step +
+  // step number) and whether §7 attestation exists yet.
+  const sourceEl = document.getElementById('verdict-source');
+  if (sourceEl) {
+    const stepNo = decisionStep && typeof decisionStep.index === 'number'
+      ? decisionStep.index + 1 : null;
+    let agentName = (decisionContent && (decisionContent.agent_name || decisionContent.agent)) || null;
+    if (!agentName) {
+      const runStart = steps.find(s => s.kind === 'agent.run.start');
+      agentName = (runStart && runStart.content && runStart.content.agent_name) || null;
+    }
+    const where = stepNo != null ? ` at step ${stepNo}` : '';
+    const who = agentName ? ` by ${agentName}` : '';
+    let srcText = '';
+    let attestText = '';
+    let attestCls = 'warn';
+    if (decisionStep && decisionStep.kind === 'agent.decision') {
+      if (humanReview) {
+        srcText = `Agent-reported outcome · recorded${who}${where} — attested: ${String(humanReview.status).toUpperCase()} by ${humanReview.reviewed_by || 'reviewer'} (§7).`;
+        attestText = `ATTESTED · ${String(humanReview.status).toUpperCase()}`;
+        attestCls = humanReview.status === 'approved' ? 'pass' : (humanReview.status === 'rejected' ? 'fail' : 'warn');
+      } else {
+        srcText = `Agent-reported outcome · recorded${who}${where} — pending human attestation (§7).`;
+        attestText = 'UNATTESTED';
+        attestCls = 'warn';
+      }
+    } else if (decisionStep) {
+      srcText = `Recorded outcome (${decisionStep.kind})${where} — ${humanReview ? 'attested (§7).' : 'pending human attestation (§7).'}`;
+      attestText = humanReview ? 'ATTESTED' : 'UNATTESTED';
+      attestCls = humanReview ? 'pass' : 'warn';
+    }
+    if (srcText) {
+      sourceEl.innerHTML = `<span class="pill ${attestCls}"><span class="pill-dot"></span>${esc(attestText)}</span><span>${esc(srcText)}</span>`;
+    } else {
+      sourceEl.innerHTML = '';
+    }
+  }
+
   // Compliance stats + risk level
   const isNoPolicy = !pe || pe.policy_source === 'no_policy' || (pe.controls_evaluated || 0) === 0;
   if (pe && !isNoPolicy) {
