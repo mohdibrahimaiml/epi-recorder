@@ -15,6 +15,21 @@ failed controls from `results`, not the header field. Fixed for new seals;
 old seals verify byte-identical as before (their bytes are unchanged, the
 field included).
 
+## `epi_signature_valid` asserts presence, not validity (exporter helper)
+
+`epi_recorder/integrations/agt_adapter/exporter.py:149` —
+`build_agt_log_data()` returns `"epi_signature_valid":
+bool(manifest.signature)`. What is actually established on that path: a
+signature string is present on the manifest. What the field name asserts:
+the signature is cryptographically *valid*. No verification runs there. A
+reader — or a downstream consumer logging this dict into AGT — could
+wrongly conclude EPI verified the artifact's signature when it only
+observed that one exists. To establish validity, run `epi verify` on the
+artifact (`verify_evidence_receipt()` covers the receipt itself). Present
+since 4.2.0. Deferred from 4.4.7 to avoid a behaviour change in a helper's
+output dict during a release carrying a sealed-data fix. Scheduled for
+4.4.8.
+
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
 The following were gaps and are now fixed — kept here for audit trail:
