@@ -115,6 +115,9 @@ def _entry_to_step(
             "agent_did": entry.agent_did,  # Preserved verbatim
         },
     }
+    add_exact(report, "timestamp", "timestamp", entry.timestamp.isoformat())
+    add_exact(report, "trace_id", "trace_id", entry.trace_id or "")
+    add_exact(report, "agent_did", "governance.agent_did", entry.agent_did)
 
     # Map agent name
     step["content"]["agent_name"] = map_agent_did(entry.agent_did, report)
@@ -125,9 +128,25 @@ def _entry_to_step(
     if matched_rule:
         step["content"]["matched_rule"] = matched_rule
         step["governance"]["policy_name"] = matched_rule
+        add_exact(report, "matched_rule", "content.matched_rule", matched_rule)
+        # Relabelling a preserved value as an assessment violates preservation
+        # semantics even when the bytes are unchanged: the namespace is the claim.
+        report.field_mappings.append(
+            FieldMapping(
+                source_field="matched_rule",
+                target_field="governance.policy_name",
+                mapping_type="exact",
+                source_value=matched_rule,
+                target_value=matched_rule,
+                notes=(
+                    "Preserved AGT matched_rule surfaced under the EPI field "
+                    "name policy_name; value unchanged, not determined by EPI."
+                ),
+            )
+        )
 
-    # Map entry_id → step trace reference
-    add_exact(report, "entry_id", "governance.agt_entry_id", entry.entry_id)
+    # Map entry_id → step trace reference (written to content, not governance)
+    add_exact(report, "entry_id", "content.agt_entry_id", entry.entry_id)
     step["content"]["agt_entry_id"] = entry.entry_id
 
     # Preserve unknown fields (extra="allow" caught these)
@@ -148,6 +167,27 @@ def _entry_to_step(
                 notes=f"Preserved {len(unknown)} unknown AGT fields",
             )
         )
+
+    # AGT chain hashes: preserved in the raw attachment only, never in the
+    # step, never verified. Absence from the step is not a disclosure on its
+    # own, so each present hash gets an explicit provenance entry stating
+    # all three facts.
+    for _hash_field in ("content_hash", "previous_hash", "signature"):
+        _hash_value = entry_dict.get(_hash_field) or ""
+        if _hash_value:
+            report.field_mappings.append(
+                FieldMapping(
+                    source_field=_hash_field,
+                    target_field="raw_agt_evidence",
+                    mapping_type="preserved_raw",
+                    source_value=str(_hash_value)[:20] + "...",
+                    notes=(
+                        f"Preserved verbatim in agt_evidence_raw.json; not "
+                        f"present in the step; NOT verified by EPI — EPI does "
+                        f"not validate the AGT chain."
+                    ),
+                )
+            )
 
     return step
 

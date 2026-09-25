@@ -4,16 +4,45 @@ This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
 
-## Sealed `controls_failed` may undercount (fixed after 4.4.6)
+## Sealed `controls_failed` may understate failures (4.4.1–4.4.6; fixed forward in 4.4.7)
 
-**Artifacts sealed through 4.4.6 can report `policy_evaluation.json`
-`controls_failed` lower than the failed entries in `results`.** When
-auto-extracted policy rules were merged alongside baseline heuristics at
-pack time, the baseline failure count was reset instead of preserved
-(`container.py`). The `results` array itself was always complete — recount
-failed controls from `results`, not the header field. Fixed for new seals;
-old seals verify byte-identical as before (their bytes are unchanged, the
-field included).
+**What you see:** `policy_evaluation.json` reports e.g. `controls_failed: 1`.
+**What is true:** counting the `results` array in the same file gives 2
+failed. When auto-extracted policy rules were merged alongside already-failing
+baseline heuristics at pack time, the baseline failure count was reset instead
+of preserved (`epi_core/container.py`, introduced in `e298bc97`, first shipped
+in 4.4.1; 4.4.2 was withdrawn and pre-4.4.1 has no auto-extract path).
+
+**Whether yours is affected:** open `policy_evaluation.json`. If
+`policy_source` is `"auto_extracted"` (or `results` include
+`auto_policy_check` entries), count the entries with `"status": "failed"`
+and compare to the `controls_failed` header — if the header is lower, yours
+undercounts. Pure-baseline files and pre-4.4.1 seals are unaffected; the
+Task-3 `insp-2026-09-21-1120.epi` checks clean (header 1, recount 1).
+
+**Can it be corrected? No — by design.** Fixing the number would change
+sealed bytes and break the file's own signature. The artifact stays valid
+and verifiable; only this header field understates. A format where a wrong
+number in an old artifact *could* be quietly fixed would be a worse format.
+
+Standing rule, beyond this bug: recount from `results`, never from the
+header. A derived count is always weaker evidence than the thing it was
+derived from. New seals from 4.4.7 report the true total.
+
+## `epi_signature_valid` asserts presence, not validity (exporter helper)
+
+`epi_recorder/integrations/agt_adapter/exporter.py:149` —
+`build_agt_log_data()` returns `"epi_signature_valid":
+bool(manifest.signature)`. What is actually established on that path: a
+signature string is present on the manifest. What the field name asserts:
+the signature is cryptographically *valid*. No verification runs there. A
+reader — or a downstream consumer logging this dict into AGT — could
+wrongly conclude EPI verified the artifact's signature when it only
+observed that one exists. To establish validity, run `epi verify` on the
+artifact (`verify_evidence_receipt()` covers the receipt itself). Present
+since 4.2.0. Deferred from 4.4.7 to avoid a behaviour change in a helper's
+output dict during a release carrying a sealed-data fix. Scheduled for
+4.4.8.
 
 ## Fixed in 4.4.6 (2026-09-10 batch)
 

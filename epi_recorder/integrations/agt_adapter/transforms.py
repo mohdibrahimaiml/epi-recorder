@@ -80,12 +80,12 @@ ACTION_MAP = {
 
 
 def map_action(action: str, report: MappingReport) -> str:
-    """Map AGT action to EPI action string."""
+    """Map AGT action to EPI action string (written to governance.action)."""
     result = ACTION_MAP.get(action, action)
     report.field_mappings.append(
         FieldMapping(
             source_field="action",
-            target_field="action",
+            target_field="governance.action",
             mapping_type="translated" if action in ACTION_MAP else "exact",
             source_value=action,
             target_value=result,
@@ -107,12 +107,12 @@ OUTCOME_MAP = {
 
 
 def map_outcome(outcome: str, report: MappingReport) -> str:
-    """Map AGT outcome to EPI status."""
+    """Map AGT outcome to EPI status (written to governance.outcome)."""
     result = OUTCOME_MAP.get(outcome, outcome)
     report.field_mappings.append(
         FieldMapping(
             source_field="outcome",
-            target_field="status",
+            target_field="governance.outcome",
             mapping_type="translated" if outcome in OUTCOME_MAP else "exact",
             source_value=outcome,
             target_value=result,
@@ -143,7 +143,7 @@ def map_agent_did(did: str, report: MappingReport) -> str:
     report.field_mappings.append(
         FieldMapping(
             source_field="agent_did",
-            target_field="agent_name",
+            target_field="content.agent_name",
             mapping_type="derived",
             source_value=did,
             target_value=name,
@@ -216,7 +216,8 @@ def build_step_content(entry: dict, report: MappingReport) -> dict:
             )
         )
 
-    # Store entry_hash for hash chain verification
+    # Store entry_hash so the AGT chain can be checked against the raw
+    # attachment. EPI preserves it; EPI does not validate the AGT chain.
     if "entry_hash" in entry and entry["entry_hash"]:
         content["agt_entry_hash"] = entry["entry_hash"]
         report.field_mappings.append(
