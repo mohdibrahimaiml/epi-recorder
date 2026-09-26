@@ -63,19 +63,24 @@ to open the file directly for forensic inspection.
 |--------|------|-------|-------------|
 | 0 | 4 | `magic` | `0x3C 0x21 0x2D 0x2D` (ASCII `<!--`) |
 | 4 | 1 | `version` | Envelope format version. Value: `0x02` |
-| 5 | 1 | `flags` | Reserved. MUST be `0x00` |
-| 6 | 2 | `reserved` | Reserved. MUST be `0x0000` |
-| 8 | 8 | `payload_length` | ZIP payload length in bytes (little-endian uint64) |
-| 16 | 16 | `payload_uuid` | UUID v4 (16 raw bytes) |
+| 5 | 1 | `format` | Payload format. Value: `0x01` (ZIP v1) |
+| 6 | 2 | `flags` | Reserved. MUST be `0x0000` |
+| 8 | 8 | `payload_length` | ZIP payload length in bytes, excluding the HTML gap (little-endian uint64) |
+| 16 | 16 | `payload_uuid` | UUID v4 (16 raw bytes); MUST equal `manifest.workflow_id` |
 | 32 | 8 | `created_at` | Unix epoch timestamp in microseconds (little-endian uint64) |
-| 40 | 32 | `payload_sha256` | SHA-256 hash of the ZIP payload bytes (32 raw bytes) |
-| 72 | 56 | `reserved` | Reserved. MUST be zero |
+| 40 | 32 | `payload_sha256` | SHA-256 hash of the ZIP payload bytes only, excluding the HTML gap (32 raw bytes) |
+| 72 | 32 | `viewer_sha256` | SHA-256 of the outer viewer HTML bytes (UTF-8, without the ` -->\n` prefix or ZIP marker). All-zero means a legacy artifact whose display layer is not integrity-covered |
+| 104 | 24 | `reserved` | Reserved. MUST be zero |
 
 Total header size: **128 bytes**.
 
 Implementers MUST reject files shorter than 128 bytes. Implementers MUST reject
-files where `payload_length` is zero or where the file size is less than
-`128 + payload_length`.
+files where `payload_length` is zero. Because a viewer HTML gap sits between
+the header and the ZIP, implementers MUST NOT assume the ZIP starts at
+`128 + payload_length` from the front nor find it by searching for the ZIP
+local-file-header signature (`PK\x03\x04`) — viewer HTML may contain those
+bytes. The ZIP starts immediately after the marker in §2.1.2; its length MUST
+equal `payload_length` and its SHA-256 MUST equal `payload_sha256`.
 
 #### 2.1.2 ZIP Payload Marker
 
@@ -96,16 +101,20 @@ viewer. All bytes after this marker constitute the ZIP payload.
 
 #### 2.1.3 MIME Type
 
-The container's MIME type is `application/vnd.epi`.
+The envelope is a polyglot (valid HTML comment + ZIP) and has no single
+MIME type. The canonical evidence identifier is `application/vnd.epi+zip`,
+carried in the `mimetype` ZIP member (§3.1) and in `manifest.trust.mimetype`.
 
 ### 2.2 Legacy ZIP
 
 Prior to v4.0.0, `.epi` files used a non-polyglot binary header with magic
 bytes `EPI1` (0x45 0x50 0x49 0x31). The ZIP payload followed immediately.
 
-Implementers SHOULD support reading legacy `EPI1` containers but SHOULD NOT
-produce them. Because historical writers varied in header length, readers
-MUST NOT assume a fixed legacy header size: after matching `EPI1` magic,
+Implementers SHOULD support reading legacy `EPI1` containers. New artifacts
+SHOULD use envelope-v2; `legacy-zip` (bare ZIP payload, same member layout
+as §3) remains supported for compatibility pipelines. Because historical
+writers varied in header length, readers MUST NOT assume a fixed legacy
+header size: after matching `EPI1` magic,
 probe a bounded window (at least the first 64 bytes) for the ZIP
 local-file-header signature (`PK\x03\x04`) and treat everything before it as
 header. If no signature is found, the file is not a valid legacy container.
@@ -165,10 +174,14 @@ user-generated files under `artifacts/`.
 
 ## 4. Manifest Schema (`manifest.json`)
 
-The manifest is the root of trust for the entire `.epi` file. Every required
-and optional file's SHA-256 hash is recorded in `file_manifest`. If the
-manifest is signed (Ed25519), the signature covers the canonical hash of the
-manifest object itself.
+The manifest is the root of trust for the entire `.epi` file. Every sealed
+file's SHA-256 hash is recorded in `file_manifest`, except:
+`manifest.json` itself (covered by the Ed25519 signature instead),
+`mimetype` (fixed 23-byte magic string), mutable review files
+(`review.json`, `review_index.json`, `reviews/*`, added post-sealing), and
+`artifacts/scitt/*` (verified cryptographically via receipt, not by file
+hash). If the manifest is signed (Ed25519), the signature covers the
+canonical hash of the manifest object itself.
 
 ### 4.1 Required Fields
 
@@ -201,7 +214,6 @@ manifest object itself.
 | `governance` | object | Governance metadata (DID identity, SCITT registration, trust score) |
 | `trust` | object | Immediate cryptographic verification state |
 | `policy` | object | Policy evaluation outcome (`policy_id`, `version`, `status`, `rules`) |
-| `prev_hash` | string | SHA-256 of the previous container's manifest (for chaining) |
 
 ### 4.3 Complete JSON Schema
 
@@ -213,21 +225,34 @@ See `schemas/manifest.schema.json` for the formal JSON Schema definition.
 
 ### 5.1 Canonical Hashing
 
+Three canonicalizations exist, selected by `spec_version` — sign and verify
+MUST use the same selection (one dispatch function, no trial):
+
+| `spec_version` | Canonicalization |
+|---|---|
+| `1.x` | CBOR (RFC 8949, canonical encoding) |
+| `2.x` through pre-`4.4.1` | Legacy JSON: `sort_keys=True`, separators `(",", ":")`, `ensure_ascii=False` |
+| `4.4.1` and later | JCS (RFC 8785). Integers verbatim; non-integral numbers use ECMAScript number-to-string (`900.0` hashes as `"900"`); non-ASCII emitted as raw UTF-8 |
+| missing, empty, unparseable, or major version `0` | CBOR (matches what signing has always produced for such inputs) |
+
+`StepModel` records always use JCS: steps are stored and distributed as JSON
+and carry no `spec_version` field.
+
 The canonical hash of a manifest or step is computed as follows:
 
 1. Convert the model to a dictionary.
-2. Remove excluded fields (typically `signature` and `governance` for
-   manifests; `source_type` for steps).
-3. Normalize UUID values to lowercase canonical string form.
-4. Normalize datetime values to UTC ISO 8601 with second precision
-   (`YYYY-MM-DDTHH:MM:SSZ`).
-5. Serialize to JSON with:
-   - `sort_keys=True` (keys sorted alphabetically)
-   - `separators=(",", ":")` (no whitespace)
-   - `ensure_ascii=True`
-6. Encode to UTF-8 bytes.
-7. Compute SHA-256.
-8. Return as 64-character lowercase hex string.
+2. Drop `source_type` and `verification_class` for steps (backward
+   compatibility with artifacts sealed before those fields existed).
+3. Drop `content_truncated`, `policy_load_status`, and `producer_version`
+   when null (fields added after existing artifacts were sealed).
+4. Remove excluded fields (see §5.2: `signature` for manifests).
+5. Normalize UUID values to canonical string form.
+6. Normalize datetime values to UTC ISO 8601 with second precision
+   (`YYYY-MM-DDTHH:MM:SSZ`); naive datetimes are assumed UTC.
+7. Serialize with the selected canonicalization above.
+8. Encode to UTF-8 bytes.
+9. Compute SHA-256.
+10. Return as 64-character lowercase hex string.
 
 **Conformance requirement:** Two implementations computing the canonical hash
 of identical data MUST produce the same hex string. The test vectors in
@@ -235,8 +260,9 @@ of identical data MUST produce the same hex string. The test vectors in
 
 ### 5.2 Manifest Signing
 
-1. Compute the canonical hash of the manifest, excluding the `signature`,
-   `governance`, and `trust` fields.
+1. Compute the canonical hash of the manifest, excluding the `signature`
+   field only. `governance` and `trust` are part of the signed preimage —
+   a signature over a manifest with altered governance or trust does not verify.
 2. Convert the 64-character hex hash to 32 raw bytes.
 3. Sign with an Ed25519 private key (RFC 8032). This produces 64 raw signature bytes.
 4. Encode the signature as 128-character lowercase hex.
@@ -260,8 +286,8 @@ ID.
 2. Reject if the algorithm is not `ed25519`.
 3. Verify the key ID matches the SHA-256 prefix of the hex-encoded public key.
 4. Decode the 128-character hex signature to 64 raw bytes.
-5. Compute the canonical hash of the manifest (excluding `signature`,
-   `governance`, and `trust`).
+5. Compute the canonical hash of the manifest (excluding `signature` only,
+   per §5.2).
 6. Import the Ed25519 public key (32 raw bytes from hex).
 7. Verify the signature over the canonical hash bytes.
 8. Return `(True, "Valid")` or `(False, "Invalid - tampered")`.
@@ -275,17 +301,31 @@ For each entry in `manifest.file_manifest`:
 4. Any mismatch is an integrity failure.
 
 Implementers MUST also check that no extra files exist in the ZIP
-that are not listed in `file_manifest` (except `review.json` and
-`review_index.json`, which are mutable addendums excluded from
-file_manifest).
+that are not listed in `file_manifest`, except:
+`mimetype` and `manifest.json` (reserved names, covered by fixed content and
+by the Ed25519 signature respectively);
+`review.json`, `review_index.json`, and `reviews/*` (mutable addendums
+verified via the review ledger instead); and `artifacts/scitt/*` (verified
+cryptographically via receipt instead).
+`VERIFY.txt` is normally listed in `file_manifest`; readers SHOULD accept
+older artifacts where it is absent.
+
+Two different hashes share the name "payload hash" — do not compare them:
+the header's `payload_sha256` is the SHA-256 of the ZIP payload bytes, while
+`manifest.trust.payload_hash` is the SHA-256 of the sorted `file_manifest`
+JSON (a hash-of-hashes fingerprint for display).
 
 ### 5.5 Step Hash Chain
 
 Each step in `steps.jsonl` contains a `prev_hash` field:
 
-1. Step 0 has `prev_hash: null`.
+1. Step 0 carries the genesis marker: `prev_hash` is `null` or the string
+   `"CHAIN_START"` (sealers write `"CHAIN_START"`). There is no previous
+   step to link to, so nothing is checked for step 0 beyond this.
 2. For step N (N > 0), `prev_hash` is the SHA-256 hex digest of the
-   canonical JSON hash of step N-1.
+   canonical hash of step N-1, using the §5.1 canonicalization selected by
+   the manifest's `spec_version`. A genesis marker at N > 0 means the chain
+   was restarted (possible truncation) and MUST be reported as a break.
 3. The step's own hash (stored separately, e.g., in the viewer or as
    a computed value) is the SHA-256 of its own canonical JSON bytes.
 4. Verifying the chain: for each step N, compute its canonical hash,
@@ -310,7 +350,7 @@ terminated by `
 | `kind` | string | Yes | Step type identifier (see §6.2) |
 | `timestamp` | datetime | Yes | UTC ISO 8601 timestamp |
 | `content` | object | Yes | Step-specific payload |
-| `prev_hash` | string or null | Yes | SHA-256 hex of previous step's canonical hash (null for step 0) |
+| `prev_hash` | string or null | Yes | SHA-256 hex of previous step's canonical hash (`null` or `"CHAIN_START"` for step 0, see §5.5) |
 | `trace_id` | string | No | W3C trace identifier |
 | `span_id` | string | No | W3C span identifier |
 | `parent_span_id` | string | No | W3C parent span identifier |
