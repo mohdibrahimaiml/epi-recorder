@@ -284,7 +284,7 @@ function parseJSONPreserveNumbers(text){
   return val;
 }
 function sortedJSON(obj){
-  if(obj && typeof obj==='object' && obj.__num!==undefined)return obj.__num;
+  if(obj && typeof obj==='object' && obj.__num!==undefined)return jcsNumberFromRaw(obj.__num);
   if(obj===null)return'null';
   if(typeof obj==='string')return JSON.stringify(obj);
   if(typeof obj==='number')return String(Number.isFinite(obj)?obj:'null');
@@ -294,11 +294,35 @@ function sortedJSON(obj){
   for(var i=0;i<keys.length;i++){var k=keys[i];if(obj[k]!==undefined)p.push(JSON.stringify(k)+':'+sortedJSON(obj[k]));}
   return'{'+p.join(',')+'}';
 }
-function normalizeCreatedAt(manifest){
-  if(manifest && typeof manifest==='object' && typeof manifest.created_at==='string'){
-    var m=/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(manifest.created_at);
-    if(m)manifest.created_at=m[1]+'Z';
+// JCS number encoding from raw JSON number text (matches Python rfc8785).
+function jcsNumberFromRaw(raw){
+  if(/^-?(0|[1-9][0-9]*)$/.test(raw))return raw;
+  var n=Number(raw);
+  if(!isFinite(n))return'null';
+  return String(n);
+}
+// ISO-8601 -> UTC Z form (matches Python serialize.normalize_value).
+function epiUtcZ(s){
+  if(typeof s!=='string')return s;
+  var m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$/.exec(s);
+  if(!m||!m[8])return s;
+  var ms=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);
+  var off=m[8];
+  if(off!=='Z'){
+    var sign=off[0]==='+'?1:-1;
+    var parts=off.slice(1).split(':');
+    ms-=((parseInt(parts[0],10)*60)+parseInt(parts[1]||'0',10))*sign*60000;
   }
+  var d=new Date(ms);
+  function p(n){return(n<10?'0':'')+n;}
+  return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+'T'+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+':'+p(d.getUTCSeconds())+'Z';
+}
+function normalizeCreatedAt(manifest){
+  (function walk(o){
+    if(!o||typeof o!=='object'||o.__num!==undefined)return;
+    if(Array.isArray(o)){for(var i=0;i<o.length;i++){if(typeof o[i]==='string')o[i]=epiUtcZ(o[i]);else walk(o[i]);}return;}
+    for(var k in o){if(typeof o[k]==='string')o[k]=epiUtcZ(o[k]);else walk(o[k]);}
+  })(manifest);
   return manifest;
 }
 function computeManifestHash(rawManifestText){
@@ -317,10 +341,7 @@ async function canonicalStepHash(step){
   for(var i=0;i<fields.length;i++){
     var k=fields[i];
     var v=step[k]!==undefined?step[k]:null;
-    if(k==='timestamp'&&typeof v==='string'){
-      var m=/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(v);
-      if(m)v=m[1]+'Z';
-    }
+    if(k==='timestamp'&&typeof v==='string')v=epiUtcZ(v);
     canonical[k]=v;
   }
   return sha256(new TextEncoder().encode(sortedJSON(canonical)));
@@ -332,6 +353,7 @@ function unwrapNum(v){
 function auditStepSequence(steps){
   if(!steps||steps.length===0)return true;
   var indices=steps.map(function(s){var n=unwrapNum(s.index);return n!==undefined?n:0});
+  if(indices[0]!==0)return false; // truncated prefix is monotonic but incomplete
   for(var i=1;i<indices.length;i++){
     if(indices[i]!==indices[i-1]+1)return false;
   }
@@ -405,10 +427,17 @@ function auditStepCompleteness(steps){
 }
 
 async function auditStepChain(steps){
-  if(!steps||steps.length<2)return true;
+  if(!steps||steps.length===0)return true;
+  var first=unwrapNum(steps[0].prev_hash);
+  if(first!==null&&first!==undefined&&first!=='CHAIN_START')return false;
+  if(steps.length===1)return true;
+  var anyLink=false;
+  for(var j=1;j<steps.length;j++){var h=unwrapNum(steps[j].prev_hash);if(h!==null&&h!==undefined&&h!=='CHAIN_START'){anyLink=true;break;}}
+  if(!anyLink)return true; // pre-chain artifact: nothing verifiable
   for(var i=1;i<steps.length;i++){
-    var claimed=steps[i].prev_hash;
-    if(claimed===null||claimed===undefined||claimed==='CHAIN_START')continue;
+    // Genesis marker mid-chain means restart (possible truncation)
+    var claimed=unwrapNum(steps[i].prev_hash);
+    if(claimed===null||claimed===undefined||claimed==='CHAIN_START')return false;
     var expected=await canonicalStepHash(steps[i-1]);
     if(claimed!==expected)return false;
   }
