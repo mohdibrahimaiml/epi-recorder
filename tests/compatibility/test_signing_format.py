@@ -142,8 +142,8 @@ def test_sign_and_verify_agree_on_every_version_input():
     """
     from epi_core.serialize import canonical_format_for
 
-    for sv in ["1.0", "1.9", "2.0", "3.2", "4.0", "4.4.0", "4.4.1", "4.4.7",
-               "", "foo", "0.9", "v4.4.7", "4.4.7-rc1"]:
+    for sv in ["1.0", "1.9", "2.0", "3.2", "4.0", "4.4.0", "4.4.1", "4.4.7", "4.4.8",
+               "", "foo", "0.9", "v4.4.8", "4.4.8-rc1"]:
         manifest = ManifestModel()
         manifest = manifest.model_copy(update={"spec_version": sv})
         key = _make_deterministic_key()

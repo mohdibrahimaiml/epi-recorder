@@ -1,4 +1,4 @@
-# AGT -> EPI Quickstart (v4.4.7)
+# AGT -> EPI Quickstart (v4.4.8)
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` case file.
 

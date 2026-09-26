@@ -1,6 +1,6 @@
 # EPI Master Technical & Enterprise System Reference
 
-**Product:** `epi-recorder` | **Current Release Line:** `v4.4.7` | **Container Spec:** EPI Evidence Format v1.1
+**Product:** `epi-recorder` | **Current Release Line:** `v4.4.8` | **Container Spec:** EPI Evidence Format v1.1
 
 ---
 
