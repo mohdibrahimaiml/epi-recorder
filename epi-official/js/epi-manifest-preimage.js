@@ -121,8 +121,44 @@
     return val;
   }
 
+  // JCS number encoding from raw JSON number text (matches Python rfc8785):
+  // integers verbatim, 900.0 -> "900". Raw preservation was a bug.
+  function jcsNumberFromRaw(raw) {
+    if (/^-?(0|[1-9][0-9]*)$/.test(raw)) return raw;
+    var n = Number(raw);
+    if (!isFinite(n)) return 'null';
+    return String(n);
+  }
+
+  // ISO-8601 -> UTC Z form (matches Python serialize.normalize_value):
+  // numeric offsets convert, fractions drop, tz-less strings untouched
+  // (those were plain strings — a real datetime always carries tz).
+  function epiUtcZ(s) {
+    if (typeof s !== 'string') return s;
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$/.exec(s);
+    if (!m || !m[8]) return s;
+    var ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+    var off = m[8];
+    if (off !== 'Z') {
+      var sign = off[0] === '+' ? 1 : -1;
+      var parts = off.slice(1).split(':');
+      ms -= ((parseInt(parts[0], 10) * 60) + parseInt(parts[1] || '0', 10)) * sign * 60000;
+    }
+    var d = new Date(ms);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) +
+      'T' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + 'Z';
+  }
+
+  // Era switch: pre-JCS Python signed json.dumps output where 900.0 stays
+  // "900.0" (raw preservation correct); JCS era hashes "900". The golden
+  // 4.3.0 manifest carries no floats, but correctness must not depend on that.
+  var _jcsNumbers = true;
+
   function sortedJSON(obj) {
-    if (obj && typeof obj === 'object' && obj.__num !== undefined) return obj.__num;
+    if (obj && typeof obj === 'object' && obj.__num !== undefined) {
+      return _jcsNumbers ? jcsNumberFromRaw(obj.__num) : obj.__num;
+    }
     if (obj === null) return 'null';
     if (typeof obj === 'string') return JSON.stringify(obj);
     if (typeof obj === 'number') return String(Number.isFinite(obj) ? obj : 'null');
@@ -137,10 +173,19 @@
   }
 
   function normalizeCreatedAt(manifest) {
-    if (manifest && typeof manifest === 'object' && typeof manifest.created_at === 'string') {
-      var m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(manifest.created_at);
-      if (m) manifest.created_at = m[1] + 'Z';
-    }
+    // UTC-convert every tz-carrying datetime string in the manifest.
+    (function walk(o) {
+      if (!o || typeof o !== 'object' || o.__num !== undefined) return;
+      if (Array.isArray(o)) {
+        for (var i = 0; i < o.length; i++) {
+          if (typeof o[i] === 'string') o[i] = epiUtcZ(o[i]); else walk(o[i]);
+        }
+        return;
+      }
+      for (var k in o) {
+        if (typeof o[k] === 'string') o[k] = epiUtcZ(o[k]); else walk(o[k]);
+      }
+    })(manifest);
     return manifest;
   }
 
@@ -161,7 +206,12 @@
   function computeManifestHash(rawManifestText) {
     var peek = {};
     try { peek = JSON.parse(rawManifestText); } catch (_e) {}
+    var _maj = parseInt(String(peek.spec_version || '').replace(/^v/i, '').split('.')[0], 10);
+    if (_maj === 1) {
+      throw new Error('Legacy CBOR manifest (v1.x) cannot be verified in the browser — use epi verify on the CLI');
+    }
     var legacy = isPreJcsSpec(peek.spec_version);
+    _jcsNumbers = !legacy;
     var manifest = legacy ? parseJSONPreserveNumbers(rawManifestText) : peek;
     omitAbsentOptionalHashFields(manifest);
     normalizeCreatedAt(manifest);
