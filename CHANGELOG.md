@@ -2,6 +2,26 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.4.8] - 2026-09-26
+
+### Security — container and browser verifier
+
+- **Zip-slip guard in `refresh_viewer`** `container.py`: payload extraction now rejects `../` entries (same guard `unpack` already had). Regression test poisons a payload and asserts `ValueError`.
+- **Browser JCS parity** `epi_viewer_static/crypto.js` (inlined into every sealed viewer): escape-decoding tokenizer fix, JCS number encoding (`900.0` hashes as `"900"`), offset-to-UTC datetime normalization, era-aware legacy handling, CBOR-v1 honest-unsupported path, `key_name` binding check. Proven by an 11-fixture Node↔Python byte-equality harness plus a live Python-seal → browser-verify round-trip (valid / relabeled-key / tampered / v1).
+- **Portal parity** `website/js/epi-manifest-preimage.js`, `website/js/home-verify.js` (+ synced mirrors): same JCS number/datetime fixes, v1 honest error, genesis-anchored chain audit. Proven against Python hashes including the 4.3.0 golden and a synthetic legacy-with-float manifest.
+
+### Fixed — one canonical dispatch, strict chain, honest decisions
+
+- **Unified canonicalization dispatch** `serialize.py:canonical_format_for`: sign, signature-verify, and chain-verify previously answered differently for old/missing/malformed `spec_version` (three answers for input `"foo"`). One function now decides CBOR (1.x) vs legacy JSON (2.x–pre-4.4.1) vs JCS; legacy normalization deduplicated into shared helpers. Round-trip test signs and verifies across 13 version inputs.
+- **Strict step chain** `verify.py`: genesis marker (`CHAIN_START`) allowed only at index 0 — mid-chain restart is reported as possible truncation; index sequence anchored at 0; pre-chain artifacts pass loudly with a warning instead of silently.
+- **Unsigned no longer outranks signed** `trust.py`: unsigned-intact under STANDARD is now WARN (was PASS — stripping a signature upgraded your verdict while signed-unknown only gets WARN).
+- **Coverage honesty** `verify.py --verbose`: names what file hashes do not cover (mutable review files, SCITT receipts, self-asserted manifest on unsigned artifacts).
+- **Verify portal** `verify_portal/main.py`: passes the real `spec_version` to chain verification (was `None`, which only worked by coincidence) and anchors its sequence audit.
+
+### Docs
+
+- **EPI-SPEC alignment**: header table (restored `format` byte, documented `viewer_sha256` tail split), marker-based parsing rule, MIME clarification, the three canonicalizations + dispatch table, corrected signing preimage (`signature` excluded only), true `file_manifest` exemption list, `CHAIN_START` genesis, and the two-`payload_hash` naming trap.
+
 ## [4.4.7] - 2026-09-26
 
 ### Fixed — Viewer/CLI agreement on findings (screenshot-review follow-ups)

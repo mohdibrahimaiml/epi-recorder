@@ -7,8 +7,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.4.7](https://img.shields.io/badge/version-v4.4.7-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/LICENSE)
+[![Version v4.4.8](https://img.shields.io/badge/version-v4.4.8-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
 
 ```bash
@@ -84,7 +84,7 @@ Typical first-run verify:
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
 > Identity is separate from seal. Pin with `epi keys trust <name>` when you mean it.  
-> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/POLICY-AND-FAULT-ANALYZER.md).
+> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/POLICY-AND-FAULT-ANALYZER.md).
 
 That’s the product. Everything below is optional depth.
 
@@ -137,7 +137,7 @@ demo.epi
 | **Chain** | Each step’s `prev_hash` links the timeline |
 | **Privacy** | Default secret redaction (API keys, tokens, PII) |
 
-Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
+Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
 
 ---
 
@@ -179,7 +179,7 @@ Signing key order: `--key` → private key that sealed the `.epi` → `TRACE_PRI
 
 `policy.bundle_hash` in TRACE is specified as a Cedar policy hash. We hash `policy.json` (the sealed EPI policy document), not a Cedar bundle. `policy.enforcement_mode` is `"declared"` — we did not run a Cedar engine. `appraisal.status` is `"none"`.
 
-More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
+More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
 
 ---
 
@@ -200,7 +200,7 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | `epi import agt <path>` | Import Microsoft AGT evidence |
 | `epi export trace <file.epi>` | TRACE v0.2 log-import record (self-consistency, not issuer attestation) |
 
-Policy + fault analyzer guide: [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/POLICY-AND-FAULT-ANALYZER.md)
+Policy + fault analyzer guide: [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/POLICY-AND-FAULT-ANALYZER.md)
 
 ---
 
@@ -218,14 +218,14 @@ Policy + fault analyzer guide: [docs/POLICY-AND-FAULT-ANALYZER.md](https://githu
 
 | Topic | Link |
 |-------|------|
-| **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/README.md) |
-| **Guided pilot pack** | [docs/PILOT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/PILOT.md) |
-| Enterprise in 15 minutes | [docs/ENTERPRISE-15-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/ENTERPRISE-15-MINUTES.md) |
-| Enterprise capability (honest) | [docs/ENTERPRISE-CAPABILITY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/ENTERPRISE-CAPABILITY.md) |
-| Policy + fault analyzer | [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
-| Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/KNOWN_LIMITATIONS.md) |
-| CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/CLI.md) |
-| Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/AUDITORS-GUIDE.md) |
+| **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/README.md) |
+| **Guided pilot pack** | [docs/PILOT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/PILOT.md) |
+| Enterprise in 15 minutes | [docs/ENTERPRISE-15-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/ENTERPRISE-15-MINUTES.md) |
+| Enterprise capability (honest) | [docs/ENTERPRISE-CAPABILITY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/ENTERPRISE-CAPABILITY.md) |
+| Policy + fault analyzer | [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
+| Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/KNOWN_LIMITATIONS.md) |
+| CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/CLI.md) |
+| Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/AUDITORS-GUIDE.md) |
 
 ---
 
@@ -237,9 +237,9 @@ is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|
-| EU AI Act Annex IV | [docs/ANNEX-IV.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/ANNEX-IV.md) |
-| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/standards/aiuc-1-evidence.md) |
-| SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/standards/scitt-predicate.md) |
+| EU AI Act Annex IV | [docs/ANNEX-IV.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/ANNEX-IV.md) |
+| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/standards/aiuc-1-evidence.md) |
+| SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/standards/scitt-predicate.md) |
 
 ```bash
 epi verify agent.epi --aiuc1   # optional domain scoring
@@ -271,15 +271,15 @@ epi verify agent.epi --aiuc1   # optional domain scoring
 | `website/` | Public site source of truth (`epilabs.org`) |
 | `website-v2/` | Sandbox redesign (not production deploy) |
 | `verify_portal/` | Hosted verify/auth API (optional) |
-| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/README.md) |
+| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/README.md) |
 | `tests/test_core_loop_golden.py` | Golden path regression |
 
-Website edits: only under `website/`, then `python scripts/sync_website.py`. See [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/docs/archive/SITE.md).
+Website edits: only under `website/`, then `python scripts/sync_website.py`. See [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/docs/archive/SITE.md).
 
 ---
 
 ## License
 
-MIT — see [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.7/LICENSE).
+MIT — see [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.4.8/LICENSE).
 
 **Site:** [epilabs.org](https://epilabs.org) · **Issues:** [GitHub Issues](https://github.com/mohdibrahimaiml/epi-recorder/issues)
