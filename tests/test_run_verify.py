@@ -268,7 +268,8 @@ class TestPrevHashChainVerification:
         from epi_cli.verify import _verify_step_chain
 
         step_dicts = self._make_step_dicts()
-        ok, breaks = _verify_step_chain(step_dicts)
+        # Fixture hashes with format="json" (JCS): declare the modern era.
+        ok, breaks = _verify_step_chain(step_dicts, spec_version="4.4.1")
         assert ok is True
         assert breaks == []
 
@@ -277,7 +278,7 @@ class TestPrevHashChainVerification:
         from epi_cli.verify import _verify_step_chain
 
         step_dicts = self._make_step_dicts(tamper_step_index=1)
-        ok, breaks = _verify_step_chain(step_dicts)
+        ok, breaks = _verify_step_chain(step_dicts, spec_version="4.4.1")
         assert ok is False
         assert any("prev_hash mismatch" in b for b in breaks)
 
@@ -328,17 +329,53 @@ class TestPrevHashChainVerification:
             _verify_step_chain([{"index": 0, "kind": "test"}], spec_version="4.4.1")
         assert not any("legacy canonicalization" in str(w.message) for w in caught)
 
-    def test_genesis_step_skipped(self):
-        """Steps with prev_hash='CHAIN_START' are skipped."""
+    def test_genesis_marker_allowed_only_at_index_zero(self):
+        """CHAIN_START at index 0 is genesis; mid-chain it means truncation."""
+        from epi_cli.verify import _verify_step_chain
+
+        ok, breaks = _verify_step_chain(
+            [{"index": 0, "kind": "start", "prev_hash": "CHAIN_START"}]
+        )
+        assert ok is True
+        assert breaks == []
+
+        # Minimal single step without optional fields (browser pack shape).
+        ok, breaks = _verify_step_chain([{"index": 0, "timestamp": "2026-01-15T12:00:00Z"}])
+        assert ok is True
+        assert breaks == []
+
+        # ...but a bogus single-step genesis marker still fails.
+        ok, breaks = _verify_step_chain(
+            [{"index": 0, "kind": "start", "prev_hash": "deadbeef"}]
+        )
+        assert ok is False
+        assert any("genesis marker" in b for b in breaks)
+
+        ok, breaks = _verify_step_chain(
+            [
+                {"index": 0, "kind": "start", "prev_hash": "CHAIN_START"},
+                {"index": 1, "kind": "middle", "prev_hash": "CHAIN_START"},
+            ]
+        )
+        assert ok is False
+        assert any("restarted with genesis marker" in b for b in breaks)
+
+    def test_pre_chain_artifact_passes_loudly(self):
+        """Steps with no links at all are pre-chain: pass with a warning."""
+        import warnings
+
         from epi_cli.verify import _verify_step_chain
 
         step_dicts = [
-            {"index": 0, "kind": "start", "prev_hash": "CHAIN_START"},
-            {"index": 1, "kind": "middle", "prev_hash": "CHAIN_START"},
+            {"index": 0, "kind": "start"},
+            {"index": 1, "kind": "middle"},
         ]
-        ok, breaks = _verify_step_chain(step_dicts)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            ok, breaks = _verify_step_chain(step_dicts)
         assert ok is True
         assert breaks == []
+        assert any("pre-chain" in str(w.message) for w in caught)
 
     def test_old_cbor_artifact_graceful(self):
         """Steps with CBOR-hashed prev_hash should not crash (graceful degradation)."""

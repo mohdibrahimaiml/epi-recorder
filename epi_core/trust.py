@@ -139,40 +139,14 @@ def verify_signature(manifest: ManifestModel, public_key_bytes: bytes) -> tuple[
         if len(public_key_bytes) != 32:
             return (False, f"Invalid public key length: expected 32 bytes, got {len(public_key_bytes)}")
 
-        # Dispatch by spec_version: CBOR (1.x) vs legacy json vs JCS (no trial)
-        from epi_core._version import JCS_INTRODUCED_TUPLE, JCS_INTRODUCED_VERSION
+        # Dispatch by spec_version: CBOR (1.x) vs legacy json vs JCS (no trial).
+        # Single source of truth: serialize.canonical_format_for — the same
+        # function the sign path uses, so both sides always agree.
+        from epi_core.serialize import canonical_format_for
 
-        def _is_cbor():
-            sv = getattr(manifest, "spec_version", "") or ""
-            try:
-                major = int(str(sv).lstrip("v").split(".")[0])
-                return major == 1
-            except Exception:
-                return False
-
-        def _is_legacy():
-            if _is_cbor():
-                return False
-            sv = getattr(manifest, "spec_version", "") or ""
-            try:
-                parts = str(sv).lstrip("v").split(".")
-                major = int(parts[0]) if parts[0] else 0
-                minor = int(parts[1]) if len(parts) > 1 and parts[1] else 0
-                patch = int(parts[2]) if len(parts) > 2 and parts[2].split("-")[0].isdigit() else 0
-                # Legacy if < cutoff and not CBOR
-                cutoff_major, cutoff_minor, cutoff_patch = JCS_INTRODUCED_TUPLE
-                if major < cutoff_major:
-                    return True
-                if major == cutoff_major and minor < cutoff_minor:
-                    return True
-                if major == cutoff_major and minor == cutoff_minor and patch < cutoff_patch:
-                    return True
-                return False
-            except Exception:
-                return True  # unknown version → assume legacy for safety
-
-        is_cbor = _is_cbor()
-        is_legacy = _is_legacy()
+        fmt = canonical_format_for(getattr(manifest, "spec_version", ""))
+        is_cbor = fmt == "cbor"
+        is_legacy = fmt == "legacy"
         if is_cbor:
             # CBOR path — 1.x artifacts (guardrails)
             try:
@@ -187,29 +161,12 @@ def verify_signature(manifest: ManifestModel, public_key_bytes: bytes) -> tuple[
         elif is_legacy:
             # Legacy path only — old json sort_keys
             try:
-                from epi_core.serialize import _get_legacy_json_hash, omit_absent_optional_hash_fields
-                from datetime import datetime, timezone
-                from uuid import UUID
+                from epi_core.serialize import model_dict_for_hash, hash_normalized_dict
+                from epi_core._version import JCS_INTRODUCED_VERSION
 
-                def _norm(v):
-                    if isinstance(v, datetime):
-                        if v.tzinfo is None:
-                            v = v.replace(microsecond=0, tzinfo=timezone.utc)
-                        else:
-                            v = v.astimezone(timezone.utc).replace(microsecond=0)
-                        return v.strftime("%Y-%m-%dT%H:%M:%SZ")
-                    if isinstance(v, UUID):
-                        return str(v)
-                    if isinstance(v, dict):
-                        return {k: _norm(x) for k, x in v.items()}
-                    if isinstance(v, list):
-                        return [_norm(x) for x in v]
-                    return v
-
-                d = _norm(manifest.model_dump())
-                omit_absent_optional_hash_fields(d, "ManifestModel")
+                d = model_dict_for_hash(manifest)
                 d.pop("signature", None)
-                legacy_hash = _get_legacy_json_hash(d)
+                legacy_hash = hash_normalized_dict(d, "legacy")
                 public_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
                 public_key.verify(signature_bytes, bytes.fromhex(legacy_hash))
                 # Visible legacy warning — reviewer can see which path ran
@@ -757,6 +714,16 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 f"({identity.get('name') or 'local'}), but this is not an org trust-list "
                 "pin. Optional: epi keys trust <file.epi> --name sealer. "
                 "For claims / audit: epi verify --policy strict."
+            )
+        elif facts["signature_valid"] is None:
+            # Unsigned but intact. This must NEVER outrank a signed artifact:
+            # anyone can produce an unsigned file, so PASS would reward
+            # stripping a signature. (Previously this fell through to PASS.)
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Unsigned artifact — integrity intact but there is no authorship: "
+                "anyone could have produced this file. "
+                "For claims / audit: require a signed seal (epi verify --policy strict)."
             )
         else:
             decision["status"] = "PASS"

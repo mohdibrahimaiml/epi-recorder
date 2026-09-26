@@ -774,7 +774,8 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
             if steps:
                 indices = [s.get("index", 0) for s in steps]
                 sequence_ok = (
-                    all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
+                    (indices[0] == 0)
+                    and all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
                     if indices else True
                 )
                 times = []
@@ -788,7 +789,9 @@ def _run_verification(epi_file: Path, aiuc1: bool = True) -> dict:
                 from epi_cli.verify import _audit_step_sequence_completeness, _verify_step_chain
                 seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
                 completeness_ok = seq_comp_ok
-                chain_ok, chain_breaks = _verify_step_chain(steps)
+                chain_ok, chain_breaks = _verify_step_chain(
+                    steps, spec_version=getattr(manifest, "spec_version", None)
+                )
                 actual_step_count = len(steps)
                 claimed_step_count = manifest.total_steps
                 if claimed_step_count is not None:

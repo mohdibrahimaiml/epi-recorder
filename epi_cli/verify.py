@@ -20,7 +20,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from epi_cli.view import _resolve_epi_file
-from epi_core._version import JCS_INTRODUCED_TUPLE, JCS_INTRODUCED_VERSION, get_version
+from epi_core._version import JCS_INTRODUCED_VERSION, get_version
 from epi_core.aiuc1_mapping import aiuc1_summary, map_verification_to_aiuc1
 from epi_core.container import EPIContainer
 from epi_core.review import verify_review_trust
@@ -90,35 +90,15 @@ def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
 
 
 def _is_cbor_spec(sv: str | None) -> bool:
-    if not sv:
-        return False
-    try:
-        major = int(str(sv).lstrip("v").split(".")[0])
-        return major == 1
-    except Exception:
-        return False
+    from epi_core.serialize import canonical_format_for
+
+    return canonical_format_for(sv) == "cbor"
 
 
 def _is_legacy_spec(sv: str | None) -> bool:
-    if not sv:
-        return True
-    if _is_cbor_spec(sv):
-        return False
-    try:
-        parts = str(sv).lstrip("v").split(".")
-        major = int(parts[0]) if parts[0] else 0
-        minor = int(parts[1]) if len(parts) > 1 and parts[1] else 0
-        patch = int(parts[2]) if len(parts) > 2 and parts[2].split("-")[0].isdigit() else 0
-        cutoff_major, cutoff_minor, cutoff_patch = JCS_INTRODUCED_TUPLE
-        if major < cutoff_major:
-            return True
-        if major == cutoff_major and minor < cutoff_minor:
-            return True
-        if major == cutoff_major and minor == cutoff_minor and patch < cutoff_patch:
-            return True
-        return False
-    except Exception:
-        return False
+    from epi_core.serialize import canonical_format_for
+
+    return canonical_format_for(sv) == "legacy"
 
 
 def _warn_legacy_canonicalizer_dispatch(spec_version: str | None) -> None:
@@ -136,56 +116,63 @@ def _verify_step_chain(steps: list[dict], spec_version: str | None = None) -> tu
     """
     Verify the prev_hash cryptographic chain in a list of steps.
 
-    Dispatch by manifest spec_version: legacy json sort_keys vs JCS (RFC 8785).
-    CBOR for v1.x. No trial — one path per artifact. Cutoff is JCS introduction version.
+    Dispatch by manifest spec_version via serialize.canonical_format_for —
+    the same function the sign path uses. No trial, one path per artifact.
     Emits a visible warning when legacy path is used, even if the chain loop does not run.
+
+    Genesis contract (strict): index 0 must carry None or "CHAIN_START" —
+    there is no previous step to link to. A genesis marker at index > 0
+    means the chain was restarted (possible truncation) and is reported as
+    a break. Steps without any hash are skipped ONLY for pre-chain
+    artifacts where no step carries a verifiable link at all.
     """
-    is_cbor = _is_cbor_spec(spec_version)
-    is_legacy = _is_legacy_spec(spec_version)
+    from epi_core.serialize import canonical_format_for
+
+    fmt = canonical_format_for(spec_version)
     _warn_legacy_canonicalizer_dispatch(spec_version)
 
-    if len(steps) < 2:
+    if not steps:
+        return True, []
+
+    if len(steps) == 1:
+        # A single step has no link to check. Read the raw dict (no model
+        # parse: minimal producers like the browser pack script omit fields
+        # such as kind) and enforce only the genesis contract.
+        first = steps[0] if isinstance(steps[0], dict) else {}
+        if first.get("prev_hash") not in (None, "CHAIN_START"):
+            return False, ["step 0: invalid genesis marker (expected CHAIN_START)"]
         return True, []
 
     try:
         from epi_core.schemas import StepModel
-        from epi_core.serialize import get_canonical_hash
+        from epi_core.serialize import hash_normalized_dict, model_dict_for_hash
 
         chain_breaks: list[str] = []
         step_models = [StepModel(**s) for s in steps]
+
+        if step_models[0].prev_hash not in (None, "CHAIN_START"):
+            chain_breaks.append("step 0: invalid genesis marker (expected CHAIN_START)")
+
+        markers_present = any(m.prev_hash == "CHAIN_START" for m in step_models)
+        hashes_present = any(m.prev_hash not in (None, "CHAIN_START") for m in step_models)
+        if not markers_present and not hashes_present:
+            # Pre-chain artifact: no step carries any link at all. Nothing
+            # to check — pass loudly rather than silently.
+            warnings.warn(
+                "steps carry no prev_hash links (pre-chain artifact); chain check passes vacuously",
+                UserWarning,
+                stacklevel=3,
+            )
+            return len(chain_breaks) == 0, chain_breaks
+
         for i in range(1, len(step_models)):
             claimed_prev = step_models[i].prev_hash
-            if claimed_prev is None or claimed_prev == "CHAIN_START":
+            if claimed_prev in (None, "CHAIN_START"):
+                chain_breaks.append(
+                    f"step {i}: chain restarted with genesis marker (possible truncation)"
+                )
                 continue
-            if is_cbor:
-                expected = get_canonical_hash(step_models[i - 1], format="cbor")
-            elif is_legacy:
-                # Legacy json sort_keys — explicit, no JCS trial (pre-cutoff)
-                from epi_core.serialize import _get_legacy_json_hash
-                from datetime import datetime, timezone
-                from uuid import UUID
-
-                def _norm(v):
-                    if isinstance(v, datetime):
-                        if v.tzinfo is None:
-                            v = v.replace(microsecond=0, tzinfo=timezone.utc)
-                        else:
-                            v = v.astimezone(timezone.utc).replace(microsecond=0)
-                        return v.strftime("%Y-%m-%dT%H:%M:%SZ")
-                    if isinstance(v, UUID):
-                        return str(v)
-                    if isinstance(v, dict):
-                        return {k: _norm(x) for k, x in v.items()}
-                    if isinstance(v, list):
-                        return [_norm(x) for x in v]
-                    return v
-
-                _d = _norm(step_models[i - 1].model_dump())
-                _d.pop("source_type", None)
-                _d.pop("verification_class", None)
-                expected = _get_legacy_json_hash(_d)
-            else:
-                expected = get_canonical_hash(step_models[i - 1], format="json")
+            expected = hash_normalized_dict(model_dict_for_hash(step_models[i - 1]), fmt)
             if claimed_prev != expected:
                 chain_breaks.append(f"step {i}: prev_hash mismatch")
         return len(chain_breaks) == 0, chain_breaks
@@ -584,6 +571,37 @@ def verify_command(
         integrity_ok, mismatches = EPIContainer.verify_integrity(epi_file)
 
         if verbose:
+            # Coverage honesty: name what integrity does NOT cover. Review
+            # files are mutable-by-design, SCITT receipts are verified
+            # cryptographically (not by file hash), and an unsigned
+            # manifest vouches for its own file list.
+            try:
+                import zipfile as _zf
+
+                with EPIContainer._payload_zip_path(epi_file) as _payload:
+                    with _zf.ZipFile(_payload, "r") as _z:
+                        _names = [n for n in _z.namelist() if not n.endswith("/")]
+                _reviews = [n for n in _names if n == "review.json" or n == "review_index.json" or n.startswith("reviews/")]
+                _scitt = [n for n in _names if n.startswith("artifacts/scitt/")]
+                if _reviews:
+                    console.print(
+                        f"  [yellow]![/yellow] {len(_reviews)} review file(s) exempt from "
+                        "file hashes (additive, verified via review ledger instead)"
+                    )
+                if _scitt:
+                    console.print(
+                        f"  [yellow]![/yellow] {len(_scitt)} SCITT file(s) exempt from "
+                        "file hashes (verified via receipt instead)"
+                    )
+            except Exception:
+                pass
+            if manifest.signature is None:
+                console.print(
+                    "  [yellow]![/yellow] Unsigned artifact: manifest.json vouches for "
+                    "its own file list — hashes prove self-consistency, not authorship"
+                )
+
+        if verbose:
             poly_ok, poly_detail = EPIContainer.verify_polyglot_viewer(epi_file)
             if not poly_ok:
                 console.print(f"  [red][FAIL][/red] Polyglot viewer: {poly_detail}")
@@ -615,10 +633,12 @@ def verify_command(
             chain_ok, chain_breaks = _verify_step_chain(steps, spec_version=spec_ver)
             if steps:
 
-                    # 1. Index Sequence Audit (Monotonicity)
+                    # 1. Index Sequence Audit (Monotonicity, anchored at 0).
+                    # A truncated prefix ([5,6,7]) is monotonic but not complete.
                     indices = [s.get("index", 0) for s in steps]
                     sequence_ok = (
-                        all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
+                        (indices[0] == 0)
+                        and all(indices[i] == indices[i - 1] + 1 for i in range(1, len(indices)))
                         if indices
                         else True
                     )

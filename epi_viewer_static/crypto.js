@@ -513,8 +513,16 @@ function _normalizeDatetimeRec(obj) {
   }
 }
 
+// Era switch for number encoding: pre-JCS Python signed json.dumps output
+// where 900.0 stays "900.0" (raw preservation is correct there); JCS-era
+// Python signs rfc8785 output where 900.0 hashes as "900". Set per artifact
+// from spec_version before canonicalizing; defaults to JCS.
+var _epiJcsNumbers = true;
+
 function _sortedJson(obj) {
-  if (obj && typeof obj === 'object' && obj.__num !== undefined) return _jcsNumberFromRaw(obj.__num);
+  if (obj && typeof obj === 'object' && obj.__num !== undefined) {
+    return _epiJcsNumbers ? _jcsNumberFromRaw(obj.__num) : obj.__num;
+  }
   if (obj === null) return 'null';
   if (typeof obj === 'string') return _jcsString(obj);
   if (typeof obj === 'number') return String(Number.isFinite(obj) ? obj : 'null');
@@ -682,10 +690,10 @@ async function verifyManifestSignature(manifest, rawManifestText) {
         return result + '}';
     };
 
-    // Use raw text when available to preserve Python's "900.0" formatting.
-    // Port the tokenizeJSON / parseJSONPreserveNumbers / sortedJSON approach
-    // from home-verify.js so that floats like 900.0 don't get stripped to 900.
+    // Use raw text when available to preserve exact number/escape spellings.
+    // Number interpretation is era-dependent (see _epiJcsNumbers).
     let canonicalStr;
+    _epiJcsNumbers = !isPreJcsSpec(manifest.spec_version);
     if (rawManifestText) {
         try {
             // Tokenize and parse preserving raw number text

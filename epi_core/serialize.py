@@ -7,11 +7,15 @@ canonical encoding to ensure identical hashes across platforms and time.
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import cbor2
 from pydantic import BaseModel
+
+from epi_core._version import JCS_INTRODUCED_TUPLE
+
+CanonicalFormat = Literal["cbor", "legacy", "jcs"]
 
 
 # Manifest fields added after existing artifacts were sealed. Pydantic fills
@@ -31,6 +35,92 @@ def omit_absent_optional_hash_fields(model_dict: dict[str, Any], class_name: str
     for key in MANIFEST_OMIT_NONE_FROM_HASH:
         if model_dict.get(key) is None:
             model_dict.pop(key, None)
+
+
+def canonical_format_for(spec_version: str | None) -> CanonicalFormat:
+    """Single dispatch for manifest canonicalization: CBOR (1.x) vs legacy
+    JSON (2.x through pre-JCS) vs JCS JSON (current).
+
+    This is the ONE place that decides. `get_canonical_hash` (sign path),
+    `trust.verify_signature` and `verify._verify_step_chain` (verify paths)
+    must all use it — previously each had its own copy with different
+    answers for missing/malformed/old versions (sign said CBOR while verify
+    said legacy or JCS depending on the call site), so some inputs could be
+    signed but never verified, or verified under the wrong preimage.
+
+    Unparseable/missing/empty/major-0 versions map to "cbor": that is what
+    `get_canonical_hash` has always produced for such inputs, so this choice
+    agrees with every artifact such code could have signed.
+    """
+    sv = str(spec_version or "")
+    parts = sv.lstrip("v").split(".")
+    try:
+        major = int(parts[0]) if parts[0] else -1
+    except (ValueError, IndexError):
+        return "cbor"
+    if major <= 1:
+        return "cbor"
+    try:
+        minor = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+        patch_token = parts[2] if len(parts) > 2 else "0"
+        patch = int(str(patch_token).split("-")[0]) if str(patch_token).split("-")[0].isdigit() else 0
+    except (ValueError, IndexError):
+        minor, patch = 0, 0
+    if (major, minor, patch) < tuple(JCS_INTRODUCED_TUPLE):
+        return "legacy"
+    return "jcs"
+
+
+def normalize_model_dict(model_dict: dict[str, Any]) -> dict[str, Any]:
+    """Normalize datetime/UUID values exactly as the signing preimage does.
+
+    Extracted to module level so the legacy verify paths in `trust.py` and
+    `verify.py` reuse it instead of carrying their own copies (which drifted
+    before — same class of bug as a report disagreeing with its writer).
+    """
+    def normalize_value(value: Any) -> Any:
+        if isinstance(value, datetime):
+            # Normalise to UTC, strip microseconds — must match _cbor_default_encoder.
+            if value.tzinfo is None:
+                normalized_dt = value.replace(microsecond=0, tzinfo=timezone.utc)
+            else:
+                normalized_dt = value.astimezone(timezone.utc).replace(microsecond=0)
+            return normalized_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        elif isinstance(value, UUID):
+            # Convert UUID to canonical string representation
+            return str(value)
+        elif isinstance(value, dict):
+            return {k: normalize_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [normalize_value(item) for item in value]
+        else:
+            return value
+
+    return normalize_value(model_dict)
+
+
+def model_dict_for_hash(model: BaseModel) -> dict[str, Any]:
+    """model_dump + historical pops + omit-absent + normalize: the exact
+    dict every canonical hash is computed over."""
+    model_dict = model.model_dump()
+
+    # AUD-AT-01: Exclude source_type from StepModel canonical hash to preserve
+    # backward compatibility with legacy artifacts that do not contain this field.
+    if model.__class__.__name__ == "StepModel":
+        model_dict.pop("source_type", None)
+        model_dict.pop("verification_class", None)
+
+    omit_absent_optional_hash_fields(model_dict, model.__class__.__name__)
+    return normalize_model_dict(model_dict)
+
+
+def hash_normalized_dict(model_dict: dict[str, Any], fmt: CanonicalFormat) -> str:
+    """Hash an already-normalized dict with the named canonicalization."""
+    if fmt == "cbor":
+        return _get_cbor_canonical_hash(model_dict)
+    if fmt == "legacy":
+        return _get_legacy_json_hash(model_dict)
+    return _get_json_canonical_hash(model_dict)
 
 
 def _cbor_default_encoder(encoder, value: Any) -> None:
@@ -103,37 +193,7 @@ def get_canonical_hash(
         >>> assert hash1 == hash2  # Hashes are identical
     """
     # Convert model to dict
-    model_dict = model.model_dump()
-
-    # AUD-AT-01: Exclude source_type from StepModel canonical hash to preserve
-    # backward compatibility with legacy artifacts that do not contain this field.
-    if model.__class__.__name__ == "StepModel":
-        model_dict.pop("source_type", None)
-        model_dict.pop("verification_class", None)
-
-    omit_absent_optional_hash_fields(model_dict, model.__class__.__name__)
-
-    # Normalize datetime and UUID fields to strings
-    def normalize_value(value: Any) -> Any:
-        if isinstance(value, datetime):
-            # Normalise to UTC, strip microseconds — must match _cbor_default_encoder.
-            if value.tzinfo is None:
-                normalized_dt = value.replace(microsecond=0, tzinfo=timezone.utc)
-            else:
-                normalized_dt = value.astimezone(timezone.utc).replace(microsecond=0)
-            return normalized_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        elif isinstance(value, UUID):
-            # Convert UUID to canonical string representation
-            return str(value)
-        elif isinstance(value, dict):
-            return {k: normalize_value(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [normalize_value(item) for item in value]
-        else:
-            return value
-
-    # Normalize datetime and UUID fields to strings
-    model_dict = normalize_value(model_dict)
+    model_dict = model_dict_for_hash(model)
 
     if exclude_fields:
         for field in exclude_fields:
@@ -150,17 +210,7 @@ def get_canonical_hash(
     if model.__class__.__name__ == "StepModel":
         return _get_json_canonical_hash(model_dict)
 
-    spec_version = model_dict.get("spec_version", "")
-    try:
-        # Strip any leading "v" (e.g. "v2.0" → "2.0") before parsing
-        major_version = int(str(spec_version).lstrip("v").split(".")[0]) if spec_version else 1
-    except (ValueError, IndexError):
-        major_version = 1
-
-    if major_version >= 2:
-        return _get_json_canonical_hash(model_dict)
-    else:
-        return _get_cbor_canonical_hash(model_dict)
+    return hash_normalized_dict(model_dict, canonical_format_for(model_dict.get("spec_version", "")))
 
 
 def _get_json_canonical_hash(data: Any) -> str:

@@ -131,3 +131,30 @@ def test_legacy_base64_signature_still_accepted():
 
     valid, signer, message = verify_embedded_manifest_signature(signed)
     assert valid is True, f"Base64 signature should still verify: {message}"
+
+
+def test_sign_and_verify_agree_on_every_version_input():
+    """Sign and verify must use the same preimage for every spec_version.
+
+    Regression: sign used JCS for 2.x-4.4.0 while verify used legacy JSON,
+    and sign used CBOR for missing/malformed versions while verify used
+    legacy (chain verify even used JCS) — three answers for one input.
+    """
+    from epi_core.serialize import canonical_format_for
+
+    for sv in ["1.0", "1.9", "2.0", "3.2", "4.0", "4.4.0", "4.4.1", "4.4.7",
+               "", "foo", "0.9", "v4.4.7", "4.4.7-rc1"]:
+        manifest = ManifestModel()
+        manifest = manifest.model_copy(update={"spec_version": sv})
+        key = _make_deterministic_key()
+        signed = sign_manifest(manifest, key, key_name="k")
+        valid, _signer, message = verify_embedded_manifest_signature(signed)
+        assert valid is True, f"spec_version={sv!r}: sign/verify disagree ({message})"
+
+    # Dispatch spot-checks: era rule + sign-compatible fallbacks.
+    assert canonical_format_for("1.0") == "cbor"
+    assert canonical_format_for("4.4.0") == "legacy"
+    assert canonical_format_for("4.4.1") == "jcs"
+    assert canonical_format_for("") == "cbor"
+    assert canonical_format_for(None) == "cbor"
+    assert canonical_format_for("foo") == "cbor"

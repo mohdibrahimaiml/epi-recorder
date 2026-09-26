@@ -412,6 +412,13 @@ class TestVerificationReport:
         # Permissive policy should pass unsigned
         apply_policy(report, VerificationPolicy.PERMISSIVE)
         assert report["decision"]["status"] == "PASS"
+
+        # Standard must WARN unsigned-intact: anyone can produce an unsigned
+        # file, so PASS would reward stripping a signature (a signed-unknown
+        # artifact only gets WARN — unsigned must never outrank it).
+        apply_policy(report, VerificationPolicy.STANDARD)
+        assert report["decision"]["status"] == "WARN"
+        assert "unsigned" in report["decision"]["reason"].lower()
         
         # Strict policy should fail unsigned/unknown
         apply_policy(report, VerificationPolicy.STRICT)
