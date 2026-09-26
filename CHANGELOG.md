@@ -953,3 +953,6 @@ Explicit capture provides stronger evidentiary guarantees.
 - Cryptographic sealing with Ed25519
 - Embedded offline viewer
 - Zero-config CLI recording
+
+<!-- treadmill-proof (unmerged) -->
+
