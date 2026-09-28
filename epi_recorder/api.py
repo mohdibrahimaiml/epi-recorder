@@ -1758,8 +1758,12 @@ class EpiRecorderSession:
                 # and the outer envelope stay coherent after signing.
                 # Suppress notarization: first pack already notarized.
                 # Re-timestamping tsa_reply.tsr after hashing causes mismatch.
+                # Suppress checkpoints too: a repacked/resealed artifact must not
+                # silently generate new checkpoints that paper over missing ones.
                 old_notarize = os.environ.get("EPI_NOTARIZE")
                 os.environ["EPI_NOTARIZE"] = "0"
+                old_checkpoints = os.environ.get("EPI_CHECKPOINTS_ENABLED")
+                os.environ["EPI_CHECKPOINTS_ENABLED"] = "0"
                 try:
                     temp_output = self.output_path.with_suffix('.epi.tmp')
                     EPIContainer.pack(
@@ -1778,6 +1782,10 @@ class EpiRecorderSession:
                         os.environ.pop("EPI_NOTARIZE", None)
                     else:
                         os.environ["EPI_NOTARIZE"] = old_notarize
+                    if old_checkpoints is None:
+                        os.environ.pop("EPI_CHECKPOINTS_ENABLED", None)
+                    else:
+                        os.environ["EPI_CHECKPOINTS_ENABLED"] = old_checkpoints
                 
                 # Successfully created signed file, now safely replace original
                 self.output_path.unlink()

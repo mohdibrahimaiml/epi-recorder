@@ -301,7 +301,11 @@ class TestPatcherEdgeCases:
         lines = (temp_dir / "steps.jsonl").read_text().strip().split('\n')
         assert len(lines) == 1
         step = json.loads(lines[0])
-        assert step["content"] == {}
+        # Live capture tagging (Capture Manifest): SDK steps carry an
+        # _epi_capture sidecar; user content itself stays empty.
+        user_content = {k: v for k, v in step["content"].items() if k != "_epi_capture"}
+        assert user_content == {}
+        assert step["content"]["_epi_capture"]["capture_path"] == "sdk_wrapper"
     
     def test_nested_content_is_preserved(self):
         """Test that nested dictionaries are preserved."""

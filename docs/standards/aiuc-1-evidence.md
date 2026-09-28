@@ -28,7 +28,7 @@ EPI satisfies the strict evidence requirements of the six AIUC-1 trust domains:
 ### 2.1 Security (Control Domain 1)
 *   **AIUC-1 Requirement:** Verifiable protection against adversarial attacks (prompt injection, jailbreaking), unauthorized tool invocation, and data exfiltration.
 *   **EPI Evidence Mapping:**
-    *   **Ed25519 Cryptographic Signatures:** Every `.epi` artifact's manifest is signed with Ed25519, ensuring the entire evidence package is completely tamper-evident.
+    *   **Ed25519 Cryptographic Signatures:** Every `.epi` artifact's manifest is signed with Ed25519, ensuring the entire evidence package is tamper-evident post-seal.
     *   **SCITT Transparency Logging:** Integration with SCITT logs registers the manifest's canonical SHA-256 hash in a public or private append-only transparency ledger, ensuring non-repudiation.
     *   **Tool Execution Capture:** The `steps.jsonl` timeline captures every tool call, its parameters, and returned values in order, allowing auditors to verify that the agent never invoked unauthorized resources or executed unsafe commands.
 

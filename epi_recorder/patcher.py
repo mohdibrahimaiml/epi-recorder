@@ -86,6 +86,29 @@ class RecordingContext:
         import uuid
         session_id = str(uuid.uuid4())[:8]
         self.storage = EpiStorage(session_id, self.output_dir)
+
+        # Forward-secure checkpoints: heartbeat state. Checkpoints are
+        # additive, not a new hard requirement — a run with zero successful
+        # checkpoints just seals with seal-time notarization only, same as today.
+        import time as _time
+
+        self._checkpoint_index = 0
+        self._checkpoint_last_count = 0
+        self._checkpoint_last_time = _time.time()
+        # Resume index if workspace already has checkpoints (e.g. resumed run).
+        try:
+            _cp_dir = Path(self.output_dir) / "artifacts" / "checkpoints"
+            if _cp_dir.is_dir():
+                _existing = sorted(_cp_dir.glob("*.json"))
+                if _existing:
+                    try:
+                        self._checkpoint_index = max(
+                            int(p.stem) for p in _existing
+                        ) + 1
+                    except Exception:
+                        self._checkpoint_index = len(_existing)
+        except Exception:
+            pass
     
     def add_step(self, kind: str, content: Dict[str, Any], trace_id: Optional[str] = None, span_id: Optional[str] = None, parent_span_id: Optional[str] = None) -> None:
         """
@@ -101,6 +124,28 @@ class RecordingContext:
         from epi_core.serialize import get_canonical_hash
 
         with self._lock:
+            # Live capture tagging (Capture Manifest): SDK wrapper path.
+            # Determined per-call as calls happen — not reconstructed from logs.
+            try:
+                _cap = (content or {}).get("_epi_capture") if isinstance(content, dict) else None
+                if not isinstance(_cap, dict):
+                    _streaming = bool((content or {}).get("stream", False)) if isinstance(content, dict) else False
+                    content = dict(content or {}) if isinstance(content, dict) else {"value": content}
+                    content["_epi_capture"] = {
+                        "capture_path": "sdk_wrapper",
+                        "gateway_enforcement": "not_applicable",
+                        "streaming": _streaming,
+                    }
+                else:
+                    # Enforce invariant: streaming=true implies sdk_wrapper
+                    # (gateway returns 501 for streaming).
+                    if bool(_cap.get("streaming") or (content or {}).get("stream", False)):
+                        _cap["streaming"] = True
+                        if _cap.get("capture_path") == "gateway":
+                            _cap["capture_path"] = "sdk_wrapper"
+            except Exception:
+                pass
+
             # Redact if enabled
             if self.redactor:
                 redacted_content, redaction_count = self.redactor.redact(content)
@@ -113,7 +158,12 @@ class RecordingContext:
                         kind="security.redaction",
                         content={
                             "count": redaction_count,
-                            "target_step": kind
+                            "target_step": kind,
+                            "_epi_capture": {
+                                "capture_path": "sdk_wrapper",
+                                "gateway_enforcement": "not_applicable",
+                                "streaming": False,
+                            },
                         },
                         prev_hash=self._last_step_hash
                     )
@@ -142,6 +192,46 @@ class RecordingContext:
             self._write_step(step)
             self.step_index += 1
             self._step_counts[kind] = self._step_counts.get(kind, 0) + 1
+
+            # Forward-secure checkpoint heartbeat (best-effort, never blocks).
+            # Suppressed during repack via EPI_CHECKPOINTS_ENABLED=0.
+            try:
+                from epi_core.checkpoints import (
+                    checkpoints_enabled,
+                    checkpoint_intervals,
+                    create_checkpoint,
+                    should_checkpoint,
+                )
+
+                if checkpoints_enabled():
+                    import time as _htime
+
+                    _ev, _sec = checkpoint_intervals()
+                    if should_checkpoint(
+                        self._checkpoint_last_count,
+                        self.step_index,
+                        self._checkpoint_last_time,
+                        _htime.time(),
+                        interval_events=_ev,
+                        interval_seconds=_sec,
+                    ):
+                        _head = self._last_step_hash
+                        _idx = self._checkpoint_index
+                        _count = self.step_index
+                        try:
+                            create_checkpoint(
+                                Path(self.output_dir),
+                                index=_idx,
+                                event_count=_count,
+                                chain_head=_head,
+                            )
+                        except Exception:
+                            pass
+                        self._checkpoint_index = _idx + 1
+                        self._checkpoint_last_count = _count
+                        self._checkpoint_last_time = _htime.time()
+            except Exception:
+                pass
 
     def _write_step(self, step: StepModel) -> None:
         """Write step atomically to SQLite storage."""

@@ -937,9 +937,121 @@ def verify_command(
             forensic_reason=forensic_reason,
         )
 
+        # ========== STEP 4.8: CAPTURE MANIFEST (Feature 1) ==========
+        # Machine-readable scope declaration; absent on pre-v artifacts.
+        _cap_manifest: dict | None = None
+        _cap_downgrade_n = 0
+        try:
+            _cap_manifest = EPIContainer.read_member_json(epi_file, "artifacts/manifest.json")
+        except Exception:
+            _cap_manifest = None
+        if isinstance(_cap_manifest, dict):
+            try:
+                _cap_downgrade_n = len(_cap_manifest.get("fail_open_events") or [])
+            except Exception:
+                _cap_downgrade_n = 0
+            report["capture_manifest"] = _cap_manifest
+            report["capture_manifest_present"] = True
+            report["enforcement_downgraded"] = _cap_downgrade_n > 0
+            report["enforcement_downgrade_count"] = _cap_downgrade_n
+            if _cap_downgrade_n > 0:
+                # Top-line warning-level flag — never render identically to fully-enforced.
+                report["summary"]["integrity"] = (
+                    f"VERIFIED (enforcement downgraded for {_cap_downgrade_n} events)"
+                    if integrity_ok else report["summary"].get("integrity", "FAILED")
+                )
+        else:
+            report["capture_manifest"] = None
+            report["capture_manifest_present"] = False
+            report["enforcement_downgraded"] = False
+            report["enforcement_downgrade_count"] = 0
+        if verbose:
+            if _cap_manifest is None:
+                console.print(
+                    "  [yellow]![/yellow] No capture manifest (pre-v artifact, scope undeclared)"
+                )
+            else:
+                _cp = _cap_manifest.get("capture_path", "unknown")
+                _ce = _cap_manifest.get("gateway_enforcement", "not_applicable")
+                console.print(f"  [green][OK][/green] Capture manifest: path={_cp} enforcement={_ce}")
+                if _cap_downgrade_n > 0:
+                    console.print(
+                        f"  [yellow][WARN][/yellow] INTEGRITY: VERIFIED "
+                        f"(enforcement downgraded for {_cap_downgrade_n} events)"
+                    )
+
+        # ========== STEP 4.9: FORWARD-SECURE CHECKPOINTS (Feature 2) ==========
+        _cp_ok = True
+        _cp_messages: list[str] = []
+        _cp_records: list[dict] = []
+        try:
+            from epi_core.checkpoints import verify_checkpoints
+
+            _cp_ok, _cp_messages, _cp_records = verify_checkpoints(epi_file, steps)
+        except Exception as _cp_err:
+            _cp_ok = False
+            _cp_messages = [f"checkpoint verification error: {_cp_err}"]
+            _cp_records = []
+        report["checkpoints"] = {
+            "ok": _cp_ok,
+            "messages": _cp_messages,
+            "count": len(_cp_records),
+        }
+        if not _cp_ok:
+            integrity_ok = False
+            # Specific message matters — never a generic failure alone.
+            # Keep facts/report consistent: the local integrity_ok feeds nothing
+            # else after report creation, so update the report fields directly.
+            for _key in ("facts",):
+                try:
+                    report[_key]["integrity_ok"] = False
+                    report[_key]["chain_ok"] = False
+                except Exception:
+                    pass
+            try:
+                report["integrity_ok"] = False
+            except Exception:
+                pass
+            try:
+                report["summary"]["integrity"] = _cp_messages[0] if _cp_messages else "FAILED"
+            except Exception:
+                pass
+        if verbose:
+            if _cp_records:
+                console.print(
+                    f"  [green][OK][/green] Checkpoints: {len(_cp_records)} record(s) present"
+                    if _cp_ok else
+                    f"  [red][FAIL][/red] Checkpoints: {len(_cp_records)} record(s), issues found"
+                )
+                for _m in _cp_messages:
+                    console.print(f"  [red][FAIL][/red] {_m}")
+            else:
+                console.print("  [dim]Checkpoints: none (seal-time notarization only)[/dim]")
+
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
         apply_policy(report, active_policy)
+        # Preserve checkpoint failure through policy application.
+        if not _cp_ok:
+            try:
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _cp_first = _cp_messages[0] if _cp_messages else "checkpoint verification failed"
+                if _cp_first not in _rs:
+                    report["decision"]["reason"] = f"{_rs} {_cp_first}".strip()
+            except Exception:
+                pass
+        # Preserve downgrade flag through policy application (apply_policy rewrites decision).
+        if _cap_downgrade_n > 0 and integrity_ok:
+            try:
+                if report.get("decision", {}).get("status") == "PASS":
+                    report["decision"]["status"] = "WARN"
+                    _rs = report["decision"].get("reason", "")
+                    report["decision"]["reason"] = (
+                        f"{_rs} INTEGRITY: VERIFIED (enforcement downgraded for {_cap_downgrade_n} events)".strip()
+                    )
+            except Exception:
+                pass
 
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
@@ -1146,6 +1258,34 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     content_lines = []
 
+    # Capture Manifest — prominent, never buried. Downgraded artifacts must
+    # not render identically to fully-enforced ones.
+    _cap = report.get("capture_manifest")
+    _downgrade_n = int(report.get("enforcement_downgrade_count") or 0)
+    if _cap is None and not report.get("capture_manifest_present", True):
+        content_lines.append(
+            "[bold]INTEGRITY: scope undeclared[/bold]  "
+            "[dim]— No capture manifest (pre-v artifact, scope undeclared)[/dim]"
+        )
+        content_lines.append("")
+    elif isinstance(_cap, dict):
+        _cp = _cap.get("capture_path", "unknown")
+        _ce = _cap.get("gateway_enforcement", "not_applicable")
+        content_lines.append(
+            f"[bold]CAPTURE: path={_cp} enforcement={_ce}[/bold]"
+        )
+        if _downgrade_n > 0:
+            content_lines.append(
+                f"[bold yellow]INTEGRITY: VERIFIED "
+                f"(enforcement downgraded for {_downgrade_n} events)[/bold yellow]"
+            )
+            # Downgrade top-line chrome to warning-level even if identity is pinned.
+            status_symbol = (
+                f"[bold yellow]⚠ VERIFIED (enforcement downgraded for {_downgrade_n} events)[/bold yellow]"
+            )
+            panel_style = "yellow"
+        content_lines.append("")
+
     # Decision Layer — identity failure mode first when unpinned
     if decision_status == "WARN" and signature_valid is True and integrity_ok:
         if id_upper == "LOCAL":
@@ -1266,6 +1406,35 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     except Exception:
         pass
     content_lines.append(f"  - Notarized:    [{notarization_status}")
+
+    # Capture scope details (known gaps etc.) — part of SEAL facts.
+    if isinstance(_cap, dict):
+        _gaps = _cap.get("known_gaps") or []
+        _surfaces = _cap.get("instrumented_surfaces") or []
+        _stream = _cap.get("streaming", False)
+        content_lines.append(f"  - Capture:      path={_cap.get('capture_path', 'unknown')} streaming={str(_stream).lower()}")
+        if _surfaces:
+            content_lines.append(f"  - Surfaces:     {', '.join([str(s) for s in _surfaces[:6]])}{' …' if len(_surfaces) > 6 else ''}")
+        if _gaps:
+            content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (see artifacts/manifest.json)")
+            for _g in _gaps[:3]:
+                content_lines.append(f"      · {str(_g)[:100]}")
+
+    # Checkpoints — specific messages, never generic alone.
+    _cps = report.get("checkpoints") if isinstance(report, dict) else None
+    if isinstance(_cps, dict):
+        _cp_count = int(_cps.get("count") or 0)
+        _cp_ok = bool(_cps.get("ok", True))
+        _cp_msgs = list(_cps.get("messages") or [])
+        if _cp_count > 0 and _cp_ok:
+            content_lines.append(f"  - Checkpoints:  { _cp_count} verified (forward-secure)")
+        elif _cp_count > 0:
+            content_lines.append(f"  [red]- Checkpoints:  {_cp_count} record(s), ISSUES FOUND[/red]")
+            for _m in _cp_msgs[:3]:
+                content_lines.append(f"  [red]  {_m}[/red]")
+        else:
+            content_lines.append("  - Checkpoints:  none (seal-time notarization only)")
+
 
     if not chain_ok:
         content_lines.append("  [red]- Chain:        BROKEN (prev_hash mismatch)[/red]")

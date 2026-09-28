@@ -23,14 +23,14 @@ Subject: [Subject line above]
 
 Hi [Name],
 
-One question: if a regulator asked you today to produce a complete, tamper-evident
+One question: if a regulator asked you today to produce a scope-declared, tamper-evident
 record of your AI's decisions from the last 90 days — inputs, model outputs, policy
 applied, human review — how would you answer?
 
 Most AI teams I talk to would need 2–8 weeks and a forensics firm. That's exactly
 the gap we built EPI to close.
 
-EPI is an open-source evidence layer for AI systems. It captures every LLM call,
+EPI is an open-source evidence layer for AI systems. It captures every instrumented LLM call,
 tool use, and decision as a cryptographically signed case file — portable,
 independently verifiable, and ready the moment a regulator, auditor, or lawyer asks.
 

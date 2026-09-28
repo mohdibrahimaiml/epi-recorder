@@ -461,11 +461,28 @@ def summarize_case_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _event_to_step(event: CaptureEventModel, index: int) -> dict[str, Any]:
+    content = dict(event.content or {})
+    # Carry the live capture tags (Capture Manifest) through projection.
+    # _enqueue_llm_capture determines capture_path / gateway_enforcement /
+    # streaming / fail_open_reason per-request at capture time and stores them
+    # in event.meta._epi_capture. Without this copy the sealed export loses
+    # the tags and the manifest falls back to kind-based guesses (wrong:
+    # gateway llm.* steps would be labeled sdk_wrapper and fail-open
+    # downgrades would vanish). event_id is attached for linkage so
+    # fail_open_events tie back to the event in the chain.
+    try:
+        cap = (event.meta or {}).get("_epi_capture")
+        if isinstance(cap, dict) and "_epi_capture" not in content:
+            carried = dict(cap)
+            carried.setdefault("event_id", event.event_id)
+            content["_epi_capture"] = carried
+    except Exception:
+        pass
     step = {
         "index": index,
         "timestamp": event.captured_at.isoformat(),
         "kind": event.kind,
-        "content": event.content,
+        "content": content,
     }
     if event.trace_id:
         step["trace_id"] = event.trace_id
@@ -591,6 +608,20 @@ def build_case_payload_from_events(
 
     steps = [_event_to_step(event, index) for index, event in enumerate(events)]
     if steps and steps[0]["kind"] != "session.start":
+        # Inherit the case's unanimous gateway enforcement (if any) so the
+        # synthetic step doesn't spuriously flip globals to "mixed".
+        _synth_enforcement = "not_applicable"
+        try:
+            _enfs = {
+                ((e.meta or {}).get("_epi_capture") or {}).get("gateway_enforcement")
+                for e in events
+            } - {None}
+            if _enfs == {"fail_open"}:
+                _synth_enforcement = "fail_open"
+            elif _enfs == {"fail_closed"}:
+                _synth_enforcement = "fail_closed"
+        except Exception:
+            pass
         steps.insert(
             0,
             {
@@ -601,6 +632,12 @@ def build_case_payload_from_events(
                     "workflow": workflow_name,
                     "source_app": _first_nonempty(*(event.source_app for event in events)),
                     "case_id": case_id,
+                    # Synthesized by the gateway projector (not a live request).
+                    "_epi_capture": {
+                        "capture_path": "gateway",
+                        "gateway_enforcement": _synth_enforcement,
+                        "streaming": False,
+                    },
                 },
             },
         )

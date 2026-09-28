@@ -162,10 +162,10 @@ can re-sign a rebuilt chain with a fresh key.</span></pre>
       <div class="s-copy" data-aos="fade-right">
         <span class="phase">The mechanism</span>
         <h3>A sealed file, made at run time</h3>
-        <p>EPI records every step into an append-only ledger as the agent executes, then seals it cryptographically when the run closes.</p>
+        <p>EPI records every instrumented step into an append-only ledger as the agent executes, then seals it cryptographically when the run closes. Scope is declared per artifact: each file carries a manifest stating what was captured — and what wasn't.</p>
         <ul>
           <li>Ed25519 signature over the canonical manifest (JCS-style, RFC 8785)</li>
-          <li>SHA-256 hash chain across every recorded step</li>
+          <li>SHA-256 hash chain across every recorded step on the SDK path (gateway exports: signed manifest, step chaining in progress)</li>
           <li>Optional RFC 3161 timestamp at seal time</li>
           <li>One altered byte breaks the signature — visibly</li>
         </ul>
@@ -213,7 +213,7 @@ no EPI Labs required.</pre>
       <div class="card" data-aos="fade-up">
         <span class="phase">Before · Record</span>
         <h3>Capture while it happens</h3>
-        <p>One context manager wraps any framework. Every prompt, tool call, and output lands in an append-only ledger as the run executes.</p>
+        <p>One context manager wraps any framework. Every instrumented prompt, tool call, and output lands in an append-only ledger as the run executes.</p>
         <div class="term"><span class="a">with</span> record(<span class="g">"run.epi"</span>): ...</div>
       </div>
       <div class="card" data-aos="fade-up">

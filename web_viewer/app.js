@@ -689,6 +689,73 @@ function renderIntegrity(caseData, context) {
       phEl.title = payloadHash;
     }
   }
+
+  // Capture Manifest (Feature 1) — stated scope, shown prominently, never buried.
+  // Downgraded artifacts must not render identically to fully-enforced ones.
+  try {
+    const cap = caseData.capture_manifest || null;
+    const capBlock = document.getElementById('capture-block');
+    if (capBlock) {
+      if (cap) {
+        capBlock.classList.remove('hidden');
+        const pathEl = document.getElementById('diag-capture-path');
+        if (pathEl) {
+          pathEl.textContent = cap.capture_path || 'unknown';
+          pathEl.className = 'diag-status ok';
+        }
+        const enfEl = document.getElementById('diag-capture-enforcement');
+        if (enfEl) {
+          enfEl.textContent = cap.gateway_enforcement || 'not_applicable';
+          enfEl.className = 'diag-status ok';
+        }
+        const gaps = Array.isArray(cap.known_gaps) ? cap.known_gaps : [];
+        const gapsEl = document.getElementById('diag-capture-gaps');
+        if (gapsEl) {
+          gapsEl.textContent = gaps.length + ' declared';
+          gapsEl.className = 'diag-status ok';
+          gapsEl.title = gaps.slice(0, 5).join(' | ');
+        }
+        const fo = Array.isArray(cap.fail_open_events) ? cap.fail_open_events : [];
+        const dwEl = document.getElementById('diag-capture-downgrade');
+        if (dwEl) {
+          if (fo.length > 0) {
+            dwEl.textContent = 'VERIFIED (enforcement downgraded for ' + fo.length + ' events)';
+            dwEl.className = 'diag-status flagged';
+            dwEl.title = fo.slice(0, 5).map((e) => (e.event_id || '') + ': ' + (e.reason || '')).join(' | ');
+          } else {
+            dwEl.textContent = 'none (fully enforced)';
+            dwEl.className = 'diag-status ok';
+          }
+        }
+        // Downgrade must also hit the top-line integrity indicator.
+        if (fo.length > 0 && intEl) {
+          intEl.textContent = 'VERIFIED (enforcement downgraded for ' + fo.length + ' events)';
+          intEl.className = 'indicator unverified';
+        }
+      } else {
+        capBlock.classList.remove('hidden');
+        const pathEl2 = document.getElementById('diag-capture-path');
+        if (pathEl2) {
+          pathEl2.textContent = 'scope undeclared (pre-v artifact, no capture manifest)';
+          pathEl2.className = 'diag-status unknown';
+        }
+      }
+    }
+    // Checkpoints (Feature 2) — forward-secure timestamp history.
+    const cps = Array.isArray(caseData.checkpoints) ? caseData.checkpoints : [];
+    const cpEl = document.getElementById('diag-checkpoints');
+    if (cpEl) {
+      if (cps.length > 0) {
+        const withTsa = cps.filter((r) => r && r.tsa_available && r.chain_head).length;
+        cpEl.textContent = withTsa + '/' + cps.length + ' timestamped';
+        cpEl.className = 'diag-status ' + (withTsa === cps.length ? 'ok' : 'unknown');
+        cpEl.title = cps.slice(0, 5).map((r) => 'idx ' + r.index + ' @' + r.event_count + ':' + String(r.chain_head || '').slice(0, 12)).join(' | ');
+      } else {
+        cpEl.textContent = 'none (seal-time only)';
+        cpEl.className = 'diag-status unknown';
+      }
+    }
+  } catch (capErr) { /* viewer must never crash on manifest display */ }
 }
 
 window.copyVerifyCmd = function(el) {
