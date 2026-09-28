@@ -661,6 +661,16 @@ def create_verification_report(
     else:
         report["trust_message"] = "Integrity compromised - do not trust"
 
+    # Capture-manifest + checkpoint surface (one frozen shape for every
+    # producer). verify_command overwrites these with the artifact's real
+    # values; direct factory consumers (view/audit/review/portal) get honest
+    # defaults instead of missing keys.
+    report.setdefault("capture_manifest", None)
+    report.setdefault("capture_manifest_present", False)
+    report.setdefault("enforcement_downgraded", False)
+    report.setdefault("enforcement_downgrade_count", 0)
+    report.setdefault("checkpoints", {"ok": True, "messages": [], "count": 0})
+
     return report
 
 

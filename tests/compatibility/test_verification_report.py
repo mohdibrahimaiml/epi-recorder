@@ -32,6 +32,16 @@ FROZEN_REPORT_KEYS = {
     "spec_version",
     "trust_message",
     "steps_count",
+    # Added for the capture manifest + forward-secure checkpoints features:
+    # verify_command attaches the embedded scope declaration, the
+    # enforcement-downgrade flag, and checkpoint reconciliation results to
+    # every success report. Additive only — no existing key was renamed
+    # or removed.
+    "capture_manifest",
+    "capture_manifest_present",
+    "enforcement_downgraded",
+    "enforcement_downgrade_count",
+    "checkpoints",
 }
 
 FROZEN_FAILURE_KEYS = {
