@@ -155,7 +155,7 @@ Human auditor attestations are recorded in `review.json` and appended to the `.e
 
 EPI is specifically architected to satisfy the technical documentation and record-keeping mandates of the **EU AI Act (Regulation EU 2024/1689)** for High-Risk AI Systems:
 
-- **Article 12 (Record-Keeping / Automatic Logging):** Captures complete execution traces (`trace.jsonl`), timestamped tool calls, and model outputs with tamper-evident cryptographic sealing.
+- **Article 12 (Record-Keeping / Automatic Logging):** Captures scope-declared execution traces (`trace.jsonl`), timestamped tool calls, and model outputs with tamper-evident cryptographic sealing. Completeness is judged against each artifact's embedded capture manifest, which declares instrumented surfaces and known gaps.
 - **Article 14 (Human Oversight):** Provides human-in-the-loop approval workflows (`agent.approval.request` / `agent.approval.response`) and cryptographically signed human attestation ledgers (`review.json`).
 - **Article 15 (Accuracy, Robustness & Cybersecurity):** Provides deterministic 4-pass fault analysis, policy control evaluation, secret redaction, and Ed25519 digital signatures.
 - **Annex IV (Technical Documentation):** Generates standardized technical evidence bundles for conformity assessments and regulatory audits.

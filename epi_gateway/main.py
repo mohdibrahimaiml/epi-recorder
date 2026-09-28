@@ -786,6 +786,21 @@ def _resolve_failure_mode(headers: dict[str, Any], settings: GatewayRuntimeSetti
     return settings.proxy_failure_mode
 
 
+def _resolve_failure_mode_with_override(
+    headers: dict[str, Any], settings: GatewayRuntimeSettings
+) -> tuple[str, bool]:
+    """Resolve failure mode + whether the client header overrode the default.
+
+    The agent holds its own escape hatch (x-epi-failure-mode: fail-open);
+    callers that need the downgrade signal should use this helper so the
+    override is captured live, not reconstructed from logs.
+    """
+    raw = _clean((headers or {}).get("x-epi-failure-mode"))
+    if raw in PROXY_FAILURE_MODES:
+        return raw, True
+    return settings.proxy_failure_mode, False
+
+
 def _capture_context(events: list[CaptureEventModel], request: LLMCaptureRequest) -> dict[str, Any]:
     meta = request.meta or {}
     event = events[0] if events else None
@@ -817,9 +832,37 @@ def _enqueue_llm_capture(
     *,
     settings: GatewayRuntimeSettings,
     route_name: str,
+    failure_mode: str | None = None,
+    failure_mode_overridden: bool = False,
+    streaming: bool = False,
 ) -> list[CaptureEventModel]:
     retained = _apply_retention_mode(request, settings.retention_mode)
     events = build_llm_capture_events(retained)
+    # Live capture tagging (Capture Manifest): gateway path, per-request.
+    # capture_path, gateway_enforcement, streaming determined here as calls
+    # happen — not reconstructed after the fact.
+    try:
+        from epi_core.time_utils import utc_now_iso as _utc_iso
+
+        _enf = "fail_open" if (failure_mode or settings.proxy_failure_mode) == "fail-open" else "fail_closed"
+        for item in events:
+            try:
+                meta = dict(item.meta or {})
+                cap = dict(meta.get("_epi_capture") or {})
+                cap.update({
+                    "capture_path": "gateway",
+                    "gateway_enforcement": _enf,
+                    "streaming": bool(streaming),
+                })
+                if failure_mode_overridden and (failure_mode == "fail-open"):
+                    cap["fail_open_reason"] = "client_header_override"
+                    cap["timestamp"] = _utc_iso()
+                meta["_epi_capture"] = cap
+                item.meta = meta
+            except Exception:
+                continue
+    except Exception:
+        pass
     for item in events:
         worker.enqueue(item)
     _log_capture_result(route_name, retained, events, settings.retention_mode)
@@ -1274,7 +1317,7 @@ def create_app(
             raise HTTPException(status_code=501, detail="Streaming not supported via EPI gateway proxy — use wrap_openai streaming wrapper with record() for captured streams, or send with stream=false")
 
         inbound_headers = dict(request.headers)
-        failure_mode = _resolve_failure_mode(inbound_headers, runtime_settings)
+        failure_mode, _fm_overridden = _resolve_failure_mode_with_override(inbound_headers, runtime_settings)
         if failure_mode == "fail-closed" and not runtime_worker.snapshot().get("ready"):
             return _capture_failure_response(
                 "EPI Gateway worker not ready - cannot accept requests in fail-closed mode.",
@@ -1288,6 +1331,9 @@ def create_app(
                     capture_request,
                     settings=runtime_settings,
                     route_name="/v1/chat/completions",
+                    failure_mode=failure_mode,
+                    failure_mode_overridden=_fm_overridden,
+                    streaming=False,
                 )
             except Exception as capture_exc:
                 logger.error("OpenAI-compatible capture failed in %s mode: %s", failure_mode, capture_exc, exc_info=True)
@@ -1310,6 +1356,9 @@ def create_app(
                     capture_request,
                     settings=runtime_settings,
                     route_name="/v1/chat/completions",
+                    failure_mode=failure_mode,
+                    failure_mode_overridden=_fm_overridden,
+                    streaming=False,
                 )
             except Exception as capture_exc:
                 logger.error("OpenAI-compatible error capture failed in %s mode: %s", failure_mode, capture_exc, exc_info=True)
@@ -1335,7 +1384,7 @@ def create_app(
             raise HTTPException(status_code=501, detail="Streaming not supported via EPI gateway proxy — use wrap_anthropic streaming wrapper with record()")
 
         inbound_headers = dict(request.headers)
-        failure_mode = _resolve_failure_mode(inbound_headers, runtime_settings)
+        failure_mode, _fm_overridden = _resolve_failure_mode_with_override(inbound_headers, runtime_settings)
         if failure_mode == "fail-closed" and not runtime_worker.snapshot().get("ready"):
             return _capture_failure_response(
                 "EPI Gateway worker not ready - cannot accept requests in fail-closed mode.",
@@ -1349,6 +1398,9 @@ def create_app(
                     capture_request,
                     settings=runtime_settings,
                     route_name="/v1/messages",
+                    failure_mode=failure_mode,
+                    failure_mode_overridden=_fm_overridden,
+                    streaming=False,
                 )
             except Exception as capture_exc:
                 logger.error("Anthropic-compatible capture failed in %s mode: %s", failure_mode, capture_exc, exc_info=True)
@@ -1371,6 +1423,9 @@ def create_app(
                     capture_request,
                     settings=runtime_settings,
                     route_name="/v1/messages",
+                    failure_mode=failure_mode,
+                    failure_mode_overridden=_fm_overridden,
+                    streaming=False,
                 )
             except Exception as capture_exc:
                 logger.error("Anthropic-compatible error capture failed in %s mode: %s", failure_mode, capture_exc, exc_info=True)

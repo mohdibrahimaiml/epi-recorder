@@ -62,5 +62,5 @@ class TestViewerJSValidation:
             assert copy == canonical, (
                 f"{copy_path} has diverged from web_viewer/app.js "
                 f"({len(copy)} vs {len(canonical)} bytes). "
-                f"Run: cp web_viewer/app.js {copy_path}"
+                f"Run: python scripts/sync_viewer_mirrors.py"
             )

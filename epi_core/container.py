@@ -309,6 +309,15 @@ class EPIContainer:
                 ),
             },
             "notarization": _read_json_if_exists(source_dir / "artifacts" / "notarization" / "notarization.json"),
+            "capture_manifest": _read_json_if_exists(source_dir / "artifacts" / "manifest.json"),
+            "checkpoints": sorted(
+                [
+                    json.loads(p.read_text(encoding="utf-8"))
+                    for p in sorted((source_dir / "artifacts" / "checkpoints").glob("*.json"))
+                    if p.is_file()
+                ],
+                key=lambda r: int(r.get("index", 0)),
+            ) if (source_dir / "artifacts" / "checkpoints").is_dir() else [],
             "envelope": {
                 "version": EPI_ENVELOPE_VERSION,
                 "artifact_uuid": str(manifest.workflow_id),
@@ -1111,6 +1120,25 @@ class EPIContainer:
                 )
                 warning = f"[EPI] Warning: AGT embedding failed ({_embed_err}), continuing without embedded AGT"
                 print(warning, file=_sys.stderr)
+
+        # ── Capture Manifest (Feature 1) ──
+        # Built at seal time from live-tagged steps; written into artifacts/
+        # BEFORE the file_manifest walk so it is itself hash-chained.
+        # Repack preserves an existing manifest (do not regenerate/overwrite
+        # checkpoints or downgrade history on sign/reseal).
+        try:
+            from epi_core.manifest import build_capture_manifest, write_manifest
+
+            _manifest_path = source_dir / "artifacts" / "manifest.json"
+            if preserve_generated and _manifest_path.exists():
+                pass
+            else:
+                _cap_manifest = build_capture_manifest(source_dir)
+                write_manifest(source_dir, _cap_manifest)
+        except Exception as _cm_err:
+            import sys as _sys2
+
+            print(f"[EPI] Warning: capture manifest build failed ({_cm_err}), sealing without manifest", file=_sys2.stderr)
 
         file_manifest: dict[str, str] = {}
         files_to_pack: list[tuple[Path, str]] = []
