@@ -229,3 +229,25 @@ def test_active_surfaces_gateway_and_empty_cases():
         m2 = build_capture_manifest(ws2)
         assert m2.active_surfaces == []
         assert len(m2.instrumented_surfaces) > 0
+
+
+def test_manifest_build_failure_leaves_declared_marker(monkeypatch):
+    """A builder failure seals scope-undeclared but declares the absence via
+    a hash-chained marker file — never a silent gap."""
+    os.environ["EPI_NOTARIZE"] = "0"
+    os.environ["EPI_CHECKPOINTS_ENABLED"] = "0"
+
+    def _boom(_source_dir):
+        raise RuntimeError("simulated builder failure")
+
+    monkeypatch.setattr("epi_core.manifest.build_capture_manifest", _boom)
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "m.epi"
+        _seal_simple(out)
+        from epi_core.container import EPIContainer
+
+        assert "artifacts/manifest_build_failed.txt" in EPIContainer.list_members(out)
+        manifest = EPIContainer.read_manifest(out)
+        assert "artifacts/manifest_build_failed.txt" in manifest.file_manifest
+        ok, _ = EPIContainer.verify_integrity(out)
+        assert ok
