@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/logo.png" alt="EPI Logo" width="180"/>
 
-# EPI — Evidence for AI agents
+# EPI (Evidence Packaged Infrastructure) — Evidence for AI agents
 
 ### Record. Seal. Verify offline. The answer is a **file**.
 
