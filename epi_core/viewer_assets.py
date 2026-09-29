@@ -39,48 +39,45 @@ def load_viewer_assets(version: str = "1.0") -> dict[str, str | None]:
 
 def _validate_app_js(app_js: str | None) -> None:
     """Validate app.js before it gets inlined into any viewer.
-    
-    Catches syntax errors (like doubled braces) and missing critical functions
-    at build time instead of at browser runtime.
+
+    Single shared implementation (also used by tests/test_viewer_js_validation.py
+    — one implementation, no duplicated slicing logic that can drift):
+      1. Structural checks that are pure string matching (safe by construction:
+         forbidden patterns, required symbols).
+      2. Brace balance via a source-aware scan (comments, strings, and template
+         literals with ${} are skipped — never naive .count() on raw text).
+      3. Real grammar check via `node --check` when node is available
+         (Node is a CI dependency; locally the structural checks still run and
+         a missing node only downgrades to a warning, never a silent pass).
     """
     if not app_js:
         return
-    
+
     import sys
-    
+
+    errors = validate_app_js_source(app_js)
+    node_errors = node_check_js(app_js)
+    if node_errors is None:
+        print(
+            "[EPI] node not found — pack-time JS syntax check skipped "
+            "(structural check still ran)",
+            file=sys.stderr,
+        )
+    else:
+        errors.extend(node_errors)
+
+    if errors:
+        msg = "app.js validation failed:\n  " + "\n  ".join(errors)
+        print(f"[EPI] {msg}", file=sys.stderr)
+        raise RuntimeError(msg)
+
+
+def validate_app_js_source(app_js: str) -> list[str]:
+    """Shared structural validation: forbidden patterns, required symbols,
+    source-aware brace balance. Pure Python, no subprocess. Returns errors."""
     errors: list[str] = []
-    
-    # 1. Brace balance check for every key function
-    functions_to_check = [
-        "buildReviewedArtifactBytes",
-        "buildReviewedFromOriginal",
-        "summarizeStep",
-        "renderVerdict",
-        "renderAnalysis",
-        "renderGovernance",
-        "renderIntegrity",
-    ]
-    for func_name in functions_to_check:
-        idx = app_js.find(f"function {func_name}")
-        if idx < 0:
-            idx = app_js.find(f"async function {func_name}")
-        if idx < 0:
-            continue
-        # Find next function or end of script
-        next_func = len(app_js)
-        for marker in ["function ", "async function "]:
-            pos = app_js.find(marker, idx + len(func_name) + 20)
-            if pos > 0 and pos < next_func:
-                next_func = pos
-        body = app_js[idx:next_func]
-        opens = body.count("{")
-        closes = body.count("}")
-        if opens != closes:
-            errors.append(
-                f"Brace mismatch in {func_name}: {opens} open, {closes} close"
-            )
-    
-    # 2. Critical: old bug pattern must not return
+
+    # Critical: old bug pattern must not return
     if "delete manifest.signature" in app_js:
         errors.append(
             "FATAL: 'delete manifest.signature' found in app.js — "
@@ -101,23 +98,146 @@ def _validate_app_js(app_js: str | None) -> None:
             "FATAL: 'verifyCaseInBrowser' missing from app.js — "
             "export-html / embedded viewers cannot prove signatures offline"
         )
-    
-    # 3. Critical: new function must exist
+
+    # Critical: new function must exist
     if "buildReviewedFromOriginal" not in app_js:
         errors.append(
             "FATAL: 'buildReviewedFromOriginal' missing from app.js — "
             "Sign & Seal will produce corrupted artifacts"
         )
-    
+
     if "buildReviewedArtifactBytes" not in app_js:
         errors.append(
             "FATAL: 'buildReviewedArtifactBytes' missing from app.js"
         )
-    
-    if errors:
-        msg = "app.js validation failed:\n  " + "\n  ".join(errors)
-        print(f"[EPI] {msg}", file=sys.stderr)
-        raise RuntimeError(msg)
+
+    errors.extend(js_brace_errors(app_js))
+    return errors
+
+
+def js_brace_errors(source: str) -> list[str]:
+    """Whole-file brace balance with string/comment/template awareness.
+
+    No function slicing (slicing on the literal "function " is what broke
+    when anonymous callbacks appeared — the slice boundary is a guess, the
+    count after it fiction). Returns [] when balanced.
+    """
+    depth = 0
+    # Template-literal stack: None = raw template text, int = brace depth
+    # recorded at the matching ${ (a } returning to that depth resumes text).
+    tmpl: list[int | None] = [None]  # base level behaves as CODE, not text
+    mode = "code"
+    i, n = 0, len(source)
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        if mode == "code":
+            if ch == "/" and nxt == "/":
+                mode = "line"
+                i += 2
+                continue
+            if ch == "/" and nxt == "*":
+                mode = "block"
+                i += 2
+                continue
+            if ch == "'":
+                mode = "sq"
+            elif ch == '"':
+                mode = "dq"
+            elif ch == "`":
+                tmpl.append(None)
+                mode = "tpl"
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth < 0:
+                    return ["brace mismatch: closing } with nothing open"]
+                if tmpl and tmpl[-1] is not None and depth == tmpl[-1]:
+                    tmpl.pop()
+                    mode = "tpl"
+        elif mode == "line":
+            if ch == "\n":
+                mode = "code"
+        elif mode == "block":
+            if ch == "*" and nxt == "/":
+                mode = "code"
+                i += 2
+                continue
+        elif mode in ("sq", "dq"):
+            quote = "'" if mode == "sq" else '"'
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                mode = "code"
+            elif ch == "\n" and mode == "sq":
+                # Unterminated single-quoted string continues in sloppy
+                # parsing; do not let it swallow the rest of the file —
+                # node --check owns true syntax, this scan only balances.
+                mode = "code"
+        elif mode == "tpl":
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == "`":
+                tmpl.pop()
+                mode = "code"
+            elif ch == "$" and nxt == "{":
+                tmpl.append(depth)
+                depth += 1
+                mode = "code"
+                i += 2
+                continue
+        i += 1
+    if mode == "block":
+        return ["brace scan: unterminated block comment"]
+    if len(tmpl) > 1:
+        return ["brace scan: unterminated template literal"]
+    if mode in ("sq", "dq"):
+        return ["brace scan: unterminated string literal"]
+    if depth != 0:
+        return [f"brace mismatch: {depth} unclosed {{ remaining"]
+    return []
+
+
+def node_check_js(app_js: str) -> list[str] | None:
+    """Real-grammar syntax check via `node --check`. Returns None when node
+    is unavailable (caller downgrades to a warning, never a silent pass).
+
+    Implementation note: stdout/stderr go to DEVNULL and only the exit code
+    is read. Capturing pipes with a timeout makes Windows
+    Popen.communicate() spawn reader threads — and anything that patches
+    threading.Thread (tests do, legitimately) then breaks pack-time
+    validation. No pipes, no threads, no such coupling.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if shutil.which("node") is None:
+        return None
+    try:
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as fh:
+            fh.write(app_js)
+            tmp = fh.name
+        try:
+            proc = subprocess.run(
+                ["node", "--check", tmp],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+            )
+        finally:
+            try:
+                Path(tmp).unlink(missing_ok=True)
+            except Exception:
+                pass
+        if proc.returncode == 0:
+            return []
+        return [f"node --check failed (exit {proc.returncode})"]
+    except Exception as exc:
+        return [f"node --check could not run: {exc}"]
 
 
 def _escape_inline_script_source(script_source: str | None) -> str | None:
