@@ -203,7 +203,14 @@ def js_brace_errors(source: str) -> list[str]:
 
 def node_check_js(app_js: str) -> list[str] | None:
     """Real-grammar syntax check via `node --check`. Returns None when node
-    is unavailable (caller downgrades to a warning, never a silent pass)."""
+    is unavailable (caller downgrades to a warning, never a silent pass).
+
+    Implementation note: stdout/stderr go to DEVNULL and only the exit code
+    is read. Capturing pipes with a timeout makes Windows
+    Popen.communicate() spawn reader threads — and anything that patches
+    threading.Thread (tests do, legitimately) then breaks pack-time
+    validation. No pipes, no threads, no such coupling.
+    """
     import shutil
     import subprocess
     import tempfile
@@ -217,8 +224,8 @@ def node_check_js(app_js: str) -> list[str] | None:
         try:
             proc = subprocess.run(
                 ["node", "--check", tmp],
-                capture_output=True,
-                text=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=60,
             )
         finally:
@@ -228,8 +235,7 @@ def node_check_js(app_js: str) -> list[str] | None:
                 pass
         if proc.returncode == 0:
             return []
-        detail = (proc.stderr or proc.stdout or "unknown syntax error").strip().splitlines()
-        return [f"node --check failed: {detail[0][:200]}" if detail else "node --check failed"]
+        return [f"node --check failed (exit {proc.returncode})"]
     except Exception as exc:
         return [f"node --check could not run: {exc}"]
 

@@ -87,6 +87,18 @@ class TestViewerJSValidation:
         assert node_check_js(BALANCED_WITH_ANONYMOUS_CALLBACKS) == []
         assert node_check_js(UNBALANCED_FIXTURE) != []
 
+    def test_node_check_survives_thread_start_mock(self):
+        """node_check_js must not depend on threading: pack-time validation
+        runs inside suites that patch threading.Thread.start, and Windows
+        pipe-draining spawns reader threads — DEVNULL avoids pipes entirely."""
+        if shutil.which("node") is None:
+            pytest.skip("node not installed")
+        from unittest.mock import patch
+
+        with patch("threading.Thread.start", return_value=None):
+            assert node_check_js("var x = 1;") == []
+            assert node_check_js("var x = ;") != []
+
     def test_viewer_copies_stay_in_sync(self):
         """site/ and website/ copies must be identical to canonical."""
         canonical = (REPO / "web_viewer" / "app.js").read_text(encoding="utf-8")
