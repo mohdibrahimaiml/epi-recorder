@@ -181,3 +181,51 @@ def test_old_artifact_without_manifest_handled_gracefully():
         sys.stdout = old
     text = buf.getvalue()
     assert "scope undeclared" in text
+
+
+def test_active_surfaces_reflect_run_not_capabilities():
+    """active_surfaces derives from sealed steps (did see), while
+    instrumented_surfaces stays the capability list (can see)."""
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "e.epi"
+        _seal_simple(out)
+        from epi_core.container import EPIContainer
+
+        data = EPIContainer.read_member_json(out, "artifacts/manifest.json")
+        assert "sdk_wrapper:openai.chat.completions" in data["active_surfaces"]
+        # Capability list is global; active list is per-run evidence.
+        assert len(data["instrumented_surfaces"]) > len(data["active_surfaces"])
+
+
+def test_active_surfaces_gateway_and_empty_cases():
+    import json as _json
+    from epi_core.manifest import build_capture_manifest
+
+    with tempfile.TemporaryDirectory() as td:
+        ws = Path(td) / "ws"
+        (ws / "artifacts").mkdir(parents=True)
+        steps = [
+            {"index": 0, "kind": "llm.request",
+             "content": {"provider": "anthropic",
+                         "_epi_capture": {"capture_path": "gateway",
+                                          "gateway_enforcement": "fail_closed",
+                                          "streaming": False, "event_id": "g0"}},
+             "timestamp": "2026-01-01T00:00:00Z", "prev_hash": "CHAIN_START"},
+            {"index": 1, "kind": "langgraph.checkpoint.save",
+             "content": {"_epi_capture": {"capture_path": "sdk_wrapper",
+                                          "gateway_enforcement": "not_applicable",
+                                          "streaming": False}},
+             "timestamp": "2026-01-01T00:00:01Z", "prev_hash": "x"},
+        ]
+        (ws / "steps.jsonl").write_text("\n".join(_json.dumps(s) for s in steps), encoding="utf-8")
+        m = build_capture_manifest(ws)
+        assert "gateway:anthropic.messages" in m.active_surfaces
+        assert "sdk_wrapper:integration.langgraph" in m.active_surfaces
+
+    # Empty workspace: capabilities listed, nothing active — never guessed.
+    with tempfile.TemporaryDirectory() as td2:
+        ws2 = Path(td2) / "ws"
+        ws2.mkdir(parents=True)
+        m2 = build_capture_manifest(ws2)
+        assert m2.active_surfaces == []
+        assert len(m2.instrumented_surfaces) > 0

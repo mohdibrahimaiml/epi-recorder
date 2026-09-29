@@ -1415,6 +1415,11 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(f"  - Capture:      path={_cap.get('capture_path', 'unknown')} streaming={str(_stream).lower()}")
         if _surfaces:
             content_lines.append(f"  - Surfaces:     {', '.join([str(s) for s in _surfaces[:6]])}{' …' if len(_surfaces) > 6 else ''}")
+        _active = _cap.get("active_surfaces") or []
+        if _active:
+            content_lines.append(f"  - Active:       {', '.join([str(s) for s in _active[:6]])}{' …' if len(_active) > 6 else ''}")
+        else:
+            content_lines.append("  - Active:       none observed (no attributable evidence sealed)")
         if _gaps:
             content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (see artifacts/manifest.json)")
             for _g in _gaps[:3]:
