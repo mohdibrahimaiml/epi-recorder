@@ -14,6 +14,7 @@ EPI's security guarantees depend on these assumptions being true:
 2. **The private key was not compromised at the time of signing.** EPI cannot detect a stolen key.
 3. **The verifier checks the signature.** An unsigned artifact provides only integrity, not authenticity.
 4. **The DID:WEB server is honest (when DID is used).** A malicious server can return any key it wants.
+5. **Recording does not depend on external timestamp authorities per call.** Per-call TSA anchoring was attempted and abandoned: a network round-trip to an outside authority in the path of every model call would make recorder reliability hostage to that authority's uptime. Forward security comes from heartbeat checkpoints (periodic TSA timestamps of the hash-chain head) plus seal-time notarization instead.
 
 ---
 

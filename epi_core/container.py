@@ -1139,6 +1139,20 @@ class EPIContainer:
             import sys as _sys2
 
             print(f"[EPI] Warning: capture manifest build failed ({_cm_err}), sealing without manifest", file=_sys2.stderr)
+            # Declare the absence itself: an undocumented missing manifest is
+            # indistinguishable from a pre-manifest artifact, so leave a
+            # hash-chained marker (written before the file_manifest walk).
+            try:
+                _gap_note = source_dir / "artifacts" / "manifest_build_failed.txt"
+                _gap_note.parent.mkdir(parents=True, exist_ok=True)
+                _gap_note.write_text(
+                    f"capture manifest build failed at seal time: {_cm_err}\n"
+                    "This artifact carries no scope declaration; "
+                    "treat completeness as undeclared.\n",
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
 
         file_manifest: dict[str, str] = {}
         files_to_pack: list[tuple[Path, str]] = []
@@ -1826,8 +1840,11 @@ class EPIContainer:
                 manifest_ts = manifest.created_at.timestamp()
                 if abs(hdr_ts - manifest_ts) > 1:
                     mismatches["__envelope_header__"] = mismatches.get("__envelope_header__", "") + "; header timestamp mismatches manifest"
-        except Exception:
-            pass
+        except Exception as exc:
+            # An unreadable header skips the transplant check above — record
+            # that explicitly instead of passing silently. A corrupt header
+            # is itself evidence of tampering, not absence of evidence.
+            mismatches["__envelope_header__"] = f"envelope header unreadable, transplant check skipped: {exc}"
         temp_path = EPIContainer._make_temp_dir("epi_verify_")
         try:
             EPIContainer.unpack(epi_path, temp_path)

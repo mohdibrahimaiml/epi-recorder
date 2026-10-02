@@ -67,6 +67,17 @@ class CaptureManifest(BaseModel):
     fail_open_events: list[FailOpenEvent] = Field(default_factory=list)
     segments: list[CaptureSegment] = Field(default_factory=list)
     instrumented_surfaces: list[str] = Field(default_factory=list)
+    # Per-run truth, derived from sealed steps (what this run DID see).
+    # instrumented_surfaces is the recorder version's capability list (what it
+    # CAN see); active_surfaces is the run's evidence (what flowed). A
+    # per-run field populated from a global source was the same class of
+    # error as the gateway mislabeling, so the two are kept distinct.
+    # Boundary, stated not hidden: adapters whose evidence is
+    # indistinguishable in steps (LangChain tool calls, OTel-replayed generic
+    # steps, manual agent.* calls) are attributed to their underlying kind
+    # family, not an adapter name. Only distinctive markers (provider-tagged
+    # llm.*, langgraph.*, validation.*) name their source.
+    active_surfaces: list[str] = Field(default_factory=list)
     known_gaps: list[str] = Field(default_factory=list)
     recorder_version: str = "unknown"
 
@@ -270,6 +281,8 @@ def build_capture_manifest(
         except Exception:
             pass
 
+    active = _derive_active_surfaces(steps)
+
     return CaptureManifest(
         schema_version=MANIFEST_SCHEMA_VERSION,
         capture_path=global_path,
@@ -278,9 +291,63 @@ def build_capture_manifest(
         fail_open_events=fail_open,
         segments=segments,
         instrumented_surfaces=get_instrumented_surfaces(),
+        active_surfaces=active,
         known_gaps=gaps,
         recorder_version=get_recorder_version(),
     )
+
+
+def _derive_active_surfaces(steps: list[dict[str, Any]]) -> list[str]:
+    """What this run DID see, derived from sealed steps — never from globals.
+
+    Entries are "capture_path:surface" strings in first-seen order.
+    """
+    provider_surface = {
+        "openai": "openai.chat.completions",
+        "openai-compatible": "openai.chat.completions",
+        "azure-openai": "openai.chat.completions",
+        "azure": "openai.chat.completions",
+        "ollama": "openai.chat.completions",
+        "vllm": "openai.chat.completions",
+        "lmstudio": "openai.chat.completions",
+        "groq": "openai.chat.completions",
+        "anthropic": "anthropic.messages",
+        "claude": "anthropic.messages",
+        "gemini": "gemini.generate_content",
+        "google": "gemini.generate_content",
+    }
+    active: list[str] = []
+    seen: set[str] = set()
+
+    def _add(entry: str) -> None:
+        if entry not in seen:
+            seen.add(entry)
+            active.append(entry)
+
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        content = s.get("content") or {}
+        if not isinstance(content, dict):
+            continue
+        cap = content.get("_epi_capture") or {}
+        if not isinstance(cap, dict):
+            cap = {}
+        path = str(cap.get("capture_path") or "unknown")
+        kind = str(s.get("kind") or "")
+        if kind.startswith("llm."):
+            provider = str(content.get("provider") or "unknown").strip().lower()
+            surface = provider_surface.get(provider, f"provider.{provider}")
+            _add(f"{path}:{surface}")
+        elif kind.startswith("langgraph."):
+            _add(f"{path}:integration.langgraph")
+        elif kind.startswith("validation."):
+            _add(f"{path}:integration.validators")
+        elif kind.startswith("agent."):
+            _add(f"{path}:agent framework")
+        elif path == "gateway":
+            _add("gateway:llm.capture")
+    return active
 
 
 def write_manifest(source_dir: Path, manifest: CaptureManifest) -> Path:

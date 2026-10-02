@@ -80,19 +80,13 @@ class TracedCompletions:
                 "message_count": len(messages),
                 "timestamp": utc_now_iso(),
             })
-            try:
-                from epi_core.notarize import notarize_hash
-                self._last_pre_commit_ts = notarize_hash(pre_hash_hex, label="llm.pre_commit")
-                # Bind TSA receipt into the pre_commit step content if available
-                if isinstance(self._last_pre_commit_ts, dict) and self._last_pre_commit_ts.get("tsa_token"):
-                    session.log_step("llm.pre_commit_notarized", {
-                        "provider": self._provider,
-                        "hash": pre_hash_hex,
-                        "receipt": self._last_pre_commit_ts,
-                        "timestamp": utc_now_iso(),
-                    })
-            except Exception:
-                self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
+            # NOTE: per-call TSA anchoring was attempted here (notarize the
+            # pre-commit hash on every LLM call) and deliberately removed.
+            # A network round-trip to an external authority in the path of
+            # every model call makes recorder reliability hostage to TSA
+            # uptime. Heartbeat checkpoints (epi_core/checkpoints.py) provide
+            # the same forward-security property at a fraction of the
+            # coupling. See docs/THREAT_MODEL.md Assumptions.
         
         # Call original method
         start_time = time.time()
@@ -188,11 +182,8 @@ class TracedCompletions:
                 "stream": True,
                 "timestamp": utc_now_iso(),
             })
-            try:
-                from epi_core.notarize import notarize_hash as _notarize2
-                self._last_pre_commit_ts = _notarize2(pre_hash_hex2, label="llm.pre_commit")
-            except Exception:
-                self._last_pre_commit_ts = {"notarization_attempted": True, "notarization_status": "error"}
+            # NOTE: per-call TSA anchoring was attempted here and deliberately
+            # removed — see note above. Heartbeat checkpoints supersede it.
         
         # Force stream=True
         kwargs["stream"] = True
