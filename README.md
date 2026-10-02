@@ -29,8 +29,8 @@ epi demo --no-browser    # record → seal → verify (no API key)
 > When someone asks what your agent did six months ago,  
 > the answer should be a **`.epi` file** — not a dashboard login and a shrug.
 
-`epi-recorder` is an **audit trail for AI agents.** It captures instrumented agent decisions into a portable, signed, **offline-verifiable** artifact — each one declaring its own capture scope.
-No phone-home required to open or verify.
+`epi-recorder` turns an AI agent's run into **evidence a third party can verify.** Not a log you have to trust, but a portable, signed artifact that leaves your platform and declares exactly what it captured — verifiable offline with open tooling.
+No account, no API call, no phone-home.
 
 <div align="center">
   <p><strong>Open a sealed <code>.epi</code> offline</strong> — <code>epi view run.epi</code></p>

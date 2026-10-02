@@ -76,29 +76,12 @@
         });
       }
     } catch (e) {}
-    initNav();
   }
 
-  function initNav() {
-    var nav = document.getElementById("nav");
-    if (nav) {
-      var onScroll = function () {
-        nav.classList.toggle("scrolled", window.scrollY > 10);
-      };
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    }
-    var burger = document.getElementById("burger");
-    var mmenu = document.getElementById("mmenu");
-    if (burger && mmenu) {
-      burger.addEventListener("click", function () {
-        var isOpen = mmenu.classList.toggle("open");
-        burger.classList.toggle("x", isOpen);
-        burger.setAttribute("aria-expanded", isOpen ? "true" : "false");
-        document.body.style.overflow = isOpen ? "hidden" : "";
-      });
-    }
-  }
+  // NOTE: burger + scroll behavior is owned SOLELY by each page's inline
+  // script (getElementById('burger')). A duplicate handler here used to
+  // toggle the menu a second time per click, cancelling the first and
+  // making the hamburger appear dead. Do not re-add nav handling here.
 
   window.EPITheme = { init: init, set: set, get: get, toggle: toggle, apply: apply };
 

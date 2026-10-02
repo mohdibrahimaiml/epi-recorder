@@ -546,3 +546,24 @@ footer{border-top:1px solid var(--edge);padding:56px 0 36px;background:var(--bg)
 }
 
 @media print{.nav,.mmenu,.close-band{display:none!important}body::before{display:none}}
+
+/* ---------- mobile consistency pass (≤640px) ---------- */
+@media(max-width:560px){
+  /* announcement fits one line: keep only the link */
+  .annc-mid{display:none}
+  .annc{font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media(max-width:640px){
+  /* comparison table keeps row labels + header visible while scrolling */
+  .cmp-wrap{-webkit-overflow-scrolling:touch}
+  .cmp thead th{position:sticky;top:0;z-index:2}
+  .cmp td:first-child,.cmp th:first-child{position:sticky;left:0;z-index:1;background:var(--bg-3)}
+  .cmp thead th:first-child{z-index:3}
+}
+@media(max-width:640px){
+  /* horizontal entrance motion becomes a short vertical rise: nothing
+     ever sits 100px off-canvas on a 360-450px screen pre-animation */
+  [data-aos=fade-left],[data-aos=fade-right],[data-aos=fade-up-right],[data-aos=fade-up-left],[data-aos=fade-down-right],[data-aos=fade-down-left],[data-aos=zoom-in-right],[data-aos=zoom-in-left],[data-aos=zoom-out-right],[data-aos=zoom-out-left]{transform:translate3d(0,24px,0)}
+}
+html{overflow-x:clip}
+@supports not (overflow:clip){html{overflow-x:hidden}}
