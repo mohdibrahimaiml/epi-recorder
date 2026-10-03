@@ -747,7 +747,7 @@ function renderIntegrity(caseData, context) {
     if (cpEl) {
       if (cps.length > 0) {
         const withTsa = cps.filter((r) => r && r.tsa_available && r.chain_head).length;
-        cpEl.textContent = withTsa + '/' + cps.length + ' timestamped';
+        cpEl.textContent = withTsa + '/' + cps.length + ' with TSA token (not validated)';
         cpEl.className = 'diag-status ' + (withTsa === cps.length ? 'ok' : 'unknown');
         cpEl.title = cps.slice(0, 5).map((r) => 'idx ' + r.index + ' @' + r.event_count + ':' + String(r.chain_head || '').slice(0, 12)).join(' | ');
       } else {

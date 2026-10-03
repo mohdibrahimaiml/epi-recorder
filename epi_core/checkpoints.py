@@ -242,6 +242,6 @@ def verify_checkpoints(
             ok = False
             messages.append(
                 f"CHECKPOINT MISMATCH at index {idx}: artifact history contradicts "
-                f"independently timestamped record (event_count={claimed_count})"
+                f"independently TSA-tokened record (token presence only, not validated; event_count={claimed_count})"
             )
     return ok, messages, records
