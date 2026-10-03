@@ -61,8 +61,10 @@ def _pack_epi(ws: Path, tmp_path: Path, **pack_kwargs) -> Path:
 class TestFix1NoPolicyShowsNA:
     """Fix #2 / #1: no policy → controls show appropriate state."""
 
-    def test_no_policy_evaluation_counts(self):
+    def test_no_policy_evaluation_counts(self, tmp_path, monkeypatch):
         """Without any policy evaluation, controls_evaluated should be 0."""
+        # Isolate cwd: pack honors ./epi_policy.json by design.
+        monkeypatch.chdir(tmp_path)
         steps = [{"index": 0, "timestamp": "2025-01-01T00:00:00Z",
                   "kind": "agent.decision", "content": {"decision": "approved"},
                   "prev_hash": "CHAIN_START"}]
@@ -332,8 +334,10 @@ class TestFix9PostSignatureStatusFlip:
 class TestPolicySource:
     """Single source of truth: policy_source in policy_evaluation.json."""
 
-    def test_no_policy_source_is_no_policy(self):
+    def test_no_policy_source_is_no_policy(self, tmp_path, monkeypatch):
         """Zero policy file and zero policy.check steps → policy_source=no_policy."""
+        # Isolate cwd: pack honors ./epi_policy.json by design.
+        monkeypatch.chdir(tmp_path)
         from epi_core.policy import load_policy
         steps = [{"index": 0, "timestamp": "2025-01-01T00:00:00Z",
                   "kind": "agent.decision", "content": {"decision": "approved"},
@@ -348,8 +352,10 @@ class TestPolicySource:
                 assert "No policy configured" in pe.get("policy_label", "")
         shutil.rmtree(ws.parent, ignore_errors=True)
 
-    def test_auto_extracted_policy_source(self):
+    def test_auto_extracted_policy_source(self, tmp_path, monkeypatch):
         """policy.check steps present, no epi_policy.json → auto_extracted."""
+        # Isolate cwd: pack honors ./epi_policy.json by design.
+        monkeypatch.chdir(tmp_path)
         steps = [
             {"index": 0, "timestamp": "2025-01-01T00:00:00Z",
              "kind": "policy.check", "prev_hash": "CHAIN_START",

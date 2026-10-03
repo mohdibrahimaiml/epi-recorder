@@ -15,7 +15,11 @@ from epi_core.schemas import ManifestModel
 from tests.helpers.artifacts import make_decision_workspace
 
 
-def test_summary_reports_missing_policy_as_heuristic(tmp_path: Path):
+def test_summary_reports_missing_policy_as_heuristic(tmp_path: Path, monkeypatch):
+    # Isolate cwd: pack falls back to ./epi_policy.json by design (run from
+    # project root), so a repo checkout cwd would otherwise leak its policy
+    # into this no-policy seal.
+    monkeypatch.chdir(tmp_path)
     ws = make_decision_workspace(tmp_path)
     out = tmp_path / "no_policy.epi"
     EPIContainer.pack(ws, ManifestModel(cli_command="test", goal="demo"), out)
