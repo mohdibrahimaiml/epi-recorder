@@ -114,6 +114,22 @@ def test_http_lists_and_seals(isolated_keys, tmp_path):
                     assert payload["seal_check"]["signature_valid"] is True
                     assert payload["epi_b64"]
 
+                    # Artifact-return path: the delivered bytes must BE the
+                    # sealed file — decodable, hash-matching, verifiable.
+                    import base64 as _b64
+                    import hashlib as _hl
+
+                    raw = _b64.b64decode(payload["epi_b64"])
+                    assert raw[:4] == b"<!--"
+                    assert _hl.sha256(raw).hexdigest() == payload["sha256"]
+                    delivered = tmp_path / payload["filename"]
+                    delivered.write_bytes(raw)
+                    from epi_mcp.records import verify_artifact as _verify
+
+                    check = _verify(delivered)
+                    assert check["integrity_ok"] is True
+                    assert check["signature_valid"] is True
+
         for _ in range(100):
             try:
                 httpx.get(f"http://127.0.0.1:{port}/mcp", timeout=1)
