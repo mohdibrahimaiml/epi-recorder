@@ -1,13 +1,16 @@
 # EPI Evidence Sealing (MCP)
 
 Use these tools when the user asks to seal, verify, or inspect an agent run.
-Do not narrate EPI methodology instead of calling the tools.
+Do not narrate EPI methodology instead of calling the tools. Seal only
+**caller-provided observable evidence** — never claim to capture the
+entire run, hidden reasoning, or inaccessible system state.
 
 ## Tools
 
 - `epi_seal_record(events, goal?, output_path?)` — seal execution events
-  into a signed `.epi` file. Returns the file path, SHA-256, and an
-  immediate seal check.
+  into a signed `.epi` file. Returns the **file bytes (base64)**,
+  filename, SHA-256, and an immediate seal self-check. Hand the file to
+  the user as a download; the server path is meaningless outside the host.
 - `epi_verify(epi_path)` — verify integrity, signature, identity, trust.
 - `epi_export_summary(epi_path, max_steps?)` — read back the timeline.
 

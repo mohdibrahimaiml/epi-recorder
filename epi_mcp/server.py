@@ -1,38 +1,47 @@
-"""EPI evidence MCP server.
+"""EPI evidence MCP server (stdio).
 
-Exposes three tools over stdio:
+Exposes three tools:
 
-- ``epi_seal_record`` — seal caller-provided events into a signed .epi file.
+- ``epi_seal_record`` — seal caller-provided observable events into a
+  signed .epi file (returns file bytes + verdicts).
 - ``epi_verify`` — verify a .epi file (integrity, signature, identity, trust).
 - ``epi_export_summary`` — read back a sealed timeline.
 
 Run: ``epi-mcp`` (stdio) or ``python -m epi_mcp.server``.
+Remote hosts (ChatGPT): ``epi-mcp-http`` (Streamable HTTP at /mcp).
 """
 
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
-from epi_mcp.records import SCOPE_NOTE, export_summary, seal_record, verify_artifact
+from epi_mcp.records import SCOPE_NOTE
+from epi_mcp.tools import (
+    epi_export_summary_tool,
+    epi_seal_record_tool,
+    epi_verify_tool,
+)
 
 server = MCPServer(
     name="epi-evidence",
     instructions=(
-        "Seal caller-provided execution records into signed EPI evidence "
-        "artifacts. " + SCOPE_NOTE
+        "Seal caller-provided observable evidence into signed EPI artifacts. "
+        + SCOPE_NOTE
     ),
 )
 
 
 @server.tool(
     description=(
-        "Seal a list of execution events into a signed .epi evidence file "
-        "(Ed25519 + SHA-256). The events must be provided by the caller — "
-        "the server cannot observe the caller's run. " + SCOPE_NOTE
+        "Seal caller-provided observable events into a signed .epi evidence "
+        "file (Ed25519 + SHA-256). Returns the file bytes (base64), filename, "
+        "SHA-256, and an immediate seal self-check. The events must be "
+        "provided by the caller — the server cannot observe the caller's "
+        "run, hidden reasoning, or inaccessible system state. "
+        + SCOPE_NOTE
     )
 )
 def epi_seal_record(
@@ -40,14 +49,7 @@ def epi_seal_record(
     goal: str = "MCP caller-provided record",
     output_path: str | None = None,
 ) -> dict[str, Any]:
-    result = seal_record(events, goal=goal, output_path=output_path)
-    check = verify_artifact(result["epi_path"])
-    result["seal_check"] = {
-        "integrity_ok": check["integrity_ok"],
-        "signature_valid": check["signature_valid"],
-        "trust_level": check["trust_level"],
-    }
-    return result
+    return epi_seal_record_tool(events, goal=goal, output_path=output_path)
 
 
 @server.tool(
@@ -58,7 +60,7 @@ def epi_seal_record(
     )
 )
 def epi_verify(epi_path: str) -> dict[str, Any]:
-    return verify_artifact(epi_path)
+    return epi_verify_tool(epi_path)
 
 
 @server.tool(
@@ -68,7 +70,7 @@ def epi_verify(epi_path: str) -> dict[str, Any]:
     )
 )
 def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
-    return export_summary(epi_path, max_steps=max_steps)
+    return epi_export_summary_tool(epi_path, max_steps=max_steps)
 
 
 def main() -> None:

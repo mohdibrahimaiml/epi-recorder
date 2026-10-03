@@ -59,3 +59,105 @@ def test_server_tools_registered():
 
     registered = {fn.__name__ for fn in (srv.epi_seal_record, srv.epi_verify, srv.epi_export_summary)}
     assert registered == {"epi_seal_record", "epi_verify", "epi_export_summary"}
+
+
+def test_seal_tool_returns_file_bytes(isolated_keys, tmp_path):
+    import base64
+
+    from epi_mcp.tools import epi_seal_record_tool
+
+    result = epi_seal_record_tool(_events(), goal="bytes check", output_path=str(tmp_path / "b.epi"))
+    raw = base64.b64decode(result["epi_b64"])
+    assert raw[:4] == b"<!--"  # envelope-v2 polyglot magic
+    assert result["filename"] == "b.epi"
+    assert result["scope"] == "caller-provided"
+    assert result["seal_check"]["signature_valid"] is True
+    assert "hidden reasoning" in " ".join(result["not_captured"])
+
+
+def test_http_lists_and_seals(isolated_keys, tmp_path):
+    uvicorn = pytest.importorskip("uvicorn")
+    httpx = pytest.importorskip("httpx")
+    from mcp.client.streamable_http import streamable_http_client
+    from mcp.client.session import ClientSession
+
+    import threading
+
+    from epi_mcp.http import build_app
+
+    port = 18791
+    server = uvicorn.Server(uvicorn.Config(build_app(), host="127.0.0.1", port=port, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        import asyncio
+        import time
+
+        async def _run():
+            async with streamable_http_client(f"http://127.0.0.1:{port}/mcp") as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools = await session.list_tools()
+                    assert sorted(t.name for t in tools.tools) == [
+                        "epi_export_summary",
+                        "epi_seal_record",
+                        "epi_verify",
+                    ]
+                    sealed = await session.call_tool(
+                        "epi_seal_record",
+                        {"events": _events(), "goal": "http check",
+                         "output_path": str(tmp_path / "h.epi")},
+                    )
+                    import json as _json
+
+                    payload = _json.loads(sealed.content[0].text)
+                    assert payload["seal_check"]["signature_valid"] is True
+                    assert payload["epi_b64"]
+
+        for _ in range(100):
+            try:
+                httpx.get(f"http://127.0.0.1:{port}/mcp", timeout=1)
+                break
+            except Exception:
+                time.sleep(0.1)
+        asyncio.run(_run())
+    finally:
+        server.should_exit = True
+        thread.join(timeout=20)
+
+
+def test_http_bearer_auth_enforced(monkeypatch):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_MCP_TOKEN", "s3cret")
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
+    assert r.status_code == 401
+    r2 = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        headers={"Authorization": "Bearer s3cret"},
+    )
+    assert r2.status_code != 401
+
+
+def test_http_bind_guard():
+    import pytest as _pytest
+
+    from epi_mcp.http import is_loopback_host, main
+    import epi_mcp.http as httpmod
+
+    assert is_loopback_host("127.0.0.1") and is_loopback_host("localhost") and is_loopback_host("::1")
+    assert not is_loopback_host("0.0.0.0")
+
+    import sys
+
+    argv, sys.argv = sys.argv, ["epi-mcp-http", "--host", "0.0.0.0"]
+    try:
+        with _pytest.raises(SystemExit):
+            httpmod.os.environ.pop("EPI_MCP_TOKEN", None)
+            main()
+    finally:
+        sys.argv = argv

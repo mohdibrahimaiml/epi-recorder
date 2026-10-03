@@ -169,6 +169,7 @@ test = [
 epi = "epi_cli.main:cli_main"
 epi-register = "epi_cli.register:cli_main"
 epi-mcp = "epi_mcp.server:main"
+epi-mcp-http = "epi_mcp.http:main"
 
 [project.urls]
 Homepage = "https://epilabs.org"
