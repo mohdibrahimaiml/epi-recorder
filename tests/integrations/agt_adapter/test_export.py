@@ -46,3 +46,32 @@ class TestExportReceipt:
         assert log_data["evidence_type"] == "epi_signed_receipt"
         assert "epi_artifact_hash" in log_data
         assert "epi_workflow_id" in log_data
+
+    def test_build_agt_log_data_reports_bad_signature_invalid(
+        self, tmp_path, fixture_agt_current, monkeypatch
+    ):
+        """Finding 1: presence must not count as validity."""
+        import epi_recorder.integrations.agt_adapter.exporter as exporter_mod
+        from epi_core.container import EPIContainer
+
+        source = tmp_path / "audit.json"
+        source.write_text(json.dumps(fixture_agt_current))
+
+        epi_path, _ = import_agt(source, output_dir=tmp_path)
+        receipt = export_evidence_receipt(epi_path)
+
+        real_read = EPIContainer.read_manifest
+
+        def _bad_manifest(path):
+            m = real_read(path)
+            d = m.model_dump()
+            d["signature"] = "00" * 128
+            from epi_core.schemas import ManifestModel
+
+            return ManifestModel(**d)
+
+        monkeypatch.setattr(EPIContainer, "read_manifest", staticmethod(_bad_manifest))
+        log_data = exporter_mod.build_agt_log_data(receipt, epi_path)
+
+        assert log_data["epi_signature_present"] is True
+        assert log_data["epi_signature_valid"] is False
