@@ -2,6 +2,29 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.5.0] - pending release
+
+### Behavior changes (read before upgrading)
+
+- **Gateway `serve` defaults are now fail-closed**: `--retention-mode`
+  `redacted_hashes` → `full_content`, `--proxy-failure-mode` `fail-open` →
+  `fail-closed` (`epi_cli/gateway.py`, matching library defaults).
+- **CORS closed by default**: `allowed_origins` `["*"]` → `[]`. Set
+  `EPI_GATEWAY_ALLOWED_ORIGINS` explicitly to allow browser origins.
+- **Client `x-epi-failure-mode` header ignored**: the server setting always
+  wins; a proxied agent can no longer downgrade enforcement per-request.
+- **Non-loopback bind requires auth**: `epi gateway serve --host 0.0.0.0`
+  without `--access-token`/`--users-file` refuses to start.
+- **`/metrics` requires auth when gateway auth is configured**.
+- **AGT exporter `epi_signature_valid` now means verified**: previously
+  presence-only; adds `epi_signature_present`.
+
+### Docs
+
+- TSA wording is presence-only everywhere ("token present, not validated").
+- `VERIFICATION_CONTRACT.md` lists every verdict; browser never exceeds CLI.
+- `KNOWN_LIMITATIONS.md` current (PyPI line, gaps, strict sprint rule).
+
 ## [4.4.8] - 2026-09-26
 
 ### Security — container and browser verifier

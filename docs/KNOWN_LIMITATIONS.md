@@ -178,7 +178,7 @@ known ops hazard until sync runs.
 
 ## PyPI
 
-Current published line: **4.4.5**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI.
+Current published line: **4.4.8**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 
@@ -277,6 +277,32 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 **4.4.2** sealed full payloads and added `manifest.content_truncated`, then was **withdrawn** (GitHub Release and tag removed) before PyPI: the new field’s JSON `null` broke Ed25519 for artifacts sealed before 4.4.1.
 
 **4.4.3** is the first PyPI release that seals full step payloads, truncates only in the viewer, sets `content_truncated=false` on new seals, **FAIL**s verify if the flag is `true`, and **WARN**s when the field is absent (everything shipped through 4.4.1).
+
+---
+
+## Sprint rule: strict mode for deliverables
+
+Sprint deliverables (claims, insurer/audit handoff, release gates) must use:
+
+```bash
+epi verify run.epi --policy strict
+```
+
+`--policy strict` FAILs unknown/unpinned sealers, unsigned artifacts, integrity
+failure, and truncated payloads. `standard` WARNs on unknown sealers by design
+(valid seal · not org pin) — never claim-ready. The `--policy` help text and
+`docs/VERIFICATION_CONTRACT.md` list every verdict; the browser verifier never
+ranks above the CLI for the same bytes.
+
+Recording gaps that survive this sprint (no silent completeness claim):
+
+- SDK `record()` is self-attestation; gateway witnesses LLM proxy traffic only.
+- Gateway streaming → 501 (streaming apps bypass or fail); async-enqueue worker
+  crash after acceptance leaves a gap fail-closed cannot cover.
+- Legacy artifacts: pre-4.4.3 truncation (WARN), `controls_failed` undercount
+  4.4.1–4.4.6 (recount `results`), all-zero viewer-hash polyglots (forgeable
+  display, trust `epi verify`), unsealed header bytes 0–3/16–39 (redundant
+  copies; manifest is authority), SCITT/TSA presence-only.
 
 ---
 
