@@ -379,16 +379,16 @@
       trust_level = 'NONE';
       message = 'Signature invalid - do not trust';
     } else if (sigResult.valid === true) {
-      trust_level = 'UNVERIFIED_IDENTITY';
+      trust_level = 'LOW';
       identity = 'UNKNOWN';
       message = 'Seal valid · identity not pinned — not claim-ready. Use epi keys trust + epi verify --policy strict';
     } else if (!manifest.signature) {
-      trust_level = 'MEDIUM';
-      identity = 'NONE';
-      message = 'Unsigned - integrity intact';
-    } else {
       trust_level = 'LOW';
-      message = sigResult.reason || 'Signature check incomplete in this browser';
+      identity = 'UNKNOWN';
+      message = 'Unsigned - integrity intact only, no higher than signed-unknown';
+    } else {
+      trust_level = 'NONE';
+      message = (sigResult.reason || 'Signature check incomplete in this browser') + ' — not verified';
     }
 
     return {

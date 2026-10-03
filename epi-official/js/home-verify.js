@@ -45,8 +45,8 @@ function reportDOM(report){
   var levelLabel=report.trust_level||'';
   var title=levelLabel;
   if(levelLabel==='HIGH')title='SEAL · IDENTITY PINNED';
-  else if(levelLabel==='UNVERIFIED_IDENTITY')title='SEAL VALID · IDENTITY NOT PINNED';
-  else if(levelLabel.indexOf('SEAL')===0||levelLabel==='UNSIGNED'||levelLabel==='INCOMPLETE')title=levelLabel;
+  else if(levelLabel==='LOW'&&report.facts.signature_valid===true)title='SEAL VALID · IDENTITY NOT PINNED';
+  else if(levelLabel.indexOf('SEAL')===0||levelLabel==='NONE')title=levelLabel;
   else if(levelLabel)title=levelLabel+' TRUST';
   return '<div style="font-size:0.82rem;margin-bottom:0.6rem"><strong style="font-size:1.05rem;color:'+trustColor+'">'+trustIcon+' '+title+'</strong> <span style="color:var(--ink-muted);font-size:0.72rem">v'+m.spec_version+steps+'</span></div>'
     +chks.join('<br>')
@@ -588,13 +588,13 @@ async function processFile(f){
     }else if(!manifest.signature){report.facts.signature_valid=null;report.identity.detail='Artifact is unsigned'}
 
     // Trust level: green HIGH only when identity pinned. Valid unpinned seal is
-    // UNVERIFIED_IDENTITY (amber) — never "SEAL OK" (skim must not imply claim safety).
+    // LOW (amber) — never a pass-level label (skim must not imply claim safety).
     if(report.facts.integrity_ok&&report.facts.signature_valid===true&&report.identity.status==='KNOWN'){report.trust_level='HIGH';report.trust_message='Seal valid · identity pinned (org trust list)'}
-    else if(report.facts.integrity_ok&&report.facts.signature_valid===true&&report.identity.status!=='KNOWN'){report.trust_level='UNVERIFIED_IDENTITY';report.trust_message='Seal valid · identity not pinned — not claim-ready. Anyone can re-sign a rebuilt chain. CLI: epi keys trust + epi verify --policy strict'}
-    else if(report.facts.integrity_ok&&!report.facts.has_signature){report.trust_level='UNSIGNED';report.trust_message='Integrity intact · no signature — anyone could have produced this file'}
-    else if(!report.facts.integrity_ok){report.trust_level='SEAL FAIL';report.trust_message='Integrity compromised — do not trust this copy'}
-    else if(report.facts.signature_valid===false){report.trust_level='SEAL FAIL';report.trust_message='Signature invalid — artifact may be tampered'}
-    else{report.trust_level='INCOMPLETE';report.trust_message='Verification incomplete in browser — use epi verify --policy strict offline for claim audit'}
+    else if(report.facts.integrity_ok&&report.facts.signature_valid===true&&report.identity.status!=='KNOWN'){report.trust_level='LOW';report.trust_message='Seal valid · identity not pinned — not claim-ready. Anyone can re-sign a rebuilt chain. CLI: epi keys trust + epi verify --policy strict'}
+    else if(report.facts.integrity_ok&&!report.facts.has_signature){report.trust_level='LOW';report.trust_message='Integrity intact · no signature — anyone could have produced this file'}
+    else if(!report.facts.integrity_ok){report.trust_level='NONE';report.trust_message='Integrity compromised — do not trust this copy'}
+    else if(report.facts.signature_valid===false){report.trust_level='NONE';report.trust_message='Signature invalid — artifact may be tampered'}
+    else{report.trust_level='NONE';report.trust_message='Verification incomplete in browser — not verified, use epi verify --policy strict offline for claim audit'}
 
     showReport(report,'');
   }catch(e){showResult('fail','<strong>Verification error</strong><br>'+e.message)}
@@ -622,8 +622,8 @@ function showReport(report,errMsg){
   var type='fail';
   // Green only for org-pinned HIGH. Unpinned valid seal is warn, not pass.
   if(tl==='HIGH')type='pass';
-  else if(tl==='UNVERIFIED_IDENTITY'||tl==='UNSIGNED'||tl==='INCOMPLETE'||tl==='MEDIUM'||tl==='LOW'||tl==='SEAL OK')type='warn';
-  else if(tl==='SEAL FAIL'||tl==='NONE')type='fail';
+  else if(tl==='LOW'||tl==='MEDIUM')type='warn';
+  else if(tl==='NONE')type='fail';
   // Do not upgrade unpinned integrity to green pass
   if(type==='fail'&&report.facts&&report.facts.structure_ok&&report.facts.integrity_ok&&report.facts.signature_valid!==false){
     var idOk=report.identity&&report.identity.status==='KNOWN';
