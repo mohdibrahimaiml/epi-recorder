@@ -42,7 +42,7 @@ observed that one exists. To establish validity, run `epi verify` on the
 artifact (`verify_evidence_receipt()` covers the receipt itself). Present
 since 4.2.0. Deferred from 4.4.7 to avoid a behaviour change in a helper's
 output dict during a release carrying a sealed-data fix. Scheduled for
-4.4.8.
+4.5.0.
 
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
@@ -178,7 +178,7 @@ known ops hazard until sync runs.
 
 ## PyPI
 
-Current published line: **4.4.8**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.5.0**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 
