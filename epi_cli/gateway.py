@@ -31,12 +31,12 @@ def serve(
         help="Flush buffered events after this many seconds.",
     ),
     retention_mode: str = typer.Option(
-        "redacted_hashes",
+        "full_content",
         "--retention-mode",
         help="Retention mode for provider request/response bodies: redacted_hashes or full_content.",
     ),
     proxy_failure_mode: str = typer.Option(
-        "fail-open",
+        "fail-closed",
         "--proxy-failure-mode",
         help="What to do if upstream relay succeeds but EPI cannot persist the capture: fail-open or fail-closed.",
     ),
@@ -80,6 +80,16 @@ def serve(
     require_extra("gateway", "fastapi", "epi gateway serve")
 
     import uvicorn
+
+    from epi_gateway.main import GatewayRuntimeSettings, require_auth_for_host
+
+    require_auth_for_host(
+        host,
+        GatewayRuntimeSettings(
+            access_token=access_token,
+            users_file=str(users_file.resolve()) if users_file else None,
+        ),
+    )
 
     storage_dir = storage_dir.resolve()
     previous_env = {key: os.environ.get(key) for key in (

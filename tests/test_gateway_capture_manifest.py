@@ -81,25 +81,18 @@ def test_gateway_export_manifest_labels_gateway_path(tmp_path, monkeypatch):
     assert len(data["known_gaps"]) > 0
 
 
-def test_gateway_export_fail_open_override_surfaces_downgrade(tmp_path, monkeypatch):
+def test_gateway_client_header_cannot_downgrade_fail_closed(tmp_path, monkeypatch):
     out = _drive_proxy(tmp_path, monkeypatch, headers={"x-epi-failure-mode": "fail-open"})
     data = EPIContainer.read_member_json(out, "artifacts/manifest.json")
-    assert data["gateway_enforcement"] in ("fail_open", "mixed")
-    assert len(data["fail_open_events"]) >= 1
-    assert all(e["reason"] == "client_header_override" for e in data["fail_open_events"])
+    assert data["gateway_enforcement"] == "fail_closed"
+    assert data["fail_open_events"] == []
 
     from typer.testing import CliRunner
     from epi_cli.main import app as cli_app
 
     result = CliRunner().invoke(cli_app, ["verify", str(out), "--json"])
     report = json.loads(result.output)
-    assert report["enforcement_downgraded"] is True
-    assert "enforcement downgraded" in report["summary"]["integrity"]
-    # The downgrade event links back to an exported chain event.
-    step_ids = {s.get("event_id") for s in EPIContainer.read_steps(out)} | {
-        s["event_id"] for s in data["segments"]
-    }
-    assert any(e["event_id"] in step_ids for e in data["fail_open_events"])
+    assert report["enforcement_downgraded"] is False
 
 
 def test_event_to_step_carries_capture_tags():

@@ -166,7 +166,7 @@ can re-sign a rebuilt chain with a fresh key.</span></pre>
         <ul>
           <li>Ed25519 signature over the canonical manifest (JCS-style, RFC 8785)</li>
           <li>SHA-256 hash chain across every recorded step on the SDK path (gateway exports: signed manifest, step chaining in progress)</li>
-          <li>Optional RFC 3161 timestamp at seal time</li>
+          <li>Optional RFC 3161 token at seal time (presence only — signature not validated)</li>
           <li>One altered byte breaks the signature — visibly</li>
         </ul>
       </div>
@@ -344,7 +344,7 @@ no EPI Labs required.</pre>
     </div>
     <div class="grid g4 rail stagger">
       <div class="card" data-aos="fade-up"><span class="phase">01 / Install</span><h3>One pip install</h3><p>MIT-licensed, offline, no account.</p><div class="term">$ pip install epi-recorder</div></div>
-      <div class="card" data-aos="fade-up"><span class="phase">02 / Record</span><h3>Observe the run</h3><p>Production: EPI gateway proxy, fail-closed. Quickstart: <code>record()</code>.</p><div class="term">$ epi gateway serve</div></div>
+      <div class="card" data-aos="fade-up"><span class="phase">02 / Record</span><h3>Observe the run</h3><p>Production: EPI gateway proxy (defaults: fail-closed, full-content, loopback bind, no CORS, auth when configured). Quickstart: <code>record()</code>.</p><div class="term">$ epi gateway serve</div></div>
       <div class="card" data-aos="fade-up"><span class="phase">03 / Verify</span><h3>Prove integrity</h3><p>Integrity + signature offline. Identity separate.</p><div class="term">$ epi verify run.epi</div></div>
       <div class="card" data-aos="fade-up"><span class="phase">04 / View</span><h3>Open the timeline</h3><p>Forensic timeline in any browser. No login.</p><div class="term">$ epi view run.epi</div></div>
     </div>
