@@ -9,8 +9,10 @@ entire run, hidden reasoning, or inaccessible system state.
 
 - `epi_seal_record(events, goal?, output_path?)` — seal execution events
   into a signed `.epi` file. Returns the **file bytes (base64)**,
-  filename, SHA-256, and an immediate seal self-check. Hand the file to
-  the user as a download; the server path is meaningless outside the host.
+  filename, SHA-256, a **download URL** (`download_url`, served by the
+  HTTP layer at `/artifacts/<id>`), and an immediate seal self-check.
+  Hand the user the download link first (it always works); the bytes are
+  the fallback. The server path is meaningless outside the host.
 - `epi_verify(epi_path)` — verify integrity, signature, identity, trust.
 - `epi_export_summary(epi_path, max_steps?)` — read back the timeline.
 

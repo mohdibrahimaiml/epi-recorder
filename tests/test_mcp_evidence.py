@@ -177,3 +177,35 @@ def test_http_bind_guard():
             main()
     finally:
         sys.argv = argv
+
+
+def test_artifact_download_serves_sealed_bytes(isolated_keys, tmp_path, monkeypatch):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    monkeypatch.delenv("EPI_MCP_TOKEN", raising=False)
+
+    from epi_mcp.http import build_app
+    from epi_mcp.tools import epi_seal_record_tool
+
+    sealed = epi_seal_record_tool(_events(), output_path=str(tmp_path / "d.epi"))
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+
+    r = client.get(sealed["download_path"])
+    assert r.status_code == 200
+    import base64 as _b64
+
+    assert r.content == _b64.b64decode(sealed["epi_b64"])
+
+    missing = client.get("/artifacts/nope-not-here")
+    assert missing.status_code == 404
+    traversal = client.get("/artifacts/..%2F..%2Fsecret")
+    assert traversal.status_code in (404, 400)
+
+
+def test_artifact_download_requires_token(monkeypatch):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_MCP_TOKEN", "s3cret")
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    assert client.get("/artifacts/anything").status_code == 401

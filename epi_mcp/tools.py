@@ -23,6 +23,10 @@ NOT_CAPTURED = [
     "unobserved external actions",
 ]
 
+# In-process registry of sealed artifacts, so the HTTP layer can serve
+# them back as downloads. Maps artifact_id -> absolute .epi path.
+ARTIFACTS: dict[str, str] = {}
+
 
 def _artifact_payload(epi_path: str | Path) -> dict[str, Any]:
     raw = Path(epi_path).read_bytes()
@@ -47,9 +51,28 @@ def epi_seal_record_tool(
         "trust_level": check["trust_level"],
     }
     sealed.update(_artifact_payload(sealed["epi_path"]))
+    sealed["artifact_id"] = sealed["sha256"][:16]
+    ARTIFACTS[sealed["artifact_id"]] = str(Path(sealed["epi_path"]).resolve())
+    sealed["download_path"] = f"/artifacts/{sealed['artifact_id']}"
+    import os as _os
+
+    _public = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/")
+    sealed["download_url"] = f"{_public}{sealed['download_path']}" if _public else None
     sealed["sealed_at"] = datetime.now(timezone.utc).isoformat()
     sealed["not_captured"] = NOT_CAPTURED
     return sealed
+
+
+def get_artifact_path(artifact_id: str) -> Path | None:
+    """Resolve a download id to its sealed file, or None."""
+    raw = (artifact_id or "").strip()
+    if not raw or "/" in raw or "\\" in raw or ".." in raw:
+        return None
+    hit = ARTIFACTS.get(raw)
+    if not hit:
+        return None
+    path = Path(hit)
+    return path if path.is_file() else None
 
 
 def epi_verify_tool(epi_path: str) -> dict[str, Any]:

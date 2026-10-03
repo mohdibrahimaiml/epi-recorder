@@ -21,9 +21,11 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
+from starlette.routing import Route
 
 from epi_mcp.server import server
+from epi_mcp.tools import get_artifact_path
 
 
 def is_loopback_host(host: str) -> bool:
@@ -37,23 +39,35 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
         self._token = token
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/mcp":
+        if request.url.path == "/mcp" or request.url.path.startswith("/artifacts/"):
             presented = (request.headers.get("authorization") or "").strip()
             if presented != f"Bearer {self._token}":
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await call_next(request)
 
 
+async def _download_artifact(request: Request):
+    path = get_artifact_path(request.path_params.get("artifact_id", ""))
+    if path is None:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return FileResponse(
+        path,
+        media_type="application/octet-stream",
+        filename=path.name,
+    )
+
+
 def build_app() -> Starlette:
     token = (os.environ.get("EPI_MCP_TOKEN") or "").strip()
     inner = server.streamable_http_app(streamable_http_path="/mcp")
+    routes = list(inner.routes) + [Route("/artifacts/{artifact_id}", _download_artifact)]
     if token:
         return Starlette(
             middleware=[Middleware(_BearerAuthMiddleware, token=token)],
-            routes=list(inner.routes),
+            routes=routes,
             lifespan=inner.router.lifespan_context,
         )
-    return inner
+    return Starlette(routes=routes, lifespan=inner.router.lifespan_context)
 
 
 def main() -> None:
