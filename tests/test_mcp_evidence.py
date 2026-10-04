@@ -10,7 +10,12 @@ from epi_mcp import export_summary, seal_record, verify_artifact
 @pytest.fixture
 def isolated_keys(tmp_path, monkeypatch):
     monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
-    return tmp_path
+    monkeypatch.delenv("EPI_MCP_TOKEN", raising=False)
+    from epi_mcp.tools import _current_subject
+
+    _current_subject.set("test-user")
+    yield tmp_path
+    _current_subject.set(None)
 
 
 def _events():
@@ -149,8 +154,11 @@ def test_http_bearer_auth_enforced(monkeypatch):
     from epi_mcp.http import build_app
 
     client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    # /mcp stays open (handshake + verify/export need no identity).
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
-    assert r.status_code == 401
+    assert r.status_code != 401
+    # Sealed downloads still require the token.
+    assert client.get("/artifacts/anything").status_code == 401
     r2 = client.post(
         "/mcp",
         json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
@@ -232,3 +240,39 @@ def test_public_host_allowed_via_public_url(monkeypatch):
     ts = _transport_security()
     assert ts is not None
     assert "epi-mcp.onrender.com" in ts.allowed_hosts
+
+
+def test_per_user_keys_differ_per_subject(isolated_keys, tmp_path, monkeypatch):
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    _current_subject.set("alice")
+    a = epi_seal_record_tool(_events(), output_path=str(tmp_path / "a.epi"))
+    _current_subject.set("bob")
+    b = epi_seal_record_tool(_events(), output_path=str(tmp_path / "b.epi"))
+    from epi_mcp.records import verify_artifact
+
+    assert verify_artifact(a["epi_path"])["signer"] != verify_artifact(b["epi_path"])["signer"]
+    assert a["sealed_for_subject"] != b["sealed_for_subject"]
+
+
+def test_anonymous_seal_refused(tmp_path, monkeypatch):
+    """No subject bound -> seal refuses instead of sealing anonymously."""
+    import pytest as _pytest
+
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    _current_subject.set(None)
+    with _pytest.raises(PermissionError):
+        epi_seal_record_tool(_events(), output_path=str(tmp_path / "anon.epi"))
+
+
+def test_oidc_malformed_token_rejected(monkeypatch):
+    monkeypatch.setenv("EPI_OIDC_JWKS_URL", "https://example.com/.well-known/jwks.json")
+    monkeypatch.setenv("EPI_OIDC_ISSUER", "https://example.com")
+    monkeypatch.delenv("EPI_MCP_TOKEN", raising=False)
+
+    from epi_mcp.auth import verify_bearer_token
+
+    assert verify_bearer_token("not-a-jwt") is None
+    assert verify_bearer_token("") is None

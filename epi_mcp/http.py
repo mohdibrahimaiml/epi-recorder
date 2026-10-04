@@ -39,11 +39,23 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
         self._token = token
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/mcp" or request.url.path.startswith("/artifacts/"):
-            presented = (request.headers.get("authorization") or "").strip()
-            if presented != f"Bearer {self._token}":
+        from epi_mcp import auth as _auth
+        from epi_mcp.tools import _current_subject as _subject_var
+
+        presented = (request.headers.get("authorization") or "").strip()
+        raw = presented[7:] if presented.lower().startswith("bearer ") else presented
+        subject = _auth.verify_bearer_token(raw) if raw else None
+        if subject is None and not _auth.auth_configured():
+            # No auth configured (loopback dev): the caller is the operator.
+            subject = "operator"
+        if request.url.path.startswith("/artifacts/"):
+            if subject is None:
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
-        return await call_next(request)
+        _subject_var.set(subject)
+        try:
+            return await call_next(request)
+        finally:
+            _subject_var.set(None)
 
 
 async def _download_artifact(request: Request):
@@ -118,13 +130,12 @@ def build_app() -> Starlette:
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/favicon.ico", _serve_favicon),
     ]
-    if token:
-        return Starlette(
-            middleware=[Middleware(_BearerAuthMiddleware, token=token)],
-            routes=routes,
-            lifespan=inner.router.lifespan_context,
-        )
-    return Starlette(routes=routes, lifespan=inner.router.lifespan_context)
+    # Subject middleware always present: binds caller identity for seals.
+    return Starlette(
+        middleware=[Middleware(_BearerAuthMiddleware, token=token)],
+        routes=routes,
+        lifespan=inner.router.lifespan_context,
+    )
 
 
 def main() -> None:

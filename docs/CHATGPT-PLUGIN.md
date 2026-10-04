@@ -1,8 +1,21 @@
 # ChatGPT plugin: connect + acceptance test
 
-The EPI mechanism is implemented and tested (`epi_mcp/`, 12 tests).
+The EPI mechanism is implemented and tested (`epi_mcp/`, 17 tests).
 This page covers the remaining deployment and the one test that can
 only run inside ChatGPT.
+
+## Zero-config model
+
+Normal users install the app and say "seal this run" — no URLs, no
+tokens, no key names. This works because:
+
+- The chat host authenticates the user; the server verifies the
+  credential (OIDC via `EPI_OIDC_*`, static `EPI_MCP_TOKEN` for
+  single-operator setups) and binds the call to that identity.
+- The first seal auto-creates a per-caller key (`user-<id>`); raw
+  identity values are never stored, only hashes.
+- Anonymous callers may verify and export, but sealing refuses
+  without an identity — a seal is always attributable to someone.
 
 ## 1. Deploy the public endpoint
 

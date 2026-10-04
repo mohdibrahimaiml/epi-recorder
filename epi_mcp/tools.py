@@ -11,6 +11,7 @@ to a remote host, so the bytes — not the path — are the primary result.
 from __future__ import annotations
 
 import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,18 @@ NOT_CAPTURED = [
 # them back as downloads. Maps artifact_id -> absolute .epi path.
 ARTIFACTS: dict[str, str] = {}
 
+# Caller identity for the current seal operation. The HTTP layer sets
+# this from the verified credential; stdio runs are the server operator.
+# Bindings stay honest: a seal is always attributable to someone.
+from contextvars import ContextVar as _ContextVar
+
+_current_subject: _ContextVar[str | None] = _ContextVar("epi_mcp_subject", default=None)
+
+
+def get_current_subject() -> str | None:
+    """Subject bound to this call, or None for anonymous/operator use."""
+    return _current_subject.get()
+
 
 def _artifact_payload(epi_path: str | Path) -> dict[str, Any]:
     raw = Path(epi_path).read_bytes()
@@ -42,8 +55,24 @@ def epi_seal_record_tool(
     goal: str = "MCP caller-provided record",
     output_path: str | None = None,
 ) -> dict[str, Any]:
-    """Seal caller-provided observable events. Returns file bytes + verdicts."""
-    sealed = seal_record(events, goal=goal, output_path=output_path)
+    """Seal caller-provided observable events. Returns file bytes + verdicts.
+
+    Sealing requires an authenticated caller: the seal is bound to the
+    caller's subject via a per-subject key (auto-created on first use),
+    so identity is attributable instead of anonymous server-key LOW.
+    """
+    from epi_mcp.auth import subject_key
+
+    subject = get_current_subject()
+    if subject is None:
+        raise PermissionError(
+            "Sealing requires an authenticated caller. Anonymous callers "
+            "may verify and export, but not seal."
+        )
+    sealed = seal_record(
+        events, goal=goal, output_path=output_path, key_name=subject_key(subject)
+    )
+    sealed["sealed_for_subject"] = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
     check = verify_artifact(sealed["epi_path"])
     sealed["seal_check"] = {
         "integrity_ok": check["integrity_ok"],
