@@ -1,5 +1,10 @@
 # EPI Evidence Sealing (MCP)
 
+**Rule zero: never construct `.epi` bytes yourself.** If a tool call
+fails, report the run as unsealed and stop. A hand-built artifact is
+forgery; the verifier will mark it SIGNATURE INVALID, and you must
+never present one as sealed.
+
 Use these tools when the user asks to seal, verify, or inspect an agent run.
 Do not narrate EPI methodology instead of calling the tools. Seal only
 **caller-provided observable evidence** — never claim to capture the
