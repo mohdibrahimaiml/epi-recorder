@@ -24,6 +24,24 @@ NOT_CAPTURED = [
     "unobserved external actions",
 ]
 
+REDACTED_MARKER = "[REDACTED]"
+
+# Step kinds counted as tool activity in seal summaries.
+TOOL_KINDS = {"tool.call", "tool.response"}
+
+# Step kinds counted as artifacts in seal summaries.
+ARTIFACT_KINDS = {"artifact.attached", "artifact.produced"}
+
+
+def _count_occurrences(value: Any, marker: str) -> int:
+    if isinstance(value, str):
+        return value.count(marker)
+    if isinstance(value, dict):
+        return sum(_count_occurrences(v, marker) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_count_occurrences(v, marker) for v in value)
+    return 0
+
 # In-process registry of sealed artifacts, so the HTTP layer can serve
 # them back as downloads. Maps artifact_id -> absolute .epi path.
 ARTIFACTS: dict[str, str] = {}
@@ -87,6 +105,7 @@ def epi_seal_record_tool(
 
     _public = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/")
     sealed["download_url"] = f"{_public}{sealed['download_path']}" if _public else None
+    sealed["summary_counts"] = summarize_steps(events)
     sealed["sealed_at"] = datetime.now(timezone.utc).isoformat()
     sealed["not_captured"] = NOT_CAPTURED
     return sealed
@@ -112,3 +131,64 @@ def epi_verify_tool(epi_path: str) -> dict[str, Any]:
 def epi_export_summary_tool(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
     """Read back a sealed timeline."""
     return export_summary(epi_path, max_steps=max_steps)
+
+
+def summarize_steps(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Server-computed counts for the sealed summary block.
+
+    Counts are derived from sealed step kinds, never narrated by the
+    caller: tool activity, artifacts, and redaction markers.
+    """
+    kinds: dict[str, int] = {}
+    for step in steps:
+        kind = str(step.get("kind", "custom"))
+        kinds[kind] = kinds.get(kind, 0) + 1
+    redactions = sum(_count_occurrences(s.get("content"), REDACTED_MARKER) for s in steps)
+    return {
+        "events": len(steps),
+        "tool_calls": sum(kinds.get(k, 0) for k in TOOL_KINDS),
+        "artifacts": sum(kinds.get(k, 0) for k in ARTIFACT_KINDS),
+        "redactions": redactions,
+        "by_kind": kinds,
+    }
+
+
+def _decisions(timeline: list[dict[str, Any]]) -> list[Any]:
+    out = []
+    for step in timeline:
+        if str(step.get("kind", "")).endswith("decision"):
+            content = step.get("content")
+            out.append(content.get("decision") if isinstance(content, dict) else content)
+    return out
+
+
+def compare_runs(epi_path_a: str | Path, epi_path_b: str | Path) -> dict[str, Any]:
+    """Compare two sealed timelines: deltas, decisions, first divergence.
+
+    Compares sealed records only — never the runs behind them.
+    """
+    from epi_mcp.records import export_summary
+
+    a = export_summary(epi_path_a, max_steps=100000)
+    b = export_summary(epi_path_b, max_steps=100000)
+    ta, tb = a["timeline"], b["timeline"]
+    kinds_a = sorted({str(s.get("kind")) for s in ta})
+    kinds_b = sorted({str(s.get("kind")) for s in tb})
+    decisions_a, decisions_b = _decisions(ta), _decisions(tb)
+    first_divergence: int | None = None
+    for i, (sa, sb) in enumerate(zip(ta, tb)):
+        if sa.get("kind") != sb.get("kind") or sa.get("content") != sb.get("content"):
+            first_divergence = i
+            break
+    if first_divergence is None and len(ta) != len(tb):
+        first_divergence = min(len(ta), len(tb))
+    return {
+        "run_a": {"steps": a["steps_total"], "kinds": kinds_a, "decisions": decisions_a},
+        "run_b": {"steps": b["steps_total"], "kinds": kinds_b, "decisions": decisions_b},
+        "delta_steps": b["steps_total"] - a["steps_total"],
+        "kinds_only_in_b": sorted(set(kinds_b) - set(kinds_a)),
+        "kinds_only_in_a": sorted(set(kinds_a) - set(kinds_b)),
+        "decisions_match": decisions_a == decisions_b,
+        "first_divergence_index": first_divergence,
+        "scope_note": "Compares sealed records only, not the runs behind them.",
+    }
