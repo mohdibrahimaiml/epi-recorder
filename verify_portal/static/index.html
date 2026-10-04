@@ -33,7 +33,7 @@
 <a class="skip" href="#verify">Skip to verify</a>
 
 <!-- ANNOUNCEMENT -->
-<div class="annc"><span class="annc-mid">Open source under MIT · v4.4.8 on PyPI · </span><a href="/how-it-works">See how sealing works →</a></div>
+<div class="annc"><span class="annc-mid">Open source under MIT · v4.5.0 on PyPI · </span><a href="/how-it-works">See how sealing works →</a></div>
 
 <!-- NAV -->
 <nav class="nav" id="nav">
@@ -81,7 +81,7 @@
       <div class="facts">
         <span><b>MIT</b> open source</span>
         <span><b>Offline</b> verify</span>
-        <span><b>v4.4.8</b> on PyPI</span>
+        <span><b>v4.5.0</b> on PyPI</span>
         <span><b>JCS-style</b> canonical</span>
       </div>
     </div>
@@ -166,7 +166,7 @@ can re-sign a rebuilt chain with a fresh key.</span></pre>
         <ul>
           <li>Ed25519 signature over the canonical manifest (JCS-style, RFC 8785)</li>
           <li>SHA-256 hash chain across every recorded step on the SDK path (gateway exports: signed manifest, step chaining in progress)</li>
-          <li>Optional RFC 3161 timestamp at seal time</li>
+          <li>Optional RFC 3161 token at seal time (presence only — signature not validated)</li>
           <li>One altered byte breaks the signature — visibly</li>
         </ul>
       </div>
@@ -344,7 +344,7 @@ no EPI Labs required.</pre>
     </div>
     <div class="grid g4 rail stagger">
       <div class="card" data-aos="fade-up"><span class="phase">01 / Install</span><h3>One pip install</h3><p>MIT-licensed, offline, no account.</p><div class="term">$ pip install epi-recorder</div></div>
-      <div class="card" data-aos="fade-up"><span class="phase">02 / Record</span><h3>Observe the run</h3><p>Production: EPI gateway proxy, fail-closed. Quickstart: <code>record()</code>.</p><div class="term">$ epi gateway serve</div></div>
+      <div class="card" data-aos="fade-up"><span class="phase">02 / Record</span><h3>Observe the run</h3><p>Production: EPI gateway proxy (defaults: fail-closed, full-content, loopback bind, no CORS, auth when configured). Quickstart: <code>record()</code>.</p><div class="term">$ epi gateway serve</div></div>
       <div class="card" data-aos="fade-up"><span class="phase">03 / Verify</span><h3>Prove integrity</h3><p>Integrity + signature offline. Identity separate.</p><div class="term">$ epi verify run.epi</div></div>
       <div class="card" data-aos="fade-up"><span class="phase">04 / View</span><h3>Open the timeline</h3><p>Forensic timeline in any browser. No login.</p><div class="term">$ epi view run.epi</div></div>
     </div>
@@ -517,7 +517,7 @@ no EPI Labs required.</pre>
       <div class="fcol"><h4>Company</h4><ul>
         <li><a href="/account">Account</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/.well-known/security.txt">Security.txt</a></li><li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li><li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li></ul></div>
     </div>
-    <div class="fbot"><span>&copy; 2026 EPI LABS · MIT License</span><span>v4.4.8 · envelope-v2</span></div>
+    <div class="fbot"><span>&copy; 2026 EPI LABS · MIT License</span><span>v4.5.0 · envelope-v2</span></div>
   </div>
 </footer>
 

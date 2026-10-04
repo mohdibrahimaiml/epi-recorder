@@ -219,6 +219,8 @@ _portal_upgrade.py
 
 # JS untracked
 verify_portal/static/js/
+# Except the synced browser verifier (canonical source: website/js/)
+!verify_portal/static/js/epi-verify-core.js
 
 # Runtime review artifacts
 review/artifacts/

@@ -99,7 +99,7 @@ class GatewayRuntimeSettings(BaseModel):
     webhook_url: str | None = None
     session_ttl_hours: float = 12.0
     capture_scope: str = "consequential"
-    allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
+    allowed_origins: list[str] = Field(default_factory=list)
     capture_rate_limit: int = 1000  # max capture requests per minute per IP (0 = disabled)
     max_request_body_bytes: int = 10 * 1024 * 1024  # 10 MB
     share_enabled: bool = False
@@ -188,7 +188,7 @@ class GatewayRuntimeSettings(BaseModel):
         self.smtp_password = _clean(self.smtp_password)
         self.smtp_from = _clean(self.smtp_from)
         self.redis_url = _clean(self.redis_url)
-        self.allowed_origins = [origin for origin in self.allowed_origins if _clean(origin)] or ["*"]
+        self.allowed_origins = [origin for origin in self.allowed_origins if _clean(origin)]
         return self
 
     @property
@@ -263,14 +263,38 @@ class AuthLoginRequest(BaseModel):
 def _split_csv_env(raw: str | None) -> list[str]:
     text = str(raw or "").strip()
     if not text:
-        return ["*"]
+        return []
     parts = [item.strip() for item in text.split(",")]
-    return [item for item in parts if item] or ["*"]
+    return [item for item in parts if item]
 
 
 def _clean(value: Any) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def is_loopback_host(host: str) -> bool:
+    """True when a bind host is loopback-only (safe without auth)."""
+    h = (host or "").strip().lower()
+    if h in {"localhost", "::1"}:
+        return True
+    if h.startswith("127."):
+        return True
+    return False
+
+
+def require_auth_for_host(host: str, settings: GatewayRuntimeSettings) -> None:
+    """Refuse a non-loopback bind with no auth configured.
+
+    Raises RuntimeError so `epi gateway serve --host 0.0.0.0` without
+    --access-token/--users-file fails fast instead of exposing an
+    unauthenticated evidence ingest port.
+    """
+    if not is_loopback_host(host) and not settings.auth_required:
+        raise RuntimeError(
+            f"Refusing to bind {host} with no gateway auth: "
+            "pass --access-token or --users-file, or bind 127.0.0.1."
+        )
 
 
 def _truthy(value: Any) -> bool:
@@ -780,9 +804,8 @@ def _apply_retention_mode(request: LLMCaptureRequest, retention_mode: str) -> LL
 
 
 def _resolve_failure_mode(headers: dict[str, Any], settings: GatewayRuntimeSettings) -> str:
-    override = _clean((headers or {}).get("x-epi-failure-mode"))
-    if override in PROXY_FAILURE_MODES:
-        return override
+    # Server setting wins. Client header is ignored so a proxied agent
+    # cannot downgrade enforcement per-request.
     return settings.proxy_failure_mode
 
 
@@ -791,13 +814,9 @@ def _resolve_failure_mode_with_override(
 ) -> tuple[str, bool]:
     """Resolve failure mode + whether the client header overrode the default.
 
-    The agent holds its own escape hatch (x-epi-failure-mode: fail-open);
-    callers that need the downgrade signal should use this helper so the
-    override is captured live, not reconstructed from logs.
+    The client header is ignored: the server setting always wins.
+    Returns (settings.proxy_failure_mode, False).
     """
-    raw = _clean((headers or {}).get("x-epi-failure-mode"))
-    if raw in PROXY_FAILURE_MODES:
-        return raw, True
     return settings.proxy_failure_mode, False
 
 
@@ -1188,8 +1207,12 @@ def create_app(
         )
 
     @app.get("/metrics")
-    async def prometheus_metrics():
-        """Prometheus text-format metrics endpoint.  No auth required (scrape-friendly)."""
+    async def prometheus_metrics(request: Request):
+        """Prometheus text-format metrics endpoint. Requires auth when gateway auth is configured."""
+        if runtime_settings.auth_required:
+            principal = _build_auth_principal(request, runtime_settings, runtime_worker)
+            if not principal:
+                raise HTTPException(status_code=401, detail="Unauthorized")
         snapshot = runtime_worker.snapshot()
         lines = [
             "# HELP epi_capture_requests_total Total capture requests received (all capture paths)",

@@ -1,4 +1,4 @@
-# EPI File Format Specification v4.4.8
+# EPI File Format Specification v4.5.0
 
 **Status:** Active  
 **Date:** 2026-09-10  

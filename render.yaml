@@ -72,3 +72,21 @@ services:
     domains:
       - verify.epilabs.org
       - api.epilabs.org
+  - type: web
+    name: epi-mcp
+    runtime: python
+    plan: free
+    buildCommand: pip install -e ".[mcp,gateway]"
+    startCommand: epi-mcp-http --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12
+      - key: PORT
+        value: 10000
+      # Required in production: Bearer token for /mcp and /artifacts.
+      # A non-loopback bind without it refuses to start.
+      - key: EPI_MCP_TOKEN
+        sync: false
+      # Public base URL advertised in seal responses, e.g. https://epi-mcp.onrender.com
+      - key: EPI_MCP_PUBLIC_URL
+        sync: false

@@ -98,7 +98,7 @@ $ epi enterprise pack your-run.epi
 <h2>Acceptance gate — what PASS means</h2>
 <ul>
 <li><strong>Air-gapped seal:</strong> <code class="k">EPI_NOTARIZE=0</code></li>
-<li><strong>Standard seal:</strong> RFC 3161 on by default (network at seal only)</li>
+<li><strong>Standard seal:</strong> RFC 3161 token requested by default (network at seal only; token presence only, signature not validated)</li>
 <li><strong>Claims / insurers:</strong> always <code class="k">epi verify --policy strict</code> (integrity + org-pinned sealer + completeness)</li>
 <li><code class="k">--review</code> Binding True &rarr; human review bound to sealed evidence</li>
 <li>Standard default: unpinned sealer &rarr; <strong style="color:var(--warn)">WARN · UNVERIFIED IDENTITY</strong> (valid seal &ne; known who; not claim-ready)</li>
@@ -115,7 +115,7 @@ $ epi enterprise pack your-run.epi
 </main>
 <footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
   <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.4.8</span>
+    <span>&copy; 2026 EPI LABS · MIT License · v4.5.0</span>
     <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
   </div>
 </footer>

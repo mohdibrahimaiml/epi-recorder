@@ -26,6 +26,7 @@ EXPECTED_TOP_LEVEL = {
     "web_viewer",
     "pytest_epi",
     "epi_guardrails",
+    "epi_mcp",
     "verify_portal",
 }
 

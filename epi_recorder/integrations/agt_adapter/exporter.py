@@ -142,11 +142,18 @@ def build_agt_log_data(
     epi_path = Path(epi_path)
     manifest = EPIContainer.read_manifest(epi_path)
 
+    from epi_core.trust import verify_embedded_manifest_signature
+
+    try:
+        _sig_valid, _signer, _msg = verify_embedded_manifest_signature(manifest)
+    except Exception:
+        _sig_valid = False
     return {
         "epi_evidence_hex": receipt_bytes.hex(),
         "epi_artifact_hash": _hash_file(epi_path),
         "epi_workflow_id": str(manifest.workflow_id),
-        "epi_signature_valid": bool(manifest.signature),
+        "epi_signature_present": bool(manifest.signature),
+        "epi_signature_valid": _sig_valid is True,
         "evidence_type": "epi_signed_receipt",
         "description": description,
         "receipt_size_bytes": len(receipt_bytes),

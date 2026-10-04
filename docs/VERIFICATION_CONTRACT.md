@@ -76,14 +76,45 @@ If `signature_valid` is `true`, the artifact is cryptographically intact. This i
 
 ## Trust Levels
 
-The CLI summarizes verification into a single `trust_level`:
+The CLI summarizes verification into a single `trust_level`
+(`epi_core/trust.py` `build_verification_report`). Full list:
 
 | Level | Condition | Meaning |
 |-------|-----------|---------|
-| `HIGH` | `integrity_ok=true` + `signature_valid=true` | Cryptographically verified and intact. Suitable for regulatory or legal submission. |
-| `MEDIUM` | `integrity_ok=true` + `signature_valid=null` (unsigned) | Integrity intact but artifact is unsigned. Good for internal records, not for external evidence. |
+| `HIGH` | `integrity_ok=true` + `signature_valid=true` + `identity.status=KNOWN` | Cryptographically verified, sealer org-pinned. Claim-ready. |
+| `MEDIUM` | `integrity_ok=true` + `signature_valid=true` + (`identity.status=LOCAL` or SCITT `transparency_ok=true` with unknown identity) | Seal OK; sealer is this machine's key (not org-pinned) or transparency-anchored but unpinned. Not claim-ready without a pin. |
+| `LOW` | `integrity_ok=true` + `signature_valid=true` + `identity.status=UNKNOWN` | Valid signature but unknown sealer. Normal until `epi keys trust`. |
+| `LOW` | `integrity_ok=true` + `signature_valid=null` (unsigned) | Integrity intact but unsigned. Ranks no higher than signed-unknown; anyone can strip a signature. Internal records only. |
 | `NONE` | `integrity_ok=false` or `signature_valid=false` | Verification failed. Do not trust. |
+| `FAIL` | `identity.status=MISMATCH` | Claimed identity does not match signing key — possible impersonation. Do not trust. |
 | `INVALID` | `identity.status=REVOKED` | The signing key has been revoked. Do not trust. |
+
+Policy decisions (`apply_policy`, `--policy`) are separate from trust:
+
+| Policy `status` | Meaning |
+|-----------------|---------|
+| `PASS` | Meets the selected policy. |
+| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer under `standard`). Do not treat as claim acceptance. |
+| `FAIL` | Policy requirements not met (e.g. unknown sealer under `strict`, integrity failure). |
+
+Sprint rule: external/claim use requires `--policy strict` (unknown sealer FAILs).
+
+### Browser verifier parity
+
+Authoritative verify is `epi verify` (CLI). The browser verifier
+(`website/js/epi-verify-core.js`) checks file hashes + Ed25519-over-manifest
+only — no chain, SCITT, TSA validation, policy, `content_truncated`, or
+header-transplant checks. Its labels map onto the CLI scale and must never
+exceed the CLI result for the same bytes:
+
+| Browser `trust_level` | CLI equivalent | Meaning |
+|-----------------------|----------------|---------|
+| `LOW` | `LOW` | Valid signature, identity unpinned. |
+| `LOW` (unsigned, integrity ok) | `LOW` | Unsigned, integrity intact. Never above CLI. |
+| `NONE` | `NONE` | Integrity/signature failed, or signature check could not run in this browser (pending — never a PASS). |
+
+A browser `LOW` on an unsigned file equals CLI `LOW`, never above it.
+Identity pinning (`KNOWN`) requires CLI key pin / trust bundle.
 
 ---
 
@@ -122,7 +153,9 @@ This is a **trust judgment**, separate from the cryptographic proof.
 | Value | Meaning | Action |
 |-------|---------|--------|
 | `KNOWN` | The key is recognized by a trust registry or DID resolution. | Accept if you trust the registry. |
+| `LOCAL` | The key matches a key on this machine, not an org pin. CLI `trust_level=MEDIUM`. | Internal use; pin for claims. |
 | `UNKNOWN` | The key is not recognized. The math is valid, but the signer is anonymous to this verifier. | Accept for internal use. Investigate for legal/regulatory use. |
+| `MISMATCH` | Claimed identity does not match the signing key. CLI `trust_level=FAIL`. | Reject — possible impersonation. |
 | `REVOKED` | The key has been explicitly revoked. | Reject. Do not trust. |
 
 ---

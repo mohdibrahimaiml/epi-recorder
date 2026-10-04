@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "4.4.8"
+version = "4.5.0"
 description = "Tamper-evident evidence infrastructure for AI agents. Capture, seal, verify, and audit AI decisions in a single portable file."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -111,6 +111,9 @@ gateway = [
     "boto3>=1.34.0",
     "httpx>=0.27.0",
 ]
+mcp = [
+    "mcp>=1.0",
+]
 all = [
     "google-generativeai>=0.4.0",
     "openai>=1.0.0",
@@ -139,6 +142,7 @@ dev = [
     "uvicorn>=0.30.0,<1",
     "python-multipart>=0.0.20",
     "wrapt>=1.16.0",
+    "mcp>=1.0",
 ]
 test = [
     "pytest>=8.0.0",
@@ -160,11 +164,14 @@ test = [
     "anyio",
     "agentrust-trace>=0.9.0",
     "agentrust-trace-tests>=0.5.1",
+    "mcp>=1.0",
 ]
 
 [project.scripts]
 epi = "epi_cli.main:cli_main"
 epi-register = "epi_cli.register:cli_main"
+epi-mcp = "epi_mcp.server:main"
+epi-mcp-http = "epi_mcp.http:main"
 
 [project.urls]
 Homepage = "https://epilabs.org"
@@ -174,7 +181,7 @@ Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*"]
+include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*", "epi_mcp*"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*", "*tests*"]
 
 [tool.setuptools]

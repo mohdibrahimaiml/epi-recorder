@@ -485,7 +485,10 @@ def verify_command(
     ),
     policy: Annotated[
         VerificationPolicy,
-        typer.Option("--policy", help="Governance policy to apply (permissive, standard, strict)"),
+        typer.Option(
+            "--policy",
+            help="Governance policy: permissive, standard (default), strict (claims/audit: unknown sealer FAILs).",
+        ),
     ] = VerificationPolicy.STANDARD,
     web: bool = typer.Option(
         False,
