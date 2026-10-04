@@ -209,3 +209,15 @@ def test_artifact_download_requires_token(monkeypatch):
 
     client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
     assert client.get("/artifacts/anything").status_code == 401
+
+
+def test_favicon_served_from_plugin_host(monkeypatch):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    monkeypatch.delenv("EPI_MCP_TOKEN", raising=False)
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    r = client.get("/favicon.ico")
+    assert r.status_code == 200
+    assert r.content[:4] in (b"\x00\x00\x01\x00", b"\x89PNG")
