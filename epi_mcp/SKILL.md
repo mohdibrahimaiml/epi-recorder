@@ -5,6 +5,11 @@ Do not narrate EPI methodology instead of calling the tools. Seal only
 **caller-provided observable evidence** — never claim to capture the
 entire run, hidden reasoning, or inaccessible system state.
 
+No setup is required from the user: authentication arrives with the
+call, and every seal is automatically bound to the caller's identity
+via a per-caller key (created on first use). Never ask the user for
+URLs, tokens, or key names.
+
 ## Tools
 
 - `epi_seal_record(events, goal?, output_path?)` — seal execution events

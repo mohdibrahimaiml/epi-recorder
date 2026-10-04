@@ -76,7 +76,13 @@ def epi_seal_record(
     goal: str = "MCP caller-provided record",
     output_path: str | None = None,
 ) -> dict[str, Any]:
-    return epi_seal_record_tool(events, goal=goal, output_path=output_path)
+    from epi_mcp.tools import _current_subject as _subject_var
+
+    _subject_var.set("operator")  # stdio runs are the server operator
+    try:
+        return epi_seal_record_tool(events, goal=goal, output_path=output_path)
+    finally:
+        _subject_var.set(None)
 
 
 @server.tool(
