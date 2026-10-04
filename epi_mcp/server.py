@@ -16,7 +16,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from mcp.server.mcpserver import MCPServer
+try:
+    from mcp.server.mcpserver import MCPServer
+except ModuleNotFoundError as exc:
+    raise SystemExit(
+        "The EPI MCP server needs the 'mcp' package: "
+        "pip install epi-recorder[mcp]"
+    ) from exc
 
 from epi_mcp.records import SCOPE_NOTE
 from epi_mcp.tools import (
