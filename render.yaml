@@ -76,7 +76,7 @@ services:
     name: epi-mcp
     runtime: python
     plan: free
-    buildCommand: pip install -e ".[mcp]"
+    buildCommand: pip install -e ".[mcp,gateway]"
     startCommand: epi-mcp-http --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
