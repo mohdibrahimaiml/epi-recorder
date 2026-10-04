@@ -24,6 +24,26 @@ except ModuleNotFoundError as exc:
         "pip install epi-recorder[mcp]"
     ) from exc
 
+try:
+    from mcp.types import Icon as _MCPIcon
+except Exception:  # pragma: no cover - older SDK without Icon
+    _MCPIcon = None
+
+
+def _server_icons():
+    import os as _os
+
+    base = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "https://epilabs.org").rstrip("/")
+    if _MCPIcon is None:
+        return None
+    return [
+        _MCPIcon(
+            src=f"{base}/assets/epi-logo.png",
+            mimeType="image/png",
+            sizes=["1024x1024"],
+        )
+    ]
+
 from epi_mcp.records import SCOPE_NOTE
 from epi_mcp.tools import (
     epi_export_summary_tool,
@@ -33,6 +53,7 @@ from epi_mcp.tools import (
 
 server = MCPServer(
     name="epi-evidence",
+    icons=_server_icons(),
     instructions=(
         "Seal caller-provided observable evidence into signed EPI artifacts. "
         + SCOPE_NOTE
