@@ -8,12 +8,18 @@ provided record is complete.
 """
 
 from epi_mcp.records import seal_record, verify_artifact, export_summary
-from epi_mcp.tools import epi_seal_record_tool, epi_verify_tool, epi_export_summary_tool
+from epi_mcp.tools import (
+    compare_runs,
+    epi_seal_record_tool,
+    epi_verify_tool,
+    epi_export_summary_tool,
+)
 
 __all__ = [
     "seal_record",
     "verify_artifact",
     "export_summary",
+    "compare_runs",
     "epi_seal_record_tool",
     "epi_verify_tool",
     "epi_export_summary_tool",

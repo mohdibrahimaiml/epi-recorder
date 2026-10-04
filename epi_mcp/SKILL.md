@@ -20,6 +20,24 @@ URLs, tokens, or key names.
   the fallback. The server path is meaningless outside the host.
 - `epi_verify(epi_path)` — verify integrity, signature, identity, trust.
 - `epi_export_summary(epi_path, max_steps?)` — read back the timeline.
+- `epi_compare_runs(epi_path_a, epi_path_b)` — diff two sealed
+  timelines (deltas, decisions, first divergence). Compares records,
+  never runs.
+
+## Chat history mapping (use these step kinds)
+
+Conversation runs:
+
+| Chat element | Step kind | Content |
+|---|---|---|
+| User message | `user.message` | text (or its hash if private) |
+| Assistant message | `assistant.message` | text |
+| Uploaded file | `artifact.attached` | filename + SHA-256 |
+| Generated file | `artifact.produced` | filename + SHA-256 |
+
+Agent runs: `agent.run.start` → `tool.call` → `tool.response` →
+`artifact.produced` → `agent.decision` → `agent.run.end`.
+Timestamps come from the host record, never invented.
 
 ## Capture-scope rules (never overclaim)
 
@@ -38,4 +56,7 @@ URLs, tokens, or key names.
 ## Redaction
 
 Remove API keys, tokens, passwords, and personal data from event content
-before sealing. If in doubt, replace the value with `[REDACTED]` and note it.
+before sealing. Mark every redaction with `[REDACTED]` — the server
+tallies markers into `summary_counts.redactions`, so the count is
+checkable against the sealed steps. If in doubt, replace the value
+with `[REDACTED]` and note it.

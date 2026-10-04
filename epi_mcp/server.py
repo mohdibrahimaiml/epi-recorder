@@ -46,6 +46,7 @@ def _server_icons():
 
 from epi_mcp.records import SCOPE_NOTE
 from epi_mcp.tools import (
+    compare_runs,
     epi_export_summary_tool,
     epi_seal_record_tool,
     epi_verify_tool,
@@ -104,6 +105,17 @@ def epi_verify(epi_path: str) -> dict[str, Any]:
 )
 def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
     return epi_export_summary_tool(epi_path, max_steps=max_steps)
+
+
+@server.tool(
+    description=(
+        "Compare two sealed .epi timelines: step deltas, kind coverage, "
+        "decisions and first divergence. Compares sealed records only, "
+        "never the runs behind them."
+    )
+)
+def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
+    return compare_runs(epi_path_a, epi_path_b)
 
 
 def main() -> None:

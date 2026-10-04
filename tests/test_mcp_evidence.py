@@ -104,6 +104,7 @@ def test_http_lists_and_seals(isolated_keys, tmp_path):
                     await session.initialize()
                     tools = await session.list_tools()
                     assert sorted(t.name for t in tools.tools) == [
+                        "epi_compare_runs",
                         "epi_export_summary",
                         "epi_seal_record",
                         "epi_verify",
@@ -276,3 +277,63 @@ def test_oidc_malformed_token_rejected(monkeypatch):
 
     assert verify_bearer_token("not-a-jwt") is None
     assert verify_bearer_token("") is None
+
+
+def test_seal_summary_counts_are_server_computed(isolated_keys, tmp_path):
+    from epi_mcp.tools import epi_seal_record_tool
+
+    events = [
+        {"kind": "user.message", "content": {"text": "hi"}},
+        {"kind": "tool.call", "content": {"tool": "x"}},
+        {"kind": "tool.response", "content": {"tool": "x", "output": "ok"}},
+        {"kind": "artifact.produced", "content": {"file": "r.pdf"}},
+        {"kind": "agent.decision",
+         "content": {"decision": "go", "key": "[REDACTED]", "nested": {"k": "[REDACTED]"}}},
+    ]
+    result = epi_seal_record_tool(events, output_path=str(tmp_path / "c.epi"))
+    counts = result["summary_counts"]
+    assert counts["events"] == 5
+    assert counts["tool_calls"] == 2
+    assert counts["artifacts"] == 1
+    assert counts["redactions"] == 2
+    assert counts["by_kind"]["user.message"] == 1
+
+
+def test_compare_runs_finds_decision_divergence(isolated_keys, tmp_path):
+    from epi_mcp.tools import compare_runs, epi_seal_record_tool
+
+    base = [
+        {"kind": "tool.call", "content": {"tool": "lookup"}},
+        {"kind": "agent.decision", "content": {"decision": "approve"}},
+    ]
+    other = [
+        {"kind": "tool.call", "content": {"tool": "lookup"}},
+        {"kind": "tool.call", "content": {"tool": "extra_check"}},
+        {"kind": "agent.decision", "content": {"decision": "reject"}},
+    ]
+    a = epi_seal_record_tool(base, output_path=str(tmp_path / "a.epi"))
+    b = epi_seal_record_tool(other, output_path=str(tmp_path / "b.epi"))
+    diff = compare_runs(a["epi_path"], b["epi_path"])
+    assert diff["delta_steps"] == 1
+    assert diff["decisions_match"] is False
+    assert diff["run_a"]["decisions"] == ["approve"]
+    assert diff["run_b"]["decisions"] == ["reject"]
+    assert diff["first_divergence_index"] == 1
+    assert "record" in diff["scope_note"]
+
+
+def test_compare_identical_runs_match(isolated_keys, tmp_path):
+    from epi_mcp.tools import compare_runs, epi_seal_record_tool
+
+    a = epi_seal_record_tool(
+        [{"kind": "agent.decision", "content": {"decision": "go"}}],
+        output_path=str(tmp_path / "a.epi"),
+    )
+    b = epi_seal_record_tool(
+        [{"kind": "agent.decision", "content": {"decision": "go"}}],
+        output_path=str(tmp_path / "b.epi"),
+    )
+    diff = compare_runs(a["epi_path"], b["epi_path"])
+    assert diff["decisions_match"] is True
+    assert diff["delta_steps"] == 0
+    assert diff["first_divergence_index"] is None
