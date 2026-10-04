@@ -221,3 +221,14 @@ def test_favicon_served_from_plugin_host(monkeypatch):
     r = client.get("/favicon.ico")
     assert r.status_code == 200
     assert r.content[:4] in (b"\x00\x00\x01\x00", b"\x89PNG")
+
+
+def test_public_host_allowed_via_public_url(monkeypatch):
+    """Regression: SDK DNS-rebinding guard rejected the public Host (421)."""
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://epi-mcp.onrender.com")
+
+    from epi_mcp.http import _transport_security
+
+    ts = _transport_security()
+    assert ts is not None
+    assert "epi-mcp.onrender.com" in ts.allowed_hosts

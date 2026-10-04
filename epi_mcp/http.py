@@ -85,9 +85,35 @@ async def _serve_favicon(request: Request):
     return FileResponse(path, media_type="image/x-icon")
 
 
+def _transport_security():
+    """Host allowlist for the SDK's DNS-rebinding protection.
+
+    Loopback always allowed (local dev + tests). The public hostname is
+    derived from EPI_MCP_PUBLIC_URL so the deployed endpoint answers.
+    Without this, the SDK rejects the public Host header (HTTP 421).
+    """
+    import os as _os
+    from urllib.parse import urlparse as _urlparse
+
+    hosts = ["127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*", "[::1]", "testserver"]
+    public = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip()
+    if public:
+        hn = _urlparse(public if "://" in public else f"https://{public}").hostname
+        if hn and hn not in hosts:
+            hosts.extend([hn, f"{hn}:*", f"{hn}:443", f"{hn}:80"])
+    try:
+        from mcp.server.transport_security import TransportSecuritySettings as _TSS
+
+        return _TSS(allowed_hosts=hosts)
+    except Exception:
+        return None
+
+
 def build_app() -> Starlette:
     token = (os.environ.get("EPI_MCP_TOKEN") or "").strip()
-    inner = server.streamable_http_app(streamable_http_path="/mcp")
+    inner = server.streamable_http_app(
+        streamable_http_path="/mcp", transport_security=_transport_security()
+    )
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/favicon.ico", _serve_favicon),
