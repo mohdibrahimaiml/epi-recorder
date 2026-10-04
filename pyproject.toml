@@ -142,6 +142,7 @@ dev = [
     "uvicorn>=0.30.0,<1",
     "python-multipart>=0.0.20",
     "wrapt>=1.16.0",
+    "mcp>=1.0",
 ]
 test = [
     "pytest>=8.0.0",
@@ -163,6 +164,7 @@ test = [
     "anyio",
     "agentrust-trace>=0.9.0",
     "agentrust-trace-tests>=0.5.1",
+    "mcp>=1.0",
 ]
 
 [project.scripts]
