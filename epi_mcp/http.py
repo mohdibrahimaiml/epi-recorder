@@ -97,6 +97,18 @@ async def _serve_favicon(request: Request):
     return FileResponse(path, media_type="image/x-icon")
 
 
+async def _oauth_protected_resource(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    base = _oauth.public_base() or str(request.base_url).rstrip("/")
+    return JSONResponse({
+        "resource": f"{base}/mcp",
+        "authorization_servers": [base],
+        "scopes_supported": ["seal", "verify", "export"],
+        "bearer_methods_supported": ["header"],
+    })
+
+
 async def _oauth_metadata(request: Request):
     from epi_mcp import oauth as _oauth
 
@@ -240,6 +252,8 @@ def build_app() -> Starlette:
         Route("/favicon.ico", _serve_favicon),
         Route("/.well-known/oauth-authorization-server", _oauth_metadata),
         Route("/.well-known/oauth-authorization-server/{rest:path}", _oauth_metadata),
+        Route("/.well-known/oauth-protected-resource", _oauth_protected_resource),
+        Route("/.well-known/oauth-protected-resource/{rest:path}", _oauth_protected_resource),
         Route("/oauth/register", _oauth_register, methods=["POST"]),
         Route("/oauth/authorize", _oauth_authorize_form, methods=["GET"]),
         Route("/oauth/approve", _oauth_approve, methods=["POST"]),
