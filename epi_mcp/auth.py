@@ -29,7 +29,9 @@ def auth_configured() -> bool:
     """True when any caller authentication is available."""
     if (os.environ.get("EPI_MCP_TOKEN") or "").strip():
         return True
-    return bool((os.environ.get("EPI_OIDC_JWKS_URL") or "").strip())
+    if (os.environ.get("EPI_OIDC_JWKS_URL") or "").strip():
+        return True
+    return bool((os.environ.get("EPI_OAUTH_SECRET") or "").strip())
 
 
 def verify_bearer_token(token: str | None) -> str | None:

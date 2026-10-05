@@ -155,9 +155,10 @@ def test_http_bearer_auth_enforced(monkeypatch):
     from epi_mcp.http import build_app
 
     client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
-    # /mcp stays open (handshake + verify/export need no identity).
+    # Unauthenticated /mcp is challenged so hosts (ChatGPT) start OAuth.
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
-    assert r.status_code != 401
+    assert r.status_code == 401
+    assert "resource_metadata=" in r.headers["www-authenticate"]
     # Sealed downloads still require the token.
     assert client.get("/artifacts/anything").status_code == 401
     r2 = client.post(
@@ -430,3 +431,25 @@ def test_oauth_protected_resource_metadata(monkeypatch):
         body = r.json()
         assert body["resource"].endswith("/mcp")
         assert body["authorization_servers"] == ["https://epi-mcp.onrender.com"]
+
+
+def test_oauth_redirect_uri_must_be_registered(monkeypatch):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "x" * 32)
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    reg = client.post(
+        "/oauth/register", json={"redirect_uris": ["https://chatgpt.com/cb"]}
+    ).json()
+    q = {"client_id": reg["client_id"], "state": "s", "response_type": "code"}
+    ok = client.get("/oauth/authorize", params={**q, "redirect_uri": "https://chatgpt.com/cb"})
+    assert ok.status_code == 200
+    bad = client.get("/oauth/authorize", params={**q, "redirect_uri": "https://evil.example/cb"})
+    assert bad.status_code == 400
+    xss = client.get(
+        "/oauth/authorize",
+        params={**q, "state": '"><script>1</script>', "redirect_uri": "https://chatgpt.com/cb"},
+    )
+    assert "<script>1</script>" not in xss.text
