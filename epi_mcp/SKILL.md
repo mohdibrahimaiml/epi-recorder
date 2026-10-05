@@ -17,14 +17,17 @@ URLs, tokens, or key names.
 
 ## Tools
 
-- `epi_seal_record(events, goal?, output_path?)` — seal execution events
-  into a signed `.epi` file. Returns the **file bytes (base64)**,
-  filename, SHA-256, a **download URL** (`download_url`, served by the
-  HTTP layer at `/artifacts/<id>`), and an immediate seal self-check.
-  Hand the user the download link first (it always works); the bytes are
-  the fallback. The server path is meaningless outside the host.
+- `epi_seal_record(events, goal?, include_bytes?)` — seal events into a
+  signed `.epi` file. Returns `artifact_id`, an expiring **download URL**
+  (it carries its own secret, so it opens in a browser; 24 h), filename,
+  SHA-256, a seal self-check, a **fidelity** report and **warnings**, and
+  (unless `include_bytes=false`) the file as base64. The server path is
+  meaningless outside the host. If the link has expired or the server
+  restarted, the base64 bytes are the fallback.
 - `epi_verify(epi_path)` — verify integrity, signature, identity, trust.
-- `epi_export_summary(epi_path, max_steps?)` — read back the timeline.
+  Accepts the `artifact_id` from a seal.
+- `epi_export_summary(epi_path, max_steps?)` — read back the timeline
+  (also accepts `artifact_id`).
 - `epi_compare_runs(epi_path_a, epi_path_b)` — diff two sealed
   timelines (deltas, decisions, first divergence). Compares records,
   never runs.
@@ -43,6 +46,26 @@ Conversation runs:
 Agent runs: `agent.run.start` → `tool.call` → `tool.response` →
 `artifact.produced` → `agent.decision` → `agent.run.end`.
 Timestamps come from the host record, never invented.
+
+## What a good chat seal looks like
+
+1. **Seal the thread the user asked about.** If the conversation mixes
+   topics, ask which one before sealing.
+2. **Verbatim, not paraphrase.** Pass each message's exact text with
+   `fidelity: "verbatim"`. Use `"summary"` for anything you condensed and
+   `"hash_only"` (with sha256) for private content. A paraphrase labelled
+   verbatim is a false record.
+3. **Real times.** Pass the host's timestamp per event as ISO-8601. If you
+   do not have one, omit it: the server stamps its own receive time and
+   labels it `server_received`. Never invent times. If every event ends
+   up with the same time, the tool warns you; relay that warning.
+4. **Declare omissions.** Redact with `[REDACTED]`. If you leave out a
+   category of content (for example a third party's financial details),
+   add a `redaction.omitted` event stating what kind and why. Silent
+   omission makes the record look more complete than it is.
+5. **Tell the user the truth afterwards:** the link, the SHA-256, every
+   warning the tool returned, identity unpinned unless they trusted the
+   key, and `epi verify <file>.epi` for an independent check.
 
 ## Capture-scope rules (never overclaim)
 
