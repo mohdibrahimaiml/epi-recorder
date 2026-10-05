@@ -179,6 +179,17 @@ async def _oauth_token(request: Request):
         except Exception:
             form = {}
     grant = form.get("grant_type", "")
+    if not form.get("client_id"):
+        # RFC 6749 §2.3.1: clients may authenticate via HTTP Basic.
+        basic = (request.headers.get("authorization") or "").strip()
+        if basic.lower().startswith("basic "):
+            import base64 as _b64
+
+            try:
+                decoded = _b64.b64decode(basic[6:]).decode("utf-8", "replace")
+                form["client_id"] = decoded.split(":", 1)[0]
+            except Exception:
+                pass
     if grant == "authorization_code":
         out = _oauth.redeem_code(
             str(form.get("code", "")),
