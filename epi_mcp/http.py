@@ -48,9 +48,22 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
         if subject is None and not _auth.auth_configured():
             # No auth configured (loopback dev): the caller is the operator.
             subject = "operator"
-        if request.url.path.startswith("/artifacts/"):
-            if subject is None:
-                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        path = request.url.path
+        if subject is None and (path.startswith("/artifacts/") or path == "/mcp"):
+            # The WWW-Authenticate challenge is what makes MCP hosts
+            # (ChatGPT) discover OAuth and start the approval flow.
+            from epi_mcp import oauth as _oauth
+
+            base = _oauth.public_base() or str(request.base_url).rstrip("/")
+            return JSONResponse(
+                {"error": "Unauthorized"},
+                status_code=401,
+                headers={
+                    "WWW-Authenticate": (
+                        f'Bearer resource_metadata="{base}/.well-known/oauth-protected-resource"'
+                    )
+                },
+            )
         _subject_var.set(subject)
         try:
             return await call_next(request)
@@ -69,7 +82,7 @@ async def _download_artifact(request: Request):
     )
 
 
-def _favicon_path() -> Path | None:
+def _favicon_path():
     from pathlib import Path as _Path
 
     here = _Path(__file__).resolve()
@@ -144,12 +157,19 @@ async def _oauth_authorize_form(request: Request):
     missing = [k for k in ("client_id", "redirect_uri", "state") if not params.get(k)]
     if missing:
         return JSONResponse({"error": f"missing: {', '.join(missing)}"}, status_code=400)
-    qp = "&".join(f"{k}={v}" for k, v in params.items() if k != "state")
+    import html as _html
+    from urllib.parse import urlencode as _urlencode
+
+    from epi_mcp import oauth as _oauth
+
+    if not _oauth.redirect_allowed(params["client_id"], params["redirect_uri"]):
+        return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
+    action = _html.escape("/oauth/approve?" + _urlencode(params), quote=True)
     return HTMLResponse(
         "<html><body><h1>Approve EPI Evidence Sealer?</h1>"
         "<p>This grants sealing under a pseudonymous identity bound to this "
         "approval. It does not share passwords or verify who you are.</p>"
-        f'<form method="post" action="/oauth/approve?{qp}&state={params.get("state", "")}">'
+        f'<form method="post" action="{action}">'
         '<button type="submit" name="decision" value="approve">Approve</button> '
         '<button type="submit" name="decision" value="deny">Deny</button>'
         "</form></body></html>"
@@ -159,11 +179,16 @@ async def _oauth_authorize_form(request: Request):
 async def _oauth_approve(request: Request):
     from epi_mcp import oauth as _oauth
 
+    from urllib.parse import urlencode as _urlencode
+
     params = dict(request.query_params)
     form = dict(await request.form())
+    if not _oauth.redirect_allowed(params.get("client_id", ""), params.get("redirect_uri", "")):
+        return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
+    sep = "&" if "?" in params["redirect_uri"] else "?"
     if form.get("decision") != "approve":
-        dest = params.get("redirect_uri", "")
-        return RedirectResponse(f"{dest}?error=access_denied&state={params.get('state', '')}")
+        q = _urlencode({"error": "access_denied", "state": params.get("state", "")})
+        return RedirectResponse(f"{params['redirect_uri']}{sep}{q}", status_code=303)
     subject = _oauth.create_approval()
     code = _oauth.issue_code(
         subject,
@@ -172,9 +197,8 @@ async def _oauth_approve(request: Request):
         params.get("code_challenge", ""),
         params.get("code_challenge_method"),
     )
-    return RedirectResponse(
-        f"{params.get('redirect_uri', '')}?code={code}&state={params.get('state', '')}"
-    )
+    q = _urlencode({"code": code, "state": params.get("state", "")})
+    return RedirectResponse(f"{params['redirect_uri']}{sep}{q}", status_code=303)
 
 
 async def _oauth_token(request: Request):

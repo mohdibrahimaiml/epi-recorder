@@ -73,7 +73,25 @@ def register_client(info: dict[str, Any]) -> dict[str, Any]:
         "redirect_uris": info.get("redirect_uris", []),
         "created_at": int(time.time()),
     }
-    return {"client_id": client_id, "client_secret": client_secret}
+    return {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "client_id_issued_at": int(time.time()),
+        "client_secret_expires_at": 0,
+        "redirect_uris": CLIENTS[client_id]["redirect_uris"],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": info.get("token_endpoint_auth_method", "client_secret_post"),
+    }
+
+
+def redirect_allowed(client_id: str, redirect_uri: str) -> bool:
+    """Registered clients may only use their registered redirect URIs."""
+    rec = CLIENTS.get(client_id)
+    if rec is None:
+        return False
+    registered = rec.get("redirect_uris") or []
+    return redirect_uri in registered if registered else bool(redirect_uri)
 
 
 def create_approval() -> str:
