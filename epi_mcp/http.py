@@ -228,6 +228,7 @@ def build_app() -> Starlette:
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/favicon.ico", _serve_favicon),
         Route("/.well-known/oauth-authorization-server", _oauth_metadata),
+        Route("/.well-known/oauth-authorization-server/{rest:path}", _oauth_metadata),
         Route("/oauth/register", _oauth_register, methods=["POST"]),
         Route("/oauth/authorize", _oauth_authorize_form, methods=["GET"]),
         Route("/oauth/approve", _oauth_approve, methods=["POST"]),
