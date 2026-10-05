@@ -10,8 +10,13 @@ Normal users install the app and say "seal this run" — no URLs, no
 tokens, no key names. This works because:
 
 - The chat host authenticates the user; the server verifies the
-  credential (OIDC via `EPI_OIDC_*`, static `EPI_MCP_TOKEN` for
-  single-operator setups) and binds the call to that identity.
+  credential and binds the call to that identity. Two modes:
+  **OAuth code flow** (`/.well-known/oauth-authorization-server`,
+  dynamic registration, PKCE S256, refresh tokens) for chat hosts
+  like ChatGPT that offer OAuth-or-nothing — the approver gets a
+  stable pseudonymous subject, seals bind to it via auto-created
+  per-subject keys. **Static `EPI_MCP_TOKEN`** for single-operator
+  setups. Raw identity values are never stored, only hashes.
 - The first seal auto-creates a per-caller key (`user-<id>`); raw
   identity values are never stored, only hashes.
 - Anonymous callers may verify and export, but sealing refuses
@@ -56,3 +61,11 @@ Interpretation:
 | VALID / VALID file in hand | Ship it |
 | Bytes returned, no downloadable file | Report back — hosted-link flow needs work |
 | Connection / tool error | Paste the exact error — transport, auth, or deploy config |
+
+OAuth honesty note: our approval binds a *pseudonymous per-approval
+subject* (control of the approving session, nothing more). It is not
+a verified human identity. Stores are in-memory: restarts wipe
+approvals, codes, and clients — fine for testing and single-operator
+use; production needs durable storage before this carries real trust.
+OIDC (`EPI_OIDC_*`) remains available for issuers with real user
+identity when that integration arrives.
