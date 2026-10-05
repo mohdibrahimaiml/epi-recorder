@@ -401,3 +401,32 @@ def test_oauth_code_flow_seals(tmp_path, monkeypatch):
         "client_id": reg["client_id"], "redirect_uri": "https://chat.example/cb",
         "code_verifier": "wrong"})
     assert bad.status_code == 400
+
+def test_oauth_metadata_path_variants(monkeypatch):
+    import pytest as _pytest
+    starlette_test = _pytest.importorskip('starlette.testclient')
+    monkeypatch.setenv('EPI_MCP_PUBLIC_URL', 'https://epi-mcp.onrender.com')
+    monkeypatch.delenv('EPI_MCP_TOKEN', raising=False)
+    from epi_mcp.http import build_app
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    for path in ('/.well-known/oauth-authorization-server',
+                 '/.well-known/oauth-authorization-server/mcp'):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert r.json()['token_endpoint'].endswith('/oauth/token')
+
+
+def test_oauth_protected_resource_metadata(monkeypatch):
+    import pytest as _pytest
+    starlette_test = _pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://epi-mcp.onrender.com")
+    monkeypatch.delenv("EPI_MCP_TOKEN", raising=False)
+    from epi_mcp.http import build_app
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    for path in ("/.well-known/oauth-protected-resource",
+                 "/.well-known/oauth-protected-resource/mcp"):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        body = r.json()
+        assert body["resource"].endswith("/mcp")
+        assert body["authorization_servers"] == ["https://epi-mcp.onrender.com"]

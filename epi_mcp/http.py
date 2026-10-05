@@ -97,6 +97,18 @@ async def _serve_favicon(request: Request):
     return FileResponse(path, media_type="image/x-icon")
 
 
+async def _oauth_protected_resource(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    base = _oauth.public_base() or str(request.base_url).rstrip("/")
+    return JSONResponse({
+        "resource": f"{base}/mcp",
+        "authorization_servers": [base],
+        "scopes_supported": ["seal", "verify", "export"],
+        "bearer_methods_supported": ["header"],
+    })
+
+
 async def _oauth_metadata(request: Request):
     from epi_mcp import oauth as _oauth
 
@@ -179,6 +191,17 @@ async def _oauth_token(request: Request):
         except Exception:
             form = {}
     grant = form.get("grant_type", "")
+    if not form.get("client_id"):
+        # RFC 6749 §2.3.1: clients may authenticate via HTTP Basic.
+        basic = (request.headers.get("authorization") or "").strip()
+        if basic.lower().startswith("basic "):
+            import base64 as _b64
+
+            try:
+                decoded = _b64.b64decode(basic[6:]).decode("utf-8", "replace")
+                form["client_id"] = decoded.split(":", 1)[0]
+            except Exception:
+                pass
     if grant == "authorization_code":
         out = _oauth.redeem_code(
             str(form.get("code", "")),
@@ -228,6 +251,9 @@ def build_app() -> Starlette:
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/favicon.ico", _serve_favicon),
         Route("/.well-known/oauth-authorization-server", _oauth_metadata),
+        Route("/.well-known/oauth-authorization-server/{rest:path}", _oauth_metadata),
+        Route("/.well-known/oauth-protected-resource", _oauth_protected_resource),
+        Route("/.well-known/oauth-protected-resource/{rest:path}", _oauth_protected_resource),
         Route("/oauth/register", _oauth_register, methods=["POST"]),
         Route("/oauth/authorize", _oauth_authorize_form, methods=["GET"]),
         Route("/oauth/approve", _oauth_approve, methods=["POST"]),
