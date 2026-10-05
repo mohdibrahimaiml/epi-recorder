@@ -337,3 +337,67 @@ def test_compare_identical_runs_match(isolated_keys, tmp_path):
     assert diff["decisions_match"] is True
     assert diff["delta_steps"] == 0
     assert diff["first_divergence_index"] is None
+
+
+def test_oauth_code_flow_seals(tmp_path, monkeypatch):
+    """Register -> approve -> token -> seal bound to the OAuth subject."""
+    import base64 as _b64
+    import hashlib as _hl
+
+    import pytest as _pytest
+
+    starlette_test = _pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_MCP_TOKEN", "s3cret")
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://epi-mcp.onrender.com")
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+
+    meta = client.get("/.well-known/oauth-authorization-server").json()
+    assert meta["token_endpoint"].endswith("/oauth/token")
+
+    reg = client.post("/oauth/register", json={"redirect_uris": ["https://chat.example/cb"]}).json()
+    assert reg["client_id"].startswith("epi-client-")
+
+    verifier = "test-verifier-1234567890"
+    challenge = _b64.urlsafe_b64encode(_hl.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    form = client.get("/oauth/authorize", params={
+        "client_id": reg["client_id"], "redirect_uri": "https://chat.example/cb",
+        "state": "s1", "code_challenge": challenge, "code_challenge_method": "S256"})
+    assert form.status_code == 200 and "Approve" in form.text
+
+    redir = client.post(
+        "/oauth/approve?client_id=" + reg["client_id"]
+        + "&redirect_uri=https://chat.example/cb&state=s1"
+        + f"&code_challenge={challenge}&code_challenge_method=S256",
+        data={"decision": "approve"}, follow_redirects=False)
+    assert redir.status_code in (302, 303, 307)
+    code = [kv.split("=")[1] for kv in redir.headers["location"].split("?")[1].split("&")
+            if kv.startswith("code=")][0]
+
+    tok = client.post("/oauth/token", data={
+        "grant_type": "authorization_code", "code": code,
+        "client_id": reg["client_id"], "redirect_uri": "https://chat.example/cb",
+        "code_verifier": verifier}).json()
+    assert tok["token_type"] == "Bearer"
+
+    from epi_mcp.auth import verify_bearer_token
+
+    subject = verify_bearer_token(tok["access_token"])
+    assert subject and subject.startswith("chatgpt-")
+
+    # Wrong verifier on a fresh code must fail at the PKCE check.
+    redir2 = client.post(
+        "/oauth/approve?client_id=" + reg["client_id"]
+        + "&redirect_uri=https://chat.example/cb&state=s2"
+        + f"&code_challenge={challenge}&code_challenge_method=S256",
+        data={"decision": "approve"}, follow_redirects=False)
+    code2 = [kv.split("=")[1] for kv in redir2.headers["location"].split("?")[1].split("&")
+             if kv.startswith("code=")][0]
+    bad = client.post("/oauth/token", data={
+        "grant_type": "authorization_code", "code": code2,
+        "client_id": reg["client_id"], "redirect_uri": "https://chat.example/cb",
+        "code_verifier": "wrong"})
+    assert bad.status_code == 400

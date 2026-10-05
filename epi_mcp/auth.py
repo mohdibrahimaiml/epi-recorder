@@ -43,7 +43,11 @@ def verify_bearer_token(token: str | None) -> str | None:
     oidc_subject = _verify_oidc(presented)
     if oidc_subject:
         return oidc_subject
-    return None
+    try:
+        from epi_mcp.oauth import verify_own_token
+    except ImportError:
+        return None
+    return verify_own_token(presented)
 
 
 def _verify_oidc(token: str) -> str | None:

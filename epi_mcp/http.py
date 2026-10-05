@@ -21,7 +21,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Route
 
 from epi_mcp.server import server
@@ -97,6 +97,104 @@ async def _serve_favicon(request: Request):
     return FileResponse(path, media_type="image/x-icon")
 
 
+async def _oauth_metadata(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    base = _oauth.public_base() or str(request.base_url).rstrip("/")
+    return JSONResponse({
+        "issuer": base,
+        "authorization_endpoint": f"{base}/oauth/authorize",
+        "token_endpoint": f"{base}/oauth/token",
+        "registration_endpoint": f"{base}/oauth/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "code_challenge_methods_supported": ["S256", "plain"],
+        "token_endpoint_auth_methods_supported": [
+            "client_secret_post", "client_secret_basic", "none",
+        ],
+    })
+
+
+async def _oauth_register(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    try:
+        info = await request.json()
+    except Exception:
+        info = {}
+    if not isinstance(info, dict):
+        info = {}
+    return JSONResponse(_oauth.register_client(info))
+
+
+async def _oauth_authorize_form(request: Request):
+    params = dict(request.query_params)
+    missing = [k for k in ("client_id", "redirect_uri", "state") if not params.get(k)]
+    if missing:
+        return JSONResponse({"error": f"missing: {', '.join(missing)}"}, status_code=400)
+    qp = "&".join(f"{k}={v}" for k, v in params.items() if k != "state")
+    return HTMLResponse(
+        "<html><body><h1>Approve EPI Evidence Sealer?</h1>"
+        "<p>This grants sealing under a pseudonymous identity bound to this "
+        "approval. It does not share passwords or verify who you are.</p>"
+        f'<form method="post" action="/oauth/approve?{qp}&state={params.get("state", "")}">'
+        '<button type="submit" name="decision" value="approve">Approve</button> '
+        '<button type="submit" name="decision" value="deny">Deny</button>'
+        "</form></body></html>"
+    )
+
+
+async def _oauth_approve(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    params = dict(request.query_params)
+    form = dict(await request.form())
+    if form.get("decision") != "approve":
+        dest = params.get("redirect_uri", "")
+        return RedirectResponse(f"{dest}?error=access_denied&state={params.get('state', '')}")
+    subject = _oauth.create_approval()
+    code = _oauth.issue_code(
+        subject,
+        params.get("client_id", ""),
+        params.get("redirect_uri", ""),
+        params.get("code_challenge", ""),
+        params.get("code_challenge_method"),
+    )
+    return RedirectResponse(
+        f"{params.get('redirect_uri', '')}?code={code}&state={params.get('state', '')}"
+    )
+
+
+async def _oauth_token(request: Request):
+    from epi_mcp import oauth as _oauth
+
+    try:
+        form = dict(await request.form())
+    except Exception:
+        form = {}
+    if not form:
+        try:
+            body = await request.json()
+            form = body if isinstance(body, dict) else {}
+        except Exception:
+            form = {}
+    grant = form.get("grant_type", "")
+    if grant == "authorization_code":
+        out = _oauth.redeem_code(
+            str(form.get("code", "")),
+            str(form.get("client_id", "")),
+            str(form.get("redirect_uri", "")),
+            str(form.get("code_verifier", "")),
+        )
+    elif grant == "refresh_token":
+        out = _oauth.redeem_refresh(str(form.get("refresh_token", "")))
+    else:
+        out = None
+    if out is None:
+        return JSONResponse({"error": "invalid_grant"}, status_code=400)
+    return JSONResponse(out)
+
+
 def _transport_security():
     """Host allowlist for the SDK's DNS-rebinding protection.
 
@@ -129,6 +227,11 @@ def build_app() -> Starlette:
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/favicon.ico", _serve_favicon),
+        Route("/.well-known/oauth-authorization-server", _oauth_metadata),
+        Route("/oauth/register", _oauth_register, methods=["POST"]),
+        Route("/oauth/authorize", _oauth_authorize_form, methods=["GET"]),
+        Route("/oauth/approve", _oauth_approve, methods=["POST"]),
+        Route("/oauth/token", _oauth_token, methods=["POST"]),
     ]
     # Subject middleware always present: binds caller identity for seals.
     return Starlette(
