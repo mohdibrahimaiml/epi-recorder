@@ -758,3 +758,37 @@ def test_usage_notes_ask_for_long_messages_in_full_and_describe_decisions():
 
     assert "in full" in srv.SEAL_GUIDE and "bulky tool output" in srv.SEAL_GUIDE
     assert '"decision"' in srv.SEAL_GUIDE
+
+
+def test_seal_response_never_exceeds_the_mcp_event_limit(monkeypatch, tmp_path):
+    """MCP clients cap one event at 1 MiB. The result used to carry the file
+    twice (text + structured) so even a minimal seal was over; large files must
+    fall back to the download link."""
+    import asyncio
+    import json
+
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp.server import server
+    from epi_mcp.tools import _current_subject
+
+    async def call(events):
+        _current_subject.set("operator")
+        try:
+            res = await server.call_tool("epi_seal_record", {"events": events})
+        finally:
+            _current_subject.set(None)
+        text = sum(len(c.text) for c in res.content if hasattr(c, "text"))
+        structured = (
+            len(json.dumps(res.structured_content))
+            if getattr(res, "structured_content", None) is not None
+            else 0
+        )
+        return text + structured, json.loads(res.content[0].text)
+
+    small_total, small = asyncio.run(call([{"kind": "user.message", "content": {"text": "hi"}}]))
+    assert small_total < 1_048_576 and "epi_b64" in small      # one copy, delivered inline
+
+    big_total, big = asyncio.run(call([{"kind": "assistant.message", "content": {"text": "x" * 3_000_000}}]))
+    assert big_total < 1_048_576
+    assert "epi_b64" not in big and "bytes_omitted" in big      # falls back to the link/path
+    assert big["filename"] and big["sha256"]

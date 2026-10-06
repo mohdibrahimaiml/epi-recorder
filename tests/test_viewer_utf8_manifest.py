@@ -100,14 +100,32 @@ def test_viewer_shows_sealer_caveats_at_the_timeline(monkeypatch, tmp_path):
     assert _render(zipfile.ZipFile(clean["epi_path"]).read("viewer.html"), tmp_path) is None
 
 
+def _tracked_html_js_files():
+    """Source files only. The release gate runs the suite with TMPDIR inside the
+    repo, and tests legitimately unpack frozen historical artifacts whose embedded
+    viewers still carry the old code; those temp copies are not source."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "*.html", "*.js"],
+            cwd=REPO, capture_output=True, text=True, check=True,
+        ).stdout
+        return [REPO / line for line in out.splitlines() if line]
+    except Exception:  # not a git checkout (e.g. an sdist): walk, skipping temp/build dirs
+        skip = {"node_modules", "build", ".git", "dist", "__pycache__"}
+        return [
+            path for path in REPO.rglob("*")
+            if path.suffix in {".html", ".js"}
+            and not any(part in skip or part.startswith(".tmp") for part in path.parts)
+        ]
+
+
 def test_no_copy_of_the_viewer_latin1_manifest_decode_remains():
     """Static demos and hosted pages embed their own copy of the viewer code."""
     needle = "atob(caseData.files['manifest.json'])"
-    skip = {"node_modules", "build", ".git", "dist", "__pycache__"}
     offenders = []
-    for path in REPO.rglob("*"):
-        if path.suffix not in {".html", ".js"} or any(part in skip for part in path.parts):
-            continue
+    for path in _tracked_html_js_files():
         try:
             if needle in path.read_text(encoding="utf-8", errors="ignore"):
                 offenders.append(str(path.relative_to(REPO)))
