@@ -1086,6 +1086,36 @@ function renderEvidence(caseData) {
   heatmapEl.innerHTML = '';
   tableEl.innerHTML = '';
 
+  // Surface the sealer's own caveats (shared timestamps, server-assigned times,
+  // summaries) at the timeline itself, not only in the appendix: a reader
+  // looking at "+0.000s" on every row should be told why before trusting it.
+  const oldNotice = document.getElementById('evidence-notice');
+  if (oldNotice) oldNotice.remove();
+  const fid = caseData.environment && caseData.environment.fidelity;
+  const caveats = fid && Array.isArray(fid.warnings)
+    ? fid.warnings.filter((w) => typeof w === 'string' && w.trim())
+    : [];
+  if (caveats.length > 0 && heatmapEl.parentNode) {
+    const notice = document.createElement('div');
+    notice.id = 'evidence-notice';
+    notice.setAttribute('role', 'note');
+    notice.style.cssText = 'margin:0 0 14px 0; padding:12px 14px; border:1px solid var(--warn, #b7791f);' +
+      'border-left-width:4px; border-radius:4px; font-size:12px; line-height:1.5; color:var(--text-primary, inherit);';
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:700; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; font-size:11px;';
+    head.textContent = 'Read before relying on this timeline';
+    notice.appendChild(head);
+    const list = document.createElement('ul');
+    list.style.cssText = 'margin:0; padding-left:18px;';
+    caveats.forEach((w) => {
+      const li = document.createElement('li');
+      li.textContent = w;
+      list.appendChild(li);
+    });
+    notice.appendChild(list);
+    heatmapEl.parentNode.insertBefore(notice, heatmapEl);
+  }
+
   if (steps.length === 0) {
     tableEl.innerHTML = '<div style="padding:20px; color:var(--text-muted); font-size:12px;">No steps recorded.</div>';
     return;

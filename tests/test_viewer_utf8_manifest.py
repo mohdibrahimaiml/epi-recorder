@@ -62,3 +62,39 @@ def test_browser_viewer_shows_valid_signature_for_non_ascii_goal(goal, monkeypat
         browser.close()
     assert re.search(r"SIGNATURE VALID", text), text[:400]
     assert "SIGNATURE INVALID" not in text
+
+
+def _render(html_bytes, tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    exe = _chromium()
+    if not exe:
+        pytest.skip("no chromium available")
+    html = tmp_path / "v.html"
+    html.write_bytes(html_bytes)
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+        page = browser.new_page()
+        page.goto(html.as_uri())
+        page.wait_for_timeout(3500)
+        notice = page.query_selector("#evidence-notice")
+        text = notice.inner_text() if notice else None
+        browser.close()
+    return text
+
+
+def test_viewer_shows_sealer_caveats_at_the_timeline(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp.records import seal_record
+
+    shaky = seal_record([
+        {"kind": "user.message", "content": {"text": "a"}, "fidelity": "verbatim"},
+        {"kind": "assistant.message", "content": {"text": "b"}, "fidelity": "summary"},
+    ])
+    text = _render(zipfile.ZipFile(shaky["epi_path"]).read("viewer.html"), tmp_path)
+    assert text and "share one timestamp" in text and "summaries" in text
+
+    clean = seal_record([
+        {"kind": "user.message", "content": {"text": "a"}, "timestamp": "2026-10-05T10:00:00Z", "fidelity": "verbatim"},
+        {"kind": "assistant.message", "content": {"text": "b"}, "timestamp": "2026-10-05T10:00:05Z", "fidelity": "verbatim"},
+    ])
+    assert _render(zipfile.ZipFile(clean["epi_path"]).read("viewer.html"), tmp_path) is None
