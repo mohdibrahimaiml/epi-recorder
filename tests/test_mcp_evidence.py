@@ -663,3 +663,41 @@ def test_signer_is_stable_across_restarts_when_seed_set(monkeypatch, tmp_path):
     assert derived_signing_key("user-1") is None
     monkeypatch.setenv("EPI_MCP_TOKEN", "bearer-token")                # static token must not seed keys
     assert derived_signing_key("user-1") is None
+
+
+def test_sealed_file_is_deleted_when_retention_ends(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    from pathlib import Path
+
+    from epi_mcp import tools
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool, get_artifact_path, purge_expired_artifacts
+
+    _current_subject.set("someone")
+    try:
+        sealed = epi_seal_record_tool([{"kind": "user.message", "content": "private"}])
+    finally:
+        _current_subject.set(None)
+    aid = sealed["artifact_id"]
+    f = Path(sealed["epi_path"])
+    assert f.exists() and "deletes this file" in sealed["retention"]
+    assert get_artifact_path(aid) is not None
+    assert purge_expired_artifacts() == 0 and f.exists()            # not yet
+    tools._ARTIFACT_EXPIRY[aid] = 0.0                                 # retention over
+    assert get_artifact_path(aid) is None                             # served no more
+    assert not f.exists() and not f.parent.exists()                   # file + temp dir gone
+
+
+def test_operator_chosen_output_path_is_never_deleted(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    from epi_mcp import tools
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool, purge_expired_artifacts
+
+    _current_subject.set("operator")
+    try:
+        out = tmp_path / "mine.epi"
+        sealed = epi_seal_record_tool([{"kind": "user.message", "content": "x"}], output_path=str(out))
+    finally:
+        _current_subject.set(None)
+    assert sealed["artifact_id"] not in tools._ARTIFACT_EXPIRY
+    purge_expired_artifacts(now=10**12)
+    assert out.exists()
