@@ -4,6 +4,21 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Optional sign-in for the evidence connector.** When an operator configures an
+  OpenID Connect provider (`EPI_IDP_ISSUER`, `EPI_IDP_CLIENT_ID`,
+  `EPI_IDP_CLIENT_SECRET`; Google, Microsoft Entra, Okta, Auth0), the approve
+  page offers "Sign in and approve". The verified account is written into the
+  sealed file's signed `environment.json` (`sealer_identity`), gives that person
+  one stable signer across reconnects, and is shown by the viewer and
+  `epi verify` only when integrity and signature passed. The email is included
+  only if the person leaves the box ticked. Anonymous one-click approval stays
+  the default and is unchanged. The identity is the sealing server's statement:
+  it does not prove who typed the conversation.
+- Optional `EPI_APPROVE_PASSPHRASE` and per-caller / server-wide storage quotas
+  for the evidence connector.
+
 ### Fixed
 
 - **Viewer showed a valid signature as INVALID** when signed metadata contained

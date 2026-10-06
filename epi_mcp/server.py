@@ -84,7 +84,8 @@ SEAL_GUIDE = (
     "promptly), the SHA-256, any warnings returned, a note that the signer "
     "is not pinned until they trust the key, and that a seal shows the "
     "record was not altered, not that it is complete. They can confirm "
-    "independently with `epi verify <file>.epi`."
+    "independently with `epi verify <file>.epi`. Also tell them who the "
+    "file names as the signer, using sealer_identity from the result."
 )
 
 server = MCPServer(

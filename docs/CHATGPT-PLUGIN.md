@@ -86,6 +86,29 @@ filled up. Running a private server for a team? Set the optional
 `EPI_APPROVE_PASSPHRASE` and the approve page will ask for it. Leave it unset for
 a public server.
 
+### Optional: name the person who sealed it
+
+Claude and ChatGPT never tell this server who the user is, so by default a seal
+carries a pseudonym. To put a verified person in the file, configure an OpenID
+Connect provider (Google, Microsoft Entra, Okta, Auth0, Keycloak):
+
+| Variable | Value |
+|---|---|
+| `EPI_IDP_ISSUER` | e.g. `https://accounts.google.com` |
+| `EPI_IDP_CLIENT_ID` / `EPI_IDP_CLIENT_SECRET` | from the provider's OAuth app |
+| `EPI_IDP_NAME` | button label, e.g. `Google` |
+
+Register `<EPI_MCP_PUBLIC_URL>/oauth/idp/callback` as the redirect URI. The approve
+page then keeps its one-click button and adds "Sign in and approve". A signed-in
+person gets the same signing key every time they reconnect, and the sealed file's
+`environment.json` records the provider and (if they leave the box ticked) their
+email. The viewer and `epi verify` show it only when the file's integrity and
+signature check out.
+
+What it proves: the sealing server saw that person sign in with that provider. What
+it does not: who typed the conversation, or anything Claude or ChatGPT produced.
+Anyone relying on it should pin the sealing server's signer (`epi keys trust`).
+
 Treat the secret like a root key: whoever holds it can mint tokens and
 sign as any caller. Rotating it invalidates all tokens and changes every
 signer. Nothing is revocable before expiry except by rotating it. Do not

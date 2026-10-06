@@ -1410,6 +1410,25 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         pass
     content_lines.append(f"  - Notarized:    [{notarization_status}")
 
+    # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
+    # Read from environment.json, which the file hashes cover, and shown only
+    # when integrity and signature both passed.
+    if isinstance(report, dict) and report.get("integrity_ok") and report.get("signature_valid"):
+        try:
+            from zipfile import ZipFile as _Zip
+
+            with _Zip(Path(epi_file), "r") as _zf:
+                if "environment.json" in _zf.namelist():
+                    _who = (json.loads(_zf.read("environment.json")) or {}).get("sealer_identity") or {}
+                    if _who.get("verified") is True:
+                        _label = _who.get("email") or f"account {str(_who.get('account_id', ''))[:8]}"
+                        content_lines.append(
+                            f"  - Signed in:    {_label} via {_who.get('verified_by', 'identity provider')} "
+                            "[dim](asserted by the sealing server; not proof of who typed the chat)[/dim]"
+                        )
+        except Exception:
+            pass
+
     # Capture scope details (known gaps etc.) — part of SEAL facts.
     if isinstance(_cap, dict):
         _gaps = _cap.get("known_gaps") or []

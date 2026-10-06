@@ -389,6 +389,27 @@ function renderHeader(caseData, context) {
     pillsEl.appendChild(signerPill);
   }
 
+  // Who signed in when this was sealed. The claim lives in the signed
+  // environment.json, so it is shown only when the file verified; a file that
+  // failed integrity or signature must not get to display a name. It is the
+  // sealing server's statement, not Claude's or ChatGPT's, and says so.
+  const sealer = caseData.sealed_identity;
+  if (sealer && sealer.verified === true && intOk && sigVerified) {
+    const who = typeof sealer.email === 'string' && sealer.email
+      ? sealer.email
+      : 'account ' + String(sealer.account_id || '').slice(0, 8);
+    const idPill = document.createElement('span');
+    idPill.className = 'pill gray';
+    const idDot = document.createElement('span');
+    idDot.className = 'pill-dot';
+    idPill.appendChild(idDot);
+    idPill.appendChild(document.createTextNode('SIGNED IN AS ' + who + ' (via ' +
+      String(sealer.verified_by || 'identity provider').replace(/^https?:\/\//, '') + ')'));
+    idPill.title = String(sealer.statement || '') + ' To rely on it, trust the sealing server\'s signer ' +
+      'for this file: epi keys trust <file>.epi';
+    pillsEl.appendChild(idPill);
+  }
+
   // Human review status pill
   const humanReview = normalizeReview(caseData.review || caseData);
   if (humanReview) {
@@ -669,6 +690,7 @@ async function verifyCaseInBrowser(caseData) {
       const unchecked = [];
       let checked = 0;
       let stepsBytes = null;
+      let envBytes = null;
       for (const name of names) {
         const expected = String(fm[name] || '').toLowerCase();
         if (!expected) continue;
@@ -692,11 +714,24 @@ async function verifyCaseInBrowser(caseData) {
         } else {
           checked += 1;
           if (name === 'steps.jsonl') stepsBytes = bytes;
+          if (name === 'environment.json') envBytes = bytes;
         }
       }
       result.checked = checked;
       result.mismatches = mismatches;
       result.unchecked = unchecked;
+
+      // Who sealed it is read only from the bytes that were hashed above, never
+      // from the editable copy baked into this page.
+      caseData.sealed_identity = null;
+      if (envBytes && mismatches.length === 0) {
+        try {
+          const envSealed = JSON.parse(new TextDecoder('utf-8').decode(envBytes));
+          caseData.sealed_identity = (envSealed && envSealed.sealer_identity) || null;
+        } catch (envErr) {
+          caseData.sealed_identity = null;
+        }
+      }
 
       if (mismatches.length > 0) {
         result.integrity_ok = false;

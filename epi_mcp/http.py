@@ -40,6 +40,7 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         from epi_mcp import auth as _auth
+        from epi_mcp.tools import _current_identity as _identity_var
         from epi_mcp.tools import _current_subject as _subject_var
 
         presented = (request.headers.get("authorization") or "").strip()
@@ -72,10 +73,19 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
                 },
             )
         _subject_var.set(subject)
+        identity = None
+        if raw and subject is not None:
+            from epi_mcp import oauth as _oauth_mod
+
+            claims = _oauth_mod.verify_own_claims(raw)
+            if claims and claims[0] == subject:
+                identity = claims[1]
+        _identity_var.set(identity)
         try:
             return await call_next(request)
         finally:
             _subject_var.set(None)
+            _identity_var.set(None)
 
 
 async def _download_artifact(request: Request):
@@ -173,6 +183,22 @@ async def _oauth_authorize_form(request: Request):
     if not _oauth.redirect_allowed(params["client_id"], params["redirect_uri"]):
         return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
     action = _html.escape("/oauth/approve?" + _urlencode(params), quote=True)
+    from epi_mcp import idp as _idp
+
+    signin = ""
+    if _idp.idp_enabled():
+        hidden = "".join(
+            f'<input type="hidden" name="{_html.escape(k, quote=True)}" value="{_html.escape(v, quote=True)}">'
+            for k, v in params.items()
+        )
+        label = _html.escape(_idp.idp_config()["name"])
+        signin = (
+            '<hr><form method="get" action="/oauth/idp/start">' + hidden +
+            f"<p>Or sign in with {label} so sealed files name you as the person who sealed them.</p>"
+            '<p><label><input type="checkbox" name="include_email" value="1" checked> '
+            "Put my email in the sealed files (uncheck to stay pseudonymous)</label></p>"
+            f'<button type="submit">Sign in with {label} and approve</button></form>'
+        )
     gate = (
         '<p><label>Access passphrase: <input type="password" name="passphrase" '
         'autocomplete="off" required></label></p>'
@@ -186,7 +212,7 @@ async def _oauth_authorize_form(request: Request):
         f'<form method="post" action="{action}">{gate}'
         '<button type="submit" name="decision" value="approve">Approve</button> '
         '<button type="submit" name="decision" value="deny">Deny</button>'
-        "</form></body></html>"
+        f"</form>{signin}</body></html>"
     )
 
 
@@ -229,6 +255,55 @@ async def _oauth_approve(request: Request):
     )
     q = _urlencode({"code": code, "state": params.get("state", "")})
     return RedirectResponse(f"{params['redirect_uri']}{sep}{q}", status_code=303)
+
+
+def _idp_page(title: str, message: str, status: int) -> HTMLResponse:
+    import html as _html
+
+    return HTMLResponse(
+        f"<html><body><h1>{_html.escape(title)}</h1><p>{_html.escape(message)}</p></body></html>",
+        status_code=status,
+    )
+
+
+async def _oauth_idp_start(request: Request):
+    from epi_mcp import idp as _idp
+    from epi_mcp import oauth as _oauth
+
+    params = {k: v for k, v in request.query_params.items() if k != "include_email"}
+    if not _oauth.redirect_allowed(params.get("client_id", ""), params.get("redirect_uri", "")):
+        return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
+    try:
+        url = _idp.begin_login(params, include_email=bool(request.query_params.get("include_email")))
+    except Exception as exc:
+        return _idp_page("Sign-in unavailable", str(exc) if isinstance(exc, _idp.IdpError) else "Sign-in is unavailable. Use the anonymous approval instead.", 503)
+    return RedirectResponse(url, status_code=303)
+
+
+async def _oauth_idp_callback(request: Request):
+    from urllib.parse import urlencode as _urlencode
+
+    from epi_mcp import idp as _idp
+    from epi_mcp import oauth as _oauth
+
+    q = request.query_params
+    if q.get("error") or not q.get("code") or not q.get("state"):
+        return _idp_page("Sign-in cancelled", "Nothing was approved. You can go back and try again.", 400)
+    try:
+        params, subject, identity = _idp.finish_login(q["code"], q["state"])
+    except _idp.IdpError as exc:
+        return _idp_page("Sign-in failed", str(exc), 403)
+    if not _oauth.redirect_allowed(params.get("client_id", ""), params.get("redirect_uri", "")):
+        return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
+    _oauth.create_approval(subject)
+    code = _oauth.issue_code(
+        subject, params.get("client_id", ""), params.get("redirect_uri", ""),
+        params.get("code_challenge", ""), params.get("code_challenge_method"), identity,
+    )
+    redirect_uri = params["redirect_uri"]
+    sep = "&" if "?" in redirect_uri else "?"
+    out = _urlencode({"code": code, "state": params.get("state", "")})
+    return RedirectResponse(f"{redirect_uri}{sep}{out}", status_code=303)
 
 
 async def _oauth_token(request: Request):
@@ -311,6 +386,8 @@ def build_app() -> Starlette:
         Route("/oauth/register", _oauth_register, methods=["POST"]),
         Route("/oauth/authorize", _oauth_authorize_form, methods=["GET"]),
         Route("/oauth/approve", _oauth_approve, methods=["POST"]),
+        Route("/oauth/idp/start", _oauth_idp_start, methods=["GET"]),
+        Route("/oauth/idp/callback", _oauth_idp_callback, methods=["GET"]),
         Route("/oauth/token", _oauth_token, methods=["POST"]),
     ]
     # Subject middleware always present: binds caller identity for seals.

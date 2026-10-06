@@ -60,6 +60,7 @@ def _render(html: str, tmp_path: Path) -> dict:
             "files": txt("#diag-files"),
             "created": txt("#meta-created"),
             "tz_note": txt("#evidence-tz"),
+            "pills": txt("#header-pills"),
             "gaps": [li.inner_text() for li in page.query_selector_all("#capture-gaps-list li")],
             "labels": [el.inner_text().strip().lower() for el in page.query_selector_all(".diag-label")],
         }
@@ -163,3 +164,36 @@ def test_declared_gaps_are_visible_on_the_page_and_complete(monkeypatch, tmp_pat
     assert len(declared) >= 6                      # more than the five a tooltip used to show
     assert len(r["gaps"]) == len(declared)
     assert any("share one timestamp" in g for g in r["gaps"])
+
+
+IDENTITY = {"method": "oidc", "verified_by": "https://accounts.google.com", "account_id": "abcd1234efgh5678",
+            "email_verified": True, "email": "alice@corp.example"}
+
+
+def _seal_identity(monkeypatch, tmp_path, identity):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp.records import seal_record
+
+    r = seal_record(EVENTS, goal="Identity", identity=identity)
+    return zipfile.ZipFile(r["epi_path"]).read("viewer.html").decode("utf-8")
+
+
+def test_signed_in_identity_is_shown_for_a_verified_file(monkeypatch, tmp_path):
+    r = _render(_seal_identity(monkeypatch, tmp_path, IDENTITY), tmp_path)
+    pills = r["pills"].lower()
+    assert "signed in as alice@corp.example" in pills and "accounts.google.com" in pills
+    assert "signer not verified" in pills  # a name never upgrades the signer to trusted
+
+
+def test_anonymous_seal_shows_no_identity(monkeypatch, tmp_path):
+    r = _render(_seal_identity(monkeypatch, tmp_path, None), tmp_path)
+    assert "signed in as" not in r["pills"].lower()
+
+
+def test_editing_the_page_cannot_forge_who_sealed_it(monkeypatch, tmp_path):
+    """Swapping the name in the page's own copy must not change what is displayed."""
+    html = _seal_identity(monkeypatch, tmp_path, IDENTITY)
+    assert "alice@corp.example" in html
+    r = _render(html.replace("alice@corp.example", "ceo@victim.example"), tmp_path)
+    pills = r["pills"].lower()
+    assert "ceo@victim.example" not in pills
