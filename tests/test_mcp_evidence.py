@@ -576,3 +576,50 @@ def test_unknown_event_fields_are_preserved_not_dropped(monkeypatch, tmp_path):
     r = seal_record([{"kind": "tool.call", "content": {"name": "x"}, "event_id": "e-7"}])
     step = json.loads(zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()[0])
     assert step["content"]["_caller_fields"] == {"event_id": "e-7"}
+
+
+def test_source_type_and_tool_name_and_omission_counts(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    import json
+    import zipfile
+
+    from epi_mcp.records import seal_record
+    from epi_mcp.tools import summarize_steps
+
+    events = [
+        {"kind": "user.message", "content": {"text": "q"}, "fidelity": "verbatim"},
+        {"kind": "tool.call", "content": {"text": "searched"}, "fidelity": "summary"},
+        {"kind": "tool.call", "content": {"tool": "search", "input": {"q": "x"}}},
+        {"kind": "redaction.omitted", "content": {"text": "OMITTED: third-party data"}},
+        {"kind": "assistant.message", "content": {"text": "a"}, "fidelity": "verbatim"},
+    ]
+    r = seal_record(events)
+    steps = [
+        json.loads(line)
+        for line in zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()
+    ]
+    by_kind = {s["kind"]: s for s in steps}
+    assert by_kind["user.message"]["source_type"] == "user"      # was "reasoning"
+    assert by_kind["redaction.omitted"]["source_type"] == "system"
+    assert any("1 tool.call events have no tool name" in w for w in r["fidelity"]["warnings"])
+    counts = summarize_steps(events)
+    assert counts["omissions_declared"] == 1 and counts["redactions"] == 0
+
+
+def test_epi_view_payload_carries_capture_manifest(monkeypatch, tmp_path):
+    """`epi view` must show the declared scope, not 'undeclared (pre-v artifact)'."""
+    _keys(monkeypatch, tmp_path)
+    import zipfile
+
+    from pathlib import Path
+
+    from epi_cli.view import _build_preloaded_case_payload
+    from epi_mcp.records import seal_record
+
+    r = seal_record([{"kind": "user.message", "content": {"text": "hi"}}])
+    out = tmp_path / "x"
+    zipfile.ZipFile(r["epi_path"]).extractall(out)
+    payload = _build_preloaded_case_payload(out, Path(r["epi_path"]))
+    assert payload["capture_manifest"]["capture_path"] == "caller_provided"
+    assert payload["capture_manifest"]["known_gaps"]
+    assert payload["checkpoints"] == []
