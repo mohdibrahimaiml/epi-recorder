@@ -57,6 +57,39 @@ DOWNLOAD_TTL_SECONDS = 24 * 3600
 _DOWNLOAD_TOKENS: dict[str, tuple[str, float]] = {}
 
 
+# artifact_id -> expiry (epoch seconds) for files the sealer wrote into its own
+# temp directory. Those files can hold a whole conversation, so they are
+# deleted when the link expires instead of living on the host forever.
+_ARTIFACT_EXPIRY: dict[str, float] = {}
+_SEAL_DIR_PREFIX = "epi_mcp_seal_"
+
+
+def purge_expired_artifacts(now: float | None = None) -> int:
+    """Delete sealed files (and their temp dirs) past their retention. Returns count."""
+    import shutil
+    import time
+
+    now = time.time() if now is None else now
+    purged = 0
+    for aid, expires in list(_ARTIFACT_EXPIRY.items()):
+        if expires > now:
+            continue
+        path = ARTIFACTS.pop(aid, None)
+        _ARTIFACT_EXPIRY.pop(aid, None)
+        purged += 1
+        if not path:
+            continue
+        parent = Path(path).parent
+        try:
+            if parent.name.startswith(_SEAL_DIR_PREFIX):
+                shutil.rmtree(parent, ignore_errors=True)
+            else:
+                Path(path).unlink(missing_ok=True)
+        except OSError:
+            pass
+    return purged
+
+
 def _issue_download_token(artifact_id: str) -> str:
     import secrets
     import time
@@ -152,7 +185,17 @@ def epi_seal_record_tool(
     else:
         sealed.update({k: v for k, v in payload.items() if k != "epi_b64"})
     sealed["artifact_id"] = sealed["sha256"][:16]
-    ARTIFACTS[sealed["artifact_id"]] = str(Path(sealed["epi_path"]).resolve())
+    purge_expired_artifacts()
+    _epi = Path(sealed["epi_path"]).resolve()
+    ARTIFACTS[sealed["artifact_id"]] = str(_epi)
+    if output_path is None and _epi.parent.name.startswith(_SEAL_DIR_PREFIX):
+        import time as _time
+
+        _ARTIFACT_EXPIRY[sealed["artifact_id"]] = _time.time() + DOWNLOAD_TTL_SECONDS
+        sealed["retention"] = (
+            "The server deletes this file when the download link expires "
+            f"({DOWNLOAD_TTL_SECONDS // 3600} h). Download it now; after that only your copy exists."
+        )
     sealed["download_path"] = f"/artifacts/{sealed['artifact_id']}"
     import os as _os
 
@@ -188,6 +231,7 @@ def epi_seal_record_tool(
 
 def get_artifact_path(artifact_id: str) -> Path | None:
     """Resolve a download id to its sealed file, or None."""
+    purge_expired_artifacts()
     raw = (artifact_id or "").strip()
     if not raw or "/" in raw or "\\" in raw or ".." in raw:
         return None
