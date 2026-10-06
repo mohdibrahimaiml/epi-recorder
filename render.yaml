@@ -96,7 +96,7 @@ services:
       # Guard it like a root key; rotating it invalidates tokens and changes signers.
       - key: EPI_OAUTH_SECRET
         sync: false
-      # Optional but recommended: the approve page asks for this passphrase, so only
-      # people you give it to can authorize a connector and seal on this server.
+      # OPTIONAL, for private/team servers only. Leave unset for a public server so
+      # anyone can connect without friction (storage quotas still apply).
       - key: EPI_APPROVE_PASSPHRASE
         sync: false
