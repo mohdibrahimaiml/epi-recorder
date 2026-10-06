@@ -42,6 +42,9 @@ Conversation runs:
 | Assistant message | `assistant.message` | text |
 | Uploaded file | `artifact.attached` | filename + SHA-256 |
 | Generated file | `artifact.produced` | filename + SHA-256 |
+| Tool call | `tool.call` | `{"tool": name, "input": {...}}` |
+| Tool result | `tool.response` | `{"result": ...}` |
+| Left out on purpose | `redaction.omitted` | what category, and why |
 
 Agent runs: `agent.run.start` → `tool.call` → `tool.response` →
 `artifact.produced` → `agent.decision` → `agent.run.end`.

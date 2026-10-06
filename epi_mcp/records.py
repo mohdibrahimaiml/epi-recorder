@@ -67,6 +67,16 @@ def _parse_ts(value: Any) -> str | None:
 
 _STEP_FIELDS = {"index", "timestamp", "kind", "content", "trace_id", "span_id", "parent_span_id"}
 
+# Who produced a step. Without this the schema guesses, and labelled a user's
+# own message as "reasoning". Only kinds with a certain origin are set; the
+# rest keep the schema's default. A valid caller-supplied value wins.
+_SOURCE_TYPE_BY_KIND = {
+    "user.message": "user",
+    "artifact.attached": "user",
+    "redaction.omitted": "system",
+}
+_SOURCE_TYPES = ("user", "tool", "reasoning", "system")
+
 
 def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalize caller events without inventing content or times.
@@ -121,6 +131,10 @@ def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for k in ("trace_id", "span_id", "parent_span_id"):
             if raw.get(k):
                 step[k] = raw[k]
+        source = raw.get("source_type")
+        source = source if source in _SOURCE_TYPES else _SOURCE_TYPE_BY_KIND.get(step["kind"])
+        if source:
+            step["source_type"] = source
         out.append(step)
     return out
 
@@ -170,6 +184,16 @@ def describe_fidelity(steps: list[dict[str, Any]]) -> dict[str, Any]:
     summaries = by_fidelity.get("summary", 0)
     if summaries:
         warnings.append(f"{summaries} of {total} events are summaries, not verbatim text.")
+    unnamed = sum(
+        1
+        for st in steps
+        if st.get("kind") == "tool.call"
+        and not any(st["content"].get(k) for k in ("tool", "name", "tool_name"))
+    )
+    if unnamed:
+        warnings.append(
+            f"{unnamed} tool.call events have no tool name; a reader cannot tell which tool was called."
+        )
     kinds = {str(st.get("kind")) for st in steps}
     if "user.message" not in kinds and "agent.run.start" not in kinds:
         warnings.append(

@@ -32,6 +32,9 @@ TOOL_KINDS = {"tool.call", "tool.response"}
 # Step kinds counted as artifacts in seal summaries.
 ARTIFACT_KINDS = {"artifact.attached", "artifact.produced"}
 
+# Declared omissions are not redactions: they say what was left out, in words.
+OMISSION_KIND = "redaction.omitted"
+
 
 def _count_occurrences(value: Any, marker: str) -> int:
     if isinstance(value, str):
@@ -205,6 +208,7 @@ def summarize_steps(steps: list[dict[str, Any]]) -> dict[str, Any]:
         "tool_calls": sum(kinds.get(k, 0) for k in TOOL_KINDS),
         "artifacts": sum(kinds.get(k, 0) for k in ARTIFACT_KINDS),
         "redactions": redactions,
+        "omissions_declared": kinds.get(OMISSION_KIND, 0),
         "by_kind": kinds,
     }
 
