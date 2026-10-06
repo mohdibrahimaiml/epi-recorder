@@ -24,31 +24,33 @@ function trunc(s, maxLen) {
   return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
 }
 
-/** Format an ISO timestamp as HH:MM:SS.mmm (local time). */
+/** Format an ISO timestamp as HH:MM:SS.mmm in UTC (the page says so; see renderEvidence). */
 function fmtTime(iso) {
   if (!iso) return '—';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const ss = String(d.getSeconds()).padStart(2, '0');
-    const ms = String(d.getMilliseconds()).padStart(3, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    const ms = String(d.getUTCMilliseconds()).padStart(3, '0');
     return `${hh}:${mm}:${ss}.${ms}`;
   } catch (e) { return iso; }
 }
 
-/** Format an ISO timestamp as a readable date string. */
+/** Dates are shown in UTC and labelled: evidence must not depend on the
+ *  reader's timezone, and an unlabelled local time is ambiguous. */
 function fmtDate(iso) {
   if (!iso) return '—';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString('en-GB', {
+      timeZone: 'UTC',
       year: 'numeric', month: 'short', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       hour12: false
-    });
+    }) + ' UTC';
   } catch (e) { return iso; }
 }
 
@@ -439,6 +441,168 @@ function epiDeepEqual(a, b) {
   return true;
 }
 
+
+/** RFC 8785 (JCS) canonical JSON for already-parsed values. Throws if a value
+ *  cannot be represented exactly (so a check is skipped, never guessed). */
+function epiJcs(v) {
+  if (v === null) return 'null';
+  switch (typeof v) {
+    case 'string': return JSON.stringify(v);
+    case 'boolean': return v ? 'true' : 'false';
+    case 'number':
+      if (!Number.isFinite(v)) throw new Error('non-finite number');
+      if (Number.isInteger(v) && !Number.isSafeInteger(v)) throw new Error('integer beyond 2^53');
+      return JSON.stringify(v);
+    case 'object': {
+      if (Array.isArray(v)) return '[' + v.map(epiJcs).join(',') + ']';
+      const keys = Object.keys(v).sort();
+      return '{' + keys.map((k) => JSON.stringify(k) + ':' + epiJcs(v[k])).join(',') + '}';
+    }
+    default: throw new Error('unsupported value');
+  }
+}
+
+/** Mirror of epi_core.serialize.canonical_format_for: which canonical form a
+ *  spec_version was signed with. The browser only recomputes the current one. */
+function epiCanonicalFormat(spec) {
+  const parts = String(spec == null ? '' : spec).replace(/^v+/, '').split('.');
+  if (!/^\d+$/.test(parts[0] || '')) return 'cbor';
+  const major = parseInt(parts[0], 10);
+  if (major <= 1) return 'cbor';
+  let minor = 0;
+  let patch = 0;
+  try {
+    if (parts.length > 1 && parts[1]) {
+      if (!/^\d+$/.test(parts[1])) throw new Error('bad minor');
+      minor = parseInt(parts[1], 10);
+    }
+    const tok = (parts.length > 2 ? parts[2] : '0').split('-')[0];
+    patch = /^\d+$/.test(tok) ? parseInt(tok, 10) : 0;
+  } catch (e) { minor = 0; patch = 0; }
+  const cur = [major, minor, patch];
+  const jcs = [4, 4, 1];
+  for (let i = 0; i < 3; i++) {
+    if (cur[i] < jcs[i]) return 'legacy';
+    if (cur[i] > jcs[i]) return 'jcs';
+  }
+  return 'jcs';
+}
+
+/** Step timestamp exactly as the signing preimage normalizes it: UTC, whole
+ *  seconds, naive values read as UTC (the recorder's convention). */
+function epiNormStepTime(ts) {
+  if (typeof ts !== 'string') throw new Error('timestamp is not a string');
+  let s = ts.trim().replace(/^(\d{4}-\d\d-\d\d) (?=\d)/, '$1T');
+  if (!/(z|[+-]\d\d:?\d\d)$/i.test(s)) s += 'Z';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) throw new Error('unparseable timestamp');
+  return d.toISOString().slice(0, 19) + 'Z';
+}
+
+/** The dict a step's prev_hash commits to: every StepModel field except the two
+ *  derived labels (source_type, verification_class), absent optionals as null. */
+function epiStepHashDict(st) {
+  if (st == null || typeof st !== 'object' || !Number.isInteger(st.index) || typeof st.kind !== 'string') {
+    throw new Error('step is missing index/kind');
+  }
+  const opt = (x) => (x === undefined ? null : x);
+  return {
+    index: st.index,
+    timestamp: epiNormStepTime(st.timestamp),
+    kind: st.kind,
+    content: st.content === undefined || st.content === null ? {} : st.content,
+    trace_id: opt(st.trace_id),
+    span_id: opt(st.span_id),
+    parent_span_id: opt(st.parent_span_id),
+    prev_hash: opt(st.prev_hash),
+    governance: opt(st.governance),
+  };
+}
+
+/** Recompute the prev_hash chain in this browser. Returns
+ *  {status: 'ok'|'broken'|'none'|'unchecked', reason?, links?}. Anything the
+ *  browser cannot recompute exactly is 'unchecked' -- never reported as OK. */
+async function epiVerifyStepChain(steps, specVersion) {
+  if (epiCanonicalFormat(specVersion) !== 'jcs') {
+    return { status: 'unchecked', reason: 'This file uses an older canonical format that the browser does not recompute. Run: epi verify <file>.epi' };
+  }
+  if (!Array.isArray(steps) || steps.length === 0) return { status: 'ok', links: 0 };
+  const isLink = (h) => h !== undefined && h !== null && h !== 'CHAIN_START';
+  const genesisOk = !isLink(steps[0].prev_hash);
+  if (steps.length === 1) {
+    return genesisOk ? { status: 'ok', links: 0 }
+      : { status: 'broken', reason: 'step 1: invalid genesis marker (expected CHAIN_START)' };
+  }
+  if (!steps.some((s) => isLink(s.prev_hash)) && !steps.some((s) => s.prev_hash === 'CHAIN_START')) {
+    return { status: 'none', reason: 'No step carries a prev_hash link (older artifact); there is no chain to check.' };
+  }
+  const breaks = [];
+  if (!genesisOk) breaks.push('step 1: invalid genesis marker (expected CHAIN_START)');
+  try {
+    for (let i = 1; i < steps.length; i++) {
+      const claimed = steps[i].prev_hash;
+      if (!isLink(claimed)) {
+        breaks.push('step ' + (i + 1) + ': chain restarted with a genesis marker (possible truncation)');
+        continue;
+      }
+      const expected = await sha256Hex(new TextEncoder().encode(epiJcs(epiStepHashDict(steps[i - 1]))));
+      if (claimed !== expected) breaks.push('step ' + (i + 1) + ': prev_hash does not match the previous step');
+    }
+  } catch (e) {
+    return { status: 'unchecked', reason: 'The browser could not recompute this chain exactly (' + (e && e.message ? e.message : e) + '). Run: epi verify <file>.epi' };
+  }
+  return breaks.length ? { status: 'broken', reason: breaks[0], breaks } : { status: 'ok', links: steps.length - 1 };
+}
+
+/** Port of epi verify's step-sequence audit: every tool call, model request and
+ *  approval request has a matching response. This is NOT a claim that the
+ *  record captured everything -- it only finds calls that never got an answer. */
+function epiAuditSequence(steps) {
+  const gaps = [];
+  const toolCalls = [];
+  const llmReqs = [];
+  const preCommits = [];
+  const approvals = [];
+  const removeLastMatch = (list, key) => {
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i][1] === key) { list.splice(i, 1); return true; }
+    }
+    return false;
+  };
+  (steps || []).forEach((s, pos) => {
+    const kind = s.kind || '';
+    const c = s.content || {};
+    const idx = Number.isInteger(s.index) ? s.index : pos;
+    if (kind === 'tool.call') {
+      toolCalls.push([idx, c.call_id === undefined ? null : c.call_id]);
+    } else if (kind === 'tool.response') {
+      let matched = false;
+      if (c.call_id !== undefined && c.call_id !== null) matched = removeLastMatch(toolCalls, c.call_id);
+      if (!matched && toolCalls.length) toolCalls.shift();
+    } else if (kind === 'llm.pre_commit') {
+      preCommits.push([idx, s.span_id === undefined ? null : s.span_id]);
+    } else if (kind === 'llm.request') {
+      llmReqs.push([idx, s.span_id === undefined ? null : s.span_id]);
+    } else if (kind === 'llm.response' || kind === 'llm.error') {
+      let matched = false;
+      if (s.span_id !== undefined && s.span_id !== null) matched = removeLastMatch(llmReqs, s.span_id);
+      if (!matched && llmReqs.length) llmReqs.shift();
+      if (preCommits.length) preCommits.shift();
+    } else if (kind === 'agent.approval.request') {
+      approvals.push([idx, c.action === undefined ? null : c.action]);
+    } else if (kind === 'agent.approval.response') {
+      let matched = false;
+      if (c.action !== undefined && c.action !== null) matched = removeLastMatch(approvals, c.action);
+      if (!matched && approvals.length) approvals.shift();
+    }
+  });
+  toolCalls.forEach(([i]) => gaps.push('tool.call at step ' + (i + 1) + ' has no matching tool.response'));
+  preCommits.forEach(([i]) => gaps.push('llm.pre_commit at step ' + (i + 1) + ' was committed but no response arrived'));
+  llmReqs.forEach(([i]) => gaps.push('llm.request at step ' + (i + 1) + ' has no matching response or error'));
+  approvals.forEach(([i, a]) => gaps.push("agent.approval.request for '" + a + "' at step " + (i + 1) + ' has no response'));
+  return { ok: gaps.length === 0, gaps };
+}
+
 /**
  * Client-side verification for standalone / export-html viewers.
  * Uses embedded archive_base64 (when present) + verifyManifestSignature from crypto.js.
@@ -569,6 +733,13 @@ async function verifyCaseInBrowser(caseData) {
           }
           caseData.steps = sealed;
           result.client_verified = true;
+          // Recompute from the hashed bytes, never from baked flags.
+          result.chain = await epiVerifyStepChain(sealed, manifest.spec_version);
+          result.sequence = epiAuditSequence(sealed);
+          if (result.chain.status === 'broken') {
+            result.integrity_ok = false;
+            result.integrity_reason = 'The step hash-chain is broken: ' + result.chain.reason;
+          }
         }
       } else if (zip || (caseData.files && Object.keys(caseData.files).length > 0)) {
         result.integrity_ok = true;
@@ -678,50 +849,68 @@ function renderIntegrity(caseData, context) {
     idEl.style.fontSize = '12px';
   }
 
-  // Diagnostic matrix
+  // Diagnostic matrix -- every line says whether it was computed in this page
   const checked = integrity.checked || 0;
   const mismatches = Array.isArray(integrity.mismatches) ? integrity.mismatches.length : 0;
+  const listed = Object.keys(m.file_manifest || {}).length;
+  const unchecked = Array.isArray(integrity.unchecked) ? integrity.unchecked : [];
 
   const filesEl = document.getElementById('diag-files');
   if (checked > 0 || integrity.ok != null) {
-    filesEl.textContent = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
+    let txt = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
+    if (listed > 0 && listed > checked + mismatches) {
+      txt += ` · ${listed - checked - mismatches} of ${listed} listed files not checkable here`;
+    }
+    filesEl.textContent = txt;
     filesEl.className = 'diag-status ' + (mismatches === 0 ? 'ok' : 'flagged');
+    filesEl.title = unchecked.length
+      ? 'Not checkable inside this page: ' + unchecked.join(', ') + '. Check them with: epi verify <file>.epi'
+      : 'Every listed file was re-hashed in this page.';
   } else {
     filesEl.textContent = '—';
     filesEl.className = 'diag-status unknown';
   }
 
-  const stepsArr = caseData.steps || [];
-  const noHashMismatches = !integrity.mismatches || integrity.mismatches.length === 0;
+  const setDiag = (el, text, cls, title) => {
+    el.textContent = text;
+    el.className = 'diag-status ' + cls;
+    el.title = title || '';
+  };
 
+  // Chain: recomputed here when possible; otherwise say it was not checked.
   const chainEl = document.getElementById('diag-chain');
-  const isChainOk = (context?.facts?.sequence_ok != null)
-    ? context.facts.sequence_ok
-    : (caseData.facts?.sequence_ok != null)
-      ? caseData.facts.sequence_ok
-      : (stepsArr.length > 0 && noHashMismatches);
-
-  if (isChainOk != null) {
-    chainEl.textContent = isChainOk ? 'OK' : 'BROKEN';
-    chainEl.className = 'diag-status ' + (isChainOk ? 'ok' : 'flagged');
+  const liveChain = context && context.chain;
+  const reportedChain = (context?.facts?.sequence_ok != null) ? context.facts.sequence_ok
+    : (caseData.facts?.sequence_ok != null) ? caseData.facts.sequence_ok : null;
+  if (liveChain && liveChain.status === 'ok') {
+    setDiag(chainEl, 'OK', 'ok', 'Recomputed in this page: ' + liveChain.links + ' prev_hash link' + (liveChain.links === 1 ? '' : 's') + ' match.');
+  } else if (liveChain && liveChain.status === 'broken') {
+    setDiag(chainEl, 'BROKEN', 'flagged', liveChain.reason);
+  } else if (liveChain && liveChain.status === 'none') {
+    setDiag(chainEl, 'NO LINKS', 'unknown', liveChain.reason);
+  } else if (reportedChain != null) {
+    setDiag(chainEl, reportedChain ? 'OK (reported)' : 'BROKEN', reportedChain ? 'ok' : 'flagged',
+      'Reported by the verifier that prepared this page; not recomputed here.');
   } else {
-    chainEl.textContent = '—';
-    chainEl.className = 'diag-status unknown';
+    setDiag(chainEl, 'NOT CHECKED HERE', 'unknown',
+      (liveChain && liveChain.reason) || 'This page could not recompute the chain. Run: epi verify <file>.epi');
   }
 
+  // Pairing audit (what this row has always measured): every call has a response.
   const compEl = document.getElementById('diag-completeness');
-  const isCompOk = (context?.facts?.completeness_ok != null)
-    ? context.facts.completeness_ok
-    : (caseData.facts?.completeness_ok != null)
-      ? caseData.facts.completeness_ok
-      : (stepsArr.length > 0 && noHashMismatches);
-
-  if (isCompOk != null) {
-    compEl.textContent = isCompOk ? 'OK' : 'INCOMPLETE';
-    compEl.className = 'diag-status ' + (isCompOk ? 'ok' : 'flagged');
+  const liveSeq = context && context.sequence;
+  const reportedComp = (context?.facts?.completeness_ok != null) ? context.facts.completeness_ok
+    : (caseData.facts?.completeness_ok != null) ? caseData.facts.completeness_ok : null;
+  const pairingNote = 'Checks that every tool call, model request and approval request has a response. ' +
+    'It does not mean the record captured everything the agent did.';
+  if (liveSeq) {
+    if (liveSeq.ok) setDiag(compEl, 'OK', 'ok', pairingNote);
+    else setDiag(compEl, 'GAPS (' + liveSeq.gaps.length + ')', 'flagged', liveSeq.gaps.slice(0, 8).join('\n'));
+  } else if (reportedComp != null) {
+    setDiag(compEl, reportedComp ? 'OK (reported)' : 'GAPS', reportedComp ? 'ok' : 'flagged',
+      pairingNote + ' Reported by the verifier that prepared this page.');
   } else {
-    compEl.textContent = '—';
-    compEl.className = 'diag-status unknown';
+    setDiag(compEl, 'NOT CHECKED HERE', 'unknown', 'Run: epi verify <file>.epi');
   }
 
   const pkEl = document.getElementById('diag-pubkey');
@@ -813,8 +1002,22 @@ function renderIntegrity(caseData, context) {
         const gapsEl = document.getElementById('diag-capture-gaps');
         if (gapsEl) {
           gapsEl.textContent = gaps.length + ' declared';
-          gapsEl.className = 'diag-status ok';
-          gapsEl.title = gaps.slice(0, 5).join(' | ');
+          gapsEl.className = 'diag-status ' + (gaps.length > 0 ? 'unknown' : 'ok');
+          gapsEl.title = gaps.join(' | ');
+        }
+        // The limits of a record belong on the page, not behind a hover.
+        const oldList = document.getElementById('capture-gaps-list');
+        if (oldList) oldList.remove();
+        if (gaps.length > 0) {
+          const list = document.createElement('ul');
+          list.id = 'capture-gaps-list';
+          list.style.cssText = 'margin:10px 0 0 0; padding-left:18px; font-size:12px; line-height:1.5;';
+          gaps.forEach((g) => {
+            const li = document.createElement('li');
+            li.textContent = String(g);
+            list.appendChild(li);
+          });
+          capBlock.appendChild(list);
         }
         const fo = Array.isArray(cap.fail_open_events) ? cap.fail_open_events : [];
         const dwEl = document.getElementById('diag-capture-downgrade');
@@ -1189,6 +1392,15 @@ function renderEvidence(caseData) {
   // looking at "+0.000s" on every row should be told why before trusting it.
   const oldNotice = document.getElementById('evidence-notice');
   if (oldNotice) oldNotice.remove();
+  const oldTz = document.getElementById('evidence-tz');
+  if (oldTz) oldTz.remove();
+  if (heatmapEl.parentNode) {
+    const tz = document.createElement('div');
+    tz.id = 'evidence-tz';
+    tz.style.cssText = 'font-size:11px; color:var(--text-muted, #888); margin:0 0 8px 0;';
+    tz.textContent = 'All times are UTC. Order is the order recorded; where the sealer assigned its own receive time, times do not show when events happened.';
+    heatmapEl.parentNode.insertBefore(tz, heatmapEl);
+  }
   const fid = caseData.environment && caseData.environment.fidelity;
   const caveats = fid && Array.isArray(fid.warnings)
     ? fid.warnings.filter((w) => typeof w === 'string' && w.trim())
@@ -1978,6 +2190,8 @@ async function init() {
       }
       if (live.signature_reason) context.signature_reason = live.signature_reason;
       if (live.integrity_reason) context.integrity_reason = live.integrity_reason;
+      if (live.chain) context.chain = live.chain;
+      if (live.sequence) context.sequence = live.sequence;
       if (typeof live.checked === 'number') {
         caseData.integrity = Object.assign({}, caseData.integrity || {}, {
           checked: live.checked,
