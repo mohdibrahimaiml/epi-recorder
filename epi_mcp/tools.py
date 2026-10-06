@@ -281,9 +281,17 @@ def epi_seal_record_tool(
     if _public:
         token = _issue_download_token(sealed["artifact_id"])
         sealed["download_url"] = f"{_public}{sealed['download_path']}?t={token}"
+        sealed["view_url"] = f"{_public}/view/{sealed['artifact_id']}?t={token}"
         sealed["download_expires_in_seconds"] = DOWNLOAD_TTL_SECONDS
+        sealed["how_to_view"] = (
+            "Open view_url in any browser to read and check the sealed record now; nothing "
+            "needs installing. Use download_url to keep the file. Anyone can also check a "
+            "downloaded file by uploading it at https://epilabs.org/verify. Installing "
+            "epi-recorder is optional and only needed for command-line checks."
+        )
     else:
         sealed["download_url"] = None
+        sealed["view_url"] = None
     sealed["warnings"] = list(sealed.get("fidelity", {}).get("warnings", []))
     sealed["trust_command"] = (
         f"epi keys trust {sealed['filename']} --name <label>" if "filename" in sealed else None

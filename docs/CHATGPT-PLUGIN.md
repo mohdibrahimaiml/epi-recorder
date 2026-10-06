@@ -100,6 +100,21 @@ Nobody should have to write a prompt. After connecting, either:
 If the host still writes a file instead, check that the connector is switched on
 for that chat (**+** → Connectors).
 
+### Viewing the sealed file (nothing to install)
+
+Every seal returns two links. **`view_url`** opens the sealed record in any browser
+right away (integrity, signature and the full conversation); nobody needs `pip install`,
+a clone or any other software. **`download_url`** saves the `.epi` file to keep.
+
+A saved `.epi` can be checked later without installing anything by uploading it at
+https://epilabs.org/verify. A browser will not open a raw `.epi` by itself (it only
+offers to download it), which is why the view link exists. Installing `epi-recorder`
+is optional and only needed for command-line checks (`epi verify`).
+
+The view page is served sandboxed: its scripts run, but in an isolated origin with no
+access to this server. Both links share one random token and stop working after 24
+hours, when the server deletes its copy.
+
 ### Optional: name the person who sealed it
 
 Claude and ChatGPT never tell this server who the user is, so by default a seal

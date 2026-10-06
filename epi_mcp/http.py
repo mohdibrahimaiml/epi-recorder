@@ -50,13 +50,23 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
             # No auth configured (loopback dev): the caller is the operator.
             subject = "operator"
         path = request.url.path
-        if subject is None and path.startswith("/artifacts/"):
-            # Human download links carry their own expiring capability token.
+        if subject is None and path.startswith(("/artifacts/", "/view/")):
+            # Human download and view links carry their own expiring capability token.
             from epi_mcp.tools import download_token_valid
 
-            aid = path[len("/artifacts/"):]
+            aid = path.split("/", 2)[2] if path.count("/") >= 2 else ""
             if download_token_valid(aid, request.query_params.get("t")):
                 subject = "download-link"
+            elif path.startswith("/view/"):
+                return HTMLResponse(
+                    "<html><body style=\"font-family:sans-serif;max-width:40em;margin:3em auto\">"
+                    "<h1>This link has expired or is not valid</h1>"
+                    "<p>Sealed files are kept for 24 hours. If you downloaded the file, "
+                    "open it by uploading it at <a href=\"https://epilabs.org/verify\">"
+                    "epilabs.org/verify</a>.</p></body></html>",
+                    status_code=404,
+                    headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+                )
         if subject is None and (path.startswith("/artifacts/") or path == "/mcp"):
             # The WWW-Authenticate challenge is what makes MCP hosts
             # (ChatGPT) discover OAuth and start the approval flow.
@@ -97,6 +107,35 @@ async def _download_artifact(request: Request):
         media_type="application/octet-stream",
         filename=path.name,
         headers={"Cache-Control": "no-store"},
+    )
+
+
+async def _view_artifact(request: Request):
+    """Show a sealed file in the browser with nothing to install.
+
+    The .epi is an HTML viewer with the signed archive appended, so serving the
+    same bytes as a web page renders it. The page holds a conversation, so it is
+    sandboxed: scripts run (the viewer needs them) but in an opaque origin, with
+    no access to this server's origin, cookies or storage.
+    """
+    path = get_artifact_path(request.path_params.get("artifact_id", ""))
+    if path is None:
+        return HTMLResponse(
+            "<html><body style=\"font-family:sans-serif;max-width:40em;margin:3em auto\">"
+            "<h1>Not found</h1><p>This file is no longer on the server.</p></body></html>",
+            status_code=404,
+            headers={"Cache-Control": "no-store"},
+        )
+    return FileResponse(
+        path,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Security-Policy": "sandbox allow-scripts allow-downloads",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+            "X-Robots-Tag": "noindex",
+        },
     )
 
 
@@ -384,6 +423,7 @@ def build_app() -> Starlette:
     )
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
+        Route("/view/{artifact_id}", _view_artifact),
         Route("/favicon.ico", _serve_favicon),
         Route("/.well-known/oauth-authorization-server", _oauth_metadata),
         Route("/.well-known/oauth-authorization-server/{rest:path}", _oauth_metadata),

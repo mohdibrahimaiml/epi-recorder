@@ -6,6 +6,11 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **View a sealed file in the browser with nothing installed.** Each seal now returns a
+  `view_url` (alongside `download_url`) that opens the sealed record as a web page, sandboxed
+  and protected by the same expiring link token, and a `how_to_view` note that points to
+  epilabs.org/verify for saved files. A raw `.epi` only downloads in a browser, so a new
+  user had no way to look at the result without installing `epi-recorder`.
 - **Natural requests now reach the sealer.** The seal tool's description and the server
   instructions say that "seal / save / export this chat" means this tool, not a Markdown
   file, and the connector offers two one-click prompts ("Seal this conversation", "Seal
