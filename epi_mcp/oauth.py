@@ -141,17 +141,25 @@ def redirect_allowed(client_id: str, redirect_uri: str) -> bool:
     return redirect_uri in registered if registered else bool(redirect_uri)
 
 
-def create_approval() -> str:
-    """Mint a fresh pseudonymous subject for one approval."""
-    subject = "chatgpt-" + secrets.token_hex(8)
+def create_approval(subject: str | None = None) -> str:
+    """Mint a pseudonymous subject for one approval, or reuse a signed-in person's."""
+    subject = subject or "chatgpt-" + secrets.token_hex(8)
     SUBJECTS[subject] = {"created_at": int(time.time())}
     return subject
 
 
-def issue_code(subject: str, client_id: str, redirect_uri: str, challenge: str, method: str | None) -> str:
+def issue_code(
+    subject: str,
+    client_id: str,
+    redirect_uri: str,
+    challenge: str,
+    method: str | None,
+    identity: dict[str, Any] | None = None,
+) -> str:
     code = "epi-code-" + secrets.token_hex(16)
     CODES[code] = {
         "subject": subject,
+        "identity": identity,
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "challenge": challenge,
@@ -161,30 +169,33 @@ def issue_code(subject: str, client_id: str, redirect_uri: str, challenge: str, 
     return code
 
 
-def mint_token(subject: str, audience: str | None = None) -> tuple[str, str]:
+def mint_token(
+    subject: str, audience: str | None = None, identity: dict[str, Any] | None = None
+) -> tuple[str, str]:
     """Return (access_jwt, refresh_token) for a subject."""
     import jwt as _pyjwt
 
     secret = oauth_secret()
     assert secret, "OAuth not configured"
     now = int(time.time())
+    extra = {"idn": identity} if identity else {}
     access = _pyjwt.encode(
         {"sub": subject, "aud": audience or public_base(), "iat": now, "exp": now + 3600 * 24 * 30,
-         "scope": "seal verify export"},
+         "scope": "seal verify export", **extra},
         secret,
         algorithm="HS256",
     )
     refresh = _pyjwt.encode(
         {"sub": subject, "typ": "refresh", "aud": "epi-refresh", "jti": secrets.token_hex(8),
-         "iat": now, "exp": now + REFRESH_TTL_SECONDS},
+         "iat": now, "exp": now + REFRESH_TTL_SECONDS, **extra},
         secret,
         algorithm="HS256",
     )
     return access, refresh
 
 
-def verify_own_token(token: str) -> str | None:
-    """Verify a token minted here. Returns the subject or None."""
+def verify_own_claims(token: str) -> tuple[str, dict[str, Any] | None] | None:
+    """Verify a token minted here. Returns (subject, identity-or-None) or None."""
     secret = oauth_secret()
     if not secret:
         return None
@@ -199,9 +210,18 @@ def verify_own_token(token: str) -> str | None:
             options={"require": ["exp", "sub"]},
         )
         sub = str(payload.get("sub") or "")
-        return sub or None
+        if not sub:
+            return None
+        idn = payload.get("idn")
+        return sub, (idn if isinstance(idn, dict) else None)
     except Exception:
         return None
+
+
+def verify_own_token(token: str) -> str | None:
+    """Verify a token minted here. Returns the subject or None."""
+    claims = verify_own_claims(token)
+    return claims[0] if claims else None
 
 
 def redeem_code(code: str, client_id: str, redirect_uri: str, verifier: str) -> dict[str, Any] | None:
@@ -213,7 +233,7 @@ def redeem_code(code: str, client_id: str, redirect_uri: str, verifier: str) -> 
         return None
     if not _pkce_ok(verifier or "", rec["challenge"], rec["method"]):
         return None
-    access, refresh = mint_token(rec["subject"])
+    access, refresh = mint_token(rec["subject"], identity=rec.get("identity"))
     return {"access_token": access, "refresh_token": refresh,
             "token_type": "Bearer", "expires_in": 3600 * 24 * 30}
 
@@ -235,6 +255,7 @@ def redeem_refresh(refresh: str) -> dict[str, Any] | None:
     if payload.get("typ") != "refresh" or payload["jti"] in REFRESH:
         return None  # not a refresh token, or already rotated this process
     REFRESH[payload["jti"]] = str(payload["sub"])
-    access, new_refresh = mint_token(str(payload["sub"]))
+    idn = payload.get("idn")
+    access, new_refresh = mint_token(str(payload["sub"]), identity=idn if isinstance(idn, dict) else None)
     return {"access_token": access, "refresh_token": new_refresh,
             "token_type": "Bearer", "expires_in": 3600 * 24 * 30}

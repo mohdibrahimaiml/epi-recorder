@@ -21,6 +21,7 @@ from epi_core.trust import (
     sign_manifest,
     verify_embedded_manifest_signature,
 )
+from epi_mcp.idp import describe_identity
 
 SCOPE_NOTE = (
     "Seals the record provided by the caller. Does not prove the "
@@ -251,6 +252,7 @@ def seal_record(
     goal: str = "MCP caller-provided record",
     output_path: str | Path | None = None,
     key_name: str = _SERVER_KEY_NAME,
+    identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Seal caller-provided events into a signed .epi artifact.
 
@@ -269,7 +271,12 @@ def seal_record(
     )
     (workdir / "environment.json").write_text(
         json.dumps(
-            {"sealed_by": "epi_mcp", "capture_scope": "caller-provided", "fidelity": fidelity},
+            {
+                "sealed_by": "epi_mcp",
+                "capture_scope": "caller-provided",
+                "fidelity": fidelity,
+                "sealer_identity": describe_identity(identity),
+            },
             indent=2,
         ),
         encoding="utf-8",

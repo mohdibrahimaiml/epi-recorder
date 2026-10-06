@@ -155,6 +155,7 @@ def _resolve_epi_path(epi_path: str) -> str:
 from contextvars import ContextVar as _ContextVar
 
 _current_subject: _ContextVar[str | None] = _ContextVar("epi_mcp_subject", default=None)
+_current_identity: _ContextVar[dict | None] = _ContextVar("epi_mcp_identity", default=None)
 
 
 def get_current_subject() -> str | None:
@@ -221,9 +222,22 @@ def epi_seal_record_tool(
     if output_path is None:
         _check_quota(owner)
     sealed = seal_record(
-        events, goal=goal, output_path=output_path, key_name=subject_key(subject)
+        events,
+        goal=goal,
+        output_path=output_path,
+        key_name=subject_key(subject),
+        identity=_current_identity.get(),
     )
     sealed["sealed_for_subject"] = owner
+    from epi_mcp.idp import describe_identity as _describe
+
+    _who = _describe(_current_identity.get())
+    sealed["sealer_identity"] = (
+        {"verified": True, "who": _who.get("email") or f"account {_who.get('account_id', '')[:8]}",
+         "via": _who.get("verified_by"), "note": _who["statement"]}
+        if _who.get("verified")
+        else {"verified": False, "note": _who["statement"]}
+    )
     check = verify_artifact(sealed["epi_path"])
     sealed["seal_check"] = {
         "integrity_ok": check["integrity_ok"],

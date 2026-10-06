@@ -100,3 +100,13 @@ services:
       # anyone can connect without friction (storage quotas still apply).
       - key: EPI_APPROVE_PASSPHRASE
         sync: false
+      # OPTIONAL sign-in so sealed files name the person (any OpenID Connect provider).
+      # Leave all four unset and the connector stays one-click anonymous.
+      - key: EPI_IDP_ISSUER
+        sync: false
+      - key: EPI_IDP_CLIENT_ID
+        sync: false
+      - key: EPI_IDP_CLIENT_SECRET
+        sync: false
+      - key: EPI_IDP_NAME
+        sync: false
