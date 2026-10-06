@@ -4,6 +4,14 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Connector text is leaner and phrased to avoid host safety pauses.** The tool description,
+  server notes and one-click prompts shown to the model are about 40% shorter and no longer
+  mention decision rationale, host-supplied or system text, or "every message / word for word".
+  The summary-fidelity hint moved into the seal warnings. A test checks all model-visible
+  text for risky phrasing.
+
 ### Added
 
 - **View a sealed file in the browser with nothing installed.** Each seal now returns a

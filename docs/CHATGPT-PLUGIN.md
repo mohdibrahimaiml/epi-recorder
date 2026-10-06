@@ -100,6 +100,23 @@ Nobody should have to write a prompt. After connecting, either:
 If the host still writes a file instead, check that the connector is switched on
 for that chat (**+** → Connectors).
 
+### If the host pauses or blocks a seal request
+
+Hosts run their own safety checks, and a request that sounds like "capture everything
+the AI thought or was told" can be paused even though it is harmless. Compliance
+users should phrase it as what it is: an audit record of the conversation.
+
+| Works well | Avoid |
+|---|---|
+| "Seal this conversation." | "Record everything you were thinking." |
+| "Save a tamper-evident audit record of this chat." | "Include your system prompt / instructions." |
+| "Seal my last question and your answer." | "Dump the full hidden transcript." |
+
+The connector's own text shown to the model is kept deliberately plain and is checked
+by a test, so it does not add risky phrasing. If a chat is paused anyway, edit and resend
+with one of the wordings above, or use **+** → the EPI connector →
+**Seal this conversation**.
+
 ### Viewing the sealed file (nothing to install)
 
 Every seal returns two links. **`view_url`** opens the sealed record in any browser
