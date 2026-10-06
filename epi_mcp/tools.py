@@ -61,6 +61,12 @@ _DOWNLOAD_TOKENS: dict[str, tuple[str, float]] = {}
 # temp directory. Those files can hold a whole conversation, so they are
 # deleted when the link expires instead of living on the host forever.
 _ARTIFACT_EXPIRY: dict[str, float] = {}
+# artifact_id -> (owner hash, size in bytes) for retention-managed files, so one
+# caller cannot fill the host's disk.
+_ARTIFACT_OWNER: dict[str, tuple[str, int]] = {}
+MAX_LIVE_ARTIFACTS_PER_CALLER = 50
+MAX_LIVE_BYTES_PER_CALLER = 200 * 1024 * 1024
+MAX_LIVE_BYTES_TOTAL = 1024 * 1024 * 1024
 _SEAL_DIR_PREFIX = "epi_mcp_seal_"
 
 
@@ -76,6 +82,7 @@ def purge_expired_artifacts(now: float | None = None) -> int:
             continue
         path = ARTIFACTS.pop(aid, None)
         _ARTIFACT_EXPIRY.pop(aid, None)
+        _ARTIFACT_OWNER.pop(aid, None)
         purged += 1
         if not path:
             continue
@@ -88,6 +95,21 @@ def purge_expired_artifacts(now: float | None = None) -> int:
         except OSError:
             pass
     return purged
+
+
+def _check_quota(owner: str) -> None:
+    """Refuse a new seal when the caller (or the whole server) holds too much live data."""
+    mine = [size for o, size in _ARTIFACT_OWNER.values() if o == owner]
+    total = sum(size for _, size in _ARTIFACT_OWNER.values())
+    if len(mine) >= MAX_LIVE_ARTIFACTS_PER_CALLER or sum(mine) >= MAX_LIVE_BYTES_PER_CALLER:
+        raise ValueError(
+            "Storage quota reached for this caller. Nothing was sealed. Download your existing "
+            "files; the server removes them 24 h after sealing, which frees space."
+        )
+    if total >= MAX_LIVE_BYTES_TOTAL:
+        raise ValueError(
+            "The server's temporary storage is full. Nothing was sealed. Try again later."
+        )
 
 
 def _issue_download_token(artifact_id: str) -> str:
@@ -194,10 +216,14 @@ def epi_seal_record_tool(
             "Sealing requires an authenticated caller. Anonymous callers "
             "may verify and export, but not seal."
         )
+    owner = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
+    purge_expired_artifacts()
+    if output_path is None:
+        _check_quota(owner)
     sealed = seal_record(
         events, goal=goal, output_path=output_path, key_name=subject_key(subject)
     )
-    sealed["sealed_for_subject"] = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
+    sealed["sealed_for_subject"] = owner
     check = verify_artifact(sealed["epi_path"])
     sealed["seal_check"] = {
         "integrity_ok": check["integrity_ok"],
@@ -226,6 +252,7 @@ def epi_seal_record_tool(
         import time as _time
 
         _ARTIFACT_EXPIRY[sealed["artifact_id"]] = _time.time() + DOWNLOAD_TTL_SECONDS
+        _ARTIFACT_OWNER[sealed["artifact_id"]] = (owner, _epi.stat().st_size)
         sealed["retention"] = (
             "The server deletes this file when the download link expires "
             f"({DOWNLOAD_TTL_SECONDS // 3600} h). Download it now; after that only your copy exists."

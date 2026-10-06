@@ -173,15 +173,25 @@ async def _oauth_authorize_form(request: Request):
     if not _oauth.redirect_allowed(params["client_id"], params["redirect_uri"]):
         return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
     action = _html.escape("/oauth/approve?" + _urlencode(params), quote=True)
+    gate = (
+        '<p><label>Access passphrase: <input type="password" name="passphrase" '
+        'autocomplete="off" required></label></p>'
+        if _approve_passphrase()
+        else ""
+    )
     return HTMLResponse(
         "<html><body><h1>Approve EPI Evidence Sealer?</h1>"
         "<p>This grants sealing under a pseudonymous identity bound to this "
         "approval. It does not share passwords or verify who you are.</p>"
-        f'<form method="post" action="{action}">'
+        f'<form method="post" action="{action}">{gate}'
         '<button type="submit" name="decision" value="approve">Approve</button> '
         '<button type="submit" name="decision" value="deny">Deny</button>'
         "</form></body></html>"
     )
+
+
+def _approve_passphrase() -> str:
+    return (os.environ.get("EPI_APPROVE_PASSPHRASE") or "").strip()
 
 
 async def _oauth_approve(request: Request):
@@ -194,6 +204,18 @@ async def _oauth_approve(request: Request):
     if not _oauth.redirect_allowed(params.get("client_id", ""), params.get("redirect_uri", "")):
         return JSONResponse({"error": "invalid redirect_uri for client"}, status_code=400)
     sep = "&" if "?" in params["redirect_uri"] else "?"
+    required = _approve_passphrase()
+    if required and form.get("decision") == "approve":
+        import hmac as _hmac
+
+        given = str(form.get("passphrase", ""))
+        if not _hmac.compare_digest(given.encode("utf-8"), required.encode("utf-8")):
+            return HTMLResponse(
+                "<html><body><h1>Wrong passphrase</h1>"
+                "<p>Access to this EPI server is restricted. Go back and try again.</p>"
+                "</body></html>",
+                status_code=403,
+            )
     if form.get("decision") != "approve":
         q = _urlencode({"error": "access_denied", "state": params.get("state", "")})
         return RedirectResponse(f"{params['redirect_uri']}{sep}{q}", status_code=303)
@@ -319,6 +341,14 @@ def main() -> None:
             "static EPI_MCP_TOKEN as their signing key, and seal signing keys live on this "
             "server's disk, so signers change when the disk is reset and cannot be pinned. "
             "Set EPI_OAUTH_SECRET to a random 32+ character value.",
+            file=sys.stderr,
+        )
+
+    if not (os.environ.get("EPI_APPROVE_PASSPHRASE") or "").strip():
+        print(
+            "[epi-mcp] NOTICE: EPI_APPROVE_PASSPHRASE is not set, so anyone who finds this "
+            "server can approve themselves access and seal (within per-caller quotas). "
+            "Set it to restrict the approve page to people you give the passphrase.",
             file=sys.stderr,
         )
 
