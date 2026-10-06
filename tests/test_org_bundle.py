@@ -132,7 +132,11 @@ def test_tampered_bundle_envelope_is_invalid():
     )
     manifest = _signed_manifest(seal_priv, fingerprint_pubkey(root_pub))
     bundle = _issue(root_priv, root_pub, seal_pub)
-    bundle["keys"][0]["public_key"] = "00" + seal_pub[2:]
+    # Flip (not just rewrite) the first key byte: "00" + pub[2:] is a no-op
+    # 1/256 of the time when the key already starts with 0x00, which made
+    # this test flaky (untampered envelope correctly verifies VALID).
+    flipped = "ff" if seal_pub[:2] == "00" else "00"
+    bundle["keys"][0]["public_key"] = flipped + seal_pub[2:]
     report = verify_artifact_against_bundle(manifest, bundle)
     assert report["status"] == "INVALID", report
 
