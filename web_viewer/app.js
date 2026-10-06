@@ -424,8 +424,11 @@ async function verifyCaseInBrowser(caseData) {
   // ── Signature (Ed25519 over canonical manifest hash) ──
   // Pass raw manifest JSON text so the verifier re-encodes numbers/strings
   // per JCS exactly like Python's rfc8785 (900.0 hashes as "900").
+  // Decode as UTF-8, not Latin-1: bare atob() turns every non-ASCII character
+  // (an em dash, an accent, a checkmark in the goal) into mojibake, which
+  // changes the signed bytes and showed a valid signature as INVALID.
   const rawManifestText = caseData.files && caseData.files['manifest.json']
-    ? atob(caseData.files['manifest.json'])
+    ? new TextDecoder('utf-8').decode(base64ToUint8Array(caseData.files['manifest.json']))
     : null;
   if (typeof globalThis.verifyManifestSignature === 'function' && manifest.signature) {
     try {
