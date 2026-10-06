@@ -453,3 +453,126 @@ def test_oauth_redirect_uri_must_be_registered(monkeypatch):
         params={**q, "state": '"><script>1</script>', "redirect_uri": "https://chatgpt.com/cb"},
     )
     assert "<script>1</script>" not in xss.text
+
+
+def _keys(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+
+
+def test_seal_declares_caller_provided_scope(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    import json
+    import zipfile
+
+    from epi_mcp.records import seal_record
+
+    r = seal_record([{"kind": "user.message", "content": "hi"}], goal="g")
+    m = json.loads(zipfile.ZipFile(r["epi_path"]).read("artifacts/manifest.json"))
+    assert m["capture_path"] == "caller_provided"
+    assert m["instrumented_surfaces"] == []
+    assert any("caller" in g for g in m["known_gaps"])
+    assert not any("wrap_openai" in g for g in m["known_gaps"])
+
+
+def test_timestamp_provenance_and_fidelity_warnings(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    import json
+    import zipfile
+
+    from epi_mcp.records import seal_record
+
+    events = [
+        {"kind": "user.message", "content": {"text": "a"},
+         "timestamp": "2026-10-05T10:00:00Z", "fidelity": "verbatim"},
+        {"kind": "assistant.message", "content": {"text": "b"}, "fidelity": "summary"},
+        {"kind": "assistant.message", "content": {"text": "c"}},
+    ]
+    r = seal_record(events)
+    f = r["fidelity"]
+    assert f["caller_timestamps"] == 1 and f["server_assigned_timestamps"] == 2
+    assert f["by_fidelity"] == {"verbatim": 1, "summary": 1, "unspecified": 1}
+    text = " ".join(f["warnings"])
+    assert "no caller timestamp" in text and "summaries" in text and "do not say" in text
+    steps = [
+        json.loads(line)
+        for line in zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()
+    ]
+    assert steps[0]["content"]["_epi_provenance"]["timestamp_source"] == "caller"
+    assert steps[0]["timestamp"].startswith("2026-10-05T10:00:00")
+    assert steps[1]["content"]["_epi_provenance"]["timestamp_source"] == "server_received"
+    assert steps[0]["prev_hash"] == "CHAIN_START" and steps[1]["prev_hash"] != "CHAIN_START"
+    # Warnings are declared inside the signed artifact, not only in chat.
+    m = json.loads(zipfile.ZipFile(r["epi_path"]).read("artifacts/manifest.json"))
+    assert any("no caller timestamp" in g for g in m["known_gaps"])
+
+
+def test_all_same_timestamp_is_flagged(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    from epi_mcp.records import seal_record
+
+    r = seal_record([{"kind": "user.message", "content": "a"},
+                     {"kind": "assistant.message", "content": "b"}])
+    assert any("share one timestamp" in w for w in r["fidelity"]["warnings"])
+
+
+def test_download_link_works_in_browser_and_verify_by_artifact_id(monkeypatch, tmp_path):
+    starlette_test = pytest.importorskip("starlette.testclient")
+    _keys(monkeypatch, tmp_path)
+    monkeypatch.setenv("EPI_MCP_TOKEN", "s3cret")
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://example.test")
+
+    from epi_mcp.http import build_app
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool, epi_verify_tool
+
+    _current_subject.set("someone")
+    try:
+        sealed = epi_seal_record_tool(
+            [{"kind": "user.message", "content": "x"}], include_bytes=False
+        )
+    finally:
+        _current_subject.set(None)
+    assert "epi_b64" not in sealed and sealed["warnings"]
+    assert epi_verify_tool(sealed["artifact_id"])["signature_valid"] is True
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    path = sealed["download_url"].replace("https://example.test", "")
+    assert client.get(path).status_code == 200            # browser click
+    bare = f"/artifacts/{sealed['artifact_id']}"
+    assert client.get(bare).status_code == 401            # no secret, no file
+    assert client.get(bare + "?t=wrong").status_code == 401
+
+
+def test_chain_is_real_and_tamper_is_caught(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    import json
+    import zipfile
+
+    from epi_cli.verify import _verify_step_chain
+    from epi_mcp.records import seal_record, verify_artifact
+
+    r = seal_record([
+        {"kind": "user.message", "content": {"text": "approve?"}, "timestamp": "2026-10-05T10:00:00Z"},
+        {"kind": "assistant.message", "content": {"text": "yes"}, "timestamp": "2026-10-05T10:00:05Z"},
+        {"kind": "agent.decision", "content": {"decision": "approve"}, "timestamp": "2026-10-05T10:00:06Z"},
+    ])
+    raw = zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()
+    steps = [json.loads(line) for line in raw]
+    spec = json.loads(zipfile.ZipFile(r["epi_path"]).read("manifest.json"))["spec_version"]
+    ok, breaks = _verify_step_chain(steps, spec)
+    assert ok and not breaks
+    steps[1]["content"]["text"] = "no"          # edit a middle step
+    ok, breaks = _verify_step_chain(steps, spec)
+    assert not ok and any("step 2" in b for b in breaks)
+    assert verify_artifact(r["epi_path"])["integrity_ok"] is True
+
+
+def test_unknown_event_fields_are_preserved_not_dropped(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    import json
+    import zipfile
+
+    from epi_mcp.records import seal_record
+
+    r = seal_record([{"kind": "tool.call", "content": {"name": "x"}, "event_id": "e-7"}])
+    step = json.loads(zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()[0])
+    assert step["content"]["_caller_fields"] == {"event_id": "e-7"}

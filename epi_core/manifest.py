@@ -38,7 +38,15 @@ KNOWN_GAPS: list[str] = [
     "LangSmith export does not exist (only OpenTelemetry span exporter and LiteLLM callback)",
 ]
 
-CapturePath = Literal["gateway", "sdk_wrapper", "mixed", "unknown"]
+CapturePath = Literal["gateway", "sdk_wrapper", "caller_provided", "mixed", "unknown"]
+
+# Gaps for records whose events were supplied by a caller (e.g. the MCP
+# sealer). The recorder SDK/gateway gaps above do not apply to them.
+CALLER_PROVIDED_GAPS: list[str] = [
+    "events were supplied by the caller; the sealer did not observe the originating run",
+    "hidden reasoning and inaccessible system state are not captured",
+    "completeness of the timeline is not established by the seal",
+]
 GatewayEnforcement = Literal["fail_closed", "fail_open", "mixed", "not_applicable"]
 
 
@@ -264,7 +272,10 @@ def build_capture_manifest(
 
     any_streaming = any(s.streaming for s in segments)
 
-    gaps = list(KNOWN_GAPS)
+    # A caller-provided record is not an SDK/gateway capture: do not advertise
+    # recorder surfaces it never used, and do not list gaps that do not apply.
+    caller_provided = global_path == "caller_provided"
+    gaps = list(CALLER_PROVIDED_GAPS if caller_provided else KNOWN_GAPS)
     if extra_gaps:
         for g in extra_gaps:
             if g not in gaps:
@@ -290,7 +301,7 @@ def build_capture_manifest(
         streaming=any_streaming,
         fail_open_events=fail_open,
         segments=segments,
-        instrumented_surfaces=get_instrumented_surfaces(),
+        instrumented_surfaces=[] if caller_provided else get_instrumented_surfaces(),
         active_surfaces=active,
         known_gaps=gaps,
         recorder_version=get_recorder_version(),

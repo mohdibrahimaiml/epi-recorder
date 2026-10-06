@@ -49,20 +49,141 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+FIDELITY_VALUES = ("verbatim", "summary", "hash_only")
+
+
+def _parse_ts(value: Any) -> str | None:
+    """Return an ISO-8601 UTC string for a caller timestamp, or None if unusable."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+_STEP_FIELDS = {"index", "timestamp", "kind", "content", "trace_id", "span_id", "parent_span_id"}
+
+
 def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Assign index/timestamp where missing; never invent content."""
+    """Normalize caller events without inventing content or times.
+
+    - ``content`` is kept verbatim (a bare string becomes ``{"text": ...}``).
+    - A caller-supplied ``timestamp`` (or ``ts``) is kept; otherwise the server
+      clock is used. Either way ``content._epi_provenance`` records the
+      ``timestamp_source`` ("caller" or "server_received"), the server
+      ``received_at`` and the caller's ``fidelity`` label (verbatim | summary |
+      hash_only | unspecified). It lives inside ``content`` so the step
+      hash-chain covers it.
+    - Unknown top-level caller fields are preserved under
+      ``content._caller_fields`` rather than silently dropped.
+    - Every step is tagged ``caller_provided`` for the capture manifest.
+    """
     out: list[dict[str, Any]] = []
+    received = _utc_now_iso()
     for i, event in enumerate(events):
         if not isinstance(event, dict):
             raise ValueError(f"event {i} must be an object, got {type(event).__name__}")
-        step = dict(event)
-        step.setdefault("index", i)
-        step.setdefault("timestamp", _utc_now_iso())
-        step.setdefault("kind", "custom")
-        if "content" not in step:
-            step["content"] = {}
+        raw = dict(event)
+        content = raw.get("content", {})
+        if not isinstance(content, dict):
+            content = {"text": content}
+        content = dict(content)
+
+        caller_ts = _parse_ts(raw.get("ts")) or _parse_ts(raw.get("timestamp"))
+        fidelity = raw.get("fidelity")
+        extras = {
+            k: v
+            for k, v in raw.items()
+            if k not in _STEP_FIELDS and k not in {"ts", "fidelity"}
+        }
+        content["_epi_capture"] = {
+            "capture_path": "caller_provided",
+            "gateway_enforcement": "not_applicable",
+            "streaming": False,
+        }
+        content["_epi_provenance"] = {
+            "timestamp_source": "caller" if caller_ts else "server_received",
+            "received_at": received,
+            "fidelity": fidelity if fidelity in FIDELITY_VALUES else "unspecified",
+        }
+        if extras:
+            content["_caller_fields"] = extras
+        step: dict[str, Any] = {
+            "index": i,
+            "kind": str(raw.get("kind") or "custom"),
+            "timestamp": caller_ts or received,
+            "content": content,
+        }
+        for k in ("trace_id", "span_id", "parent_span_id"):
+            if raw.get(k):
+                step[k] = raw[k]
         out.append(step)
     return out
+
+
+def _chain_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Link steps with prev_hash exactly as the recorder does, so
+    ``epi verify`` performs a real chain check instead of passing vacuously.
+    """
+    from epi_core.schemas import StepModel
+    from epi_core.serialize import get_canonical_hash
+
+    chained: list[dict[str, Any]] = []
+    prev = "CHAIN_START"
+    for st in steps:
+        model = StepModel(**st, prev_hash=prev)
+        chained.append(model.model_dump(mode="json", exclude_none=True))
+        prev = get_canonical_hash(model, format="json")
+    return chained
+
+
+def describe_fidelity(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Server-computed honesty report about how the record was supplied."""
+    total = len(steps)
+    by_fidelity: dict[str, int] = {}
+    caller_ts = 0
+    for st in steps:
+        prov = st["content"]["_epi_provenance"]
+        by_fidelity[prov["fidelity"]] = by_fidelity.get(prov["fidelity"], 0) + 1
+        if prov["timestamp_source"] == "caller":
+            caller_ts += 1
+    distinct_ts = len({st["timestamp"] for st in steps})
+    warnings: list[str] = []
+    if total and caller_ts < total:
+        warnings.append(
+            f"{total - caller_ts} of {total} events have no caller timestamp; "
+            "the sealer assigned its own receive time, so the sealed order is "
+            "not a timeline of when things happened."
+        )
+    if total > 1 and distinct_ts == 1:
+        warnings.append("All events share one timestamp.")
+    unlabelled = by_fidelity.get("unspecified", 0)
+    if unlabelled:
+        warnings.append(
+            f"{unlabelled} of {total} events do not say whether their content "
+            "is verbatim, a summary, or hash-only."
+        )
+    summaries = by_fidelity.get("summary", 0)
+    if summaries:
+        warnings.append(f"{summaries} of {total} events are summaries, not verbatim text.")
+    kinds = {str(st.get("kind")) for st in steps}
+    if "user.message" not in kinds and "agent.run.start" not in kinds:
+        warnings.append(
+            "No user message or run-start event: the request that began the work is not in the record."
+        )
+    return {
+        "events": total,
+        "by_fidelity": by_fidelity,
+        "caller_timestamps": caller_ts,
+        "server_assigned_timestamps": total - caller_ts,
+        "distinct_timestamps": distinct_ts,
+        "chain": "prev_hash linked (tamper-evident ordering)",
+        "warnings": warnings,
+    }
 
 
 def seal_record(
@@ -79,7 +200,8 @@ def seal_record(
     """
     if not events:
         raise ValueError("events must be a non-empty list")
-    steps = _normalize_events(events)
+    steps = _chain_steps(_normalize_events(events))
+    fidelity = describe_fidelity(steps)
 
     workdir = Path(tempfile.mkdtemp(prefix="epi_mcp_seal_"))
     (workdir / "steps.jsonl").write_text(
@@ -87,8 +209,17 @@ def seal_record(
         encoding="utf-8",
     )
     (workdir / "environment.json").write_text(
-        json.dumps({"sealed_by": "epi_mcp", "capture_scope": "caller-provided"}, indent=2),
+        json.dumps(
+            {"sealed_by": "epi_mcp", "capture_scope": "caller-provided", "fidelity": fidelity},
+            indent=2,
+        ),
         encoding="utf-8",
+    )
+    # Declare the record's limits inside the signed artifact so the viewer
+    # and `epi verify` show them as Known Gaps, not only the chat message.
+    (workdir / "artifacts").mkdir(exist_ok=True)
+    (workdir / "artifacts" / "capture_gaps.json").write_text(
+        json.dumps(fidelity["warnings"], indent=2), encoding="utf-8"
     )
 
     manifest = ManifestModel(
@@ -119,6 +250,7 @@ def seal_record(
         "steps_sealed": len(steps),
         "scope": "caller-provided",
         "scope_note": SCOPE_NOTE,
+        "fidelity": fidelity,
     }
 
 
@@ -156,7 +288,12 @@ def export_summary(epi_path: str | Path, *, max_steps: int = 50) -> dict[str, An
         raise FileNotFoundError(f"EPI file not found: {path}")
     steps = EPIContainer.read_steps(path)
     timeline = [
-        {"index": s.get("index"), "kind": s.get("kind"), "content": s.get("content")}
+        {
+            "index": s.get("index"),
+            "kind": s.get("kind"),
+            "timestamp": s.get("timestamp"),
+            "content": s.get("content"),
+        }
         for s in steps[:max_steps]
     ]
     return {"steps_total": len(steps), "steps_shown": len(timeline), "timeline": timeline}

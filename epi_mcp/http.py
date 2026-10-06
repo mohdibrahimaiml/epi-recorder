@@ -49,6 +49,13 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
             # No auth configured (loopback dev): the caller is the operator.
             subject = "operator"
         path = request.url.path
+        if subject is None and path.startswith("/artifacts/"):
+            # Human download links carry their own expiring capability token.
+            from epi_mcp.tools import download_token_valid
+
+            aid = path[len("/artifacts/"):]
+            if download_token_valid(aid, request.query_params.get("t")):
+                subject = "download-link"
         if subject is None and (path.startswith("/artifacts/") or path == "/mcp"):
             # The WWW-Authenticate challenge is what makes MCP hosts
             # (ChatGPT) discover OAuth and start the approval flow.
@@ -79,6 +86,7 @@ async def _download_artifact(request: Request):
         path,
         media_type="application/octet-stream",
         filename=path.name,
+        headers={"Cache-Control": "no-store"},
     )
 
 

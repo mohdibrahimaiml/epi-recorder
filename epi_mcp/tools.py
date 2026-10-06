@@ -46,6 +46,43 @@ def _count_occurrences(value: Any, marker: str) -> int:
 # them back as downloads. Maps artifact_id -> absolute .epi path.
 ARTIFACTS: dict[str, str] = {}
 
+# Unguessable, expiring capability tokens for human download links. A person
+# clicking a link in a chat has no Bearer token, and the artifact can hold a
+# whole conversation, so the link carries its own secret instead of a
+# guessable id.
+DOWNLOAD_TTL_SECONDS = 24 * 3600
+_DOWNLOAD_TOKENS: dict[str, tuple[str, float]] = {}
+
+
+def _issue_download_token(artifact_id: str) -> str:
+    import secrets
+    import time
+
+    now = time.time()
+    for tok, (_, exp) in list(_DOWNLOAD_TOKENS.items()):
+        if exp < now:
+            del _DOWNLOAD_TOKENS[tok]
+    token = secrets.token_urlsafe(24)
+    _DOWNLOAD_TOKENS[token] = (artifact_id, now + DOWNLOAD_TTL_SECONDS)
+    return token
+
+
+def download_token_valid(artifact_id: str, token: str | None) -> bool:
+    import hmac
+    import time
+
+    if not token:
+        return False
+    rec = _DOWNLOAD_TOKENS.get(token)
+    if rec is None or rec[1] < time.time():
+        return False
+    return hmac.compare_digest(rec[0], artifact_id)
+
+
+def _resolve_epi_path(epi_path: str) -> str:
+    """Accept a sealed artifact_id (as returned by epi_seal_record) or a path."""
+    return ARTIFACTS.get(epi_path.strip(), epi_path)
+
 # Caller identity for the current seal operation. The HTTP layer sets
 # this from the verified credential; stdio runs are the server operator.
 # Bindings stay honest: a seal is always attributable to someone.
@@ -72,6 +109,7 @@ def epi_seal_record_tool(
     events: list[dict[str, Any]],
     goal: str = "MCP caller-provided record",
     output_path: str | None = None,
+    include_bytes: bool = True,
 ) -> dict[str, Any]:
     """Seal caller-provided observable events. Returns file bytes + verdicts.
 
@@ -97,14 +135,30 @@ def epi_seal_record_tool(
         "signature_valid": check["signature_valid"],
         "trust_level": check["trust_level"],
     }
-    sealed.update(_artifact_payload(sealed["epi_path"]))
+    payload = _artifact_payload(sealed["epi_path"])
+    if include_bytes:
+        sealed.update(payload)
+    else:
+        sealed.update({k: v for k, v in payload.items() if k != "epi_b64"})
     sealed["artifact_id"] = sealed["sha256"][:16]
     ARTIFACTS[sealed["artifact_id"]] = str(Path(sealed["epi_path"]).resolve())
     sealed["download_path"] = f"/artifacts/{sealed['artifact_id']}"
     import os as _os
 
     _public = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/")
-    sealed["download_url"] = f"{_public}{sealed['download_path']}" if _public else None
+    if _public:
+        token = _issue_download_token(sealed["artifact_id"])
+        sealed["download_url"] = f"{_public}{sealed['download_path']}?t={token}"
+        sealed["download_expires_in_seconds"] = DOWNLOAD_TTL_SECONDS
+    else:
+        sealed["download_url"] = None
+    sealed["warnings"] = list(sealed.get("fidelity", {}).get("warnings", []))
+    sealed["how_to_verify"] = (
+        "Independent check, no connector needed: download the file and run "
+        f"`epi verify {sealed['filename']}`. Editing any byte makes it fail."
+        if "filename" in sealed
+        else "Download the file and run `epi verify <file>.epi`."
+    )
     sealed["summary_counts"] = summarize_steps(events)
     sealed["sealed_at"] = datetime.now(timezone.utc).isoformat()
     sealed["not_captured"] = NOT_CAPTURED
@@ -124,12 +178,14 @@ def get_artifact_path(artifact_id: str) -> Path | None:
 
 
 def epi_verify_tool(epi_path: str) -> dict[str, Any]:
-    """Verify a .epi file the caller provides (path or URL the server can read)."""
+    """Verify a sealed file by artifact_id (from epi_seal_record) or server path."""
+    epi_path = _resolve_epi_path(epi_path)
     return verify_artifact(epi_path)
 
 
 def epi_export_summary_tool(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
-    """Read back a sealed timeline."""
+    """Read back a sealed timeline (artifact_id or server path)."""
+    epi_path = _resolve_epi_path(epi_path)
     return export_summary(epi_path, max_steps=max_steps)
 
 
@@ -153,6 +209,18 @@ def summarize_steps(steps: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _semantic(timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop per-run sealer metadata (``_epi_*``) so two runs are compared on
+    what the caller recorded, not on when each was sealed."""
+    out = []
+    for step in timeline:
+        content = step.get("content")
+        if isinstance(content, dict):
+            content = {k: v for k, v in content.items() if not str(k).startswith("_epi_")}
+        out.append({**step, "content": content})
+    return out
+
+
 def _decisions(timeline: list[dict[str, Any]]) -> list[Any]:
     out = []
     for step in timeline:
@@ -169,9 +237,11 @@ def compare_runs(epi_path_a: str | Path, epi_path_b: str | Path) -> dict[str, An
     """
     from epi_mcp.records import export_summary
 
+    epi_path_a = _resolve_epi_path(str(epi_path_a))
+    epi_path_b = _resolve_epi_path(str(epi_path_b))
     a = export_summary(epi_path_a, max_steps=100000)
     b = export_summary(epi_path_b, max_steps=100000)
-    ta, tb = a["timeline"], b["timeline"]
+    ta, tb = _semantic(a["timeline"]), _semantic(b["timeline"])
     kinds_a = sorted({str(s.get("kind")) for s in ta})
     kinds_b = sorted({str(s.get("kind")) for s in tb})
     decisions_a, decisions_b = _decisions(ta), _decisions(tb)
