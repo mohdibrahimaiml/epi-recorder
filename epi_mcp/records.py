@@ -38,6 +38,31 @@ def _key_manager() -> KeyManager:
     return KeyManager(Path(override) if override else None)
 
 
+def derived_signing_key(key_name: str):
+    """Deterministic per-caller Ed25519 key, or None when no seed is configured.
+
+    Hosts with ephemeral disks (Render free tier, containers) lose generated
+    key files on every restart, so a caller's signer changes each time and
+    can never be pinned with ``epi keys trust``. Deriving the key from a
+    server-only seed keeps each caller's signer stable. The seed is
+    ``EPI_SIGNING_SEED`` or ``EPI_OAUTH_SECRET`` -- never the static bearer
+    token, which clients hold and could use to recompute other callers' keys.
+    Whoever holds the seed can sign as any caller; guard it like a root key.
+    """
+    import hmac as _hmac
+    import os
+
+    seed = (os.environ.get("EPI_SIGNING_SEED") or os.environ.get("EPI_OAUTH_SECRET") or "").strip()
+    if not seed:
+        return None
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    raw = _hmac.new(
+        seed.encode("utf-8"), f"epi-mcp-signing-key-v1:{key_name}".encode("utf-8"), hashlib.sha256
+    ).digest()
+    return Ed25519PrivateKey.from_private_bytes(raw)
+
+
 def _server_private_key():
     km = _key_manager()
     if not km.has_key(_SERVER_KEY_NAME):
@@ -252,10 +277,12 @@ def seal_record(
         tags=["mcp", "caller-provided"],
     )
 
-    km = _key_manager()
-    if not km.has_key(key_name):
-        km.generate_keypair(key_name)
-    private_key = km.load_private_key(key_name)
+    private_key = derived_signing_key(key_name)
+    if private_key is None:
+        km = _key_manager()
+        if not km.has_key(key_name):
+            km.generate_keypair(key_name)
+        private_key = km.load_private_key(key_name)
 
     out = Path(output_path) if output_path else workdir / "record.epi"
 

@@ -8,9 +8,12 @@ via the normal per-caller key path.
 Honest limits (documented, not hidden):
 - Pseudonymous, not human-verified: approval proves control of the
   chat session that approved, nothing more.
-- In-memory stores: approvals, codes, and clients vanish on restart.
-  Fine for testing and single-operator use; production needs durable
-  storage before this carries real trust.
+- Clients and refresh tokens are self-contained signed tokens, so they
+  survive restarts and sleeping hosts with no database. Authorization
+  codes (10 minutes) and refresh-rotation bookkeeping stay in memory: a
+  restart inside that window forces one re-approval, and a refresh token
+  replayed after a restart is not detected. Nothing here is revocable
+  before expiry except by rotating the server secret.
 - No user accounts, no passwords. Do not layer real identity claims
   on top of these subjects.
 """
@@ -25,6 +28,7 @@ import time
 from typing import Any
 
 _OAUTH_SECRET_ENV = "EPI_OAUTH_SECRET"
+REFRESH_TTL_SECONDS = 90 * 24 * 3600
 
 
 def oauth_secret() -> str | None:
@@ -64,21 +68,61 @@ def _pkce_ok(verifier: str, challenge: str, method: str | None) -> bool:
     return verifier == challenge
 
 
+def _sig(kind: str, value: str) -> str:
+    import hmac as _hmac
+
+    secret = (oauth_secret() or "").encode("utf-8")
+    return _hmac.new(secret, f"{kind}:{value}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _client_secret_for(client_id: str) -> str:
+    return _sig("client-secret", client_id)
+
+
+def _decode_client(client_id: str) -> dict[str, Any] | None:
+    """Return the registration encoded in a stateless client_id, or None."""
+    import hmac as _hmac
+    import json
+
+    prefix = "epi-client-"
+    if not client_id.startswith(prefix) or "." not in client_id:
+        return None
+    body, _, mac = client_id[len(prefix):].rpartition(".")
+    if not oauth_enabled() or not _hmac.compare_digest(_sig("client", body)[:32], mac):
+        return None
+    try:
+        padded = body + "=" * (-len(body) % 4)
+        data = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def register_client(info: dict[str, Any]) -> dict[str, Any]:
-    """Dynamic client registration: accept and record, return credentials."""
-    client_id = "epi-client-" + secrets.token_hex(8)
-    client_secret = secrets.token_hex(32)
-    CLIENTS[client_id] = {
-        "secret": client_secret,
-        "redirect_uris": info.get("redirect_uris", []),
-        "created_at": int(time.time()),
-    }
+    """Dynamic client registration.
+
+    With a server secret configured the client_id itself carries the
+    registered redirect URIs and a MAC, so registrations survive restarts.
+    Without one (loopback dev) they live in memory.
+    """
+    import json
+
+    uris = [u for u in (info.get("redirect_uris") or []) if isinstance(u, str)][:5]
+    now = int(time.time())
+    if oauth_enabled():
+        body = _b64url(json.dumps({"r": uris, "t": now}, separators=(",", ":")).encode("utf-8"))
+        client_id = f"epi-client-{body}.{_sig('client', body)[:32]}"
+        client_secret = _client_secret_for(client_id)
+    else:
+        client_id = "epi-client-" + secrets.token_hex(8)
+        client_secret = secrets.token_hex(32)
+        CLIENTS[client_id] = {"secret": client_secret, "redirect_uris": uris, "created_at": now}
     return {
         "client_id": client_id,
         "client_secret": client_secret,
-        "client_id_issued_at": int(time.time()),
+        "client_id_issued_at": now,
         "client_secret_expires_at": 0,
-        "redirect_uris": CLIENTS[client_id]["redirect_uris"],
+        "redirect_uris": uris,
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": info.get("token_endpoint_auth_method", "client_secret_post"),
@@ -87,10 +131,13 @@ def register_client(info: dict[str, Any]) -> dict[str, Any]:
 
 def redirect_allowed(client_id: str, redirect_uri: str) -> bool:
     """Registered clients may only use their registered redirect URIs."""
-    rec = CLIENTS.get(client_id)
-    if rec is None:
+    rec = _decode_client(client_id)
+    registered = (
+        rec.get("r") if rec is not None else (CLIENTS.get(client_id) or {}).get("redirect_uris")
+    )
+    if rec is None and client_id not in CLIENTS:
         return False
-    registered = rec.get("redirect_uris") or []
+    registered = registered or []
     return redirect_uri in registered if registered else bool(redirect_uri)
 
 
@@ -127,8 +174,12 @@ def mint_token(subject: str, audience: str | None = None) -> tuple[str, str]:
         secret,
         algorithm="HS256",
     )
-    refresh = "epi-refresh-" + secrets.token_hex(24)
-    REFRESH[refresh] = subject
+    refresh = _pyjwt.encode(
+        {"sub": subject, "typ": "refresh", "aud": "epi-refresh", "jti": secrets.token_hex(8),
+         "iat": now, "exp": now + REFRESH_TTL_SECONDS},
+        secret,
+        algorithm="HS256",
+    )
     return access, refresh
 
 
@@ -168,10 +219,22 @@ def redeem_code(code: str, client_id: str, redirect_uri: str, verifier: str) -> 
 
 
 def redeem_refresh(refresh: str) -> dict[str, Any] | None:
-    subject = REFRESH.get(refresh)
-    if not subject:
+    """Rotate a refresh token. Stateless: the token is a signed JWT."""
+    secret = oauth_secret()
+    if not secret:
         return None
-    access, new_refresh = mint_token(subject)
-    del REFRESH[refresh]
+    try:
+        import jwt as _pyjwt
+
+        payload = _pyjwt.decode(
+            refresh, secret, algorithms=["HS256"], audience="epi-refresh",
+            options={"require": ["exp", "sub", "jti"]},
+        )
+    except Exception:
+        return None
+    if payload.get("typ") != "refresh" or payload["jti"] in REFRESH:
+        return None  # not a refresh token, or already rotated this process
+    REFRESH[payload["jti"]] = str(payload["sub"])
+    access, new_refresh = mint_token(str(payload["sub"]))
     return {"access_token": access, "refresh_token": new_refresh,
             "token_type": "Bearer", "expires_in": 3600 * 24 * 30}

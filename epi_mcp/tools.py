@@ -82,6 +82,14 @@ def download_token_valid(artifact_id: str, token: str | None) -> bool:
     return hmac.compare_digest(rec[0], artifact_id)
 
 
+def _stable_signer() -> bool:
+    import os as _os
+
+    return bool(
+        (_os.environ.get("EPI_SIGNING_SEED") or _os.environ.get("EPI_OAUTH_SECRET") or "").strip()
+    )
+
+
 def _resolve_epi_path(epi_path: str) -> str:
     """Accept a sealed artifact_id (as returned by epi_seal_record) or a path."""
     return ARTIFACTS.get(epi_path.strip(), epi_path)
@@ -156,6 +164,16 @@ def epi_seal_record_tool(
     else:
         sealed["download_url"] = None
     sealed["warnings"] = list(sealed.get("fidelity", {}).get("warnings", []))
+    sealed["trust_command"] = (
+        f"epi keys trust {sealed['filename']} --name <label>" if "filename" in sealed else None
+    )
+    sealed["signer_stability"] = (
+        "stable: signing key is derived from a server seed, so this signer is the same "
+        "after restarts and can be pinned with `epi keys trust`"
+        if _stable_signer()
+        else "not stable: the signing key lives on the server's disk and changes if the "
+        "disk is reset, so pinning it will not last. Set EPI_OAUTH_SECRET or EPI_SIGNING_SEED."
+    )
     sealed["how_to_verify"] = (
         "Independent check, no connector needed: download the file and run "
         f"`epi verify {sealed['filename']}`. Editing any byte makes it fail."

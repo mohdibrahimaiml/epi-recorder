@@ -90,3 +90,9 @@ services:
       # Public base URL advertised in seal responses, e.g. https://epi-mcp.onrender.com
       - key: EPI_MCP_PUBLIC_URL
         sync: false
+      # Random 32+ char secret. Signs OAuth tokens (clients/refresh tokens
+      # then survive restarts) and seeds per-caller signing keys (signers stay
+      # stable on an ephemeral disk, so `epi keys trust` pinning lasts).
+      # Guard it like a root key; rotating it invalidates tokens and changes signers.
+      - key: EPI_OAUTH_SECRET
+        sync: false
