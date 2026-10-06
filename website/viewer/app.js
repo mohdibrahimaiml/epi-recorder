@@ -341,7 +341,10 @@ function renderHeader(caseData, context) {
 
   // Status pills
   const pillsEl = document.getElementById('header-pills');
-  const intOk = caseData.integrity?.ok !== false;
+  // Prefer the live check (done in this browser from the hashed bytes) over a
+  // flag stored inside the same editable page.
+  const hasLiveInt = context != null && typeof context.integrity_ok === 'boolean';
+  const intOk = hasLiveInt ? context.integrity_ok : caseData.integrity?.ok !== false;
   // Prefer live context sig_valid, but only when it's been explicitly set.
   // An empty/missing context must not override the preloaded case payload.
   const hasLiveSig = context != null && Object.prototype.hasOwnProperty.call(context, 'signature_valid');
@@ -370,6 +373,19 @@ function renderHeader(caseData, context) {
       : `<span class="pill-dot"></span>UNSIGNED`;
   }
   pillsEl.appendChild(sigPill);
+
+  // A valid signature proves the file is unchanged since *this key* signed it.
+  // It does not say who holds the key: anyone can generate a key and sign
+  // fabricated content. This page cannot check a trust list, so say so.
+  if (sigVerified) {
+    const signerPill = document.createElement('span');
+    signerPill.className = 'pill warn';
+    signerPill.innerHTML = `<span class="pill-dot"></span>SIGNER NOT VERIFIED`;
+    signerPill.title = 'The signature proves the file was not changed after this key signed it. ' +
+      'It does not prove who holds the key. Confirm the signer offline: epi verify <file>.epi --policy strict ' +
+      '(after `epi keys trust`).';
+    pillsEl.appendChild(signerPill);
+  }
 
   // Human review status pill
   const humanReview = normalizeReview(caseData.review || caseData);
@@ -401,6 +417,26 @@ function renderHeader(caseData, context) {
     riskPill.innerHTML = `<span class="pill-dot"></span>RISK ${String(riskLevel).toUpperCase()}`;
     pillsEl.appendChild(riskPill);
   }
+}
+
+
+/** Order-insensitive deep equality for parsed JSON values. */
+function epiDeepEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!epiDeepEqual(a[i], b[i])) return false;
+    return true;
+  }
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (!Object.prototype.hasOwnProperty.call(b, k) || !epiDeepEqual(a[k], b[k])) return false;
+  }
+  return true;
 }
 
 /**
@@ -448,15 +484,27 @@ async function verifyCaseInBrowser(caseData) {
   }
 
   // ── Integrity (member hashes from archive_base64 or files{}) ──
+  // The page shows evidence from a baked-in `steps` array, but only the hashed
+  // members are cryptographically bound to the signed manifest. So the shown
+  // steps must be derived from, or checked against, the hashed steps.jsonl,
+  // and a member that cannot be checked must never count as verified.
   try {
     const fm = manifest.file_manifest || {};
     const names = Object.keys(fm);
-    if (names.length > 0 && typeof JSZip !== 'undefined') {
+    if (names.length > 0) {
       let zip = null;
+      let zipUnavailable = false;
       if (caseData.archive_base64) {
-        zip = await JSZip.loadAsync(base64ToUint8Array(caseData.archive_base64));
+        if (typeof JSZip !== 'undefined') {
+          zip = await JSZip.loadAsync(base64ToUint8Array(caseData.archive_base64));
+        } else {
+          zipUnavailable = true; // cannot open the embedded archive
+        }
       }
       const mismatches = [];
+      const unchecked = [];
+      let checked = 0;
+      let stepsBytes = null;
       for (const name of names) {
         const expected = String(fm[name] || '').toLowerCase();
         if (!expected) continue;
@@ -471,27 +519,74 @@ async function verifyCaseInBrowser(caseData) {
         } else if (caseData.files && caseData.files[name]) {
           bytes = base64ToUint8Array(caseData.files[name]);
         } else {
-          continue; // cannot check this member offline
+          unchecked.push(name); // cannot check this member offline
+          continue;
         }
         const got = await sha256Hex(bytes);
-        if (got !== expected) mismatches.push(name);
+        if (got !== expected) {
+          mismatches.push(name);
+        } else {
+          checked += 1;
+          if (name === 'steps.jsonl') stepsBytes = bytes;
+        }
       }
+      result.checked = checked;
+      result.mismatches = mismatches;
+      result.unchecked = unchecked;
+
       if (mismatches.length > 0) {
         result.integrity_ok = false;
         result.integrity_reason = 'Hash mismatch: ' + mismatches.slice(0, 5).join(', ');
         result.client_verified = true;
+      } else if (fm['steps.jsonl'] && !stepsBytes) {
+        // The evidence on screen cannot be tied to the signed hash.
+        result.integrity_ok = false;
+        result.integrity_reason = zipUnavailable
+          ? 'The embedded archive could not be opened, so the evidence shown is unverified.'
+          : 'steps.jsonl is not available in this viewer, so the evidence shown is unverified.';
+        result.client_verified = true;
+      } else if (stepsBytes) {
+        // Show what was hashed. If the page was carrying a different copy,
+        // that is tampering with the display layer: say so and show the real one.
+        let sealed = null;
+        try {
+          const text = new TextDecoder('utf-8').decode(stepsBytes);
+          sealed = text.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+        } catch (parseErr) {
+          result.integrity_ok = false;
+          result.integrity_reason = 'steps.jsonl matches its hash but is not valid JSON lines.';
+          result.client_verified = true;
+        }
+        if (sealed) {
+          if (!epiDeepEqual(sealed, caseData.steps || [])) {
+            result.integrity_ok = false;
+            result.display_mismatch = true;
+            result.integrity_reason =
+              'The evidence this page displayed does not match the sealed steps.jsonl. ' +
+              'The page was altered; the sealed steps are shown instead.';
+          } else {
+            result.integrity_ok = true;
+          }
+          caseData.steps = sealed;
+          result.client_verified = true;
+        }
       } else if (zip || (caseData.files && Object.keys(caseData.files).length > 0)) {
         result.integrity_ok = true;
         result.client_verified = true;
       }
     }
   } catch (e) {
-    // Non-fatal — leave integrity_ok null if we cannot check
-    result.integrity_reason = e && e.message ? e.message : String(e);
+    // Could not check: never fall back to a flag stored inside the same page.
+    result.integrity_ok = false;
+    result.integrity_reason = 'Integrity could not be verified in this viewer: ' +
+      (e && e.message ? e.message : String(e));
+    result.client_verified = true;
   }
 
-  // Prefer payload integrity if client could not re-hash
-  if (result.integrity_ok == null && caseData.integrity && typeof caseData.integrity.ok === 'boolean') {
+  // Only when the manifest lists no files at all is there nothing to re-hash;
+  // otherwise a flag stored inside this same editable page proves nothing.
+  if (result.integrity_ok == null && Object.keys((manifest.file_manifest || {})).length === 0 &&
+      caseData.integrity && typeof caseData.integrity.ok === 'boolean') {
     result.integrity_ok = caseData.integrity.ok;
   }
 
@@ -559,9 +654,12 @@ function renderIntegrity(caseData, context) {
   const pubkey = m.public_key ? m.public_key.slice(0, 16) : '';
   const signer = context?.signer || context?.identity?.name || '';
   if (did) {
-    idEl.textContent = did;
-    idEl.className = 'indicator verified';
+    // Written by whoever signed the file; the browser does not verify it.
+    idEl.textContent = 'claims ' + did + ' (unverified)';
+    idEl.className = 'indicator unknown';
     idEl.style.fontSize = '11px';
+    idEl.title = 'This identifier is stated inside the file by its signer. The browser does not verify it. ' +
+      'Confirm offline with epi verify.';
   } else if (orgRoot) {
     // Named org root only — the browser never verifies a bundle, so this is
     // deliberately NOT green. Confirm offline:
@@ -1880,6 +1978,13 @@ async function init() {
       }
       if (live.signature_reason) context.signature_reason = live.signature_reason;
       if (live.integrity_reason) context.integrity_reason = live.integrity_reason;
+      if (typeof live.checked === 'number') {
+        caseData.integrity = Object.assign({}, caseData.integrity || {}, {
+          checked: live.checked,
+          mismatches: live.mismatches || [],
+          unchecked: live.unchecked || [],
+        });
+      }
       context.client_verified = true;
     }
   } catch (e) {
