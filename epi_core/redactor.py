@@ -52,6 +52,30 @@ DEFAULT_REDACTION_PATTERNS = [
     (r'api[_-]?key["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{20,})', 'Generic API key'),
     (r'apikey["\']?\s*[:=]\s*["\']?([a-zA-Z0-9_\-]{20,})', 'Generic API key'),
     (r'(?:secret|password|token)["\']?\s*[:=]\s*["\']([^"\']{8,})["\']', 'Credential assignment'),
+    # Unquoted / shell / free-text credentials. Named group `pre` is kept so a
+    # reader still sees WHAT was redacted (password=, DB_SECRET=, --token ...);
+    # only the value (`val`) is replaced. Values that are already placeholders,
+    # booleans or empty-ish words are skipped. `pwd` is deliberately excluded:
+    # PWD=/path is the shell's working directory, not a credential.
+    (r'(?P<pre>\b[\w.-]*?(?:password|passwd|passphrase|secret|api[_-]?key|private[_-]?key|access[_-]?key|credential)s?(?:[_-]?(?:key|value|hash|token|string|phrase|id|file))?["\']?\s*[:=]\s*["\']?)'
+     r'(?P<val>(?!\*\*\*|\[REDACTED|HMAC-SHA256|(?:true|false|null|none|yes|no|undefined)\b)[^\s"\',;&)}\]]{4,})',
+     'Credential assignment (unquoted)'),
+    # token=... : skip numeric counts (max_tokens=4096) and short values
+    (r'(?P<pre>\b[\w.-]*?token(?:s)?(?![a-z])["\']?\s*[:=]\s*["\']?)'
+     r'(?P<val>(?!\d+\b)(?!\*\*\*|\[REDACTED|HMAC-SHA256)[A-Za-z0-9_\-.~+/=]{12,})',
+     'Token assignment (unquoted)'),
+    # CLI flags: --password x, --token=x, --api-key x
+    (r'(?P<pre>--(?:password|passwd|passphrase|token|secret|api-?key|access-?key|client-?secret)(?:=|\s+))'
+     r'(?P<val>(?!-|\*\*\*|\[REDACTED|HMAC-SHA256)\S{4,})',
+     'Credential CLI flag'),
+    # curl -u user:password / --user user:password
+    (r'(?P<pre>\bcurl\b[^\n]*?\s(?:-u|--user)[=\s]+[^\s:@]+:)(?P<val>(?!\*\*\*|\[REDACTED|HMAC-SHA256)[^\s]+)',
+     'curl basic-auth password'),
+    # "my password is hunter2hunter2": only values that look like a password
+    # (contain a digit or symbol), so "password is required" is left alone
+    (r'(?P<pre>\b(?:password|passcode|passphrase)\s+(?:is|was)\s*:?\s*)'
+     r'(?P<val>(?=\S*[\d!@#$%^&*_-])(?!\*\*\*|\[REDACTED|HMAC-SHA256)[^\s"\',;]{8,})',
+     'Spoken password'),
     # JWT
     (r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', 'JWT token'),
     # PII
@@ -534,6 +558,10 @@ class Redactor:
                 def repl(match_obj):
                     nonlocal matches_count
                     matches_count += 1
+                    named = match_obj.groupdict()
+                    if named.get("val") is not None:
+                        # keep the key (`pre`), replace only the secret value
+                        return (named.get("pre") or "") + self._get_placeholder(description, named["val"])
                     groups = match_obj.groups()
                     secret_val = groups[0] if (groups and groups[0] is not None) else match_obj.group(0)
                     return self._get_placeholder(description, secret_val)
