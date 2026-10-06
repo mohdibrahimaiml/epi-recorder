@@ -44,6 +44,7 @@ Conversation runs:
 | Generated file | `artifact.produced` | filename + SHA-256 |
 | Tool call | `tool.call` | `{"tool": name, "input": {...}}` |
 | Tool result | `tool.response` | `{"result": ...}` |
+| Decision made | `agent.decision` | `{"decision": ..., "rationale": ...}` |
 | Left out on purpose | `redaction.omitted` | what category, and why |
 
 Agent runs: `agent.run.start` → `tool.call` → `tool.response` →
@@ -55,7 +56,8 @@ Timestamps come from the host record, never invented.
 1. **Seal the thread the user asked about.** If the conversation mixes
    topics, ask which one before sealing.
 2. **Verbatim, not paraphrase.** Pass each message's exact text with
-   `fidelity: "verbatim"`. Use `"summary"` for anything you condensed and
+   `fidelity: "verbatim"`, including long answers (the size limit is
+   generous); condense only bulky tool output such as search results. Use `"summary"` for anything you condensed and
    `"hash_only"` (with sha256) for private content. A paraphrase labelled
    verbatim is a false record.
 3. **Real times.** Pass the host's timestamp per event as ISO-8601. If you

@@ -219,6 +219,16 @@ def describe_fidelity(steps: list[dict[str, Any]]) -> dict[str, Any]:
         warnings.append(
             f"{unnamed} tool.call events have no tool name; a reader cannot tell which tool was called."
         )
+    undecided = sum(
+        1
+        for st in steps
+        if st.get("kind") == "agent.decision"
+        and not any(st["content"].get(k) for k in ("decision", "verdict"))
+    )
+    if undecided:
+        warnings.append(
+            f"{undecided} agent.decision events have no decision field; a reader sees only '?'."
+        )
     kinds = {str(st.get("kind")) for st in steps}
     if "user.message" not in kinds and "agent.run.start" not in kinds:
         warnings.append(
