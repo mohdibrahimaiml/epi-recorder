@@ -2,8 +2,10 @@
 
 Off unless the operator configures an identity provider:
 
-    EPI_IDP_ISSUER         e.g. https://accounts.google.com (any OIDC issuer: Google,
-                           Microsoft Entra, Okta, Auth0, Keycloak)
+    EPI_IDP_ISSUER         `github` (simplest: a free GitHub OAuth app, public username
+                           as the identity) or any OIDC issuer URL, e.g.
+                           https://accounts.google.com (Google, Microsoft Entra, Okta,
+                           Auth0, Keycloak)
     EPI_IDP_CLIENT_ID      OAuth client id registered with that provider
     EPI_IDP_CLIENT_SECRET  its secret
     EPI_IDP_NAME           optional button label, default "your account"
@@ -30,6 +32,9 @@ from typing import Any
 
 STATE_AUD = "epi-idp-state"
 STATE_TTL_SECONDS = 600
+GITHUB_AUTHORIZE = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN = "https://github.com/login/oauth/access_token"
+GITHUB_API = "https://api.github.com"
 _DISCOVERY_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
@@ -39,6 +44,8 @@ class IdpError(Exception):
 
 def idp_config() -> dict[str, str] | None:
     issuer = (os.environ.get("EPI_IDP_ISSUER") or "").strip().rstrip("/")
+    if issuer.lower() in {"github", "https://github.com"}:
+        issuer = "github"
     client_id = (os.environ.get("EPI_IDP_CLIENT_ID") or "").strip()
     client_secret = (os.environ.get("EPI_IDP_CLIENT_SECRET") or "").strip()
     if not (issuer and client_id and client_secret):
@@ -47,7 +54,7 @@ def idp_config() -> dict[str, str] | None:
         "issuer": issuer,
         "client_id": client_id,
         "client_secret": client_secret,
-        "name": (os.environ.get("EPI_IDP_NAME") or "your account").strip(),
+        "name": (os.environ.get("EPI_IDP_NAME") or ("GitHub" if issuer == "github" else "your account")).strip(),
     }
 
 
@@ -58,8 +65,9 @@ def idp_enabled() -> bool:
 
 
 # Network seams: tests replace these; production uses the stdlib only.
-def _http_get_json(url: str) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 (https issuer)
+def _http_get_json(url: str, headers: dict[str, str] | None = None) -> Any:
+    req = urllib.request.Request(url, headers={"Accept": "application/json", **(headers or {})})
+    with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 (https endpoints)
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -138,6 +146,15 @@ def begin_login(params: dict[str, str], include_email: bool) -> str:
     cfg = idp_config()
     if cfg is None:
         raise IdpError("Sign-in is not enabled on this server.")
+    if cfg["issuer"] == "github":
+        state = _sign_state({"p": params, "nonce": "", "inc": bool(include_email)})
+        query = urllib.parse.urlencode({
+            "client_id": cfg["client_id"],
+            "redirect_uri": _callback_url(),
+            "scope": "read:user user:email" if include_email else "read:user",
+            "state": state,
+        })
+        return f"{GITHUB_AUTHORIZE}?{query}"
     doc = _discovery(cfg["issuer"])
     nonce = secrets.token_urlsafe(16)
     state = _sign_state({"p": params, "nonce": nonce, "inc": bool(include_email)})
@@ -159,6 +176,8 @@ def finish_login(code: str, state: str) -> tuple[dict[str, str], str, dict[str, 
     if cfg is None:
         raise IdpError("Sign-in is not enabled on this server.")
     st = _read_state(state)
+    if cfg["issuer"] == "github":
+        return st["p"], *_finish_github(cfg, code, bool(st.get("inc")))
     doc = _discovery(cfg["issuer"])
     try:
         tokens = _http_post_form(doc["token_endpoint"], {
@@ -192,9 +211,49 @@ def finish_login(code: str, state: str) -> tuple[dict[str, str], str, dict[str, 
     return st["p"], subject, identity
 
 
+def _finish_github(cfg: dict[str, str], code: str, include_email: bool) -> tuple[str, dict[str, Any]]:
+    try:
+        tokens = _http_post_form(GITHUB_TOKEN, {
+            "client_id": cfg["client_id"],
+            "client_secret": cfg["client_secret"],
+            "code": code,
+            "redirect_uri": _callback_url(),
+        })
+        access = str(tokens.get("access_token", ""))
+        if not access:
+            raise IdpError("GitHub did not confirm your login. Nothing was approved.")
+        auth = {"Authorization": f"Bearer {access}", "X-GitHub-Api-Version": "2022-11-28"}
+        user = _http_get_json(f"{GITHUB_API}/user", auth)
+        login, uid = str(user.get("login") or ""), user.get("id")
+        if not login or uid is None:
+            raise IdpError("GitHub did not return an account. Nothing was approved.")
+        email = ""
+        if include_email:
+            for entry in _http_get_json(f"{GITHUB_API}/user/emails", auth) or []:
+                if entry.get("primary") and entry.get("verified"):
+                    email = str(entry.get("email") or "")
+                    break
+    except IdpError:
+        raise
+    except Exception as exc:
+        raise IdpError("GitHub did not confirm your login. Nothing was approved.") from exc
+    digest = hashlib.sha256(f"github|{uid}".encode("utf-8")).hexdigest()
+    identity: dict[str, Any] = {
+        "method": "github",
+        "verified_by": "github.com",
+        "account_id": digest[:16],
+        "username": login,
+        "profile_url": f"https://github.com/{login}",
+        "email_verified": bool(email),
+    }
+    if email:
+        identity["email"] = email
+    return "gh-" + digest[:20], identity
+
+
 def describe_identity(identity: dict[str, Any] | None) -> dict[str, Any]:
     """The block written into the sealed file. Always says what it does not prove."""
-    if not identity or identity.get("method") != "oidc":
+    if not identity or identity.get("method") not in {"oidc", "github"}:
         return {
             "method": "pseudonymous",
             "verified": False,
@@ -203,7 +262,9 @@ def describe_identity(identity: dict[str, Any] | None) -> dict[str, Any]:
     out = dict(identity)
     out["verified"] = True
     out["statement"] = (
-        f"The sealing server saw this person sign in with {identity['verified_by']}. "
+        f"The sealing server saw this person sign in with {identity['verified_by']}"
+        + (f" as {identity['username']}" if identity.get("username") else "")
+        + ". "
         "This is asserted by the sealing server. It does not prove who typed the "
         "conversation, and Claude or ChatGPT did not supply it."
     )

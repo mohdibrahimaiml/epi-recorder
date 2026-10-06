@@ -267,3 +267,90 @@ def test_cli_verify_prints_signed_in_line_only_for_a_verified_file(idp, tmp_path
     out = CliRunner().invoke(app, ["verify", sealed["epi_path"]]).output
     assert "Signed in:" in out and "alice@corp.example" in out
 
+
+
+@pytest.fixture
+def github(monkeypatch, tmp_path):
+    from epi_mcp import idp as idp_mod
+
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "s" * 40)
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://epi-mcp.example")
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_IDP_ISSUER", "github")
+    monkeypatch.setenv("EPI_IDP_CLIENT_ID", "gh-cid")
+    monkeypatch.setenv("EPI_IDP_CLIENT_SECRET", "gh-secret")
+    monkeypatch.delenv("EPI_IDP_NAME", raising=False)
+    calls = {"get": [], "fail": False}
+
+    def fake_post(url, data):
+        assert url == idp_mod.GITHUB_TOKEN and data["client_secret"] == "gh-secret"
+        return {} if calls["fail"] else {"access_token": "gho_x"}
+
+    def fake_get(url, headers=None):
+        calls["get"].append(url)
+        assert headers and headers["Authorization"] == "Bearer gho_x"
+        if url.endswith("/user"):
+            return {"login": "octocat", "id": 583231}
+        if url.endswith("/user/emails"):
+            return [{"email": "old@x.example", "primary": False, "verified": True},
+                    {"email": "octo@corp.example", "primary": True, "verified": True}]
+        raise AssertionError(url)
+
+    monkeypatch.setattr(idp_mod, "_http_post_form", fake_post)
+    monkeypatch.setattr(idp_mod, "_http_get_json", fake_get)
+    return calls
+
+
+def test_github_sign_in_records_public_username_not_email(github, tmp_path):
+    client = _client()
+    reg = _register(client)
+    page = client.get("/oauth/authorize", params=_authorize_params(reg))
+    assert "Sign in with GitHub" in page.text and "public GitHub username" in page.text
+    params = _authorize_params(reg)
+    start = client.get("/oauth/idp/start", params=params, follow_redirects=False)
+    loc = start.headers["location"]
+    assert loc.startswith("https://github.com/login/oauth/authorize?") and "scope=read%3Auser&" in loc
+    from urllib.parse import parse_qs, urlparse
+
+    state = parse_qs(urlparse(loc).query)["state"][0]
+    cb = client.get("/oauth/idp/callback", params={"code": "c", "state": state}, follow_redirects=False)
+    assert cb.status_code == 303
+    subject, sealed = _seal_with(_token(client, reg, cb)["access_token"], tmp_path)
+    assert subject.startswith("gh-")
+    ident = _identity_of(sealed["epi_path"])
+    assert ident["verified"] is True and ident["username"] == "octocat"
+    assert ident["profile_url"] == "https://github.com/octocat" and "email" not in ident
+    assert not any(u.endswith("/user/emails") for u in github["get"])
+    assert sealed["sealer_identity"]["who"] == "@octocat"
+    from typer.testing import CliRunner
+
+    from epi_cli.main import app
+
+    out = CliRunner().invoke(app, ["verify", sealed["epi_path"]]).output
+    assert "@octocat" in out and "github.com" in out
+
+
+def test_github_email_is_opt_in_and_must_be_primary_and_verified(github, tmp_path):
+    client = _client()
+    reg = _register(client)
+    params = {**_authorize_params(reg), "include_email": "1"}
+    start = client.get("/oauth/idp/start", params=params, follow_redirects=False)
+    assert "scope=read%3Auser+user%3Aemail" in start.headers["location"]
+    from urllib.parse import parse_qs, urlparse
+
+    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    cb = client.get("/oauth/idp/callback", params={"code": "c", "state": state}, follow_redirects=False)
+    _, sealed = _seal_with(_token(client, reg, cb)["access_token"], tmp_path)
+    assert _identity_of(sealed["epi_path"])["email"] == "octo@corp.example"
+
+
+def test_github_failed_exchange_approves_nothing(github):
+    github["fail"] = True
+    client = _client()
+    reg = _register(client)
+    start = client.get("/oauth/idp/start", params=_authorize_params(reg), follow_redirects=False)
+    from urllib.parse import parse_qs, urlparse
+
+    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    cb = client.get("/oauth/idp/callback", params={"code": "c", "state": state}, follow_redirects=False)
+    assert cb.status_code == 403 and "code=" not in cb.headers.get("location", "")

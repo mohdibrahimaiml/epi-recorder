@@ -193,11 +193,17 @@ async def _oauth_authorize_form(request: Request):
         )
         label = _html.escape(_idp.idp_config()["name"])
         signin = (
-            '<hr><form method="get" action="/oauth/idp/start">' + hidden +
-            f"<p>Or sign in with {label} so sealed files name you as the person who sealed them.</p>"
-            '<p><label><input type="checkbox" name="include_email" value="1" checked> '
-            "Put my email in the sealed files (uncheck to stay pseudonymous)</label></p>"
-            f'<button type="submit">Sign in with {label} and approve</button></form>'
+            '<hr><form method="get" action="/oauth/idp/start">' + hidden
+            + f"<p>Or sign in with {label} so sealed files name you as the person who sealed them.</p>"
+            + (
+                "<p>Your public GitHub username will be written into the sealed files.</p>"
+                '<p><label><input type="checkbox" name="include_email" value="1"> '
+                "Also include my verified GitHub email</label></p>"
+                if _idp.idp_config()["issuer"] == "github"
+                else '<p><label><input type="checkbox" name="include_email" value="1" checked> '
+                "Put my email in the sealed files (uncheck to stay pseudonymous)</label></p>"
+            )
+            + f'<button type="submit">Sign in with {label} and approve</button></form>'
         )
     gate = (
         '<p><label>Access passphrase: <input type="password" name="passphrase" '

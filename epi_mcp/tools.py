@@ -233,7 +233,10 @@ def epi_seal_record_tool(
 
     _who = _describe(_current_identity.get())
     sealed["sealer_identity"] = (
-        {"verified": True, "who": _who.get("email") or f"account {_who.get('account_id', '')[:8]}",
+        {"verified": True,
+         "who": _who.get("email")
+         or (f"@{_who['username']}" if _who.get("username") else "")
+         or f"account {_who.get('account_id', '')[:8]}",
          "via": _who.get("verified_by"), "note": _who["statement"]}
         if _who.get("verified")
         else {"verified": False, "note": _who["statement"]}

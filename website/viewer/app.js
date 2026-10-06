@@ -397,7 +397,9 @@ function renderHeader(caseData, context) {
   if (sealer && sealer.verified === true && intOk && sigVerified) {
     const who = typeof sealer.email === 'string' && sealer.email
       ? sealer.email
-      : 'account ' + String(sealer.account_id || '').slice(0, 8);
+      : (typeof sealer.username === 'string' && sealer.username
+        ? '@' + sealer.username
+        : 'account ' + String(sealer.account_id || '').slice(0, 8));
     const idPill = document.createElement('span');
     idPill.className = 'pill gray';
     const idDot = document.createElement('span');

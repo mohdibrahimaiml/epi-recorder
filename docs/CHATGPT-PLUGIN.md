@@ -89,24 +89,32 @@ a public server.
 ### Optional: name the person who sealed it
 
 Claude and ChatGPT never tell this server who the user is, so by default a seal
-carries a pseudonym. To put a verified person in the file, configure an OpenID
-Connect provider (Google, Microsoft Entra, Okta, Auth0, Keycloak):
+carries a pseudonym. To put a verified person in the file, turn on sign-in. The
+simplest free option is a GitHub OAuth app (about two minutes, no review):
+
+1. GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**.
+2. Homepage URL: your server URL. Authorization callback URL:
+   `<EPI_MCP_PUBLIC_URL>/oauth/idp/callback`. Click **Register**, then
+   **Generate a new client secret**.
+3. Set these on the server:
 
 | Variable | Value |
 |---|---|
-| `EPI_IDP_ISSUER` | e.g. `https://accounts.google.com` |
-| `EPI_IDP_CLIENT_ID` / `EPI_IDP_CLIENT_SECRET` | from the provider's OAuth app |
-| `EPI_IDP_NAME` | button label, e.g. `Google` |
+| `EPI_IDP_ISSUER` | `github` |
+| `EPI_IDP_CLIENT_ID` / `EPI_IDP_CLIENT_SECRET` | from the OAuth app |
 
-Register `<EPI_MCP_PUBLIC_URL>/oauth/idp/callback` as the redirect URI. The approve
-page then keeps its one-click button and adds "Sign in and approve". A signed-in
-person gets the same signing key every time they reconnect, and the sealed file's
-`environment.json` records the provider and (if they leave the box ticked) their
-email. The viewer and `epi verify` show it only when the file's integrity and
-signature check out.
+The approve page keeps its one-click button and adds "Sign in with GitHub". The
+sealed file records the person's public GitHub username (checkable at
+`github.com/<username>`); their email is added only if they tick the box.
 
-What it proves: the sealing server saw that person sign in with that provider. What
-it does not: who typed the conversation, or anything Claude or ChatGPT produced.
+Companies can use their own login instead: set `EPI_IDP_ISSUER` to any OpenID
+Connect issuer (Google, Microsoft Entra, Okta, Auth0, Keycloak). `EPI_IDP_NAME`
+changes the button label.
+
+A signed-in person gets the same signing key every time they reconnect. The viewer
+and `epi verify` show the name only when the file's integrity and signature check
+out. What it proves: the sealing server saw that person sign in with that provider.
+What it does not: who typed the conversation, or anything Claude or ChatGPT produced.
 Anyone relying on it should pin the sealing server's signer (`epi keys trust`).
 
 Treat the secret like a root key: whoever holds it can mint tokens and

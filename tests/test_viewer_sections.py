@@ -197,3 +197,10 @@ def test_editing_the_page_cannot_forge_who_sealed_it(monkeypatch, tmp_path):
     r = _render(html.replace("alice@corp.example", "ceo@victim.example"), tmp_path)
     pills = r["pills"].lower()
     assert "ceo@victim.example" not in pills
+
+
+def test_github_username_is_shown_as_a_handle(monkeypatch, tmp_path):
+    gh = {"method": "github", "verified_by": "github.com", "account_id": "abcd1234efgh5678",
+          "username": "octocat", "profile_url": "https://github.com/octocat", "email_verified": False}
+    r = _render(_seal_identity(monkeypatch, tmp_path, gh), tmp_path)
+    assert "signed in as @octocat" in r["pills"].lower()
