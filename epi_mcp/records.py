@@ -209,7 +209,10 @@ def describe_fidelity(steps: list[dict[str, Any]]) -> dict[str, Any]:
         )
     summaries = by_fidelity.get("summary", 0)
     if summaries:
-        warnings.append(f"{summaries} of {total} events are summaries, not verbatim text.")
+        warnings.append(
+            f"{summaries} of {total} events are summaries, not verbatim text. "
+            "For stronger evidence, seal the full text of those messages."
+        )
     unnamed = sum(
         1
         for st in steps

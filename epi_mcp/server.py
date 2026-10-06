@@ -53,50 +53,32 @@ from epi_mcp.tools import (
 )
 
 SEAL_GUIDE = (
-    "Usage notes for sealing a conversation or a run\n"
-    "1. Scope: seal the conversation or task the user asked about. If the "
-    "chat covers several topics and it is unclear which one is meant, ask "
-    "one short question first.\n"
-    "2. Content: send each user and assistant message as it appears in the "
-    "conversation, with fidelity \"verbatim\". Use \"summary\" for text that was "
-    "condensed and \"hash_only\" (with a sha256) for content the user wants "
-    "kept private. The label should match what was sent. Send long user and "
-    "assistant messages in full (the size limit is generous); summarize only "
-    "bulky tool output such as search results or fetched pages.\n"
-    "3. Times: if the host shows a time for an event, send it as an ISO-8601 "
-    "`timestamp`. If not, leave it out; the server records its own receive "
-    "time and flags it.\n"
-    "4. Event shape: {\"kind\": ..., \"content\": {\"text\": ...}, "
-    "\"timestamp\": optional, \"fidelity\": ...}. Kinds: user.message, "
-    "assistant.message, artifact.attached / artifact.produced (filename and "
-    "sha256 in content), tool.call (content {\"tool\": name, \"input\": {...}}), "
-    "tool.response (content {\"result\": ...}), agent.decision (content "
-    "{\"decision\": ..., \"rationale\": ...}), redaction.omitted.\n"
-    "5. Privacy: replace secrets and other people's personal data with "
+    "Notes for sealing a conversation or a run\n"
+    "1. Seal the conversation or task the user asked about. If it is unclear "
+    "which one is meant, ask one short question first.\n"
+    "2. Send messages as they appeared, and set fidelity to match what was "
+    "sent: verbatim, summary, or hash_only (with a sha256).\n"
+    "3. Send a timestamp only if the chat shows one; otherwise leave it out "
+    "and the server records its own receive time and flags it.\n"
+    "4. Replace passwords, keys and other people's personal data with "
     "[REDACTED]. If something is left out on purpose, add a redaction.omitted "
-    "event that names the kind of content and the reason (for example: raw "
-    "file bytes kept private, another person's details, or text supplied by "
-    "the host rather than the user), so the record shows what is absent.\n"
-    "6. Errors: if sealing fails, tell the user nothing was sealed. Files "
-    "come from epi_seal_record; a file assembled by hand will not verify.\n"
-    "7. After sealing, give the user: the view link (view_url: opens the "
-    "sealed record in the browser, nothing to install), the download link "
-    "(download_url: it expires; the server removes its copy then, so download "
-    "promptly), the SHA-256, any warnings returned, a note that the signer "
-    "is not pinned until they trust the key, and that a seal shows the "
-    "record was not altered, not that it is complete. They can confirm "
-    "independently with `epi verify <file>.epi`. Also tell them who the "
-    "file names as the signer, using sealer_identity from the result."
+    "event saying what kind of content and why.\n"
+    "5. If sealing fails, tell the user nothing was sealed. Files come from "
+    "epi_seal_record; a file assembled by hand will not verify.\n"
+    "6. After sealing, give the user the view link (view_url: opens the sealed "
+    "record in the browser, nothing to install), the download link "
+    "(download_url: expires, and the server removes its copy then), the "
+    "SHA-256 and any warnings, and say that a seal shows the record was not "
+    "altered, not that it is complete."
 )
 
 server = MCPServer(
     name="epi-evidence",
     icons=_server_icons(),
     instructions=(
-        "When someone asks to seal, save, export, preserve or certify a "
-        "conversation or run, call epi_seal_record. Do not write a Markdown or "
-        "text file instead: only this server produces a signed .epi file.\n\n"
-        "Seal caller-provided observable evidence into signed EPI artifacts. "
+        "Use epi_seal_record when someone asks to seal, save, export or certify "
+        "a conversation or run. Do not write a Markdown or text file instead: "
+        "only this server produces a signed .epi file.\n\n"
         + SCOPE_NOTE
         + "\n\n"
         + SEAL_GUIDE
@@ -106,25 +88,17 @@ server = MCPServer(
 
 @server.tool(
     description=(
-        "Use this when the user asks to seal, save, export, preserve or certify "
-        "this chat or a run, or wants a downloadable, verifiable record of it "
-        "(for example \"seal this chat\", \"save this conversation as evidence\", "
-        "\"make a tamper-evident copy\"). Do not write a Markdown or text file "
-        "instead: only this tool produces a signed .epi file. "
-        "Seals a conversation or an agent run into a signed .epi evidence file "
-        "(Ed25519 + SHA-256). Send each message in full, word for word: text "
-        "condensed into a summary is recorded as a summary and is weaker evidence. "
-        "Pass the events that appeared in it, each as "
-        "{kind, content: {text}, timestamp?, fidelity?}. Kinds: user.message, "
-        "assistant.message, artifact.attached / artifact.produced (content: "
-        "filename, sha256), tool.call (content: tool, input), tool.response "
-        "(content: result), agent.decision (content: decision, rationale), "
-        "redaction.omitted (content: text "
-        "naming the kind of content left out and why). fidelity is verbatim, "
-        "summary or hash_only. timestamp is ISO-8601 when the host shows one. "
-        "Returns artifact_id, an expiring download_url, the SHA-256, a seal "
-        "self-check, fidelity counts and warnings, and the file as base64 "
-        "unless include_bytes=false or the file is large (then use download_url). "
+        "Create a signed, tamper-evident audit record (.epi file) of a "
+        "conversation or workflow so it can be kept and verified later. Use it "
+        "when the user asks to seal, save, export or certify a chat. Do not "
+        "write a Markdown or text file instead. events is a list of "
+        "{kind, content: {text}, timestamp?, fidelity?}. kind is user.message, "
+        "assistant.message, tool.call (content: tool, input), tool.response "
+        "(content: result), artifact.attached or artifact.produced (content: "
+        "filename, sha256), or redaction.omitted (content: text naming what was "
+        "left out and why). fidelity is verbatim, summary or hash_only. "
+        "timestamp is ISO-8601 when the chat shows one. Returns view_url, "
+        "download_url, the SHA-256, a seal self-check, and warnings. "
         + SCOPE_NOTE
     ),
     # One copy only: the default also repeats the result as structured content,
@@ -190,9 +164,8 @@ def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
 )
 def seal_this_conversation() -> str:
     return (
-        "Seal this conversation with the EPI evidence connector. Call epi_seal_record "
-        "with every message so far, then give me the download link, the SHA-256 and "
-        "any warnings. Do not create a Markdown or text file."
+        "Seal this conversation with the EPI Evidence Sealer and give me the "
+        "view link, the download link and the SHA-256."
     )
 
 
@@ -203,9 +176,8 @@ def seal_this_conversation() -> str:
 )
 def seal_last_answer() -> str:
     return (
-        "Seal only my previous message and your answer to it with the EPI evidence "
-        "connector. Call epi_seal_record with just those two messages, then give me "
-        "the download link and the SHA-256. Do not create a Markdown or text file."
+        "Seal only my previous message and your answer to it with the EPI "
+        "Evidence Sealer, and give me the view link and the SHA-256."
     )
 
 
