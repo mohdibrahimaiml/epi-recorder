@@ -1421,7 +1421,11 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 if "environment.json" in _zf.namelist():
                     _who = (json.loads(_zf.read("environment.json")) or {}).get("sealer_identity") or {}
                     if _who.get("verified") is True:
-                        _label = _who.get("email") or f"account {str(_who.get('account_id', ''))[:8]}"
+                        _label = (
+                            _who.get("email")
+                            or (f"@{_who['username']}" if _who.get("username") else "")
+                            or f"account {str(_who.get('account_id', ''))[:8]}"
+                        )
                         content_lines.append(
                             f"  - Signed in:    {_label} via {_who.get('verified_by', 'identity provider')} "
                             "[dim](asserted by the sealing server; not proof of who typed the chat)[/dim]"

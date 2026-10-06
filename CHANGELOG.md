@@ -6,6 +6,11 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Sign in with GitHub for the evidence connector** (`EPI_IDP_ISSUER=github`). The simplest
+  free way to name the person who sealed a file: a GitHub OAuth app, no review, and the
+  sealed file records the public username (email only if the person opts in). Same rules
+  as the OpenID Connect path: shown only when integrity and signature pass, never proof
+  of who typed the conversation.
 - **Optional sign-in for the evidence connector.** When an operator configures an
   OpenID Connect provider (`EPI_IDP_ISSUER`, `EPI_IDP_CLIENT_ID`,
   `EPI_IDP_CLIENT_SECRET`; Google, Microsoft Entra, Okta, Auth0), the approve
