@@ -877,6 +877,7 @@ def test_tool_is_discoverable_from_natural_requests_and_has_one_click_prompts():
     for phrase in ("seal", "save", "export", "this chat", "do not write a markdown"):
         assert phrase in desc
     assert "markdown" in (server.instructions or "").lower()
+    assert "word for word" in desc and "weaker evidence" in desc
 
     prompts = {p.name: p for p in asyncio.run(server.list_prompts())}
     assert {"seal_this_conversation", "seal_last_answer"} <= set(prompts)
