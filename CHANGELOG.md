@@ -6,6 +6,10 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Natural requests now reach the sealer.** The seal tool's description and the server
+  instructions say that "seal / save / export this chat" means this tool, not a Markdown
+  file, and the connector offers two one-click prompts ("Seal this conversation", "Seal
+  your last answer") so nobody has to word a request.
 - **Sign in with GitHub for the evidence connector** (`EPI_IDP_ISSUER=github`). The simplest
   free way to name the person who sealed a file: a GitHub OAuth app, no review, and the
   sealed file records the public username (email only if the person opts in). Same rules

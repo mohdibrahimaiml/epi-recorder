@@ -863,3 +863,26 @@ def test_storage_quota_refuses_seal_and_frees_after_purge(tmp_path, monkeypatch)
     finally:
         _current_subject.reset(tok)
         tools.purge_expired_artifacts(now=10**12)
+
+
+def test_tool_is_discoverable_from_natural_requests_and_has_one_click_prompts():
+    """Real users say 'seal this chat'. The host must connect that to this tool
+    (not write a Markdown file), and the connector menu must offer a no-typing start."""
+    import asyncio
+
+    from epi_mcp.server import server
+
+    tools = {t.name: t for t in asyncio.run(server.list_tools())}
+    desc = tools["epi_seal_record"].description.lower()
+    for phrase in ("seal", "save", "export", "this chat", "do not write a markdown"):
+        assert phrase in desc
+    assert "markdown" in (server.instructions or "").lower()
+
+    prompts = {p.name: p for p in asyncio.run(server.list_prompts())}
+    assert {"seal_this_conversation", "seal_last_answer"} <= set(prompts)
+    for name in prompts:
+        text = asyncio.run(server.get_prompt(name))
+        body = " ".join(
+            getattr(m.content, "text", "") for m in text.messages
+        ).lower()
+        assert "epi_seal_record" in body and "markdown" in body
