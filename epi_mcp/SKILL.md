@@ -1,14 +1,14 @@
 # EPI Evidence Sealing (MCP)
 
-**Rule zero: never construct `.epi` bytes yourself.** If a tool call
-fails, report the run as unsealed and stop. A hand-built artifact is
-forgery; the verifier will mark it SIGNATURE INVALID, and you must
-never present one as sealed.
+**Files come only from the sealing tool.** If a tool call fails, tell the
+user the run is unsealed. A file assembled by hand cannot carry a valid
+signature; the verifier marks it SIGNATURE INVALID, so it should not be
+presented as sealed.
 
 Use these tools when the user asks to seal, verify, or inspect an agent run.
 Do not narrate EPI methodology instead of calling the tools. Seal only
 **caller-provided observable evidence** — never claim to capture the
-entire run, hidden reasoning, or inaccessible system state.
+entire run, or anything that was not shown in the conversation or run.
 
 No setup is required from the user: authentication arrives with the
 call, and every seal is automatically bound to the caller's identity
@@ -74,7 +74,7 @@ Timestamps come from the host record, never invented.
 
 1. Pass **only material this run actually exposed**: user task, tool calls
    you invoked, tool results you received, artifacts you produced.
-2. Never claim to seal hidden chain-of-thought or inaccessible model state.
+2. Seal only what appears in the conversation or run; never add content that was not shown.
 3. The seal proves the provided record was not altered after sealing. It
    does not prove the record is complete — say so when asked.
 4. Seal / identity / coverage are three different questions:

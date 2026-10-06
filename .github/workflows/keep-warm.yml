@@ -33,6 +33,14 @@ jobs:
             # brief pause between hits so free instance fully wakes
             sleep 1
           done
+          # The MCP connector server sleeps too. A cold start (30-60 s) can exceed
+          # a chat host's tool timeout, so a user's first "seal this chat" fails.
+          MCP=https://epi-mcp.onrender.com
+          for path in /.well-known/oauth-protected-resource /favicon.ico; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 "${MCP}${path}" || echo "000")
+            echo "epi-mcp ${path} -> HTTP ${code}"
+            sleep 1
+          done
           if [ "$ok" -eq 1 ]; then
             echo "keep-warm: at least one endpoint warm"
             exit 0

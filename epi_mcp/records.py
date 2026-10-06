@@ -24,7 +24,7 @@ from epi_core.trust import (
 
 SCOPE_NOTE = (
     "Seals the record provided by the caller. Does not prove the "
-    "originating run is complete and cannot capture model-internal state."
+    "originating run is complete; anything the caller did not supply is not in the record."
 )
 
 _SERVER_KEY_NAME = "default"
