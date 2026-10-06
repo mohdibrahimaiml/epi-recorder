@@ -78,11 +78,13 @@ and seeds each caller's signing key, so:
   signing key lives on the host's disk and changes whenever that disk
   is reset.
 
-Set `EPI_APPROVE_PASSPHRASE` too if the server is on the public internet. The
-approve page then asks for it, so only people you give it to can authorize a
-connector. Without it, anyone who finds the URL can approve themselves. Sealed
-files are also capped per caller (50 files / 200 MB) and server-wide (1 GB) while
-they wait for download; they are deleted 24 h after sealing.
+The public connector is open by design: anyone can connect and seal in two
+clicks, and a seal is a pseudonymous signature, not a verified identity. Sealed
+files are capped per caller (50 files / 200 MB) and server-wide (1 GB) while they
+wait for download, and deleted 24 h after sealing, so an open server cannot be
+filled up. Running a private server for a team? Set the optional
+`EPI_APPROVE_PASSPHRASE` and the approve page will ask for it. Leave it unset for
+a public server.
 
 Treat the secret like a root key: whoever holds it can mint tokens and
 sign as any caller. Rotating it invalidates all tokens and changes every

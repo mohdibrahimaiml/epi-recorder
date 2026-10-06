@@ -344,14 +344,6 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    if not (os.environ.get("EPI_APPROVE_PASSPHRASE") or "").strip():
-        print(
-            "[epi-mcp] NOTICE: EPI_APPROVE_PASSPHRASE is not set, so anyone who finds this "
-            "server can approve themselves access and seal (within per-caller quotas). "
-            "Set it to restrict the approve page to people you give the passphrase.",
-            file=sys.stderr,
-        )
-
     import uvicorn
 
     uvicorn.run(build_app(), host=args.host, port=args.port, log_level="warning")
