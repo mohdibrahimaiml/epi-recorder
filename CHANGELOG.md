@@ -2,6 +2,46 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.5.1] - 2026-10-06
+
+### Fixed
+
+- **Viewer showed a valid signature as INVALID** when signed metadata contained
+  non-ASCII text (an em dash, an accent, a checkmark in the goal). The browser
+  viewer decoded `manifest.json` as Latin-1; it now decodes UTF-8. Applies to
+  every sealed file's embedded viewer, the hosted viewer mirrors and the 40
+  embedded demo pages. Python verification was never affected. A repo-wide test
+  blocks the old pattern.
+- **`epi view` / `export-html` showed "scope undeclared (pre-v artifact)"** for
+  every artifact: the capture manifest and checkpoints were missing from the
+  data passed to the viewer.
+
+### Added — MCP evidence connector (`epi_mcp`)
+
+- Seals carry an honest provenance record: `caller_provided` capture scope,
+  per-event timestamp source (caller vs server-received), per-event
+  `fidelity` (verbatim / summary / hash_only), a real `prev_hash` chain, and
+  the sealer's own caveats as declared known gaps. The viewer shows those
+  caveats directly above the timeline.
+- Stable per-caller signing identity derived from `EPI_OAUTH_SECRET` /
+  `EPI_SIGNING_SEED`, so a signer survives restarts and `epi keys trust`
+  pinning lasts. OAuth clients and refresh tokens are signed tokens (no
+  database needed).
+- Expiring browser download links; sealed files the server wrote are deleted
+  when the link expires. `epi_verify` / `epi_export_summary` / `epi_compare_runs`
+  accept the returned `artifact_id`.
+- Step origin is labelled correctly (`user.message` is `user`, not `reasoning`);
+  tool calls without a name are flagged; declared omissions are counted.
+- Model-facing tool text no longer uses phrasing that host safety systems can
+  misread as a request to expose reasoning; oversized records fail fast with a
+  way forward. Requires `mcp>=2.0`.
+- Schema: `CapturePath` gains `caller_provided`.
+
+### Ops
+
+- `keep-warm` also pings the MCP connector so the first seal of a session does
+  not hit a cold start.
+
 ## [4.5.0] - 2026-10-04
 
 ### Behavior changes (read before upgrading)
