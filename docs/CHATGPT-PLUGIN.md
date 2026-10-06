@@ -86,6 +86,20 @@ filled up. Running a private server for a team? Set the optional
 `EPI_APPROVE_PASSPHRASE` and the approve page will ask for it. Leave it unset for
 a public server.
 
+### Using it day to day
+
+Nobody should have to write a prompt. After connecting, either:
+
+- say it the way you would to a person: "seal this chat", "save this conversation
+  as evidence", "make a tamper-evident copy". The tool's description tells the host
+  to use the sealer instead of writing a Markdown file; or
+- pick a ready-made prompt from the connector's menu (in Claude: **+** → the
+  EPI connector): **Seal this conversation**, or **Seal your last answer** for a
+  quick one that also works in very long chats.
+
+If the host still writes a file instead, check that the connector is switched on
+for that chat (**+** → Connectors).
+
 ### Optional: name the person who sealed it
 
 Claude and ChatGPT never tell this server who the user is, so by default a seal

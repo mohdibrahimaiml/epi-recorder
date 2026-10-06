@@ -92,6 +92,9 @@ server = MCPServer(
     name="epi-evidence",
     icons=_server_icons(),
     instructions=(
+        "When someone asks to seal, save, export, preserve or certify a "
+        "conversation or run, call epi_seal_record. Do not write a Markdown or "
+        "text file instead: only this server produces a signed .epi file.\n\n"
         "Seal caller-provided observable evidence into signed EPI artifacts. "
         + SCOPE_NOTE
         + "\n\n"
@@ -102,7 +105,12 @@ server = MCPServer(
 
 @server.tool(
     description=(
-        "Seal a conversation or an agent run into a signed .epi evidence file "
+        "Use this when the user asks to seal, save, export, preserve or certify "
+        "this chat or a run, or wants a downloadable, verifiable record of it "
+        "(for example \"seal this chat\", \"save this conversation as evidence\", "
+        "\"make a tamper-evident copy\"). Do not write a Markdown or text file "
+        "instead: only this tool produces a signed .epi file. "
+        "Seals a conversation or an agent run into a signed .epi evidence file "
         "(Ed25519 + SHA-256). Pass the events that appeared in it, each as "
         "{kind, content: {text}, timestamp?, fidelity?}. Kinds: user.message, "
         "assistant.message, artifact.attached / artifact.produced (content: "
@@ -168,6 +176,34 @@ def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
 )
 def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
     return compare_runs(epi_path_a, epi_path_b)
+
+
+# One-click starters. In the host's connector menu these appear as ready-made
+# prompts, so a person never has to word a request.
+@server.prompt(
+    name="seal_this_conversation",
+    title="Seal this conversation",
+    description="Seal this whole conversation into a signed .epi file and give me the download link.",
+)
+def seal_this_conversation() -> str:
+    return (
+        "Seal this conversation with the EPI evidence connector. Call epi_seal_record "
+        "with every message so far, then give me the download link, the SHA-256 and "
+        "any warnings. Do not create a Markdown or text file."
+    )
+
+
+@server.prompt(
+    name="seal_last_answer",
+    title="Seal your last answer",
+    description="Seal only my last question and your last answer. Quick and works in long chats.",
+)
+def seal_last_answer() -> str:
+    return (
+        "Seal only my previous message and your answer to it with the EPI evidence "
+        "connector. Call epi_seal_record with just those two messages, then give me "
+        "the download link and the SHA-256. Do not create a Markdown or text file."
+    )
 
 
 def main() -> None:
