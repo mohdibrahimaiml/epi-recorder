@@ -112,9 +112,12 @@ server = MCPServer(
         "summary or hash_only. timestamp is ISO-8601 when the host shows one. "
         "Returns artifact_id, an expiring download_url, the SHA-256, a seal "
         "self-check, fidelity counts and warnings, and the file as base64 "
-        "unless include_bytes=false. "
+        "unless include_bytes=false or the file is large (then use download_url). "
         + SCOPE_NOTE
-    )
+    ),
+    # One copy only: the default also repeats the result as structured content,
+    # doubling a response that already carries the file.
+    structured_output=False,
 )
 def epi_seal_record(
     events: list[dict[str, Any]],

@@ -149,6 +149,8 @@ def _artifact_payload(epi_path: str | Path) -> dict[str, Any]:
     }
 
 
+# Largest base64 payload returned inline; leaves room under the 1 MiB MCP event limit.
+MAX_INLINE_B64 = 700_000
 MAX_EVENTS = 5000
 MAX_RECORD_BYTES = 8 * 1024 * 1024
 
@@ -203,10 +205,19 @@ def epi_seal_record_tool(
         "trust_level": check["trust_level"],
     }
     payload = _artifact_payload(sealed["epi_path"])
-    if include_bytes:
+    # MCP clients cap a single event at 1 MiB. The file travels as base64 (+33%),
+    # so past this size it is not inlined: the download link (and the server path
+    # on stdio) carry it instead. Keeps every response deliverable.
+    inline = include_bytes and len(payload["epi_b64"]) <= MAX_INLINE_B64
+    if inline:
         sealed.update(payload)
     else:
         sealed.update({k: v for k, v in payload.items() if k != "epi_b64"})
+        if include_bytes:
+            sealed["bytes_omitted"] = (
+                "The file is too large to include in this response. "
+                "Use download_url (or epi_path when running locally)."
+            )
     sealed["artifact_id"] = sealed["sha256"][:16]
     purge_expired_artifacts()
     _epi = Path(sealed["epi_path"]).resolve()
