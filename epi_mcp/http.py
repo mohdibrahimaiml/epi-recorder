@@ -311,6 +311,17 @@ def main() -> None:
             "set EPI_MCP_TOKEN or bind 127.0.0.1."
         )
 
+    import sys
+
+    if not (os.environ.get("EPI_OAUTH_SECRET") or os.environ.get("EPI_SIGNING_SEED") or "").strip():
+        print(
+            "[epi-mcp] WARNING: EPI_OAUTH_SECRET is not set. OAuth tokens fall back to the "
+            "static EPI_MCP_TOKEN as their signing key, and seal signing keys live on this "
+            "server's disk, so signers change when the disk is reset and cannot be pinned. "
+            "Set EPI_OAUTH_SECRET to a random 32+ character value.",
+            file=sys.stderr,
+        )
+
     import uvicorn
 
     uvicorn.run(build_app(), host=args.host, port=args.port, log_level="warning")

@@ -623,3 +623,43 @@ def test_epi_view_payload_carries_capture_manifest(monkeypatch, tmp_path):
     assert payload["capture_manifest"]["capture_path"] == "caller_provided"
     assert payload["capture_manifest"]["known_gaps"]
     assert payload["checkpoints"] == []
+
+
+def test_oauth_clients_and_refresh_survive_restart(monkeypatch):
+    """Registrations and refresh tokens are signed, not stored: wipe memory, still valid."""
+    pytest.importorskip("jwt")
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "s" * 40)
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://example.test")
+    from epi_mcp import oauth
+
+    reg = oauth.register_client({"redirect_uris": ["https://claude.ai/api/mcp/auth_callback"]})
+    access, refresh = oauth.mint_token("chatgpt-abc")
+    oauth.CLIENTS.clear(); oauth.CODES.clear(); oauth.REFRESH.clear(); oauth.SUBJECTS.clear()  # "restart"
+
+    assert oauth.redirect_allowed(reg["client_id"], "https://claude.ai/api/mcp/auth_callback")
+    assert not oauth.redirect_allowed(reg["client_id"], "https://evil.example/cb")
+    assert not oauth.redirect_allowed(reg["client_id"][:-1] + "0", "https://claude.ai/api/mcp/auth_callback")
+    out = oauth.redeem_refresh(refresh)
+    assert out and oauth.verify_own_token(out["access_token"]) == "chatgpt-abc"
+    assert oauth.redeem_refresh(refresh) is None              # rotated
+    assert oauth.redeem_refresh(access) is None               # access token is not a refresh token
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "t" * 40)          # different server secret
+    assert not oauth.redirect_allowed(reg["client_id"], "https://claude.ai/api/mcp/auth_callback")
+
+
+def test_signer_is_stable_across_restarts_when_seed_set(monkeypatch, tmp_path):
+    from epi_mcp.records import derived_signing_key, seal_record, verify_artifact
+
+    monkeypatch.setenv("EPI_SIGNING_SEED", "seed" * 12)
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys-a"))
+    a = seal_record([{"kind": "user.message", "content": "x"}], key_name="user-1")
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys-b"))   # fresh disk
+    b = seal_record([{"kind": "user.message", "content": "x"}], key_name="user-1")
+    c = seal_record([{"kind": "user.message", "content": "x"}], key_name="user-2")
+    sa, sb, sc = (verify_artifact(r["epi_path"])["signer"] for r in (a, b, c))
+    assert sa == sb != sc                                              # same caller, same signer
+    assert verify_artifact(a["epi_path"])["signature_valid"] is True
+    monkeypatch.delenv("EPI_SIGNING_SEED"); monkeypatch.delenv("EPI_OAUTH_SECRET", raising=False)
+    assert derived_signing_key("user-1") is None
+    monkeypatch.setenv("EPI_MCP_TOKEN", "bearer-token")                # static token must not seed keys
+    assert derived_signing_key("user-1") is None

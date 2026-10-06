@@ -64,8 +64,23 @@ Interpretation:
 
 OAuth honesty note: our approval binds a *pseudonymous per-approval
 subject* (control of the approving session, nothing more). It is not
-a verified human identity. Stores are in-memory: restarts wipe
-approvals, codes, and clients — fine for testing and single-operator
-use; production needs durable storage before this carries real trust.
+a verified human identity.
+
+Set `EPI_OAUTH_SECRET` (random, 32+ characters). It signs OAuth tokens
+and seeds each caller's signing key, so:
+
+- registered clients and refresh tokens are signed tokens and survive
+  restarts and a sleeping free-tier host (no database needed);
+- authorization codes live 10 minutes in memory, so a restart in the
+  middle of an approval forces one re-approval;
+- a caller's signer stays the same across restarts, so
+  `epi keys trust <file>.epi` pinning lasts. Without the secret the
+  signing key lives on the host's disk and changes whenever that disk
+  is reset.
+
+Treat the secret like a root key: whoever holds it can mint tokens and
+sign as any caller. Rotating it invalidates all tokens and changes every
+signer. Nothing is revocable before expiry except by rotating it. Do not
+rely on `EPI_MCP_TOKEN` alone in production.
 OIDC (`EPI_OIDC_*`) remains available for issuers with real user
 identity when that integration arrives.
