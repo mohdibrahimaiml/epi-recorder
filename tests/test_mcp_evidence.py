@@ -638,7 +638,12 @@ def test_oauth_clients_and_refresh_survive_restart(monkeypatch):
 
     assert oauth.redirect_allowed(reg["client_id"], "https://claude.ai/api/mcp/auth_callback")
     assert not oauth.redirect_allowed(reg["client_id"], "https://evil.example/cb")
-    assert not oauth.redirect_allowed(reg["client_id"][:-1] + "0", "https://claude.ai/api/mcp/auth_callback")
+    # Flip (not just rewrite) the last MAC char: [:-1] + "0" is a no-op 1/16
+    # of the time when it already ends in "0", which made this test flaky.
+    last, flipped = reg["client_id"][-1], "0"
+    if last == "0":
+        flipped = "1"
+    assert not oauth.redirect_allowed(reg["client_id"][:-1] + flipped, "https://claude.ai/api/mcp/auth_callback")
     out = oauth.redeem_refresh(refresh)
     assert out and oauth.verify_own_token(out["access_token"]) == "chatgpt-abc"
     assert oauth.redeem_refresh(refresh) is None              # rotated
