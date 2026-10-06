@@ -739,3 +739,22 @@ def test_oversized_records_get_a_clear_way_forward(monkeypatch, tmp_path):
             epi_seal_record_tool(many)
     finally:
         _current_subject.set(None)
+
+
+def test_decision_without_a_decision_field_is_flagged(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    from epi_mcp.records import seal_record
+
+    r = seal_record([
+        {"kind": "user.message", "content": {"text": "q"}, "fidelity": "verbatim"},
+        {"kind": "agent.decision", "content": {"text": "chose option A"}},
+        {"kind": "agent.decision", "content": {"decision": "approve", "rationale": "ok"}},
+    ])
+    assert any("1 agent.decision events have no decision field" in w for w in r["fidelity"]["warnings"])
+
+
+def test_usage_notes_ask_for_long_messages_in_full_and_describe_decisions():
+    import epi_mcp.server as srv
+
+    assert "in full" in srv.SEAL_GUIDE and "bulky tool output" in srv.SEAL_GUIDE
+    assert '"decision"' in srv.SEAL_GUIDE

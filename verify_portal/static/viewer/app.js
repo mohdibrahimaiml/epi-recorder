@@ -137,7 +137,7 @@ function summarizeStep(step) {
       }
 
       case 'agent.decision': {
-        const decision = String(c.decision || c.verdict || '?').toUpperCase();
+        const decision = String(c.decision || c.verdict || c.outcome || c.text || c.summary || '?').toUpperCase();
         const rationale = c.rationale || c.reasoning || c.reason || '';
         return `Decision: ${decision}${rationale ? ' — ' + trunc(rationale, 160) : ''}`;
       }
