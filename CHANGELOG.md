@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [4.5.1] - 2026-10-06
+## [Unreleased]
 
 ### Fixed
 
