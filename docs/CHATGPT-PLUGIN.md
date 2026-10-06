@@ -78,6 +78,12 @@ and seeds each caller's signing key, so:
   signing key lives on the host's disk and changes whenever that disk
   is reset.
 
+Set `EPI_APPROVE_PASSPHRASE` too if the server is on the public internet. The
+approve page then asks for it, so only people you give it to can authorize a
+connector. Without it, anyone who finds the URL can approve themselves. Sealed
+files are also capped per caller (50 files / 200 MB) and server-wide (1 GB) while
+they wait for download; they are deleted 24 h after sealing.
+
 Treat the secret like a root key: whoever holds it can mint tokens and
 sign as any caller. Rotating it invalidates all tokens and changes every
 signer. Nothing is revocable before expiry except by rotating it. Do not

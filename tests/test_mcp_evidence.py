@@ -792,3 +792,74 @@ def test_seal_response_never_exceeds_the_mcp_event_limit(monkeypatch, tmp_path):
     assert big_total < 1_048_576
     assert "epi_b64" not in big and "bytes_omitted" in big      # falls back to the link/path
     assert big["filename"] and big["sha256"]
+
+
+def test_approve_page_requires_passphrase_when_configured(tmp_path, monkeypatch):
+    import pytest as _pytest
+
+    starlette_test = _pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "x" * 32)
+    monkeypatch.setenv("EPI_APPROVE_PASSPHRASE", "open-sesame")
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    reg = client.post("/oauth/register", json={"redirect_uris": ["https://chat.example/cb"]}).json()
+    q = "client_id=" + reg["client_id"] + "&redirect_uri=https://chat.example/cb&state=s"
+    page = client.get("/oauth/authorize?" + q)
+    assert 'type="password"' in page.text
+
+    wrong = client.post("/oauth/approve?" + q, data={"decision": "approve", "passphrase": "nope"},
+                        follow_redirects=False)
+    assert wrong.status_code == 403 and "code=" not in wrong.headers.get("location", "")
+    missing = client.post("/oauth/approve?" + q, data={"decision": "approve"}, follow_redirects=False)
+    assert missing.status_code == 403
+    ok = client.post("/oauth/approve?" + q, data={"decision": "approve", "passphrase": "open-sesame"},
+                     follow_redirects=False)
+    assert ok.status_code == 303 and "code=" in ok.headers["location"]
+    deny = client.post("/oauth/approve?" + q, data={"decision": "deny"}, follow_redirects=False)
+    assert "access_denied" in deny.headers["location"]
+
+
+def test_no_passphrase_means_no_password_field(monkeypatch):
+    import pytest as _pytest
+
+    starlette_test = _pytest.importorskip("starlette.testclient")
+    monkeypatch.setenv("EPI_OAUTH_SECRET", "x" * 32)
+    monkeypatch.delenv("EPI_APPROVE_PASSPHRASE", raising=False)
+
+    from epi_mcp.http import build_app
+
+    client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
+    reg = client.post("/oauth/register", json={"redirect_uris": ["https://chat.example/cb"]}).json()
+    page = client.get("/oauth/authorize", params={
+        "client_id": reg["client_id"], "redirect_uri": "https://chat.example/cb", "state": "s"})
+    assert 'type="password"' not in page.text
+
+
+def test_storage_quota_refuses_seal_and_frees_after_purge(tmp_path, monkeypatch):
+    from epi_mcp import tools
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setattr(tools, "MAX_LIVE_ARTIFACTS_PER_CALLER", 1)
+    tools._ARTIFACT_OWNER.clear()
+    tools._ARTIFACT_EXPIRY.clear()
+    tok = _current_subject.set("quota-caller")
+    try:
+        first = epi_seal_record_tool(_events(), goal="one", include_bytes=False)
+        assert first["artifact_id"] in tools._ARTIFACT_OWNER
+        import pytest as _pytest
+
+        with _pytest.raises(ValueError, match="quota"):
+            epi_seal_record_tool(_events(), goal="two", include_bytes=False)
+        # Another caller is unaffected by this caller's quota.
+        _current_subject.set("other-caller")
+        epi_seal_record_tool(_events(), goal="three", include_bytes=False)
+        # Expiry frees the first caller's space.
+        _current_subject.set("quota-caller")
+        tools.purge_expired_artifacts(now=10**12)
+        epi_seal_record_tool(_events(), goal="four", include_bytes=False)
+    finally:
+        _current_subject.reset(tok)
+        tools.purge_expired_artifacts(now=10**12)
