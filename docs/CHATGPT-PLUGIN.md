@@ -117,6 +117,25 @@ by a test, so it does not add risky phrasing. If a chat is paused anyway, edit a
 with one of the wordings above, or use **+** → the EPI connector →
 **Seal this conversation**.
 
+### Sealing without a chat model: the /seal page
+
+Sealing through a chat host means the model re-types the whole conversation into a tool
+call. Hosts can pause that, and a model can shorten the text or get times wrong. For
+anything that matters, seal the conversation itself instead:
+
+1. Open `<your server>/seal`.
+2. **Upload your chat export** (`conversations.json` from your Claude or ChatGPT data
+   export, found in the account's settings), **or paste the conversation** (lines such
+   as `You:` / `Claude:` are read as turns).
+3. Click **Seal it**. You get the same view and download links, with the exact words and
+   the times the export recorded. No model is involved, so nothing can be paused.
+
+An export with several conversations asks which number to seal. The original file's
+SHA-256 is recorded as the first event, so anyone holding the export can match it. Pasted
+text carries no times. What this proves is that the text is unchanged since sealing, not
+that it came from Claude or ChatGPT. Limits: 3 MB per upload, 10 seals an hour per
+connection, files kept 24 hours.
+
 ### Viewing the sealed file (nothing to install)
 
 Every seal returns two links. **`view_url`** opens the sealed record in any browser

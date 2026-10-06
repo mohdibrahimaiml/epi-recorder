@@ -139,6 +139,159 @@ async def _view_artifact(request: Request):
     )
 
 
+_SEAL_WINDOW_SECONDS = 3600
+_SEAL_MAX_PER_WINDOW = 10
+_SEAL_HITS: dict[str, list[float]] = {}
+
+_PAGE_CSS = (
+    "body{font-family:system-ui,sans-serif;max-width:46em;margin:2.5em auto;padding:0 1em;line-height:1.5;"
+    "color:#1b1f23;background:#fff}h1{font-size:1.5em}textarea{width:100%;min-height:12em;font:inherit}"
+    "label{font-weight:600;display:block;margin-top:1em}button{margin-top:1em;padding:.6em 1.2em;font:inherit}"
+    ".note{background:#f4f6f8;border-left:4px solid #8a94a0;padding:.6em 1em;margin:1em 0}"
+    ".err{background:#fdf0ef;border-left:4px solid #c0392b;padding:.6em 1em;margin:1em 0}"
+    "code{background:#f4f6f8;padding:.1em .3em;word-break:break-all}"
+    "@media (prefers-color-scheme:dark){body{background:#14171a;color:#e6e8ea}.note,code{background:#222830}"
+    ".err{background:#33201f}a{color:#7db7ff}}"
+)
+
+
+def _seal_page(body: str, status: int = 200) -> HTMLResponse:
+    return HTMLResponse(
+        "<!doctype html><html lang=en><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        f"<title>Seal a conversation</title><style>{_PAGE_CSS}</style></head><body>{body}</body></html>",
+        status_code=status,
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex"},
+    )
+
+
+def _seal_form(message: str = "", extra: str = "") -> str:
+    import html as _html
+
+    msg = f'<div class="err">{_html.escape(message)}</div>' if message else ""
+    return (
+        "<h1>Seal a conversation</h1>"
+        "<p>Make a signed, tamper-evident record of a Claude or ChatGPT conversation. "
+        "No chat model is involved, so nothing can be paused or shortened.</p>"
+        f"{msg}{extra}"
+        '<form method="post" action="/seal" enctype="multipart/form-data">'
+        '<label for="file">Upload your chat export (conversations.json)</label>'
+        '<input id="file" type="file" name="file" accept=".json,.txt,.md">'
+        '<label for="text">Or paste the conversation</label>'
+        '<textarea id="text" name="text" placeholder="Paste here. Lines like &quot;You:&quot; / &quot;Claude:&quot; '
+        'are read as turns."></textarea>'
+        '<label for="conversation">If your export has several conversations, which number? (optional)</label>'
+        '<input id="conversation" name="conversation" type="number" min="1" style="width:6em">'
+        '<p><button type="submit">Seal it</button></p></form>'
+        '<div class="note"><strong>What this proves.</strong> The sealed file holds exactly what you gave us, and any '
+        "later change to it is detectable. EPI does not check that the text really came from Claude or ChatGPT. "
+        "Files are kept for 24 hours, so download yours. Anyone can check a saved file at "
+        '<a href="https://epilabs.org/verify">epilabs.org/verify</a>.</div>'
+    )
+
+
+async def _seal_get(request: Request):
+    return _seal_page(_seal_form())
+
+
+def _client_key(request: Request) -> str:
+    # The proxy in front appends the real address last; earlier entries can be forged.
+    fwd = (request.headers.get("x-forwarded-for") or "").split(",")[-1].strip()
+    return fwd or (request.client.host if request.client else "unknown")
+
+
+async def _seal_post(request: Request):
+    import hashlib
+    import html as _html
+    import time as _time
+
+    from starlette.concurrency import run_in_threadpool
+
+    from epi_mcp import tools as _tools
+    from epi_mcp.transcripts import MAX_INPUT_BYTES, NeedsChoice, TranscriptError, parse_transcript
+
+    key = _client_key(request)
+    now = _time.time()
+    hits = [t for t in _SEAL_HITS.get(key, []) if now - t < _SEAL_WINDOW_SECONDS]
+    if len(hits) >= _SEAL_MAX_PER_WINDOW:
+        _SEAL_HITS[key] = hits
+        return _seal_page(_seal_form("Too many seals from this connection in the last hour. Please try again later."), 429)
+
+    if int(request.headers.get("content-length") or 0) > MAX_INPUT_BYTES + 512 * 1024:
+        return _seal_page(_seal_form("That is too large. Export or paste a single conversation (limit 3 MB)."), 413)
+    try:
+        form = await request.form(max_part_size=MAX_INPUT_BYTES + 1024)
+    except Exception:
+        return _seal_page(_seal_form("That upload could not be read. Try pasting the text instead."), 400)
+
+    upload = form.get("file")
+    raw: bytes | str = b""
+    filename = ""
+    if upload is not None and hasattr(upload, "read"):
+        raw = await upload.read()
+        filename = getattr(upload, "filename", "") or ""
+    if not raw:
+        raw = str(form.get("text") or "")
+    choice_raw = str(form.get("conversation") or "").strip()
+    choice = int(choice_raw) if choice_raw.isdigit() else None
+
+    try:
+        parsed = parse_transcript(raw, filename=filename, choice=choice)
+    except NeedsChoice as exc:
+        items = "".join(f"<li>{i}. {_html.escape(t[:100])}</li>" for i, t in enumerate(exc.titles[:60], 1))
+        more = f"<li>… and {len(exc.titles) - 60} more</li>" if len(exc.titles) > 60 else ""
+        return _seal_page(
+            _seal_form(
+                "That file has several conversations. Choose one by number and upload it again.",
+                f"<ol style='list-style:none;padding:0'>{items}{more}</ol>",
+            )
+        )
+    except TranscriptError as exc:
+        return _seal_page(_seal_form(str(exc)), 400)
+
+    subject = "web-" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+    def _do_seal():
+        token = _tools._current_subject.set(subject)
+        try:
+            return _tools.epi_seal_record_tool(parsed["events"], goal=parsed["goal"], include_bytes=False)
+        finally:
+            _tools._current_subject.reset(token)
+
+    try:
+        sealed = await run_in_threadpool(_do_seal)
+    except (ValueError, PermissionError) as exc:
+        return _seal_page(_seal_form(str(exc)), 400)
+    hits.append(now)
+    _SEAL_HITS[key] = hits
+
+    base = (os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/") or str(request.base_url).rstrip("/")
+    aid = sealed["artifact_id"]
+    token = _tools._issue_download_token(aid)
+    view, dl = f"{base}/view/{aid}?t={token}", f"{base}/artifacts/{aid}?t={token}"
+    counts = sealed.get("summary_counts", {}).get("by_kind", {})
+    warns = "".join(f"<li>{_html.escape(w)}</li>" for w in sealed.get("warnings", []))
+    how = {
+        "export": "read from your chat export, with the times it recorded",
+        "labelled-text": "read from your pasted text by its speaker labels (no times)",
+        "single-text": "sealed as one block of text, because no speaker labels were found",
+    }[parsed["how"]]
+    body = (
+        "<h1>Sealed</h1>"
+        f"<p>{sealed['steps_sealed']} items {how}. "
+        f"({counts.get('user.message', 0)} from you, {counts.get('assistant.message', 0)} from the assistant.)</p>"
+        f'<p><a href="{_html.escape(view, quote=True)}"><strong>View it now</strong></a> &nbsp;·&nbsp; '
+        f'<a href="{_html.escape(dl, quote=True)}">Download the .epi file</a> (kept for 24 hours)</p>'
+        f"<p>SHA-256: <code>{_html.escape(sealed['sha256'])}</code></p>"
+        + (f"<p>Things to know:</p><ul>{warns}</ul>" if warns else "")
+        + '<div class="note">Anyone can check a saved file at <a href="https://epilabs.org/verify">'
+        "epilabs.org/verify</a>; nothing needs installing. The seal shows the text has not changed since sealing. "
+        "It does not prove the text came from Claude or ChatGPT.</div>"
+        '<p><a href="/seal">Seal another</a></p>'
+    )
+    return _seal_page(body)
+
+
 def _favicon_path():
     from pathlib import Path as _Path
 
@@ -424,6 +577,8 @@ def build_app() -> Starlette:
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/view/{artifact_id}", _view_artifact),
+        Route("/seal", _seal_get, methods=["GET"]),
+        Route("/seal", _seal_post, methods=["POST"]),
         Route("/favicon.ico", _serve_favicon),
         Route("/.well-known/oauth-authorization-server", _oauth_metadata),
         Route("/.well-known/oauth-authorization-server/{rest:path}", _oauth_metadata),

@@ -14,6 +14,11 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Seal a conversation without a chat model: `/seal` page.** Upload a Claude or ChatGPT
+  chat export (or paste the text) and get a sealed `.epi` with the exact words and the export's
+  real times, plus the same view and download links. Sealing through a chat host makes the model
+  re-type the whole conversation into a tool call, which hosts can pause and a model can shorten.
+  The original export's SHA-256 is recorded as the first event. Public, size- and rate-limited.
 - **View a sealed file in the browser with nothing installed.** Each seal now returns a
   `view_url` (alongside `download_url`) that opens the sealed record as a web page, sandboxed
   and protected by the same expiring link token, and a `how_to_view` note that points to
