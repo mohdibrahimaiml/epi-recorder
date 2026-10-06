@@ -19,8 +19,8 @@ from typing import Any
 from epi_mcp.records import SCOPE_NOTE, export_summary, seal_record, verify_artifact
 
 NOT_CAPTURED = [
-    "hidden reasoning",
-    "inaccessible system state",
+    "content the caller did not supply",
+    "system state not visible to the caller",
     "unobserved external actions",
 ]
 
@@ -149,6 +149,28 @@ def _artifact_payload(epi_path: str | Path) -> dict[str, Any]:
     }
 
 
+MAX_EVENTS = 5000
+MAX_RECORD_BYTES = 8 * 1024 * 1024
+
+
+def _check_size(events: list[dict[str, Any]]) -> None:
+    """Refuse records the host cannot reliably deliver, with a way forward."""
+    import json
+
+    if len(events) > MAX_EVENTS:
+        raise ValueError(
+            f"Too many events ({len(events)} > {MAX_EVENTS}). Seal the conversation in "
+            "parts, or send long tool output as fidelity=hash_only with its sha256."
+        )
+    size = len(json.dumps(events, default=str).encode("utf-8"))
+    if size > MAX_RECORD_BYTES:
+        raise ValueError(
+            f"Record too large ({size // (1024 * 1024)} MB > {MAX_RECORD_BYTES // (1024 * 1024)} MB). "
+            "Seal in parts, or send large attachments and tool output as "
+            "fidelity=hash_only with their sha256."
+        )
+
+
 def epi_seal_record_tool(
     events: list[dict[str, Any]],
     goal: str = "MCP caller-provided record",
@@ -163,6 +185,7 @@ def epi_seal_record_tool(
     """
     from epi_mcp.auth import subject_key
 
+    _check_size(events)
     subject = get_current_subject()
     if subject is None:
         raise PermissionError(

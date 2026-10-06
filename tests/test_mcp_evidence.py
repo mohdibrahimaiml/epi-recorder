@@ -77,7 +77,7 @@ def test_seal_tool_returns_file_bytes(isolated_keys, tmp_path):
     assert result["filename"] == "b.epi"
     assert result["scope"] == "caller-provided"
     assert result["seal_check"]["signature_valid"] is True
-    assert "hidden reasoning" in " ".join(result["not_captured"])
+    assert "did not supply" in " ".join(result["not_captured"])
 
 
 def test_http_lists_and_seals(isolated_keys, tmp_path):
@@ -701,3 +701,36 @@ def test_operator_chosen_output_path_is_never_deleted(monkeypatch, tmp_path):
     assert sealed["artifact_id"] not in tools._ARTIFACT_EXPIRY
     purge_expired_artifacts(now=10**12)
     assert out.exists()
+
+
+def test_model_facing_text_avoids_trigger_phrases():
+    """Tool text the host model reads must state scope without phrases that
+    safety classifiers can misread as a request to expose reasoning."""
+    import inspect
+
+    import epi_mcp.server as srv
+    from epi_mcp.records import SCOPE_NOTE
+    from epi_mcp.tools import NOT_CAPTURED
+
+    texts = [SCOPE_NOTE, " ".join(NOT_CAPTURED), srv.SEAL_GUIDE, inspect.getsource(srv)]
+    for tool in srv.server._tool_manager.list_tools() if hasattr(srv.server, "_tool_manager") else []:
+        texts.append(getattr(tool, "description", "") or "")
+    blob = " ".join(texts).lower()
+    for phrase in ("hidden reasoning", "model-internal", "chain-of-thought", "reasoning extraction"):
+        assert phrase not in blob, phrase
+
+
+def test_oversized_records_get_a_clear_way_forward(monkeypatch, tmp_path):
+    _keys(monkeypatch, tmp_path)
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    _current_subject.set("someone")
+    try:
+        big = [{"kind": "tool.response", "content": {"result": "x" * (9 * 1024 * 1024)}}]
+        with pytest.raises(ValueError, match="hash_only"):
+            epi_seal_record_tool(big)
+        many = [{"kind": "user.message", "content": "a"}] * 5001
+        with pytest.raises(ValueError, match="in parts"):
+            epi_seal_record_tool(many)
+    finally:
+        _current_subject.set(None)

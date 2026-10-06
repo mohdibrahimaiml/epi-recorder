@@ -44,7 +44,7 @@ CapturePath = Literal["gateway", "sdk_wrapper", "caller_provided", "mixed", "unk
 # sealer). The recorder SDK/gateway gaps above do not apply to them.
 CALLER_PROVIDED_GAPS: list[str] = [
     "events were supplied by the caller; the sealer did not observe the originating run",
-    "hidden reasoning and inaccessible system state are not captured",
+    "content the caller did not supply, and system state not visible to it, are not captured",
     "completeness of the timeline is not established by the seal",
 ]
 GatewayEnforcement = Literal["fail_closed", "fail_open", "mixed", "not_applicable"]
