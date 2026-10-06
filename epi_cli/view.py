@@ -405,6 +405,21 @@ def _read_json_if_exists(path: Path) -> dict | list | None:
         return None
 
 
+def _read_checkpoints_if_exist(extracted_dir: Path) -> list[dict]:
+    cp_dir = extracted_dir / "artifacts" / "checkpoints"
+    if not cp_dir.is_dir():
+        return []
+    records: list[dict] = []
+    for p in sorted(cp_dir.glob("*.json")):
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(rec, dict):
+            records.append(rec)
+    return sorted(records, key=lambda r: int(r.get("index", 0) or 0))
+
+
 def _read_text_if_exists(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -562,6 +577,11 @@ def _build_preloaded_case_payload(extracted_dir: Path, resolved_path: Path) -> d
         # or older artifacts — viewer hides the panel when null.
         "notarization": _notarization_evidence,
         "notarization_tsa_time": _notarization_tsa_time,
+        # Stated capture scope + forward-secure checkpoints, as the pack-time
+        # viewer carries them. Omitting these made every artifact opened via
+        # `epi view` read "scope undeclared (pre-v artifact)".
+        "capture_manifest": _read_json_if_exists(extracted_dir / "artifacts" / "manifest.json"),
+        "checkpoints": _read_checkpoints_if_exist(extracted_dir),
         "stdout": _read_text_if_exists(extracted_dir / "stdout.log"),
         "stderr": _read_text_if_exists(extracted_dir / "stderr.log"),
         "files": _files,

@@ -604,3 +604,22 @@ def test_source_type_and_tool_name_and_omission_counts(monkeypatch, tmp_path):
     assert any("1 tool.call events have no tool name" in w for w in r["fidelity"]["warnings"])
     counts = summarize_steps(events)
     assert counts["omissions_declared"] == 1 and counts["redactions"] == 0
+
+
+def test_epi_view_payload_carries_capture_manifest(monkeypatch, tmp_path):
+    """`epi view` must show the declared scope, not 'undeclared (pre-v artifact)'."""
+    _keys(monkeypatch, tmp_path)
+    import zipfile
+
+    from pathlib import Path
+
+    from epi_cli.view import _build_preloaded_case_payload
+    from epi_mcp.records import seal_record
+
+    r = seal_record([{"kind": "user.message", "content": {"text": "hi"}}])
+    out = tmp_path / "x"
+    zipfile.ZipFile(r["epi_path"]).extractall(out)
+    payload = _build_preloaded_case_payload(out, Path(r["epi_path"]))
+    assert payload["capture_manifest"]["capture_path"] == "caller_provided"
+    assert payload["capture_manifest"]["known_gaps"]
+    assert payload["checkpoints"] == []
