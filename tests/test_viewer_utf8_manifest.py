@@ -98,3 +98,19 @@ def test_viewer_shows_sealer_caveats_at_the_timeline(monkeypatch, tmp_path):
         {"kind": "assistant.message", "content": {"text": "b"}, "timestamp": "2026-10-05T10:00:05Z", "fidelity": "verbatim"},
     ])
     assert _render(zipfile.ZipFile(clean["epi_path"]).read("viewer.html"), tmp_path) is None
+
+
+def test_no_copy_of_the_viewer_latin1_manifest_decode_remains():
+    """Static demos and hosted pages embed their own copy of the viewer code."""
+    needle = "atob(caseData.files['manifest.json'])"
+    skip = {"node_modules", "build", ".git", "dist", "__pycache__"}
+    offenders = []
+    for path in REPO.rglob("*"):
+        if path.suffix not in {".html", ".js"} or any(part in skip for part in path.parts):
+            continue
+        try:
+            if needle in path.read_text(encoding="utf-8", errors="ignore"):
+                offenders.append(str(path.relative_to(REPO)))
+        except OSError:
+            continue
+    assert not offenders, offenders[:5]
