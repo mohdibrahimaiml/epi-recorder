@@ -204,3 +204,16 @@ def test_github_username_is_shown_as_a_handle(monkeypatch, tmp_path):
           "username": "octocat", "profile_url": "https://github.com/octocat", "email_verified": False}
     r = _render(_seal_identity(monkeypatch, tmp_path, gh), tmp_path)
     assert "signed in as @octocat" in r["pills"].lower()
+
+
+def test_server_assigned_times_say_received_not_a_zero_offset(monkeypatch, tmp_path):
+    """A chat host gives no per-message times; "+0.000s" on every row would read as a measured gap."""
+    untimed = [{"kind": "user.message", "content": {"text": "hi"}}, {"kind": "assistant.message", "content": {"text": "yo"}}]
+    html, _ = _seal(monkeypatch, tmp_path, untimed)
+    body = _render(html, tmp_path)["body"]
+    assert "+0.000s" not in body and "received" in body.lower()
+
+
+def test_caller_times_still_show_offsets(monkeypatch, tmp_path):
+    html, _ = _seal(monkeypatch, tmp_path, EVENTS)
+    assert "+1.000s" in _render(html, tmp_path)["body"]
