@@ -4,6 +4,17 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A slow public time-stamp service could make a hosted seal fail.** Every seal waits for a free RFC 3161
+  service (freetsa.org) for up to 30 seconds. When it was slow or down, the seal call outlasted what the
+  chat host would wait and the host reported a server error, even though nothing was wrong with the record.
+  The hosted server now waits at most 6 seconds (`EPI_TSA_TIMEOUT`; the local CLI keeps 30), seals without the
+  timestamp, and adds a warning that no trusted timestamp was obtained. The signature and hash chain are
+  unaffected.
+- Remote callers no longer get the whole sealed file back as base64 text when view and download links exist
+  (a small chat was over half a megabyte, filling the chat model's context). Local and stdio use is unchanged.
+
 ### Security
 
 - **Hosted connector: every approved caller signed with one shared key, and a caller could choose where

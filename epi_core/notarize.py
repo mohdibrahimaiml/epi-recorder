@@ -141,6 +141,17 @@ def _parse_tsr_gen_time(token: bytes | None) -> str | None:
     return None
 
 
+def _tsa_timeout() -> httpx.Timeout:
+    """How long to wait for the time-stamp service. EPI_TSA_TIMEOUT (seconds) overrides the 30 s default;
+    the hosted evidence server sets a few seconds so a slow public service can never hold a seal hostage."""
+    try:
+        total = float(os.environ.get("EPI_TSA_TIMEOUT") or 30.0)
+    except ValueError:
+        total = 30.0
+    total = max(0.5, total)
+    return httpx.Timeout(total, connect=min(total, 5.0))
+
+
 def _submit_rfc3161(digest_hex: str, tsa_url: str = DEFAULT_TSA_URL) -> Optional[bytes]:
     """
     Submit a SHA-256 digest to a Time Stamp Authority and return the .tsr token.
@@ -165,7 +176,7 @@ def _submit_rfc3161(digest_hex: str, tsa_url: str = DEFAULT_TSA_URL) -> Optional
             tsa_url,
             content=query_bytes,
             headers={"Content-Type": "application/timestamp-query"},
-            timeout=30.0,
+            timeout=_tsa_timeout(),
         )
         resp.raise_for_status()
     except (httpx.HTTPError, OSError):

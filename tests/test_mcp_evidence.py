@@ -1000,3 +1000,103 @@ def test_every_tool_has_a_title_inside_its_annotations_as_the_directory_requires
     for t in tools:
         assert t.annotations is not None and t.annotations.title, t.name
         assert t.annotations.title == t.title
+
+
+# ---- a slow public time-stamp service must never hold a seal hostage -------------------------------
+
+
+@pytest.fixture
+def slow_tsa(monkeypatch):
+    """A time-stamp service that accepts the request and then takes far too long to answer."""
+    import http.server
+    import threading
+    import time
+
+    class Slow(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            time.sleep(30)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    monkeypatch.setenv("EPI_TSA_URL", f"http://127.0.0.1:{srv.server_address[1]}/tsr")
+    monkeypatch.setenv("EPI_NOTARIZE", "1")
+    yield srv
+    srv.shutdown()
+
+
+def test_a_slow_timestamp_service_delays_a_seal_by_seconds_not_half_a_minute(slow_tsa, tmp_path, monkeypatch):
+    import time
+
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_TSA_TIMEOUT", "2")
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("someone")
+    try:
+        t0 = time.time()
+        sealed = epi_seal_record_tool(_events(), goal="slow tsa", include_bytes=False)
+        elapsed = time.time() - t0
+    finally:
+        _current_subject.reset(tok)
+    assert elapsed < 8, f"seal took {elapsed:.1f}s"
+    assert sealed["seal_check"]["signature_valid"] is True and sealed["seal_check"]["integrity_ok"] is True
+    assert any("No trusted timestamp" in w for w in sealed["warnings"])
+
+
+def test_the_hosted_server_waits_only_a_few_seconds_for_the_timestamp_service_by_default(monkeypatch):
+    import subprocess
+    import sys
+
+    code = (
+        "import os; os.environ.pop('EPI_TSA_TIMEOUT', None); import epi_mcp.tools; "
+        "from epi_core.notarize import _tsa_timeout; t = _tsa_timeout(); print(t.read, t.connect)"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.split()
+    assert float(out[0]) <= 10 and float(out[1]) <= 5
+    from epi_core.notarize import _tsa_timeout
+
+    monkeypatch.delenv("EPI_TSA_TIMEOUT", raising=False)
+    assert _tsa_timeout().read == 30.0  # the local CLI keeps its patient default
+    monkeypatch.setenv("EPI_TSA_TIMEOUT", "not-a-number")
+    assert _tsa_timeout().read == 30.0
+
+
+def test_no_timestamp_warning_is_absent_when_notarization_is_switched_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_NOTARIZE", "0")
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("someone")
+    try:
+        sealed = epi_seal_record_tool(_events(), include_bytes=False)
+    finally:
+        _current_subject.reset(tok)
+    assert not any("trusted timestamp" in w for w in sealed["warnings"])
+
+
+def test_remote_callers_get_links_not_the_whole_file_as_text(tmp_path, monkeypatch):
+    """A small chat is over half a megabyte of base64; the chat model needs the links, not the bytes."""
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_NOTARIZE", "0")
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://epi.example")
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("remote-caller")
+    try:
+        remote = epi_seal_record_tool(_events(), include_bytes=True)
+    finally:
+        _current_subject.reset(tok)
+    assert "epi_b64" not in remote and remote["view_url"] and remote["download_url"]
+    assert len(__import__("json").dumps(remote)) < 20_000
+    # Without public links there is no other way to hand over the file, so it still comes inline.
+    monkeypatch.delenv("EPI_MCP_PUBLIC_URL")
+    tok = _current_subject.set("remote-caller")
+    try:
+        inline = epi_seal_record_tool(_events(), include_bytes=True)
+    finally:
+        _current_subject.reset(tok)
+    assert inline.get("epi_b64")
