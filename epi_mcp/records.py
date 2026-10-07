@@ -103,6 +103,24 @@ _SOURCE_TYPE_BY_KIND = {
 }
 _SOURCE_TYPES = ("user", "tool", "reasoning", "system")
 
+# Chat models often invent near-miss kind names. Map the unambiguous ones to the
+# canonical kind so the viewer, the source label and the "no user message" check
+# treat them correctly. The name the caller sent is kept in the step's provenance.
+_KIND_ALIASES = {
+    "user_request": "user.message",
+    "user_message": "user.message",
+    "user.request": "user.message",
+    "user": "user.message",
+    "assistant_response": "assistant.message",
+    "assistant_message": "assistant.message",
+    "assistant.response": "assistant.message",
+    "assistant": "assistant.message",
+    "tool_call": "tool.call",
+    "tool_response": "tool.response",
+    "tool_result": "tool.response",
+    "tool.result": "tool.response",
+}
+
 
 def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalize caller events without inventing content or times.
@@ -129,6 +147,8 @@ def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             content = {"text": content}
         content = dict(content)
 
+        sent_kind = str(raw.get("kind") or "custom")
+        kind = _KIND_ALIASES.get(sent_kind.strip().lower(), sent_kind)
         caller_ts = _parse_ts(raw.get("ts")) or _parse_ts(raw.get("timestamp"))
         fidelity = raw.get("fidelity")
         extras = {
@@ -146,11 +166,13 @@ def _normalize_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "received_at": received,
             "fidelity": fidelity if fidelity in FIDELITY_VALUES else "unspecified",
         }
+        if kind != sent_kind:
+            content["_epi_provenance"]["caller_kind"] = sent_kind
         if extras:
             content["_caller_fields"] = extras
         step: dict[str, Any] = {
             "index": i,
-            "kind": str(raw.get("kind") or "custom"),
+            "kind": kind,
             "timestamp": caller_ts or received,
             "content": content,
         }

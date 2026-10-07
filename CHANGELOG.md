@@ -6,6 +6,12 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **`epi_verify`, `epi_export_summary` and `epi_compare_runs` now accept `artifact_id`.** Their descriptions told the chat
+  assistant to pass the artifact id, but the parameter was named `epi_path`, so the call was rejected. Both names work.
+- **Near-miss event kinds are read as the real ones.** Chat models often send `user_request`, `assistant_response` or
+  `tool_call`. The sealer mapped none of them, so it warned "No user message" on a record full of user messages and the viewer
+  labelled them wrongly. These now map to `user.message`, `assistant.message`, `tool.call` and so on, and the name the
+  caller sent is kept in the step's provenance.
 - **Viewer no longer shows `+0.000s` on every row of a chat seal.** Chat hosts give no per-message times, so the sealer
   stamps its own receive time. Those rows now say "received" instead of an offset that reads as a measured gap.
   Times a caller supplied still show offsets. The trusted RFC 3161 timestamp on the file is unchanged.
@@ -32,6 +38,9 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **The wording Claude and ChatGPT read from the connector states facts instead of giving orders.** Phrases such as
+  "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
+  cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
 - Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
 
 ### Changed

@@ -56,22 +56,21 @@ from epi_mcp.tools import (
 
 SEAL_GUIDE = (
     "Notes for sealing a conversation or a run\n"
-    "1. Seal the conversation or task the user asked about. If it is unclear "
-    "which one is meant, ask one short question first.\n"
-    "2. Send messages as they appeared, and set fidelity to match what was "
+    "1. The record covers the conversation or task the user asked about; if it "
+    "is unclear which one, one short question settles it.\n"
+    "2. Messages go in as they appeared, with fidelity matching what was "
     "sent: verbatim, summary, or hash_only (with a sha256).\n"
-    "3. Send a timestamp only if the chat shows one; otherwise leave it out "
-    "and the server records its own receive time and flags it.\n"
-    "4. Replace passwords, keys and other people's personal data with "
-    "[REDACTED]. If something is left out on purpose, add a redaction.omitted "
-    "event saying what kind of content and why.\n"
-    "5. If sealing fails, tell the user nothing was sealed. Files come from "
+    "3. A timestamp is included only when the chat shows one; otherwise the "
+    "server records its own receive time and flags it.\n"
+    "4. Passwords, keys and other people's personal data are best shown as "
+    "[REDACTED]. Anything left out on purpose can be noted with a "
+    "redaction.omitted event saying what kind of content and why.\n"
+    "5. If sealing fails, nothing was sealed. Signed files come only from "
     "epi_seal_record; a file assembled by hand will not verify.\n"
-    "6. After sealing, give the user the view link (view_url: opens the sealed "
-    "record in the browser, nothing to install), the download link "
-    "(download_url: expires, and the server removes its copy then), the "
-    "SHA-256 and any warnings, and say that a seal shows the record was not "
-    "altered, not that it is complete."
+    "6. The user gets the view link (view_url: opens the sealed record in the "
+    "browser, nothing to install), the download link (download_url: expires, "
+    "and the server removes its copy then), the SHA-256 and any warnings. A "
+    "seal shows the record was not altered, not that it is complete."
 )
 
 server = MCPServer(
@@ -79,7 +78,7 @@ server = MCPServer(
     icons=_server_icons(),
     instructions=(
         "Use epi_seal_record when someone asks to seal, save, export or certify "
-        "a conversation or run. Do not write a Markdown or text file instead: "
+        "a conversation or run. A Markdown or text file is not a signed record; "
         "only this server produces a signed .epi file.\n\n"
         + SCOPE_NOTE
         + "\n\n"
@@ -88,12 +87,20 @@ server = MCPServer(
 )
 
 
+def _one_ref(epi_path: str | None, artifact_id: str | None) -> str:
+    """The sealed file to act on, named by artifact_id (preferred) or epi_path."""
+    ref = (artifact_id or epi_path or "").strip()
+    if not ref:
+        raise ValueError("Pass the artifact_id returned by epi_seal_record.")
+    return ref
+
+
 @server.tool(
     description=(
         "Create a signed, tamper-evident audit record (.epi file) of a "
         "conversation or workflow so it can be kept and verified later. Use it "
-        "when the user asks to seal, save, export or certify a chat. Do not "
-        "write a Markdown or text file instead. events is a list of "
+        "when the user asks to seal, save, export or certify a chat. A Markdown "
+        "or text file is not a signed record; this tool produces one. events is a list of "
         "{kind, content: {text}, timestamp?, fidelity?}. kind is user.message, "
         "assistant.message, tool.call (content: tool, input), tool.response "
         "(content: result), artifact.attached or artifact.produced (content: "
@@ -148,36 +155,41 @@ def epi_seal_record(
         title="Verify a sealed file", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_verify(epi_path: str) -> dict[str, Any]:
-    return epi_verify_tool(epi_path)
+def epi_verify(epi_path: str | None = None, artifact_id: str | None = None) -> dict[str, Any]:
+    return epi_verify_tool(_one_ref(epi_path, artifact_id))
 
 
 @server.tool(
     description=(
-        "Read back the sealed timeline of a .epi file "
-        "(step index, kind, content)."
+        "Read back the sealed timeline of a sealed file, by the artifact_id "
+        "returned from epi_seal_record (step index, kind, content)."
     ),
     title="Read back a sealed timeline",
     annotations=ToolAnnotations(
         title="Read back a sealed timeline", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
-    return epi_export_summary_tool(epi_path, max_steps=max_steps)
+def epi_export_summary(
+    epi_path: str | None = None, max_steps: int = 50, artifact_id: str | None = None
+) -> dict[str, Any]:
+    return epi_export_summary_tool(_one_ref(epi_path, artifact_id), max_steps=max_steps)
 
 
 @server.tool(
     description=(
-        "Compare two sealed .epi timelines: step deltas, kind coverage, "
+        "Compare two sealed timelines by artifact_id_a and artifact_id_b: step deltas, kind coverage, "
         "decisions and first divergence. Compares sealed records only, "
-        "never the runs behind them."
+        "it does not examine the runs behind them."
     ),
     title="Compare two sealed timelines",
     annotations=ToolAnnotations(
         title="Compare two sealed timelines", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
+def epi_compare_runs(epi_path_a: str | None = None, epi_path_b: str | None = None,
+                     artifact_id_a: str | None = None, artifact_id_b: str | None = None) -> dict[str, Any]:
+    epi_path_a = _one_ref(epi_path_a, artifact_id_a)
+    epi_path_b = _one_ref(epi_path_b, artifact_id_b)
     return compare_runs(epi_path_a, epi_path_b)
 
 
