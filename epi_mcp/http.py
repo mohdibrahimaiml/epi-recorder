@@ -110,6 +110,53 @@ async def _download_artifact(request: Request):
     )
 
 
+async def _legal(request: Request):
+    from epi_mcp import legal
+
+    page = {"/privacy": legal.privacy_html, "/terms": legal.terms_html, "/support": legal.support_html}[request.url.path]
+    return HTMLResponse(page(), headers={"Cache-Control": "public, max-age=300", "Referrer-Policy": "no-referrer"})
+
+
+_PURGE_STARTED = False
+
+
+def _start_purge_thread() -> None:
+    """Delete expired sealed files on a timer, so the retention promise holds on a quiet server."""
+    import threading
+    import time as _time
+
+    global _PURGE_STARTED
+    if _PURGE_STARTED:
+        return
+    _PURGE_STARTED = True
+
+    def _loop():
+        from epi_mcp import tools as _t
+
+        while True:
+            _time.sleep(15 * 60)
+            try:
+                _t.purge_expired_artifacts()
+                _prune_seal_hits()
+            except Exception:
+                pass
+
+    threading.Thread(target=_loop, name="epi-purge", daemon=True).start()
+
+
+def _prune_seal_hits(now: float | None = None) -> None:
+    """Forget connections with no seal in the last hour (the policy says addresses are kept at most an hour)."""
+    import time as _time
+
+    now = _time.time() if now is None else now
+    for key in list(_SEAL_HITS):
+        recent = [t for t in _SEAL_HITS[key] if now - t < _SEAL_WINDOW_SECONDS]
+        if recent:
+            _SEAL_HITS[key] = recent
+        else:
+            del _SEAL_HITS[key]
+
+
 async def _view_artifact(request: Request):
     """Show a sealed file in the browser with nothing to install.
 
@@ -118,6 +165,9 @@ async def _view_artifact(request: Request):
     sandboxed: scripts run (the viewer needs them) but in an opaque origin, with
     no access to this server's origin, cookies or storage.
     """
+    from epi_mcp.tools import purge_expired_artifacts as _purge
+
+    _purge()
     path = get_artifact_path(request.path_params.get("artifact_id", ""))
     if path is None:
         return HTMLResponse(
@@ -595,12 +645,16 @@ def _transport_security():
 
 def build_app() -> Starlette:
     token = (os.environ.get("EPI_MCP_TOKEN") or "").strip()
+    _start_purge_thread()
     inner = server.streamable_http_app(
         streamable_http_path="/mcp", transport_security=_transport_security()
     )
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/view/{artifact_id}", _view_artifact),
+        Route("/privacy", _legal),
+        Route("/terms", _legal),
+        Route("/support", _legal),
         Route("/seal", _seal_get, methods=["GET"]),
         Route("/seal", _seal_post, methods=["POST"]),
         Route("/favicon.ico", _serve_favicon),

@@ -300,3 +300,48 @@ def test_endpoint_refuses_uploads_over_the_upload_limit(client, monkeypatch):
     monkeypatch.setattr(transcripts, "MAX_UPLOAD_BYTES", 2000)
     r = client.post("/seal", files={"file": ("export.zip", b"PK\x03\x04" + b"0" * 5000, "application/zip")})
     assert r.status_code in (400, 413) and "too large" in r.text.lower()
+
+
+# ---- legal pages (needed for a ChatGPT app submission) and the promises they make ---------------
+
+
+def test_privacy_terms_and_support_are_public_and_match_the_code(client, monkeypatch):
+    from epi_mcp.tools import DOWNLOAD_TTL_SECONDS
+
+    monkeypatch.setenv("EPI_SUPPORT_EMAIL", "support@example.test")
+    hours = f"{DOWNLOAD_TTL_SECONDS // 3600} hours"
+    for path in ("/privacy", "/terms", "/support"):
+        r = client.get(path)  # no credentials
+        assert r.status_code == 200 and "support@example.test" in r.text, path
+        assert hours in r.text, path  # the retention promise comes from the code, not from a copy
+    policy = client.get("/privacy").text.lower()
+    for needle in ("what we receive", "freetsa", "delete", "do not sell", "children", "github"):
+        assert needle in policy, needle
+    import re
+
+    terms_text = " ".join(re.sub(r"<[^>]+>", "", client.get("/terms").text).lower().split())
+    assert "does not prove" in terms_text
+    assert "/seal" in client.get("/support").text
+
+
+def test_contact_falls_back_to_the_public_site_and_escapes_configuration(client, monkeypatch):
+    monkeypatch.delenv("EPI_SUPPORT_EMAIL", raising=False)
+    monkeypatch.setenv("EPI_OPERATOR_NAME", "<b>X</b>")
+    page = client.get("/privacy").text
+    assert "https://epilabs.org" in page and "<b>X</b>" not in page
+
+
+def test_old_addresses_are_forgotten_so_the_privacy_promise_is_true():
+    from epi_mcp import http
+
+    http._SEAL_HITS.clear()
+    http._SEAL_HITS.update({"1.1.1.1": [1000.0], "2.2.2.2": [1000.0, 5000.0]})
+    http._prune_seal_hits(now=1000.0 + http._SEAL_WINDOW_SECONDS + 1)
+    assert "1.1.1.1" not in http._SEAL_HITS and http._SEAL_HITS["2.2.2.2"] == [5000.0]
+    http._SEAL_HITS.clear()
+
+
+def test_a_purge_timer_is_started_so_retention_holds_on_a_quiet_server(client):
+    from epi_mcp import http
+
+    assert http._PURGE_STARTED is True
