@@ -156,3 +156,53 @@ def test_a_redirect_uri_the_client_did_not_register_is_refused(live):
         "response_type": "code", "client_id": reg["client_id"], "redirect_uri": "https://evil.example/cb",
         "state": "s", "code_challenge": CHALLENGE, "code_challenge_method": "S256"})
     assert bad.status_code == 400
+
+
+def test_each_approved_caller_gets_their_own_signer_over_http(live):
+    """Two people approve separately; their seals must not share a signing key or a quota bucket."""
+    import zipfile
+
+    base = live
+    from mcp.client.session import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+
+    async def _seal(access):
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {access}"}, timeout=30) as http:
+            async with streamable_http_client(f"{base}/mcp", http_client=http) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    out = await session.call_tool(
+                        "epi_seal_record", {"events": EVENTS, "goal": "who signed", "include_bytes": False})
+                    return json.loads(out.content[0].text)
+
+    def _public_key(sealed):
+        with zipfile.ZipFile(sealed["epi_path"]) as zf:
+            return json.loads(zf.read("manifest.json"))["public_key"]
+
+    first = asyncio.run(_seal(_connect_like_chatgpt(base)[3]["access_token"]))
+    second = asyncio.run(_seal(_connect_like_chatgpt(base)[3]["access_token"]))
+    third = asyncio.run(_seal(_connect_like_chatgpt(base)[3]["access_token"]))
+    assert len({first["sealed_for_subject"], second["sealed_for_subject"], third["sealed_for_subject"]}) == 3
+    assert len({_public_key(first), _public_key(second), _public_key(third)}) == 3
+
+
+def test_a_remote_caller_cannot_choose_where_the_server_writes(live, tmp_path):
+    """output_path is for the local operator; over the network it must not write anywhere."""
+    base = live
+    from mcp.client.session import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+
+    target = tmp_path / "planted.epi"
+    access = _connect_like_chatgpt(base)[3]["access_token"]
+
+    async def _try():
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {access}"}, timeout=30) as http:
+            async with streamable_http_client(f"{base}/mcp", http_client=http) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    out = await session.call_tool("epi_seal_record", {
+                        "events": EVENTS, "goal": "path", "output_path": str(target), "include_bytes": False})
+                    return out
+
+    asyncio.run(_try())
+    assert not target.exists()

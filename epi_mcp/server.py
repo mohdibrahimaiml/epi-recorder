@@ -106,7 +106,11 @@ server = MCPServer(
     title="Seal a conversation or run",
     # Writes a new file on our server and nothing else: no deletion, no outside services.
     annotations=ToolAnnotations(
-        read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False
+        title="Seal a conversation or run",
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
     ),
     # One copy only: the default also repeats the result as structured content,
     # doubling a response that already carries the file.
@@ -120,24 +124,29 @@ def epi_seal_record(
 ) -> dict[str, Any]:
     from epi_mcp.tools import _current_subject as _subject_var
 
-    _subject_var.set("operator")  # stdio runs are the server operator
+    # Over HTTP the server has already identified the caller; keep that identity. Only a local
+    # stdio run, where nobody has been identified, is the server operator.
+    token = _subject_var.set("operator") if _subject_var.get() is None else None
     try:
         return epi_seal_record_tool(
             events, goal=goal, output_path=output_path, include_bytes=include_bytes
         )
     finally:
-        _subject_var.set(None)
+        if token is not None:
+            _subject_var.reset(token)
 
 
 @server.tool(
     description=(
         "Verify a sealed .epi file by the artifact_id returned from "
-        "epi_seal_record (or a server path). Returns integrity, signature validity, "
+        "epi_seal_record. Returns integrity, signature validity, "
         "signer identity status, and trust level. Authoritative check; "
         "same verdicts as `epi verify`."
     ),
     title="Verify a sealed file",
-    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
+    annotations=ToolAnnotations(
+        title="Verify a sealed file", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+    ),
 )
 def epi_verify(epi_path: str) -> dict[str, Any]:
     return epi_verify_tool(epi_path)
@@ -149,7 +158,9 @@ def epi_verify(epi_path: str) -> dict[str, Any]:
         "(step index, kind, content)."
     ),
     title="Read back a sealed timeline",
-    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
+    annotations=ToolAnnotations(
+        title="Read back a sealed timeline", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+    ),
 )
 def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
     return epi_export_summary_tool(epi_path, max_steps=max_steps)
@@ -162,7 +173,9 @@ def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
         "never the runs behind them."
     ),
     title="Compare two sealed timelines",
-    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
+    annotations=ToolAnnotations(
+        title="Compare two sealed timelines", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+    ),
 )
 def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
     return compare_runs(epi_path_a, epi_path_b)
