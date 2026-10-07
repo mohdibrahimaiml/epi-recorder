@@ -394,9 +394,12 @@ def summarize_steps(steps: list[dict[str, Any]]) -> dict[str, Any]:
     Counts are derived from sealed step kinds, never narrated by the
     caller: tool activity, artifacts, and redaction markers.
     """
+    from epi_mcp.records import _KIND_ALIASES
+
     kinds: dict[str, int] = {}
     for step in steps:
         kind = str(step.get("kind", "custom"))
+        kind = _KIND_ALIASES.get(kind.strip().lower(), kind)  # same names the sealed record uses
         kinds[kind] = kinds.get(kind, 0) + 1
     redactions = sum(_count_occurrences(s.get("content"), REDACTED_MARKER) for s in steps)
     return {

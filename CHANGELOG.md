@@ -6,6 +6,8 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **The seal summary counted events by the names the caller sent.** A chat that sent `tool_call` reported `tool_calls: 0`
+  and listed `user_request` while the sealed record said `user.message`. The counts now use the same canonical kinds.
 - **`epi_verify`, `epi_export_summary` and `epi_compare_runs` now accept `artifact_id`.** Their descriptions told the chat
   assistant to pass the artifact id, but the parameter was named `epi_path`, so the call was rejected. Both names work.
 - **Near-miss event kinds are read as the real ones.** Chat models often send `user_request`, `assistant_response` or
