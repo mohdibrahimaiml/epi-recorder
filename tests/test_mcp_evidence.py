@@ -1159,3 +1159,21 @@ def test_verify_export_and_compare_accept_artifact_id(isolated_keys):
             srv.epi_verify()
     finally:
         _current_subject.reset(tok)
+
+
+def test_summary_counts_use_the_same_kind_names_as_the_sealed_record(isolated_keys):
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("operator")
+    try:
+        r = epi_seal_record_tool([
+            {"kind": "user_request", "content": {"text": "q"}},
+            {"kind": "tool_call", "content": {"tool": "search", "input": {}}},
+            {"kind": "tool_result", "content": {"result": "x"}},
+            {"kind": "assistant_response", "content": {"text": "a"}},
+        ], include_bytes=False)
+    finally:
+        _current_subject.reset(tok)
+    counts = r["summary_counts"]
+    assert counts["by_kind"] == {"user.message": 1, "tool.call": 1, "tool.response": 1, "assistant.message": 1}
+    assert counts["tool_calls"] == 2
