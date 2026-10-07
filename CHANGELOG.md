@@ -6,6 +6,10 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
+  has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
+- **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the
+  assistant rebuilt the view link itself, using the hash as the id and dropping the access token, so the link did not work.
 - **The seal summary counted events by the names the caller sent.** A chat that sent `tool_call` reported `tool_calls: 0`
   and listed `user_request` while the sealed record said `user.message`. The counts now use the same canonical kinds.
 - **`epi_verify`, `epi_export_summary` and `epi_compare_runs` now accept `artifact_id`.** Their descriptions told the chat

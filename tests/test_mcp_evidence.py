@@ -1177,3 +1177,31 @@ def test_summary_counts_use_the_same_kind_names_as_the_sealed_record(isolated_ke
     counts = r["summary_counts"]
     assert counts["by_kind"] == {"user.message": 1, "tool.call": 1, "tool.response": 1, "assistant.message": 1}
     assert counts["tool_calls"] == 2
+
+
+def test_a_redaction_note_is_not_counted_as_an_unlabelled_event(isolated_keys):
+    from epi_mcp.records import seal_record
+
+    r = seal_record([
+        {"kind": "user.message", "content": {"text": "hi"}, "fidelity": "verbatim"},
+        {"kind": "redaction.omitted", "content": {"text": "Private notes left out."}},
+    ])
+    assert not any("do not say whether" in w for w in r["fidelity"]["warnings"])
+    r2 = seal_record([{"kind": "user.message", "content": {"text": "hi"}}])
+    assert any("do not say whether" in w for w in r2["fidelity"]["warnings"])
+
+
+def test_share_text_carries_the_exact_links_and_hash(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_MCP_PUBLIC_URL", "https://example.test")
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("someone")
+    try:
+        r = epi_seal_record_tool([{"kind": "user.message", "content": {"text": "x"}, "fidelity": "verbatim"}],
+                                 include_bytes=False)
+    finally:
+        _current_subject.reset(tok)
+    for part in (r["view_url"], r["download_url"], r["sha256"]):
+        assert part in r["share_text"]
+    assert "?t=" in r["share_text"]

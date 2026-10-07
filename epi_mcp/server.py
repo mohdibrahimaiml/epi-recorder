@@ -69,7 +69,8 @@ SEAL_GUIDE = (
     "epi_seal_record; a file assembled by hand will not verify.\n"
     "6. The user gets the view link (view_url: opens the sealed record in the "
     "browser, nothing to install), the download link (download_url: expires, "
-    "and the server removes its copy then), the SHA-256 and any warnings. A "
+    "and the server removes its copy then), the SHA-256 and any warnings. "
+    "share_text holds the links and hash exactly as they work. A "
     "seal shows the record was not altered, not that it is complete."
 )
 

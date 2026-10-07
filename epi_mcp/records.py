@@ -223,7 +223,12 @@ def describe_fidelity(steps: list[dict[str, Any]]) -> dict[str, Any]:
         )
     if total > 1 and distinct_ts == 1:
         warnings.append("All events share one timestamp.")
-    unlabelled = by_fidelity.get("unspecified", 0)
+    # A redaction.omitted note describes what was left out; it has no text to label as verbatim or summary.
+    unlabelled = sum(
+        1
+        for st in steps
+        if st["content"]["_epi_provenance"]["fidelity"] == "unspecified" and st.get("kind") != "redaction.omitted"
+    )
     if unlabelled:
         warnings.append(
             f"{unlabelled} of {total} events do not say whether their content "
