@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -146,8 +147,20 @@ def _stable_signer() -> bool:
 
 
 def _resolve_epi_path(epi_path: str) -> str:
-    """Accept a sealed artifact_id (as returned by epi_seal_record) or a path."""
-    return ARTIFACTS.get(epi_path.strip(), epi_path)
+    """Accept a sealed artifact_id (as returned by epi_seal_record).
+
+    A file path is accepted only for the local operator (stdio, or a loopback dev server with no
+    authentication). Over the network a caller can only name files this server sealed, so the tools
+    cannot be pointed at other files on the host.
+    """
+    key = epi_path.strip()
+    if key in ARTIFACTS:
+        return ARTIFACTS[key]
+    if get_current_subject() in (None, "operator"):
+        return epi_path
+    if re.fullmatch(r"[0-9a-f]{16}", key):
+        raise ValueError("That sealed file is no longer on the server (files are kept for 24 hours).")
+    raise ValueError("Pass the artifact_id returned by epi_seal_record. File paths are not accepted over the network.")
 
 # Caller identity for the current seal operation. The HTTP layer sets
 # this from the verified credential; stdio runs are the server operator.
@@ -217,6 +230,10 @@ def epi_seal_record_tool(
             "Sealing requires an authenticated caller. Anonymous callers "
             "may verify and export, but not seal."
         )
+    if subject != "operator":
+        # Choosing where the server writes is for the local operator. A caller over the network
+        # gets a server-managed file (which is also what the quota and retention apply to).
+        output_path = None
     owner = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
     purge_expired_artifacts()
     if output_path is None:

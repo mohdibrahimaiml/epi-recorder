@@ -4,6 +4,22 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Security
+
+- **Hosted connector: every approved caller signed with one shared key, and a caller could choose where
+  the server writes.** The seal tool forced the caller to the server operator even over HTTP, so all people
+  sealing through the connector shared one signing key and one storage quota (per-person signers and quotas
+  only worked when the tool was called directly). Separately, `output_path` was honoured from the network,
+  letting an approved caller make the server write a file at any path it could write to, and skip the quota.
+  Now the caller the server identified is kept, `output_path` is ignored for anyone but the local operator, and
+  verify, read-back and compare accept only the `artifact_id` returned by sealing over the network (file paths
+  remain for local stdio use). **Signers change:** files sealed through the hosted connector before this fix
+  carry the old shared key; new ones carry a per-person key, so re-pin trusted signers.
+
+### Changed
+
+- Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
+
 ### Changed
 
 - **Connector text is leaner and phrased to avoid host safety pauses.** The tool description,

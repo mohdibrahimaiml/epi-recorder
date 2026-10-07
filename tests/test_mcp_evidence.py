@@ -69,8 +69,9 @@ def test_server_tools_registered():
 def test_seal_tool_returns_file_bytes(isolated_keys, tmp_path):
     import base64
 
-    from epi_mcp.tools import epi_seal_record_tool
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
 
+    _current_subject.set("operator")  # choosing the output path is for the local operator only
     result = epi_seal_record_tool(_events(), goal="bytes check", output_path=str(tmp_path / "b.epi"))
     raw = base64.b64decode(result["epi_b64"])
     assert raw[:4] == b"<!--"  # envelope-v2 polyglot magic
@@ -314,7 +315,7 @@ def test_compare_runs_finds_decision_divergence(isolated_keys, tmp_path):
     ]
     a = epi_seal_record_tool(base, output_path=str(tmp_path / "a.epi"))
     b = epi_seal_record_tool(other, output_path=str(tmp_path / "b.epi"))
-    diff = compare_runs(a["epi_path"], b["epi_path"])
+    diff = compare_runs(a["artifact_id"], b["artifact_id"])
     assert diff["delta_steps"] == 1
     assert diff["decisions_match"] is False
     assert diff["run_a"]["decisions"] == ["approve"]
@@ -334,7 +335,7 @@ def test_compare_identical_runs_match(isolated_keys, tmp_path):
         [{"kind": "agent.decision", "content": {"decision": "go"}}],
         output_path=str(tmp_path / "b.epi"),
     )
-    diff = compare_runs(a["epi_path"], b["epi_path"])
+    diff = compare_runs(a["artifact_id"], b["artifact_id"])
     assert diff["decisions_match"] is True
     assert diff["delta_steps"] == 0
     assert diff["first_divergence_index"] is None
@@ -935,3 +936,67 @@ def test_host_visible_text_stays_small_and_still_routes_natural_requests():
     assert "markdown" in parts["instructions"].lower()
     for name in ("prompt:seal_this_conversation", "prompt:seal_last_answer"):
         assert "evidence sealer" in parts[name].lower()
+
+
+def test_over_the_network_tools_accept_only_artifact_ids_never_file_paths(tmp_path, monkeypatch):
+    """A public server must not let an approved caller aim verify/read-back/compare at other files."""
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp import tools
+    from epi_mcp.tools import (
+        _current_subject,
+        compare_runs,
+        epi_export_summary_tool,
+        epi_seal_record_tool,
+        epi_verify_tool,
+    )
+
+    secret_file = tmp_path / "other-user.epi"
+    secret_file.write_bytes(b"not for you")
+    tok = _current_subject.set("remote-caller")
+    try:
+        sealed = epi_seal_record_tool(_events(), goal="ids only", include_bytes=False)
+        aid = sealed["artifact_id"]
+        # The id from sealing works for all three tools.
+        assert epi_verify_tool(aid)["integrity_ok"] is True
+        assert epi_export_summary_tool(aid)["steps_total"] == len(_events())
+        assert compare_runs(aid, aid)
+        # Paths do not: not a real file, not an existing file, not a relative path.
+        for bad in ("/etc/passwd", str(secret_file), "../../etc/hostname", sealed["epi_path"]):
+            for call in (epi_verify_tool, epi_export_summary_tool):
+                with pytest.raises(ValueError, match="artifact_id"):
+                    call(bad)
+            with pytest.raises(ValueError, match="artifact_id"):
+                compare_runs(aid, bad)
+        # An id that has expired gets its own clear message, not a path error.
+        tools.purge_expired_artifacts(now=10**12)
+        with pytest.raises(ValueError, match="no longer on the server"):
+            epi_verify_tool(aid)
+    finally:
+        _current_subject.reset(tok)
+        tools.purge_expired_artifacts(now=10**12)
+
+
+def test_the_local_operator_can_still_use_file_paths(tmp_path, monkeypatch):
+    monkeypatch.setenv("EPI_MCP_KEYS_DIR", str(tmp_path / "keys"))
+    from epi_mcp.records import seal_record
+    from epi_mcp.tools import _current_subject, epi_verify_tool
+
+    local = seal_record(_events(), goal="local", output_path=tmp_path / "local.epi")["epi_path"]
+    assert epi_verify_tool(str(local))["integrity_ok"] is True  # stdio: no subject
+    tok = _current_subject.set("operator")  # loopback dev server with no authentication
+    try:
+        assert epi_verify_tool(str(local))["integrity_ok"] is True
+    finally:
+        _current_subject.reset(tok)
+
+
+def test_every_tool_has_a_title_inside_its_annotations_as_the_directory_requires():
+    import asyncio
+
+    from epi_mcp.server import server
+
+    tools = asyncio.run(server.list_tools())
+    assert len(tools) == 4
+    for t in tools:
+        assert t.annotations is not None and t.annotations.title, t.name
+        assert t.annotations.title == t.title
