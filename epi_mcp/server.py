@@ -44,6 +44,8 @@ def _server_icons():
         )
     ]
 
+from mcp.types import ToolAnnotations
+
 from epi_mcp.records import SCOPE_NOTE
 from epi_mcp.tools import (
     compare_runs,
@@ -101,6 +103,11 @@ server = MCPServer(
         "download_url, the SHA-256, a seal self-check, and warnings. "
         + SCOPE_NOTE
     ),
+    title="Seal a conversation or run",
+    # Writes a new file on our server and nothing else: no deletion, no outside services.
+    annotations=ToolAnnotations(
+        read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False
+    ),
     # One copy only: the default also repeats the result as structured content,
     # doubling a response that already carries the file.
     structured_output=False,
@@ -128,7 +135,9 @@ def epi_seal_record(
         "epi_seal_record (or a server path). Returns integrity, signature validity, "
         "signer identity status, and trust level. Authoritative check; "
         "same verdicts as `epi verify`."
-    )
+    ),
+    title="Verify a sealed file",
+    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
 )
 def epi_verify(epi_path: str) -> dict[str, Any]:
     return epi_verify_tool(epi_path)
@@ -138,7 +147,9 @@ def epi_verify(epi_path: str) -> dict[str, Any]:
     description=(
         "Read back the sealed timeline of a .epi file "
         "(step index, kind, content)."
-    )
+    ),
+    title="Read back a sealed timeline",
+    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
 )
 def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
     return epi_export_summary_tool(epi_path, max_steps=max_steps)
@@ -149,7 +160,9 @@ def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
         "Compare two sealed .epi timelines: step deltas, kind coverage, "
         "decisions and first divergence. Compares sealed records only, "
         "never the runs behind them."
-    )
+    ),
+    title="Compare two sealed timelines",
+    annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False),
 )
 def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
     return compare_runs(epi_path_a, epi_path_b)

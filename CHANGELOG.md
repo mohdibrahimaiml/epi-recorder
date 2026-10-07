@@ -14,6 +14,11 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **ChatGPT connector support, tested end to end.** Tools now carry titles and confirmation hints
+  (sealing is a write that touches nothing outside the server; verify, read back and compare are
+  read-only), so ChatGPT asks for confirmation only where it should. A new test replays ChatGPT's
+  whole connection sequence against a real server (OAuth discovery, registration with ChatGPT's
+  redirect URI, PKCE with the resource parameter, tool calls, refresh). Docs have current setup steps.
 - **Seal a conversation without a chat model: `/seal` page.** Upload a Claude or ChatGPT
   chat export (or paste the text) and get a sealed `.epi` with the exact words and the export's
   real times, plus the same view and download links. Sealing through a chat host makes the model
