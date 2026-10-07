@@ -14,6 +14,10 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **`/seal` takes the export zip as downloaded.** Upload the ChatGPT or Claude data-export zip
+  directly (sharded `conversations-000.json` files included), pick one conversation by part of its
+  title or its number, and large histories are read one conversation at a time with safe size limits
+  (30 MB zip, 80 MB unzipped). This is the route for ChatGPT plans without custom connectors.
 - **ChatGPT connector support, tested end to end.** Tools now carry titles and confirmation hints
   (sealing is a write that touches nothing outside the server; verify, read back and compare are
   read-only), so ChatGPT asks for confirmation only where it should. A new test replays ChatGPT's

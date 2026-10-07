@@ -142,6 +142,17 @@ async def _view_artifact(request: Request):
 _SEAL_WINDOW_SECONDS = 3600
 _SEAL_MAX_PER_WINDOW = 10
 _SEAL_HITS: dict[str, list[float]] = {}
+_PARSE_GATE = None
+
+
+def _parse_gate():
+    """A single-slot gate, created on first use so it binds to the running loop."""
+    import asyncio
+
+    global _PARSE_GATE
+    if _PARSE_GATE is None:
+        _PARSE_GATE = asyncio.Semaphore(1)
+    return _PARSE_GATE
 
 _PAGE_CSS = (
     "body{font-family:system-ui,sans-serif;max-width:46em;margin:2.5em auto;padding:0 1em;line-height:1.5;"
@@ -175,13 +186,13 @@ def _seal_form(message: str = "", extra: str = "") -> str:
         "No chat model is involved, so nothing can be paused or shortened.</p>"
         f"{msg}{extra}"
         '<form method="post" action="/seal" enctype="multipart/form-data">'
-        '<label for="file">Upload your chat export (conversations.json)</label>'
-        '<input id="file" type="file" name="file" accept=".json,.txt,.md">'
+        '<label for="file">Upload your chat export (the .zip you received, or its conversations.json)</label>'
+        '<input id="file" type="file" name="file" accept=".zip,.json,.txt,.md">'
         '<label for="text">Or paste the conversation</label>'
         '<textarea id="text" name="text" placeholder="Paste here. Lines like &quot;You:&quot; / &quot;Claude:&quot; '
         'are read as turns."></textarea>'
-        '<label for="conversation">If your export has several conversations, which number? (optional)</label>'
-        '<input id="conversation" name="conversation" type="number" min="1" style="width:6em">'
+        '<label for="conversation">If your export has several conversations: part of the title, or its number (optional)</label>'
+        '<input id="conversation" name="conversation" type="text" style="width:20em">'
         '<p><button type="submit">Seal it</button></p></form>'
         '<div class="note"><strong>What this proves.</strong> The sealed file holds exactly what you gave us, and any '
         "later change to it is detectable. EPI does not check that the text really came from Claude or ChatGPT. "
@@ -208,7 +219,13 @@ async def _seal_post(request: Request):
     from starlette.concurrency import run_in_threadpool
 
     from epi_mcp import tools as _tools
-    from epi_mcp.transcripts import MAX_INPUT_BYTES, NeedsChoice, TranscriptError, parse_transcript
+    from epi_mcp.transcripts import (
+        MAX_INPUT_BYTES,
+        MAX_UPLOAD_BYTES,
+        NeedsChoice,
+        TranscriptError,
+        parse_transcript,
+    )
 
     key = _client_key(request)
     now = _time.time()
@@ -217,32 +234,39 @@ async def _seal_post(request: Request):
         _SEAL_HITS[key] = hits
         return _seal_page(_seal_form("Too many seals from this connection in the last hour. Please try again later."), 429)
 
-    if int(request.headers.get("content-length") or 0) > MAX_INPUT_BYTES + 512 * 1024:
-        return _seal_page(_seal_form("That is too large. Export or paste a single conversation (limit 3 MB)."), 413)
+    if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES + 1024 * 1024:
+        return _seal_page(
+            _seal_form(f"That is too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)} MB). Paste the single conversation instead."),
+            413,
+        )
     try:
-        form = await request.form(max_part_size=MAX_INPUT_BYTES + 1024)
+        form = await request.form(max_part_size=MAX_UPLOAD_BYTES + 1024)
     except Exception:
         return _seal_page(_seal_form("That upload could not be read. Try pasting the text instead."), 400)
 
     upload = form.get("file")
     raw: bytes | str = b""
     filename = ""
+    limit = MAX_INPUT_BYTES
     if upload is not None and hasattr(upload, "read"):
         raw = await upload.read()
         filename = getattr(upload, "filename", "") or ""
+        limit = MAX_UPLOAD_BYTES
     if not raw:
         raw = str(form.get("text") or "")
-    choice_raw = str(form.get("conversation") or "").strip()
-    choice = int(choice_raw) if choice_raw.isdigit() else None
+        limit = MAX_INPUT_BYTES
+    choice = str(form.get("conversation") or "").strip() or None
 
     try:
-        parsed = parse_transcript(raw, filename=filename, choice=choice)
+        # One large parse at a time: a free-tier host has little memory to spare.
+        async with _parse_gate():
+            parsed = await run_in_threadpool(parse_transcript, raw, filename, choice, limit)
     except NeedsChoice as exc:
-        items = "".join(f"<li>{i}. {_html.escape(t[:100])}</li>" for i, t in enumerate(exc.titles[:60], 1))
-        more = f"<li>… and {len(exc.titles) - 60} more</li>" if len(exc.titles) > 60 else ""
+        items = "".join(f"<li>{n}. {_html.escape(t[:100])}</li>" for n, t in zip(exc.numbers, exc.titles))
+        more = f"<li>… {exc.total - len(exc.titles)} more not shown; type part of the title to narrow it</li>" if exc.total > len(exc.titles) else ""
         return _seal_page(
             _seal_form(
-                "That file has several conversations. Choose one by number and upload it again.",
+                f"That file has {exc.total} conversations. Type part of the title, or a number, in the box and upload it again.",
                 f"<ol style='list-style:none;padding:0'>{items}{more}</ol>",
             )
         )
