@@ -326,6 +326,12 @@ def epi_seal_record_tool(
         sealed["download_url"] = f"{_public}{sealed['download_path']}?t={token}"
         sealed["view_url"] = f"{_public}/view/{sealed['artifact_id']}?t={token}"
         sealed["download_expires_in_seconds"] = DOWNLOAD_TTL_SECONDS
+        sealed["share_text"] = (
+            f"View: {sealed['view_url']}\n"
+            f"Download: {sealed['download_url']}\n"
+            f"SHA-256: {sealed['sha256']}\n"
+            f"Expires in {DOWNLOAD_TTL_SECONDS // 3600} hours."
+        )
         sealed["how_to_view"] = (
             "Open view_url in any browser to read and check the sealed record now; nothing "
             "needs installing. Use download_url to keep the file. Anyone can also check a "
