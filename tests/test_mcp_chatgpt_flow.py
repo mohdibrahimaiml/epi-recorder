@@ -206,3 +206,64 @@ def test_a_remote_caller_cannot_choose_where_the_server_writes(live, tmp_path):
 
     asyncio.run(_try())
     assert not target.exists()
+
+
+def test_a_messy_real_chat_seals_views_downloads_and_verifies_end_to_end(live, tmp_path):
+    """A chat host's own style of record, through the real server: odd kind names, unicode, big tool
+    output. The seal must succeed, say nothing false, open in a browser, download, and verify by id
+    and from the downloaded bytes with the CLI."""
+    import subprocess
+    import sys
+
+    base = live
+    from mcp.client.session import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+
+    big = "Result row — résumé 日本語 \"quoted\" \\ end\n" * 4000
+    events = [
+        {"kind": "user_request", "content": {"text": "find free tools like https://example.com \U0001F600"}},
+        {"kind": "tool_call", "content": {"tool": "web_search", "input": {"q": "free alternatives 2026"}}},
+        {"kind": "tool_result", "content": {"result": big}, "fidelity": "summary"},
+        {"kind": "assistant_response", "content": {"text": "Straight answer: no free clone.\n\n| a | b |\n|--|--|\n| 1 | 2 |"},
+         "fidelity": "verbatim"},
+        {"kind": "observation", "content": {"text": "kept under the name it was sent with"}},
+    ]
+    access = _connect_like_chatgpt(base)[3]["access_token"]
+
+    async def _run():
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {access}"}, timeout=60) as http:
+            async with streamable_http_client(f"{base}/mcp", http_client=http) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+
+                    async def call(name, args):
+                        out = await session.call_tool(name, args)
+                        assert not out.is_error, out.content
+                        return json.loads(out.content[0].text)
+
+                    sealed = await call("epi_seal_record", {"events": events, "goal": "Chat session"})
+                    by_id = await call("epi_verify", {"artifact_id": sealed["artifact_id"]})
+                    timeline = await call("epi_export_summary", {"artifact_id": sealed["artifact_id"]})
+                    other = await call("epi_seal_record", {"events": events[:2], "goal": "second"})
+                    diff = await call("epi_compare_runs", {
+                        "artifact_id_a": sealed["artifact_id"], "artifact_id_b": other["artifact_id"]})
+                    return sealed, by_id, timeline, diff
+
+    sealed, by_id, timeline, diff = asyncio.run(_run())
+
+    assert "epi_b64" not in sealed and len(json.dumps(sealed)) < 20_000      # a link, not the file as text
+    assert sealed["seal_check"]["signature_valid"] and sealed["seal_check"]["integrity_ok"]
+    assert not any("No user message" in w for w in sealed["warnings"])
+    assert by_id["integrity_ok"] and by_id["signature_valid"]
+    assert timeline and diff
+
+    page = httpx.get(sealed["view_url"], timeout=20)
+    assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+    got = httpx.get(sealed["download_url"], timeout=20)
+    assert got.status_code == 200
+    assert hashlib.sha256(got.content).hexdigest() == sealed["sha256"]
+    saved = tmp_path / "record.epi"
+    saved.write_bytes(got.content)
+    cli = subprocess.run([sys.executable, "-m", "epi_cli.main", "verify", str(saved)],
+                         capture_output=True, text=True, timeout=120)
+    assert cli.returncode == 0, cli.stdout + cli.stderr

@@ -883,7 +883,7 @@ def test_tool_is_discoverable_from_natural_requests_and_has_one_click_prompts():
 
     tools = {t.name: t for t in asyncio.run(server.list_tools())}
     desc = tools["epi_seal_record"].description.lower()
-    for phrase in ("seal", "save", "export", "chat", "do not write a markdown"):
+    for phrase in ("seal", "save", "export", "chat", "markdown or text file is not a signed record"):
         assert phrase in desc
     assert "markdown" in (server.instructions or "").lower()
 
@@ -917,6 +917,10 @@ def _host_visible_text():
 # into wording like this. Compliance users need the product to work every time, so
 # the model-facing text avoids the whole family of phrases. Details a host does not
 # need before calling belong in the tool result instead.
+# Directive wording reads like an attempt to steer the model (injection-style) and gets
+# flagged or ignored; the connector states facts and lets the model decide.
+_STEERING_TEXT = ("do not", "don't", "must ", "never ", "always ", "ignore", "you should", "important:", "at all costs")
+
 _RISKY_HOST_TEXT = (
     "rationale", "reasoning", "chain of thought", "chain-of-thought", "thinking",
     "system prompt", "system instruction", "hidden", "internal", "supplied by the host",
@@ -933,11 +937,18 @@ def test_text_shown_to_the_host_model_avoids_phrases_a_safety_filter_can_misread
             assert phrase not in low, f"{phrase!r} in {where}"
 
 
+def test_text_shown_to_the_host_model_states_facts_instead_of_giving_orders():
+    for where, text in _host_visible_text().items():
+        low = text.lower()
+        for phrase in _STEERING_TEXT:
+            assert phrase not in low, f"{phrase!r} in {where}"
+
+
 def test_host_visible_text_stays_small_and_still_routes_natural_requests():
     parts = _host_visible_text()
     assert sum(len(v) for v in parts.values()) < 5000
     low = parts["tool:epi_seal_record"].lower()
-    for phrase in ("seal", "save", "export", "audit record", "do not write a markdown"):
+    for phrase in ("seal", "save", "export", "audit record", "markdown or text file is not a signed record"):
         assert phrase in low, phrase
     assert "markdown" in parts["instructions"].lower()
     for name in ("prompt:seal_this_conversation", "prompt:seal_last_answer"):

@@ -38,6 +38,9 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **The wording Claude and ChatGPT read from the connector states facts instead of giving orders.** Phrases such as
+  "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
+  cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
 - Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
 
 ### Changed
