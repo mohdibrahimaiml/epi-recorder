@@ -201,3 +201,147 @@ def test_a_forged_forwarded_for_prefix_does_not_dodge_the_limit(client, monkeypa
     h2 = {"x-forwarded-for": "7.7.7.7, 198.51.100.7"}  # same real client, different forged prefix
     assert client.post("/seal", data={"text": "Human: a\nClaude: b"}, headers=h1).status_code == 200
     assert client.post("/seal", data={"text": "Human: a\nClaude: b"}, headers=h2).status_code == 429
+
+
+# ---- real-world exports: a zip of the whole history -------------------------------------------
+
+
+def _zip(files: dict[str, str]) -> bytes:
+    import io
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, content in files.items():
+            zf.writestr(name, content)
+    return buf.getvalue()
+
+
+def _chat(title: str, q: str, a: str):
+    return {"name": title, "uuid": title, "created_at": "2026-10-01T09:00:00Z", "chat_messages": [
+        {"sender": "human", "text": q, "created_at": "2026-10-01T09:00:01Z"},
+        {"sender": "assistant", "text": a, "created_at": "2026-10-01T09:00:02Z"}]}
+
+
+def test_export_zip_is_read_as_downloaded_and_the_zip_hash_is_recorded():
+    data = _zip({"users.json": "[]", "conversations.json": json.dumps(CLAUDE_EXPORT)})
+    p = parse_transcript(data, "data-export.zip", max_bytes=30 * 1024 * 1024)
+    assert p["how"] == "export" and _texts(p) == ["Can we refund order 4411?", "Yes, it is within 30 days."]
+    import hashlib
+
+    assert p["source_sha256"] == hashlib.sha256(data).hexdigest()
+    assert p["events"][0]["content"]["filename"] == "data-export.zip"
+    assert p["events"][0]["content"]["conversation"] == "Refund policy review"
+
+
+def test_sharded_chatgpt_export_counts_conversations_across_files():
+    a = [_chat("Alpha plan", "q1", "a1"), _chat("Beta plan", "q2", "a2")]
+    b = [_chat("Gamma review", "q3", "a3")]
+    data = _zip({"export/conversations-000.json": json.dumps(a), "export/conversations-001.json": json.dumps(b)})
+    with pytest.raises(NeedsChoice) as exc:
+        parse_transcript(data, max_bytes=10**8)
+    assert exc.value.total == 3 and exc.value.titles == ["Alpha plan", "Beta plan", "Gamma review"]
+    assert _texts(parse_transcript(data, choice=3, max_bytes=10**8)) == ["q3", "a3"]
+    assert _texts(parse_transcript(data, choice="gamma", max_bytes=10**8)) == ["q3", "a3"]  # by title
+    assert _texts(parse_transcript(data, choice="2", max_bytes=10**8)) == ["q2", "a2"]
+
+
+def test_a_title_that_matches_several_conversations_lists_only_those():
+    items = [_chat(f"Budget {i}", f"q{i}", f"a{i}") for i in range(5)] + [_chat("Hiring", "h", "h2")]
+    with pytest.raises(NeedsChoice) as exc:
+        parse_transcript(json.dumps(items), choice="budget")
+    assert exc.value.total == 5 and exc.value.numbers == [1, 2, 3, 4, 5]
+    with pytest.raises(NeedsChoice):
+        parse_transcript(json.dumps(items), choice="no such title")
+
+
+def test_a_large_export_is_read_one_conversation_at_a_time():
+    big = [_chat(f"Chat {i}", "question " * 50, "answer " * 200) for i in range(4000)]  # ~ 7 MB of text
+    raw = json.dumps(big)
+    assert len(raw) > 5 * 1024 * 1024
+    import time
+
+    t0 = time.time()
+    p = parse_transcript(raw, choice=2500, max_bytes=30 * 1024 * 1024)
+    assert p["goal"] == "Conversation: Chat 2499" and time.time() - t0 < 20
+    assert len(p["events"]) == 3  # source hash + the two messages, not 8000
+
+
+def test_zip_problems_get_plain_messages(monkeypatch):
+    with pytest.raises(TranscriptError, match="No conversations.json"):
+        parse_transcript(_zip({"notes.txt": "hello"}), max_bytes=10**8)
+    with pytest.raises(TranscriptError, match="could not be opened"):
+        parse_transcript(b"PK\x03\x04 not really a zip", max_bytes=10**8)
+    with pytest.raises(TranscriptError, match="readable Claude or ChatGPT"):
+        parse_transcript(_zip({"conversations.json": json.dumps([{"unrelated": 1}])}), max_bytes=10**8)
+    from epi_mcp import transcripts
+
+    monkeypatch.setattr(transcripts, "MAX_EXPORT_CHARS", 1000)  # a zip bomb: tiny file, huge contents
+    bomb = _zip({"conversations.json": "[" + ",".join(["{}"] * 5000) + "]"})
+    with pytest.raises(TranscriptError, match="too large to read"):
+        parse_transcript(bomb, max_bytes=10**8)
+
+
+def test_endpoint_accepts_a_big_export_zip_but_pasted_text_stays_small(client):
+    items = [_chat(f"Chat {i}", "question " * 50, "answer " * 200) for i in range(1800)]
+    data = _zip({"conversations.json": json.dumps(items)})
+    assert len(json.dumps(items)) > 3 * 1024 * 1024  # bigger than the paste limit
+    first = client.post("/seal", files={"file": ("export.zip", data, "application/zip")})
+    assert first.status_code == 200 and "conversations" in first.text and "number" in first.text
+    picked = client.post("/seal", data={"conversation": "Chat 1799"},
+                         files={"file": ("export.zip", data, "application/zip")})
+    assert picked.status_code == 200 and "Sealed" in picked.text and "from your chat export" in picked.text
+    too_big_paste = client.post("/seal", data={"text": "x" * (3 * 1024 * 1024 + 5)})
+    assert too_big_paste.status_code == 400 and "too large" in too_big_paste.text.lower()
+
+
+def test_endpoint_refuses_uploads_over_the_upload_limit(client, monkeypatch):
+    from epi_mcp import transcripts
+
+    monkeypatch.setattr(transcripts, "MAX_UPLOAD_BYTES", 2000)
+    r = client.post("/seal", files={"file": ("export.zip", b"PK\x03\x04" + b"0" * 5000, "application/zip")})
+    assert r.status_code in (400, 413) and "too large" in r.text.lower()
+
+
+# ---- legal pages (needed for a ChatGPT app submission) and the promises they make ---------------
+
+
+def test_privacy_terms_and_support_are_public_and_match_the_code(client, monkeypatch):
+    from epi_mcp.tools import DOWNLOAD_TTL_SECONDS
+
+    monkeypatch.setenv("EPI_SUPPORT_EMAIL", "support@example.test")
+    hours = f"{DOWNLOAD_TTL_SECONDS // 3600} hours"
+    for path in ("/privacy", "/terms", "/support"):
+        r = client.get(path)  # no credentials
+        assert r.status_code == 200 and "support@example.test" in r.text, path
+        assert hours in r.text, path  # the retention promise comes from the code, not from a copy
+    policy = client.get("/privacy").text.lower()
+    for needle in ("what we receive", "freetsa", "delete", "do not sell", "children", "github"):
+        assert needle in policy, needle
+    import re
+
+    terms_text = " ".join(re.sub(r"<[^>]+>", "", client.get("/terms").text).lower().split())
+    assert "does not prove" in terms_text
+    assert "/seal" in client.get("/support").text
+
+
+def test_contact_falls_back_to_the_public_site_and_escapes_configuration(client, monkeypatch):
+    monkeypatch.delenv("EPI_SUPPORT_EMAIL", raising=False)
+    monkeypatch.setenv("EPI_OPERATOR_NAME", "<b>X</b>")
+    page = client.get("/privacy").text
+    assert "https://epilabs.org" in page and "<b>X</b>" not in page
+
+
+def test_old_addresses_are_forgotten_so_the_privacy_promise_is_true():
+    from epi_mcp import http
+
+    http._SEAL_HITS.clear()
+    http._SEAL_HITS.update({"1.1.1.1": [1000.0], "2.2.2.2": [1000.0, 5000.0]})
+    http._prune_seal_hits(now=1000.0 + http._SEAL_WINDOW_SECONDS + 1)
+    assert "1.1.1.1" not in http._SEAL_HITS and http._SEAL_HITS["2.2.2.2"] == [5000.0]
+    http._SEAL_HITS.clear()
+
+
+def test_a_purge_timer_is_started_so_retention_holds_on_a_quiet_server(client):
+    from epi_mcp import http
+
+    assert http._PURGE_STARTED is True

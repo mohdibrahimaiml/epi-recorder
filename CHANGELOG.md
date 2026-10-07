@@ -14,6 +14,16 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Privacy, terms and support pages, and a ChatGPT app submission pack.** `/privacy`, `/terms` and
+  `/support` describe what the hosted connector actually does (retention hours come from the code), with
+  the contact set by `EPI_SUPPORT_EMAIL`. The server now deletes expired sealed files on a timer and forgets
+  rate-limit addresses after an hour, so those promises hold on a quiet server. `docs/CHATGPT-APP-SUBMISSION.md`
+  has the directory text, test cases and checklist for publishing EPI in ChatGPT's app directory, which is the
+  route to working on every plan.
+- **`/seal` takes the export zip as downloaded.** Upload the ChatGPT or Claude data-export zip
+  directly (sharded `conversations-000.json` files included), pick one conversation by part of its
+  title or its number, and large histories are read one conversation at a time with safe size limits
+  (30 MB zip, 80 MB unzipped). This is the route for ChatGPT plans without custom connectors.
 - **ChatGPT connector support, tested end to end.** Tools now carry titles and confirmation hints
   (sealing is a write that touches nothing outside the server; verify, read back and compare are
   read-only), so ChatGPT asks for confirmation only where it should. A new test replays ChatGPT's

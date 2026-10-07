@@ -56,10 +56,17 @@ Then say it plainly: "Seal this chat with the EPI Evidence Sealer." ChatGPT may 
 confirm the first time; choose to allow it. When it finishes you get a **view link** (opens
 in the browser, nothing to install) and a **download link**.
 
+**Which ChatGPT plans can use the connector.** OpenAI's help pages (as summarised by a web
+search; they could not be opened from the build environment) say full custom connectors with
+write actions are for Business, Enterprise and Edu, Plus and Pro get read-only custom
+connectors in Developer mode, and Go and Free are not listed. Sealing writes a file, so on
+Go or Free the connector cannot be turned on whatever the server does. Use the `/seal` page
+below instead; it works on every plan.
+
 Differences from Claude: ChatGPT does not show the connector's one-click prompts, so the
 request has to be typed; the tool's description is what tells ChatGPT that "seal this chat"
-means this tool. If a chat is ever refused or cut short, use the `/seal` page with a ChatGPT
-data export (`conversations.json`), which keeps the real times.
+means this tool. If a chat is ever refused or cut short, use the `/seal` page with your ChatGPT
+data export (the zip), which keeps the real times.
 
 What is tested: `tests/test_mcp_chatgpt_flow.py` replays ChatGPT's connection against a
 real running server (401 challenge, resource and authorization-server discovery, dynamic
@@ -145,21 +152,26 @@ with one of the wordings above, or use **+** → the EPI connector →
 ### Sealing without a chat model: the /seal page
 
 Sealing through a chat host means the model re-types the whole conversation into a tool
-call. Hosts can pause that, and a model can shorten the text or get times wrong. For
-anything that matters, seal the conversation itself instead:
+call. Hosts can pause that, and a model can shorten the text or get times wrong. And some
+ChatGPT plans (Go, Free) cannot use custom connectors at all. For anything that matters, or
+on any plan, seal the conversation itself instead. This needs no connector and no login.
 
-1. Open `<your server>/seal`.
-2. **Upload your chat export** (`conversations.json` from your Claude or ChatGPT data
-   export, found in the account's settings), **or paste the conversation** (lines such
-   as `You:` / `Claude:` are read as turns).
-3. Click **Seal it**. You get the same view and download links, with the exact words and
-   the times the export recorded. No model is involved, so nothing can be paused.
+1. **Get your export.** In ChatGPT: Settings → Data controls → **Export data**; Claude:
+   Settings → Privacy → **Export data**. You receive an email with a `.zip`. (Menu names change.)
+2. Open `<your server>/seal` and **upload the zip as it came**. You do not need to unzip it.
+3. If the export holds several conversations, the page lists them. Type **part of the title**
+   (or its number) in the box and upload again.
+4. Click **Seal it**. You get the same view and download links, with the exact words and the
+   times the export recorded. No model is involved, so nothing can be paused.
 
-An export with several conversations asks which number to seal. The original file's
-SHA-256 is recorded as the first event, so anyone holding the export can match it. Pasted
-text carries no times. What this proves is that the text is unchanged since sealing, not
-that it came from Claude or ChatGPT. Limits: 3 MB per upload, 10 seals an hour per
-connection, files kept 24 hours.
+You can also paste one conversation (lines such as `You:` / `Claude:` are read as turns); pasted
+text carries no times. The original file's SHA-256 is recorded as the first event, so anyone
+holding the export can match it, along with the title of the conversation you chose.
+
+What this proves is that the text is unchanged since sealing, not that it came from Claude or
+ChatGPT. Limits: 30 MB for the zip and 80 MB of conversations after unzipping (the server is
+small; split or paste a single conversation if yours is larger), 3 MB for pasted text, 10 seals
+an hour per connection, files kept 24 hours.
 
 ### Viewing the sealed file (nothing to install)
 
