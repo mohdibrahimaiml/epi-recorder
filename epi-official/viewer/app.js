@@ -1479,7 +1479,12 @@ function renderEvidence(caseData) {
     // Timestamp + delta
     const ts = fmtTime(step.timestamp);
     let deltaStr = '';
-    if (startMs && step.timestamp) {
+    const prov = step.content && step.content._epi_provenance;
+    if (prov && prov.timestamp_source === 'server_received') {
+      // The chat host gave no time for this event, so the time shown is when the
+      // sealer received the record. A "+0.000s" offset would imply a measured gap.
+      deltaStr = 'received';
+    } else if (startMs && step.timestamp) {
       const stepMs = new Date(step.timestamp).getTime();
       if (!isNaN(stepMs)) {
         const delta = ((stepMs - startMs) / 1000).toFixed(3);

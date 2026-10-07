@@ -6,6 +6,9 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Viewer no longer shows `+0.000s` on every row of a chat seal.** Chat hosts give no per-message times, so the sealer
+  stamps its own receive time. Those rows now say "received" instead of an offset that reads as a measured gap.
+  Times a caller supplied still show offsets. The trusted RFC 3161 timestamp on the file is unchanged.
 - **A slow public time-stamp service could make a hosted seal fail.** Every seal waits for a free RFC 3161
   service (freetsa.org) for up to 30 seconds. When it was slow or down, the seal call outlasted what the
   chat host would wait and the host reported a server error, even though nothing was wrong with the record.
