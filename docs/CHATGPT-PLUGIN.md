@@ -1,6 +1,6 @@
 # ChatGPT plugin: connect + acceptance test
 
-The EPI mechanism is implemented and tested (`epi_mcp/`, 17 tests).
+The EPI mechanism is implemented and tested (`epi_mcp/`).
 This page covers the remaining deployment and the one test that can
 only run inside ChatGPT.
 
@@ -38,9 +38,34 @@ bind without it). Tunnels are for dev only, never for distribution.
 
 ## 2. Connect in ChatGPT
 
-1. Settings → Security and login → Developer mode.
-2. Plugins → `+` → enter `https://<your-host>/mcp`.
-3. New chat → select the EPI plugin.
+ChatGPT calls these "custom connectors" (some menus say "Apps"). You need a plan that
+offers **Developer mode**; on Business or Enterprise an admin may have to allow it first.
+Menu names change, so look for the same words:
+
+1. ChatGPT → **Settings** → **Apps / Connectors** → **Advanced settings** → turn on
+   **Developer mode**.
+2. **Create** (or **Add**) a connector:
+   - Name: `EPI Evidence Sealer`
+   - MCP server URL: `https://<your-host>/mcp` (for example `https://epi-mcp.onrender.com/mcp`)
+   - Authentication: **OAuth**
+3. Click **Connect**. A page from your server opens: choose **Approve**, or **Sign in with
+   GitHub and approve** if sign-in is enabled (see below).
+4. In a new chat, switch the connector on (the **+** or tools menu → your connector).
+
+Then say it plainly: "Seal this chat with the EPI Evidence Sealer." ChatGPT may ask you to
+confirm the first time; choose to allow it. When it finishes you get a **view link** (opens
+in the browser, nothing to install) and a **download link**.
+
+Differences from Claude: ChatGPT does not show the connector's one-click prompts, so the
+request has to be typed; the tool's description is what tells ChatGPT that "seal this chat"
+means this tool. If a chat is ever refused or cut short, use the `/seal` page with a ChatGPT
+data export (`conversations.json`), which keeps the real times.
+
+What is tested: `tests/test_mcp_chatgpt_flow.py` replays ChatGPT's connection against a
+real running server (401 challenge, resource and authorization-server discovery, dynamic
+registration with ChatGPT's redirect URI, PKCE S256 with the `resource` parameter, token
+exchange, tool listing with confirmation hints, a seal, and a token refresh). It cannot
+prove how a given ChatGPT plan words its menus.
 
 ## 3. Acceptance test (the only unproven step)
 
