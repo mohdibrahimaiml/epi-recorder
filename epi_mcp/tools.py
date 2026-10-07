@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,10 @@ def _count_occurrences(value: Any, marker: str) -> int:
     if isinstance(value, (list, tuple)):
         return sum(_count_occurrences(v, marker) for v in value)
     return 0
+
+# A seal must never be held hostage by a free public time-stamp service: wait a few seconds, then
+# seal without the token and say so. (The local CLI keeps its own longer default.)
+os.environ.setdefault("EPI_TSA_TIMEOUT", "6")
 
 # In-process registry of sealed artifacts, so the HTTP layer can serve
 # them back as downloads. Maps artifact_id -> absolute .epi path.
@@ -96,6 +101,23 @@ def purge_expired_artifacts(now: float | None = None) -> int:
         except OSError:
             pass
     return purged
+
+
+def _no_trusted_timestamp(epi_path: str) -> bool:
+    """True when notarization was attempted but produced no RFC 3161 token (service down or slow)."""
+    import json as _json
+    import zipfile as _zip
+
+    if (os.environ.get("EPI_NOTARIZE", "1").strip().lower() in ("0", "false", "no", "off")):
+        return False
+    try:
+        with _zip.ZipFile(epi_path) as zf:
+            name = "artifacts/notarization/notarization.json"
+            if name not in zf.namelist():
+                return True
+            return not _json.loads(zf.read(name)).get("tsa_token_available")
+    except Exception:
+        return False
 
 
 def _check_quota(owner: str) -> None:
@@ -230,6 +252,10 @@ def epi_seal_record_tool(
             "Sealing requires an authenticated caller. Anonymous callers "
             "may verify and export, but not seal."
         )
+    if subject != "operator" and (os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip():
+        # The view and download links carry the file; sending it back as text would only fill the chat
+        # model's context (a small chat is over half a megabyte of base64) and can exceed a host's limit.
+        include_bytes = False
     if subject != "operator":
         # Choosing where the server writes is for the local operator. A caller over the network
         # gets a server-managed file (which is also what the quota and retention apply to).
@@ -310,6 +336,11 @@ def epi_seal_record_tool(
         sealed["download_url"] = None
         sealed["view_url"] = None
     sealed["warnings"] = list(sealed.get("fidelity", {}).get("warnings", []))
+    if _no_trusted_timestamp(sealed["epi_path"]):
+        sealed["warnings"].append(
+            "No trusted timestamp: the public time-stamp service did not answer in time, so this record "
+            "carries only the server's own receive time. The signature and hash chain are unaffected."
+        )
     sealed["trust_command"] = (
         f"epi keys trust {sealed['filename']} --name <label>" if "filename" in sealed else None
     )
