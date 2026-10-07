@@ -463,6 +463,7 @@ def _keys(monkeypatch, tmp_path):
 def test_seal_declares_caller_provided_scope(monkeypatch, tmp_path):
     _keys(monkeypatch, tmp_path)
     import json
+    import json
     import zipfile
 
     from epi_mcp.records import seal_record
@@ -477,6 +478,7 @@ def test_seal_declares_caller_provided_scope(monkeypatch, tmp_path):
 
 def test_timestamp_provenance_and_fidelity_warnings(monkeypatch, tmp_path):
     _keys(monkeypatch, tmp_path)
+    import json
     import json
     import zipfile
 
@@ -546,6 +548,7 @@ def test_download_link_works_in_browser_and_verify_by_artifact_id(monkeypatch, t
 def test_chain_is_real_and_tamper_is_caught(monkeypatch, tmp_path):
     _keys(monkeypatch, tmp_path)
     import json
+    import json
     import zipfile
 
     from epi_cli.verify import _verify_step_chain
@@ -570,6 +573,7 @@ def test_chain_is_real_and_tamper_is_caught(monkeypatch, tmp_path):
 def test_unknown_event_fields_are_preserved_not_dropped(monkeypatch, tmp_path):
     _keys(monkeypatch, tmp_path)
     import json
+    import json
     import zipfile
 
     from epi_mcp.records import seal_record
@@ -581,6 +585,7 @@ def test_unknown_event_fields_are_preserved_not_dropped(monkeypatch, tmp_path):
 
 def test_source_type_and_tool_name_and_omission_counts(monkeypatch, tmp_path):
     _keys(monkeypatch, tmp_path)
+    import json
     import json
     import zipfile
 
@@ -610,6 +615,7 @@ def test_source_type_and_tool_name_and_omission_counts(monkeypatch, tmp_path):
 def test_epi_view_payload_carries_capture_manifest(monkeypatch, tmp_path):
     """`epi view` must show the declared scope, not 'undeclared (pre-v artifact)'."""
     _keys(monkeypatch, tmp_path)
+    import json
     import zipfile
 
     from pathlib import Path
@@ -1100,3 +1106,45 @@ def test_remote_callers_get_links_not_the_whole_file_as_text(tmp_path, monkeypat
     finally:
         _current_subject.reset(tok)
     assert inline.get("epi_b64")
+
+
+def test_near_miss_kind_names_are_read_as_the_canonical_kinds(isolated_keys):
+    """A chat model sent user_request / assistant_response; the server must not say there was no user message."""
+    import json
+    import zipfile
+
+    from epi_mcp.records import seal_record
+
+    r = seal_record([
+        {"kind": "user_request", "content": {"text": "hi"}},
+        {"kind": "assistant_response", "content": {"text": "yo"}},
+        {"kind": "tool_call", "content": {"tool": "search", "input": {}}},
+        {"kind": "observation", "content": {"text": "kept as sent"}},
+    ])
+    steps = [
+        json.loads(line)
+        for line in zipfile.ZipFile(r["epi_path"]).read("steps.jsonl").decode().splitlines()
+    ]
+    assert [s["kind"] for s in steps] == ["user.message", "assistant.message", "tool.call", "observation"]
+    assert steps[0]["content"]["_epi_provenance"]["caller_kind"] == "user_request"
+    assert "caller_kind" not in steps[3]["content"]["_epi_provenance"]
+    assert not any("No user message" in w for w in r["fidelity"]["warnings"])
+
+
+def test_verify_export_and_compare_accept_artifact_id(isolated_keys):
+    """The tool descriptions say artifact_id; the parameter must exist under that name."""
+    from epi_mcp import server as srv
+    from epi_mcp.tools import _current_subject, epi_seal_record_tool
+
+    tok = _current_subject.set("operator")
+    try:
+        a = epi_seal_record_tool([{"kind": "user.message", "content": {"text": "a"}}], include_bytes=False)
+        b = epi_seal_record_tool([{"kind": "user.message", "content": {"text": "b"}}], include_bytes=False)
+        assert srv.epi_verify(artifact_id=a["artifact_id"])["integrity_ok"] is True
+        assert srv.epi_verify(epi_path=a["artifact_id"])["integrity_ok"] is True
+        assert srv.epi_export_summary(artifact_id=a["artifact_id"])
+        assert srv.epi_compare_runs(artifact_id_a=a["artifact_id"], artifact_id_b=b["artifact_id"])
+        with pytest.raises(ValueError):
+            srv.epi_verify()
+    finally:
+        _current_subject.reset(tok)

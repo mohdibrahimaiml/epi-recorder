@@ -88,6 +88,14 @@ server = MCPServer(
 )
 
 
+def _one_ref(epi_path: str | None, artifact_id: str | None) -> str:
+    """The sealed file to act on, named by artifact_id (preferred) or epi_path."""
+    ref = (artifact_id or epi_path or "").strip()
+    if not ref:
+        raise ValueError("Pass the artifact_id returned by epi_seal_record.")
+    return ref
+
+
 @server.tool(
     description=(
         "Create a signed, tamper-evident audit record (.epi file) of a "
@@ -148,27 +156,29 @@ def epi_seal_record(
         title="Verify a sealed file", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_verify(epi_path: str) -> dict[str, Any]:
-    return epi_verify_tool(epi_path)
+def epi_verify(epi_path: str | None = None, artifact_id: str | None = None) -> dict[str, Any]:
+    return epi_verify_tool(_one_ref(epi_path, artifact_id))
 
 
 @server.tool(
     description=(
-        "Read back the sealed timeline of a .epi file "
-        "(step index, kind, content)."
+        "Read back the sealed timeline of a sealed file, by the artifact_id "
+        "returned from epi_seal_record (step index, kind, content)."
     ),
     title="Read back a sealed timeline",
     annotations=ToolAnnotations(
         title="Read back a sealed timeline", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
-    return epi_export_summary_tool(epi_path, max_steps=max_steps)
+def epi_export_summary(
+    epi_path: str | None = None, max_steps: int = 50, artifact_id: str | None = None
+) -> dict[str, Any]:
+    return epi_export_summary_tool(_one_ref(epi_path, artifact_id), max_steps=max_steps)
 
 
 @server.tool(
     description=(
-        "Compare two sealed .epi timelines: step deltas, kind coverage, "
+        "Compare two sealed timelines by artifact_id_a and artifact_id_b: step deltas, kind coverage, "
         "decisions and first divergence. Compares sealed records only, "
         "never the runs behind them."
     ),
@@ -177,7 +187,10 @@ def epi_export_summary(epi_path: str, max_steps: int = 50) -> dict[str, Any]:
         title="Compare two sealed timelines", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
 )
-def epi_compare_runs(epi_path_a: str, epi_path_b: str) -> dict[str, Any]:
+def epi_compare_runs(epi_path_a: str | None = None, epi_path_b: str | None = None,
+                     artifact_id_a: str | None = None, artifact_id_b: str | None = None) -> dict[str, Any]:
+    epi_path_a = _one_ref(epi_path_a, artifact_id_a)
+    epi_path_b = _one_ref(epi_path_b, artifact_id_b)
     return compare_runs(epi_path_a, epi_path_b)
 
 
