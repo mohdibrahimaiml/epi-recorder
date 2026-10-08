@@ -1205,3 +1205,23 @@ def test_share_text_carries_the_exact_links_and_hash(monkeypatch, tmp_path):
     for part in (r["view_url"], r["download_url"], r["sha256"]):
         assert part in r["share_text"]
     assert "?t=" in r["share_text"]
+
+
+def test_every_tool_sets_all_three_hints_and_declares_its_auth():
+    """ChatGPT's directory review needs readOnlyHint, destructiveHint and openWorldHint on every tool
+    (a missing hint blocks submission), and hosts read per-tool auth from _meta.securitySchemes."""
+    import asyncio
+
+    from epi_mcp.server import server
+
+    tools = asyncio.run(server.list_tools())
+    assert {t.name for t in tools} == {"epi_seal_record", "epi_verify", "epi_export_summary", "epi_compare_runs"}
+    for t in tools:
+        a = t.annotations
+        for hint in ("read_only_hint", "destructive_hint", "open_world_hint"):
+            assert isinstance(getattr(a, hint), bool), f"{t.name}.{hint} must be set explicitly"
+        schemes = (t.meta or {}).get("securitySchemes")
+        assert schemes and schemes[0]["type"] == "oauth2" and schemes[0]["scopes"], t.name
+    by_name = {t.name: t for t in tools}
+    assert by_name["epi_seal_record"].annotations.read_only_hint is False
+    assert all(by_name[n].annotations.read_only_hint is True for n in by_name if n != "epi_seal_record")

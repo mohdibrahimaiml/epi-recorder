@@ -81,8 +81,48 @@ Negative:
 - *Reliability:* the free server sleeps when idle; for submission, use a plan that stays awake so reviewers
   are not met with a long first-load delay.
 
+## Tool hints and the justification to type into the form
+
+Every tool sets all three hints explicitly (a missing hint is reported as a submission blocker), and a
+test (`test_every_tool_sets_all_three_hints_and_declares_its_auth`) fails if one is dropped. The form asks
+for a written reason for each; use these.
+
+| Tool | readOnlyHint | destructiveHint | openWorldHint | Reason |
+|---|---|---|---|---|
+| `epi_seal_record` | false | false | false | Creates one new file on our own server, kept 24 hours then deleted automatically. It deletes and overwrites nothing and changes nothing in the user's other systems. The only outside call is a hash (not content) sent to a public time-stamp service. |
+| `epi_verify` | true | false | false | Reads a file this server sealed and reports checks. Changes nothing, safe to repeat. |
+| `epi_export_summary` | true | false | false | Reads back a sealed timeline. Changes nothing, safe to repeat. |
+| `epi_compare_runs` | true | false | false | Compares two sealed files. Changes nothing, safe to repeat. |
+
+A reviewer may argue `openWorldHint` should be true for the seal tool, because it makes a secret link that
+anyone holding it can open, and it calls a time-stamp service. If asked, the honest answer is above; setting it
+to true is acceptable and only changes how often ChatGPT asks for confirmation (it already asks for a write).
+
+Each tool also declares its sign-in in `_meta.securitySchemes` (`oauth2` with one scope). This is a description
+only. The real enforcement is the server's 401 challenge, which is what starts sign-in in ChatGPT.
+
+## Things reported by OpenAI's reviewers and guides (check each against the current official page)
+
+These come from developer guides and OpenAI help-center snippets, not from OpenAI's own page, which could not be
+opened from the build environment. Confirm before relying on them.
+
+- **Test account:** a dedicated test account with sample data, working without 2FA. Ours needs no account:
+  "Connect and click Approve." Keep that sentence in the submission.
+- **Test cases:** about 5 positive and 3 negative. Provided above.
+- **Privacy and terms:** public HTTPS pages, stable URLs, no placeholders. The privacy field may have a
+  character limit; keep a short version of the policy ready.
+- **Screenshots:** images of the app in use; guides mention about 706 px wide at 2x. A short demo video of the
+  main use cases is reportedly asked for.
+- **Domain verification:** one guide lists it. Our server is on `epi-mcp.onrender.com`, which we do not own
+  as a domain. If OpenAI asks for a domain-verification file, point a subdomain of epilabs.org (for example
+  `mcp.epilabs.org`) at the same Render service and submit that address. The Claude connector can keep its
+  current address; both can serve the same service.
+- **Reachability:** the production server must answer quickly. Use a Render plan that does not sleep during review.
+- **Verified OpenAI organisation:** needed before the Submit button works.
+
 ## Known gaps
 
-- Per-tool `securitySchemes` declarations (an Apps SDK convention) are not added: the spec could not be read
-  here. If review or a test asks for them, add them in `epi_mcp/server.py` (tool `meta`).
+- Top-level `securitySchemes` on the tool descriptor is not emitted: the Python MCP library only lets us set
+  the `_meta` copy. If review says the top-level field is required, tell us and we will add it.
+- No dedicated custom domain yet (see above).
 - A first review may ask for changes; budget a few rounds.

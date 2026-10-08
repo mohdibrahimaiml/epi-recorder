@@ -88,6 +88,15 @@ server = MCPServer(
 )
 
 
+def _oauth_meta(scope: str) -> dict[str, Any]:
+    """Per-tool auth declaration for hosts that read it (the Apps SDK convention).
+
+    Every tool here needs the signed-in caller. This only describes that: the HTTP layer already
+    refuses unauthenticated calls with a 401 challenge, which is what actually starts sign-in.
+    """
+    return {"securitySchemes": [{"type": "oauth2", "scopes": [scope]}]}
+
+
 def _one_ref(epi_path: str | None, artifact_id: str | None) -> str:
     """The sealed file to act on, named by artifact_id (preferred) or epi_path."""
     ref = (artifact_id or epi_path or "").strip()
@@ -112,7 +121,8 @@ def _one_ref(epi_path: str | None, artifact_id: str | None) -> str:
         + SCOPE_NOTE
     ),
     title="Seal a conversation or run",
-    # Writes a new file on our server and nothing else: no deletion, no outside services.
+    # Writes one new file on our own server and deletes nothing. The only outside call is a hash
+    # sent to a public time-stamp service; no content leaves the server.
     annotations=ToolAnnotations(
         title="Seal a conversation or run",
         read_only_hint=False,
@@ -120,6 +130,7 @@ def _one_ref(epi_path: str | None, artifact_id: str | None) -> str:
         idempotent_hint=False,
         open_world_hint=False,
     ),
+    meta=_oauth_meta("seal"),
     # One copy only: the default also repeats the result as structured content,
     # doubling a response that already carries the file.
     structured_output=False,
@@ -155,6 +166,7 @@ def epi_seal_record(
     annotations=ToolAnnotations(
         title="Verify a sealed file", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
+    meta=_oauth_meta("verify"),
 )
 def epi_verify(epi_path: str | None = None, artifact_id: str | None = None) -> dict[str, Any]:
     return epi_verify_tool(_one_ref(epi_path, artifact_id))
@@ -169,6 +181,7 @@ def epi_verify(epi_path: str | None = None, artifact_id: str | None = None) -> d
     annotations=ToolAnnotations(
         title="Read back a sealed timeline", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
+    meta=_oauth_meta("export"),
 )
 def epi_export_summary(
     epi_path: str | None = None, max_steps: int = 50, artifact_id: str | None = None
@@ -186,6 +199,7 @@ def epi_export_summary(
     annotations=ToolAnnotations(
         title="Compare two sealed timelines", read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     ),
+    meta=_oauth_meta("export"),
 )
 def epi_compare_runs(epi_path_a: str | None = None, epi_path_b: str | None = None,
                      artifact_id_a: str | None = None, artifact_id_b: str | None = None) -> dict[str, Any]:
