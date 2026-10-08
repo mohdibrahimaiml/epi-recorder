@@ -4,6 +4,12 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-tool sign-in declarations** (`_meta.securitySchemes`, `oauth2` with one scope) on all four tools, for hosts that read
+  them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
+  it sends a hash to a public time-stamp service.
+
 ### Fixed
 
 - **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
