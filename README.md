@@ -22,7 +22,7 @@ epi demo --no-browser    # record → seal → verify (no API key)
 [Docs & pilot](#docs--pilot) ·
 [Standards](#standards--compliance)
 
-How it works: [ARCHITECTURE.md](ARCHITECTURE.md) — packages, integrity model, and where to read next.
+How it works: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md) — packages, integrity model, and where to read next.
 
 </div>
 
@@ -86,7 +86,7 @@ Typical first-run verify:
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
 > Identity is separate from seal. Pin with `epi keys trust <name>` when you mean it.  
-> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](docs/POLICY.md).
+> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/POLICY.md).
 
 That’s the product. Everything below is optional depth.
 
@@ -202,7 +202,7 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | `epi import agt <path>` | Import Microsoft AGT evidence |
 | `epi export trace <file.epi>` | TRACE v0.2 log-import record (self-consistency, not issuer attestation) |
 
-Policy + fault analyzer guide: [docs/POLICY.md](docs/POLICY.md)
+Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/POLICY.md)
 
 ---
 
@@ -221,8 +221,8 @@ Policy + fault analyzer guide: [docs/POLICY.md](docs/POLICY.md)
 | Topic | Link |
 |-------|------|
 | **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
-| **How it works** | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| **Archive** (historical guides, may be out of date) | [Pilot pack](docs/archive/PILOT.md) · [Enterprise in 15 minutes](docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
+| **How it works** | [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md) |
+| **Archive** (historical guides, may be out of date) | [Pilot pack](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/PILOT.md) · [Enterprise in 15 minutes](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
 | Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/KNOWN_LIMITATIONS.md) |
 | CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/CLI.md) |
 | Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/AUDITORS-GUIDE.md) |
@@ -279,7 +279,7 @@ epi verify agent.epi --aiuc1   # optional domain scoring
 | `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
 | `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
 
-Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/SITE.md).
+Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/SITE.md).
 
 ---
 
