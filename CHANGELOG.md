@@ -54,6 +54,7 @@ All notable changes to EPI Recorder are documented here.
   "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
   cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
 - Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
+- **Repository cleanup: removed top-level debug files and moved developer scripts to `scripts/dev/`. No behaviour change.**
 
 ### Changed
 
