@@ -254,3 +254,9 @@ attic/
 build-v4.4.1.trace.json
 # Local OAuth helper output (public client_id + single-use PKCE nonces, never commit)
 _oauth_url*.txt
+# Root scratch/debug leftovers (never commit; anchored to repo root only
+# so real files under packages are unaffected)
+/$null
+/_*.txt
+/_*.py
+audit_dir/
