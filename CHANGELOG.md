@@ -10,62 +10,6 @@ All notable changes to EPI Recorder are documented here.
   them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
   it sends a hash to a public time-stamp service.
 
-### Fixed
-
-- **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
-  has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
-- **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the
-  assistant rebuilt the view link itself, using the hash as the id and dropping the access token, so the link did not work.
-- **The seal summary counted events by the names the caller sent.** A chat that sent `tool_call` reported `tool_calls: 0`
-  and listed `user_request` while the sealed record said `user.message`. The counts now use the same canonical kinds.
-- **`epi_verify`, `epi_export_summary` and `epi_compare_runs` now accept `artifact_id`.** Their descriptions told the chat
-  assistant to pass the artifact id, but the parameter was named `epi_path`, so the call was rejected. Both names work.
-- **Near-miss event kinds are read as the real ones.** Chat models often send `user_request`, `assistant_response` or
-  `tool_call`. The sealer mapped none of them, so it warned "No user message" on a record full of user messages and the viewer
-  labelled them wrongly. These now map to `user.message`, `assistant.message`, `tool.call` and so on, and the name the
-  caller sent is kept in the step's provenance.
-- **Viewer no longer shows `+0.000s` on every row of a chat seal.** Chat hosts give no per-message times, so the sealer
-  stamps its own receive time. Those rows now say "received" instead of an offset that reads as a measured gap.
-  Times a caller supplied still show offsets. The trusted RFC 3161 timestamp on the file is unchanged.
-- **A slow public time-stamp service could make a hosted seal fail.** Every seal waits for a free RFC 3161
-  service (freetsa.org) for up to 30 seconds. When it was slow or down, the seal call outlasted what the
-  chat host would wait and the host reported a server error, even though nothing was wrong with the record.
-  The hosted server now waits at most 6 seconds (`EPI_TSA_TIMEOUT`; the local CLI keeps 30), seals without the
-  timestamp, and adds a warning that no trusted timestamp was obtained. The signature and hash chain are
-  unaffected.
-- Remote callers no longer get the whole sealed file back as base64 text when view and download links exist
-  (a small chat was over half a megabyte, filling the chat model's context). Local and stdio use is unchanged.
-
-### Security
-
-- **Hosted connector: every approved caller signed with one shared key, and a caller could choose where
-  the server writes.** The seal tool forced the caller to the server operator even over HTTP, so all people
-  sealing through the connector shared one signing key and one storage quota (per-person signers and quotas
-  only worked when the tool was called directly). Separately, `output_path` was honoured from the network,
-  letting an approved caller make the server write a file at any path it could write to, and skip the quota.
-  Now the caller the server identified is kept, `output_path` is ignored for anyone but the local operator, and
-  verify, read-back and compare accept only the `artifact_id` returned by sealing over the network (file paths
-  remain for local stdio use). **Signers change:** files sealed through the hosted connector before this fix
-  carry the old shared key; new ones carry a per-person key, so re-pin trusted signers.
-
-### Changed
-
-- **The wording Claude and ChatGPT read from the connector states facts instead of giving orders.** Phrases such as
-  "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
-  cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
-- Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
-- **Repository cleanup: removed top-level debug files and moved developer scripts to `scripts/dev/`. No behaviour change.**
-
-### Changed
-
-- **Connector text is leaner and phrased to avoid host safety pauses.** The tool description,
-  server notes and one-click prompts shown to the model are about 40% shorter and no longer
-  mention decision rationale, host-supplied or system text, or "every message / word for word".
-  The summary-fidelity hint moved into the seal warnings. A test checks all model-visible
-  text for risky phrasing.
-
-### Added
-
 - **Privacy, terms and support pages, and a ChatGPT app submission pack.** `/privacy`, `/terms` and
   `/support` describe what the hosted connector actually does (retention hours come from the code), with
   the contact set by `EPI_SUPPORT_EMAIL`. The server now deletes expired sealed files on a timer and forgets
@@ -113,19 +57,7 @@ All notable changes to EPI Recorder are documented here.
 - Optional `EPI_APPROVE_PASSPHRASE` and per-caller / server-wide storage quotas
   for the evidence connector.
 
-### Fixed
-
-- **Viewer showed a valid signature as INVALID** when signed metadata contained
-  non-ASCII text (an em dash, an accent, a checkmark in the goal). The browser
-  viewer decoded `manifest.json` as Latin-1; it now decodes UTF-8. Applies to
-  every sealed file's embedded viewer, the hosted viewer mirrors and the 40
-  embedded demo pages. Python verification was never affected. A repo-wide test
-  blocks the old pattern.
-- **`epi view` / `export-html` showed "scope undeclared (pre-v artifact)"** for
-  every artifact: the capture manifest and checkpoints were missing from the
-  data passed to the viewer.
-
-### Added — MCP evidence connector (`epi_mcp`)
+#### MCP evidence connector (`epi_mcp`)
 
 - Seals carry an honest provenance record: `caller_provided` capture scope,
   per-event timestamp source (caller vs server-received), per-event
@@ -145,6 +77,71 @@ All notable changes to EPI Recorder are documented here.
   misread as a request to expose reasoning; oversized records fail fast with a
   way forward. Requires `mcp>=2.0`.
 - Schema: `CapturePath` gains `caller_provided`.
+
+### Changed
+
+- **The wording Claude and ChatGPT read from the connector states facts instead of giving orders.** Phrases such as
+  "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
+  cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
+- Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
+- **Repository cleanup: removed top-level debug files and moved developer scripts to `scripts/dev/`. No behaviour change.**
+- **Connector text is leaner and phrased to avoid host safety pauses.** The tool description,
+  server notes and one-click prompts shown to the model are about 40% shorter and no longer
+  mention decision rationale, host-supplied or system text, or "every message / word for word".
+  The summary-fidelity hint moved into the seal warnings. A test checks all model-visible
+  text for risky phrasing.
+
+### Fixed
+
+- **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
+  has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
+- **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the
+  assistant rebuilt the view link itself, using the hash as the id and dropping the access token, so the link did not work.
+- **The seal summary counted events by the names the caller sent.** A chat that sent `tool_call` reported `tool_calls: 0`
+  and listed `user_request` while the sealed record said `user.message`. The counts now use the same canonical kinds.
+- **`epi_verify`, `epi_export_summary` and `epi_compare_runs` now accept `artifact_id`.** Their descriptions told the chat
+  assistant to pass the artifact id, but the parameter was named `epi_path`, so the call was rejected. Both names work.
+- **Near-miss event kinds are read as the real ones.** Chat models often send `user_request`, `assistant_response` or
+  `tool_call`. The sealer mapped none of them, so it warned "No user message" on a record full of user messages and the viewer
+  labelled them wrongly. These now map to `user.message`, `assistant.message`, `tool.call` and so on, and the name the
+  caller sent is kept in the step's provenance.
+- **Viewer no longer shows `+0.000s` on every row of a chat seal.** Chat hosts give no per-message times, so the sealer
+  stamps its own receive time. Those rows now say "received" instead of an offset that reads as a measured gap.
+  Times a caller supplied still show offsets. The trusted RFC 3161 timestamp on the file is unchanged.
+- **A slow public time-stamp service could make a hosted seal fail.** Every seal waits for a free RFC 3161
+  service (freetsa.org) for up to 30 seconds. When it was slow or down, the seal call outlasted what the
+  chat host would wait and the host reported a server error, even though nothing was wrong with the record.
+  The hosted server now waits at most 6 seconds (`EPI_TSA_TIMEOUT`; the local CLI keeps 30), seals without the
+  timestamp, and adds a warning that no trusted timestamp was obtained. The signature and hash chain are
+  unaffected.
+- Remote callers no longer get the whole sealed file back as base64 text when view and download links exist
+  (a small chat was over half a megabyte, filling the chat model's context). Local and stdio use is unchanged.
+
+- **Viewer showed a valid signature as INVALID** when signed metadata contained
+  non-ASCII text (an em dash, an accent, a checkmark in the goal). The browser
+  viewer decoded `manifest.json` as Latin-1; it now decodes UTF-8. Applies to
+  every sealed file's embedded viewer, the hosted viewer mirrors and the 40
+  embedded demo pages. Python verification was never affected. A repo-wide test
+  blocks the old pattern.
+- **`epi view` / `export-html` showed "scope undeclared (pre-v artifact)"** for
+  every artifact: the capture manifest and checkpoints were missing from the
+  data passed to the viewer.
+
+### Security
+
+- **Hosted connector: every approved caller signed with one shared key, and a caller could choose where
+  the server writes.** The seal tool forced the caller to the server operator even over HTTP, so all people
+  sealing through the connector shared one signing key and one storage quota (per-person signers and quotas
+  only worked when the tool was called directly). Separately, `output_path` was honoured from the network,
+  letting an approved caller make the server write a file at any path it could write to, and skip the quota.
+  Now the caller the server identified is kept, `output_path` is ignored for anyone but the local operator, and
+  verify, read-back and compare accept only the `artifact_id` returned by sealing over the network (file paths
+  remain for local stdio use). **Signers change:** files sealed through the hosted connector before this fix
+  carry the old shared key; new ones carry a per-person key, so re-pin trusted signers.
+
+### Documentation
+
+- **Honest badges, architecture overview, consistent spec labels, fixed links.** README uses the real Release Gate CI badge; new `ARCHITECTURE.md` describes the packages and integrity model from the code; `docs/spec/` version labels read 4.5.0; `docs/README.md` archive links are marked archived and README presents them in one Archive row. No behaviour change.
 
 ### Ops
 
