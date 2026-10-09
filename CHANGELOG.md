@@ -55,14 +55,15 @@ All notable changes to EPI Recorder are documented here.
   cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
 - Tool titles are also set inside each tool's annotations, as the Claude connector directory expects.
 - **Repository cleanup: removed top-level debug files and moved developer scripts to `scripts/dev/`. No behaviour change.**
-
-### Changed
-
 - **Connector text is leaner and phrased to avoid host safety pauses.** The tool description,
   server notes and one-click prompts shown to the model are about 40% shorter and no longer
   mention decision rationale, host-supplied or system text, or "every message / word for word".
   The summary-fidelity hint moved into the seal warnings. A test checks all model-visible
   text for risky phrasing.
+
+### Documentation
+
+- **Honest badges, architecture overview, consistent spec labels, fixed links.** README uses the real Release Gate CI badge; new `ARCHITECTURE.md` describes the packages and integrity model from the code; `docs/spec/` version labels read 4.5.0; `docs/README.md` archive links are marked archived and README presents them in one Archive row. No behaviour change.
 
 ### Added
 

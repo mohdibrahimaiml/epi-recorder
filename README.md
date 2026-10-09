@@ -9,7 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![Version v4.5.0](https://img.shields.io/badge/version-v4.5.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/mohdibrahimaiml/epi-recorder/actions)
+[![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
 ```bash
 pip install epi-recorder
@@ -21,6 +21,8 @@ epi demo --no-browser    # record → seal → verify (no API key)
 [CLI](#cli) ·
 [Docs & pilot](#docs--pilot) ·
 [Standards](#standards--compliance)
+
+How it works: [ARCHITECTURE.md](ARCHITECTURE.md) — packages, integrity model, and where to read next.
 
 </div>
 
@@ -84,7 +86,7 @@ Typical first-run verify:
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
 > Identity is separate from seal. Pin with `epi keys trust <name>` when you mean it.  
-> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/POLICY-AND-FAULT-ANALYZER.md).
+> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](docs/POLICY.md).
 
 That’s the product. Everything below is optional depth.
 
@@ -200,7 +202,7 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | `epi import agt <path>` | Import Microsoft AGT evidence |
 | `epi export trace <file.epi>` | TRACE v0.2 log-import record (self-consistency, not issuer attestation) |
 
-Policy + fault analyzer guide: [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/POLICY-AND-FAULT-ANALYZER.md)
+Policy + fault analyzer guide: [docs/POLICY.md](docs/POLICY.md)
 
 ---
 
@@ -219,10 +221,8 @@ Policy + fault analyzer guide: [docs/POLICY-AND-FAULT-ANALYZER.md](https://githu
 | Topic | Link |
 |-------|------|
 | **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
-| **Guided pilot pack** | [docs/PILOT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/PILOT.md) |
-| Enterprise in 15 minutes | [docs/ENTERPRISE-15-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/ENTERPRISE-15-MINUTES.md) |
-| Enterprise capability (honest) | [docs/ENTERPRISE-CAPABILITY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/ENTERPRISE-CAPABILITY.md) |
-| Policy + fault analyzer | [docs/POLICY-AND-FAULT-ANALYZER.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
+| **How it works** | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Archive** (historical guides, may be out of date) | [Pilot pack](docs/archive/PILOT.md) · [Enterprise in 15 minutes](docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
 | Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/KNOWN_LIMITATIONS.md) |
 | CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/CLI.md) |
 | Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/AUDITORS-GUIDE.md) |
@@ -268,13 +268,18 @@ epi verify agent.epi --aiuc1   # optional domain scoring
 | `epi_recorder/` | Python SDK (`record`, wrappers) |
 | `epi_core/` | Container, crypto, redaction, verify, fault analyzer |
 | `epi_cli/` | `epi` command |
+| `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (`epi-mcp`, `epi-mcp-http`) |
+| `epi_gateway/` | Self-hosted capture/review runtime (`epi gateway serve`) |
+| `web_viewer/` | Canonical browser UI (source for `epi view` and the embedded viewer) |
+| `epi_viewer_static/` | Browser crypto baked into every sealed file at pack time |
 | `website/` | Public site source of truth (`epilabs.org`) |
-| `website-v2/` | Sandbox redesign (not production deploy) |
+| `website-v2/` | Sandbox redesign (not deployed) |
 | `verify_portal/` | Hosted verify/auth API (optional) |
+| `scripts/` | Build, sync, release and verification helper scripts |
 | `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
-| `tests/test_core_loop_golden.py` | Golden path regression |
+| `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
 
-Website edits: only under `website/`, then `python scripts/sync_website.py`. See [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/SITE.md).
+Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/SITE.md).
 
 ---
 

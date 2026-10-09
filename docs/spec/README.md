@@ -1,6 +1,6 @@
 # EPI File Format Specification
 
-**Status:** Open Standard | **Version:** 4.2.0 | **Date:** 2026-06
+**Status:** Open Standard | **Version:** 4.5.0 | **Date:** 2026-10
 
 This directory contains the open, language-agnostic specification for the EPI
 container format. Anyone may implement `.epi` file producers and consumers
