@@ -1,4 +1,0 @@
-Add insurance claim evidence HTML to docs/assets/
-
-Standalone HTML document for insurance claim adjudication evidence.
-Accessible at https://mohdibrahimaiml.github.io/epi-recorder/assets/insurance_claim_evidence.html
