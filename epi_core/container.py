@@ -1208,7 +1208,11 @@ class EPIContainer:
         notarization_result = None
         if notarize_enabled:
             try:
-                from epi_core.notarize import embed_notarization, notarize_manifest
+                from epi_core.notarize import (
+                    compute_seal_imprint,
+                    embed_notarization,
+                    notarize_manifest,
+                )
                 from epi_core.serialize import get_canonical_hash
 
                 # Compute canonical hash of the unsigned manifest
@@ -1228,9 +1232,26 @@ class EPIContainer:
                             f"rfc8785 required for notarization payload (EPI {JCS_INTRODUCED_VERSION}+)"
                         ) from exc
                     _notarize_payload = _rfc8785.dumps(unsigned_manifest).decode("utf-8")
+                    # The TSA binds the recomputable seal imprint, not the
+                    # canonical manifest hash: at this point file_manifest
+                    # holds exactly the payload files (notarization members,
+                    # VERIFY.txt and viewer.html are added afterwards), which
+                    # is precisely the set the verifier filters down to.
+                    # public_key is None on unsigned first packs (record()
+                    # signs on repack with EPI_NOTARIZE=0); the value used is
+                    # stored in notarization.json so the verifier recomputes
+                    # with the identical input.
+                    _imprint = compute_seal_imprint(
+                        str(manifest.workflow_id),
+                        manifest.created_at.isoformat(),
+                        manifest.public_key,
+                        dict(manifest.file_manifest or {}),
+                    )
                     notarization_result = notarize_manifest(
                         _notarize_payload,
                         canonical_hash,
+                        stamp_digest=_imprint,
+                        imprinted_public_key=manifest.public_key,
                     )
                     embed_notarization(source_dir, notarization_result)
             except Exception as _ne:

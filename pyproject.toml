@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epi-recorder"
-version = "4.5.0"
+version = "4.6.0"
 description = "Tamper-evident evidence infrastructure for AI agents. Capture, seal, verify, and audit AI decisions in a single portable file."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
@@ -58,6 +58,7 @@ dependencies = [
     "cryptography>=41.0.0,<51",
     "cbor2>=5.6.0",
     "rfc8785>=0.1.4",
+    "asn1crypto>=1.5,<2",
     "typer>=0.16.0,<0.28.0",
     "click>=8.1.0,<9.0.0",
     "rich>=13.0.0,<16",
@@ -188,7 +189,7 @@ exclude = ["tests", "tests.*", "*.tests", "*.tests.*", "*tests*"]
 py-modules = ["epi_postinstall"]
 
 [tool.setuptools.package-data]
-epi_core = ["assets/*.ico"]
+epi_core = ["assets/*.ico", "assets/tsa_roots/*"]
 epi_viewer_static = ["*.html", "*.js", "*.css"]
 web_viewer = ["*.html", "*.js", "*.css"]
 

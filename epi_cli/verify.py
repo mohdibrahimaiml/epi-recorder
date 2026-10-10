@@ -36,6 +36,263 @@ from epi_core.trust import (
 console = Console()
 
 
+_TIMESTAMP_TAMPER_STATUSES = ("imprint_mismatch", "bad_signature", "cert_invalid")
+
+
+def _build_timestamps_block(
+    epi_file: Path,
+    manifest,
+    cp_records: list[dict],
+    tsa_root_paths: list[Path] | None = None,
+) -> dict:
+    """Validate seal-time and checkpoint RFC 3161 tokens (offline).
+
+    Returns report["timestamps"]: {seal, checkpoints, earliest_verified,
+    statement, clock_warning}. Never raises; every failure mode becomes data.
+    """
+    from epi_core.notarize import (
+        IMPRINT_SCHEME,
+        _parse_tsr_gen_time,
+        compute_seal_imprint,
+        normalize_imprint_time,
+    )
+    from epi_core.tsa_verify import (
+        load_pem_roots,
+        load_pinned_tsa_roots,
+        load_user_tsa_roots,
+        validate_tsr,
+    )
+
+    block: dict = {
+        "seal": [],
+        "checkpoints": [],
+        "earliest_verified": None,
+        "statement": "no timestamps collected",
+        "clock_warning": None,
+    }
+    try:
+        pinned = load_pinned_tsa_roots()
+    except Exception:
+        pinned = []
+    try:
+        extra_pems = load_pem_roots([str(p) for p in (tsa_root_paths or [])])
+    except Exception:
+        extra_pems = []
+    try:
+        env_pems = load_user_tsa_roots()
+    except Exception:
+        env_pems = []
+    trust_roots: list = list(pinned)
+    for cert in list(extra_pems) + list(env_pems):
+        try:
+            trust_roots.append((cert.subject.rfc4514_string(), cert))
+        except Exception:
+            continue
+
+    try:
+        notar = EPIContainer.read_member_json(
+            epi_file, "artifacts/notarization/notarization.json"
+        )
+    except Exception:
+        notar = None
+    if isinstance(notar, dict):
+        scheme = notar.get("imprint_scheme")
+        entries = list(notar.get("tsa_tokens") or [])
+        if not entries and notar.get("tsa_token_available"):
+            entries = [
+                {
+                    "url": ((notar.get("notarized_at") or {}).get("url") or ""),
+                    "member": "artifacts/notarization/tsa_reply.tsr",
+                }
+            ]
+        new_scheme = scheme == IMPRINT_SCHEME and notar.get("imprinted_digest")
+        expected: bytes | None = None
+        recomputed: str | None = None
+        if new_scheme:
+            try:
+                recomputed = compute_seal_imprint(
+                    str(manifest.workflow_id),
+                    normalize_imprint_time(manifest.created_at),
+                    notar.get("imprinted_public_key"),
+                    dict(manifest.file_manifest or {}),
+                )
+                expected = bytes.fromhex(str(notar["imprinted_digest"]))
+            except Exception:
+                expected = None
+        for entry in entries:
+            url = (entry.get("url") if isinstance(entry, dict) else "") or ""
+            member = (
+                (entry.get("member") if isinstance(entry, dict) else "")
+                or "artifacts/notarization/tsa_reply.tsr"
+            )
+            if not new_scheme:
+                try:
+                    present = EPIContainer.read_member_bytes(epi_file, member)
+                except Exception:
+                    present = None
+                block["seal"].append(
+                    {
+                        "url": url,
+                        "status": "legacy" if present else "absent",
+                        "gen_time": _parse_tsr_gen_time(present),
+                        "tsa_subject": None,
+                        "tsa_root": None,
+                        "imprint_scheme": None,
+                        "detail": (
+                            "legacy token: imprint not recomputable "
+                            "(sealed before 4.6); presence only"
+                        ),
+                    }
+                )
+                continue
+            if expected is None:
+                block["seal"].append(
+                    {
+                        "url": url,
+                        "status": "malformed",
+                        "gen_time": None,
+                        "tsa_subject": None,
+                        "tsa_root": None,
+                        "imprint_scheme": IMPRINT_SCHEME,
+                        "detail": "seal imprint cannot be recomputed from this manifest",
+                    }
+                )
+                continue
+            try:
+                token = EPIContainer.read_member_bytes(epi_file, member)
+            except Exception:
+                token = None
+            if not token:
+                block["seal"].append(
+                    {
+                        "url": url,
+                        "status": "absent",
+                        "gen_time": None,
+                        "tsa_subject": None,
+                        "tsa_root": None,
+                        "imprint_scheme": IMPRINT_SCHEME,
+                        "detail": "notarization record lists a token that is not in the file",
+                    }
+                )
+                continue
+            try:
+                validation = validate_tsr(token, expected, trust_roots=trust_roots)
+            except Exception as exc:
+                block["seal"].append(
+                    {
+                        "url": url,
+                        "status": "malformed",
+                        "gen_time": None,
+                        "tsa_subject": None,
+                        "tsa_root": None,
+                        "imprint_scheme": IMPRINT_SCHEME,
+                        "detail": f"timestamp validation crashed ({exc})",
+                    }
+                )
+                continue
+            status = validation.status
+            detail = validation.detail
+            if recomputed != notar.get("imprinted_digest") and status == "valid":
+                # Payload drifted after stamping and was re-signed with the
+                # key: the old token no longer covers these bytes.
+                status = "imprint_mismatch"
+                detail = (
+                    "sealed bytes no longer match the timestamped imprint "
+                    "(modified and re-signed after sealing)"
+                )
+            block["seal"].append(
+                {
+                    "url": url,
+                    "status": status,
+                    "gen_time": validation.gen_time,
+                    "tsa_subject": validation.tsa_subject,
+                    "tsa_root": validation.tsa_root,
+                    "imprint_scheme": IMPRINT_SCHEME,
+                    "detail": detail,
+                }
+            )
+
+    for rec in cp_records or []:
+        try:
+            idx = int((rec or {}).get("index", 0))
+        except Exception:
+            idx = 0
+        try:
+            count = int((rec or {}).get("event_count", 0))
+        except Exception:
+            count = 0
+        if not (rec or {}).get("tsa_available"):
+            block["checkpoints"].append(
+                {"index": idx, "event_count": count, "status": "absent", "gen_time": None}
+            )
+            continue
+        validation = (rec or {}).get("tsa_validation") or {}
+        block["checkpoints"].append(
+            {
+                "index": idx,
+                "event_count": count,
+                "status": validation.get("status") or "absent",
+                "gen_time": validation.get("gen_time"),
+            }
+        )
+
+    valid_seal = [e for e in block["seal"] if e["status"] == "valid"]
+    valid_cp = sorted(
+        (c for c in block["checkpoints"] if c["status"] == "valid"),
+        key=lambda c: (c["index"], c["event_count"]),
+    )
+    earliest: str | None = None
+    for entry in valid_seal + valid_cp:
+        gen = entry.get("gen_time")
+        if gen and (earliest is None or gen < earliest):
+            earliest = gen
+    block["earliest_verified"] = earliest
+
+    clauses: list[str] = []
+    if valid_cp:
+        last = valid_cp[-1]
+        if last.get("gen_time"):
+            clauses.append(
+                f"steps 1-{last['event_count']} existed no later than "
+                f"{last['gen_time']} (checkpoint {last['index']})"
+            )
+    if valid_seal:
+        seal_times = [e["gen_time"] for e in valid_seal if e.get("gen_time")]
+        if seal_times:
+            clauses.append(
+                f"the sealed manifest existed no later than {min(seal_times)}"
+            )
+    if any(e["status"] == "legacy" for e in block["seal"]):
+        clauses.append("legacy seal token present (imprint not recomputable); presence only")
+    if any(e["status"] in _TIMESTAMP_TAMPER_STATUSES for e in block["seal"]):
+        clauses.append("a seal-time token is INVALID (see detail)")
+    block["statement"] = (
+        "; ".join(clauses) + "." if clauses else "no verified timestamps."
+    )
+
+    # Sanity check: a creation time later than the TSA's attested time is
+    # impossible for honest data — the sealer's clock and the TSA disagree.
+    try:
+        if earliest and manifest.created_at is not None:
+            from datetime import datetime, timezone
+
+            created = manifest.created_at
+            if isinstance(created, str):
+                created = datetime.fromisoformat(created)
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            earliest_dt = datetime.fromisoformat(str(earliest).replace("Z", "+00:00"))
+            if (created - earliest_dt).total_seconds() > 600:
+                block["clock_warning"] = (
+                    f"sealer clock ({created.strftime('%Y-%m-%dT%H:%M:%SZ')}) is more "
+                    f"than 10 minutes after the earliest verified timestamp "
+                    f"({earliest}); the sealer's clock and the TSA disagree"
+                )
+    except Exception:
+        pass
+    return block
+
+
 # Neutral colours: missing evidence is information for the reader, not a failed check.
 _AIUC1_COLORS = {"FOUND": "green", "PARTIAL": "yellow", "NOT_FOUND": "dim"}
 _AIUC1_WORDS = {
@@ -509,6 +766,8 @@ def verify_command(
         "--qr",
         help="Print a QR code that opens the artifact on verify.epilabs.org",
     ),
+    tsa_root: list[Path] | None = None,
+    require_timestamp: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -1036,9 +1295,37 @@ def verify_command(
                     f"  [red][FAIL][/red] Checkpoints: {len(_cp_records)} record(s), issues found"
                 )
                 for _m in _cp_messages:
-                    console.print(f"  [red][FAIL][/red] {_m}")
+                    if _m.startswith("CHECKPOINT TIMESTAMP UNVERIFIED"):
+                        console.print(f"  [yellow][WARN][/yellow] {_m}")
+                    else:
+                        console.print(f"  [red][FAIL][/red] {_m}")
             else:
                 console.print("  [dim]Checkpoints: none (seal-time notarization only)[/dim]")
+
+        # ========== STEP 4.95: RFC 3161 TIMESTAMP VALIDATION ==========
+        # Offline validation of seal-time and checkpoint tokens against pinned
+        # TSA roots. Old artifacts (no imprint_scheme) report legacy/presence
+        # only and never change the decision.
+        try:
+            _timestamps = _build_timestamps_block(epi_file, manifest, _cp_records, tsa_root)
+        except Exception as _ts_err:
+            _timestamps = {
+                "seal": [],
+                "checkpoints": [],
+                "earliest_verified": None,
+                "statement": "timestamps not evaluated in this report",
+                "clock_warning": None,
+            }
+            if verbose:
+                console.print(f"  [yellow]![/yellow] Timestamp validation skipped: {_ts_err}")
+        report["timestamps"] = _timestamps
+        try:
+            report["facts"]["timestamp_verified"] = bool(
+                any(e.get("status") == "valid" for e in _timestamps.get("seal", []))
+                or any(c.get("status") == "valid" for c in _timestamps.get("checkpoints", []))
+            )
+        except Exception:
+            pass
 
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
@@ -1051,6 +1338,50 @@ def verify_command(
                 _cp_first = _cp_messages[0] if _cp_messages else "checkpoint verification failed"
                 if _cp_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cp_first}".strip()
+            except Exception:
+                pass
+        # A new-scheme seal token that fails validation means tampering: FAIL
+        # in every policy. Missing or legacy tokens never change the decision
+        # (unless --require-timestamp is set).
+        _ts_invalid = [
+            e for e in _timestamps.get("seal", [])
+            if e.get("status") in _TIMESTAMP_TAMPER_STATUSES
+        ]
+        if _ts_invalid:
+            try:
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _ts_first = str(_ts_invalid[0].get("detail") or "seal timestamp invalid")
+                if _ts_first not in _rs:
+                    report["decision"]["reason"] = f"{_rs} {_ts_first}".strip()
+            except Exception:
+                pass
+            try:
+                report["integrity_ok"] = False
+                report["facts"]["integrity_ok"] = False
+                report["summary"]["integrity"] = (
+                    _ts_invalid[0].get("detail") or "FAILED"
+                )
+            except Exception:
+                pass
+        if require_timestamp and not any(
+            e.get("status") == "valid" for e in _timestamps.get("seal", [])
+        ):
+            try:
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _msg = "no valid seal-time timestamp (--require-timestamp)"
+                if _msg not in _rs:
+                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
+            except Exception:
+                pass
+        if _timestamps.get("clock_warning") and report.get("decision", {}).get("status") == "PASS":
+            try:
+                report["decision"]["status"] = "WARN"
+                _rs = report["decision"].get("reason", "")
+                report["decision"]["reason"] = (
+                    f"{_rs} {_timestamps['clock_warning']}".strip()
+                )
             except Exception:
                 pass
         # Preserve downgrade flag through policy application (apply_policy rewrites decision).
@@ -1397,28 +1728,69 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         detail = f" — {f_reason}" if f_reason else ""
         content_lines.append(f"  [{f_color}]- Forensic:     {f_text}{detail}[/{f_color}]")
 
-    # Notarization status — RFC 3161 token presence only. The token's CMS
-    # signature, chain, and messageImprint are NOT validated (see
-    # KNOWN_LIMITATIONS.md), so this never renders green.
-    notarization_status = "dim]Not available"
-    try:
-        epi_path = Path(epi_file) if isinstance(epi_file, str) else epi_file
-        from zipfile import ZipFile
-        with ZipFile(epi_path, "r") as zf:
-            if "artifacts/notarization/notarization.json" in zf.namelist():
-                notar_data = json.loads(zf.read("artifacts/notarization/notarization.json"))
-                provider = (notar_data.get("notarized_at") or {}).get("provider", "unknown")
-                tsa_url = (notar_data.get("notarized_at") or {}).get("url", "")
-                gen_time = notar_data.get("tsa_genTime") or ""
-                notarization_status = f"yellow]RFC 3161 token present ({provider}"
-                if tsa_url:
-                    notarization_status += f" via {tsa_url}"
-                if gen_time:
-                    notarization_status += f" · genTime {gen_time}"
-                notarization_status += "; signature not validated)"
-    except Exception:
-        pass
-    content_lines.append(f"  - Notarized:    [{notarization_status}")
+    # Timestamp status — validated offline by epi verify against pinned TSA
+    # roots. New-scheme tokens never render "presence only"; legacy tokens
+    # (sealed before imprints existed) and reports that never evaluated
+    # timestamps keep the honest presence-only wording.
+    _ts_block = report.get("timestamps") or {}
+    _seal_entries = _ts_block.get("seal") or []
+    if not _seal_entries and str(_ts_block.get("statement", "")).startswith(
+        "timestamps not evaluated"
+    ):
+        # Notarization status — RFC 3161 token presence only. The token's CMS
+        # signature, chain, and messageImprint are NOT validated (see
+        # KNOWN_LIMITATIONS.md), so this never renders green.
+        notarization_status = "dim]Not available"
+        try:
+            epi_path = Path(epi_file) if isinstance(epi_file, str) else epi_file
+            from zipfile import ZipFile
+            with ZipFile(epi_path, "r") as zf:
+                if "artifacts/notarization/notarization.json" in zf.namelist():
+                    notar_data = json.loads(zf.read("artifacts/notarization/notarization.json"))
+                    provider = (notar_data.get("notarized_at") or {}).get("provider", "unknown")
+                    tsa_url = (notar_data.get("notarized_at") or {}).get("url", "")
+                    gen_time = notar_data.get("tsa_genTime") or ""
+                    notarization_status = f"yellow]RFC 3161 token present ({provider}"
+                    if tsa_url:
+                        notarization_status += f" via {tsa_url}"
+                    if gen_time:
+                        notarization_status += f" · genTime {gen_time}"
+                    notarization_status += "; signature not validated)"
+        except Exception:
+            pass
+        content_lines.append(f"  - Notarized:    [{notarization_status}")
+    else:
+        _ts_invalid = [
+            e for e in _seal_entries
+            if e.get("status") in ("imprint_mismatch", "bad_signature", "cert_invalid")
+        ]
+        _ts_valid = [e for e in _seal_entries if e.get("status") == "valid"]
+        _ts_legacy = [e for e in _seal_entries if e.get("status") == "legacy"]
+        if _ts_invalid:
+            content_lines.append(
+                f"  [red]- Timestamp:  INVALID — {_ts_invalid[0].get('detail')}[/red]"
+            )
+        elif _ts_valid:
+            _ts_earliest = min(e["gen_time"] for e in _ts_valid if e.get("gen_time"))
+            _ts_roots = sorted(
+                {str(e.get("tsa_root") or e.get("url") or "?") for e in _ts_valid}
+            )
+            _ts_where = "; ".join(f'chain to pinned root "{r}"' for r in _ts_roots)
+            content_lines.append(
+                f"  [green]- Timestamp:  VERIFIED — existed no later than "
+                f"{_ts_earliest} ({_ts_where})[/green]"
+            )
+        elif _ts_legacy:
+            content_lines.append(
+                "  [yellow]- Timestamp:  legacy token — imprint not recomputable "
+                "(sealed before 4.6); presence only[/yellow]"
+            )
+        else:
+            content_lines.append("  - Timestamp:  none")
+        if _ts_block.get("clock_warning"):
+            content_lines.append(
+                f"  [yellow]- Clock:       {_ts_block['clock_warning']}[/yellow]"
+            )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
     # Read from environment.json, which the file hashes cover, and shown only

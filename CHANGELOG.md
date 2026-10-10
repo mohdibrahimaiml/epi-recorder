@@ -6,6 +6,16 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **RFC 3161 timestamps are now validated offline by `epi verify` (4.6.0).** Seal time stamps a recomputable
+  imprint (`epi-tsa-imprint/v1`: workflow id, creation time, sealing key, payload file hashes) with two
+  independent TSAs (FreeTSA + DigiCert; `EPI_TSA_URLS` overrides, `EPI_TSA_URL` still a single-URL override).
+  Verification checks the imprint, CMS signature, critical timeStamping EKU and chain to pinned roots shipped
+  with the package (`epi_core/assets/tsa_roots/`), for seal tokens and heartbeat checkpoints alike. New flags
+  `epi verify --tsa-root` (repeatable) and `--require-timestamp`; `report.timestamps` and
+  `facts.timestamp_verified` in JSON output; AIUC-1 Accountability gains timestamp evidence without claiming any
+  control. Pre-4.6 tokens report legacy/presence-only and never change the decision; the browser viewer still
+  does not validate and says so.
+
 - **Per-tool sign-in declarations** (`_meta.securitySchemes`, `oauth2` with one scope) on all four tools, for hosts that read
   them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
   it sends a hash to a public time-stamp service.
