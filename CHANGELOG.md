@@ -141,6 +141,7 @@ All notable changes to EPI Recorder are documented here.
 
 ### Documentation
 
+- **AIUC-1 evidence document rewritten to claim only what EPI does.** It no longer calls EPI "the definitive" container or says it "satisfies" AIUC-1 domains; it lists what each domain's evidence covers and does not, explains that `--aiuc1` PASS/PARTIAL/FAIL are EPI's own evidence checks rather than AIUC-1 results, and notes that the default SCITT receipt is local, not independent. No behaviour change.
 - **Honest badges, architecture overview, consistent spec labels, fixed links.** README uses the real Release Gate CI badge; new `ARCHITECTURE.md` describes the packages and integrity model from the code; `docs/spec/` version labels read 4.5.0; `docs/README.md` archive links are marked archived and README presents them in one Archive row. No behaviour change.
 
 ### Ops

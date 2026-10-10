@@ -242,7 +242,7 @@ is for the auditor or notified body to determine.
 | SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/standards/scitt-predicate.md) |
 
 ```bash
-epi verify agent.epi --aiuc1   # optional domain scoring
+epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certification)
 ```
 
 ---
