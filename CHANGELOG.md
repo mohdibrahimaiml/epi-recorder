@@ -100,6 +100,12 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Internal sales templates are no longer publicly deployed.** `website/outreach.md` (cold-email templates and
+  target-company lists) was synced into `site/`, `verify_portal/static/` and `epi-official/`. All four copies are
+  removed, and both sync paths (`scripts/sync_website.py` and `npm run build`) now refuse to copy any `website/`
+  Markdown other than `README.md` into public outputs, with a test pinning it. The file's "August 2, 2026" EU AI Act
+  date was also stale (Annex III high-risk obligations apply from 2 December 2027 under Regulation (EU) 2026/1744);
+  no other non-archive public file carried that date.
 - **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
   has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
 - **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the

@@ -37,6 +37,16 @@ PRESERVE_UNDER_STATIC = {
 }
 
 
+# Only README.md may ship as Markdown in the public outputs. Internal *.md
+# files (e.g. outreach/sales templates) must never be copied to a deployed
+# target, even if added under website/ by mistake.
+PUBLIC_MD_ALLOWLIST = {"README.md"}
+
+
+def _is_excluded_public_md(path: Path) -> bool:
+    return path.suffix.lower() == ".md" and path.name not in PUBLIC_MD_ALLOWLIST
+
+
 def _copy_tree(src: Path, dest: Path, *, preserve_top: set[str] | None = None) -> int:
     preserve_top = preserve_top or set()
     if not src.is_dir():
@@ -52,6 +62,8 @@ def _copy_tree(src: Path, dest: Path, *, preserve_top: set[str] | None = None) -
                 pass
             else:
                 continue
+        if _is_excluded_public_md(path):
+            continue
         rel = path.relative_to(src)
         out = dest / rel
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -90,6 +102,20 @@ def _purge_stale_pricing_dirs() -> None:
         print("Removed website/pricing/ directory (canonical is website/pricing.html)")
 
 
+def _purge_excluded_public_files() -> None:
+    """Remove internal files that must never be publicly deployed.
+
+    `website/outreach.md` (sales templates) was previously synced into the
+    public targets. The copy step above no longer copies it, but syncs never
+    delete, so remove the stale copies here.
+    """
+    for base in TARGETS:
+        stale = base / "outreach.md"
+        if stale.is_file():
+            stale.unlink()
+            print(f"Removed {stale.relative_to(ROOT)} (internal file, not for public output)")
+
+
 def sync() -> None:
     if not SOURCE.is_dir():
         raise SystemExit(f"Canonical website/ not found at {SOURCE}")
@@ -102,6 +128,7 @@ def sync() -> None:
         total += n
 
     _purge_stale_pricing_dirs()
+    _purge_excluded_public_files()
 
     # Sync .well-known canonical to root and assets mirrors (drift fixed P3)
     for mirror in [ROOT / ".well-known", ROOT / "assets" / "well-known"]:
