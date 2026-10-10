@@ -1,72 +1,127 @@
-# EPI AIUC-1 Compliance & Evidence Specification
+# EPI evidence for AIUC-1 audits
 
-**Status:** Active  
-**Date:** 2026-05-18  
-**Version:** 1.0.0  
-**Authors:** EPI Project Team  
-
----
-
-## Abstract
-
-This document specifies how the **Evidence Packaged Infrastructure (EPI)** framework acts as the definitive technical evidence container for the **AIUC-1 Compliance and Assurance Framework** (commonly referred to as the "SOC 2 for AI agents"). Specifically, it maps EPI’s cryptographic, timeline, and policy structures directly to the six core trust domains evaluated under an AIUC-1 audit.
+**Status:** Draft mapping, not reviewed or endorsed by AIUC  
+**Date:** 2026-10-10  
+**Version:** 1.1.0
 
 ---
 
-## 1. Overview of AIUC-1
+## What this document is
 
-The **AIUC-1** framework is the industry-standard compliance and assurance program designed specifically for autonomous AI agents. Unlike broad governance structures that only evaluate corporate policy, AIUC-1 demands **verifiable technical proof** of an AI agent's behavior, safety limits, and boundaries in production, including mandatory quarterly adversarial testing and continuous operational audit logging.
+AIUC-1 is a certification standard for AI agents. An accredited auditor checks a company's policies,
+operations and technical controls, and AIUC issues the certificate. EPI is not part of that process and
+cannot certify anything.
 
-By packing all agent inputs, outputs, environmental parameters, and evaluation records into a single cryptographically sealed `.epi` file, EPI provides a portable, self-contained evidence container that auditors can verify offline to demonstrate compliance with AIUC-1 controls.
+What EPI can do is produce **evidence an auditor can check**: a signed `.epi` file of what an agent did,
+which anyone can verify offline without trusting the company that produced it. This document lists which
+parts of an `.epi` file are relevant to each AIUC-1 domain, and, just as important, what EPI does not cover.
 
----
+Check the current AIUC-1 standard at aiuc-1.com for the exact controls. This mapping is by domain only;
+it does not cite AIUC-1 control IDs, and it has not been checked against them.
 
-## 2. Core AIUC-1 Trust Domains & EPI Mapping
+## What an `.epi` file proves, and what it does not
 
-EPI satisfies the strict evidence requirements of the six AIUC-1 trust domains:
+It proves:
 
-### 2.1 Security (Control Domain 1)
-*   **AIUC-1 Requirement:** Verifiable protection against adversarial attacks (prompt injection, jailbreaking), unauthorized tool invocation, and data exfiltration.
-*   **EPI Evidence Mapping:**
-    *   **Ed25519 Cryptographic Signatures:** Every `.epi` artifact's manifest is signed with Ed25519, ensuring the entire evidence package is tamper-evident post-seal.
-    *   **SCITT Transparency Logging:** Integration with SCITT logs registers the manifest's canonical SHA-256 hash in a public or private append-only transparency ledger, ensuring non-repudiation.
-    *   **Tool Execution Capture:** The `steps.jsonl` timeline captures every tool call, its parameters, and returned values in order, allowing auditors to verify that the agent never invoked unauthorized resources or executed unsafe commands.
+- **The record has not changed since it was sealed.** Every file in it has a SHA-256 hash in the manifest,
+  and the manifest is signed with Ed25519. Any edit makes `epi verify` fail.
+- **The steps are in the order they were sealed and none was removed or inserted in between.** Each step
+  in `steps.jsonl` carries the hash of the step before it.
+- **Which key sealed it.** The public key is inside the file. Whether that key belongs to the company you
+  think it does is a separate question, answered only if you pin it (`epi keys trust`) or check it against
+  a registry you trust.
 
-### 2.2 Privacy and Data Governance (Control Domain 2)
-*   **AIUC-1 Requirement:** Strict protection of sensitive data (PII, credentials) from being leaked, logged, or ingested for unauthorized training.
-*   **EPI Evidence Mapping:**
-    *   **Automatic Forensic Redaction:** Built-in regex-based scanners in `epi_core.redactor` automatically scrub API keys, authorization headers, environment secrets, and PII from the execution steps before they are written to disk.
-    *   **Data Boundary Isolation:** The environmental context (`environment.json`) explicitly documents which runtime and package dependencies were used, verifying that training boundaries were respected.
+It does not prove:
 
-### 2.3 Safety (Control Domain 3)
-*   **AIUC-1 Requirement:** Prevention of out-of-scope, harmful, or unintended behaviors.
-*   **EPI Evidence Mapping:**
-    *   **Deterministic Step Chronology:** `steps.jsonl` records all inputs, reasoning traces, and outputs in an index-sequenced, time-monotonic chain using `prev_hash` binding. If an agent drifts out-of-scope or behaves unsafely, the exact timeline is sealed and cannot be altered.
+- **That the record is complete.** EPI records what its SDK, gateway or caller captured. Anything not sent
+  to it is not in the file.
+- **That the agent behaved safely, fairly or correctly.** The file preserves what happened so a person can
+  judge it.
+- **When it was sealed, beyond the sealer's own clock,** unless a trusted timestamp or transparency receipt
+  is present. RFC 3161 timestamp tokens are stored, but `epi verify` does not yet validate their signature.
 
-### 2.4 Reliability (Control Domain 4)
-*   **AIUC-1 Requirement:** Consistency of performance and robust error handling.
-*   **EPI Evidence Mapping:**
-    *   **Error Continuation Auditing:** EPI’s forensic analyzer seals both successful completions and raw exception traces, letting auditors verify how the system handled API failures, bad inputs, or rate limits.
+## Evidence by AIUC-1 domain
 
-### 2.5 Accountability and Transparency (Control Domain 5)
-*   **AIUC-1 Requirement:** Human-in-the-loop (HITL) oversight, clear audit trails, and process transparency.
-*   **EPI Evidence Mapping:**
-    *   **Human Review Addendum:** The `review.json` ledger provides a cryptographically bound log of human evaluations, sign-offs, and risk verdicts. This file is appended cleanly without modifying or compromising the original raw execution history.
-    *   **Policy Preserving:** The `policy.json` and `policy_evaluation.json` payloads travel with the container, preserving the exact rules and thresholds that evaluated the agent run.
+The six domain names below are the ones EPI's `--aiuc1` report uses (`epi_core/aiuc1_mapping.py`).
 
-### 2.6 Societal Impact (Control Domain 6)
-*   **AIUC-1 Requirement:** Alignment of agent behavior with ethical boundaries and risk limits.
-*   **EPI Evidence Mapping:**
-    *   **Sealed Analyzer Findings:** The `analysis.json` record captures heuristic and policy-grounded evaluations, providing a persistent, machine-readable proof of compliance for safety reviews.
+### A. Data and privacy
 
----
+- **Redaction before sealing.** `epi_core/redactor.py` replaces matches for built-in patterns before steps
+  are written. The patterns cover API keys and tokens for common providers, passwords and credential
+  assignments, connection strings, private keys, JWTs, email addresses, phone numbers, US Social Security
+  numbers and card numbers. Redaction is on by default.
+- **Each redaction leaves a marker** with a description and an HMAC-SHA256 of the original value, so a
+  reviewer can see that something was removed and what kind of thing it was, without seeing it.
+- **Not covered:** the patterns are regular expressions. They miss secrets and personal data in formats they
+  do not match (names, addresses, free-text health details and so on). They are a safety net, not a data
+  protection programme.
 
-## 3. Continuous Audit Verification
+### B. Security
 
-Using the `epi verify` command, an auditor can mathematically confirm an agent's continuous alignment with the AIUC-1 standard in seconds:
+- **Tamper evidence** through hashes, the step chain and the Ed25519 signature, as above.
+- **Tool calls and their results** are recorded in order, so a reviewer can see which tools the agent
+  called and with what arguments.
+- **Optional SCITT receipt.** `epi scitt register` adds a COSE-signed receipt with a Merkle inclusion proof.
+  By default this uses a local service on the sealing machine, which is not independent. An independent
+  receipt needs `--service` pointing at a transparency service run by someone else.
+- **Not covered:** EPI does not test the agent for prompt injection, jailbreaks or data exfiltration. It
+  records what happened in runs it captured, including any attacks that occurred in them.
+
+### C. Safety
+
+- **A fixed record of each run,** so unsafe or out-of-scope behaviour that happened can be found and cannot
+  later be edited out.
+- **Policy checks.** When a policy file is present at sealing time, EPI evaluates the run against it and
+  seals the policy, the result and the fault analysis with the run (`policy.json`, `policy_evaluation.json`,
+  `analysis.json`). `epi analyze` shows the result and can test a different policy against the same run.
+- **Not covered:** EPI does not prevent harmful behaviour, and a policy check only finds what the policy
+  describes.
+
+### D. Reliability
+
+- **Errors are recorded,** including failed model calls (`llm.error` steps) when the SDK captures them, so a
+  reviewer can see how failures were handled.
+- **Not covered:** EPI does not measure accuracy or consistency across runs. `epi_compare_runs` (hosted
+  connector) shows where two sealed runs differ, which can support such testing.
+
+### E. Accountability
+
+- **Human review is recorded separately.** `epi review` writes `review.json`, which is bound to the sealed
+  artifact and can be signed, without changing the original run.
+- **Signer identity** is reported by `epi verify` (`identity_status`), and `--policy strict` fails files from
+  unknown signers.
+- **Not covered:** incident response, ownership, disclosure policies and other organisational controls.
+  Those are documents and processes the company provides to the auditor.
+
+### F. Society
+
+- **A durable, shareable record** supports investigations and disclosures after an incident.
+- **Not covered:** EPI has no measure of societal impact. The `--aiuc1` report's check under this heading
+  (whether a complete fault analysis was sealed with the run) is evidence that the run was analysed, not
+  evidence of impact. Whether the analysis found faults does not affect it.
+
+## The `epi verify --aiuc1` report
 
 ```bash
-epi verify --policy strict loan-approval.epi
+epi verify --aiuc1 run.epi
+epi verify --aiuc1 --policy strict run.epi   # also fail if the signer is unknown
 ```
 
-This command parses the container, recalculates all SHA-256 hashes, validates the Ed25519 signature, checks OTel sequence monotonicity, and confirms SCITT ledger registration—producing an objective, tamper-proof verification report that directly maps back to AIUC-1 control proofs.
+This runs the normal verification (hashes, chain, signature, identity, SCITT receipt if present) and then
+groups the results under the six domain headings.
+
+Each domain is reported as "evidence found", "some evidence found" or "no evidence found" (`FOUND`,
+`PARTIAL`, `NOT_FOUND` in `--json` output). **These say only whether EPI found all, some or none of the
+evidence it looks for under that heading.** They are EPI's own checks, not AIUC-1 controls, and "evidence
+found" is not an AIUC-1 result. Missing evidence is not a failure of the run: a run with no secrets in it
+has no redaction markers, for example. Use the report as an index to evidence, and give the auditor the
+`.epi` files themselves.
+
+## How a company would use this in an audit
+
+1. Capture production or test runs with the EPI SDK or gateway, with redaction on.
+2. Pin the company's signing key (`epi keys trust`) and give the public key to the auditor.
+3. Hand the auditor the `.epi` files for the runs they sample. They verify them offline with `epi verify` or at
+   https://epilabs.org/verify.
+4. Record human review with `epi review`, so sign-offs are sealed alongside, not mixed into, the run.
+5. Optionally register files with an independent SCITT service for third-party proof of when they existed.

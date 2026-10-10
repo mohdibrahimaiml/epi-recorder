@@ -1,8 +1,8 @@
 """
-AIUC-1 Domain Mapping for EPI Verification Reports.
+AIUC-1 domain index for EPI verification reports.
 
-Maps EPI's cryptographic and forensic evidence to the six trust domains
-published by AIUC-1 (https://aiuc-1.org):
+Groups the evidence EPI finds in an artifact under the six domain headings
+published by AIUC-1 (https://www.aiuc-1.com):
 
     A. Data & Privacy
     B. Security
@@ -10,6 +10,10 @@ published by AIUC-1 (https://aiuc-1.org):
     D. Reliability
     E. Accountability
     F. Society
+
+Each domain is reported as FOUND, PARTIAL or NOT_FOUND: whether EPI found all,
+some or none of the evidence it looks for under that heading. These are EPI's
+own checks. They are not AIUC-1 controls, and FOUND is not an AIUC-1 result.
 """
 
 from __future__ import annotations
@@ -18,6 +22,11 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+EVIDENCE_FOUND = "FOUND"
+EVIDENCE_PARTIAL = "PARTIAL"
+EVIDENCE_NOT_FOUND = "NOT_FOUND"
 
 
 @dataclass
@@ -86,10 +95,10 @@ _DOMAIN_REQUIREMENTS: dict[str, dict[str, Any]] = {
     },
     "F": {
         "name": "Society",
+        # Evidence that the run was analysed at all. Whether the analysis found faults says
+        # nothing about societal impact, so it is not a criterion here.
         "evidence_keys": [
-            "analysis_has_findings",
             "analysis_passes_complete",
-            "redaction_audit_trail",
         ],
     },
 }
@@ -155,9 +164,7 @@ def map_verification_to_aiuc1(
         "redaction_format_valid": _validate_redaction_placeholders(steps),
         "review_bound_to_artifact": _check_review_binding(epi_path, manifest),
         "review_signed": _check_review_signed(epi_path),
-        "analysis_has_findings": _check_analysis_has_findings(manifest, epi_path),
         "analysis_passes_complete": _check_analysis_passes_complete(manifest, epi_path),
-        "redaction_audit_trail": _check_redaction_completeness(steps),
     }
 
     result: dict[str, AIUC1DomainStatus] = {}
@@ -171,11 +178,11 @@ def map_verification_to_aiuc1(
                 missing.append(key)
 
         if not missing:
-            status = "PASS"
+            status = EVIDENCE_FOUND
         elif not passed:
-            status = "FAIL"
+            status = EVIDENCE_NOT_FOUND
         else:
-            status = "PARTIAL"
+            status = EVIDENCE_PARTIAL
 
         result[domain_id] = AIUC1DomainStatus(
             domain=domain_id,
@@ -380,18 +387,21 @@ def aiuc1_summary(statuses: dict[str, AIUC1DomainStatus]) -> dict:
             "missing": status.missing,
         }
 
-    overall = "PASS"
-    if any(s.status == "FAIL" for s in statuses.values()):
-        overall = "FAIL"
-    elif any(s.status == "PARTIAL" for s in statuses.values()):
-        overall = "PARTIAL"
+    values = [s.status for s in statuses.values()]
+    if values and all(v == EVIDENCE_FOUND for v in values):
+        overall = EVIDENCE_FOUND
+    elif values and all(v == EVIDENCE_NOT_FOUND for v in values):
+        overall = EVIDENCE_NOT_FOUND
+    else:
+        overall = EVIDENCE_PARTIAL
 
     return {
-        "framework": "AIUC-1 (EPI's proprietary scoring methodology - not a published industry standard)",
+        "framework": "EPI evidence index under AIUC-1 domain headings (not an AIUC-1 assessment)",
         "overall": overall,
         "domains": domains,
         "note": (
-            "Mapped to AIUC-1's six publicly declared trust domains. "
-            "Specific control IDs will be added after consultation with AIUC-1."
+            "FOUND, PARTIAL and NOT_FOUND say whether EPI found all, some or none of the evidence "
+            "it looks for under each heading. They are EPI's own checks, not AIUC-1 controls, and "
+            "FOUND is not an AIUC-1 result or certification."
         ),
     }

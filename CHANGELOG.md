@@ -80,6 +80,13 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **`epi verify --aiuc1` no longer prints PASS or FAIL next to AIUC-1.** Each domain now reads "evidence found",
+  "some evidence found" or "no evidence found" (`FOUND`, `PARTIAL`, `NOT_FOUND` in JSON, including the verify
+  portal's `aiuc1.overall` and its signed attestation), with a note that these are EPI's own checks and not an
+  AIUC-1 result. The overall line is `FOUND` only when every domain is, `NOT_FOUND` only when none is, and
+  `PARTIAL` otherwise. **Society** no longer requires the analyzer to have found faults (a clean run scored
+  lower than a faulty one) or two kinds of redaction; it now checks that a complete analysis was sealed.
+  Scripts that compared these values to `PASS`/`FAIL` need updating.
 - **The wording Claude and ChatGPT read from the connector states facts instead of giving orders.** Phrases such as
   "Do not write a Markdown file", "Replace passwords" and "tell the user" could read as steering and make a host more
   cautious. They now say what is true (a Markdown file is not a signed record). A test fails if directive wording returns.
@@ -141,6 +148,7 @@ All notable changes to EPI Recorder are documented here.
 
 ### Documentation
 
+- **AIUC-1 evidence document rewritten to claim only what EPI does.** It no longer calls EPI "the definitive" container or says it "satisfies" AIUC-1 domains; it lists what each domain's evidence covers and does not, explains that `--aiuc1` PASS/PARTIAL/FAIL are EPI's own evidence checks rather than AIUC-1 results, and notes that the default SCITT receipt is local, not independent. No behaviour change.
 - **Honest badges, architecture overview, consistent spec labels, fixed links.** README uses the real Release Gate CI badge; new `ARCHITECTURE.md` describes the packages and integrity model from the code; `docs/spec/` version labels read 4.5.0; `docs/README.md` archive links are marked archived and README presents them in one Archive row. No behaviour change.
 
 ### Ops
