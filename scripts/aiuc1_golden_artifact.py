@@ -286,7 +286,7 @@ def build_golden_artifact():
             cli_command="python scripts/aiuc1_golden_artifact.py",
             file_manifest=file_manifest,
             total_steps=len(steps),
-            goal="Demonstrate AIUC-1 domain compliance with genuine evidence",
+            goal="Demonstrate evidence for each AIUC-1 domain heading",
             governance={"did": "did:web:epilabs.org"},
         )
         signed = sign_manifest(manifest, private_key, "default")

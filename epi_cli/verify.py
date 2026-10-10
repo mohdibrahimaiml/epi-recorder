@@ -36,6 +36,15 @@ from epi_core.trust import (
 console = Console()
 
 
+# Neutral colours: missing evidence is information for the reader, not a failed check.
+_AIUC1_COLORS = {"FOUND": "green", "PARTIAL": "yellow", "NOT_FOUND": "dim"}
+_AIUC1_WORDS = {
+    "FOUND": "evidence found",
+    "PARTIAL": "some evidence found",
+    "NOT_FOUND": "no evidence found",
+}
+
+
 def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
     """
     Fetch and cache the SCITT transparency service's Ed25519 public key.
@@ -1061,10 +1070,11 @@ def verify_command(
             aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps, epi_path=epi_file)
             report["aiuc1"] = aiuc1_summary(aiuc1_statuses)
             if verbose:
-                console.print("\n[bold]AIUC-1 Trust Domain Mapping[/bold]")
+                console.print("\n[bold]Evidence by AIUC-1 domain[/bold] [dim](EPI's own checks, not an AIUC-1 result)[/dim]")
                 for domain_id, status in aiuc1_statuses.items():
-                    color = "green" if status.status == "PASS" else ("yellow" if status.status == "PARTIAL" else "red")
-                    console.print(f"  [{color}]{domain_id}. {status.label}: {status.status}[/{color}]")
+                    color = _AIUC1_COLORS.get(status.status, "dim")
+                    words = _AIUC1_WORDS.get(status.status, status.status)
+                    console.print(f"  [{color}]{domain_id}. {status.label}: {words}[/{color}]")
 
         # ========== STEP 5: REVIEW TRUST CHECKS ==========
         try:
@@ -1481,7 +1491,8 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     aiuc1_data = report.get("aiuc1")
     if aiuc1_data:
         content_lines.append("")
-        content_lines.append("[bold underline]AIUC-1 TRUST DOMAINS[/bold underline]")
+        content_lines.append("[bold underline]EVIDENCE BY AIUC-1 DOMAIN[/bold underline]")
+        content_lines.append("[dim]  EPI's own evidence checks, not an AIUC-1 result or certification.[/dim]")
         domains = aiuc1_data.get("domains", {})
         for domain_id in ["A", "B", "C", "D", "E", "F"]:
             domain = domains.get(domain_id)
@@ -1489,16 +1500,13 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 continue
             d_status = domain.get("status", "UNKNOWN")
             d_label = domain.get("label", domain_id)
-            if d_status == "PASS":
-                d_color = "green"
-            elif d_status == "PARTIAL":
-                d_color = "yellow"
-            else:
-                d_color = "red"
-            content_lines.append(f"  [{d_color}]{domain_id}. {d_label}: {d_status}[/{d_color}]")
+            d_color = _AIUC1_COLORS.get(d_status, "dim")
+            d_text = _AIUC1_WORDS.get(d_status, d_status)
+            content_lines.append(f"  [{d_color}]{domain_id}. {d_label}: {d_text}[/{d_color}]")
         overall = aiuc1_data.get("overall", "UNKNOWN")
-        o_color = "green" if overall == "PASS" else ("yellow" if overall == "PARTIAL" else "red")
-        content_lines.append(f"  [{o_color}]Overall: {overall}[/{o_color}]")
+        o_color = _AIUC1_COLORS.get(overall, "dim")
+        o_text = _AIUC1_WORDS.get(overall, overall)
+        content_lines.append(f"  [{o_color}]All domains: {o_text}[/{o_color}]")
 
     if "warnings" in report and report["warnings"]:
         content_lines.append("")

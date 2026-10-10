@@ -232,7 +232,7 @@ def test_domain_a_passes_with_quality_redaction() -> None:
         },
     ]
     statuses = map_verification_to_aiuc1(report, manifest, steps)
-    assert statuses["A"].status == "PASS", f"Domain A should PASS, got {statuses['A'].status} — missing: {statuses['A'].missing}"
+    assert statuses["A"].status == "FOUND", f"Domain A should be FOUND, got {statuses['A'].status} — missing: {statuses['A'].missing}"
     assert "redaction_verifiable" in statuses["A"].evidence
     assert "redaction_coverage" in statuses["A"].evidence
     assert "redaction_format_valid" in statuses["A"].evidence
@@ -250,7 +250,7 @@ def test_domain_a_fails_without_environment() -> None:
         },
     ]
     statuses = map_verification_to_aiuc1(report, manifest, steps)
-    assert statuses["A"].status in ("FAIL", "PARTIAL")
+    assert statuses["A"].status in ("NOT_FOUND", "PARTIAL")
     assert "environment_isolated" in statuses["A"].missing
 
 
@@ -261,7 +261,7 @@ def test_domain_a_fails_with_fake_redaction() -> None:
         {"index": 0, "content": {"text": "***REDACTED*** fake redaction no hmac"}},
     ]
     statuses = map_verification_to_aiuc1(report, manifest, steps)
-    assert statuses["A"].status in ("FAIL", "PARTIAL")
+    assert statuses["A"].status in ("NOT_FOUND", "PARTIAL")
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +280,7 @@ class TestReviewBinding:
         report = _make_report()
         manifest = _make_manifest({"policy.json": "pol_hash"})
         statuses = map_verification_to_aiuc1(report, manifest, [], epi_path=None)
-        assert statuses["E"].status in ("FAIL", "PARTIAL")
+        assert statuses["E"].status in ("NOT_FOUND", "PARTIAL")
         assert "review_bound_to_artifact" in statuses["E"].missing
         assert "review_signed" in statuses["E"].missing
 
@@ -391,9 +391,22 @@ class TestAnalysisChecks:
             },
         ]
         statuses = map_verification_to_aiuc1(report, None, steps, epi_path=None)
-        assert statuses["F"].status in ("FAIL", "PARTIAL")
-        assert "analysis_has_findings" in statuses["F"].missing
-        assert "analysis_passes_complete" in statuses["F"].missing
+        assert statuses["F"].status == "NOT_FOUND"
+        assert statuses["F"].missing == ["analysis_passes_complete"]
+
+    def test_domain_f_does_not_require_faults(self) -> None:
+        """A clean run whose analysis found nothing wrong must not score lower than a faulty one."""
+        clean = _make_epi_with_analysis({
+            "analyzer_version": "1.0",
+            "analysis_timestamp": "2026-01-01T00:00:00Z",
+            "coverage": {"status": "complete"},
+            "fault_detected": False,
+            "primary_fault": None,
+            "secondary_flags": [],
+            "summary": {"secondary_count": 0},
+        })
+        statuses = map_verification_to_aiuc1(_make_report(), None, [], epi_path=clean)
+        assert statuses["F"].status == "FOUND"
 
 
 def _make_epi_with_analysis(analysis: dict) -> Path:
@@ -473,10 +486,10 @@ def test_all_domains_pass_with_full_evidence(tmp_path: Path) -> None:
     statuses = map_verification_to_aiuc1(report, final_manifest, steps, epi_path=epi)
     summary = aiuc1_summary(statuses)
 
-    # With full evidence, all domains should PASS
+    # With full evidence, every domain's evidence is found
     for domain_id in "ABCDEF":
-        assert statuses[domain_id].status == "PASS", (
-            f"Domain {domain_id} should PASS, got {statuses[domain_id].status} — "
+        assert statuses[domain_id].status == "FOUND", (
+            f"Domain {domain_id} should be FOUND, got {statuses[domain_id].status} — "
             f"missing: {statuses[domain_id].missing}"
         )
 
@@ -498,7 +511,7 @@ def test_domain_c_fails_with_broken_chain() -> None:
     report = _make_report(chain_ok=False)
     manifest = _make_manifest({})
     statuses = map_verification_to_aiuc1(report, manifest, [])
-    assert statuses["C"].status in ("FAIL", "PARTIAL")
+    assert statuses["C"].status in ("NOT_FOUND", "PARTIAL")
     assert "chain_ok" in statuses["C"].missing
 
 
@@ -573,28 +586,36 @@ def test_detect_error_steps_absent() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_aiuc1_summary_overall_pass() -> None:
+def test_aiuc1_summary_all_found() -> None:
     statuses = {
-        "A": AIUC1DomainStatus("A", "Data", "PASS"),
-        "B": AIUC1DomainStatus("B", "Security", "PASS"),
+        "A": AIUC1DomainStatus("A", "Data", "FOUND"),
+        "B": AIUC1DomainStatus("B", "Security", "FOUND"),
     }
     summary = aiuc1_summary(statuses)
-    assert summary["overall"] == "PASS"
+    assert summary["overall"] == "FOUND"
 
 
-def test_aiuc1_summary_overall_fail() -> None:
+def test_aiuc1_summary_none_found() -> None:
     statuses = {
-        "A": AIUC1DomainStatus("A", "Data", "PASS"),
-        "B": AIUC1DomainStatus("B", "Security", "FAIL"),
+        "A": AIUC1DomainStatus("A", "Data", "NOT_FOUND"),
+        "B": AIUC1DomainStatus("B", "Security", "NOT_FOUND"),
     }
     summary = aiuc1_summary(statuses)
-    assert summary["overall"] == "FAIL"
+    assert summary["overall"] == "NOT_FOUND"
 
 
-def test_aiuc1_summary_overall_partial() -> None:
+def test_aiuc1_summary_mixed_is_partial() -> None:
     statuses = {
-        "A": AIUC1DomainStatus("A", "Data", "PASS"),
-        "B": AIUC1DomainStatus("B", "Security", "PARTIAL"),
+        "A": AIUC1DomainStatus("A", "Data", "FOUND"),
+        "B": AIUC1DomainStatus("B", "Security", "NOT_FOUND"),
     }
     summary = aiuc1_summary(statuses)
     assert summary["overall"] == "PARTIAL"
+
+
+def test_aiuc1_summary_never_claims_a_pass_or_certification() -> None:
+    statuses = {"A": AIUC1DomainStatus("A", "Data", "FOUND")}
+    summary = aiuc1_summary(statuses)
+    text = json.dumps(summary)
+    assert "PASS" not in text and "FAIL" not in text
+    assert "not an AIUC-1" in summary["framework"]

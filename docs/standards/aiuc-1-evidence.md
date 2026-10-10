@@ -96,9 +96,9 @@ The six domain names below are the ones EPI's `--aiuc1` report uses (`epi_core/a
 ### F. Society
 
 - **A durable, shareable record** supports investigations and disclosures after an incident.
-- **Not covered:** EPI has no measure of societal impact. The `--aiuc1` report's checks under this heading
-  (whether analysis findings and redaction markers are present) are evidence that review happened, not
-  evidence of impact.
+- **Not covered:** EPI has no measure of societal impact. The `--aiuc1` report's check under this heading
+  (whether a complete fault analysis was sealed with the run) is evidence that the run was analysed, not
+  evidence of impact. Whether the analysis found faults does not affect it.
 
 ## The `epi verify --aiuc1` report
 
@@ -110,10 +110,12 @@ epi verify --aiuc1 --policy strict run.epi   # also fail if the signer is unknow
 This runs the normal verification (hashes, chain, signature, identity, SCITT receipt if present) and then
 groups the results under the six domain headings.
 
-Each domain is reported as PASS, PARTIAL or FAIL. **These labels mean only "EPI found all, some or none of
-the evidence it looks for under this heading".** They are EPI's own checks, they are not AIUC-1 controls,
-and a PASS is not an AIUC-1 result. Use the report as an index to evidence, and give the auditor the `.epi`
-files themselves.
+Each domain is reported as "evidence found", "some evidence found" or "no evidence found" (`FOUND`,
+`PARTIAL`, `NOT_FOUND` in `--json` output). **These say only whether EPI found all, some or none of the
+evidence it looks for under that heading.** They are EPI's own checks, not AIUC-1 controls, and "evidence
+found" is not an AIUC-1 result. Missing evidence is not a failure of the run: a run with no secrets in it
+has no redaction markers, for example. Use the report as an index to evidence, and give the auditor the
+`.epi` files themselves.
 
 ## How a company would use this in an audit
 
