@@ -674,6 +674,17 @@ def create_verification_report(
     report.setdefault("enforcement_downgraded", False)
     report.setdefault("enforcement_downgrade_count", 0)
     report.setdefault("checkpoints", {"ok": True, "messages": [], "count": 0})
+    # Witness surface: verify_command overwrites this when --witness-log is
+    # given; direct factory consumers get an honest "not checked" default.
+    report.setdefault(
+        "witness",
+        {
+            "status": "NOT CHECKED",
+            "received_at": None,
+            "matches": 0,
+            "detail": "no witness log supplied (--witness-log)",
+        },
+    )
     # Timestamp surface: verify_command overwrites this with validated data;
     # direct factory consumers get an honest "not evaluated" default so the
     # human report never implies validation happened.

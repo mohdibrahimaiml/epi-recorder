@@ -1,63 +1,17 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 import logging
 import smtplib
-import time
-import urllib.request
+import urllib.request  # noqa: F401 — kept as the patch target for webhook tests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
+from epi_core.webhook import send_signed_webhook
+
+__all__ = ["send_signed_webhook", "send_approval_email"]
+
 logger = logging.getLogger("epi-gateway.approval")
-
-
-def send_signed_webhook(
-    webhook_url: str,
-    payload: dict,
-    *,
-    secret: str | None = None,
-    timeout_seconds: int = 10,
-) -> None:
-    if not str(webhook_url or "").strip():
-        return
-
-    payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-    if secret:
-        digest = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
-        headers["X-EPI-Signature"] = f"sha256={digest}"
-
-    delays = [0, 1, 2, 4]
-    for attempt, delay in enumerate(delays, start=1):
-        if delay:
-            time.sleep(delay)
-        try:
-            request = urllib.request.Request(
-                webhook_url,
-                data=payload_bytes,
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=timeout_seconds):
-                return
-        except Exception as exc:
-            if attempt < len(delays):
-                logger.warning(
-                    "Approval webhook attempt %s failed for %s: %s",
-                    attempt,
-                    webhook_url,
-                    exc,
-                )
-            else:
-                logger.warning(
-                    "Approval webhook failed after %s attempts for %s: %s",
-                    len(delays),
-                    webhook_url,
-                    exc,
-                )
 
 
 def send_approval_email(

@@ -569,6 +569,95 @@ def _print_qr_code(url: str) -> None:
         console.print("└" + "─" * 50 + "┘")
 
 
+def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
+    """Compare the sealed file against the customer's witness log.
+
+    Returns {"status", "received_at", "matches", "detail"} with status one of
+    NOT CHECKED (no log supplied), WITNESSED, NOT IN WITNESS LOG, MISMATCH.
+    Never raises.
+    """
+    result: dict = {
+        "status": "NOT CHECKED",
+        "received_at": None,
+        "matches": 0,
+        "detail": "no witness log supplied (--witness-log)",
+    }
+    if not witness_log:
+        return result
+    try:
+        lines = Path(witness_log).read_text(encoding="utf-8").splitlines()
+    except Exception as exc:
+        result["detail"] = f"witness log unreadable ({exc})"
+        return result
+    entries = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(entry, dict):
+            entries.append(entry)
+    workflow_id = str(getattr(manifest, "workflow_id", ""))
+    same = [e for e in entries if str(e.get("workflow_id") or "") == workflow_id]
+    result["matches"] = len(same)
+    if not same:
+        result["status"] = "NOT IN WITNESS LOG"
+        result["detail"] = (
+            f"workflow {workflow_id} not found in {len(entries)} witness entries; "
+            "a missing entry for a case the customer knows happened is itself evidence"
+        )
+        return result
+    try:
+        from epi_core.serialize import get_canonical_hash
+        import hashlib as _hashlib
+
+        manifest_hash = get_canonical_hash(manifest, exclude_fields=["signature"])
+        file_sha256 = _hashlib.sha256(Path(epi_file).read_bytes()).hexdigest()
+    except Exception as exc:
+        result["detail"] = f"could not hash sealed file ({exc})"
+        return result
+    try:
+        from epi_core.webhook import witness_content_digest
+
+        content_digest = witness_content_digest(manifest)
+    except Exception:
+        content_digest = None
+    for entry in same:
+        if (
+            entry.get("manifest_hash") == manifest_hash
+            and entry.get("file_sha256") == file_sha256
+        ):
+            result["status"] = "WITNESSED"
+            result["received_at"] = entry.get("received_at")
+            result["detail"] = (
+                f"customer record matches (received {entry.get('received_at') or 'unknown time'})"
+            )
+            return result
+    for entry in same:
+        # Re-packaged after the witness (e.g. `epi-register` added a
+        # transparency receipt and re-signed): the sealed evidence is what the
+        # customer was told about, the outer file is not byte-identical.
+        if content_digest and entry.get("content_digest") == content_digest:
+            result["status"] = "WITNESSED"
+            result["received_at"] = entry.get("received_at")
+            result["repackaged"] = True
+            result["detail"] = (
+                "sealed contents match the customer record "
+                f"(received {entry.get('received_at') or 'unknown time'}); the file was "
+                "re-packaged afterwards (transparency receipt added and re-signed)"
+            )
+            return result
+    result["status"] = "MISMATCH"
+    result["detail"] = (
+        "file differs from what the customer was told at seal time "
+        "(manifest_hash or file_sha256 mismatch)"
+    )
+    return result
+
+
 def _emit_json_report(report: dict) -> None:
     """Write a machine-readable verification report directly to stdout."""
     try:
@@ -766,6 +855,7 @@ def verify_command(
         "--qr",
         help="Print a QR code that opens the artifact on verify.epilabs.org",
     ),
+    witness_log: Path | None = None,
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
 ) -> None:
@@ -1389,6 +1479,30 @@ def verify_command(
                     )
             except Exception:
                 pass
+        # ========== CUSTOMER WITNESS LOG (--witness-log) ==========
+        # MISMATCH means the file differs from what the customer was told at
+        # seal time: FAIL in every policy. A missing entry changes nothing.
+        try:
+            _witness = _check_witness_log(epi_file, manifest, witness_log)
+        except Exception:
+            _witness = {"status": "NOT CHECKED", "received_at": None, "matches": 0,
+                        "detail": "witness check crashed"}
+        report["witness"] = _witness
+        if _witness.get("status") == "MISMATCH":
+            try:
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _msg = str(_witness.get("detail") or "witness mismatch")
+                if _msg not in _rs:
+                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
+            except Exception:
+                pass
+            try:
+                report["integrity_ok"] = False
+                report["facts"]["integrity_ok"] = False
+                report["summary"]["integrity"] = _msg
+            except Exception:
+                pass
 
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
@@ -1785,6 +1899,27 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             content_lines.append(
                 f"  [yellow]- Clock:       {_ts_block['clock_warning']}[/yellow]"
             )
+
+    # Customer witness log check (--witness-log). Silent unless requested.
+    _wit = report.get("witness") or {}
+    _wit_status = _wit.get("status") or "NOT CHECKED"
+    if _wit_status == "WITNESSED":
+        _received = _wit.get("received_at") or "unknown time"
+        content_lines.append(
+            f"  [green]- Witness:      WITNESSED (received {_received})[/green]"
+        )
+        if _wit.get("repackaged"):
+            content_lines.append(
+                "  [dim]                re-packaged after the witness; sealed contents unchanged[/dim]"
+            )
+    elif _wit_status == "NOT IN WITNESS LOG":
+        content_lines.append(
+            "  [yellow]- Witness:      NOT IN WITNESS LOG[/yellow]"
+        )
+    elif _wit_status == "MISMATCH":
+        content_lines.append(
+            f"  [red]- Witness:      MISMATCH — {_wit.get('detail')}[/red]"
+        )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
     # Read from environment.json, which the file hashes cover, and shown only

@@ -611,10 +611,16 @@ def verify(
         "--qr",
         help="Print a QR code that opens the artifact on verify.epilabs.org",
     ),
+    witness_log: Path | None = typer.Option(
+        None,
+        "--witness-log",
+        help="Customer witness log (received.jsonl) to check this file against.",
+    ),
 ):
     return verify_command(
         ctx, Path(epi_file), json_output, verbose, report_out,
         review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
+        witness_log=witness_log,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
     )
 
@@ -889,6 +895,14 @@ app.add_typer(
     policy_app,
     name="policy",
     help="Create, explain, and validate epi_policy.json rule files",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.witness import app as witness_app
+app.add_typer(
+    witness_app,
+    name="witness",
+    help="Customer witness outbox: retry and inspect seal reports",
     rich_help_panel="Everyday",
 )
 
