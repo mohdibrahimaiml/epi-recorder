@@ -82,6 +82,26 @@ def _utc_iso(dt) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _not_valid_before(cert: x509.Certificate):
+    """Signer validity start as aware UTC.
+
+    `not_valid_before_utc` exists only on cryptography >= 42 while pyproject
+    allows >= 41: fall back to the naive (UTC by X.509 convention) property
+    so old installs validate instead of reporting "unreadable".
+    """
+    get = getattr(cert, "not_valid_before_utc", None)
+    if get is not None:
+        return get
+    return cert.not_valid_before.replace(tzinfo=timezone.utc)
+
+
+def _not_valid_after(cert: x509.Certificate):
+    get = getattr(cert, "not_valid_after_utc", None)
+    if get is not None:
+        return get
+    return cert.not_valid_after.replace(tzinfo=timezone.utc)
+
+
 def _read_tlv(buf: bytes, pos: int):
     """Split one DER TLV at pos -> (tag, value_start, value_bytes, next_pos)."""
     tag = buf[pos]
@@ -394,7 +414,7 @@ def _build_chain(
 
     def _valid_at(cert: x509.Certificate) -> bool:
         try:
-            return bool(cert.not_valid_before_utc <= gen_time <= cert.not_valid_after_utc)
+            return bool(_not_valid_before(cert) <= gen_time <= _not_valid_after(cert))
         except Exception:
             return False
 
@@ -730,7 +750,7 @@ def validate_tsr(
             hash_algorithm=algo_name,
         )
     try:
-        if not (signer_cert.not_valid_before_utc <= gen_time <= signer_cert.not_valid_after_utc):
+        if not (_not_valid_before(signer_cert) <= gen_time <= _not_valid_after(signer_cert)):
             return _fail(
                 "cert_invalid",
                 "timestamp was issued outside the signer certificate's validity",

@@ -330,6 +330,28 @@ def test_rejection_status_is_not_granted(pki: MiniPKI) -> None:
     assert v.status == "not_granted"
 
 
+def test_validity_fallback_without_utc_properties() -> None:
+    """cryptography < 42 lacks not_valid_before_utc: the shim must still work."""
+    import types
+    from datetime import datetime
+
+    from epi_core.tsa_verify import _not_valid_after, _not_valid_before
+
+    naive_before = datetime(2024, 1, 1)
+    naive_after = datetime(2030, 1, 1)
+    stub = types.SimpleNamespace(
+        not_valid_before=naive_before, not_valid_after=naive_after
+    )
+    assert not hasattr(stub, "not_valid_before_utc")
+    before = _not_valid_before(stub)
+    after = _not_valid_after(stub)
+    assert before.tzinfo is not None and after.tzinfo is not None
+    assert (before.replace(tzinfo=None), after.replace(tzinfo=None)) == (
+        naive_before,
+        naive_after,
+    )
+
+
 def test_garbage_is_malformed(pki: MiniPKI) -> None:
     v = validate_tsr(b"definitely not a token", DIGEST, trust_roots=[pki.root_cert])
     assert v.status == "malformed"
@@ -449,6 +471,12 @@ def test_end_to_end_tampered_token_fails(
     report = json.loads(capsys.readouterr().out)
     assert report["decision"]["status"] == "FAIL"
     assert report["timestamps"]["seal"][0]["status"] == "bad_signature"
+    # The tamper detail IS the decision reason (no stale policy PASS-text
+    # survives), and file integrity stays as measured: the hashes verified,
+    # it is the time attestation that is broken.
+    assert report["decision"]["reason"] == report["timestamps"]["seal"][0]["detail"]
+    assert "Integrity verified" not in report["decision"]["reason"]
+    assert report["facts"]["integrity_ok"] is True
 
     with pytest.raises(typer.Exit):
         verify_command(None, out2, False, False, None, tsa_root=[root_pem])

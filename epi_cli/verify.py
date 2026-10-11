@@ -1342,7 +1342,10 @@ def verify_command(
                 pass
         # A new-scheme seal token that fails validation means tampering: FAIL
         # in every policy. Missing or legacy tokens never change the decision
-        # (unless --require-timestamp is set).
+        # (unless --require-timestamp is set). The tamper detail REPLACES the
+        # policy reason (which may still read "Integrity verified ..."), and
+        # file integrity is left as measured: the hashes verified, it is the
+        # time attestation that is broken.
         _ts_invalid = [
             e for e in _timestamps.get("seal", [])
             if e.get("status") in _TIMESTAMP_TAMPER_STATUSES
@@ -1350,17 +1353,8 @@ def verify_command(
         if _ts_invalid:
             try:
                 report["decision"]["status"] = "FAIL"
-                _rs = report["decision"].get("reason", "")
-                _ts_first = str(_ts_invalid[0].get("detail") or "seal timestamp invalid")
-                if _ts_first not in _rs:
-                    report["decision"]["reason"] = f"{_rs} {_ts_first}".strip()
-            except Exception:
-                pass
-            try:
-                report["integrity_ok"] = False
-                report["facts"]["integrity_ok"] = False
-                report["summary"]["integrity"] = (
-                    _ts_invalid[0].get("detail") or "FAILED"
+                report["decision"]["reason"] = str(
+                    _ts_invalid[0].get("detail") or "seal timestamp invalid"
                 )
             except Exception:
                 pass
