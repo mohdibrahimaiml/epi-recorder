@@ -2,6 +2,25 @@
 
 Owner: Mohd Ibrahim Afridi. Written 2026-10-11 against `main` at `a3b54e1` (after PRs #80–#86 merged).
 
+> ## ⚠ CHANGE OF DIRECTION (2026-10-11): read this before anything else
+>
+> **Why.** EPI has no confirmed users yet. The trust fixes (#81, #83) made the core claim true, and that had to come
+> first. But the rest of this plan (streaming, OTLP, Rekor) builds features nobody has asked for yet. Issue #31
+> itself says streaming should wait for "the first user who needs streaming". The owner is now spending two weeks
+> talking to prospects. Engineering continues only where it supports that, or when a prospect asks for something.
+>
+> **What to do with work already in progress:**
+>
+> | If you are currently in… | Do this |
+> |---|---|
+> | **WP-R0** | **Finish it**, open the PR, get it merged. It fixes what EPI claims, so it stays. |
+> | **WP2.1** (any-language docs) | **Finish it** if the docs and the smoke test are mostly written (it is a few hours of work). Otherwise park it. |
+> | **WP2.2, WP2.3 or WP1d** | **Stop and park.** Commit what you have, push the branch, and open a **draft** PR titled `[PARKED] …` that says what is done, what is left, and what is untested. Do not delete anything and do not merge it. It resumes when its trigger in section 0.4 fires. |
+> | **WP5** | Keep only **5.4** (issue #76 reply draft) and **5.5** (`scripts/dev/pypi_stats.py`). Park the rest. |
+>
+> **Then do the new order below:** WP-R0 → WP-REL (release prep) → WP-DEMO (a demo for prospect calls).
+> After that, stop and wait for the owner. Do not start the triggered packages on your own.
+
 This continues `plans/EVIDENCE-HARDENING-PLAN.md`. Read that file's **section 0, "Ground rules"**, first. All of it
 still applies: one branch and one PR per work package, honesty rules, no paid services, keep old `.epi` files
 verifiable, update `CHANGELOG.md` under `Unreleased`.
@@ -32,16 +51,90 @@ Known environment quirk: `tests/test_v271_features.py::TestReliabilityFixes::tes
 fails when tests run as **root** (a read-only file is still writable for root). It passes in CI. Do not "fix" it
 by skipping it; just know why it fails locally if you run as root.
 
-### 0.3 Order
+### 0.3 Order (updated 2026-10-11)
+
+**Do now, in this order:**
 
 | # | Work package | Branch | Size |
 |---|---|---|---|
 | 1 | WP-R0: small follow-ups from the review | `fix/review-followups` | half a day |
-| 2 | WP2.1: any-language docs | `docs/any-language` | 2–3 hours |
-| 3 | WP2.2: gateway streaming (issue #31) | `feat/gateway-streaming` | 3–4 days |
-| 4 | WP2.3: OTLP/HTTP trace receiver | `feat/gateway-otlp` | 3 days |
-| 5 | WP1d: Sigstore Rekor spike (time-boxed) | `spike/rekor` | 1 day max |
-| 6 | WP5: launch drafts (nothing is posted) | `docs/launch-assets` | half a day |
+| 2 | WP-REL: prepare the 4.6.0 release (the owner publishes) | `chore/release-4.6.0` | 2–3 hours |
+| 3 | WP-DEMO: "disputed case" demo for prospect calls | `docs/demo-dispute-case` | half a day |
+| 4 | WP5.4 + WP5.5 only: issue #76 reply draft, PyPI stats script | `docs/launch-assets` | 1–2 hours |
+
+### 0.4 Triggered work: do NOT start until the owner says its trigger has fired
+
+| Work package | Trigger (the owner confirms it in writing) |
+|---|---|
+| WP2.1 any-language docs | A prospect's agent is not in Python (TypeScript, Go, Java…). Exception: finish it now if it was already mostly done (see the top banner). |
+| WP2.2 gateway streaming (#31) | A prospect's agent streams and wants the gateway path. |
+| WP2.3 OTLP receiver | A prospect already emits OpenTelemetry traces and wants to send those. |
+| WP1d Rekor spike | An auditor, insurer or bank asks for a public transparency log. |
+| WP5.1–5.3, 5.6 (Show HN, awesome-list, LangGraph example, metrics doc) | The owner has finished about 10 prospect conversations, so the launch text can use what buyers actually said. |
+
+The specs for these packages remain below, unchanged, so they are ready when their trigger fires.
+
+---
+
+## WP-REL. Prepare the 4.6.0 release (the agent prepares; the owner publishes)
+
+**Why.** `main` is at 4.6.0, but PyPI still serves 4.4.8. None of the trust fixes reach anyone until there is a
+release.
+
+**Steps:**
+1. Start from the latest `main`, after WP-R0 has merged.
+2. Check version consistency across `pyproject.toml`, `epi_core/_version.py`, the spec version and the installer
+   files: `python -m pytest tests/test_version_consistency_runtime.py tests/test_truth_consistency.py -q`.
+3. In `CHANGELOG.md`, turn `## [Unreleased]` into `## [4.6.0] - <date>` and add a fresh, empty `## [Unreleased]`
+   above it. At the top of the 4.6.0 section, add a 5-line "Highlights" list: offline timestamp validation,
+   customer witness, hash-chained gateway exports, did:web onboarding, and checkpoints moved off the agent's hot
+   path.
+4. Update the version badge and links in `README.md` (on `main` it still pins `v4.5.0` in 14 places).
+5. Build locally (`python -m build`) and check that the wheel includes `epi_core/assets/tsa_roots/*.pem` and
+   `ROOTS.json`. A test already covers this; run it against the built wheel too.
+6. Install the built wheel into a fresh virtual environment and run `epi demo --no-browser`. It must PASS.
+   If there is network access, the timestamp line should read `Timestamp: VERIFIED`; without network it should read
+   `Timestamp: none` and still PASS.
+7. Run `scripts/release-gate.sh python` (the repo has no publish script). **Do not publish to PyPI and do not push
+   a tag.** Write the exact commands for the owner in
+   `plans/RELEASE-4.6.0.md`: build, `twine check`, upload, tag, and GitHub release notes text.
+8. Open the PR. When it merges, the owner runs the commands from `plans/RELEASE-4.6.0.md`.
+
+**Acceptance:**
+- The PR is green.
+- The wheel contains the TSA roots.
+- `epi demo` passes when installed from the wheel.
+- `plans/RELEASE-4.6.0.md` exists with copy-paste commands.
+
+---
+
+## WP-DEMO. "Disputed case" demo for prospect calls
+
+**Why.** The owner will be on 20-minute calls with AI-agent startups that sell to banks. They need to show, in
+under 2 minutes, the one scenario EPI is for: *"a bank asks what your agent did on case #123; here is a file they
+can check themselves."* Use material that already exists. Do not build new product surface.
+
+**Steps:**
+1. Use the existing demo file `examples/demo-banking-aml.epi` (or regenerate it with
+   `scripts/generate_sector_demo_epis.py` so it carries a 4.6.0 seal with a valid timestamp; regenerate only if
+   that script supports it cleanly).
+2. Write `docs/DEMO-DISPUTE-CASE.md`, a script the owner reads from on calls. Exactly five steps:
+   - The situation, in 2 sentences: an AML alert was closed by an agent and the bank's auditor asks why.
+   - `epi verify demo-banking-aml.epi --require-timestamp`: show the PASS and the timestamp line, and say in one
+     sentence what each line proves.
+   - Tamper demo: change one byte in a copy, verify again, show the FAIL.
+   - The witness: show `docs/WITNESS.md` and explain in one sentence that the bank keeps its own record of every
+     seal.
+   - `epi view`: the timeline a non-technical reviewer reads.
+3. Add a `scripts/dev/demo_dispute_case.sh` that runs steps 2–3 end to end, so the owner can rehearse with one
+   command. It must work offline. If the demo file has no valid timestamp, say so in the output rather than faking
+   one.
+4. At the end of the doc, add a "What it does NOT prove" box quoting `docs/KNOWN_LIMITATIONS.md` (completeness,
+   agent correctness, key binding). Prospects trust honest limits.
+
+**Acceptance:** the script runs offline end to end; the doc fits on one screen per step; no new product code.
+
+---
 
 ---
 
