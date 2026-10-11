@@ -17,11 +17,37 @@ from __future__ import annotations
 import base64
 import json
 import os
+import queue
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 CHECKPOINT_SCHEMA_VERSION = "1.0"
+
+# Serializes runtime-gap writes: the background submitter thread and
+# finalize() can both append to artifacts/capture_gaps.json.
+_GAP_LOCK: Any = None
+
+
+def _gap_lock():
+    global _GAP_LOCK
+    if _GAP_LOCK is None:
+        import threading
+
+        _GAP_LOCK = threading.Lock()
+    return _GAP_LOCK
+
+
+def record_gap(output_dir: Path, gap: str) -> None:
+    """Thread-safe wrapper around manifest.append_runtime_gap."""
+    try:
+        from epi_core.manifest import append_runtime_gap
+
+        with _gap_lock():
+            append_runtime_gap(Path(output_dir), gap)
+    except Exception:
+        pass
 
 
 def _env_int(name: str, default: int) -> int:
@@ -69,6 +95,89 @@ def should_checkpoint(
     if now - last_time >= interval_seconds:
         return True
     return False
+
+
+def checkpoint_drain_seconds() -> float:
+    """Max finalize() waits for background checkpoints (EPI_CHECKPOINT_DRAIN_SECONDS, default 10)."""
+    return _env_float("EPI_CHECKPOINT_DRAIN_SECONDS", 10.0)
+
+
+class CheckpointSubmitter:
+    """Background TSA submitter: one daemon thread, one queue.
+
+    `add_step` only enqueues (index, event_count, chain_head); the worker
+    thread calls `create_checkpoint`. Each checkpoint stays bound to the
+    chain head at enqueue time, so the imprint is still correct. `drain()`
+    waits (bounded) for the queue to empty at finalize time; whatever is
+    unfinished is reported so the caller can record a runtime gap.
+    """
+
+    def __init__(self, output_dir, *, tsa_submit=None) -> None:
+        self._output_dir = Path(output_dir)
+        self._tsa_submit = tsa_submit
+        self._queue: queue.Queue = queue.Queue()
+        self._thread = threading.Thread(
+            target=self._run,
+            name="epi-checkpoint-submit",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def submit(self, index: int, event_count: int, chain_head: str) -> None:
+        """Enqueue one checkpoint. Never blocks on the network; never raises."""
+        try:
+            self._queue.put_nowait((int(index), int(event_count), str(chain_head)))
+        except Exception:
+            pass
+
+    def pending(self) -> int:
+        """Submitted but unfinished checkpoints (queue + in-flight)."""
+        try:
+            return int(self._queue.unfinished_tasks)
+        except Exception:
+            return 0
+
+    def drain(self, timeout: float | None = None) -> int:
+        """Wait up to `timeout` seconds for the queue to empty.
+
+        Returns the number of still-unfinished checkpoints (0 when fully
+        drained). Never raises. The worker thread is left running as a
+        daemon so a late TSA reply can still land its file.
+        """
+        if timeout is None:
+            timeout = checkpoint_drain_seconds()
+        try:
+            deadline = time.monotonic() + max(0.0, float(timeout))
+        except Exception:
+            deadline = time.monotonic() + 10.0
+        try:
+            while self.pending() > 0 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            return self.pending()
+        except Exception:
+            return 0
+
+    def _run(self) -> None:
+        while True:
+            try:
+                index, event_count, chain_head = self._queue.get()
+            except Exception:
+                return
+            try:
+                create_checkpoint(
+                    self._output_dir,
+                    index=index,
+                    event_count=event_count,
+                    chain_head=chain_head,
+                    tsa_submit=self._tsa_submit,
+                )
+            except Exception:
+                pass
+            finally:
+                try:
+                    self._queue.task_done()
+                except Exception:
+                    pass
 
 
 def _tsa_url() -> str:
@@ -160,15 +269,10 @@ def create_checkpoint(
     else:
         # Degraded mode: log failed attempt as a gap for this run (manifest
         # + checkpoint features wired together, not built in isolation).
-        try:
-            from epi_core.manifest import append_runtime_gap
-
-            append_runtime_gap(
-                output_dir,
-                f"checkpoint {index} TSA unavailable (event_count={event_count}); retried at next heartbeat",
-            )
-        except Exception:
-            pass
+        record_gap(
+            output_dir,
+            f"checkpoint {index} TSA unavailable (event_count={event_count}); retried at next heartbeat",
+        )
 
     (cp_dir / f"{index:06d}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     return record

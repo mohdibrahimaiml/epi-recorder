@@ -121,6 +121,12 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Checkpoint timestamping no longer blocks the agent's step.** `RecordingContext.add_step` called the TSA
+  synchronously (up to a 30 s HTTP timeout per heartbeat). Heartbeats now only enqueue
+  `(index, event_count, chain_head)` to a per-recording daemon thread that calls `create_checkpoint`;
+  `finalize()` drains the queue for at most `EPI_CHECKPOINT_DRAIN_SECONDS` (default 10) before sealing and
+  records unfinished checkpoints as a runtime gap. Each checkpoint stays bound to the chain head at enqueue
+  time, so imprints are unchanged.
 - **Internal sales templates are no longer publicly deployed.** `website/outreach.md` (cold-email templates and
   target-company lists) was synced into `site/`, `verify_portal/static/` and `epi-official/`. All four copies are
   removed, and both sync paths (`scripts/sync_website.py` and `npm run build`) now refuse to copy any `website/`
