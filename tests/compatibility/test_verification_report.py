@@ -42,6 +42,10 @@ FROZEN_REPORT_KEYS = {
     "enforcement_downgraded",
     "enforcement_downgrade_count",
     "checkpoints",
+    # Added for capture-time checkpoints on gateway exports: verify_command
+    # attaches raw-event chain reconciliation to every success report.
+    # Additive only.
+    "capture_checkpoints",
     # Added for the customer witness: verify_command attaches the
     # --witness-log comparison to every success report. Additive only.
     "witness",

@@ -1392,6 +1392,55 @@ def verify_command(
             else:
                 console.print("  [dim]Checkpoints: none (seal-time notarization only)[/dim]")
 
+        # ========== STEP 4.9b: CAPTURE-TIME CHECKPOINTS (gateway exports) ==========
+        # Raw-event chain from artifacts/capture/events.jsonl vs capture
+        # checkpoints. Old exports and SDK seals carry no capture evidence
+        # and pass vacuously with their prior verdicts.
+        _cc_ok = True
+        _cc_messages: list[str] = []
+        _cc_records: list[dict] = []
+        try:
+            from epi_core.case_store import verify_capture_checkpoints
+
+            _cc_ok, _cc_messages, _cc_records = verify_capture_checkpoints(epi_file)
+        except Exception as _cc_err:
+            _cc_ok = False
+            _cc_messages = [f"capture checkpoint verification error: {_cc_err}"]
+            _cc_records = []
+        report["capture_checkpoints"] = {
+            "ok": _cc_ok,
+            "messages": _cc_messages,
+            "count": len(_cc_records),
+        }
+        if not _cc_ok:
+            integrity_ok = False
+            try:
+                report["facts"]["integrity_ok"] = False
+                report["facts"]["chain_ok"] = False
+            except Exception:
+                pass
+            try:
+                report["integrity_ok"] = False
+            except Exception:
+                pass
+            try:
+                report["summary"]["integrity"] = _cc_messages[0] if _cc_messages else "FAILED"
+            except Exception:
+                pass
+        if verbose:
+            if _cc_records:
+                console.print(
+                    f"  [green][OK][/green] Capture checkpoints: {len(_cc_records)} record(s) present"
+                    if _cc_ok else
+                    f"  [red][FAIL][/red] Capture checkpoints: {len(_cc_records)} record(s), issues found"
+                )
+                for _m in _cc_messages:
+                    if _m.startswith("CAPTURE TIMESTAMP UNVERIFIED"):
+                        console.print(f"  [yellow][WARN][/yellow] {_m}")
+                    else:
+                        console.print(f"  [red][FAIL][/red] {_m}")
+            else:
+                console.print("  [dim]Capture checkpoints: none (not a gateway export)[/dim]")
         # ========== STEP 4.95: RFC 3161 TIMESTAMP VALIDATION ==========
         # Offline validation of seal-time and checkpoint tokens against pinned
         # TSA roots. Old artifacts (no imprint_scheme) report legacy/presence
@@ -1428,6 +1477,16 @@ def verify_command(
                 _cp_first = _cp_messages[0] if _cp_messages else "checkpoint verification failed"
                 if _cp_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cp_first}".strip()
+            except Exception:
+                pass
+        # Preserve capture-checkpoint failure the same way.
+        if not _cc_ok:
+            try:
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _cc_first = _cc_messages[0] if _cc_messages else "capture checkpoint verification failed"
+                if _cc_first not in _rs:
+                    report["decision"]["reason"] = f"{_rs} {_cc_first}".strip()
             except Exception:
                 pass
         # A new-scheme seal token that fails validation means tampering: FAIL

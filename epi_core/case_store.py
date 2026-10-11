@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shutil
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
+
+logger = logging.getLogger("epi-case-store")
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -489,6 +492,63 @@ def _event_to_step(event: CaptureEventModel, index: int) -> dict[str, Any]:
     return step
 
 
+def _chain_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Link projected steps with prev_hash (CHAIN_START genesis).
+
+    Same construction as RecordingContext.add_step so `epi verify` checks
+    gateway exports with the identical recomputation. Steps that cannot be
+    parsed as StepModel are left unchained (projection must never fail a
+    run); a fully unchained export verifies on the pre-chain path as before.
+    """
+    try:
+        from epi_core.schemas import StepModel
+        from epi_core.serialize import get_canonical_hash
+    except Exception:
+        return steps
+    prev = "CHAIN_START"
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        try:
+            step["prev_hash"] = prev
+            prev = get_canonical_hash(StepModel(**step), format="json")
+        except Exception:
+            step.pop("prev_hash", None)
+    return steps
+
+
+CAPTURE_CHAIN_GENESIS = "CHAIN_START"
+
+
+def chain_raw_capture_events(
+    event_dicts: list[dict[str, Any]], prev_head: str = CAPTURE_CHAIN_GENESIS
+) -> tuple[int, str]:
+    """Fold raw capture events (acceptance order) into a running chain head.
+
+    event_hash = sha256(JCS(event)); head = sha256(prev_head_bytes || event_hash).
+    JCS (rfc8785) makes the fold order-independent of key order, so the
+    verifier recomputes identical heads from the exported events.jsonl lines.
+    Returns (events_folded, head_hex).
+    """
+    import hashlib
+
+    import rfc8785
+
+    head = prev_head
+    folded = 0
+    for event in event_dicts:
+        if not isinstance(event, dict):
+            continue
+        event_hash = hashlib.sha256(rfc8785.dumps(event)).digest()
+        if head == CAPTURE_CHAIN_GENESIS:
+            head_bytes = CAPTURE_CHAIN_GENESIS.encode("utf-8")
+        else:
+            head_bytes = bytes.fromhex(head)
+        head = hashlib.sha256(head_bytes + event_hash).hexdigest()
+        folded += 1
+    return folded, head
+
+
 def _derive_summary_from_events(events: list[CaptureEventModel]) -> tuple[str, str | None]:
     title = None
     summary = None
@@ -643,6 +703,14 @@ def build_case_payload_from_events(
         )
         for index, step in enumerate(steps):
             step["index"] = index
+
+    # Hash-chain the projected steps AFTER ordering is frozen (sort +
+    # synthetic session.start insert + renumber above), mirroring
+    # RecordingContext.add_step: step 0 carries CHAIN_START, step N>0 carries
+    # the canonical JCS hash of step N-1. `epi verify` recomputes this with
+    # the same canonicalization for the artifact's spec version, so trimming
+    # after export breaks the chain. Pre-chain exports stay unchained.
+    _chain_steps(steps)
 
     environment = dict(existing_payload.get("environment") or {})
     environment.update(
@@ -839,6 +907,28 @@ class CaseStore:
                 CREATE INDEX IF NOT EXISTS idx_case_activity_case_id ON case_activity(case_id, activity_id);
                 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
                 CREATE INDEX IF NOT EXISTS idx_open_sessions_last_event_at ON open_sessions(last_event_at);
+                CREATE TABLE IF NOT EXISTS capture_heads (
+                    case_id TEXT PRIMARY KEY,
+                    event_count INTEGER NOT NULL DEFAULT 0,
+                    head TEXT NOT NULL DEFAULT 'CHAIN_START',
+                    last_rowid INTEGER NOT NULL DEFAULT 0,
+                    last_checkpoint_count INTEGER NOT NULL DEFAULT 0,
+                    last_checkpoint_at TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS capture_checkpoints (
+                    checkpoint_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id TEXT NOT NULL,
+                    checkpoint_index INTEGER NOT NULL,
+                    event_count INTEGER NOT NULL,
+                    head TEXT NOT NULL,
+                    tsa_url TEXT,
+                    tsa_available INTEGER NOT NULL DEFAULT 0,
+                    tsa_token_b64 TEXT,
+                    tsa_gen_time TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_capture_checkpoints_case ON capture_checkpoints(case_id, checkpoint_id);
                 CREATE TABLE IF NOT EXISTS schema_version (
                     version INTEGER PRIMARY KEY,
                     applied_at TEXT NOT NULL
@@ -852,7 +942,8 @@ class CaseStore:
     # Schema version history:
     #   1 — initial schema (applied_batches, events, cases, reviews, comments, activity, auth_users, auth_sessions)
     #   2 — extra case columns (assignee, due_at, priority_override, comment_count, last_comment_at) via _ensure_case_columns
-    _SCHEMA_VERSION = 3
+    #   4 — capture-time hash chain (capture_heads) + capture checkpoints (capture_checkpoints)
+    _SCHEMA_VERSION = 4
 
     def _run_migrations(self, connection: sqlite3.Connection) -> None:
         """Apply outstanding schema migrations in order. Idempotent."""
@@ -883,6 +974,15 @@ class CaseStore:
                 (utc_now_iso(),),
             )
             current = 3  # noqa: F841
+
+        if current < 4:
+            # Version 4: capture-time chain + checkpoints (tables created
+            # above via IF NOT EXISTS; just stamp for older databases).
+            connection.execute(
+                "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (4, ?)",
+                (utc_now_iso(),),
+            )
+            current = 4  # noqa: F841
 
     def _ensure_case_columns(self, connection: sqlite3.Connection) -> None:
         rows = connection.execute("PRAGMA table_info(cases)").fetchall()
@@ -1250,6 +1350,226 @@ class CaseStore:
                 (case_id,),
             ).fetchall()
         return [CaptureEventModel.model_validate(_decode_json(row["event_json"], {})) for row in rows]
+
+    def list_events_in_acceptance_order(self, case_id: str) -> list[dict[str, Any]]:
+        """Raw stored events in acceptance (insertion) order.
+
+        rowid order is the order batches were applied, which is the order the
+        worker accepted them. The capture chain folds this order, and exports
+        write events.jsonl in this order, so the verifier recomputes over
+        file order identically.
+        """
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT event_json FROM events WHERE case_id = ? ORDER BY rowid ASC",
+                (case_id,),
+            ).fetchall()
+        out = []
+        for row in rows:
+            event = _decode_json(row["event_json"], None)
+            if isinstance(event, dict):
+                out.append(event)
+        return out
+
+    def update_capture_chain(self, case_id: str) -> tuple[int, str]:
+        """Extend a case's capture-time chain with newly accepted events.
+
+        Incremental via last_rowid (O(new events)); a shrunken event table
+        (deletes) triggers a full re-baseline so the running head always
+        reflects current truth — old checkpoints still attest higher counts
+        and drive TRIMMED at verify time. Returns (event_count, head).
+        """
+        from epi_core.time_utils import utc_now_iso
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT event_count, head, last_rowid FROM capture_heads WHERE case_id = ?",
+                (case_id,),
+            ).fetchone()
+            stored_count = int(row["event_count"]) if row else 0
+            head = str(row["head"]) if row else CAPTURE_CHAIN_GENESIS
+            last_rowid = int(row["last_rowid"]) if row else 0
+
+            total_now = connection.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE case_id = ?", (case_id,)
+            ).fetchone()["n"]
+            now = utc_now_iso()
+            if row is None or total_now < stored_count:
+                # Fresh case, or deletes observed: fold everything from genesis.
+                all_rows = connection.execute(
+                    "SELECT event_json FROM events WHERE case_id = ? ORDER BY rowid ASC",
+                    (case_id,),
+                ).fetchall()
+                events = [
+                    _decode_json(r["event_json"], None) for r in all_rows
+                ]
+                events = [e for e in events if isinstance(e, dict)]
+                _, head = chain_raw_capture_events(events, CAPTURE_CHAIN_GENESIS)
+                last_row = connection.execute(
+                    "SELECT MAX(rowid) AS m FROM events WHERE case_id = ?", (case_id,)
+                ).fetchone()
+                last_rowid = int(last_row["m"] or 0)
+                # Count chained (valid) events, not rows: the verifier
+                # recomputes over the same decoded dicts.
+                event_count = len(events)
+            else:
+                new_rows = connection.execute(
+                    "SELECT rowid, event_json FROM events WHERE case_id = ? AND rowid > ? ORDER BY rowid ASC",
+                    (case_id, last_rowid),
+                ).fetchall()
+                events = [
+                    _decode_json(r["event_json"], None) for r in new_rows
+                ]
+                events = [e for e in events if isinstance(e, dict)]
+                folded, head = chain_raw_capture_events(events, head)
+                if new_rows:
+                    last_rowid = int(new_rows[-1]["rowid"])
+                event_count = stored_count + folded
+
+            if row is None and event_count:
+                # First observation: start the checkpoint throttle clock now so
+                # a fresh case does not timestamp on its very first flush.
+                connection.execute(
+                    """
+                    INSERT INTO capture_heads
+                        (case_id, event_count, head, last_rowid,
+                         last_checkpoint_count, last_checkpoint_at, updated_at)
+                    VALUES (?, ?, ?, ?, 0, ?, ?)
+                    """,
+                    (case_id, event_count, head, last_rowid, now, now),
+                )
+            elif event_count or row is None:
+                connection.execute(
+                    """
+                    INSERT INTO capture_heads
+                        (case_id, event_count, head, last_rowid, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(case_id) DO UPDATE SET
+                        event_count = excluded.event_count,
+                        head = excluded.head,
+                        last_rowid = excluded.last_rowid,
+                        updated_at = excluded.updated_at,
+                        last_checkpoint_at = COALESCE(
+                            capture_heads.last_checkpoint_at, excluded.updated_at)
+                    """,
+                    (case_id, event_count, head, last_rowid, now),
+                )
+            connection.commit()
+            return event_count, head
+
+    def capture_checkpoint_due(self, case_id: str, event_count: int) -> bool:
+        """Heartbeat throttle per case (EPI_CHECKPOINT_INTERVAL_EVENTS/SECONDS)."""
+        from epi_core.checkpoints import checkpoint_intervals
+
+        interval_events, interval_seconds = checkpoint_intervals()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT last_checkpoint_count, last_checkpoint_at FROM capture_heads WHERE case_id = ?",
+                (case_id,),
+            ).fetchone()
+        if row is None:
+            return False
+        try:
+            last_count = int(row["last_checkpoint_count"] or 0)
+        except Exception:
+            last_count = 0
+        if event_count - last_count >= interval_events:
+            return True
+        last_at = row["last_checkpoint_at"]
+        if not last_at:
+            return False
+        try:
+            from datetime import datetime, timezone
+
+            last_dt = datetime.fromisoformat(str(last_at).replace("Z", "+00:00"))
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            return (now - last_dt).total_seconds() >= interval_seconds
+        except Exception:
+            return False
+
+    def begin_capture_checkpoint(self, case_id: str, event_count: int, head: str) -> int:
+        """Reserve a checkpoint index and restart the throttle clock. Returns the index."""
+        from epi_core.time_utils import utc_now_iso
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT COALESCE(MAX(checkpoint_index), -1) AS m FROM capture_checkpoints WHERE case_id = ?",
+                (case_id,),
+            ).fetchone()
+            index = int(row["m"]) + 1
+            connection.execute(
+                "UPDATE capture_heads SET last_checkpoint_count = ?, last_checkpoint_at = ? WHERE case_id = ?",
+                (event_count, utc_now_iso(), case_id),
+            )
+            connection.commit()
+            return index
+
+    def complete_capture_checkpoint(
+        self,
+        case_id: str,
+        index: int,
+        event_count: int,
+        head: str,
+        tsa_url: str | None,
+        token: bytes | None,
+        gen_time: str | None,
+    ) -> None:
+        """Store a capture checkpoint row (tokenless rows are never written)."""
+        if not token:
+            return
+        import base64
+
+        from epi_core.time_utils import utc_now_iso
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO capture_checkpoints
+                    (case_id, checkpoint_index, event_count, head,
+                     tsa_url, tsa_available, tsa_token_b64, tsa_gen_time, created_at)
+                VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+                """,
+                (
+                    case_id,
+                    index,
+                    event_count,
+                    head,
+                    tsa_url,
+                    base64.b64encode(token).decode("ascii"),
+                    gen_time,
+                    utc_now_iso(),
+                ),
+            )
+            connection.commit()
+
+    def list_capture_checkpoints(self, case_id: str) -> list[dict[str, Any]]:
+        """Capture checkpoints in index order (each attests a chain head for N events)."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT checkpoint_index, event_count, head, tsa_url,
+                       tsa_available, tsa_token_b64, tsa_gen_time, created_at
+                FROM capture_checkpoints WHERE case_id = ? ORDER BY checkpoint_index ASC
+                """,
+                (case_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_capture_head(self, case_id: str) -> tuple[int, str] | None:
+        """Latest (event_count, head) for a case, or None when never chained."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT event_count, head FROM capture_heads WHERE case_id = ?",
+                (case_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return int(row["event_count"]), str(row["head"])
+
+
+
 
     def get_latest_review(self, case_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
@@ -2089,6 +2409,9 @@ class CaseStore:
         temp_dir = EPIContainer._make_temp_dir("epi_gateway_export_")
         try:
             steps = case_payload.get("steps") or []
+            # Attest the step count so verify detects steps added or removed
+            # after export (tail trims keep the hash chain intact).
+            manifest.total_steps = len(steps)
             if steps:
                 steps_path = temp_dir / "steps.jsonl"
                 lines = [json.dumps(step, ensure_ascii=False) for step in steps]
@@ -2161,6 +2484,33 @@ class CaseStore:
             if case_payload.get("stderr"):
                 (temp_dir / "stderr.log").write_text(str(case_payload["stderr"]), encoding="utf-8")
 
+            # Capture-time evidence: raw accepted events (acceptance order,
+            # stored form — redacted exactly as the case already is) plus the
+            # capture checkpoints attesting chain heads for event prefixes.
+            # `epi verify` recomputes the raw-event chain from events.jsonl in
+            # file order and reports TRIMMED on deletion, mismatch on reorder.
+            try:
+                capture_events = self.list_events_in_acceptance_order(case_id)
+                if capture_events:
+                    capture_dir = temp_dir / "artifacts" / "capture"
+                    capture_dir.mkdir(parents=True, exist_ok=True)
+                    (capture_dir / "events.jsonl").write_text(
+                        "\n".join(
+                            json.dumps(event, ensure_ascii=False) for event in capture_events
+                        )
+                        + "\n",
+                        encoding="utf-8",
+                    )
+                    capture_cp_dir = capture_dir / "checkpoints"
+                    capture_cp_dir.mkdir(parents=True, exist_ok=True)
+                    for position, record in enumerate(self.list_capture_checkpoints(case_id)):
+                        (capture_cp_dir / f"{position:06d}.json").write_text(
+                            json.dumps(record, indent=2, ensure_ascii=False),
+                            encoding="utf-8",
+                        )
+            except Exception as exc:
+                logger.warning("Capture evidence bundle failed for %s: %s", case_id, exc)
+
             EPIContainer.pack(
                 temp_dir,
                 manifest,
@@ -2178,3 +2528,145 @@ class CaseStore:
             filename=output_path.name,
             signed=signed,
         )
+
+
+def _safe_checkpoint_index(rec: Any) -> int:
+    """Sort key for capture checkpoint records (never raises)."""
+    try:
+        return int(rec.get("checkpoint_index", 0))
+    except Exception:
+        return 0
+
+
+def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[dict[str, Any]]]:
+    """Verify capture-time checkpoints embedded by a gateway export.
+
+    Recomputes the raw-event chain from `artifacts/capture/events.jsonl` in
+    file order and compares it to each record in
+    `artifacts/capture/checkpoints/`. Artifacts without capture evidence
+    (old exports, SDK seals) pass vacuously. Returns (ok, messages, records);
+    never raises.
+    """
+    try:
+        members = EPIContainer.list_members(epi_path)
+    except Exception:
+        return True, [], []
+    try:
+        events_text = EPIContainer.read_member_text(epi_path, "artifacts/capture/events.jsonl")
+    except Exception:
+        return True, [], []
+    events: list[dict[str, Any]] = []
+    try:
+        for line in events_text.splitlines():
+            line = line.strip()
+            if line:
+                event = json.loads(line)
+                if isinstance(event, dict):
+                    events.append(event)
+    except Exception:
+        return False, ["capture events.jsonl is corrupt"], []
+
+    try:
+        validate_tsr = None
+        try:
+            from epi_core.tsa_verify import validate_tsr as _validate
+            validate_tsr = _validate
+        except Exception:
+            validate_tsr = None
+
+        records: list[dict[str, Any]] = []
+        for name in sorted(
+            m for m in members
+            if m.startswith("artifacts/capture/checkpoints/") and m.endswith(".json")
+        ):
+            try:
+                records.append(EPIContainer.read_member_json(epi_path, name))
+            except Exception:
+                continue
+        records = sorted(
+            records, key=lambda r: _safe_checkpoint_index(r)
+        )
+
+        messages: list[str] = []
+        ok = True
+        for rec in records:
+            if not isinstance(rec, dict):
+                ok = False
+                messages.append("capture checkpoint record is not an object")
+                continue
+            try:
+                idx = int(rec.get("checkpoint_index", 0))
+            except Exception:
+                idx = 0
+            try:
+                claimed_count = int(rec.get("event_count", 0))
+            except Exception:
+                claimed_count = 0
+            claimed_head = str(rec.get("head") or "")
+            if not claimed_head:
+                continue
+            if len(events) < claimed_count:
+                ok = False
+                messages.append(
+                    f"CAPTURE TRIMMED: export has fewer events than capture checkpoint {idx} "
+                    f"attests to (checkpoint event_count={claimed_count}, export has {len(events)} events)"
+                )
+                continue
+            _, recomputed = chain_raw_capture_events(
+                events[:claimed_count], CAPTURE_CHAIN_GENESIS
+            )
+            if recomputed != claimed_head:
+                ok = False
+                messages.append(
+                    f"CAPTURE CHECKPOINT MISMATCH at index {idx}: export history contradicts "
+                    f"capture-time record (event_count={claimed_count})"
+                )
+                continue
+            token_b64 = rec.get("tsa_token_b64")
+            if not token_b64:
+                continue
+            import base64
+
+            try:
+                token = base64.b64decode(token_b64)
+                expected = bytes.fromhex(claimed_head)
+            except Exception:
+                ok = False
+                messages.append(
+                    f"CAPTURE TIMESTAMP INVALID at index {idx}: checkpoint token unreadable"
+                )
+                continue
+            if validate_tsr is None:
+                # Offline TSA validation lives in epi_core.tsa_verify (shipped
+                # separately); without it the head match above still holds, but
+                # the token signature is not checked. Never a failure.
+                rec["tsa_validation"] = {
+                    "status": "unvalidated",
+                    "detail": "token present, signature not checked in this build",
+                }
+                continue
+            try:
+                validation = validate_tsr(token, expected)
+            except Exception as exc:
+                validation = None
+                detail = f"checkpoint token unreadable ({exc})"
+            else:
+                detail = validation.detail
+            rec["tsa_validation"] = {
+                "status": validation.status if validation else "malformed",
+                "gen_time": validation.gen_time if validation else None,
+                "detail": detail,
+            }
+            status = validation.status if validation else "malformed"
+            if status in ("imprint_mismatch", "bad_signature", "cert_invalid"):
+                ok = False
+                messages.append(
+                    f"CAPTURE TIMESTAMP INVALID at index {idx}: {detail}"
+                )
+            elif status == "untrusted":
+                messages.append(
+                    f"CAPTURE TIMESTAMP UNVERIFIED at index {idx}: {detail}"
+                )
+        return ok, messages, records
+    except Exception as exc:
+        return False, [f"capture checkpoint verification error: {exc}"], []
