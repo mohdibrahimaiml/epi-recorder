@@ -4,6 +4,17 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Core vs experimental split (no code deleted).** README project layout and new `docs/SCOPE.md`
+  name the core (`epi_recorder`, `epi_core`, `epi_cli`, `epi_gateway`, viewers, `pytest_epi`,
+  `website/`) vs frozen experimental surfaces (MCP, portal/billing, TRACE + AGT, guardrails,
+  `website-v2/`, remote SCITT) under the rule "no new surface until three external companies use
+  the core". Tests carry an `experimental` marker: the release gate runs
+  `-m "not browser and not experimental"` with a separate non-blocking experimental CI job.
+  The keep-warm schedule is disabled (nothing core depends on Render); the demo fails seal-time
+  timestamps fast (`EPI_TSA_TIMEOUT=5`).
+
 ### Added
 
 - **RFC 3161 timestamps are now validated offline by `epi verify` (4.6.0).** Seal time stamps a recomputable

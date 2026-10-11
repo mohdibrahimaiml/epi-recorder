@@ -13,6 +13,8 @@ import pytest
 pytest.importorskip("starlette.testclient")
 from starlette.testclient import TestClient  # noqa: E402
 
+pytestmark = pytest.mark.experimental
+
 EVENTS = [
     {"kind": "user.message", "content": {"text": "Approve the refund for order 4411"}, "fidelity": "verbatim"},
     {"kind": "assistant.message", "content": {"text": "Approved. Refund issued."}, "fidelity": "verbatim"},

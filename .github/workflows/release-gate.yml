@@ -45,3 +45,24 @@ jobs:
       - name: Run release gate (Linux)
         if: runner.os == 'Linux'
         run: bash scripts/release-gate.sh python
+
+  experimental:
+    name: Experimental surfaces (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies only (NOT the package itself)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel build twine
+          python scripts/ci-install-deps.py
+
+      - name: Run experimental tests
+        run: python -m pytest tests -m experimental -q --maxfail=20
