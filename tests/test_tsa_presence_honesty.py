@@ -1,4 +1,14 @@
-"""Item 5: TSA presence-only honesty. No format/header changes."""
+"""TSA honesty after offline validation (WP1a). No format/header changes.
+
+New truth:
+- The browser viewers never validate: they say "not validated" and name
+  `epi verify` as the only place validation happens.
+- epi_cli/verify.py validates new-scheme tokens offline; only legacy tokens
+  (sealed before imprints) and unevaluated reports keep presence-only words.
+- epi_core/checkpoints.py fails tampered checkpoint tokens and warns on
+  unknown roots; it no longer calls live tokens "presence only".
+- Public site copy names `epi verify` as the place validation happens.
+"""
 
 from pathlib import Path
 
@@ -13,19 +23,29 @@ def test_viewer_does_not_claim_timestamped():
         text = p.read_text(encoding="utf-8")
         assert "timestamped" not in text, f"{p} still claims timestamped"
         assert "not validated" in text
+        assert "epi verify" in text, f"{p} must name epi verify as the validation place"
 
 
-def test_checkpoint_mismatch_is_presence_only():
+def test_cli_validates_new_scheme_tokens():
+    text = (ROOT / "epi_cli" / "verify.py").read_text(encoding="utf-8")
+    assert "VERIFIED — existed no later than" in text
+    assert "imprint_mismatch" in text
+    assert "timestamp_verified" in text
+    assert "legacy token" in text
+    assert "imprint not recomputable" in text
+
+
+def test_checkpoint_tokens_are_checked_not_presence_only():
     text = (ROOT / "epi_core" / "checkpoints.py").read_text(encoding="utf-8")
-    assert "independently timestamped record" not in text
-    assert "not validated" in text
+    assert "CHECKPOINT TIMESTAMP INVALID" in text
+    assert "token presence only, not validated" not in text
 
 
-def test_marketing_qualifies_rfc3161():
+def test_marketing_names_epi_verify_for_validation():
     for p in [
         ROOT / "website" / "index.html",
         ROOT / "website" / "enterprise.html",
         ROOT / "website" / "trust.html",
     ]:
         text = p.read_text(encoding="utf-8")
-        assert "signature not validated" in text or "not validated" in text, p
+        assert "epi verify" in text, p

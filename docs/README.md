@@ -1,7 +1,7 @@
 # EPI documentation
 
 **Start here** if you opened the `docs/` folder.  
-Product version in this repo: **4.5.0**. PyPI may lag — check with `pip index versions epi-recorder` or pin git (see [PILOT.md](./archive/PILOT.md) (archived)).
+Product version in this repo: **4.6.0**. PyPI may lag - check with `pip index versions epi-recorder` or pin git (see [PILOT.md](./archive/PILOT.md) (archived)).
 
 **License:** MIT (see root `LICENSE`).  
 **Not legal advice:** evidence files support audits; they do not certify regulatory compliance by themselves.

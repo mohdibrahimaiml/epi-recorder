@@ -178,7 +178,7 @@ known ops hazard until sync runs.
 
 ## PyPI
 
-Current published line: **4.5.0**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.6.0**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 
@@ -238,13 +238,13 @@ The 128-byte envelope-v2 header is **not** signed. `payload_sha256` (bytes 40–
 |-------|--------|------------|---------------------------|
 | 0–3 | magic `<!--` | Polyglot HTML-comment opener | None. Cosmetic for “opens in a browser.” Tampering can still locate the ZIP via `EPI_ZIP_PAYLOAD_START` / EOCD. |
 | 16–31 | `artifact_uuid` | 16 raw bytes copied from `manifest.workflow_id` at pack | **`manifest.json` `workflow_id`** (also `manifest.trust.artifact_uuid`). Signed + hashed. There is no top-level `artifact_uuid` key in the manifest schema. |
-| 32–39 | `created_at_micros` | `int(manifest.created_at.timestamp() * 1e6)` at pack | **`manifest.json` `created_at`**. Signed + hashed. RFC 3161 TSA token is over the canonical **unsigned manifest** (includes `created_at` and `workflow_id`), not these header bytes. |
+| 32–39 | `created_at_micros` | `int(manifest.created_at.timestamp() * 1e6)` at pack | **`manifest.json` `created_at`**. Signed + hashed. The RFC 3161 TSA token binds the seal imprint (`epi-tsa-imprint/v1`: workflow id, `created_at`, sealing key, payload file hashes — see `docs/VERIFICATION_CONTRACT.md`), not these header bytes. |
 
 On a clean artifact the header copies **match** the manifest (`workflow_id` / `created_at`). Changing the header does **not** change what `epi verify`, the forensic viewer title/created line, `epi export trace` (`subject` from `workflow_id`; `iat` is wall-clock at export, not either timestamp), or SCITT (`manifest_hash` of the signed manifest) report. Those readers use the ZIP manifest (or `time.time()` for TRACE `iat`).
 
 The header UUID/timestamp are therefore **redundant, unsealed copies**. They are not a silent evidence-time or identity rewrite for current CLI/viewer/TRACE/SCITT paths. Do not treat envelope bytes 16–39 as the source of truth.
 
-RFC 3161 is implemented (`artifacts/notarization/`) but the viewer and CLI report TSA **presence** (host / token present, `genTime` read) — never validity. The token's CMS signature, chain, and `messageImprint` are not validated. The independent time claim is the TSA token over the sealed manifest hash, not `created_at_micros`.
+RFC 3161 is implemented (`artifacts/notarization/`). `epi verify` validates seal-time and checkpoint tokens offline against pinned TSA roots (imprint, CMS signature, critical timeStamping EKU, chain) — see `docs/VERIFICATION_CONTRACT.md`. The browser viewer still reports presence only and never validates. The independent time claim is the TSA token over the seal imprint, not `created_at_micros`.
 
 ---
 
@@ -266,9 +266,15 @@ The gateway complements `record()` — it does not prove artifact completeness:
 - **Streaming requests are rejected with 501**, so streaming apps either fail or bypass the proxy entirely.
 - Capture is **async-enqueued**: fail-closed covers enqueue-time failure, but a worker crash after acceptance still leaves a gap.
 
-## RFC 3161 timestamps are presence-only (no token validation yet)
+## RFC 3161 timestamps are validated by `epi verify` (fixed in 4.6.0)
 
-The sealed artifact records a timestamp token (`artifacts/notarization/tsa_reply.tsr`) and its `genTime`, but **the verifier does not currently validate the token's CMS signature, certificate chain, or that its `messageImprint` matches the manifest hash**. The viewer and `epi verify` report "RFC 3161 token present (genTime read, signature not validated)" in neutral styling — never a green tick. Treat the timestamp as an unverified corroborating field until validation lands (planned: CMS signature check, chain to a trust anchor **embedded at seal time**, critical `id-kp-timeStamping` EKU, imprint match, genTime within signing-cert validity — offline by construction, no fetch).
+Until 4.6.0 the sealed artifact recorded a timestamp token and its `genTime`, but **the verifier did not validate the token's CMS signature, certificate chain, or that its `messageImprint` matches the sealed bytes**. Since 4.6.0 `epi verify` validates all three offline against pinned roots, and a failing new-scheme token FAILs verification. Pre-4.6 tokens report `legacy` (presence only, never a failure).
+
+Remaining timestamp limitations (all still true):
+
+- **No revocation checks.** Validation is fully offline: a compromised TSA key or a revoked TSA certificate is not detected. The check assumes the TSA's private key was not compromised and its clock was honest.
+- **Legacy tokens attest nothing checkable.** Files sealed before 4.6 keep their previous verdict; the token is an unverified corroborating field.
+- **The browser viewer does not validate.** It reports presence only and names `epi verify` as the only validation place.
 
 ## Historical step-content truncation (through 4.4.1)
 
@@ -302,11 +308,14 @@ Recording gaps that survive this sprint (no silent completeness claim):
 - Legacy artifacts: pre-4.4.3 truncation (WARN), `controls_failed` undercount
   4.4.1–4.4.6 (recount `results`), all-zero viewer-hash polyglots (forgeable
   display, trust `epi verify`), unsealed header bytes 0–3/16–39 (redundant
-  copies; manifest is authority), SCITT/TSA presence-only.
+  copies; manifest is authority), SCITT presence-only, pre-4.6 TSA tokens
+  legacy/presence-only.
 
 ---
 
 ## Last updated
+
+2026-10-10 — RFC 3161 offline validation in `epi verify` (4.6.0): imprint, CMS signature, critical timeStamping EKU, chain to pinned roots; legacy tokens presence-only; no revocation checks; viewer still presence-only.
 
 2026-09-14 — RFC 3161 display honesty (viewer + CLI neutral, no green tick); timestamp + gateway completeness documented as unverified.
 
