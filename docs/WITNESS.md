@@ -10,12 +10,23 @@ small hash-only report to an endpoint **you** control, at seal time:
 ```json
 {"schema": "epi-witness/v1", "type": "epi.sealed",
  "workflow_id": "...", "manifest_hash": "<sha256>", "file_sha256": "<sha256>",
+ "content_digest": "<sha256>",
  "public_key": "<hex>", "key_fingerprint": "<16 hex>",
  "steps": 12, "sealed_at": "<vendor clock>", "seal_timestamp": {"status": "present", "gen_time": "..."}}
 ```
 
 No content, no prompts, no step data — hashes and counts only. The vendor
 cannot edit your copy afterwards.
+
+`content_digest` covers the sealed evidence: every manifest field and file
+hash except the signature and transparency receipts added after sealing.
+If the vendor later runs `epi-register`, the file is re-packaged (new
+`file_sha256`), but `epi verify --witness-log` still reports WITNESSED
+because the evidence you were told about is unchanged. Any change to the
+evidence itself is a MISMATCH.
+
+Verify with `epi verify run.epi --witness-log received.jsonl --require-timestamp`:
+a file without a valid timestamp otherwise still passes.
 
 ## How to receive (5 minutes)
 

@@ -89,6 +89,37 @@ class _OutboxFileLock:
 
 WITNESS_SCHEMA = "epi-witness/v1"
 
+# Members and manifest fields a legitimate post-seal step may add without
+# touching the sealed evidence (e.g. `epi-register` embeds a transparency
+# receipt under governance.scitt and re-signs). Everything else is covered.
+_POST_SEAL_MEMBER_PREFIXES = ("artifacts/scitt/", "artifacts/transparency/")
+_POST_SEAL_GOVERNANCE_KEYS = ("scitt", "transparency")
+
+
+def witness_content_digest(manifest: Any) -> str:
+    """SHA-256 over the sealed manifest minus post-seal additions.
+
+    Covers every manifest field (workflow id, goal, timestamps, signing key,
+    file hashes, ...) except the signature, transparency entries added under
+    governance after sealing, and transparency members in file_manifest. A
+    re-packaged file that still carries the witnessed evidence keeps this
+    digest; any change to the evidence itself changes it.
+    """
+    import rfc8785
+
+    data = manifest.model_dump(mode="json") if hasattr(manifest, "model_dump") else dict(manifest)
+    data.pop("signature", None)
+    governance = data.get("governance")
+    if isinstance(governance, dict):
+        governance = {k: v for k, v in governance.items() if k not in _POST_SEAL_GOVERNANCE_KEYS}
+        data["governance"] = governance or None
+    files = data.get("file_manifest")
+    if isinstance(files, dict):
+        data["file_manifest"] = {
+            k: v for k, v in files.items() if not k.startswith(_POST_SEAL_MEMBER_PREFIXES)
+        }
+    return hashlib.sha256(rfc8785.dumps(data)).hexdigest()
+
 
 def send_signed_webhook(
     webhook_url: str,
@@ -404,6 +435,7 @@ def build_witness_payload(
     manifest_hash: str,
     file_sha256: str,
     public_key: str | None,
+    content_digest: str | None = None,
     key_fingerprint: str | None,
     steps: int,
     sealed_at: str,
@@ -417,6 +449,7 @@ def build_witness_payload(
         "workflow_id": workflow_id,
         "manifest_hash": manifest_hash,
         "file_sha256": file_sha256,
+        "content_digest": content_digest,
         "public_key": public_key,
         "key_fingerprint": key_fingerprint,
         "steps": int(steps),
@@ -482,6 +515,7 @@ def stage_seal_report(
             workflow_id=str(getattr(manifest, "workflow_id", "")),
             manifest_hash=manifest_hash,
             file_sha256=file_sha256,
+            content_digest=witness_content_digest(manifest),
             public_key=public_key,
             key_fingerprint=fingerprint,
             steps=int(total_steps or 0),

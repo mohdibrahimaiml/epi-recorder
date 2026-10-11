@@ -362,6 +362,12 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
     except Exception as exc:
         result["detail"] = f"could not hash sealed file ({exc})"
         return result
+    try:
+        from epi_core.webhook import witness_content_digest
+
+        content_digest = witness_content_digest(manifest)
+    except Exception:
+        content_digest = None
     for entry in same:
         if (
             entry.get("manifest_hash") == manifest_hash
@@ -371,6 +377,20 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             result["received_at"] = entry.get("received_at")
             result["detail"] = (
                 f"customer record matches (received {entry.get('received_at') or 'unknown time'})"
+            )
+            return result
+    for entry in same:
+        # Re-packaged after the witness (e.g. `epi-register` added a
+        # transparency receipt and re-signed): the sealed evidence is what the
+        # customer was told about, the outer file is not byte-identical.
+        if content_digest and entry.get("content_digest") == content_digest:
+            result["status"] = "WITNESSED"
+            result["received_at"] = entry.get("received_at")
+            result["repackaged"] = True
+            result["detail"] = (
+                "sealed contents match the customer record "
+                f"(received {entry.get('received_at') or 'unknown time'}); the file was "
+                "re-packaged afterwards (transparency receipt added and re-signed)"
             )
             return result
     result["status"] = "MISMATCH"
@@ -1522,6 +1542,10 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"  [green]- Witness:      WITNESSED (received {_received})[/green]"
         )
+        if _wit.get("repackaged"):
+            content_lines.append(
+                "  [dim]                re-packaged after the witness; sealed contents unchanged[/dim]"
+            )
     elif _wit_status == "NOT IN WITNESS LOG":
         content_lines.append(
             "  [yellow]- Witness:      NOT IN WITNESS LOG[/yellow]"

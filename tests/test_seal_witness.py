@@ -319,3 +319,34 @@ def test_gateway_export_witnesses(monkeypatch, tmp_path: Path) -> None:
         assert not [e for e in read_outbox() if e.get("pending")]
     finally:
         server.shutdown()
+
+
+def test_register_after_witness_is_still_witnessed(monkeypatch, tmp_path: Path) -> None:
+    """`epi-register` re-packages the file after the witness; the evidence is unchanged."""
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        out = tmp_path / "run.epi"
+        _seal(monkeypatch, tmp_path, out, witness_url=url, witness_secret=SECRET)
+        payload = json.loads(CaptureHandler.received[0]["body"].decode())
+        assert payload["content_digest"]
+        received = tmp_path / "received.jsonl"
+        received.write_text(
+            json.dumps({**payload, "received_at": "2026-10-11T00:00:00+00:00"}) + "\n",
+            encoding="utf-8",
+        )
+        before = hashlib.sha256(out.read_bytes()).hexdigest()
+
+        result = runner.invoke(cli_app, ["scitt", "register", str(out), "--local"])
+        assert result.exit_code == 0, result.output
+        assert hashlib.sha256(out.read_bytes()).hexdigest() != before
+
+        result = runner.invoke(
+            cli_app, ["verify", str(out), "--json", "--witness-log", str(received)]
+        )
+        report = json.loads(result.output)
+        assert report["witness"]["status"] == "WITNESSED", report["witness"]
+        assert report["witness"].get("repackaged") is True
+        assert report["decision"]["status"] != "FAIL"
+    finally:
+        server.shutdown()
