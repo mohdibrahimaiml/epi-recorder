@@ -599,15 +599,36 @@ def test_live_tsas_validate_against_pinned_roots() -> None:
 
     for url in ("https://freetsa.org/tsr", "http://timestamp.digicert.com"):
         query, nonce = _build_rfc3161_request(hashlib.sha256(url.encode()).digest())
-        resp = httpx.post(
-            url,
-            content=query,
-            headers={"Content-Type": "application/timestamp-query"},
-            timeout=30,
-        )
+        try:
+            resp = httpx.post(
+                url,
+                content=query,
+                headers={"Content-Type": "application/timestamp-query"},
+                timeout=30,
+            )
+        except httpx.HTTPError as exc:
+            pytest.skip(f"{url} unreachable from this network ({exc})")
         assert resp.status_code == 200, url
         token = _submit_rfc3161(hashlib.sha256(url.encode()).hexdigest(), url)
         assert token, url
         v = validate_tsr(token, hashlib.sha256(url.encode()).digest())
         assert v.status == "valid", (url, v.status, v.detail)
         print(f"{url}: {v.status} gen_time={v.gen_time} root={v.tsa_root}")
+
+
+def test_unreadable_signed_attributes_report_malformed_not_crash(
+    monkeypatch, pki: MiniPKI
+) -> None:
+    """A parse error while reading signed attributes must yield 'malformed', never raise."""
+    import epi_core.tsa_verify as tv
+
+    digest = hashlib.sha256(b"attrs").digest()
+    token = make_tsr(digest, pki)
+
+    def _boom(_obj):
+        raise ValueError("odd encoding")
+
+    monkeypatch.setattr(tv, "_tst_raw_octets", _boom)
+    result = tv.validate_tsr(token, digest, trust_roots=[pki.root_cert])
+    assert result.status == "malformed"
+    assert "odd encoding" in result.detail

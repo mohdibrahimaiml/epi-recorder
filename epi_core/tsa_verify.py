@@ -666,8 +666,6 @@ def validate_tsr(
                 policy_oid=policy_oid,
                 hash_algorithm=algo_name,
             )
-    except TsaValidation:
-        raise
     except Exception as exc:
         return _fail(
             "malformed",
