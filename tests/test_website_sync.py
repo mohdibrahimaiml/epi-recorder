@@ -66,6 +66,51 @@ def test_site_mirror_exists_for_cloudflare():
     assert (site / "account.html").is_file()
 
 
+def test_sync_never_ships_internal_markdown():
+    """Internal *.md (e.g. outreach.md sales templates) must never reach public outputs.
+
+    Plants a website/outreach.md source plus stale outreach.md copies in every
+    target, runs the real sync, and asserts none survive — while the public
+    website/README.md still syncs through.
+    """
+    import importlib.util
+
+    script = ROOT / "scripts" / "sync_website.py"
+    spec = importlib.util.spec_from_file_location("sync_website_internal_md", script)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    planted_source = ROOT / "website" / "outreach.md"
+    planted_generic = ROOT / "website" / "INTERNAL_TEST_NOTE.md"
+    planted_targets = [
+        ROOT / "site" / "outreach.md",
+        ROOT / "verify_portal" / "static" / "outreach.md",
+        ROOT / "epi-official" / "outreach.md",
+    ]
+    planted_source.write_text("# internal sales templates (test fixture)\n", encoding="utf-8")
+    planted_generic.write_text("# internal note (test fixture)\n", encoding="utf-8")
+    for p in planted_targets:
+        p.write_text("# stale copy (test fixture)\n", encoding="utf-8")
+    try:
+        mod.sync()
+        for p in planted_targets:
+            assert not p.exists(), f"internal file shipped to public output: {p}"
+        assert not (ROOT / "site" / "INTERNAL_TEST_NOTE.md").exists()
+        assert not (ROOT / "verify_portal" / "static" / "INTERNAL_TEST_NOTE.md").exists()
+        assert not (ROOT / "epi-official" / "INTERNAL_TEST_NOTE.md").exists()
+    finally:
+        planted_source.unlink(missing_ok=True)
+        planted_generic.unlink(missing_ok=True)
+        for p in planted_targets:
+            p.unlink(missing_ok=True)
+        (ROOT / "site" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
+        (ROOT / "verify_portal" / "static" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
+        (ROOT / "epi-official" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
+    # The public README.md must still sync through.
+    assert (ROOT / "site" / "README.md").is_file()
+
+
 def test_sync_website_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Run sync against real tree — should not raise
     import importlib.util
