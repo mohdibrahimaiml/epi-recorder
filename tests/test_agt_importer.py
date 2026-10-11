@@ -20,6 +20,8 @@ from epi_recorder.integrations.agt.mapping import (
 )
 from epi_recorder.integrations.agt.report import MappingReportBuilder
 
+pytestmark = pytest.mark.experimental
+
 FIXED_REPORT_TIME = datetime(2026, 4, 7, 12, 0, 0, tzinfo=UTC)
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "agt"
 EXPECTED_DIR = FIXTURE_DIR / "expected"

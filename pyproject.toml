@@ -212,6 +212,7 @@ markers = [
     "compliance: evidence-readiness and compliance-claim consistency tests",
     "slow: long-running or higher-cost local tests",
     "network: tests that are allowed to use external network access",
+    "experimental: frozen experimental surfaces (excluded from the core release gate)",
 ]
 
 [tool.black]

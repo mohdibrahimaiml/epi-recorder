@@ -12,6 +12,8 @@ import pytest
 pytest.importorskip("starlette.testclient")
 from starlette.testclient import TestClient  # noqa: E402
 
+pytestmark = pytest.mark.experimental
+
 REDIRECT = "https://chat.example/cb"
 VERIFIER = "test-verifier-1234567890"
 CHALLENGE = base64.urlsafe_b64encode(hashlib.sha256(VERIFIER.encode()).digest()).rstrip(b"=").decode()
