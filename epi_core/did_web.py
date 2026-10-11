@@ -114,6 +114,60 @@ def resolve_did_web(did: str, timeout: int = 10) -> dict[str, Any]:
         raise DidResolutionError(f"DID document is not valid JSON: {exc}") from exc
 
 
+def did_to_url(did: str) -> str:
+    """Public wrapper: the HTTPS URL a did:web DID's document must be hosted at."""
+    return _did_to_url(did)
+
+
+def extract_ed25519_keys(did_doc: dict[str, Any]) -> list[str]:
+    """Extract ALL Ed25519 public keys (hex) from a DID document.
+
+    Key rotation works by listing several verificationMethod entries; the
+    verifier accepts any listed key. Order is document order, deduplicated.
+    """
+    vm_list = did_doc.get("verificationMethod") or did_doc.get("publicKey") or []
+
+    ed25519_types = {
+        "Ed25519VerificationKey2018",
+        "Ed25519VerificationKey2020",
+        "JsonWebKey2020",
+    }
+
+    found: list[str] = []
+    for vm in vm_list:
+        if not isinstance(vm, dict):
+            continue
+        vm_type = vm.get("type", "")
+        if vm_type not in ed25519_types and "Ed25519" not in vm_type:
+            continue
+        candidate: str | None = None
+        key_hex = vm.get("publicKeyHex")
+        if key_hex:
+            candidate = key_hex.lower()
+        else:
+            multibase = vm.get("publicKeyMultibase")
+            if multibase and multibase.startswith("z"):
+                try:
+                    decoded = _base58_to_hex(multibase[1:])
+                    if len(decoded) == 64:
+                        candidate = decoded
+                except Exception:
+                    pass
+            if candidate is None:
+                jwk = vm.get("publicKeyJwk")
+                if jwk and jwk.get("crv") == "Ed25519" and jwk.get("x"):
+                    try:
+                        import base64
+                        x_bytes = base64.urlsafe_b64decode(jwk["x"] + "==")
+                        if len(x_bytes) == 32:
+                            candidate = x_bytes.hex()
+                    except Exception:
+                        pass
+        if candidate and candidate not in found:
+            found.append(candidate)
+    return found
+
+
 def extract_ed25519_key(did_doc: dict[str, Any]) -> str:
     """
     Extract the first Ed25519 public key (hex) from a DID document.
@@ -132,52 +186,13 @@ def extract_ed25519_key(did_doc: dict[str, Any]) -> str:
     Raises:
         KeyNotFoundError: If no Ed25519 public key is found.
     """
-    vm_list = did_doc.get("verificationMethod") or did_doc.get("publicKey") or []
-
-    ed25519_types = {
-        "Ed25519VerificationKey2018",
-        "Ed25519VerificationKey2020",
-        "JsonWebKey2020",
-    }
-
-    for vm in vm_list:
-        if not isinstance(vm, dict):
-            continue
-
-        vm_type = vm.get("type", "")
-        if vm_type not in ed25519_types and "Ed25519" not in vm_type:
-            continue
-
-        # Format 1: publicKeyHex (most common in 2018/2020 suites)
-        key_hex = vm.get("publicKeyHex")
-        if key_hex:
-            return key_hex.lower()
-
-        # Format 2: publicKeyMultibase (z-prefixed base58btc, 2020 suite)
-        multibase = vm.get("publicKeyMultibase")
-        if multibase and multibase.startswith("z"):
-            try:
-                key_hex = _base58_to_hex(multibase[1:])
-                if len(key_hex) == 64:  # 32-byte Ed25519 key
-                    return key_hex
-            except Exception:
-                pass
-
-        # Format 3: publicKeyJwk with crv=Ed25519
-        jwk = vm.get("publicKeyJwk")
-        if jwk and jwk.get("crv") == "Ed25519" and jwk.get("x"):
-            try:
-                import base64
-                x_bytes = base64.urlsafe_b64decode(jwk["x"] + "==")
-                if len(x_bytes) == 32:
-                    return x_bytes.hex()
-            except Exception:
-                pass
-
-    raise KeyNotFoundError(
-        "DID document contains no Ed25519 public key "
-        "(checked publicKeyHex, publicKeyMultibase, publicKeyJwk)"
-    )
+    keys = extract_ed25519_keys(did_doc)
+    if not keys:
+        raise KeyNotFoundError(
+            "DID document contains no Ed25519 public key "
+            "(checked publicKeyHex, publicKeyMultibase, publicKeyJwk)"
+        )
+    return keys[0]
 
 
 _BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"

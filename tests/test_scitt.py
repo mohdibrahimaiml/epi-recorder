@@ -474,7 +474,7 @@ class TestSCITTCLI:
         import epi_cli.verify
 
         original_fetcher = epi_cli.verify._fetch_scitt_service_key
-        epi_cli.verify._fetch_scitt_service_key = lambda url: None
+        epi_cli.verify._fetch_scitt_service_key = lambda url, offline=False: None
         try:
             runner = CliRunner()
             result = runner.invoke(app, ["verify", str(epi_path), "--json"])

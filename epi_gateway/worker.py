@@ -198,11 +198,13 @@ class EvidenceWorker:
         output_path: Path,
         *,
         signer_function: Any | None = None,
+        did_web: str | None = None,
     ):
         return self.case_store.export_case_to_artifact(
             case_id,
             output_path,
             signer_function=signer_function,
+            did_web=did_web,
         )
 
     def queue_size(self) -> int:

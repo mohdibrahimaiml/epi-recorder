@@ -2071,6 +2071,7 @@ class CaseStore:
         output_path: Path,
         *,
         signer_function: Any | None = None,
+        did_web: str | None = None,
     ) -> CaseExportResultModel:
         case_payload = self.get_case(case_id)
         if not case_payload:
@@ -2084,6 +2085,7 @@ class CaseStore:
             cli_command=f"epi gateway export --case-id {case_id}",
             goal=_first_nonempty(case_payload.get("decision", {}).get("summary"), case_payload.get("analysis", {}).get("summary")),
             notes=_first_nonempty(case_payload.get("manifest", {}).get("notes"), case_payload.get("analysis", {}).get("why_it_matters")),
+            governance={"did": did_web} if did_web else None,
         )
 
         temp_dir = EPIContainer._make_temp_dir("epi_gateway_export_")

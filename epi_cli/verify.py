@@ -45,12 +45,13 @@ _AIUC1_WORDS = {
 }
 
 
-def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
+def _fetch_scitt_service_key(service_url: str | None, *, offline: bool = False) -> bytes | None:
     """
     Fetch and cache the SCITT transparency service's Ed25519 public key.
 
     Args:
         service_url: URL of the SCITT service (e.g., https://scitt.epilabs.org)
+        offline: when True, never fetch — cache/local only.
 
     Returns:
         32-byte raw Ed25519 public key, or None if unavailable.
@@ -83,6 +84,10 @@ def _fetch_scitt_service_key(service_url: str | None) -> bytes | None:
             cache_file.unlink(missing_ok=True)
         except Exception:
             pass
+
+    # Offline: cache/local only, never fetch.
+    if offline:
+        return None
 
     # Fetch from service
     try:
@@ -509,6 +514,11 @@ def verify_command(
         "--qr",
         help="Print a QR code that opens the artifact on verify.epilabs.org",
     ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="No network: skip DID resolution and remote fetches (local pins still apply).",
+    ),
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -543,6 +553,7 @@ def verify_command(
     mismatches = {}
     review_report = None
     registry = TrustRegistry()
+    registry.offline = bool(offline)
 
     try:
         # ========== STEP 1: STRUCTURAL VALIDATION ==========
@@ -815,7 +826,9 @@ def verify_command(
 
                 # Verify receipt signature against statement
                 # Fetch service public key from the transparency service or cache
-                service_pub_key = _fetch_scitt_service_key(scitt_info.get("service_url"))
+                service_pub_key = _fetch_scitt_service_key(
+                    scitt_info.get("service_url"), offline=offline
+                )
                 if service_pub_key:
                     try:
                         from epi_core.scitt import verify_scitt_receipt
@@ -1322,17 +1335,27 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         "[bold underline]IDENTITY (who sealed — required for claim trust)[/bold underline]"
     )
     id_status_display = identity_status
+    pinned_names = identity.get("pinned_names") if isinstance(identity, dict) else None
+    pinned_names = [str(n) for n in (pinned_names or []) if str(n).strip()]
+    untrusted_despite_pins = bool(id_upper == "UNKNOWN" and pinned_names)
     if id_upper == "UNKNOWN":
-        id_status_display = "NOT_PINNED"
+        if untrusted_despite_pins:
+            id_status_display = f"NOT A KEY YOU TRUST (you have pinned: {', '.join(pinned_names)})"
+        else:
+            id_status_display = "NOT_PINNED"
     if identity_status == "KNOWN":
         id_color = "green"
     elif identity_status == "LOCAL":
         id_color = "yellow"
-    elif identity_status in ("REVOKED", "MISMATCH"):
+    elif identity_status in ("REVOKED", "MISMATCH") or untrusted_despite_pins:
         id_color = "red"
     else:
         id_color = "yellow"
     content_lines.append(f"  [{id_color}]- Status:       {id_status_display}[/{id_color}]")
+    if untrusted_despite_pins:
+        content_lines.append(
+            "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"
+        )
     content_lines.append(f"  - Name:         {identity_name or '—'}")
     fp = None
     if isinstance(identity, dict):

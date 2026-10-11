@@ -300,6 +300,7 @@ class TestReportStructureStability:
             "public_key_fingerprint",
             "local_key_name",
             "did",
+            "pinned_names",
             "scitt",
         }
         assert set(report["metadata"].keys()) == {

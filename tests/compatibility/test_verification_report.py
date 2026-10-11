@@ -144,6 +144,7 @@ def test_report_nested_identity_keys():
         "public_key_fingerprint",
         "local_key_name",
         "did",
+        "pinned_names",
         "scitt",
     }
     assert identity_keys == expected_identity, (
