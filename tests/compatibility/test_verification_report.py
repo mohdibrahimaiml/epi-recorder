@@ -42,6 +42,9 @@ FROZEN_REPORT_KEYS = {
     "enforcement_downgraded",
     "enforcement_downgrade_count",
     "checkpoints",
+    # Added for the customer witness: verify_command attaches the
+    # --witness-log comparison to every success report. Additive only.
+    "witness",
 }
 
 FROZEN_FAILURE_KEYS = {

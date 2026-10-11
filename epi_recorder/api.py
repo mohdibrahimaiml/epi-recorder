@@ -783,6 +783,9 @@ class EpiRecorderSession:
         did_web: Optional[str] = None,
         redact_secrets: Optional[List[str]] = None,
         org_root: Optional[str] = None,
+        witness_url: Optional[str] = None,
+        witness_secret: Optional[str] = None,
+        witness_include_goal: bool = False,
     ):
         """
         Initialize EPI recording session.
@@ -806,6 +809,13 @@ class EpiRecorderSession:
             org_root: Optional SHA-256 fingerprint (64 hex) of the customer org
                 root public key, bound into manifest.governance at seal time
                 for offline bundle verification (EPI_ORG_ROOT env fallback).
+            witness_url: Customer witness endpoint(s) reported at seal time
+                (comma-separated for several systems; EPI_WITNESS_URL fallback).
+                Hash-only payload, never content. Delivery never fails/slows seal.
+            witness_secret: Shared secret for the witness HMAC header
+                (EPI_WITNESS_SECRET fallback). Never persisted; flush re-reads it.
+            witness_include_goal: Include the run goal in the witness payload
+                (default False — goals may be sensitive; hashes suffice).
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -845,6 +855,13 @@ class EpiRecorderSession:
         # into manifest.governance at seal time. Explicit param wins, then
         # EPI_ORG_ROOT env. Validated eagerly so typos fail fast, not silent.
         self.org_root = self._resolve_org_root(org_root)
+
+        # Customer witness (docs/WITNESS.md): hash-only seal report to
+        # endpoint(s) the customer controls. Explicit params win, then
+        # EPI_WITNESS_URL / EPI_WITNESS_SECRET env. Empty means no witness.
+        self.witness_url = witness_url if witness_url is not None else os.getenv("EPI_WITNESS_URL")
+        self.witness_secret = witness_secret if witness_secret is not None else os.getenv("EPI_WITNESS_SECRET")
+        self.witness_include_goal = bool(witness_include_goal)
 
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
@@ -1007,6 +1024,11 @@ class EpiRecorderSession:
             # Auto-SCITT anchor if configured
             if signed:
                 self._auto_scitt_anchor()
+
+            # Customer witness: hash-only seal report to endpoint(s) the
+            # customer controls. Never fails or slows the seal (outbox +
+            # daemon thread, bounded wait).
+            self._witness_seal(signed)
 
             # Privacy-first opt-in telemetry: record that an artifact was created.
             # This is a no-op unless the user ran `epi telemetry enable`.
@@ -1645,6 +1667,46 @@ class EpiRecorderSession:
             print(f"      epi view {self.output_path.name}", file=target)
         print(file=target)
 
+    def _witness_seal(self, signed: bool) -> None:
+        """Report the sealed file to customer witness endpoint(s).
+
+        Hash-only payload (never content). Outbox-first with a bounded
+        background delivery, so this never fails or slows the seal.
+        """
+        try:
+            from epi_core.webhook import report_seal, split_witness_urls
+
+            urls = split_witness_urls(getattr(self, "witness_url", None))
+            if not urls:
+                return
+            key_name: str | None = None
+            private_key_bytes: bytes | None = None
+            if signed:
+                try:
+                    from epi_core.keys import KeyManager
+                    from cryptography.hazmat.primitives import serialization
+
+                    km = KeyManager()
+                    key_name = self.default_key_name
+                    private_key = km.load_private_key(key_name)
+                    private_key_bytes = private_key.private_bytes(
+                        encoding=serialization.Encoding.Raw,
+                        format=serialization.PrivateFormat.Raw,
+                        encryption_algorithm=serialization.NoEncryption(),
+                    )
+                except Exception:
+                    key_name, private_key_bytes = None, None
+            report_seal(
+                self.output_path,
+                urls=urls,
+                secret=getattr(self, "witness_secret", None),
+                key_name=key_name,
+                private_key_bytes=private_key_bytes,
+                goal=self.goal if getattr(self, "witness_include_goal", False) else None,
+            )
+        except Exception:
+            pass
+
     def _capture_environment(self) -> None:
         """Capture environment snapshot and save to temp directory."""
         try:
@@ -1888,6 +1950,9 @@ def record(
     capture_stderr: bool = False,
     redact_secrets: Optional[List[str]] = None,
     org_root: Optional[str] = None,
+    witness_url: Optional[str] = None,
+    witness_secret: Optional[str] = None,
+    witness_include_goal: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -1904,6 +1969,9 @@ def record(
         metrics: Key-value metrics for this workflow (accuracy, latency, etc.)
         approved_by: Person or entity who approved this workflow execution
         metadata_tags: Tags for categorizing this workflow (renamed from tags to avoid conflict)
+        witness_url: Customer witness endpoint(s), comma-separated (EPI_WITNESS_URL fallback)
+        witness_secret: HMAC secret for witness delivery (EPI_WITNESS_SECRET fallback)
+        witness_include_goal: Include the goal in the witness payload (default False)
         **kwargs: Additional arguments (backward compatibility)
         
     Returns:
@@ -1964,6 +2032,9 @@ def record(
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
             org_root=org_root,
+            witness_url=witness_url,
+            witness_secret=witness_secret,
+            witness_include_goal=witness_include_goal,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -2023,6 +2094,9 @@ def record(
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
             org_root=org_root,
+            witness_url=witness_url,
+            witness_secret=witness_secret,
+            witness_include_goal=witness_include_goal,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

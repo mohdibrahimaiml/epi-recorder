@@ -6,6 +6,17 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Customer witness on every seal.** With `EPI_WITNESS_URL` (or `record(..., witness_url=)`, comma-separated
+  for several customer systems) every sealed `.epi` is reported at seal time as a hash-only payload
+  (`schema: epi-witness/v1` — workflow id, manifest/file hashes, key fingerprint, step count; no content,
+  goal only with `witness_include_goal=True`). HMAC header when `EPI_WITNESS_SECRET` is set, plus an Ed25519
+  seal signature verifiable with the vendor's pinned key. Outbox-first (`~/.epi/witness_outbox.jsonl`) with
+  daemon-thread delivery and a bounded wait, so witnessing never fails or slows the seal; `epi witness flush`
+  retries the undelivered and `epi witness status` lists entries. `epi verify --witness-log received.jsonl`
+  reports WITNESSED / NOT IN WITNESS LOG / MISMATCH (a mismatch FAILs). Gateway case export witnesses through
+  the same settings. Reference receiver in `examples/witness_receiver/`; customer guide in `docs/WITNESS.md`.
+  `send_signed_webhook` moved to `epi_core/webhook.py` (re-exported from the gateway module, behaviour unchanged).
+
 - **Per-tool sign-in declarations** (`_meta.securitySchemes`, `oauth2` with one scope) on all four tools, for hosts that read
   them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
   it sends a hash to a public time-stamp service.

@@ -56,14 +56,25 @@ EPI's security guarantees depend on these assumptions being true:
 
 ---
 
-### 5. Private Key Leakage into Artifact
+### 5. Silent Re-seal After the Fact
+**Attack:** A vendor seals a run, then quietly alters the file and re-signs it with the same key (which they control) before handing it over — the signature is valid, so nothing looks wrong.
+
+**Prevention (only with a customer witness configured):** every seal is reported at seal time to an endpoint the customer controls (`epi-witness/v1`: workflow id, manifest and file hashes). `epi verify --witness-log` compares the handed-over file against the customer's independent record: a re-sealed file reports `MISMATCH` and FAILs.
+
+**Limitation:** the witness only proves what was sent — the vendor can choose not to send a seal. A missing entry for a case the customer knows happened is itself evidence.
+
+**Test:** `tests/test_seal_witness.py` (altered + re-signed file → `MISMATCH` → FAIL).
+
+---
+
+### 6. Private Key Leakage into Artifact
 **Attack:** A bug causes the private key to be serialized into the `.epi` file.
 
 **Prevention:** The signing code only embeds the **public** key. The private key never leaves the `~/.epi/keys/` directory. Automated tests scan artifact bytes for private key material.
 
 ---
 
-### 6. Secret Leakage in Steps
+### 7. Secret Leakage in Steps
 **Attack:** An LLM prompt or API key is accidentally recorded in `steps.jsonl`.
 
 **Prevention:** The redactor automatically detects and replaces:
@@ -77,7 +88,7 @@ EPI's security guarantees depend on these assumptions being true:
 
 ---
 
-### 7. Revoked Key Abuse
+### 8. Revoked Key Abuse
 **Attack:** An attacker uses a stolen or retired key to sign a new artifact.
 
 **Prevention:** The trust registry checks `~/.epi/trusted_keys/*.revoked`. If the public key is on the revocation list, `identity.status=REVOKED` and `trust_level=INVALID`.
@@ -167,6 +178,7 @@ EPI's security guarantees depend on these assumptions being true:
 | Manifest tampering | Yes | Ed25519 signature |
 | Signature replay | Yes | Manifest-bound signature |
 | Timestamp forgery | Yes | Signed `created_at` |
+| Silent re-seal after the fact | Yes, with customer witness configured | Independent witness log + `--witness-log` |
 | Private key leak | Yes | Public key only in artifact |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |

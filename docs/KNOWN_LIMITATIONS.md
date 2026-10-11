@@ -306,7 +306,21 @@ Recording gaps that survive this sprint (no silent completeness claim):
 
 ---
 
+## Customer witness limits
+
+With `EPI_WITNESS_URL` (or `witness_url=`) configured, every seal is reported
+at seal time to endpoint(s) the customer controls (`docs/WITNESS.md`). The
+witness only proves **what was sent**: the vendor can choose not to send a
+seal, and a seal covers only what was recorded. A missing witness entry for
+a case the customer knows happened is itself evidence — ask the vendor why.
+The payload is hashes and counts only (no content); the goal is included
+only with `witness_include_goal=True`.
+
+---
+
 ## Last updated
+
+2026-10-11 — customer witness on every seal (`epi-witness/v1`, outbox + `epi witness flush/status`, `epi verify --witness-log`).
 
 2026-09-14 — RFC 3161 display honesty (viewer + CLI neutral, no green tick); timestamp + gateway completeness documented as unverified.
 
