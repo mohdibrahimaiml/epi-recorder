@@ -781,6 +781,7 @@ class EpiRecorderSession:
         capture_prints: bool = True,
         capture_stderr: bool = False,
         did_web: Optional[str] = None,
+        did: Optional[str] = None,
         redact_secrets: Optional[List[str]] = None,
         org_root: Optional[str] = None,
         witness_url: Optional[str] = None,
@@ -804,6 +805,7 @@ class EpiRecorderSession:
             metadata_tags: Tags for categorizing this workflow (renamed from tags to avoid conflict)
             legacy_patching: Enable deprecated monkey patching mode (default: False)
             did_web: Optional DID:WEB identifier for zero-cost identity binding (e.g. "did:web:example.com")
+            did: Alias for did_web (explicit param wins, then did_web, then EPI_DID env).
             redact_secrets: Optional exact secret values to redact in addition to
                 built-in patterns (also merged from EPI_REDACT_SECRETS env).
             org_root: Optional SHA-256 fingerprint (64 hex) of the customer org
@@ -847,8 +849,14 @@ class EpiRecorderSession:
         self.approved_by = approved_by
         self.metadata_tags = metadata_tags
         
-        # DID:WEB identity binding (zero-cost, issuer-independent)
-        self.did_web = did_web
+        # DID:WEB identity binding (zero-cost, issuer-independent).
+        # Explicit `did` wins, then `did_web`, then EPI_DID env.
+        _did_value = did if did is not None else (
+            did_web if did_web is not None else os.getenv("EPI_DID")
+        )
+        if _did_value is not None and not str(_did_value).startswith("did:web:"):
+            raise ValueError(f"did must start with 'did:web:', got: {_did_value}")
+        self.did_web = _did_value
 
         # Org trust bundle binding (design docs/design/org-trust-bundle.md).
         # Fingerprint (sha256 hex) of the customer root public key, bound
@@ -1950,6 +1958,7 @@ def record(
     capture_stderr: bool = False,
     redact_secrets: Optional[List[str]] = None,
     org_root: Optional[str] = None,
+    did: Optional[str] = None,
     witness_url: Optional[str] = None,
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
@@ -1969,6 +1978,7 @@ def record(
         metrics: Key-value metrics for this workflow (accuracy, latency, etc.)
         approved_by: Person or entity who approved this workflow execution
         metadata_tags: Tags for categorizing this workflow (renamed from tags to avoid conflict)
+        did: DID:WEB identifier bound at seal time (EPI_DID fallback)
         witness_url: Customer witness endpoint(s), comma-separated (EPI_WITNESS_URL fallback)
         witness_secret: HMAC secret for witness delivery (EPI_WITNESS_SECRET fallback)
         witness_include_goal: Include the goal in the witness payload (default False)
@@ -2032,6 +2042,7 @@ def record(
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
             org_root=org_root,
+            did=did,
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
@@ -2094,6 +2105,7 @@ def record(
             capture_stderr=capture_stderr,
             redact_secrets=redact_secrets,
             org_root=org_root,
+            did=did,
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,

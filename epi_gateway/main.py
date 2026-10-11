@@ -120,6 +120,7 @@ class GatewayRuntimeSettings(BaseModel):
     approval_webhook_url: str | None = None
     approval_webhook_secret: str | None = None
     approval_webhook_timeout_seconds: int = 10
+    did_web: str | None = None
     witness_url: str | None = None
     witness_secret: str | None = None
     smtp_host: str | None = None
@@ -185,6 +186,7 @@ class GatewayRuntimeSettings(BaseModel):
         self.approval_base_url = (_clean(self.approval_base_url) or "http://127.0.0.1:8765").rstrip("/")
         self.approval_webhook_url = _clean(self.approval_webhook_url)
         self.approval_webhook_secret = _clean(self.approval_webhook_secret)
+        self.did_web = _clean(self.did_web)
         self.witness_url = _clean(self.witness_url)
         self.witness_secret = _clean(self.witness_secret)
         self.smtp_host = _clean(self.smtp_host)
@@ -352,6 +354,7 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         approval_webhook_url=os.getenv("EPI_APPROVAL_WEBHOOK_URL"),
         approval_webhook_secret=os.getenv("EPI_APPROVAL_WEBHOOK_SECRET"),
         approval_webhook_timeout_seconds=int(os.getenv("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS", "10")),
+        did_web=os.getenv("EPI_DID"),
         witness_url=os.getenv("EPI_WITNESS_URL"),
         witness_secret=os.getenv("EPI_WITNESS_SECRET"),
         smtp_host=os.getenv("EPI_SMTP_HOST"),
@@ -1765,7 +1768,10 @@ def create_app(
         export_path = temp_dir / f"{_safe_filename(case_id)}.epi"
         signer = _build_gateway_signer(runtime_settings)
         try:
-            result = runtime_worker.export_case(case_id, export_path, signer_function=signer)
+            result = runtime_worker.export_case(
+                case_id, export_path, signer_function=signer,
+                did_web=runtime_settings.did_web,
+            )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Case not found") from exc
 

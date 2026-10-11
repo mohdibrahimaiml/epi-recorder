@@ -318,6 +318,9 @@ class TrustRegistry:
         self.trusted_keys_dir = trusted_keys_dir or (
             Path(env_dir) if env_dir else (Path.home() / ".epi" / "trusted_keys")
         )
+        # Offline mode (epi verify --offline): no network at all — no DID
+        # resolution, no remote registry fetch. Local pins still apply.
+        self.offline = False
         # Default to EPI Labs public trust registry if no URL provided
         self.registry_url = registry_url or os.environ.get(
             "EPI_TRUSTED_REGISTRY_URL",
@@ -338,23 +341,55 @@ class TrustRegistry:
         except Exception:
             pass
 
+    def pinned_names(self) -> list[str]:
+        """Names of locally pinned (non-revoked) keys, for honest verify output."""
+        names: list[str] = []
+        try:
+            if self.trusted_keys_dir.exists():
+                revoked = {
+                    p.stem
+                    for p in self.trusted_keys_dir.glob("*.revoked")
+                }
+                for pub_file in sorted(self.trusted_keys_dir.glob("*.pub")):
+                    if pub_file.stem not in revoked:
+                        names.append(pub_file.stem)
+        except Exception:
+            pass
+        return names
+
     def _verify_did_web(self, did: str, public_key_hex: str) -> tuple[bool, str | None, str]:
         """
         Resolve did:web and compare the resolved public key.
 
+        Accepts ANY Ed25519 key listed in the document (key rotation is
+        listing several verificationMethod entries). Offline: no resolution;
+        the verdict falls back to local pins only.
+
         Returns:
             (is_trusted, identity_name, status_detail)
         """
+        if self.offline:
+            pinned = self.pinned_names()
+            if self._is_locally_pinned(public_key_hex):
+                return True, None, (
+                    f"DID declared ({did}), not resolved offline; "
+                    "pinned key matches"
+                )
+            return False, None, (
+                f"DID declared ({did}), not resolved offline; "
+                "pinned key does not match" if pinned else
+                f"DID declared ({did}), not resolved offline"
+            )
         try:
             from epi_core.did_web import (
                 DidResolutionError,
                 KeyNotFoundError,
-                extract_ed25519_key,
+                extract_ed25519_keys,
                 resolve_did_web,
             )
 
             did_document = resolve_did_web(did)
-            resolved_key = extract_ed25519_key(did_document)
+            resolved_keys = extract_ed25519_keys(did_document)
         except DidResolutionError as exc:
             return False, None, f"DID resolution failed: {exc}"
         except KeyNotFoundError as exc:
@@ -362,11 +397,34 @@ class TrustRegistry:
         except Exception as exc:
             return False, None, f"DID verification error: {exc}"
 
-        if resolved_key.lower() == public_key_hex.lower():
+        if public_key_hex.lower() in [k.lower() for k in resolved_keys]:
             did_name = did_document.get("id", did)
             return True, did_name, f"Verified via DID:WEB ({did})"
 
         return False, None, "DID resolved but public key mismatch — possible impersonation"
+
+    def _is_locally_pinned(self, public_key_hex: str) -> bool:
+        """True when the key matches a local .pub pin (revoked pins excluded)."""
+        try:
+            if not self.trusted_keys_dir.exists():
+                return False
+            revoked = set()
+            for rev_file in self.trusted_keys_dir.glob("*.revoked"):
+                try:
+                    revoked.add(rev_file.read_text().strip().lower())
+                except Exception:
+                    continue
+            want = public_key_hex.strip().lower()
+            for pub_file in self.trusted_keys_dir.glob("*.pub"):
+                try:
+                    if pub_file.read_text().strip().lower() == want:
+                        if want not in revoked:
+                            return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return False
 
     def verify_key_trust(
         self,
@@ -401,6 +459,13 @@ class TrustRegistry:
             for pub_file in self.trusted_keys_dir.glob("*.pub"):
                 try:
                     if public_key_hex.strip().lower() == pub_file.read_text().strip().lower():
+                        # Offline with a declared DID: report the DID context
+                        # (declared, unresolved, pin match) rather than the
+                        # generic local-registry line.
+                        if self.offline and isinstance(governance, dict):
+                            _did = (governance or {}).get("did")
+                            if isinstance(_did, str) and _did.startswith("did:web:"):
+                                return self._verify_did_web(_did, public_key_hex)
                         return True, pub_file.stem, "Verified via local trusted registry"
                 except Exception:
                     continue
@@ -411,8 +476,8 @@ class TrustRegistry:
             if did and isinstance(did, str) and did.startswith("did:web:"):
                 return self._verify_did_web(did, public_key_hex)
 
-        # 4. Remote Registry (Bootstrap / Anchor)
-        if self.registry_url:
+        # 4. Remote Registry (Bootstrap / Anchor). Skipped offline.
+        if self.registry_url and not self.offline:
             try:
                 # In a real implementation, this would use a secure fetch + cache
                 # For now, we simulate the 'Independent Verifiability' path
@@ -572,6 +637,11 @@ def create_verification_report(
             "public_key_fingerprint": pk[:32] if pk else None,
             "local_key_name": local_key_name,
             "did": (manifest.governance or {}).get("did") if manifest.governance else None,
+            "pinned_names": (
+                trusted_registry.pinned_names()
+                if trusted_registry is not None
+                else []
+            ),
             "scitt": {
                 "service_url": scitt_gov.get("service_url") if scitt_gov else None,
                 "entry_id": scitt_gov.get("entry_id") if scitt_gov else None,

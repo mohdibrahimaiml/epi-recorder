@@ -17,6 +17,14 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **did:web identity onboarding.** `epi keys did --domain vendor.com [--path agents/claims] [--key default]`
+  writes `did.json` and prints the DID, the exact hosting URL and free hosting options;
+  `record(..., did=...)` / `EPI_DID` (gateway: `did_web` setting) binds it into the seal; `epi keys trust
+  --from-did did:web:vendor.com --name vendor` resolves once, pins locally and prints the fingerprint for
+  out-of-band confirmation. Verify shows red `NOT A KEY YOU TRUST (you have pinned: ...)` when pins exist
+  but the file's key is untrusted (soft `NOT_PINNED` when no pins exist at all), supports `--offline`
+  (DID declared but unresolved; local pins decide), and accepts any listed key for rotation. Guide:
+  `docs/IDENTITY-ONBOARDING.md`.
 - **Gateway exports are hash-chained with capture-time checkpoints (issue #26).** Projected steps carry
   `prev_hash` (`CHAIN_START` genesis, same JCS construction as the SDK recorder) after the ordering freeze,
   so trimming after export breaks the chain; exports also attest `total_steps`. The gateway worker maintains
