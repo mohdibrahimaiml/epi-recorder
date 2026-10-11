@@ -17,6 +17,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import queue
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -111,13 +113,9 @@ class CheckpointSubmitter:
     """
 
     def __init__(self, output_dir, *, tsa_submit=None) -> None:
-        import queue
-        import threading
-
         self._output_dir = Path(output_dir)
         self._tsa_submit = tsa_submit
         self._queue: queue.Queue = queue.Queue()
-        self._drained = False
         self._thread = threading.Thread(
             target=self._run,
             name="epi-checkpoint-submit",
@@ -158,8 +156,6 @@ class CheckpointSubmitter:
             return self.pending()
         except Exception:
             return 0
-        finally:
-            self._drained = True
 
     def _run(self) -> None:
         while True:
