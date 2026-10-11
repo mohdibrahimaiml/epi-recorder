@@ -220,31 +220,6 @@ def append_outbox_entry(
     `headers` carries public authentication material (the Ed25519 seal
     signature). The HMAC secret is never persisted; flush re-reads it from
     the environment or a flag.
-    """
-    target = Path(path) if path else outbox_path()
-    entry = {
-        "id": hashlib.sha256(
-            f"{_utc_now_iso()}|{json.dumps(payload, sort_keys=True)}|{os.getpid()}".encode()
-        ).hexdigest()[:16],
-        "created_at": _utc_now_iso(),
-        "payload": payload,
-        "headers": dict(headers or {}),
-        "pending": list(urls),
-        "delivered": {},
-        "last_error": None,
-    }
-def append_outbox_entry(
-    payload: dict[str, Any],
-    urls: list[str],
-    *,
-    headers: dict[str, str] | None = None,
-    path: Path | None = None,
-) -> dict[str, Any]:
-    """Append one witness entry with all urls pending. Returns the entry.
-
-    `headers` carries public authentication material (the Ed25519 seal
-    signature). The HMAC secret is never persisted; flush re-reads it from
-    the environment or a flag.
 
     The append is one unbuffered O_APPEND syscall (plus an in-process lock),
     so concurrent seals — threads or separate processes — cannot interleave
