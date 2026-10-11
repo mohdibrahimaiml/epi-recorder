@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from epi_core import telemetry
 
+pytestmark = pytest.mark.experimental
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:

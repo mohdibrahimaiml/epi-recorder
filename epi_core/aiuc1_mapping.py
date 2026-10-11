@@ -91,6 +91,7 @@ _DOMAIN_REQUIREMENTS: dict[str, dict[str, Any]] = {
             "review_bound_to_artifact",
             "review_signed",
             "policy_present",
+            "timestamp_verified",
         ],
     },
     "F": {
@@ -165,6 +166,9 @@ def map_verification_to_aiuc1(
         "review_bound_to_artifact": _check_review_binding(epi_path, manifest),
         "review_signed": _check_review_signed(epi_path),
         "analysis_passes_complete": _check_analysis_passes_complete(manifest, epi_path),
+        # Independent time attestation is logging-domain evidence, never a
+        # claim that any AIUC-1 control is satisfied.
+        "timestamp_verified": facts.get("timestamp_verified") is True,
     }
 
     result: dict[str, AIUC1DomainStatus] = {}

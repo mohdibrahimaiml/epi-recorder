@@ -1,8 +1,10 @@
 """Regression: plan aliases must resolve to canonical PLAN_FEATURES keys."""
 
+import pytest
 from verify_portal.auth import normalize_plan
 from verify_portal.tier_gating import PLAN_FEATURES, PLAN_RANK, features_for_plan, get_rate_limit
 
+pytestmark = pytest.mark.experimental
 
 def test_canonical_plans_have_features():
     for key in ("free", "hosted", "team", "enterprise"):

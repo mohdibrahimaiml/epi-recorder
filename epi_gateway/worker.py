@@ -29,6 +29,7 @@ class EvidenceWorker:
         *,
         batch_size: int = 50,
         batch_timeout: float = 2.0,
+        tsa_submit: Callable[..., Any] | None = None,
     ):
         self._queue: queue.Queue[Any] = queue.Queue()
         self._stop_event = threading.Event()
@@ -45,6 +46,8 @@ class EvidenceWorker:
         self.ready = False
         self.last_start_error: str | None = None
         self._post_persist_hook: Callable[[list[CaptureEventModel], "EvidenceWorker"], None] | None = None
+        # Injectable TSA submit for tests (default: the real seal-time client).
+        self._tsa_submit = tsa_submit
 
         self.batch_size = max(1, int(batch_size))
         self.batch_timeout = max(0.1, float(batch_timeout))
@@ -198,11 +201,13 @@ class EvidenceWorker:
         output_path: Path,
         *,
         signer_function: Any | None = None,
+        did_web: str | None = None,
     ):
         return self.case_store.export_case_to_artifact(
             case_id,
             output_path,
             signer_function=signer_function,
+            did_web=did_web,
         )
 
     def queue_size(self) -> int:
@@ -289,12 +294,70 @@ class EvidenceWorker:
             len(model.items),
             len(touched_case_ids),
         )
+        for case_id in touched_case_ids:
+            self._update_capture_chain(case_id)
         if self._post_persist_hook:
             try:
                 self._post_persist_hook(list(model.items), self)
             except Exception as exc:
                 logger.warning("Post-persist hook failed: %s", exc, exc_info=True)
         return touched_case_ids
+
+    def _update_capture_chain(self, case_id: str) -> None:
+        """Extend the case's capture-time chain; checkpoint in background when due.
+
+        Runs on the worker thread (never the agent hot path). The TSA submit
+        itself runs on a short-lived daemon thread so a slow timestamp service
+        stalls neither the pipeline nor synchronous store_items callers.
+        """
+        try:
+            from epi_core.checkpoints import checkpoints_enabled
+
+            if not checkpoints_enabled():
+                return
+            event_count, head = self.case_store.update_capture_chain(case_id)
+            if not self.case_store.capture_checkpoint_due(case_id, event_count):
+                return
+            index = self.case_store.begin_capture_checkpoint(case_id, event_count, head)
+            thread = threading.Thread(
+                target=self._submit_capture_checkpoint,
+                args=(case_id, index, event_count, head),
+                name="epi-capture-checkpoint",
+                daemon=True,
+            )
+            thread.start()
+        except Exception as exc:
+            logger.warning("Capture chain update failed for %s: %s", case_id, exc)
+
+    def _submit_capture_checkpoint(
+        self, case_id: str, index: int, event_count: int, head: str
+    ) -> None:
+        """Submit one capture head to the TSA and store the token with the case."""
+        try:
+            if self._tsa_submit is not None:
+                token = self._tsa_submit(head)
+                url = "test-tsa"
+                gen_time = None
+            else:
+                from epi_core.checkpoints import _tsa_url
+                from epi_core.notarize import _parse_tsr_gen_time, _submit_rfc3161
+
+                url = _tsa_url()
+                token = _submit_rfc3161(head, url)
+                gen_time = _parse_tsr_gen_time(token) if token else None
+            if token:
+                self.case_store.complete_capture_checkpoint(
+                    case_id, index, event_count, head, url, token, gen_time
+                )
+            else:
+                logger.warning(
+                    "Capture checkpoint %s unavailable for %s (event_count=%s)",
+                    index,
+                    case_id,
+                    event_count,
+                )
+        except Exception as exc:
+            logger.warning("Capture checkpoint submit failed for %s: %s", case_id, exc)
 
     def _recover_orphan_sessions(self) -> None:
         for session in self.case_store.list_open_sessions():

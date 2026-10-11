@@ -5,8 +5,11 @@ name: Keep Render Warm
 # If the schedule stops after repo inactivity, re-run via workflow_dispatch.
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes
+  # Schedule disabled: nothing core depends on Render anymore (no portal or
+  # hosted calls on the demo/verify paths), so hiding cold starts is not
+  # needed. Keep the workflow for manual dispatch only.
+  # schedule:
+  #   - cron: '*/10 * * * *'   # every 10 minutes
   workflow_dispatch:
 
 concurrency:

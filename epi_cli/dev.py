@@ -420,6 +420,9 @@ def _demo_subprocess_env(env: dict) -> dict:
     if repo_root not in parts:
         parts.insert(0, repo_root)
     merged["PYTHONPATH"] = os.pathsep.join(parts)
+    # Seal-time TSA calls fail fast (5 s) so `epi demo --no-browser` still
+    # completes quickly with no network (seals without the timestamp).
+    merged.setdefault("EPI_TSA_TIMEOUT", "5")
     return merged
 
 

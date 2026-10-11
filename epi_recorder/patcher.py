@@ -95,6 +95,10 @@ class RecordingContext:
         self._checkpoint_index = 0
         self._checkpoint_last_count = 0
         self._checkpoint_last_time = _time.time()
+        # Background TSA submitter (WP1a-2): add_step only enqueues, so a slow
+        # timestamp service never blocks the agent's step. Created lazily on
+        # the first checkpoint heartbeat; drained in finalize().
+        self._checkpoint_submitter = None
         # Resume index if workspace already has checkpoints (e.g. resumed run).
         try:
             _cp_dir = Path(self.output_dir) / "artifacts" / "checkpoints"
@@ -195,11 +199,15 @@ class RecordingContext:
 
             # Forward-secure checkpoint heartbeat (best-effort, never blocks).
             # Suppressed during repack via EPI_CHECKPOINTS_ENABLED=0.
+            # The TSA submit runs on a background thread: add_step only
+            # enqueues (index, event_count, chain_head) and returns, so a slow
+            # timestamp service (up to 30 s timeout) never stalls the agent.
+            # Each checkpoint stays bound to the chain head at enqueue time.
             try:
                 from epi_core.checkpoints import (
+                    CheckpointSubmitter,
                     checkpoints_enabled,
                     checkpoint_intervals,
-                    create_checkpoint,
                     should_checkpoint,
                 )
 
@@ -219,12 +227,11 @@ class RecordingContext:
                         _idx = self._checkpoint_index
                         _count = self.step_index
                         try:
-                            create_checkpoint(
-                                Path(self.output_dir),
-                                index=_idx,
-                                event_count=_count,
-                                chain_head=_head,
-                            )
+                            if self._checkpoint_submitter is None:
+                                self._checkpoint_submitter = CheckpointSubmitter(
+                                    Path(self.output_dir)
+                                )
+                            self._checkpoint_submitter.submit(_idx, _count, _head)
                         except Exception:
                             pass
                         self._checkpoint_index = _idx + 1
@@ -240,6 +247,23 @@ class RecordingContext:
     def finalize(self) -> None:
         """Export SQLite storage to steps.jsonl and clean up."""
         self.storage.finalize()
+        # Drain background checkpoint submissions before sealing: wait at most
+        # EPI_CHECKPOINT_DRAIN_SECONDS for in-flight TSA timestamps, then
+        # record whatever is unfinished as a runtime gap (never fail the run).
+        try:
+            submitter = self._checkpoint_submitter
+            if submitter is not None:
+                from epi_core.checkpoints import checkpoint_drain_seconds, record_gap
+
+                leftover = submitter.drain(checkpoint_drain_seconds())
+                if leftover > 0:
+                    record_gap(
+                        Path(self.output_dir),
+                        f"checkpoint submitter drain timed out with {leftover} "
+                        "checkpoint(s) unfinished; sealed without those timestamps",
+                    )
+        except Exception:
+            pass
 
 
 import contextvars

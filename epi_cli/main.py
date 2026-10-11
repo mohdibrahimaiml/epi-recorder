@@ -591,6 +591,16 @@ def verify(
         "--aiuc1",
         help="Include AIUC-1 trust domain mapping in the verification report",
     ),
+    tsa_root: list[Path] | None = typer.Option(
+        None,
+        "--tsa-root",
+        help="Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation.",
+    ),
+    require_timestamp: bool = typer.Option(
+        False,
+        "--require-timestamp",
+        help="FAIL unless at least one seal-time RFC 3161 token validates.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -601,10 +611,23 @@ def verify(
         "--qr",
         help="Print a QR code that opens the artifact on verify.epilabs.org",
     ),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="No network: skip DID resolution and remote fetches (local pins still apply).",
+    ),
+    witness_log: Path | None = typer.Option(
+        None,
+        "--witness-log",
+        help="Customer witness log (received.jsonl) to check this file against.",
+    ),
 ):
     return verify_command(
         ctx, Path(epi_file), json_output, verbose, report_out,
         review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
+        offline=offline,
+        witness_log=witness_log,
+        tsa_root=tsa_root, require_timestamp=require_timestamp,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -878,6 +901,14 @@ app.add_typer(
     policy_app,
     name="policy",
     help="Create, explain, and validate epi_policy.json rule files",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.witness import app as witness_app
+app.add_typer(
+    witness_app,
+    name="witness",
+    help="Customer witness outbox: retry and inspect seal reports",
     rich_help_panel="Everyday",
 )
 
@@ -1341,17 +1372,34 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, bundle-export, bundle-import",
+        help="Action: generate, list, export, trust, revoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
     overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing keys"),
     export_format: str = typer.Option("base64", "--format", "-f", help="Export format: base64 or hex"),
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Output path (bundle-export)"),
+    domain: Optional[str] = typer.Option(None, "--domain", help="Domain for 'did' action (e.g. vendor.com)"),
+    did_path: Optional[str] = typer.Option(None, "--path", help="Optional path for 'did' action (e.g. agents/claims)"),
+    key_name: Optional[str] = typer.Option(None, "--key", help="Local signing key for 'did' action (default: default)"),
+    from_did: Optional[str] = typer.Option(None, "--from-did", help="DID to resolve and pin for 'trust' action"),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
     from epi_core.trust import TrustRegistry
+
+    # Direct-call tolerance: when this function is invoked without typer
+    # (tests/test_main.py calls it directly), the new Option params arrive as
+    # typer OptionInfo sentinels instead of resolved values.
+    def _resolve_opt(value, default=None):
+        if isinstance(value, typer.models.OptionInfo):
+            return default
+        return value
+
+    domain = _resolve_opt(domain)
+    did_path = _resolve_opt(did_path)
+    key_name = _resolve_opt(key_name)
+    from_did = _resolve_opt(from_did)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1398,13 +1446,65 @@ def keys(
             raise typer.Exit(1)
 
     elif action == "trust":
-        if not key:
+        if from_did:
+            # Customer onboarding: resolve once, pin the vendor key locally.
+            _did = from_did.strip()
+            if not _did.startswith("did:web:"):
+                console.print(f"[red][FAIL] --from-did must be a did:web DID, got:[/red] {_did}")
+                raise typer.Exit(1)
+            try:
+                from epi_core.did_web import (
+                    DidResolutionError,
+                    KeyNotFoundError,
+                    extract_ed25519_key,
+                    resolve_did_web,
+                )
+
+                doc = resolve_did_web(_did)
+                resolved_hex = extract_ed25519_key(doc)
+            except (DidResolutionError, KeyNotFoundError) as e:
+                console.print(f"[red][FAIL] DID resolution failed:[/red] {e}")
+                raise typer.Exit(1)
+            except Exception as e:
+                console.print(f"[red][FAIL] Error:[/red] {e}")
+                raise typer.Exit(1)
+            import hashlib as _hashlib
+            import tempfile as _tempfile
+
+            _fingerprint = _hashlib.sha256(resolved_hex.encode("utf-8")).hexdigest()[:16]
+            _pin_name = name if name != "default" else _did.replace("did:web:", "").replace(":", "-")[:32]
+            _hex_path = Path(_tempfile.mkdtemp()) / f"{_pin_name}.pub"
+            try:
+                _hex_path.write_text(resolved_hex + "\n", encoding="utf-8")
+                target = key_manager.trust_key(
+                    _hex_path,
+                    trusted_keys_dir=trusted_keys_dir,
+                    trusted_name=_pin_name,
+                    overwrite=overwrite,
+                )
+            except (FileExistsError, FileNotFoundError, ValueError) as e:
+                console.print(f"[red][FAIL] Error:[/red] {e}")
+                raise typer.Exit(1)
+            finally:
+                try:
+                    _hex_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            console.print(f"\n[bold green][OK] Trusted key from {_did}:[/bold green] {target}")
+            console.print(f"  [cyan]Fingerprint (confirm with the vendor):[/cyan] {_fingerprint}")
+            console.print(
+                "[dim]Files sealed by any other key now report NOT A KEY YOU TRUST. "
+                "For key rotation, pin each key in the vendor did.json.[/dim]\n"
+            )
+            return
+        elif not key:
             console.print("[red][FAIL] trust requires a key name, PEM path, or .epi path.[/red]")
             console.print(
                 "[dim]Usage:[/dim]\n"
                 "[dim]  epi keys trust default[/dim]\n"
                 "[dim]  epi keys trust sealer.pub --name sealer[/dim]\n"
                 '[dim]  epi keys trust "C:\\path\\artifact.epi" --name sealer[/dim]\n'
+                "[dim]  epi keys trust --from-did did:web:vendor.com --name vendor[/dim]\n"
                 "[dim]  (from .epi: pins manifest.public_key into ~/.epi/trusted_keys/)[/dim]"
             )
             raise typer.Exit(1)
@@ -1501,11 +1601,60 @@ def keys(
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
 
+    elif action == "did":
+        # Vendor onboarding: publish this machine's key under the vendor domain.
+        if not domain:
+            console.print("[red][FAIL] did requires --domain.[/red]")
+            console.print("[dim]Usage: epi keys did --domain vendor.com [--path agents/claims] [--key default][/dim]")
+            raise typer.Exit(1)
+        _did_domain = domain.strip().lower()
+        if "://" in _did_domain or "/" in _did_domain or " " in _did_domain:
+            console.print(f"[red][FAIL] --domain must be a bare domain, got:[/red] {domain}")
+            raise typer.Exit(1)
+        _key_name = str(key_name or key or "default").strip() or "default"
+        _did_path = (did_path or "").strip().strip("/")
+        try:
+            public_hex = key_manager.load_public_key(_key_name).hex()
+        except FileNotFoundError as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+        if _did_path:
+            _did_suffix = ":" + ":".join(_did_path.split("/"))
+            _host_url = f"https://{_did_domain}/{_did_path}/did.json"
+        else:
+            _did_suffix = ""
+            _host_url = f"https://{_did_domain}/.well-known/did.json"
+        _did = f"did:web:{_did_domain}{_did_suffix}"
+        try:
+            from epi_core.did_web import did_to_url, generate_did_document
+
+            doc = generate_did_document(_did, public_hex)
+            out_path = Path("did.json")
+            if out_path.exists() and not overwrite:
+                console.print("[red][FAIL] did.json exists here; re-run with --overwrite.[/red]")
+                raise typer.Exit(1)
+            import json as _json
+
+            out_path.write_text(_json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+            assert did_to_url(_did) == _host_url  # hosting URL sanity check
+        except typer.Exit:
+            raise
+        except Exception as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+        console.print(f"\n[bold green][OK] Wrote did.json for:[/bold green] {_did}")
+        console.print(f"  [cyan]Host it at:[/cyan] {_host_url}")
+        console.print("  [dim]Free hosting: GitHub Pages or Cloudflare Pages (any static host works).[/dim]")
+        console.print(
+            "[dim]Then seal with: [cyan]record(..., did=\"" + _did + "\")[/cyan] "
+            "(or EPI_DID), so verifiers bind your key to your domain.[/dim]\n"
+        )
+
     else:
         console.print(f"[red][FAIL] Unknown action:[/red] {action}")
         console.print(
             "[dim]Valid actions: generate, list, export, trust, revoke, "
-            "bundle-export, bundle-import[/dim]"
+            "bundle-export, bundle-import, did[/dim]"
         )
         raise typer.Exit(1)
 

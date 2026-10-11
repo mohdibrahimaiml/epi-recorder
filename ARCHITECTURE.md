@@ -46,7 +46,7 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 - **`file_manifest` maps each sealed file to its SHA-256** (`epi_core/schemas.py`). Verification recomputes every entry; any mismatch fails integrity.
 - **Ed25519 signature over the canonical manifest hash, signature field excluded.** Stored as `ed25519:<keyname>:<hex>`, where `keyname` is the first 16 hex chars of SHA-256 of the hex-encoded public key (`epi_core/trust.py`).
 - **The public key is embedded in the manifest before signing**, so Tier-1 verification needs no server, account, or trust registry (`epi_core/trust.py`).
-- **RFC 3161 timestamp tokens are stored when the timestamp service answers, but their signature is not yet validated** — verification reports presence only (`epi_cli/verify.py`, `epi_core/checkpoints.py`).
+- **RFC 3161 timestamp tokens are validated offline by `epi verify`.** Seal time stamps a recomputable imprint (`epi-tsa-imprint/v1`, `epi_core/notarize.py`) with two independent TSAs; verification checks imprint, CMS signature, signer EKU and chain to pinned roots (`epi_core/tsa_verify.py`, `epi_core/assets/tsa_roots/`). Pre-4.6 tokens report legacy/presence only. Checkpoints validate the same way (`epi_core/checkpoints.py`). The browser viewer never validates — it says so.
 
 ## Where to read next
 

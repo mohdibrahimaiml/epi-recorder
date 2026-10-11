@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.5.0](https://img.shields.io/badge/version-v4.5.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.6.0](https://img.shields.io/badge/version-v4.6.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
@@ -263,18 +263,33 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 
 ## Project layout (contributors)
 
+**Core** (actively developed, covered by the release gate):
+
 | Path | Role |
 |------|------|
 | `epi_recorder/` | Python SDK (`record`, wrappers) |
 | `epi_core/` | Container, crypto, redaction, verify, fault analyzer |
 | `epi_cli/` | `epi` command |
-| `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (`epi-mcp`, `epi-mcp-http`) |
 | `epi_gateway/` | Self-hosted capture/review runtime (`epi gateway serve`) |
 | `web_viewer/` | Canonical browser UI (source for `epi view` and the embedded viewer) |
 | `epi_viewer_static/` | Browser crypto baked into every sealed file at pack time |
+| `pytest_epi/` | Pytest plugin |
 | `website/` | Public site source of truth (`epilabs.org`) |
+| `scripts/` | Build, sync, release and verification helper scripts |
+| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
+| `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
+
+**Experimental** (frozen — works as documented, bug fixes allowed, no new features until a paying user asks; not on the critical path):
+
+| Path | Note |
+|------|------|
+| `epi_mcp/` | ChatGPT/Claude connector |
+| `verify_portal/` | Hosted portal, auth, Paddle billing, tier gating |
+| `epi_recorder/integrations/trace_exporter.py` | TRACE export |
+| `epi_recorder/integrations/agt*` | Microsoft AGT import/export |
+| `epi_guardrails/` | Guardrails |
 | `website-v2/` | Sandbox redesign (not deployed) |
-| `verify_portal/` | Hosted verify/auth API (optional) |
+| remote SCITT service | Local SCITT receipt is core; the hosted service is not |
 | `scripts/` | Build, sync, release and verification helper scripts |
 | `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
 | `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
