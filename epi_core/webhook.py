@@ -27,6 +27,66 @@ from typing import Any
 
 logger = logging.getLogger("epi.witness")
 
+_APPEND_LOCK = threading.Lock()
+
+
+class _OutboxFileLock:
+    """Cross-process exclusive lock for the outbox file (stdlib only).
+
+    Windows has no atomic O_APPEND (CPython emulates it as seek+write, so
+    concurrent seals overwrite each other). The lock is an adjacent
+    `<outbox>.lock` file created with O_CREAT|O_EXCL, which IS atomic on
+    Windows and POSIX. Stale locks (crashed holder) are reaped by mtime.
+    Never raises: on timeout the caller proceeds unlocked with a warning
+    (availability over perfection; contention windows are milliseconds).
+    """
+
+    def __init__(
+        self, outbox: Path, *, timeout: float = 10.0, stale_after: float = 30.0
+    ) -> None:
+        self._lock_path = Path(str(outbox) + ".lock")
+        self._timeout = max(0.5, float(timeout))
+        self._stale_after = max(1.0, float(stale_after))
+        self._locked = False
+
+    def __enter__(self) -> bool:
+        import time as _time
+
+        deadline = _time.monotonic() + self._timeout
+        try:
+            self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            return False
+        while True:
+            try:
+                fd = os.open(str(self._lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
+                self._locked = True
+                return True
+            except FileExistsError:
+                try:
+                    age = _time.time() - self._lock_path.stat().st_mtime
+                    if age > self._stale_after:
+                        self._lock_path.unlink(missing_ok=True)
+                        continue
+                except OSError:
+                    pass
+            except OSError:
+                return False
+            if _time.monotonic() >= deadline:
+                logger.warning("Witness outbox lock timed out; proceeding unlocked")
+                return False
+            _time.sleep(0.01)
+
+    def __exit__(self, *exc) -> None:
+        if self._locked:
+            try:
+                self._lock_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self._locked = False
+
+
 WITNESS_SCHEMA = "epi-witness/v1"
 
 
@@ -138,13 +198,14 @@ def read_outbox(path: Path | None = None) -> list[dict[str, Any]]:
 
 
 def _write_outbox(entries: list[dict[str, Any]], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
-    tmp.write_text(
-        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
-        encoding="utf-8",
-    )
-    os.replace(tmp, path)
+    with _OutboxFileLock(path, timeout=30.0):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
+        tmp.write_text(
+            "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
 
 
 def append_outbox_entry(
@@ -172,9 +233,47 @@ def append_outbox_entry(
         "delivered": {},
         "last_error": None,
     }
-    entries = read_outbox(target)
-    entries.append(entry)
-    _write_outbox(entries, target)
+def append_outbox_entry(
+    payload: dict[str, Any],
+    urls: list[str],
+    *,
+    headers: dict[str, str] | None = None,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Append one witness entry with all urls pending. Returns the entry.
+
+    `headers` carries public authentication material (the Ed25519 seal
+    signature). The HMAC secret is never persisted; flush re-reads it from
+    the environment or a flag.
+
+    The append is one unbuffered O_APPEND syscall (plus an in-process lock),
+    so concurrent seals — threads or separate processes — cannot interleave
+    or lose entries. Marking delivery still rewrites the file (interactive
+    flush/status paths, single operator).
+    """
+    target = Path(path) if path else outbox_path()
+    entry = {
+        "id": hashlib.sha256(
+            f"{_utc_now_iso()}|{json.dumps(payload, sort_keys=True)}|{os.getpid()}".encode()
+        ).hexdigest()[:16],
+        "created_at": _utc_now_iso(),
+        "payload": payload,
+        "headers": dict(headers or {}),
+        "pending": list(urls),
+        "delivered": {},
+        "last_error": None,
+    }
+    data = (json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _APPEND_LOCK, _OutboxFileLock(target, timeout=10.0):
+        fd = os.open(str(target), os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+        try:
+            view = memoryview(data)
+            while view:
+                written = os.write(fd, view)
+                view = view[written:]
+        finally:
+            os.close(fd)
     return entry
 
 

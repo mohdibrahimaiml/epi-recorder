@@ -243,6 +243,25 @@ def test_payload_carries_no_step_content(monkeypatch, tmp_path: Path) -> None:
         server.shutdown()
 
 
+def test_concurrent_appends_lose_no_entries(tmp_path: Path) -> None:
+    import threading
+
+    from epi_core.webhook import append_outbox_entry, read_outbox
+
+    target = tmp_path / "outbox.jsonl"
+
+    def _worker(n: int) -> None:
+        for i in range(10):
+            append_outbox_entry({"i": n * 10 + i}, ["http://x/"], path=target)
+
+    threads = [threading.Thread(target=_worker, args=(n,)) for n in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(read_outbox(target)) == 80
+
+
 def test_witness_status_lists_entries(monkeypatch, tmp_path: Path) -> None:
     _hermetic(monkeypatch, tmp_path)
     server, url = _serve()
