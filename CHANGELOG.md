@@ -100,6 +100,12 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Checkpoint timestamping no longer blocks the agent's step.** `RecordingContext.add_step` called the TSA
+  synchronously (up to a 30 s HTTP timeout per heartbeat). Heartbeats now only enqueue
+  `(index, event_count, chain_head)` to a per-recording daemon thread that calls `create_checkpoint`;
+  `finalize()` drains the queue for at most `EPI_CHECKPOINT_DRAIN_SECONDS` (default 10) before sealing and
+  records unfinished checkpoints as a runtime gap. Each checkpoint stays bound to the chain head at enqueue
+  time, so imprints are unchanged.
 - **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
   has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
 - **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the
