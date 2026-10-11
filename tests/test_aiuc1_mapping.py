@@ -53,6 +53,7 @@ def _make_report(
     completeness_ok: bool = True,
     scitt_entry_id: str | None = "abc123",
     identity_status: str = "KNOWN",
+    timestamp_verified: bool = False,
 ) -> dict[str, Any]:
     return {
         "facts": {
@@ -61,6 +62,7 @@ def _make_report(
             "chain_ok": chain_ok,
             "sequence_ok": sequence_ok,
             "completeness_ok": completeness_ok,
+            "timestamp_verified": timestamp_verified,
         },
         "identity": {
             "status": identity_status,
@@ -481,7 +483,8 @@ def test_all_domains_pass_with_full_evidence(tmp_path: Path) -> None:
     )
     add_review_to_artifact(epi, review, private_key=pk)
 
-    report = _make_report()
+    # Full evidence now includes a verified RFC 3161 timestamp (domain E).
+    report = _make_report(timestamp_verified=True)
     final_manifest = EPIContainer.read_manifest(epi)
     statuses = map_verification_to_aiuc1(report, final_manifest, steps, epi_path=epi)
     summary = aiuc1_summary(statuses)

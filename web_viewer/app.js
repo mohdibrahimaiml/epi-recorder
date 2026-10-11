@@ -981,9 +981,9 @@ function renderIntegrity(caseData, context) {
       const tsaUrl = notarization.notarized_at?.url || '';
       const tsaHost = tsaUrl ? tsaUrl.replace(/^https?:\/\//, '').split('/')[0] : 'TSA';
       const genTime = notarization.tsa_genTime || caseData.notarization_tsa_time || '';
-      rfcEl.textContent = 'RFC 3161 token present (' + tsaHost + (genTime ? ' · genTime ' + genTime : '') + '; signature not validated)';
+      rfcEl.textContent = 'RFC 3161 token present (' + tsaHost + (genTime ? ' · genTime ' + genTime : '') + '; signature not validated here — run epi verify)';
       rfcEl.className = 'diag-status unknown';
-      rfcEl.title = 'Token present, genTime read. Signature, chain, and messageImprint are not validated — see KNOWN_LIMITATIONS.md.';
+      rfcEl.title = 'Token present, genTime read. Signature, chain, and messageImprint are not validated in this viewer — offline validation happens in epi verify only (see KNOWN_LIMITATIONS.md).';
     } else if (notarization) {
       rfcEl.textContent = 'Unavailable';
       rfcEl.className = 'diag-status unknown';

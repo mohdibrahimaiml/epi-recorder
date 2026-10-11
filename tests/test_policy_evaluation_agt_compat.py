@@ -2,9 +2,11 @@
 policy evaluation outputs produced by `FaultAnalyzer`.
 """
 
+import pytest
 from epi_core.fault_analyzer import FaultAnalyzer
 from epi_core.policy import EPIPolicy, PolicyRule
 
+pytestmark = pytest.mark.experimental
 
 def _make_step(index, kind, content, timestamp="2025-01-01T00:00:00"):
     import json

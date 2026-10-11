@@ -4,7 +4,28 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Core vs experimental split (no code deleted).** README project layout and new `docs/SCOPE.md`
+  name the core (`epi_recorder`, `epi_core`, `epi_cli`, `epi_gateway`, viewers, `pytest_epi`,
+  `website/`) vs frozen experimental surfaces (MCP, portal/billing, TRACE + AGT, guardrails,
+  `website-v2/`, remote SCITT) under the rule "no new surface until three external companies use
+  the core". Tests carry an `experimental` marker: the release gate runs
+  `-m "not browser and not experimental"` with a separate non-blocking experimental CI job.
+  The keep-warm schedule is disabled (nothing core depends on Render); the demo fails seal-time
+  timestamps fast (`EPI_TSA_TIMEOUT=5`).
+
 ### Added
+
+- **RFC 3161 timestamps are now validated offline by `epi verify` (4.6.0).** Seal time stamps a recomputable
+  imprint (`epi-tsa-imprint/v1`: workflow id, creation time, sealing key, payload file hashes) with two
+  independent TSAs (FreeTSA + DigiCert; `EPI_TSA_URLS` overrides, `EPI_TSA_URL` still a single-URL override).
+  Verification checks the imprint, CMS signature, critical timeStamping EKU and chain to pinned roots shipped
+  with the package (`epi_core/assets/tsa_roots/`), for seal tokens and heartbeat checkpoints alike. New flags
+  `epi verify --tsa-root` (repeatable) and `--require-timestamp`; `report.timestamps` and
+  `facts.timestamp_verified` in JSON output; AIUC-1 Accountability gains timestamp evidence without claiming any
+  control. Pre-4.6 tokens report legacy/presence-only and never change the decision; the browser viewer still
+  does not validate and says so.
 
 - **Per-tool sign-in declarations** (`_meta.securitySchemes`, `oauth2` with one scope) on all four tools, for hosts that read
   them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
@@ -106,6 +127,12 @@ All notable changes to EPI Recorder are documented here.
   `finalize()` drains the queue for at most `EPI_CHECKPOINT_DRAIN_SECONDS` (default 10) before sealing and
   records unfinished checkpoints as a runtime gap. Each checkpoint stays bound to the chain head at enqueue
   time, so imprints are unchanged.
+- **Internal sales templates are no longer publicly deployed.** `website/outreach.md` (cold-email templates and
+  target-company lists) was synced into `site/`, `verify_portal/static/` and `epi-official/`. All four copies are
+  removed, and both sync paths (`scripts/sync_website.py` and `npm run build`) now refuse to copy any `website/`
+  Markdown other than `README.md` into public outputs, with a test pinning it. The file's "August 2, 2026" EU AI Act
+  date was also stale (Annex III high-risk obligations apply from 2 December 2027 under Regulation (EU) 2026/1744);
+  no other non-archive public file carried that date.
 - **A redaction note no longer counts as an unlabelled event.** A `redaction.omitted` event describes what was left out and
   has no text to mark verbatim or summary, so it no longer triggers "events do not say whether their content is verbatim".
 - **The seal result carries a copy-ready `share_text`** (view link, download link, SHA-256, expiry). In one real chat the

@@ -6,6 +6,7 @@ import pytest
 
 from epi_mcp import export_summary, seal_record, verify_artifact
 
+pytestmark = pytest.mark.experimental
 
 @pytest.fixture
 def isolated_keys(tmp_path, monkeypatch):

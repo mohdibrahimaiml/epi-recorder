@@ -26,6 +26,8 @@ from epi_core.trust import sign_manifest
 from tests.helpers.artifacts import make_decision_epi
 from tests.helpers.repo_paths import require_repo_file
 
+pytestmark = pytest.mark.experimental
+
 # Import the app lazily so that module-level STATIC_DIR resolution
 # happens after any temporary directory fixtures.
 

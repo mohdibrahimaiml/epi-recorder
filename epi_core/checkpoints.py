@@ -181,9 +181,30 @@ class CheckpointSubmitter:
 
 
 def _tsa_url() -> str:
-    from epi_core.notarize import DEFAULT_TSA_URL
+    from epi_core.notarize import _tsa_urls
 
-    return os.environ.get("EPI_TSA_URL", DEFAULT_TSA_URL)
+    urls = _tsa_urls()
+    return urls[0] if urls else ""
+
+
+def _submit_with_fallback(digest_hex: str) -> tuple[bytes | None, str]:
+    """Submit to the first TSA URL, falling back to the next on failure.
+
+    Seal time stamps with every URL; checkpoints must stay fast, so they
+    never wait on more than one success. Returns (token, url_used).
+    """
+    from epi_core.notarize import _submit_rfc3161, _tsa_urls
+
+    last_url = ""
+    for url in _tsa_urls():
+        last_url = url
+        try:
+            token = _submit_rfc3161(digest_hex, url)
+        except Exception:
+            token = None
+        if token:
+            return token, url
+    return None, last_url
 
 
 def create_checkpoint(
@@ -217,10 +238,10 @@ def create_checkpoint(
         _build_rfc3161_query(bytes.fromhex(chain_head))
         submit = tsa_submit
         if submit is None:
-            from epi_core.notarize import _submit_rfc3161
-
-            submit = _submit_rfc3161
-        token = submit(chain_head, url)
+            token, url = _submit_with_fallback(chain_head)
+        else:
+            # Injected submit (tests): single call with the primary URL.
+            token = submit(chain_head, url)
         if token:
             try:
                 from epi_core.notarize import _parse_tsr_gen_time
@@ -303,6 +324,8 @@ def verify_checkpoints(
     are the whole point of the feature:
       - "CHECKPOINT MISMATCH at index N: ..."
       - "TRIMMED: artifact has fewer events than checkpoint N attests to."
+      - "CHECKPOINT TIMESTAMP INVALID at index N: ..." (tamper -> ok=False)
+      - "CHECKPOINT TIMESTAMP UNVERIFIED at index N: ..." (unknown root warning)
     """
     from epi_core.container import EPIContainer
 
@@ -346,6 +369,50 @@ def verify_checkpoints(
             ok = False
             messages.append(
                 f"CHECKPOINT MISMATCH at index {idx}: artifact history contradicts "
-                f"independently TSA-tokened record (token presence only, not validated; event_count={claimed_count})"
+                f"independently TSA-tokened record (event_count={claimed_count})"
             )
+            continue
+        # TSA token validation (offline, against pinned roots): a token that
+        # imprints a different head, carries a bad signature, or was issued
+        # outside its signer's validity means tampering -> FAIL. An unknown
+        # root is a warning (operator can pin it); malformed/absent tokens
+        # attest nothing and keep prior verdicts (old artifacts, outages).
+        _tsa_b64 = rec.get("tsa_token_b64")
+        if _tsa_b64:
+            try:
+                from epi_core.tsa_verify import validate_tsr
+
+                _token = base64.b64decode(_tsa_b64)
+                _expected = bytes.fromhex(claimed_head)
+                _v = validate_tsr(_token, _expected)
+            except Exception as _ve:
+                _v = None
+                rec["tsa_validation"] = {
+                    "status": "malformed",
+                    "gen_time": None,
+                    "tsa_subject": None,
+                    "tsa_root": None,
+                    "detail": f"checkpoint token unreadable ({_ve})",
+                }
+            else:
+                rec["tsa_validation"] = {
+                    "status": _v.status,
+                    "gen_time": _v.gen_time,
+                    "tsa_subject": _v.tsa_subject,
+                    "tsa_root": _v.tsa_root,
+                    "detail": _v.detail,
+                }
+            if _v is not None and _v.status in (
+                "imprint_mismatch",
+                "bad_signature",
+                "cert_invalid",
+            ):
+                ok = False
+                messages.append(
+                    f"CHECKPOINT TIMESTAMP INVALID at index {idx}: {_v.detail}"
+                )
+            elif _v is not None and _v.status == "untrusted":
+                messages.append(
+                    f"CHECKPOINT TIMESTAMP UNVERIFIED at index {idx}: {_v.detail}"
+                )
     return ok, messages, records

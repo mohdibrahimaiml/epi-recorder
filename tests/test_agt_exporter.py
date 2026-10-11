@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from epi_core.schemas import ManifestModel
 from epi_core.container import EPIContainer
 
+pytestmark = pytest.mark.experimental
 
 def test_exporter_basic(tmp_path: Path):
     src = tmp_path / "src"
