@@ -42,7 +42,18 @@ FROZEN_REPORT_KEYS = {
     "enforcement_downgraded",
     "enforcement_downgrade_count",
     "checkpoints",
+    # Added for capture-time checkpoints on gateway exports: verify_command
+    # attaches raw-event chain reconciliation to every success report.
+    # Additive only.
+    "capture_checkpoints",
+    # Added for the customer witness: verify_command attaches the
+    # --witness-log comparison to every success report. Additive only.
+    "witness",
+    # Added for offline RFC 3161 validation: verify_command attaches the
+    # timestamps block to every success report. Additive only.
+    "timestamps",
 }
+
 
 FROZEN_FAILURE_KEYS = {
     "facts",
@@ -76,6 +87,9 @@ FROZEN_FACTS_KEYS = {
     "forensic_reason",
     "content_truncated",
     "content_complete_asserted",
+    # Added for offline RFC 3161 validation (defaults False in factory-only
+    # reports; verify_command overwrites with the validated result).
+    "timestamp_verified",
 }
 
 

@@ -160,6 +160,57 @@ This is a **trust judgment**, separate from the cryptographic proof.
 
 ---
 
+## Timestamps (`report["timestamps"]`)
+
+`epi verify` checks RFC 3161 tokens **offline** against pinned TSA roots
+(`epi_core/assets/tsa_roots/`, plus `--tsa-root` / `EPI_TSA_TRUST_ROOTS`
+operator roots). No network fetch and no revocation (OCSP/CRL) check happen
+during validation — a compromised TSA key or a revoked TSA certificate is
+**not** detected; see Threat Model for the assumptions.
+
+**What a `valid` token proves:** the exact bytes covered by the seal imprint
+existed **no later than** `gen_time`, attested by a third party EPI Labs does
+not control. It never proves "created at" — only an upper bound on existence.
+
+**Seal imprint (`epi-tsa-imprint/v1`):** SHA-256 over JCS
+`{scheme, workflow_id, created_at, public_key, files}`, where `files` is
+`manifest.file_manifest` minus `viewer.html`, `VERIFY.txt`, `manifest.json`,
+`mimetype` and the `artifacts/notarization|scitt|transparency/` prefixes
+(`epi_core/notarize.py`). Seal time stamps this digest (not the canonical
+manifest hash, which cannot be recomputed after sealing); the verifier
+recomputes it from the final manifest. Tokens sealed before 4.6 carry no
+`imprint_scheme` and report `legacy` (presence only, never a failure).
+
+**Seal statuses** (`timestamps.seal[]`, each `{url, status, gen_time,
+tsa_subject, tsa_root, imprint_scheme}`):
+
+| Status | Meaning | Decision effect |
+|--------|---------|-----------------|
+| `valid` | Imprint, CMS signature, critical timeStamping EKU, lifetime and chain to a pinned root all check out. | Sets `facts.timestamp_verified=true`. |
+| `imprint_mismatch` / `bad_signature` / `cert_invalid` | Tampering (or a token that never covered these bytes). | **FAIL in every policy.** |
+| `untrusted` | Signer chains to no pinned root. | Warning only; pin the root with `--tsa-root`. |
+| `legacy` | Sealed before 4.6; imprint not recomputable. | Presence only; never changes the decision. |
+| `absent` / `malformed` / `not_granted` | No usable token. | Neutral; never changes the decision. |
+
+**Checkpoints** (`timestamps.checkpoints[]`, each `{index, event_count,
+status, gen_time}`) validate the same way against the chain head each record
+attests to. `imprint_mismatch` / `bad_signature` / `cert_invalid` prints
+`CHECKPOINT TIMESTAMP INVALID` and FAILs; `untrusted` prints
+`CHECKPOINT TIMESTAMP UNVERIFIED` as a warning.
+
+**`earliest_verified`** is the oldest `gen_time` across valid seal and
+checkpoint tokens. **`statement`** is one sentence exactly as strong as what
+was checked (never "created at"). If `manifest.created_at` is more than 10
+minutes *after* `earliest_verified`, a clock warning is added (a creation
+time later than the TSA's time is impossible for honest data).
+
+**Opt-in strictness:** `epi verify --require-timestamp` FAILs unless at least
+one seal-time token is `valid`. `VerificationPolicy.STRICT` does **not**
+imply it (old strict artifacts carry no timestamps); pass the flag
+explicitly when independent time attestation is required.
+
+---
+
 ## Summary
 
 > EPI tells you **what** was signed and **when** (by hash), and **who** claims to have signed it (by key / DID). It does not tell you **why** they signed it or **whether they should have**.

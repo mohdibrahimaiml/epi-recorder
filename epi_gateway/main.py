@@ -121,6 +121,8 @@ class GatewayRuntimeSettings(BaseModel):
     approval_webhook_secret: str | None = None
     approval_webhook_timeout_seconds: int = 10
     did_web: str | None = None
+    witness_url: str | None = None
+    witness_secret: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None
@@ -185,6 +187,8 @@ class GatewayRuntimeSettings(BaseModel):
         self.approval_webhook_url = _clean(self.approval_webhook_url)
         self.approval_webhook_secret = _clean(self.approval_webhook_secret)
         self.did_web = _clean(self.did_web)
+        self.witness_url = _clean(self.witness_url)
+        self.witness_secret = _clean(self.witness_secret)
         self.smtp_host = _clean(self.smtp_host)
         self.smtp_user = _clean(self.smtp_user)
         self.smtp_password = _clean(self.smtp_password)
@@ -351,6 +355,8 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         approval_webhook_secret=os.getenv("EPI_APPROVAL_WEBHOOK_SECRET"),
         approval_webhook_timeout_seconds=int(os.getenv("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS", "10")),
         did_web=os.getenv("EPI_DID"),
+        witness_url=os.getenv("EPI_WITNESS_URL"),
+        witness_secret=os.getenv("EPI_WITNESS_SECRET"),
         smtp_host=os.getenv("EPI_SMTP_HOST"),
         smtp_port=int(os.getenv("EPI_SMTP_PORT", "587")),
         smtp_user=os.getenv("EPI_SMTP_USER"),
@@ -667,6 +673,31 @@ def _build_worker_from_env(settings: GatewayRuntimeSettings | None = None) -> Ev
         batch_size=runtime_settings.batch_size,
         batch_timeout=runtime_settings.batch_timeout,
     )
+
+
+def _split_witness_urls(value: str | None) -> list[str]:
+    from epi_core.webhook import split_witness_urls
+
+    return split_witness_urls(value)
+
+
+def _gateway_witness_key_bytes() -> bytes | None:
+    """Gateway signing key (raw) for the witness seal signature. Best-effort: None when unsigned."""
+    try:
+        from cryptography.hazmat.primitives import serialization
+
+        key_name = os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default")
+        keys_dir = _clean(os.getenv("EPI_GATEWAY_KEYS_DIR"))
+        manager = KeyManager(Path(keys_dir) if keys_dir else None)
+        if not manager.has_key(key_name):
+            return None
+        return manager.load_private_key(key_name).private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    except Exception:
+        return None
 
 
 def _build_gateway_signer(settings: GatewayRuntimeSettings):
@@ -1743,6 +1774,29 @@ def create_app(
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Case not found") from exc
+
+        # Customer witness on export: stage the hash-only seal report
+        # synchronously (local hashing + outbox append, milliseconds — safe
+        # against the temp-dir cleanup below), deliver from a daemon thread.
+        _witness_urls = _split_witness_urls(runtime_settings.witness_url)
+        if _witness_urls:
+            try:
+                from epi_core.webhook import deliver_in_background, stage_seal_report
+
+                _entry = stage_seal_report(
+                    Path(result.output_path),
+                    urls=_witness_urls,
+                    key_name=os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default"),
+                    private_key_bytes=_gateway_witness_key_bytes(),
+                )
+                if _entry is not None:
+                    deliver_in_background(
+                        _entry,
+                        secret=runtime_settings.witness_secret,
+                        timeout_seconds=10,
+                    )
+            except Exception as exc:
+                logger.warning("Case export witness failed: %s", exc)
 
         return FileResponse(
             path=result.output_path,

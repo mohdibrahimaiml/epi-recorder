@@ -591,6 +591,16 @@ def verify(
         "--aiuc1",
         help="Include AIUC-1 trust domain mapping in the verification report",
     ),
+    tsa_root: list[Path] | None = typer.Option(
+        None,
+        "--tsa-root",
+        help="Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation.",
+    ),
+    require_timestamp: bool = typer.Option(
+        False,
+        "--require-timestamp",
+        help="FAIL unless at least one seal-time RFC 3161 token validates.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -606,11 +616,18 @@ def verify(
         "--offline",
         help="No network: skip DID resolution and remote fetches (local pins still apply).",
     ),
+    witness_log: Path | None = typer.Option(
+        None,
+        "--witness-log",
+        help="Customer witness log (received.jsonl) to check this file against.",
+    ),
 ):
     return verify_command(
         ctx, Path(epi_file), json_output, verbose, report_out,
         review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
         offline=offline,
+        witness_log=witness_log,
+        tsa_root=tsa_root, require_timestamp=require_timestamp,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -884,6 +901,14 @@ app.add_typer(
     policy_app,
     name="policy",
     help="Create, explain, and validate epi_policy.json rule files",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.witness import app as witness_app
+app.add_typer(
+    witness_app,
+    name="witness",
+    help="Customer witness outbox: retry and inspect seal reports",
     rich_help_panel="Everyday",
 )
 

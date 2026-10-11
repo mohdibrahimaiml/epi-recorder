@@ -178,3 +178,84 @@ def test_tsa_outage_does_not_fail_run_and_gaps_manifest(monkeypatch):
         data = EPIContainer.read_member_json(out, "artifacts/manifest.json")
         gaps = data.get("known_gaps", [])
         assert any("TSA unavailable" in g or "checkpoint" in g.lower() for g in gaps)
+
+
+def test_add_step_does_not_block_on_slow_tsa(monkeypatch, tmp_path):
+    """A 2 s TSA must not slow 100 add_step calls (would be ~200 s synchronous)."""
+    import time
+
+    import epi_core.notarize as _nz
+
+    def slow_submit(digest_hex, url=""):
+        time.sleep(2)
+        return None
+
+    monkeypatch.setattr(_nz, "_submit_rfc3161", slow_submit)
+    monkeypatch.setenv("EPI_CHECKPOINTS_ENABLED", "1")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_EVENTS", "1")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_SECONDS", "3600")
+    from epi_recorder.patcher import RecordingContext
+
+    ctx = RecordingContext(tmp_path / "ws")
+    started = time.monotonic()
+    for i in range(100):
+        ctx.add_step("llm.request", {"n": i})
+    elapsed = time.monotonic() - started
+    assert elapsed < 10, f"add_step blocked on TSA: {elapsed:.1f}s for 100 steps"
+    ctx.finalize()
+    # Drain (default 10 s) cannot finish 100 x 2 s submits: a gap is recorded
+    # instead of failing or hanging the run.
+    gaps_path = tmp_path / "ws" / "artifacts" / "capture_gaps.json"
+    assert gaps_path.is_file()
+    gaps = json.loads(gaps_path.read_text(encoding="utf-8"))
+    assert any("drain timed out" in g for g in gaps)
+
+
+def test_finalize_drains_background_checkpoints(monkeypatch, tmp_path):
+    """After finalize, every enqueued checkpoint file exists (or a gap)."""
+    _patch_tsa(monkeypatch)
+    monkeypatch.setenv("EPI_CHECKPOINTS_ENABLED", "1")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_EVENTS", "2")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_SECONDS", "3600")
+    from epi_recorder.patcher import RecordingContext
+
+    ctx = RecordingContext(tmp_path / "ws")
+    for i in range(6):
+        ctx.add_step("llm.request", {"n": i})
+    ctx.finalize()
+    cp_dir = tmp_path / "ws" / "artifacts" / "checkpoints"
+    files = sorted(cp_dir.glob("*.json"))
+    assert len(files) == 3
+    for p in files:
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        assert rec["tsa_available"] is True
+        assert "tsa_token_b64" in rec
+    gaps_path = tmp_path / "ws" / "artifacts" / "capture_gaps.json"
+    if gaps_path.is_file():
+        gaps = json.loads(gaps_path.read_text(encoding="utf-8"))
+        assert not any("drain timed out" in g for g in gaps)
+
+
+def test_drain_timeout_records_gap(monkeypatch, tmp_path):
+    """Unfinished checkpoints at drain deadline become a runtime gap."""
+    import time
+
+    import epi_core.notarize as _nz
+
+    def slow_submit(digest_hex, url=""):
+        time.sleep(2)
+        return None
+
+    monkeypatch.setattr(_nz, "_submit_rfc3161", slow_submit)
+    monkeypatch.setenv("EPI_CHECKPOINTS_ENABLED", "1")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_EVENTS", "1")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_SECONDS", "3600")
+    monkeypatch.setenv("EPI_CHECKPOINT_DRAIN_SECONDS", "1")
+    from epi_core.checkpoints import CheckpointSubmitter
+
+    submitter = CheckpointSubmitter(tmp_path / "ws")
+    submitter.submit(0, 1, "a" * 64)
+    leftover = submitter.drain()
+    assert leftover >= 1
+    # CheckpointSubmitter alone writes no gaps; finalize() does that wiring
+    # (covered by test_add_step_does_not_block_on_slow_tsa).

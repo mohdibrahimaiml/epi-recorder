@@ -1,0 +1,44 @@
+{
+  "format": "epi-tsa-roots/v1",
+  "note": "Pinned TSA trust roots for offline RFC 3161 validation (epi_core/tsa_verify.py). Validation never fetches: chain must end at one of these roots (or a user-supplied --tsa-root / EPI_TSA_TRUST_ROOTS PEM). No revocation checks are performed; see docs/VERIFICATION_CONTRACT.md.",
+  "roots": [
+    {
+      "name": "FreeTSA Root CA",
+      "file": "freetsa_root.pem",
+      "source_url": "https://freetsa.org/files/cacert.pem",
+      "sha256_fingerprint": "a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
+      "fingerprint_verified": "downloaded 2026-10-10; self-signed root, subject==issuer CN=www.freetsa.org OU=Root CA O=Free TSA, serial 0xc1e986160da8e980",
+      "added": "2026-10-10",
+      "covers_tsa_url": "https://freetsa.org/tsr"
+    },
+    {
+      "name": "DigiCert Trusted Root G4",
+      "file": "digicert_g4_root.pem",
+      "source_url": "https://cacerts.digicert.com/DigiCertTrustedRootG4.crt.pem",
+      "sha256_fingerprint": "552f7bdcf1a7af9e6ce672017f4f12abf77240c78e761ac203d1d9d20ac89988",
+      "fingerprint_verified": "downloaded 2026-10-10; serial 059b1b579e8e2132e23907bda777755c and SHA-256 match DigiCert's published root list at https://www.digicert.com/kb/digicert-root-certificates.htm (page last modified 09/15/2026). Token-served cross-signed G4 verified to share subject+key with this root (2026-10-10 probe).",
+      "added": "2026-10-10",
+      "covers_tsa_url": "http://timestamp.digicert.com"
+    },
+    {
+      "name": "DigiCert Assured ID Root CA",
+      "file": "digicert_assured_id_root.pem",
+      "source_url": "https://cacerts.digicert.com/DigiCertAssuredIDRootCA.crt.pem",
+      "sha256_fingerprint": "3e9099b5015e8f486c00bcea9d111ee721faba355a89bcf1df69561e3dc6325c",
+      "fingerprint_verified": "downloaded 2026-10-10; serial 0ce7e0e517d846fe8fe560fc1bf03039 and SHA-256 match DigiCert's published root list at https://www.digicert.com/kb/digicert-root-certificates.htm. Needed as the ultimate anchor because timestamp.digicert.com serves the G4 root cross-signed by this CA (signature verified 2026-10-10).",
+      "added": "2026-10-10",
+      "covers_tsa_url": "http://timestamp.digicert.com"
+    }
+  ],
+  "extra_signer_certs": [
+    {
+      "name": "FreeTSA TSA signer (2026)",
+      "file": "freetsa_signer.pem",
+      "source_url": "https://freetsa.org/files/tsa.crt",
+      "sha256_fingerprint": "32e841a95cc1164101ffde41298ef2fc75c1c4372ef095e88a6bbd47dfb191fc",
+      "fingerprint_verified": "downloaded 2026-10-10; issued by FreeTSA Root CA (signature verifies), critical EKU timeStamping (1.3.6.1.5.5.7.3.8), validity 2026-02-15 to 2040-02-02",
+      "added": "2026-10-10",
+      "purpose": "Pinned signer for tokens requested without certReq (which carry no certificates). Used only as a candidate signer certificate, never as a trust root."
+    }
+  ]
+}

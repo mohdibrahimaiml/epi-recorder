@@ -1,4 +1,4 @@
-# EPI File Format Specification v4.5.0
+# EPI File Format Specification v4.6.0
 
 **Status:** Active  
 **Date:** 2026-10-04  
@@ -161,6 +161,10 @@ standards.
 | `stderr.log` | Captured standard error |
 | `artifacts/scitt/statement.cbor` | SCITT COSE_Sign1 signed statement |
 | `artifacts/scitt/receipt.cbor` | SCITT transparency receipt with Merkle proof |
+| `artifacts/notarization/tsa_reply.tsr` | First successful RFC 3161 `TimeStampResp` (DER) |
+| `artifacts/notarization/tsa_reply_<n>.tsr` | Additional TSA tokens (one per extra TSA) |
+| `artifacts/notarization/notarization.json` | Notarization evidence (see below) |
+| `artifacts/notarization/digest.ots` | OpenTimestamps proof (when available) |
 | `artifacts/sbom/` | CycloneDX SBOM artifacts |
 | `artifacts/agt_export.json` | AGT compliance export |
 
@@ -334,6 +338,33 @@ Each step in `steps.jsonl` contains a `prev_hash` field:
 This creates an append-only, hash-linked timeline. Any insertion,
 deletion, or reorder of steps breaks the chain.
 
+### 5.6 Seal Timestamp Imprint (`epi-tsa-imprint/v1`)
+
+Seal-time RFC 3161 tokens bind a recomputable digest, not the canonical
+manifest hash (which is computed before the notarization members,
+`VERIFY.txt` and `viewer.html` are added, so no verifier could recompute it).
+
+To compute the imprint (seal and verify sides MUST agree byte for byte):
+
+1. Take `manifest.file_manifest` (archive member name → SHA-256 hex).
+2. Remove exact names `viewer.html`, `VERIFY.txt`, `manifest.json`,
+   `mimetype`, and every name starting with `artifacts/notarization/`,
+   `artifacts/scitt/` or `artifacts/transparency/`.
+3. Build the JSON object (keys in this order; encoding is JCS per §5.1):
+   `{"scheme": "epi-tsa-imprint/v1", "workflow_id": "<str>",
+   "created_at": "<manifest.created_at in ISO-8601>",
+   "public_key": "<hex or null>", "files": <filtered map>}`.
+   `public_key` is `manifest.public_key` at seal time (`null` on unsigned
+   first packs; the value used is stored in `notarization.json` as
+   `imprinted_public_key` so verifiers recompute with identical input).
+   `created_at` MUST round-trip through ISO-8601 parse/format identically on
+   both sides.
+4. `imprinted_digest` is the SHA-256 hex of the JCS bytes.
+
+The TSA request imprints this digest with SHA-256. The verifier recomputes it
+from the final manifest and requires the token's `messageImprint` to match
+byte for byte; any difference is `imprint_mismatch`.
+
 ---
 
 ## 6. Steps Format (`steps.jsonl`)
@@ -503,6 +534,31 @@ A conformant verifier MUST perform checks in this order:
   - Verify the statement signature.
   - Verify the receipt's Merkle inclusion proof.
 
+### Pass 8: Timestamp Validation (Optional)
+- If `artifacts/notarization/notarization.json` exists:
+  - Read `imprint_scheme`, `imprinted_digest`, `imprinted_public_key` and
+    `tsa_tokens[]` (`{url, member}`). Absent `imprint_scheme` means a legacy
+    token: report presence only, never fail.
+  - Recompute the §5.6 imprint from the final manifest; require equality with
+    `imprinted_digest`.
+  - For each token: parse `TimeStampResp` (or bare token), require granted
+    status, require SHA-256/384/512 `messageImprint` equal to the digest,
+    locate the single SignerInfo's certificate, check the `message-digest`
+    attribute and ESS binding, verify the CMS signature (RSA PKCS#1 v1.5,
+    RSA-PSS or ECDSA), require critical `id-kp-timeStamping` EKU and
+    `genTime` within the signer validity, and chain to a pinned root —
+    fully offline, no revocation check.
+  - `imprint_mismatch` / `bad_signature` / `cert_invalid` MUST fail
+    verification in every policy. `untrusted`, `legacy`, `absent`,
+    `malformed` and `not_granted` MUST NOT change the decision (unless
+    `--require-timestamp` is set, which requires at least one `valid`
+    seal-time token).
+
+`notarization.json` fields: `notarized_at` (`provider`, `url`, `hash`),
+`tsa_token_available`, `tsa_genTime`, `tsa_tokens[]`, and — only on new
+seals — `imprint_scheme`, `imprinted_digest`, `imprinted_public_key`.
+All are optional; verifiers MUST accept files without them.
+
 ---
 
 ## 11. Trust Model
@@ -565,6 +621,7 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4.6.0 | 2026-10-10 | RFC 3161 offline validation (`epi-tsa-imprint/v1`, pinned TSA roots, `report.timestamps`); dual-TSA seal stamping; `--tsa-root`, `--require-timestamp` |
 | 4.3.0 | 2026-06-29 | Gateway fail-closed, key encryption, EPI_ENFORCE, formal schemas |
 | 4.1.0 | 2026-05-14 | SCITT, AGT adapter, AIUC-1 mapping |
 | 4.0.3 | 2026-05-03 | Viewer redesign, DID:WEB |

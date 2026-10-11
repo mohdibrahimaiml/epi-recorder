@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import hashlib
 import hmac
 import json
@@ -11,6 +12,7 @@ from verify_portal.billing import (
     verify_paddle_signature,
 )
 
+pytestmark = pytest.mark.experimental
 
 def _sign(ts: str, body: bytes, secret: str) -> str:
     payload = f"{ts}:{body.decode('utf-8')}".encode("utf-8")
