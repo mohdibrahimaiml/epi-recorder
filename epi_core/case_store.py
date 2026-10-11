@@ -2530,6 +2530,14 @@ class CaseStore:
         )
 
 
+def _safe_checkpoint_index(rec: Any) -> int:
+    """Sort key for capture checkpoint records (never raises)."""
+    try:
+        return int(rec.get("checkpoint_index", 0))
+    except Exception:
+        return 0
+
+
 def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[dict[str, Any]]]:
     """Verify capture-time checkpoints embedded by a gateway export.
 
@@ -2575,11 +2583,17 @@ def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[di
                 records.append(EPIContainer.read_member_json(epi_path, name))
             except Exception:
                 continue
-        records = sorted(records, key=lambda r: int(r.get("checkpoint_index", 0)))
+        records = sorted(
+            records, key=lambda r: _safe_checkpoint_index(r)
+        )
 
         messages: list[str] = []
         ok = True
         for rec in records:
+            if not isinstance(rec, dict):
+                ok = False
+                messages.append("capture checkpoint record is not an object")
+                continue
             try:
                 idx = int(rec.get("checkpoint_index", 0))
             except Exception:
