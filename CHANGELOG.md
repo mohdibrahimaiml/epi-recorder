@@ -4,6 +4,23 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`--tsa-root` now applies to checkpoint timestamps too.** `epi verify --tsa-root PATH`
+  previously added trusted TSA roots for the seal timestamp only; SDK checkpoints
+  (`epi_core/checkpoints.py` `verify_checkpoints()`) and gateway capture checkpoints
+  (`epi_core/case_store.py` `verify_capture_checkpoints()`) still used pinned roots plus
+  `EPI_TSA_TRUST_ROOTS`. Both verifiers take an optional `trust_roots` passthrough and the
+  CLI builds the list once (`_tsa_trust_roots`: pinned + `--tsa-root` + env) for all three
+  paths. Custom-TSA checkpoints report UNVERIFIED without the flag and valid with it.
+- **Checkpoint `UNVERIFIED` prints as `[WARN]`, not `[FAIL]`.** The SDK checkpoint block in
+  `epi_cli/verify.py` now matches the gateway block (`CAPTURE TIMESTAMP UNVERIFIED`).
+- **Seal timestamp scope is stated plainly.** A `valid` seal timestamp proves "these contents
+  existed no later than T"; in the default `record()` flow (`imprinted_public_key` null) it
+  does not bind the signing key. See `docs/VERIFICATION_CONTRACT.md` and
+  `docs/KNOWN_LIMITATIONS.md`. Customer docs (`docs/IDENTITY-ONBOARDING.md`) now recommend
+  `epi verify run.epi --require-timestamp --witness-log received.jsonl`.
+
 ### Changed
 
 - **Core vs experimental split (no code deleted).** README project layout and new `docs/SCOPE.md`

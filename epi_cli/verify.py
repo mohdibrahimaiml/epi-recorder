@@ -39,37 +39,19 @@ console = Console()
 _TIMESTAMP_TAMPER_STATUSES = ("imprint_mismatch", "bad_signature", "cert_invalid")
 
 
-def _build_timestamps_block(
-    epi_file: Path,
-    manifest,
-    cp_records: list[dict],
-    tsa_root_paths: list[Path] | None = None,
-) -> dict:
-    """Validate seal-time and checkpoint RFC 3161 tokens (offline).
+def _tsa_trust_roots(tsa_root_paths: list[Path] | None = None) -> list:
+    """Build the TSA trust list once: pinned + --tsa-root + env roots.
 
-    Returns report["timestamps"]: {seal, checkpoints, earliest_verified,
-    statement, clock_warning}. Never raises; every failure mode becomes data.
+    Shared by the seal path (_build_timestamps_block) and both checkpoint
+    verifiers so a custom TSA trusted via --tsa-root is trusted everywhere.
+    Never raises; every load failure yields fewer roots, not a crash.
     """
-    from epi_core.notarize import (
-        IMPRINT_SCHEME,
-        _parse_tsr_gen_time,
-        compute_seal_imprint,
-        normalize_imprint_time,
-    )
     from epi_core.tsa_verify import (
         load_pem_roots,
         load_pinned_tsa_roots,
         load_user_tsa_roots,
-        validate_tsr,
     )
 
-    block: dict = {
-        "seal": [],
-        "checkpoints": [],
-        "earliest_verified": None,
-        "statement": "no timestamps collected",
-        "clock_warning": None,
-    }
     try:
         pinned = load_pinned_tsa_roots()
     except Exception:
@@ -88,6 +70,37 @@ def _build_timestamps_block(
             trust_roots.append((cert.subject.rfc4514_string(), cert))
         except Exception:
             continue
+    return trust_roots
+
+
+def _build_timestamps_block(
+    epi_file: Path,
+    manifest,
+    cp_records: list[dict],
+    tsa_root_paths: list[Path] | None = None,
+) -> dict:
+    """Validate seal-time and checkpoint RFC 3161 tokens (offline).
+
+    Returns report["timestamps"]: {seal, checkpoints, earliest_verified,
+    statement, clock_warning}. Never raises; every failure mode becomes data.
+    """
+    from epi_core.notarize import (
+        IMPRINT_SCHEME,
+        _parse_tsr_gen_time,
+        compute_seal_imprint,
+        normalize_imprint_time,
+    )
+    from epi_core.tsa_verify import validate_tsr
+
+    trust_roots = _tsa_trust_roots(tsa_root_paths)
+
+    block: dict = {
+        "seal": [],
+        "checkpoints": [],
+        "earliest_verified": None,
+        "statement": "no timestamps collected",
+        "clock_warning": None,
+    }
 
     try:
         notar = EPIContainer.read_member_json(
@@ -1359,9 +1372,15 @@ def verify_command(
         _cp_messages: list[str] = []
         _cp_records: list[dict] = []
         try:
+            _tsa_roots = _tsa_trust_roots(tsa_root)
+        except Exception:
+            _tsa_roots = []
+        try:
             from epi_core.checkpoints import verify_checkpoints
 
-            _cp_ok, _cp_messages, _cp_records = verify_checkpoints(epi_file, steps)
+            _cp_ok, _cp_messages, _cp_records = verify_checkpoints(
+                epi_file, steps, trust_roots=_tsa_roots
+            )
         except Exception as _cp_err:
             _cp_ok = False
             _cp_messages = [f"checkpoint verification error: {_cp_err}"]
@@ -1415,7 +1434,9 @@ def verify_command(
         try:
             from epi_core.case_store import verify_capture_checkpoints
 
-            _cc_ok, _cc_messages, _cc_records = verify_capture_checkpoints(epi_file)
+            _cc_ok, _cc_messages, _cc_records = verify_capture_checkpoints(
+                epi_file, trust_roots=_tsa_roots
+            )
         except Exception as _cc_err:
             _cc_ok = False
             _cc_messages = [f"capture checkpoint verification error: {_cc_err}"]
