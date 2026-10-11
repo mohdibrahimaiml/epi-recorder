@@ -3,9 +3,13 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+import pytest
+
 from epi_cli.main import app as cli_app
 from epi_cli.review import app as review_app
 from epi_core.container import EPIContainer
+
+pytestmark = pytest.mark.experimental
 
 runner = CliRunner()
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "agt"

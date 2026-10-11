@@ -591,6 +591,16 @@ def verify(
         "--aiuc1",
         help="Include AIUC-1 trust domain mapping in the verification report",
     ),
+    tsa_root: list[Path] | None = typer.Option(
+        None,
+        "--tsa-root",
+        help="Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation.",
+    ),
+    require_timestamp: bool = typer.Option(
+        False,
+        "--require-timestamp",
+        help="FAIL unless at least one seal-time RFC 3161 token validates.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -611,6 +621,7 @@ def verify(
         ctx, Path(epi_file), json_output, verbose, report_out,
         review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
         witness_log=witness_log,
+        tsa_root=tsa_root, require_timestamp=require_timestamp,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the

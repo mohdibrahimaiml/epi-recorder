@@ -558,6 +558,10 @@ def create_verification_report(
             "forensic_reason": forensic_reason,
             "content_truncated": manifest.content_truncated,
             "content_complete_asserted": manifest.content_truncated is False,
+            # Timestamp validation happens in verify_command, which overwrites
+            # this. Factory-only consumers (view/ls/audit/review/portal) never
+            # validated tokens, so the honest default is False.
+            "timestamp_verified": False,
         },
         "identity": {
             "status": identity_status,
@@ -679,6 +683,19 @@ def create_verification_report(
             "received_at": None,
             "matches": 0,
             "detail": "no witness log supplied (--witness-log)",
+        },
+    )
+    # Timestamp surface: verify_command overwrites this with validated data;
+    # direct factory consumers get an honest "not evaluated" default so the
+    # human report never implies validation happened.
+    report.setdefault(
+        "timestamps",
+        {
+            "seal": [],
+            "checkpoints": [],
+            "earliest_verified": None,
+            "statement": "timestamps not evaluated in this report",
+            "clock_warning": None,
         },
     )
 

@@ -166,7 +166,7 @@ can re-sign a rebuilt chain with a fresh key.</span></pre>
         <ul>
           <li>Ed25519 signature over the canonical manifest (JCS-style, RFC 8785)</li>
           <li>SHA-256 hash chain across every recorded step on the SDK path (gateway exports: signed manifest, step chaining in progress)</li>
-          <li>Optional RFC 3161 token at seal time (presence only — signature not validated)</li>
+          <li>Optional RFC 3161 token at seal time (checked offline by <code>epi verify</code> against pinned TSA roots)</li>
           <li>One altered byte breaks the signature — visibly</li>
         </ul>
       </div>

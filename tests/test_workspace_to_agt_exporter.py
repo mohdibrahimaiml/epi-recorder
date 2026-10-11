@@ -1,10 +1,12 @@
 """Tests for the workspace -> AGT exporter."""
 
+import pytest
 import json
 from pathlib import Path
 
 from epi_recorder.integrations.agt.exporter import export_workspace_to_agt
 
+pytestmark = pytest.mark.experimental
 
 def test_export_workspace_to_agt(tmp_path):
     ws = tmp_path / "ws"

@@ -13,6 +13,8 @@ import pytest
 
 from epi_recorder.integrations.trace_exporter import epi_to_trace_record, _schema_supports_references, _epi_file_hash
 
+pytestmark = pytest.mark.experimental
+
 GOLDEN_EPI = Path(__file__).resolve().parent / "goldens" / "spec-4.4.3.epi"
 GOLDEN_TRACE_REFS = Path(__file__).resolve().parent / "goldens" / "trace-with-references.json"
 

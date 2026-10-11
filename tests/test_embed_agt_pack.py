@@ -1,11 +1,13 @@
 """Verify the optional embedding of AGT export during packing."""
 
+import pytest
 import json
 from pathlib import Path
 
 from epi_core.container import EPIContainer
 from epi_core.schemas import ManifestModel
 
+pytestmark = pytest.mark.experimental
 
 def test_pack_with_embed_agt(tmp_path):
     ws = tmp_path / "ws"

@@ -12,6 +12,8 @@ from starlette.testclient import TestClient  # noqa: E402
 
 from epi_mcp.transcripts import NeedsChoice, TranscriptError, parse_transcript  # noqa: E402
 
+pytestmark = pytest.mark.experimental
+
 CLAUDE_EXPORT = [
     {
         "uuid": "c1",
