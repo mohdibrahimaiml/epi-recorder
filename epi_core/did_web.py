@@ -142,11 +142,11 @@ def extract_ed25519_keys(did_doc: dict[str, Any]) -> list[str]:
             continue
         candidate: str | None = None
         key_hex = vm.get("publicKeyHex")
-        if key_hex:
+        if isinstance(key_hex, str) and key_hex:
             candidate = key_hex.lower()
         else:
             multibase = vm.get("publicKeyMultibase")
-            if multibase and multibase.startswith("z"):
+            if isinstance(multibase, str) and multibase.startswith("z"):
                 try:
                     decoded = _base58_to_hex(multibase[1:])
                     if len(decoded) == 64:
@@ -155,7 +155,11 @@ def extract_ed25519_keys(did_doc: dict[str, Any]) -> list[str]:
                     pass
             if candidate is None:
                 jwk = vm.get("publicKeyJwk")
-                if jwk and jwk.get("crv") == "Ed25519" and jwk.get("x"):
+                if (
+                    isinstance(jwk, dict)
+                    and jwk.get("crv") == "Ed25519"
+                    and isinstance(jwk.get("x"), str)
+                ):
                     try:
                         import base64
                         x_bytes = base64.urlsafe_b64decode(jwk["x"] + "==")
