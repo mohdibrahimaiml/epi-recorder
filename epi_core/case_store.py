@@ -1409,7 +1409,9 @@ class CaseStore:
                     "SELECT MAX(rowid) AS m FROM events WHERE case_id = ?", (case_id,)
                 ).fetchone()
                 last_rowid = int(last_row["m"] or 0)
-                event_count = int(total_now)
+                # Count chained (valid) events, not rows: the verifier
+                # recomputes over the same decoded dicts.
+                event_count = len(events)
             else:
                 new_rows = connection.execute(
                     "SELECT rowid, event_json FROM events WHERE case_id = ? AND rowid > ? ORDER BY rowid ASC",
