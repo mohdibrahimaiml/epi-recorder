@@ -670,6 +670,9 @@ def create_verification_report(
     report.setdefault("enforcement_downgraded", False)
     report.setdefault("enforcement_downgrade_count", 0)
     report.setdefault("checkpoints", {"ok": True, "messages": [], "count": 0})
+    # Capture-checkpoint surface (gateway exports): verify_command overwrites
+    # with the artifact's real values; other consumers get honest defaults.
+    report.setdefault("capture_checkpoints", {"ok": True, "messages": [], "count": 0})
 
     return report
 

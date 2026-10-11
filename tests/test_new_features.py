@@ -786,7 +786,7 @@ class TestSchemaVersioning:
         versions = [row[0] for row in conn.execute("SELECT version FROM schema_version ORDER BY version")]
         conn.close()
         assert len(versions) >= 1
-        assert versions[-1] == 3  # current version (3 = open_sessions migration)
+        assert versions[-1] == 4  # current version (4 = capture chain + checkpoints)
 
     def test_schema_version_idempotent_on_second_init(self, tmp_path):
         """Opening the same DB twice should not duplicate schema_version rows."""

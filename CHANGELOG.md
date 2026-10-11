@@ -6,6 +6,15 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Gateway exports are hash-chained with capture-time checkpoints (issue #26).** Projected steps carry
+  `prev_hash` (`CHAIN_START` genesis, same JCS construction as the SDK recorder) after the ordering freeze,
+  so trimming after export breaks the chain; exports also attest `total_steps`. The gateway worker maintains
+  a running chain over raw capture events in acceptance order, checkpoints the head to the TSA throttled per
+  case, and the export bundles `artifacts/capture/events.jsonl` plus `artifacts/capture/checkpoints/`.
+  `epi verify` recomputes the raw-event chain and reports `CAPTURE TRIMMED` on deletion and `CAPTURE
+  CHECKPOINT MISMATCH` on reorder (10k-event export measured at ~4 s). Old unchained exports verify on the
+  pre-chain path as before — no migration.
+
 - **Per-tool sign-in declarations** (`_meta.securitySchemes`, `oauth2` with one scope) on all four tools, for hosts that read
   them, and a test that every tool sets all three directory hints explicitly. The seal tool's comment now says plainly that
   it sends a hash to a public time-stamp service.
