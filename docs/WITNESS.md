@@ -116,11 +116,15 @@ The SEAL block shows one `Witness:` line:
   the file is byte-identical: a file re-packaged afterwards, for example by
   `epi-register` adding a transparency receipt, still reports WITNESSED.
   WITNESSED compares the manifest with your log; whether the files inside
-  still match that manifest is the separate `Integrity:` line. Rely on
-  WITNESSED only together with `Integrity: Verified`.
-- `NOT IN WITNESS LOG` — you were never told about this seal. For a case
-  you know happened, that absence is itself evidence: ask the vendor why.
-  Read this line yourself rather than relying on the headline alone.
+  still match that manifest is the separate `Integrity:` line. If integrity
+  fails, the line instead reads "a report for this case exists …, but THIS
+  file was altered", in red.
+- `NOT IN WITNESS LOG` — you were never told about this seal. A PASS becomes
+  WARN (`⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED`), and FAIL (exit 1) under
+  `--policy strict`, because this is what a re-run or re-sealed case looks like. For a case you know happened, that
+  absence is itself evidence: ask the vendor why.
+- `NOT CHECKED` — the `--witness-log` file could not be read (wrong path,
+  permissions). Verification FAILs, so a typo never silently skips the check.
 - `MISMATCH` — the file's sealed contents differ from the report for the
   same workflow. Verification FAILs.
 

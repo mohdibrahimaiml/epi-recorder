@@ -331,8 +331,12 @@ def _fetch_scitt_service_key(service_url: str | None, *, offline: bool = False) 
 
     # Local/offline SCITT service: read the service public key from disk.
     if service_url.lower() == "local":
-        from epi_core.local_scitt import service_public_key
+        from epi_core.local_scitt import _service_public_key_path, service_public_key
 
+        # Only the machine that issued a local receipt has its key. Never
+        # create one here as a side effect of verifying.
+        if not _service_public_key_path().exists():
+            return None
         return service_public_key()
 
     import hashlib
@@ -1202,7 +1206,11 @@ def verify_command(
                         if verbose:
                             console.print("  [green][OK][/green] SCITT receipt cryptographically verified")
                     except Exception as exc:
-                        transparency_ok = False
+                        # A local receipt is signed by the issuing machine's
+                        # own service key; on any other machine it simply
+                        # cannot be checked (unknown), not proven invalid.
+                        _is_local = str(scitt_info.get("service_url") or "").lower() == "local"
+                        transparency_ok = None if _is_local else False
                         if verbose:
                             console.print(f"  [red][FAIL][/red] SCITT receipt signature invalid: {exc}")
                 else:
@@ -1585,7 +1593,8 @@ def verify_command(
                 pass
         # ========== CUSTOMER WITNESS LOG (--witness-log) ==========
         # MISMATCH means the file differs from what the customer was told at
-        # seal time: FAIL in every policy. A missing entry changes nothing.
+        # seal time: FAIL in every policy. A missing entry is WARN (FAIL under
+        # strict); an unreadable log FAILs.
         try:
             _witness = _check_witness_log(epi_file, manifest, witness_log)
         except Exception:
@@ -1609,7 +1618,10 @@ def verify_command(
             # re-sealed case looks like. Never a clean PASS.
             try:
                 if report["decision"].get("status") == "PASS":
-                    report["decision"]["status"] = "WARN"
+                    # strict = claim/audit acceptance (scripts rely on exit 1).
+                    report["decision"]["status"] = (
+                        "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
+                    )
                     report["decision"]["reason"] = (
                         "Seal and signer are valid, but this seal was never reported to "
                         "your witness log. The vendor may have re-run or re-sealed this "
@@ -2165,6 +2177,15 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Transparency (SCITT)
     transparency_ok = facts.get("transparency_ok")
+    _scitt_url_any = (
+        ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
+        if isinstance(report, dict) else None
+    )
+    if transparency_ok is None and str(_scitt_url_any or "").strip().lower() == "local":
+        content_lines.append(
+            "  [yellow]- Transparency: LOCAL (self-issued receipt; only checkable on the "
+            "machine that issued it)[/yellow]"
+        )
     if transparency_ok is not None:
         _scitt_url = (
             ((report.get("identity") or {}).get("scitt") or {}).get("service_url")

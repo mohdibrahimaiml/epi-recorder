@@ -114,6 +114,8 @@ The first line of the CLI report maps onto the decision and identity:
 | `✔ PASS` | PASS | Policy passed without a pinned identity (e.g. `permissive`). |
 | `⚠ LOCAL SEALER · NOT ORG-PINNED` | WARN | Identity `LOCAL`. |
 | `⚠ UNVERIFIED IDENTITY` | WARN | Identity `UNKNOWN` (`NOT_PINNED`) under `standard`. |
+| `⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED` | WARN | Identity `KNOWN`; `--witness-log` given and this seal is not in it. |
+| `⚠ SIGNER PINNED · SEE WARNING` | WARN | Identity `KNOWN`; another warning (e.g. clock) downgraded PASS. |
 | `✘ SEAL FAIL — FILE ALTERED` | FAIL | `integrity_ok`, `chain_ok` or `sequence_ok` false. |
 | `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | `signature_valid=false`. |
 | `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | Valid signature, identity `UNKNOWN`, other keys pinned. |

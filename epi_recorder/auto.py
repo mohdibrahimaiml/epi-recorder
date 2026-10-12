@@ -11,7 +11,7 @@ Usage::
 
 Note: LiteLLM and OpenTelemetry are wired globally.  LangChain uses
 per-object callbacks; ``auto.setup()`` confirms availability and prints
-the usage hint, but you still pass ``EPICallbackHandler()`` to each model.
+the usage hint, but you still pass ``EpiCallbackHandler(session)`` to each model.
 
 This is explicit opt-in convenience, not silent magic.  EPI's architecture
 requires intentional capture; auto.setup() is a shortcut for teams that want
@@ -86,7 +86,7 @@ def setup(
     # ---- LangChain ----
     # LangChain uses per-object callbacks; there is no global hook to register.
     # auto.setup() confirms the integration module is importable and prints a
-    # usage reminder — the caller must still pass EPICallbackHandler() to each
+    # usage reminder — the caller must still pass EpiCallbackHandler(session) to each
     # ChatModel instance.
     if langchain is not False:
         try:
@@ -95,8 +95,10 @@ def setup(
             results["langchain"] = True
             if not _quiet:
                 print(
-                    "[EPI] auto.setup: LangChain detected — EPICallbackHandler is ready to use.\n"
-                    "      Add it per model: ChatOpenAI(..., callbacks=[EPICallbackHandler()])",
+                    "[EPI] auto.setup: LangChain detected.\n"
+                    "      Inside `with record(...) as session:` add per model:\n"
+                    "      ChatOpenAI(..., callbacks=[EpiCallbackHandler(session)])\n"
+                    "      (from epi_recorder.adapters.langchain import EpiCallbackHandler)",
                     file=sys.stderr,
                 )
         except ImportError:

@@ -1834,7 +1834,7 @@ print("\\nDone! Open with: epi view epi-recordings/litellm_demo.epi")
 # pip install epi-recorder langchain langchain-openai
 
 from epi_recorder import record
-from epi_recorder.integrations.langchain import EPICallbackHandler
+from epi_recorder.adapters.langchain import EpiCallbackHandler
 
 try:
     from langchain_openai import ChatOpenAI
@@ -1843,7 +1843,7 @@ except ImportError:
     import sys; sys.exit(1)
 
 with record("epi-recordings/langchain_demo.epi", goal="LangChain quick-start demo") as epi:
-    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EPICallbackHandler()])
+    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EpiCallbackHandler(epi)])
     print("Calling LangChain...")
     try:
         result = llm.invoke("Say hello in one sentence.")

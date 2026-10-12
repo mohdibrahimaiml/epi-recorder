@@ -107,6 +107,8 @@ all of them, with real samples below.
 | `✔ PASS` | PASS | Passed the selected policy without a pinned identity. Seen with `--policy permissive` (integrity only). | Not enough for a claim or audit. Re-run with `--policy strict`. |
 | `⚠ LOCAL SEALER · NOT ORG-PINNED` | WARN | Seal valid and the key is on **this** computer, but it is not pinned. Normal on the vendor's own machine. | If you are the auditor and see this, you are on the sealing machine; verify on your own. |
 | `⚠ UNVERIFIED IDENTITY` | WARN | Seal valid, sealer unknown. Anyone can produce this with a fresh key. | Pin the vendor key, then re-run with `--policy strict`. |
+| `⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED` | WARN | Seal valid and sealed by the pinned vendor key, but the vendor never reported this seal to your witness log. This is what a re-run or re-sealed case looks like. | Ask for the copy that is in your witness log. |
+| `⚠ SIGNER PINNED · SEE WARNING` | WARN | Pinned signer, but something else needs a look (e.g. a clock warning). `Reason:` says what. | Read the reason. |
 | `✘ SEAL FAIL — FILE ALTERED` | FAIL | A sealed file inside the `.epi` changed after sealing (hash or `prev_hash` chain mismatch). | Reject. Ask the vendor for the original. Keep the altered file. |
 | `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | The manifest was edited after signing, or the signature is corrupt. | Reject. Ask the vendor for the original. |
 | `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | The seal is valid but was made by a key other than the one(s) you pinned. | Reject unless the vendor explains (e.g. key rotation) **and** you pin the new key after confirming it. |
@@ -125,8 +127,10 @@ Below the headline, read three blocks:
 
 | Line | Meaning |
 |------|---------|
-| `Witness: WITNESSED (received <time>)` | The sealed contents match a report the vendor's system sent you at seal time. A file re-packaged later (e.g. by `epi-register`) still matches. Only meaningful together with `Integrity: Verified`. |
-| `Witness: NOT IN WITNESS LOG` | You were never sent a report for this seal. For a case you know happened, ask the vendor why. Read this line yourself; do not rely on the headline alone. |
+| `Witness: WITNESSED (received <time>)` | The sealed contents match a report the vendor's system sent you at seal time. A file re-packaged later (e.g. by `epi-register`) still matches. Shown in green only when the file's integrity also passed. |
+| `Witness: a report for this case exists …, but THIS file was altered` | You were told about this case, but this file is not what was reported. Verification FAILs on integrity. |
+| `Witness: NOT IN WITNESS LOG — never reported to you at seal time` | You were never sent a report for this seal. A PASS becomes WARN (`⚠ NOT IN YOUR WITNESS LOG`), and FAIL (exit 1) under `--policy strict`. For a case you know happened, ask the vendor why. |
+| `Witness: NOT CHECKED — witness log … could not be read` | The `--witness-log` path is wrong or unreadable. Verification FAILs so a typo never skips the check. |
 | `Witness: MISMATCH — …` | The file differs from what you were told at seal time. Verification FAILs. |
 
 A vendor re-running a case produces a new, separately witnessed seal. Look

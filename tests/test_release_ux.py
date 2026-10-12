@@ -114,6 +114,11 @@ def test_reseal_not_in_witness_log_is_never_a_clean_pass(monkeypatch, tmp_path: 
     assert report["decision"]["status"] == "WARN"
     assert "never reported" in report["decision"]["reason"]
 
+    strict = runner.invoke(
+        cli_app, ["verify", str(resealed), "--policy", "strict", "--witness-log", str(log)]
+    )
+    assert strict.exit_code == 1, strict.output
+
     human = runner.invoke(cli_app, ["verify", str(resealed), "--witness-log", str(log)])
     assert "NOT IN YOUR WITNESS LOG" in human.output.replace("\n", " ")
 
@@ -268,6 +273,27 @@ def test_local_scitt_receipt_is_not_labelled_verified(monkeypatch, tmp_path: Pat
     assert res.exit_code == 0, res.output
     assert "self-issued" in res.output
 
-    text = runner.invoke(cli_app, ["verify", str(out)]).output.replace("\n", " ")
+    import re
+
+    text = re.sub(r"[│\s]+", " ", runner.invoke(cli_app, ["verify", str(out)]).output)
     assert "LOCAL (self-issued receipt" in text
     assert "VERIFIED (SCITT)" not in text
+
+
+def test_local_scitt_receipt_on_another_machine_is_unknown_not_failed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from epi_cli.register import app as register_app
+
+    _hermetic(monkeypatch, tmp_path)
+    out = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    assert runner.invoke(register_app, [str(out), "--local"]).exit_code == 0
+
+    # The auditor's machine: a different EPI_HOME, no local SCITT service key.
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "auditor"))
+    import re
+
+    text = re.sub(r"[│\s]+", " ", runner.invoke(cli_app, ["verify", str(out)]).output)
+    assert "only checkable on the machine that issued it" in text
+    assert "FAILED (SCITT)" not in text
+    assert not (tmp_path / "auditor" / "local-scitt" / "service.pub").exists()
