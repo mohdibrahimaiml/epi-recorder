@@ -65,3 +65,46 @@ def test_non_loopback_bind_without_auth_refused():
     require_auth_for_host("::1", no_auth)
     with_auth = GatewayRuntimeSettings(access_token="secret")
     require_auth_for_host("0.0.0.0", with_auth)
+
+
+def test_cli_serve_flags_reach_the_running_app(tmp_path, monkeypatch):
+    """`epi gateway serve` flags must configure the app uvicorn actually runs.
+
+    Regression: serve imported epi_gateway.main (which builds a module-level
+    app from the env) before setting the env, then ran that stale app, so
+    --storage-dir, --access-token, --retention-mode etc. were all ignored.
+    """
+    import importlib
+
+    import uvicorn
+    from typer.testing import CliRunner
+
+    from epi_cli.gateway import app as gw_app
+
+    seen = {}
+
+    def fake_run(target, **kwargs):
+        module_name, attr = target.split(":")
+        factory = getattr(importlib.import_module(module_name), attr)
+        assert kwargs.get("factory") is True
+        built = factory()
+        with TestClient(built) as client:
+            seen["health"] = client.get("/health").json()
+            seen["capture_no_token"] = client.post(
+                "/capture", json={"kind": "llm.request", "content": {"x": 1}}
+            ).status_code
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    vault = tmp_path / "my-vault"
+    result = CliRunner().invoke(
+        gw_app,
+        [
+            "serve", "--host", "0.0.0.0", "--access-token", "s3cret",
+            "--storage-dir", str(vault), "--retention-mode", "redacted_hashes",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["health"]["auth_required"] is True
+    assert seen["capture_no_token"] == 401
+    assert seen["health"]["storage_dir"] == str(vault.resolve())
+    assert seen["health"]["retention_mode"] == "redacted_hashes"
