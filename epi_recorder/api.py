@@ -1704,7 +1704,7 @@ class EpiRecorderSession:
                     )
                 except Exception:
                     key_name, private_key_bytes = None, None
-            report_seal(
+            entry = report_seal(
                 self.output_path,
                 urls=urls,
                 secret=getattr(self, "witness_secret", None),
@@ -1712,6 +1712,7 @@ class EpiRecorderSession:
                 private_key_bytes=private_key_bytes,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
             )
+            _print_witness_outcome(entry)
         except Exception:
             pass
 
@@ -1872,6 +1873,35 @@ class EpiRecorderSession:
             return False
 
 
+def _print_witness_outcome(entry) -> None:
+    """One line telling the sealer whether the customer got the seal report."""
+    if not isinstance(entry, dict):
+        return
+    from urllib.parse import urlparse
+
+    out = entry.get("_outcome") or {}
+    host = lambda u: urlparse(u).netloc or u  # noqa: E731
+    delivered = [host(u) for u in out.get("delivered") or []]
+    failed = out.get("failed") or {}
+    if delivered:
+        print(f"[EPI] Witness: delivered to {', '.join(delivered)}", file=sys.stderr)
+    for url, err in failed.items():
+        hint = ""
+        if "401" in str(err) or "403" in str(err):
+            hint = " (check EPI_WITNESS_SECRET)"
+        print(
+            f"[EPI] Witness: QUEUED for {host(url)}: {str(err)[:120]}{hint}. "
+            "Run `epi witness flush` to retry.",
+            file=sys.stderr,
+        )
+    if out.get("pending") or out.get("error"):
+        print(
+            "[EPI] Witness: still sending in the background; "
+            "check `epi witness status`.",
+            file=sys.stderr,
+        )
+
+
 def _auto_generate_output_path(name_hint: Optional[str] = None) -> Path:
     """
     Auto-generate output path in ./epi-recordings/ directory.
@@ -1913,30 +1943,69 @@ def _resolve_output_path(output_path: Optional[Path | str]) -> Path:
     """
     if output_path is None:
         return _auto_generate_output_path()
-    
+    return _avoid_overwrite(_place_output_path(output_path))
+
+
+def _place_output_path(output_path: Path | str) -> Path:
+    """Where a user-given name lands.
+
+    A bare file name (``"demo.epi"``) goes to ``./epi-recordings/``. Anything
+    with a folder in it (``"./demo.epi"``, ``"out/demo.epi"``, an absolute
+    path) is written exactly where the user said.
+    """
+    raw = str(output_path)
     path = Path(output_path)
-    
+
     # Add .epi extension if missing
     if path.suffix != ".epi":
         path = path.with_suffix(".epi")
-        
-    # If path is absolute, return it
+
     if path.is_absolute():
         return path
-        
-    # If path is relative, prepend recordings directory UNLESS it already starts with it
+
     recordings_dir = Path(os.getenv("EPI_RECORDINGS_DIR", "epi-recordings"))
-    recordings_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Check if path already starts with the recordings directory
-    # This prevents double-prepending (e.g., epi-recordings/epi-recordings/file.epi)
+
+    # Already under the recordings directory: use as-is (no double prefix).
     path_parts = path.parts
     if path_parts and path_parts[0] == recordings_dir.name:
-        # Path already includes recordings directory, use as-is
+        recordings_dir.mkdir(parents=True, exist_ok=True)
         return path
-    
-    # Path doesn't include recordings directory, prepend it
+
+    explicit_dir = len(path_parts) > 1 or raw.startswith(("./", ".\\"))
+    if explicit_dir:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    recordings_dir.mkdir(parents=True, exist_ok=True)
     return recordings_dir / path
+
+
+def _avoid_overwrite(path: Path) -> Path:
+    """Never silently replace earlier evidence.
+
+    If the file exists, seal to ``name-2.epi`` (``-3`` …) and say so.
+    ``EPI_OVERWRITE=1`` restores replace-in-place.
+    """
+    if os.getenv("EPI_OVERWRITE", "").strip().lower() in ("1", "true", "yes"):
+        return path
+    try:
+        # An empty placeholder (e.g. a pre-created temp file) is not evidence.
+        if not path.exists() or path.stat().st_size == 0:
+            return path
+    except OSError:
+        return path
+    n = 2
+    while True:
+        candidate = path.with_name(f"{path.stem}-{n}{path.suffix}")
+        if not candidate.exists():
+            break
+        n += 1
+    print(
+        f"[EPI] {path} already exists; kept it. This run seals to {candidate} "
+        "(set EPI_OVERWRITE=1 to replace instead).",
+        file=sys.stderr,
+    )
+    return candidate
 
 
 # Convenience function for users (supports zero-config)

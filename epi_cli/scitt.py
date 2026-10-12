@@ -101,6 +101,10 @@ def _register_offline(
         registered_at=info.registered_at,
     )
     console.print("  [green][OK][/green] Registered with local SCITT transparency service")
+    console.print(
+        "  [dim]This receipt is self-issued (signed on this machine). It is not an "
+        "independent ledger entry; use --service URL for that.[/dim]"
+    )
     console.print(f"  Entry ID: {info.entry_id}")
 
     _build_scitt_artifact(

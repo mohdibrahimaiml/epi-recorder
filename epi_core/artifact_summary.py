@@ -12,6 +12,16 @@ from pathlib import Path
 from typing import Any
 
 
+
+def _shown(path: Path) -> str:
+    """The path a user can paste: relative to the current folder when possible."""
+    try:
+        rel = Path(path).resolve().relative_to(Path.cwd().resolve())
+        text = str(rel)
+    except Exception:
+        text = str(path)
+    return f'"{text}"' if " " in text else text
+
 def _safe_read_json(epi_path: Path, member: str) -> dict[str, Any] | None:
     try:
         from epi_core.container import EPIContainer
@@ -59,7 +69,7 @@ def build_artifact_run_summary(
         "fault_detected": None,
         "top_issue": None,
         "review_required": None,
-        "next_hint": f"epi view {path.name}" if path.name else "epi view <file.epi>",
+        "next_hint": f"epi view {_shown(path)}" if path.name else "epi view <file.epi>",
     }
     if not path.exists():
         summary["policy_status"] = "missing_file"
@@ -122,9 +132,9 @@ def build_artifact_run_summary(
             summary["top_issue"] = str(headline).strip()
 
     if summary["review_required"] and summary["fault_detected"]:
-        summary["next_hint"] = f"epi review {path.name}   # or: epi view {path.name}"
+        summary["next_hint"] = f"epi review {_shown(path)}   # or: epi view {_shown(path)}"
     else:
-        summary["next_hint"] = f"epi view {path.name}"
+        summary["next_hint"] = f"epi view {_shown(path)}"
 
     return summary
 

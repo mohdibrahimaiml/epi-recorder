@@ -45,8 +45,13 @@ def flush(
         console.print(f"[green]Delivered:[/green] {url}")
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {url} ({error})")
+        if "401" in str(error) or "403" in str(error):
+            console.print("[dim]  Set EPI_WITNESS_SECRET or pass --secret.[/dim]")
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")
+    if result["failed"]:
+        # Scripts and CI must see that reports are still undelivered.
+        raise typer.Exit(1)
 
 
 @app.command(name="status")
@@ -73,7 +78,7 @@ def status() -> None:
             str(payload.get("workflow_id", ""))[:8],
             str(len(entry.get("pending") or [])),
             str(len(entry.get("delivered") or {})),
-            str(entry.get("last_error") or "")[:60],
+            str(entry.get("last_error") or "")[:160],
         )
     console.print(table)
     pending = sum(len(e.get("pending") or []) for e in entries)

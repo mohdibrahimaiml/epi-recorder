@@ -160,6 +160,17 @@ def _read_steps_if_exists(path: Path) -> list[dict]:
     return steps
 
 
+def _verify_txt_fp(public_key_hex) -> str:
+    if not public_key_hex:
+        return "(unsigned)"
+    try:
+        from epi_core.keys import key_fingerprint
+
+        return key_fingerprint(str(public_key_hex))
+    except Exception:
+        return "(unavailable)"
+
+
 class EPIContainer:
     """
     Manages `.epi` file creation and extraction for both legacy and envelope formats.
@@ -1254,6 +1265,21 @@ class EPIContainer:
                         imprinted_public_key=manifest.public_key,
                     )
                     embed_notarization(source_dir, notarization_result)
+                    if notarization_result.tsa_token is None:
+                        import sys as _sys
+                        from urllib.parse import urlparse as _urlparse
+
+                        _hosts = ", ".join(
+                            _urlparse(u).hostname or u
+                            for u in notarization_result.tsa_urls_tried
+                        ) or "none configured"
+                        print(
+                            "[EPI] No trusted timestamp: time-stamp service unreachable "
+                            f"({_hosts}). Sealed without independent time; verifiers using "
+                            "--require-timestamp will reject this file. Use your own TSA "
+                            "with EPI_TSA_URLS, or skip timestamps with EPI_NOTARIZE=0.",
+                            file=_sys.stderr,
+                        )
             except Exception as _ne:
                 import sys as _sys
                 print(f"[EPI] Notarization unavailable ({_ne}), sealing without timestamp anchor", file=_sys.stderr)
@@ -1284,7 +1310,8 @@ class EPIContainer:
             f"\nMANUAL_VERIFICATION_STEPS:\n"
             f"1. Extract manifest.json from this ZIP archive.\n"
             f"2. Verify the Ed25519 signature in manifest.json against the file_manifest hashes.\n"
-            f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n\n"
+            f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n"
+            f"   Key Fingerprint:      {_verify_txt_fp(manifest.public_key)}\n\n"
             f"COMMAND LINE:\n"
             f"  python -m epi_cli verify <this_file>.epi\n\n"
             f"TRUST MODEL:\n"

@@ -15,6 +15,29 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **No-timestamp seals are announced, and no longer hang.** All configured time-stamp
+  services are asked in parallel with a 10 s default (`EPI_TSA_TIMEOUT`), so a network that
+  silently drops traffic costs one wait instead of 30 s per service. When no timestamp is
+  obtained, sealing prints one line naming the services and the fix (`EPI_TSA_URLS`, or
+  `EPI_NOTARIZE=0` to skip).
+- **A seal missing from your witness log is never a clean PASS.** `epi verify --witness-log`
+  downgrades PASS to WARN with "never reported to your witness log" — what a re-run or
+  re-sealed case looks like. A witness log path that cannot be read now FAILs instead of
+  being silently skipped. A tampered file no longer shows a green WITNESSED line.
+- **One key fingerprint everywhere.** `epi verify`, `epi keys export`, `epi keys trust`,
+  `epi keys list`, the witness log and `VERIFY.txt` all show the same fingerprint, grouped
+  for reading aloud (`4148 fb59 a148 a6dc`). `epi keys list` also lists pinned keys.
+  `epi keys trust` accepts a vendor's `did.json` or the base64 key `epi keys export` prints.
+- **Witness delivery is visible at seal time.** One line: delivered, or queued with the
+  reason and `epi witness flush`. `epi witness flush` exits 1 while anything is undelivered
+  and hints at `EPI_WITNESS_SECRET` on 401/403.
+- **`record()` file paths.** A bare name (`"demo.epi"`) still goes to `./epi-recordings/`;
+  a path with a folder (`"./demo.epi"`, `"out/demo.epi"`) is written exactly there. An
+  existing non-empty file is never replaced silently: the new seal goes to `demo-2.epi`
+  (`EPI_OVERWRITE=1` restores replace-in-place). "Next:" hints print the real path.
+- **Local SCITT receipts are labelled as such.** `epi-register` without `--service` says the
+  receipt is self-issued, and `epi verify` shows `Transparency: LOCAL (self-issued receipt,
+  not an independent ledger)` instead of `VERIFIED (SCITT)`.
 - **`epi gateway serve` ignored its flags, including `--access-token` (security).** The CLI
   imported `epi_gateway.main`, whose module-level app is built from the environment at import
   time, before exporting its flags, then ran that stale app. `--storage-dir`,

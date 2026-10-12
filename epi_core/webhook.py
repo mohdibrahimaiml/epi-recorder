@@ -487,11 +487,10 @@ def stage_seal_report(
         manifest_hash = get_canonical_hash(manifest, exclude_fields=["signature"])
         file_sha256 = hashlib.sha256(epi_path.read_bytes()).hexdigest()
         public_key = getattr(manifest, "public_key", None)
-        fingerprint = (
-            hashlib.sha256(str(public_key).encode("utf-8")).hexdigest()[:16]
-            if public_key
-            else None
-        )
+        from epi_core.keys import key_fingerprint
+
+        # Same value `epi verify` prints (ungrouped here).
+        fingerprint = key_fingerprint(str(public_key), grouped=False) if public_key else None
         total_steps = getattr(manifest, "total_steps", None)
         if total_steps is None:
             try:
@@ -575,13 +574,27 @@ def report_seal(
             )
         except (TypeError, ValueError):
             budget = 5.0
-        thread = deliver_in_background(
-            entry,
-            secret=secret,
-            timeout_seconds=max(1, int(min(10, budget))),
-            path=path,
-        )
+        outcome: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                outcome.update(
+                    deliver_entry(
+                        entry,
+                        secret=secret,
+                        timeout_seconds=max(1, int(min(10, budget))),
+                        path=path,
+                    )
+                )
+            except Exception as exc:
+                outcome["error"] = str(exc)[:300]
+
+        thread = threading.Thread(target=_run, name="epi-witness-deliver", daemon=True)
+        thread.start()
         thread.join(timeout=budget)
+        # Transient (not written to the outbox): what happened within budget,
+        # so callers can tell the user. Missing keys mean still in flight.
+        entry["_outcome"] = dict(outcome) if outcome else {"pending": True}
         return entry
     except Exception as exc:
         logger.warning("Witness report failed: %s", exc)

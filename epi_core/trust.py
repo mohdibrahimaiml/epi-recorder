@@ -523,6 +523,15 @@ class VerificationPolicy(StrEnum):
     STRICT = "strict"  # Valid integrity + trusted identity + completeness
 
 
+def _key_fingerprint(public_key_hex: str) -> str | None:
+    try:
+        from epi_core.keys import key_fingerprint
+
+        return key_fingerprint(public_key_hex)
+    except Exception:
+        return None
+
+
 def _match_local_signing_key_name(public_key_hex: str) -> str | None:
     """Return local key name if *public_key_hex* matches a key under KeyManager.keys_dir."""
     if not public_key_hex or len(public_key_hex) < 64:
@@ -647,6 +656,7 @@ def create_verification_report(
             "registry_verified": is_trusted_identity,
             "public_key_id": pk[:16] if pk else None,
             "public_key_fingerprint": pk[:32] if pk else None,
+            "fingerprint": _key_fingerprint(pk) if pk else None,
             "local_key_name": local_key_name,
             "did": (manifest.governance or {}).get("did") if manifest.governance else None,
             "pinned_names": (

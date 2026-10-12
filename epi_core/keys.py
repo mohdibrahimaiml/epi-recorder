@@ -14,6 +14,19 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 
+def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
+    """The one fingerprint EPI shows for an Ed25519 public key.
+
+    First 16 hex chars of SHA-256 over the lowercase hex key text (the value
+    the witness log records as ``key_fingerprint``). ``grouped`` formats it
+    for reading aloud: ``4148 fb59 a148 a6dc``.
+    """
+    import hashlib
+
+    raw = hashlib.sha256(public_key_hex.strip().lower().encode("utf-8")).hexdigest()[:16]
+    return " ".join(raw[i:i + 4] for i in range(0, 16, 4)) if grouped else raw
+
+
 def _is_writable_dir(path: Path) -> bool:
     """Return True if directory is creatable and writable."""
     try:
@@ -353,6 +366,36 @@ class KeyManager:
         text = path.read_text(encoding="utf-8", errors="ignore").strip()
         if len(text) == 64 and all(c in "0123456789abcdefABCDEF" for c in text):
             return bytes.fromhex(text)
+
+        # What `epi keys export` prints by default: base64 of the 32 raw bytes.
+        if len(text) == 44 and text.endswith("="):
+            try:
+                raw = base64.b64decode(text, validate=True)
+                if len(raw) == 32:
+                    return raw
+            except Exception:
+                pass
+
+        # A did.json the vendor sent (offline pinning without resolving did:web).
+        if text.startswith("{"):
+            import json as _json
+
+            try:
+                doc = _json.loads(text)
+            except ValueError:
+                doc = None
+            if isinstance(doc, dict) and "verificationMethod" in doc:
+                from epi_core.did_web import extract_ed25519_keys
+
+                found = extract_ed25519_keys(doc)
+                if len(found) == 1:
+                    return bytes.fromhex(found[0])
+                if not found:
+                    raise ValueError(f"{path} is a DID document with no Ed25519 key")
+                raise ValueError(
+                    f"{path} lists {len(found)} Ed25519 keys; pin each one from "
+                    "`epi keys trust --from-did` or a single-key .pub file"
+                )
 
         # PEM public key
         try:

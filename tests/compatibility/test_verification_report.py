@@ -156,6 +156,7 @@ def test_report_nested_identity_keys():
         "registry_verified",
         "public_key_id",
         "public_key_fingerprint",
+        "fingerprint",
         "local_key_name",
         "did",
         "pinned_names",

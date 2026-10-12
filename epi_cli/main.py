@@ -1422,6 +1422,13 @@ def keys(
     elif action == "list":
         keys_list = key_manager.list_keys()
         print_keys_table(keys_list)
+        try:
+            from epi_cli.keys import print_trusted_keys_table
+            from epi_core.trust import TrustRegistry
+
+            print_trusted_keys_table(TrustRegistry().trusted_keys_dir)
+        except Exception:
+            pass
 
     elif action == "export":
         try:
@@ -1440,7 +1447,18 @@ def keys(
                 console.print("[dim]Valid formats: base64, hex[/dim]")
                 raise typer.Exit(1)
             console.print(f"\n[bold]Public key for '{effective_name}':[/bold] [dim]({label})[/dim]")
-            console.print(f"[cyan]{public_key_out}[/cyan]\n")
+            console.print(f"[cyan]{public_key_out}[/cyan]")
+            try:
+                import base64 as _b64
+
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                console.print(
+                    f"[bold]Fingerprint:[/bold] {_key_fp(_b64.b64decode(public_key_b64).hex())}  "
+                    "[dim](customers see this in epi verify; confirm it with them by phone)[/dim]\n"
+                )
+            except Exception:
+                console.print()
         except FileNotFoundError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
@@ -1471,7 +1489,9 @@ def keys(
             import hashlib as _hashlib
             import tempfile as _tempfile
 
-            _fingerprint = _hashlib.sha256(resolved_hex.encode("utf-8")).hexdigest()[:16]
+            from epi_core.keys import key_fingerprint as _key_fp
+
+            _fingerprint = _key_fp(resolved_hex)
             _pin_name = name if name != "default" else _did.replace("did:web:", "").replace(":", "-")[:32]
             _hex_path = Path(_tempfile.mkdtemp()) / f"{_pin_name}.pub"
             try:
@@ -1532,6 +1552,16 @@ def keys(
                 overwrite=overwrite,
             )
             console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}")
+            try:
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                _pinned_hex = target.read_text(encoding="utf-8").strip()
+                console.print(
+                    f"  [cyan]Fingerprint:[/cyan] {_key_fp(_pinned_hex)}  "
+                    "[dim](read it to the sender by phone; it must match theirs)[/dim]"
+                )
+            except Exception:
+                pass
             console.print(
                 "[dim]Re-run:[/dim] [cyan]epi verify "
                 f'"{key if source_path.suffix.lower() == ".epi" else "artifact.epi"}"'

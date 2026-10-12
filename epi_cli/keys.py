@@ -2,6 +2,8 @@
 EPI CLI keys compatibility layer and presentation helpers.
 """
 
+from pathlib import Path
+
 from rich.console import Console
 from rich.table import Table
 
@@ -72,4 +74,27 @@ def print_keys_table(keys: list[dict[str, str]]) -> None:
             f"{public_status} {key['public_path']}",
         )
 
+    console.print(table)
+
+
+def print_trusted_keys_table(trusted_keys_dir: Path) -> None:
+    """Keys you pinned (other parties you trust), with their fingerprints."""
+    from epi_core.keys import key_fingerprint
+
+    trusted_keys_dir = Path(trusted_keys_dir)
+    pubs = sorted(trusted_keys_dir.glob("*.pub")) if trusted_keys_dir.exists() else []
+    if not pubs:
+        console.print("[dim]No trusted (pinned) keys. Pin a sender: epi keys trust --from-did did:web:...[/dim]")
+        return
+    revoked = {p.stem for p in trusted_keys_dir.glob("*.revoked")}
+    table = Table(title="Trusted Keys (pinned)", show_header=True, header_style="bold magenta")
+    table.add_column("Name", style="cyan")
+    table.add_column("Fingerprint", style="green")
+    table.add_column("Status")
+    for pub in pubs:
+        try:
+            fp = key_fingerprint(pub.read_text(encoding="utf-8").strip())
+        except Exception:
+            fp = "unreadable"
+        table.add_row(pub.stem, fp, "revoked" if pub.stem in revoked else "trusted")
     console.print(table)
