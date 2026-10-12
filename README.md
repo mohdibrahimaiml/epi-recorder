@@ -22,7 +22,7 @@ epi demo --no-browser    # record → seal → verify (no API key)
 [Docs & pilot](#docs--pilot) ·
 [Standards](#standards--compliance)
 
-How it works: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md) — packages, integrity model, and where to read next.
+How it works: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md) — packages, integrity model, and where to read next.
 
 </div>
 
@@ -68,11 +68,21 @@ epi-register demo.epi
 epi view demo.epi
 ```
 
+`record("demo.epi")` writes **`epi-recordings/demo.epi`**: a bare file name goes
+into `./epi-recordings/`. A path with a folder, such as `./demo.epi` or
+`out/demo.epi`, is written exactly there. Run the commands above from the same
+folder as `demo.py`; `epi verify demo.epi` finds the file in `./epi-recordings/`.
+
+```text
+$ python demo.py
+[EPI] 3 steps → epi-recordings/demo.epi  Signed ✓
+```
+
 | Step | Command | What you get |
 |------|---------|----------------|
-| **Record + seal** | `python demo.py` | Signed `demo.epi` (secrets redacted by default) |
+| **Record + seal** | `python demo.py` | Signed `epi-recordings/demo.epi` (secrets redacted by default) |
 | **Verify** | `epi verify demo.epi` | Integrity + signature checks offline |
-| **Register** | `epi-register demo.epi` | Transparency ledger receipt embedded in `.epi` |
+| **Register** | `epi-register demo.epi` | Without `--service`: a **local, self-issued** SCITT receipt embedded in the `.epi` (not an independent ledger entry) |
 | **View** | `epi view demo.epi` | Self-contained browser viewer (screenshot above) |
 
 Typical first-run verify:
@@ -86,7 +96,11 @@ Typical first-run verify:
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
 > Identity is separate from seal. Pin with `epi keys trust <name>` when you mean it.  
-> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/POLICY.md).
+> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md).
+
+`epi-register` is a standalone alias for `epi scitt register` (same options, same result).
+Without `--service <url>` it creates a LOCAL self-issued receipt signed by your own key, not an
+entry in an independent transparency ledger; pass `--service` for that.
 
 That’s the product. Everything below is optional depth.
 
@@ -149,7 +163,7 @@ Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorde
 |-------|-----|
 | OpenAI | `wrap_openai(OpenAI())` |
 | Anthropic | `wrap_anthropic(Anthropic())` |
-| LangChain | `EPICallbackHandler` |
+| LangChain | `EpiCallbackHandler(session)` inside `with record(...) as session` |
 | LiteLLM | `EPICallback` |
 | pytest | `pytest --epi` |
 | Microsoft AGT | `epi import agt <file>` |
@@ -157,6 +171,7 @@ Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorde
 
 ```python
 # LangChain (canonical adapter)
+from langchain_openai import ChatOpenAI
 from epi_recorder import record
 from epi_recorder.adapters.langchain import EpiCallbackHandler
 
@@ -190,19 +205,19 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | Command | Purpose |
 |---------|---------|
 | `epi demo` | Guided demo: record → seal → verify |
-| `epi verify <file.epi>` | Offline integrity + signature check |
-| `epi-register <file.epi>` | Register artifact on transparency ledger & embed receipt |
+| `epi verify <file.epi>` | Offline integrity + signature check; auditors add `--policy strict --witness-log received.jsonl` |
+| `epi-register <file.epi>` | Alias of `epi scitt register`: embed a SCITT receipt (local self-issued unless `--service <url>`) |
 | `epi view <file.epi>` | Open offline viewer (screenshot above) |
 | `epi analyze <file.epi>` | Fault / policy summary from sealed analysis |
 | `epi policy init` | Create `epi_policy.json` rulebook |
-| `epi run <script.py>` | Run a script under recording |
+| `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted) |
 | `epi keys generate` / `list` / `trust` | Local signing keys |
 | `epi enterprise setup` / `pack` | Org kit + auditor pack |
-| `epi scitt register <file.epi>` | SCITT transparency anchor (advanced) |
+| `epi scitt register <file.epi>` | SCITT receipt; `--service <url>` for an independent transparency service |
 | `epi import agt <path>` | Import Microsoft AGT evidence |
 | `epi export trace <file.epi>` | TRACE v0.2 log-import record (self-consistency, not issuer attestation) |
 
-Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/POLICY.md)
+Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md)
 
 ---
 
@@ -221,8 +236,8 @@ Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimai
 | Topic | Link |
 |-------|------|
 | **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
-| **How it works** | [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md) |
-| **Archive** (historical guides, may be out of date) | [Pilot pack](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/PILOT.md) · [Enterprise in 15 minutes](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
+| **How it works** | [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md) |
+| **Archive** (historical guides, may be out of date) | [Pilot pack](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/PILOT.md) · [Enterprise in 15 minutes](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
 | Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/KNOWN_LIMITATIONS.md) |
 | CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/CLI.md) |
 | Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/AUDITORS-GUIDE.md) |
@@ -290,11 +305,8 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `epi_guardrails/` | Guardrails |
 | `website-v2/` | Sandbox redesign (not deployed) |
 | remote SCITT service | Local SCITT receipt is core; the hosted service is not |
-| `scripts/` | Build, sync, release and verification helper scripts |
-| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
-| `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
 
-Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/SITE.md).
+Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/SITE.md).
 
 ---
 

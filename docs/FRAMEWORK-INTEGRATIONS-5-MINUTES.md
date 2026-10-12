@@ -73,15 +73,37 @@ Use this when your app already routes multiple providers through LiteLLM.
 
 ```python
 from langchain_openai import ChatOpenAI
-from epi_recorder.integrations import EPICallbackHandler
+from epi_recorder import record
+from epi_recorder.adapters.langchain import EpiCallbackHandler
 
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    callbacks=[EPICallbackHandler()],
-)
-
-result = llm.invoke("Analyze this tool trace")
+with record("run.epi", goal="Capture one LangChain call") as session:
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        callbacks=[EpiCallbackHandler(session)],
+    )
+    result = llm.invoke("Analyze this tool trace")
 ```
+
+The handler must be given the active `session` and used inside `with record(...)`.
+That is what writes the file. Here `record("run.epi")` writes `epi-recordings/run.epi`.
+
+The old `from epi_recorder.integrations import EPICallbackHandler` with
+`callbacks=[EPICallbackHandler()]` is deprecated. Used outside `record()`, it
+writes no `.epi` file at all.
+
+Checked without an API key by swapping `ChatOpenAI` for LangChain's
+`FakeListChatModel` (`pip install langchain-core`):
+
+```text
+$ python lc.py
+Looks fine.
+
+[EPI] 3 steps → epi-recordings/run.epi  Signed ✓
+      1x llm · 1x print · 1x custom
+```
+
+For agents and chains, pass the handler per call instead:
+`agent_executor.invoke({"input": "..."}, config={"callbacks": [EpiCallbackHandler(session)]})`.
 
 Use this when you want chain, retriever, tool, and agent callback events in the same artifact.
 
