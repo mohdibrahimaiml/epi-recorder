@@ -372,7 +372,7 @@ def _build_viewer_context(epi_path: Path) -> dict:
     return report
 
 
-def _print_seal_verdict(epi_path: Path, context: dict) -> None:
+def _print_seal_verdict(epi_path: Path, context: dict) -> bool:
     """One honest line about the seal; never a fixed "Seal OK"."""
     facts = context.get("facts") or {}
     integrity_ok = facts.get("integrity_ok", context.get("integrity_ok"))
@@ -383,9 +383,11 @@ def _print_seal_verdict(epi_path: Path, context: dict) -> None:
             "do not rely on what the viewer shows.[/bold red]"
         )
         console.print(f'[red]  Details: epi verify "{epi_path}"[/red]')
+        return True
     elif signature_valid is False:
         console.print("[bold red][FAIL] Signature INVALID — do not rely on this file.[/bold red]")
         console.print(f'[red]  Details: epi verify "{epi_path}"[/red]')
+        return True
     elif signature_valid is None:
         console.print(
             "[yellow]Unsigned file — contents are intact but anyone could have made it.[/yellow]"
@@ -395,6 +397,7 @@ def _print_seal_verdict(epi_path: Path, context: dict) -> None:
             "[dim]Seal intact (not altered). To check who sealed it: "
             f'[cyan]epi verify "{epi_path}"[/cyan].[/dim]'
         )
+    return False
 
 
 def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
@@ -816,9 +819,11 @@ def view(
 
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
-        _print_seal_verdict(resolved_path, viewer_context)
+        _altered = _print_seal_verdict(resolved_path, viewer_context)
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
+        if _altered:
+            raise typer.Exit(1)  # scripts must see it too
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly

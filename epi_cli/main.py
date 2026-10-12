@@ -1372,7 +1372,7 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, bundle-export, bundle-import, did",
+        help="Action: generate, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
@@ -1410,10 +1410,18 @@ def keys(
             console.print(f"\n[bold green][OK] Generated key pair:[/bold green] {name}")
             console.print(f"  [cyan]Private:[/cyan] {private_path}")
             console.print(f"  [cyan]Public:[/cyan]  {public_path}")
+            try:
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                console.print(
+                    f"  [cyan]Fingerprint:[/cyan] {_key_fp(key_manager.load_public_key(name).hex())}"
+                )
+            except Exception:
+                pass
             console.print(
-                "\n[dim]Tip: first [cyan]epi verify[/cyan] may WARN until verifiers run "
-                "[cyan]epi keys trust "
-                f"{name}[/cyan] (or [cyan]epi keys bundle-export[/cyan]).[/dim]\n"
+                "\n[dim]Tip: customers pin this key to see IDENTITY PINNED. Send them "
+                "[cyan]epi keys export[/cyan] (or publish [cyan]epi keys did --domain ...[/cyan]) "
+                "and read them the fingerprint by phone.[/dim]\n"
             )
         except FileExistsError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -1560,12 +1568,23 @@ def keys(
                     f"  [cyan]Fingerprint:[/cyan] {_key_fp(_pinned_hex)}  "
                     "[dim](read it to the sender by phone; it must match theirs)[/dim]"
                 )
+                from epi_core.keys import revoked_key_hexes
+
+                if _pinned_hex.lower() in revoked_key_hexes(trusted_keys_dir):
+                    console.print(
+                        "  [yellow]This key is revoked, so files it sealed still FAIL. "
+                        f"Undo the revocation with: epi keys unrevoke {target.stem}[/yellow]"
+                    )
             except Exception:
                 pass
+            if source_path.suffix.lower() == ".epi":
+                console.print(
+                    "[yellow]  You pinned the key carried by this file. Only do this if you "
+                    "confirmed the fingerprint with the sender.[/yellow]"
+                )
             console.print(
-                "[dim]Re-run:[/dim] [cyan]epi verify "
-                f'"{key if source_path.suffix.lower() == ".epi" else "artifact.epi"}"'
-                "[/cyan]  — identity should leave UNKNOWN if this key sealed the file.\n"
+                "[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict[/cyan]  — files "
+                "sealed by this key now show IDENTITY PINNED.\n"
             )
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -1575,10 +1594,38 @@ def keys(
         target_name = key or name
         try:
             target = key_manager.revoke_key(target_name, trusted_keys_dir=trusted_keys_dir)
-            console.print(f"\n[bold green][OK] Revoked key:[/bold green] {target}\n")
+            console.print(f"\n[bold green][OK] Revoked key:[/bold green] {target}")
+            try:
+                _hex = target.read_text(encoding="utf-8").strip().lower()
+                _same = sorted(
+                    p.stem for p in trusted_keys_dir.glob("*.pub")
+                    if p.read_text(encoding="utf-8").strip().lower() == _hex
+                )
+                if _same:
+                    console.print(
+                        f"  Revocation applies to the key: pins {', '.join(_same)} now show revoked."
+                    )
+            except Exception:
+                pass
+            console.print(f"  Undo with: [cyan]epi keys unrevoke {target_name}[/cyan]\n")
         except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
+
+    elif action == "unrevoke":
+        target_name = key or name
+        try:
+            removed = key_manager.unrevoke_key(target_name, trusted_keys_dir=trusted_keys_dir)
+        except FileNotFoundError as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+        if removed:
+            console.print(
+                f"\n[bold green][OK] Revocation removed[/bold green] for '{target_name}' "
+                f"({len(removed)} marker(s)). Pins with this key are trusted again.\n"
+            )
+        else:
+            console.print(f"[dim]'{target_name}' was not revoked.[/dim]")
 
     elif action in ("bundle-export", "bundle_export", "bundle"):
         # bundle-export [names...]  OR  bundle as alias when --out set
@@ -1674,6 +1721,15 @@ def keys(
             raise typer.Exit(1)
         console.print(f"\n[bold green][OK] Wrote did.json for:[/bold green] {_did}")
         console.print(f"  [cyan]Host it at:[/cyan] {_host_url}")
+        try:
+            from epi_core.keys import key_fingerprint as _key_fp
+
+            console.print(
+                f"  [cyan]Fingerprint:[/cyan] {_key_fp(public_hex)}  "
+                "[dim](customers confirm this with you by phone)[/dim]"
+            )
+        except Exception:
+            pass
         console.print("  [dim]Free hosting: GitHub Pages or Cloudflare Pages (any static host works).[/dim]")
         console.print(
             "[dim]Then seal with: [cyan]record(..., did=\"" + _did + "\")[/cyan] "
@@ -1683,7 +1739,7 @@ def keys(
     else:
         console.print(f"[red][FAIL] Unknown action:[/red] {action}")
         console.print(
-            "[dim]Valid actions: generate, list, export, trust, revoke, "
+            "[dim]Valid actions: generate, list, export, trust, revoke, unrevoke, "
             "bundle-export, bundle-import, did[/dim]"
         )
         raise typer.Exit(1)

@@ -16,7 +16,17 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from epi_cli.main import app as cli_app
-from tests.test_seal_witness import SECRET, CaptureHandler, _hermetic, _seal, _serve
+from tests.test_seal_witness import SECRET, CaptureHandler, _hermetic, _serve
+from tests.test_seal_witness import _seal as _seal_llm_request  # noqa: F401
+
+
+def _seal(monkeypatch, tmp_path: Path, out: Path, **kwargs) -> Path:
+    """A complete record (no dangling request), so a clean file can PASS."""
+    from epi_recorder import record
+
+    with record(str(out), **kwargs) as epi:
+        epi.log_step("agent.decision", {"content": "hello", "decision": "approve"})
+    return out
 
 runner = CliRunner()
 
@@ -297,3 +307,84 @@ def test_local_scitt_receipt_on_another_machine_is_unknown_not_failed(
     assert "only checkable on the machine that issued it" in text
     assert "FAILED (SCITT)" not in text
     assert not (tmp_path / "auditor" / "local-scitt" / "service.pub").exists()
+
+
+# ------------------------------------------------------------- round 2
+
+
+def _tampered(src: Path, dst: Path) -> Path:
+    import zipfile
+
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "steps.jsonl":
+                data = data.replace(b"hello", b"HELLO")
+            zout.writestr(item, data)
+    return dst
+
+
+def test_audit_on_tampered_file_fails_every_domain_and_exits_1(monkeypatch, tmp_path: Path) -> None:
+    _hermetic(monkeypatch, tmp_path)
+    good = _seal(monkeypatch, tmp_path, tmp_path / "good.epi")
+    bad = _tampered(good, tmp_path / "bad.epi")
+
+    res = runner.invoke(cli_app, ["audit", str(bad), "-f", "json"])
+    assert res.exit_code == 1
+    report = json.loads(res.output[: res.output.rindex("}") + 1])
+    for dom in report["pipeline"]["aiuc1"]["domains"].values():
+        assert dom["status"] == "FAIL"
+        assert "chain_ok" not in dom["evidence"]
+    assert report["compliance_score"]["rating"] == "altered"
+
+    ok = runner.invoke(cli_app, ["audit", str(good)])
+    assert ok.exit_code == 0, ok.output
+    assert ok.output.count("Compliance Report") == 1  # printed once
+
+
+def test_verify_never_suggests_pinning_from_the_file(monkeypatch, tmp_path: Path) -> None:
+    _hermetic(monkeypatch, tmp_path)
+    out = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    # Verifier's machine: no local signing key, nothing pinned.
+    monkeypatch.setenv("EPI_KEYS_DIR", str(tmp_path / "verifier-keys"))
+    text = runner.invoke(cli_app, ["verify", str(out)]).output
+    assert f'epi keys trust "{out}"' not in text
+    assert "keys trust <file.epi>" not in text
+    assert "never from this file" in text.replace("\n", " ")
+
+
+def test_revoke_applies_to_the_key_and_can_be_undone(monkeypatch, tmp_path: Path) -> None:
+    import os
+    import re
+
+    _hermetic(monkeypatch, tmp_path)
+    out = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    trusted = Path(os.environ["EPI_TRUSTED_KEYS_DIR"])
+    pk = __import__("epi_core.container", fromlist=["EPIContainer"]).EPIContainer.read_manifest(out).public_key
+    trusted.mkdir(parents=True, exist_ok=True)
+    (trusted / "vendor.pub").write_text(pk + "\n")
+    (trusted / "vendor-did.pub").write_text(pk + "\n")
+
+    assert runner.invoke(cli_app, ["keys", "revoke", "vendor-did"]).exit_code == 0
+    listing = re.sub(r"\s+", " ", runner.invoke(cli_app, ["keys", "list"]).output)
+    assert "vendor │" in listing and "trusted" not in listing.split("Trusted Keys")[1]
+    assert runner.invoke(cli_app, ["verify", str(out)]).exit_code == 1
+
+    res = runner.invoke(cli_app, ["keys", "unrevoke", "vendor-did"])
+    assert res.exit_code == 0, res.output
+    assert not list(trusted.glob("*.revoked"))
+    assert runner.invoke(cli_app, ["verify", str(out)]).exit_code == 0
+
+
+def test_incomplete_evidence_is_warn_not_pass_under_standard(monkeypatch, tmp_path: Path) -> None:
+    from epi_core.trust import VerificationPolicy, apply_policy
+
+    report = {
+        "facts": {"integrity_ok": True, "sequence_ok": True, "signature_valid": True,
+                  "completeness_ok": False},
+        "identity": {"status": "KNOWN", "pinned_names": ["vendor"]},
+    }
+    assert apply_policy(report, VerificationPolicy.STANDARD)["decision"]["status"] == "WARN"
+    assert apply_policy(report, VerificationPolicy.STRICT)["decision"]["status"] == "FAIL"
+    report["facts"]["completeness_ok"] = True
+    assert apply_policy(report, VerificationPolicy.STANDARD)["decision"]["status"] == "PASS"

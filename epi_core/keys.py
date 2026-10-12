@@ -444,6 +444,48 @@ class KeyManager:
         revoked_path.write_text(hex_key, encoding="utf-8")
         return revoked_path
 
+    def unrevoke_key(self, name: str, *, trusted_keys_dir: Path) -> list[Path]:
+        """Undo ``revoke_key``: remove every revocation marker for that key.
+
+        Revocation applies to the key, not the pin name, so markers written
+        under any name for the same key are removed. Returns removed paths.
+        """
+        trusted_keys_dir = Path(trusted_keys_dir)
+        hex_key = None
+        for candidate in (
+            trusted_keys_dir / f"{name}.revoked",
+            trusted_keys_dir / f"{name}.pub",
+        ):
+            if candidate.exists():
+                hex_key = candidate.read_text(encoding="utf-8").strip().lower()
+                break
+        if hex_key is None and (self.keys_dir / f"{name}.pub").exists():
+            hex_key = self._load_public_key_raw_bytes(name).hex()
+        if hex_key is None:
+            raise FileNotFoundError(f"No trusted or revoked key named '{name}'.")
+        removed: list[Path] = []
+        for marker in trusted_keys_dir.glob("*.revoked"):
+            try:
+                if marker.read_text(encoding="utf-8").strip().lower() == hex_key:
+                    marker.unlink()
+                    removed.append(marker)
+            except OSError:
+                continue
+        return removed
+
+
+def revoked_key_hexes(trusted_keys_dir: Path) -> set[str]:
+    """Hex keys with a revocation marker (revocation is per key, not per name)."""
+    out: set[str] = set()
+    trusted_keys_dir = Path(trusted_keys_dir)
+    if trusted_keys_dir.exists():
+        for marker in trusted_keys_dir.glob("*.revoked"):
+            try:
+                out.add(marker.read_text(encoding="utf-8").strip().lower())
+            except OSError:
+                continue
+    return out
+
 
 def export_trust_bundle(
     key_manager: KeyManager,

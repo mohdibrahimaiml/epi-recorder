@@ -1842,11 +1842,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif decision_status == "WARN" and id_upper == "KNOWN":
         # Signer is pinned; something else (witness log, clock) needs a look.
         _wit_hdr = (report.get("witness") or {}).get("status") if isinstance(report, dict) else None
-        status_symbol = (
-            "[bold yellow]⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED[/bold yellow]"
-            if _wit_hdr == "NOT IN WITNESS LOG"
-            else "[bold yellow]⚠ SIGNER PINNED · SEE WARNING[/bold yellow]"
-        )
+        if _wit_hdr == "NOT IN WITNESS LOG":
+            status_symbol = "[bold yellow]⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED[/bold yellow]"
+        elif not completeness_ok:
+            status_symbol = "[bold yellow]⚠ EVIDENCE INCOMPLETE · SIGNER PINNED[/bold yellow]"
+        else:
+            status_symbol = "[bold yellow]⚠ SIGNER PINNED · SEE WARNING[/bold yellow]"
         panel_style = "yellow"
     elif decision_status == "WARN" and id_upper == "LOCAL":
         status_symbol = "[bold yellow]⚠ LOCAL SEALER · NOT ORG-PINNED[/bold yellow]"
@@ -2058,7 +2059,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         _ts_legacy = [e for e in _seal_entries if e.get("status") == "legacy"]
         if _ts_invalid:
             content_lines.append(
-                f"  [red]- Timestamp:  INVALID — {_ts_invalid[0].get('detail')}[/red]"
+                f"  [red]- Timestamp:    INVALID — {_ts_invalid[0].get('detail')}[/red]"
             )
         elif _ts_valid:
             _ts_earliest = min(e["gen_time"] for e in _ts_valid if e.get("gen_time"))
@@ -2067,16 +2068,16 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
             _ts_where = "; ".join(f'chain to pinned root "{r}"' for r in _ts_roots)
             content_lines.append(
-                f"  [green]- Timestamp:  VERIFIED — existed no later than "
+                f"  [green]- Timestamp:    VERIFIED — existed no later than "
                 f"{_ts_earliest} ({_ts_where})[/green]"
             )
         elif _ts_legacy:
             content_lines.append(
-                "  [yellow]- Timestamp:  legacy token — imprint not recomputable "
+                "  [yellow]- Timestamp:    legacy token — imprint not recomputable "
                 "(sealed before 4.6); presence only[/yellow]"
             )
         else:
-            content_lines.append("  - Timestamp:  none")
+            content_lines.append("  - Timestamp:    none")
         if _ts_block.get("clock_warning"):
             content_lines.append(
                 f"  [yellow]- Clock:       {_ts_block['clock_warning']}[/yellow]"
@@ -2144,17 +2145,22 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         _surfaces = _cap.get("instrumented_surfaces") or []
         _stream = _cap.get("streaming", False)
         content_lines.append(f"  - Capture:      path={_cap.get('capture_path', 'unknown')} streaming={str(_stream).lower()}")
-        if _surfaces:
+        if _surfaces and verbose:
+            # Internal hook names: useful to engineers, noise to reviewers.
             content_lines.append(f"  - Surfaces:     {', '.join([str(s) for s in _surfaces[:6]])}{' …' if len(_surfaces) > 6 else ''}")
         _active = _cap.get("active_surfaces") or []
         if _active:
             content_lines.append(f"  - Active:       {', '.join([str(s) for s in _active[:6]])}{' …' if len(_active) > 6 else ''}")
         else:
-            content_lines.append("  - Active:       none observed (no attributable evidence sealed)")
+            content_lines.append(
+                "  - Active:       no auto-captured calls (steps were logged by the program itself)"
+            )
         if _gaps:
-            content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (see artifacts/manifest.json)")
+            content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (not captured by this recording)")
             for _g in _gaps[:3]:
                 content_lines.append(f"      · {str(_g)[:100]}")
+            if len(_gaps) > 3:
+                content_lines.append(f"      · … {len(_gaps) - 3} more (epi verify -v)")
 
     # Checkpoints — specific messages, never generic alone.
     _cps = report.get("checkpoints") if isinstance(report, dict) else None
@@ -2247,9 +2253,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 "[dim]Seal is cryptographically valid. Identity is not pinned — "
                 "anyone can re-sign a rebuilt chain with a fresh key.[/dim]"
             )
-        content_lines.append(
-            f'[dim]  epi keys trust "{epi_file}" --name sealer[/dim]'
-        )
+        if id_upper == "LOCAL":
+            _own = (identity.get("local_key_name") if isinstance(identity, dict) else None) or "default"
+            content_lines.append(f"[dim]  Your own key: epi keys trust {_own}[/dim]")
+        else:
+            content_lines.append(
+                "[dim]  Pin the sender's key obtained from them directly — never from this file:[/dim]"
+            )
+            content_lines.append(
+                "[dim]    epi keys trust --from-did did:web:<their-domain> --name <sender>[/dim]"
+            )
+            content_lines.append(
+                "[dim]    epi keys trust <their-key-file> --name <sender>   then compare the "
+                "Fingerprint by phone[/dim]"
+            )
         content_lines.append(
             f'[dim]  epi verify "{epi_file}" --policy strict[/dim]'
         )
