@@ -8,7 +8,7 @@
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![Version v4.6.0](https://img.shields.io/badge/version-v4.6.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
 ```bash
@@ -139,7 +139,7 @@ demo.epi
 | **Chain** | Each step’s `prev_hash` links the timeline |
 | **Privacy** | Default secret redaction (API keys, tokens, PII) |
 
-Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
+Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
 
 ---
 
@@ -181,7 +181,7 @@ Signing key order: `--key` → private key that sealed the `.epi` → `TRACE_PRI
 
 `policy.bundle_hash` in TRACE is specified as a Cedar policy hash. We hash `policy.json` (the sealed EPI policy document), not a Cedar bundle. `policy.enforcement_mode` is `"declared"` — we did not run a Cedar engine. `appraisal.status` is `"none"`.
 
-More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
+More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
 
 ---
 
@@ -220,12 +220,12 @@ Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimai
 
 | Topic | Link |
 |-------|------|
-| **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
+| **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
 | **How it works** | [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md) |
 | **Archive** (historical guides, may be out of date) | [Pilot pack](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/PILOT.md) · [Enterprise in 15 minutes](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
-| Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/KNOWN_LIMITATIONS.md) |
-| CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/CLI.md) |
-| Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/AUDITORS-GUIDE.md) |
+| Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/KNOWN_LIMITATIONS.md) |
+| CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/CLI.md) |
+| Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/AUDITORS-GUIDE.md) |
 
 ---
 
@@ -237,9 +237,9 @@ is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|
-| EU AI Act Annex IV | [docs/ANNEX-IV.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/ANNEX-IV.md) |
-| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/standards/aiuc-1-evidence.md) |
-| SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/standards/scitt-predicate.md) |
+| EU AI Act Annex IV | [docs/ANNEX-IV.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/ANNEX-IV.md) |
+| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/standards/aiuc-1-evidence.md) |
+| SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/standards/scitt-predicate.md) |
 
 ```bash
 epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certification)
@@ -276,7 +276,7 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `pytest_epi/` | Pytest plugin |
 | `website/` | Public site source of truth (`epilabs.org`) |
 | `scripts/` | Build, sync, release and verification helper scripts |
-| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
+| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
 | `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
 
 **Experimental** (frozen — works as documented, bug fixes allowed, no new features until a paying user asks; not on the critical path):
@@ -291,15 +291,15 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `website-v2/` | Sandbox redesign (not deployed) |
 | remote SCITT service | Local SCITT receipt is core; the hosted service is not |
 | `scripts/` | Build, sync, release and verification helper scripts |
-| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/README.md) |
+| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
 | `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
 
-Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/docs/archive/SITE.md).
+Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/SITE.md).
 
 ---
 
 ## License
 
-MIT — see [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.5.0/LICENSE).
+MIT — see [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/LICENSE).
 
 **Site:** [epilabs.org](https://epilabs.org) · **Issues:** [GitHub Issues](https://github.com/mohdibrahimaiml/epi-recorder/issues)

@@ -4,6 +4,15 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.6.0] - 2026-10-12
+
+**Highlights:**
+- Offline RFC 3161 timestamp validation for seal and checkpoints.
+- Customer witness on every seal (hash-only, outbox-first).
+- Hash-chained gateway exports with capture-time checkpoints.
+- did:web identity onboarding and key pinning.
+- Checkpoints moved off the agent's hot path (background submit).
+
 ### Fixed
 
 - **`--tsa-root` now applies to checkpoint timestamps too.** `epi verify --tsa-root PATH`
