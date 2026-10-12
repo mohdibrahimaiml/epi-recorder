@@ -15,6 +15,31 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **`epi gateway serve` ignored its flags, including `--access-token` (security).** The CLI
+  imported `epi_gateway.main`, whose module-level app is built from the environment at import
+  time, before exporting its flags, then ran that stale app. `--storage-dir`,
+  `--retention-mode`, `--proxy-failure-mode`, `--webhook-url`, `--access-token` and
+  `--users-file` were silently ignored: a `0.0.0.0` bind with `--access-token` ran with auth
+  disabled. uvicorn now runs the `create_app` factory after the env is set. Regression since
+  v4.5.0 (never published to PyPI).
+- **A file sealed by a key you did not pin now FAILs.** When the verifier has pinned other
+  parties' keys and the file was sealed by none of them, `epi verify` (standard policy)
+  returns `FAIL — NOT A KEY YOU TRUST` with exit 1 instead of `WARN` / exit 0, and no longer
+  suggests pinning the key from the file itself. The user's own auto-pinned key (`epi demo`)
+  does not count as a pin for this rule.
+- **`epi view`, `epi audit` and `epi export-html` flag tampered files.** `view` printed a fixed
+  "Seal OK"; `audit` ticked "Cryptographic" from the signature alone; `export-html` packaged an
+  altered file as a shareable page. They now report `ALTERED`, show `✗ FILE ALTERED`, and refuse
+  to export, respectively.
+- **Verify headline names what failed.** `SEAL FAIL — FILE ALTERED`, `SEAL FAIL — SIGNATURE
+  INVALID`, `FAIL — NOT A KEY YOU TRUST`, or `FAIL — SEAL INTACT, REQUIREMENT NOT MET` (e.g.
+  `--require-timestamp` with no timestamp), instead of `SEAL FAIL` for all of them. The
+  `--require-timestamp` reason is a sentence, not appended to "Integrity verified…". A FAIL is
+  no longer re-labelled "VERIFIED (enforcement downgraded…)".
+- **`epi-register demo.epi` finds `epi-recordings/demo.epi`**, like `epi verify` and `epi view`
+  (README 60-second path).
+- **Gateway docs match the code.** Defaults are `full_content` / `fail-closed`; install with
+  `pip install "epi-recorder[gateway]"`; runbook port 8787 and relative links.
 - **`--tsa-root` now applies to checkpoint timestamps too.** `epi verify --tsa-root PATH`
   previously added trusted TSA roots for the seal timestamp only; SDK checkpoints
   (`epi_core/checkpoints.py` `verify_checkpoints()`) and gateway capture checkpoints

@@ -1545,11 +1545,19 @@ def verify_command(
             e.get("status") == "valid" for e in _timestamps.get("seal", [])
         ):
             try:
+                _prior = report["decision"].get("status")
                 report["decision"]["status"] = "FAIL"
                 _rs = report["decision"].get("reason", "")
                 _msg = "no valid seal-time timestamp (--require-timestamp)"
                 if _msg not in _rs:
-                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
+                    if _prior == "FAIL":
+                        report["decision"]["reason"] = f"{_rs}; {_msg}".strip("; ")
+                    else:
+                        # Only the timestamp requirement failed; say so plainly
+                        # rather than appending to a "verified" sentence.
+                        report["decision"]["reason"] = (
+                            f"{_msg[0].upper()}{_msg[1:]}. The seal itself is intact."
+                        )
             except Exception:
                 pass
         if _timestamps.get("clock_warning") and report.get("decision", {}).get("status") == "PASS":
@@ -1797,8 +1805,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif decision_status == "WARN":
         status_symbol = "[bold yellow]⚠ UNVERIFIED IDENTITY[/bold yellow]"
         panel_style = "yellow"
+    elif not (integrity_ok and sequence_ok and chain_ok):
+        status_symbol = "[bold red]✘ SEAL FAIL — FILE ALTERED[/bold red]"
+        panel_style = "red"
+    elif signature_valid is False:
+        status_symbol = "[bold red]✘ SEAL FAIL — SIGNATURE INVALID[/bold red]"
+        panel_style = "red"
+    elif signature_valid is True and id_upper == "UNKNOWN" and (
+        "facts" in report and (report.get("identity") or {}).get("pinned_names")
+    ):
+        status_symbol = "[bold red]✘ FAIL — NOT A KEY YOU TRUST[/bold red]"
+        panel_style = "red"
     else:
-        status_symbol = "[bold red]✘ SEAL FAIL[/bold red]"
+        # Seal intact; a policy requirement (identity, timestamp, ...) failed.
+        status_symbol = "[bold red]✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET[/bold red]"
         panel_style = "red"
 
     content_lines = []
@@ -1819,7 +1839,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"[bold]CAPTURE: path={_cp} enforcement={_ce}[/bold]"
         )
-        if _downgrade_n > 0:
+        if _downgrade_n > 0 and decision_status != "FAIL":
             content_lines.append(
                 f"[bold yellow]INTEGRITY: VERIFIED "
                 f"(enforcement downgraded for {_downgrade_n} events)[/bold yellow]"

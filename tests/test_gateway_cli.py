@@ -27,8 +27,9 @@ def test_gateway_help_mentions_shared_backend():
 def test_gateway_serve_runs_uvicorn_with_shared_case_store(monkeypatch, tmp_path):
     recorded = {}
 
-    def _fake_run(target, host, port, reload):  # noqa: ANN001 - monkeypatch stub
+    def _fake_run(target, host, port, reload, factory=False):  # noqa: ANN001 - monkeypatch stub
         recorded["target"] = target
+        recorded["factory"] = factory
         recorded["host"] = host
         recorded["port"] = port
         recorded["reload"] = reload
@@ -55,7 +56,8 @@ def test_gateway_serve_runs_uvicorn_with_shared_case_store(monkeypatch, tmp_path
     assert "Retention:" in result.output
     assert "Failure mode:" in result.output
     assert recorded == {
-        "target": "epi_gateway.main:app",
+        "target": "epi_gateway.main:create_app",
+        "factory": True,
         "host": "127.0.0.1",
         "port": 9901,
         "reload": False,

@@ -69,7 +69,7 @@ The following were gaps and are now fixed — kept here for audit trail:
 - **Viewer 4MiB cap** — outer viewer hash scans full gap, not `4MiB`
 - **payload_hash stale** — recomputed after `viewer.html/VERIFY.txt/notarization`
 - **Guardrails truncation** — `epi_guardrails/session.py [:2000]` removed, full content sealed
-- **Gateway defaults** — `epi gateway serve` defaults to `retention_mode redacted_hashes` and `proxy_failure_mode fail-open` (direct-uvicorn runs default to `full_content`/`fail-closed` instead). Pass the flags explicitly when you need full capture + fail-closed; streaming `501` either way
+- **Gateway defaults** — `epi gateway serve` (and direct uvicorn runs) default to `retention_mode full_content` and `proxy_failure_mode fail-closed`: full prompts and responses are stored. Pass `--retention-mode redacted_hashes` to keep hashes only. Streaming returns `501` either way
 - **SCITT fallback** — missing service key now `transparency_ok=None` not `PASS`
 - **Billing** — unknown `price_id` now `ValueError` (empty keeps `hosted` compat)
 - **Packaging** — `cryptography<51 typer<0.28 rich<16`, `setup.py` gateways, `docker 3.12`, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced, demos re-sealed

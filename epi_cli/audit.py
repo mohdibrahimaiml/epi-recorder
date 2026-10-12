@@ -311,7 +311,15 @@ def _render_rich(report: dict) -> str:
     # Pipeline status
     pipe = report["pipeline"]
     console.print("\n[bold]Pipeline Status[/bold]")
-    console.print(f"  Cryptographic:  [green]✓[/green]" if pipe["cryptographic"]["signature_valid"] else "  Cryptographic:  [red]✗[/red]")
+    _crypto_ok = pipe["cryptographic"]["signature_valid"] and pipe["cryptographic"]["integrity_ok"]
+    console.print(
+        "  Cryptographic:  [green]✓[/green]" if _crypto_ok
+        else (
+            "  Cryptographic:  [red]✗ FILE ALTERED[/red]"
+            if not pipe["cryptographic"]["integrity_ok"]
+            else "  Cryptographic:  [red]✗[/red]"
+        )
+    )
     console.print(f"  SCITT:         [green]✓ verified (entry: {pipe['scitt'].get('entry_id', '?')})[/green]" if pipe["scitt"].get("status") == "verified" else f"  SCITT:         [dim]{pipe['scitt'].get('status', '?')}[/dim]")
     console.print(f"  Review:        [green]✓ signed + bound[/green]" if pipe["human_review"].get("signed") else f"  Review:        [dim]{pipe['human_review'].get('status', '?')}[/dim]")
     console.print(f"  Analysis:      [green]✓[/green]" if pipe["fault_analysis"].get("status") == "present" else f"  Analysis:      [dim]{pipe['fault_analysis'].get('status', '?')}[/dim]")
@@ -370,7 +378,7 @@ def _render_markdown(report: dict) -> str:
         "",
         "## Pipeline Status",
         "",
-        f"- Cryptographic: {'✓' if report['pipeline']['cryptographic']['signature_valid'] else '✗'}",
+        f"- Cryptographic: {'✓' if (report['pipeline']['cryptographic']['signature_valid'] and report['pipeline']['cryptographic']['integrity_ok']) else '✗'}",
         f"- SCITT: {report['pipeline']['scitt'].get('status', 'unknown')}",
         f"- Review: {report['pipeline']['human_review'].get('status', 'unknown')}",
         f"- Analysis: {report['pipeline']['fault_analysis'].get('status', 'unknown')}",

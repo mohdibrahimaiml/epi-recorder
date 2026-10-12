@@ -1,6 +1,6 @@
 # EPI Self-Hosted Reliability Runbook
 
-This runbook defines the supported `v4.4.5` self-hosted shape for EPI:
+This runbook defines the supported `v4.6.0` self-hosted shape for EPI:
 
 - single-node deployment
 - append-only event spool on disk
@@ -21,17 +21,17 @@ This runbook defines the supported `v4.4.5` self-hosted shape for EPI:
 
 ## Defaults
 
-- retention mode: `redacted_hashes`
-- proxy failure mode: `fail-open`
+- retention mode: `full_content` (full prompts and responses are stored; pass `--retention-mode redacted_hashes` to keep hashes only)
+- proxy failure mode: `fail-closed`
 - capture scope: `consequential`
 - auth: optional shared bearer token or local users file for `/api/*`
 
 ## Fast Start
 
-1. Copy [.env.example](/C:/Users/dell/epi-recorder/.env.example) to `.env`.
+1. Copy [.env.example](../.env.example) to `.env`.
 2. Choose one of these if you want the shared reviewer workspace protected:
    - set `EPI_GATEWAY_ACCESS_TOKEN` for one shared bearer token
-   - or set `EPI_GATEWAY_USERS_FILE` to a local users JSON file like [config/gateway-users.example.json](/C:/Users/dell/epi-recorder/config/gateway-users.example.json)
+   - or set `EPI_GATEWAY_USERS_FILE` to a local users JSON file like [config/gateway-users.example.json](../config/gateway-users.example.json)
 3. Start the supported stack:
 
 ```bash
@@ -47,8 +47,8 @@ http://127.0.0.1:8000/web_viewer/index.html
 5. Health and readiness:
 
 ```text
-http://127.0.0.1:8765/health
-http://127.0.0.1:8765/ready
+http://127.0.0.1:8787/health
+http://127.0.0.1:8787/ready
 ```
 
 ## Meaning of Health vs Ready

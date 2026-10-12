@@ -40,6 +40,25 @@ app = typer.Typer(
 )
 
 
+
+def _resolve_input_epi(epi_file) -> Path:
+    """Find the file the same way `epi verify` / `epi view` do.
+
+    `record("demo.epi")` writes to ./epi-recordings/demo.epi, so a bare name
+    must resolve there too, or the README's `epi-register demo.epi` fails.
+    """
+    from epi_cli.view import _resolve_epi_file
+
+    try:
+        found = _resolve_epi_file(str(epi_file)).resolve()
+    except FileNotFoundError:
+        console.print(f"[red][FAIL][/red] File not found: {Path(epi_file).resolve()}")
+        console.print("[dim]   Searched in: current folder & ./epi-recordings/[/dim]")
+        raise typer.Exit(1)
+    if found != Path(epi_file).resolve():
+        console.print(f"[dim]Using {found}[/dim]")
+    return found
+
 def _load_signing_key(key_name: str = "default"):
     """Load an Ed25519 private key from the EPI key manager."""
     try:
@@ -139,10 +158,7 @@ def scitt_register(
     by Cloudflare and can return 403 in automated/CLI contexts. For CI or
     offline testing, use --local or a local SCITT service.
     """
-    epi_path = Path(epi_file).resolve()
-    if not epi_path.exists():
-        console.print(f"[red][FAIL][/red] File not found: {epi_path}")
-        raise typer.Exit(1)
+    epi_path = _resolve_input_epi(epi_file)
 
     output_path = Path(out).resolve() if out else epi_path
 
@@ -254,10 +270,7 @@ def scitt_anchor(
     This is useful when auto-anchoring was disabled or failed during recording.
     Requires EPI_SCITT_URL env var or --service flag, unless --local is used.
     """
-    epi_path = Path(epi_file).resolve()
-    if not epi_path.exists():
-        console.print(f"[red][FAIL][/red] File not found: {epi_path}")
-        raise typer.Exit(1)
+    epi_path = _resolve_input_epi(epi_file)
 
     try:
         manifest = EPIContainer.read_manifest(epi_path)
@@ -325,10 +338,7 @@ def scitt_verify(
     2. Statement payload matches the manifest hash
     3. Receipt structure and service signature
     """
-    epi_path = Path(epi_file).resolve()
-    if not epi_path.exists():
-        console.print(f"[red][FAIL][/red] File not found: {epi_path}")
-        raise typer.Exit(1)
+    epi_path = _resolve_input_epi(epi_file)
 
     try:
         manifest = EPIContainer.read_manifest(epi_path)

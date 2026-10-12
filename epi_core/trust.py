@@ -342,7 +342,13 @@ class TrustRegistry:
             pass
 
     def pinned_names(self) -> list[str]:
-        """Names of locally pinned (non-revoked) keys, for honest verify output."""
+        """Names of pinned (non-revoked) keys of OTHER parties, for verify output.
+
+        Pins of this machine's own signing keys are left out (``epi demo``
+        pins ``default`` automatically): they say nothing about which
+        senders the user decided to trust, so they must not turn every
+        file from someone else into "NOT A KEY YOU TRUST".
+        """
         names: list[str] = []
         try:
             if self.trusted_keys_dir.exists():
@@ -351,8 +357,14 @@ class TrustRegistry:
                     for p in self.trusted_keys_dir.glob("*.revoked")
                 }
                 for pub_file in sorted(self.trusted_keys_dir.glob("*.pub")):
-                    if pub_file.stem not in revoked:
-                        names.append(pub_file.stem)
+                    if pub_file.stem in revoked:
+                        continue
+                    try:
+                        if _match_local_signing_key_name(pub_file.read_text().strip()):
+                            continue
+                    except Exception:
+                        pass
+                    names.append(pub_file.stem)
         except Exception:
             pass
         return names
@@ -810,6 +822,21 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         elif identity["status"] == "MISMATCH":
             decision["status"] = "FAIL"
             decision["reason"] = "Identity mismatch - possible impersonation attack"
+        elif (
+            facts["signature_valid"] is True
+            and identity["status"] == "UNKNOWN"
+            and identity.get("pinned_names")
+        ):
+            # The verifier HAS pinned keys and this file was sealed by none of
+            # them. That is the impersonation case pinning exists to catch, so
+            # it must not read as a soft first-look WARN (exit 0).
+            decision["status"] = "FAIL"
+            decision["reason"] = (
+                "Not a key you trust — signature valid but sealed by a key other "
+                f"than the one(s) you pinned ({', '.join(identity['pinned_names'])}). "
+                "Do not pin the key from this file; confirm the sender's key out "
+                "of band (epi keys trust --from-did <did>)."
+            )
         elif facts["signature_valid"] is True and identity["status"] == "UNKNOWN":
             decision["status"] = "WARN"
             decision["reason"] = (

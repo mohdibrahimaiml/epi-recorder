@@ -447,7 +447,8 @@ def _ensure_default_key_trusted() -> None:
     """Auto-trust the default signing key so demo verify shows PASS."""
     try:
         from epi_core.keys import KeyManager
-        trusted_dir = Path.home() / ".epi" / "trusted_keys"
+        from epi_core.trust import TrustRegistry
+        trusted_dir = TrustRegistry().trusted_keys_dir  # honours EPI_TRUSTED_KEYS_DIR
         target = trusted_dir / "default.pub"
         if target.exists():
             return

@@ -177,12 +177,16 @@ def test_verify_unpinned_vs_untrusted_key(monkeypatch, tmp_path: Path) -> None:
     # Pins exist, file sealed by another key: red NOT A KEY YOU TRUST.
     (tmp_path / "home" / "trusted").mkdir(parents=True, exist_ok=True)
     (tmp_path / "home" / "trusted" / "vendor.pub").write_text(vendor_hex + "\n")
+    # This is the impersonation case pinning exists to catch: it must FAIL
+    # (non-zero exit), and must never suggest pinning the key from the file.
     result = runner.invoke(cli_app, ["verify", str(other_file)])
-    assert result.exit_code == 0, result.output
+    assert result.exit_code != 0, result.output
     text = result.output.replace("\n", " ")
     assert "NOT A KEY YOU TRUST" in text
     assert "vendor" in text
     assert "This file was not sealed by a key you trust." in text
+    assert "DECISION: FAIL" in text
+    assert f'epi keys trust "{other_file}"' not in text
 
     # Pinned key itself: KNOWN, no red line.
     result = runner.invoke(cli_app, ["verify", str(vendor_file)])

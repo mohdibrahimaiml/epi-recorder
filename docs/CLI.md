@@ -399,7 +399,7 @@ When `--users-file` is set, the browser app shows a small local sign-in form and
 Starts the open-source EPI AI capture gateway.
 
 ```bash
-pip install epi-recorder
+pip install "epi-recorder[gateway]"
 epi gateway serve
 epi gateway serve --port 9000 --storage-dir ./gateway-vault
 epi gateway serve --retention-mode redacted_hashes --proxy-failure-mode fail-closed
