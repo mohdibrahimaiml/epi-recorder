@@ -120,7 +120,9 @@ def make_server(
 
 def bind_error_message(host: str, port: int, exc: OSError) -> str:
     """One-line, friendly reason a bind failed."""
-    if exc.errno == errno.EADDRINUSE:
+    # Windows reports a taken port as WSAEADDRINUSE (10048) or, when the
+    # other socket holds it exclusively, WSAEACCES (10013).
+    if exc.errno == errno.EADDRINUSE or getattr(exc, "winerror", None) in (10048, 10013):
         return (
             f"error: port {port} on {host} is already in use "
             "(another receiver running?). Pick another with --port."

@@ -292,3 +292,20 @@ def test_flush_auth_hint(monkeypatch, tmp_path, started):
 
     result = runner.invoke(cli_app, ["witness", "flush", "--secret", SECRET])
     assert result.exit_code == 0, result.output
+
+
+def test_windows_socket_errors_read_like_linux():
+    """Windows words refused/busy sockets differently; users see one message."""
+    import errno as _errno
+
+    from epi_cli.gateway import _short_reason
+    from epi_core.witness_receiver import bind_error_message
+
+    win = (
+        "http://x/: <urlopen error [WinError 10061] No connection could be made "
+        "because the target machine actively refused it>"
+    )
+    assert _short_reason(win, ["http://x/"]) == "Connection refused"
+    exc = OSError(_errno.EACCES, "forbidden")
+    exc.winerror = 10013
+    assert "already in use" in bind_error_message("127.0.0.1", 9, exc)

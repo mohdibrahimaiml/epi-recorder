@@ -119,7 +119,12 @@ def _short_reason(error: object, urls: list[str]) -> str:
     for url in urls:
         reason = reason.removeprefix(f"{url}: ")
     reason = re.sub(r"^<urlopen error (.*)>$", r"\1", reason.strip())
-    reason = re.sub(r"^\[Errno -?\d+\]\s*", "", reason)
+    # Windows words socket errors differently; normalise the common ones.
+    if "10061" in reason or "actively refused" in reason:
+        return "Connection refused"
+    if "10060" in reason or "timed out" in reason.lower():
+        return "Connection timed out"
+    reason = re.sub(r"^\[(?:Errno|WinError) -?\d+\]\s*", "", reason)
     return reason[:80] or "delivery failed"
 
 
