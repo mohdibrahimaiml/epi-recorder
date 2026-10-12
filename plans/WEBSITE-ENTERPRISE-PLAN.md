@@ -1,5 +1,7 @@
 # epilabs.org → enterprise-grade: implementation plan
 
+Process, order and full how-to for the agent: **`plans/CODING-AGENT-BRIEF.md`** (read it first; WP-PAGES-1, WP-A11Y-1 and WP-OPS-1 are specified there).
+
 Status: ready to execute · **Founder decisions D1–D7 made (§7)** · Baseline: `main` @ `5930247` (v4.6.0 released) · Owner: coding agent, founder approves gated items.
 
 This plan comes from three audits of `website/` (claims-vs-code, technical/UX in a real
@@ -58,6 +60,7 @@ re-checked in the code. Work top to bottom. **Do not skip the gates.**
 | 9 | WP-COPY-1 honesty pass (network claims, fake output, overclaims) | M | 🔒 |
 | 10 | WP-COPY-2 pricing/trial/refund/privacy/terms consistency | M | 🔒 + facts |
 | 11 | WP-POS-1 one story: vendor → bank (home, how-it-works, enterprise, trust) | L | 🔒 |
+| 11b | WP-PAGES-1 `/vision`, `/about`, design-partner section (spec in `CODING-AGENT-BRIEF.md`) | M | 🔒 |
 | 12 | WP-TRUST-1 `/security` trust hub + reviewer kit | M | 🔒 + facts |
 | 13 | WP-SUPPLY-1 signed releases (PyPI Trusted Publishing, SBOM, Scorecard) | M | founder does PyPI setting |
 | 14 | WP-A11Y-1 accessibility + SEO polish | M | – |
