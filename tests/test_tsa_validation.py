@@ -632,3 +632,108 @@ def test_unreadable_signed_attributes_report_malformed_not_crash(
     result = tv.validate_tsr(token, digest, trust_roots=[pki.root_cert])
     assert result.status == "malformed"
     assert "odd encoding" in result.detail
+
+
+def _pack_checkpoint_epi(tmp_path: Path, pki: MiniPKI) -> tuple[Path, list[dict]]:
+    """Pack an .epi with one SDK checkpoint tokened by the test-only TSA."""
+    from epi_core.container import EPIContainer
+    from epi_core.schemas import ManifestModel, StepModel
+    from epi_core.serialize import get_canonical_hash
+
+    steps: list[dict] = []
+    prev = "CHAIN_START"
+    for i in range(3):
+        model = StepModel(index=i, kind="llm.request", content={"i": i}, prev_hash=prev)
+        prev = get_canonical_hash(model, format="json")
+        steps.append(model.model_dump(mode="json"))
+    head_bytes = bytes.fromhex(prev)
+    record_cp = {
+        "schema_version": "1.0",
+        "index": 0,
+        "event_count": 3,
+        "chain_head": prev,
+        "tsa_url": "https://tsa.example.test/tsr",
+        "tsa_available": True,
+        "tsa_token_b64": base64.b64encode(make_tsr(head_bytes, pki)).decode("ascii"),
+        "created_at": "2026-05-05T12:00:00Z",
+    }
+    ws = tmp_path / "ws-cp-tstaroot"
+    (ws / "artifacts" / "checkpoints").mkdir(parents=True)
+    (ws / "steps.jsonl").write_text(
+        "\n".join(json.dumps(s) for s in steps) + "\n", encoding="utf-8"
+    )
+    (ws / "artifacts" / "checkpoints" / "000000.json").write_text(
+        json.dumps(record_cp), encoding="utf-8"
+    )
+    out = tmp_path / "cp-tstaroot.epi"
+    EPIContainer.pack(ws, ManifestModel(), out)
+    return out, steps
+
+
+def test_checkpoint_tsa_root_trusted_with_flag(pki: MiniPKI, tmp_path: Path) -> None:
+    """R0.1: SDK checkpoint token is UNVERIFIED by default, valid with trust_roots."""
+    from epi_core.checkpoints import verify_checkpoints
+
+    out, steps = _pack_checkpoint_epi(tmp_path, pki)
+    ok, messages, _records = verify_checkpoints(out, steps)
+    assert ok is True
+    assert any("CHECKPOINT TIMESTAMP UNVERIFIED" in m for m in messages)
+
+    ok2, messages2, _records2 = verify_checkpoints(
+        out, steps, trust_roots=[pki.root_cert]
+    )
+    assert ok2 is True
+    assert not any("CHECKPOINT TIMESTAMP UNVERIFIED" in m for m in messages2)
+
+
+def test_checkpoint_tsa_root_cli_flag(pki: MiniPKI, tmp_path: Path, capsys) -> None:
+    """R0.1 CLI: --tsa-root is honoured for checkpoint timestamps too."""
+    import typer
+
+    from epi_cli.verify import verify_command
+
+    out, _steps = _pack_checkpoint_epi(tmp_path, pki)
+    root_pem = pki.root_pem_file(tmp_path / "test-root.pem")
+
+    try:
+        verify_command(None, out, True, False, None)
+    except typer.Exit:
+        pass
+    report = json.loads(capsys.readouterr().out)
+    assert any(
+        "CHECKPOINT TIMESTAMP UNVERIFIED" in m
+        for m in report["checkpoints"]["messages"]
+    )
+
+    try:
+        verify_command(None, out, True, False, None, tsa_root=[root_pem])
+    except typer.Exit:
+        pass
+    report2 = json.loads(capsys.readouterr().out)
+    assert not any(
+        "CHECKPOINT TIMESTAMP UNVERIFIED" in m
+        for m in report2["checkpoints"]["messages"]
+    )
+
+
+def test_checkpoint_unverified_prints_warn_not_fail(
+    pki: MiniPKI, tmp_path: Path, capsys
+) -> None:
+    """R0.2: human output shows [WARN], not [FAIL], for untrusted-root checkpoints."""
+    import typer
+
+    from epi_cli.verify import verify_command
+
+    out, _steps = _pack_checkpoint_epi(tmp_path, pki)
+    try:
+        verify_command(None, out, False, True, None)
+    except typer.Exit:
+        pass
+    human = capsys.readouterr().out
+    assert "CHECKPOINT TIMESTAMP UNVERIFIED" in human
+    assert "[WARN]" in human
+    unverified_lines = [
+        line for line in human.splitlines() if "CHECKPOINT TIMESTAMP UNVERIFIED" in line
+    ]
+    assert unverified_lines, human
+    assert all("[FAIL]" not in line for line in unverified_lines), human

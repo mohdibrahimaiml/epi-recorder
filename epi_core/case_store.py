@@ -2540,7 +2540,9 @@ def _safe_checkpoint_index(rec: Any) -> int:
         return 0
 
 
-def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[dict[str, Any]]]:
+def verify_capture_checkpoints(
+    epi_path: Path, trust_roots: Any = None
+) -> tuple[bool, list[str], list[dict[str, Any]]]:
     """Verify capture-time checkpoints embedded by a gateway export.
 
     Recomputes the raw-event chain from `artifacts/capture/events.jsonl` in
@@ -2548,6 +2550,10 @@ def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[di
     `artifacts/capture/checkpoints/`. Artifacts without capture evidence
     (old exports, SDK seals) pass vacuously. Returns (ok, messages, records);
     never raises.
+
+    trust_roots is passed through to validate_tsr (e.g. --tsa-root plus
+    pinned plus env roots built by the CLI). None keeps the default
+    pinned-roots-plus-env behaviour.
     """
     try:
         members = EPIContainer.list_members(epi_path)
@@ -2648,7 +2654,7 @@ def verify_capture_checkpoints(epi_path: Path) -> tuple[bool, list[str], list[di
                 }
                 continue
             try:
-                validation = validate_tsr(token, expected)
+                validation = validate_tsr(token, expected, trust_roots=trust_roots)
             except Exception as exc:
                 validation = None
                 detail = f"checkpoint token unreadable ({exc})"

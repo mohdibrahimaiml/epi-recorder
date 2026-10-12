@@ -316,7 +316,7 @@ def recompute_chain_head(
 
 
 def verify_checkpoints(
-    epi_path: Path, steps: list[dict[str, Any]]
+    epi_path: Path, steps: list[dict[str, Any]], trust_roots: Any = None
 ) -> tuple[bool, list[str], list[dict[str, Any]]]:
     """Verify checkpoints against recomputed chain heads.
 
@@ -326,6 +326,10 @@ def verify_checkpoints(
       - "TRIMMED: artifact has fewer events than checkpoint N attests to."
       - "CHECKPOINT TIMESTAMP INVALID at index N: ..." (tamper -> ok=False)
       - "CHECKPOINT TIMESTAMP UNVERIFIED at index N: ..." (unknown root warning)
+
+    trust_roots is passed through to validate_tsr (e.g. --tsa-root plus
+    pinned plus env roots built by the CLI). None keeps the default
+    pinned-roots-plus-env behaviour.
     """
     from epi_core.container import EPIContainer
 
@@ -384,7 +388,7 @@ def verify_checkpoints(
 
                 _token = base64.b64decode(_tsa_b64)
                 _expected = bytes.fromhex(claimed_head)
-                _v = validate_tsr(_token, _expected)
+                _v = validate_tsr(_token, _expected, trust_roots=trust_roots)
             except Exception as _ve:
                 _v = None
                 rec["tsa_validation"] = {
