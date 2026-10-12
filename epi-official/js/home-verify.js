@@ -10,6 +10,8 @@
 var dz=document.getElementById('dropZoneEl'),fi=document.getElementById('fileInput'),dr=document.getElementById('dropResult');
 var EPI_MIMETYPE='application/vnd.epi+zip',EPI_ENVELOPE_MAGIC='<!--';
 
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
 function reportDOM(report){
   var f=report.facts,i=report.identity,m=report.metadata;
   var idStatus=(i&&i.status)||'UNKNOWN';
@@ -48,14 +50,14 @@ function reportDOM(report){
   else if(levelLabel==='LOW'&&report.facts.signature_valid===true)title='SEAL VALID · IDENTITY NOT PINNED';
   else if(levelLabel.indexOf('SEAL')===0||levelLabel==='NONE')title=levelLabel;
   else if(levelLabel)title=levelLabel+' TRUST';
-  return '<div style="font-size:0.82rem;margin-bottom:0.6rem"><strong style="font-size:1.05rem;color:'+trustColor+'">'+trustIcon+' '+title+'</strong> <span style="color:var(--ink-muted);font-size:0.72rem">v'+m.spec_version+steps+'</span></div>'
+  return '<div style="font-size:0.82rem;margin-bottom:0.6rem"><strong style="font-size:1.05rem;color:'+trustColor+'">'+trustIcon+' '+title+'</strong> <span style="color:var(--ink-muted);font-size:0.72rem">v'+esc(m.spec_version)+steps+'</span></div>'
     +chks.join('<br>')
-    +'<div style="margin-top:0.5rem;font-size:0.68rem;color:var(--ink-dim);border-top:1px solid var(--border);padding-top:0.5rem">'+report.trust_message+'</div>'
-    +(i.detail?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+i.detail+'</div>':'');
+    +'<div style="margin-top:0.5rem;font-size:0.68rem;color:var(--ink-dim);border-top:1px solid var(--border);padding-top:0.5rem">'+esc(report.trust_message)+'</div>'
+    +(i.detail?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+esc(i.detail)+'</div>':'');
 }
 
 function updateChecks(report){
-  function set(id,pass,text){var el=document.getElementById(id);if(!el)return;if(pass)el.classList.add('pass');el.innerHTML='<span class="check-dot"></span> '+text}
+  function set(id,pass,text){var el=document.getElementById(id);if(!el)return;if(pass)el.classList.add('pass');el.innerHTML='<span class="check-dot"></span> '+text} // static-html: callers pass static markup + internal enum/count only (audited); file text never reaches set()
   var f=report.facts;
   set('chk1',f.structure_ok,'01 · Structure '+(f.structure_ok?'Valid — valid EPI archive':'<span style="color:var(--tamper)">Invalid</span>'));
   set('chk2',f.integrity_ok,'02 · Integrity '+(f.integrity_ok?'PASS — all file hashes match':'<span style="color:var(--tamper)">FAIL — '+Object.keys(f.mismatches||{}).length+' mismatch(es)</span>'));
@@ -460,7 +462,7 @@ async function auditSteps(steps,manifest){
 
 async function processFile(f){
   var nm=(f&&f.name?f.name:'').toLowerCase();
-  showResult('warn','<em>Reading '+(f.name||'file')+'...</em>');
+  showResult('warn','<em>Reading '+esc(f.name||'file')+'...</em>');
 
   try{
     if(typeof JSZip==='undefined'){
@@ -486,9 +488,9 @@ async function processFile(f){
 
     var zipBuf;
     try{zipBuf=extractZIPPayload(u8,containerFmt)}
-    catch(ex){showResult('fail','<strong>Could not locate ZIP payload</strong><br>'+ex.message);return}
+    catch(ex){showResult('fail','<strong>Could not locate ZIP payload</strong><br>'+esc(ex.message));return}
     var zip;
-    try{zip=await JSZip.loadAsync(zipBuf)}catch(e){showResult('fail','<strong>ZIP extraction failed</strong><br>'+e.message+' (container: '+containerFmt+')');return}
+    try{zip=await JSZip.loadAsync(zipBuf)}catch(e){showResult('fail','<strong>ZIP extraction failed</strong><br>'+esc(e.message)+' (container: '+containerFmt+')');return}
 
     var report={facts:{structure_ok:false,integrity_ok:false,signature_valid:null,has_signature:false,mismatches:{},chain_ok:true,sequence_ok:true,completeness_ok:true,transparency_ok:null},identity:{status:'UNKNOWN',name:null,detail:null,registry_verified:false,public_key_id:null},metadata:{spec_version:'?',workflow_id:'?',created_at:'?',files_checked:0,verifier_version:'browser',steps_count:null},trust_level:'NONE',trust_message:''};
 
@@ -497,7 +499,7 @@ async function processFile(f){
     var mt=await zip.file('mimetype').async('string');
     var mtNorm=mt.trim().replace(/\r/g,'');
     if(mtNorm!==EPI_MIMETYPE&&mtNorm!=='application/vnd.epi'&&mtNorm!=='application/vnd.epi+zip'){
-      report.facts.structure_ok=false;showReport(report,'Invalid mimetype: '+mtNorm);return
+      report.facts.structure_ok=false;showReport(report,'Invalid mimetype: '+esc(mtNorm));return
     }
     report.facts.structure_ok=true;
 
@@ -505,9 +507,9 @@ async function processFile(f){
     var mf=zip.file('manifest.json');
     if(!mf){showResult('fail','<strong>No manifest.json found</strong>');return}
     var rawManifest;
-    try{rawManifest=await mf.async('string')}catch(e){showResult('fail','<strong>Could not read manifest.json</strong><br>'+e.message);return}
+    try{rawManifest=await mf.async('string')}catch(e){showResult('fail','<strong>Could not read manifest.json</strong><br>'+esc(e.message));return}
     var manifest;
-    try{manifest=parseJSONPreserveNumbers(rawManifest)}catch(e){showResult('fail','<strong>manifest.json parse error</strong><br>'+e.message);return}
+    try{manifest=parseJSONPreserveNumbers(rawManifest)}catch(e){showResult('fail','<strong>manifest.json parse error</strong><br>'+esc(e.message));return}
     report.metadata.spec_version=manifest.spec_version||'?';
     report.metadata.workflow_id=manifest.workflow_id||'?';
     report.metadata.created_at=manifest.created_at||'?';
@@ -584,7 +586,7 @@ async function processFile(f){
           report.identity.status='UNKNOWN';
           report.identity.detail=sigResult.msg||'Signature could not be verified';
         }
-      }catch(e){report.facts.signature_valid=null;report.identity.detail='WebCrypto not available: '+e.message}
+      }catch(e){report.facts.signature_valid=null;report.identity.detail='WebCrypto not available: '+esc(e.message)}
     }else if(!manifest.signature){report.facts.signature_valid=null;report.identity.detail='Artifact is unsigned'}
 
     // Trust level: green HIGH only when identity pinned. Valid unpinned seal is
@@ -597,7 +599,7 @@ async function processFile(f){
     else{report.trust_level='NONE';report.trust_message='Verification incomplete in browser — not verified, use epi verify --policy strict offline for claim audit'}
 
     showReport(report,'');
-  }catch(e){showResult('fail','<strong>Verification error</strong><br>'+e.message)}
+  }catch(e){showResult('fail','<strong>Verification error</strong><br>'+esc(e.message))}
 }
 
 function setDropSealState(type){
@@ -611,7 +613,7 @@ function setDropSealState(type){
 function showResult(type,msg){
   var colors={pass:['var(--verified-bg)','var(--verified)','var(--verified)'],warn:['var(--warn-bg)','var(--warn)','var(--warn)'],fail:['var(--tamper-bg)','var(--tamper)','var(--tamper)']};
   var c=colors[type]||colors.fail;
-  dr.style.display='block';dr.style.background=c[0];dr.style.border='1px solid '+c[1];dr.style.color=c[2];dr.innerHTML=msg;
+  dr.style.display='block';dr.style.background=c[0];dr.style.border='1px solid '+c[1];dr.style.color=c[2];dr.innerHTML=msg; // esc-built-html: msg HTML built by audited call sites above; every dynamic part escaped with esc()
   if(type==='pass'||type==='fail'||type==='warn')setDropSealState(type);
   else setDropSealState(null);
 }
@@ -634,7 +636,7 @@ function showReport(report,errMsg){
 }
 
 function resetChecks(){
-  ['chk1','chk2','chk3','chk4','chk5','chk6'].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.remove('pass');el.innerHTML='<span class="check-dot"></span> '+el.innerHTML.replace(/^.*?\d{2}\s*·\s*/,'')}});
+  ['chk1','chk2','chk3','chk4','chk5','chk6'].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.remove('pass');el.innerHTML='<span class="check-dot"></span> '+el.innerHTML.replace(/^.*?\d{2}\s*·\s*/,'')}}); // static-html: restores labels previously sanitized by set(); replace() only strips the status prefix
   if(dr)dr.style.display='none';
   setDropSealState(null);
 }
