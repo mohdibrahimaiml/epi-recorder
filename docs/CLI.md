@@ -72,7 +72,8 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi keys trust --from-did did:web:<domain>` | Resolve a vendor's did:web document once and pin its key. |
 | `epi keys did --domain <domain>` | Write a `did.json` publishing this machine's key under your domain. |
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
-| `epi witness status` / `flush` | Inspect / retry seal reports queued for a customer witness endpoint. |
+| `epi witness status` / `flush` / `drop` | Vendor side: inspect, retry or remove seal reports queued for a customer witness endpoint. |
+| `epi witness serve` | Customer side: run the witness receiver that records every seal report (`--out received.jsonl`). |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
 
 ### Advanced / operator commands
