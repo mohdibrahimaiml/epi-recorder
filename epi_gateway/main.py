@@ -187,6 +187,8 @@ class GatewayRuntimeSettings(BaseModel):
         self.approval_webhook_url = _clean(self.approval_webhook_url)
         self.approval_webhook_secret = _clean(self.approval_webhook_secret)
         self.did_web = _clean(self.did_web)
+        if self.did_web and not self.did_web.startswith("did:web:"):
+            raise ValueError(f"EPI_DID / --did must start with 'did:web:', got: {self.did_web}")
         self.witness_url = _clean(self.witness_url)
         self.witness_secret = _clean(self.witness_secret)
         self.smtp_host = _clean(self.smtp_host)
@@ -354,9 +356,12 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         approval_webhook_url=os.getenv("EPI_APPROVAL_WEBHOOK_URL"),
         approval_webhook_secret=os.getenv("EPI_APPROVAL_WEBHOOK_SECRET"),
         approval_webhook_timeout_seconds=int(os.getenv("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS", "10")),
-        did_web=os.getenv("EPI_DID"),
-        witness_url=os.getenv("EPI_WITNESS_URL"),
-        witness_secret=os.getenv("EPI_WITNESS_SECRET"),
+        # Identity + customer witness: gateway-specific env (set by
+        # `epi gateway serve --did/--witness-url/--witness-secret`) wins,
+        # then the same EPI_DID / EPI_WITNESS_* env the SDK record() reads.
+        did_web=os.getenv("EPI_GATEWAY_DID") or os.getenv("EPI_DID"),
+        witness_url=os.getenv("EPI_GATEWAY_WITNESS_URL") or os.getenv("EPI_WITNESS_URL"),
+        witness_secret=os.getenv("EPI_GATEWAY_WITNESS_SECRET") or os.getenv("EPI_WITNESS_SECRET"),
         smtp_host=os.getenv("EPI_SMTP_HOST"),
         smtp_port=int(os.getenv("EPI_SMTP_PORT", "587")),
         smtp_user=os.getenv("EPI_SMTP_USER"),
@@ -1179,6 +1184,11 @@ def create_app(
             "capture_scope": runtime_settings.capture_scope,
             "share_enabled": runtime_settings.share_enabled,
             "telemetry_enabled": runtime_settings.telemetry_enabled,
+            # Identity bound into exported manifests (governance.did) and
+            # whether exports are reported to a customer witness. The
+            # witness URL and secret are never exposed here.
+            "did": runtime_settings.did_web,
+            "witness_configured": bool(_split_witness_urls(runtime_settings.witness_url)),
             "replay": {
                 "applied_batches": snapshot["replayed_batches"],
                 "skipped_batches": snapshot["skipped_replay_batches"],

@@ -405,7 +405,9 @@ epi gateway serve --port 9000 --storage-dir ./gateway-vault
 epi gateway serve --retention-mode redacted_hashes --proxy-failure-mode fail-closed
 epi gateway serve --access-token change-me
 epi gateway serve --users-file ./config/gateway-users.example.json
+epi gateway serve --did did:web:vendor.com --witness-url https://customer.example/witness --witness-secret "$SECRET"
 epi gateway export --case-id decision::refund-123 --out reviewed.epi --storage-dir ./gateway-vault
+epi gateway export --case-id decision::refund-123 --out reviewed.epi --storage-dir ./gateway-vault --did did:web:vendor.com
 ```
 
 This is the lowest-friction developer entrypoint if you want EPI to act more like infrastructure than a post-hoc viewer:
@@ -420,7 +422,9 @@ This is the lowest-friction developer entrypoint if you want EPI to act more lik
 The gateway is intentionally part of the open capture/spec layer. A future enterprise control plane should sit above it, not replace it.
 
 Operator notes:
-- `/health` is the liveness/runtime-state endpoint
+- `/health` is the liveness/runtime-state endpoint; it also reports `did` and `witness_configured` (never the witness URL or secret)
+- identity and witness work as for `record()`: `--did` (or `EPI_DID`) puts the did:web identity in `manifest.governance["did"]` of every export, and `--witness-url` / `--witness-secret` (or `EPI_WITNESS_URL` / `EPI_WITNESS_SECRET`) report each exported file, hash-only, to the customer witness ([WITNESS.md](WITNESS.md)). Delivery is outbox-first and never fails an export; `epi gateway export` prints `DID: ...` and `Witness: delivered to <url>` or `Witness: QUEUED (<reason>) — run epi witness flush`. The serve banner shows the DID and witness URL, never the secret.
+- `epi gateway export` refuses a `--storage-dir` with no `cases.sqlite3`, and warns when no signing key exists (`epi keys generate`)
 - `/ready` is the supported readiness probe after replay
 - `--retention-mode` controls whether provider request/response bodies are stored in redacted-hash form or full content
 - `--proxy-failure-mode` controls whether successful upstream proxy calls still return when EPI capture fails
