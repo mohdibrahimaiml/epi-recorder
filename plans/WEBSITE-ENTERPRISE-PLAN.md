@@ -1,6 +1,6 @@
 # epilabs.org → enterprise-grade: implementation plan
 
-Status: ready to execute · Baseline: `main` @ `5930247` (v4.6.0 released) · Owner: coding agent, founder approves gated items.
+Status: ready to execute · **Founder decisions D1–D7 made (§7)** · Baseline: `main` @ `5930247` (v4.6.0 released) · Owner: coding agent, founder approves gated items.
 
 This plan comes from three audits of `website/` (claims-vs-code, technical/UX in a real
 browser with axe-core, and enterprise buyer research). Every High item below was
@@ -51,6 +51,7 @@ re-checked in the code. Work top to bottom. **Do not skip the gates.**
 | 3 | WP-SEC-3 security headers (`_headers`, CSP) | M | – |
 | 4 | WP-SEC-4 **product 4.6.1**: remote registry never grants trust | M | – |
 | 5 | WP-SEC-5 shared-case page: honest verdict badge | S | – |
+| 5b | WP-SEC-6 `epi share` uploads: enforce the retention promise + rate limit | S | – |
 | 6 | WP-FIX-1 broken pages: header/menu on 3 pages, JS syntax error, dead links | S | – |
 | 7 | WP-FIX-2 version single-source, `SECURITY.md`, `security.txt` | S | – |
 | 8 | WP-FIX-3 remove public cruft, logo weight, fonts, Paddle defer | M | – |
@@ -193,6 +194,29 @@ with a stripped signature give green-with-caveat, red and amber respectively.
 
 ---
 
+### WP-SEC-6: `epi share` uploads must actually expire (decision D6)
+**Found:** `verify_portal/main.py` `POST /api/share` writes `shared_cases/<id>.epi`
+with an `expires_at` (default 30 days), but **nothing ever deletes the files** and
+nothing checks `expires_at` when serving them. The endpoint also takes anonymous
+5 MB uploads with no rate limit. The MCP server, by contrast, really deletes its
+files after 24 h (`epi_mcp/http.py` purge timer); copy that pattern.
+
+1. Default `expires_days` to **7**, max **30** (`Query(7, ge=1, le=30)`); update
+   `epi_cli/share.py` default and help text to match.
+2. Add `purge_expired_shares()` that deletes the `.epi` and `.json` for every
+   share past `expires_at`. Run it on startup, on a background timer (hourly),
+   and before each upload.
+3. Any read of a share past `expires_at` returns 410 Gone with "This link has
+   expired", even if the purge hasn't run yet.
+4. Rate-limit anonymous uploads per IP (e.g. 10/hour) using the existing limiter
+   in `verify_portal` if there is one; otherwise a small in-memory one.
+5. Tests: expired share returns 410 and its files are gone after purge; default
+   is 7 days; a 31-day request is rejected.
+
+This is a product change: ship it in **4.6.1** together with WP-SEC-4.
+
+---
+
 ## 2. Broken things and hygiene (mechanical)
 
 ### WP-FIX-1: broken pages
@@ -330,9 +354,12 @@ Also everywhere:
 - Add a test that fails if any of those strings come back.
 
 ### WP-COPY-2: pricing, trial, refund and legal consistency (🔒 + facts from founder)
-**Decide first (founder, see §7 D1):** pause the self-serve Hosted ($199) and Team
-($799) tiers, or keep them labelled **"Beta · no SLA"**. They currently run on
-free-tier Render with cold starts and no monitoring (`status.html` says so).
+**Decided (§7 D1):** keep self-serve plans and show the full price ladder from §7 D1.
+Paid hosted tiers carry a visible **"Beta · no SLA"** badge until WP-OPS-1
+monitoring has run clean for 30 days. Rename the metered unit from "hosted
+verifications" to **"hosted verification API calls"** and make "Offline
+verification: unlimited, always free" the first line of every tier, so the page
+never contradicts "verification is free".
 
 Then make one policy and use it on every page (`plans`, `account`, `refund`, `terms`, home):
 - **Trial:** "No free trial." Delete "7-day free trial" (`account.html` ~176) and
@@ -350,28 +377,37 @@ Then make one policy and use it on every page (`plans`, `account`, `refund`, `te
   Status · Security. Paddle requires the legal links to be reachable.
 - **`terms.html`:** legal entity name, registered address, governing law and courts,
   limitation of liability, billing/renewal/cancellation, acceptable use, and the
-  status of the hosted service (beta, no SLA unless signed). **Use the founder's
-  real entity details (§7 D3). If there's no company yet, say "operated by
-  <founder name>, <city, country>" and get these terms reviewed by a lawyer before
-  taking enterprise payments.**
+  status of the hosted service (beta, no SLA unless signed). **Per §7 D3: "operated by
+  its founder, Mohd Ibrahim; incorporation in progress". Governing law and city:
+  FOUNDER supplies (leave a TODO in the PR, not on the live page). Lawyer review
+  before the first enterprise contract.**
 - **`privacy.html`:** list the processors and what each receives: Paddle (billing),
   Cloudflare (hosting/CDN), Render (verify and MCP backend), GitHub (sign-in), the
   RFC 3161 timestamp services (receive only a SHA-256 hash), and the font host if
   any remains. Give retention periods: `epi share` uploads (say how long), MCP
   artifacts (24 h), account data. Disclose the localStorage auth token.
 - **Contact and waitlist forms post nowhere** (`js/contact.js:9`
-  `EPI_CONTACT_ENDPOINT=""`). Either wire them to a real endpoint (a Pages
-  Function that emails via a provider the founder chooses) or replace them with a
-  plain `mailto:` link. Remove "reply within one business day" unless the founder
-  commits to it.
+  `EPI_CONTACT_ENDPOINT=""`). **Decided (§7 D5):** replace every form with a
+  `mailto:` link with a prefilled subject and a short body template (company,
+  what your agent does, who your regulated customer is). Waitlist → same, subject
+  "Control plane waitlist". Delete `contact.js` and the dead endpoint config.
+  Promise "reply within 2 business days".
+- **Emails (§7 D4):** put every address in one config value so switching is one
+  line. Target: `hello@` (sales/contact), `security@` (security.txt, SECURITY.md,
+  `/security`), `privacy@` (privacy page), `billing@` (refund/terms), all
+  forwarding to `mohdibrahim@epilabs.org`. **Use `mohdibrahim@epilabs.org`
+  everywhere until the founder confirms the aliases work.**
 
 ---
 
 ## 4. 🔒 Positioning: one story (WP-POS-1)
 
-**The buyer:** an AI-agent startup selling into banks and fintechs, whose deal
-stalls on "prove what your agent did". **The verifier:** that bank's risk,
-compliance or audit team. The site currently tells three stories (insurers,
+**The buyer (decided, §7 D7):** an AI-agent company selling into a regulated or
+high-stakes customer (financial services first; then insurance, healthcare,
+legal), whose deal stalls on "prove what your agent did". **The verifier:** that
+customer's risk, compliance or audit team. Use the bank as the **lead example**
+on the page, and name insurers, hospitals and law firms as the other verifiers
+in one line, not as separate stories. The site currently tells three stories (insurers,
 enterprise audit, developer tool), and "witness" doesn't appear on it once.
 
 ### Home page structure (keep the current hero line; it's right)
@@ -401,7 +437,7 @@ enterprise audit, developer tool), and "witness" doesn't appear on it once.
 7. **Open source and trust:** the MIT verifier, `/security`, and the threat model.
 8. **Pricing teaser:** free to use and verify, sprint, pilot.
 
-**Remove from home:** the insurer/underwriting section, the government/AI-safety
+**Remove from home (decided, §7 D2):** the insurer/underwriting section, the government/AI-safety
 audiences, and particles and other decorative animation that hides content
 without JS (see WP-A11Y-1).
 
@@ -417,9 +453,20 @@ without JS (see WP-A11Y-1).
 - **`use-cases`:** lead with "Vendor → bank disputes" (refund, loan decision, AML
   alert closure). Mark every demo as SIMULATED.
 
+**New page `/vision` (decided, §7 D2):** "Where this goes". The bigger picture
+lives here, not on the home page: evidence for agentic payments and
+agent-to-agent work, AI-liability insurance underwriting and claims, regulators
+and auditors. Each item is labelled **Roadmap** or **Exploring**, never
+"available". Link it from the footer. Investors read this page; buyers don't
+need to.
+
+**Design-partner section (§7 D7):** on home (after the pricing teaser) and
+`/plans`: "Design-partner program: 5 places", the offer from §7 D7, and a
+`mailto:` button with subject "Design partner". No "places left" counter.
+
 **Acceptance:** the founder approves the copy in a preview deploy. Ask a 3-second
 test question of someone who doesn't know EPI: "Who is this for?" The answer
-should be "AI companies selling to banks".
+should be "AI companies whose customers need proof of what the agent did".
 
 ---
 
@@ -441,8 +488,11 @@ One URL a vendor can paste into a bank questionnaire. Sections:
 3. **Vulnerability disclosure:** `security.txt`, SECURITY.md, and GitHub private reporting.
 4. **Subprocessors:** Cloudflare, Render, Paddle, GitHub (sign-in), and the
    timestamp services (hash only). State "none when self-hosted".
-5. **Company facts:** legal name, country, registration number, contact, and LEI
-   status (§7 D3). DORA requires an LEI for non-EU ICT providers in a bank's register.
+5. **Company facts (§7 D3):** until incorporation, only: "EPI Labs is currently
+   operated by its founder, Mohd Ibrahim; incorporation is in progress." No
+   registration number, address or LEI placeholders on the live site. Add them
+   when they exist (DORA requires an LEI for non-EU ICT providers in an EU bank's
+   register).
 6. **Certifications:** "None yet. Roadmap: CSA STAR Level 1 self-assessment (free)
    [date]; SOC 2 Type I for the hosted service once it has paying users." Say "none
    yet" plainly; don't leave it out.
@@ -456,7 +506,7 @@ One URL a vendor can paste into a bank questionnaire. Sections:
    - the data-flow statement;
    - a one-page "How to list EPI in your vendor-risk / DORA register answer".
 
-   The founder fills in the company facts.
+   Company facts as in item 5.
 
 Add `/security` to the main nav or the footer, and to `sitemap.xml`.
 
@@ -522,17 +572,141 @@ epi verify FILE --policy strict --witness-log received.jsonl --offline
 
 ---
 
-## 7. Decisions needed from the founder (ask, don't guess)
+## 7. Founder decisions (decided 2026-10-12)
 
-| # | Decision | Needed for | Recommendation |
+The agent applies these as written. Anything still marked **FOUNDER** is a step
+only the founder can do; don't block other work on it.
+
+Context: EPI Labs is raising a pre-seed round for go-to-market and customer
+acquisition (an agency handles the paperwork and investor introductions). The
+site is read by **two audiences**: buyers (AI teams) and investors. Buyers need
+one clear story; investors need a revenue model, a target customer, and proof
+that the claims are true. Every decision below serves both.
+
+### D1 — Pricing: keep several plans, so revenue can be modelled
+Show the full ladder on `/plans`. Each step exists so an investor can see how a
+customer grows in value, and so a buyer always has a next step.
+
+| Plan | Price | Who it's for | What they get (only things that exist) |
 |---|---|---|---|
-| D1 | Self-serve Hosted $199 / Team $799: **pause** or keep as **"Beta · no SLA"**? | WP-COPY-2 | Pause; lead with the $1,500 sprint and design-partner pilots |
-| D2 | Remove the insurer/underwriting and government sections from the home page? | WP-POS-1 | Yes, until there's a customer in those segments |
-| D3 | Company facts: legal entity name, country, registration no., registered address, LEI (yes / applying / no) | Terms, `/security` | Fill in real data; apply for an LEI (~€50–100/yr) before bank conversations |
-| D4 | Security contact address (one, monitored) | WP-FIX-2 | `security@epilabs.org`, forwarded to the founder |
-| D5 | Contact form: real endpoint (which email provider?) or `mailto:` | WP-COPY-2 | `mailto:` now; a form later |
-| D6 | Retention period for `epi share` uploads / hosted verify | Privacy, `/security` | State the real value from `verify_portal` config |
-| D7 | Design-partner offer: number of slots, what's free, what you ask in return | POS/TRUST | 3 slots: free pilot plus a bank-reviewer session, in exchange for feedback and a reference |
+| **Open source** | $0 | Any developer | Recorder, gateway, CLI, viewer, `epi verify --offline`. Unlimited. |
+| **Hosted** · Beta | $199/mo (yearly: 2 months free) | Small AI team, first regulated customer | 10,000 hosted verification API calls/mo, remote SCITT registration, 10 API keys, email support |
+| **Team** · Beta | $799/mo (yearly: 2 months free) | AI team with several customers | 50,000 calls/mo, remote SCITT, 50 API keys, email support (48 h target) |
+| **Evidence Sprint** | $1,500 one-time | Team with a deal stuck on "prove it" | One agent workflow instrumented in 5 days; sealed evidence + a verify pack for their customer |
+| **Design-partner pilot** | $5,000 / 90 days (first 5 free, see D7) | Team going to production with a regulated customer | Org keys, witness set-up with their customer, hosted receipts, roadmap input |
+| **Enterprise** | Annual contract, from $25,000/yr | Larger vendors, or the regulated customer itself | Custom volume, private deployment help, security review support, contract SLA |
+
+Rules: values in the "What they get" column must match `verify_portal/tier_gating.py`
+`PLAN_FEATURES` and `website/js/paddle-config.js`; the Paddle price IDs don't change.
+"Beta · no SLA" badges come off only after WP-OPS-1 has 30 clean days. The
+Enterprise price is shown as "from $25,000/yr"; don't invent features for it.
+
+### D2 — Insurer and government sections: off the home page, onto `/vision`
+Reasoning from each side:
+- **Buyer (an AI team, 3 seconds on the page):** five audiences means "not for
+  me". One audience with one action converts.
+- **Bank / risk reviewer:** claims like "makes agents insurable" with no insurer
+  partner read as overclaiming and lower trust in everything else.
+- **Investor:** wants focus *now* and a big market *later*. A focused home page
+  plus a `/vision` page shows both: the beachhead and the "evidence layer for
+  autonomous AI" story.
+- **Regulator / lawyer:** less marketing copy = fewer statements to be held to.
+
+So: home page = one buyer, one story (WP-POS-1). Insurers, government, agentic
+payments go to `/vision`, labelled Roadmap / Exploring.
+
+### D3 — No company yet: sell to AI teams first, don't fake company facts
+- Site and Terms say: "EPI Labs is currently operated by its founder, Mohd Ibrahim;
+  incorporation is in progress." No registration number, address or LEI until
+  they exist.
+- Open-source use and the free tier need nothing more. The Terms already cover
+  the hosted service.
+- **FOUNDER (with the agency):** incorporate before the round closes; investors
+  invest in a company, not a person. Ask the agency which jurisdiction their
+  investors expect (often a Delaware C-corp for US investors). At incorporation,
+  assign the code, the `epilabs.org` domain and the PyPI project to the company
+  (investors check IP ownership in due diligence). Apply for an LEI only after
+  incorporation and before the first bank or EU financial customer.
+- Before taking an enterprise contract ($5K+), have a lawyer review Terms and the
+  contract template. Paddle (merchant of record) already handles tax and
+  invoicing for the self-serve plans.
+
+### D4 — Emails: everything goes to `mohdibrahim@epilabs.org`
+Role addresses on the site, all forwarding to `mohdibrahim@epilabs.org`:
+`hello@` (sales, contact, design partners), `security@`, `privacy@`, `billing@`.
+Role addresses look like a company, and they keep working when someone else
+joins.
+- **FOUNDER (5 minutes):** Cloudflare dashboard → epilabs.org → Email → Email
+  Routing → add the four custom addresses → destination `mohdibrahim@epilabs.org`.
+  (If epilabs.org mail is hosted by Google Workspace/Zoho instead, add them there
+  as aliases.) Send a test mail to each, then tell the agent "aliases work".
+- Until then, the agent uses `mohdibrahim@epilabs.org` everywhere, from one config value.
+
+### D5 — Contact: `mailto:`, no form backend
+`mailto:hello@epilabs.org` with prefilled subjects ("Evidence Sprint",
+"Design partner", "Enterprise", "Control plane waitlist") and a 3-line body
+template. No form, no backend, no data stored, nothing to secure. Promise
+"reply within 2 business days". A booking link (Cal.com, free) can be added
+later if the founder wants calls booked directly.
+
+### D6 — Data retention: short, stated, enforced
+Principle: keep as little as possible, for as short as possible, and make the
+code enforce what the page says.
+
+| Data | Where | Kept for | Enforced by |
+|---|---|---|---|
+| Files sealed or verified locally (CLI, library, self-hosted gateway, `--offline`) | Customer's machine | Never sent to EPI Labs | Design |
+| Files dropped on the website verifier | Visitor's browser | Never uploaded (checked in the browser) | Design (`home-verify.js`) |
+| MCP connector sealed files | Render (EPI MCP server) | **24 hours**, then deleted | Already enforced (`epi_mcp/http.py` purge timer) |
+| `epi share` uploads | Render (verify portal) | **7 days by default, max 30**, then deleted | **WP-SEC-6** (today nothing deletes them) |
+| Account data (GitHub sign-in profile, plan, API keys) | Render (verify portal) | While the account is open; deleted within 30 days of a request to `privacy@` | Manual for now; say so |
+| Billing records | Paddle | As Paddle's law-required retention | Paddle |
+| Server logs | Render / Cloudflare | Provider default; agent writes the actual figure after checking the dashboards — **FOUNDER** confirms | Provider |
+
+Publish this table on `/privacy` and `/security` only after WP-SEC-6 is deployed.
+
+### D7 — Best customers: not just banks
+EPI's value is one thing: **a third party can check what an AI agent did,
+without trusting whoever ran it.** The best first customers are teams who must
+hand that proof to someone else *now*, can decide fast, and install a Python
+package themselves.
+
+| Rank | Segment | Why they buy | Who verifies | Speed | Role |
+|---|---|---|---|---|---|
+| 1 | **AI-agent startups selling into financial services** (lending, KYC/AML, collections, fraud, claims, back-office agents) | Bank security reviews and model-risk questions block the deal; EPI unblocks it | The bank's risk/compliance team | Fast (dev-led, weeks) | **Beachhead: paying customers + design partners** |
+| 2 | **AI-agent startups selling into insurance** (claims, underwriting agents) | Insurers must document AI decisions (state AI bulletins based on the NAIC model bulletin) | The carrier's compliance team | Fast–medium | Customers |
+| 3 | **Healthcare AI vendors** (prior authorization, clinical documentation, revenue-cycle agents) | Hospitals ask for audit trails (HIPAA audit-control requirement) | Hospital compliance / payer | Medium–slow | Customers, later |
+| 4 | **Legal AI** (contract, e-discovery, research agents) | Law firms need provenance and chain of custody for AI work product | Law firm / opposing counsel | Medium | Customers |
+| 5 | **AI-assurance firms** (AI audit boutiques, Big 4 AI assurance teams, ISO 42001 certifiers) | They need evidence to audit; EPI gives them a standard file to check | They are the verifier | Medium | **Channel partners**: they recommend EPI to clients |
+| 6 | **Agent platforms and frameworks** (agent builders, MCP server makers, observability tools) | "Signed evidence" is a feature their users ask for | – | Medium | **Distribution partners** (integrations) |
+| 7 | **Agentic payments/commerce** (agents that buy, pay or sign) | Disputes need proof of what the agent was told and did | Payment provider / merchant | Early market | **Vision**: `/vision` and investor deck |
+| 8 | **AI-liability insurers** | Underwriting and claims need evidence of agent behaviour | They are the verifier | Early market | **Vision / partner** |
+
+Banks themselves are verifiers that pull vendors in (rank 1–2), not the first
+buyer: their procurement takes 6–12 months.
+
+**Design-partner offer** (for segments 1–2, also 4):
+- **5 places.** Free 90-day pilot (normally $5,000).
+- The founder instruments one real agent workflow with them, sets up witness
+  with **their** regulated customer if they have one, and gives them Team plan
+  access during the pilot.
+- After the pilot: founding price, 50% off year 1, locked.
+- In return: a 30-minute feedback call every two weeks; permission to use their
+  logo and a short case study (they approve the text); one reference call; and a
+  **signed letter of intent** (LOI) stating the plan they'd buy if the pilot
+  works. LOIs are what pre-seed investors weigh most at this stage.
+
+### Fundraising readiness: what the site must show investors (agent: build what exists, invent nothing)
+- **Traction you can prove:** PyPI downloads (link to pepy.tech/project/epi-recorder),
+  GitHub stars, release history. Show these only as live badges, never typed numbers.
+- **A "Changelog" link and steady releases:** shows execution speed.
+- **Design partners:** a logo strip appears **only** after a partner signs
+  permission. Until then, nothing.
+- **Founder page / About:** who builds EPI and why, with a photo and LinkedIn.
+  **FOUNDER** supplies the text and photo.
+- Keep the data room **outside this public repo** (Google Drive or the agency's
+  data room), never in git: pitch deck, cap table, incorporation docs, IP assignment, financial model built
+  on the D1 ladder, customer pipeline, LOIs, security overview (`/security`).
 
 ---
 
