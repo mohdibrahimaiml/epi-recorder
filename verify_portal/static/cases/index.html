@@ -316,9 +316,9 @@
       item.innerHTML=
         '<div class="timeline-header">'+
           '<div class="timeline-topline">'+
-            '<span class="step-index">#'+(step.index!=null?step.index:'--')+'</span>'+
+            '<span class="step-index">#'+escapeHtml(step.index!=null?step.index:'--')+'</span>'+
             '<span class="kind-tag">'+escapeHtml(step.kind||'step')+'</span>'+
-            '<span class="step-time">'+formatDate(step.timestamp)+'</span>'+
+            '<span class="step-time">'+escapeHtml(formatDate(step.timestamp))+'</span>'+
           '</div>'+
           '<div class="step-preview">'+escapeHtml(preview)+'</div>'+
         '</div>'+

@@ -2255,7 +2255,7 @@ function renderHeader(caseData, context) {
 
   const intPill = document.createElement('span');
   intPill.className = 'pill ' + (intOk ? 'pass' : 'fail');
-  intPill.innerHTML = `<span class="pill-dot"></span>${intOk ? 'INTEGRITY VERIFIED' : 'INTEGRITY FAILED'}`;
+  intPill.innerHTML = `<span class="pill-dot"></span>${intOk ? 'INTEGRITY VERIFIED' : 'INTEGRITY FAILED'}`; // static-html
   pillsEl.appendChild(intPill);
 
   const sigPill = document.createElement('span');
@@ -2283,7 +2283,7 @@ function renderHeader(caseData, context) {
     } else {
       reviewPill.className = 'pill warn';
     }
-    reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${rs.toUpperCase()}`;
+    reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${esc(rs.toUpperCase())}`;
     pillsEl.appendChild(reviewPill);
   }
 
@@ -2298,7 +2298,7 @@ function renderHeader(caseData, context) {
     if (rl === 'high' || rl === 'critical') riskClass = 'fail';
     if (rl === 'low') riskClass = 'pass';
     riskPill.className = 'pill ' + riskClass;
-    riskPill.innerHTML = `<span class="pill-dot"></span>RISK ${String(riskLevel).toUpperCase()}`;
+    riskPill.innerHTML = `<span class="pill-dot"></span>RISK ${esc(String(riskLevel).toUpperCase())}`;
     pillsEl.appendChild(riskPill);
   }
 }
@@ -2489,7 +2489,7 @@ function renderCaseContext(caseData) {
       </div>`;
   }
 
-  document.getElementById('context-inner').innerHTML = html;
+  document.getElementById('context-inner').innerHTML = html; // esc-built-html: html assembled above only from esc() output and static literals
 }
 
 /** § 3  Verdict / Decision */
@@ -2655,7 +2655,7 @@ function renderEvidence(caseData) {
       const stepMs = new Date(step.timestamp).getTime();
       if (!isNaN(stepMs)) {
         const delta = ((stepMs - startMs) / 1000).toFixed(3);
-        deltaStr = `+${delta}s`;
+        deltaStr = `+${esc(delta)}s`;
       }
     }
 
@@ -2730,6 +2730,7 @@ function renderGovernance(caseData) {
     const status = res?.status || 'unknown';
     const isPassed = status === 'passed' || status === 'pass';
     const isFailed = status === 'failed' || status === 'fail';
+    const statusCls = isPassed ? 'passed' : isFailed ? 'failed' : ''; // internal booleans only
 
     // Build condition / threshold detail line
     let detailHtml = '';
@@ -2745,13 +2746,13 @@ function renderGovernance(caseData) {
     }
 
     return `
-      <div class="policy-item ${isPassed ? 'passed' : isFailed ? 'failed' : ''}">
+      <div class="policy-item ${esc(statusCls)}">
         <div class="policy-item-header">
           <span class="policy-item-name">
             ${esc(ruleId)}: ${esc(ruleName)}
-            <span class="risk-badge ${ruleSeverity}">${esc(ruleSeverity.toUpperCase())}</span>
+            <span class="risk-badge ${esc(ruleSeverity)}">${esc(ruleSeverity.toUpperCase())}</span>
           </span>
-          <span class="policy-item-status ${isPassed ? 'passed' : isFailed ? 'failed' : ''}">
+          <span class="policy-item-status ${esc(statusCls)}">
             ${esc(status.toUpperCase())}
           </span>
         </div>
@@ -2759,7 +2760,7 @@ function renderGovernance(caseData) {
       </div>`;
   }).join('');
 
-  document.getElementById('rulebook-content').innerHTML = html;
+  document.getElementById('rulebook-content').innerHTML = html; // esc-built-html: html assembled above only from esc() output and static literals
 }
 
 /** § 6  Analysis */
@@ -2801,12 +2802,12 @@ function renderAnalysis(caseData) {
   const flags = analysis.secondary_flags || [];
   if (flags.length > 0) {
     html += `<div class="secondary-flags">
-      <div style="font-size:10px; font-weight:900; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; letter-spacing:1px;">Secondary Flags (${flags.length})</div>`;
+      <div style="font-size:10px; font-weight:900; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; letter-spacing:1px;">Secondary Flags (${esc(flags.length)})</div>`;
     flags.forEach(f => {
       html += `
         <div class="flag-item">
           <strong>${esc(f.fault_type || f.type || '?')}</strong>
-          ${f.severity ? ` <span class="risk-badge ${f.severity.toLowerCase()}">${esc(f.severity.toUpperCase())}</span>` : ''}
+          ${f.severity ? ` <span class="risk-badge ${esc(f.severity.toLowerCase())}">${esc(f.severity.toUpperCase())}</span>` : ''}
           ${f.step_index != null ? ` · Step ${esc(f.step_index)}` : ''}
           ${f.description ? `<br><span style="font-size:10px; color:#555;">${esc(f.description)}</span>` : ''}
         </div>`;
@@ -2838,7 +2839,7 @@ function renderAnalysis(caseData) {
     }).join('') + '</div>';
   }
 
-  document.getElementById('analysis-content').innerHTML = html;
+  document.getElementById('analysis-content').innerHTML = html; // esc-built-html: html assembled above only from esc() output and static literals
 }
 
 /** § 7  Human Attestation */
