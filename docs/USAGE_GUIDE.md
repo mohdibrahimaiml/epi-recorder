@@ -71,11 +71,15 @@ Typical **first-run** result (local sealer key on this machine):
 - **Identity:** often **LOCAL** or **UNKNOWN / NOT_PINNED** until org trust pin  
 - **Decision:** under STANDARD, unpinned/LOCAL → **WARN · UNVERIFIED IDENTITY** (valid seal ≠ claim-ready). Under STRICT, unpinned → **FAIL**.
 
+Scripts must rely on the exit code only with `--policy strict`: `epi verify` exits `0` on WARN.
+
 Seal vs identity: integrity/signature answer “is the artifact internally consistent under some key?”; identity answers “do we recognize the sealer?” Anyone can rebuild the chain and re-sign.
 
 ```bash
-# Insurers / claim acceptance — always:
-epi verify refund.epi --policy strict
+# Customers, insurers, banks, auditors — always:
+epi verify refund.epi --policy strict --witness-log received.jsonl
+# (add --require-timestamp only if the vendor seals with a reachable timestamp
+#  service; leave out --witness-log if no witness receiver is run)
 # Dev skim (WARN if identity not org-pinned):
 epi verify refund.epi --json
 ```

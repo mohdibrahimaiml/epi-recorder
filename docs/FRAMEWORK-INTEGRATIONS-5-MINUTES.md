@@ -146,6 +146,17 @@ Use this when you already have tracing instrumentation and want portable, signed
 
 ## HTTP / no-code connectors
 
+Start the gateway (it seals exports with your key, so run `epi keys generate` once first):
+
+```bash
+epi keys generate
+epi gateway serve --host 127.0.0.1 --port 8787
+```
+
+Send each tool call **and** its result. Every event with the same `traceId`
+lands in the same case; `payload.call_id` pairs a `tool.call` with its
+`tool.response`:
+
 ```http
 POST /capture
 Content-Type: application/json
@@ -157,10 +168,40 @@ Content-Type: application/json
   "sourceApp": "n8n",
   "payload": {
     "tool": "lookup_order",
+    "call_id": "call-1",
     "input": {"order_id": "123"}
   }
 }
 ```
+
+```http
+POST /capture
+Content-Type: application/json
+
+{
+  "eventType": "tool.response",
+  "traceId": "trace-123",
+  "workflowName": "Refund approvals",
+  "sourceApp": "n8n",
+  "payload": {
+    "tool": "lookup_order",
+    "call_id": "call-1",
+    "output": {"status": "shipped"}
+  }
+}
+```
+
+Export the case (its id is `trace::<traceId>`) and verify it:
+
+```bash
+epi gateway export --case-id "trace::trace-123" --out refund.epi
+epi verify refund.epi
+```
+
+`Forensic: PASS` confirms every call has its response. A `tool.call` sent
+without a matching `tool.response` seals fine but verifies as
+`Forensic: FAIL — tool.call at step 2 is missing a corresponding tool.response`,
+which is a WARN under the default policy and a FAIL under `--policy strict`.
 
 Use this for n8n, Flowise, Langflow, Dify, or any adapter that can send JSON to the EPI gateway. The gateway also accepts `kind` / `content` if you prefer the native schema, and `/capture/batch` accepts either `items` or `events`.
 
@@ -172,7 +213,7 @@ pytest --epi --epi-dir=evidence
 pytest --epi --epi-on-pass
 ```
 
-Use this when you want artifacts from failing tests with almost no application code changes.
+Use this when you want artifacts from failing tests with almost no application code changes. Files go to `./test-evidence/` by default, one per failing test (`--epi-on-pass` keeps passing tests too); a re-run replaces the file for the same test.
 
 ## After capture
 

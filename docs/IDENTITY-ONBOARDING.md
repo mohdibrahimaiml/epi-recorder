@@ -29,10 +29,12 @@ once, for free.
 1. Resolve once and pin: `epi keys trust --from-did did:web:vendor.com --name vendor`.
    It prints the key fingerprint — confirm it with the vendor out of band
    (call, contract, existing secure channel). For rotation, pin each key in
-   their `did.json`.
-2. Verify: `epi verify run.epi`.
+   their `did.json`. No network? Ask the vendor for the `did.json` file
+   itself and pin it offline: `epi keys trust did.json --name vendor`.
+2. Verify with the recommended command below.
    - Pinned key: identity KNOWN.
-   - No pins at all: soft `NOT_PINNED` (normal for a first look).
+   - No pins at all: `NOT_PINNED` (WARN under the default policy, FAIL under
+     `--policy strict`).
    - Pins exist but the file's key is not among them: red
      `NOT A KEY YOU TRUST (you have pinned: vendor). This file was not
      sealed by a key you trust.`
@@ -42,11 +44,19 @@ once, for free.
 ## Recommended verify command for customers
 
 ```bash
-epi verify run.epi --require-timestamp --witness-log received.jsonl
+epi verify run.epi --policy strict --witness-log received.jsonl
 ```
 
-Without `--require-timestamp`, a file with no timestamp still passes, so a
-vendor could remove the timestamp. With it, such a file FAILs.
+Add `--require-timestamp` **only if** the vendor seals with a reachable
+RFC 3161 timestamp service. Without it, a file with no timestamp still
+passes, so a vendor could re-seal without one; with it, such a file FAILs.
+If the vendor has no timestamp service, every file would fail it.
+
+Scripts must rely on the exit code **with `--policy strict`**: `epi verify`
+exits `1` on FAIL and `0` on PASS **and on WARN**, and under the default
+policy an unpinned sealer, a missing witness entry or incomplete evidence is
+only a WARN. Leave out `--witness-log` if you do not run a witness receiver
+(see [WITNESS.md](./WITNESS.md)).
 
 ## What this does not do
 

@@ -302,14 +302,17 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 
 ## Sprint rule: strict mode for deliverables
 
-Sprint deliverables (claims, insurer/audit handoff, release gates) must use:
+Sprint deliverables (claims, insurer/bank/audit handoff, release gates) must use:
 
 ```bash
-epi verify run.epi --policy strict
+epi verify run.epi --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
 ```
 
 `--policy strict` FAILs unknown/unpinned sealers, unsigned artifacts, integrity
-failure, and truncated payloads. `standard` WARNs on unknown sealers by design
+failure, truncated payloads, and incomplete evidence (e.g. a `tool.call` with
+no `tool.response`). Scripts must rely on the exit code with
+`--policy strict`: WARN exits `0`. `standard` WARNs on unknown sealers by design
 (valid seal · not org pin) — never claim-ready. The `--policy` help text and
 `docs/VERIFICATION_CONTRACT.md` list every verdict; the browser verifier never
 ranks above the CLI for the same bytes.

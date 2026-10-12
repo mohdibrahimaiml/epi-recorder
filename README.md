@@ -73,6 +73,10 @@ into `./epi-recordings/`. A path with a folder, such as `./demo.epi` or
 `out/demo.epi`, is written exactly there. Run the commands above from the same
 folder as `demo.py`; `epi verify demo.epi` finds the file in `./epi-recordings/`.
 
+Running `python demo.py` again never replaces earlier evidence: the second run
+seals to `epi-recordings/demo-2.epi` (then `demo-3.epi`, …) and says so. Set
+`EPI_OVERWRITE=1` to replace `demo.epi` in place instead.
+
 ```text
 $ python demo.py
 [EPI] 3 steps → epi-recordings/demo.epi  Signed ✓
@@ -95,7 +99,9 @@ Typical first-run verify:
 | Secrets | Redacted by default (`redact=True`) |
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
-> Identity is separate from seal. Pin with `epi keys trust <name>` when you mean it.  
+> Identity is separate from seal. A customer pins the sender's key, obtained out of band, with
+> `epi keys trust <file> --name <name>` (a `.pub`, `did.json` or saved `epi keys export` line) or
+> `epi keys trust --from-did did:web:vendor.com --name <name>`.  
 > Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md).
 
 `epi-register` is a standalone alias for `epi scitt register` (same options, same result).
@@ -186,6 +192,11 @@ with record("run.epi") as session:
 pytest --epi
 ```
 
+`pytest --epi` writes one `.epi` per **failing** test to `./test-evidence/`
+(`--epi-dir DIR` to change it, `--epi-on-pass` to keep passing tests too).
+Files are named after the test (`test_x.py_test_bad.epi`); unlike `record()`,
+a re-run replaces the file for the same test in place.
+
 ### TRACE export (honest claims)
 
 ```bash
@@ -205,13 +216,13 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | Command | Purpose |
 |---------|---------|
 | `epi demo` | Guided demo: record → seal → verify |
-| `epi verify <file.epi>` | Offline integrity + signature check; auditors add `--policy strict --witness-log received.jsonl` |
+| `epi verify <file.epi>` | Offline integrity + signature check; customers and auditors run `epi verify FILE --policy strict --witness-log received.jsonl` (rely on the exit code only with `--policy strict`; WARN exits 0) |
 | `epi-register <file.epi>` | Alias of `epi scitt register`: embed a SCITT receipt (local self-issued unless `--service <url>`) |
 | `epi view <file.epi>` | Open offline viewer (screenshot above) |
 | `epi analyze <file.epi>` | Fault / policy summary from sealed analysis |
 | `epi policy init` | Create `epi_policy.json` rulebook |
 | `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted) |
-| `epi keys generate` / `list` / `trust` | Local signing keys |
+| `epi keys generate` / `list` / `trust` / `revoke` / `unrevoke` | Signing keys and pinned (trusted) keys; `generate` and `list` print fingerprints |
 | `epi enterprise setup` / `pack` | Org kit + auditor pack |
 | `epi scitt register <file.epi>` | SCITT receipt; `--service <url>` for an independent transparency service |
 | `epi import agt <path>` | Import Microsoft AGT evidence |
@@ -267,7 +278,7 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | Symptom | Fix |
 |---------|-----|
 | `epi: command not found` | Same venv as `pip install`, or `python -m epi_cli` |
-| First verify WARN / LOCAL identity | Normal if seal OK — pin with `epi keys trust …` when ready |
+| First verify WARN / LOCAL identity | Normal if seal OK — the receiver pins the sender's key with `epi keys trust <file> --name <name>` or `--from-did <did>` |
 | `Integrity: FAILED` | File changed after seal — re-record |
 | `epi analyze` says heuristic only | Add `epi_policy.json` via `epi policy init`, re-run from that folder |
 | Share / portal fails | Hosted needs backend; local record/verify never depends on it |

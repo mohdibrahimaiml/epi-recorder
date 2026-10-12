@@ -67,10 +67,10 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
-| `epi keys trust <name-or-path>` | Copy a public key into the local trust registry. |
+| `epi keys trust <file> --name <name>` / `--from-did <did>` | Pin a public key (PEM, `did.json` or base64 file, or a did:web DID) in the local trust registry. |
+| `epi keys revoke <name>` / `unrevoke <name>` | Revoke a pinned key, or undo the revocation. |
 | `epi keys trust --from-did did:web:<domain>` | Resolve a vendor's did:web document once and pin its key. |
 | `epi keys did --domain <domain>` | Write a `did.json` publishing this machine's key under your domain. |
-| `epi keys revoke <name>` | Create a revocation marker for a trusted/signing key. |
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
 | `epi witness status` / `flush` | Inspect / retry seal reports queued for a customer witness endpoint. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
@@ -263,6 +263,14 @@ epi view my_run
 itself remains a binary artifact container; browsers do not execute the
 embedded `viewer.html` directly from inside the `.epi` file.
 
+`epi view` exits `1` if the file was altered after sealing, so you never
+review tampered contents by accident; run `epi verify` for the full report.
+
+An `.epi` is an HTML+ZIP file, so plain `unzip` warns about "extra bytes at
+beginning" (and exits non-zero) even on a good file. That is expected. Use
+`epi view --extract DIR file.epi` or `python -m zipfile -e file.epi DIR` to
+look inside.
+
 `epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
 
 The viewer is case-first. Expect the loaded artifact to open into:
@@ -309,8 +317,13 @@ Options (from `epi verify --help`):
 | `--offline` | No network: skip DID resolution and remote fetches (local pins still apply). |
 | `--witness-log <path>` | Customer witness log (`received.jsonl`) to check this file against. |
 
-Exit code is `1` on FAIL and `0` on PASS or WARN. Scripts that gate on the
-exit code should use `--policy strict`, where an unpinned sealer FAILs.
+Exit code is `1` on FAIL and `0` on PASS **or WARN**. Scripts must rely on
+the exit code **with `--policy strict`**: under the default `standard`
+policy an unpinned sealer, a seal missing from the witness log, or
+incomplete evidence (e.g. a `tool.call` with no `tool.response`, shown as
+`Forensic: FAIL — ...`) is only a WARN and exits `0`. Under `--policy strict`
+each of these FAILs; incomplete evidence reports
+`Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`.
 
 Recommended for auditors and customers ([AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)):
 
@@ -511,17 +524,20 @@ epi keys trust /path/to/key.pub --name external-signer
 epi keys trust --from-did did:web:vendor.com --name vendor
 epi keys did --domain vendor.com [--path agents/claims] [--key default]
 epi keys revoke team-key
+epi keys unrevoke team-key
 ```
 
 Actions:
 
-- `generate` — Create a new Ed25519 key pair in `~/.epi/keys/`.
-- `list` — Show all signing key pairs.
+- `generate` — Create a new Ed25519 key pair in `~/.epi/keys/` and print its fingerprint (`xxxx xxxx xxxx xxxx`).
+- `list` — Show all signing key pairs and pinned keys, each with its fingerprint and (for pins) `trusted` or `revoked`.
 - `export` — Print a public key. Use `--format hex` to get the raw 64-character hex string (useful for DID documents).
-- `trust` — Copy a public key into `~/.epi/trusted_keys/` so `epi verify` can recognize it as a known identity.
+- `trust <file> --name <name>` — Pin a public key in `~/.epi/trusted_keys/` so `epi verify` recognizes it as a known identity. `<file>` can be a PEM `.pub` file, the vendor's `did.json`, or a file holding the base64 key line printed by `epi keys export`. Prints the fingerprint to confirm with the sender by phone. Only pin a key obtained from the sender out of band, never one taken from the file you are checking.
 - `trust --from-did <did:web:...>` — Resolve the DID document once (network), pin its Ed25519 key, and print a fingerprint to confirm with the vendor by phone. Only `did:web:` DIDs are accepted. After any pin, files sealed by other keys report `NOT A KEY YOU TRUST`.
 - `did --domain <domain>` — Vendor side: write `did.json` for this machine's key (`--key`, default `default`) into the current folder, and print where to host it (`https://<domain>/.well-known/did.json`, or `https://<domain>/<path>/did.json` with `--path`). Refuses to overwrite an existing `did.json` without `--overwrite`.
-- `revoke` — Write a `.revoked` marker for a key so `epi verify` treats it as untrusted.
+- `did --domain` also prints the key fingerprint.
+- `revoke <name>` — Mark a pinned key as revoked. Revocation applies to the **key**: every pin holding that key shows `revoked` in `epi keys list`, and files it sealed FAIL with `Status: REVOKED`.
+- `unrevoke <name>` — Undo `epi keys revoke <name>`.
 
 ```text
 $ epi keys did --domain vendor.example.com
@@ -538,7 +554,17 @@ Files sealed by any other key now report NOT A KEY YOU TRUST. For key rotation, 
 vendor did.json.
 ```
 
-Offline alternative: get the vendor's public key file (`~/.epi/keys/default.pub` on their machine) out of band and run `epi keys trust vendor.pub --name vendor`.
+Offline alternative: get one of these from the vendor out of band and pin it with `epi keys trust <file> --name vendor`:
+
+- their `did.json` file: `epi keys trust did.json --name vendor`
+- the base64 key line from `epi keys export`, saved to a file: `epi keys trust vendor.b64 --name vendor`
+- their PEM public key (`~/.epi/keys/default.pub` on their machine): `epi keys trust vendor.pub --name vendor`
+
+```text
+$ epi keys trust did.json --name vendor
+[OK] Trusted key: ~/.epi/trusted_keys/vendor.pub
+  Fingerprint: 5a32 47ae cc11 f185  (read it to the sender by phone; it must match theirs)
+```
 
 ## `epi witness status|flush`
 
