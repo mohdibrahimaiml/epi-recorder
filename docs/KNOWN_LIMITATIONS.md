@@ -69,7 +69,7 @@ The following were gaps and are now fixed — kept here for audit trail:
 - **Viewer 4MiB cap** — outer viewer hash scans full gap, not `4MiB`
 - **payload_hash stale** — recomputed after `viewer.html/VERIFY.txt/notarization`
 - **Guardrails truncation** — `epi_guardrails/session.py [:2000]` removed, full content sealed
-- **Gateway defaults** — `epi gateway serve` defaults to `retention_mode redacted_hashes` and `proxy_failure_mode fail-open` (direct-uvicorn runs default to `full_content`/`fail-closed` instead). Pass the flags explicitly when you need full capture + fail-closed; streaming `501` either way
+- **Gateway defaults** — `epi gateway serve` (and direct uvicorn runs) default to `retention_mode full_content` and `proxy_failure_mode fail-closed`: full prompts and responses are stored. Pass `--retention-mode redacted_hashes` to keep hashes only. Streaming returns `501` either way
 - **SCITT fallback** — missing service key now `transparency_ok=None` not `PASS`
 - **Billing** — unknown `price_id` now `ValueError` (empty keeps `hosted` compat)
 - **Packaging** — `cryptography<51 typer<0.28 rich<16`, `setup.py` gateways, `docker 3.12`, `spec 4.4.3->4.4.5`, `.well-known` mirrors synced, demos re-sealed
@@ -302,14 +302,17 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 
 ## Sprint rule: strict mode for deliverables
 
-Sprint deliverables (claims, insurer/audit handoff, release gates) must use:
+Sprint deliverables (claims, insurer/bank/audit handoff, release gates) must use:
 
 ```bash
-epi verify run.epi --policy strict
+epi verify run.epi --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
 ```
 
 `--policy strict` FAILs unknown/unpinned sealers, unsigned artifacts, integrity
-failure, and truncated payloads. `standard` WARNs on unknown sealers by design
+failure, truncated payloads, and incomplete evidence (e.g. a `tool.call` with
+no `tool.response`). Scripts must rely on the exit code with
+`--policy strict`: WARN exits `0`. `standard` WARNs on unknown sealers by design
 (valid seal · not org pin) — never claim-ready. The `--policy` help text and
 `docs/VERIFICATION_CONTRACT.md` list every verdict; the browser verifier never
 ranks above the CLI for the same bytes.

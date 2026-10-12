@@ -794,6 +794,21 @@ def refresh_viewer(
             signer_fn = None
             clear_signature = False
 
+            # Never re-seal evidence that no longer matches its seal: that
+            # would turn an altered file into a freshly signed one.
+            _intact, _ = EPIContainer.verify_integrity(artifact)
+            if not _intact:
+                raise ValueError(
+                    "file was altered after sealing; refusing to refresh and re-sign it "
+                    "(epi verify shows what changed)"
+                )
+            if was_signed:
+                from epi_core.trust import verify_embedded_manifest_signature
+
+                _sig_ok, _, _ = verify_embedded_manifest_signature(manifest)
+                if _sig_ok is False:
+                    raise ValueError("signature is invalid; refusing to refresh and re-sign it")
+
             if was_signed:
                 if resign:
                     try:
@@ -804,6 +819,13 @@ def refresh_viewer(
                         if not km.has_key(key):
                             raise FileNotFoundError(f"No local key named '{key}'")
                         priv = km.load_private_key(key)
+                        _own_pk = km.load_public_key(key).hex().lower()
+                        if (manifest.public_key or "").lower() not in ("", _own_pk) and not force:
+                            raise PermissionError(
+                                "sealed by a different key than your local key "
+                                f"'{key}'; re-signing would replace the sender's seal "
+                                "(use --force only for your own files)"
+                            )
 
                         def _sign(m, _priv=priv, _key=key):
                             return sign_manifest(m, _priv, _key)
@@ -908,7 +930,7 @@ from epi_cli.witness import app as witness_app
 app.add_typer(
     witness_app,
     name="witness",
-    help="Customer witness outbox: retry and inspect seal reports",
+    help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
     rich_help_panel="Everyday",
 )
 
@@ -1372,7 +1394,7 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, bundle-export, bundle-import, did",
+        help="Action: generate, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
@@ -1383,6 +1405,11 @@ def keys(
     did_path: Optional[str] = typer.Option(None, "--path", help="Optional path for 'did' action (e.g. agents/claims)"),
     key_name: Optional[str] = typer.Option(None, "--key", help="Local signing key for 'did' action (default: default)"),
     from_did: Optional[str] = typer.Option(None, "--from-did", help="DID to resolve and pin for 'trust' action"),
+    fingerprint: Optional[str] = typer.Option(
+        None,
+        "--fingerprint",
+        help="'trust' from an .epi file: the fingerprint you confirmed with the sender (required).",
+    ),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
@@ -1400,6 +1427,7 @@ def keys(
     did_path = _resolve_opt(did_path)
     key_name = _resolve_opt(key_name)
     from_did = _resolve_opt(from_did)
+    fingerprint = _resolve_opt(fingerprint)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1410,10 +1438,18 @@ def keys(
             console.print(f"\n[bold green][OK] Generated key pair:[/bold green] {name}")
             console.print(f"  [cyan]Private:[/cyan] {private_path}")
             console.print(f"  [cyan]Public:[/cyan]  {public_path}")
+            try:
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                console.print(
+                    f"  [cyan]Fingerprint:[/cyan] {_key_fp(key_manager.load_public_key(name).hex())}"
+                )
+            except Exception:
+                pass
             console.print(
-                "\n[dim]Tip: first [cyan]epi verify[/cyan] may WARN until verifiers run "
-                "[cyan]epi keys trust "
-                f"{name}[/cyan] (or [cyan]epi keys bundle-export[/cyan]).[/dim]\n"
+                "\n[dim]Tip: customers pin this key to see IDENTITY PINNED. Send them "
+                "[cyan]epi keys export[/cyan] (or publish [cyan]epi keys did --domain ...[/cyan]) "
+                "and read them the fingerprint by phone.[/dim]\n"
             )
         except FileExistsError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -1422,6 +1458,13 @@ def keys(
     elif action == "list":
         keys_list = key_manager.list_keys()
         print_keys_table(keys_list)
+        try:
+            from epi_cli.keys import print_trusted_keys_table
+            from epi_core.trust import TrustRegistry
+
+            print_trusted_keys_table(TrustRegistry().trusted_keys_dir)
+        except Exception:
+            pass
 
     elif action == "export":
         try:
@@ -1440,7 +1483,18 @@ def keys(
                 console.print("[dim]Valid formats: base64, hex[/dim]")
                 raise typer.Exit(1)
             console.print(f"\n[bold]Public key for '{effective_name}':[/bold] [dim]({label})[/dim]")
-            console.print(f"[cyan]{public_key_out}[/cyan]\n")
+            console.print(f"[cyan]{public_key_out}[/cyan]")
+            try:
+                import base64 as _b64
+
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                console.print(
+                    f"[bold]Fingerprint:[/bold] {_key_fp(_b64.b64decode(public_key_b64).hex())}  "
+                    "[dim](customers see this in epi verify; confirm it with them by phone)[/dim]\n"
+                )
+            except Exception:
+                console.print()
         except FileNotFoundError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
@@ -1464,6 +1518,10 @@ def keys(
                 resolved_hex = extract_ed25519_key(doc)
             except (DidResolutionError, KeyNotFoundError) as e:
                 console.print(f"[red][FAIL] DID resolution failed:[/red] {e}")
+                console.print(
+                    "[dim]Offline? Get the vendor's did.json (or their exported key) out of band "
+                    "and pin it with: epi keys trust did.json --name <vendor>[/dim]"
+                )
                 raise typer.Exit(1)
             except Exception as e:
                 console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -1471,7 +1529,9 @@ def keys(
             import hashlib as _hashlib
             import tempfile as _tempfile
 
-            _fingerprint = _hashlib.sha256(resolved_hex.encode("utf-8")).hexdigest()[:16]
+            from epi_core.keys import key_fingerprint as _key_fp
+
+            _fingerprint = _key_fp(resolved_hex)
             _pin_name = name if name != "default" else _did.replace("did:web:", "").replace(":", "-")[:32]
             _hex_path = Path(_tempfile.mkdtemp()) / f"{_pin_name}.pub"
             try:
@@ -1512,6 +1572,57 @@ def keys(
             # For .epi sources, default trusted name to workflow/stem if --name left at default
             trusted_name = None if name == "default" else name
             source_path = Path(key)
+            if source_path.exists() and source_path.suffix.lower() == ".epi":
+                # Pinning the key a file carries proves nothing unless the
+                # sender confirmed it: an attacker's file carries the
+                # attacker's key. Require the confirmed fingerprint.
+                from epi_core.container import EPIContainer
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                _file_pk = getattr(EPIContainer.read_manifest(source_path), "public_key", None)
+                if not _file_pk:
+                    console.print("[red][FAIL] This file is unsigned; there is no key to trust.[/red]")
+                    raise typer.Exit(1)
+                _file_fp = _key_fp(_file_pk)
+                _norm = lambda v: "".join(str(v or "").split()).lower()  # noqa: E731
+                if not fingerprint or _norm(fingerprint) != _norm(_file_fp):
+                    console.print(
+                        "[red][FAIL] Not pinned.[/red] A file can carry anyone's key, so pinning "
+                        "from a file needs the fingerprint you confirmed with the sender."
+                    )
+                    console.print(f"  This file's key fingerprint: [bold]{_file_fp}[/bold]")
+                    console.print(
+                        "  1. Ask the sender (by phone, not by email from the same source) to read "
+                        "you THEIR fingerprint. Do not copy the one above."
+                    )
+                    console.print(
+                        f'  2. Only if theirs matches: epi keys trust "{key}" --name <sender> '
+                        '--fingerprint "<the fingerprint the sender read to you>"'
+                    )
+                    console.print(
+                        "  Better: pin from the sender directly — epi keys trust --from-did "
+                        "did:web:<their-domain>, or their key file."
+                    )
+                    raise typer.Exit(1)
+                # Already trusting someone else? An attacker's file claiming a
+                # known sender is the classic way to get pinned.
+                try:
+                    _others = []
+                    for _p in sorted(Path(trusted_keys_dir).glob("*.pub")):
+                        _h = _p.read_text(encoding="utf-8").strip().lower()
+                        if _h != _file_pk.strip().lower():
+                            _others.append(f"{_p.stem} ({_key_fp(_h)})")
+                    _claimed = ((EPIContainer.read_manifest(source_path).governance or {}).get("did"))
+                    if _others:
+                        console.print(
+                            "[bold yellow]Note:[/bold yellow] you already trust "
+                            + ", ".join(_others)
+                            + ". This file's key is different"
+                            + (f" although it claims {_claimed}" if _claimed else "")
+                            + ". If this is the same sender, ask why their key changed."
+                        )
+                except Exception:
+                    pass
             if source_path.exists() and source_path.suffix.lower() == ".epi" and trusted_name is None:
                 try:
                     from epi_core.container import EPIContainer
@@ -1525,6 +1636,34 @@ def keys(
                 except Exception:
                     trusted_name = source_path.stem[:32]
 
+            _intended = Path(trusted_keys_dir) / f"{trusted_name or Path(key).stem}.pub"
+            _old_hex = None
+            if overwrite and _intended.exists():
+                try:
+                    _old_hex = _intended.read_text(encoding="utf-8").strip().lower()
+                except OSError:
+                    _old_hex = None
+            if (
+                _old_hex
+                and source_path.exists()
+                and source_path.suffix.lower() == ".epi"
+                and _old_hex != str(getattr(
+                    __import__("epi_core.container", fromlist=["EPIContainer"])
+                    .EPIContainer.read_manifest(source_path), "public_key", "") or "").strip().lower()
+            ):
+                # Replacing a trusted sender's key with the key some file
+                # carries is exactly how an attacker gets pinned. A real key
+                # rotation comes from the sender, not from a case file.
+                console.print(
+                    f"[red][FAIL] Not replaced.[/red] '{_intended.stem}' is already pinned to a "
+                    "different key, and a case file is not a safe source for a new one."
+                )
+                console.print(
+                    "  If the sender really rotated their key, pin the new key from them: "
+                    "epi keys trust --from-did did:web:<their-domain> --overwrite, or their "
+                    "key file / did.json with --overwrite."
+                )
+                raise typer.Exit(1)
             target = key_manager.trust_key(
                 key,
                 trusted_keys_dir=trusted_keys_dir,
@@ -1532,11 +1671,47 @@ def keys(
                 overwrite=overwrite,
             )
             console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}")
-            console.print(
-                "[dim]Re-run:[/dim] [cyan]epi verify "
-                f'"{key if source_path.suffix.lower() == ".epi" else "artifact.epi"}"'
-                "[/cyan]  — identity should leave UNKNOWN if this key sealed the file.\n"
-            )
+            try:
+                _new_hex = target.read_text(encoding="utf-8").strip().lower()
+                if _old_hex and _old_hex != _new_hex:
+                    from epi_core.keys import key_fingerprint as _kfp
+
+                    console.print(
+                        f"  [bold yellow]Replaced[/bold yellow] the key pinned as '{target.stem}': "
+                        f"{_kfp(_old_hex)} → {_kfp(_new_hex)}. Files sealed by the old key no "
+                        "longer show IDENTITY PINNED."
+                    )
+            except Exception:
+                pass
+            try:
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                _pinned_hex = target.read_text(encoding="utf-8").strip()
+                console.print(
+                    f"  [cyan]Fingerprint:[/cyan] {_key_fp(_pinned_hex)}  "
+                    "[dim](read it to the sender by phone; it must match theirs)[/dim]"
+                )
+                from epi_core.keys import revoked_key_hexes
+
+                if _pinned_hex.lower() in revoked_key_hexes(trusted_keys_dir):
+                    console.print(
+                        "  [yellow]This key is revoked, so files it sealed still FAIL. "
+                        f"Undo the revocation with: epi keys unrevoke {target.stem}[/yellow]"
+                    )
+            except Exception:
+                pass
+            _is_revoked_now = False
+            try:
+                from epi_core.keys import revoked_key_hexes as _rkh
+
+                _is_revoked_now = target.read_text(encoding="utf-8").strip().lower() in _rkh(trusted_keys_dir)
+            except Exception:
+                pass
+            if not _is_revoked_now:
+                console.print(
+                    "[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict --witness-log "
+                    "received.jsonl[/cyan]  — files sealed by this key now show IDENTITY PINNED.\n"
+                )
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
@@ -1545,10 +1720,38 @@ def keys(
         target_name = key or name
         try:
             target = key_manager.revoke_key(target_name, trusted_keys_dir=trusted_keys_dir)
-            console.print(f"\n[bold green][OK] Revoked key:[/bold green] {target}\n")
+            console.print(f"\n[bold green][OK] Revoked key:[/bold green] {target}")
+            try:
+                _hex = target.read_text(encoding="utf-8").strip().lower()
+                _same = sorted(
+                    p.stem for p in trusted_keys_dir.glob("*.pub")
+                    if p.read_text(encoding="utf-8").strip().lower() == _hex
+                )
+                if _same:
+                    console.print(
+                        f"  Revocation applies to the key: pins {', '.join(_same)} now show revoked."
+                    )
+            except Exception:
+                pass
+            console.print(f"  Undo with: [cyan]epi keys unrevoke {target_name}[/cyan]\n")
         except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
+
+    elif action == "unrevoke":
+        target_name = key or name
+        try:
+            removed = key_manager.unrevoke_key(target_name, trusted_keys_dir=trusted_keys_dir)
+        except FileNotFoundError as e:
+            console.print(f"[red][FAIL] Error:[/red] {e}")
+            raise typer.Exit(1)
+        if removed:
+            console.print(
+                f"\n[bold green][OK] Revocation removed[/bold green] for '{target_name}' "
+                f"({len(removed)} marker(s)). Pins with this key are trusted again.\n"
+            )
+        else:
+            console.print(f"[dim]'{target_name}' was not revoked.[/dim]")
 
     elif action in ("bundle-export", "bundle_export", "bundle"):
         # bundle-export [names...]  OR  bundle as alias when --out set
@@ -1644,6 +1847,15 @@ def keys(
             raise typer.Exit(1)
         console.print(f"\n[bold green][OK] Wrote did.json for:[/bold green] {_did}")
         console.print(f"  [cyan]Host it at:[/cyan] {_host_url}")
+        try:
+            from epi_core.keys import key_fingerprint as _key_fp
+
+            console.print(
+                f"  [cyan]Fingerprint:[/cyan] {_key_fp(public_hex)}  "
+                "[dim](customers confirm this with you by phone)[/dim]"
+            )
+        except Exception:
+            pass
         console.print("  [dim]Free hosting: GitHub Pages or Cloudflare Pages (any static host works).[/dim]")
         console.print(
             "[dim]Then seal with: [cyan]record(..., did=\"" + _did + "\")[/cyan] "
@@ -1653,7 +1865,7 @@ def keys(
     else:
         console.print(f"[red][FAIL] Unknown action:[/red] {action}")
         console.print(
-            "[dim]Valid actions: generate, list, export, trust, revoke, "
+            "[dim]Valid actions: generate, list, export, trust, revoke, unrevoke, "
             "bundle-export, bundle-import, did[/dim]"
         )
         raise typer.Exit(1)
@@ -1804,7 +2016,7 @@ print("\\nDone! Open with: epi view epi-recordings/litellm_demo.epi")
 # pip install epi-recorder langchain langchain-openai
 
 from epi_recorder import record
-from epi_recorder.integrations.langchain import EPICallbackHandler
+from epi_recorder.adapters.langchain import EpiCallbackHandler
 
 try:
     from langchain_openai import ChatOpenAI
@@ -1813,7 +2025,7 @@ except ImportError:
     import sys; sys.exit(1)
 
 with record("epi-recordings/langchain_demo.epi", goal="LangChain quick-start demo") as epi:
-    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EPICallbackHandler()])
+    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EpiCallbackHandler(epi)])
     print("Calling LangChain...")
     try:
         result = llm.invoke("Say hello in one sentence.")

@@ -124,10 +124,10 @@ epi verify evidence
             "langchain_epi_example.py",
             '''from langchain_openai import ChatOpenAI
 from epi_recorder import record
-from epi_recorder.integrations import EPICallbackHandler
+from epi_recorder.adapters.langchain import EpiCallbackHandler
 
-with record("epi-recordings/langchain-run.epi", goal="Capture one LangChain run"):
-    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EPICallbackHandler()])
+with record("epi-recordings/langchain-run.epi", goal="Capture one LangChain run") as session:
+    llm = ChatOpenAI(model="gpt-4o-mini", callbacks=[EpiCallbackHandler(session)])
     result = llm.invoke("Summarize this run in one sentence.")
     print(result.content)
 ''',

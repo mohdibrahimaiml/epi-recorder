@@ -72,7 +72,7 @@ agent.run.end
 When a regulator or compliance team requests evidence:
 
 1. Hand them `refund_case.epi`
-2. They drag it to `verify.epilabs.org` (no login, no install) — or run `epi verify refund_case.epi`
+2. They drag it to `verify.epilabs.org` for a quick look (no login, no install), and for an acceptance decision run `epi verify refund_case.epi --policy strict --witness-log received.jsonl` after pinning your key (see [docs/AUDITORS-GUIDE.md](../../../docs/AUDITORS-GUIDE.md))
 3. They see: `Signed ✓` — the file has not been altered since it was created
 4. They open `epi view refund_case.epi` to read the full decision timeline
 

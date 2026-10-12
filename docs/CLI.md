@@ -7,7 +7,7 @@
 
 ## Start Here
 
-**Docs map:** [README.md](./README.md) · **Pilot:** [PILOT.md](./PILOT.md)
+**Docs map:** [README.md](./README.md) · **Pilot (archived):** [archive/PILOT.md](./archive/PILOT.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)
 
 Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
 
@@ -18,7 +18,7 @@ epi enterprise setup
 epi enterprise pack your-run.epi
 ```
 
-See [ENTERPRISE-15-MINUTES.md](./ENTERPRISE-15-MINUTES.md).
+See [archive/ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md) (archived; may be out of date).
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, start with:
 
@@ -48,12 +48,12 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | Command | Purpose |
 | --- | --- |
 | `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. |
-| `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). See [ENTERPRISE-15-MINUTES.md](./ENTERPRISE-15-MINUTES.md). |
+| `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). See [archive/ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md). |
 | `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
-| `epi run <script.py>` | Record a Python workflow that already emits EPI steps. |
+| `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
-| `epi verify <file.epi>` | Verify case file integrity and signature state. |
+| `epi verify <file.epi>` | Verify case file integrity, signature, identity pin and policy. Auditors: `--policy strict --witness-log received.jsonl`. |
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
 | `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi init --github-action` | Create a starter demo and optional CI evidence workflow. |
@@ -67,9 +67,14 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
-| `epi keys trust <name-or-path>` | Copy a public key into the local trust registry. |
-| `epi keys revoke <name>` | Create a revocation marker for a trusted/signing key. |
+| `epi keys trust <file> --name <name>` / `--from-did <did>` | Pin a public key (PEM, `did.json` or base64 file, or a did:web DID) in the local trust registry. Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. |
+| `epi keys revoke <name>` / `unrevoke <name>` | Revoke a pinned key, or undo the revocation. |
+| `epi keys trust --from-did did:web:<domain>` | Resolve a vendor's did:web document once and pin its key. |
+| `epi keys did --domain <domain>` | Write a `did.json` publishing this machine's key under your domain. |
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
+| `epi witness status` / `flush` / `drop` | Vendor side: inspect, retry or remove seal reports queued for a customer witness endpoint. |
+| `epi witness serve` | Customer side: run the witness receiver that records every seal report (`--out received.jsonl`). |
+| `epi refresh-viewer <file.epi>` | Vendor side: regenerate the embedded viewer of your own sealed file and re-sign it with your key. Refuses altered files and files sealed by someone else's key. Stays `WITNESSED`. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
 
 ### Advanced / operator commands
@@ -260,6 +265,14 @@ epi view my_run
 itself remains a binary artifact container; browsers do not execute the
 embedded `viewer.html` directly from inside the `.epi` file.
 
+`epi view` exits `1` if the file was altered after sealing, so you never
+review tampered contents by accident; run `epi verify` for the full report.
+
+An `.epi` is an HTML+ZIP file, so plain `unzip` warns about "extra bytes at
+beginning" (and exits non-zero) even on a good file. That is expected. Use
+`epi view --extract DIR file.epi` or `python -m zipfile -e file.epi DIR` to
+look inside.
+
 `epi view --extract` now writes a self-contained `viewer.html` with the browser runtime inlined, including vendored JSZip, so the extracted review page has no external script dependencies and remains offline/air-gapped safe.
 
 The viewer is case-first. Expect the loaded artifact to open into:
@@ -285,18 +298,61 @@ epi unassociate
 
 ## `epi verify <file.epi>`
 
-Recalculates hashes and checks the Ed25519 signature.
+Recalculates hashes, checks the Ed25519 signature and step chain, matches
+the sealer against your pinned keys, and applies a policy. Works offline.
 
-Options:
-- `--verbose` shows detailed verification checks
-- `--json` prints machine-readable output
+Options (from `epi verify --help`):
+
+| Option | Meaning |
+| --- | --- |
+| `--json` | Output as JSON. |
+| `--verbose`, `-v` | Verbose output. |
+| `--report <path>` | Write a verification report to this file (e.g. `verification_report.txt`). |
+| `--review` | Verify embedded human review ledger, signature, chain, and artifact binding. |
+| `--strict` | Enforce STRICT policy (fails on any warning, unsigned, or forensic gaps). |
+| `--policy permissive\|standard\|strict` | PERMISSIVE (integrity only), STANDARD (dev default — unpinned identity is WARN, not claim-ready), STRICT (enterprise/insurance — requires org-pinned sealer; use for claim acceptance). Default: `standard`. |
+| `--aiuc1` | Include AIUC-1 trust domain mapping in the verification report. |
+| `--tsa-root <path>` | Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation. |
+| `--require-timestamp` | FAIL unless at least one seal-time RFC 3161 token validates. |
+| `--web` | Open verification results in browser at verify.epilabs.org after CLI check. |
+| `--qr` | Print a QR code that opens the artifact on verify.epilabs.org. |
+| `--offline` | No network: skip DID resolution and remote fetches (local pins still apply). |
+| `--witness-log <path>` | Customer witness log (`received.jsonl`) to check this file against. |
+
+Exit code is `1` on FAIL and `0` on PASS **or WARN**. Scripts must rely on
+the exit code **with `--policy strict`**: under the default `standard`
+policy an unpinned sealer, a seal missing from the witness log, or
+incomplete evidence (e.g. a `tool.call` with no `tool.response`, shown as
+`Forensic: FAIL — ...`) is only a WARN and exits `0`. Under `--policy strict`
+each of these FAILs; incomplete evidence reports
+`Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`.
+
+Recommended for auditors and customers ([AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)):
 
 ```bash
-epi verify demo.epi
-[OK] Integrity: OK (Entire Archive)
-[OK] Signature: Valid (Identity Embedded)
-[OK] Checks: 24/24 passed
+epi verify case.epi --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
 ```
+
+The first line of the report is the verdict, for example (trimmed):
+
+```text
+$ epi verify case-002.epi --policy strict --witness-log received.jsonl
+╭──────────────────────── ✔ SEAL · IDENTITY PINNED EPI Verification Report ────────────────────────╮
+│ DECISION: PASS                                                                                   │
+│ Policy: strict                                                                                   │
+│ Reason: All strict criteria met (Integrity, Identity, Completeness)                              │
+│ IDENTITY (who sealed — required for claim trust)                                                 │
+│   - Status:       KNOWN                                                                          │
+│   - Name:         vendor                                                                         │
+│ SEAL (Objective Proofs — not identity)                                                           │
+│   - Integrity:    Verified                                                                       │
+│   - Signature:    Valid                                                                          │
+│   - Forensic:     PASS                                                                           │
+│   - Witness:      WITNESSED (received 2026-10-12T09:34:55.487339+00:00)                          │
+```
+
+All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#reading-the-verdict).
 
 After a successful verification, EPI now points to the two lowest-friction next steps:
 - `epi share <file.epi>` for a hosted browser link
@@ -399,13 +455,15 @@ When `--users-file` is set, the browser app shows a small local sign-in form and
 Starts the open-source EPI AI capture gateway.
 
 ```bash
-pip install epi-recorder
+pip install "epi-recorder[gateway]"
 epi gateway serve
 epi gateway serve --port 9000 --storage-dir ./gateway-vault
 epi gateway serve --retention-mode redacted_hashes --proxy-failure-mode fail-closed
 epi gateway serve --access-token change-me
 epi gateway serve --users-file ./config/gateway-users.example.json
+epi gateway serve --did did:web:vendor.com --witness-url https://customer.example/witness --witness-secret "$SECRET"
 epi gateway export --case-id decision::refund-123 --out reviewed.epi --storage-dir ./gateway-vault
+epi gateway export --case-id decision::refund-123 --out reviewed.epi --storage-dir ./gateway-vault --did did:web:vendor.com
 ```
 
 This is the lowest-friction developer entrypoint if you want EPI to act more like infrastructure than a post-hoc viewer:
@@ -420,7 +478,9 @@ This is the lowest-friction developer entrypoint if you want EPI to act more lik
 The gateway is intentionally part of the open capture/spec layer. A future enterprise control plane should sit above it, not replace it.
 
 Operator notes:
-- `/health` is the liveness/runtime-state endpoint
+- `/health` is the liveness/runtime-state endpoint; it also reports `did` and `witness_configured` (never the witness URL or secret)
+- identity and witness work as for `record()`: `--did` (or `EPI_DID`) puts the did:web identity in `manifest.governance["did"]` of every export, and `--witness-url` / `--witness-secret` (or `EPI_WITNESS_URL` / `EPI_WITNESS_SECRET`) report each exported file, hash-only, to the customer witness ([WITNESS.md](WITNESS.md)). Delivery is outbox-first and never fails an export; `epi gateway export` prints `DID: ...` and `Witness: delivered to <url>` or `Witness: QUEUED (<reason>) — run epi witness flush`. The serve banner shows the DID and witness URL, never the secret.
+- `epi gateway export` refuses a `--storage-dir` with no `cases.sqlite3`, and warns when no signing key exists (`epi keys generate`)
 - `/ready` is the supported readiness probe after replay
 - `--retention-mode` controls whether provider request/response bodies are stored in redacted-hash form or full content
 - `--proxy-failure-mode` controls whether successful upstream proxy calls still return when EPI capture fails
@@ -463,16 +523,112 @@ epi keys export default
 epi keys export default --format hex
 epi keys trust team-key
 epi keys trust /path/to/key.pub --name external-signer
+epi keys trust --from-did did:web:vendor.com --name vendor
+epi keys did --domain vendor.com [--path agents/claims] [--key default]
 epi keys revoke team-key
+epi keys unrevoke team-key
 ```
 
 Actions:
 
-- `generate` — Create a new Ed25519 key pair in `~/.epi/keys/`.
-- `list` — Show all signing key pairs.
+- `generate` — Create a new Ed25519 key pair in `~/.epi/keys/` and print its fingerprint (`xxxx xxxx xxxx xxxx`).
+- `list` — Show all signing key pairs and pinned keys, each with its fingerprint and (for pins) `trusted` or `revoked`.
 - `export` — Print a public key. Use `--format hex` to get the raw 64-character hex string (useful for DID documents).
-- `trust` — Copy a public key into `~/.epi/trusted_keys/` so `epi verify` can recognize it as a known identity.
-- `revoke` — Write a `.revoked` marker for a key so `epi verify` treats it as untrusted.
+- `trust <file> --name <name>` — Pin a public key in `~/.epi/trusted_keys/` so `epi verify` recognizes it as a known identity. `<file>` can be a PEM `.pub` file, the vendor's `did.json`, or a file holding the base64 key line printed by `epi keys export`. Prints the fingerprint to confirm with the sender by phone. Only pin a key obtained from the sender out of band, never one taken from the file you are checking.
+- `trust --from-did <did:web:...>` — Resolve the DID document once (network), pin its Ed25519 key, and print a fingerprint to confirm with the vendor by phone. Only `did:web:` DIDs are accepted. After any pin, files sealed by other keys report `NOT A KEY YOU TRUST`.
+- `did --domain <domain>` — Vendor side: write `did.json` for this machine's key (`--key`, default `default`) into the current folder, and print where to host it (`https://<domain>/.well-known/did.json`, or `https://<domain>/<path>/did.json` with `--path`). Refuses to overwrite an existing `did.json` without `--overwrite`.
+- `did --domain` also prints the key fingerprint.
+- `revoke <name>` — Mark a pinned key as revoked. Revocation applies to the **key**: every pin holding that key shows `revoked` in `epi keys list`, and files it sealed FAIL with `Status: REVOKED`.
+- `unrevoke <name>` — Undo `epi keys revoke <name>`.
+
+```text
+$ epi keys did --domain vendor.example.com
+[OK] Wrote did.json for: did:web:vendor.example.com
+  Host it at: https://vendor.example.com/.well-known/did.json
+  Free hosting: GitHub Pages or Cloudflare Pages (any static host works).
+Then seal with: record(..., did="did:web:vendor.example.com") (or EPI_DID), so verifiers bind your
+key to your domain.
+
+$ epi keys trust --from-did did:web:vendor.example.com --name vendor
+[OK] Trusted key from did:web:vendor.example.com: ~/.epi/trusted_keys/vendor.pub
+  Fingerprint (confirm with the vendor): <fingerprint>
+Files sealed by any other key now report NOT A KEY YOU TRUST. For key rotation, pin each key in the
+vendor did.json.
+```
+
+Offline alternative: get one of these from the vendor out of band and pin it with `epi keys trust <file> --name vendor`:
+
+- their `did.json` file: `epi keys trust did.json --name vendor`
+- the base64 key line from `epi keys export`, saved to a file: `epi keys trust vendor.b64 --name vendor`
+- their PEM public key (`~/.epi/keys/default.pub` on their machine): `epi keys trust vendor.pub --name vendor`
+
+```text
+$ epi keys trust did.json --name vendor
+[OK] Trusted key: ~/.epi/trusted_keys/vendor.pub
+  Fingerprint: 5a32 47ae cc11 f185  (read it to the sender by phone; it must match theirs)
+```
+
+## `epi witness status|flush|drop|serve`
+
+Vendor side of the customer witness ([WITNESS.md](./WITNESS.md)). With
+`EPI_WITNESS_URL` (or `record(..., witness_url=...)`) set, every seal queues a
+hash-only report in `~/.epi/witness_outbox.jsonl` and delivers it in the
+background.
+
+- `epi witness status` — List pending, delivered and failed witness entries.
+- `epi witness flush` — Retry every undelivered witness entry. Exits 1 while
+  anything is still pending.
+  - `--secret <str>` — HMAC secret for delivery (default: `EPI_WITNESS_SECRET`).
+  - `--timeout <int>` — Per-request timeout in seconds (default: 10).
+- `epi witness drop <id>` — Remove one entry from the outbox (e.g. a seal
+  queued for a wrong URL, which would otherwise stay pending forever). `<id>`
+  is the full id or any unique prefix, such as the 8-character id `status`
+  shows; an ambiguous prefix is refused. The sealed `.epi` file is unchanged;
+  the receiver simply never gets that report.
+  - `--all-failed --yes` — Drop every entry that still has pending URLs
+    (without `--yes` it only lists them and exits 1).
+
+```text
+$ epi witness status
+...
+│ 4425f106 │ 2026-10-12T09:35:00 │ 844bedb5 │ 1       │ 0         │ http://127.0.0.1:8099/: HTTP   │
+│          │                     │          │         │           │ Error 401: Unauthorized        │
+2 entries, 1 URLs pending.
+
+$ epi witness flush
+Failed: http://127.0.0.1:8099/ (HTTP Error 401: Unauthorized)
+  The receiver rejected the secret (HTTP 401). Use the same secret as the receiver: EPI_WITNESS_SECRET or --secret.
+Still pending. Fix the URL/secret and flush again, or remove an entry with: epi witness drop <id>
+
+$ EPI_WITNESS_SECRET=SHARED_SECRET epi witness flush
+Delivered: http://127.0.0.1:8099/
+
+$ epi witness drop 4425f106     # if the URL itself was wrong
+Dropped 4425f106 (workflow 844bedb5, pending: http://wrong-host:8099/)
+```
+
+Customer side: `epi witness serve` runs the witness receiver that the
+vendor's `EPI_WITNESS_URL` points at. It checks the `X-EPI-Signature` HMAC,
+stamps `received_at` and appends each report to `--out`, the log you later
+pass to `epi verify --witness-log`.
+
+- `epi witness serve`
+  - `--host <str>` — Interface to listen on (default: `127.0.0.1`). Use
+    `0.0.0.0` only behind a TLS-terminating reverse proxy.
+  - `--port <int>` — Port (default: 8099). A port in use gives a one-line error.
+  - `--out <path>` — Append-only witness log (default: `received.jsonl`).
+  - `--secret <str>` — Shared HMAC secret (default: `EPI_WITNESS_SECRET`).
+    Required unless `--insecure-no-secret` (local trials only).
+
+```text
+$ EPI_WITNESS_SECRET=SHARED_SECRET epi witness serve --out received.jsonl
+Witness receiver listening on 127.0.0.1:8099 (HMAC check on)
+Give the vendor:  EPI_WITNESS_URL=http://127.0.0.1:8099/
+                  EPI_WITNESS_SECRET=<the same secret this receiver uses>
+Witness log:      /srv/witness/received.jsonl
+Check a file:     epi verify run.epi --policy strict --witness-log /srv/witness/received.jsonl
+Press Ctrl-C to stop.
+```
 
 ## `epi review <file.epi>`
 

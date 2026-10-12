@@ -232,6 +232,23 @@ def _block_external_network_by_default(request, monkeypatch):  # type: ignore[no
     monkeypatch.setattr(socket, "create_connection", guarded_create_connection)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_trusted_keys(monkeypatch):  # type: ignore[no-untyped-def]
+    """Each test gets its own trust registry dir.
+
+    Pins in the real ~/.epi/trusted_keys (or left there by an earlier test,
+    e.g. `epi demo` auto-pinning `default`) must not change another test's
+    verify verdict: a file sealed by a key other than a pinned one FAILs.
+    Tests that need a specific dir still set EPI_TRUSTED_KEYS_DIR themselves.
+    """
+    import tempfile
+
+    if "EPI_TRUSTED_KEYS_DIR" not in os.environ:
+        monkeypatch.setenv(
+            "EPI_TRUSTED_KEYS_DIR", tempfile.mkdtemp(prefix="epi_trusted_")
+        )
+
+
 @pytest.fixture
 def tmp_path():
     path = create_recording_workspace("pytest_tmp_")

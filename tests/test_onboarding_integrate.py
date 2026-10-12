@@ -24,7 +24,11 @@ def test_integrate_write_examples(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     example = tmp_path / ".epi" / "examples" / "langchain_epi_example.py"
     assert example.exists()
-    assert "EPICallbackHandler" in example.read_text(encoding="utf-8")
+    text = example.read_text(encoding="utf-8")
+    # The deprecated EPICallbackHandler() writes no file; the example must use
+    # the session-bound adapter.
+    assert "EpiCallbackHandler(session)" in text
+    assert "EPICallbackHandler" not in text
 
 
 def test_integrate_pytest_apply_writes_workflow(tmp_path, monkeypatch):

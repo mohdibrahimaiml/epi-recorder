@@ -7,6 +7,7 @@ Performs comprehensive verification including:
 - Authenticity checks (Ed25519 signature verification)
 """
 
+import os
 import json
 import sys
 import warnings
@@ -331,8 +332,12 @@ def _fetch_scitt_service_key(service_url: str | None, *, offline: bool = False) 
 
     # Local/offline SCITT service: read the service public key from disk.
     if service_url.lower() == "local":
-        from epi_core.local_scitt import service_public_key
+        from epi_core.local_scitt import _service_public_key_path, service_public_key
 
+        # Only the machine that issued a local receipt has its key. Never
+        # create one here as a side effect of verifying.
+        if not _service_public_key_path().exists():
+            return None
         return service_public_key()
 
     import hashlib
@@ -605,7 +610,10 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
     try:
         lines = Path(witness_log).read_text(encoding="utf-8").splitlines()
     except Exception as exc:
-        result["detail"] = f"witness log unreadable ({exc})"
+        # The verifier asked for this check; a typo in the path must not
+        # silently drop it.
+        result["status"] = "UNREADABLE"
+        result["detail"] = f"witness log {witness_log} could not be read ({exc})"
         return result
     entries = []
     for line in lines:
@@ -618,13 +626,23 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             continue
         if isinstance(entry, dict):
             entries.append(entry)
+    _reports = [e for e in entries if e.get("workflow_id") and e.get("manifest_hash")]
+    if not _reports:
+        # Wrong file, empty file or not a witness log: the check could not be
+        # done. Never let that read as "the vendor never reported this".
+        result["status"] = "UNREADABLE"
+        result["detail"] = (
+            f"{witness_log} contains no witness reports ({len(lines)} lines, "
+            f"{len(entries)} JSON objects) — is it the --out file of `epi witness serve`?"
+        )
+        return result
     workflow_id = str(getattr(manifest, "workflow_id", ""))
     same = [e for e in entries if str(e.get("workflow_id") or "") == workflow_id]
     result["matches"] = len(same)
     if not same:
         result["status"] = "NOT IN WITNESS LOG"
         result["detail"] = (
-            f"workflow {workflow_id} not found in {len(entries)} witness entries; "
+            f"workflow {workflow_id} not found in {len(_reports)} witness reports; "
             "a missing entry for a case the customer knows happened is itself evidence"
         )
         return result
@@ -665,13 +683,16 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             result["detail"] = (
                 "sealed contents match the customer record "
                 f"(received {entry.get('received_at') or 'unknown time'}); the file was "
-                "re-packaged afterwards (transparency receipt added and re-signed)"
+                "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
+                "added, and re-signed)"
             )
             return result
     result["status"] = "MISMATCH"
+    _latest = max((str(e.get("received_at") or "") for e in same), default="") or "unknown time"
+    result["received_at"] = _latest
     result["detail"] = (
-        "file differs from what the customer was told at seal time "
-        "(manifest_hash or file_sha256 mismatch)"
+        f"a different version of this case (same workflow id) was reported to you "
+        f"({len(same)} report(s), latest {_latest}); this copy was never reported"
     )
     return result
 
@@ -741,8 +762,29 @@ def _handle_verification_error(
     signer_name: str | None = None,
     has_signature: bool = False,
     mismatches: dict[str, str] | None = None,
+    report_out: Path | None = None,
+    epi_file: Path | None = None,
 ) -> None:
     """Emit a user-facing or JSON verification failure and exit 1."""
+    if report_out is not None:
+        # The auditor asked for a report file: write one even when the file
+        # could not be read far enough for a full report.
+        try:
+            from datetime import datetime, timezone
+
+            report_out.parent.mkdir(parents=True, exist_ok=True)
+            report_out.write_text(
+                "EPI VERIFICATION REPORT\n"
+                f"File:      {epi_file}\n"
+                f"Checked:   {datetime.now(timezone.utc).isoformat()}\n"
+                "DECISION:  FAIL\n"
+                f"Reason:    {message}\n",
+                encoding="utf-8",
+            )
+            if not json_output:
+                console.print(f"[green][OK][/green] Verification report written: {report_out}")
+        except OSError:
+            pass
     if json_output:
         _emit_json_report(
             _build_failure_report(
@@ -896,9 +938,13 @@ def verify_command(
         tip = (
             f"[red][FAIL] Error:[/red] File not found: {epi_file}\n"
             "[dim]Tip: epi looks relative to your current folder. Use a full path, e.g.[/dim]\n"
-            '[dim]  epi verify "C:\\Users\\you\\project\\artifact.epi"[/dim]\n'
-            "[dim]Or: cd into the folder that contains the .epi, then re-run.[/dim]\n"
-            "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
+            + (
+                '[dim]  epi verify "C:\\Users\\you\\project\\artifact.epi"[/dim]\n'
+                if os.name == "nt"
+                else '[dim]  epi verify "$HOME/project/artifact.epi"[/dim]\n'
+            )
+            + "[dim]Recordings made with record() are in ./epi-recordings/ (list them: epi ls).[/dim]\n"
+            + "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
         )
         _handle_verification_error(
             message=f"File not found: {epi_file}",
@@ -942,11 +988,22 @@ def verify_command(
                     )
                 # We still continue but this can be checked by policy later
         except Exception as e:
+            _has_sig = False
+            try:
+                import zipfile as _zf
+
+                with _zf.ZipFile(epi_file) as _z:
+                    _has_sig = bool(json.loads(_z.read("manifest.json")).get("signature"))
+            except Exception:
+                pass
             _handle_verification_error(
                 message=f"Structural validation failed: {e}",
                 json_output=json_output,
                 console_message=f"[red][FAIL] Structural validation failed:[/red] {e}",
                 error_type="structural_validation_failed",
+                has_signature=_has_sig,
+                report_out=report_out,
+                epi_file=epi_file,
             )
 
         # ========== STEP 2: INTEGRITY CHECKS (Facts) ==========
@@ -1199,7 +1256,11 @@ def verify_command(
                         if verbose:
                             console.print("  [green][OK][/green] SCITT receipt cryptographically verified")
                     except Exception as exc:
-                        transparency_ok = False
+                        # A local receipt is signed by the issuing machine's
+                        # own service key; on any other machine it simply
+                        # cannot be checked (unknown), not proven invalid.
+                        _is_local = str(scitt_info.get("service_url") or "").lower() == "local"
+                        transparency_ok = None if _is_local else False
                         if verbose:
                             console.print(f"  [red][FAIL][/red] SCITT receipt signature invalid: {exc}")
                 else:
@@ -1545,11 +1606,19 @@ def verify_command(
             e.get("status") == "valid" for e in _timestamps.get("seal", [])
         ):
             try:
+                _prior = report["decision"].get("status")
                 report["decision"]["status"] = "FAIL"
                 _rs = report["decision"].get("reason", "")
                 _msg = "no valid seal-time timestamp (--require-timestamp)"
                 if _msg not in _rs:
-                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
+                    if _prior == "FAIL":
+                        report["decision"]["reason"] = f"{_rs}; {_msg}".strip("; ")
+                    else:
+                        # Only the timestamp requirement failed; say so plainly
+                        # rather than appending to a "verified" sentence.
+                        report["decision"]["reason"] = (
+                            f"{_msg[0].upper()}{_msg[1:]}. The seal itself is intact."
+                        )
             except Exception:
                 pass
         if _timestamps.get("clock_warning") and report.get("decision", {}).get("status") == "PASS":
@@ -1574,26 +1643,57 @@ def verify_command(
                 pass
         # ========== CUSTOMER WITNESS LOG (--witness-log) ==========
         # MISMATCH means the file differs from what the customer was told at
-        # seal time: FAIL in every policy. A missing entry changes nothing.
+        # seal time: FAIL in every policy. A missing entry is WARN (FAIL under
+        # strict); an unreadable log FAILs.
         try:
             _witness = _check_witness_log(epi_file, manifest, witness_log)
         except Exception:
             _witness = {"status": "NOT CHECKED", "received_at": None, "matches": 0,
                         "detail": "witness check crashed"}
         report["witness"] = _witness
-        if _witness.get("status") == "MISMATCH":
+        if _witness.get("status") == "UNREADABLE":
             try:
+                _prior = report["decision"].get("status")
+                report["decision"]["status"] = "FAIL"
+                _rs = report["decision"].get("reason", "")
+                _msg = str(_witness.get("detail"))
+                report["decision"]["reason"] = (
+                    f"{_rs}; {_msg}" if _prior == "FAIL" else
+                    f"Witness check not done: {_msg}. The seal itself is intact."
+                )
+            except Exception:
+                pass
+        elif _witness.get("status") == "NOT IN WITNESS LOG":
+            # A seal the vendor never reported is exactly what a re-run or
+            # re-sealed case looks like. Never a clean PASS.
+            try:
+                if report["decision"].get("status") == "PASS":
+                    # strict = claim/audit acceptance (scripts rely on exit 1).
+                    report["decision"]["status"] = (
+                        "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
+                    )
+                    report["decision"]["reason"] = (
+                        "Seal and signer are valid, but this seal was never reported to "
+                        f"your witness log ({_witness.get('detail')}). It may be a re-run "
+                        "or re-sealed copy; ask the vendor for the copy that is in your "
+                        "witness log."
+                    )
+            except Exception:
+                pass
+        if _witness.get("status") == "MISMATCH":
+            # The file's own seal may be perfectly valid (a re-export or a
+            # re-signed copy). What failed is: it is not what you were told.
+            # FAIL in every policy, but never mislabelled as "file altered".
+            try:
+                _prior = report["decision"].get("status")
                 report["decision"]["status"] = "FAIL"
                 _rs = report["decision"].get("reason", "")
                 _msg = str(_witness.get("detail") or "witness mismatch")
-                if _msg not in _rs:
-                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
-            except Exception:
-                pass
-            try:
-                report["integrity_ok"] = False
-                report["facts"]["integrity_ok"] = False
-                report["summary"]["integrity"] = _msg
+                report["decision"]["reason"] = (
+                    f"{_rs}; {_msg}" if _prior == "FAIL" else
+                    f"Not the version reported to you: {_msg}. Ask the vendor for the "
+                    "copy that is in your witness log."
+                )
             except Exception:
                 pass
 
@@ -1791,14 +1891,39 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif decision_status == "PASS":
         status_symbol = "[bold green]✔ PASS[/bold green]"
         panel_style = "green"
+    elif decision_status == "WARN" and id_upper == "KNOWN":
+        # Signer is pinned; something else (witness log, clock) needs a look.
+        _wit_hdr = (report.get("witness") or {}).get("status") if isinstance(report, dict) else None
+        if _wit_hdr == "NOT IN WITNESS LOG":
+            status_symbol = "[bold yellow]⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED[/bold yellow]"
+        elif not completeness_ok:
+            status_symbol = "[bold yellow]⚠ EVIDENCE INCOMPLETE · SIGNER PINNED[/bold yellow]"
+        else:
+            status_symbol = "[bold yellow]⚠ SIGNER PINNED · SEE WARNING[/bold yellow]"
+        panel_style = "yellow"
     elif decision_status == "WARN" and id_upper == "LOCAL":
         status_symbol = "[bold yellow]⚠ LOCAL SEALER · NOT ORG-PINNED[/bold yellow]"
         panel_style = "yellow"
     elif decision_status == "WARN":
         status_symbol = "[bold yellow]⚠ UNVERIFIED IDENTITY[/bold yellow]"
         panel_style = "yellow"
+    elif not (integrity_ok and sequence_ok and chain_ok):
+        status_symbol = "[bold red]✘ SEAL FAIL — FILE ALTERED[/bold red]"
+        panel_style = "red"
+    elif signature_valid is False:
+        status_symbol = "[bold red]✘ SEAL FAIL — SIGNATURE INVALID[/bold red]"
+        panel_style = "red"
+    elif ((report.get("witness") or {}).get("status") if isinstance(report, dict) else None) == "MISMATCH":
+        status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
+        panel_style = "red"
+    elif signature_valid is True and id_upper == "UNKNOWN" and (
+        "facts" in report and (report.get("identity") or {}).get("pinned_names")
+    ):
+        status_symbol = "[bold red]✘ FAIL — NOT A KEY YOU TRUST[/bold red]"
+        panel_style = "red"
     else:
-        status_symbol = "[bold red]✘ SEAL FAIL[/bold red]"
+        # Seal intact; a policy requirement (identity, timestamp, ...) failed.
+        status_symbol = "[bold red]✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET[/bold red]"
         panel_style = "red"
 
     content_lines = []
@@ -1819,7 +1944,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"[bold]CAPTURE: path={_cp} enforcement={_ce}[/bold]"
         )
-        if _downgrade_n > 0:
+        if _downgrade_n > 0 and decision_status != "FAIL":
             content_lines.append(
                 f"[bold yellow]INTEGRITY: VERIFIED "
                 f"(enforcement downgraded for {_downgrade_n} events)[/bold yellow]"
@@ -1832,7 +1957,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append("")
 
     # Decision Layer — identity failure mode first when unpinned
-    if decision_status == "WARN" and signature_valid is True and integrity_ok:
+    if decision_status == "WARN" and signature_valid is True and integrity_ok and id_upper != "KNOWN":
         if id_upper == "LOCAL":
             content_lines.append(
                 "[bold]DECISION: WARN[/bold]  "
@@ -1875,20 +2000,37 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"
         )
-    content_lines.append(f"  - Name:         {identity_name or '—'}")
-    fp = None
-    if isinstance(identity, dict):
-        fp = identity.get("public_key_fingerprint") or identity.get("public_key_id")
-    if not fp:
-        fp = public_key_id
-    if fp:
-        content_lines.append(f"  - Fingerprint:  {fp}…")
+    _canon_fp = identity.get("fingerprint") if isinstance(identity, dict) else None
+    _name_is_fp = bool(
+        _canon_fp and identity_name
+        and str(identity_name).replace(" ", "") == _canon_fp.replace(" ", "")
+    )
+    content_lines.append(f"  - Name:         {'—' if _name_is_fp else (identity_name or '—')}")
+    if _canon_fp:
+        content_lines.append(
+            f"  - Fingerprint:  {_canon_fp}  [dim](confirm with the sender by phone)[/dim]"
+        )
+    else:
+        fp = None
+        if isinstance(identity, dict):
+            fp = identity.get("public_key_fingerprint") or identity.get("public_key_id")
+        if not fp:
+            fp = public_key_id
+        if fp:
+            content_lines.append(f"  - Fingerprint:  {fp}…")
     local_name = identity.get("local_key_name") if isinstance(identity, dict) else None
     if local_name:
         content_lines.append(f"  - Local key:    {local_name} (matches this computer — not org pin)")
     did_identity = identity.get("did") if isinstance(identity, dict) else None
     if did_identity:
-        content_lines.append(f"  - DID:          {did_identity}")
+        _det = str(identity.get("detail") or "") if isinstance(identity, dict) else ""
+        if "Verified via DID:WEB" in _det:
+            _did_note = "(resolved; key listed in the DID document)"
+        elif "DID" in _det:
+            _did_note = ""  # the Detail line already says what happened
+        else:
+            _did_note = "(claimed by the file; not checked)"
+        content_lines.append(f"  - DID:          {did_identity} {_did_note}".rstrip())
     if org_root:
         # Named only — this command never verifies a bundle. Point at the
         # command that does, same honesty as the browser viewer tooltip.
@@ -1979,7 +2121,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         _ts_legacy = [e for e in _seal_entries if e.get("status") == "legacy"]
         if _ts_invalid:
             content_lines.append(
-                f"  [red]- Timestamp:  INVALID — {_ts_invalid[0].get('detail')}[/red]"
+                f"  [red]- Timestamp:    INVALID — {_ts_invalid[0].get('detail')}[/red]"
             )
         elif _ts_valid:
             _ts_earliest = min(e["gen_time"] for e in _ts_valid if e.get("gen_time"))
@@ -1988,16 +2130,16 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
             _ts_where = "; ".join(f'chain to pinned root "{r}"' for r in _ts_roots)
             content_lines.append(
-                f"  [green]- Timestamp:  VERIFIED — existed no later than "
+                f"  [green]- Timestamp:    VERIFIED — existed no later than "
                 f"{_ts_earliest} ({_ts_where})[/green]"
             )
         elif _ts_legacy:
             content_lines.append(
-                "  [yellow]- Timestamp:  legacy token — imprint not recomputable "
+                "  [yellow]- Timestamp:    legacy token — imprint not recomputable "
                 "(sealed before 4.6); presence only[/yellow]"
             )
         else:
-            content_lines.append("  - Timestamp:  none")
+            content_lines.append("  - Timestamp:    none")
         if _ts_block.get("clock_warning"):
             content_lines.append(
                 f"  [yellow]- Clock:       {_ts_block['clock_warning']}[/yellow]"
@@ -2006,7 +2148,14 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     # Customer witness log check (--witness-log). Silent unless requested.
     _wit = report.get("witness") or {}
     _wit_status = _wit.get("status") or "NOT CHECKED"
-    if _wit_status == "WITNESSED":
+    _file_ok = bool(integrity_ok and sequence_ok and chain_ok and signature_valid is not False)
+    if _wit_status == "WITNESSED" and not _file_ok:
+        _received = _wit.get("received_at") or "unknown time"
+        content_lines.append(
+            f"  [red]- Witness:      a report for this case exists (received {_received}), "
+            "but THIS file was altered — it is not what was reported[/red]"
+        )
+    elif _wit_status == "WITNESSED":
         _received = _wit.get("received_at") or "unknown time"
         content_lines.append(
             f"  [green]- Witness:      WITNESSED (received {_received})[/green]"
@@ -2017,11 +2166,16 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
     elif _wit_status == "NOT IN WITNESS LOG":
         content_lines.append(
-            "  [yellow]- Witness:      NOT IN WITNESS LOG[/yellow]"
+            "  [yellow]- Witness:      NOT IN WITNESS LOG — never reported to you at seal "
+            "time (re-run or re-sealed?)[/yellow]"
+        )
+    elif _wit_status == "UNREADABLE":
+        content_lines.append(
+            f"  [red]- Witness:      NOT CHECKED — {_wit.get('detail')}[/red]"
         )
     elif _wit_status == "MISMATCH":
         content_lines.append(
-            f"  [red]- Witness:      MISMATCH — {_wit.get('detail')}[/red]"
+            f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
         )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
@@ -2053,17 +2207,22 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         _surfaces = _cap.get("instrumented_surfaces") or []
         _stream = _cap.get("streaming", False)
         content_lines.append(f"  - Capture:      path={_cap.get('capture_path', 'unknown')} streaming={str(_stream).lower()}")
-        if _surfaces:
+        if _surfaces and verbose:
+            # Internal hook names: useful to engineers, noise to reviewers.
             content_lines.append(f"  - Surfaces:     {', '.join([str(s) for s in _surfaces[:6]])}{' …' if len(_surfaces) > 6 else ''}")
         _active = _cap.get("active_surfaces") or []
         if _active:
             content_lines.append(f"  - Active:       {', '.join([str(s) for s in _active[:6]])}{' …' if len(_active) > 6 else ''}")
         else:
-            content_lines.append("  - Active:       none observed (no attributable evidence sealed)")
+            content_lines.append(
+                "  - Active:       no auto-captured calls (steps were logged by the program itself)"
+            )
         if _gaps:
-            content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (see artifacts/manifest.json)")
+            content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (not captured by this recording)")
             for _g in _gaps[:3]:
                 content_lines.append(f"      · {str(_g)[:100]}")
+            if len(_gaps) > 3:
+                content_lines.append(f"      · … {len(_gaps) - 3} more (epi verify -v)")
 
     # Checkpoints — specific messages, never generic alone.
     _cps = report.get("checkpoints") if isinstance(report, dict) else None
@@ -2086,10 +2245,31 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Transparency (SCITT)
     transparency_ok = facts.get("transparency_ok")
+    _scitt_url_any = (
+        ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
+        if isinstance(report, dict) else None
+    )
+    if transparency_ok is None and str(_scitt_url_any or "").strip().lower() == "local":
+        content_lines.append(
+            "  [yellow]- Transparency: LOCAL (self-issued receipt; only checkable on the "
+            "machine that issued it)[/yellow]"
+        )
     if transparency_ok is not None:
-        t_color = "green" if transparency_ok else "red"
-        t_text = "VERIFIED" if transparency_ok else "FAILED"
-        content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
+        _scitt_url = (
+            ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
+            if isinstance(report, dict) else None
+        )
+        if transparency_ok and str(_scitt_url or "").strip().lower() == "local":
+            # `epi-register` without --service: a receipt the sealer issued to
+            # itself. Valid, but not an independent ledger entry.
+            content_lines.append(
+                "  [yellow]- Transparency: LOCAL (self-issued receipt, not an independent "
+                "ledger)[/yellow]"
+            )
+        else:
+            t_color = "green" if transparency_ok else "red"
+            t_text = "VERIFIED" if transparency_ok else "FAILED"
+            content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
 
     # AIUC-1 Domain Layer
     aiuc1_data = report.get("aiuc1")
@@ -2135,9 +2315,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 "[dim]Seal is cryptographically valid. Identity is not pinned — "
                 "anyone can re-sign a rebuilt chain with a fresh key.[/dim]"
             )
-        content_lines.append(
-            f'[dim]  epi keys trust "{epi_file}" --name sealer[/dim]'
-        )
+        if id_upper == "LOCAL":
+            _own = (identity.get("local_key_name") if isinstance(identity, dict) else None) or "default"
+            content_lines.append(f"[dim]  Your own key: epi keys trust {_own}[/dim]")
+        else:
+            content_lines.append(
+                "[dim]  Pin the sender's key obtained from them directly — never from this file:[/dim]"
+            )
+            content_lines.append(
+                "[dim]    epi keys trust --from-did did:web:<their-domain> --name <sender>[/dim]"
+            )
+            content_lines.append(
+                "[dim]    epi keys trust <their-key-file> --name <sender>   then compare the "
+                "Fingerprint by phone[/dim]"
+            )
         content_lines.append(
             f'[dim]  epi verify "{epi_file}" --policy strict[/dim]'
         )

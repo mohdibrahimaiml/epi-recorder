@@ -106,7 +106,7 @@ and seeds each caller's signing key, so:
 - authorization codes live 10 minutes in memory, so a restart in the
   middle of an approval forces one re-approval;
 - a caller's signer stays the same across restarts, so
-  `epi keys trust <file>.epi` pinning lasts. Without the secret the
+  `epi keys trust <file>.epi --fingerprint "..."` pinning lasts. Without the secret the
   signing key lives on the host's disk and changes whenever that disk
   is reset.
 

@@ -390,7 +390,7 @@ class TestSCITTCLI:
         assert report["facts"]["transparency_ok"] is False
 
     def test_verify_missing_service_key_reports_unknown_never_pass(
-        self, tmp_path: Path, signed_manifest, private_key, mock_service,
+        self, tmp_path: Path, signed_manifest, private_key, mock_service, monkeypatch,
     ):
         """``epi verify`` with a SCITT receipt but no service key.
 
@@ -405,6 +405,9 @@ class TestSCITTCLI:
         from typer.testing import CliRunner
 
         from epi_cli.main import app
+
+        # Hermetic: keys pinned in the real ~/.epi must not change the verdict.
+        monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(tmp_path / "trusted"))
 
         # 1. Seal + sign a base artifact (envelope-safe pack path).
         source_dir = tmp_path / "source"

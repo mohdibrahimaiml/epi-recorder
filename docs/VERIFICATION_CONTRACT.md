@@ -51,15 +51,18 @@ If `signature_valid` is `true`, the artifact is cryptographically intact. This i
 - The identity is still valid (keys may have been rotated or revoked).
 - The person operating the identity server is honest.
 
-**Identity states:**
+**Identity states** (JSON `identity.status`, and the `Status:` line the CLI prints):
 
-| Status | Meaning |
-|--------|---------|
-| `KNOWN` | The signing key matches a resolved DID:WEB or local trusted key. |
-| `UNKNOWN` | No trust registry entry or DID resolution succeeded. The crypto is still valid — you just don't know who the signer is. |
-| `REVOKED` | The key has been explicitly revoked. Do not trust. |
+| JSON status | CLI `Status:` line | Meaning |
+|-------------|--------------------|---------|
+| `KNOWN` | `KNOWN` | The signing key matches a key you pinned (`epi keys trust`, `--from-did`, trust bundle) or a resolved DID:WEB. |
+| `LOCAL` | `LOCAL` | The key is on this computer, but not pinned. |
+| `UNKNOWN` | `NOT_PINNED` | You have pinned no keys, and nothing else identifies the signer. The crypto is still valid; you just don't know who signed. |
+| `UNKNOWN` | `NOT A KEY YOU TRUST (you have pinned: …)` | You have pinned at least one key and this file was sealed by a different one. The decision is FAIL under `standard` and `strict`. |
+| `MISMATCH` | `MISMATCH` | Claimed identity does not match the signing key. |
+| `REVOKED` | `REVOKED` | The key has been explicitly revoked (`epi keys revoke`). Revocation applies to the key, so every pin holding it shows `revoked` in `epi keys list`. Decision FAIL under `standard` and `strict`. Undo with `epi keys unrevoke <name>`. |
 
-**Important:** `UNKNOWN` is **not** a failure. It means "I can verify the math, but I don't recognize the key." In a fresh environment with no trust registry, every artifact shows `UNKNOWN` — and that's correct.
+**Important:** `NOT_PINNED` is **not** a failure under the default policy. It means "I can verify the math, but I don't recognize the key." In a fresh environment with no pinned keys, every artifact shows it, and that's correct. Under `--policy strict` it is a FAIL. `NOT A KEY YOU TRUST` is different: you told EPI whose keys to expect, and this file is not one of them.
 
 ---
 
@@ -94,10 +97,37 @@ Policy decisions (`apply_policy`, `--policy`) are separate from trust:
 | Policy `status` | Meaning |
 |-----------------|---------|
 | `PASS` | Meets the selected policy. |
-| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer under `standard`). Do not treat as claim acceptance. |
-| `FAIL` | Policy requirements not met (e.g. unknown sealer under `strict`, integrity failure). |
+| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer, or incomplete evidence such as a `tool.call` with no `tool.response`, under `standard`). Do not treat as claim acceptance. |
+| `FAIL` | Policy requirements not met (e.g. unknown sealer or incomplete evidence under `strict`, integrity failure, revoked key). |
 
 Sprint rule: external/claim use requires `--policy strict` (unknown sealer FAILs).
+`epi verify` exits `1` on FAIL and `0` on PASS **or WARN**, so scripts that
+gate on the exit code must use `--policy strict`. The recommended
+customer/bank/auditor command is:
+
+```bash
+epi verify FILE --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
+```
+
+### CLI headlines
+
+The first line of the CLI report maps onto the decision and identity:
+
+| Headline | Decision | When |
+|----------|----------|------|
+| `✔ SEAL · IDENTITY PINNED` | PASS | Identity `KNOWN`. |
+| `✔ PASS` | PASS | Policy passed without a pinned identity (e.g. `permissive`). |
+| `⚠ LOCAL SEALER · NOT ORG-PINNED` | WARN | Identity `LOCAL`. |
+| `⚠ UNVERIFIED IDENTITY` | WARN | Identity `UNKNOWN` (`NOT_PINNED`) under `standard`. |
+| `⚠ NOT IN YOUR WITNESS LOG · SIGNER PINNED` | WARN | Identity `KNOWN`; `--witness-log` given and this seal is not in it. |
+| `⚠ SIGNER PINNED · SEE WARNING` | WARN | Identity `KNOWN`; another warning (e.g. clock) downgraded PASS. |
+| `✘ SEAL FAIL — FILE ALTERED` | FAIL | `integrity_ok`, `chain_ok` or `sequence_ok` false. |
+| `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | `signature_valid=false`. |
+| `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | Valid signature, identity `UNKNOWN`, other keys pinned. |
+| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Seal fine; another requirement failed (unpinned sealer under `strict`, revoked key (`Status: REVOKED`), incomplete evidence under `strict` (`Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`), `--require-timestamp` without a valid token, ...). `Reason:` names it. |
+
+Real samples of each: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#real-samples).
 
 ### Browser verifier parity
 
@@ -154,7 +184,8 @@ This is a **trust judgment**, separate from the cryptographic proof.
 |-------|---------|--------|
 | `KNOWN` | The key is recognized by a trust registry or DID resolution. | Accept if you trust the registry. |
 | `LOCAL` | The key matches a key on this machine, not an org pin. CLI `trust_level=MEDIUM`. | Internal use; pin for claims. |
-| `UNKNOWN` | The key is not recognized. The math is valid, but the signer is anonymous to this verifier. | Accept for internal use. Investigate for legal/regulatory use. |
+| `UNKNOWN` (no pins; CLI prints `NOT_PINNED`) | The key is not recognized. The math is valid, but the signer is anonymous to this verifier. | Accept for internal use. Pin the sealer and use `--policy strict` for legal/regulatory use. |
+| `UNKNOWN` (other keys pinned; CLI prints `NOT A KEY YOU TRUST`) | Valid signature by a key other than the one(s) you pinned. Decision FAIL under `standard` and `strict`. | Reject unless the vendor confirms a new key out of band and you pin it. |
 | `MISMATCH` | Claimed identity does not match the signing key. CLI `trust_level=FAIL`. | Reject — possible impersonation. |
 | `REVOKED` | The key has been explicitly revoked. | Reject. Do not trust. |
 

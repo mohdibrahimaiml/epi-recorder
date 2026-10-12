@@ -14,6 +14,19 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 
+def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
+    """The one fingerprint EPI shows for an Ed25519 public key.
+
+    First 16 hex chars of SHA-256 over the lowercase hex key text (the value
+    the witness log records as ``key_fingerprint``). ``grouped`` formats it
+    for reading aloud: ``4148 fb59 a148 a6dc``.
+    """
+    import hashlib
+
+    raw = hashlib.sha256(public_key_hex.strip().lower().encode("utf-8")).hexdigest()[:16]
+    return " ".join(raw[i:i + 4] for i in range(0, 16, 4)) if grouped else raw
+
+
 def _is_writable_dir(path: Path) -> bool:
     """Return True if directory is creatable and writable."""
     try:
@@ -354,13 +367,44 @@ class KeyManager:
         if len(text) == 64 and all(c in "0123456789abcdefABCDEF" for c in text):
             return bytes.fromhex(text)
 
+        # What `epi keys export` prints by default: base64 of the 32 raw bytes.
+        if len(text) == 44 and text.endswith("="):
+            try:
+                raw = base64.b64decode(text, validate=True)
+                if len(raw) == 32:
+                    return raw
+            except Exception:
+                pass
+
+        # A did.json the vendor sent (offline pinning without resolving did:web).
+        if text.startswith("{"):
+            import json as _json
+
+            try:
+                doc = _json.loads(text)
+            except ValueError:
+                doc = None
+            if isinstance(doc, dict) and "verificationMethod" in doc:
+                from epi_core.did_web import extract_ed25519_keys
+
+                found = extract_ed25519_keys(doc)
+                if len(found) == 1:
+                    return bytes.fromhex(found[0])
+                if not found:
+                    raise ValueError(f"{path} is a DID document with no Ed25519 key")
+                raise ValueError(
+                    f"{path} lists {len(found)} Ed25519 keys; pin each one from "
+                    "`epi keys trust --from-did` or a single-key .pub file"
+                )
+
         # PEM public key
         try:
             return self._load_public_key_raw_bytes_from_file(path)
         except Exception as pem_exc:
             raise ValueError(
                 f"Could not load Ed25519 public key from {path}. "
-                "Expected PEM, 64-char hex .pub, or signed .epi. "
+                "Expected PEM, 64-char hex .pub, base64 key (from `epi keys export`), "
+                "did.json, or signed .epi. "
                 f"Detail: {pem_exc}"
             ) from pem_exc
 
@@ -400,6 +444,48 @@ class KeyManager:
         revoked_path = trusted_keys_dir / f"{name}.revoked"
         revoked_path.write_text(hex_key, encoding="utf-8")
         return revoked_path
+
+    def unrevoke_key(self, name: str, *, trusted_keys_dir: Path) -> list[Path]:
+        """Undo ``revoke_key``: remove every revocation marker for that key.
+
+        Revocation applies to the key, not the pin name, so markers written
+        under any name for the same key are removed. Returns removed paths.
+        """
+        trusted_keys_dir = Path(trusted_keys_dir)
+        hex_key = None
+        for candidate in (
+            trusted_keys_dir / f"{name}.revoked",
+            trusted_keys_dir / f"{name}.pub",
+        ):
+            if candidate.exists():
+                hex_key = candidate.read_text(encoding="utf-8").strip().lower()
+                break
+        if hex_key is None and (self.keys_dir / f"{name}.pub").exists():
+            hex_key = self._load_public_key_raw_bytes(name).hex()
+        if hex_key is None:
+            raise FileNotFoundError(f"No trusted or revoked key named '{name}'.")
+        removed: list[Path] = []
+        for marker in trusted_keys_dir.glob("*.revoked"):
+            try:
+                if marker.read_text(encoding="utf-8").strip().lower() == hex_key:
+                    marker.unlink()
+                    removed.append(marker)
+            except OSError:
+                continue
+        return removed
+
+
+def revoked_key_hexes(trusted_keys_dir: Path) -> set[str]:
+    """Hex keys with a revocation marker (revocation is per key, not per name)."""
+    out: set[str] = set()
+    trusted_keys_dir = Path(trusted_keys_dir)
+    if trusted_keys_dir.exists():
+        for marker in trusted_keys_dir.glob("*.revoked"):
+            try:
+                out.add(marker.read_text(encoding="utf-8").strip().lower())
+            except OSError:
+                continue
+    return out
 
 
 def export_trust_bundle(

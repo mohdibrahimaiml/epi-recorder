@@ -2,6 +2,8 @@
 EPI CLI keys compatibility layer and presentation helpers.
 """
 
+from pathlib import Path
+
 from rich.console import Console
 from rich.table import Table
 
@@ -61,15 +63,54 @@ def print_keys_table(keys: list[dict[str, str]]) -> None:
     table.add_column("Name", style="cyan")
     table.add_column("Private Key", style="green")
     table.add_column("Public Key", style="blue")
+    table.add_column("Fingerprint", style="green")
+
+    from epi_core.keys import key_fingerprint
 
     for key in keys:
         private_status = "[Y]" if key["has_private"] else "[N]"
         public_status = "[Y]" if key["has_public"] else "[N]"
+        fp = ""
+        try:
+            if key["has_public"]:
+                _km = KeyManager(keys_dir=Path(key["public_path"]).parent)
+                fp = key_fingerprint(_km.load_public_key(key["name"]).hex())
+        except Exception:
+            fp = ""
 
         table.add_row(
             key["name"],
             f"{private_status} {key['private_path']}",
             f"{public_status} {key['public_path']}",
+            fp,
         )
 
+    console.print(table)
+
+
+def print_trusted_keys_table(trusted_keys_dir: Path) -> None:
+    """Keys you pinned (other parties you trust), with their fingerprints."""
+    from epi_core.keys import key_fingerprint
+
+    trusted_keys_dir = Path(trusted_keys_dir)
+    pubs = sorted(trusted_keys_dir.glob("*.pub")) if trusted_keys_dir.exists() else []
+    if not pubs:
+        console.print("[dim]No trusted (pinned) keys. Pin a sender: epi keys trust --from-did did:web:...[/dim]")
+        return
+    from epi_core.keys import revoked_key_hexes
+
+    revoked = {p.stem for p in trusted_keys_dir.glob("*.revoked")}
+    revoked_hex = revoked_key_hexes(trusted_keys_dir)
+    table = Table(title="Trusted Keys (pinned)", show_header=True, header_style="bold magenta")
+    table.add_column("Name", style="cyan")
+    table.add_column("Fingerprint", style="green")
+    table.add_column("Status")
+    for pub in pubs:
+        try:
+            _hex = pub.read_text(encoding="utf-8").strip().lower()
+            fp = key_fingerprint(_hex)
+        except Exception:
+            _hex, fp = "", "unreadable"
+        is_revoked = pub.stem in revoked or _hex in revoked_hex
+        table.add_row(pub.stem, fp, "[red]revoked[/red]" if is_revoked else "trusted")
     console.print(table)

@@ -108,7 +108,14 @@ def audit_artifact(
         "container_format": EPIContainer.detect_container_format(epi_path),
     }
 
-    # 2. Full verification report
+    # 2. Full verification report — with the real step chain, never assumed.
+    try:
+        from epi_cli.verify import _verify_step_chain
+
+        chain_ok, _chain_breaks = _verify_step_chain(steps, spec_version=manifest.spec_version)
+    except Exception:
+        chain_ok = False
+    report["pipeline"]["cryptographic"]["chain_ok"] = bool(chain_ok)
     ver_report = create_verification_report(
         integrity_ok=bool(integrity_ok),
         signature_valid=sig_valid,
@@ -116,7 +123,7 @@ def audit_artifact(
         mismatches=mismatches,
         manifest=manifest,
         trusted_registry=TrustRegistry(),
-        chain_ok=True,
+        chain_ok=bool(chain_ok),
     )
     applicable = apply_policy(ver_report, policy)
     report["pipeline"]["verification"] = {
@@ -168,9 +175,16 @@ def audit_artifact(
     except Exception:
         report["pipeline"]["scitt"] = {"status": "unavailable"}
 
-    # 4. AIUC-1 mapping
+    # 4. AIUC-1 mapping. An altered file supports no domain at all: its
+    # contents are not what was sealed.
     aiuc1_statuses = map_verification_to_aiuc1(ver_report, manifest, steps, epi_path=epi_path)
     aiuc1_sum = aiuc1_summary(aiuc1_statuses)
+    _altered = not (integrity_ok and chain_ok) or sig_valid is False
+    if _altered:
+        for _dom in (aiuc1_sum.get("domains") or {}).values():
+            _dom["status"] = "FAIL"
+            _dom["evidence"] = ["file altered after sealing"]
+        aiuc1_sum["overall"] = "FAIL"
     report["pipeline"]["aiuc1"] = aiuc1_sum
 
     # 5. Fault analysis
@@ -194,7 +208,9 @@ def audit_artifact(
         review_report = verify_review_trust(epi_path, strict=strict)
         records = read_review_records(epi_path)
         report["pipeline"]["human_review"] = {
-            "status": review_report.get("status", "unknown"),
+            "status": (
+                "none" if not records else review_report.get("status", "unknown")
+            ),
             "review_count": len(records),
             "latest_review_id": review_report.get("latest_review_id"),
             "signed": review_report.get("signature_valid") is True,
@@ -230,6 +246,8 @@ def audit_artifact(
     has_analysis = report["pipeline"]["fault_analysis"].get("status") == "present"
 
     score = 0
+    if _altered:
+        has_scitt = has_review = has_analysis = False
     score += passing  # up to 6 from AIUC-1
     score += 2 if has_scitt else 0
     score += 1 if has_review else 0
@@ -240,7 +258,7 @@ def audit_artifact(
         "score": score,
         "max": max_score,
         "percentage": round(score / max_score * 100),
-        "rating": _score_to_rating(
+        "rating": "altered" if _altered else _score_to_rating(
             score / max_score,
             signed=bool(report["pipeline"]["cryptographic"].get("signature_valid")),
         ),
@@ -277,7 +295,10 @@ def _render_rich(report: dict) -> str:
     from rich.panel import Panel
     from rich.text import Text
 
-    console = Console(record=True)
+    import io
+
+    # Record only; the caller prints the exported text once.
+    console = Console(record=True, file=io.StringIO())
     console.print()
 
     score = report["compliance_score"]
@@ -311,7 +332,19 @@ def _render_rich(report: dict) -> str:
     # Pipeline status
     pipe = report["pipeline"]
     console.print("\n[bold]Pipeline Status[/bold]")
-    console.print(f"  Cryptographic:  [green]✓[/green]" if pipe["cryptographic"]["signature_valid"] else "  Cryptographic:  [red]✗[/red]")
+    _crypto_ok = (
+        pipe["cryptographic"]["signature_valid"]
+        and pipe["cryptographic"]["integrity_ok"]
+        and pipe["cryptographic"].get("chain_ok", True)
+    )
+    console.print(
+        "  Cryptographic:  [green]✓[/green]" if _crypto_ok
+        else (
+            "  Cryptographic:  [red]✗ FILE ALTERED[/red]"
+            if not (pipe["cryptographic"]["integrity_ok"] and pipe["cryptographic"].get("chain_ok", True))
+            else "  Cryptographic:  [red]✗[/red]"
+        )
+    )
     console.print(f"  SCITT:         [green]✓ verified (entry: {pipe['scitt'].get('entry_id', '?')})[/green]" if pipe["scitt"].get("status") == "verified" else f"  SCITT:         [dim]{pipe['scitt'].get('status', '?')}[/dim]")
     console.print(f"  Review:        [green]✓ signed + bound[/green]" if pipe["human_review"].get("signed") else f"  Review:        [dim]{pipe['human_review'].get('status', '?')}[/dim]")
     console.print(f"  Analysis:      [green]✓[/green]" if pipe["fault_analysis"].get("status") == "present" else f"  Analysis:      [dim]{pipe['fault_analysis'].get('status', '?')}[/dim]")
@@ -330,7 +363,12 @@ def audit_command(
     if not artifact.exists():
         raise typer.BadParameter(f"Artifact not found: {artifact}")
 
-    report = audit_artifact(artifact, output_format=output_format, strict=strict)
+    try:
+        report = audit_artifact(artifact, output_format=output_format, strict=strict)
+    except ValueError as exc:
+        # Not a readable .epi (e.g. re-packed by a zip tool): one clear line.
+        print(f"[FAIL] Cannot audit {artifact.name}: {exc}")
+        raise typer.Exit(1)
 
     if output_format == "json":
         result = json.dumps(report, indent=2, default=str, ensure_ascii=False)
@@ -342,10 +380,13 @@ def audit_command(
     if output:
         output.write_text(result, encoding="utf-8")
         print(f"Audit report written to {output}")
-    elif output_format == "rich":
-        print(result)
     else:
         print(result)
+
+    # Scripts must see a tampered or badly signed file.
+    crypto = report["pipeline"]["cryptographic"]
+    if not (crypto.get("integrity_ok") and crypto.get("chain_ok", True) and crypto.get("signature_valid")):
+        raise typer.Exit(1)
 
 
 def _render_markdown(report: dict) -> str:
@@ -370,7 +411,7 @@ def _render_markdown(report: dict) -> str:
         "",
         "## Pipeline Status",
         "",
-        f"- Cryptographic: {'✓' if report['pipeline']['cryptographic']['signature_valid'] else '✗'}",
+        f"- Cryptographic: {'✓' if (report['pipeline']['cryptographic']['signature_valid'] and report['pipeline']['cryptographic']['integrity_ok'] and report['pipeline']['cryptographic'].get('chain_ok', True)) else '✗'}",
         f"- SCITT: {report['pipeline']['scitt'].get('status', 'unknown')}",
         f"- Review: {report['pipeline']['human_review'].get('status', 'unknown')}",
         f"- Analysis: {report['pipeline']['fault_analysis'].get('status', 'unknown')}",

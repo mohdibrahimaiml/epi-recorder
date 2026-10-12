@@ -1,61 +1,34 @@
-"""Reference customer witness receiver (stdlib only, ~60 lines).
+"""Reference customer witness receiver (kept for reference).
 
-The vendor points their witness webhook at this server. It verifies the
-HMAC, stamps `received_at`, and appends each payload to `received.jsonl` —
-the file the customer later checks with:
+The receiver now ships with the package -- prefer the installed command:
 
-    epi verify run.epi --witness-log received.jsonl
+    epi witness serve --port 8099 --secret SHARED_SECRET --out received.jsonl
 
-Run:  python receiver.py [--port 8099] [--secret SHARED_SECRET] [--out received.jsonl]
+This script is a thin wrapper around ``epi_core.witness_receiver`` with the
+same flags as before:
+
+    python receiver.py --port 8099 --secret SHARED_SECRET --out received.jsonl
+
+It verifies the HMAC, stamps `received_at`, and appends each payload to
+`received.jsonl` -- the file the customer later checks with:
+
+    epi verify run.epi --policy strict --witness-log received.jsonl
+
+The default host is 127.0.0.1 (this machine only). For a vendor on another
+machine, listen on 0.0.0.0 behind a TLS-terminating reverse proxy (Caddy,
+nginx, a cloud load balancer) and give the vendor the https:// URL. The
+secret can also come from the EPI_WITNESS_SECRET environment variable.
+Unlike `epi witness serve`, this script runs without a secret (HMAC check
+off) when none is given.
 """
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 import sys
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 
-PORT = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8099
-SECRET = sys.argv[sys.argv.index("--secret") + 1] if "--secret" in sys.argv else ""
-OUT = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else Path("received.jsonl")
+from epi_core.witness_receiver import build_parser, main
 
-
-class Handler(BaseHTTPRequestHandler):
-    def do_POST(self) -> None:  # noqa: N802 (http.server convention)
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
-            payload = json.loads(body.decode("utf-8"))
-        except Exception:
-            self.send_response(400)
-            self.end_headers()
-            return
-        if payload.get("schema") != "epi-witness/v1" or payload.get("type") != "epi.sealed":
-            self.send_response(400)
-            self.end_headers()
-            return
-        if SECRET:
-            want = hmac.new(SECRET.encode(), body, hashlib.sha256).hexdigest()
-            got = (self.headers.get("X-EPI-Signature") or "").removeprefix("sha256=")
-            if not hmac.compare_digest(want, got):
-                self.send_response(401)
-                self.end_headers()
-                return
-        payload["received_at"] = datetime.now(timezone.utc).isoformat()
-        OUT.parent.mkdir(parents=True, exist_ok=True)
-        with OUT.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload) + "\n")
-        self.send_response(200)
-        self.end_headers()
-
-    def log_message(self, *args):  # keep logs quiet
-        pass
-
+__all__ = ["build_parser", "main"]
 
 if __name__ == "__main__":
-    print(f"witness receiver on :{PORT} -> {OUT} (hmac {'on' if SECRET else 'off'})")
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    sys.exit(main())

@@ -372,6 +372,34 @@ def _build_viewer_context(epi_path: Path) -> dict:
     return report
 
 
+def _print_seal_verdict(epi_path: Path, context: dict) -> bool:
+    """One honest line about the seal; never a fixed "Seal OK"."""
+    facts = context.get("facts") or {}
+    integrity_ok = facts.get("integrity_ok", context.get("integrity_ok"))
+    signature_valid = facts.get("signature_valid", context.get("signature_valid"))
+    if integrity_ok is not True:
+        console.print(
+            "[bold red][FAIL] This file was ALTERED after it was sealed — "
+            "do not rely on what the viewer shows.[/bold red]"
+        )
+        console.print(f'[red]  Details: epi verify "{epi_path}"[/red]')
+        return True
+    elif signature_valid is False:
+        console.print("[bold red][FAIL] Signature INVALID — do not rely on this file.[/bold red]")
+        console.print(f'[red]  Details: epi verify "{epi_path}"[/red]')
+        return True
+    elif signature_valid is None:
+        console.print(
+            "[yellow]Unsigned file — contents are intact but anyone could have made it.[/yellow]"
+        )
+    else:
+        console.print(
+            "[dim]Seal intact (not altered). To check who sealed it: "
+            f'[cyan]epi verify "{epi_path}"[/cyan].[/dim]'
+        )
+    return False
+
+
 def _inject_viewer_context(viewer_path: Path, context: dict) -> None:
     """Inject verification context into extracted viewer.html."""
     html = viewer_path.read_text(encoding="utf-8")
@@ -728,9 +756,9 @@ def view(
 
     try:
         EPIContainer.detect_container_format(resolved_path)
-    except Exception:
+    except Exception as exc:
         console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
-        console.print("[dim]   The file may be corrupt or incomplete.[/dim]")
+        console.print(f"[dim]   {exc}[/dim]")
         raise typer.Exit(1)
 
     if extract:
@@ -751,9 +779,11 @@ def view(
             "[dim]Tip: run [cyan]epi view file.epi[/cyan] (no --extract) to open via "
             "http://127.0.0.1 — more reliable than double-clicking the HTML.[/dim]"
         )
+        # Extracting an altered file is allowed (forensics), but say so.
+        _altered = _print_seal_verdict(resolved_path, _build_viewer_context(resolved_path))
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
-        raise typer.Exit(0)
+        raise typer.Exit(1 if _altered else 0)
 
     if native and _open_native_viewer(resolved_path):
         console.print(f"[green][OK][/green] Opened native viewer: {resolved_path.name}")
@@ -791,12 +821,11 @@ def view(
 
         _open_in_browser(viewer)
         console.print(f"[green][OK][/green] Opened: {resolved_path.name}")
-        console.print(
-            "[dim]Seal OK + new signer is normal. "
-            "Optional: [cyan]epi keys trust[/cyan] then [cyan]epi verify[/cyan].[/dim]"
-        )
+        _altered = _print_seal_verdict(resolved_path, viewer_context)
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
+        if _altered:
+            raise typer.Exit(1)  # scripts must see it too
 
     except typer.Exit:
         raise  # Re-raise typer exits cleanly
@@ -836,8 +865,24 @@ def export_html(
 
     try:
         EPIContainer.detect_container_format(resolved_path)
-    except Exception:
+    except Exception as exc:
         console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
+        console.print(f"[dim]   {exc}[/dim]")
+        raise typer.Exit(1)
+
+    # Never package an altered or badly signed file as a shareable page.
+    try:
+        _ctx = _build_viewer_context(resolved_path)
+    except Exception as e:
+        console.print(f"[red][X] Could not verify the file before export:[/red] {e}")
+        raise typer.Exit(1)
+    _facts = _ctx.get("facts") or {}
+    if _facts.get("integrity_ok") is not True or _facts.get("signature_valid") is False:
+        console.print(
+            "[bold red][FAIL] Not exported: this file was altered after sealing "
+            "or its signature is invalid.[/bold red]"
+        )
+        console.print(f'[red]  Details: epi verify "{resolved_path}"[/red]')
         raise typer.Exit(1)
 
     # Determine output path

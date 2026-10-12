@@ -342,17 +342,37 @@ class TrustRegistry:
             pass
 
     def pinned_names(self) -> list[str]:
-        """Names of locally pinned (non-revoked) keys, for honest verify output."""
+        """Names of pinned (non-revoked) keys of OTHER parties, for verify output.
+
+        Pins of this machine's own signing keys are left out (``epi demo``
+        pins ``default`` automatically): they say nothing about which
+        senders the user decided to trust, so they must not turn every
+        file from someone else into "NOT A KEY YOU TRUST".
+        """
         names: list[str] = []
         try:
             if self.trusted_keys_dir.exists():
+                from epi_core.keys import revoked_key_hexes
+
                 revoked = {
                     p.stem
                     for p in self.trusted_keys_dir.glob("*.revoked")
                 }
+                revoked_hex = revoked_key_hexes(self.trusted_keys_dir)
                 for pub_file in sorted(self.trusted_keys_dir.glob("*.pub")):
-                    if pub_file.stem not in revoked:
-                        names.append(pub_file.stem)
+                    if pub_file.stem in revoked:
+                        continue
+                    try:
+                        if pub_file.read_text().strip().lower() in revoked_hex:
+                            continue
+                    except Exception:
+                        pass
+                    try:
+                        if _match_local_signing_key_name(pub_file.read_text().strip()):
+                            continue
+                    except Exception:
+                        pass
+                    names.append(pub_file.stem)
         except Exception:
             pass
         return names
@@ -511,6 +531,15 @@ class VerificationPolicy(StrEnum):
     STRICT = "strict"  # Valid integrity + trusted identity + completeness
 
 
+def _key_fingerprint(public_key_hex: str) -> str | None:
+    try:
+        from epi_core.keys import key_fingerprint
+
+        return key_fingerprint(public_key_hex)
+    except Exception:
+        return None
+
+
 def _match_local_signing_key_name(public_key_hex: str) -> str | None:
     """Return local key name if *public_key_hex* matches a key under KeyManager.keys_dir."""
     if not public_key_hex or len(public_key_hex) < 64:
@@ -599,8 +628,8 @@ def create_verification_report(
             identity_name = identity_name or local_key_name
             status_detail = (
                 f"Matches local signing key '{local_key_name}' on this computer "
-                "(not an org trust-list pin). Optional: epi keys trust <file.epi> "
-                f"--name {local_key_name}"
+                "(not an org trust-list pin). To pin your own key: "
+                f"epi keys trust {local_key_name}"
             )
 
     # 2. Fact Layer (Objective Evidence)
@@ -635,6 +664,7 @@ def create_verification_report(
             "registry_verified": is_trusted_identity,
             "public_key_id": pk[:16] if pk else None,
             "public_key_fingerprint": pk[:32] if pk else None,
+            "fingerprint": _key_fingerprint(pk) if pk else None,
             "local_key_name": local_key_name,
             "did": (manifest.governance or {}).get("did") if manifest.governance else None,
             "pinned_names": (
@@ -727,8 +757,8 @@ def create_verification_report(
         report["trust_message"] = "Unsigned but integrity intact (no signature) — lower trust than signed-unknown"
     elif report["trust_level"] == "LOW":
         report["trust_message"] = (
-            "Seal OK (valid signature); signer not pinned in trust list yet — "
-            "normal until you run epi keys trust"
+            "Seal OK (valid signature); signer not pinned — pin the sender's key "
+            "obtained from them directly, not from this file"
         )
     elif report["trust_level"] == "INVALID":
         report["trust_message"] = "Invalid signature - do not trust"
@@ -806,16 +836,36 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         # WARN so a forger cannot skim "PASS" / "SEAL OK" without an org pin.
         # Claim / insurer acceptance must use STRICT (KNOWN identity required).
         if identity["status"] == "REVOKED":
-            decision["reason"] = "Identity revoked"
+            decision["reason"] = (
+                "Identity revoked — this key was revoked in your trust registry "
+                f"({identity.get('name') or 'revoked key'}). Undo only if that was a mistake: "
+                "epi keys unrevoke <name>"
+            )
         elif identity["status"] == "MISMATCH":
             decision["status"] = "FAIL"
             decision["reason"] = "Identity mismatch - possible impersonation attack"
+        elif (
+            facts["signature_valid"] is True
+            and identity["status"] == "UNKNOWN"
+            and identity.get("pinned_names")
+        ):
+            # The verifier HAS pinned keys and this file was sealed by none of
+            # them. That is the impersonation case pinning exists to catch, so
+            # it must not read as a soft first-look WARN (exit 0).
+            decision["status"] = "FAIL"
+            decision["reason"] = (
+                "Not a key you trust — signature valid but sealed by a key other "
+                f"than the one(s) you pinned ({', '.join(identity['pinned_names'])}). "
+                "Do not pin the key from this file; confirm the sender's key out "
+                "of band (epi keys trust --from-did <did>)."
+            )
         elif facts["signature_valid"] is True and identity["status"] == "UNKNOWN":
             decision["status"] = "WARN"
             decision["reason"] = (
                 "Unverified identity — signature valid but signer not pinned in any "
                 "trusted registry. Anyone can generate a key and re-sign a rebuilt "
-                "chain. Optional: epi keys trust <file.epi> --name sealer. "
+                "chain. Pin the sender's key obtained from them directly (not from this "
+                "file): epi keys trust --from-did <did> or epi keys trust <their-key-file>. "
                 "For claims / audit: epi verify --policy strict (FAIL until org pin)."
             )
         elif facts["signature_valid"] is True and identity["status"] == "LOCAL":
@@ -823,7 +873,7 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
             decision["reason"] = (
                 "Local sealer only — signature valid and matches a key on this computer "
                 f"({identity.get('name') or 'local'}), but this is not an org trust-list "
-                "pin. Optional: epi keys trust <file.epi> --name sealer. "
+                f"pin. To pin your own key: epi keys trust {identity.get('local_key_name') or identity.get('name') or 'default'}. "
                 "For claims / audit: epi verify --policy strict."
             )
         elif facts["signature_valid"] is None:
@@ -836,16 +886,37 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "anyone could have produced this file. "
                 "For claims / audit: require a signed seal (epi verify --policy strict)."
             )
+        elif not facts.get("completeness_ok", True):
+            # Seal and signer fine, but the evidence has gaps (e.g. a request
+            # with no recorded response). Never a clean PASS next to a
+            # "Forensic: FAIL" line.
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Evidence incomplete — seal and signer are valid, but the record has "
+                "gaps (see Forensic). --policy strict FAILs this."
+            )
         else:
             decision["status"] = "PASS"
             decision["reason"] = "Integrity verified and identity not revoked"
 
     elif policy == VerificationPolicy.STRICT:
         # Integrity + known identity + completeness
-        if identity["status"] not in ("KNOWN",):
+        if identity["status"] == "REVOKED":
+            decision["reason"] = (
+                "Identity revoked — this key was revoked in your trust registry "
+                f"({identity.get('name') or 'revoked key'}). Undo only if that was a mistake: "
+                "epi keys unrevoke <name>"
+            )
+        elif identity["status"] == "UNKNOWN" and identity.get("pinned_names"):
+            decision["reason"] = (
+                "Not a key you trust — sealed by a key other than the one(s) you pinned "
+                f"({', '.join(identity['pinned_names'])}). Do not pin the key from this file."
+            )
+        elif identity["status"] not in ("KNOWN",):
             decision["reason"] = (
                 "Identity unknown or revoked (Strict Policy requires trusted signer; "
-                "LOCAL self-match is not enough — pin with epi keys trust)"
+                "LOCAL self-match is not enough — pin the sender's key obtained from them "
+                "directly, then confirm its fingerprint by phone)"
             )
         elif not facts["completeness_ok"]:
             decision["reason"] = (

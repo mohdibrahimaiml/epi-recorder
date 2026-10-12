@@ -57,6 +57,7 @@ class NotarizationResult:
     """Result of notarizing a hash at seal time."""
 
     def __init__(self) -> None:
+        self.tsa_urls_tried: list[str] = []
         self.tsa_token: Optional[bytes] = None
         self.tsa_url: str = ""
         # Additional TSA tokens beyond the first: (member_name, token_bytes).
@@ -208,12 +209,13 @@ def _response_nonce(token: bytes) -> int | None:
 
 
 def _tsa_timeout() -> httpx.Timeout:
-    """How long to wait for the time-stamp service. EPI_TSA_TIMEOUT (seconds) overrides the 30 s default;
-    the hosted evidence server sets a few seconds so a slow public service can never hold a seal hostage."""
+    """How long to wait for the time-stamp service. EPI_TSA_TIMEOUT (seconds) overrides the 10 s default;
+    the hosted evidence server sets a few seconds so a slow public service can never hold a seal hostage.
+    All configured TSAs are asked in parallel, so this is also the worst-case added seal time."""
     try:
-        total = float(os.environ.get("EPI_TSA_TIMEOUT") or 30.0)
+        total = float(os.environ.get("EPI_TSA_TIMEOUT") or 10.0)
     except ValueError:
-        total = 30.0
+        total = 10.0
     total = max(0.5, total)
     return httpx.Timeout(total, connect=min(total, 5.0))
 
@@ -368,13 +370,26 @@ def notarize_manifest(
     # at the legacy member name for backward compatibility.
     urls = _tsa_urls()
     stamped: list[tuple[str, bytes]] = []
-    for url in urls:
+
+    def _one(url: str) -> Optional[bytes]:
         try:
-            token = _submit_rfc3161(stamp, url)
+            return _submit_rfc3161(stamp, url)
         except Exception:
-            token = None
+            return None
+
+    # Ask every TSA at once: a silently dropped connection costs one timeout,
+    # not one per TSA. Order of `urls` is kept for member naming.
+    if len(urls) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=len(urls)) as pool:
+            tokens = list(pool.map(_one, urls))
+    else:
+        tokens = [_one(u) for u in urls]
+    for url, token in zip(urls, tokens):
         if token:
             stamped.append((url, token))
+    result.tsa_urls_tried = list(urls)
     if stamped:
         result.tsa_token = stamped[0][1]
         result.tsa_url = stamped[0][0]

@@ -1,6 +1,6 @@
 # EPI Self-Hosted Reliability Runbook
 
-This runbook defines the supported `v4.4.5` self-hosted shape for EPI:
+This runbook defines the supported `v4.6.0` self-hosted shape for EPI:
 
 - single-node deployment
 - append-only event spool on disk
@@ -21,17 +21,17 @@ This runbook defines the supported `v4.4.5` self-hosted shape for EPI:
 
 ## Defaults
 
-- retention mode: `redacted_hashes`
-- proxy failure mode: `fail-open`
+- retention mode: `full_content` (full prompts and responses are stored; pass `--retention-mode redacted_hashes` to keep hashes only)
+- proxy failure mode: `fail-closed`
 - capture scope: `consequential`
 - auth: optional shared bearer token or local users file for `/api/*`
 
 ## Fast Start
 
-1. Copy [.env.example](/C:/Users/dell/epi-recorder/.env.example) to `.env`.
+1. Copy [.env.example](../.env.example) to `.env`.
 2. Choose one of these if you want the shared reviewer workspace protected:
    - set `EPI_GATEWAY_ACCESS_TOKEN` for one shared bearer token
-   - or set `EPI_GATEWAY_USERS_FILE` to a local users JSON file like [config/gateway-users.example.json](/C:/Users/dell/epi-recorder/config/gateway-users.example.json)
+   - or set `EPI_GATEWAY_USERS_FILE` to a local users JSON file like [config/gateway-users.example.json](../config/gateway-users.example.json)
 3. Start the supported stack:
 
 ```bash
@@ -47,9 +47,30 @@ http://127.0.0.1:8000/web_viewer/index.html
 5. Health and readiness:
 
 ```text
-http://127.0.0.1:8765/health
-http://127.0.0.1:8765/ready
+http://127.0.0.1:8787/health
+http://127.0.0.1:8787/ready
 ```
+
+## Identity and witness
+
+Exports are signed with the gateway key (`epi keys generate` first; otherwise
+they are unsigned). To bind your did:web identity and report every export to
+a customer witness, set the same env as the SDK, or pass the flags to
+`epi gateway serve`. `epi gateway export` on the same `--storage-dir` reuses
+the DID and witness URL the gateway was started with (stored in
+`<storage-dir>/gateway-settings.json`; the secret is never written to disk, so
+set `EPI_WITNESS_SECRET` for the export too):
+
+```bash
+EPI_DID=did:web:vendor.com
+EPI_WITNESS_URL=https://customer.example/witness   # comma-separated for several
+EPI_WITNESS_SECRET=<shared HMAC secret>
+# or: --did ... --witness-url ... --witness-secret ...
+```
+
+`/health` shows `did` and `witness_configured`. Undelivered reports wait in
+the witness outbox; retry with `epi witness flush`. See
+[IDENTITY-ONBOARDING.md](IDENTITY-ONBOARDING.md) and [WITNESS.md](WITNESS.md).
 
 ## Meaning of Health vs Ready
 
@@ -78,6 +99,16 @@ Example storage root:
 The append-only spool is the recovery source of truth. SQLite is the live shared reviewer database.
 
 ## Backup
+
+Any OS (installed with the package):
+
+```bash
+epi gateway backup --storage-dir ./.epi-data --out gateway-backup.zip
+```
+
+Restore by unzipping into the storage directory. The PowerShell scripts below
+(in the repository's `scripts/` folder, not in the pip package) add key backup
+and a SQLite-consistent snapshot.
 
 PowerShell:
 

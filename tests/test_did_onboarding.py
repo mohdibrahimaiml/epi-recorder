@@ -122,8 +122,11 @@ def test_trust_from_did_pins_key(monkeypatch, tmp_path: Path) -> None:
     pinned = tmp_path / "home" / "trusted" / "vendor.pub"
     assert pinned.is_file()
     assert pinned.read_text(encoding="utf-8").strip() == pub_hex
+    from epi_core.keys import key_fingerprint
+
     fingerprint = hashlib.sha256(pub_hex.encode()).hexdigest()[:16]
-    assert fingerprint in result.output
+    assert key_fingerprint(pub_hex) == " ".join(fingerprint[i:i + 4] for i in range(0, 16, 4))
+    assert key_fingerprint(pub_hex) in result.output
 
 
 def _keypair_for(tag: str):
@@ -177,12 +180,16 @@ def test_verify_unpinned_vs_untrusted_key(monkeypatch, tmp_path: Path) -> None:
     # Pins exist, file sealed by another key: red NOT A KEY YOU TRUST.
     (tmp_path / "home" / "trusted").mkdir(parents=True, exist_ok=True)
     (tmp_path / "home" / "trusted" / "vendor.pub").write_text(vendor_hex + "\n")
+    # This is the impersonation case pinning exists to catch: it must FAIL
+    # (non-zero exit), and must never suggest pinning the key from the file.
     result = runner.invoke(cli_app, ["verify", str(other_file)])
-    assert result.exit_code == 0, result.output
+    assert result.exit_code != 0, result.output
     text = result.output.replace("\n", " ")
     assert "NOT A KEY YOU TRUST" in text
     assert "vendor" in text
     assert "This file was not sealed by a key you trust." in text
+    assert "DECISION: FAIL" in text
+    assert f'epi keys trust "{other_file}"' not in text
 
     # Pinned key itself: KNOWN, no red line.
     result = runner.invoke(cli_app, ["verify", str(vendor_file)])

@@ -15,6 +15,80 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Bank-side safety from three rounds of user walkthroughs.**
+  - A witness log entry for the same workflow but a different copy is
+    `✘ FAIL — NOT THE VERSION REPORTED TO YOU` (`Witness: DIFFERENT VERSION`), never
+    "FILE ALTERED"; the file's own integrity is reported as it is. Gateway witness reports
+    carry `case_id`.
+  - `epi keys trust <file>.epi` requires `--fingerprint` matching the file's key (a file can
+    carry anyone's key). Verify output never suggests pinning from the file being checked;
+    a DID line says whether it was resolved or only claimed.
+  - Revocation applies to the key (every pin with it shows revoked); `epi keys unrevoke`
+    undoes it; revoked-key reasons no longer advise re-pinning.
+  - Under the default policy, incomplete evidence (`Forensic: FAIL`) is WARN, not PASS.
+  - `epi audit` checks the real hash chain; an altered file FAILs every domain, is rated
+    `altered` and exits 1. `epi view` (also `--extract`) exits 1 on an altered file.
+  - Every printed hint uses the one recommended command:
+    `epi verify FILE --policy strict --witness-log received.jsonl`.
+- **Witness tooling.** `epi witness serve` (the customer receiver, now installed with the
+  package), `epi witness drop` for undeliverable reports, clearer flush hints (no secret vs.
+  wrong secret). `epi gateway export` reuses the DID and witness URL of `epi gateway serve`
+  on the same storage dir. The gateway no longer creates a stray `./evidence_vault/`.
+- **Pinning and repacking hardening.** A case file can never replace a pinned sender's key
+  (`--overwrite` from an `.epi` is refused; rotate from the sender's key file or DID). `epi
+  refresh-viewer` refuses altered files and files sealed by someone else's key, and a
+  refreshed file stays `WITNESSED`. A file re-packed by a zip tool gets one clear error in
+  verify, audit, view and export-html, and `--report` is still written. Restarting `epi
+  gateway serve` without flags keeps the saved DID and witness URL.
+- **Fingerprints on the vendor side.** `epi keys generate`, `did` and `list` print them.
+- **No-timestamp seals are announced, and no longer hang.** All configured time-stamp
+  services are asked in parallel with a 10 s default (`EPI_TSA_TIMEOUT`), so a network that
+  silently drops traffic costs one wait instead of 30 s per service. When no timestamp is
+  obtained, sealing prints one line naming the services and the fix (`EPI_TSA_URLS`, or
+  `EPI_NOTARIZE=0` to skip).
+- **A seal missing from your witness log is never a clean PASS.** `epi verify --witness-log`
+  downgrades PASS to WARN with "never reported to your witness log" — what a re-run or
+  re-sealed case looks like. A witness log path that cannot be read now FAILs instead of
+  being silently skipped. A tampered file no longer shows a green WITNESSED line.
+- **One key fingerprint everywhere.** `epi verify`, `epi keys export`, `epi keys trust`,
+  `epi keys list`, the witness log and `VERIFY.txt` all show the same fingerprint, grouped
+  for reading aloud (`4148 fb59 a148 a6dc`). `epi keys list` also lists pinned keys.
+  `epi keys trust` accepts a vendor's `did.json` or the base64 key `epi keys export` prints.
+- **Witness delivery is visible at seal time.** One line: delivered, or queued with the
+  reason and `epi witness flush`. `epi witness flush` exits 1 while anything is undelivered
+  and hints at `EPI_WITNESS_SECRET` on 401/403.
+- **`record()` file paths.** A bare name (`"demo.epi"`) still goes to `./epi-recordings/`;
+  a path with a folder (`"./demo.epi"`, `"out/demo.epi"`) is written exactly there. An
+  existing non-empty file is never replaced silently: the new seal goes to `demo-2.epi`
+  (`EPI_OVERWRITE=1` restores replace-in-place). "Next:" hints print the real path.
+- **Local SCITT receipts are labelled as such.** `epi-register` without `--service` says the
+  receipt is self-issued, and `epi verify` shows `Transparency: LOCAL (self-issued receipt,
+  not an independent ledger)` instead of `VERIFIED (SCITT)`.
+- **`epi gateway serve` ignored its flags, including `--access-token` (security).** The CLI
+  imported `epi_gateway.main`, whose module-level app is built from the environment at import
+  time, before exporting its flags, then ran that stale app. `--storage-dir`,
+  `--retention-mode`, `--proxy-failure-mode`, `--webhook-url`, `--access-token` and
+  `--users-file` were silently ignored: a `0.0.0.0` bind with `--access-token` ran with auth
+  disabled. uvicorn now runs the `create_app` factory after the env is set. Regression since
+  v4.5.0 (never published to PyPI).
+- **A file sealed by a key you did not pin now FAILs.** When the verifier has pinned other
+  parties' keys and the file was sealed by none of them, `epi verify` (standard policy)
+  returns `FAIL — NOT A KEY YOU TRUST` with exit 1 instead of `WARN` / exit 0, and no longer
+  suggests pinning the key from the file itself. The user's own auto-pinned key (`epi demo`)
+  does not count as a pin for this rule.
+- **`epi view`, `epi audit` and `epi export-html` flag tampered files.** `view` printed a fixed
+  "Seal OK"; `audit` ticked "Cryptographic" from the signature alone; `export-html` packaged an
+  altered file as a shareable page. They now report `ALTERED`, show `✗ FILE ALTERED`, and refuse
+  to export, respectively.
+- **Verify headline names what failed.** `SEAL FAIL — FILE ALTERED`, `SEAL FAIL — SIGNATURE
+  INVALID`, `FAIL — NOT A KEY YOU TRUST`, or `FAIL — SEAL INTACT, REQUIREMENT NOT MET` (e.g.
+  `--require-timestamp` with no timestamp), instead of `SEAL FAIL` for all of them. The
+  `--require-timestamp` reason is a sentence, not appended to "Integrity verified…". A FAIL is
+  no longer re-labelled "VERIFIED (enforcement downgraded…)".
+- **`epi-register demo.epi` finds `epi-recordings/demo.epi`**, like `epi verify` and `epi view`
+  (README 60-second path).
+- **Gateway docs match the code.** Defaults are `full_content` / `fail-closed`; install with
+  `pip install "epi-recorder[gateway]"`; runbook port 8787 and relative links.
 - **`--tsa-root` now applies to checkpoint timestamps too.** `epi verify --tsa-root PATH`
   previously added trusted TSA roots for the seal timestamp only; SDK checkpoints
   (`epi_core/checkpoints.py` `verify_checkpoints()`) and gateway capture checkpoints

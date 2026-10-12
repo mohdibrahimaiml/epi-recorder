@@ -1078,9 +1078,11 @@ def test_the_hosted_server_waits_only_a_few_seconds_for_the_timestamp_service_by
     from epi_core.notarize import _tsa_timeout
 
     monkeypatch.delenv("EPI_TSA_TIMEOUT", raising=False)
-    assert _tsa_timeout().read == 30.0  # the local CLI keeps its patient default
+    # Local default: 10 s, and all TSAs are asked in parallel, so a network
+    # that silently drops traffic costs one 10 s wait, not 30 s per TSA.
+    assert _tsa_timeout().read == 10.0
     monkeypatch.setenv("EPI_TSA_TIMEOUT", "not-a-number")
-    assert _tsa_timeout().read == 30.0
+    assert _tsa_timeout().read == 10.0
 
 
 def test_no_timestamp_warning_is_absent_when_notarization_is_switched_off(tmp_path, monkeypatch):
