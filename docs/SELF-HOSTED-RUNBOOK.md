@@ -51,6 +51,24 @@ http://127.0.0.1:8787/health
 http://127.0.0.1:8787/ready
 ```
 
+## Identity and witness
+
+Exports are signed with the gateway key (`epi keys generate` first; otherwise
+they are unsigned). To bind your did:web identity and report every export to
+a customer witness, set the same env as the SDK, or pass the flags to both
+`epi gateway serve` and `epi gateway export`:
+
+```bash
+EPI_DID=did:web:vendor.com
+EPI_WITNESS_URL=https://customer.example/witness   # comma-separated for several
+EPI_WITNESS_SECRET=<shared HMAC secret>
+# or: --did ... --witness-url ... --witness-secret ...
+```
+
+`/health` shows `did` and `witness_configured`. Undelivered reports wait in
+the witness outbox; retry with `epi witness flush`. See
+[IDENTITY-ONBOARDING.md](IDENTITY-ONBOARDING.md) and [WITNESS.md](WITNESS.md).
+
 ## Meaning of Health vs Ready
 
 - `/health`: process is alive and can report runtime configuration/state

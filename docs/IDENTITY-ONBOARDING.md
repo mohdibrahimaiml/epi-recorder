@@ -16,7 +16,9 @@ once, for free.
 3. Upload `did.json` to that URL with any static host (GitHub Pages and
    Cloudflare Pages both work; no server code needed).
 4. Seal with the DID attached: `record(..., did="did:web:vendor.com")`
-   (or set `EPI_DID`; the gateway uses its `did_web` setting). The DID lands
+   (or set `EPI_DID`). For the gateway, pass
+   `--did did:web:vendor.com` to `epi gateway serve` (browser/API exports)
+   and to `epi gateway export`, or set `EPI_DID` for both. The DID lands
    in `manifest.governance["did"]` before signing.
 5. Rotating keys: add the new key as another `verificationMethod` entry in
    `did.json` (keep the old one until customers have pinned the new one).

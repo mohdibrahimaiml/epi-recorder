@@ -9,9 +9,79 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 app = typer.Typer(help="Run the open-source AI capture gateway.")
 console = Console()
+
+
+def _env(name: str) -> str | None:
+    value = (os.environ.get(name) or "").strip()
+    return value or None
+
+
+def _resolve_did(did: str | None) -> str | None:
+    """--did wins, then EPI_GATEWAY_DID, then EPI_DID (same rule as record())."""
+    value = (did or "").strip() or _env("EPI_GATEWAY_DID") or _env("EPI_DID")
+    if value and not value.startswith("did:web:"):
+        console.print(f"[red][FAIL][/red] DID must start with 'did:web:', got: {value}")
+        raise typer.Exit(1)
+    return value
+
+
+def _signing_disabled() -> bool:
+    return (_env("EPI_GATEWAY_DISABLE_SIGNING") or "").lower() in {"1", "true", "yes", "on"}
+
+
+def _require_case_store(storage_dir: Path) -> None:
+    """Refuse a storage dir without a case store instead of creating an empty one."""
+    if not (storage_dir / "cases.sqlite3").is_file():
+        console.print(
+            f"[red][FAIL][/red] No gateway case store at {storage_dir} (cases.sqlite3 not found). "
+            "Pass the --storage-dir that `epi gateway serve` uses."
+        )
+        raise typer.Exit(1)
+
+
+def _witness_export(epi_path: Path, witness_url: str, witness_secret: str | None) -> str:
+    """Report an exported file to the customer witness, exactly as record() does.
+
+    Outbox-first via epi_core.webhook.report_seal (bounded wait, never raises),
+    so a delivery failure never fails the export. Returns the status line.
+    """
+    from epi_core.webhook import read_outbox, report_seal, split_witness_urls
+    from epi_gateway.main import _gateway_witness_key_bytes
+
+    urls = split_witness_urls(witness_url)
+    if not urls:
+        return "Witness: none"
+    key_bytes = _gateway_witness_key_bytes()
+    entry = report_seal(
+        epi_path,
+        urls=urls,
+        secret=witness_secret,
+        key_name=(_env("EPI_GATEWAY_SIGNING_KEY_NAME") or "default") if key_bytes else None,
+        private_key_bytes=key_bytes,
+    )
+    if entry is None:
+        return "Witness: QUEUED (could not stage report) — run epi witness flush"
+    stored = next((e for e in read_outbox() if e.get("id") == entry.get("id")), entry)
+    pending = list(stored.get("pending") or [])
+    if not pending:
+        return f"Witness: delivered to {', '.join(urls)}"
+    return f"Witness: QUEUED ({_short_reason(stored.get('last_error'), urls)}) — run epi witness flush"
+
+
+def _short_reason(error: object, urls: list[str]) -> str:
+    """'http://x: <urlopen error [Errno 111] Connection refused>' -> 'Connection refused'."""
+    import re
+
+    reason = str(error or "delivery timed out")
+    for url in urls:
+        reason = reason.removeprefix(f"{url}: ")
+    reason = re.sub(r"^<urlopen error (.*)>$", r"\1", reason.strip())
+    reason = re.sub(r"^\[Errno -?\d+\]\s*", "", reason)
+    return reason[:80] or "delivery failed"
 
 
 @app.command("serve")
@@ -55,6 +125,21 @@ def serve(
         "--webhook-url",
         help="Optional webhook URL to POST when a case needs review (Slack, Teams, PagerDuty, etc.).",
     ),
+    did: str | None = typer.Option(
+        None,
+        "--did",
+        help="did:web identity bound into every exported case (manifest governance.did). Default: EPI_DID.",
+    ),
+    witness_url: str | None = typer.Option(
+        None,
+        "--witness-url",
+        help="Customer witness endpoint(s), comma-separated; every export is reported (hash-only). Default: EPI_WITNESS_URL.",
+    ),
+    witness_secret: str | None = typer.Option(
+        None,
+        "--witness-secret",
+        help="HMAC secret for witness delivery. Default: EPI_WITNESS_SECRET.",
+    ),
     reload: bool = typer.Option(False, "--reload", help="Enable uvicorn auto-reload for development."),
     ssl_certfile: Path | None = typer.Option(
         None,
@@ -91,6 +176,10 @@ def serve(
         ),
     )
 
+    did = _resolve_did(did)
+    witness_url = witness_url or _env("EPI_GATEWAY_WITNESS_URL") or _env("EPI_WITNESS_URL")
+    witness_secret = witness_secret or _env("EPI_GATEWAY_WITNESS_SECRET") or _env("EPI_WITNESS_SECRET")
+
     storage_dir = storage_dir.resolve()
     previous_env = {key: os.environ.get(key) for key in (
         "EPI_GATEWAY_STORAGE_DIR",
@@ -101,6 +190,9 @@ def serve(
         "EPI_GATEWAY_ACCESS_TOKEN",
         "EPI_GATEWAY_USERS_FILE",
         "EPI_GATEWAY_WEBHOOK_URL",
+        "EPI_GATEWAY_DID",
+        "EPI_GATEWAY_WITNESS_URL",
+        "EPI_GATEWAY_WITNESS_SECRET",
     )}
 
     os.environ["EPI_GATEWAY_STORAGE_DIR"] = str(storage_dir)
@@ -120,6 +212,15 @@ def serve(
         os.environ["EPI_GATEWAY_WEBHOOK_URL"] = webhook_url
     else:
         os.environ.pop("EPI_GATEWAY_WEBHOOK_URL", None)
+    for key, value in (
+        ("EPI_GATEWAY_DID", did),
+        ("EPI_GATEWAY_WITNESS_URL", witness_url),
+        ("EPI_GATEWAY_WITNESS_SECRET", witness_secret),
+    ):
+        if value:
+            os.environ[key] = value
+        else:
+            os.environ.pop(key, None)
 
     console.print("[bold]Starting EPI Gateway[/bold]")
     console.print(f"[dim]Capture endpoint:[/dim] http://{host}:{port}/capture")
@@ -136,6 +237,9 @@ def serve(
     console.print(f"[dim]Auth:[/dim] {auth_label}")
     if webhook_url:
         console.print(f"[dim]Webhook:[/dim] {webhook_url}")
+    console.print(f"[dim]DID:[/dim] {escape(did or 'none')}")
+    # The witness secret is never printed.
+    console.print(f"[dim]Witness:[/dim] {escape(witness_url or 'none')}")
     scheme = "https" if ssl_certfile else "http"
     if ssl_certfile:
         console.print(f"[dim]TLS:[/dim] enabled ({ssl_certfile})")
@@ -176,6 +280,21 @@ def export_case(
         "--storage-dir",
         help="Directory that contains the gateway spool and SQLite case store.",
     ),
+    did: str | None = typer.Option(
+        None,
+        "--did",
+        help="did:web identity bound into the export (manifest governance.did). Default: EPI_DID.",
+    ),
+    witness_url: str | None = typer.Option(
+        None,
+        "--witness-url",
+        help="Customer witness endpoint(s), comma-separated. Default: EPI_WITNESS_URL.",
+    ),
+    witness_secret: str | None = typer.Option(
+        None,
+        "--witness-secret",
+        help="HMAC secret for witness delivery. Default: EPI_WITNESS_SECRET.",
+    ),
 ):
     """
     Export one shared gateway-backed case to a portable `.epi` artifact.
@@ -186,18 +305,33 @@ def export_case(
 
     storage_dir = storage_dir.resolve()
     out = out.resolve()
+    _require_case_store(storage_dir)
+    did = _resolve_did(did)
     worker = EvidenceWorker(storage_dir=storage_dir)
     settings = _build_settings_from_env()
     signer = _build_gateway_signer(settings)
+    witness_url = witness_url or settings.witness_url
+    witness_secret = witness_secret or settings.witness_secret
 
     try:
-        result = worker.export_case(case_id, out, signer_function=signer)
+        result = worker.export_case(case_id, out, signer_function=signer, did_web=did)
     except KeyError as exc:
         console.print(f"[red][FAIL][/red] Case not found: {case_id}")
         raise typer.Exit(1) from exc
 
     console.print(f"[green][OK][/green] Exported {case_id} to {result.output_path}")
     console.print(f"[dim]Signed:[/dim] {'yes' if result.signed else 'no'}")
+    if not result.signed and not _signing_disabled():
+        console.print('[yellow]Unsigned — run "epi keys generate" first so exports are signed.[/yellow]')
+    console.print(f"DID: {did or 'none'}", markup=False, highlight=False, soft_wrap=True)
+    console.print(
+        _witness_export(Path(result.output_path), witness_url, witness_secret)
+        if witness_url
+        else "Witness: none (set EPI_WITNESS_URL or --witness-url)",
+        markup=False,
+        soft_wrap=True,
+        highlight=False,
+    )
 
 
 @app.command("add-user")
@@ -352,6 +486,7 @@ def export_all(
     worker = EvidenceWorker(storage_dir=storage_dir)
     settings = _build_settings_from_env()
     signer = _build_gateway_signer(settings)
+    did = _resolve_did(None)
 
     cases = worker.list_cases(status=status or None)
     if not cases:
@@ -367,9 +502,16 @@ def export_all(
         safe_name = "".join(c if c.isalnum() or c in "-_." else "_" for c in case_id)
         out_path = out_dir / f"{safe_name}.epi"
         try:
-            worker.export_case(case_id, out_path, signer_function=signer)
+            worker.export_case(case_id, out_path, signer_function=signer, did_web=did)
             console.print(f"  [green][OK][/green] {case_id}.epi")
             exported += 1
+            if settings.witness_url:
+                console.print(
+                    "    " + _witness_export(out_path, settings.witness_url, settings.witness_secret),
+                    markup=False,
+                    soft_wrap=True,
+                    highlight=False,
+                )
         except Exception as exc:
             console.print(f"  [red][FAIL][/red] {case_id}: {exc}")
 
