@@ -82,6 +82,7 @@ with record("run.epi", goal="Capture one LangChain call") as session:
         callbacks=[EpiCallbackHandler(session)],
     )
     result = llm.invoke("Analyze this tool trace")
+    print(result.content)
 ```
 
 The handler must be given the active `session` and used inside `with record(...)`.

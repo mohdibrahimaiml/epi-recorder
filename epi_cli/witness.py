@@ -57,7 +57,7 @@ def flush(
         path=outbox_path(),
     )
     if not result["entries"]:
-        console.print("[dim]Witness outbox is empty — nothing to deliver.[/dim]")
+        console.print("[dim]Nothing pending — every report in the outbox was delivered.[/dim]")
         return
     for url in result["delivered"]:
         console.print(f"[green]Delivered:[/green] {escape(url)}")

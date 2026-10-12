@@ -522,10 +522,19 @@ def test_trust_from_epi_hint_does_not_prefill_and_overwrite_is_loud(monkeypatch,
     res = runner.invoke(
         cli_app, ["keys", "trust", str(out), "--name", "vendor", "--fingerprint", fp, "--overwrite"]
     )
-    assert res.exit_code == 0, res.output
+    # A case file is never allowed to replace a pinned sender's key.
+    assert res.exit_code == 1, res.output
     text = " ".join(res.output.split())
     assert "you already trust vendor" in text
-    assert "Replaced the key pinned as 'vendor'" in text
+    assert "Not replaced" in text
+    assert (trusted / "vendor.pub").read_text().strip() == other
+
+    # A real rotation from the sender's key file is allowed, and loud.
+    keyfile = tmp_path / "vendor-new.pub"
+    keyfile.write_text(EPIContainer.read_manifest(out).public_key + "\n")
+    res = runner.invoke(cli_app, ["keys", "trust", str(keyfile), "--name", "vendor", "--overwrite"])
+    assert res.exit_code == 0, res.output
+    assert "Replaced the key pinned as 'vendor'" in " ".join(res.output.split())
 
 
 def test_strict_reason_matches_not_a_key_you_trust_headline() -> None:
@@ -538,3 +547,66 @@ def test_strict_reason_matches_not_a_key_you_trust_headline() -> None:
     }
     reason = apply_policy(report, VerificationPolicy.STRICT)["decision"]["reason"]
     assert reason.startswith("Not a key you trust")
+
+
+def test_gateway_restart_without_flags_keeps_saved_settings(tmp_path: Path, monkeypatch) -> None:
+    import uvicorn
+
+    from epi_cli.gateway import _load_serve_settings, _save_serve_settings
+    from epi_cli.gateway import app as gw_app
+
+    _save_serve_settings(tmp_path, "did:web:vendor.example", "http://127.0.0.1:1/")
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)
+    for var in ("EPI_DID", "EPI_GATEWAY_DID", "EPI_WITNESS_URL", "EPI_GATEWAY_WITNESS_URL"):
+        monkeypatch.delenv(var, raising=False)
+    res = runner.invoke(gw_app, ["serve", "--storage-dir", str(tmp_path)])
+    assert res.exit_code == 0, res.output
+    assert _load_serve_settings(tmp_path)["did"] == "did:web:vendor.example"
+    assert "kept from the previous run" in res.output
+
+
+def test_rezipped_file_gives_clear_errors_and_report(monkeypatch, tmp_path: Path) -> None:
+    import zipfile
+
+    _hermetic(monkeypatch, tmp_path)
+    good = _seal(monkeypatch, tmp_path, tmp_path / "good.epi")
+    bad = tmp_path / "rezip.epi"
+    with zipfile.ZipFile(good) as zin, zipfile.ZipFile(bad, "w") as zout:
+        for item in sorted(zin.infolist(), key=lambda i: i.filename, reverse=True):
+            zout.writestr(item.filename, zin.read(item.filename))  # mimetype not first
+    rep = tmp_path / "report.txt"
+    res = runner.invoke(cli_app, ["verify", str(bad), "--report", str(rep)])
+    assert res.exit_code == 1
+    assert rep.exists() and "DECISION:  FAIL" in rep.read_text()
+    audit = runner.invoke(cli_app, ["audit", str(bad)])
+    assert audit.exit_code == 1
+    assert "Traceback" not in audit.output
+    assert "re-packed" in audit.output
+
+
+def test_refresh_viewer_refuses_altered_or_foreign_files(monkeypatch, tmp_path: Path) -> None:
+    import zipfile
+
+    _hermetic(monkeypatch, tmp_path)
+    good = _seal(monkeypatch, tmp_path, tmp_path / "good.epi")
+    bad = tmp_path / "bad.epi"
+    with zipfile.ZipFile(good) as zin, zipfile.ZipFile(bad, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "steps.jsonl":
+                data = data.replace(b"approve", b"reject!")
+            zout.writestr(item, data)
+    before = bad.read_bytes()
+    res = runner.invoke(cli_app, ["refresh-viewer", str(bad)])
+    assert res.exit_code != 0, res.output
+    assert bad.read_bytes() == before
+
+    # A file sealed by someone else's key is not re-signed with ours.
+    monkeypatch.setenv("EPI_KEYS_DIR", str(tmp_path / "other-keys"))
+    from epi_core.keys import KeyManager
+
+    KeyManager().generate_keypair("default")
+    before = good.read_bytes()
+    res = runner.invoke(cli_app, ["refresh-viewer", str(good)])
+    assert res.exit_code != 0, res.output
+    assert good.read_bytes() == before

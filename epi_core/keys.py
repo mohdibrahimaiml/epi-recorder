@@ -403,7 +403,8 @@ class KeyManager:
         except Exception as pem_exc:
             raise ValueError(
                 f"Could not load Ed25519 public key from {path}. "
-                "Expected PEM, 64-char hex .pub, or signed .epi. "
+                "Expected PEM, 64-char hex .pub, base64 key (from `epi keys export`), "
+                "did.json, or signed .epi. "
                 f"Detail: {pem_exc}"
             ) from pem_exc
 

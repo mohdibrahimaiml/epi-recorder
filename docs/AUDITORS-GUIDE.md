@@ -266,7 +266,9 @@ default and strict policies; `--policy permissive` ignores identity and PASSes):
 │   - Signature:    Valid                                                                          │
 ```
 
-**Tampered: unzipped, one value in `steps.jsonl` edited, re-zipped** (`exit 1`):
+**Tampered: unzipped, one value in `steps.jsonl` edited, re-zipped with `mimetype` as the first
+entry** (`exit 1`). A plain `zip -r` puts `mimetype` elsewhere; then `epi verify` stops earlier
+with `Structural validation failed: … re-packed by a zip tool` (also `exit 1`):
 
 ```text
 ╭─────────────────────── ✘ SEAL FAIL — FILE ALTERED EPI Verification Report ───────────────────────╮

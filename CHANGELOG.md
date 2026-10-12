@@ -34,6 +34,12 @@ All notable changes to EPI Recorder are documented here.
   package), `epi witness drop` for undeliverable reports, clearer flush hints (no secret vs.
   wrong secret). `epi gateway export` reuses the DID and witness URL of `epi gateway serve`
   on the same storage dir. The gateway no longer creates a stray `./evidence_vault/`.
+- **Pinning and repacking hardening.** A case file can never replace a pinned sender's key
+  (`--overwrite` from an `.epi` is refused; rotate from the sender's key file or DID). `epi
+  refresh-viewer` refuses altered files and files sealed by someone else's key, and a
+  refreshed file stays `WITNESSED`. A file re-packed by a zip tool gets one clear error in
+  verify, audit, view and export-html, and `--report` is still written. Restarting `epi
+  gateway serve` without flags keeps the saved DID and witness URL.
 - **Fingerprints on the vendor side.** `epi keys generate`, `did` and `list` print them.
 - **No-timestamp seals are announced, and no longer hang.** All configured time-stamp
   services are asked in parallel with a 10 s default (`EPI_TSA_TIMEOUT`), so a network that

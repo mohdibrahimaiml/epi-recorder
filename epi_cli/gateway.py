@@ -220,6 +220,18 @@ def serve(
     witness_secret = witness_secret or _env("EPI_GATEWAY_WITNESS_SECRET") or _env("EPI_WITNESS_SECRET")
 
     storage_dir = storage_dir.resolve()
+    # A restart without the flags keeps the identity and witness the gateway
+    # last ran with (a routine reboot must not silently stop witnessing).
+    _previous = _load_serve_settings(storage_dir)
+    if not did and _previous.get("did"):
+        did = _resolve_did(_previous["did"])
+        console.print(f"[dim]DID kept from the previous run ({storage_dir / _SERVE_SETTINGS}).[/dim]")
+    if not witness_url and _previous.get("witness_url"):
+        witness_url = _previous["witness_url"]
+        console.print(
+            f"[dim]Witness URL kept from the previous run ({storage_dir / _SERVE_SETTINGS}); "
+            "delete that file to stop witnessing.[/dim]"
+        )
     _save_serve_settings(storage_dir, did, witness_url)
     previous_env = {key: os.environ.get(key) for key in (
         "EPI_GATEWAY_STORAGE_DIR",

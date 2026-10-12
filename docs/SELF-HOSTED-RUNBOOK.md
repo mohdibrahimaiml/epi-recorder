@@ -100,6 +100,16 @@ The append-only spool is the recovery source of truth. SQLite is the live shared
 
 ## Backup
 
+Any OS (installed with the package):
+
+```bash
+epi gateway backup --storage-dir ./.epi-data --out gateway-backup.zip
+```
+
+Restore by unzipping into the storage directory. The PowerShell scripts below
+(in the repository's `scripts/` folder, not in the pip package) add key backup
+and a SQLite-consistent snapshot.
+
 PowerShell:
 
 ```powershell

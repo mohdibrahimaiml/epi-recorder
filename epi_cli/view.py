@@ -756,9 +756,9 @@ def view(
 
     try:
         EPIContainer.detect_container_format(resolved_path)
-    except Exception:
+    except Exception as exc:
         console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
-        console.print("[dim]   The file may be corrupt or incomplete.[/dim]")
+        console.print(f"[dim]   {exc}[/dim]")
         raise typer.Exit(1)
 
     if extract:
@@ -865,8 +865,9 @@ def export_html(
 
     try:
         EPIContainer.detect_container_format(resolved_path)
-    except Exception:
+    except Exception as exc:
         console.print(f"[red][X] Not a valid .epi file:[/red] {resolved_path.name}")
+        console.print(f"[dim]   {exc}[/dim]")
         raise typer.Exit(1)
 
     # Never package an altered or badly signed file as a shareable page.

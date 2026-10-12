@@ -74,6 +74,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi policy` | Create, explain, and validate `epi_policy.json` rule files. |
 | `epi witness status` / `flush` / `drop` | Vendor side: inspect, retry or remove seal reports queued for a customer witness endpoint. |
 | `epi witness serve` | Customer side: run the witness receiver that records every seal report (`--out received.jsonl`). |
+| `epi refresh-viewer <file.epi>` | Vendor side: regenerate the embedded viewer of your own sealed file and re-sign it with your key. Refuses altered files and files sealed by someone else's key. Stays `WITNESSED`. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
 
 ### Advanced / operator commands

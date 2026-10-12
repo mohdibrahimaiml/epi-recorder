@@ -7,6 +7,7 @@ Performs comprehensive verification including:
 - Authenticity checks (Ed25519 signature verification)
 """
 
+import os
 import json
 import sys
 import warnings
@@ -761,8 +762,29 @@ def _handle_verification_error(
     signer_name: str | None = None,
     has_signature: bool = False,
     mismatches: dict[str, str] | None = None,
+    report_out: Path | None = None,
+    epi_file: Path | None = None,
 ) -> None:
     """Emit a user-facing or JSON verification failure and exit 1."""
+    if report_out is not None:
+        # The auditor asked for a report file: write one even when the file
+        # could not be read far enough for a full report.
+        try:
+            from datetime import datetime, timezone
+
+            report_out.parent.mkdir(parents=True, exist_ok=True)
+            report_out.write_text(
+                "EPI VERIFICATION REPORT\n"
+                f"File:      {epi_file}\n"
+                f"Checked:   {datetime.now(timezone.utc).isoformat()}\n"
+                "DECISION:  FAIL\n"
+                f"Reason:    {message}\n",
+                encoding="utf-8",
+            )
+            if not json_output:
+                console.print(f"[green][OK][/green] Verification report written: {report_out}")
+        except OSError:
+            pass
     if json_output:
         _emit_json_report(
             _build_failure_report(
@@ -916,9 +938,13 @@ def verify_command(
         tip = (
             f"[red][FAIL] Error:[/red] File not found: {epi_file}\n"
             "[dim]Tip: epi looks relative to your current folder. Use a full path, e.g.[/dim]\n"
-            '[dim]  epi verify "C:\\Users\\you\\project\\artifact.epi"[/dim]\n'
-            "[dim]Or: cd into the folder that contains the .epi, then re-run.[/dim]\n"
-            "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
+            + (
+                '[dim]  epi verify "C:\\Users\\you\\project\\artifact.epi"[/dim]\n'
+                if os.name == "nt"
+                else '[dim]  epi verify "$HOME/project/artifact.epi"[/dim]\n'
+            )
+            + "[dim]Recordings made with record() are in ./epi-recordings/ (list them: epi ls).[/dim]\n"
+            + "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
         )
         _handle_verification_error(
             message=f"File not found: {epi_file}",
@@ -962,11 +988,22 @@ def verify_command(
                     )
                 # We still continue but this can be checked by policy later
         except Exception as e:
+            _has_sig = False
+            try:
+                import zipfile as _zf
+
+                with _zf.ZipFile(epi_file) as _z:
+                    _has_sig = bool(json.loads(_z.read("manifest.json")).get("signature"))
+            except Exception:
+                pass
             _handle_verification_error(
                 message=f"Structural validation failed: {e}",
                 json_output=json_output,
                 console_message=f"[red][FAIL] Structural validation failed:[/red] {e}",
                 error_type="structural_validation_failed",
+                has_signature=_has_sig,
+                report_out=report_out,
+                epi_file=epi_file,
             )
 
         # ========== STEP 2: INTEGRITY CHECKS (Facts) ==========

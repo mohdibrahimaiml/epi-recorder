@@ -794,6 +794,21 @@ def refresh_viewer(
             signer_fn = None
             clear_signature = False
 
+            # Never re-seal evidence that no longer matches its seal: that
+            # would turn an altered file into a freshly signed one.
+            _intact, _ = EPIContainer.verify_integrity(artifact)
+            if not _intact:
+                raise ValueError(
+                    "file was altered after sealing; refusing to refresh and re-sign it "
+                    "(epi verify shows what changed)"
+                )
+            if was_signed:
+                from epi_core.trust import verify_embedded_manifest_signature
+
+                _sig_ok, _, _ = verify_embedded_manifest_signature(manifest)
+                if _sig_ok is False:
+                    raise ValueError("signature is invalid; refusing to refresh and re-sign it")
+
             if was_signed:
                 if resign:
                     try:
@@ -804,6 +819,13 @@ def refresh_viewer(
                         if not km.has_key(key):
                             raise FileNotFoundError(f"No local key named '{key}'")
                         priv = km.load_private_key(key)
+                        _own_pk = km.load_public_key(key).hex().lower()
+                        if (manifest.public_key or "").lower() not in ("", _own_pk) and not force:
+                            raise PermissionError(
+                                "sealed by a different key than your local key "
+                                f"'{key}'; re-signing would replace the sender's seal "
+                                "(use --force only for your own files)"
+                            )
 
                         def _sign(m, _priv=priv, _key=key):
                             return sign_manifest(m, _priv, _key)
@@ -1621,6 +1643,27 @@ def keys(
                     _old_hex = _intended.read_text(encoding="utf-8").strip().lower()
                 except OSError:
                     _old_hex = None
+            if (
+                _old_hex
+                and source_path.exists()
+                and source_path.suffix.lower() == ".epi"
+                and _old_hex != str(getattr(
+                    __import__("epi_core.container", fromlist=["EPIContainer"])
+                    .EPIContainer.read_manifest(source_path), "public_key", "") or "").strip().lower()
+            ):
+                # Replacing a trusted sender's key with the key some file
+                # carries is exactly how an attacker gets pinned. A real key
+                # rotation comes from the sender, not from a case file.
+                console.print(
+                    f"[red][FAIL] Not replaced.[/red] '{_intended.stem}' is already pinned to a "
+                    "different key, and a case file is not a safe source for a new one."
+                )
+                console.print(
+                    "  If the sender really rotated their key, pin the new key from them: "
+                    "epi keys trust --from-did did:web:<their-domain> --overwrite, or their "
+                    "key file / did.json with --overwrite."
+                )
+                raise typer.Exit(1)
             target = key_manager.trust_key(
                 key,
                 trusted_keys_dir=trusted_keys_dir,

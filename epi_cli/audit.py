@@ -363,7 +363,12 @@ def audit_command(
     if not artifact.exists():
         raise typer.BadParameter(f"Artifact not found: {artifact}")
 
-    report = audit_artifact(artifact, output_format=output_format, strict=strict)
+    try:
+        report = audit_artifact(artifact, output_format=output_format, strict=strict)
+    except ValueError as exc:
+        # Not a readable .epi (e.g. re-packed by a zip tool): one clear line.
+        print(f"[FAIL] Cannot audit {artifact.name}: {exc}")
+        raise typer.Exit(1)
 
     if output_format == "json":
         result = json.dumps(report, indent=2, default=str, ensure_ascii=False)
