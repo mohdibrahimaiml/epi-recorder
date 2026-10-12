@@ -37,6 +37,15 @@ once, for free.
    - Add `--offline` to skip all network (DID shows as declared but
      unresolved; local pins still decide).
 
+## Recommended verify command for customers
+
+```bash
+epi verify run.epi --require-timestamp --witness-log received.jsonl
+```
+
+Without `--require-timestamp`, a file with no timestamp still passes, so a
+vendor could remove the timestamp. With it, such a file FAILs.
+
 ## What this does not do
 
 - It does not prove the vendor recorded everything, told the truth, or

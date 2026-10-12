@@ -4,6 +4,20 @@ This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
 
+## Seal timestamp does not bind the signing key in the default record() flow
+
+**What you see:** `epi verify` reports a `valid` seal timestamp with
+`existed no later than T`.
+**What is true:** in the normal `record()` flow the file is first packed
+unsigned and signed on the second pack, so at stamping time
+`imprinted_public_key` is `None`. The timestamp proves "these contents existed
+no later than T", not "this signing key sealed them by time T". The signing key
+is covered only when `imprinted_public_key` is non-null. See
+`docs/VERIFICATION_CONTRACT.md` (timestamps section) and `epi_core/notarize.py`.
+**Whether yours is affected:** any seal made through the default `record()`
+path. Check `artifacts/notarization/notarization.json`: `imprinted_public_key`
+null means contents-only time attestation.
+
 ## Sealed `controls_failed` may understate failures (4.4.1–4.4.6; fixed forward in 4.4.7)
 
 **What you see:** `policy_evaluation.json` reports e.g. `controls_failed: 1`.

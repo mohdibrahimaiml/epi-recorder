@@ -305,3 +305,81 @@ def test_large_case_export_time(monkeypatch, tmp_path: Path, capsys) -> None:
     report = _verify_json(out, capsys)
     assert report["facts"]["chain_ok"] is True
     print(f"\n10k-event gateway export: {elapsed:.1f}s")
+
+
+def test_capture_checkpoint_tsa_root_trusted_with_flag(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    """R0.1: gateway capture checkpoint is UNVERIFIED by default, valid with --tsa-root."""
+    import base64 as _b64
+
+    monkeypatch.setenv("EPI_NOTARIZE", "0")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_EVENTS", "2")
+    monkeypatch.setenv("EPI_CHECKPOINT_INTERVAL_SECONDS", "3600")
+
+    from tests.test_tsa_validation import MiniPKI, make_tsr
+
+    pki = MiniPKI()
+
+    def _tsa_submit(head_hex: str) -> bytes:
+        return make_tsr(bytes.fromhex(head_hex), pki)
+
+    from epi_gateway.worker import EvidenceWorker
+
+    worker = EvidenceWorker(
+        storage_dir=tmp_path, batch_size=50, tsa_submit=_tsa_submit
+    )
+    _store(worker, _events(5))
+    records = _wait_for_capture_checkpoints(worker, "case-chain-1")
+    assert records, "no capture checkpoint recorded"
+    # Background TSA submit runs on a daemon thread: wait for the token row.
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline:
+        rows = worker.case_store.list_capture_checkpoints("case-chain-1")
+        if rows and all(r.get("tsa_token_b64") for r in rows):
+            break
+        time.sleep(0.05)
+    out = _export(worker, "case-chain-1", tmp_path / "capture-tstaroot.epi")
+
+    from epi_core.case_store import verify_capture_checkpoints
+
+    ok, messages, _recs = verify_capture_checkpoints(out)
+    assert ok is True
+    assert any("CAPTURE TIMESTAMP UNVERIFIED" in m for m in messages), messages
+
+    ok2, messages2, _recs2 = verify_capture_checkpoints(
+        out, trust_roots=[pki.root_cert]
+    )
+    assert ok2 is True
+    assert not any("CAPTURE TIMESTAMP UNVERIFIED" in m for m in messages2), messages2
+
+    # CLI flag path: same export verifies UNVERIFIED without the root (WARN,
+    # still PASS) and clean with it.
+    import typer
+
+    from epi_cli.verify import verify_command
+
+    root_pem = tmp_path / "test-root.pem"
+    from cryptography.hazmat.primitives import serialization as _ser
+
+    root_pem.write_bytes(pki.root_cert.public_bytes(_ser.Encoding.PEM))
+    try:
+        verify_command(None, out, True, False, None)
+    except typer.Exit:
+        pass
+    report = json.loads(capsys.readouterr().out)
+    assert any(
+        "CAPTURE TIMESTAMP UNVERIFIED" in m
+        for m in report["capture_checkpoints"]["messages"]
+    ), report["capture_checkpoints"]["messages"]
+
+    try:
+        verify_command(None, out, True, False, None, tsa_root=[root_pem])
+    except typer.Exit:
+        pass
+    report2 = json.loads(capsys.readouterr().out)
+    assert not any(
+        "CAPTURE TIMESTAMP UNVERIFIED" in m
+        for m in report2["capture_checkpoints"]["messages"]
+    ), report2["capture_checkpoints"]["messages"]
+    assert _b64 is not None  # keep import used when FAKE_TOKEN path changes

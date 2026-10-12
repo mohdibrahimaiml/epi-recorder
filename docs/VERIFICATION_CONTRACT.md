@@ -181,6 +181,15 @@ manifest hash, which cannot be recomputed after sealing); the verifier
 recomputes it from the final manifest. Tokens sealed before 4.6 carry no
 `imprint_scheme` and report `legacy` (presence only, never a failure).
 
+**What the seal timestamp does not bind:** in the normal `record()` flow the
+file is first packed unsigned and signed on the second pack, so at stamping
+time `imprinted_public_key` is `None` and the imprint's `public_key` field is
+null. A `valid` seal timestamp therefore proves "these contents existed no
+later than T" — not "this signing key sealed them by time T". The signing key
+is covered only when `imprinted_public_key` is non-null (an explicit key was
+passed at stamp time); the statement line deliberately claims contents-only
+existence in the default flow.
+
 **Seal statuses** (`timestamps.seal[]`, each `{url, status, gen_time,
 tsa_subject, tsa_root, imprint_scheme}`):
 
