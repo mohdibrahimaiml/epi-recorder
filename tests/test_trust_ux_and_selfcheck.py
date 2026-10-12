@@ -183,9 +183,23 @@ def test_cli_keys_trust_from_epi(tmp_path: Path, monkeypatch):
     trust_dir.mkdir()
     monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(trust_dir))
 
+    # Without the confirmed fingerprint: refused, nothing pinned.
+    refused = runner.invoke(app, ["keys", "trust", str(epi), "--name", "from-cli"])
+    assert refused.exit_code == 1
+    assert not (trust_dir / "from-cli.pub").exists()
+
+    from epi_core.container import EPIContainer
+    from epi_core.keys import key_fingerprint
+
+    fp = key_fingerprint(EPIContainer.read_manifest(epi).public_key)
+    wrong = runner.invoke(
+        app, ["keys", "trust", str(epi), "--name", "from-cli", "--fingerprint", "0000 0000 0000 0000"]
+    )
+    assert wrong.exit_code == 1
+
     result = runner.invoke(
         app,
-        ["keys", "trust", str(epi), "--name", "from-cli", "--overwrite"],
+        ["keys", "trust", str(epi), "--name", "from-cli", "--overwrite", "--fingerprint", fp],
     )
     assert result.exit_code == 0, result.output
     assert (trust_dir / "from-cli.pub").exists()

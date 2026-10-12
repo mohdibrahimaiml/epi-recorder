@@ -6,7 +6,7 @@ stamps ``received_at`` and appends each hash-only seal report
 (``schema: epi-witness/v1``) to a JSONL log -- the file the customer later
 checks with::
 
-    epi verify run.epi --witness-log received.jsonl
+    epi verify run.epi --policy strict --witness-log received.jsonl
 
 Run it with ``epi witness serve`` (installed with the package). The
 reference script ``examples/witness_receiver/receiver.py`` is a thin
@@ -153,7 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Reference EPI customer witness receiver. Accepts hash-only seal "
             "reports (schema epi-witness/v1) and appends them to a JSONL log "
-            "for `epi verify FILE --witness-log LOG`."
+            "for `epi verify FILE --policy strict --witness-log LOG`."
         ),
         epilog=(
             "Use --host 0.0.0.0 only behind a TLS-terminating reverse proxy, "

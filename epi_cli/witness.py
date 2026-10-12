@@ -50,8 +50,9 @@ def flush(
     """Retry every undelivered witness entry."""
     from epi_core.webhook import flush_outbox, outbox_path
 
+    _effective_secret = secret if secret is not None else _secret()
     result = flush_outbox(
-        secret=secret if secret is not None else _secret(),
+        secret=_effective_secret,
         timeout_seconds=timeout,
         path=outbox_path(),
     )
@@ -63,7 +64,12 @@ def flush(
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
-        if code:
+        if code and not _effective_secret:
+            _plain(
+                f"  No secret set, so the receiver refused the report (HTTP {code}). "
+                "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
+            )
+        elif code:
             _plain(
                 f"  The receiver rejected the secret (HTTP {code}). Use the same secret "
                 "as the receiver: EPI_WITNESS_SECRET or --secret."
@@ -178,6 +184,13 @@ def drop(
             + ". Give more characters."
         )
         raise typer.Exit(1)
+    _entry = next((e for e in read_outbox(path) if str(e.get("id")) == matches[0]), {})
+    if not _entry.get("pending"):
+        _plain(
+            "That entry was already delivered; there is nothing to drop. "
+            "(drop is for reports that can never be delivered.)"
+        )
+        return
     removed = drop_outbox_entries(matches, path)
     if not removed:  # pragma: no cover - removed by a concurrent drop
         _plain("Entry already gone.")
@@ -212,7 +225,7 @@ def serve(
 
     Each hash-only seal report is HMAC-checked, stamped with received_at and
     appended to --out. Check a file later with
-    `epi verify run.epi --witness-log received.jsonl`.
+    `epi verify run.epi --policy strict --witness-log received.jsonl`.
     """
     from epi_core import witness_receiver
 
@@ -246,7 +259,7 @@ def serve(
             "behind a TLS reverse proxy)"
         )
     _plain(f"Witness log:      {out}")
-    _plain(f"Check a file:     epi verify run.epi --witness-log {out}")
+    _plain(f"Check a file:     epi verify run.epi --policy strict --witness-log {out}")
     if not secret:
         _plain("WARNING: no secret - any well-formed report from anyone is kept.")
     _plain("Press Ctrl-C to stop.")

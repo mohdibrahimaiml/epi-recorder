@@ -1798,6 +1798,7 @@ def create_app(
                     urls=_witness_urls,
                     key_name=os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default"),
                     private_key_bytes=_gateway_witness_key_bytes(),
+                    case_id=case_id,
                 )
                 if _entry is not None:
                     deliver_in_background(

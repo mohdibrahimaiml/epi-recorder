@@ -100,7 +100,8 @@ Typical first-run verify:
 
 > **First-run WARN / LOCAL identity is normal** — seal integrity and signature can still pass.  
 > Identity is separate from seal. A customer pins the sender's key, obtained out of band, with
-> `epi keys trust <file> --name <name>` (a `.pub`, `did.json` or saved `epi keys export` line) or
+> `epi keys trust <sender-key-file> --name <name>` (the sender's `.pub`, `did.json` or saved
+> `epi keys export` line — never the `.epi` you are checking) or
 > `epi keys trust --from-did did:web:vendor.com --name <name>`.  
 > Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md).
 
@@ -278,7 +279,7 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | Symptom | Fix |
 |---------|-----|
 | `epi: command not found` | Same venv as `pip install`, or `python -m epi_cli` |
-| First verify WARN / LOCAL identity | Normal if seal OK — the receiver pins the sender's key with `epi keys trust <file> --name <name>` or `--from-did <did>` |
+| First verify WARN / LOCAL identity | Normal if seal OK — the receiver pins the sender's key from the sender (`epi keys trust <sender-key-file> --name <name>` or `--from-did <did>`), never from the file being checked |
 | `Integrity: FAILED` | File changed after seal — re-record |
 | `epi analyze` says heuristic only | Add `epi_policy.json` via `epi policy init`, re-run from that folder |
 | Share / portal fails | Hosted needs backend; local record/verify never depends on it |

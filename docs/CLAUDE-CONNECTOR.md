@@ -47,7 +47,9 @@ Claude sends the conversation to the connector and replies with:
 
 - Upload it at https://epilabs.org/verify. No account is needed.
 - Or run `pip install epi-recorder` then `epi verify record.epi`.
-- To treat your signer as known, run `epi keys trust record.epi --name <label>`.
+- To treat your signer as known, run
+  `epi keys trust record.epi --name <label> --fingerprint "<Fingerprint line from epi verify>"`
+  (pinning from a file needs the fingerprint, so nobody pins a stranger's key by accident).
 
 Editing any byte of the file makes verification fail.
 

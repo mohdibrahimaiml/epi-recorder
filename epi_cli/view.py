@@ -779,9 +779,11 @@ def view(
             "[dim]Tip: run [cyan]epi view file.epi[/cyan] (no --extract) to open via "
             "http://127.0.0.1 — more reliable than double-clicking the HTML.[/dim]"
         )
+        # Extracting an altered file is allowed (forensics), but say so.
+        _altered = _print_seal_verdict(resolved_path, _build_viewer_context(resolved_path))
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
-        raise typer.Exit(0)
+        raise typer.Exit(1 if _altered else 0)
 
     if native and _open_native_viewer(resolved_path):
         console.print(f"[green][OK][/green] Opened native viewer: {resolved_path.name}")

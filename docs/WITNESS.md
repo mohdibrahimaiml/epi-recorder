@@ -143,8 +143,11 @@ The SEAL block shows one `Witness:` line:
   absence is itself evidence: ask the vendor why.
 - `NOT CHECKED` — the `--witness-log` file could not be read (wrong path,
   permissions). Verification FAILs, so a typo never silently skips the check.
-- `MISMATCH` — the file's sealed contents differ from the report for the
-  same workflow. Verification FAILs.
+- `DIFFERENT VERSION` (JSON status `MISMATCH`) — you were sent reports for
+  this workflow id, but none for this copy: a re-signed copy, or a gateway
+  re-export of the same case that was never reported. The file's own seal may
+  be valid; it is simply not what you were told about. Headline
+  `✘ FAIL — NOT THE VERSION REPORTED TO YOU`, in every policy.
 
 ## Re-runs: one case, several seals
 
@@ -155,6 +158,11 @@ for **multiple entries for the same case**: a case sealed three times when
 you were shown one file is a question to ask. Ask the vendor to set
 `witness_include_goal=True` (or a case reference in the goal) so entries can
 be matched to cases.
+
+Gateway exports are different: every export of one gateway case keeps that
+case's `workflow_id`, and each report carries `case_id` (for example
+`trace::trace-123`). Exporting a case twice gives two reports with the same
+`workflow_id`; a copy you receive must match one of them.
 
 ## Limits (read these)
 

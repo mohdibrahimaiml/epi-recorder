@@ -45,7 +45,7 @@ and append the object to a `.jsonl` file.
 ## Check a file against your log
 
 ```bash
-epi verify run.epi --witness-log received.jsonl
+epi verify run.epi --policy strict --witness-log received.jsonl
 ```
 
 - `WITNESSED (received <time>)` — the file's sealed contents match what the

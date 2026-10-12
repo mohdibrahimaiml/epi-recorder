@@ -12,7 +12,7 @@ same flags as before:
 It verifies the HMAC, stamps `received_at`, and appends each payload to
 `received.jsonl` -- the file the customer later checks with:
 
-    epi verify run.epi --witness-log received.jsonl
+    epi verify run.epi --policy strict --witness-log received.jsonl
 
 The default host is 127.0.0.1 (this machine only). For a vendor on another
 machine, listen on 0.0.0.0 behind a TLS-terminating reverse proxy (Caddy,

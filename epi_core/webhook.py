@@ -476,6 +476,7 @@ def build_witness_payload(
     sealed_at: str,
     seal_timestamp: dict[str, Any],
     goal: str | None = None,
+    case_id: str | None = None,
 ) -> dict[str, Any]:
     """Hash-only seal report. No content and no step data — hashes and counts only."""
     payload: dict[str, Any] = {
@@ -493,6 +494,10 @@ def build_witness_payload(
     }
     if goal is not None:
         payload["goal"] = goal
+    if case_id is not None:
+        # Gateway exports: the case identifier, so the customer can group
+        # every reported export of one case. An id, never case content.
+        payload["case_id"] = case_id
     return payload
 
 
@@ -504,6 +509,7 @@ def stage_seal_report(
     private_key_bytes: bytes | None = None,
     goal: str | None = None,
     path: Path | None = None,
+    case_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Build the witness payload from the FINAL file and append it to the outbox.
 
@@ -556,6 +562,7 @@ def stage_seal_report(
             sealed_at=_utc_now_iso(),
             seal_timestamp=seal_ts,
             goal=goal,
+            case_id=case_id,
         )
         headers: dict[str, str] = {}
         if private_key_bytes and key_name:
@@ -583,6 +590,7 @@ def report_seal(
     goal: str | None = None,
     timeout_seconds: float | None = None,
     path: Path | None = None,
+    case_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Witness one sealed `.epi` to customer endpoints. Never raises, never slows the seal.
 
@@ -597,6 +605,7 @@ def report_seal(
         private_key_bytes=private_key_bytes,
         goal=goal,
         path=path,
+        case_id=case_id,
     )
     if entry is None:
         return None

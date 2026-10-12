@@ -1383,6 +1383,11 @@ def keys(
     did_path: Optional[str] = typer.Option(None, "--path", help="Optional path for 'did' action (e.g. agents/claims)"),
     key_name: Optional[str] = typer.Option(None, "--key", help="Local signing key for 'did' action (default: default)"),
     from_did: Optional[str] = typer.Option(None, "--from-did", help="DID to resolve and pin for 'trust' action"),
+    fingerprint: Optional[str] = typer.Option(
+        None,
+        "--fingerprint",
+        help="'trust' from an .epi file: the fingerprint you confirmed with the sender (required).",
+    ),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
@@ -1400,6 +1405,7 @@ def keys(
     did_path = _resolve_opt(did_path)
     key_name = _resolve_opt(key_name)
     from_did = _resolve_opt(from_did)
+    fingerprint = _resolve_opt(fingerprint)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1540,6 +1546,38 @@ def keys(
             # For .epi sources, default trusted name to workflow/stem if --name left at default
             trusted_name = None if name == "default" else name
             source_path = Path(key)
+            if source_path.exists() and source_path.suffix.lower() == ".epi":
+                # Pinning the key a file carries proves nothing unless the
+                # sender confirmed it: an attacker's file carries the
+                # attacker's key. Require the confirmed fingerprint.
+                from epi_core.container import EPIContainer
+                from epi_core.keys import key_fingerprint as _key_fp
+
+                _file_pk = getattr(EPIContainer.read_manifest(source_path), "public_key", None)
+                if not _file_pk:
+                    console.print("[red][FAIL] This file is unsigned; there is no key to trust.[/red]")
+                    raise typer.Exit(1)
+                _file_fp = _key_fp(_file_pk)
+                _norm = lambda v: "".join(str(v or "").split()).lower()  # noqa: E731
+                if not fingerprint or _norm(fingerprint) != _norm(_file_fp):
+                    console.print(
+                        "[red][FAIL] Not pinned.[/red] A file can carry anyone's key, so pinning "
+                        "from a file needs the fingerprint you confirmed with the sender."
+                    )
+                    console.print(f"  This file's key fingerprint: [bold]{_file_fp}[/bold]")
+                    console.print(
+                        "  1. Ask the sender (by phone, not by email from the same source) to read "
+                        "you their fingerprint."
+                    )
+                    console.print(
+                        f'  2. If it matches: epi keys trust "{key}" --name <sender> '
+                        f'--fingerprint "{_file_fp}"'
+                    )
+                    console.print(
+                        "  Better: pin from the sender directly — epi keys trust --from-did "
+                        "did:web:<their-domain>, or their key file."
+                    )
+                    raise typer.Exit(1)
             if source_path.exists() and source_path.suffix.lower() == ".epi" and trusted_name is None:
                 try:
                     from epi_core.container import EPIContainer
@@ -1577,15 +1615,18 @@ def keys(
                     )
             except Exception:
                 pass
-            if source_path.suffix.lower() == ".epi":
+            _is_revoked_now = False
+            try:
+                from epi_core.keys import revoked_key_hexes as _rkh
+
+                _is_revoked_now = target.read_text(encoding="utf-8").strip().lower() in _rkh(trusted_keys_dir)
+            except Exception:
+                pass
+            if not _is_revoked_now:
                 console.print(
-                    "[yellow]  You pinned the key carried by this file. Only do this if you "
-                    "confirmed the fingerprint with the sender.[/yellow]"
+                    "[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict --witness-log "
+                    "received.jsonl[/cyan]  — files sealed by this key now show IDENTITY PINNED.\n"
                 )
-            console.print(
-                "[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict[/cyan]  — files "
-                "sealed by this key now show IDENTITY PINNED.\n"
-            )
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)

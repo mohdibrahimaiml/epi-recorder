@@ -186,7 +186,7 @@ capture path that logs calls but not results).
 | `Witness: a report for this case exists …, but THIS file was altered` | You were told about this case, but this file is not what was reported. Verification FAILs on integrity. |
 | `Witness: NOT IN WITNESS LOG — never reported to you at seal time` | You were never sent a report for this seal. A PASS becomes WARN (`⚠ NOT IN YOUR WITNESS LOG`), and FAIL (exit 1) under `--policy strict`. For a case you know happened, ask the vendor why. |
 | `Witness: NOT CHECKED — witness log … could not be read` | The `--witness-log` path is wrong or unreadable. Verification FAILs so a typo never skips the check. |
-| `Witness: MISMATCH — …` | The file differs from what you were told at seal time. Verification FAILs. |
+| `Witness: DIFFERENT VERSION — …` | You were told about this case (same workflow id), but not about this copy: a re-signed copy or an unreported gateway re-export. Headline `✘ FAIL — NOT THE VERSION REPORTED TO YOU`. Ask for the reported copy. |
 
 A vendor re-running a case produces a new, separately witnessed seal. Look
 for more than one log entry for the same case; see [WITNESS.md](./WITNESS.md).
@@ -314,7 +314,7 @@ default and strict policies; `--policy permissive` ignores identity and PASSes):
 ```
 
 With `--witness-log`, the same edited manifest also shows
-`Witness: MISMATCH — file differs from what the customer was told at seal time`.
+`Witness: DIFFERENT VERSION — a different version of this case (same workflow id) was reported to you …`.
 
 **Permissive policy (integrity only)** (`exit 0`, not claim-ready):
 

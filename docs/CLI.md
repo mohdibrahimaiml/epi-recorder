@@ -67,7 +67,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
-| `epi keys trust <file> --name <name>` / `--from-did <did>` | Pin a public key (PEM, `did.json` or base64 file, or a did:web DID) in the local trust registry. |
+| `epi keys trust <file> --name <name>` / `--from-did <did>` | Pin a public key (PEM, `did.json` or base64 file, or a did:web DID) in the local trust registry. Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. |
 | `epi keys revoke <name>` / `unrevoke <name>` | Revoke a pinned key, or undo the revocation. |
 | `epi keys trust --from-did did:web:<domain>` | Resolve a vendor's did:web document once and pin its key. |
 | `epi keys did --domain <domain>` | Write a `did.json` publishing this machine's key under your domain. |
@@ -625,7 +625,7 @@ Witness receiver listening on 127.0.0.1:8099 (HMAC check on)
 Give the vendor:  EPI_WITNESS_URL=http://127.0.0.1:8099/
                   EPI_WITNESS_SECRET=<the same secret this receiver uses>
 Witness log:      /srv/witness/received.jsonl
-Check a file:     epi verify run.epi --witness-log /srv/witness/received.jsonl
+Check a file:     epi verify run.epi --policy strict --witness-log /srv/witness/received.jsonl
 Press Ctrl-C to stop.
 ```
 

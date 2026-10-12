@@ -68,7 +68,7 @@ EPI's security guarantees depend on these assumptions being true:
 ### 6. Silent Re-seal After the Fact
 **Attack:** A vendor seals a run, then quietly alters the file and re-signs it with the same key (which they control) before handing it over — the signature is valid, so nothing looks wrong.
 
-**Prevention (only with a customer witness configured):** every seal is reported at seal time to an endpoint the customer controls (`epi-witness/v1`: workflow id, manifest and file hashes). `epi verify --witness-log` compares the handed-over file against the customer's independent record: a re-sealed file reports `MISMATCH` and FAILs.
+**Prevention (only with a customer witness configured):** every seal is reported at seal time to an endpoint the customer controls (`epi-witness/v1`: workflow id, manifest and file hashes). `epi verify --witness-log` compares the handed-over file against the customer's independent record: a re-sealed copy that reuses a reported workflow id reports `DIFFERENT VERSION` and FAILs; one that was never reported shows `NOT IN WITNESS LOG` (WARN, FAIL under `--policy strict`).
 
 **Limitation:** the witness only proves what was sent — the vendor can choose not to send a seal. A missing entry for a case the customer knows happened is itself evidence.
 

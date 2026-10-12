@@ -676,9 +676,11 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             )
             return result
     result["status"] = "MISMATCH"
+    _latest = max((str(e.get("received_at") or "") for e in same), default="") or "unknown time"
+    result["received_at"] = _latest
     result["detail"] = (
-        "file differs from what the customer was told at seal time "
-        "(manifest_hash or file_sha256 mismatch)"
+        f"a different version of this case (same workflow id) was reported to you "
+        f"({len(same)} report(s), latest {_latest}); this copy was never reported"
     )
     return result
 
@@ -1630,18 +1632,19 @@ def verify_command(
             except Exception:
                 pass
         if _witness.get("status") == "MISMATCH":
+            # The file's own seal may be perfectly valid (a re-export or a
+            # re-signed copy). What failed is: it is not what you were told.
+            # FAIL in every policy, but never mislabelled as "file altered".
             try:
+                _prior = report["decision"].get("status")
                 report["decision"]["status"] = "FAIL"
                 _rs = report["decision"].get("reason", "")
                 _msg = str(_witness.get("detail") or "witness mismatch")
-                if _msg not in _rs:
-                    report["decision"]["reason"] = f"{_rs} {_msg}".strip()
-            except Exception:
-                pass
-            try:
-                report["integrity_ok"] = False
-                report["facts"]["integrity_ok"] = False
-                report["summary"]["integrity"] = _msg
+                report["decision"]["reason"] = (
+                    f"{_rs}; {_msg}" if _prior == "FAIL" else
+                    f"Not the version reported to you: {_msg}. Ask the vendor for the "
+                    "copy that is in your witness log."
+                )
             except Exception:
                 pass
 
@@ -1861,6 +1864,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif signature_valid is False:
         status_symbol = "[bold red]✘ SEAL FAIL — SIGNATURE INVALID[/bold red]"
         panel_style = "red"
+    elif ((report.get("witness") or {}).get("status") if isinstance(report, dict) else None) == "MISMATCH":
+        status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
+        panel_style = "red"
     elif signature_valid is True and id_upper == "UNKNOWN" and (
         "facts" in report and (report.get("identity") or {}).get("pinned_names")
     ):
@@ -1968,7 +1974,14 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(f"  - Local key:    {local_name} (matches this computer — not org pin)")
     did_identity = identity.get("did") if isinstance(identity, dict) else None
     if did_identity:
-        content_lines.append(f"  - DID:          {did_identity}")
+        _det = str(identity.get("detail") or "") if isinstance(identity, dict) else ""
+        if "Verified via DID:WEB" in _det:
+            _did_note = "(resolved; key listed in the DID document)"
+        elif "DID" in _det:
+            _did_note = ""  # the Detail line already says what happened
+        else:
+            _did_note = "(claimed by the file; not checked)"
+        content_lines.append(f"  - DID:          {did_identity} {_did_note}".rstrip())
     if org_root:
         # Named only — this command never verifies a bundle. Point at the
         # command that does, same honesty as the browser viewer tooltip.
@@ -2113,7 +2126,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         )
     elif _wit_status == "MISMATCH":
         content_lines.append(
-            f"  [red]- Witness:      MISMATCH — {_wit.get('detail')}[/red]"
+            f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
         )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).

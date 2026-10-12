@@ -33,6 +33,34 @@ def _signing_disabled() -> bool:
     return (_env("EPI_GATEWAY_DISABLE_SIGNING") or "").lower() in {"1", "true", "yes", "on"}
 
 
+_SERVE_SETTINGS = "gateway-settings.json"
+
+
+def _save_serve_settings(storage_dir: Path, did: str | None, witness_url: str | None) -> None:
+    """Remember the running gateway's DID and witness URL (never the secret),
+    so `epi gateway export` on the same --storage-dir uses them too."""
+    import json
+
+    try:
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        (storage_dir / _SERVE_SETTINGS).write_text(
+            json.dumps({"did": did, "witness_url": witness_url}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
+def _load_serve_settings(storage_dir: Path) -> dict:
+    import json
+
+    try:
+        data = json.loads((storage_dir / _SERVE_SETTINGS).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
 def _require_case_store(storage_dir: Path) -> None:
     """Refuse a storage dir without a case store instead of creating an empty one."""
     if not (storage_dir / "cases.sqlite3").is_file():
@@ -43,7 +71,9 @@ def _require_case_store(storage_dir: Path) -> None:
         raise typer.Exit(1)
 
 
-def _witness_export(epi_path: Path, witness_url: str, witness_secret: str | None) -> str:
+def _witness_export(
+    epi_path: Path, witness_url: str, witness_secret: str | None, case_id: str | None = None
+) -> str:
     """Report an exported file to the customer witness, exactly as record() does.
 
     Outbox-first via epi_core.webhook.report_seal (bounded wait, never raises),
@@ -62,6 +92,7 @@ def _witness_export(epi_path: Path, witness_url: str, witness_secret: str | None
         secret=witness_secret,
         key_name=(_env("EPI_GATEWAY_SIGNING_KEY_NAME") or "default") if key_bytes else None,
         private_key_bytes=key_bytes,
+        case_id=case_id,
     )
     if entry is None:
         return "Witness: QUEUED (could not stage report) — run epi witness flush"
@@ -181,6 +212,7 @@ def serve(
     witness_secret = witness_secret or _env("EPI_GATEWAY_WITNESS_SECRET") or _env("EPI_WITNESS_SECRET")
 
     storage_dir = storage_dir.resolve()
+    _save_serve_settings(storage_dir, did, witness_url)
     previous_env = {key: os.environ.get(key) for key in (
         "EPI_GATEWAY_STORAGE_DIR",
         "EPI_GATEWAY_BATCH_SIZE",
@@ -312,6 +344,14 @@ def export_case(
     signer = _build_gateway_signer(settings)
     witness_url = witness_url or settings.witness_url
     witness_secret = witness_secret or settings.witness_secret
+    # Same identity and witness as the gateway serving this storage dir.
+    _served = _load_serve_settings(storage_dir)
+    if not did and _served.get("did"):
+        did = _resolve_did(_served["did"])
+        console.print("[dim]Using the DID from `epi gateway serve` on this storage dir.[/dim]")
+    if not witness_url and _served.get("witness_url"):
+        witness_url = _served["witness_url"]
+        console.print("[dim]Using the witness URL from `epi gateway serve` on this storage dir.[/dim]")
 
     try:
         result = worker.export_case(case_id, out, signer_function=signer, did_web=did)
@@ -325,7 +365,7 @@ def export_case(
         console.print('[yellow]Unsigned — run "epi keys generate" first so exports are signed.[/yellow]')
     console.print(f"DID: {did or 'none'}", markup=False, highlight=False, soft_wrap=True)
     console.print(
-        _witness_export(Path(result.output_path), witness_url, witness_secret)
+        _witness_export(Path(result.output_path), witness_url, witness_secret, case_id)
         if witness_url
         else "Witness: none (set EPI_WITNESS_URL or --witness-url)",
         markup=False,
@@ -486,7 +526,10 @@ def export_all(
     worker = EvidenceWorker(storage_dir=storage_dir)
     settings = _build_settings_from_env()
     signer = _build_gateway_signer(settings)
-    did = _resolve_did(None)
+    _served = _load_serve_settings(storage_dir)
+    did = _resolve_did(None) or (_resolve_did(_served["did"]) if _served.get("did") else None)
+    if not settings.witness_url and _served.get("witness_url"):
+        settings.witness_url = _served["witness_url"]
 
     cases = worker.list_cases(status=status or None)
     if not cases:
@@ -507,7 +550,7 @@ def export_all(
             exported += 1
             if settings.witness_url:
                 console.print(
-                    "    " + _witness_export(out_path, settings.witness_url, settings.witness_secret),
+                    "    " + _witness_export(out_path, settings.witness_url, settings.witness_secret, case_id),
                     markup=False,
                     soft_wrap=True,
                     highlight=False,

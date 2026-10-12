@@ -55,8 +55,11 @@ http://127.0.0.1:8787/ready
 
 Exports are signed with the gateway key (`epi keys generate` first; otherwise
 they are unsigned). To bind your did:web identity and report every export to
-a customer witness, set the same env as the SDK, or pass the flags to both
-`epi gateway serve` and `epi gateway export`:
+a customer witness, set the same env as the SDK, or pass the flags to
+`epi gateway serve`. `epi gateway export` on the same `--storage-dir` reuses
+the DID and witness URL the gateway was started with (stored in
+`<storage-dir>/gateway-settings.json`; the secret is never written to disk, so
+set `EPI_WITNESS_SECRET` for the export too):
 
 ```bash
 EPI_DID=did:web:vendor.com

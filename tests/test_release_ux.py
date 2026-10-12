@@ -205,7 +205,9 @@ def test_one_fingerprint_everywhere(monkeypatch, tmp_path: Path) -> None:
     # keys export prints it.
     assert fp in runner.invoke(cli_app, ["keys", "export"]).output
     # keys trust prints it, and keys list shows the pin with it.
-    trust = runner.invoke(cli_app, ["keys", "trust", str(out), "--name", "vendor"])
+    trust = runner.invoke(
+        cli_app, ["keys", "trust", str(out), "--name", "vendor", "--fingerprint", fp]
+    )
     assert fp in trust.output, trust.output
     listing = runner.invoke(cli_app, ["keys", "list"]).output
     assert "vendor" in listing and fp in listing
@@ -388,3 +390,76 @@ def test_incomplete_evidence_is_warn_not_pass_under_standard(monkeypatch, tmp_pa
     assert apply_policy(report, VerificationPolicy.STRICT)["decision"]["status"] == "FAIL"
     report["facts"]["completeness_ok"] = True
     assert apply_policy(report, VerificationPolicy.STANDARD)["decision"]["status"] == "PASS"
+
+
+# ------------------------------------------------------------- round 3
+
+
+def test_unreported_reexport_with_same_workflow_is_not_called_altered(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A reported workflow id with a different (genuine) copy: DIFFERENT VERSION, never FILE ALTERED."""
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        out = _seal(monkeypatch, tmp_path, tmp_path / "case.epi", witness_url=url, witness_secret=SECRET)
+    finally:
+        server.shutdown()
+    entry = json.loads(CaptureHandler.received[-1]["body"].decode())
+    entry["manifest_hash"] = "0" * 64  # the reported version was a different export
+    entry["file_sha256"] = "1" * 64
+    entry["content_digest"] = "2" * 64
+    entry["received_at"] = "2026-10-12T00:00:00+00:00"
+    log = tmp_path / "received.jsonl"
+    log.write_text(json.dumps(entry) + "\n")
+
+    res = runner.invoke(cli_app, ["verify", str(out), "--json", "--witness-log", str(log)])
+    report = json.loads(res.output)
+    assert report["witness"]["status"] == "MISMATCH"
+    assert report["decision"]["status"] == "FAIL"
+    assert report["facts"]["integrity_ok"] is True  # the file itself is intact
+    assert "Not the version reported to you" in report["decision"]["reason"]
+
+    text = runner.invoke(cli_app, ["verify", str(out), "--witness-log", str(log)]).output
+    assert "NOT THE VERSION REPORTED TO YOU" in text
+    assert "FILE ALTERED" not in text
+
+
+def test_witness_flush_without_secret_says_no_secret(monkeypatch, tmp_path: Path) -> None:
+    import threading
+
+    from epi_core.witness_receiver import make_server
+
+    _hermetic(monkeypatch, tmp_path)
+    monkeypatch.delenv("EPI_WITNESS_SECRET", raising=False)
+    server = make_server("127.0.0.1", 0, out=tmp_path / "rx.jsonl", secret="bank-secret",
+                         log=lambda _m: None)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/"
+        _seal(monkeypatch, tmp_path, tmp_path / "run.epi", witness_url=url)  # no secret
+        res = runner.invoke(cli_app, ["witness", "flush"])
+    finally:
+        server.shutdown()
+    assert res.exit_code == 1
+    assert "No secret set" in res.output
+
+
+def test_gateway_export_reuses_serve_settings(tmp_path: Path) -> None:
+    from epi_cli.gateway import _load_serve_settings, _save_serve_settings
+
+    _save_serve_settings(tmp_path, "did:web:vendor.example", "http://127.0.0.1:1/")
+    assert _load_serve_settings(tmp_path) == {
+        "did": "did:web:vendor.example", "witness_url": "http://127.0.0.1:1/"
+    }
+    assert "secret" not in (tmp_path / "gateway-settings.json").read_text()
+
+
+def test_witness_payload_carries_case_id() -> None:
+    from epi_core.webhook import build_witness_payload
+
+    p = build_witness_payload(
+        workflow_id="w", manifest_hash="m", file_sha256="f", public_key=None,
+        key_fingerprint=None, steps=1, sealed_at="t", seal_timestamp={}, case_id="trace::t-1",
+    )
+    assert p["case_id"] == "trace::t-1"

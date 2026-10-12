@@ -836,7 +836,11 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         # WARN so a forger cannot skim "PASS" / "SEAL OK" without an org pin.
         # Claim / insurer acceptance must use STRICT (KNOWN identity required).
         if identity["status"] == "REVOKED":
-            decision["reason"] = "Identity revoked"
+            decision["reason"] = (
+                "Identity revoked — this key was revoked in your trust registry "
+                f"({identity.get('name') or 'revoked key'}). Undo only if that was a mistake: "
+                "epi keys unrevoke <name>"
+            )
         elif identity["status"] == "MISMATCH":
             decision["status"] = "FAIL"
             decision["reason"] = "Identity mismatch - possible impersonation attack"
@@ -897,7 +901,13 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
 
     elif policy == VerificationPolicy.STRICT:
         # Integrity + known identity + completeness
-        if identity["status"] not in ("KNOWN",):
+        if identity["status"] == "REVOKED":
+            decision["reason"] = (
+                "Identity revoked — this key was revoked in your trust registry "
+                f"({identity.get('name') or 'revoked key'}). Undo only if that was a mistake: "
+                "epi keys unrevoke <name>"
+            )
+        elif identity["status"] not in ("KNOWN",):
             decision["reason"] = (
                 "Identity unknown or revoked (Strict Policy requires trusted signer; "
                 "LOCAL self-match is not enough — pin the sender's key obtained from them "

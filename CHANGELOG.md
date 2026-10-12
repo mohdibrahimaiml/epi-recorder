@@ -15,6 +15,26 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **Bank-side safety from three rounds of user walkthroughs.**
+  - A witness log entry for the same workflow but a different copy is
+    `✘ FAIL — NOT THE VERSION REPORTED TO YOU` (`Witness: DIFFERENT VERSION`), never
+    "FILE ALTERED"; the file's own integrity is reported as it is. Gateway witness reports
+    carry `case_id`.
+  - `epi keys trust <file>.epi` requires `--fingerprint` matching the file's key (a file can
+    carry anyone's key). Verify output never suggests pinning from the file being checked;
+    a DID line says whether it was resolved or only claimed.
+  - Revocation applies to the key (every pin with it shows revoked); `epi keys unrevoke`
+    undoes it; revoked-key reasons no longer advise re-pinning.
+  - Under the default policy, incomplete evidence (`Forensic: FAIL`) is WARN, not PASS.
+  - `epi audit` checks the real hash chain; an altered file FAILs every domain, is rated
+    `altered` and exits 1. `epi view` (also `--extract`) exits 1 on an altered file.
+  - Every printed hint uses the one recommended command:
+    `epi verify FILE --policy strict --witness-log received.jsonl`.
+- **Witness tooling.** `epi witness serve` (the customer receiver, now installed with the
+  package), `epi witness drop` for undeliverable reports, clearer flush hints (no secret vs.
+  wrong secret). `epi gateway export` reuses the DID and witness URL of `epi gateway serve`
+  on the same storage dir. The gateway no longer creates a stray `./evidence_vault/`.
+- **Fingerprints on the vendor side.** `epi keys generate`, `did` and `list` print them.
 - **No-timestamp seals are announced, and no longer hang.** All configured time-stamp
   services are asked in parallel with a 10 s default (`EPI_TSA_TIMEOUT`), so a network that
   silently drops traffic costs one wait instead of 30 s per service. When no timestamp is
