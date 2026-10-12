@@ -29,6 +29,26 @@ NOT_CAPTURED = [
 REDACTED_MARKER = "[REDACTED]"
 
 # Step kinds counted as tool activity in seal summaries.
+def _trust_command(sealed: dict) -> str | None:
+    """`epi keys trust` for this signer. Pinning from a .epi needs the
+    fingerprint (epi-recorder >= 4.6.0), so the command carries it."""
+    if "filename" not in sealed:
+        return None
+    try:
+        from epi_core.container import EPIContainer
+        from epi_core.keys import key_fingerprint
+
+        pk = EPIContainer.read_manifest(Path(sealed["epi_path"])).public_key
+        if pk:
+            return (
+                f'epi keys trust {sealed["filename"]} --name <label> '
+                f'--fingerprint "{key_fingerprint(pk)}"'
+            )
+    except Exception:
+        pass
+    return f"epi keys trust {sealed['filename']} --name <label>"
+
+
 TOOL_KINDS = {"tool.call", "tool.response"}
 
 # Step kinds counted as artifacts in seal summaries.
@@ -347,9 +367,7 @@ def epi_seal_record_tool(
             "No trusted timestamp: the public time-stamp service did not answer in time, so this record "
             "carries only the server's own receive time. The signature and hash chain are unaffected."
         )
-    sealed["trust_command"] = (
-        f"epi keys trust {sealed['filename']} --name <label>" if "filename" in sealed else None
-    )
+    sealed["trust_command"] = _trust_command(sealed)
     sealed["signer_stability"] = (
         "stable: signing key is derived from a server seed, so this signer is the same "
         "after restarts and can be pinned with `epi keys trust`"
