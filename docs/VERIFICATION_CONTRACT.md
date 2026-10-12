@@ -60,7 +60,7 @@ If `signature_valid` is `true`, the artifact is cryptographically intact. This i
 | `UNKNOWN` | `NOT_PINNED` | You have pinned no keys, and nothing else identifies the signer. The crypto is still valid; you just don't know who signed. |
 | `UNKNOWN` | `NOT A KEY YOU TRUST (you have pinned: …)` | You have pinned at least one key and this file was sealed by a different one. The decision is FAIL under `standard` and `strict`. |
 | `MISMATCH` | `MISMATCH` | Claimed identity does not match the signing key. |
-| `REVOKED` | `REVOKED` | The key has been explicitly revoked. Do not trust. |
+| `REVOKED` | `REVOKED` | The key has been explicitly revoked (`epi keys revoke`). Revocation applies to the key, so every pin holding it shows `revoked` in `epi keys list`. Decision FAIL under `standard` and `strict`. Undo with `epi keys unrevoke <name>`. |
 
 **Important:** `NOT_PINNED` is **not** a failure under the default policy. It means "I can verify the math, but I don't recognize the key." In a fresh environment with no pinned keys, every artifact shows it, and that's correct. Under `--policy strict` it is a FAIL. `NOT A KEY YOU TRUST` is different: you told EPI whose keys to expect, and this file is not one of them.
 
@@ -97,12 +97,18 @@ Policy decisions (`apply_policy`, `--policy`) are separate from trust:
 | Policy `status` | Meaning |
 |-----------------|---------|
 | `PASS` | Meets the selected policy. |
-| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer under `standard`). Do not treat as claim acceptance. |
-| `FAIL` | Policy requirements not met (e.g. unknown sealer under `strict`, integrity failure). |
+| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer, or incomplete evidence such as a `tool.call` with no `tool.response`, under `standard`). Do not treat as claim acceptance. |
+| `FAIL` | Policy requirements not met (e.g. unknown sealer or incomplete evidence under `strict`, integrity failure, revoked key). |
 
 Sprint rule: external/claim use requires `--policy strict` (unknown sealer FAILs).
 `epi verify` exits `1` on FAIL and `0` on PASS **or WARN**, so scripts that
-gate on the exit code must use `--policy strict`.
+gate on the exit code must use `--policy strict`. The recommended
+customer/bank/auditor command is:
+
+```bash
+epi verify FILE --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
+```
 
 ### CLI headlines
 
@@ -119,7 +125,7 @@ The first line of the CLI report maps onto the decision and identity:
 | `✘ SEAL FAIL — FILE ALTERED` | FAIL | `integrity_ok`, `chain_ok` or `sequence_ok` false. |
 | `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | `signature_valid=false`. |
 | `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | Valid signature, identity `UNKNOWN`, other keys pinned. |
-| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Seal fine; another requirement failed (unpinned sealer under `strict`, `--require-timestamp` without a valid token, ...). `Reason:` names it. |
+| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Seal fine; another requirement failed (unpinned sealer under `strict`, revoked key (`Status: REVOKED`), incomplete evidence under `strict` (`Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`), `--require-timestamp` without a valid token, ...). `Reason:` names it. |
 
 Real samples of each: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#real-samples).
 

@@ -49,8 +49,10 @@ Valid signature **does not** mean “our company” until the key is pinned.
 **Once per sealer machine/org key:**
 
 ```bash
-# From a known-good sealed file
-epi keys trust path/to/prod-sealer-run.epi --name prod-sealer
+# Public key from the sealer machine, handed over out of band
+# (on the sealer: epi keys export > prod-sealer.txt; keep only the base64 key line)
+epi keys trust prod-sealer.b64 --name prod-sealer
+# or the sealer's did.json / PEM .pub file, or --from-did did:web:vendor.com
 
 # Or export/import a bundle of public keys only
 epi keys bundle-export --out epi-trust-bundle.zip
@@ -61,8 +63,9 @@ epi keys bundle-import epi-trust-bundle.zip
 Then:
 
 ```bash
-# Claim / insurer / regulated acceptance (required):
-epi verify path/to/run.epi --policy strict
+# Claim / insurer / bank / regulated acceptance (required):
+epi verify path/to/run.epi --policy strict --witness-log received.jsonl
+# add --require-timestamp only if the vendor seals with a reachable timestamp service
 
 # Dev / local skim only (unpinned → WARN · UNVERIFIED IDENTITY, not claim-ready):
 epi verify path/to/run.epi --policy standard
@@ -73,7 +76,7 @@ epi verify path/to/run.epi --policy standard
 | `standard` | Day-to-day: WARN if signer unknown/local (valid seal · not org pin) |
 | `strict` | Release / insurance / external audit: unknown sealer **FAIL** |
 
-**WARN on unknown sealer is intentional** — it forces a human process to pin keys. Do not treat WARN as claim acceptance. Full re-sign forgery coverage: `tests/adversarial/test_resign_forgery.py`.
+**WARN on unknown sealer is intentional** — it forces a human process to pin keys. Do not treat WARN as claim acceptance. `epi verify` exits `0` on WARN, so scripts must rely on the exit code only with `--policy strict`. Leave out `--witness-log` if the customer runs no witness receiver ([WITNESS.md](WITNESS.md)). Full re-sign forgery coverage: `tests/adversarial/test_resign_forgery.py`.
 
 ---
 
@@ -85,7 +88,7 @@ epi verify path/to/run.epi --policy standard
 | https://epilabs.org/verify | Counterparty has no install |
 | `epi share` / portal | If you enable hosted collaboration |
 
-Recipients should re-run `epi verify` (or hosted verify) on **the same bytes**.  
+Recipients should re-run `epi verify FILE --policy strict --witness-log received.jsonl` (or hosted verify for a quick look) on **the same bytes**.  
 Do not treat embedded HTML alone as formal proof.
 
 ---
@@ -93,7 +96,7 @@ Do not treat embedded HTML alone as formal proof.
 ## 5. Incident / audit response (checklist)
 
 1. Retrieve original `.epi` (not a screenshot).  
-2. `epi verify file.epi --json --report verification_report.txt`  
+2. `epi verify file.epi --policy strict --witness-log received.jsonl --json --report verification_report.txt`  
 3. Confirm integrity + signature.  
 4. Confirm identity status (KNOWN vs UNKNOWN).  
 5. Open timeline (`epi view` or forensic viewer) for what was decided.  

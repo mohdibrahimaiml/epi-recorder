@@ -29,14 +29,15 @@ What each part does:
 
 | Part | Why |
 |------|-----|
-| `--policy strict` | FAILs unless the file was sealed by a key **you** pinned. The default (`standard`) only WARNs on an unknown sealer, and anyone can make a valid-looking seal with a fresh key. |
-| `--witness-log received.jsonl` | Checks the file against the seal reports the vendor's system sent to **your** server at seal time. See [WITNESS.md](./WITNESS.md). Leave it out if you do not run a witness receiver. |
+| `--policy strict` | FAILs unless the file was sealed by a key **you** pinned, and FAILs on incomplete evidence (e.g. a tool call with no recorded result). The default (`standard`) only WARNs on both, and anyone can make a valid-looking seal with a fresh key. |
+| `--witness-log received.jsonl` | Checks the file against the seal reports the vendor's system sent to **your** server at seal time. Run the receiver with `epi witness serve --out received.jsonl` (installed with the package); see [WITNESS.md](./WITNESS.md). Leave the flag out if you do not run a witness receiver. |
 | `--require-timestamp` | FAILs unless an independent timestamp (RFC 3161) in the file validates offline. |
 | `--offline` | Optional: no network at all (skips DID resolution and remote fetches; your local pins still apply). |
 
-Exit code: `1` on FAIL, `0` on PASS **and on WARN**. A script that only checks
-the exit code must therefore use `--policy strict`, where an unpinned sealer
-is a FAIL rather than a WARN. For a written
+Exit code: `1` on FAIL, `0` on PASS **and on WARN**. Scripts must rely on
+the exit code **with `--policy strict`**: under the default policy an
+unpinned sealer, a seal missing from your witness log, or incomplete
+evidence is only a WARN and exits `0`. For a written
 record, add `--report verification_report.txt`. For machine-readable output,
 add `--json`.
 
@@ -72,27 +73,67 @@ Confirm the printed fingerprint with the vendor by phone or another channel
 you already trust. A website can be compromised; a phone call to a known
 number is a second, independent channel.
 
-### Offline: from a key file
+### Offline: from a file the vendor gives you
 
-Get the vendor's public key file out of band (on paper, signed email, a
-meeting). On the vendor's machine it is `~/.epi/keys/default.pub` (a PEM
-file starting `-----BEGIN PUBLIC KEY-----`). Then:
+Get one of these from the vendor out of band (signed email, a meeting, a
+USB stick), then pin it with `epi keys trust <file> --name vendor`. No
+network is used.
 
-```bash
-epi keys trust vendor.pub --name vendor
-```
+- **Their `did.json` file** (the same file they host for did:web; they
+  create it with `epi keys did --domain vendor.com`):
+
+  ```bash
+  epi keys trust did.json --name vendor
+  ```
+
+- **The base64 key printed by `epi keys export`.** The vendor runs
+  `epi keys export` and sends you the key line; save that single line to a
+  file and pin it:
+
+  ```text
+  $ epi keys export          # on the vendor's machine
+  Public key for 'default': (base64-encoded Ed25519 raw public key, 32 bytes)
+  w5mhgILRaU7w3GUaPmqnr++J+hSLEj4bA0fPu1hhpdI=
+  Fingerprint: 5a32 47ae cc11 f185  (customers see this in epi verify; confirm it with them by phone)
+  ```
+
+  ```bash
+  echo 'w5mhgILRaU7w3GUaPmqnr++J+hSLEj4bA0fPu1hhpdI=' > vendor.b64
+  epi keys trust vendor.b64 --name vendor
+  ```
+
+- **Their PEM public key file** (`~/.epi/keys/default.pub` on the vendor's
+  machine, starting `-----BEGIN PUBLIC KEY-----`):
+
+  ```bash
+  epi keys trust vendor.pub --name vendor
+  ```
+
+Each prints the fingerprint:
 
 ```text
 [OK] Trusted key: /home/auditor/.epi/trusted_keys/vendor.pub
+  Fingerprint: 5a32 47ae cc11 f185  (read it to the sender by phone; it must match theirs)
 ```
 
-Then confirm it: run `epi verify` on any file from that vendor and read the
-**Fingerprint** line in the IDENTITY block to the vendor over the phone. It
-must match what they see when they verify the same file.
+Read that fingerprint to the vendor over the phone; it must match the one
+they see (`epi keys export`, `epi keys list`, or the **Fingerprint** line
+when they verify one of their own files). `epi keys list` shows every pin
+with its fingerprint and status.
 
 Pins live in `~/.epi/trusted_keys/`. Once you have pinned any key, files
 sealed by a different key show `✘ FAIL — NOT A KEY YOU TRUST` under the
 default policy as well as under `--policy strict`.
+
+Never pin a key just because a file you are checking was sealed with it.
+The key must come from the vendor through a channel you already trust.
+
+### Revoking a key
+
+`epi keys revoke vendor` marks the pinned key as revoked (for example, the
+vendor reports it compromised or retired). Revocation applies to the **key**,
+so every pin holding that key shows `revoked` in `epi keys list`, and files
+it sealed FAIL with `Status: REVOKED` under the default and strict policies. `epi keys unrevoke vendor` undoes it.
 
 ---
 
@@ -112,7 +153,8 @@ all of them, with real samples below.
 | `✘ SEAL FAIL — FILE ALTERED` | FAIL | A sealed file inside the `.epi` changed after sealing (hash or `prev_hash` chain mismatch). | Reject. Ask the vendor for the original. Keep the altered file. |
 | `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | The manifest was edited after signing, or the signature is corrupt. | Reject. Ask the vendor for the original. |
 | `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | The seal is valid but was made by a key other than the one(s) you pinned. | Reject unless the vendor explains (e.g. key rotation) **and** you pin the new key after confirming it. |
-| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Contents and signature are fine, but a requirement you asked for is not met: an unpinned sealer under `--policy strict`, or no valid timestamp under `--require-timestamp`. The `Reason:` line says which. | Pin the key, or ask the vendor why the file carries no valid timestamp. |
+| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Contents and signature are fine, but a requirement you asked for is not met: an unpinned sealer under `--policy strict`, no valid timestamp under `--require-timestamp`, or incomplete evidence under `--policy strict`. The `Reason:` line says which. | Pin the key (out of band), ask the vendor why the file carries no valid timestamp, or see "Evidence incomplete" below. |
+| `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` with IDENTITY `Status: REVOKED` | FAIL | Contents and signature are fine, but the sealing key is one you revoked (`epi keys revoke`). | Reject unless you revoked by mistake; undo with `epi keys unrevoke <name>`. |
 
 Below the headline, read three blocks:
 
@@ -120,8 +162,21 @@ Below the headline, read three blocks:
 - **IDENTITY** — `Status:` is `KNOWN` (pinned), `LOCAL` (key on this computer),
   `NOT_PINNED` (unknown sealer), or `NOT A KEY YOU TRUST (you have pinned: …)`.
   The **Fingerprint** line identifies the sealing key.
-- **SEAL** — `Integrity`, `Signature`, `Forensic` (step chain), `Timestamp`,
-  and `Witness` (only with `--witness-log`).
+- **SEAL** — `Integrity`, `Signature`, `Forensic` (step chain and
+  completeness), `Timestamp`, and `Witness` (only with `--witness-log`).
+
+The IDENTITY `Status:` can also be `REVOKED` (a key you revoked).
+
+### Evidence incomplete
+
+`Forensic: FAIL — tool.call at step 2 is missing a corresponding tool.response`
+(or a similar gap) means the sealed record is internally unfinished: a tool
+call with no recorded result, an LLM request with no response. The seal can
+still be intact. Under the default policy this gives **WARN**; under
+`--policy strict` it is **FAIL** with
+`Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`.
+Ask the vendor why the run's evidence is incomplete (a crash, a timeout, or a
+capture path that logs calls but not results).
 
 ### Witness line (with `--witness-log`)
 
@@ -223,6 +278,29 @@ default and strict policies; `--policy permissive` ignores identity and PASSes):
 │   - Chain:        BROKEN (prev_hash mismatch)                                                    │
 ```
 
+**Pinned key later revoked, `--policy strict`** (`exit 1`):
+
+```text
+╭───── ✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET EPI Verification Report ──────╮
+│ DECISION: FAIL                                                               │
+│ Policy: strict                                                               │
+│   - Status:       REVOKED                                                    │
+│   - Name:         vendor                                                     │
+│   - Detail:       REVOKED: This key has been explicitly compromised or       │
+│ retired.                                                                     │
+```
+
+**A `tool.call` with no `tool.response`, `--policy strict`** (`exit 1`):
+
+```text
+╭───── ✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET EPI Verification Report ──────╮
+│ DECISION: FAIL                                                               │
+│ Policy: strict                                                               │
+│ Reason: Evidence incomplete (Strict Policy requires full telemetry coverage) │
+│   - Forensic:     FAIL — tool.call at step 2 is missing a corresponding      │
+│ tool.response                                                                │
+```
+
 **Manifest edited after signing (the `goal` field changed)** (`exit 1`):
 
 ```text
@@ -288,16 +366,38 @@ CLI command above.
 ## If verification fails
 
 1. Keep the file exactly as received. Record its SHA-256 (`sha256sum case.epi`).
-2. Save the output: `epi verify case.epi --policy strict --report verification_report.txt`.
+2. Save the output: `epi verify case.epi --policy strict --witness-log received.jsonl --report verification_report.txt`.
 3. Ask the vendor for the original file and an explanation, quoting the headline and `Reason:` line.
 4. For `NOT A KEY YOU TRUST`, do not pin the new key until you have confirmed it with the vendor by an independent channel.
 
 ---
 
+## Looking inside a file
+
+An `.epi` is an HTML+ZIP file: a browser-viewable HTML page with the ZIP
+archive after it. Plain `unzip` therefore warns, and exits non-zero, even on
+a good file:
+
+```text
+warning [case.epi]:  326022 extra bytes at beginning or within zipfile
+  (attempting to process anyway)
+```
+
+That is expected and not a sign of tampering. To extract cleanly use either
+of:
+
+```bash
+epi view case.epi --extract case_dir      # extracts the contents and viewer.html
+python -m zipfile -e case.epi case_dir
+```
+
+Extracting does not verify anything; `epi verify` on the original file is
+the check.
+
 ## Going further
 
 ```bash
-epi view case.epi          # open the timeline in a browser (offline)
+epi view case.epi          # open the timeline in a browser (offline); exits 1 on an altered file
 epi analyze case.epi       # fault / policy summary sealed in the file
 epi verify case.epi --verbose --aiuc1   # evidence grouped by AIUC-1 domain (not a certification)
 ```

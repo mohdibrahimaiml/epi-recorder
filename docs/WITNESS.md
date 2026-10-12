@@ -19,6 +19,10 @@ small hash-only report to an endpoint **the customer** controls, at seal time:
 No content, no prompts, no step data — hashes and counts only. The vendor
 cannot edit the customer's copy afterwards.
 
+`steps` counts every sealed step, including the session and environment
+steps EPI adds itself, so it can be larger than the "N steps" printed at seal
+time (a run printed as `3 steps` reports `"steps": 6`).
+
 `content_digest` covers the sealed evidence: every manifest field and file
 hash except the signature and transparency receipts added after sealing.
 
@@ -71,7 +75,10 @@ Delivered: http://127.0.0.1:8099/
 `epi witness flush` retries everything pending (`--secret` overrides
 `EPI_WITNESS_SECRET`, `--timeout` sets the per-request timeout, default 10s).
 The secret is never written to the outbox, so `flush` needs it again. Run
-`flush` from cron, or after any outage of the customer's endpoint.
+`flush` from cron, or after any outage of the customer's endpoint. An entry
+that can never be delivered (for example, a customer endpoint that no longer
+exists) can be removed with `epi witness drop <id>`, using the `id` column
+from `epi witness status`.
 
 ## Customer setup: receive (5 minutes)
 
@@ -106,8 +113,11 @@ The secret is never written to the outbox, so `flush` needs it again. Run
 epi verify run.epi --policy strict --witness-log received.jsonl
 ```
 
-Add `--require-timestamp` if the vendor seals with a reachable RFC 3161
-timestamp service; without it, a file with no valid timestamp still passes.
+Add `--require-timestamp` **only if** the vendor seals with a reachable RFC
+3161 timestamp service; without it, a file with no valid timestamp still
+passes. Scripts must rely on the exit code with `--policy strict`:
+`epi verify` exits `0` on WARN, and under the default policy a seal missing
+from your log is only a WARN.
 
 The SEAL block shows one `Witness:` line:
 
