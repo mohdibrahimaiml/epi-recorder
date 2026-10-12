@@ -239,7 +239,8 @@ header and the relevant lines; fingerprints shown as `<fingerprint>`.
 │ DECISION: FAIL                                                                                   │
 │ Policy: strict                                                                                   │
 │ Reason: Identity unknown or revoked (Strict Policy requires trusted signer; LOCAL self-match is  │
-│ not enough — pin with epi keys trust)                                                            │
+│ not enough — pin the sender's key obtained from them directly, then confirm its fingerprint by   │
+│ phone)                                                                                           │
 │   - Status:       NOT_PINNED                                                                     │
 ```
 
