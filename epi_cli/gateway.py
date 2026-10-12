@@ -100,7 +100,15 @@ def _witness_export(
     pending = list(stored.get("pending") or [])
     if not pending:
         return f"Witness: delivered to {', '.join(urls)}"
-    return f"Witness: QUEUED ({_short_reason(stored.get('last_error'), urls)}) — run epi witness flush"
+    _reason = _short_reason(stored.get("last_error"), urls)
+    _hint = ""
+    if "401" in _reason or "403" in _reason:
+        _hint = (
+            " — no secret set: export with EPI_WITNESS_SECRET (or --witness-secret)"
+            if not witness_secret
+            else " — the receiver rejected the secret"
+        )
+    return f"Witness: QUEUED ({_reason}){_hint} — run epi witness flush"
 
 
 def _short_reason(error: object, urls: list[str]) -> str:
@@ -315,12 +323,14 @@ def export_case(
     did: str | None = typer.Option(
         None,
         "--did",
-        help="did:web identity bound into the export (manifest governance.did). Default: EPI_DID.",
+        help="did:web identity bound into the export (manifest governance.did). Default: EPI_DID, "
+        "else the DID `epi gateway serve` was started with on this storage dir.",
     ),
     witness_url: str | None = typer.Option(
         None,
         "--witness-url",
-        help="Customer witness endpoint(s), comma-separated. Default: EPI_WITNESS_URL.",
+        help="Customer witness endpoint(s), comma-separated. Default: EPI_WITNESS_URL, else the "
+        "witness URL `epi gateway serve` was started with on this storage dir.",
     ),
     witness_secret: str | None = typer.Option(
         None,

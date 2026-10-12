@@ -95,18 +95,20 @@ def status() -> None:
         console.print("[dim]Witness outbox is empty.[/dim]")
         return
     table = Table(title=f"Witness outbox ({outbox_path()})")
-    table.add_column("id")
-    table.add_column("created")
-    table.add_column("workflow")
+    table.add_column("id", no_wrap=True, min_width=8)  # needed for `epi witness drop`
+    table.add_column("created (UTC)", no_wrap=True)
+    table.add_column("workflow", no_wrap=True, min_width=8)
+    table.add_column("case / file", overflow="fold")
     table.add_column("pending")
     table.add_column("delivered")
-    table.add_column("last error")
+    table.add_column("last error", overflow="fold", ratio=1)
     for entry in entries:
         payload = entry.get("payload") or {}
         table.add_row(
             str(entry.get("id", ""))[:8],
-            str(entry.get("created_at", ""))[:19],
+            str(entry.get("created_at", ""))[5:19].replace("T", " "),
             str(payload.get("workflow_id", ""))[:8],
+            str(payload.get("case_id") or ("sha " + str(payload.get("file_sha256") or "")[:8])),
             str(len(entry.get("pending") or [])),
             str(len(entry.get("delivered") or {})),
             str(entry.get("last_error") or "")[:160],

@@ -605,7 +605,12 @@ class EPIContainer:
         with zipfile.ZipFile(zip_path, "r") as zf:
             infolist = zf.infolist()
             if not infolist or infolist[0].filename != "mimetype":
-                raise ValueError("Forensic Violation: 'mimetype' MUST be the first file in the .epi ZIP payload.")
+                raise ValueError(
+                    "Forensic Violation: 'mimetype' MUST be the first file in the .epi ZIP payload. "
+                    "The file was re-packed by a zip tool, so it is not the file that was sealed "
+                    "(its contents may still be unchanged). Ask the sender for the original .epi; "
+                    "to inspect it use `epi view --extract DIR`, not unzip/zip."
+                )
 
             mimetype_info = infolist[0]
             if mimetype_info.compress_type != zipfile.ZIP_STORED:

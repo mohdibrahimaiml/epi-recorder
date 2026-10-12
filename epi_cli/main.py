@@ -908,7 +908,7 @@ from epi_cli.witness import app as witness_app
 app.add_typer(
     witness_app,
     name="witness",
-    help="Customer witness outbox: retry and inspect seal reports",
+    help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
     rich_help_panel="Everyday",
 )
 
@@ -1496,6 +1496,10 @@ def keys(
                 resolved_hex = extract_ed25519_key(doc)
             except (DidResolutionError, KeyNotFoundError) as e:
                 console.print(f"[red][FAIL] DID resolution failed:[/red] {e}")
+                console.print(
+                    "[dim]Offline? Get the vendor's did.json (or their exported key) out of band "
+                    "and pin it with: epi keys trust did.json --name <vendor>[/dim]"
+                )
                 raise typer.Exit(1)
             except Exception as e:
                 console.print(f"[red][FAIL] Error:[/red] {e}")
@@ -1567,17 +1571,36 @@ def keys(
                     console.print(f"  This file's key fingerprint: [bold]{_file_fp}[/bold]")
                     console.print(
                         "  1. Ask the sender (by phone, not by email from the same source) to read "
-                        "you their fingerprint."
+                        "you THEIR fingerprint. Do not copy the one above."
                     )
                     console.print(
-                        f'  2. If it matches: epi keys trust "{key}" --name <sender> '
-                        f'--fingerprint "{_file_fp}"'
+                        f'  2. Only if theirs matches: epi keys trust "{key}" --name <sender> '
+                        '--fingerprint "<the fingerprint the sender read to you>"'
                     )
                     console.print(
                         "  Better: pin from the sender directly — epi keys trust --from-did "
                         "did:web:<their-domain>, or their key file."
                     )
                     raise typer.Exit(1)
+                # Already trusting someone else? An attacker's file claiming a
+                # known sender is the classic way to get pinned.
+                try:
+                    _others = []
+                    for _p in sorted(Path(trusted_keys_dir).glob("*.pub")):
+                        _h = _p.read_text(encoding="utf-8").strip().lower()
+                        if _h != _file_pk.strip().lower():
+                            _others.append(f"{_p.stem} ({_key_fp(_h)})")
+                    _claimed = ((EPIContainer.read_manifest(source_path).governance or {}).get("did"))
+                    if _others:
+                        console.print(
+                            "[bold yellow]Note:[/bold yellow] you already trust "
+                            + ", ".join(_others)
+                            + ". This file's key is different"
+                            + (f" although it claims {_claimed}" if _claimed else "")
+                            + ". If this is the same sender, ask why their key changed."
+                        )
+                except Exception:
+                    pass
             if source_path.exists() and source_path.suffix.lower() == ".epi" and trusted_name is None:
                 try:
                     from epi_core.container import EPIContainer
@@ -1591,6 +1614,13 @@ def keys(
                 except Exception:
                     trusted_name = source_path.stem[:32]
 
+            _intended = Path(trusted_keys_dir) / f"{trusted_name or Path(key).stem}.pub"
+            _old_hex = None
+            if overwrite and _intended.exists():
+                try:
+                    _old_hex = _intended.read_text(encoding="utf-8").strip().lower()
+                except OSError:
+                    _old_hex = None
             target = key_manager.trust_key(
                 key,
                 trusted_keys_dir=trusted_keys_dir,
@@ -1598,6 +1628,18 @@ def keys(
                 overwrite=overwrite,
             )
             console.print(f"\n[bold green][OK] Trusted key:[/bold green] {target}")
+            try:
+                _new_hex = target.read_text(encoding="utf-8").strip().lower()
+                if _old_hex and _old_hex != _new_hex:
+                    from epi_core.keys import key_fingerprint as _kfp
+
+                    console.print(
+                        f"  [bold yellow]Replaced[/bold yellow] the key pinned as '{target.stem}': "
+                        f"{_kfp(_old_hex)} → {_kfp(_new_hex)}. Files sealed by the old key no "
+                        "longer show IDENTITY PINNED."
+                    )
+            except Exception:
+                pass
             try:
                 from epi_core.keys import key_fingerprint as _key_fp
 

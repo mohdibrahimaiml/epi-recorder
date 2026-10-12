@@ -463,3 +463,78 @@ def test_witness_payload_carries_case_id() -> None:
         key_fingerprint=None, steps=1, sealed_at="t", seal_timestamp={}, case_id="trace::t-1",
     )
     assert p["case_id"] == "trace::t-1"
+
+
+# ------------------------------------------------------------- round 4
+
+
+def test_wrong_or_empty_witness_log_is_not_checked_not_blame(monkeypatch, tmp_path: Path) -> None:
+    _hermetic(monkeypatch, tmp_path)
+    out = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    for content in ("", "not json\n", '{"some": "other json"}\n'):
+        log = tmp_path / "wrong.jsonl"
+        log.write_text(content)
+        report = json.loads(runner.invoke(
+            cli_app, ["verify", str(out), "--json", "--witness-log", str(log)]
+        ).output)
+        assert report["witness"]["status"] == "UNREADABLE", content
+        assert report["decision"]["status"] == "FAIL"
+        assert "re-run" not in report["decision"]["reason"]
+
+
+def test_refresh_viewer_keeps_witnessed(monkeypatch, tmp_path: Path) -> None:
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        out = _seal(monkeypatch, tmp_path, tmp_path / "case.epi", witness_url=url, witness_secret=SECRET)
+        log = _witness_log_for(tmp_path, out)
+    finally:
+        server.shutdown()
+    res = runner.invoke(cli_app, ["refresh-viewer", str(out)])
+    assert res.exit_code == 0, res.output
+    report = json.loads(runner.invoke(
+        cli_app, ["verify", str(out), "--json", "--witness-log", str(log)]
+    ).output)
+    assert report["witness"]["status"] == "WITNESSED", report["witness"]
+
+
+def test_trust_from_epi_hint_does_not_prefill_and_overwrite_is_loud(monkeypatch, tmp_path: Path) -> None:
+    import os
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    from epi_core.container import EPIContainer
+    from epi_core.keys import key_fingerprint
+
+    _hermetic(monkeypatch, tmp_path)
+    out = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    fp = key_fingerprint(EPIContainer.read_manifest(out).public_key)
+
+    refused = runner.invoke(cli_app, ["keys", "trust", str(out), "--name", "vendor"])
+    assert refused.exit_code == 1
+    assert f'--fingerprint "{fp}"' not in refused.output
+
+    trusted = Path(os.environ["EPI_TRUSTED_KEYS_DIR"])
+    trusted.mkdir(parents=True, exist_ok=True)
+    other = Ed25519PrivateKey.generate().public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    (trusted / "vendor.pub").write_text(other + "\n")
+    res = runner.invoke(
+        cli_app, ["keys", "trust", str(out), "--name", "vendor", "--fingerprint", fp, "--overwrite"]
+    )
+    assert res.exit_code == 0, res.output
+    text = " ".join(res.output.split())
+    assert "you already trust vendor" in text
+    assert "Replaced the key pinned as 'vendor'" in text
+
+
+def test_strict_reason_matches_not_a_key_you_trust_headline() -> None:
+    from epi_core.trust import VerificationPolicy, apply_policy
+
+    report = {
+        "facts": {"integrity_ok": True, "sequence_ok": True, "signature_valid": True,
+                  "completeness_ok": True},
+        "identity": {"status": "UNKNOWN", "pinned_names": ["vendor"]},
+    }
+    reason = apply_policy(report, VerificationPolicy.STRICT)["decision"]["reason"]
+    assert reason.startswith("Not a key you trust")

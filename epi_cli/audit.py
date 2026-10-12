@@ -208,7 +208,9 @@ def audit_artifact(
         review_report = verify_review_trust(epi_path, strict=strict)
         records = read_review_records(epi_path)
         report["pipeline"]["human_review"] = {
-            "status": review_report.get("status", "unknown"),
+            "status": (
+                "none" if not records else review_report.get("status", "unknown")
+            ),
             "review_count": len(records),
             "latest_review_id": review_report.get("latest_review_id"),
             "signed": review_report.get("signature_valid") is True,

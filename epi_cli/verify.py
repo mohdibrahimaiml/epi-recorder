@@ -625,13 +625,23 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             continue
         if isinstance(entry, dict):
             entries.append(entry)
+    _reports = [e for e in entries if e.get("workflow_id") and e.get("manifest_hash")]
+    if not _reports:
+        # Wrong file, empty file or not a witness log: the check could not be
+        # done. Never let that read as "the vendor never reported this".
+        result["status"] = "UNREADABLE"
+        result["detail"] = (
+            f"{witness_log} contains no witness reports ({len(lines)} lines, "
+            f"{len(entries)} JSON objects) — is it the --out file of `epi witness serve`?"
+        )
+        return result
     workflow_id = str(getattr(manifest, "workflow_id", ""))
     same = [e for e in entries if str(e.get("workflow_id") or "") == workflow_id]
     result["matches"] = len(same)
     if not same:
         result["status"] = "NOT IN WITNESS LOG"
         result["detail"] = (
-            f"workflow {workflow_id} not found in {len(entries)} witness entries; "
+            f"workflow {workflow_id} not found in {len(_reports)} witness reports; "
             "a missing entry for a case the customer knows happened is itself evidence"
         )
         return result
@@ -672,7 +682,8 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
             result["detail"] = (
                 "sealed contents match the customer record "
                 f"(received {entry.get('received_at') or 'unknown time'}); the file was "
-                "re-packaged afterwards (transparency receipt added and re-signed)"
+                "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
+                "added, and re-signed)"
             )
             return result
     result["status"] = "MISMATCH"
@@ -1626,8 +1637,9 @@ def verify_command(
                     )
                     report["decision"]["reason"] = (
                         "Seal and signer are valid, but this seal was never reported to "
-                        "your witness log. The vendor may have re-run or re-sealed this "
-                        "case; ask for the copy that is in your witness log."
+                        f"your witness log ({_witness.get('detail')}). It may be a re-run "
+                        "or re-sealed copy; ask the vendor for the copy that is in your "
+                        "witness log."
                     )
             except Exception:
                 pass

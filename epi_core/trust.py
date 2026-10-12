@@ -907,6 +907,11 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 f"({identity.get('name') or 'revoked key'}). Undo only if that was a mistake: "
                 "epi keys unrevoke <name>"
             )
+        elif identity["status"] == "UNKNOWN" and identity.get("pinned_names"):
+            decision["reason"] = (
+                "Not a key you trust — sealed by a key other than the one(s) you pinned "
+                f"({', '.join(identity['pinned_names'])}). Do not pin the key from this file."
+            )
         elif identity["status"] not in ("KNOWN",):
             decision["reason"] = (
                 "Identity unknown or revoked (Strict Policy requires trusted signer; "
