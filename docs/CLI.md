@@ -540,7 +540,7 @@ vendor did.json.
 
 Offline alternative: get the vendor's public key file (`~/.epi/keys/default.pub` on their machine) out of band and run `epi keys trust vendor.pub --name vendor`.
 
-## `epi witness status|flush`
+## `epi witness status|flush|drop|serve`
 
 Vendor side of the customer witness ([WITNESS.md](./WITNESS.md)). With
 `EPI_WITNESS_URL` (or `record(..., witness_url=...)`) set, every seal queues a
@@ -548,9 +548,17 @@ hash-only report in `~/.epi/witness_outbox.jsonl` and delivers it in the
 background.
 
 - `epi witness status` — List pending, delivered and failed witness entries.
-- `epi witness flush` — Retry every undelivered witness entry.
+- `epi witness flush` — Retry every undelivered witness entry. Exits 1 while
+  anything is still pending.
   - `--secret <str>` — HMAC secret for delivery (default: `EPI_WITNESS_SECRET`).
   - `--timeout <int>` — Per-request timeout in seconds (default: 10).
+- `epi witness drop <id>` — Remove one entry from the outbox (e.g. a seal
+  queued for a wrong URL, which would otherwise stay pending forever). `<id>`
+  is the full id or any unique prefix, such as the 8-character id `status`
+  shows; an ambiguous prefix is refused. The sealed `.epi` file is unchanged;
+  the receiver simply never gets that report.
+  - `--all-failed --yes` — Drop every entry that still has pending URLs
+    (without `--yes` it only lists them and exits 1).
 
 ```text
 $ epi witness status
@@ -559,8 +567,39 @@ $ epi witness status
 │          │                     │          │         │           │ Error 401: Unauthorized        │
 2 entries, 1 URLs pending.
 
+$ epi witness flush
+Failed: http://127.0.0.1:8099/ (HTTP Error 401: Unauthorized)
+  The receiver rejected the secret (HTTP 401). Use the same secret as the receiver: EPI_WITNESS_SECRET or --secret.
+Still pending. Fix the URL/secret and flush again, or remove an entry with: epi witness drop <id>
+
 $ EPI_WITNESS_SECRET=SHARED_SECRET epi witness flush
 Delivered: http://127.0.0.1:8099/
+
+$ epi witness drop 4425f106     # if the URL itself was wrong
+Dropped 4425f106 (workflow 844bedb5, pending: http://wrong-host:8099/)
+```
+
+Customer side: `epi witness serve` runs the witness receiver that the
+vendor's `EPI_WITNESS_URL` points at. It checks the `X-EPI-Signature` HMAC,
+stamps `received_at` and appends each report to `--out`, the log you later
+pass to `epi verify --witness-log`.
+
+- `epi witness serve`
+  - `--host <str>` — Interface to listen on (default: `127.0.0.1`). Use
+    `0.0.0.0` only behind a TLS-terminating reverse proxy.
+  - `--port <int>` — Port (default: 8099). A port in use gives a one-line error.
+  - `--out <path>` — Append-only witness log (default: `received.jsonl`).
+  - `--secret <str>` — Shared HMAC secret (default: `EPI_WITNESS_SECRET`).
+    Required unless `--insecure-no-secret` (local trials only).
+
+```text
+$ EPI_WITNESS_SECRET=SHARED_SECRET epi witness serve --out received.jsonl
+Witness receiver listening on 127.0.0.1:8099 (HMAC check on)
+Give the vendor:  EPI_WITNESS_URL=http://127.0.0.1:8099/
+                  EPI_WITNESS_SECRET=<the same secret this receiver uses>
+Witness log:      /srv/witness/received.jsonl
+Check a file:     epi verify run.epi --witness-log /srv/witness/received.jsonl
+Press Ctrl-C to stop.
 ```
 
 ## `epi review <file.epi>`

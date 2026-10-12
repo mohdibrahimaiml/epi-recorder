@@ -75,22 +75,30 @@ The secret is never written to the outbox, so `flush` needs it again. Run
 
 ## Customer setup: receive (5 minutes)
 
-1. Run the reference receiver (stdlib only) on any small server:
+1. Run the witness receiver (installed with `epi-recorder`, stdlib only) on
+   any small server:
 
    ```bash
-   python examples/witness_receiver/receiver.py --port 8099 --secret SHARED_SECRET --out received.jsonl
+   EPI_WITNESS_SECRET=SHARED_SECRET epi witness serve --port 8099 --out received.jsonl
    ```
 
-   It listens on 127.0.0.1 by default. For a vendor on another network, use
-   `--host 0.0.0.0` behind a TLS-terminating reverse proxy and give the
-   vendor the `https://` URL. The secret can also come from
-   `EPI_WITNESS_SECRET`. Reports with a bad HMAC are rejected (HTTP 401) and
-   logged:
+   It prints the URL to give the vendor (`EPI_WITNESS_URL`) and the log path
+   to pass to `epi verify --witness-log`. It listens on 127.0.0.1 by default.
+   For a vendor on another network, use `--host 0.0.0.0` behind a
+   TLS-terminating reverse proxy and give the vendor the `https://` URL. The
+   secret comes from `EPI_WITNESS_SECRET` or `--secret`; without one it
+   refuses to start (`--insecure-no-secret` for a local trial only). Reports
+   with a bad HMAC are rejected (HTTP 401) and logged:
 
    ```text
-   witness receiver on 127.0.0.1:8099 -> received.jsonl (hmac on)
+   Witness receiver listening on 127.0.0.1:8099 (HMAC check on)
+   Give the vendor:  EPI_WITNESS_URL=http://127.0.0.1:8099/
+   ...
    [2026-10-12T09:35:00+00:00] rejected: bad or missing X-EPI-Signature HMAC from 127.0.0.1 (workflow 844bedb5-...) - check the shared secret
    ```
+
+   The reference script `examples/witness_receiver/receiver.py` remains in
+   the repository for reference; it is a thin wrapper around the same code.
 
    Or point the webhook at your own system: accept the POST, check
    `X-EPI-Signature: sha256=<hex>` (HMAC-SHA256 of the raw body), stamp

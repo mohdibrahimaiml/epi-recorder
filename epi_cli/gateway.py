@@ -251,10 +251,10 @@ def serve(
     console.print("[dim]All LLM calls are captured automatically — no code changes needed.[/dim]")
     console.print()
 
-    # factory=True: build the app now, after the env above is set. The
-    # module-level ``epi_gateway.main:app`` was already created at import time
-    # from the old env, so it would ignore every flag passed here,
-    # including --access-token.
+    # factory=True: build the app now, after the env above is set, so every
+    # flag passed here (including --access-token and --storage-dir) reaches
+    # the running app. Never touch ``epi_gateway.main.app`` here: accessing it
+    # would build a second gateway from the default settings.
     uvicorn_kwargs: dict = {"host": host, "port": port, "reload": reload, "factory": True}
     if ssl_certfile:
         uvicorn_kwargs["ssl_certfile"] = str(ssl_certfile.resolve())

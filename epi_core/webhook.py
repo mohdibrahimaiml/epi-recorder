@@ -228,15 +228,50 @@ def read_outbox(path: Path | None = None) -> list[dict[str, Any]]:
         return []
 
 
+def _write_outbox_unlocked(entries: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
+    tmp.write_text(
+        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
+        encoding="utf-8",
+    )
+    os.replace(tmp, path)
+
+
 def _write_outbox(entries: list[dict[str, Any]], path: Path) -> None:
     with _OutboxFileLock(path, timeout=30.0):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
-        tmp.write_text(
-            "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
-            encoding="utf-8",
-        )
-        os.replace(tmp, path)
+        _write_outbox_unlocked(entries, path)
+
+
+def match_outbox_ids(prefix: str, path: Path | None = None) -> list[str]:
+    """Full ids of outbox entries whose id starts with `prefix` (case-insensitive)."""
+    wanted = str(prefix or "").strip().lower()
+    if not wanted:
+        return []
+    return [
+        str(e.get("id"))
+        for e in read_outbox(path)
+        if str(e.get("id") or "").lower().startswith(wanted)
+    ]
+
+
+def drop_outbox_entries(ids: list[str], path: Path | None = None) -> list[dict[str, Any]]:
+    """Remove the entries with these exact ids from the outbox. Returns the removed entries.
+
+    Read and rewrite happen under the outbox lock so a concurrent seal's
+    append is not lost.
+    """
+    target = Path(path) if path else outbox_path()
+    drop = {str(i) for i in ids}
+    if not drop:
+        return []
+    with _APPEND_LOCK, _OutboxFileLock(target, timeout=30.0):
+        entries = read_outbox(target)
+        removed = [e for e in entries if str(e.get("id")) in drop]
+        if removed:
+            kept = [e for e in entries if str(e.get("id")) not in drop]
+            _write_outbox_unlocked(kept, target)
+    return removed
 
 
 def append_outbox_entry(
