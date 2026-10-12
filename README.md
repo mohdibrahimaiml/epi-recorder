@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/logo.png" alt="EPI Logo" width="180"/>
+  <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
 
 # EPI (Evidence Packaged Infrastructure) — Evidence for AI agents
 
@@ -32,16 +32,18 @@ How it works: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/
 > the answer should be a **`.epi` file** — not a dashboard login and a shrug.
 
 `epi-recorder` turns an AI agent's run into **evidence a third party can verify.** Not a log you have to trust, but a portable, signed artifact that leaves your platform and declares exactly what it captured — verifiable offline with open tooling.
-No account, no API call, no phone-home.
+No account and no EPI server: verification is fully offline. When sealing, EPI asks public
+RFC 3161 timestamp services for a trusted time (only a hash is sent; switch off with `EPI_NOTARIZE=0`
+or use your own with `EPI_TSA_URLS`).
 
 <div align="center">
   <p><strong>Open a sealed <code>.epi</code> offline</strong> — <code>epi view run.epi</code></p>
   <img
-    src="docs/assets/epi-file-viewer-full.png"
+    src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/epi-file-viewer-full.png"
     alt="EPI offline viewer showing a sealed .epi evidence file — timeline, integrity, and decision context"
     width="900"
   />
-  <p><em>Forensic case view of a sealed run. Sample artifact: <a href="docs/assets/readme-demo.epi"><code>docs/assets/readme-demo.epi</code></a></em></p>
+  <p><em>Forensic case view of a sealed run. Sample artifact: <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/assets/readme-demo.epi"><code>docs/assets/readme-demo.epi</code></a></em></p>
 </div>
 
 ---
@@ -304,7 +306,7 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `website/` | Public site source of truth (`epilabs.org`) |
 | `scripts/` | Build, sync, release and verification helper scripts |
 | `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
-| `tests/` | 183 test files, including the `test_core_loop_golden.py` regression path |
+| `tests/` | ~190 test files, including the `test_core_loop_golden.py` regression path |
 
 **Experimental** (frozen — works as documented, bug fixes allowed, no new features until a paying user asks; not on the critical path):
 

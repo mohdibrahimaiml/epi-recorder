@@ -1228,3 +1228,23 @@ def test_every_tool_sets_all_three_hints_and_declares_its_auth():
     by_name = {t.name: t for t in tools}
     assert by_name["epi_seal_record"].annotations.read_only_hint is False
     assert all(by_name[n].annotations.read_only_hint is True for n in by_name if n != "epi_seal_record")
+
+
+def test_trust_command_works_with_the_fingerprint_rule(isolated_keys, tmp_path, monkeypatch):
+    """The suggested `epi keys trust` command must actually pin (4.6.0 needs --fingerprint)."""
+    import shlex
+
+    from typer.testing import CliRunner
+
+    from epi_cli.main import app as cli_app
+    from epi_mcp.tools import epi_seal_record_tool
+
+    out = tmp_path / "t.epi"
+    sealed = epi_seal_record_tool(_events(), output_path=str(out))
+    cmd = sealed["trust_command"]
+    assert "--fingerprint" in cmd
+    args = shlex.split(cmd.replace(sealed["filename"], sealed["epi_path"]).replace("<label>", "mcp-signer"))
+    monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(tmp_path / "trusted"))
+    result = CliRunner().invoke(cli_app, args[1:])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "trusted" / "mcp-signer.pub").exists()
