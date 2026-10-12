@@ -1875,4 +1875,24 @@ def create_app(
     return app
 
 
-app = create_app()
+
+# The module-level ``app`` is built lazily (PEP 562) so that merely importing
+# this module -- as ``epi gateway serve`` / ``epi gateway export`` do to reach
+# helpers -- does not construct a default gateway, which would create
+# ``./evidence_vault/`` (cases.sqlite3, share.sqlite3, events/, ...) in the
+# current directory. ``uvicorn epi_gateway.main:app`` and
+# ``from epi_gateway.main import app`` still work: the first access builds the
+# app from environment settings and caches it.
+_lazy_app: FastAPI | None = None
+_lazy_app_lock = threading.Lock()
+
+
+def __getattr__(name: str) -> Any:
+    if name == "app":
+        global _lazy_app
+        if _lazy_app is None:
+            with _lazy_app_lock:
+                if _lazy_app is None:
+                    _lazy_app = create_app()
+        return _lazy_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
