@@ -1,0 +1,17 @@
+# WP-SEC-3: Cloudflare Pages headers (applies to every path via "/").
+# NOTE: GitHub Pages ignores this file. If these headers are absent on
+# https://epilabs.org/ after deploy, the site is NOT served by Cloudflare
+# Pages -- stop and report instead of continuing to the enforcing CSP.
+#
+# Script hashes below were computed by scripts/build_csp_hashes.py over
+# LF-normalized inline script text (the HTML parser normalizes CRLF to LF
+# before CSP hashing). Re-run the builder after any website/ change that
+# touches inline scripts.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://*.paddle.com")
+  X-Frame-Options: DENY
+ Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://cdn.paddle.com https://cdnjs.cloudflare.com https://public.profitwell.com 'sha256-+rIgBRsOtKPK9VbqTBZ1pAFmxpoigOkZYyImZjQbBkM=' 'sha256-4jwHltsog1Sqq7KY45IYJPjXO1E0IkV+mvBcHMfavNI=' 'sha256-E+6c0kMsbPoVrfcs2CHEpMYprGyVZoXmksF8vYnmtDs=' 'sha256-FjcW2gdg/dB4PkykCEVjyCAlkKWEV3FnkXAs/hm6I40=' 'sha256-H3qGJK3ARyItrhpT/s1g6DmFqQqvS2MElMwd+AsMMEY=' 'sha256-IX3ddtTGk4cWBXOzhzR7lMonoPL6GUIQOnwZJz5Cgaw=' 'sha256-KBxJYwBvOp1qmK88UvCOPZZZyCo6W+1Yaxl0XQoitro=' 'sha256-Oh570rqu5ArbHefY3GrKOeo7WlMsuuOK5VTYTpE3RFE=' 'sha256-Ry7WaiXLPlXgGSSD89u5EnQHc4z9ocIoKJCwA9WyXMc=' 'sha256-XY5IekF5sTCRPqz1AaIPFQ35t1eDNIPPZTmU4lrJWec=' 'sha256-YUO9EZ72Lk7poi9+FKCwFddVg93dGmneUiE7nZUVmtw=' 'sha256-by329AUvE6Px6yiGQT3kOVLnQb1K6piAv705jt4RNKA=' 'sha256-cNUb+Fu+oodCsiEO1abTMFkVOH/lx0mqve5UlM8XhB8=' 'sha256-e//3/f9piRAQny3/fG81RfSCQlSSrBWpmLNmGU+j+FI=' 'sha256-gRxz9o+R02bZ7M2+qahfHD/JmuhB0hvuKJtYog1UzRk=' 'sha256-gbsM4rD0h4X/WPjSEjo0qowCoTfeZf0X1yMG5FdKKPM=' 'sha256-kkfmL/+2TpsKZPk+AaOqO8BagUFzJM5pOUPp1BiJQD4=' 'sha256-lQpb2Van4u0Y/SK9lNCMGDspH+r0cEsleCDoklxUWXM=' 'sha256-ngCTUQ5Covf4bpHYgOEu6++h7W4+V4+enrOy9tVv2Y0=' 'sha256-q4erU4TumIuUMTNRvyffOyy7Sqwmj4QlL5f5IPKZAYE=' 'sha256-rMfkFFWoB2W1/Zx+4bgHim0WC7vKRVrq6FTeZclH1Z4=' 'sha256-wOSj6vZPt0BQq6eULn4T0lg5wkVpQIFtqoaDXt+kPxw=' 'sha256-wqin3Lm/DZfkTUJ7RlEBSZ04r4IO8r7i7OmKPOSfU04=' ; style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://fonts.bunny.net https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.bunny.net https://fonts.gstatic.com; connect-src 'self' https://*.paddle.com https://epi-verify-portal.onrender.com; frame-src https://*.paddle.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+*/

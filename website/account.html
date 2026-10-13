@@ -126,7 +126,7 @@
         Continue with GitHub. First visit creates your account — no separate sign-up form, no password to remember.
       </p>
       
-      <button class="btn btn-pri btn-lg" id="btn-signin" type="button" onclick="startLogin()" style="width:100%;max-width:320px;margin:0 auto">
+      <button class="btn btn-pri btn-lg" id="btn-signin" type="button" style="width:100%;max-width:320px;margin:0 auto">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-right:4px"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
         Continue with GitHub
       </button>
@@ -151,7 +151,7 @@
     <span class="tag" style="justify-content:center;color:var(--bad)">Connection Notice</span>
     <h2 style="margin-top:14px;font-size:1.6rem;color:var(--bad)">Unable to reach account service</h2>
     <p id="error-text" style="color:var(--mut);margin:12px auto 24px;max-width:500px;font-size:.92rem">Something went wrong connecting to the backend service.</p>
-    <button class="btn btn-pri" onclick="location.reload()">Try Again</button>
+    <button class="btn btn-pri" id="btn-retry" type="button">Try Again</button>
   </div>
 
   <!-- State 4: Logged-in Account Dashboard -->
@@ -193,12 +193,12 @@
       <div id="apikey-section" style="display:none">
         <div class="key-box">
           <code id="apikey-value">••••••••••••••••••••••••••••••••</code>
-          <button class="btn btn-sec" onclick="copyApiKey()" style="padding:6px 14px;font-size:.75rem;background:transparent">Copy key</button>
+          <button class="btn btn-sec" id="btn-copy-key" type="button" style="padding:6px 14px;font-size:.75rem;background:transparent">Copy key</button>
         </div>
       </div>
 
       <div id="no-apikey" style="margin-top:16px">
-        <button class="btn btn-pri" onclick="createApiKey()" style="font-size:.82rem;padding:10px 20px">Generate API Key</button>
+        <button class="btn btn-pri" id="btn-gen-key" type="button" style="font-size:.82rem;padding:10px 20px">Generate API Key</button>
       </div>
 
       <div class="terminal-callout">
@@ -216,7 +216,7 @@
           <div id="acct-email" style="font-size:.95rem;font-weight:600;color:var(--ink)"></div>
           <div id="acct-org" style="font-family:var(--mono);font-size:.82rem;color:var(--dim);margin-top:4px"></div>
         </div>
-        <button class="btn btn-sec" onclick="logout()" style="color:var(--bad);border-color:var(--edge);padding:8px 18px;font-size:.78rem">Sign Out</button>
+        <button class="btn btn-sec" id="btn-signout" type="button" style="color:var(--bad);border-color:var(--edge);padding:8px 18px;font-size:.78rem">Sign Out</button>
       </div>
     </div>
 
@@ -739,6 +739,17 @@ async function logout() {
 window.addEventListener('pageshow', function(ev) {
   if (ev.persisted) loadAccount();
 });
+
+// CSP: inline event handlers are not allowed — bind buttons here instead.
+function bindClick(id, fn) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', fn);
+}
+bindClick('btn-signin', startLogin);
+bindClick('btn-retry', function() { location.reload(); });
+bindClick('btn-copy-key', copyApiKey);
+bindClick('btn-gen-key', createApiKey);
+bindClick('btn-signout', logout);
 
 loadAccount();
 </script>
