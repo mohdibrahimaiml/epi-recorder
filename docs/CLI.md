@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.6.0)
+# EPI CLI Reference (v4.6.1)
 
-**Version:** 4.6.0
+**Version:** 4.6.1
 **Primary entrypoint:** `epi`
 
 ---

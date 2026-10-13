@@ -192,7 +192,7 @@ known ops hazard until sync runs.
 
 ## PyPI
 
-Current published line: **4.6.0**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.6.1**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 

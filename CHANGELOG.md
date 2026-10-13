@@ -4,7 +4,7 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
-## [4.6.1] - Unreleased
+## [4.6.1] - 2026-10-13
 
 ### Security
 
