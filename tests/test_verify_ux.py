@@ -161,7 +161,11 @@ def test_file_type_sniffing():
     assert "isn't an EPI evidence file" in HOME_FLAT
 
 
-def test_plain_headlines_and_details_toggle():
-    assert "hasn't been changed since it was sealed" in HOME_FLAT
-    assert "changed after it was sealed" in HOME_FLAT
-    assert "<details" in HOME_VERIFY and "Details" in HOME_VERIFY
+def test_polish_headlines():
+    flat = HOME_FLAT
+    # Viewer tamper: plain red headline first, technical detail dimmed below.
+    assert "changed after it was sealed. Don't rely on it." in flat
+    # Non-EPI zip and empty file share the not-an-EPI headline.
+    assert flat.count("isn't an EPI evidence file") >= 3
+    assert "Not a valid EPI file" not in flat
+    assert "No mimetype file in archive" not in flat
