@@ -128,8 +128,7 @@ describe("corsPreflight", () => {
   });
 });
 
-describe("no regression to substring matching", () => {
-  // Strip comments: prose may name the old patterns, code must not contain them.
+describe("no regression to substring matching", () => {  // Strip comments: prose may name the old patterns, code must not contain them.
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");
 
   it("source contains no endsWith/includes origin checks", () => {
@@ -140,5 +139,77 @@ describe("no regression to substring matching", () => {
   it("both response paths gate on allowedOrigin()", () => {
     const uses = code.match(/allowedOrigin\(/g) || [];
     assert.ok(uses.length >= 2, "proxyToRender and corsPreflight must both call allowedOrigin()");
+  });
+});
+
+describe("proxyToRender (WP-SEC-2b hardening)", () => {
+  // Load the shipped proxyToRender with a stubbed backend fetch.
+  function loadProxy(fetchStub) {
+    const backendLine = SRC.slice(
+      SRC.indexOf("const BACKEND"),
+      SRC.indexOf(";", SRC.indexOf("const BACKEND")) + 1,
+    );
+    const proxySrc = extractFunction(SRC, "proxyToRender").replace(
+      "function proxyToRender",
+      "async function __proxyToRender",
+    );
+    // proxyToRender is async: return a promise of its Response.
+    const sandbox = { fetch: fetchStub, Headers, Response, Request, URL };
+    vm.createContext(sandbox);
+    vm.runInContext(
+      `${backendLine}\n${SRC.slice(SRC.indexOf("const ALLOWED"), SRC.indexOf("const BACKEND"))}` +
+        `${proxySrc}\nthis.__run = (ctx) => __proxyToRender(ctx);`,
+      sandbox,
+    );
+    return sandbox.__run;
+  }
+
+  const ctxFor = (origin) => ({
+    request: {
+      url: "https://epilabs.org/api/ping",
+      method: "GET",
+      headers: new Headers(origin ? { Origin: origin } : {}),
+      body: null,
+    },
+  });
+
+  // Upstream answers with a permissive ACAO "*" + credentials (the case the
+  // proxy must not depend on or pass through to blocked origins).
+  const looseUpstream = async () =>
+    new Response("{}", {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "access-control-allow-credentials": "true",
+      },
+    });
+
+  it("strips upstream ACAO/credentials for disallowed origins", async () => {
+    const run = loadProxy(looseUpstream);
+    const res = await run(ctxFor("https://evilepilabs.org"));
+    assert.equal(res.headers.get("access-control-allow-origin"), null);
+    assert.equal(res.headers.get("access-control-allow-credentials"), null);
+  });
+
+  it("emits the exact ACAO for allowed origins despite loose upstream", async () => {
+    const run = loadProxy(looseUpstream);
+    const res = await run(ctxFor("https://epilabs.org"));
+    assert.equal(res.headers.get("access-control-allow-origin"), "https://epilabs.org");
+    assert.equal(res.headers.get("access-control-allow-credentials"), "true");
+  });
+
+  it("error path reflects the requester Origin, not the site URL", async () => {
+    const down = async () => {
+      throw new Error("connect ECONNREFUSED");
+    };
+    const run = loadProxy(down);
+    // Old code used incoming.origin (the site's own URL) here, so even an
+    // attacker's request received ACAO "https://epilabs.org" on the 502 path.
+    const evil = await run(ctxFor("https://evilepilabs.org"));
+    assert.equal(evil.status, 502);
+    assert.equal(evil.headers.get("access-control-allow-origin"), null);
+    const good = await run(ctxFor("https://epilabs.org"));
+    assert.equal(good.headers.get("access-control-allow-origin"), "https://epilabs.org");
   });
 });

@@ -43,7 +43,7 @@ export async function proxyToRender(context) {
     const errHeaders = {
       "content-type": "application/json",
     };
-    const allowedErr = allowedOrigin(incoming.origin);
+    const allowedErr = allowedOrigin(context.request.headers.get("Origin"));
     if (allowedErr) {
       errHeaders["access-control-allow-origin"] = allowedErr;
       errHeaders["access-control-allow-credentials"] = "true";
@@ -69,6 +69,11 @@ export async function proxyToRender(context) {
     outHeaders.set("access-control-allow-origin", allowed);
     outHeaders.set("access-control-allow-credentials", "true");
     outHeaders.append("vary", "Origin");
+  } else {
+    // Never pass through the backend's own CORS headers to a blocked origin:
+    // the proxy must not depend on the backend staying strict.
+    outHeaders.delete("access-control-allow-origin");
+    outHeaders.delete("access-control-allow-credentials");
   }
 
   return new Response(response.body, {
