@@ -562,7 +562,7 @@ async function processFile(f){
     }
     var buf=await f.arrayBuffer();
     if(!buf||buf.byteLength<4){
-      showResult('fail','<strong>Not a valid EPI file</strong><br>File is empty or too small ('+(buf?buf.byteLength:0)+' bytes).');
+      showResult('fail','<strong>This isn\'t an EPI evidence file</strong><br>The file is empty or too small to be a sealed .epi ('+(buf?buf.byteLength:0)+' bytes).');
       return;
     }
     var u8=toU8(buf);
@@ -583,7 +583,7 @@ async function processFile(f){
     var viewerNote=null;
     if(containerFmt==='envelope-v2'){
       var vw=await verifyPolyglotViewer(u8);
-      if(vw.fail){showResult('fail','<strong>SEAL FAIL — FILE ALTERED</strong><br>'+vw.detail);return}
+      if(vw.fail){showResult('fail','<strong>This file was changed after it was sealed. Don\'t rely on it.</strong><br><span style="font-size:0.68rem;opacity:.85">'+esc(vw.detail)+'</span>');return}
       viewerNote=vw.note;
     }
 
@@ -596,7 +596,7 @@ async function processFile(f){
     var report={facts:{structure_ok:false,integrity_ok:false,signature_valid:null,has_signature:false,mismatches:{},chain_ok:true,sequence_ok:true,completeness_ok:true,transparency_ok:null},identity:{status:'UNKNOWN',name:null,detail:null,registry_verified:false,public_key_id:null},metadata:{spec_version:'?',workflow_id:'?',created_at:'?',files_checked:0,verifier_version:'browser',steps_count:null},trust_level:'NONE',trust_message:''};
 
     // Check 1: mimetype
-    if(!zip.file('mimetype')){report.facts.structure_ok=false;showReport(report,'No mimetype file in archive');return}
+    if(!zip.file('mimetype')){report.facts.structure_ok=false;showReport(report,'<strong>This isn\'t an EPI evidence file</strong><br><span style="font-size:0.68rem;opacity:.85">This archive has no mimetype file.</span>');return}
     var mt=await zip.file('mimetype').async('string');
     var mtNorm=mt.trim().replace(/\r/g,'');
     if(mtNorm!==EPI_MIMETYPE&&mtNorm!=='application/vnd.epi'&&mtNorm!=='application/vnd.epi+zip'){
