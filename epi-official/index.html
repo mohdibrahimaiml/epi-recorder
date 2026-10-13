@@ -25,11 +25,11 @@
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"EPI Recorder","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform","description":"Record AI agent runs into sealed .epi evidence files. Ed25519, SHA-256 hash chain, offline verify.","url":"https://epilabs.org","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"EPI Labs","url":"https://epilabs.org"}}
 </script>
 <script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t='light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
 </script>
 <noscript><style>.srow{opacity:1!important;transform:none!important}.verdict{opacity:1!important}.rv{opacity:1;transform:none;filter:none}</style></noscript>
 </head>
-<body class="canvas has-annc" onload="injectIcons()">
+<body class="canvas has-annc">
 <a class="skip" href="#verify">Skip to verify</a>
 
 <!-- ANNOUNCEMENT -->
