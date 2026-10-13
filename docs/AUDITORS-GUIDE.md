@@ -29,7 +29,7 @@ What each part does:
 
 | Part | Why |
 |------|-----|
-| `--policy strict` | FAILs unless the file was sealed by a key **you** pinned, and FAILs on incomplete evidence (e.g. a tool call with no recorded result). The default (`standard`) only WARNs on both, and anyone can make a valid-looking seal with a fresh key. |
+| `--policy strict` | FAILs unless the file was sealed by a key **you** pinned, and FAILs on incomplete evidence (e.g. a tool call with no recorded result). The default (`standard`) only WARNs on both, and anyone can make a valid-looking seal with a fresh key. Strict is local-only: it never fetches the public registry list, so the identity check needs no network. |
 | `--witness-log received.jsonl` | Checks the file against the seal reports the vendor's system sent to **your** server at seal time. Run the receiver with `epi witness serve --out received.jsonl` (installed with the package); see [WITNESS.md](./WITNESS.md). Leave the flag out if you do not run a witness receiver. |
 | `--require-timestamp` | FAILs unless an independent timestamp (RFC 3161) in the file validates offline. |
 | `--offline` | Optional: no network at all (skips DID resolution and remote fetches; your local pins still apply). |
@@ -166,6 +166,8 @@ Below the headline, read three blocks:
   completeness), `Timestamp`, and `Witness` (only with `--witness-log`).
 
 The IDENTITY `Status:` can also be `REVOKED` (a key you revoked).
+
+A key that appears only in EPI Labs' public registry list is shown as listed-for-information (`Registry: listed as "<name>" by epilabs.org (not a pin)`), never as trusted: that list is unsigned, so it cannot make a key yours. Pin the vendor's key as above.
 
 ### Evidence incomplete
 

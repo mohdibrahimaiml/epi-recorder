@@ -4,6 +4,20 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.6.1] - Unreleased
+
+### Security
+
+- **Remote trust registry is informational only.** A key listed only in
+  `https://epilabs.org/.well-known/epi-trust-registry.json` no longer counts
+  as trusted: the file is unsigned, so anyone controlling it could otherwise
+  make every verifier accept their key. Such keys report
+  `LISTED … (informational; not a pin)`, stay `UNKNOWN` (WARN under standard,
+  FAIL under strict), and `epi verify` prints
+  `Registry: listed as "<name>" by epilabs.org (not a pin)`. Remote
+  revocations are still honoured. `--policy strict` never fetches the list:
+  strict is local-only and needs no network.
+
 ## [4.6.0] - 2026-10-12
 
 **Highlights:**
