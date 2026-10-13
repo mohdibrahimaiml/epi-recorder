@@ -2,6 +2,14 @@
  * Shared reverse-proxy helper for Cloudflare Pages Functions.
  * Forwards /api/*, /scitt/*, /.well-known/* to the Render verify portal.
  */
+
+// WP-SEC-2: exact origin allowlist. Never substring-match: endsWith("epilabs.org")
+// also matches evilepilabs.org, and includes("pages.dev") matches any project.
+const ALLOWED = new Set(["https://epilabs.org", "https://www.epilabs.org"]);
+// This project's Cloudflare Pages previews only (project name: epi-recorder).
+const PREVIEW = /^https:\/\/[a-z0-9-]+\.epi-recorder\.pages\.dev$/;
+function allowedOrigin(o){ if(typeof o!=="string"||/[\r\n]/.test(o))return null; return (ALLOWED.has(o)||PREVIEW.test(o))?o:null; }
+
 const BACKEND = "https://epi-verify-portal.onrender.com";
 
 export async function proxyToRender(context) {
@@ -31,6 +39,15 @@ export async function proxyToRender(context) {
   try {
     response = await fetch(target.toString(), init);
   } catch (err) {
+    // Even the error path must not reflect an untrusted origin.
+    const errHeaders = {
+      "content-type": "application/json",
+    };
+    const allowedErr = allowedOrigin(incoming.origin);
+    if (allowedErr) {
+      errHeaders["access-control-allow-origin"] = allowedErr;
+      errHeaders["access-control-allow-credentials"] = "true";
+    }
     return new Response(
       JSON.stringify({
         ok: false,
@@ -39,11 +56,7 @@ export async function proxyToRender(context) {
       }),
       {
         status: 502,
-        headers: {
-          "content-type": "application/json",
-          "access-control-allow-origin": incoming.origin || "*",
-          "access-control-allow-credentials": "true",
-        },
+        headers: errHeaders,
       },
     );
   }
@@ -51,8 +64,9 @@ export async function proxyToRender(context) {
   // Rebuild response so we can adjust CORS for browser clients
   const outHeaders = new Headers(response.headers);
   const origin = context.request.headers.get("Origin");
-  if (origin && (origin.endsWith("epilabs.org") || origin.includes("pages.dev"))) {
-    outHeaders.set("access-control-allow-origin", origin);
+  const allowed = allowedOrigin(origin);
+  if (allowed) {
+    outHeaders.set("access-control-allow-origin", allowed);
     outHeaders.set("access-control-allow-credentials", "true");
     outHeaders.append("vary", "Origin");
   }
@@ -66,18 +80,23 @@ export async function proxyToRender(context) {
 
 /** CORS preflight for proxied API routes */
 export function corsPreflight(context) {
-  const origin = context.request.headers.get("Origin") || "*";
+  const origin = context.request.headers.get("Origin");
+  const allowed = allowedOrigin(origin);
+  const headers = {
+    "access-control-allow-methods": "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
+    "access-control-allow-headers":
+      context.request.headers.get("Access-Control-Request-Headers") ||
+      "authorization, content-type, x-api-key, x-admin-key",
+    "access-control-max-age": "600",
+    vary: "Origin",
+  };
+  // Reflect ACAO only for allowlisted origins; otherwise omit it entirely.
+  if (allowed) {
+    headers["access-control-allow-origin"] = allowed;
+    headers["access-control-allow-credentials"] = "true";
+  }
   return new Response(null, {
     status: 204,
-    headers: {
-      "access-control-allow-origin": origin,
-      "access-control-allow-credentials": "true",
-      "access-control-allow-methods": "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS",
-      "access-control-allow-headers":
-        context.request.headers.get("Access-Control-Request-Headers") ||
-        "authorization, content-type, x-api-key, x-admin-key",
-      "access-control-max-age": "600",
-      vary: "Origin",
-    },
+    headers,
   });
 }
