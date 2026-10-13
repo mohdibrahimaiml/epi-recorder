@@ -81,6 +81,8 @@ async def _lifespan(app: FastAPI):
     _sync_website_static()
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     auth_module.init_auth_for_app(storage_dir)
+    purge_expired_shares()
+    _start_share_purge_thread()
     yield
 
 
@@ -129,6 +131,94 @@ def _check_rate_limit(client_ip: str) -> bool:
         return False
     _rate_limit_store[client_ip] = (count + 1, reset_time)
     return True
+
+
+# WP-SEC-6: epi share retention. The privacy page promises 7 days by default
+# (max 30), then deletion — so the code must enforce what the page says.
+_SHARE_DEFAULT_DAYS = 7
+_SHARE_MAX_DAYS = 30
+_SHARE_UPLOAD_LIMIT = 10  # anonymous uploads per IP per hour
+_SHARE_UPLOAD_WINDOW = 3600
+_share_upload_hits: dict[str, list[float]] = {}
+
+
+def _share_dir() -> Path:
+    return Path("shared_cases")
+
+
+def _check_share_upload_limit(client_ip: str) -> bool:
+    """Return True if this IP may upload another share within the hour."""
+    now = time.time()
+    hits = [t for t in _share_upload_hits.get(client_ip, []) if now - t < _SHARE_UPLOAD_WINDOW]
+    if len(hits) >= _SHARE_UPLOAD_LIMIT:
+        _share_upload_hits[client_ip] = hits
+        return False
+    hits.append(now)
+    _share_upload_hits[client_ip] = hits
+    return True
+
+
+def _share_is_expired(meta: dict) -> bool:
+    """Fail closed: missing or unparsable expires_at counts as expired."""
+    try:
+        return datetime.now(UTC) >= datetime.fromisoformat(str(meta.get("expires_at", "")))
+    except Exception:
+        return True
+
+
+def purge_expired_shares(share_dir: Path | None = None) -> list[str]:
+    """Delete the .epi and .json of every share past expires_at.
+
+    Returns the removed share ids. Never raises (purge must not break serving).
+    """
+    removed: list[str] = []
+    try:
+        directory = Path(share_dir) if share_dir is not None else _share_dir()
+        if not directory.is_dir():
+            return removed
+        for meta_path in directory.glob("*.json"):
+            try:
+                meta = json.loads(meta_path.read_text())
+            except Exception:
+                continue
+            if not _share_is_expired(meta):
+                continue
+            share_id = meta_path.stem
+            try:
+                meta_path.unlink()
+            except OSError:
+                pass
+            try:
+                (directory / f"{share_id}.epi").unlink()
+            except OSError:
+                pass
+            removed.append(share_id)
+    except Exception:
+        pass
+    return removed
+
+
+_SHARE_PURGE_STARTED = False
+
+
+def _start_share_purge_thread() -> None:
+    """Delete expired shares hourly, so the retention promise holds on a quiet server."""
+    import threading
+
+    global _SHARE_PURGE_STARTED
+    if _SHARE_PURGE_STARTED:
+        return
+    _SHARE_PURGE_STARTED = True
+
+    def _loop() -> None:
+        while True:
+            time.sleep(3600)
+            try:
+                purge_expired_shares()
+            except Exception:
+                pass
+
+    threading.Thread(target=_loop, name="epi-share-purge", daemon=True).start()
 
 # API key storage: key_hash -> (tier, name, created_at)
 _api_keys: dict = {}
@@ -1354,12 +1444,17 @@ Use Case:
 @app.post("/api/share")
 async def share_epi_file(
     request: Request,
-    expires_days: int = Query(30, ge=1, le=30),
+    expires_days: int = Query(7, ge=1, le=30),
 ):
     """Accept uploaded .epi files and return a hosted share link."""
     import uuid
     import json
     import logging as _logging
+
+    purge_expired_shares()
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_share_upload_limit(client_ip):
+        raise HTTPException(429, "Too many share uploads — try again in an hour.")
 
     body = await request.body()
     filename = request.headers.get("X-EPI-Filename", "untitled.epi")
@@ -1406,6 +1501,16 @@ async def download_shared_epi(share_id: str):
     
     if not share_path.exists():
         raise HTTPException(404, "Share not found or expired")
+
+    if meta_path.exists():
+        import json
+        try:
+            if _share_is_expired(json.loads(meta_path.read_text())):
+                raise HTTPException(410, "This link has expired")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(410, "This link has expired")
     
     # Update download count
     if meta_path.exists():
@@ -1427,7 +1532,13 @@ async def get_share_meta(share_id: str):
     meta_path = Path(f"shared_cases/{share_id}.json")
     if not meta_path.exists():
         raise HTTPException(404, "Share not found or expired")
-    return json.loads(meta_path.read_text())
+    try:
+        meta = json.loads(meta_path.read_text())
+    except Exception:
+        raise HTTPException(410, "This link has expired")
+    if _share_is_expired(meta):
+        raise HTTPException(410, "This link has expired")
+    return meta
 
 
 
