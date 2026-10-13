@@ -358,14 +358,25 @@
       manifest = JSON.parse(rawManifest);
     } catch (_e) {
       return {
-        structure: true, manifest: false, integrity: false, hashChain: false,
+        structure: true, manifest: false, integrity: false, hashChain: null,
         signature: false, hash: null, trust_level: 'NONE', identity: 'UNKNOWN',
         message: 'manifest.json is not valid JSON', mismatches: []
       };
     }
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+      // Valid JSON but not an object (e.g. a bare string): nothing to verify.
+      return {
+        structure: true, manifest: false, integrity: false, hashChain: null,
+        signature: false, hash: null, trust_level: 'NONE', identity: 'UNKNOWN',
+        message: 'manifest.json is not a JSON object (invalid manifest)', mismatches: []
+      };
+    }
 
     var mismatches = await computeIntegrityMismatches(zip, manifest);
-    var integrity = mismatches.length === 0;
+    // Zero files checked is not a pass: an empty file_manifest proves nothing.
+    var listedFiles = (manifest.file_manifest && typeof manifest.file_manifest === 'object')
+      ? Object.keys(manifest.file_manifest).length : 0;
+    var integrity = mismatches.length === 0 && listedFiles > 0;
     var sigResult = await verifyManifestSignature(manifest, rawManifest);
     var fileHash = await sha256Hex(ab);
 
@@ -395,7 +406,9 @@
       structure: true,
       manifest: true,
       integrity: integrity,
-      hashChain: true,
+      // The step hash chain is NOT recomputed in this browser core, so a
+      // null (not checked) must never read as verified.
+      hashChain: null,
       signature: sigResult.valid,
       hash: fileHash,
       trust_level: trust_level,

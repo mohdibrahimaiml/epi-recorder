@@ -279,8 +279,12 @@
       state='tampered'; label='Tampered case'; desc='Signature invalid — the artifact may have been modified after sealing.';
     }else if(!artifact.signer){
       state='warning'; label='Unsigned case'; desc='Integrity intact but no signature present — anyone could have produced this file.';
+    }else if(artifact.signature===true){
+      // Valid seal, but the signer is not pinned in this browser — and the
+      // step chain is not recomputed here. Never a plain "Verified".
+      state='warning'; label='Seal valid · signer not pinned'; desc='Signature valid, but the signer is not pinned in this browser — anyone can re-sign a rebuilt chain. For claim-ready verification run: epi verify FILE --policy strict --witness-log received.jsonl --offline';
     }else{
-      state='success'; label='Verified case'; desc='Seal valid · signer not org-pinned in browser — pin keys via CLI for claim-ready identity.';
+      state='warning'; label='Not fully verified in browser'; desc='The signature could not be checked here ('+(artifact.message||'unverified')+'). Run epi verify FILE --policy strict --witness-log received.jsonl --offline.';
     }
     setStatus(state,label,desc);
     pageCopy.textContent='This hosted page reads the raw .epi bytes and renders the case timeline without executing the artifact\u2019s embedded viewer.';

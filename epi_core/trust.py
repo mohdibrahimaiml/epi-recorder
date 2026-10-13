@@ -905,7 +905,16 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
             decision["reason"] = "Integrity verified and identity not revoked"
 
     elif policy == VerificationPolicy.STRICT:
-        # Integrity + known identity + completeness
+        # Integrity + known identity + completeness.
+        # Strict is local-only: did:web is never resolved here, so a declared
+        # DID still needs a pin — and the reason must say exactly how.
+        _did = identity.get("did")
+        _did_hint = (
+            f" Pin it with: epi keys trust --from-did {_did} --name <sender>, "
+            "then confirm its fingerprint by phone."
+            if isinstance(_did, str) and _did.startswith("did:web:")
+            else ""
+        )
         if identity["status"] == "REVOKED":
             decision["reason"] = (
                 "Identity revoked — this key was revoked in your trust registry "
@@ -916,12 +925,14 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
             decision["reason"] = (
                 "Not a key you trust — sealed by a key other than the one(s) you pinned "
                 f"({', '.join(identity['pinned_names'])}). Do not pin the key from this file."
+                f"{_did_hint}"
             )
         elif identity["status"] not in ("KNOWN",):
             decision["reason"] = (
                 "Identity unknown or revoked (Strict Policy requires trusted signer; "
                 "LOCAL self-match is not enough — pin the sender's key obtained from them "
                 "directly, then confirm its fingerprint by phone)"
+                f"{_did_hint}"
             )
         elif not facts["completeness_ok"]:
             decision["reason"] = (

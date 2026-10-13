@@ -170,6 +170,11 @@ def test_home_verify_dangerous_sources_escaped():
             # Reading the source value is fine; the sink use must escape.
             if re.search(r"\bvar\s+mt\b|\bmtNorm\s*=", line):
                 continue
+            # report.identity.detail is escaped once at render by reportDOM's
+            # esc(i.detail) (pinned by test_shared_case_honesty); storing it
+            # raw avoids double-escaping.
+            if re.search(r"identity\.detail\s*=", line):
+                continue
             # Comparisons and non-HTML uses (extension checks, enum tests)
             # cannot execute script; only string building toward HTML matters.
             # (Strip string literals first: 'epi+zip' contains a harmless +.)
