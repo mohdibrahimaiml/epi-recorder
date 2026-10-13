@@ -961,7 +961,9 @@ def verify_command(
     mismatches = {}
     review_report = None
     registry = TrustRegistry()
-    registry.offline = bool(offline)
+    # WP-SEC-4: strict is always local-only — no network at all. A remote
+    # listing can never satisfy a strict identity requirement.
+    registry.offline = bool(offline) or bool(strict) or policy == VerificationPolicy.STRICT
 
     try:
         # ========== STEP 1: STRUCTURAL VALIDATION ==========
@@ -2044,6 +2046,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             f"  confirm: epi org bundle verify {file_name} <bundle.json>"
         )
     content_lines.append(f"  - Detail:       {identity_detail}")
+    if "LISTED" in str(identity_detail) and identity_name:
+        # WP-SEC-4: the key appears in the public registry file, which is
+        # unsigned and informational only — never a pin. Say so explicitly.
+        content_lines.append(
+            f'  - Registry:     listed as "{identity_name}" by epilabs.org (not a pin)'
+        )
     content_lines.append("")
 
     # Fact Layer (seal) — objective proofs; valid seal alone is not identity

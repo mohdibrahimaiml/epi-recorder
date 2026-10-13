@@ -497,6 +497,11 @@ class TrustRegistry:
                 return self._verify_did_web(did, public_key_hex)
 
         # 4. Remote Registry (Bootstrap / Anchor). Skipped offline.
+        # WP-SEC-4: this file is unsigned static JSON, so it can NEVER grant
+        # trust — anyone who controls it could otherwise make every verifier
+        # accept their key. A listing is information only (status stays
+        # UNKNOWN, so standard WARNs and strict FAILs). Revocation is safe to
+        # honour and is checked first so it always wins over a listing.
         if self.registry_url and not self.offline:
             try:
                 # In a real implementation, this would use a secure fetch + cache
@@ -506,14 +511,14 @@ class TrustRegistry:
                 resp = requests.get(self.registry_url, timeout=5)
                 if resp.status_code == 200:
                     remote_data = resp.json()
-                    if public_key_hex in remote_data.get("trusted_keys", {}):
-                        return (
-                            True,
-                            remote_data["trusted_keys"][public_key_hex],
-                            f"Verified via remote anchor: {self.registry_url}",
-                        )
                     if public_key_hex in remote_data.get("revoked_keys", []):
                         return False, "Unknown", "REVOKED via remote anchor"
+                    if public_key_hex in remote_data.get("trusted_keys", {}):
+                        return (
+                            False,
+                            remote_data["trusted_keys"][public_key_hex],
+                            "LISTED: in EPI Labs public registry (informational; not a pin)",
+                        )
             except Exception:
                 # Network or parsing failure — don't block verification.
                 # Fall through to built-in roots and UNKNOWN so offline

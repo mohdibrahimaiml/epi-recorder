@@ -66,6 +66,7 @@
 <li>Hosted PDF API is <strong>not</strong> implemented (CLI Annex PDF is free).</li>
 <li>The seal proves integrity <strong>after sealing</strong>, not capture completeness. In-process <code class="k">record()</code> is self-attestation; the gateway proxy is the stronger observation path.</li>
 <li>Annex IV and AIUC-1 outputs are evidence input for those processes — not a conformity certificate or a certification anyone issued.</li>
+<li>A key appearing in the public trust list (<code class="k">/.well-known/epi-trust-registry.json</code>) is <strong>not</strong> a pin — that file is unsigned. Verify shows it as listed-for-information; only keys you pinned yourself count as trusted, and <code class="k">--policy strict</code> never even fetches that list.</li>
 <li>EU notification helpers generate local signed payloads — not a live EU database client.</li>
 <li>See <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" style="color:var(--acc)" target="_blank" rel="noopener">KNOWN_LIMITATIONS.md</a>.</li>
 </ul>
