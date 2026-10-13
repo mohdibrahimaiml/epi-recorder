@@ -109,6 +109,68 @@ def test_anonymous_uploads_capped_per_hour(monkeypatch, tmp_path: Path) -> None:
     assert codes[10] == 429, codes
 
 
+def test_distinct_proxied_clients_get_own_buckets(monkeypatch, tmp_path: Path) -> None:
+    """Behind Render/Cloudflare all users share request.client.host — buckets
+    must key off the forwarded client address, not the proxy's."""
+    client = _client(monkeypatch, tmp_path)
+    for i in range(12):
+        res = client.post(
+            "/api/share",
+            content=b"PK\x03\x04x",
+            headers={"X-Forwarded-For": f"198.51.100.{i}"},
+        )
+        assert res.status_code == 200, (i, res.text)
+
+
+def test_same_forwarded_client_is_limited(monkeypatch, tmp_path: Path) -> None:
+    client = _client(monkeypatch, tmp_path)
+    headers = {"X-Forwarded-For": "203.0.113.7"}
+    codes = [
+        client.post("/api/share", content=b"PK\x03\x04x", headers=headers).status_code
+        for _ in range(11)
+    ]
+    assert codes[:10] == [200] * 10, codes
+    assert codes[10] == 429, codes
+
+
+def test_spoofed_cloudflare_headers_ignored_on_direct_requests(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """cf-connecting-ip is client-controlled on direct onrender.com hits: a
+    rotating spoofed value must not buy extra uploads."""
+    client = _client(monkeypatch, tmp_path)
+    codes = []
+    for i in range(11):
+        res = client.post(
+            "/api/share",
+            content=b"PK\x03\x04x",
+            headers={
+                "X-Forwarded-For": "203.0.113.9",
+                "cf-connecting-ip": f"10.9.9.{i}",
+            },
+        )
+        codes.append(res.status_code)
+    assert codes[:10] == [200] * 10, codes
+    assert codes[10] == 429, codes
+
+
+def test_cloudflare_header_honored_via_cloudflare_host(monkeypatch, tmp_path: Path) -> None:
+    client = _client(monkeypatch, tmp_path)
+    headers = {"host": "epilabs.org", "cf-connecting-ip": "192.0.2.44"}
+    codes = [
+        client.post("/api/share", content=b"PK\x03\x04x", headers=headers).status_code
+        for _ in range(11)
+    ]
+    assert codes[:10] == [200] * 10, codes
+    assert codes[10] == 429, codes
+    other = client.post(
+        "/api/share",
+        content=b"PK\x03\x04x",
+        headers={"host": "epilabs.org", "cf-connecting-ip": "192.0.2.45"},
+    )
+    assert other.status_code == 200, other.text
+
+
 def test_cli_default_matches_server() -> None:
     from typer.testing import CliRunner
 

@@ -653,6 +653,35 @@ async def list_api_keys(request: Request):
     })
 
 
+def _client_ip_for_limit(request: Request) -> str:
+    """Best-effort client IP for rate limiting behind proxies.
+
+    cf-connecting-ip / x-real-ip are trusted only when the request came
+    through our Cloudflare proxy (epilabs.org host). Direct requests
+    (e.g. onrender.com) can spoof those headers, so for them use
+    X-Forwarded-For peeled by EPI_TRUSTED_PROXY_COUNT, else the direct peer.
+    """
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    if host in ("epilabs.org", "www.epilabs.org"):
+        client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-real-ip")
+        if client_ip:
+            return client_ip
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        # XFF is "client, proxy1, proxy2" — first is most spoofable, last is closest to trusted proxy
+        # Use EPI_TRUSTED_PROXY_COUNT to peel trusted proxies (default 1 for Render/Cloudflare)
+        try:
+            trusted = int(os.getenv("EPI_TRUSTED_PROXY_COUNT", "1"))
+        except Exception:
+            trusted = 1
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if parts:
+            if trusted >= len(parts):
+                return parts[0]
+            return parts[-trusted] if trusted > 0 else parts[-1]
+    return request.client.host if request.client else "unknown"
+
+
 @app.post("/api/verify")
 async def verify(
     request: Request,
@@ -669,24 +698,9 @@ async def verify(
     Returns:
         JSON verification report with optional AIUC-1 mapping and signed attestation.
     """
-    # Rate limiting — prefer CF-Connecting-IP (not spoofable behind Cloudflare), fallback to XFF last-entry
-    client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-real-ip")
-    if not client_ip:
-        xff = request.headers.get("x-forwarded-for")
-        if xff:
-            # XFF is "client, proxy1, proxy2" — first is most spoofable, last is closest to trusted proxy
-            # Use EPI_TRUSTED_PROXY_COUNT to peel trusted proxies (default 1 for Render/Cloudflare)
-            try:
-                trusted = int(os.getenv("EPI_TRUSTED_PROXY_COUNT", "1"))
-            except Exception:
-                trusted = 1
-            parts = [p.strip() for p in xff.split(",") if p.strip()]
-            if trusted >= len(parts):
-                client_ip = parts[0]
-            else:
-                client_ip = parts[-trusted] if trusted > 0 else parts[-1]
-        else:
-            client_ip = request.client.host if request.client else "unknown"
+    # Rate limiting — shared proxy-aware helper (cf-connecting-ip only
+    # trusted via Cloudflare; XFF peeled by EPI_TRUSTED_PROXY_COUNT).
+    client_ip = _client_ip_for_limit(request)
     # Quotas (simplest path first):
     # 1) API key → monthly plan limit
     # 2) Signed-in session (Pro/Team/Enterprise) → monthly plan limit by user
@@ -1452,7 +1466,7 @@ async def share_epi_file(
     import logging as _logging
 
     purge_expired_shares()
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _client_ip_for_limit(request)
     if not _check_share_upload_limit(client_ip):
         raise HTTPException(429, "Too many share uploads — try again in an hour.")
 
