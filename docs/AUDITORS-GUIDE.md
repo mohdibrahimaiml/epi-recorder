@@ -165,7 +165,7 @@ Below the headline, read three blocks:
 - **SEAL** — `Integrity`, `Signature`, `Forensic` (step chain and
   completeness), `Timestamp`, and `Witness` (only with `--witness-log`).
 
-The IDENTITY `Status:` can also be `REVOKED` (a key you revoked).
+The IDENTITY `Status:` can also be `REVOKED` (a key you revoked with `epi keys revoke`; undo with `epi keys unrevoke`). A remote revocation entry in the public list only affects keys you have not pinned, and only under the standard policy.
 
 A key that appears only in EPI Labs' public registry list is shown as listed-for-information (`Registry: listed as "<name>" by epilabs.org (not a pin)`), never as trusted: that list is unsigned, so it cannot make a key yours. Pin the vendor's key as above.
 

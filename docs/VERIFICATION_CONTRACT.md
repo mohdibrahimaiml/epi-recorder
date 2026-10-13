@@ -55,12 +55,12 @@ If `signature_valid` is `true`, the artifact is cryptographically intact. This i
 
 | JSON status | CLI `Status:` line | Meaning |
 |-------------|--------------------|---------|
-| `KNOWN` | `KNOWN` | The signing key matches a key you pinned (`epi keys trust`, `--from-did`, trust bundle) or a resolved DID:WEB. |
+| `KNOWN` | `KNOWN` | The signing key matches a key you pinned (`epi keys trust`, `--from-did`, trust bundle) or, under the standard policy only, a resolved DID:WEB. Strict never resolves DID:WEB: it needs a pin. |
 | `LOCAL` | `LOCAL` | The key is on this computer, but not pinned. |
 | `UNKNOWN` | `NOT_PINNED` | You have pinned no keys, and nothing else identifies the signer. The crypto is still valid; you just don't know who signed. |
 | `UNKNOWN` | `NOT A KEY YOU TRUST (you have pinned: …)` | You have pinned at least one key and this file was sealed by a different one. The decision is FAIL under `standard` and `strict`. |
 | `MISMATCH` | `MISMATCH` | Claimed identity does not match the signing key. |
-| `REVOKED` | `REVOKED` | The key has been explicitly revoked (`epi keys revoke`). Revocation applies to the key, so every pin holding it shows `revoked` in `epi keys list`. Decision FAIL under `standard` and `strict`. Undo with `epi keys unrevoke <name>`. |
+| `REVOKED` | `REVOKED` | The key has been explicitly revoked (`epi keys revoke`). Revocation applies to the key, so every pin holding it shows `revoked` in `epi keys list`. Decision FAIL under `standard` and `strict`. Undo with `epi keys unrevoke <name>`. A *remote* revocation entry (public registry list) applies only to keys you have NOT pinned, and only under `standard` — strict never fetches the list. |
 
 **Important:** `NOT_PINNED` is **not** a failure under the default policy. It means "I can verify the math, but I don't recognize the key." In a fresh environment with no pinned keys, every artifact shows it, and that's correct. Under `--policy strict` it is a FAIL. `NOT A KEY YOU TRUST` is different: you told EPI whose keys to expect, and this file is not one of them.
 

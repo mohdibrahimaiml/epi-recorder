@@ -510,6 +510,7 @@ async function processFile(f){
     try{rawManifest=await mf.async('string')}catch(e){showResult('fail','<strong>Could not read manifest.json</strong><br>'+esc(e.message));return}
     var manifest;
     try{manifest=parseJSONPreserveNumbers(rawManifest)}catch(e){showResult('fail','<strong>manifest.json parse error</strong><br>'+esc(e.message));return}
+    if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)){showResult('fail','<strong>Invalid manifest</strong><br>manifest.json is not a JSON object.');return}
     report.metadata.spec_version=manifest.spec_version||'?';
     report.metadata.workflow_id=manifest.workflow_id||'?';
     report.metadata.created_at=manifest.created_at||'?';
@@ -554,7 +555,9 @@ async function processFile(f){
     report.facts.chain_ok=forensic.chain_ok;
     report.facts.step_count_ok=forensic.step_count_ok;
     // File-hash integrity only (matches Python). Completeness gaps are not a broken seal.
-    var hashesOk=Object.keys(mismatches).length===0;
+    // Zero files checked is not a pass: an empty file_manifest proves nothing.
+    var hashesOk=Object.keys(mismatches).length===0&&checked>0;
+    if(checked===0)mismatches['(no files listed)']='Manifest lists no files to check';
     if(manifest.content_truncated===true)hashesOk=false;
     report.facts.integrity_ok=hashesOk;
     report.facts.content_truncated=manifest.content_truncated===undefined?null:manifest.content_truncated;
@@ -571,13 +574,15 @@ async function processFile(f){
         report.facts.signature_valid=sigResult.valid;
         report.identity.public_key_id=manifest.public_key.substring(0,16);
         var nameParts=manifest.signature.split(':',2);
-        if(nameParts.length>=2)report.identity.name=nameParts[1];
+        if(nameParts.length>=2)report.identity.name=esc(nameParts[1]);
         if(sigResult.valid===true){
           if(registry&&registry.trusted_keys&&registry.trusted_keys[manifest.public_key]){
-            report.identity.status='KNOWN';
-            report.identity.name=registry.trusted_keys[manifest.public_key];
-            report.identity.detail='Verified via remote anchor: '+(registry.name||'EPI Labs Trust Registry');
-            report.identity.registry_verified=true;
+            // Same rule as WP-SEC-4: a public list is informational only. The
+            // visitor never pinned this key, so it must not read as pinned.
+            report.identity.status='UNKNOWN';
+            report.identity.name=esc(registry.trusted_keys[manifest.public_key]);
+            report.identity.detail='Listed in EPI Labs public registry (informational; not a pin) — pin the key yourself before trusting it';
+            report.identity.registry_verified=false;
           }else{
             report.identity.status='UNKNOWN';
             report.identity.detail='Valid signature from unverified identity — verify signer independently';
@@ -586,7 +591,7 @@ async function processFile(f){
           report.identity.status='UNKNOWN';
           report.identity.detail=sigResult.msg||'Signature could not be verified';
         }
-      }catch(e){report.facts.signature_valid=null;report.identity.detail='WebCrypto not available: '+esc(e.message)}
+      }catch(e){report.facts.signature_valid=null;report.identity.detail='WebCrypto not available: '+e.message}
     }else if(!manifest.signature){report.facts.signature_valid=null;report.identity.detail='Artifact is unsigned'}
 
     // Trust level: green HIGH only when identity pinned. Valid unpinned seal is

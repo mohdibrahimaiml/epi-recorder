@@ -16,7 +16,13 @@ All notable changes to EPI Recorder are documented here.
   FAIL under strict), and `epi verify` prints
   `Registry: listed as "<name>" by epilabs.org (not a pin)`. Remote
   revocations are still honoured. `--policy strict` never fetches the list:
-  strict is local-only and needs no network.
+  strict is local-only and needs no network. That also means strict never
+  resolves `did:web`: an unpinned `did:web` key FAILs under strict until you
+  pin it (`epi keys trust --from-did did:web:<domain>`, then phone-confirm
+  the fingerprint). Remote revocation entries apply only to keys you have
+  NOT pinned, and only under `standard` (strict never fetches): your own
+  pins and revocations (`epi keys revoke` / `unrevoke`) are decided only
+  by you — EPI Labs cannot overrule them through the unsigned list.
 
 ## [4.6.0] - 2026-10-12
 
