@@ -385,7 +385,10 @@ code.k{
 .inst-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:22px}
 @media(max-width:800px){.inst-grid{grid-template-columns:1fr}}
 .drop{border:1.5px dashed var(--edge-2);padding:48px 26px;text-align:center;background:var(--bg);transition:all .18s var(--ease);cursor:pointer}
-.drop:hover,.drop.over{border-color:var(--acc);border-style:solid;background:var(--acc-bg)}
+@media(hover:hover){.drop:hover,.drop.over{border-color:var(--acc);border-style:solid;background:var(--acc-bg)}}
+.drop.seal-ok{border-color:var(--verified);border-style:solid;background:var(--verified-bg)}
+.drop.seal-warn{border-color:var(--warn);border-style:solid;background:var(--warn-bg)}
+.drop.seal-fail{border-color:var(--tamper);border-style:solid;background:var(--tamper-bg)}
 .drop h3{font-size:1rem;margin-bottom:6px}
 .drop p{font-size:.83rem;color:var(--mut)}
 .checks{display:flex;flex-direction:column;justify-content:center}

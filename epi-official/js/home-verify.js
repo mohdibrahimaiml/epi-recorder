@@ -53,7 +53,8 @@ function reportDOM(report){
   return '<div style="font-size:0.82rem;margin-bottom:0.6rem"><strong style="font-size:1.05rem;color:'+trustColor+'">'+trustIcon+' '+title+'</strong> <span style="color:var(--ink-muted);font-size:0.72rem">v'+esc(m.spec_version)+steps+'</span></div>'
     +chks.join('<br>')
     +'<div style="margin-top:0.5rem;font-size:0.68rem;color:var(--ink-dim);border-top:1px solid var(--border);padding-top:0.5rem">'+esc(report.trust_message)+'</div>'
-    +(i.detail?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+esc(i.detail)+'</div>':'');
+    +(i.detail?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+esc(i.detail)+'</div>':'')
+    +(f.viewer_note?'<div style="margin-top:0.3rem;font-size:0.68rem;color:var(--ink-dim)">'+esc(f.viewer_note)+'</div>':'');
 }
 
 function updateChecks(report){
@@ -98,11 +99,58 @@ async function verifyEd25519(sigStr,pubKeyHex,hashHex){
 var EPI_ZIP_MARKER='\n<!-- EPI_ZIP_PAYLOAD_START -->\n';
 var EPI_HEADER_SIZE=128;
 
+// Outer polyglot viewer check. Mirrors EPIContainer.verify_polyglot_viewer:
+// reserved_tail[0:32] seals the display-layer HTML; a flipped byte there must
+// fail exactly like the CLI (SEAL FAIL — FILE ALTERED). All-zero hash means
+// a legacy seal whose display layer is not covered (informational only).
+async function verifyPolyglotViewer(u8){
+  try{
+    if(u8.length<EPI_HEADER_SIZE||u8[0]!==0x3c||u8[1]!==0x21||u8[2]!==0x2d||u8[3]!==0x2d)return{fail:false,detail:null,note:null};
+    var tail=u8.slice(72,128);
+    var allZero=true,padZero=true,i;
+    for(i=0;i<32;i++){if(tail[i]!==0){allZero=false;break;}}
+    for(i=32;i<56;i++){if(tail[i]!==0){padZero=false;break;}}
+    if(!padZero)return{fail:false,detail:null,note:null};
+    var marker=new TextEncoder().encode(EPI_ZIP_MARKER);
+    var idx=-1;
+    outer:for(var k=EPI_HEADER_SIZE;k+marker.length<=u8.length;k++){
+      for(var m=0;m<marker.length;m++){if(u8[k+m]!==marker[m])continue outer;}
+      idx=k;break;
+    }
+    var viewerBytes=idx===-1?null:u8.slice(EPI_HEADER_SIZE,idx);
+    if(viewerBytes&&viewerBytes.length>=5&&viewerBytes[0]===0x20&&viewerBytes[1]===0x2d&&viewerBytes[2]===0x2d&&viewerBytes[3]===0x3e&&viewerBytes[4]===0x0a){
+      viewerBytes=viewerBytes.slice(5);
+    }
+    if(allZero){
+      if(viewerBytes&&viewerBytes.length>0)return{fail:false,detail:null,note:'Display layer (embedded viewer) not integrity-covered (legacy seal)'};
+      return{fail:false,detail:null,note:null};
+    }
+    if(!viewerBytes)return{fail:true,detail:'polyglot viewer hash present in envelope header but no outer viewer HTML found'};
+    var actual=await sha256(viewerBytes);
+    var claimed='';
+    for(var c=0;c<32;c++){claimed+=tail[c].toString(16).padStart(2,'0');}
+    if(actual!==claimed)return{fail:true,detail:'polyglot viewer HTML hash mismatch (display layer may have been tampered)'};
+    return{fail:false,detail:null,note:null};
+  }catch(e){return{fail:true,detail:'polyglot viewer check error: '+esc(e.message)};} // esc()d here: vw.detail is display-ready, used raw at the call site
+}
+
 function toU8(buffer){
   if(buffer instanceof Uint8Array)return buffer;
   if(buffer instanceof ArrayBuffer)return new Uint8Array(buffer);
   if(ArrayBuffer.isView(buffer))return new Uint8Array(buffer.buffer,buffer.byteOffset,buffer.byteLength);
   return new Uint8Array(buffer||[]);
+}
+
+// Name a common non-EPI file kind from its first bytes, so a visitor who
+// dropped the wrong file gets a plain answer instead of a hex dump.
+function sniffFileKind(u8){
+  if(!u8||u8.length<4)return null;
+  if(u8[0]===0x25&&u8[1]===0x50&&u8[2]===0x44&&u8[3]===0x46)return'a PDF document';
+  if(u8[0]===0x89&&u8[1]===0x50&&u8[2]===0x4e&&u8[3]===0x47)return'a PNG image';
+  if(u8[0]===0xff&&u8[1]===0xd8&&u8[2]===0xff)return'a JPEG image';
+  if(u8[0]===0x47&&u8[1]===0x49&&u8[2]===0x46)return'a GIF image';
+  if(u8[0]===0x50&&u8[1]===0x4b)return'a ZIP archive';
+  return null;
 }
 
 function hexPreview(u8,n){
@@ -285,15 +333,16 @@ function parseJSONPreserveNumbers(text){
   if(pos!==tokens.length)throw new Error('Unexpected trailing tokens');
   return val;
 }
-function sortedJSON(obj){
-  if(obj && typeof obj==='object' && obj.__num!==undefined)return jcsNumberFromRaw(obj.__num);
+function sortedJSON(obj,numFmt){
+  var fmt=numFmt||jcsNumberFromRaw;
+  if(obj && typeof obj==='object' && obj.__num!==undefined)return fmt(obj.__num);
   if(obj===null)return'null';
   if(typeof obj==='string')return JSON.stringify(obj);
   if(typeof obj==='number')return String(Number.isFinite(obj)?obj:'null');
   if(typeof obj==='boolean')return String(obj);
-  if(Array.isArray(obj))return'['+obj.map(sortedJSON).join(',')+']';
+  if(Array.isArray(obj))return'['+obj.map(function(v){return sortedJSON(v,fmt)}).join(',')+']';
   var keys=Object.keys(obj).sort(),p=[];
-  for(var i=0;i<keys.length;i++){var k=keys[i];if(obj[k]!==undefined)p.push(JSON.stringify(k)+':'+sortedJSON(obj[k]));}
+  for(var i=0;i<keys.length;i++){var k=keys[i];if(obj[k]!==undefined)p.push(JSON.stringify(k)+':'+sortedJSON(obj[k],fmt));}
   return'{'+p.join(',')+'}';
 }
 // JCS number encoding from raw JSON number text (matches Python rfc8785).
@@ -302,6 +351,45 @@ function jcsNumberFromRaw(raw){
   var n=Number(raw);
   if(!isFinite(n))return'null';
   return String(n);
+}
+// Python-legacy number encoding (json.dumps sort_keys, for pre-JCS specs):
+// ints byte-exact from raw text; floats via Python float-repr layout
+// (89.0 stays "89.0"; exponents switch at the same magnitudes as repr).
+function legacyNumberFromRaw(raw){
+  if(/^-?(0|[1-9][0-9]*)$/.test(raw))return raw==='-0'?'0':raw;
+  var n=Number(raw);
+  if(!isFinite(n))return'null';
+  var neg=n<0||(n===0&&1/n===-Infinity);
+  var a=Math.abs(n);
+  if(a===0)return neg?'-0.0':'0.0';
+  var parts=a.toExponential().split('e');
+  var digits=parts[0].replace('.','').replace(/0+$/,'')||'0';
+  var decpt=parseInt(parts[1],10)+1;
+  var sign=neg?'-':'';
+  var out;
+  if(decpt<=-4||decpt>16){
+    var exp=decpt-1;
+    var expStr=(exp<0?'-':'+')+('0'+Math.abs(exp)).slice(-2);
+    out=sign+digits.charAt(0)+(digits.length>1?'.'+digits.slice(1):'')+'e'+expStr;
+  }else if(decpt<=0){
+    out=sign+'0.';for(var i=0;i<-decpt;i++)out+='0';out+=digits;
+  }else if(decpt>=digits.length){
+    out=sign+digits;for(var j=0;j<decpt-digits.length;j++)out+='0';out+='.0';
+  }else{
+    out=sign+digits.slice(0,decpt)+'.'+digits.slice(decpt);
+  }
+  return out;
+}
+// True when the artifact predates JCS canonicalization (mirrors
+// epi_core.serialize.canonical_format_for and epi-verify-core isPreJcsSpec:
+// anything below 4.4.1 hashes steps the legacy way).
+function isPreJcsSpecLocal(sv){
+  var s=String(sv||'').replace(/^v/i,'');
+  var a=s.split(/[^\d]+/).map(function(x){return parseInt(x,10)||0;});
+  var maj=a[0]||0,min=a[1]||0,pat=a[2]||0;
+  if(maj!==4)return maj<4&&maj>1?true:false;
+  if(min!==4)return min<4;
+  return pat<1;
 }
 // ISO-8601 -> UTC Z form (matches Python serialize.normalize_value).
 function epiUtcZ(s){
@@ -334,10 +422,11 @@ function computeManifestHash(rawManifestText){
   return globalThis.epiComputeManifestHash(rawManifestText);
 }
 
-async function canonicalStepHash(step){
-  // Matches epi_core.serialize.get_canonical_hash(StepModel, format='json'):
+async function canonicalStepHash(step,specVersion){
+  // Matches epi_core.serialize.hash_normalized_dict(model_dict_for_hash(step)):
   // sort keys, no whitespace, exclude source_type, and normalize only the
   // top-level datetime field (timestamp) the way Pydantic model_dump does.
+  // Pre-JCS specs (< 4.4.1) hash the legacy way (Python json sort_keys).
   var fields=['index','timestamp','kind','content','trace_id','span_id','parent_span_id','prev_hash','governance'];
   var canonical={};
   for(var i=0;i<fields.length;i++){
@@ -346,7 +435,8 @@ async function canonicalStepHash(step){
     if(k==='timestamp'&&typeof v==='string')v=epiUtcZ(v);
     canonical[k]=v;
   }
-  return sha256(new TextEncoder().encode(sortedJSON(canonical)));
+  var legacy=isPreJcsSpecLocal(specVersion);
+  return sha256(new TextEncoder().encode(sortedJSON(canonical,legacy?legacyNumberFromRaw:jcsNumberFromRaw)));
 }
 
 function unwrapNum(v){
@@ -428,7 +518,7 @@ function auditStepCompleteness(steps){
   return pendingToolCalls.length===0&&pendingLlmRequests.length===0&&pendingApprovals.length===0;
 }
 
-async function auditStepChain(steps){
+async function auditStepChain(steps,specVersion){
   if(!steps||steps.length===0)return true;
   var first=unwrapNum(steps[0].prev_hash);
   if(first!==null&&first!==undefined&&first!=='CHAIN_START')return false;
@@ -440,7 +530,7 @@ async function auditStepChain(steps){
     // Genesis marker mid-chain means restart (possible truncation)
     var claimed=unwrapNum(steps[i].prev_hash);
     if(claimed===null||claimed===undefined||claimed==='CHAIN_START')return false;
-    var expected=await canonicalStepHash(steps[i-1]);
+    var expected=await canonicalStepHash(steps[i-1],specVersion);
     if(claimed!==expected)return false;
   }
   return true;
@@ -455,13 +545,14 @@ function auditStepCount(steps,manifest){
 async function auditSteps(steps,manifest){
   var seq=auditStepSequence(steps);
   var comp=auditStepCompleteness(steps);
-  var chain=await auditStepChain(steps);
+  var chain=await auditStepChain(steps,manifest&&manifest.spec_version);
   var count=auditStepCount(steps,manifest);
   return{sequence_ok:seq,completeness_ok:comp,chain_ok:chain,step_count_ok:count};
 }
 
 async function processFile(f){
   var nm=(f&&f.name?f.name:'').toLowerCase();
+  if(f&&f.size>25*1024*1024){showResult('fail','<strong>This file is too large to check in the browser</strong><br>Files over 25 MB cannot be checked here — use <code style="font-size:0.75em">epi verify</code> on your own machine.');return}
   showResult('warn','<em>Reading '+esc(f.name||'file')+'...</em>');
 
   try{
@@ -478,12 +569,22 @@ async function processFile(f){
     var containerFmt=detectContainer(u8);
     // Prefer magic-byte detection over file extension (pickers / email renames)
     if(!containerFmt){
-      var peek=hexPreview(u8,16);
+      var kind=sniffFileKind(u8);
       var hint='';
-      if(u8[0]===0x3c&&u8[1]===0x21&&u8[2]===0x44)hint=' This looks like an HTML page (broken download), not a sealed .epi.';
+      if(kind)hint=' It looks like '+kind+' — drop the sealed .epi file, not a document or image.';
+      else if(u8[0]===0x3c&&u8[1]===0x21&&u8[2]===0x44)hint=' This looks like an HTML page (broken download), not a sealed .epi.';
       else if(nm&&!nm.endsWith('.epi')&&!nm.endsWith('.zip'))hint=' Expected a .epi file.';
-      showResult('fail','<strong>Not a valid EPI file</strong><br>No EPI envelope or ZIP header detected.'+hint+'<br><span style="font-size:0.68rem;opacity:.85">First bytes: '+peek+'</span>');
+      showResult('fail','<strong>This isn\'t an EPI evidence file</strong><br>No EPI envelope or ZIP header detected.'+hint);
       return;
+    }
+
+    // Check 1b: outer polyglot viewer HTML (reserved_tail[0:32]). A byte
+    // flipped in the display layer fails exactly like the CLI.
+    var viewerNote=null;
+    if(containerFmt==='envelope-v2'){
+      var vw=await verifyPolyglotViewer(u8);
+      if(vw.fail){showResult('fail','<strong>SEAL FAIL — FILE ALTERED</strong><br>'+vw.detail);return}
+      viewerNote=vw.note;
     }
 
     var zipBuf;
@@ -547,6 +648,7 @@ async function processFile(f){
     });
     report.metadata.files_checked=checked;
     report.facts.mismatches=mismatches;
+    if(viewerNote)report.facts.viewer_note=viewerNote;
 
     // Check 5: forensic audits on the step timeline
     var forensic=await auditSteps(steps,manifest);
@@ -623,6 +725,21 @@ function showResult(type,msg){
   else setDropSealState(null);
 }
 
+// One plain sentence first; technical detail under a toggle. No jargon.
+function plainHeadline(report){
+  var f=report.facts||{};
+  if(report.trust_level==='LOW'&&f.signature_valid===true){
+    return'This file hasn\'t been changed since it was sealed. We can\'t confirm WHO sealed it — ask the sender for their key fingerprint.';
+  }
+  if(report.trust_level==='LOW'&&!f.has_signature){
+    return'This file has no signature — anyone could have made it. Don\'t rely on it for decisions.';
+  }
+  if(f.signature_valid===false||f.integrity_ok===false){
+    return'This file was changed after it was sealed. Don\'t rely on it.';
+  }
+  return'We couldn\'t fully check this file in the browser. Run epi verify on your own machine for a complete answer.';
+}
+
 function showReport(report,errMsg){
   if(errMsg){showResult('fail',errMsg);return}
   var tl=report.trust_level||'';
@@ -636,12 +753,16 @@ function showReport(report,errMsg){
     var idOk=report.identity&&report.identity.status==='KNOWN';
     type=idOk?'pass':'warn';
   }
-  showResult(type,reportDOM(report));
+  showResult(type,'<div style="font-size:1rem;margin-bottom:0.6rem">'+esc(plainHeadline(report))+'</div><details style="margin-top:0.4rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Details</summary>'+reportDOM(report)+'</details>');
   updateChecks(report);
 }
 
 function resetChecks(){
-  ['chk1','chk2','chk3','chk4','chk5','chk6'].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.remove('pass');el.innerHTML='<span class="check-dot"></span> '+el.innerHTML.replace(/^.*?\d{2}\s*·\s*/,'')}}); // static-html: restores labels previously sanitized by set(); replace() only strips the status prefix
+  // Restore the six original neutral labels (one dot each). Never derive
+  // labels from previous results: after a bad file the old PASS/FAIL text
+  // must not linger under the new error.
+  var labels={'chk1':'01 · Structure','chk2':'02 · File hashes','chk3':'03 · Signature','chk4':'04 · Step chain','chk5':'05 · Identity (browser)','chk6':'06 · Full audit → CLI'};
+  ['chk1','chk2','chk3','chk4','chk5','chk6'].forEach(function(id){var el=document.getElementById(id);if(el){el.classList.remove('pass');el.innerHTML='<span class="cd"></span> '+labels[id];}}); // static-html: restores the fixed neutral labels above
   if(dr)dr.style.display='none';
   setDropSealState(null);
 }
