@@ -123,7 +123,7 @@ def _share_offline(
 
 def share(
     file: Path = typer.Argument(..., exists=False, dir_okay=False, help="Path to the .epi file to share."),
-    expires: int = typer.Option(30, "--expires", min=1, help="Days until the share link expires (max 30)."),
+    expires: int = typer.Option(7, "--expires", min=1, max=30, help="Days until the share link expires (default 7, max 30)."),
     json_output: bool = typer.Option(False, "--json", help="Print the share response as JSON."),
     no_open: bool = typer.Option(False, "--no-open", help="Do not open the hosted share link in your browser."),
     local: bool = typer.Option(False, "--local", help="Share offline to local directory instead of uploading to cloud."),

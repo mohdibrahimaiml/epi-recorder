@@ -24,6 +24,12 @@ All notable changes to EPI Recorder are documented here.
   pins and revocations (`epi keys revoke` / `unrevoke`) are decided only
   by you — EPI Labs cannot overrule them through the unsigned list.
 
+- **Share links really expire.** `epi share` uploads default to 7 days
+  (max 30) and are deleted afterwards: expired shares return 410 Gone
+  ("This link has expired") even before the hourly purger removes their
+  files. Anonymous uploads are capped at 10 per hour per IP (429 beyond
+  that). This enforces the retention the privacy page promises.
+
 ## [4.6.0] - 2026-10-12
 
 **Highlights:**
