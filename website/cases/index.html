@@ -103,6 +103,7 @@
     footer.site-footer{margin-top:0}
   </style>
   <link rel="stylesheet" href="/css/meridian.css?v=2">
+  <link rel="stylesheet" href="/css/site.css?v=16">
   <meta name="theme-color" content="#0A0B0D">
 </head>
 <body class="epi-instrument">
@@ -382,7 +383,18 @@
 })();
 </script>
 <script src="/js/theme.js"></script>
-<script src="/js/nav.js?v=3"></script>
+<script>
+// Mobile menu + nav scroll (same handler as the other pages; replaces the
+// missing /js/nav.js).
+(function(){
+  'use strict';
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m){b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});}
+  var nav=document.getElementById('nav');
+  var onS=function(){if(nav)nav.classList.toggle('scrolled',scrollY>10)};
+  addEventListener('scroll',onS,{passive:true});onS();
+})();
+</script>
 <script src="/js/auth-ui.js"></script>
 
 <footer class="site-footer">
