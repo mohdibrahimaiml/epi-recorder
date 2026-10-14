@@ -3,7 +3,7 @@
 // in-memory D1 stand-in implementing exactly the statements the routes use.
 
 import { describe, expect, it } from "vitest";
-import app from "../src/index.ts";
+import { app } from "../src/index.ts";
 import { sha256Hex } from "../src/lib/crypto.ts";
 import { keyFromRequest } from "../src/lib/auth.ts";
 

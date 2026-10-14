@@ -6,6 +6,9 @@ import orgs from "./routes/orgs.ts";
 import invites from "./routes/invites.ts";
 import keys from "./routes/keys.ts";
 import admin from "./routes/admin.ts";
+import inboxes from "./routes/inboxes.ts";
+import witness, { witnessKeys } from "./routes/witness.ts";
+import { runCheckpointCron } from "./cron.ts";
 
 export { WitnessInbox } from "./do/witness.ts";
 
@@ -36,13 +39,24 @@ app.onError((err, c) => {
   return c.json({ error: { code: "internal", message: "Unexpected error." } }, 500);
 });
 
-app.get("/health", (c) => c.json({ ok: true, service: "epi-cloud", m: 0 }));
+app.get("/health", (c) => c.json({ ok: true, service: "epi-cloud", m: 1 }));
 app.route("/auth", auth);
 app.route("/v1/orgs", orgs);
 app.route("/v1", invites);
 app.route("/v1", keys);
+app.route("/v1", inboxes);
 app.route("/admin", admin);
+app.route("/w", witness);
+app.get("/.well-known/epi-witness-key.json", (c) => c.json(witnessKeys(c.env)));
 
 app.notFound((c) => c.json({ error: { code: "not_found", message: "Unknown route." } }, 404));
 
-export default app;
+export { app };
+
+async function scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  ctx.waitUntil(
+    runCheckpointCron(env).then((s) => console.log("checkpoint cron:", JSON.stringify(s))),
+  );
+}
+
+export default { fetch: app.fetch, scheduled };

@@ -40,7 +40,7 @@ export async function hmacHex(secret: string, body: string | Uint8Array): Promis
 }
 
 /** Verify `X-EPI-Signature: sha256=<hex>` against the raw body. */
-export async function verifyHmac(header: string | null, secret: string, body: string): Promise<boolean> {
+export async function verifyHmac(header: string | null | undefined, secret: string, body: string): Promise<boolean> {
   if (!header || !header.startsWith("sha256=")) return false;
   const expected = await hmacHex(secret, body);
   return safeEqual(header.slice("sha256=".length), expected);

@@ -14,4 +14,9 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   SESSION_KEY?: string;
+  /** Ed25519 32-byte hex: signs daily witness checkpoints (M1). */
+  WITNESS_SIGNING_KEY?: string;
+  /** P-256 32-byte hex: submits checkpoint hashes to Rekor only (M1). */
+  ANCHOR_SIGNING_KEY?: string;
+  INBOX_SECRET_KEY?: string;
 }
