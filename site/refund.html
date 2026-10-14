@@ -19,6 +19,7 @@
 (function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
 </script>
   <link rel="stylesheet" href="css/meridian.css?v=2">
+  <link rel="stylesheet" href="/css/site.css?v=16">
   <meta name="theme-color" content="#0A0B0D">
 </head>
 <body class="epi-instrument">
@@ -127,5 +128,16 @@
     </div>
   </div>
 </footer><script src="js/wow.js?v=2"></script>
+<script>
+// Mobile menu + nav scroll (same handler as the other pages).
+(function(){
+  'use strict';
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m){b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});}
+  var nav=document.getElementById('nav');
+  var onS=function(){if(nav)nav.classList.toggle('scrolled',scrollY>10)};
+  addEventListener('scroll',onS,{passive:true});onS();
+})();
+</script>
 </body>
 </html>
