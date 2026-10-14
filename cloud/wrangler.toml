@@ -1,0 +1,39 @@
+# EPI Cloud Worker (Cloudflare free plan only). M0: skeleton + auth.
+# Secrets are NEVER in this file. Set them with `wrangler secret put`:
+#   GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET, GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET,
+#   SESSION_KEY (HMAC for OAuth state cookies), INBOX_SECRET_KEY (encrypts inbox
+#   HMAC secrets at rest), WITNESS_SIGNING_KEY (Ed25519, M1 checkpoints),
+#   PADDLE_WEBHOOK_SECRET (M7). See docs/CLOUD.md.
+#
+# Founder setup still needed (docs/CLOUD.md § founder):
+#   1. `wrangler d1 create epi-cloud` -> paste real database_id below (TODO).
+#   2. `wrangler r2 bucket create epi-cloud-room`.
+#   3. `wrangler secret put ...` for each secret above.
+
+name = "epi-cloud"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+APP_ORIGIN = "https://cloud.epilabs.org"
+PUBLIC_WITNESS_URL = "https://cloud.epilabs.org"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "epi-cloud"
+database_id = "TODO-founder-paste-wrangler-d1-create-output"
+
+[[r2_buckets]]
+binding = "ROOM"
+bucket_name = "epi-cloud-room"
+
+[[durable_objects.bindings]]
+name = "WITNESS"
+class_name = "WitnessInbox"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WitnessInbox"]
+
+[triggers]
+crons = ["5 0 * * *"]
