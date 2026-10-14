@@ -1,9 +1,14 @@
-"""Minimal agent-style run that seals a real .epi for the site demo."""
+"""Seal the site refund demo (SIMULATED): disputed refund, end to end."""
 from pathlib import Path
 from epi_recorder import record
 
-out = Path("website/assets/demo/demo_refund_site.epi")
-with record(str(out), workflow_name="site_demo_refund") as session:
+out = Path("website/assets/demo/demo_refund.epi")
+with record(
+    str(out),
+    workflow_name="refund",
+    goal="Disputed refund decision, end to end (SIMULATED DEMO)",
+    notes="SIMULATED DEMO \u2014 mocked model responses for demonstration.",
+) as session:
     session.log("agent.plan", goal="Refund order ORD-9001 if eligible")
     session.log("tool.lookup", tool="orders.get", order_id="ORD-9001", amount_usd=89.0)
     session.log("policy.check", rule="refunds_under_100_auto", result="ALLOW")
