@@ -266,3 +266,215 @@ def serve(
         _plain("WARNING: no secret - any well-formed report from anyone is kept.")
     _plain("Press Ctrl-C to stop.")
     witness_receiver.serve_forever(server)
+
+
+def _fetch_json(url: str, timeout: int) -> dict:
+    """GET JSON over HTTPS (stdlib). Raises CheckError on any failure."""
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return json.loads(res.read().decode("utf-8"))
+    except Exception as exc:
+        raise CheckError(f"GET {url} failed: {exc}") from exc
+
+
+def _fetch_text_lines(url: str, timeout: int) -> list[str]:
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"Accept": "application/x-ndjson"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.read().decode("utf-8").splitlines()
+    except Exception as exc:
+        raise CheckError(f"GET {url} failed: {exc}") from exc
+
+
+class CheckError(Exception):
+    """A failed audit step (message is shown to the reviewer)."""
+
+
+def _chain_verify(envelopes: list[dict]) -> dict[str, dict]:
+    """Recompute the hash chain. Returns per-day {count, head}. Raises CheckError."""
+    import hashlib
+
+    prev = "GENESIS"
+    by_day: dict[str, dict] = {}
+    for index, env in enumerate(envelopes):
+        seq = env.get("seq")
+        if seq != index + 1:
+            raise CheckError(f"chain broken at line {index + 1}: seq is {seq}, want {index + 1}")
+        if env.get("prev_hash") != prev:
+            raise CheckError(f"chain broken at seq {seq}: prev_hash does not link")
+        inner = hashlib.sha256(str(env.get("payload_raw", "")).encode()).hexdigest()
+        stamp = str(env.get("received_at", ""))
+        recomputed = hashlib.sha256(f"{prev}{inner}{stamp}".encode()).hexdigest()
+        if recomputed != env.get("entry_hash"):
+            raise CheckError(f"chain broken at seq {seq}: entry_hash mismatch (edited line?)")
+        prev = str(env.get("entry_hash"))
+        day = str(env.get("received_at", ""))[:10]
+        slot = by_day.setdefault(day, {"count": 0, "head": ""})
+        slot["count"] += 1
+        slot["head"] = prev
+    return by_day
+
+
+def _canonical_checkpoint(inbox: str, day: str, count: int, head: str) -> bytes:
+    return json.dumps(
+        {"inbox": inbox, "day": day, "count": count, "head_hash": head},
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _verify_ed25519(pub_hex: str, message: bytes, sig_hex: str) -> bool:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    try:
+        Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex)).verify(
+            bytes.fromhex(sig_hex), message
+        )
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
+def _verify_anchor(anchor_pem: str, message: bytes, sig_der: bytes) -> bool:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    try:
+        key = load_pem_public_key(anchor_pem.encode("utf-8"))
+        assert isinstance(key, ec.EllipticCurvePublicKey)
+        key.verify(sig_der, message, ec.ECDSA(hashes.SHA256()))
+        return True
+    except (InvalidSignature, ValueError, AssertionError):
+        return False
+
+
+@app.command(name="check")
+def check(
+    inbox_url: str = typer.Option(
+        ..., "--inbox-url", help="Hosted inbox base URL, e.g. https://cloud.epilabs.org/w/inb_abc."
+    ),
+    export: Path | None = typer.Option(
+        None, "--export", help="Local export.jsonl to cross-check (default: fetched)."
+    ),
+    chain: Path | None = typer.Option(None, "--chain", help="Local chain.jsonl (offline mode)."),
+    checkpoints: Path | None = typer.Option(
+        None, "--checkpoints", help="Local checkpoints JSON (offline mode)."
+    ),
+    offline: bool = typer.Option(False, "--offline", help="Verify local files only; no network."),
+    allow_http: bool = typer.Option(
+        False, "--allow-http", help="Allow http:// inbox URLs (local trials only)."
+    ),
+    timeout: int = typer.Option(15, "--timeout", help="Per-request timeout in seconds."),
+) -> None:
+    """Audit EPI Labs itself: verify checkpoint signatures, the hash chain,
+    and the Rekor anchoring of a hosted witness inbox.
+
+    Online: `epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc`
+    Offline: add --offline with --chain/--checkpoints files (--export optional).
+    """
+    import hashlib
+
+    base = inbox_url.rstrip("/")
+    if not (base.startswith("https://") or (allow_http and base.startswith("http://"))):
+        _plain("Give an https:// inbox URL (or pass --allow-http for a local trial).")
+        raise typer.Exit(2)
+
+    failures: list[str] = []
+    try:
+        if checkpoints is not None:
+            cp_doc = json.loads(checkpoints.read_text(encoding="utf-8"))
+        elif offline:
+            raise CheckError("offline mode needs --checkpoints FILE")
+        else:
+            cp_doc = _fetch_json(f"{base}/checkpoints", timeout)
+        inbox_id = base.rsplit("/", 1)[-1]
+        if cp_doc.get("inbox", inbox_id) != inbox_id:
+            raise CheckError("checkpoints are for a different inbox")
+        cps = cp_doc.get("checkpoints", [])
+
+        if chain is not None:
+            lines = chain.read_text(encoding="utf-8").splitlines()
+        elif offline:
+            raise CheckError("offline mode needs --chain FILE")
+        else:
+            lines = _fetch_text_lines(f"{base}/chain.jsonl", timeout)
+        envelopes = [json.loads(line) for line in lines if line.strip()]
+        by_day = _chain_verify(envelopes)
+        _plain(f"Chain: {len(envelopes)} entries recomputed, links intact.")
+
+        if export is not None:
+            raw_lines = [
+                line for line in export.read_text(encoding="utf-8").splitlines() if line.strip()
+            ]
+            payloads = [str(e.get("payload_raw")) for e in envelopes]
+            if raw_lines != payloads:
+                raise CheckError("export.jsonl does not match the audited chain payloads")
+            _plain(f"Export: {len(raw_lines)} lines match the chain byte for byte.")
+
+        if offline:
+            keys = {"witness_ed25519_pub_hex": None, "anchor_p256_pem": None}
+        else:
+            origin = base.split("/w/")[0]
+            keys = _fetch_json(f"{origin}/.well-known/epi-witness-key.json", timeout)
+        witness_pub = keys.get("witness_ed25519_pub_hex")
+        if not witness_pub:
+            raise CheckError("witness public key is not published yet")
+        for cp in cps:
+            canonical = _canonical_checkpoint(inbox_id, cp["day"], cp["count"], cp["head_hash"])
+            if not _verify_ed25519(witness_pub, canonical, cp["signature"]):
+                raise CheckError(f"checkpoint {cp['day']}: Ed25519 signature INVALID")
+            day_info = by_day.get(cp["day"])
+            same = (
+                day_info
+                and day_info["count"] == cp["count"]
+                and day_info["head"] == cp["head_hash"]
+            )
+            if not same:
+                have = day_info["count"] if day_info else 0
+                raise CheckError(
+                    f"checkpoint {cp['day']}: chain has {have} entries, "
+                    f"checkpoint says {cp['count']}"
+                )
+            _plain(f"Checkpoint {cp['day']}: signature valid, {cp['count']} entries, head matches.")
+            uuid = cp.get("rekor_uuid")
+            if uuid and not offline:
+                entry = _fetch_json(
+                    f"https://rekor.sigstore.dev/api/v1/log/entries/{uuid}", timeout
+                )
+                body = entry.get("body", {})
+                if isinstance(body, str):
+                    import base64
+
+                    body = json.loads(base64.b64decode(body))
+                want = hashlib.sha256(canonical).hexdigest()
+                got = ((body.get("spec") or {}).get("data") or {}).get("hash", {}).get("value")
+                anchor_pem = keys.get("anchor_p256_pem")
+                sig_b64 = ((body.get("spec") or {}).get("signature") or {}).get("content")
+                if got != want:
+                    raise CheckError(f"checkpoint {cp['day']}: Rekor entry hash does not match")
+                if not anchor_pem or not sig_b64:
+                    raise CheckError(f"checkpoint {cp['day']}: Rekor entry lacks anchor signature")
+                import base64
+
+                if not _verify_anchor(anchor_pem, canonical, base64.b64decode(sig_b64)):
+                    raise CheckError(f"checkpoint {cp['day']}: Rekor anchor signature INVALID")
+                _plain(f"Rekor: entry {uuid[:12]}… present, hash matches, anchor signature valid.")
+            elif uuid:
+                _plain(f"Rekor: {uuid[:12]}… recorded (offline: not re-checked).")
+            else:
+                _plain(f"Checkpoint {cp['day']}: not yet anchored (signed only).")
+    except CheckError as exc:
+        failures.append(str(exc))
+
+    if failures:
+        for failure in failures:
+            _plain(f"FAIL: {failure}")
+        raise typer.Exit(1)
+    _plain("OK: hosted witness audited — signatures, chain and anchoring all check out.")

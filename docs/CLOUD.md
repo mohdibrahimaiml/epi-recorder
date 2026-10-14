@@ -52,7 +52,10 @@ Evidence Rooms. Witness-first is what makes $0 viable.
    Set client IDs/secrets via `wrangler secret put` (never in git):
    `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`,
    `GOOGLE_CLIENT_SECRET`, `SESSION_KEY` (random 32 bytes hex),
-   `INBOX_SECRET_KEY` (M1), `WITNESS_SIGNING_KEY` (M1), `PADDLE_WEBHOOK_SECRET` (M7).
+   `INBOX_SECRET_KEY` (AES-GCM for inbox HMAC secrets, 32 bytes hex),
+   `WITNESS_SIGNING_KEY` (Ed25519 witness key, 32 bytes hex — signs daily
+   checkpoints), `ANCHOR_SIGNING_KEY` (P-256 key, 32 bytes hex — submits
+   checkpoint hashes to Rekor only), `PADDLE_WEBHOOK_SECRET` (M7).
 5. `FOUNDER_USER_IDS`: comma-separated user ids allowed on `/admin/usage`.
    Find yours after first login (D1: `SELECT id, email FROM users`).
 6. GitHub secret `CLOUDFLARE_API_TOKEN` (Workers/D1/R2 edit) for deploys.
@@ -89,3 +92,15 @@ wrangler dev      # needs account + real database_id (founder setup above)
 Customer bucket credentials (BYO bucket is recorder-side, M4), customer
 private keys, full `.epi` bytes in Workers memory. Tokens/keys are stored as
 SHA-256; share tokens travel in the URL fragment + header only (M2).
+
+## 8. Anchoring findings (M1, verified live 2026-10-15)
+
+- Rekor v1 accepts `hashedrekord` with an **ECDSA P-256** key (x509/PEM,
+  DER signature over the raw checkpoint bytes, HTTP 201 + inclusion proof).
+  **Ed25519 keys are rejected** (`unsupported hash algorithm`), so anchoring
+  uses a dedicated P-256 key and nothing else. Checkpoints stay Ed25519.
+- Noble v2 ECDSA pre-hashes with sha256 by default: pass raw bytes, never a
+  digest. It rejects high-S by default (ours are always low-S).
+- The public mirror repo `epi-witness-checkpoints` is filled by
+  `.github/workflows/witness-mirror.yml` (daily; needs `MIRROR_PAT`,
+  `MIRROR_REPO`, `WITNESS_MIRROR_INBOXES` secrets — inboxes opt in).

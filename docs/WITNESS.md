@@ -115,6 +115,45 @@ from `epi witness status`.
 3. Keep `received.jsonl` append-only, backed up, in a system the vendor
    cannot write to. That independence is the whole point.
 
+## Hosted witness (EPI Cloud, M1)
+
+Instead of running your own receiver, point the vendor at a hosted inbox:
+
+```bash
+export EPI_WITNESS_URL=https://cloud.epilabs.org/w/inb_abc
+export EPI_WITNESS_SECRET=<secret shown once at inbox creation>
+```
+
+The protocol is identical (same `X-EPI-Signature` HMAC, same
+`epi-witness/v1` body, ≤16 KB). The server appends each report to an
+ordered, hash-chained log:
+
+```
+entry_hash = sha256(prev_hash ‖ sha256(payload_raw) ‖ received_at)
+```
+
+starting at `GENESIS`. Three public endpoints per inbox:
+
+- `GET /w/{id}/export.jsonl` — raw payload lines in order, byte-compatible
+  with `received.jsonl` above. This is what `epi verify --witness-log` reads.
+- `GET /w/{id}/chain.jsonl` — audit envelopes
+  (`seq`, `received_at`, `payload_raw`, `prev_hash`, `entry_hash`).
+- `GET /w/{id}/checkpoints` — daily signed checkpoints with Rekor and
+  RFC 3161 references. Public keys at
+  `/.well-known/epi-witness-key.json`.
+
+Audit EPI Labs itself (verifies checkpoint signatures, recomputes the chain,
+checks Rekor anchoring):
+
+```bash
+epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc
+```
+
+A daily cron signs `{"inbox","day","count","head_hash"}` with the EPI Cloud
+witness Ed25519 key and anchors it in the Sigstore Rekor transparency log, an
+RFC 3161 timestamp, and the public `epi-witness-checkpoints` git repo.
+Rewriting the log would require rewriting all three in public.
+
 ## Customer: check a file
 
 ```bash

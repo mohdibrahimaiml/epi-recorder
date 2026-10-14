@@ -11,6 +11,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@noble/curves": "^2.4.0",
     "hono": "^4.7.0",
     "zod": "^3.24.0"
   },

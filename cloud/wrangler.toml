@@ -2,7 +2,8 @@
 # Secrets are NEVER in this file. Set them with `wrangler secret put`:
 #   GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET, GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET,
 #   SESSION_KEY (HMAC for OAuth state cookies), INBOX_SECRET_KEY (encrypts inbox
-#   HMAC secrets at rest), WITNESS_SIGNING_KEY (Ed25519, M1 checkpoints),
+#   HMAC secrets at rest), WITNESS_SIGNING_KEY (Ed25519, checkpoints),
+#   ANCHOR_SIGNING_KEY (P-256, Rekor submissions only),
 #   PADDLE_WEBHOOK_SECRET (M7). See docs/CLOUD.md.
 #
 # Founder setup still needed (docs/CLOUD.md § founder):

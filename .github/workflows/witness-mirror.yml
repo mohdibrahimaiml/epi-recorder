@@ -1,0 +1,46 @@
+name: Witness mirror
+
+# Daily: copy signed checkpoints to the public epi-witness-checkpoints repo.
+# Needs repo secrets: MIRROR_PAT (push access to the mirror repo),
+# MIRROR_REPO (owner/epi-witness-checkpoints), WITNESS_MIRROR_INBOXES
+# (comma-separated inbox ids, opt-in per customer), EPI_CLOUD_URL.
+# Without secrets the job succeeds trivially (nothing configured yet).
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch checkpoints
+        env:
+          EPI_CLOUD_URL: ${{ secrets.EPI_CLOUD_URL }}
+          WITNESS_MIRROR_INBOXES: ${{ secrets.WITNESS_MIRROR_INBOXES }}
+        run: |
+          if [ -z "$WITNESS_MIRROR_INBOXES" ]; then
+            echo "WITNESS_MIRROR_INBOXES not set — nothing to mirror."
+            exit 0
+          fi
+          python scripts/mirror_witness_checkpoints.py --out mirror
+      - name: Push to mirror repo
+        env:
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
+          MIRROR_REPO: ${{ secrets.MIRROR_REPO }}
+        run: |
+          if [ -z "$MIRROR_PAT" ] || [ -z "$MIRROR_REPO" ]; then
+            echo "Mirror repo not configured — checkpoints fetched but not pushed."
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${MIRROR_PAT}@github.com/${MIRROR_REPO}.git" target
+          cp -r mirror/. target/checkpoints/
+          cd target
+          git config user.name "epi-witness-mirror"
+          git config user.email "witness@epilabs.org"
+          git add -A
+          git diff --cached --quiet && echo "No checkpoint changes." && exit 0
+          git commit -m "Witness checkpoints $(date -u +%F)"
+          git push origin HEAD:main
