@@ -74,6 +74,7 @@ class FakeD1 {
   }
 
   private one(q: string, a: unknown[]): Row | null {
+    if (q.includes("?") && a.length === 0) throw new Error(`FakeD1 unbound placeholders: ${q}`);
     if (q.startsWith("SELECT s.user_id")) {
       const s = this.sessions.get(a[0] as string);
       if (!s) return null;
@@ -115,6 +116,7 @@ class FakeD1 {
   }
 
   private many(q: string, a: unknown[]): Row[] {
+    if (q.includes("?") && a.length === 0) throw new Error(`FakeD1 unbound placeholders: ${q}`);
     if (q.startsWith("SELECT id, customer_label")) return [...this.inboxes.values()].filter((i) => i.org_id === a[0]);
     if (q.startsWith("SELECT inbox_id, day, count")) {
       return this.checkpoints.filter((r) => r.inbox_id === a[0]).sort((x, y) => (x.day as string) < (y.day as string) ? -1 : 1);

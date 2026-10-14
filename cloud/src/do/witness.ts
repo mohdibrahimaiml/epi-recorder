@@ -62,6 +62,17 @@ export class WitnessInbox {
         this.sql.exec("INSERT INTO meta (key, value) VALUES ('checkpointed_seq', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", String(next));
         return Response.json({ checkpointed_seq: next });
       }
+      if (request.method === "GET" && url.pathname === "/find") {
+        const digest = url.searchParams.get("workflow") ?? "";
+        if (!digest) return Response.json({ error: { code: "bad_request", message: "workflow required." } }, { status: 400 });
+        // Selected-run lookups only: full scan capped, LIKE-escaped.
+        const esc = digest.replace(/[\\%_]/g, (m) => `\\${m}`);
+        const rows = this.sql.exec(
+          "SELECT payload_raw FROM entries WHERE payload_raw LIKE ? ESCAPE '\\' ORDER BY seq ASC LIMIT 20",
+          `%${esc}%`,
+        ).toArray();
+        return Response.json({ matches: rows.map((r) => r.payload_raw as string) });
+      }
       if (request.method === "GET" && url.pathname === "/info") {
         const rows = this.sql.exec("SELECT COUNT(*) AS n FROM entries").toArray();
         const head = this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").one()?.entry_hash ?? GENESIS;

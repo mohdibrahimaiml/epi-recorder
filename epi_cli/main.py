@@ -934,6 +934,14 @@ app.add_typer(
     rich_help_panel="Everyday",
 )
 
+from epi_cli.cloud import app as cloud_app
+app.add_typer(
+    cloud_app,
+    name="cloud",
+    help="EPI Cloud Evidence Room: push selected runs (login/push/status)",
+    rich_help_panel="Team",
+)
+
 from epi_cli.connect import app as connect_app
 app.add_typer(
     connect_app,
