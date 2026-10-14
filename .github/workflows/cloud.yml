@@ -1,0 +1,58 @@
+name: EPI Cloud
+
+on:
+  pull_request:
+    paths:
+      - "cloud/**"
+      - ".github/workflows/cloud.yml"
+  push:
+    branches: [main]
+    paths:
+      - "cloud/**"
+      - ".github/workflows/cloud.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - run: npm ci
+      - name: Deploy (skips until founder wires database_id)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if grep -q 'TODO-founder' wrangler.toml; then
+            echo "database_id placeholder still present — skipping deploy (docs/CLOUD.md §4)."
+            exit 0
+          fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN not set — skipping deploy."
+            exit 0
+          fi
+          npx wrangler deploy --config wrangler.toml
