@@ -1,385 +1,430 @@
-# EPI Cloud: build plan ($0 hosting)
+# EPI Cloud: build plan v2 ($0 hosting)
 
-Status: ready for the coding agent · Owner: coding agent; founder approves the 🔒 items ·
-Base: `main` @ 546ce53 (4.6.1 released)
+Status: ready for the coding agent · Owner: coding agent; founder approves 🔒 items ·
+Base: `main` @ 546ce53 (4.6.1 released) · v2 supersedes v1 (changes listed in §12)
 
-Read this whole file before writing code. Then read `plans/CODING-AGENT-BRIEF.md`
-(the process rules there still apply: one work package = one PR, tests first,
-never invent facts, never publish a release, 🔒 = founder approval).
-
----
-
-## 0. The idea in one paragraph
-
-Everything that exists today stays **free forever**: recorder, sealing, `.epi`
-format, viewer, gateway, `epi verify`. We add **EPI Cloud**, a paid hosted service
-that AI vendors pay for because it gets their agents approved by banks, insurers and
-auditors. It has four parts:
-
-1. **Evidence Vault**: stores sealed `.epi` files for the retention period the
-   customer needs (1–7 years), searchable, exportable.
-2. **Trust Page**: one private link the vendor sends to its customer's reviewer.
-   It shows live, checkable evidence. **The reviewer's own browser verifies every
-   file**, so the reviewer never has to trust EPI Labs.
-3. **Hosted Witness**: a neutral inbox run by EPI Labs that receives the
-   hash-only receipt of every sealed run (`epi-witness/v1`, already implemented
-   in the product). Neither the vendor nor the customer can quietly delete receipts.
-   Daily signed checkpoints are mirrored to a public GitHub repo.
-4. **Evidence Pack**: one download that turns the evidence into what a reviewer
-   asks for (verify instructions, witness export, key history, mapping to EU AI Act
-   Art. 12 record-keeping and a bank questionnaire).
-
-Plus a **Key Registry** (public keys only: rotation and revocation history) and
-**plans/billing** by number of production agents.
-
-**Design principle (also our sales line):** *the cloud never asks you to trust it.*
-The cloud stores and relays; verification always happens on the reviewer's machine
-(browser or `epi verify`). This is also what makes $0 hosting possible, because the
-heavy CPU work runs on the client.
+Read this whole file, then `plans/CODING-AGENT-BRIEF.md` (its process rules apply:
+one work package = one PR, tests first, never invent facts, never publish a release,
+🔒 = founder approval).
 
 ---
 
-## 1. $0 hosting: stack and limits
+## 0. What we're building and why it wins
 
-Everything runs on **Cloudflare's free plan**, where the website already lives.
-**Do not** build on Render free: it sleeps, loses its disk on every deploy, and
-its free Postgres is deleted after 30 days. A vault can't live there.
+Everything that exists today stays **free forever**: recorder, sealing, `.epi`,
+viewer, gateway, `epi verify`. We add **EPI Cloud**, which AI vendors pay for
+because it gets their agents approved by banks, insurers and auditors **faster**.
 
-| Need | Service (free plan) | Free limit to design for* | Notes |
-|---|---|---|---|
-| API / app server | **Cloudflare Workers** | 100k requests/day; ~10 ms CPU per request | Keep handlers light; no full re-verification on the server (see §6.2) |
-| Database | **Cloudflare D1** (SQLite) | 5 GB; ~5M rows read/day, ~100k rows written/day | Plenty for 5–50 customers |
-| File storage | **Cloudflare R2** | 10 GB storage; 1M writes/month; 10M reads/month; **no download fees** | ~20,000 files of 500 KB. Cloudflare may ask for a card to enable R2; within free limits it charges $0. Fallback without a card in §1.2 |
-| Ordered witness log | **Durable Objects** (SQLite-backed, available on free plan) | free-plan quota | One object per witness inbox = one writer, so ordering is strictly correct |
-| Scheduled jobs | Workers **Cron Triggers** | free | Retention purge, daily checkpoints |
-| Website / UI | Cloudflare Pages (existing) | free | New pages under `website/app/` |
-| Login | **GitHub OAuth App** | free | Vendor users sign in with GitHub. Reviewers need no account (secret link) |
-| Payments | **Paddle** (existing) | no monthly fee, % per sale | Only costs money when you earn money |
-| Public checkpoint mirror | **GitHub Actions + public repo** | free for public repos | Independent anchoring of witness checkpoints |
-| Uptime | UptimeRobot free | 50 monitors | Already in plan WP-OPS-1 |
-| Email (optional, later) | Resend free | 3,000/month | MVP needs no email at all |
+### The three facts that shape the design
+1. **Volume.** A production agent runs thousands of times a day. Storing every
+   `.epi` (≈500 KB) for 7 years is terabytes per customer. A $0 stack fills in a week.
+2. **Privacy kills sales cycles.** A sealed run contains customer data (names,
+   amounts, messages). If EPI Cloud must hold it, every buyer needs a DPA,
+   subprocessor approval and a security review **of EPI Labs**, which adds months.
+   Hash-only needs none of that.
+3. **Startup risk.** "What happens to our 7-year records if EPI Labs shuts down?"
+   is the first question every CISO asks.
 
-\* Free-plan limits change. **The agent must check the current Cloudflare docs
-before M0 and write the real numbers into `docs/CLOUD.md`.** If a limit differs
-from this table, adapt the design and tell the founder.
+### So the product is **witness-first, customer-owned storage**
+| Part | What EPI Cloud holds | Why |
+|---|---|---|
+| **Hosted Witness** (the core) | Hash-only receipt of **100%** of runs, ordered, signed, publicly anchored | Tiny, no PII, the part nobody can do alone: our moat |
+| **Trust Page** | Metadata + the files the vendor chooses to share | The thing the bank actually looks at |
+| **Evidence Room** (vault, selective) | Only runs the vendor *selects* (disputes, samples, audit requests) | Small, high-value, fits the free tier |
+| **Customer storage** | Full retention of every `.epi` in **the customer's own S3/R2 bucket** | No PII at EPI, no startup risk, unlimited scale at $0 to us |
+| **Evidence Pack** | Built **in the reviewer's browser** | $0 CPU, and the reviewer controls it |
 
-### 1.1 When it stops being $0
-- Workers Paid is $5/month: only needed above ~100k requests/day or for longer CPU time.
-  That point is roughly 20+ active paying customers, who will pay for it many times over.
-- R2 above 10 GB: about $0.015/GB/month.
-- Write these thresholds into `docs/CLOUD.md`, and add an admin page that shows
-  current usage against the free limits.
+Sales line (it's true): **"We hold no customer data. We witness every run.
+Your files stay in your bucket. Your reviewer's own browser verifies everything.
+If EPI Labs disappeared tomorrow, every record still verifies with open-source tools."**
 
-### 1.2 If R2 can't be enabled (no card)
-Store `.epi` files in a D1 table `blobs(artifact_id, chunk_no, data BLOB)` in
-≤1 MB chunks. Hide this behind one interface `BlobStore` with two
-implementations (`R2BlobStore`, `D1BlobStore`), so switching later is one config
-line. Max file size in this mode: 25 MB (same as the website verifier).
+### Design rule: the server trusts nothing and proves nothing
+The server stores **claims** (hashes, manifests) and relays files. All real verification
+runs on the reviewer's machine (browser or `epi verify`). A client that lies about a
+hash only hurts itself: the reviewer's browser recomputes it and shows red.
+
+---
+
+## 1. $0 stack, real limits, capacity
+
+**Cloudflare free plan only.** Never put Vault/Witness on Render free (it sleeps,
+loses its disk on redeploy, and deletes its free DB after 30 days).
+
+| Need | Service | Free limit to design for* |
+|---|---|---|
+| API | Workers | 100k requests/day; **~10 ms CPU per request** (I/O waits don't count) |
+| Metadata | D1 | 5 GB; ~5M row reads/day; **~100k row writes/day** |
+| Witness log | Durable Objects (SQLite-backed, free plan) | free-plan request/storage quota (check docs) |
+| Files | R2 | **10 GB**; 1M writes/month; 10M reads/month; free egress. **Requires a card on the account (still $0 within limits)** |
+| Jobs | Cron Triggers | free |
+| Website/UI | Pages (existing) | free |
+| Login | GitHub OAuth + **Google OAuth** | free |
+| Public anchoring | **Sigstore Rekor** public transparency log + RFC 3161 (FreeTSA) + GitHub mirror repo | free |
+| Payments | Paddle (existing) | % per sale only |
+
+\* **Agent: check the current Cloudflare docs before M0 and write the real numbers
+into `docs/CLOUD.md`.** Adapt if they differ, and tell the founder.
+
+### 1.1 Capacity math (put this table in `docs/CLOUD.md` and on `/admin/usage`)
+| Per event | Worker requests | D1 writes | DO writes | R2 |
+|---|---|---|---|---|
+| Witness receipt | 1 | 0 | 1 | 0 |
+| Evidence Room upload (selected run) | 2 (init + put) | 2 (artifact + audit) | 0 | 1 write, ~0.5 MB |
+| Trust page view | 2–5 | 1 (event) | 0 | reads only |
+
+**Free tier supports roughly:** ~50,000 witnessed runs/day across all customers, and
+~20,000 files (10 GB) in Evidence Rooms. Witness-first is what makes $0 viable.
+
+**Paid thresholds** (only once revenue exists): Workers Paid $5/month (more CPU and
+requests); R2 about $0.015/GB/month beyond 10 GB. Show usage vs. limits on `/admin/usage`
+with an alert at 70%.
+
+### 1.2 Hard CPU rules (10 ms)
+- **Never** buffer or hash a whole upload in the Worker. Stream the body straight to R2.
+- **Never** unzip on the server. The client sends the manifest separately (§6.4).
+- Only cheap server crypto: Ed25519 verify on a ≤4 KB manifest, HMAC on a ≤16 KB
+  witness body, SHA-256 of small JSON.
+- **Never** build zips on the server (CRC-32 over MBs). Packs are built in the browser (§6.6).
+- Max file size for Evidence Room uploads: **25 MB**.
 
 ---
 
 ## 2. Architecture
 
 ```
- Vendor's machine                         EPI Cloud (Cloudflare, $0)                    Customer's reviewer
- ─────────────────                        ──────────────────────────                    ───────────────────
- epi-recorder / gateway                   Worker "epi-cloud"  (cloud.epilabs.org)
-   seals run.epi ──── epi cloud push ───▶ /v1/artifacts  ──▶ R2 (files) + D1 (metadata)
-   witness report ─── POST (HMAC) ──────▶ /w/{inbox_id}  ──▶ Durable Object (ordered log)
-                                          Cron: daily checkpoint (Ed25519-signed)
-                                                 │                                       opens Trust Page link
-                                                 └──▶ GitHub repo (public mirror)        /t/{slug}?k=…
-                                          /t/... serves metadata + files ─────────────▶ browser verifies each file
-                                          /v1/packs/{id} evidence pack zip ───────────▶ epi verify --witness-log …
+ Vendor (their infra)                        EPI Cloud (Cloudflare, $0)                       Customer's reviewer
+ recorder / gateway
+   ├─ witness report (hash only, HMAC) ────▶ POST /w/{inbox} ─▶ Durable Object (ordered, hash-chained)
+   │                                          cron: daily checkpoint ─▶ sign ─▶ Rekor + RFC3161 + GitHub mirror
+   ├─ every .epi ─▶ THEIR S3/R2 bucket (epi-recorder writes it; EPI Cloud never sees it)
+   └─ selected .epi ─ epi cloud push ──────▶ /v1/.../artifacts/init + PUT ─▶ R2 (stream) + D1 (claims)
+                                                                                         opens trust link
+                                              /t/{slug}#k=…  (static page) ─────────────▶ browser:
+                                              /v1/trust/... (token in header) ──────────▶  verifies files,
+                                                                                            checks witness,
+                                                                                            builds evidence pack
 ```
-
-Rules:
-- **Hash-only by default for the witness.** No run content ever reaches the
-  witness. Content reaches EPI only if the vendor uploads files to the Vault.
-- **Tenant isolation:** every row has `org_id`; every query filters by it; tests
-  prove that org A can never read org B's data.
-- **No customer private keys, ever.** The Key Registry stores public keys only.
 
 ### 2.1 Repo layout (new)
 ```
 cloud/
-  wrangler.toml            # name = "epi-cloud"; bindings: DB (D1), VAULT (R2), WITNESS (DO); crons
-  package.json             # hono, zod, @noble/ed25519 (fallback), vitest, @cloudflare/vitest-pool-workers
-  src/index.ts             # Hono router, middleware (auth, CSRF, rate limit, errors)
-  src/routes/              # auth.ts orgs.ts keys.ts agents.ts artifacts.ts witness.ts trust.ts packs.ts billing.ts admin.ts
-  src/lib/epi.ts           # ported from website/js/epi-verify-core.js: container detect, zip extract, manifest, signature
-  src/lib/crypto.ts        # sha256, HMAC, Ed25519 sign/verify (WebCrypto), token generation
-  src/lib/blobstore.ts     # BlobStore interface + R2/D1 implementations
+  wrangler.toml            # name "epi-cloud"; bindings DB (D1), ROOM (R2), WITNESS (DO); crons
+  package.json             # hono, zod, aws4fetch (BYO bucket), vitest, @cloudflare/vitest-pool-workers
+  src/index.ts             # router + middleware (auth, CSRF origin check, rate limit, errors, security headers)
+  src/routes/              # auth.ts orgs.ts keys.ts agents.ts artifacts.ts witness.ts trust.ts storage.ts billing.ts admin.ts
+  src/lib/manifest.ts      # canonical manifest hashing + Ed25519 verify (port from website/js/epi-verify-core.js)
+  src/lib/crypto.ts        # sha256 (small inputs), HMAC, Ed25519, tokens
   src/lib/plans.ts         # plan limits (single source of truth)
   src/do/witness.ts        # WitnessInbox Durable Object
-  migrations/0001_init.sql ...
+  migrations/0001_init.sql
   test/                    # unit + integration (miniflare); fixtures = website/assets/**/*.epi
-website/app/               # static UI: index (dashboard), vault, inboxes, keys, settings; t/ (trust page)
-epi_cli/cloud.py           # `epi cloud login|push|status|inbox` commands
-docs/CLOUD.md              # how it works, limits, security model, runbook
-.github/workflows/cloud.yml            # test + deploy worker on main (wrangler, CF API token secret)
-.github/workflows/witness-mirror.yml   # daily: fetch signed checkpoints → commit to public mirror repo
+website/app/               # dashboard UI (static, calls the API)
+website/t/                 # trust page (static) + browser pack builder
+epi_cli/cloud.py           # epi cloud login|push|status|inbox|storage
+epi_core/storage_sink.py   # write every sealed .epi to the customer's own bucket (S3-compatible)
+docs/CLOUD.md
+.github/workflows/cloud.yml            # test + deploy worker
+.github/workflows/witness-mirror.yml   # daily: copy signed checkpoints to the public repo
 ```
-
-The existing `verify_portal` (Render) **stays running and untouched**. Later we
-port its GitHub login and Paddle webhook logic into the Worker and retire it.
-That is not part of this plan.
+`verify_portal` (Render) stays untouched. Retiring it is out of scope.
 
 ---
 
 ## 3. Data model (D1) — `migrations/0001_init.sql`
 
 ```sql
-CREATE TABLE orgs (
-  id TEXT PRIMARY KEY,               -- ulid
-  slug TEXT UNIQUE NOT NULL,         -- url-safe, used in trust page
-  name TEXT NOT NULL,
-  plan TEXT NOT NULL DEFAULT 'free', -- free|startup|growth|enterprise|design_partner
-  created_at TEXT NOT NULL
-);
-CREATE TABLE users (
-  id TEXT PRIMARY KEY, github_id INTEGER UNIQUE NOT NULL, login TEXT NOT NULL,
-  email TEXT, created_at TEXT NOT NULL
-);
-CREATE TABLE memberships (
-  org_id TEXT NOT NULL REFERENCES orgs(id), user_id TEXT NOT NULL REFERENCES users(id),
-  role TEXT NOT NULL CHECK (role IN ('owner','member')), PRIMARY KEY (org_id, user_id)
-);
-CREATE TABLE sessions (
-  id_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL
-);
-CREATE TABLE api_keys (
-  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, prefix TEXT NOT NULL,      -- shown: "epik_ab12…"
-  key_hash TEXT UNIQUE NOT NULL,                                        -- sha256 of full key; full key shown once
-  scopes TEXT NOT NULL,                                                 -- "push,read"
-  created_by TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT
-);
-CREATE TABLE agents (
-  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, name TEXT NOT NULL,        -- "refund-agent"
-  status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
-  UNIQUE (org_id, name)
-);
-CREATE TABLE artifacts (
+CREATE TABLE orgs (id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+  plan TEXT NOT NULL DEFAULT 'free', created_at TEXT NOT NULL);
+CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, display_name TEXT, created_at TEXT NOT NULL);
+CREATE TABLE identities (provider TEXT NOT NULL CHECK (provider IN ('github','google')),
+  provider_user_id TEXT NOT NULL, user_id TEXT NOT NULL REFERENCES users(id),
+  PRIMARY KEY (provider, provider_user_id));
+CREATE TABLE memberships (org_id TEXT NOT NULL, user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner','member','viewer')), PRIMARY KEY (org_id, user_id));
+CREATE TABLE invites (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, email TEXT NOT NULL, role TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL, expires_at TEXT NOT NULL, accepted_at TEXT);
+CREATE TABLE sessions (id_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL);
+CREATE TABLE api_keys (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, prefix TEXT NOT NULL,
+  key_hash TEXT UNIQUE NOT NULL, scopes TEXT NOT NULL, created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL, last_used_at TEXT, revoked_at TEXT);
+CREATE TABLE agents (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, UNIQUE (org_id, name));
+CREATE TABLE inboxes (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, customer_label TEXT NOT NULL,
+  hmac_secret_enc TEXT NOT NULL, created_at TEXT NOT NULL, closed_at TEXT);
+CREATE TABLE checkpoints (inbox_id TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL,
+  head_hash TEXT NOT NULL, signature TEXT NOT NULL, signed_at TEXT NOT NULL,
+  rekor_uuid TEXT, rekor_log_index INTEGER, tsa_token_b64 TEXT, PRIMARY KEY (inbox_id, day));
+CREATE TABLE artifacts (                      -- Evidence Room (selected runs only)
   id TEXT PRIMARY KEY, org_id TEXT NOT NULL, agent_id TEXT,
-  file_sha256 TEXT NOT NULL, size_bytes INTEGER NOT NULL,
-  spec_version TEXT, workflow_id TEXT, goal TEXT, steps INTEGER,
-  sealed_at TEXT, key_fingerprint TEXT, public_key TEXT,
-  server_check TEXT NOT NULL,         -- 'signature_ok'|'signature_bad'|'unsigned'|'unreadable'
-  witness_status TEXT NOT NULL,       -- 'witnessed'|'not_in_witness'|'different_version'|'no_inbox'
-  blob_key TEXT NOT NULL,
+  claimed_sha256 TEXT NOT NULL,               -- client-supplied; browsers re-check
+  claimed_crc32 INTEGER NOT NULL,             -- client-supplied; used only for browser zip packs
+  size_bytes INTEGER NOT NULL, manifest_json TEXT NOT NULL,   -- ≤ 64 KB
+  spec_version TEXT, workflow_id TEXT, goal TEXT, steps INTEGER, sealed_at TEXT,
+  key_fingerprint TEXT, signature_check TEXT NOT NULL,         -- 'valid'|'invalid'|'unsigned'
+  witness_status TEXT NOT NULL,                                -- 'witnessed'|'not_in_witness'|'different_version'|'no_inbox'
+  reason TEXT,                                                 -- why selected: dispute|sample|audit_request|other
+  object_key TEXT NOT NULL, upload_state TEXT NOT NULL DEFAULT 'pending',  -- pending|stored
   uploaded_at TEXT NOT NULL, retention_until TEXT NOT NULL, legal_hold INTEGER NOT NULL DEFAULT 0,
-  deleted_at TEXT,
-  UNIQUE (org_id, file_sha256)
-);
+  deleted_at TEXT, UNIQUE (org_id, claimed_sha256));
 CREATE INDEX artifacts_org_time ON artifacts(org_id, uploaded_at DESC);
-CREATE TABLE inboxes (                -- one hosted witness inbox per vendor→customer relationship
-  id TEXT PRIMARY KEY, org_id TEXT NOT NULL,          -- vendor org that pays
-  customer_label TEXT NOT NULL,                       -- "Acme Bank" (free text, vendor-entered)
-  hmac_secret_hash TEXT NOT NULL,                     -- secret shown once; sha256 stored for display checks only
-  hmac_secret_enc TEXT NOT NULL,                      -- secret encrypted with Worker secret (needed to verify HMAC)
-  created_at TEXT NOT NULL, closed_at TEXT
-);
-CREATE TABLE checkpoints (
-  inbox_id TEXT NOT NULL, day TEXT NOT NULL,          -- UTC date
-  count INTEGER NOT NULL, head_hash TEXT NOT NULL,    -- hash of last entry of the day
-  signature TEXT NOT NULL, signed_at TEXT NOT NULL,
-  PRIMARY KEY (inbox_id, day)
-);
-CREATE TABLE org_keys (               -- PUBLIC keys only
-  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, public_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
-  label TEXT, valid_from TEXT NOT NULL, revoked_at TEXT, revoke_reason TEXT,
-  UNIQUE (org_id, public_key)
-);
-CREATE TABLE share_links (
-  id TEXT PRIMARY KEY, org_id TEXT NOT NULL, token_hash TEXT UNIQUE NOT NULL,
-  label TEXT NOT NULL,                                -- "Acme Bank – vendor review"
-  scope TEXT NOT NULL,                                -- json: {"agents":[...],"inbox":"...","artifacts":"all|selected"}
-  created_at TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT, last_viewed_at TEXT
-);
-CREATE TABLE audit_log (              -- everything done in the cloud, hash-chained (we eat our own dog food)
-  seq INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT, actor TEXT NOT NULL,
-  action TEXT NOT NULL, detail TEXT NOT NULL, at TEXT NOT NULL,
-  prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL
-);
+CREATE TABLE org_keys (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, public_key TEXT NOT NULL,
+  fingerprint TEXT NOT NULL, label TEXT, valid_from TEXT NOT NULL, revoked_at TEXT, revoke_reason TEXT,
+  UNIQUE (org_id, public_key));
+CREATE TABLE share_links (id TEXT PRIMARY KEY, org_id TEXT NOT NULL, token_hash TEXT UNIQUE NOT NULL,
+  label TEXT NOT NULL, scope TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+  revoked_at TEXT);
+CREATE TABLE trust_events (id INTEGER PRIMARY KEY AUTOINCREMENT, share_link_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('opened','verified_file','downloaded_pack','downloaded_witness')),
+  detail TEXT, at TEXT NOT NULL);           -- only from human actions (see §6.2)
+CREATE TABLE storage_targets (org_id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('s3','r2')),
+  endpoint TEXT NOT NULL, bucket TEXT NOT NULL, region TEXT, prefix TEXT,
+  last_check_at TEXT, last_check_ok INTEGER);  -- NO credentials stored here; see §6.5
+CREATE TABLE audit_log (seq INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT, actor TEXT NOT NULL,
+  action TEXT NOT NULL, detail TEXT NOT NULL, at TEXT NOT NULL, prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL);
 ```
-The witness entries themselves live **inside the Durable Object's own SQLite**
-(one object per inbox), not in D1. See §6.3.
+Witness entries live in each inbox's Durable Object SQLite, not in D1.
 
 ---
 
-## 4. API (all JSON; versioned under `/v1`)
+## 4. API
 
-Auth: browser = session cookie (HttpOnly, Secure, SameSite=Lax, 30 days);
-CLI/gateway = `Authorization: Bearer epik_…`. Every state-changing browser
-request checks `Origin` (CSRF). Errors: `{error:{code,message}}`.
+Auth: browser = session cookie (HttpOnly, Secure, SameSite=Lax); every state-changing
+browser call checks `Origin`. CLI/gateway = `Authorization: Bearer epik_…`.
+Trust page = `X-EPI-Share-Token` header (never in the URL query).
 
 | Method & path | Who | What |
 |---|---|---|
-| `GET /auth/github` → `GET /auth/github/callback` | anyone | GitHub OAuth login (state param, PKCE not needed for confidential client) |
-| `POST /auth/logout` | user | |
-| `GET /v1/me` | user | user + orgs |
-| `POST /v1/orgs` | user | create org (becomes owner) |
-| `POST /v1/orgs/{org}/api-keys` · `GET` · `DELETE /{id}` | owner | full key returned once |
-| `POST /v1/orgs/{org}/agents` · `GET` · `PATCH /{id}` | member | plan limit enforced on active agents |
-| `POST /v1/orgs/{org}/artifacts` | API key `push` / member | upload a `.epi` (raw body, ≤25 MB). Header `X-EPI-Agent: refund-agent` |
-| `GET /v1/orgs/{org}/artifacts?agent=&from=&to=&cursor=` | member | list + filter |
-| `GET /v1/orgs/{org}/artifacts/{id}` · `/download` | member | metadata · file |
-| `POST /v1/orgs/{org}/artifacts/{id}/legal-hold` | owner | toggle |
-| `DELETE /v1/orgs/{org}/artifacts/{id}` | owner | soft-delete (blocked during legal hold); audit-logged |
-| `POST /v1/orgs/{org}/inboxes` · `GET` · `POST /{id}/close` | owner | create witness inbox; returns URL + HMAC secret once |
-| `POST /w/{inbox_id}` | vendor's recorder/gateway | **witness receive**, protocol identical to `epi witness serve` (HMAC `X-EPI-Signature: sha256=…` over raw body; schema `epi-witness/v1`); 202 on accept |
-| `GET /v1/orgs/{org}/inboxes/{id}/export.jsonl` | member / share link | the received payloads, one per line, **byte-compatible with `epi witness serve` output**, so `epi verify --witness-log` works on it |
-| `GET /w/{inbox_id}/checkpoints` | public | signed daily checkpoints (JSON) |
-| `GET /.well-known/epi-witness-key.json` | public | EPI Cloud witness public key(s) + validity |
-| `POST /v1/orgs/{org}/keys` · `GET` · `POST /{id}/revoke` | owner | public key registry |
-| `GET /o/{slug}/keys.json` | public | key history (for reviewers and the CLI) |
-| `POST /v1/orgs/{org}/share-links` · `GET` · `DELETE /{id}` | owner | trust page links (token shown once) |
-| `GET /t/{slug}?k={token}` (HTML) + `GET /v1/trust/{slug}` (JSON, token header) | reviewer | trust page data |
-| `GET /v1/orgs/{org}/packs?from=&to=&agent=` (or via share link) | member/reviewer | evidence pack zip (§6.6) |
-| `POST /billing/paddle/webhook` | Paddle | signature-verified; sets `orgs.plan` |
-| `GET /admin/usage` | founder only (allowlisted GitHub id) | usage vs free-tier limits |
+| `GET /auth/github` · `GET /auth/google` (+ callbacks) | anyone | OAuth login; the same email across providers links to one user only after a confirmed login with both |
+| `POST /v1/orgs` · `POST /v1/orgs/{o}/invites` · `POST /v1/invites/{token}/accept` | user / owner | org + teammates (compliance/legal people use Google) |
+| `POST/GET/DELETE /v1/orgs/{o}/api-keys` | owner | key shown once |
+| `POST/GET/PATCH /v1/orgs/{o}/agents` | member | plan limit on active agents |
+| `POST /v1/orgs/{o}/inboxes` · `GET` · `POST /{id}/close` | owner | create witness inbox; URL + secret shown once |
+| `POST /w/{inbox}` | vendor recorder/gateway | **witness receive**: same protocol as `epi witness serve` (`X-EPI-Signature: sha256=<hmac>`, schema `epi-witness/v1`, body ≤16 KB) → 202 after the append commits |
+| `GET /v1/inboxes/{id}/export.jsonl` | member / share token | byte-compatible with `received.jsonl` from `epi witness serve` |
+| `GET /w/{inbox}/checkpoints` · `GET /.well-known/epi-witness-key.json` | public | signed checkpoints (+ Rekor/TSA references) · witness public keys |
+| `POST /v1/orgs/{o}/artifacts/init` | API key `push` | body: `{manifest_json, claimed_sha256, claimed_crc32, size_bytes, agent, reason}` → server verifies the manifest signature, checks the witness, returns `{id, put_url}` |
+| `PUT /v1/orgs/{o}/artifacts/{id}/content` | API key `push` | **streamed** straight to R2 (`env.ROOM.put(key, request.body)`); requires `Content-Length == size_bytes` |
+| `GET /v1/orgs/{o}/artifacts` · `/{id}` · `/{id}/content` | member / share token | list · metadata · file (`Content-Disposition: attachment`) |
+| `POST .../{id}/legal-hold` · `DELETE .../{id}` | owner | audit-logged; delete blocked during hold |
+| `POST/GET/DELETE /v1/orgs/{o}/keys` (+ `/{id}/revoke`) · `GET /o/{slug}/keys.json` | owner · public | **public keys only** |
+| `POST/GET/DELETE /v1/orgs/{o}/share-links` | owner | token shown once |
+| `GET /v1/trust/{slug}` | share token header | trust page data |
+| `POST /v1/trust/{slug}/events` | share token header | `opened` / `verified_file` / `downloaded_*`, **only from human clicks** |
+| `PUT /v1/orgs/{o}/storage-target` · `POST .../storage-target/check` | owner | BYO bucket config (no secrets) + a health check reported by the vendor's recorder |
+| `POST /billing/paddle/webhook` | Paddle | signature-verified |
+| `GET /admin/usage` | founder (allowlisted ids) | usage vs free limits |
 
 ---
 
-## 5. Plans (single source of truth: `cloud/src/lib/plans.ts`) 🔒 prices
+## 5. Plans 🔒 prices (founder decides)
 
-| Plan | Active agents | Vault retention | Inboxes | Share links | Evidence packs |
-|---|---|---|---|---|---|
-| free (signed-up, unpaid) | 1 | 30 days, max 100 files | 1 | 1 | no |
-| design_partner | 10 | 7 years | 5 | 10 | yes |
-| startup | 3 | 1 year | 2 | 3 | yes |
-| growth | 10 | 7 years | 10 | unlimited | yes |
-| enterprise | custom | custom | custom | custom | yes |
+| Plan | Agents | Witness inboxes | Evidence Room | Share links | BYO bucket | Price (proposal) |
+|---|---|---|---|---|---|---|
+| free | 1 | 1 | 50 files / 30 days | 1 | yes | $0 |
+| design_partner (first 5) | 10 | 5 | 2,000 files / 7 yrs | 10 | yes | $500–1,000/mo, founding price locked |
+| startup | 3 | 2 | 500 files / 1 yr | 3 | yes | ~$500/mo |
+| growth | 10 | 10 | 5,000 files / 7 yrs | unlimited | yes | ~$2,000/mo |
+| enterprise | custom | custom | custom | custom | yes + private deploy | $30–100k/yr |
 
-Prices (founder decides; current proposal): startup ~$500/mo, growth ~$2,000/mo,
-enterprise $30–100k/yr, design partner $1,000–2,000/mo for the first 5.
-**Verification is never limited or charged anywhere.**
+Value metric = **agents in production**. Witnessing is unlimited within fair use.
+**Verification is never limited or charged.**
 
 ---
 
 ## 6. Module specs
 
-### 6.0 M0 — Skeleton, auth, orgs, API keys
-- `cloud/` scaffold, Hono, D1 migration, deploy to `epi-cloud.<account>.workers.dev`, then custom domain `cloud.epilabs.org` (founder adds route).
-- GitHub OAuth (founder creates the OAuth App; client id/secret as Worker secrets).
-- Sessions: random 32-byte id; store sha256(id) in D1; cookie holds the raw id.
-- API keys: `epik_` + 32 random bytes base32; store sha256; show once; scopes.
-- Rate limits: per IP and per key, counters in a Durable Object or D1 (window 1 min). Login 10/min, upload 60/min/key, witness 600/min/inbox.
-- Security headers on every response (copy `website/_headers` policy; add `cloud.epilabs.org` to the website CSP `connect-src`).
-- `audit_log` hash-chained writer used by every mutating route.
-- **Acceptance:** login → create org → create API key → `curl` with the key works; tenant-isolation test suite (org A cannot read B) passes; `npm test` green in CI.
+### 6.1 M0 — Skeleton, auth (GitHub + Google), orgs, invites, API keys
+- Scaffold `cloud/`; D1 migration; deploy to `*.workers.dev`, then `cloud.epilabs.org`.
+- GitHub and Google OAuth (state param; Google with PKCE). Session id: 32 random bytes; store sha256.
+- Invites by link (copy-paste, **no email service needed**); roles owner/member/viewer.
+- API keys `epik_…` (sha256 stored, shown once, scopes `push`, `read`).
+- Rate limits (DO or D1 counters): login 10/min/IP, witness 600/min/inbox, push 60/min/key.
+- Hash-chained `audit_log` helper used by every mutating route.
+- **Acceptance:** GitHub *and* Google login → org → invite a second user → API key works;
+  **tenant-isolation test suite** (org A can never read B, on every route); CI green.
 
-### 6.1 M1 — Evidence Vault
-- `POST artifacts`: stream body to BlobStore while computing SHA-256 (WebCrypto digest over the buffered body is fine at ≤25 MB, the digest is native and cheap).
-- **Server checks (cheap, within CPU limit):** detect container (envelope v2 / legacy zip), extract **only** `manifest.json`, verify the Ed25519 signature over the manifest (port `verifyManifestSignature` from `website/js/epi-verify-core.js`, same canonicalisation incl. pre-JCS specs), read spec_version/workflow_id/goal/steps/public_key, compute key fingerprint exactly like `epi_core.keys.key_fingerprint()`.
-- **Do not** recompute every member hash on the server (CPU limit). The UI states plainly: *"Server checked: signature and witness. Full check runs in your browser,"* with a "Verify now" button that runs the existing browser verifier on the downloaded file.
-- Witness match: if the org has inboxes, look up `file_sha256` / `content_digest` in the inbox log and set `witness_status` (same three verdicts as the CLI: witnessed / not in witness log / different version).
-- Dedupe on `(org_id, file_sha256)`. Retention: `uploaded_at + plan retention`. Cron daily: delete blobs past `retention_until` unless `legal_hold`, mark `deleted_at`, audit-log it.
-- CLI: `epi cloud login` (paste API key; stored in `~/.epi/cloud.json` with 0600 perms), `epi cloud push FILE... [--agent NAME]`, `epi cloud status`. Env `EPI_CLOUD_URL` (default `https://cloud.epilabs.org`), `EPI_CLOUD_KEY`. Gateway option `--cloud-push` to auto-upload after sealing (off by default).
-- **Acceptance:** every `.epi` under `website/assets/**` uploads, gets `signature_ok`, and the browser "Verify now" result matches `epi verify --offline`; a tampered file gets `signature_bad`; the same file twice gives one row; retention purge test with a fake clock.
+### 6.2 M1 — Hosted Witness (build this before anything else: it's the moat and holds no PII)
+- Inbox per customer relationship ("Acme Bank"). The vendor configures exactly what they
+  already use: `--witness-url https://cloud.epilabs.org/w/{id} --witness-secret …`.
+  **No product changes needed.**
+- `POST /w/{id}`: HMAC check (constant time), schema check, size ≤16 KB → Durable Object
+  appends `{seq, received_at, payload_raw, prev_hash, entry_hash}` with
+  `entry_hash = sha256(prev_hash ‖ sha256(payload_raw) ‖ received_at)`; return 202 after commit.
+- Export `export.jsonl` = raw payload lines in order (same as `received.jsonl`).
+- **Daily checkpoint** (cron 00:05 UTC) per inbox with new entries: sign
+  `{"inbox","day","count","head_hash"}` with the EPI Cloud witness Ed25519 key (Worker
+  secret), then **anchor it three ways, all free**:
+  1. **Sigstore Rekor** (public append-only transparency log run by the Linux Foundation):
+     submit a `hashedrekord` entry for the checkpoint's sha256 signed by the witness key;
+     store `rekor_uuid`/`log_index`. *Agent: confirm Rekor accepts this key type; if not,
+     use an ECDSA P-256 key for anchoring only, and document it.*
+  2. RFC 3161 timestamp from FreeTSA over the checkpoint.
+  3. `.github/workflows/witness-mirror.yml` commits the checkpoints to the public repo
+     `epi-witness-checkpoints`.
+  Honest claim: *"rewriting the log would require rewriting a public transparency log, a
+  public timestamp and public git history, and any reviewer can check all three."* Do not
+  call GitHub alone "immutable".
+- CLI: `epi witness check --inbox-url URL [--export FILE]` verifies the checkpoint
+  signatures with the published key, the Rekor inclusion, and that the export's hash chain
+  matches each day's `head_hash`. Reviewers can audit EPI Labs itself.
+- **Acceptance (end to end with the real recorder against miniflare):** seal → report →
+  export → `epi verify FILE --policy strict --witness-log export.jsonl --offline` gives
+  WITNESSED; an unreported re-seal gives NOT IN WITNESS LOG; a different version gives
+  DIFFERENT VERSION; editing, deleting or reordering any export line is caught by
+  `epi witness check`; a burst of 1,000 reports stays strictly ordered.
 
-### 6.2 M2 — Trust Page  ← **first demo to design partners**
-- Owner creates a share link (label, scope, expiry ≤ 180 days). URL: `https://epilabs.org/t/{slug}?k={token}` (static page on Pages; data from the Worker).
-- Page shows: vendor name; agents in scope; for each agent, runs in the last 30/90 days (uploaded count, witnessed count, any `different_version` or `signature_bad`, in red); key fingerprints with history; witness checkpoint status ("last signed checkpoint: today 00:05 UTC ✓"); a list of artifacts with **"Verify in my browser"** per file (reuses the site verifier: downloads the file and runs `verifyEPI` locally); "Download evidence pack" (after M6); "Verify yourself" box with the exact command:
+### 6.3 M2 — Trust Page (bot-proof, token-safe)
+- Link format: `https://epilabs.org/t/{slug}#k={token}`. The token is in the **fragment**,
+  so it never reaches servers, corporate proxies or logs. The static page's JS reads it,
+  removes it from the address bar (`history.replaceState`), and sends it as
+  `X-EPI-Share-Token`.
+- The first screen is a **gate**: vendor name + "Open evidence" button. Data loads only
+  after the click. **No tracking on page load.** Email security scanners (Proofpoint,
+  Mimecast, Defender) open links automatically; they must not create a "viewed" signal.
+- Events recorded **only from human actions**: `opened` (gate click), `verified_file`,
+  `downloaded_pack`, `downloaded_witness`. Vendor dashboard shows: "Acme Bank opened the
+  evidence (Tue), verified 3 files, downloaded the witness log." That's a real sales signal.
+- Page content: agents in scope; per agent over 30/90 days: runs **witnessed** (count from
+  the inbox), runs in the Evidence Room, any `different_version` / `invalid` in red; key
+  history; checkpoint status ("signed today 00:05 UTC · anchored in Rekor #…"); files with
+  **"Verify in my browser"** (existing verifier, plus a check that the recomputed SHA-256 ==
+  `claimed_sha256`, else red); "Verify yourself":
   `epi verify FILE --policy strict --witness-log received.jsonl --offline`.
-- No login for reviewers in MVP; the unguessable token is the access. `noindex`, `Referrer-Policy: no-referrer`, token never logged, `last_viewed_at` recorded so the vendor sees "Acme viewed this yesterday" (a real sales signal).
-- Wording uses the approved blocks in `plans/WEBSITE-ENTERPRISE-PLAN.md` §6 (scope disclaimer always visible). 🔒 founder approves page copy.
-- **Acceptance:** Playwright: open link → see agents → click verify on a genuine file (amber "not changed, signer not pinned" unless pinned), a tampered file (red), an expired or revoked link (clear error page). Mobile layout works.
+- Headers: `noindex`, `Referrer-Policy: no-referrer`, CSP as the site. 🔒 copy approval.
+- **Acceptance:** Playwright: a scanner-like headless load without a click creates **no
+  event**; click → `opened`; verify a genuine file (amber unless pinned), a tampered file
+  (red), a file whose bytes don't match `claimed_sha256` (red); an expired or revoked link
+  shows a clear error; the token never appears in any server log line (test the log output).
 
-### 6.3 M3 — Hosted Witness (the moat)
-- Owner creates an inbox per customer relationship ("Acme Bank"). The response gives `witness_url = https://cloud.epilabs.org/w/{inbox_id}` and a secret (once). The vendor sets these in their recorder/gateway exactly as for `epi witness serve` (`--witness-url`, `--witness-secret`), with **no product code changes needed** (that's the point: same protocol).
-- `POST /w/{id}`: verify HMAC (`X-EPI-Signature: sha256=<hex>` over the raw body; constant-time compare); reject a missing/bad signature (401), a non-`epi-witness/v1` schema (400) or a body > 16 KB (413). Forward to the inbox's **Durable Object**, which appends `{seq, received_at, payload_raw, prev_hash, entry_hash}` with `entry_hash = sha256(prev_hash || sha256(payload_raw) || received_at)` in its own SQLite (single writer, so strict order). Return 202 **only after** the append commits.
-- Export: `export.jsonl` = the raw payload lines in order, identical to what `epi witness serve` writes to `received.jsonl`. **Compatibility test:** seal a file with the real recorder pointed at a local Worker (miniflare), export, then run `epi verify FILE --policy strict --witness-log export.jsonl --offline`, expecting WITNESSED; an unreported re-seal gives NOT IN WITNESS LOG; a different version gives DIFFERENT VERSION.
-- Daily checkpoint (cron 00:05 UTC): for each inbox with new entries, sign `{"inbox":id,"day":"YYYY-MM-DD","count":N,"head_hash":H}` with the EPI Cloud witness Ed25519 key (Worker secret `WITNESS_SIGNING_KEY`; public key at `/.well-known/epi-witness-key.json`). Store in `checkpoints`.
-- Public mirror: `.github/workflows/witness-mirror.yml` runs daily, fetches all public checkpoints, and commits them to a **separate public repo** `epi-witness-checkpoints` (founder creates it). Rewriting history would then require rewriting a public git history that others have cloned, which is a strong, honest claim and free. Optional: also RFC 3161-timestamp each day's checkpoint file with FreeTSA.
-- Add `epi witness check --inbox-url … FILE` (CLI) that downloads the checkpoints, verifies the signatures with the published key, and checks the export against the head hash. Reviewers can then audit EPI Labs itself.
-- **Acceptance:** compatibility test above passes; reordering, deleting or editing any entry in an export is detected by `epi witness check`; HMAC tests; a 1,000-report burst keeps strict order; checkpoint signature verifies with the published key.
+### 6.4 M3 — Evidence Room (selected runs only)
+- `epi cloud push FILE --agent NAME --reason dispute|sample|audit_request|other`. The CLI
+  computes sha256 and crc32 locally, extracts `manifest.json` locally (it already can),
+  calls `init`, then streams the file to `PUT …/content`.
+- Server (`init`): verify the manifest signature (≤4 KB, cheap), compute the key
+  fingerprint (same as `epi_core.keys.key_fingerprint()`), check `claimed_sha256` /
+  content digest against the org's witness inboxes → `witness_status`, store the claims.
+  `PUT`: stream to R2, check `Content-Length`, mark `stored`. **No server hashing or unzip.**
+- Auto-select helpers (opt-in): `epi cloud push --sample 1%`, and the gateway option
+  `--cloud-push-on review|policy_fail` to push runs flagged by policy or human review.
+- Retention cron: delete past `retention_until` unless `legal_hold`; audit-log it.
+- **"Export everything"** button: a list of signed download URLs + the witness export,
+  so a customer can leave any time. Required for the startup-risk answer.
+- **Acceptance:** every `.epi` under `website/assets/**` pushes with `signature_check=valid`;
+  a tampered manifest gives `invalid`; a lie about `claimed_sha256` is caught by the trust
+  page check; dedupe works; retention test with a fake clock; no Worker request exceeds
+  the CPU budget in a load test with 25 MB files (measure with `wrangler dev` / tail).
 
-### 6.4 M4 — Key Registry (public keys only)
-- Owner registers the org's signing public keys (paste the hex, or `epi cloud keys push` reads `~/.epi/keys/*.pub`, **never** the private key; the CLI refuses to read files without `.pub`).
-- Rotation = add a new key; revocation = `revoked_at` + reason; history is never deleted.
-- Public `GET /o/{slug}/keys.json` with fingerprints in the same format as `epi keys`. Trust page shows the history.
-- Make it **informational, like the public registry after WP-SEC-4**: the CLI may *show* "registered at EPI Cloud as <org>", but **never** treats it as a pin. The reviewer still pins and phone-confirms. Add a test for this.
-- `epi keys trust --from-cloud {slug}` prints fingerprints and requires `--fingerprint` to match (same rule as `.epi`-based pinning).
-- **Acceptance:** register → rotate → revoke flows; a revoked key shows red on the trust page; CLI tests prove "registered" never equals "pinned".
+### 6.5 M4 — Customer-owned storage (BYO bucket) ← answers "what if you shut down?"
+- **The recorder writes, not EPI Cloud:** add `epi_core/storage_sink.py` so the vendor's
+  own recorder/gateway uploads every sealed `.epi` directly to **their** S3-compatible
+  bucket (AWS S3, Cloudflare R2, MinIO, GCS interop). Config via env
+  (`EPI_STORAGE_URL=s3://bucket/prefix`, credentials from the standard AWS env/profile).
+  Use a minimal SigV4 implementation or `boto3` as an optional extra (`pip install
+  epi-recorder[storage]`). **EPI Cloud never holds those credentials.**
+- Docs recommend S3 Object Lock (compliance mode) for WORM retention, and give the exact
+  bucket policy for write-only access.
+- The recorder reports a heartbeat to EPI Cloud (`storage-target/check`: last write ok,
+  count, no file data), so the trust page can say "full records retained in customer
+  storage (Object Lock: on/off, as reported by vendor)". Label it as vendor-reported.
+- **Acceptance:** against MinIO in CI: 100 runs sealed → 100 objects in the bucket, with
+  matching sha256; with the network off, uploads queue in a local outbox and flush later
+  (reuse the witness outbox pattern); credentials never appear in logs.
 
-### 6.5 M5 — Plans & billing
-- `plans.ts` limits enforced in the routes (agents, inboxes, share links, retention, packs). Limit errors say exactly which limit was hit and how to upgrade.
-- Port the Paddle webhook signature verification from `verify_portal/billing.py` (same algorithm, with tests from `tests/test_paddle_webhook_signature.py` ported). Map Paddle price IDs → plan. 🔒 founder creates the new Paddle products/prices; the old $199/$799 "hosted verification" products get archived (not deleted).
-- Design partners: the founder can set `plan = design_partner` manually on `/admin` (no Paddle needed; invoice by hand).
-- **Acceptance:** webhook with a valid signature upgrades the org; an invalid one gives 400; downgrade keeps data but blocks new uploads above the limit (never deletes data).
+### 6.6 M5 — Key Registry (public keys only)
+- Register, rotate and revoke **public** keys (`epi cloud keys push` reads only `*.pub`; it
+  refuses anything else). Public `GET /o/{slug}/keys.json`. Trust page shows the history.
+- Informational only: never a pin (same rule as WP-SEC-4). `epi keys trust --from-cloud
+  {slug}` still requires `--fingerprint` to match. Tests prove "registered ≠ pinned".
 
-### 6.6 M6 — Evidence Pack v1
-`GET …/packs` returns a zip built in the Worker (streamed, keep the CPU low: zip *store* mode, no compression of the `.epi` files themselves):
-- `README.html`: one page with who, which agents, the period, counts, and how to verify (the exact command); the scope disclaimer from plan §6.3.
-- `artifacts/` (the selected `.epi` files) + `artifacts.csv` (hash, agent, sealed_at, server check, witness status).
-- `witness/received.jsonl` (export) + `witness/checkpoints.json` + `witness/epi-witness-key.json`.
-- `keys/history.json`.
-- `mapping/eu-ai-act-art12.md`: which EPI evidence field supports each Art. 12 logging element. 🔒 **Draft only; founder and, ideally, a compliance advisor review before it's offered. No claim of compliance; use the wording rules.**
-- `mapping/bank-questionnaire.md`: answers to the common AI-vendor questions (logging, retention, human review, data exit, subcontractors) built only from facts true for this org. 🔒 same review.
-- AIUC-1 mapping: **not in v1.** Add only after the founder obtains and reads the standard; never invent control IDs.
-- **Acceptance:** unzip → run `epi verify` on every artifact with `--witness-log witness/received.jsonl` → results match `artifacts.csv`.
+### 6.7 M6 — Evidence Pack (built in the reviewer's browser)
+- On the trust page, "Download evidence pack" builds a zip **client-side** (fflate or the
+  site's JSZip): selected files (fetched from R2), `artifacts.csv` with *browser-computed*
+  hashes and verify results, `witness/received.jsonl`, `witness/checkpoints.json` + Rekor
+  refs, `keys/history.json`, `README.html` (who, what, period, how to verify, scope disclaimer).
+- `mapping/eu-ai-act-art12.md` and `mapping/bank-questionnaire.md` are **drafts** generated
+  only from facts true for this org. 🔒 Founder (ideally with a compliance advisor) approves
+  the templates before release. No "compliant" claims. **AIUC-1 mapping: not until the
+  founder has the standard and has read it. Never invent control IDs.**
+- **Acceptance:** unzip → `epi verify` each file with `--witness-log witness/received.jsonl`
+  → matches `artifacts.csv`; pack works with 200 files in Chrome and Safari.
 
----
-
-## 7. Security requirements (all modules)
-
-- Secrets only via `wrangler secret put` (GITHUB_CLIENT_SECRET, SESSION_KEY, INBOX_SECRET_KEY, WITNESS_SIGNING_KEY, PADDLE_WEBHOOK_SECRET). Never in code, logs or the repo. A CI grep fails the build on anything secret-looking.
-- All tokens and keys stored as sha256 hashes; compared in constant time.
-- Every query includes `org_id`; tenant isolation tests for every route.
-- Uploads: size limit, content sniffing (must be an EPI container), never execute or render uploaded HTML on our origin. Downloads use `Content-Disposition: attachment` and `Content-Type: application/vnd.epi+zip`. The trust page **never** iframes the embedded viewer.
-- Rate limits as in M0. Request bodies for witness ≤16 KB.
-- Audit log for every mutation, hash-chained; owners can view their org's audit log.
-- Backups: weekly cron exports D1 → R2 (`backups/`), keep 4. Document the restore in `docs/CLOUD.md`.
-- Privacy page and `/security` (WP-TRUST-1) updated: what EPI Cloud stores (Vault: full files; Witness: hashes only), where (Cloudflare), how long, and how to delete. 🔒
-
----
-
-## 8. Build order and milestones
-
-| # | Package | Size | Demo moment |
-|---|---|---|---|
-| 0 | **WP-PRICING-0** 🔒: pause $199/$799 "hosted verification" plans on the site, add "Design Partner Program (5 places)" + "EPI Cloud: in private beta" | S | Site stops selling something with no value |
-| 1 | **M0** skeleton, auth, orgs, API keys | M | You can log in at cloud.epilabs.org |
-| 2 | **M1** Vault + `epi cloud push` | M | Upload from the CLI, see the run in the dashboard |
-| 3 | **M2** Trust Page | M | **Send a real link to a design partner.** Start selling here |
-| 4 | **M3** Hosted Witness + checkpoints + public mirror + `epi witness check` | L | "Neither side can delete receipts": the moat demo |
-| 5 | **M4** Key Registry | S | Key history on the trust page |
-| 6 | **M5** Plans + Paddle | M | Self-serve upgrade |
-| 7 | **M6** Evidence Pack v1 🔒 mapping | M | "Here's your bank review pack" |
-
-With one coding agent: roughly 6–8 weeks to M6. **Start selling at step 3.** Do not
-wait for everything.
-
-Per package: branch, tests first, PR, CI green, deploy to the workers.dev preview,
-Playwright run, then merge (ungated) or wait for approval (🔒). Same loop as
-`CODING-AGENT-BRIEF.md` Part C.
+### 6.8 M7 — Plans & billing
+- `plans.ts` limits enforced with clear upgrade messages; downgrade never deletes data.
+- Port the Paddle webhook verification from `verify_portal/billing.py` (+ its tests).
+  🔒 founder creates the new products; archive (don't delete) the old $199/$799 ones.
+- `/admin`: the founder can set `design_partner` manually (invoice by hand at first).
 
 ---
 
-## 9. Founder one-time setup (all free)
-
-1. Cloudflare dashboard → Workers & Pages → create the D1 database `epi-cloud` and the R2 bucket `epi-cloud-vault` (add a card if R2 asks; charges stay $0 within limits; otherwise tell the agent to use the D1 fallback, §1.2).
-2. Workers → add custom domain `cloud.epilabs.org` to the `epi-cloud` worker (after M0 deploys).
-3. GitHub → Settings → Developer settings → OAuth Apps → New: homepage `https://epilabs.org`, callback `https://cloud.epilabs.org/auth/github/callback`. Give the agent the client ID; put the secret in with `wrangler secret put` yourself (or as a GitHub Actions secret).
-4. Create a Cloudflare API token (Workers + D1 + R2 edit) and add it as the GitHub Actions secret `CLOUDFLARE_API_TOKEN`, so CI deploys.
-5. Create the public repo `epi-witness-checkpoints` (empty).
-6. After M5: create the new Paddle products at the prices you choose. 🔒
-7. Approve every 🔒 PR (pricing copy, trust page copy, compliance mappings, privacy text).
+## 7. Security requirements
+- Secrets only via `wrangler secret put` (OAuth secrets, SESSION_KEY, INBOX_SECRET_KEY,
+  WITNESS_SIGNING_KEY, PADDLE_WEBHOOK_SECRET). A CI grep blocks secret-looking strings.
+- Tokens and keys stored as sha256; constant-time compares; share tokens only in the
+  fragment/header; **a log-redaction test** proves no token, key or secret reaches logs.
+- Tenant isolation tests on every route. Upload sniffing (must be an EPI container); files
+  are always downloads, never rendered on our origin; the trust page never iframes the
+  embedded viewer.
+- Hash-chained audit log; weekly D1 backup to R2 (keep 4); restore steps in `docs/CLOUD.md`.
+- Privacy page and `/security` updated 🔒: Witness = hashes only; Evidence Room = files the
+  vendor selects; BYO bucket = EPI never sees it; host = Cloudflare; retention; deletion.
 
 ---
 
-## 10. Never do
+## 8. Build order (sell first, build behind it)
 
-- Never charge for, limit or meter verification.
-- Never store customer private keys, or offer "we sign for you" in this plan.
-- Never claim "compliant", "certified", "guaranteed" or "court-admissible" (wording rules in the brief).
-- Never treat Cloud key registration or the trust page as an identity pin.
-- Never show the trust page or pricing for features not live: label them **In pilot** or **Roadmap**.
-- Never move the Vault or Witness to Render free or any host that can lose data on redeploy.
-- Never make the product depend on the cloud: everything must keep working offline without it.
+| When | Package | Outcome |
+|---|---|---|
+| Day 1 | **WP-PRICING-0** 🔒 | Remove the $199/$799 "hosted verification" plans. Add "Design Partner Program: 5 places, founding price" + "EPI Cloud: private beta" |
+| Day 1–2 | **WP-DEMO-TRUST** 🔒 | **Static demo trust page** `epilabs.org/t/acme-demo` built from JSON + 3 real `.epi` files in `website/assets/`: gate button, witness counts, key history, "Verify in my browser", fake but clearly labelled **DEMO** data. **The founder starts outreach the same day with this link** |
+| Week 1 | M0 | Login (GitHub + Google), orgs, invites, API keys |
+| Week 2 | **M1 Witness** | The moat, live: vendors point `--witness-url` at EPI Cloud |
+| Week 3 | **M2 Trust Page** (real data) | Design partners send real links to their customers |
+| Week 4 | M3 Evidence Room | Selected runs, push, export-everything |
+| Week 5 | M4 BYO bucket | "We hold no customer data; your files stay in your bucket" |
+| Week 6 | M5 Keys · M6 Evidence Pack 🔒 mapping | Bank-review pack |
+| Week 7 | M7 Billing | Self-serve upgrades |
 
-## 11. Definition of done (M0–M6)
-- A design partner can: log in, create an org and an agent, push runs from the CLI or gateway, create a witness inbox for their customer, send a trust-page link, and download an evidence pack.
-- Their customer's reviewer can: open the link, verify any file in their own browser, download the witness export and get `WITNESSED` from `epi verify --policy strict --witness-log … --offline`, and check EPI's checkpoints with `epi witness check`.
-- Monthly hosting bill: **$0** at design-partner scale, with usage visible on `/admin/usage`.
+One PR per package; tests first; Playwright on the trust page; preview deploy; the founder
+approves 🔒.
+
+## 9. Distribution and standards (non-code, but decides who wins)
+- **Integrations already exist** (LangChain, LangGraph, OpenAI Agents, LiteLLM,
+  OpenTelemetry, MCP). Each gets a 5-line "send witness receipts to EPI Cloud" snippet in
+  its docs page plus a copy-paste example repo. That's where agent builders are.
+- **Publish the specs**: `.epi` and `epi-witness/v1` as versioned open specs in `docs/spec/`
+  (CC-BY), aligned with IETF SCITT terms. Being *the* evidence format is the long-term moat.
+- **Channel, not competition:** "Export to Drata / Vanta / SafeBase" is later work; first
+  get one AIUC-1 auditor or compliance consultant to accept EPI evidence in a real audit.
+- **Every reviewer is a lead:** the trust page footer: "Reviewing an AI vendor? Ask them
+  for an EPI trust link." (Free for reviewers, always.)
+
+## 10. Founder setup (free)
+1. Cloudflare: add a card (needed for R2; $0 within limits), create D1 `epi-cloud`, R2
+   `epi-cloud-room`; later add the custom domain `cloud.epilabs.org` to the worker.
+2. OAuth apps: GitHub (Developer settings → OAuth Apps) and Google (Cloud Console →
+   Credentials → OAuth client, web), callbacks `https://cloud.epilabs.org/auth/{github|google}/callback`.
+3. A Cloudflare API token (Workers/D1/R2 edit), saved as the GitHub secret `CLOUDFLARE_API_TOKEN`.
+4. Create the empty public repo `epi-witness-checkpoints`.
+5. Approve 🔒 PRs; set prices; create the Paddle products after M7.
+
+## 11. Never do
+- Charge for, meter or limit verification.
+- Hold customer private keys, or customer bucket credentials.
+- Buffer, hash or unzip whole uploads on the server; build zips on the server.
+- Record "viewed" on page load; put share tokens in URL queries or logs.
+- Claim "compliant", "certified", "guaranteed", "court-admissible" or "immutable".
+- Treat cloud key registration as an identity pin.
+- Make the open-source product depend on the cloud: everything still works offline.
+- Present demo data as real: every demo screen is labelled **DEMO**.
+
+## 12. Changes from v1 (and why)
+| v1 | v2 | Why |
+|---|---|---|
+| Vault stores every run | **Witness 100% (hash-only); Evidence Room = selected runs; full retention in the customer's bucket** | Volume (free 10 GB fills in ~a week), privacy (no DPA needed), shutdown risk |
+| D1 blob fallback | Removed: R2 only (card required, $0) | D1 size/write limits |
+| Server hashes and unzips uploads | Client sends manifest + sha256 + crc32; server streams to R2 | 10 ms CPU limit |
+| Server builds evidence-pack zip | Built in the reviewer's browser | CPU (CRC-32) and trust model |
+| `?k=` token, view tracked on load | `#k=` fragment + header; events only on human clicks | Email scanners create fake views; tokens leak to proxy logs |
+| GitHub login only | GitHub + Google + invite links | Compliance/legal staff don't use GitHub |
+| GitHub mirror called immutable | Rekor + RFC 3161 + GitHub mirror, honest wording | Real third-party anchoring, still $0 |
+| Vault first, witness 4th | **Witness first**, plus a static demo on day 1–2 | The moat ships first; selling starts before code |
