@@ -6,9 +6,12 @@
 
 Instead, please report them via email to:
 
-**security@epilabs.org**
+**mohdibrahim@epilabs.org**
 
-We take security seriously and will respond within 48 hours.
+(This matches `website/.well-known/security.txt`. A dedicated `security@`
+address will replace it once mail forwarding is confirmed.)
+
+We take security seriously and will acknowledge your report within 5 business days.
 
 ### What to Include
 
@@ -21,26 +24,32 @@ Please include as much information as possible:
 
 ### Response Process
 
-1. We'll acknowledge receipt within 48 hours
+1. We'll acknowledge receipt within 5 business days
 2. We'll investigate and provide an initial assessment within 7 days
 3. We'll work on a fix and coordinate disclosure timing with you
 4. Once fixed, we'll publish a security advisory
+
+### Safe harbour
+
+If you report in good faith, follow this policy, and avoid harm to users
+(no data theft, no service disruption, no accessing other people's data),
+EPI Labs will not take legal action against you for the research itself.
+You may also report through GitHub private vulnerability reporting on this
+repository, if it is enabled.
 
 ## 🛡️ Supported Versions
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.7.x   | ✅ Active support  |
-| 2.6.x   | ✅ Active support  |
-| 2.1.x   | ⚠️ Maintenance only |
-| < 2.1   | ❌ No longer supported |
+| 4.6.x   | ✅ Active support  |
+| < 4.6   | ❌ No longer supported |
 
 ## 🔐 Security Features
 
 EPI Recorder includes several security features:
 
 ### Cryptographic Signatures
-- **Ed25519** digital signatures (same as Signal, SSH)
+- **Ed25519** digital signatures (RFC 8032)
 - All `.epi` files are cryptographically signed
 - Tamper detection - any modification breaks the signature
 
@@ -50,7 +59,7 @@ EPI Recorder includes several security features:
 - Configurable redaction patterns
 
 ### Client-Side Verification
-- Zero-knowledge verification in browser
+- Local verification in the browser (no proof system involved)
 - No server round-trips required
 - Works offline and in air-gapped environments
 
