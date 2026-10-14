@@ -122,6 +122,7 @@ export interface TrustDoc {
   inboxes: Array<{
     id: string; label: string; total_witnessed: number;
     d30: number; d90: number; last_day: string | null; anchored: boolean;
+    awaiting_checkpoint: boolean;
   }>;
   artifacts: Array<Record<string, unknown>>;
   keys: Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null }>;
@@ -160,6 +161,9 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
     out.push({
       id: inbox.id, label: inbox.customer_label, total_witnessed: total,
       d30, d90, last_day: rows.length ? rows[rows.length - 1]!.day : null, anchored,
+      // Entries exist in the log but no signed checkpoint covers them yet
+      // (e.g. signing keys unconfigured): say so instead of showing 0.
+      awaiting_checkpoint: total > 0 && rows.length === 0,
     });
   }
 

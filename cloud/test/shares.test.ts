@@ -186,17 +186,29 @@ describe("share links", () => {
     const mint = await app.request("/v1/orgs/o1/share-links", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ label: "Bank" }) }, env as never);
     const { id, token } = (await mint.json()) as { id: string; token: string };
     const doc = (await (await app.request(`/v1/trust/${id}`, { headers: { "X-EPI-Share-Token": token } }, env as never)).json()) as {
-      vendor: string; agents: { name: string }[]; inboxes: { label: string; total_witnessed: number; d30: number }[]; artifacts: unknown[]; keys: unknown[];
+      vendor: string; agents: { name: string }[]; inboxes: { label: string; total_witnessed: number; d30: number; awaiting_checkpoint: boolean }[]; artifacts: unknown[]; keys: unknown[];
     };
     expect(doc.vendor).toBe("Acme Corp");
     expect(doc.agents.map((a) => a.name)).toEqual(["loans"]);
     expect(doc.inboxes[0]).toMatchObject({ label: "Acme Bank", total_witnessed: 40, d30: 40 });
+    expect(doc.inboxes[0]!.awaiting_checkpoint).toBe(false);
     expect(doc.artifacts).toEqual([]);
     // Wrong slug, query token, and expired links all 404.
     expect((await app.request("/v1/trust/sh_nope", { headers: { "X-EPI-Share-Token": token } }, env as never)).status).toBe(404);
     expect((await app.request(`/v1/trust/${id}?k=${token}`, {}, env as never)).status).toBe(404);
     db.links.get(id)!.expires_at = "2000-01-01T00:00:00.000Z";
     expect((await app.request(`/v1/trust/${id}`, { headers: { "X-EPI-Share-Token": token } }, env as never)).status).toBe(404);
+  });
+
+  it("says awaiting-checkpoint instead of showing 0", async () => {
+    const { env, ck } = await setup();
+    // DO reports 40 entries (see setup) but no checkpoint rows exist yet.
+    const mint = await app.request("/v1/orgs/o1/share-links", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ label: "Bank" }) }, env as never);
+    const { id, token } = (await mint.json()) as { id: string; token: string };
+    const doc = (await (await app.request(`/v1/trust/${id}`, { headers: { "X-EPI-Share-Token": token } }, env as never)).json()) as {
+      inboxes: { total_witnessed: number; d30: number; awaiting_checkpoint: boolean }[];
+    };
+    expect(doc.inboxes[0]).toMatchObject({ total_witnessed: 40, d30: 0, awaiting_checkpoint: true });
   });
 
   it("events record human actions; vendors read them per link", async () => {

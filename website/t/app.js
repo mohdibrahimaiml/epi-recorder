@@ -74,6 +74,10 @@
       stats += stat(b.total_witnessed, 'Runs witnessed · ' + b.label, b.d30 + ' in the last 30 days · ' + b.d90 + ' in 90 days.');
     });
     if (!stats) stats = stat('0', 'Runs witnessed', 'No witness data in scope yet.');
+    var awaiting = (doc.inboxes || []).some(function (b) { return b.awaiting_checkpoint; });
+    if (awaiting) {
+      stats += '<div class="tier" style="border-color:var(--warn)"><div class="tdesc">Some runs are logged but not checkpointed yet — counts appear after the first daily checkpoint (signed 00:05 UTC).</div></div>';
+    }
     document.getElementById('trustStats').innerHTML = stats; // static-html: built from esc() only
 
     var keys = '';
