@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Evidence trust page — EPI Cloud</title>
+<meta name="description" content="Verify an AI vendor's sealed evidence in your own browser. Witness counts, key history, and files your team can check offline.">
+<link rel="canonical" href="https://epilabs.org/t/app">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/how-it-works">How it works</a></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <a href="/how-it-works">How it works</a>
+  <a href="/trust">Trust model</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+
+<main id="main">
+<div class="page in" data-aos="fade-up">
+
+<span class="tag">EPI Cloud · Trust page</span>
+<h1 class="d2x" id="vendorTitle">Shared evidence</h1>
+<p class="lede">Witness-first evidence. Hashes of every run are witnessed; full records stay in the vendor's bucket. Verification below runs in your browser — nothing is uploaded.</p>
+
+<!-- Gate: nothing loads until a human clicks. Scanners create no signal. -->
+<div id="gate" style="margin:32px 0">
+  <div class="tier">
+    <h3 id="gateVendor">Evidence shared with you</h3>
+    <div class="tdesc">Witness counts, key history, and files. Nothing loads until you click — automated scanners and link previews create no view signal.</div>
+    <button type="button" class="btn btn-pri" id="gateBtn">Open evidence</button>
+    <span id="gateStatus" role="status" aria-live="polite" style="display:block;margin-top:8px;font-size:.8rem;color:var(--dim)"></span>
+  </div>
+</div>
+
+<div id="trustContent" style="display:none">
+  <h2>Runs witnessed</h2>
+  <section class="stats"><div class="stats-in stagger" id="trustStats"></div></section>
+
+  <h2 style="margin-top:36px">Key history</h2>
+  <div id="trustKeys"></div>
+
+  <h2 style="margin-top:36px">Files</h2>
+  <div id="trustFiles"></div>
+
+  <h2 style="margin-top:36px">Verify a file in this browser</h2>
+  <p style="font-size:.9rem;color:var(--mut)">Drop any <code class="k">.epi</code> file — the seal is checked in this tab and the file is never uploaded. Amber identity (not pinned) is correct for an unpinned key.</p>
+  <div class="inst in" data-aos="fade-up">
+    <div class="drop" id="dropZoneEl" role="button" tabindex="0" aria-label="Drop or choose a .epi file to verify">
+      <h3>Drop a .epi file here</h3>
+      <p>or click to browse · verification stays in this browser</p>
+      <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
+      <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:36px">Verify yourself (offline, open tools)</h2>
+  <div class="term" id="verifyCmd">epi verify FILE --policy strict --witness-log received.jsonl --offline</div>
+  <p style="font-size:.86rem;color:var(--mut)">Ask the vendor for the witness export (<code class="k">received.jsonl</code>) covering the runs above, then run the command on your own machine.</p>
+
+  <div class="section-divider"></div>
+  <p style="font-size:.9rem">Reviewing an AI vendor? Ask them for an EPI trust link. (Free for reviewers, always.) — <a href="/plans#contact" style="color:var(--acc)">Talk to EPI Labs</a></p>
+</div>
+
+</div>
+</main>
+
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS · MIT License</span>
+    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="/plans" style="color:var(--acc)">Pricing</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  </div>
+</footer>
+
+<script src="/js/jszip.min.js"></script>
+<script src="/js/epi-manifest-preimage.js?v=38"></script>
+<script src="/js/epi-verify-core.js?v=38"></script>
+<script src="/t/app.js"></script>
+<script src="/js/theme.js"></script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js"></script>
+</body>
+</html>

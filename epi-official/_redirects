@@ -35,5 +35,17 @@
 /enterprise/ /enterprise 301
 /enterprise/index.html /enterprise 301
 #
+# Trust pages (M2): pretty /t/{slug} links render one static shell
+# (website/t/app/index.html); the shell reads the slug from the path and the
+# token from the #k= fragment. Notes from pages-dev verification:
+# - the target must be a directory index: a /t/app.html target 308-normalizes
+#   to /t/app, re-matches the splat, and loops.
+# - rewrites win over static files, so every real file under /t/ needs its
+#   own identity rule above the splat (self-rewrites terminate).
+/t/app.js /t/app.js 200
+/t/acme-demo /t/acme-demo/ 301
+/t/acme-demo/* /t/acme-demo/:splat 200
+/t/* /t/app/ 200
+#
 # Optional: force apex (uncomment if needed and not handled in CF dashboard)
 # https://www.epilabs.org/* https://epilabs.org/:splat 301
