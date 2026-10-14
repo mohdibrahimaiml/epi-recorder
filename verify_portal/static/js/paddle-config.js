@@ -12,36 +12,10 @@ window.EPI_PADDLE_CONFIG = {
   emailStorageKey: "epi-user-email",
 
   tiers: [
-    {
-      name: "Hosted",
-      description: "For teams shipping agents into regulated workflows. 10k hosted verifications, remote SCITT, 10 API keys.",
-      features: [
-        "10,000 hosted verifications / month",
-        "Remote SCITT registration",
-        "10 API keys",
-        "Offline verify + embedded viewer (always free)",
-        "Support via GitHub issues"
-      ],
-      featured: true,
-      priceId: { month: "pri_01m0y54canxd7z63ykf928qs04", year: "pri_01m0y54ckbm8vj32dsms9xfeev" },
-      /* USD base shown ONLY when live localized pricing is unreachable
-         (see the watchdog in plans.html). Keep in sync with Paddle. */
-      fallbackUSD: 199
-    },
-    {
-      name: "Team",
-      description: "Hosted custody and SCITT at volume for enterprises.",
-      features: [
-        "50,000 hosted verifications / month",
-        "Remote SCITT registration",
-        "50 API keys"
-      ],
-      featured: false,
-      priceId: { month: "pri_01m0y54d6t0q3ehgqmmepg45vj", year: "pri_01m0y54df4smpc7qq4p21j4v9s" },
-      /* USD base shown ONLY when live localized pricing is unreachable
-         (see the watchdog in plans.html). Keep in sync with Paddle. */
-      fallbackUSD: 799
-    }
+    // WP-PRICING-0 (EPI Cloud v2): Hosted ($199/mo) and Team ($799/mo)
+    // "hosted verification" tiers retired from the site. Paddle products are
+    // archived in the Paddle dashboard (not deleted). EPI Cloud is in private
+    // beta; Design Partner places are invoiced by hand until M7 billing lands.
   ]
 };
 
