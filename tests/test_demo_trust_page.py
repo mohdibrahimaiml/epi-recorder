@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 WEBSITE = REPO / "website"
 DEMO_DIR = WEBSITE / "t" / "acme-demo"
@@ -72,3 +74,52 @@ def test_redirects_carve_out_demo_from_trust_shell():
     assert "/t/acme-demo/demo.js /t/acme-demo/demo.js 200" in text
     assert "/t/acme-demo/demo-data.json /t/acme-demo/demo-data.json 200" in text
     assert "/t/acme-demo/* /t/acme-demo/:splat 200" in text
+
+
+def test_demo_hashes_wrap_on_narrow_screens():
+    html = DEMO_HTML.read_text(encoding="utf-8")
+    assert "overflow-wrap:anywhere" in html.replace(" ", ""), \
+        "long hashes must wrap (390px viewports scroll sideways otherwise)"
+
+
+def _chromium():
+    import glob
+    import os
+
+    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+    return os.environ.get("EPI_TEST_CHROMIUM") or (hits[0] if hits else None)
+
+
+def test_demo_no_horizontal_overflow_at_390px():
+    sync_api = pytest.importorskip("playwright.sync_api")
+    exe = _chromium()
+    if not exe:
+        pytest.skip("no chromium available")
+    import threading
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    handler = partial(SimpleHTTPRequestHandler, directory=str(WEBSITE))
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{httpd.server_port}"
+        with sync_api.sync_playwright() as p:
+            browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+            page = browser.new_page(viewport={"width": 390, "height": 844})
+            page.goto(f"{base}/t/acme-demo/", wait_until="networkidle")
+            page.click("#gateBtn")
+            page.wait_for_selector("#demoFiles .tier", timeout=15000)
+            page.wait_for_timeout(1500)
+            # Body clips sideways overflow (overflow-x:hidden), so document
+            # scrollWidth never grows: assert the hash codes themselves stay
+            # inside the 390px viewport instead.
+            wide = page.evaluate(
+                "() => [...document.querySelectorAll('#demoContent code.k')]."
+                "filter(el => el.getBoundingClientRect().right > 391)."
+                "map(el => el.textContent.slice(0, 24))"
+            )
+            assert wide == [], f"hash codes clipped off-viewport at 390px: {wide}"
+            browser.close()
+    finally:
+        httpd.shutdown()

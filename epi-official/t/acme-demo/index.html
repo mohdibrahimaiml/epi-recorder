@@ -17,6 +17,17 @@
 <script>
 (function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
 </script>
+<style>
+  /* DEMO mobile polish: long hashes/commands must wrap, never clip sideways.
+     (Site code.k is white-space:nowrap, which overflow-wrap alone cannot beat.) */
+  #demoContent code.k, #demoContent .vresult { overflow-wrap:anywhere; word-break:break-all; white-space:normal; }
+  #demoContent .term { white-space:pre-wrap; overflow-x:visible; overflow-wrap:anywhere; word-break:break-all; }
+  @media (max-width:480px) {
+    #demoContent code.k { font-size:.68rem; }
+    #demoContent .tier .btn { width:100%; box-sizing:border-box; }
+    #demoContent .tier { padding:22px 18px; }
+  }
+</style>
 </head>
 <body class="canvas">
 <a class="skip" href="#main">Skip to content</a>
