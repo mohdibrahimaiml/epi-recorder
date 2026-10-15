@@ -1,0 +1,73 @@
+name: Storage interop (S3-compatible)
+
+# M4 acceptance: 100 sealed runs land in a real S3-speaking bucket with
+# matching sha256. The job runs moto_server (pip, no Docker image to rot:
+# Docker Hub delisted minio/minio, which broke the original MinIO service).
+# The same test file runs locally against moto, or against MinIO/R2/GCS by
+# setting EPI_TEST_S3_* (strict mode: unreachable endpoint FAILS, never skips).
+
+on:
+  pull_request:
+    paths:
+      - "epi_core/storage_sink.py"
+      - "epi_recorder/api.py"
+      - "epi_gateway/main.py"
+      - "epi_cli/cloud.py"
+      - "tests/test_storage_*.py"
+      - "pyproject.toml"
+      - ".github/workflows/storage-interop.yml"
+  push:
+    branches: [main]
+    paths:
+      - "epi_core/storage_sink.py"
+      - "tests/test_storage_interop.py"
+
+jobs:
+  interop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --upgrade pip && python scripts/ci-install-deps.py
+      - run: pip install "moto[server]" boto3
+      - name: Start moto S3
+        run: |
+          moto_server -H 127.0.0.1 -p 9000 > moto.log 2>&1 &
+          echo $! > moto.pid
+          for i in $(seq 1 24); do
+            curl -sf http://127.0.0.1:9000/ && break
+            curl -sf http://127.0.0.1:9000/moto-api/ && break
+            sleep 5
+          done
+          curl -sf http://127.0.0.1:9000/ || curl -sf http://127.0.0.1:9000/moto-api/
+      - name: Create bucket
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: |
+          python -c "
+          import boto3
+          c = boto3.client('s3', endpoint_url='http://127.0.0.1:9000',
+                            region_name='us-east-1',
+                            aws_access_key_id='test',
+                            aws_secret_access_key='test')
+          c.create_bucket(Bucket='epi-interop')
+          print('bucket ready')
+          "
+      - name: Sink unit tests
+        run: python -m pytest tests/test_storage_sink.py -q -o addopts=""
+      - name: Interop incl. 100-seal acceptance
+        env:
+          EPI_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+          EPI_TEST_S3_ACCESS: test
+          EPI_TEST_S3_SECRET: test
+          EPI_TEST_S3_BUCKET: epi-interop
+          EPI_TEST_S3_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: python -m pytest tests/test_storage_interop.py -q -o addopts=""
+      - name: Show moto log on failure
+        if: failure()
+        run: cat moto.log; kill "$(cat moto.pid)" 2>/dev/null || true
