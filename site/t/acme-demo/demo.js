@@ -56,12 +56,15 @@
       var sealLine = '';
       try {
         if (window.verifyEPI) {
-          var report = await window.verifyEPI(blob);
-          var f = report && report.facts ? report.facts : {};
-          if (!f.integrity_ok || f.signature_valid === false) {
-            sealLine = '<br><span style="color:var(--bad)">Seal check: FAIL — integrity or signature failed in this browser. Use epi verify for the full report.</span>';
-          } else if (f.signature_valid === true) {
-            sealLine = '<br><span style="color:var(--warn)">Seal check: VALID signature + hashes — identity NOT PINNED in this browser (amber is correct for a demo key).</span>';
+          // Flat shape from epi-verify-core.js: {structure, manifest,
+          // integrity, hashChain, signature(true/false/null), trust_level}.
+          var r = await window.verifyEPI(blob);
+          if (!r.structure || !r.manifest) {
+            sealLine = '<br><span style="color:var(--bad)">Seal check: FAIL — not a readable EPI container.</span>';
+          } else if (!r.integrity || r.signature === false) {
+            sealLine = '<br><span style="color:var(--bad)">Seal check: FAIL — ' + esc(r.message || 'integrity or signature failed') + '. Use epi verify for the full report.</span>';
+          } else if (r.signature === true) {
+            sealLine = '<br><span style="color:var(--warn)">Seal check: SEAL VALID · IDENTITY NOT PINNED — hashes and Ed25519 signature passed; this browser does not know the signer (amber is correct).</span>';
           } else {
             sealLine = '<br><span style="color:var(--warn)">Seal check: inconclusive in browser — run epi verify offline.</span>';
           }
