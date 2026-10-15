@@ -218,7 +218,43 @@ def test_login_saves_config(fake_transport, home):
         )
     assert result.exit_code == 0, result.output
     saved = json.loads((home / "cloud.json").read_text())
-    assert saved == {"url": "https://cloud.test", "org": "o1", "key": "epik_x"}
+    assert saved == {"url": "https://cloud.test", "org_id": "o1", "api_key": "epik_x"}
+
+
+def test_login_then_push_with_no_flags_or_env(fake_transport, home):
+    """The reported bug: login saved org/key, push read org_id/api_key."""
+    login_routes = {("GET", "artifacts"): FakeResponse(200, {"artifacts": []})}
+    push_routes = {
+        ("POST", "init"): FakeResponse(
+            201,
+            {
+                "id": "art_1",
+                "put_url": "/v1/orgs/o1/artifacts/art_1/content",
+                "witness_status": "witnessed",
+                "signature_check": "valid",
+            },
+        ),
+        ("PUT", "content"): FakeResponse(200, {"stored": True}),
+    }
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(login_routes))
+        assert _invoke(
+            ["login", "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_x"]
+        ).exit_code == 0
+        mp.setattr(httpx, "Client", _client_with(push_routes))
+        result = _invoke(["push", str(SAMPLE)])
+    assert result.exit_code == 0, result.output
+    assert "art_1" in result.output
+
+
+def test_login_honors_legacy_saved_spellings(home, monkeypatch):
+    (home / "cloud.json").write_text(json.dumps(
+        {"url": "https://file", "org": "o-legacy", "key": "k-legacy"}
+    ))
+    creds = resolve_creds(None, None, None)
+    assert creds == {"url": "https://file", "org": "o-legacy", "key": "k-legacy"}
 
 
 def test_resolve_creds_prefers_flags_over_env_over_file(home, monkeypatch):

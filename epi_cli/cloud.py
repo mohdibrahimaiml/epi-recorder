@@ -55,12 +55,20 @@ def load_config() -> dict[str, Any]:
 def resolve_creds(
     url: str | None, org: str | None, api_key: str | None
 ) -> dict[str, str]:
-    """Flags > environment > saved login. Raises Exit(2) when incomplete."""
+    """Flags > environment > saved login. Raises Exit(2) when incomplete.
+
+    The saved file uses org_id/api_key (written by `login`); the legacy
+    org/key spellings are still honored so older saved logins keep working.
+    """
     cfg = load_config()
     final = {
         "url": (url or os.getenv("EPI_CLOUD_URL") or cfg.get("url") or "").rstrip("/"),
-        "org": org or os.getenv("EPI_CLOUD_ORG") or cfg.get("org_id") or "",
-        "key": api_key or os.getenv("EPI_CLOUD_API_KEY") or cfg.get("api_key") or "",
+        "org": org or os.getenv("EPI_CLOUD_ORG") or cfg.get("org_id") or cfg.get("org") or "",
+        "key": api_key
+        or os.getenv("EPI_CLOUD_API_KEY")
+        or cfg.get("api_key")
+        or cfg.get("key")
+        or "",
     }
     missing = [name for name in ("url", "org", "key") if not final[name]]
     if missing:
@@ -117,9 +125,16 @@ def read_manifest(path: Path) -> str:
 def login(
     url: str = typer.Option(..., "--url", help="EPI Cloud base URL, e.g. https://cloud.epilabs.org."),
     org: str = typer.Option(..., "--org", help="Organisation id (org_...)."),
-    api_key: str = typer.Option(..., "--api-key", help="API key with push scope (epik_...)."),
+    api_key: str | None = typer.Option(
+        None, "--api-key", help="API key with push scope (epik_...). Prompts securely when omitted."
+    ),
 ) -> None:
-    """Save Evidence Room credentials (url/org/key) for push and status."""
+    """Save Evidence Room credentials (url/org_id/api_key) for push and status."""
+    if not api_key:
+        api_key = typer.prompt("API key", hide_input=True)
+    if not api_key:
+        console.print("[red][FAIL][/red] No API key given.")
+        raise typer.Exit(2)
     creds = {"url": url.rstrip("/"), "org": org, "key": api_key}
     try:
         with _client(creds) as client:
@@ -135,7 +150,10 @@ def login(
         raise typer.Exit(1) from exc
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(creds, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps({"url": creds["url"], "org_id": org, "api_key": api_key}, indent=2),
+        encoding="utf-8",
+    )
     try:
         os.chmod(path, 0o600)
     except Exception:
