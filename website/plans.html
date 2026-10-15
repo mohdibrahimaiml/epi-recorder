@@ -82,7 +82,7 @@
 <!-- Hero -->
 <span class="tag">Plans &amp; Pricing · EPI Cloud private beta</span>
 <h1 class="d2x">Pick your evidence plan</h1>
-<p class="lede">Every run seals into a portable <code class="k">.epi</code> file — Ed25519-signed, offline-verifiable. EPI Cloud witnesses the hash of every run, your files stay in your bucket, and verification stays free. Self-serve Hosted/Team plans are retired; EPI Cloud is in private beta with a 5-place Design Partner Program.</p>
+<p class="lede">Every run seals into a portable <code class="k">.epi</code> file — Ed25519-signed, offline-verifiable. EPI Cloud witnesses the hash of every run; selected runs go to your Evidence Room, and verification stays free. EPI Cloud is in private beta with a 5-place Design Partner Program.</p>
 
 <!-- EPI Cloud private beta (replaces retired Hosted/Team self-serve tiers) -->
 <div style="margin-top:40px">
@@ -90,15 +90,15 @@
     <div class="tier featured">
       <span class="flag">Private beta</span>
       <h3>EPI Cloud</h3>
-      <div class="tdesc">Witness-first evidence for agents selling into regulated customers. We hold hashes only — no customer data. Full records stay in your bucket.</div>
+      <div class="tdesc">Witness-first evidence for agents selling into regulated customers. The witness holds hashes only; the Evidence Room holds only runs you choose to upload; customer-bucket retention is coming.</div>
       <ul>
         <li>Hosted witness: hash-only receipt of every run, ordered and signed</li>
         <li>Trust page your customer can verify in their own browser</li>
-        <li>Evidence Room for selected runs; full retention in your bucket</li>
+        <li>Evidence Room for selected runs; customer-bucket retention coming</li>
         <li>Verification free and unlimited, always</li>
       </ul>
       <a class="btn btn-pri" href="#contact">Request private-beta access</a>
-      <span style="display:block;margin-top:8px;font-size:.74rem;color:var(--dim)">Self-serve Hosted ($199/mo) and Team ($799/mo) plans retired. Sprint checkout below still uses Paddle.</span>
+      <span style="display:block;margin-top:8px;font-size:.74rem;color:var(--dim)">Sprint checkout below still uses Paddle.</span>
     </div>
   </div>
   <p style="text-align:center;margin-top:24px;font-size:.82rem;color:var(--dim)">
@@ -111,7 +111,7 @@
 <!-- Founder-Led Sprints & Custom Pilots -->
 <span class="tag">Custom &amp; Enterprise · Founder-led</span>
 <h2 style="margin-top:8px">Founder-led sprints &amp; custom pilots</h2>
-<p style="font-size:.95rem;color:var(--mut);line-height:1.75;max-width:750px">If you sell agents into finance, healthcare, or government, procurement asks <em>"prove what your agent actually did."</em> Logs don't survive that question. A sealed <code class="k">.epi</code> does: every run ships with an Ed25519-signed evidence file — hash-chained on the SDK path, manifest-declared on the gateway path — your customer's auditor verifies offline, with open tools. <strong style="color:var(--body)">The evidence outlives your contract with them.</strong></p>
+<p style="font-size:.95rem;color:var(--mut);line-height:1.75;max-width:750px">If you sell agents into finance, healthcare, or government, procurement asks <em>"prove what your agent actually did."</em> Logs don't survive that question. A sealed <code class="k">.epi</code> does: every run ships with an Ed25519-signed evidence file — hash-chained as the agent runs — your customer's auditor verifies offline, with open tools. <strong style="color:var(--body)">The evidence outlives your contract with them.</strong></p>
 
 <div class="plans stagger" style="margin:28px 0 40px">
   <div class="plan in" data-aos="fade-up">
@@ -129,7 +129,7 @@
   </div>
 
   <div class="plan feat in" data-aos="fade-up">
-    <span class="flag">Available now · 3 slots / mo</span>
+    <span class="flag">Founder-led · five days</span>
     <h3>Agent Evidence Sprint</h3>
     <div class="pr">$1,500</div>
     <div class="pn">Five days · one workflow</div>
@@ -150,7 +150,7 @@
     <h3>Design Partner</h3>
     <div class="pr" style="font-size:1.35rem;padding-top:12px">Founding price</div>
     <div class="pn">Private beta · locked terms</div>
-    <p>EPI Cloud witness + trust page + Evidence Room, shaped with you. Your files stay in your bucket; we hold hashes only.</p>
+    <p>EPI Cloud witness + trust page + Evidence Room, shaped with you. Selected runs go to your Evidence Room; the witness holds hashes only.</p>
     <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
       <li>Hosted witness inbox for your regulated customer</li>
       <li>Trust link your customer verifies in their browser</li>
@@ -178,15 +178,15 @@
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
     <div><h3>Is there a free trial?</h3></div>
-    <div class="an">No self-serve trial while EPI Cloud is in private beta — the retired Hosted/Team checkout is closed. Sprints are fixed-price and Design Partner places are scoped by hand.</div>
+    <div class="an">No self-serve trial while EPI Cloud is in private beta — self-serve checkout is closed. Sprints are fixed-price and Design Partner places are scoped by hand.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
     <div><h3>What is a design partner pilot?</h3></div>
-    <div class="an">One of 5 private-beta places: hosted witness inbox, customer trust page, and Evidence Room for selected runs — with full retention in your bucket. Founding price locked, direct roadmap input, engagements scoped by hand.</div>
+    <div class="an">One of 5 private-beta places: hosted witness inbox, customer trust page, and Evidence Room for selected runs — with customer-bucket retention to follow. Founding price locked, direct roadmap input, engagements scoped by hand.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
     <div><h3>What is EPI Cloud?</h3></div>
-    <div class="an">Witness-first evidence hosting: we witness the hash of every run and serve a trust page your customer verifies in their own browser. We hold no customer data — full .epi files stay in your bucket.</div>
+    <div class="an">Witness-first evidence hosting: we witness the hash of every run and serve a trust page your customer verifies in their own browser. The witness holds hashes only — the Evidence Room holds only runs you choose to upload.</div>
   </div>
 </div>
 
@@ -284,7 +284,8 @@
     });
   }
 
-  /* ── WP-PRICING-0: self-serve tiers retired; static beta panel above.
+  /* ── WP-PRICING-0: self-serve checkout closed during the private beta;
+     static beta panel above.
      Sprint checkout is handled by /js/sprint-checkout.js. This block only
      keeps legacy ?checkout_tier links from breaking (they now redirect to
      the contact section). */
@@ -301,7 +302,7 @@
     if(legacyTier){
       history.replaceState(null, '', '/plans#contact');
       var st = document.getElementById('pStatus');
-      if(st) st.textContent = 'Hosted/Team checkout is retired — EPI Cloud is in private beta. Contact us below.';
+      if(st) st.textContent = 'Self-serve checkout is closed during the private beta. Contact us below.';
     }
   } catch(e){}
 })();
