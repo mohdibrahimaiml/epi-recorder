@@ -6,8 +6,12 @@ import { entryHash, GENESIS, type Envelope } from "../lib/witnessChain.ts";
 import { nowIso } from "../lib/crypto.ts";
 
 interface Sql {
-  exec(sql: string, ...params: unknown[]): { toArray(): Record<string, unknown>[]; one(): Record<string, unknown> | undefined };
+  exec(sql: string, ...params: unknown[]): { toArray(): Record<string, unknown>[] };
 }
+
+// NOTE: workerd cursors expose only toArray — the single-row helpers throw
+// on zero rows. Every read here goes through toArray()[0], which is
+// empty-safe everywhere. The first append to an empty inbox must never 500.
 
 export class WitnessInbox {
   private sql: Sql;
@@ -30,13 +34,13 @@ export class WitnessInbox {
           return Response.json({ error: { code: "bad_request", message: "payload_raw required." } }, { status: 400 });
         }
         const receivedAt = nowIso();
-        const prev = this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").one()?.entry_hash as string | undefined ?? GENESIS;
+        const prev = (this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").toArray()[0]?.entry_hash as string | undefined) ?? GENESIS;
         const hash = await entryHash(prev, body.payload_raw, receivedAt);
         const cursor = this.sql.exec(
           "INSERT INTO entries (received_at, payload_raw, prev_hash, entry_hash) VALUES (?, ?, ?, ?) RETURNING seq",
           receivedAt, body.payload_raw, prev, hash,
         );
-        const seq = (cursor.one() as unknown as { seq: number }).seq;
+        const seq = (cursor.toArray()[0] as unknown as { seq: number }).seq;
         return Response.json({ seq, entry_hash: hash }, { status: 200 });
       }
       if (request.method === "GET" && url.pathname === "/export") {
@@ -50,14 +54,14 @@ export class WitnessInbox {
         return Response.json({ envelopes: rows });
       }
       if (request.method === "GET" && url.pathname === "/pending") {
-        const mark = this.sql.exec("SELECT value FROM meta WHERE key = 'checkpointed_seq'").one()?.value as string | undefined ?? "0";
+        const mark = (this.sql.exec("SELECT value FROM meta WHERE key = 'checkpointed_seq'").toArray()[0]?.value as string | undefined) ?? "0";
         const rows = this.sql.exec("SELECT seq, received_at, payload_raw, prev_hash, entry_hash FROM entries WHERE seq > ? ORDER BY seq ASC", Number(mark)).toArray();
         return Response.json({ envelopes: rows as unknown as Envelope[] });
       }
       if (request.method === "POST" && url.pathname === "/mark") {
         const body = (await request.json()) as { seq?: unknown };
         if (typeof body.seq !== "number") return Response.json({ error: { code: "bad_request", message: "seq required." } }, { status: 400 });
-        const cur = Number(this.sql.exec("SELECT value FROM meta WHERE key = 'checkpointed_seq'").one()?.value ?? "0");
+        const cur = Number(this.sql.exec("SELECT value FROM meta WHERE key = 'checkpointed_seq'").toArray()[0]?.value ?? "0");
         const next = Math.max(cur, body.seq);
         this.sql.exec("INSERT INTO meta (key, value) VALUES ('checkpointed_seq', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", String(next));
         return Response.json({ checkpointed_seq: next });
@@ -75,7 +79,7 @@ export class WitnessInbox {
       }
       if (request.method === "GET" && url.pathname === "/info") {
         const rows = this.sql.exec("SELECT COUNT(*) AS n FROM entries").toArray();
-        const head = this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").one()?.entry_hash ?? GENESIS;
+        const head = (this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").toArray()[0]?.entry_hash as string | undefined) ?? GENESIS;
         return Response.json({ count: (rows[0] as { n: number }).n, head_hash: head });
       }
       return Response.json({ error: { code: "not_found", message: "Unknown inbox op." } }, { status: 404 });
