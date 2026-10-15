@@ -33,6 +33,7 @@ class FakeD1 {
   }
 
   private one(q: string, a: unknown[]): Row | null {
+    if (q.includes("?") && a.length === 0) throw new Error(`FakeD1 unbound placeholders: ${q}`);
     if (q.startsWith("SELECT s.user_id")) {
       const s = this.sessions.get(a[0] as string);
       if (!s) return null;
@@ -72,6 +73,7 @@ class FakeD1 {
   }
 
   private many(q: string, a: unknown[]): Row[] {
+    if (q.includes("?") && a.length === 0) throw new Error(`FakeD1 unbound placeholders: ${q}`);
     if (q.startsWith("SELECT id, label, scope, created_at, expires_at, revoked_at FROM share_links")) {
       return [...this.links.values()].filter((l) => l.org_id === a[0]);
     }
@@ -84,7 +86,7 @@ class FakeD1 {
     if (q.startsWith("SELECT day, count, head_hash, signed_at, rekor_uuid FROM checkpoints")) {
       return this.checkpoints.filter((r) => r.inbox_id === a[0] && (r.day as string) >= (a[1] as string)).sort((x, y) => ((x.day as string) < (y.day as string) ? -1 : 1));
     }
-    if (q.startsWith("SELECT id, claimed_sha256")) return this.artifacts.filter((r) => r.org_id === a[0]);
+    if (q.startsWith("SELECT id, agent_id, claimed_sha256")) return this.artifacts.filter((r) => r.org_id === a[0]);
     if (q.startsWith("SELECT fingerprint, label, valid_from, revoked_at FROM org_keys")) {
       return this.keys.filter((r) => r.org_id === a[0]);
     }

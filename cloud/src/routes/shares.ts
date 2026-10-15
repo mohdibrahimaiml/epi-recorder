@@ -22,6 +22,22 @@ function inScope<T extends { id: string }>(scope: "all" | string[], rows: T[]): 
   return rows.filter((r) => keep.has(r.id));
 }
 
+/** Mint a share link (used by the CRUD route and full-export). Token returned once. */
+export async function createShareLink(
+  db: D1Database,
+  orgId: string,
+  label: string,
+  scope: ShareScope,
+  expiresAt: string,
+): Promise<{ id: string; token: string }> {
+  const id = newId("sh");
+  const token = newToken();
+  await db.prepare(
+    "INSERT INTO share_links (id, org_id, token_hash, label, scope, created_at, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
+  ).bind(id, orgId, await sha256Hex(token), label, JSON.stringify(scope), nowIso(), expiresAt).run();
+  return { id, token };
+}
+
 // Owner mints a trust link. Token shown ONCE (fragment-only, never logged).
 app.post("/orgs/:orgId/share-links", async (c) => {
   const user = await userFromRequest(c.env.DB, c.req.raw);
@@ -43,11 +59,7 @@ app.post("/orgs/:orgId/share-links", async (c) => {
   if (!allow.ok) return c.json({ error: { code: "plan_limit", message: allow.message } }, 402);
   const scope = body.data.scope ?? { agents: "all", inboxes: "all" };
   const expiresAt = body.data.expires_at ?? new Date(Date.now() + 90 * 86_400_000).toISOString();
-  const id = newId("sh");
-  const token = newToken();
-  await c.env.DB.prepare(
-    "INSERT INTO share_links (id, org_id, token_hash, label, scope, created_at, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
-  ).bind(id, orgId, await sha256Hex(token), body.data.label, JSON.stringify(scope), nowIso(), expiresAt).run();
+  const { id, token } = await createShareLink(c.env.DB, orgId, body.data.label, scope, expiresAt);
   await auditLog(d1AuditDb(c.env.DB), { orgId, actor: `user:${user.id}`, action: "share_link.create", detail: `${id} ${body.data.label}` });
   return c.json({ id, token, url: `/t/${id}#k=${token}` }, 201);
 });
@@ -168,18 +180,22 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
   }
 
   const artRows = await db.prepare(
-    "SELECT id, claimed_sha256, size_bytes, workflow_id, goal, sealed_at, key_fingerprint, signature_check, witness_status, reason FROM artifacts WHERE org_id = ? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 200",
+    "SELECT id, agent_id, claimed_sha256, size_bytes, workflow_id, goal, sealed_at, key_fingerprint, signature_check, witness_status, reason FROM artifacts WHERE org_id = ? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 200",
   ).bind(link.org_id).all();
   const keyRows = await db.prepare("SELECT fingerprint, label, valid_from, revoked_at FROM org_keys WHERE org_id = ? ORDER BY valid_from").bind(link.org_id).all<{
     fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null;
   }>();
+
+  const artifacts = (((artRows.results ?? []) as Array<Record<string, unknown> & { id: string; agent_id: string | null }>)
+    .filter((r) => link.scope.agents === "all" || (r.agent_id !== null && (link.scope.agents as string[]).includes(r.agent_id)))
+    .map((r) => ({ ...r, content_url: `/v1/orgs/${link.org_id}/artifacts/${r.id}/content` })));
 
   return {
     vendor: org?.name ?? "Vendor",
     link_label: link.label,
     agents: agents.map((a) => ({ id: a.id, name: a.name, status: a.status })),
     inboxes: out,
-    artifacts: (artRows.results ?? []) as Array<Record<string, unknown>>,
+    artifacts,
     keys: (keyRows.results ?? []) as Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null }>,
     note: "Counts come from signed daily checkpoints; verification runs in your browser, never on our server.",
   };

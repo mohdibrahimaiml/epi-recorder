@@ -8,8 +8,10 @@ import keys from "./routes/keys.ts";
 import admin from "./routes/admin.ts";
 import inboxes from "./routes/inboxes.ts";
 import shares from "./routes/shares.ts";
+import artifacts from "./routes/artifacts.ts";
 import witness, { witnessKeys } from "./routes/witness.ts";
 import { runCheckpointCron } from "./cron.ts";
+import { purgeExpiredArtifacts } from "./retention.ts";
 
 export { WitnessInbox } from "./do/witness.ts";
 
@@ -47,6 +49,7 @@ app.route("/v1", invites);
 app.route("/v1", keys);
 app.route("/v1", inboxes);
 app.route("/v1", shares);
+app.route("/v1", artifacts);
 app.route("/admin", admin);
 app.route("/w", witness);
 app.get("/.well-known/epi-witness-key.json", (c) => c.json(witnessKeys(c.env)));
@@ -57,7 +60,13 @@ export { app };
 
 async function scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
   ctx.waitUntil(
-    runCheckpointCron(env).then((s) => console.log("checkpoint cron:", JSON.stringify(s))),
+    (async () => {
+      const checkpoints = await runCheckpointCron(env);
+      const purge = await purgeExpiredArtifacts(env);
+      // The single allowed print call in src (see test/log-hygiene):
+      // counts only, never request data.
+      console.log(`scheduled ok: ${checkpoints.checkpoints} checkpoints, ${purge.deleted} purged`);
+    })().catch((err) => console.error("scheduled failed:", err)),
   );
 }
 
