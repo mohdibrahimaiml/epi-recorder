@@ -118,12 +118,11 @@
     document.querySelectorAll('[data-artifact]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var f = (currentDoc.artifacts || [])[Number(btn.getAttribute('data-artifact'))];
-        var url = f && (f.content_url || f.download_url);
-        if (!f || !url) return;
+        if (!f || !f.download_url) return;
         var box = btn.closest('.tier').querySelector('.vresult');
         box.style.display = '';
         box.innerHTML = '<span style="color:var(--dim)">Fetching shared bytes…</span>';
-        fetch(url, { credentials: 'same-origin', headers: { 'X-EPI-Share-Token': TOKEN } }).then(function (res) {
+        fetch(f.download_url, { credentials: 'same-origin' }).then(function (res) {
           if (!res.ok) throw new Error('HTTP ' + res.status);
           return res.blob();
         }).then(function (blob) {
