@@ -280,3 +280,123 @@ def status(
     except Exception as exc:
         console.print(f"[red][FAIL][/red] Status failed: {escape(str(exc))}")
         raise typer.Exit(1) from exc
+
+
+storage_app = typer.Typer(help="Customer-owned bucket: target, probe, outbox.")
+app.add_typer(storage_app, name="storage")
+
+
+@storage_app.command("show")
+def storage_show(
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """Show the registered customer bucket and the local upload outbox."""
+    from epi_core.storage_sink import pending_uploads, storage_outbox_path
+
+    creds = resolve_creds(url, org, api_key)
+    try:
+        with _client(creds) as client:
+            res = client.get(f"/v1/orgs/{creds['org']}/storage-target")
+            res.raise_for_status()
+            target = res.json().get("target")
+            if not target:
+                console.print("[dim]No bucket registered. Set one with:[/dim]")
+                console.print("[cyan]epi cloud storage set --url s3://bucket/prefix[/cyan]")
+            else:
+                console.print("[bold]Customer bucket[/bold]")
+                for field in ("kind", "endpoint", "bucket", "region", "prefix",
+                              "object_lock", "last_check_at", "last_check_ok"):
+                    console.print(f"  {field}: {escape(str(target.get(field)))}")
+                console.print("[dim]Object Lock is vendor-reported.[/dim]")
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Show failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    pending = pending_uploads()
+    console.print(f"[dim]Local outbox ({storage_outbox_path()}): {len(pending)} pending.[/dim]")
+
+
+@storage_app.command("set")
+def storage_set(
+    url: str = typer.Argument(..., help="s3://bucket[/prefix]."),
+    endpoint: str | None = typer.Option(None, "--endpoint", help="Custom endpoint (MinIO/R2/GCS)."),
+    region: str | None = typer.Option(None, "--region", help="Region (default us-east-1)."),
+    object_lock: str = typer.Option(
+        "unknown", "--object-lock", help="on|off|unknown (self-attested)."
+    ),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+    cloud_url: str | None = typer.Option(None, "--url"),
+) -> None:
+    """Register the customer-owned bucket (no credentials leave this machine)."""
+    from epi_core.storage_sink import parse_storage_url
+
+    if object_lock not in ("on", "off", "unknown"):
+        console.print("[red][FAIL][/red] --object-lock must be on|off|unknown.")
+        raise typer.Exit(2)
+    try:
+        target = parse_storage_url(url, region=region, endpoint=endpoint)
+    except ValueError as exc:
+        console.print(f"[red][FAIL][/red] {escape(str(exc))}")
+        raise typer.Exit(2) from exc
+    creds = resolve_creds(cloud_url, org, api_key)
+    try:
+        with _client(creds) as client:
+            res = client.put(
+                f"/v1/orgs/{creds['org']}/storage-target",
+                json={
+                    "kind": "r2" if "r2.cloudflarestorage.com" in target.endpoint else "s3",
+                    "endpoint": target.endpoint,
+                    "bucket": target.bucket,
+                    "region": target.region,
+                    "prefix": target.prefix or None,
+                    "object_lock": object_lock,
+                },
+            )
+            res.raise_for_status()
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Set failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green][OK][/green] Bucket registered: {target.bucket} ({target.endpoint}).")
+    console.print("[dim]Credentials stay in your environment; EPI Cloud never sees them.[/dim]")
+
+
+@storage_app.command("test")
+def storage_test() -> None:
+    """Probe write access: PUTs and re-reads one tiny object (fixed key)."""
+    import hashlib
+    import os
+
+    from epi_core.storage_sink import load_credentials, parse_storage_url, put_object
+
+    raw_url = os.getenv("EPI_STORAGE_URL", "")
+    if not raw_url:
+        console.print("[red][FAIL][/red] EPI_STORAGE_URL is not set.")
+        raise typer.Exit(2)
+    try:
+        target = parse_storage_url(raw_url)
+        creds = load_credentials()
+        probe = b"epi-cloud-storage-probe"
+        key = "epi-cloud-probe.txt"
+        put_object(probe, key, target, creds)
+        digest = hashlib.sha256(probe).hexdigest()
+        console.print(f"[green][OK][/green] Wrote probe object {key} (sha256 {digest[:16]}...).")
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Probe failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+
+@storage_app.command("flush")
+def storage_flush() -> None:
+    """Retry every queued customer-bucket upload."""
+    from epi_core.storage_sink import flush_storage_outbox, pending_uploads
+
+    if not pending_uploads():
+        console.print("[dim]Nothing pending — every file reached the customer bucket.[/dim]")
+        return
+    result = flush_storage_outbox()
+    console.print(f"[dim]Delivered {result['delivered']}, failed {result['failed']}.[/dim]")
+    if result["failed"]:
+        console.print("[dim]Fix the bucket/credentials/network and flush again.[/dim]")
+        raise typer.Exit(1)
