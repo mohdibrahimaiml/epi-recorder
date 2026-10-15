@@ -40,16 +40,23 @@ Evidence Rooms. Witness-first is what makes $0 viable.
 
 ## 4. Founder setup (free)
 
+> Run every `wrangler` command below from the repo root with
+> `--config cloud/wrangler.toml`. Without it, wrangler picks up the repo-root
+> `wrangler.jsonc` (a different Worker, `epi-recorder`) and your D1, R2, and
+> secrets land in the wrong place. CI always passes `--config` explicitly.
+
 1. Cloudflare account + card (R2 requires it; $0 within limits).
-2. `wrangler d1 create epi-cloud` → paste `database_id` into `cloud/wrangler.toml`
-   (replaces the `TODO-...` placeholder), then `wrangler d1 execute epi-cloud
+2. `wrangler --config cloud/wrangler.toml d1 create epi-cloud` → paste `database_id`
+   into `cloud/wrangler.toml` (replaces the `TODO-...` placeholder), then
+   `wrangler --config cloud/wrangler.toml d1 execute epi-cloud
    --file=cloud/migrations/0001_init.sql`.
-3. `wrangler r2 bucket create epi-cloud-room`.
+3. `wrangler --config cloud/wrangler.toml r2 bucket create epi-cloud-room`.
 4. OAuth apps: GitHub (Settings → Developer settings → OAuth Apps) and Google
    (Console → Credentials → OAuth client, web). Callbacks:
    `https://cloud.epilabs.org/auth/github/callback` and
    `https://cloud.epilabs.org/auth/google/callback`.
-   Set client IDs/secrets via `wrangler secret put` (never in git):
+   Set client IDs/secrets via `wrangler --config cloud/wrangler.toml secret put`
+   (never in git):
    `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`,
    `GOOGLE_CLIENT_SECRET`, `SESSION_KEY` (random 32 bytes hex),
    `INBOX_SECRET_KEY` (AES-GCM for inbox HMAC secrets, 32 bytes hex),
@@ -70,11 +77,11 @@ CI deploys only from `main` and skips while `database_id` is still the
 Weekly D1 backup to R2 (keep 4). Until the M1 cron ships, run by hand:
 
 ```bash
-wrangler d1 export epi-cloud --output=backup-$(date +%F).sql
+wrangler --config cloud/wrangler.toml d1 export epi-cloud --output=backup-$(date +%F).sql
 # upload to R2 epi-cloud-room/backups/, keep the last 4
 ```
 
-Restore: `wrangler d1 execute epi-cloud --file=backup-<date>.sql`.
+Restore: `wrangler --config cloud/wrangler.toml d1 execute epi-cloud --file=backup-<date>.sql`.
 Document each restore in the PR that performs it.
 
 ## 6. Local dev
@@ -84,7 +91,8 @@ cd cloud
 npm install
 npm test          # vitest unit + route isolation (no Cloudflare account needed)
 npm run typecheck
-wrangler dev      # needs account + real database_id (founder setup above)
+# --local needs no account; add --config when run from the repo root:
+wrangler dev --local --config wrangler.toml
 ```
 
 ## 7. What the server never holds

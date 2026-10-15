@@ -4,6 +4,9 @@
 
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { app } from "../src/index.ts";
 import { hmacHex, sha256Hex } from "../src/lib/crypto.ts";
 import { edKeygen, edVerify, p256Keygen } from "../src/lib/signing.ts";
@@ -21,13 +24,10 @@ function doAdapter(db: DatabaseSync) {
       const p = params as never[];
       if (/^\s*select/i.test(sql) || /returning/i.test(sql)) {
         const stmt = db.prepare(sql);
-        return {
-          toArray: () => stmt.all(...p) as Row[],
-          one: () => (stmt.get(...p) as Row | undefined) ?? undefined,
-        };
+        return { toArray: () => stmt.all(...p) as Row[] };
       }
       db.prepare(sql).run(...p);
-      return { toArray: () => [] as Row[], one: () => undefined };
+      return { toArray: () => [] as Row[] };
     },
   };
 }
@@ -310,6 +310,22 @@ async function setupNsFetch(env: { WITNESS: DurableObjectNamespace }, inboxId: s
   const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName(inboxId));
   return stub.fetch(`https://inbox${path}`);
 }
+
+describe("workerd safety guards", () => {
+  it("the DO never calls cursor .one()/.first() (workerd cursors only have toArray)", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const src = readFileSync(join(root, "src", "do", "witness.ts"), "utf8");
+    expect(src).not.toMatch(/\.one\(\)/);
+    expect(src).not.toMatch(/\.first\(\)/);
+  });
+
+  it("wrangler registers SQLite-backed classes (required, immutable after deploy)", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const toml = readFileSync(join(root, "wrangler.toml"), "utf8");
+    expect(toml).toMatch(/new_sqlite_classes\s*=\s*\["WitnessInbox"\]/);
+    expect(toml).not.toMatch(/new_classes\s*=\s*\["WitnessInbox"\]/);
+  });
+});
 
 describe("checkpoint cron", () => {
   it("signs per-day checkpoints, anchors, stores, and advances the cursor", async () => {
