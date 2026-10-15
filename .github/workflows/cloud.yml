@@ -28,6 +28,49 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # Real-runtime witness test (catches what unit fakes cannot: workerd's
+  # SQLite dialect, DO bindings, migration registration). Boots
+  # `wrangler dev --local` (no account), seeds D1, fires 200 concurrent
+  # signed receipts, and verifies ordering, chain, export, and rejections.
+  workerd-e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    env:
+      CI: "true"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - run: npm ci
+      - run: npx wrangler d1 migrations apply epi-cloud --local --config wrangler.toml
+      - name: Start local worker
+        run: |
+          BOX=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+          echo "E2E_BOX=$BOX" >> "$GITHUB_ENV"
+          npx wrangler dev --local --port 18788 --config wrangler.toml \
+            --var "INBOX_SECRET_KEY:$BOX" > ../dev.log 2>&1 &
+          echo $! > ../dev.pid
+      - name: Wait for worker
+        run: |
+          for i in $(seq 1 36); do
+            curl -sf http://127.0.0.1:18788/health && break || sleep 5
+          done
+          curl -sf http://127.0.0.1:18788/health
+      - name: Seed, burst, verify
+        run: E2E_INBOX_SECRET_KEY="$E2E_BOX" E2E_BASE=http://127.0.0.1:18788 node test/e2e/witness-burst.mjs
+      - name: Stop worker and show logs on failure
+        if: always()
+        run: |
+          kill "$(cat ../dev.pid)" 2>/dev/null || true
+          if [ "${{ job.status }}" != "success" ]; then cat ../dev.log; fi
+
   deploy:
     needs: test
     if: github.ref == 'refs/heads/main'

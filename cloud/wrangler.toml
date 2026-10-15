@@ -34,7 +34,7 @@ class_name = "WitnessInbox"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["WitnessInbox"]
+new_sqlite_classes = ["WitnessInbox"]
 
 [triggers]
 crons = ["5 0 * * *"]
