@@ -7,6 +7,7 @@ import invites from "./routes/invites.ts";
 import keys from "./routes/keys.ts";
 import admin from "./routes/admin.ts";
 import inboxes from "./routes/inboxes.ts";
+import shares from "./routes/shares.ts";
 import witness, { witnessKeys } from "./routes/witness.ts";
 import { runCheckpointCron } from "./cron.ts";
 
@@ -45,6 +46,7 @@ app.route("/v1/orgs", orgs);
 app.route("/v1", invites);
 app.route("/v1", keys);
 app.route("/v1", inboxes);
+app.route("/v1", shares);
 app.route("/admin", admin);
 app.route("/w", witness);
 app.get("/.well-known/epi-witness-key.json", (c) => c.json(witnessKeys(c.env)));

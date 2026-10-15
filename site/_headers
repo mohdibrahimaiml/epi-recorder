@@ -7,6 +7,10 @@
 # LF-normalized inline script text (the HTML parser normalizes CRLF to LF
 # before CSP hashing). Re-run the builder after any website/ change that
 # touches inline scripts.
+# Trust pages (M2): never indexed, never leak a referrer (tokens in #k=).
+/t/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
