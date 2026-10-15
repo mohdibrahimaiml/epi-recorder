@@ -1,7 +1,8 @@
 // Real-runtime witness e2e (runs against `wrangler dev --local`).
 // Seeds D1 directly, sends 200 concurrent signed receipts, and asserts:
-// 200×202 with seqs 1..200, an intact recomputed chain, byte-identical
-// export, plus 401/400 rejections. Exits non-zero on any failure.
+// 200×202 with seqs exactly 1..200 (arrival-ordered), an intact recomputed
+// chain over the committed payload set, byte-identical export, plus 401/400
+// rejections. Exits non-zero on any failure.
 //
 // Env: E2E_BASE (default http://127.0.0.1:18787),
 //      E2E_INBOX_SECRET_KEY (32-byte hex, also passed to wrangler --var).
@@ -95,30 +96,27 @@ async function main() {
   );
   const bad = posts.filter((p) => p.status !== 202);
   if (bad.length) fail(`${bad.length} receipts not 202 (first: ${JSON.stringify(bad[0])})`);
+  // Seqs must be exactly 1..N with no gaps or dupes. They need NOT match
+  // submission order: concurrent appends serialize in arrival order.
   const seqs = posts.map((p) => p.seq).sort((a, b) => a - b);
-  if (seqs.length !== N || seqs.some((s, i) => s !== i + 1)) fail(`seqs not 1..${N}`);
-  console.log(`receipts: ${N}x202, seqs 1..${N} in order`);
+  if (seqs.length !== N || seqs.some((s, i) => s !== i + 1)) fail(`seqs not exactly 1..${N}`);
+  console.log(`receipts: ${N}x202, seqs exactly 1..${N} (arrival-ordered)`);
 
   const cookie = { Cookie: `epi_session=${SESSION_RAW}` };
+  const chainText = await (await fetch(`${BASE}/w/${INBOX}/chain.jsonl`, { headers: cookie })).text();
+  const envelopes = chainText.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const bySeq = new Map(envelopes.map((e) => [e.seq, e.payload_raw]));
+  const sentSet = new Set(payloads);
+  if (bySeq.size !== N || [...bySeq.values()].some((p) => !sentSet.has(p))) {
+    fail("chain payloads do not match the sent set");
+  }
+  // Export must equal the committed log order (chain order), not send order.
   const expRes = await fetch(`${BASE}/w/${INBOX}/export.jsonl`, { headers: cookie });
   if (expRes.status !== 200) fail(`export status ${expRes.status}`);
   const expText = await expRes.text();
-  const wantText = payloads.join("\n") + "\n";
-  if (expText !== wantText) {
-    const gotLines = expText.split("\n");
-    console.error(`export lines: ${gotLines.length - 1}, want: ${payloads.length}`);
-    for (let i = 0; i < Math.max(gotLines.length, payloads.length); i++) {
-      if (gotLines[i] !== payloads[i]) {
-        console.error(`first diff at line ${i}: got ${JSON.stringify((gotLines[i] ?? "").slice(0, 120))} want ${JSON.stringify((payloads[i] ?? "").slice(0, 120))}`);
-        break;
-      }
-    }
-    fail("export.jsonl differs from payloads");
-  }
-  console.log("export: byte-identical to sent payloads");
-
-  const chainText = await (await fetch(`${BASE}/w/${INBOX}/chain.jsonl`, { headers: cookie })).text();
-  const envelopes = chainText.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const wantText = envelopes.map((e) => e.payload_raw).join("\n") + "\n";
+  if (expText !== wantText) fail("export.jsonl differs from the committed chain order");
+  console.log("export: byte-identical to the committed chain");
   let prev = "GENESIS";
   for (const e of envelopes) {
     if (e.prev_hash !== prev) fail(`chain link broken at seq ${e.seq}`);
