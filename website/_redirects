@@ -35,5 +35,12 @@
 /enterprise/ /enterprise 301
 /enterprise/index.html /enterprise 301
 #
+# DEMO trust page (WP-DEMO-TRUST): static /t/acme-demo. Identity rules so
+# a later /t/* splat cannot steal demo.js / demo-data.json.
+/t/acme-demo /t/acme-demo/ 301
+/t/acme-demo/demo.js /t/acme-demo/demo.js 200
+/t/acme-demo/demo-data.json /t/acme-demo/demo-data.json 200
+/t/acme-demo/* /t/acme-demo/:splat 200
+#
 # Optional: force apex (uncomment if needed and not handled in CF dashboard)
 # https://www.epilabs.org/* https://epilabs.org/:splat 301
