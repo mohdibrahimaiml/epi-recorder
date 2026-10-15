@@ -267,3 +267,51 @@ def test_record_survives_dead_storage(monkeypatch, tmp_path: Path):
     out = _sealed_run(monkeypatch, tmp_path, tmp_path / "run.epi")
     assert out.is_file()  # seal succeeds; the upload waits in the outbox
     assert sink.pending_uploads() != []
+
+
+def _sealed_bytes(out: Path) -> tuple[str, bytes]:
+    import hashlib
+
+    raw = out.read_bytes()
+    return hashlib.sha256(raw).hexdigest(), raw
+
+
+def test_queued_uploads_flush_on_next_healthy_seal(monkeypatch, tmp_path: Path):
+    """Outage → 2 runs queued → storage back → 1 run → all 3 land, queue empty."""
+    import socket
+    import threading
+    from http.server import ThreadingHTTPServer
+
+    from epi_core import storage_sink as sink
+
+    _hermetic(monkeypatch, tmp_path)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        port = int(s.getsockname()[1])
+    base = f"http://127.0.0.1:{port}"
+    monkeypatch.setenv("EPI_STORAGE_URL", "s3://mybucket/runs")
+    monkeypatch.setenv("EPI_STORAGE_ENDPOINT", base)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKID")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
+    monkeypatch.setenv("EPI_STORAGE_TIMEOUT", "5")
+
+    # Storage down: two seals succeed and queue.
+    sealed: list[tuple[str, bytes]] = []
+    for i in range(2):
+        out = _sealed_run(monkeypatch, tmp_path, tmp_path / f"down-{i}.epi")
+        sealed.append(_sealed_bytes(out))
+    assert len(sink.pending_uploads()) == 2
+
+    # Storage back on the same endpoint: the next seal piggybacks the queue.
+    state = VerifyingStubState("AKID", "SECRET")
+    server = ThreadingHTTPServer(("127.0.0.1", port), _make_stub(state))
+    server.allow_reuse_address = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        out = _sealed_run(monkeypatch, tmp_path, tmp_path / "up.epi")
+        sealed.append(_sealed_bytes(out))
+        for digest, raw in sealed:
+            assert state.objects.get(f"/mybucket/runs/{digest}.epi") == raw
+        assert sink.pending_uploads() == []
+    finally:
+        server.shutdown()

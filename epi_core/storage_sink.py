@@ -334,7 +334,7 @@ def pending_uploads(path: Path | None = None) -> list[dict]:
     return [e for e in _read_outbox(target) if e.get("pending")]
 
 
-def _deliver_entry(entry: dict) -> None:
+def _deliver_entry(entry: dict, *, timeout_seconds: int = 30) -> None:
     local = Path(entry["local_path"])
     data = local.read_bytes()
     if hashlib.sha256(data).hexdigest() != entry["file_sha256"]:
@@ -345,19 +345,29 @@ def _deliver_entry(entry: dict) -> None:
         prefix=entry.get("prefix", ""),
         region=entry["region"],
     )
-    put_object(data, entry["dest_key"], target, load_credentials())
+    put_object(data, entry["dest_key"], target, load_credentials(), timeout_seconds=timeout_seconds)
 
 
-def flush_storage_outbox(path: Path | None = None) -> dict[str, int]:
-    """Upload every pending entry. Returns counts; failures stay queued."""
+def flush_storage_outbox(
+    path: Path | None = None, *, timeout_seconds: float = 30, deadline: float | None = None
+) -> dict[str, int]:
+    """Upload every pending entry. Returns counts; failures stay queued.
+
+    Stops early past `deadline` (monotonic seconds) so a piggyback flush on
+    the seal path can never slow recording past its budget.
+    """
+    import time as _time
+
     target = Path(path) if path else storage_outbox_path()
     entries = _read_outbox(target)
     delivered, failed = 0, 0
     for entry in entries:
         if not entry.get("pending"):
             continue
+        if deadline is not None and _time.monotonic() >= deadline:
+            break
         try:
-            _deliver_entry(entry)
+            _deliver_entry(entry, timeout_seconds=max(1, int(timeout_seconds)))
             entry["pending"] = False
             delivered += 1
         except Exception as exc:
@@ -420,6 +430,10 @@ def store_customer_copy(
     """
     del workflow_id
     try:
+        import time as _time
+
+        budget = _storage_timeout()
+        started = _time.monotonic()
         url = storage_url if storage_url is not None else os.getenv(STORAGE_URL_ENV, "")
         if not url:
             return {"stored": False, "reason": "not-configured"}
@@ -438,12 +452,21 @@ def store_customer_copy(
 
         thread = threading.Thread(target=_run, name="epi-storage-upload", daemon=True)
         thread.start()
-        thread.join(timeout=_storage_timeout())
+        thread.join(timeout=budget)
         if outcome.get("delivered"):
             entries = _read_outbox(storage_outbox_path())
             kept = [e for e in entries if e.get("id") != entry["id"]]
             _rewrite_outbox(kept, storage_outbox_path())
-            _report_heartbeat(True, 1)
+            # Piggyback: a healthy seal also retries older queued uploads,
+            # so files stop needing a manual flush. Bounded by the same
+            # budget; the seal never fails because of it.
+            remaining = budget - (_time.monotonic() - started)
+            flushed = {"delivered": 0, "failed": 0}
+            if remaining > 1:
+                flushed = flush_storage_outbox(
+                    timeout_seconds=remaining, deadline=started + budget
+                )
+            _report_heartbeat(True, 1 + flushed["delivered"])
             return {"stored": True, "key": entry["dest_key"]}
         _report_heartbeat(False, len(pending_uploads()))
         return {"stored": False, "reason": "queued: still in flight or unreachable"}
