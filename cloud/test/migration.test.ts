@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const schema = readFileSync(join(root, "migrations", "0001_init.sql"), "utf8");
+
+function migrationFiles(): string[] {
+  return readdirSync(join(root, "migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => join(root, "migrations", f));
+}
 
 const TABLES = [
   "orgs", "users", "identities", "memberships", "invites", "sessions",
@@ -15,7 +21,7 @@ const TABLES = [
 
 function openDb(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
-  db.exec(schema);
+  for (const file of migrationFiles()) db.exec(readFileSync(file, "utf8"));
   return db;
 }
 
@@ -53,6 +59,14 @@ describe("0001_init.sql", () => {
     const row = db.prepare("SELECT prev_hash, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1").get() as { prev_hash: string; entry_hash: string };
     expect(row.prev_hash).toBe("GENESIS");
     expect(row.entry_hash).toBe("H1");
+    db.close();
+  });
+
+  it("0002 adds vendor-reported object_lock to storage_targets", () => {
+    const db = openDb();
+    db.prepare("INSERT INTO storage_targets (org_id, kind, endpoint, bucket) VALUES ('o1','s3','https://s3.example','b')").run();
+    const row = db.prepare("SELECT object_lock FROM storage_targets WHERE org_id = 'o1'").get() as { object_lock: string };
+    expect(row.object_lock).toBe("unknown");
     db.close();
   });
 });

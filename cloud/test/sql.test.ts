@@ -61,9 +61,10 @@ function extractSql(source: string): string[] {
 
 describe("route SQL prepares against the migration schema", () => {
   it("EXPLAINs every static statement (tables + columns must exist)", () => {
-    const schema = readFileSync(join(root, "migrations", "0001_init.sql"), "utf8");
+    const dir = join(root, "migrations");
+    const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
     const db = new DatabaseSync(":memory:");
-    db.exec(schema);
+    for (const f of files) db.exec(readFileSync(join(dir, f), "utf8"));
     const stmts: Array<{ file: string; sql: string }> = [];
     for (const file of tsFiles(join(root, "src"))) {
       for (const sql of extractSql(readFileSync(file, "utf8"))) {

@@ -787,6 +787,7 @@ class EpiRecorderSession:
         witness_url: Optional[str] = None,
         witness_secret: Optional[str] = None,
         witness_include_goal: bool = False,
+        storage_url: Optional[str] = None,
     ):
         """
         Initialize EPI recording session.
@@ -818,6 +819,9 @@ class EpiRecorderSession:
                 (EPI_WITNESS_SECRET fallback). Never persisted; flush re-reads it.
             witness_include_goal: Include the run goal in the witness payload
                 (default False — goals may be sensitive; hashes suffice).
+            storage_url: Customer-owned bucket for every sealed `.epi`
+                (`s3://bucket[/prefix]`; EPI_STORAGE_URL fallback, endpoint via
+                EPI_STORAGE_ENDPOINT). Uploaded outbox-first; never fails/slows seal.
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -870,6 +874,11 @@ class EpiRecorderSession:
         self.witness_url = witness_url if witness_url is not None else os.getenv("EPI_WITNESS_URL")
         self.witness_secret = witness_secret if witness_secret is not None else os.getenv("EPI_WITNESS_SECRET")
         self.witness_include_goal = bool(witness_include_goal)
+
+        # Customer-owned storage (docs/STORAGE.md): every sealed `.epi` also
+        # goes to the customer's own S3-compatible bucket. Explicit param
+        # wins, then EPI_STORAGE_URL env. Empty means no customer bucket.
+        self.storage_url = storage_url if storage_url is not None else os.getenv("EPI_STORAGE_URL")
 
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
@@ -1037,6 +1046,10 @@ class EpiRecorderSession:
             # customer controls. Never fails or slows the seal (outbox +
             # daemon thread, bounded wait).
             self._witness_seal(signed)
+
+            # Customer-owned storage: full `.epi` to the customer's own
+            # bucket. Outbox-first, same guarantee as the witness.
+            self._store_customer_copy()
 
             # Privacy-first opt-in telemetry: record that an artifact was created.
             # This is a no-op unless the user ran `epi telemetry enable`.
@@ -1716,6 +1729,21 @@ class EpiRecorderSession:
         except Exception:
             pass
 
+    def _store_customer_copy(self) -> None:
+        """Upload the sealed file to the customer's own bucket, if configured.
+
+        Outbox-first with a bounded background delivery, so this never fails
+        or slows the seal. EPI Cloud never sees these bytes or credentials.
+        """
+        try:
+            if not getattr(self, "storage_url", None):
+                return
+            from epi_core.storage_sink import store_customer_copy
+
+            store_customer_copy(str(self.output_path), storage_url=self.storage_url)
+        except Exception:
+            pass
+
     def _capture_environment(self) -> None:
         """Capture environment snapshot and save to temp directory."""
         try:
@@ -2031,6 +2059,7 @@ def record(
     witness_url: Optional[str] = None,
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
+    storage_url: Optional[str] = None,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -2051,6 +2080,9 @@ def record(
         witness_url: Customer witness endpoint(s), comma-separated (EPI_WITNESS_URL fallback)
         witness_secret: HMAC secret for witness delivery (EPI_WITNESS_SECRET fallback)
         witness_include_goal: Include the goal in the witness payload (default False)
+        storage_url: Customer-owned bucket (s3://bucket[/prefix]) for every
+            sealed `.epi` (EPI_STORAGE_URL fallback, endpoint via
+            EPI_STORAGE_ENDPOINT). Outbox-first; never fails/slows the seal.
         **kwargs: Additional arguments (backward compatibility)
         
     Returns:
@@ -2115,6 +2147,7 @@ def record(
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
+            storage_url=storage_url,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -2178,6 +2211,7 @@ def record(
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
+            storage_url=storage_url,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

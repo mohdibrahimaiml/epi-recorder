@@ -163,6 +163,7 @@ test = [
     "opentelemetry-sdk>=1.25.0",
     "wrapt>=1.16.0",
     "anyio",
+    "boto3>=1.34.0",  # S3 interop tests (bucket setup + independent read-back)
     "agentrust-trace>=0.9.0",
     "agentrust-trace-tests>=0.5.1",
     "mcp>=2.0",

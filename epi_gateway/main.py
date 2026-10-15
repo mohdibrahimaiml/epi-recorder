@@ -1809,6 +1809,15 @@ def create_app(
             except Exception as exc:
                 logger.warning("Case export witness failed: %s", exc)
 
+        # Customer-owned storage on export: full `.epi` to the customer's
+        # own bucket (EPI_STORAGE_URL). Outbox-first; never fails the export.
+        try:
+            from epi_core.storage_sink import store_customer_copy
+
+            store_customer_copy(str(result.output_path))
+        except Exception as exc:
+            logger.warning("Case export storage upload failed: %s", exc)
+
         return FileResponse(
             path=result.output_path,
             media_type=EPIContainer.container_mimetype(result.output_path),

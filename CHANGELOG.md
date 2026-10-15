@@ -4,6 +4,16 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+- **Customer-owned storage (M4).** Every sealed `.epi` can also go straight
+  to the vendor's own S3-compatible bucket (`EPI_STORAGE_URL=s3://bucket/prefix`,
+  endpoint override for MinIO/R2/GCS, credentials from AWS env/profile).
+  Outbox-first with bounded background delivery: sealing never fails or slows
+  down, offline seals queue and `epi cloud storage flush` retries. EPI Cloud
+  never sees these bytes or credentials — it only shows the recorder's
+  health heartbeat as vendor-reported. New: `epi cloud storage
+  show|set|test|flush`, `docs/STORAGE.md` (write-only bucket policy,
+  Object Lock guidance).
+
 ## [4.6.1] - 2026-10-13
 
 ### Security
