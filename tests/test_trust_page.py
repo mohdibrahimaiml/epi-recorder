@@ -340,3 +340,29 @@ def test_token_never_reaches_server_logs(servers, page) -> None:
         assert TOKEN not in r["body"].decode("utf-8", "ignore"), "token leaked into body"
         assert "#" not in r["path"], "fragment must never be sent"
         assert r["headers"].get("X-EPI-Share-Token") in (TOKEN, None)
+
+
+def test_demo_gate_hides_evidence_until_click(page) -> None:
+    """Scanners that load /t/acme-demo without a click see no evidence."""
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler
+
+    handler = partial(SimpleHTTPRequestHandler, directory=str(REPO / "website"))
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{httpd.server_port}"
+    fetched: list[str] = []
+    page.on("request", lambda req: fetched.append(req.url))
+    try:
+        page.goto(f"{base}/t/acme-demo/", wait_until="domcontentloaded")
+        page.wait_for_timeout(800)
+        assert page.is_visible("#gateBtn")
+        assert page.locator("#demoContent").is_hidden()
+        assert not any("demo-data.json" in u for u in fetched)
+        page.click("#gateBtn")
+        page.wait_for_selector("#demoContent", state="visible", timeout=10000)
+        assert "DEMO" in page.inner_text("#demoContent")
+        assert any("demo-data.json" in u for u in fetched)
+        assert not any("/v1/trust" in u for u in fetched)
+    finally:
+        httpd.shutdown()

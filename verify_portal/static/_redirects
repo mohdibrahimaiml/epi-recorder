@@ -35,6 +35,13 @@
 /enterprise/ /enterprise 301
 /enterprise/index.html /enterprise 301
 #
+# DEMO trust page: static /t/acme-demo. Identity rules so
+# the /t/* splat below cannot steal demo.js / demo-data.json.
+/t/acme-demo /t/acme-demo/ 301
+/t/acme-demo/demo.js /t/acme-demo/demo.js 200
+/t/acme-demo/demo-data.json /t/acme-demo/demo-data.json 200
+/t/acme-demo/* /t/acme-demo/:splat 200
+#
 # Trust pages (M2): pretty /t/{slug} links render one static shell
 # (website/t/app/index.html); the shell reads the slug from the path and the
 # token from the #k= fragment. Notes from pages-dev verification:
@@ -43,8 +50,6 @@
 # - rewrites win over static files, so every real file under /t/ needs its
 #   own identity rule above the splat (self-rewrites terminate).
 /t/app.js /t/app.js 200
-/t/acme-demo /t/acme-demo/ 301
-/t/acme-demo/* /t/acme-demo/:splat 200
 /t/* /t/app/ 200
 #
 # Optional: force apex (uncomment if needed and not handled in CF dashboard)

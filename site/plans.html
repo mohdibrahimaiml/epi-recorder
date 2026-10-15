@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Plans &amp; Pricing — EPI Labs</title>
-<meta name="description" content="Hosted and Team plans for sealed AI agent evidence. Country-localized pricing, monthly or yearly billing, checkout by Paddle, founder-led sprints, and enterprise pilots.">
+<meta name="description" content="Open-source sealing and verification stay free. Design Partner Program (5 places, founding price locked when you join) and EPI Cloud private beta.">
 <link rel="canonical" href="https://epilabs.org/plans">
 <meta property="og:title" content="Plans &amp; Pricing — EPI Labs">
-<meta property="og:description" content="Hosted and Team plans for sealed AI agent evidence. Self-serve checkout by Paddle, $1,500 sprints, and enterprise scopes.">
+<meta property="og:description" content="Open source is free. Design Partner Program: 5 places. EPI Cloud is in private beta. Verification is never charged.">
 <meta property="og:image" content="https://epilabs.org/assets/logo.png">
 <meta name="theme-color" content="#F7F5F0">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -80,80 +80,61 @@
 <div class="page in" data-aos="fade-up">
 
 <!-- Hero -->
-<span class="tag">Plans &amp; Pricing · Checkout by Paddle</span>
-<h1 class="d2x">Pick your evidence plan</h1>
-<p class="lede">Every tier seals runs into portable <code class="k">.epi</code> files — Ed25519-signed, offline-verifiable, yours forever. Self-serve subscription, founder-led sprint, or custom enterprise pilot.</p>
-
-<!-- Self-Serve SaaS Tiers -->
-<div style="margin-top:40px">
-  <div class="country-row">
-    <label for="countrySel">Show prices for:</label>
-    <select id="countrySel"></select>
-  </div>
-  <div style="text-align:center">
-    <div class="bill-toggle" role="tablist" aria-label="Billing frequency">
-      <button type="button" id="btnMonth" class="on" data-freq="month">Monthly</button>
-      <button type="button" id="btnYear" data-freq="year">Yearly<span class="save-badge">2 months free</span></button>
-    </div>
-  </div>
-  <div class="pstatus" id="pStatus" role="status" aria-live="polite">Loading prices…</div>
-  <div class="plans-grid" id="tiersGrid"><!-- Dynamic Paddle tiers render here --></div>
-  <p style="text-align:center;margin-top:24px;font-size:.82rem;color:var(--dim)">
-    Payments and tax compliance handled by Paddle (Merchant of Record). Cancel anytime from your customer portal.
-  </p>
-</div>
-
-<div class="section-divider"></div>
-
-<!-- Founder-Led Sprints & Custom Pilots -->
-<span class="tag">Custom &amp; Enterprise · Founder-led</span>
-<h2 style="margin-top:8px">Founder-led sprints &amp; custom pilots</h2>
-<p style="font-size:.95rem;color:var(--mut);line-height:1.75;max-width:750px">If you sell agents into finance, healthcare, or government, procurement asks <em>"prove what your agent actually did."</em> Logs don't survive that question. A sealed <code class="k">.epi</code> does: every run ships with an Ed25519-signed evidence file — hash-chained on the SDK path, manifest-declared on the gateway path — your customer's auditor verifies offline, with open tools. <strong style="color:var(--body)">The evidence outlives your contract with them.</strong></p>
+<span class="tag">Plans &amp; Pricing · Design partners · Private beta</span>
+<h1 class="d2x">Open source stays free. Cloud is private beta.</h1>
+<p class="lede">Recorder, sealing, <code class="k">.epi</code>, the viewer, the gateway, and <code class="k">epi verify</code> stay free. Verification is never limited or charged. What we sell is help getting agents approved by banks, insurers, and auditors faster — starting with five design partners.</p>
 
 <div class="plans stagger" style="margin:28px 0 40px">
   <div class="plan in" data-aos="fade-up">
-    <h3>Open Source</h3>
+    <h3>Open source</h3>
     <div class="pr">$0</div>
-    <div class="pn">Free forever · MIT</div>
-    <p>Verification will never cost money. That's the point.</p>
+    <div class="pn">MIT · verification never billed</div>
+    <p>The product you can run offline without EPI Labs. That does not change.</p>
     <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
       <li>Recorder, verifier, viewer, <code class="k">.epi</code> format</li>
-      <li>Ed25519 seal + offline <code class="k">epi verify</code></li>
-      <li>CLI &amp; Python SDK</li>
-      <li>Annex, notarization, GitHub Action</li>
+      <li>Ed25519 seal + <code class="k">epi verify FILE --policy strict --witness-log received.jsonl --offline</code></li>
+      <li>CLI &amp; Python SDK, gateway, integrations</li>
     </ul>
     <a class="btn btn-sec" href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">pip install epi-recorder</a>
   </div>
 
   <div class="plan feat in" data-aos="fade-up">
-    <span class="flag">Available now · 3 slots / mo</span>
-    <h3>Agent Evidence Sprint</h3>
-    <div class="pr">$1,500</div>
-    <div class="pn">Five days · one workflow</div>
-    <p>Your enterprise deals stall on &ldquo;prove what your agent did.&rdquo; This is the answer, in a week.</p>
+    <span class="flag">5 places</span>
+    <h3>Design Partner Program</h3>
+    <div class="pr" style="font-size:1.35rem;padding-top:12px">Founding price</div>
+    <div class="pn">Locked when you join</div>
+    <p>For AI vendors selling into a regulated customer who asked &ldquo;prove what the agent did.&rdquo; Founder instruments one workflow. Founding price is set in writing when you join — not published as a menu.</p>
     <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
-      <li>One production-shaped agent path instrumented</li>
-      <li>Sealed, signed <code class="k">.epi</code> evidence you keep</li>
-      <li>Offline verify walkthrough for your team</li>
-      <li>Written findings + recommendations</li>
-      <li>Founder-led — not a ticket queue</li>
+      <li>Five places. No &ldquo;places left&rdquo; counter.</li>
+      <li>Founding price locked for that partner</li>
+      <li>Direct feedback calls; logo and case study only with their approval</li>
     </ul>
-    <button type="button" class="btn btn-pri" data-sprint-checkout>Book a sprint — $1,500</button>
-    <span style="display:block;margin-top:8px;font-size:.74rem;color:var(--dim)">or <a href="mailto:mohdibrahim@epilabs.org?subject=Agent%20Evidence%20Sprint%20(%241%2C500)" style="color:var(--acc)">email directly</a></span>
+    <a class="btn btn-pri" href="mailto:mohdibrahim@epilabs.org?subject=Design%20partner&amp;body=Company%3A%0AWhat%20your%20agent%20does%3A%0AWho%20your%20regulated%20customer%20is%3A">Ask for a place</a>
   </div>
 
   <div class="plan in" data-aos="fade-up">
-    <h3>Custom Scope &amp; Pilots</h3>
-    <div class="pr" style="font-size:1.35rem;padding-top:12px">From $5K</div>
-    <div class="pn">Scoped with you</div>
-    <p>Org keys, hosted receipts, remote SCITT — scoped to what your auditors actually ask for.</p>
+    <h3>EPI Cloud</h3>
+    <div class="pr" style="font-size:1.35rem;padding-top:12px">Private beta</div>
+    <div class="pn">Not self-serve yet</div>
+    <p>Hosted witness (hash-only receipts), a trust page your reviewer opens, and an Evidence Room for runs you choose to share. Self-serve prices are not listed because checkout is not open.</p>
     <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
-      <li>Org key management &amp; trust bundles</li>
-      <li>Remote SCITT registration</li>
-      <li>Founding pricing + roadmap influence</li>
+      <li>Witness every run; files you keep stay in your bucket</li>
+      <li>Verification stays free in the browser and the CLI</li>
+      <li>The old hosted-verification subscriptions are not for sale</li>
     </ul>
-    <a class="btn btn-sec" href="#contact">Partner inquiry</a>
-    <span style="display:block;margin-top:8px;font-size:.74rem;color:var(--dim)">or <a href="mailto:mohdibrahim@epilabs.org?subject=Design%20partner%20inquiry" style="color:var(--acc)">email directly</a></span>
+    <a class="btn btn-sec" href="mailto:mohdibrahim@epilabs.org?subject=EPI%20Cloud%20private%20beta">Request beta access</a>
+  </div>
+</div>
+
+<div class="plans stagger" style="margin:0 0 40px">
+  <div class="plan in" data-aos="fade-up">
+    <span class="flag">Available now</span>
+    <h3>Agent Evidence Sprint</h3>
+    <div class="pr">$1,500</div>
+    <div class="pn">Five days · one workflow</div>
+    <p>Your deal stalls on &ldquo;prove what your agent did.&rdquo; One production-shaped path instrumented; sealed files you keep; an offline verify walkthrough.</p>
+    <button type="button" class="btn btn-pri" data-sprint-checkout>Book a sprint — $1,500</button>
+    <span style="display:block;margin-top:8px;font-size:.74rem;color:var(--dim)">or <a href="mailto:mohdibrahim@epilabs.org?subject=Agent%20Evidence%20Sprint%20(%241%2C500)" style="color:var(--acc)">email directly</a></span>
   </div>
 </div>
 
@@ -165,20 +146,20 @@
 <h2>Straight answers</h2>
 <div class="rows">
   <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>Why is verification free forever?</h3></div>
-    <div class="an">Cryptographic evidence only works if it's trustless. If you had to pay EPI Labs to verify your own files, it wouldn't be trustless. The CLI is MIT-licensed. That's the spine of the company.</div>
+    <div><h3>Why is verification never charged?</h3></div>
+    <div class="an">A reviewer must be able to check a file without paying EPI Labs or logging into our dashboard. The CLI is MIT-licensed. That is the spine of the company.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
     <div><h3>What do I get in a $1,500 sprint?</h3></div>
     <div class="an">Five focused days with the founder: one agent workflow instrumented end-to-end, sealed artifacts your team can re-verify offline, and a short findings report. Priced against unblocking enterprise deals — not billable hours.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>Is there a free trial?</h3></div>
-    <div class="an">No trial — you are charged at checkout. Cancel anytime with one click in your account portal; Paddle handles pro-rated refunds per their Merchant of Record terms.</div>
+    <div><h3>Is there a free trial of Cloud?</h3></div>
+    <div class="an">Cloud is private beta, not a self-serve checkout. Open-source recording and verification do not need a trial. The $1,500 sprint is billed at purchase (Paddle); refunds follow the refund page.</div>
   </div>
   <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>What is a design partner pilot?</h3></div>
-    <div class="an">Someone whose needs go beyond standard tiers — org keys, hosted receipts, remote SCITT anchoring, or special procurement requirements. Founding pricing, direct roadmap input, engagements from $5K.</div>
+    <div><h3>What is the Design Partner Program?</h3></div>
+    <div class="an">Five places. Founding price locked when you join (set in writing — not a public menu). The founder instruments one workflow. In return: feedback calls, and a logo or case study only if the partner approves.</div>
   </div>
 </div>
 
@@ -188,9 +169,9 @@
 <h2>How working together works</h2>
 <div class="rows">
   <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">01 · Talk</h3></div><div class="an">A 30-minute call — or just email. You describe the agent workflow and who needs to be convinced (auditor, insurer, regulator). We say honestly whether EPI fits. <strong style="color:var(--body)">If it doesn't, we'll tell you.</strong></div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">02 · Pilot or sprint</h3></div><div class="an">Either a $1,500 sprint (one workflow instrumented in five days, sealed evidence you keep) or a $5K design-partner pilot (org keys, hosted receipts, direct roadmap input). Fixed scope, fixed price, no procurement maze.</div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">03 · Prove it internally</h3></div><div class="an">Your team verifies everything offline with open tools — no dashboard login, no vendor trust required. If your auditor can't reproduce it, we haven't finished the job.</div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">04 · Scale</h3></div><div class="an">Design partners move to the Control Plane with founding pricing locked. You shaped it; you keep the terms.</div></div>
+  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">02 · Sprint or design partner</h3></div><div class="an">A $1,500 sprint (one workflow, five days, files you keep) or a Design Partner place (founding price locked when you join). Cloud is private beta — not a checkout page.</div></div>
+  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">03 · Prove it internally</h3></div><div class="an">Your team verifies with open tools — no dashboard login required to trust a seal. If your auditor can't reproduce it, we haven't finished the job.</div></div>
+  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">04 · Scale</h3></div><div class="an">Design partners keep founding terms. Cloud self-serve plans come after beta; verification stays unmetered.</div></div>
 </div>
 
 <!-- Contact Form -->
@@ -228,11 +209,9 @@
   </div>
   <label for="cf-interest">Interested in</label>
   <select id="cf-interest" name="interest">
+    <option>Design Partner Program</option>
+    <option>EPI Cloud private beta</option>
     <option>Agent Evidence Sprint ($1,500)</option>
-    <option>Hosted Plan ($199/mo)</option>
-    <option>Team Plan ($799/mo)</option>
-    <option>Enterprise pilot (From $5K)</option>
-    <option>Underwriting / insurer evaluation</option>
     <option>Something else</option>
   </select>
   <label for="cf-message">What are you trying to prove? <span class="req">*</span></label>
@@ -275,282 +254,6 @@
       document.body.style.overflow = o ? 'hidden' : '';
     });
   }
-
-  /* ── Loud config check ─────────────────────────────────────── */
-  var CFG = window.EPI_PADDLE_CONFIG;
-  function fail(msg){
-    var el = document.getElementById('pStatus');
-    if (el) el.innerHTML = '<span style="color:var(--bad)">CONFIG ERROR: ' + msg + '</span>';
-    console.error(msg);
-  }
-  if(!CFG) { fail('paddle-config.js missing'); return; }
-
-  /* ── State ─────────────────────────────────────────────────── */
-  var freq = 'month';
-  var country = null;
-  var paddle = null;
-  var prices = {};
-
-  var COUNTRIES = [
-    { code: '', label: 'Auto (detect by IP)' },
-    { code: 'US', label: 'United States (USD)' },
-    { code: 'IN', label: 'India (INR)' },
-    { code: 'GB', label: 'United Kingdom (GBP)' },
-    { code: 'EU', label: 'Eurozone (EUR)' },
-    { code: 'CA', label: 'Canada (CAD)' },
-    { code: 'AU', label: 'Australia (AUD)' },
-    { code: 'SG', label: 'Singapore (SGD)' },
-    { code: 'JP', label: 'Japan (JPY)' }
-  ];
-
-  /* ── Render ────────────────────────────────────────────────── */
-  function renderTiers(){
-    var g = document.getElementById('tiersGrid');
-    if (!g) return;
-    g.innerHTML = '';
-    CFG.tiers.forEach(function(t){
-      var d = document.createElement('div');
-      d.className = 'tier in' + (t.featured ? ' featured' : '');
-      d.setAttribute('data-tier', t.name);
-      d.innerHTML =
-        (t.featured ? '<span class="flag">Recommended</span>' : '') +
-        '<h3>' + t.name + '</h3>' +
-        '<div class="tdesc">' + t.description + '</div>' +
-        '<div class="price-line">' +
-          '<span class="amount" data-price-for="' + t.name + '">—</span>' +
-          '<span class="per"> / ' + (freq==='month'?'month':'month, billed yearly') + '</span>' +
-        '</div>' +
-        '<ul>' + t.features.map(function(f){ return '<li>' + f + '</li>'; }).join('') + '</ul>' +
-        '<button type="button" class="btn ' + (t.featured?'btn-pri':'btn-sec') + '" data-buy="' + t.name + '">' +
-          'Subscribe' +
-        '</button>';
-      g.appendChild(d);
-    });
-
-    g.querySelectorAll('[data-buy]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        subscribe(btn.getAttribute('data-buy'));
-      });
-    });
-  }
-
-  function updateAmounts(){
-    document.querySelectorAll('.tier').forEach(function(card){
-      var name = card.getAttribute('data-tier');
-      var tier = CFG.tiers.find(function(t){ return t.name === name; });
-      if(!tier) return;
-      var amt = card.querySelector('[data-price-for]');
-      var per = card.querySelector('.per');
-      var pid = tier.priceId[freq];
-      if(amt) amt.textContent = prices[pid] || '…';
-      if(per) per.textContent = freq==='month' ? ' / month' : ' / month, billed yearly';
-    });
-  }
-
-  /* ── Live Prices via Paddle PricePreview ───────────────────── */
-  var pricesResolved = false;
-
-  /* Fail-safe: if live pricing never resolves (revoked token, blocked CDN,
-     adblock, Paddle outage), show USD base prices instead of stranding
-     visitors on "Loading prices…". Fallback figures live in paddle-config.js
-     (fallbackUSD per tier) — keep them in sync with Paddle. */
-  function showFallback(reason){
-    var st = document.getElementById('pStatus');
-    document.querySelectorAll('.tier').forEach(function(card){
-      var name = card.getAttribute('data-tier');
-      var tier = CFG.tiers.find(function(t){ return t.name === name; });
-      var amt = card.querySelector('[data-price-for]');
-      var per = card.querySelector('.per');
-      if(amt && tier && tier.fallbackUSD && !prices[tier.priceId[freq]]){
-        amt.textContent = 'From $' + tier.fallbackUSD;
-      }
-      if(per) per.textContent = ' / month, USD base';
-    });
-    if (st) st.innerHTML = 'Live localized pricing unavailable'
-      + (reason ? ' (' + reason + ')' : '')
-      + ' — showing USD base. <a href="/plans" style="color:var(--acc)">Retry</a>.';
-  }
-  // Watchdog: 8s after page init, no resolved prices means something upstream
-  // failed silently. Never leave "Loading prices…" on screen.
-  setTimeout(function(){
-    if(!pricesResolved) showFallback('preview timeout');
-  }, 8000);
-
-  function refreshPrices(){
-    if(!paddle) return;
-    var st = document.getElementById('pStatus');
-    if (st) st.textContent = 'Updating localized prices…';
-    var allPids = [];
-    CFG.tiers.forEach(function(t){
-      if(t.priceId.month) allPids.push(t.priceId.month);
-      if(t.priceId.year)  allPids.push(t.priceId.year);
-    });
-    var items = allPids.map(function(pid){ return { priceId: pid, quantity: 1 }; });
-    var req = { items: items };
-    if(country && country !== 'EU') req.address = { countryCode: country };
-
-    paddle.PricePreview(req).then(function(res){
-      if (st) st.textContent = '';
-      var details = res.data && (res.data.details || res.data);
-      var lineItems = (details && (details.lineItems || details.line_items)) || [];
-      lineItems.forEach(function(li){
-        var id = li.price && (li.price.id || li.price_id);
-        var ft = li.formattedTotals || li.formatted_totals;
-        var total = ft && ft.total;
-        if (id && total) prices[id] = total;
-      });
-      if (Object.keys(prices).length > 0) pricesResolved = true;
-      updateAmounts();
-    }).catch(function(err){
-      console.warn('PricePreview error:', err);
-      showFallback('preview rejected');
-    });
-  }
-
-  function isUserLoggedIn(){
-    try {
-      var token = localStorage.getItem('epi_token');
-      var user = localStorage.getItem('epi_user');
-      return !!(token && user);
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /* ── Checkout ──────────────────────────────────────────────── */
-  function subscribe(name){
-    var tier = CFG.tiers.find(function(t){ return t.name === name; });
-    if(!tier) return;
-
-    // If not logged in, redirect to GitHub sign-in first with return intent
-    if (!isUserLoggedIn()) {
-      try {
-        sessionStorage.setItem('epi_checkout_tier', name);
-        sessionStorage.setItem('epi_checkout_freq', freq);
-      } catch (e) {}
-      var nextUrl = '/plans?checkout_tier=' + encodeURIComponent(name) + '&freq=' + encodeURIComponent(freq);
-      window.location.href = '/account?next=' + encodeURIComponent(nextUrl) + '&reason=checkout&tier=' + encodeURIComponent(name);
-      return;
-    }
-
-    if(!paddle) return;
-    var opts = {
-      items: [{ priceId: tier.priceId[freq], quantity: 1 }],
-      settings: {
-        displayMode: 'overlay',
-        variant: 'one-page',
-        theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
-        successUrl: location.origin + (CFG.successUrl || '/account?checkout=success')
-      }
-    };
-    try{
-      var email = localStorage.getItem(CFG.emailStorageKey || 'epi-user-email');
-      if(email) opts.customer = { email: email };
-    }catch(e){}
-    try{
-      if(CFG._customData && CFG._customData.user_id){
-        opts.customData = CFG._customData;
-      } else {
-        var rawU = localStorage.getItem('epi_user');
-        if (rawU) {
-          var u = JSON.parse(rawU);
-          if (u && u.id) {
-            opts.customData = {
-              user_id: String(u.id),
-              epi_user_id: String(u.id),
-              email: String(u.email || ''),
-              login: String(u.login || '')
-            };
-          }
-        }
-      }
-    }catch(e){}
-    paddle.Checkout.open(opts);
-  }
-
-  function checkAutoOpenCheckout(){
-    var params = new URLSearchParams(window.location.search);
-    var autoTier = params.get('checkout_tier') || (function(){
-      try { return sessionStorage.getItem('epi_checkout_tier'); } catch(e){ return null; }
-    })();
-    var autoFreq = params.get('freq') || (function(){
-      try { return sessionStorage.getItem('epi_checkout_freq'); } catch(e){ return null; }
-    })();
-
-    if(autoTier && isUserLoggedIn()){
-      try {
-        sessionStorage.removeItem('epi_checkout_tier');
-        sessionStorage.removeItem('epi_checkout_freq');
-        history.replaceState(null, '', '/plans');
-      } catch (e) {}
-      if(autoFreq === 'year' || autoFreq === 'month'){
-        setFreq(autoFreq);
-      }
-      var pollPaddle = setInterval(function(){
-        if(paddle && window.Paddle){
-          clearInterval(pollPaddle);
-          subscribe(autoTier);
-        }
-      }, 200);
-      setTimeout(function(){ clearInterval(pollPaddle); }, 6000);
-    }
-  }
-
-  /* ── Init ──────────────────────────────────────────────────── */
-  renderTiers();
-
-  var sel = document.getElementById('countrySel');
-  if (sel) {
-    COUNTRIES.forEach(function(c){
-      var o = document.createElement('option'); o.value = c.code; o.textContent = c.label; sel.appendChild(o);
-    });
-    sel.addEventListener('change', function(){ country = sel.value || null; refreshPrices(); });
-  }
-
-  var bm = document.getElementById('btnMonth'), by = document.getElementById('btnYear');
-  if (bm && by) {
-    bm.addEventListener('click', function(){ setFreq('month'); });
-    by.addEventListener('click', function(){ setFreq('year'); });
-  }
-  function setFreq(f){
-    freq = f;
-    if (bm) bm.classList.toggle('on', f==='month');
-    if (by) by.classList.toggle('on', f==='year');
-    updateAmounts();
-    refreshPrices();
-  }
-
-  // Paddle.js loader
-  (function loadPaddle(attempt){
-    attempt = attempt || 0;
-    if(window.Paddle && window.Paddle.Initialize){
-      try {
-        window.Paddle.Initialize({
-          token: CFG.clientToken,
-          eventCallback: function(ev){
-            if(ev.name === 'checkout.completed'){
-              setTimeout(function(){ location.href = location.origin + (CFG.successUrl || '/account?checkout=success'); }, 800);
-            }
-          }
-        });
-        paddle = window.Paddle;
-        refreshPrices();
-        checkAutoOpenCheckout();
-      } catch (err) {
-        console.error('Paddle.Initialize error:', err);
-        var st0 = document.getElementById('pStatus');
-        if (st0) st0.innerHTML = '<span style="color:var(--bad)">Checkout unavailable (init failed).</span>';
-        showFallback('init failed');
-      }
-      return;
-    }
-    if(attempt < 20) setTimeout(function(){ loadPaddle(attempt + 1); }, 250);
-    else {
-      // Paddle.js never arrived (blocked CDN/adblock): say so + fallback.
-      console.error('Paddle.js failed to load after 20 attempts.');
-      showFallback('library blocked');
-    }
-  })();
 })();
 </script>
 <script src="/js/auth-ui.js"></script>

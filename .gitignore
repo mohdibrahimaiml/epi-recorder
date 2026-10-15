@@ -84,7 +84,11 @@ installer/windows/Output/
 !docs/assets/*.epi
 !site/assets/demo/*.epi
 !website/assets/sample.epi
+!website/assets/demo/demo-lending-affordability.epi
+!website/assets/demo/demo-finance-loan-underwriter.epi
 !site/assets/sample.epi
+!site/assets/demo/demo-lending-affordability.epi
+!site/assets/demo/demo-finance-loan-underwriter.epi
 !examples/*.epi
 
 # Allow HTML files in site, website, and examples
