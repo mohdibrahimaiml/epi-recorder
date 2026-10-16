@@ -52,11 +52,10 @@ def test_cloudflare_functions_proxy_api():
 
 def test_account_auth_entrypoints():
     text = (ROOT / "website" / "account.html").read_text(encoding="utf-8")
-    # Fallback Render URL and/or same-origin API_BASE helper
-    assert "epi-verify-portal.onrender.com" in text or "API_BASE" in text
-    assert "startLogin" in text
-    assert "logout" in text
-    assert "establishSession" in text or "/api/auth" in text
+    # Single account system: website Sign In points to EPI Cloud, no Render login.
+    assert "cloud.epilabs.org" in text
+    assert "epi-verify-portal.onrender.com" not in text
+    assert "/api/auth" not in text
 
 
 def test_site_mirror_exists_for_cloudflare():

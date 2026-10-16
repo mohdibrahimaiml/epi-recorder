@@ -89,11 +89,17 @@ class FakeD1 {
       if (table === "inboxes" || table === "artifacts") return { n: 0 };
       return { n: col[table]?.size ?? 0 };
     }
-    if (q.startsWith("SELECT id FROM users WHERE email")) {
-      for (const u of this.users.values()) if (u.email === a[0]) return { id: u.id };
+    if (q.startsWith("SELECT id, email_verified FROM users WHERE email") || q.startsWith("SELECT id FROM users WHERE email")) {
+      for (const u of this.users.values()) if (u.email === a[0]) return { id: u.id, email_verified: u.email_verified ?? 0 };
       return null;
     }
+    if (q.startsWith("SELECT email FROM users WHERE id")) {
+      const u = this.users.get(a[0] as string);
+      return u ? { email: u.email } : null;
+    }
     if (q.startsWith("SELECT user_id FROM identities")) return null;
+    if (q.startsWith("SELECT status, org_id, api_key_raw, expires_at FROM device_codes")) return null;
+    if (q.startsWith("SELECT status, expires_at FROM device_codes")) return null;
     throw new Error(`FakeD1 unhandled select: ${q}`);
   }
 
@@ -127,7 +133,14 @@ class FakeD1 {
       return 1;
     }
     if (q.startsWith("INSERT INTO users")) {
-      this.users.set(a[0] as string, { id: a[0], email: a[1], display_name: a[2], created_at: a[3] });
+      // New: (id, email, display_name, email_verified, created_at); old: 4-col.
+      if (a.length === 5) this.users.set(a[0] as string, { id: a[0], email: a[1], display_name: a[2], email_verified: a[3], created_at: a[4] });
+      else this.users.set(a[0] as string, { id: a[0], email: a[1], display_name: a[2], email_verified: 0, created_at: a[3] });
+      return 1;
+    }
+    if (q.startsWith("UPDATE users SET email = ?, email_verified = 1")) {
+      const u = this.users.get(a[1] as string);
+      if (u) { u.email = a[0]; u.email_verified = 1; }
       return 1;
     }
     if (q.startsWith("UPDATE users SET email")) {
@@ -186,6 +199,7 @@ class FakeD1 {
       this.counters.set(a[0] as string, { count: a[1], window_expires_at: a[2] });
       return 1;
     }
+    if (q.startsWith("INSERT INTO device_codes") || q.startsWith("UPDATE device_codes")) return 1;
     throw new Error(`FakeD1 unhandled exec: ${q}`);
   }
 }

@@ -56,8 +56,11 @@ app.route("/admin", admin);
 app.route("/w", witness);
 app.get("/.well-known/epi-witness-key.json", (c) => c.json(witnessKeys(c.env)));
 
-// Front door (normal users never touch raw /auth URLs). Static HTML, no JS,
-// no events, no signal: scanners and link previews create nothing.
+// Front door (normal users never touch raw /auth URLs). Anonymous view is
+// static HTML, no JS, no events, no signal: scanners and link previews
+// create nothing. Signed-in view is a minimal setup page (plain HTML, no
+// tracking): create workspace, API key (shown once), inbox, trust link,
+// plus the exact `epi cloud login` command pre-filled with the org id.
 app.get("/", async (c) => {
   let email: string | null = null;
   try {
@@ -72,7 +75,42 @@ app.get("/", async (c) => {
   const account = email
     ? `<p>Signed in as <strong>${esc(email)}</strong>.</p>
        <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-       <p>Next: connect your recorder with <code>epi cloud login</code>, or open a vendor trust link you received.</p>`
+       <h2>Setup (2 minutes)</h2>
+       <ol>
+         <li><strong>Workspace:</strong> <input id="org-name" placeholder="Acme Inc" style="font:inherit;padding:.3rem"> <input id="org-slug" placeholder="acme" style="font:inherit;padding:.3rem"> <button id="org-go" type="button">Create workspace</button> <span id="org-msg"></span></li>
+         <li><strong>Recorder key:</strong> <select id="org-pick" style="font:inherit;padding:.3rem"></select> <button id="key-go" type="button">Create API key</button><br><span id="key-out"></span> <button id="key-copy" type="button" style="display:none">Copy</button><br><code id="login-cmd"></code></li>
+         <li><strong>Witness inbox:</strong> <input id="inbox-label" placeholder="customer / engagement" style="font:inherit;padding:.3rem"> <button id="inbox-go" type="button">Create inbox</button> <span id="inbox-out"></span></li>
+         <li><strong>Trust link:</strong> <input id="share-label" placeholder="reviewer / deal" style="font:inherit;padding:.3rem"> <button id="share-go" type="button">Create trust link</button> <span id="share-out"></span></li>
+       </ol>
+       <p>Or connect automatically: run <code>epi cloud login</code> in your terminal, then click “Authorize this computer” here.</p>
+       <script>
+       (function(){
+         var pick=document.getElementById("org-pick"),cmd=document.getElementById("login-cmd");
+         function refreshOrgs(){fetch("/v1/orgs",{credentials:"same-origin"}).then(function(r){return r.json()}).then(function(j){
+           pick.innerHTML="";(j.orgs||[]).forEach(function(o){var e=document.createElement("option");e.value=o.id;e.textContent=o.name+" ("+o.id+")";pick.appendChild(e)});
+           if(pick.value)cmd.textContent="epi cloud login --url "+location.origin+" --org "+pick.value+" --api-key <paste-key>";});}
+         refreshOrgs();
+         document.getElementById("org-go").onclick=function(){var n=document.getElementById("org-name").value,s=document.getElementById("org-slug").value;
+           fetch("/v1/orgs",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,slug:s})})
+           .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){
+             document.getElementById("org-msg").textContent=x.ok?("Created "+x.j.id):("Failed: "+((x.j.error&&x.j.error.message)||"unknown"));refreshOrgs();});};
+         var lastKey="";
+         document.getElementById("key-go").onclick=function(){if(!pick.value)return;
+           fetch("/v1/orgs/"+pick.value+"/api-keys",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({scopes:["push"]})})
+           .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){
+             if(x.ok){lastKey=x.j.key;document.getElementById("key-out").textContent="Key (shown once): "+lastKey;
+               document.getElementById("key-copy").style.display="inline";
+               cmd.textContent="epi cloud login --url "+location.origin+" --org "+pick.value+" --api-key "+lastKey;}
+             else document.getElementById("key-out").textContent="Failed: "+((x.j.error&&x.j.error.message)||"unknown")});};
+         document.getElementById("key-copy").onclick=function(){if(navigator.clipboard&&lastKey)navigator.clipboard.writeText(lastKey);};
+         document.getElementById("inbox-go").onclick=function(){if(!pick.value)return;var l=document.getElementById("inbox-label").value||"customer";
+           fetch("/v1/orgs/"+pick.value+"/inboxes",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({customer_label:l})})
+           .then(function(r){return r.json()}).then(function(j){document.getElementById("inbox-out").textContent=j.url?("Inbox "+j.url+" — secret shown once: "+j.secret):("Failed: "+((j.error&&j.error.message)||"unknown"))});};
+         document.getElementById("share-go").onclick=function(){if(!pick.value)return;var l=document.getElementById("share-label").value||"review";
+           fetch("/v1/orgs/"+pick.value+"/share-links",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:l})})
+           .then(function(r){return r.json()}).then(function(j){document.getElementById("share-out").textContent=j.url?("Trust link "+location.origin+"/t/"+j.id+"#k="+j.token+" (token shown once)"):("Failed: "+((j.error&&j.error.message)||"unknown"))});};
+       })();
+       </script>`
     : `<p><a class="btn" href="/auth/github">Sign in with GitHub</a></p>` +
       (c.env.GOOGLE_CLIENT_ID ? ` <p><a class="btn" href="/auth/google">Sign in with Google</a></p>` : ``) +
       `<p>One account signs every recorder, inbox, and trust page.</p>`;
