@@ -86,6 +86,24 @@ jobs:
           cache: npm
           cache-dependency-path: cloud/package-lock.json
       - run: npm ci
+      # Schema before code: the Worker queries columns/tables that only
+      # exist after migrations (e.g. users.email_verified, device_codes).
+      # Applying first means code never goes live ahead of its database;
+      # a failed apply stops the job before deploy. 0001 is IF NOT EXISTS
+      # so hand-created prod tables converge instead of erroring.
+      - name: Apply D1 migrations (prod)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if grep -q 'TODO-founder' wrangler.toml; then
+            echo "database_id placeholder still present — skipping migrations (docs/CLOUD.md §4)."
+            exit 0
+          fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN not set — skipping migrations."
+            exit 0
+          fi
+          npx wrangler d1 migrations apply epi-cloud --remote --config wrangler.toml
       - name: Deploy (skips until founder wires database_id)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -99,3 +117,21 @@ jobs:
             exit 0
           fi
           npx wrangler deploy --config wrangler.toml
+      # Read-only tripwire on the newest schema: fails the job (loudly)
+      # if prod D1 is behind the deployed code. LIMIT 0 returns no rows.
+      - name: Smoke check newest schema (prod)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if grep -q 'TODO-founder' wrangler.toml; then
+            echo "database_id placeholder still present — skipping smoke check."
+            exit 0
+          fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN not set — skipping smoke check."
+            exit 0
+          fi
+          npx wrangler d1 execute epi-cloud --remote --config wrangler.toml \
+            --command "SELECT email_verified FROM users LIMIT 0" --json
+          npx wrangler d1 execute epi-cloud --remote --config wrangler.toml \
+            --command "SELECT user_code FROM device_codes LIMIT 0" --json

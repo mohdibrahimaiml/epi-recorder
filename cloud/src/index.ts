@@ -41,7 +41,9 @@ app.use("*", async (c, next) => {
 });
 
 app.onError((err, c) => {
-  console.error(err);
+  // One-line cause for `wrangler tail` / Cloudflare Logs. Message only:
+  // never request data, tokens, or cookies (none of those live on `err`).
+  console.error(`request failed: ${err instanceof Error ? err.message : String(err)}`);
   return c.json({ error: { code: "internal", message: "Unexpected error." } }, 500);
 });
 
