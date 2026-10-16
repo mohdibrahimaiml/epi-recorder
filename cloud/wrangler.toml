@@ -22,7 +22,7 @@ PUBLIC_WITNESS_URL = "https://cloud.epilabs.org"
 [[d1_databases]]
 binding = "DB"
 database_name = "epi-cloud"
-database_id = "TODO-founder-paste-wrangler-d1-create-output"
+database_id = "3323be32-cf63-48e9-9674-37f93d021e3e"
 
 [[r2_buckets]]
 binding = "ROOM"
