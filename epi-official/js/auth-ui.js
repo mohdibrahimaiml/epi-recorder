@@ -1,26 +1,16 @@
-// EPI Auth UI — universal nav auth slot + API wake
+// EPI Auth UI — single account system: EPI Cloud only.
+// Website "Sign In" points to https://cloud.epilabs.org. No Render calls.
+// The old Render login (/api/auth/*) is retired; cloud uses HttpOnly
+// session cookies on cloud.epilabs.org, so the marketing site never checks
+// session state cross-origin — nav always links to the cloud front door.
 (function () {
   'use strict';
 
-  var API_BASE = (function () {
-    var h = (location && location.hostname) || '';
-    if (h === 'epilabs.org' || h === 'www.epilabs.org' || h.endsWith('.pages.dev')) return '';
-    return 'https://epi-verify-portal.onrender.com';
-  })();
-  var TOKEN_KEY = 'epi_token';
-  var USER_KEY = 'epi_user';
+  var CLOUD_URL = 'https://cloud.epilabs.org';
 
-  function wakeApi() {
-    try {
-      fetch(API_BASE + '/api/ping', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
-      fetch(API_BASE + '/api/auth/status', { mode: 'cors', credentials: 'omit', cache: 'no-store' }).catch(function () {});
-    } catch (e) {}
+  function cloudHref() {
+    return CLOUD_URL + '/';
   }
-  wakeApi();
-
-  // Account page manages its own dedicated state
-  var path = (window.location.pathname || '').replace(/\/$/, '') || '/';
-  if (path === '/account' || path.endsWith('/account.html')) return;
 
   function findNavContainer() {
     return document.getElementById('nav-auth-slot') ||
@@ -30,66 +20,60 @@
            document.querySelector('nav ul');
   }
 
-  function injectNav(label, isLoggedIn) {
+  function injectNav() {
+    var label = 'Sign In';
+    var href = cloudHref();
     var slot = document.getElementById('nav-auth-slot');
     if (!slot) {
       var nav = findNavContainer();
       if (nav) {
-        // If an existing auth button exists, update it
         var existing = document.getElementById('nav-auth') || nav.querySelector('[data-auth-link]');
         if (existing) {
           existing.textContent = label;
-          existing.href = '/account';
-          existing.className = isLoggedIn ? 'nav-auth-link' : 'nav-cta';
+          existing.href = href;
+          existing.className = 'nav-cta';
           existing.setAttribute('data-auth-link', '1');
         } else {
           var li = document.createElement('li');
           li.id = 'nav-auth-slot';
           var a = document.createElement('a');
-          a.href = '/account';
+          a.href = href;
           a.id = 'nav-auth';
           a.textContent = label;
-          a.className = isLoggedIn ? 'nav-auth-link' : 'nav-cta';
+          a.className = 'nav-cta';
           a.setAttribute('data-auth-link', '1');
           li.appendChild(a);
-
-          // Insert before theme toggle if present, else append
           var tgl = nav.querySelector('.tgl, .theme-toggle-nav');
-          if (tgl && tgl.closest('li')) {
-            nav.insertBefore(li, tgl.closest('li'));
-          } else {
-            nav.appendChild(li);
-          }
+          if (tgl && tgl.closest('li')) nav.insertBefore(li, tgl.closest('li'));
+          else nav.appendChild(li);
         }
       }
     } else {
       slot.innerHTML = '';
-      var a = document.createElement('a');
-      a.href = '/account';
-      a.id = 'nav-auth';
-      a.textContent = label;
-      a.className = isLoggedIn ? 'nav-auth-link' : 'nav-cta';
-      a.setAttribute('data-auth-link', '1');
-      slot.appendChild(a);
+      var b = document.createElement('a');
+      b.href = href;
+      b.id = 'nav-auth';
+      b.textContent = label;
+      b.className = 'nav-cta';
+      b.setAttribute('data-auth-link', '1');
+      slot.appendChild(b);
     }
 
-    // Mobile menu update
     var mm = document.getElementById('mobMenu') || document.getElementById('mmenu') || document.querySelector('.mmenu');
     if (mm) {
       var mExisting = mm.querySelector('[data-auth-link]') || mm.querySelector('#mob-nav-auth');
       if (mExisting) {
         mExisting.textContent = label;
-        mExisting.href = '/account';
-        mExisting.className = isLoggedIn ? 'nav-auth-link' : 'nav-cta';
+        mExisting.href = href;
+        mExisting.className = 'nav-cta';
         mExisting.setAttribute('data-auth-link', '1');
       } else {
         var ma = document.createElement('a');
-        ma.href = '/account';
+        ma.href = href;
         ma.id = 'mob-nav-auth';
         ma.setAttribute('data-auth-link', '1');
         ma.textContent = label;
-        ma.className = isLoggedIn ? 'nav-auth-link' : 'nav-cta';
-        // Insert before theme toggle if present
+        ma.className = 'nav-cta';
         var mtgl = mm.querySelector('.tgl, button');
         if (mtgl) mm.insertBefore(ma, mtgl);
         else mm.appendChild(ma);
@@ -98,39 +82,16 @@
   }
 
   function init() {
-    var cached = localStorage.getItem(USER_KEY);
-    var token = localStorage.getItem(TOKEN_KEY) || '';
-    if (cached) {
-      try {
-        var user = JSON.parse(cached);
-        injectNav(user.login || 'Account', true);
-      } catch (e) {
-        injectNav('Sign In', false);
+    // Rewrite any stale /account links to the cloud front door.
+    try {
+      var links = document.querySelectorAll('a[href="/account"], a[href="/login"]');
+      for (var i = 0; i < links.length; i++) {
+        var el = links[i];
+        if (el.id === 'nav-auth' || el.hasAttribute('data-auth-link')) continue;
+        el.href = cloudHref();
       }
-    } else {
-      injectNav('Sign In', false);
-    }
-
-    if (!token && !cached) return;
-
-    fetch(API_BASE + '/api/auth/me', {
-      credentials: 'include',
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
-      cache: 'no-store',
-    })
-      .then(function (r) {
-        if (r.ok) return r.json();
-        throw new Error('not logged in');
-      })
-      .then(function (user) {
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        injectNav(user.login || 'Account', true);
-      })
-      .catch(function () {
-        localStorage.removeItem(USER_KEY);
-        if (!token) injectNav('Sign In', false);
-        else injectNav('Account', true);
-      });
+    } catch (e) {}
+    injectNav();
   }
 
   if (document.readyState !== 'loading') init();

@@ -249,6 +249,25 @@ def test_login_then_push_with_no_flags_or_env(fake_transport, home):
     assert "art_1" in result.output
 
 
+def test_status_with_push_only_key_explains_instead_of_raw_403(home):
+    """A device-minted push-only key can't list runs: say so, don't dump 403."""
+    routes = {
+        ("GET", "artifacts"): FakeResponse(
+            403, {"error": {"code": "forbidden"}}, "Forbidden"
+        )
+    }
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        base = ["--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_push"]
+        result = _invoke(["status", *base])
+    assert result.exit_code == 1, result.output
+    assert "can only push runs" in result.output
+    assert "cloud.epilabs.org" in result.output
+    assert "403" not in result.output and "Forbidden" not in result.output
+
+
 def test_login_honors_legacy_saved_spellings(home, monkeypatch):
     (home / "cloud.json").write_text(json.dumps(
         {"url": "https://file", "org": "o-legacy", "key": "k-legacy"}

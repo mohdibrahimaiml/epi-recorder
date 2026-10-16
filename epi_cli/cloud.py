@@ -52,9 +52,7 @@ def load_config() -> dict[str, Any]:
         return {}
 
 
-def resolve_creds(
-    url: str | None, org: str | None, api_key: str | None
-) -> dict[str, str]:
+def resolve_creds(url: str | None, org: str | None, api_key: str | None) -> dict[str, str]:
     """Flags > environment > saved login. Raises Exit(2) when incomplete.
 
     The saved file uses org_id/api_key (written by `login`); the legacy
@@ -123,19 +121,47 @@ def read_manifest(path: Path) -> str:
 
 @app.command("login")
 def login(
-    url: str = typer.Option(..., "--url", help="EPI Cloud base URL, e.g. https://cloud.epilabs.org."),
-    org: str = typer.Option(..., "--org", help="Organisation id (org_...)."),
+    url: str | None = typer.Option(
+        None,
+        "--url",
+        help="EPI Cloud base URL (default EPI_CLOUD_URL or cloud.epilabs.org).",
+    ),
+    org: str | None = typer.Option(
+        None, "--org", help="Organisation id (org_...). Omit for browser login."
+    ),
     api_key: str | None = typer.Option(
-        None, "--api-key", help="API key with push scope (epik_...). Prompts securely when omitted."
+        None,
+        "--api-key",
+        help="API key (epik_...). Flag version only; prompts when omitted.",
     ),
 ) -> None:
-    """Save Evidence Room credentials (url/org_id/api_key) for push and status."""
-    if not api_key:
-        api_key = typer.prompt("API key", hide_input=True)
-    if not api_key:
-        console.print("[red][FAIL][/red] No API key given.")
+    """Save Evidence Room credentials (url/org_id/api_key) for push and status.
+
+    No flags: browser device flow — this terminal shows a short code,
+    you type it at cloud.epilabs.org/auth/device, and the CLI receives
+    a push-only key automatically. With --org/--api-key: automation
+    version (flags win).
+    """
+    base = (url or os.getenv("EPI_CLOUD_URL") or "https://cloud.epilabs.org").rstrip("/")
+    # Flag/automation version: org + key supplied explicitly.
+    if org:
+        key = api_key or os.getenv("EPI_CLOUD_API_KEY")
+        if not key:
+            key = typer.prompt("API key", hide_input=True)
+        if not key:
+            console.print("[red][FAIL][/red] No API key given.")
+            raise typer.Exit(2)
+        _save_flag_login(base, org, key)
+        return
+    if api_key:
+        console.print("[red][FAIL][/red] --api-key needs --org.")
+        console.print("[dim]Or run [cyan]epi cloud login[/cyan] with no flags.[/dim]")
         raise typer.Exit(2)
-    creds = {"url": url.rstrip("/"), "org": org, "key": api_key}
+    _device_login(base)
+
+
+def _save_flag_login(base: str, org: str, api_key: str) -> None:
+    creds = {"url": base, "org": org, "key": api_key}
     try:
         with _client(creds) as client:
             res = client.get(f"/v1/orgs/{org}/artifacts")
@@ -148,10 +174,14 @@ def login(
     except Exception as exc:
         console.print(f"[red][FAIL][/red] Could not reach EPI Cloud: {escape(str(exc))}")
         raise typer.Exit(1) from exc
+    _write_config(base, org, api_key)
+
+
+def _write_config(base: str, org: str, api_key: str) -> None:
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps({"url": creds["url"], "org_id": org, "api_key": api_key}, indent=2),
+        json.dumps({"url": base, "org_id": org, "api_key": api_key}, indent=2),
         encoding="utf-8",
     )
     try:
@@ -159,6 +189,99 @@ def login(
     except Exception:
         pass
     console.print(f"[green][OK][/green] Saved to {path} (mode 0600 where supported).")
+
+
+def _device_login(base: str) -> None:
+    """Browser device flow (RFC 8628): show a user code, poll for key.
+
+    The short user code is typed on cloud.epilabs.org/auth/device by the
+    person at this terminal. The long device secret never leaves this
+    machine. Polls every 5 s on a dedicated rate-limit bucket and backs
+    off on 429 so sign-in stays usable.
+    """
+    import time
+    import webbrowser
+
+    import httpx
+
+    console.print("[bold]EPI Cloud login[/bold]")
+    try:
+        with httpx.Client(base_url=base, timeout=30.0) as client:
+            res = client.post("/auth/device/start")
+            res.raise_for_status()
+            data = res.json()
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] No cloud at {escape(base)}.")
+        console.print(f"[dim]{escape(str(exc))}[/dim]")
+        raise typer.Exit(1) from exc
+    code = data.get("device_code", "")
+    user_code = data.get("user_code", "")
+    verify_url = data.get("verification_url", f"{base}/auth/device")
+    interval = int(data.get("interval", 5) or 5)
+    if not code or not user_code:
+        console.print("[red][FAIL][/red] Login failed (no device code).")
+        raise typer.Exit(1)
+    console.print("Enter this code in your browser (only this computer):")
+    console.print(f"[bold cyan]{escape(str(user_code))}[/bold cyan]")
+    console.print(f"[dim]Page:[/dim] {verify_url}")
+    console.print("[dim]A browser window will open; type the code there.[/dim]")
+    try:
+        webbrowser.open(verify_url)
+    except Exception:
+        pass
+    deadline = time.time() + 10 * 60
+    org_id = ""
+    raw_key = ""
+    try:
+        with httpx.Client(base_url=base, timeout=30.0) as client:
+            while time.time() < deadline:
+                try:
+                    st = client.get(f"/auth/device/{code}/status")
+                except Exception:
+                    time.sleep(interval)
+                    continue
+                if st.status_code == 404:
+                    console.print("[red][FAIL][/red] Device code unknown.")
+                    console.print("[dim]Retry login.[/dim]")
+                    raise typer.Exit(1)
+                if st.status_code == 429:
+                    wait = interval * 2
+                    try:
+                        retry = st.headers.get("retry-after")
+                        if retry is not None:
+                            wait = max(wait, int(retry))
+                    except Exception:
+                        pass
+                    time.sleep(wait)
+                    continue
+                try:
+                    body = st.json()
+                except Exception:
+                    time.sleep(interval)
+                    continue
+                if body.get("status") == "authorized":
+                    if body.get("api_key"):
+                        org_id = str(body.get("org_id", ""))
+                        raw_key = str(body.get("api_key", ""))
+                        break
+                    console.print("[red][FAIL][/red] Key already retrieved.")
+                    console.print("[dim]Run login again for a new code.[/dim]")
+                    raise typer.Exit(1)
+                if body.get("status") == "expired":
+                    console.print("[red][FAIL][/red] Code expired. Retry login.")
+                    raise typer.Exit(1)
+                time.sleep(interval)
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Login polling failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    if not raw_key or not org_id:
+        console.print("[red][FAIL][/red] Login did not complete in time.")
+        raise typer.Exit(1)
+    _write_config(base, org_id, raw_key)
+    console.print("[green][OK][/green] This computer authorized (push-only key).")
+    console.print(f"[dim]Org: {org_id} — revoke anytime from cloud.epilabs.org.[/dim]")
 
 
 @app.command("push")
@@ -223,7 +346,9 @@ def push(
                 raise typer.Exit(1)
             with file.open("rb") as fh:
                 put = client.put(
-                    put_url, content=fh, headers={"Content-Length": str(size)},
+                    put_url,
+                    content=fh,
+                    headers={"Content-Length": str(size)},
                 )
             if put.status_code == 409:
                 console.print(f"[green][OK][/green] Already stored: {created['id']}")
@@ -258,8 +383,14 @@ def status(
                 data = res.json()
                 console.print(f"[bold]{data.get('id')}[/bold] ({data.get('upload_state')})")
                 for field in (
-                    "workflow_id", "goal", "sealed_at", "key_fingerprint",
-                    "signature_check", "witness_status", "reason", "size_bytes",
+                    "workflow_id",
+                    "goal",
+                    "sealed_at",
+                    "key_fingerprint",
+                    "signature_check",
+                    "witness_status",
+                    "reason",
+                    "size_bytes",
                     "retention_until",
                 ):
                     console.print(f"  {field}: {escape(str(data.get(field)))}")
@@ -278,8 +409,23 @@ def status(
                     table.add_row(*[str(row.get(col, ""))[:40] for col in cols])
                 console.print(table)
     except Exception as exc:
+        if _is_forbidden(exc):
+            console.print(
+                "[yellow]This computer's key can only push runs — "
+                "it can't list the Evidence Room.[/yellow]"
+            )
+            console.print(
+                "[dim]See your runs at https://cloud.epilabs.org "
+                "(sign in, pick your workspace).[/dim]"
+            )
+            raise typer.Exit(1) from exc
         console.print(f"[red][FAIL][/red] Status failed: {escape(str(exc))}")
         raise typer.Exit(1) from exc
+
+
+def _is_forbidden(exc: Exception) -> bool:
+    """True when an HTTP client rejected the call with 403 (e.g. a push-only key listing runs)."""
+    return getattr(getattr(exc, "response", None), "status_code", None) == 403
 
 
 storage_app = typer.Typer(help="Customer-owned bucket: target, probe, outbox.")
@@ -462,8 +608,16 @@ def storage_show(
                 console.print("[cyan]epi cloud storage set --url s3://bucket/prefix[/cyan]")
             else:
                 console.print("[bold]Customer bucket[/bold]")
-                for field in ("kind", "endpoint", "bucket", "region", "prefix",
-                              "object_lock", "last_check_at", "last_check_ok"):
+                for field in (
+                    "kind",
+                    "endpoint",
+                    "bucket",
+                    "region",
+                    "prefix",
+                    "object_lock",
+                    "last_check_at",
+                    "last_check_ok",
+                ):
                     console.print(f"  {field}: {escape(str(target.get(field)))}")
                 console.print("[dim]Object Lock is vendor-reported.[/dim]")
     except Exception as exc:

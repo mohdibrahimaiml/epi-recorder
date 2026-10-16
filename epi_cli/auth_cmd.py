@@ -85,6 +85,7 @@ def clear_auth() -> None:
 
 def _utc_now_iso() -> str:
     from datetime import UTC, datetime
+
     return datetime.now(UTC).isoformat()
 
 
@@ -152,7 +153,11 @@ def login(
         help="Create a local-only development session without contacting EPI Cloud.",
     ),
 ) -> None:
-    """Log in to EPI Cloud via GitHub OAuth (or create a local dev session with --local)."""
+    """Log in (single account system: EPI Cloud).
+
+    This is an alias of `epi cloud login` (browser device flow, push-only
+    key). The old Render login is retired.
+    """
     if local:
         token = "dev-" + secrets.token_urlsafe(32)
         save_auth(token, "local-dev", "local", local=True)
@@ -163,80 +168,51 @@ def login(
         )
         return
 
-    from epi_cli._shared import require_service
+    console.print("[dim]epi auth login is now epi cloud login (one account system).[/dim]")
+    import os as _os
 
-    require_service(_base_portal_url(), label="EPI cloud portal")
+    from epi_cli.cloud import _device_login
 
-    port = _find_free_port()
-    state = secrets.token_urlsafe(16)
-    server = _start_local_server(port)
-    _CallbackHandler.result = None
-
-    console.print("[bold]EPI Cloud Login[/bold]")
-    console.print("A browser window will open for GitHub authentication.")
-    _open_login_url(port, state)
-
-    try:
-        for _ in range(600):  # wait up to 60 seconds
-            if _CallbackHandler.result is not None:
-                break
-            import time
-            time.sleep(0.1)
-    finally:
-        server.shutdown()
-
-    result = _CallbackHandler.result
-    if not result or not result.get("token") or not result.get("user_id"):
-        console.print("[red][FAIL][/red] Login did not complete in time.")
-        raise typer.Exit(1)
-
-    save_auth(result["token"], result["user_id"], result.get("org"))
-    console.print(f"[green][OK][/green] Logged in as {result['user_id']}")
-    if result.get("org"):
-        console.print(f"[dim]Organization: {result['org']}[/dim]")
+    base = (_os.getenv("EPI_CLOUD_URL") or "https://cloud.epilabs.org").rstrip("/")
+    _device_login(base)
 
 
 @app.command("logout")
 def logout() -> None:
-    """Log out of EPI Cloud locally."""
-    auth = load_auth()
-    if auth and auth.get("token"):
-        try:
-            import urllib.request
-            req = urllib.request.Request(
-                f"{_base_portal_url()}/api/auth/logout",
-                data=b"",
-                headers={"Authorization": f"Bearer {auth['token']}"},
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=5.0)
-        except Exception:
-            pass
+    """Log out locally (clears old session and EPI Cloud key)."""
     clear_auth()
+    try:
+        from epi_cli.cloud import _config_path as _cloud_path
+
+        p = _cloud_path()
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
     console.print("[green][OK][/green] Logged out")
 
 
 @app.command("whoami")
 def whoami() -> None:
-    """Show the currently logged-in EPI Cloud user."""
+    """Show login status (single account system: EPI Cloud)."""
+    # New system first: ~/.epi/cloud.json from `epi cloud login`.
+    try:
+        from epi_cli.cloud import load_config as _load_cloud
+
+        cfg = _load_cloud()
+        if cfg.get("org_id") and cfg.get("api_key"):
+            console.print("[bold]Logged in (EPI Cloud)[/bold]")
+            console.print(f"  URL: {cfg.get('url')}")
+            console.print(f"  Org: {cfg.get('org_id')}")
+            console.print("[dim]Manage at https://cloud.epilabs.org/[/dim]")
+            return
+    except Exception:
+        pass
     auth = load_auth()
     if not auth:
-        console.print("[dim]Not logged in. Run [cyan]epi auth login[/cyan] to connect.[/dim]")
+        console.print("[dim]Not logged in. Run [cyan]epi cloud login[/cyan] to connect.[/dim]")
         return
-
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"{_base_portal_url()}/api/auth/me",
-            headers={"Authorization": f"Bearer {auth['token']}"},
-        )
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        console.print("[bold]Logged in[/bold]")
-        console.print(f"  User ID: {data.get('id')}")
-        console.print(f"  GitHub:  {data.get('login') or 'unknown'}")
-        console.print(f"  Email:   {data.get('email') or 'private'}")
-        console.print(f"  Org:     {data.get('org') or 'not set'}")
-    except Exception as exc:
-        console.print(f"[yellow]Could not fetch profile:[/yellow] {exc}")
-        console.print("[dim]Your local session may have expired. Run [cyan]epi auth login[/cyan].[/dim]")
+    if auth.get("local"):
+        console.print("[bold]Local-only session[/bold] (no cloud access).")
+        return
+    console.print("[dim]Old Render login is retired. Run [cyan]epi cloud login[/cyan].[/dim]")
