@@ -1413,6 +1413,12 @@ def keys(
     did_path: Optional[str] = typer.Option(None, "--path", help="Optional path for 'did' action (e.g. agents/claims)"),
     key_name: Optional[str] = typer.Option(None, "--key", help="Local signing key for 'did' action (default: default)"),
     from_did: Optional[str] = typer.Option(None, "--from-did", help="DID to resolve and pin for 'trust' action"),
+    from_cloud: Optional[str] = typer.Option(
+        None, "--from-cloud", help="EPI Cloud org slug to fetch keys from for 'trust' action",
+    ),
+    cloud_url: Optional[str] = typer.Option(
+        None, "--cloud-url", help="EPI Cloud base URL (default: EPI_CLOUD_URL or https://cloud.epilabs.org).",
+    ),
     fingerprint: Optional[str] = typer.Option(
         None,
         "--fingerprint",
@@ -1435,6 +1441,8 @@ def keys(
     did_path = _resolve_opt(did_path)
     key_name = _resolve_opt(key_name)
     from_did = _resolve_opt(from_did)
+    from_cloud = _resolve_opt(from_cloud)
+    cloud_url = _resolve_opt(cloud_url)
     fingerprint = _resolve_opt(fingerprint)
 
     key_manager = KeyManager()
@@ -1563,6 +1571,81 @@ def keys(
             console.print(
                 "[dim]Files sealed by any other key now report NOT A KEY YOU TRUST. "
                 "For key rotation, pin each key in the vendor did.json.[/dim]\n"
+            )
+            return
+        elif from_cloud:
+            # Pin from the vendor's EPI Cloud key registry. The registry is
+            # informational only, so this still requires the fingerprint you
+            # confirmed with the sender — fetching alone never pins anything.
+            import json as _json
+            import os as _os
+            import tempfile as _tempfile2
+            import urllib.request as _urlreq
+
+            _slug = str(from_cloud).strip().strip("/")
+            _norm = lambda v: "".join(str(v or "").split()).lower()  # noqa: E731
+            if not fingerprint:
+                console.print(
+                    "[red][FAIL] Not pinned.[/red] A cloud key registry only lists keys — "
+                    "anyone can read it, so reading it trusts no one."
+                )
+                console.print(
+                    "  1. Ask the sender (by phone, not by email from the same source) "
+                    "to read you THEIR fingerprint."
+                )
+                console.print(
+                    f'  2. Only if theirs matches a key below: epi keys trust --from-cloud {_slug} '
+                    '--fingerprint "<the fingerprint the sender read to you>" --name <sender>'
+                )
+                raise typer.Exit(1)
+            _base = (
+                cloud_url or _os.environ.get("EPI_CLOUD_URL") or "https://cloud.epilabs.org"
+            ).rstrip("/")
+            try:
+                with _urlreq.urlopen(f"{_base}/o/{_slug}/keys.json", timeout=15) as _res:
+                    _doc = _json.loads(_res.read().decode("utf-8"))
+            except Exception as e:
+                console.print(f"[red][FAIL] Could not fetch the key registry:[/red] {e}")
+                raise typer.Exit(1) from e
+            _match = None
+            for _entry in (_doc.get("keys") or []):
+                if _norm(_entry.get("fingerprint")) == _norm(fingerprint):
+                    _match = _entry
+                    break
+            if _match is None:
+                console.print(
+                    "[red][FAIL] Not pinned.[/red] No key in the vendor registry matches "
+                    "the fingerprint you confirmed. Do not pin anything else."
+                )
+                raise typer.Exit(1)
+            if _match.get("revoked_at"):
+                console.print(
+                    "[red][FAIL] Not pinned.[/red] The matching key is revoked in the registry. "
+                    "Ask the sender for their current key."
+                )
+                raise typer.Exit(1)
+            _pin_name = name if name != "default" else _slug.replace("/", "-")[:32]
+            _hex_path = Path(_tempfile2.mkdtemp()) / f"{_pin_name}.pub"
+            try:
+                _hex_path.write_text(str(_match.get("public_key", "")).strip().lower() + "\n", encoding="utf-8")
+                target = key_manager.trust_key(
+                    _hex_path,
+                    trusted_keys_dir=trusted_keys_dir,
+                    trusted_name=_pin_name,
+                    overwrite=overwrite,
+                )
+            except (FileExistsError, FileNotFoundError, ValueError) as e:
+                console.print(f"[red][FAIL] Error:[/red] {e}")
+                raise typer.Exit(1)
+            finally:
+                try:
+                    _hex_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            console.print(f"\n[bold green][OK] Trusted key from {_slug} (cloud registry):[/bold green] {target}")
+            console.print(
+                "[dim]Pinned because the fingerprint matched what the sender confirmed — "
+                "not because the registry listed it.[/dim]\n"
             )
             return
         elif not key:

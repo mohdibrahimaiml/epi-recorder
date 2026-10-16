@@ -431,6 +431,162 @@ def _is_forbidden(exc: Exception) -> bool:
 storage_app = typer.Typer(help="Customer-owned bucket: target, probe, outbox.")
 app.add_typer(storage_app, name="storage")
 
+keys_app = typer.Typer(help="Vendor public keys: register, list, revoke (public only).")
+app.add_typer(keys_app, name="keys")
+
+
+def _read_pubkey_file(path: Path) -> str:
+    """Read a public key file. Only *.pub, only 64 hex chars.
+
+    Refuses everything else: private keys, PEM blocks, junk. Registering
+    the wrong material would mislabel the trust page, so this fails closed.
+    """
+    if path.suffix.lower() != ".pub":
+        raise ValueError(f"Refusing {path}: only *.pub public-key files (never private keys).")
+    try:
+        text = path.read_text(encoding="utf-8").strip().lower()
+    except Exception as exc:
+        raise ValueError(f"Cannot read {path}: {exc}") from exc
+    import re as _re
+
+    if not _re.fullmatch(r"[0-9a-f]{64}", text):
+        raise ValueError(
+            f"Refusing {path}: not 64 hex chars of Ed25519 public key "
+            "(export one with: epi keys export --format hex)."
+        )
+    return text
+
+
+@keys_app.command("push")
+def keys_push(
+    pub: Path = typer.Argument(..., help="Public key file (*.pub only)."),
+    label: str | None = typer.Option(None, "--label", help="Human label, e.g. prod-2026."),
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """Register a vendor PUBLIC key (rotation = push the new one, revoke the old)."""
+    try:
+        public_key = _read_pubkey_file(pub)
+    except ValueError as exc:
+        console.print(f"[red][FAIL][/red] {escape(str(exc))}")
+        raise typer.Exit(2) from exc
+    creds = resolve_creds(url, org, api_key)
+    try:
+        with _client(creds) as client:
+            res = client.post(
+                f"/v1/orgs/{creds['org']}/keys", json={"public_key": public_key, "label": label}
+            )
+            if res.status_code == 409:
+                console.print("[yellow]Already registered.[/yellow]")
+                return
+            res.raise_for_status()
+            created = res.json()
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Register failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print("[green][OK][/green] Registered key " f"{created.get('fingerprint')}.")
+    console.print("[dim]registration is informational only — reviewers pin keys out of band.[/dim]")
+
+
+@keys_app.command("list")
+def keys_list(
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """List registered public keys with revocation state."""
+    creds = resolve_creds(url, org, api_key)
+    try:
+        with _client(creds) as client:
+            res = client.get(f"/v1/orgs/{creds['org']}/keys")
+            res.raise_for_status()
+            rows = res.json().get("keys", [])
+            if not rows:
+                console.print("[dim]No keys registered.[/dim]")
+                return
+            table = Table(title="Registered public keys (informational — not pins)")
+            for col in ("fingerprint", "label", "valid_from", "revoked_at", "revoke_reason"):
+                table.add_column(col, overflow="fold")
+            for row in rows:
+                table.add_row(*[str(row.get(col, "") or "")[:40] for col in
+                                ("fingerprint", "label", "valid_from", "revoked_at", "revoke_reason")])
+            console.print(table)
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] List failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+
+@keys_app.command("revoke")
+def keys_revoke(
+    fingerprint: str = typer.Argument(..., help="Key fingerprint (spaces optional)."),
+    reason: str | None = typer.Option(None, "--reason", help="Why it was revoked."),
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """Revoke a registered public key (history is kept, marked revoked)."""
+    creds = resolve_creds(url, org, api_key)
+    want = "".join(fingerprint.split()).lower()
+    try:
+        with _client(creds) as client:
+            res = client.get(f"/v1/orgs/{creds['org']}/keys")
+            res.raise_for_status()
+            match = next(
+                (k for k in res.json().get("keys", [])
+                 if str(k.get("fingerprint", "")).lower() == want and not k.get("revoked_at")),
+                None,
+            )
+            if not match:
+                console.print("[red][FAIL][/red] No active registered key with that fingerprint.")
+                raise typer.Exit(1)
+            revoke = client.post(
+                f"/v1/orgs/{creds['org']}/keys/{match['id']}/revoke", json={"reason": reason}
+            )
+            revoke.raise_for_status()
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Revoke failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green][OK][/green] Revoked {want}. History is kept and marked revoked.")
+
+
+@keys_app.command("unrevoke")
+def keys_unrevoke(
+    fingerprint: str = typer.Argument(..., help="Key fingerprint (spaces optional)."),
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """Restore a mistakenly revoked key (clears the revocation mark)."""
+    creds = resolve_creds(url, org, api_key)
+    want = "".join(fingerprint.split()).lower()
+    try:
+        with _client(creds) as client:
+            res = client.get(f"/v1/orgs/{creds['org']}/keys")
+            res.raise_for_status()
+            match = next(
+                (k for k in res.json().get("keys", [])
+                 if str(k.get("fingerprint", "")).lower() == want and k.get("revoked_at")),
+                None,
+            )
+            if not match:
+                console.print("[red][FAIL][/red] No revoked registered key with that fingerprint.")
+                raise typer.Exit(1)
+            restore = client.post(
+                f"/v1/orgs/{creds['org']}/keys/{match['id']}/unrevoke"
+            )
+            restore.raise_for_status()
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Unrevoke failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green][OK][/green] Restored {want}.")
+
 
 @storage_app.command("show")
 def storage_show(

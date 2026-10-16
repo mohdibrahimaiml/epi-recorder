@@ -4,6 +4,15 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+- **Key registry (M5).** Vendors register **public** keys (`epi cloud keys
+  push` reads only `*.pub` and refuses anything else); anyone can read the
+  history at `/o/{slug}/keys.json`, shown on trust pages with revocations
+  and reasons. Revoked keys are kept as tombstones (hard delete refuses them;
+  a mistaken revoke is recovered with `epi cloud keys unrevoke`).
+  Registration is informational only and never a pin: `epi keys trust
+  --from-cloud {slug}` still requires the exact fingerprint confirmed with
+  the sender, and refuses revoked keys.
+
 - **Customer-owned storage (M4).** Every sealed `.epi` can also go straight
   to the vendor's own S3-compatible bucket (`EPI_STORAGE_URL=s3://bucket/prefix`,
   endpoint override for MinIO/R2/GCS, credentials from AWS env/profile).

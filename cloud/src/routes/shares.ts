@@ -137,7 +137,7 @@ export interface TrustDoc {
     awaiting_checkpoint: boolean;
   }>;
   artifacts: Array<Record<string, unknown>>;
-  keys: Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null }>;
+  keys: Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null; revoke_reason: string | null }>;
   note: string;
 }
 
@@ -182,8 +182,8 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
   const artRows = await db.prepare(
     "SELECT id, agent_id, claimed_sha256, size_bytes, workflow_id, goal, sealed_at, key_fingerprint, signature_check, witness_status, reason FROM artifacts WHERE org_id = ? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 200",
   ).bind(link.org_id).all();
-  const keyRows = await db.prepare("SELECT fingerprint, label, valid_from, revoked_at FROM org_keys WHERE org_id = ? ORDER BY valid_from").bind(link.org_id).all<{
-    fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null;
+  const keyRows = await db.prepare("SELECT fingerprint, label, valid_from, revoked_at, revoke_reason FROM org_keys WHERE org_id = ? ORDER BY valid_from").bind(link.org_id).all<{
+    fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null; revoke_reason: string | null;
   }>();
 
   const artifacts = (((artRows.results ?? []) as Array<Record<string, unknown> & { id: string; agent_id: string | null }>)
@@ -196,7 +196,7 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
     agents: agents.map((a) => ({ id: a.id, name: a.name, status: a.status })),
     inboxes: out,
     artifacts,
-    keys: (keyRows.results ?? []) as Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null }>,
+    keys: (keyRows.results ?? []) as Array<{ fingerprint: string; label: string | null; valid_from: string; revoked_at: string | null; revoke_reason: string | null }>,
     note: "Counts come from signed daily checkpoints; verification runs in your browser, never on our server.",
   };
 }
