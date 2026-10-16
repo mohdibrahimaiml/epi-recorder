@@ -48,8 +48,10 @@ Evidence Rooms. Witness-first is what makes $0 viable.
 1. Cloudflare account + card (R2 requires it; $0 within limits).
 2. `wrangler --config cloud/wrangler.toml d1 create epi-cloud` → paste `database_id`
    into `cloud/wrangler.toml` (replaces the `TODO-...` placeholder), then
-   `wrangler --config cloud/wrangler.toml d1 execute epi-cloud
-   --file=cloud/migrations/0001_init.sql`.
+   `wrangler --config cloud/wrangler.toml d1 migrations apply epi-cloud --remote`.
+   Never `d1 execute --file=` for schema: only `migrations apply` records what
+   ran, and CI applies migrations before every deploy, so code never goes
+   live ahead of its database.
 3. `wrangler --config cloud/wrangler.toml r2 bucket create epi-cloud-room`.
 4. OAuth apps: GitHub (Settings → Developer settings → OAuth Apps) and Google
    (Console → Credentials → OAuth client, web). Callbacks:
@@ -71,6 +73,33 @@ Evidence Rooms. Witness-first is what makes $0 viable.
 
 CI deploys only from `main` and skips while `database_id` is still the
 `TODO-...` placeholder.
+
+### 4b. Repairing a behind prod D1 (one-time)
+
+Symptom: sign-in (or any new-feature call) returns
+`{"error":{"code":"internal"}}` right after a deploy, and worker logs show
+`no such column` / `no such table`. Cause: the schema was once created by
+hand (`d1 execute --file=`), which records nothing, so later migrations
+never ran. No customer data is at risk — repair is additive:
+
+```bash
+# 1. What does prod think ran?
+wrangler --config cloud/wrangler.toml d1 migrations list epi-cloud --remote
+# 2. Back up first (see §5).
+wrangler --config cloud/wrangler.toml d1 export epi-cloud --remote --output=backup-$(date +%F).sql
+# 3. Converge: 0001 is IF NOT EXISTS, so hand-created tables apply cleanly.
+wrangler --config cloud/wrangler.toml d1 migrations apply epi-cloud --remote
+# 4. Tripwire (same as CI smoke check): must print [] with no error.
+wrangler --config cloud/wrangler.toml d1 execute epi-cloud --remote \
+  --command "SELECT email_verified FROM users LIMIT 0" --json
+wrangler --config cloud/wrangler.toml d1 execute epi-cloud --remote \
+  --command "SELECT user_code FROM device_codes LIMIT 0" --json
+```
+
+If step 3 fails on an `ALTER TABLE ... ADD COLUMN` duplicate (0002 was
+also hand-applied): the column already exists, so nothing is lost — note
+which migration failed, apply the remaining files' statements by hand if
+needed, and record the outcome in the PR. Then retry sign-in.
 
 ## 5. Backups
 

@@ -17,6 +17,7 @@ const TABLES = [
   "orgs", "users", "identities", "memberships", "invites", "sessions",
   "api_keys", "agents", "inboxes", "checkpoints", "artifacts", "org_keys",
   "share_links", "trust_events", "storage_targets", "audit_log", "rate_counters",
+  "device_codes",
 ];
 
 function openDb(): DatabaseSync {
