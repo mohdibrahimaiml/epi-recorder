@@ -40,7 +40,9 @@ class FakeDeviceClient:
             def json(self):
                 return {
                     "device_code": "dev_abc123",
-                    "verification_url": "https://cloud.test/auth/device?code=dev_abc123",
+                    "user_code": "WDJB-MJHT",
+                    "verification_url": "https://cloud.test/auth/device",
+                    "interval": 5,
                 }
 
         return R()
@@ -51,6 +53,7 @@ class FakeDeviceClient:
 
         class R:
             status_code = 200
+            headers: dict[str, str] = {}
 
             def __init__(self, polls: int):
                 self.polls = polls
@@ -89,5 +92,49 @@ def test_cloud_login_device_flow(home, monkeypatch):
     assert saved["url"] == "https://cloud.epilabs.org"
     assert saved["org_id"] == "org_123"
     assert saved["api_key"] == "epik_devicekey123"
-    out = result.output.lower()
-    assert "authorize" in out or "authorized" in out
+    assert "WDJB-MJHT" in result.output
+    # The secret device code is never printed; only the typed user code is.
+    assert "dev_abc123" not in result.output
+
+
+def test_cloud_login_device_flow_backs_off_on_429(home, monkeypatch):
+    """Poller handles 429 with Retry-After instead of hammering sign-in."""
+
+    import time
+    import webbrowser
+
+    import httpx
+
+    seen_waits: list[float] = []
+
+    class Throttled(FakeDeviceClient):
+        def get(self, url, **kwargs):
+            self.calls.append({"method": "GET", "url": url})
+            self.polls += 1
+
+            class R:
+                status_code = 429 if self.polls == 1 else 200
+
+                def __init__(self, polls: int):
+                    self.polls = polls
+                    self.headers = {"retry-after": "7"} if polls == 1 else {}
+
+                def json(self):
+                    if self.polls < 3:
+                        return {"status": "pending"}
+                    return {
+                        "status": "authorized",
+                        "org_id": "org_123",
+                        "api_key": "epik_devicekey123",
+                    }
+
+            return R(self.polls)
+
+    Throttled.instances.clear()
+    monkeypatch.setattr(httpx, "Client", Throttled)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+    monkeypatch.setattr(time, "sleep", lambda s: seen_waits.append(s))
+
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    assert seen_waits and max(seen_waits) >= 7

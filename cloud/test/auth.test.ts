@@ -201,7 +201,6 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     const cb = await app.request(`/auth/github/callback?code=e2e&state=${encodeURIComponent(stateParam)}`, { headers: { Cookie: `epi_oauth_state=${oauthState}` } }, env as never);
     expect(cb.status).toBe(302);
     const cookie = `epi_session=${cb.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!}`;
-    const json = (r: Response) => r.json() as Promise<Record<string, string>>;
 
     // 2. Create org.
     const orgRes = await app.request("/v1/orgs", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Acme", slug: "acme" }) }, env as never);
@@ -213,21 +212,31 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     expect(keyRes.status).toBe(201);
     const keyBody = (await keyRes.json()) as { key: string; id: string };
     expect(keyBody.key.startsWith("epik_")).toBe(true);
-    void json;
 
-    // 4. Device flow without flags: start -> authorize -> status.
+    // 4. Device flow (RFC 8628): start -> type user_code -> authorize -> poll once.
     const devStart = await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" } }, env as never);
     expect(devStart.status).toBe(201);
-    const dev = (await devStart.json()) as { device_code: string; verification_url: string };
-    expect(dev.verification_url).toContain("/auth/device?code=");
+    const dev = (await devStart.json()) as { device_code: string; user_code: string; verification_url: string; interval: number };
+    expect(dev.user_code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+    expect(dev.verification_url).toBe("https://cloud.epilabs.org/auth/device");
+    expect(dev.verification_url).not.toContain(dev.device_code);
     const pending = (await (await app.request(`/auth/device/${dev.device_code}/status`, {}, env as never)).json()) as { status: string };
     expect(pending.status).toBe("pending");
-    const authz = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ device_code: dev.device_code, org_id: org.id }) }, env as never);
+    const lookup = await app.request("/auth/device/lookup", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev.user_code.toLowerCase().replace("-", " ") }) }, env as never);
+    expect(lookup.status).toBe(200);
+    const authz = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev.user_code, org_id: org.id }) }, env as never);
     expect(authz.status).toBe(200);
+    // Second click mints nothing.
+    const again = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev.user_code, org_id: org.id }) }, env as never);
+    expect(again.status).toBe(409);
     const done = (await (await app.request(`/auth/device/${dev.device_code}/status`, {}, env as never)).json()) as { status: string; api_key: string; org_id: string };
     expect(done.status).toBe("authorized");
     expect(done.api_key.startsWith("epik_")).toBe(true);
     expect(done.org_id).toBe(org.id);
+    // Key is single-retrieval: a second poll gets no key.
+    const consumed = (await (await app.request(`/auth/device/${dev.device_code}/status`, {}, env as never)).json()) as { status: string; api_key: string | null };
+    expect(consumed.status).toBe("authorized");
+    expect(consumed.api_key).toBeNull();
 
     // 5. `epi cloud login`-equivalent check + push init with the minted key.
     // Push-only device keys can init (writer) but cannot list (reader needs `read`).
@@ -242,6 +251,8 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     expect([201, 200]).toContain(init.status);
 
     // 6. Dashboard (front door) has no dead end: org/key/inbox/trust + login cmd.
+    // Trust links are built at runtime from TRUST_ORIGIN=https://epilabs.org
+    // (the trust-page host), never the cloud origin.
     const home = await app.request("/", { headers: { Cookie: cookie } }, env as never);
     expect(home.status).toBe(200);
     const html = await home.text();
@@ -250,6 +261,29 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     expect(html).toContain("Create inbox");
     expect(html).toContain("Create trust link");
     expect(html).toContain("epi cloud login");
+    expect(html).toContain('TRUST_ORIGIN="https://epilabs.org"');
+    expect(html).toContain('"/t/"+j.id+"#k="+j.token');
+    expect(html).not.toContain('location.origin+"/t/"');
+    db.close();
+  });
+
+  it("OAuth carries a safe relative next through to the redirect", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    githubProfile = { id: 777, login: "next-user", email: "next@example.com", verified: true };
+    const start = await app.request("/auth/github?next=/auth/device", {}, env as never);
+    expect(start.status).toBe(302);
+    const loc = new URL(start.headers.get("Location")!);
+    const stateParam = loc.searchParams.get("state")!;
+    const cookies = start.headers.getSetCookie().join("; ");
+    const oauthState = /epi_oauth_state=([^;]+)/.exec(cookies)![1]!;
+    const oauthNext = /epi_oauth_next=([^;]+)/.exec(cookies)![1]!;
+    const cb = await app.request(`/auth/github/callback?code=n&state=${encodeURIComponent(stateParam)}`, { headers: { Cookie: `epi_oauth_state=${oauthState}; epi_oauth_next=${oauthNext}` } }, env as never);
+    expect(cb.status).toBe(302);
+    expect(cb.headers.get("Location")).toBe("https://cloud.epilabs.org/auth/device");
+    // Open redirects are refused: absolute URLs never become the target.
+    const evil = await app.request("/auth/github?next=https://evil.test/phish", {}, env as never);
+    expect(evil.headers.getSetCookie().join("; ")).not.toContain("epi_oauth_next");
     db.close();
   });
 });

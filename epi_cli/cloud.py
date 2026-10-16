@@ -137,9 +137,10 @@ def login(
 ) -> None:
     """Save Evidence Room credentials (url/org_id/api_key) for push and status.
 
-    No flags: browser device flow — opens cloud.epilabs.org, you click
-    "Authorize this computer", and the CLI receives a push-only key
-    automatically. With --org/--api-key: automation version (flags win).
+    No flags: browser device flow — this terminal shows a short code,
+    you type it at cloud.epilabs.org/auth/device, and the CLI receives
+    a push-only key automatically. With --org/--api-key: automation
+    version (flags win).
     """
     base = (url or os.getenv("EPI_CLOUD_URL") or "https://cloud.epilabs.org").rstrip("/")
     # Flag/automation version: org + key supplied explicitly.
@@ -191,7 +192,13 @@ def _write_config(base: str, org: str, api_key: str) -> None:
 
 
 def _device_login(base: str) -> None:
-    """Browser device-code flow: start, open browser, poll for push-only key."""
+    """Browser device flow (RFC 8628): show a user code, poll for key.
+
+    The short user code is typed on cloud.epilabs.org/auth/device by the
+    person at this terminal. The long device secret never leaves this
+    machine. Polls every 5 s on a dedicated rate-limit bucket and backs
+    off on 429 so sign-in stays usable.
+    """
     import time
     import webbrowser
 
@@ -208,12 +215,16 @@ def _device_login(base: str) -> None:
         console.print(f"[dim]{escape(str(exc))}[/dim]")
         raise typer.Exit(1) from exc
     code = data.get("device_code", "")
-    verify_url = data.get("verification_url", f"{base}/auth/device?code={code}")
-    if not code:
+    user_code = data.get("user_code", "")
+    verify_url = data.get("verification_url", f"{base}/auth/device")
+    interval = int(data.get("interval", 5) or 5)
+    if not code or not user_code:
         console.print("[red][FAIL][/red] Login failed (no device code).")
         raise typer.Exit(1)
-    console.print("A browser window will open to authorize this computer.")
-    console.print(f"[dim]If it does not open, visit:[/dim] {verify_url}")
+    console.print("Enter this code in your browser (only this computer):")
+    console.print(f"[bold cyan]{escape(str(user_code))}[/bold cyan]")
+    console.print(f"[dim]Page:[/dim] {verify_url}")
+    console.print("[dim]A browser window will open; type the code there.[/dim]")
     try:
         webbrowser.open(verify_url)
     except Exception:
@@ -227,24 +238,39 @@ def _device_login(base: str) -> None:
                 try:
                     st = client.get(f"/auth/device/{code}/status")
                 except Exception:
-                    time.sleep(2)
+                    time.sleep(interval)
                     continue
                 if st.status_code == 404:
-                    console.print("[red][FAIL][/red] Device code unknown. Retry login.")
+                    console.print("[red][FAIL][/red] Device code unknown.")
+                    console.print("[dim]Retry login.[/dim]")
                     raise typer.Exit(1)
+                if st.status_code == 429:
+                    wait = interval * 2
+                    try:
+                        retry = st.headers.get("retry-after")
+                        if retry is not None:
+                            wait = max(wait, int(retry))
+                    except Exception:
+                        pass
+                    time.sleep(wait)
+                    continue
                 try:
                     body = st.json()
                 except Exception:
-                    time.sleep(2)
+                    time.sleep(interval)
                     continue
-                if body.get("status") == "authorized" and body.get("api_key"):
-                    org_id = str(body.get("org_id", ""))
-                    raw_key = str(body.get("api_key", ""))
-                    break
+                if body.get("status") == "authorized":
+                    if body.get("api_key"):
+                        org_id = str(body.get("org_id", ""))
+                        raw_key = str(body.get("api_key", ""))
+                        break
+                    console.print("[red][FAIL][/red] Key already retrieved.")
+                    console.print("[dim]Run login again for a new code.[/dim]")
+                    raise typer.Exit(1)
                 if body.get("status") == "expired":
                     console.print("[red][FAIL][/red] Code expired. Retry login.")
                     raise typer.Exit(1)
-                time.sleep(2)
+                time.sleep(interval)
     except typer.Exit:
         raise
     except Exception as exc:
