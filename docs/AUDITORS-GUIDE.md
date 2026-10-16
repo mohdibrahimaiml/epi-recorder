@@ -188,7 +188,8 @@ capture path that logs calls but not results).
 | `Witness: a report for this case exists …, but THIS file was altered` | You were told about this case, but this file is not what was reported. Verification FAILs on integrity. |
 | `Witness: NOT IN WITNESS LOG — never reported to you at seal time` | You were never sent a report for this seal. A PASS becomes WARN (`⚠ NOT IN YOUR WITNESS LOG`), and FAIL (exit 1) under `--policy strict`. For a case you know happened, ask the vendor why. |
 | `Witness: NOT CHECKED — witness log … could not be read` | The `--witness-log` path is wrong or unreadable. Verification FAILs so a typo never skips the check. |
-| `Witness: DIFFERENT VERSION — …` | You were told about this case (same workflow id), but not about this copy: a re-signed copy or an unreported gateway re-export. Headline `✘ FAIL — NOT THE VERSION REPORTED TO YOU`. Ask for the reported copy. |
+| `Witness: DIFFERENT VERSION — …` | You were told about this case (same workflow id), but not about this copy: a re-signed copy or an unreported gateway re-export. A receipt verified fine but matches a different file. Headline `✘ FAIL — NOT THE VERSION REPORTED TO YOU`. Ask for the reported copy. |
+| `Witness: WITNESS STAMP NOT FROM THE EPI WITNESS — …` | No matched receipt carries a valid signature from a trusted EPI witness key: the stamp is foreign, not an edited file. Headline `✘ FAIL — WITNESS STAMP NOT FROM THE EPI WITNESS`. Ask for the reported copy, and pin the EPI key out of band. |
 
 A vendor re-running a case produces a new, separately witnessed seal. Look
 for more than one log entry for the same case; see [WITNESS.md](./WITNESS.md).

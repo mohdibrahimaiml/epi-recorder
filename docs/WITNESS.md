@@ -187,6 +187,12 @@ The SEAL block shows one `Witness:` line:
   re-export of the same case that was never reported. The file's own seal may
   be valid; it is simply not what you were told about. Headline
   `✘ FAIL — NOT THE VERSION REPORTED TO YOU`, in every policy.
+- `WITNESS STAMP NOT FROM THE EPI WITNESS` (JSON status `MISMATCH`, mode
+  `untrusted-stamp`) — none of the matched receipts carries a valid signature
+  from a trusted EPI witness key: the stamp is foreign, not an edited file.
+  Headline `✘ FAIL — WITNESS STAMP NOT FROM THE EPI WITNESS`. Ask for the
+  reported copy, and pin the EPI witness key out of band before trusting
+  any stamp.
 
 ## Re-runs: one case, several seals
 
