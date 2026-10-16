@@ -502,11 +502,14 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
             assert hashlib.sha256(zf.read(entry["name"])).hexdigest() == entry["sha256"]
 
         readme = zf.read("README.txt").decode("utf-8")
-        assert "epi verify FILE --policy strict --witness-log witness.json --offline" in readme
+        assert "epi verify FILE --policy strict --witness-log witness.json --witness-pubkey <PASTE-KEY> --offline" in readme
         assert (
-            "Each witness line carries an Ed25519 receipt from the EPI witness"
+            "checkable offline ONLY against a witness public key you pinned yourself"
             in readme
         )
+        assert "NEVER trust the witness_pubkey printed inside witness.json" in readme
+        assert "cloud.epilabs.org/.well-known/epi-witness-key.json" in readme
+        assert "epi-witness-checkpoints" in readme
         assert "per-line Merkle inclusion proofs are planned, not present" in readme
         assert manifest[0]["sha256"] in readme
 
@@ -548,6 +551,14 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
     bad_report = _verify_cli(tampered, witness_file, tmp_path, "pack-tampered", pubkey=witness["witness_pubkey"])
     assert bad_report["witness"]["status"] == "MISMATCH", bad_report["witness"]
     assert bad_report["decision"]["status"] == "FAIL"
+
+    # The #121 blocker repro through the real pack: same signed pack, but NO
+    # pinned key (the README command without --witness-pubkey). The stamps
+    # are UNCHECKED — must read NOT CONFIRMED, never WITNESSED.
+    nokey_report = _verify_cli(epi_file, witness_file, tmp_path, "pack-nokey")
+    assert nokey_report["witness"]["status"] == "NOT CONFIRMED", nokey_report["witness"]
+    assert "NOT CONFIRMED" in nokey_report["witness"]["detail"]
+    assert nokey_report["decision"]["status"] == "FAIL", nokey_report["decision"]
 
     kinds = _event_kinds(state)
     assert kinds.count("downloaded_pack") == 1, kinds

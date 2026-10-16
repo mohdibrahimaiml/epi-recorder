@@ -154,9 +154,61 @@ def test_valid_signed_doc_is_witnessed(monkeypatch, tmp_path: Path) -> None:
     priv, pub_hex = _fresh_keypair()
     receipt = _make_receipt(priv, payload, payload_raw)
     log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
-    result, report = _verify_json(epi, log)
+    result, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
     assert report["witness"]["status"] == "WITNESSED", report["witness"]
     assert report["witness"]["received_at"] == RECEIVED_AT
+
+
+def test_self_signed_pack_without_pinned_key_is_not_confirmed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The #121 blocker repro: a run never reported, self-stamped with an
+    attacker key, verified with the exact README command (strict + offline,
+    no pinned key). Must NEVER read WITNESSED — the doc key is not trust."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, payload_raw, _, _ = _payload_for(epi)
+    attacker_priv, attacker_pub = _fresh_keypair()
+    receipt = _make_receipt(attacker_priv, payload, payload_raw)
+    log = _write_signed_doc(tmp_path / "witness.json", attacker_pub, payload_raw, receipt)
+    result, report = _verify_json(epi, log, extra=["--policy", "strict", "--offline"])
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
+    assert "NOT CONFIRMED" in report["witness"]["detail"]
+    assert "pin" in report["witness"]["detail"].lower()
+    assert report["witness"]["status"] != "WITNESSED"
+    assert report["decision"]["status"] == "FAIL", report["decision"]
+    assert result.exit_code == 1
+
+
+def test_doc_key_alone_never_confirms(monkeypatch, tmp_path: Path) -> None:
+    """Even a CORRECTLY self-signed doc (sig valid under its own doc key)
+    stays NOT CONFIRMED without an out-of-band key — validity under the
+    file's own key proves nothing."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, payload_raw, _, _ = _payload_for(epi)
+    priv, pub_hex = _fresh_keypair()
+    receipt = _make_receipt(priv, payload, payload_raw)
+    log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
+    _, report = _verify_json(epi, log)
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
+
+
+def test_package_pinned_key_confirms_without_flag(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Keys pinned in epi_core.witness_keys count as out-of-band trust."""
+    import epi_core.witness_keys as _wk
+
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, payload_raw, _, _ = _payload_for(epi)
+    priv, pub_hex = _fresh_keypair()
+    receipt = _make_receipt(priv, payload, payload_raw)
+    log = _write_signed_doc(tmp_path / "witness.json", None, payload_raw, receipt)
+    monkeypatch.setattr(_wk, "EPI_WITNESS_PUBKEYS", (pub_hex,))
+    _, report = _verify_json(epi, log)
+    assert report["witness"]["status"] == "WITNESSED", report["witness"]
 
 
 def test_tampered_payload_raw_never_witnessed(monkeypatch, tmp_path: Path) -> None:
@@ -172,7 +224,7 @@ def test_tampered_payload_raw_never_witnessed(monkeypatch, tmp_path: Path) -> No
     assert tampered != payload_raw
     assert json.loads(tampered)["workflow_id"] == payload["workflow_id"]
     log = _write_signed_doc(tmp_path / "witness.json", pub_hex, tampered, receipt)
-    _, report = _verify_json(epi, log)
+    _, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
     assert report["witness"]["status"] != "WITNESSED", report["witness"]
     assert report["witness"]["status"] in ("MISMATCH", "NOT IN WITNESS LOG")
 
@@ -185,7 +237,7 @@ def test_forged_signature_never_witnessed(monkeypatch, tmp_path: Path) -> None:
     other_priv, _ = _fresh_keypair()
     receipt = _make_receipt(other_priv, payload, payload_raw)
     log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
-    _, report = _verify_json(epi, log)
+    _, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
     assert report["witness"]["status"] != "WITNESSED", report["witness"]
     assert report["witness"]["status"] == "MISMATCH"
     assert "receipt" in report["witness"]["detail"].lower()
@@ -222,7 +274,7 @@ def test_wrong_artifact_bytes_is_mismatch(monkeypatch, tmp_path: Path) -> None:
         ),
         preserve_generated=True,
     )
-    _, report = _verify_json(altered, log)
+    _, report = _verify_json(altered, log, extra=["--witness-pubkey", pub_hex])
     assert report["witness"]["status"] == "MISMATCH", report["witness"]
     assert report["witness"]["status"] != "WITNESSED"
 
@@ -240,22 +292,24 @@ def test_legacy_bare_jsonl_without_pubkey_still_witnessed(monkeypatch, tmp_path:
     assert report["witness"]["received_at"] == RECEIVED_AT
 
 
-def test_receipt_without_any_pubkey_falls_back_to_unsigned_match(
+def test_receipt_without_trusted_key_is_not_confirmed(
     monkeypatch, tmp_path: Path
 ) -> None:
-    # Without a key there is nothing to verify a signature against, so the
-    # CLI deliberately ignores the receipt and matches the inner payload
-    # exactly like a legacy bare report. This keeps pre-M6 packs and
-    # key-less trials verifiable; the moment any pubkey is known (flag, env,
-    # or doc) the same file takes the strict verified-receipt path instead.
+    # A receipt-bearing file with no out-of-band key (flag, env, package pin)
+    # is NOT CONFIRMED, never WITNESSED — even when the doc names a key, and
+    # even when the signature is valid under that key. The doc key is a hint
+    # for display, never trust.
     _hermetic(monkeypatch, tmp_path)
     epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
     payload, payload_raw, _, _ = _payload_for(epi)
-    priv, _ = _fresh_keypair()
+    priv, pub_hex = _fresh_keypair()
     receipt = _make_receipt(priv, payload, payload_raw)
-    log = _write_signed_doc(tmp_path / "witness.json", None, payload_raw, receipt)
+    log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
     _, report = _verify_json(epi, log)
-    assert report["witness"]["status"] == "WITNESSED", report["witness"]
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
+    log2 = _write_signed_doc(tmp_path / "witness2.json", None, payload_raw, receipt)
+    _, report2 = _verify_json(epi, log2)
+    assert report2["witness"]["status"] == "NOT CONFIRMED", report2["witness"]
 
 
 def test_witness_pubkey_flag_overrides_wrong_doc_key(monkeypatch, tmp_path: Path) -> None:

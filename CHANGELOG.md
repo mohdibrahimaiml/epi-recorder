@@ -10,7 +10,9 @@ All notable changes to EPI Recorder are documented here.
   with the exact offline verify commands, and `MANIFEST.json` with SHA-256
   per file. Witness lines arrive link-scoped behind the share token, each
   with a per-line Ed25519 receipt checkable offline (`epi verify
-  --witness-log witness.json --witness-pubkey ...`); revoked keys ride with
+  --witness-log witness.json --witness-pubkey ...` — the key in the file is
+  never trust; reviewers pin it from the well-known endpoint and the
+  checkpoints repo); revoked keys ride with
   reasons. Full-log consistency stays covered by the signed daily checkpoint;
   per-line Merkle inclusion proofs are planned, not present.
 

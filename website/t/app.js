@@ -207,8 +207,9 @@
     setTimeout(function () { URL.revokeObjectURL(objUrl); a.remove(); }, 4000);
   }
 
-  var PACK_OFFLINE_CMD = 'epi verify FILE --policy strict --witness-log witness.json --offline';
-  var PACK_HONESTY_NOTE = 'Each witness line carries an Ed25519 receipt from the EPI witness \u2014 checkable offline with the witness public key in witness.json. Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.';
+  var PACK_OFFLINE_CMD = 'epi verify FILE --policy strict --witness-log witness.json --witness-pubkey <PASTE-KEY> --offline';
+  var PACK_HONESTY_NOTE = 'Each witness line carries an Ed25519 receipt from the EPI witness \u2014 checkable offline ONLY against a witness public key you pinned yourself (see below). Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.';
+  var PACK_KEY_NOTE = 'NEVER trust the witness_pubkey printed inside witness.json: it arrives in the same file as the stamps, so a forger swaps in their own (a passport printing its own stamp sample). Get the EPI witness key from TWO places and check they match: (1) https://cloud.epilabs.org/.well-known/epi-witness-key.json  (2) the public epi-witness-checkpoints GitHub repo. Paste it as --witness-pubkey above (or EPI_WITNESS_PUBKEY). Without it the verifier answers STAMP NOT CONFIRMED, never WITNESSED.';
 
   function buildPackReadme(doc, witness, folder, files) {
     var out = [];
@@ -221,9 +222,12 @@
     out.push('');
     out.push('  ' + PACK_OFFLINE_CMD);
     out.push('');
-    out.push('  (replace FILE with one of the .epi files in ' + folder + '/)');
+    out.push('  (replace FILE with one of the .epi files in ' + folder + '/,');
+    out.push('   and <PASTE-KEY> with the EPI witness key — see below.)');
     out.push('');
     out.push(PACK_HONESTY_NOTE);
+    out.push('');
+    out.push(PACK_KEY_NOTE);
     out.push('');
     out.push('Files (sha256):');
     files.forEach(function (x) {
@@ -231,7 +235,9 @@
     });
     out.push('');
     out.push('Trust record: trust.json (vendor, witness counts, key history with fingerprints).');
-    out.push('Witness lines: witness.json (per-line Ed25519 receipts + witness public key).');
+    out.push('Witness lines: witness.json (per-line Ed25519 receipts; its printed');
+    out.push('witness_pubkey is a hint for display ONLY — never trust it, pin the key');
+    out.push('from the two places above).');
     out.push('Manifest: MANIFEST.json (name + sha256 of every zipped file).');
     out.push('');
     return out.join('\n');

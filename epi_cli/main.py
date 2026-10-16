@@ -624,7 +624,7 @@ def verify(
     witness_pubkey: str | None = typer.Option(
         None,
         "--witness-pubkey",
-        help="Witness Ed25519 public key (hex) for signed receipts. Overrides EPI_WITNESS_PUBKEY and the log's witness_pubkey.",
+        help="Witness Ed25519 public key (hex) for signed receipts. Overrides EPI_WITNESS_PUBKEY and package-pinned keys. A key shipped inside the log file itself is never trusted.",
     ),
 ):
     return verify_command(
