@@ -793,12 +793,18 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
     # NOT CONFIRMED message below.
     from epi_core.witness_keys import pinned_witness_pubkeys
 
-    _trusted_hexes: list[str] = []
+    # Explicit auditor keys (flag/env) vs package pins. Package pins count
+    # for RECEIPTS but never turn a plain unsigned log into auditor mode:
+    # the customer's own received.jsonl must keep verifying after pinning.
+    _explicit_hexes: list[str] = []
     for _candidate in (
         [_clean_witness_pubkey(witness_pubkey)]
         + [_clean_witness_pubkey(os.environ.get("EPI_WITNESS_PUBKEY"))]
-        + pinned_witness_pubkeys()
     ):
+        if _candidate and _candidate not in _explicit_hexes:
+            _explicit_hexes.append(_candidate)
+    _trusted_hexes: list[str] = list(_explicit_hexes)
+    for _candidate in pinned_witness_pubkeys():
         if _candidate and _candidate not in _trusted_hexes:
             _trusted_hexes.append(_candidate)
     doc_key = _clean_witness_pubkey(doc_pubkey_raw)
@@ -848,40 +854,43 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             or ((item.get("inner") or {}).get("received_at") if isinstance(item.get("inner"), dict) else None)
         )
 
-    if not _trusted_hexes:
-        if signed_items:
-            # FAIL CLOSED: this file carries witness receipts, so WITNESSED
-            # is only meaningful against a key the reviewer pinned OUT OF
-            # BAND. No trusted key was provided (flag, env, or package pin),
-            # so the stamps were not checked at all. A key arriving inside
-            # the file proves nothing — self-signed packs verify against
-            # their own forgery. Never WITNESSED here, never silent.
-            try:
-                _times = []
-                for item in same_signed:
-                    _t = _signed_received_at(item)
-                    if _t:
-                        _times.append(str(_t))
-                if _times:
-                    result["received_at"] = max(_times)
-            except Exception:
-                pass
-            result["receipt_verified"] = 0
-            result["receipt_failures"] = len(same_signed)
-            _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
-            result["status"] = "NOT CONFIRMED"
-            result["detail"] = (
-                "WITNESS STAMP NOT CONFIRMED: this file carries witness receipts but no "
-                "trusted EPI witness key was provided, so no stamp was checked."
-                f"{_names_key} a key that arrives inside the file proves nothing — a forger "
-                "swaps in their own. Pin the EPI witness key out of band (fetch it from "
-                "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
-                "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
-                "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
-            )
-            return result
-        # Pure legacy file (no receipts anywhere: the customer's own
-        # received.jsonl): legacy unsigned behavior, unchanged.
+    if signed_items and not _trusted_hexes:
+        # FAIL CLOSED: this file carries witness receipts, so WITNESSED
+        # is only meaningful against a key the reviewer pinned OUT OF
+        # BAND. No trusted key was provided (flag, env, or package pin),
+        # so the stamps were not checked at all. A key arriving inside
+        # the file proves nothing — self-signed packs verify against
+        # their own forgery. Never WITNESSED here, never silent.
+        try:
+            _times = []
+            for item in same_signed:
+                _t = _signed_received_at(item)
+                if _t:
+                    _times.append(str(_t))
+            if _times:
+                result["received_at"] = max(_times)
+        except Exception:
+            pass
+        result["receipt_verified"] = 0
+        result["receipt_failures"] = len(same_signed)
+        _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
+        result["status"] = "NOT CONFIRMED"
+        result["detail"] = (
+            "WITNESS STAMP NOT CONFIRMED: this file carries witness receipts but no "
+            "trusted EPI witness key was provided, so no stamp was checked."
+            f"{_names_key} a key that arrives inside the file proves nothing — a forger "
+            "swaps in their own. Pin the EPI witness key out of band (fetch it from "
+            "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
+            "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+            "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
+        )
+        return result
+    if not signed_items and not _explicit_hexes:
+        # Pure unsigned log, no auditor key: the operator's OWN log (e.g.
+        # their `epi witness serve --out` file). Package pins deliberately do
+        # NOT apply here — otherwise pinning would break every customer's
+        # self-hosted flow. The verdict says whose log it is: a file handed
+        # over by someone else proves nothing without signed receipts.
         candidates: list[dict] = list(same_legacy)
         for entry in candidates:
             if (
@@ -890,9 +899,13 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             ):
                 _at = entry.get("_witness_received_at", entry.get("received_at"))
                 result["status"] = "WITNESSED"
+                result["mode"] = "own-log-unsigned"
                 result["received_at"] = _at
                 result["detail"] = (
-                    f"customer record matches (received {_at or 'unknown time'})"
+                    "WITNESSED — YOUR OWN LOG (unsigned): customer record matches "
+                    f"(received {_at or 'unknown time'}). Trusted only because you kept "
+                    "this log yourself; a file received from someone else proves "
+                    "nothing — demand signed receipts and pin the EPI witness key."
                 )
                 return result
         for entry in candidates:
@@ -902,13 +915,16 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             if content_digest and entry.get("content_digest") == content_digest:
                 _at = entry.get("_witness_received_at", entry.get("received_at"))
                 result["status"] = "WITNESSED"
+                result["mode"] = "own-log-unsigned"
                 result["received_at"] = _at
                 result["repackaged"] = True
                 result["detail"] = (
-                    "sealed contents match the customer record "
+                    "WITNESSED — YOUR OWN LOG (unsigned): sealed contents match the "
+                    "customer record "
                     f"(received {_at or 'unknown time'}); the file was "
                     "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
-                    "added, and re-signed)"
+                    "added, and re-signed). Trusted only because you kept this log "
+                    "yourself."
                 )
                 return result
         result["status"] = "MISMATCH"
@@ -998,9 +1014,10 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         if inner.get("manifest_hash") == manifest_hash and inner.get("file_sha256") == file_sha256:
             _at = _signed_received_at(item)
             result["status"] = "WITNESSED"
+            result["mode"] = "verified-receipt"
             result["received_at"] = _at
             result["detail"] = (
-                "customer record matches with verified witness receipt "
+                "WITNESSED — verified witness receipt: customer record matches "
                 f"(received {_at or 'unknown time'})"
             )
             return result
@@ -1009,10 +1026,12 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         if content_digest and inner.get("content_digest") == content_digest:
             _at = _signed_received_at(item)
             result["status"] = "WITNESSED"
+            result["mode"] = "verified-receipt"
             result["received_at"] = _at
             result["repackaged"] = True
             result["detail"] = (
-                "sealed contents match the customer record with verified witness receipt "
+                "WITNESSED — verified witness receipt: sealed contents match the "
+                "customer record "
                 f"(received {_at or 'unknown time'}); the file was "
                 "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
                 "added, and re-signed)"
@@ -2512,9 +2531,18 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         )
     elif _wit_status == "WITNESSED":
         _received = _wit.get("received_at") or "unknown time"
-        content_lines.append(
-            f"  [green]- Witness:      WITNESSED (received {_received})[/green]"
-        )
+        if _wit.get("mode") == "verified-receipt":
+            content_lines.append(
+                f"  [green]- Witness:      WITNESSED — verified witness receipt (received {_received})[/green]"
+            )
+        else:
+            content_lines.append(
+                f"  [green]- Witness:      WITNESSED — YOUR OWN LOG (unsigned) (received {_received})[/green]"
+            )
+            content_lines.append(
+                "  [dim]                Trusted only because you kept this log yourself; a file "
+                "received from someone else proves nothing.[/dim]"
+            )
         if _wit.get("repackaged"):
             content_lines.append(
                 "  [dim]                re-packaged after the witness; sealed contents unchanged[/dim]"

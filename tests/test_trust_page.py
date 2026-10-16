@@ -508,6 +508,7 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
             in readme
         )
         assert "NEVER trust the witness_pubkey printed inside witness.json" in readme
+        assert 'If the result does not say "verified witness receipt"' in readme
         assert "cloud.epilabs.org/.well-known/epi-witness-key.json" in readme
         assert "epi-witness-checkpoints" in readme
         assert "per-line Merkle inclusion proofs are planned, not present" in readme

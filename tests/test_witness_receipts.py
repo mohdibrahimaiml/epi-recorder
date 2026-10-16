@@ -289,7 +289,64 @@ def test_legacy_bare_jsonl_without_pubkey_still_witnessed(monkeypatch, tmp_path:
     )
     _, report = _verify_json(epi, log)
     assert report["witness"]["status"] == "WITNESSED", report["witness"]
+    assert report["witness"]["mode"] == "own-log-unsigned", report["witness"]
+    assert "YOUR OWN LOG" in report["witness"]["detail"]
     assert report["witness"]["received_at"] == RECEIVED_AT
+
+
+def test_stripped_forgery_without_key_is_qualified_not_plain(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Trick 2: attacker strips receipts, shipping bare payload lines. Without
+    a key the verifier cannot tell own-log from handed-file, so the verdict
+    must carry the YOUR OWN LOG qualifier — never a plain WITNESSED an
+    auditor could mistake for a checked stamp."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    _, payload_raw, _, _ = _payload_for(epi)
+    log = tmp_path / "stripped.jsonl"
+    log.write_text(payload_raw + "\n", encoding="utf-8")
+    _, report = _verify_json(epi, log)
+    assert report["witness"]["status"] == "WITNESSED", report["witness"]
+    assert report["witness"].get("mode") == "own-log-unsigned", report["witness"]
+    assert "YOUR OWN LOG" in report["witness"]["detail"]
+    assert "verified witness receipt" not in report["witness"]["detail"].lower()
+
+
+def test_genuine_unsigned_log_survives_package_pinning(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Future regression: once EPI_WITNESS_PUBKEYS is populated, a customer's
+    own unsigned received.jsonl must still verify — package pins never apply
+    to unsigned logs."""
+    import epi_core.witness_keys as _wk
+
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, _, _, _ = _payload_for(epi)
+    log = tmp_path / "received.jsonl"
+    log.write_text(
+        json.dumps({**payload, "received_at": RECEIVED_AT}) + "\n", encoding="utf-8"
+    )
+    _, other_hex = _fresh_keypair()
+    monkeypatch.setattr(_wk, "EPI_WITNESS_PUBKEYS", (other_hex,))
+    _, report = _verify_json(epi, log)
+    assert report["witness"]["status"] == "WITNESSED", report["witness"]
+    assert report["witness"].get("mode") == "own-log-unsigned", report["witness"]
+
+
+def test_stripped_forgery_with_key_is_rejected(monkeypatch, tmp_path: Path) -> None:
+    """Auditor mode (explicit key): unsigned lines are rejected even when the
+    hashes match — only signed receipts count."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    _, payload_raw, _, _ = _payload_for(epi)
+    _, pub_hex = _fresh_keypair()
+    log = tmp_path / "stripped.jsonl"
+    log.write_text(payload_raw + "\n", encoding="utf-8")
+    _, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
+    assert report["witness"]["status"] == "MISMATCH", report["witness"]
+    assert report["witness"]["status"] != "WITNESSED"
 
 
 def test_receipt_without_trusted_key_is_not_confirmed(
