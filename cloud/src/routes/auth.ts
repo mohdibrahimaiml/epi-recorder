@@ -107,7 +107,10 @@ app.get("/github/callback", async (c) => {
   if (!tokJson.access_token) return c.json({ error: { code: "oauth_exchange_failed", message: "GitHub code exchange failed." } }, 502);
   const me = await fetch("https://api.github.com/user", { headers: { Authorization: `Bearer ${tokJson.access_token}`, Accept: "application/json" } });
   const emails = await fetch("https://api.github.com/user/emails", { headers: { Authorization: `Bearer ${tokJson.access_token}`, Accept: "application/json" } });
-  if (!me.ok || !emails.ok) return c.json({ error: { code: "oauth_profile_failed", message: "GitHub profile fetch failed." } }, 502);
+  if (!me.ok || !emails.ok) {
+    console.error(`oauth github profile failed: user=${me.status} emails=${emails.status}`);
+    return c.json({ error: { code: "oauth_profile_failed", message: `GitHub profile fetch failed (user ${me.status}, emails ${emails.status}).` } }, 502);
+  }
   const profile = (await me.json()) as { id: number; login?: string; name?: string };
   const list = (await emails.json()) as Array<{ email: string; verified: boolean; primary: boolean }>;
   const primary = list.find((e) => e.primary) ?? list.find((e) => e.verified) ?? list[0];
@@ -174,7 +177,10 @@ app.get("/google/callback", async (c) => {
   const me = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
     headers: { Authorization: `Bearer ${tokJson.access_token}` },
   });
-  if (!me.ok) return c.json({ error: { code: "oauth_profile_failed", message: "Google profile fetch failed." } }, 502);
+  if (!me.ok) {
+    console.error(`oauth google profile failed: userinfo=${me.status}`);
+    return c.json({ error: { code: "oauth_profile_failed", message: `Google profile fetch failed (userinfo ${me.status}).` } }, 502);
+  }
   const profile = (await me.json()) as { sub: string; email?: string; email_verified?: boolean; name?: string };
   const userId = await findOrLinkUser(c.env.DB, "google", profile.sub, profile.email ?? null, profile.email_verified === true, profile.name ?? null);
   const sess = await createSession(c.env.DB, userId);
