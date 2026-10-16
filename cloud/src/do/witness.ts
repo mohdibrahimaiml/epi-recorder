@@ -21,7 +21,16 @@ export class WitnessInbox {
     this.sql = storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS entries(
       seq INTEGER PRIMARY KEY AUTOINCREMENT, received_at TEXT NOT NULL,
-      payload_raw TEXT NOT NULL, prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL)`);
+      payload_raw TEXT NOT NULL, prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL,
+      receipt_sig TEXT)`);
+    // Pre-receipt databases (M1–M5): add the column in place. IF NOT EXISTS
+    // does not alter existing tables, so migrate explicitly. Duplicate-column
+    // on re-boot is expected and ignored.
+    try {
+      this.sql.exec(`ALTER TABLE entries ADD COLUMN receipt_sig TEXT`);
+    } catch {
+      // Column already exists.
+    }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
   }
 
@@ -41,7 +50,58 @@ export class WitnessInbox {
           receivedAt, body.payload_raw, prev, hash,
         );
         const seq = (cursor.toArray()[0] as unknown as { seq: number }).seq;
-        return Response.json({ seq, entry_hash: hash }, { status: 200 });
+        return Response.json({ seq, entry_hash: hash, received_at: receivedAt }, { status: 200 });
+      }
+      if (request.method === "POST" && url.pathname === "/receipt") {
+        // Worker-signed per-line receipt (M6): the DO never sees the key.
+        const body = (await request.json()) as { seq?: unknown; receipt_sig?: unknown };
+        if (typeof body.seq !== "number" || typeof body.receipt_sig !== "string" || !body.receipt_sig) {
+          return Response.json({ error: { code: "bad_request", message: "seq + receipt_sig required." } }, { status: 400 });
+        }
+        const rows = this.sql.exec(
+          "UPDATE entries SET receipt_sig = ? WHERE seq = ? AND receipt_sig IS NULL RETURNING seq",
+          body.receipt_sig, body.seq,
+        ).toArray();
+        if (!rows.length) return Response.json({ error: { code: "not_found", message: "No unreceipted entry at seq." } }, { status: 404 });
+        return Response.json({ ok: true }, { status: 200 });
+      }
+      if (request.method === "POST" && url.pathname === "/receipts") {
+        // Backfill batch (cron): attach up to N signatures at once.
+        const body = (await request.json()) as { receipts?: unknown };
+        if (!Array.isArray(body.receipts) || body.receipts.length > 500) {
+          return Response.json({ error: { code: "bad_request", message: "receipts[≤500] required." } }, { status: 400 });
+        }
+        let attached = 0;
+        for (const r of body.receipts) {
+          const rec = r as { seq?: unknown; receipt_sig?: unknown };
+          if (typeof rec.seq !== "number" || typeof rec.receipt_sig !== "string" || !rec.receipt_sig) continue;
+          const rows = this.sql.exec(
+            "UPDATE entries SET receipt_sig = ? WHERE seq = ? AND receipt_sig IS NULL RETURNING seq",
+            rec.receipt_sig, rec.seq,
+          ).toArray();
+          attached += rows.length;
+        }
+        return Response.json({ attached }, { status: 200 });
+      }
+      if (request.method === "GET" && url.pathname === "/unreceipted") {
+        // Backfill cursor (cron): oldest lines still missing a receipt.
+        const rows = this.sql.exec(
+          "SELECT seq, received_at, payload_raw FROM entries WHERE receipt_sig IS NULL ORDER BY seq ASC LIMIT 200",
+        ).toArray();
+        return Response.json({ entries: rows });
+      }
+      if (request.method === "GET" && url.pathname === "/find-receipts") {
+        // Link-scoped lookup (M6): lines whose report mentions this file sha,
+        // with their receipts. Worker exact-matches file_sha256 afterwards;
+        // LIKE is only the coarse filter. Capped like /find.
+        const digest = url.searchParams.get("sha") ?? "";
+        if (!digest || digest.length > 128) return Response.json({ error: { code: "bad_request", message: "sha required." } }, { status: 400 });
+        const esc = digest.replace(/[\\%_]/g, (m) => `\\${m}`);
+        const rows = this.sql.exec(
+          "SELECT seq, received_at, payload_raw, receipt_sig FROM entries WHERE payload_raw LIKE ? ESCAPE '\\' ORDER BY seq ASC LIMIT 20",
+          `%${esc}%`,
+        ).toArray();
+        return Response.json({ entries: rows });
       }
       if (request.method === "GET" && url.pathname === "/export") {
         const rows = this.sql.exec("SELECT payload_raw FROM entries ORDER BY seq ASC").toArray();

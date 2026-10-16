@@ -11,7 +11,7 @@ import { app } from "../src/index.ts";
 import { hmacHex, sha256Hex } from "../src/lib/crypto.ts";
 import { edKeygen, edVerify, p256Keygen } from "../src/lib/signing.ts";
 import { openSecret } from "../src/lib/secretbox.ts";
-import { verifyChain } from "../src/lib/witnessChain.ts";
+import { verifyChain, verifyReceipt } from "../src/lib/witnessChain.ts";
 import { runCheckpointCron } from "../src/cron.ts";
 import { WitnessInbox } from "../src/do/witness.ts";
 
@@ -46,7 +46,10 @@ class FakeInboxNS {
     }
     const box = b;
     return {
-      fetch: (url: string, init?: RequestInit) => box.fetch(new Request(`https://inbox${new URL(url).pathname}`, init)),
+      fetch: (url: string, init?: RequestInit) => {
+        const u = new URL(url);
+        return box.fetch(new Request(`https://inbox${u.pathname}${u.search}`, init));
+      },
     };
   }
 }
@@ -271,7 +274,7 @@ describe("witness receive + export", () => {
         body: raws[i],
       }, env as never);
       expect(r.status).toBe(202);
-      expect((await r.json()) as { seq: number }).toEqual({ accepted: true, seq: i + 1 });
+      expect((await r.json()) as { seq: number }).toEqual({ accepted: true, seq: i + 1, receipt_attached: true });
     }
     const exp = await app.request(`/w/${id}/export.jsonl`, { headers: ck("sess-owner") }, env as never);
     expect(exp.status).toBe(200);
@@ -305,6 +308,65 @@ describe("witness receive + export", () => {
     expect((await app.request(`/w/${id}/export.jsonl`, { headers: ck("sess-other") }, env as never)).status).toBe(403);
     expect((await app.request(`/w/${id}/export.jsonl`, {}, env as never)).status).toBe(403);
     expect((await app.request(`/w/${id}/chain.jsonl`, { headers: ck("sess-other") }, env as never)).status).toBe(403);
+  });
+
+  it("append signs a per-line receipt; keyless appends are backfilled by cron", async () => {
+    const { env, ed, ck } = await setup();
+    const { id, secret } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string; secret: string };
+    const raw = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-9", file_sha256: "ff".repeat(32) });
+    const r = await app.request(`/w/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(secret, raw)}` },
+      body: raw,
+    }, env as never);
+    expect(r.status).toBe(202);
+    expect(await r.json()).toMatchObject({ accepted: true, seq: 1, receipt_attached: true });
+    const found = (await (await setupNsFetch(env, id, `/find-receipts?sha=${"ff".repeat(32)}`)).json()) as {
+      entries: { seq: number; received_at: string; payload_raw: string; receipt_sig: string | null }[];
+    };
+    expect(found.entries).toHaveLength(1);
+    expect(found.entries[0]!.receipt_sig).toBeTruthy();
+    expect(verifyReceipt(ed.pubHex, {
+      inbox_id: id, seq: 1,
+      line_sha256: await sha256Hex(raw),
+      artifact_sha256: "ff".repeat(32),
+      received_at: found.entries[0]!.received_at,
+      signature: found.entries[0]!.receipt_sig!,
+    })).toBe(true);
+    // Keyless append: line chains fine, receipt pending ...
+    const keyless = { ...env, WITNESS_SIGNING_KEY: undefined };
+    const raw2 = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-10", file_sha256: "ee".repeat(32) });
+    const r2 = await app.request(`/w/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(secret, raw2)}` },
+      body: raw2,
+    }, keyless as never);
+    expect(await r2.json()).toMatchObject({ accepted: true, seq: 2, receipt_attached: false });
+    // ... and the next cron backfills the signature.
+    const s = await runCheckpointCron(env as never, async () => ({ ok: true }) as unknown as Response);
+    expect(s.receipts).toBeGreaterThanOrEqual(1);
+    const found2 = (await (await setupNsFetch(env, id, `/find-receipts?sha=${"ee".repeat(32)}`)).json()) as {
+      entries: { receipt_sig: string | null }[];
+    };
+    expect(found2.entries[0]!.receipt_sig).toBeTruthy();
+  });
+
+  it("pre-receipt databases migrate the column in place", async () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec("CREATE TABLE entries(seq INTEGER PRIMARY KEY AUTOINCREMENT, received_at TEXT NOT NULL, payload_raw TEXT NOT NULL, prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL)");
+    db.prepare("INSERT INTO entries(received_at, payload_raw, prev_hash, entry_hash) VALUES (?,?,?,?)").run("2026-10-15T00:00:01.000Z", '{"n":0}', "GENESIS", "h0");
+    const box = new WitnessInbox({ storage: { sql: doAdapter(db) } } as unknown as DurableObjectState);
+    const appended = await box.fetch(new Request("https://inbox/append", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload_raw: '{"n":1}' }),
+    }));
+    expect(appended.status).toBe(200);
+    const un = (await (await box.fetch(new Request("https://inbox/unreceipted"))).json()) as { entries: { seq: number }[] };
+    expect(un.entries.map((e) => e.seq)).toEqual([1, 2]);
+    const put = await box.fetch(new Request("https://inbox/receipts", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ receipts: [{ seq: 1, receipt_sig: "sig1" }] }),
+    }));
+    expect(((await put.json()) as { attached: number }).attached).toBe(1);
+    db.close();
   });
 });
 
@@ -354,6 +416,8 @@ describe("checkpoint cron", () => {
     expect(s1.inboxes).toBe(1);
     expect(s1.checkpoints).toBeGreaterThanOrEqual(1);
     expect(s1.anchored).toBe(s1.checkpoints);
+    // The three direct-DO appends carried no receipts; cron backfilled them.
+    expect(s1.receipts).toBe(3);
     for (const row of db.checkpoints) {
       expect(edVerify(ed.pubHex, te.encode(`{"inbox":"${id}","day":"${row.day}","count":${row.count},"head_hash":"${row.head_hash}"}`), row.signature as string)).toBe(true);
       expect(row.rekor_uuid).toBe("uuid-1");

@@ -4,6 +4,7 @@ import type { Env } from "../env.ts";
 import { nowIso, sha256Hex, verifyHmac } from "../lib/crypto.ts";
 import { checkRateLimit, d1CounterStore } from "../lib/ratelimit.ts";
 import { edPubOfSecret, p256PubOfSecret, p256SpkiPem } from "../lib/signing.ts";
+import { receiptArtifactSha, signReceipt } from "../lib/witnessChain.ts";
 import { keyFromRequest, membershipRole, userFromRequest } from "../lib/auth.ts";
 import { inboxSecret } from "./inboxes.ts";
 
@@ -64,8 +65,33 @@ app.post("/:inboxId", async (c) => {
     body: JSON.stringify({ payload_raw: raw }),
   });
   if (!res.ok) return c.json({ error: { code: "internal", message: "Witness append failed." } }, 500);
-  const { seq } = (await res.json()) as { seq: number };
-  return c.json({ accepted: true, seq }, 202);
+  const { seq, received_at } = (await res.json()) as { seq: number; received_at: string };
+  // M6 per-line receipt ("stamped ticket"): signed here in the Worker, which
+  // holds WITNESS_SIGNING_KEY — the DO never sees the key. A missed attach
+  // (key unconfigured, DO hiccup) is covered by cron backfill; the line is
+  // already chained, so the append itself never fails for receipt reasons.
+  let receiptAttached = false;
+  if (c.env.WITNESS_SIGNING_KEY && typeof received_at === "string") {
+    try {
+      const lineSha = await sha256Hex(raw);
+      const receipt = signReceipt(c.env.WITNESS_SIGNING_KEY, {
+        inbox_id: inboxId,
+        seq,
+        line_sha256: lineSha,
+        artifact_sha256: receiptArtifactSha(payload),
+        received_at,
+      });
+      const put = await stub.fetch("https://inbox/receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seq, receipt_sig: receipt.signature }),
+      });
+      receiptAttached = put.ok;
+    } catch {
+      receiptAttached = false;
+    }
+  }
+  return c.json({ accepted: true, seq, receipt_attached: receiptAttached }, 202);
 });
 
 async function orgOfInbox(db: D1Database, inboxId: string): Promise<string | null> {

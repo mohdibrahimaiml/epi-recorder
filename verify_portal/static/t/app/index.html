@@ -70,6 +70,13 @@
   <h2 style="margin-top:36px">Files</h2>
   <div id="trustFiles"></div>
 
+  <h2 style="margin-top:36px">Download evidence pack</h2>
+  <div class="tier">
+    <div class="tdesc">The whole link as one offline-checkable zip: every shared file (SHA-256 hash-checked before zipping), the trust record, witness lines with Ed25519 receipts, and a README with the exact offline verify commands.</div>
+    <div style="margin-top:10px"><button type="button" class="btn btn-pri" id="packBtn">Download evidence pack</button></div>
+    <span id="packStatus" role="status" aria-live="polite" style="display:block;margin-top:8px;font-size:.82rem;color:var(--dim)"></span>
+  </div>
+
   <h2 style="margin-top:36px">Verify a file in this browser</h2>
   <p style="font-size:.9rem;color:var(--mut)">Drop any <code class="k">.epi</code> file — the seal is checked in this tab and the file is never uploaded. Amber identity (not pinned) is correct for an unpinned key.</p>
   <div class="inst in" data-aos="fade-up">

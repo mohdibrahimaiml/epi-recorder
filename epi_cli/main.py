@@ -621,12 +621,18 @@ def verify(
         "--witness-log",
         help="Customer witness log (received.jsonl) to check this file against.",
     ),
+    witness_pubkey: str | None = typer.Option(
+        None,
+        "--witness-pubkey",
+        help="Witness Ed25519 public key (hex) for signed receipts. Overrides EPI_WITNESS_PUBKEY and the log's witness_pubkey.",
+    ),
 ):
     return verify_command(
         ctx, Path(epi_file), json_output, verbose, report_out,
         review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
         offline=offline,
         witness_log=witness_log,
+        witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
     )
 

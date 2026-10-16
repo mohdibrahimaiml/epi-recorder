@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../env.ts";
 import { newId, newToken, nowIso, sha256Hex } from "../lib/crypto.ts";
+import { edPubOfSecret } from "../lib/signing.ts";
 import { membershipRole, userFromRequest } from "../lib/auth.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
 import { checkRateLimit, d1CounterStore } from "../lib/ratelimit.ts";
@@ -208,6 +209,83 @@ app.get("/trust/:slug", async (c) => {
     return c.json({ error: { code: "not_found", message: "This link is invalid, expired, or revoked." } }, 404);
   }
   return c.json(await buildTrustDoc(c.env.DB, c.env, link));
+});
+
+// Link-scoped witness lines for the M6 evidence pack (token header only).
+// Returns ONLY the lines behind this link's own artifacts — never the whole
+// inbox log. Each line carries its per-line Ed25519 receipt, checkable
+// offline against witness_pubkey. A line whose report lacks file_sha256, or
+// whose receipt is missing, is withheld (fail closed): an unverifiable line
+// in the pack would be worse than an absent one.
+app.get("/trust/:slug/witness-lines", async (c) => {
+  const link = await trustLinkFromRequest(c.env.DB, c.req.raw);
+  if (!link || link.id !== c.req.param("slug")) {
+    return c.json({ error: { code: "not_found", message: "This link is invalid, expired, or revoked." } }, 404);
+  }
+  const inboxRows = await c.env.DB.prepare("SELECT id FROM inboxes WHERE org_id = ? AND closed_at IS NULL")
+    .bind(link.org_id).all<{ id: string }>();
+  const inboxes = (link.scope.inboxes === "all" ? (inboxRows.results ?? []).map((r) => r.id)
+    : (inboxRows.results ?? []).map((r) => r.id).filter((id) => (link.scope.inboxes as string[]).includes(id)));
+  const artRows = await c.env.DB.prepare(
+    "SELECT claimed_sha256, agent_id FROM artifacts WHERE org_id = ? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 200",
+  ).bind(link.org_id).all<{ claimed_sha256: string; agent_id: string | null }>();
+  const shas = [...new Set(
+    ((artRows.results ?? []) as { claimed_sha256: string; agent_id: string | null }[])
+      .filter((r) => link.scope.agents === "all" || (r.agent_id !== null && (link.scope.agents as string[]).includes(r.agent_id)))
+      .map((r) => r.claimed_sha256),
+  )];
+  let witnessPub: string | null = null;
+  if (c.env.WITNESS_SIGNING_KEY) {
+    try {
+      witnessPub = edPubOfSecret(c.env.WITNESS_SIGNING_KEY);
+    } catch {
+      witnessPub = null;
+    }
+  }
+  const lines: Record<string, unknown>[] = [];
+  for (const sha of shas) {
+    for (const inboxId of inboxes) {
+      const stub = c.env.WITNESS.get(c.env.WITNESS.idFromName(inboxId));
+      const res = await stub.fetch(`https://inbox/find-receipts?sha=${encodeURIComponent(sha)}`);
+      if (!res.ok) continue;
+      const { entries } = (await res.json()) as {
+        entries: { seq: number; received_at: string; payload_raw: string; receipt_sig: string | null }[];
+      };
+      for (const e of entries) {
+        let payload: Record<string, unknown>;
+        try {
+          payload = JSON.parse(e.payload_raw);
+        } catch {
+          continue;
+        }
+        // Exact bind only: the receipt must name these very bytes.
+        if (payload.file_sha256 !== sha || !e.receipt_sig) continue;
+        lines.push({
+          inbox: inboxId,
+          seq: e.seq,
+          received_at: e.received_at,
+          payload_raw: e.payload_raw,
+          receipt: {
+            inbox_id: inboxId,
+            seq: e.seq,
+            line_sha256: await sha256Hex(e.payload_raw),
+            artifact_sha256: sha,
+            received_at: e.received_at,
+            signature: e.receipt_sig,
+          },
+        });
+        if (lines.length >= 500) break;
+      }
+      if (lines.length >= 500) break;
+    }
+    if (lines.length >= 500) break;
+  }
+  return c.json({
+    link: link.id,
+    witness_pubkey: witnessPub,
+    note: "Each witness line carries an Ed25519 receipt from the EPI witness — checkable offline with witness_pubkey. Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.",
+    lines,
+  });
 });
 
 const eventSchema = z.object({

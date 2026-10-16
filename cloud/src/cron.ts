@@ -9,17 +9,18 @@ import { nowIso, sha256Hex } from "./lib/crypto.ts";
 import { planCheckpoints, signCheckpoint } from "./lib/checkpoint.ts";
 import { anchorCheckpoint } from "./lib/anchor.ts";
 import { p256PubOfSecret } from "./lib/signing.ts";
-import { checkpointSha256, type Envelope } from "./lib/witnessChain.ts";
+import { checkpointSha256, receiptArtifactSha, signReceipt, type Envelope } from "./lib/witnessChain.ts";
 
 export interface CronSummary {
   inboxes: number;
   checkpoints: number;
   anchored: number;
+  receipts: number;
   skipped: string[];
 }
 
 export async function runCheckpointCron(env: Env, fetchFn: typeof fetch = fetch): Promise<CronSummary> {
-  const summary: CronSummary = { inboxes: 0, checkpoints: 0, anchored: 0, skipped: [] };
+  const summary: CronSummary = { inboxes: 0, checkpoints: 0, anchored: 0, receipts: 0, skipped: [] };
   if (!env.WITNESS_SIGNING_KEY) {
     return { ...summary, skipped: ["WITNESS_SIGNING_KEY not configured (docs/CLOUD.md §4)"] };
   }
@@ -38,6 +39,7 @@ export async function runCheckpointCron(env: Env, fetchFn: typeof fetch = fetch)
 
 async function checkpointInbox(env: Env, fetchFn: typeof fetch, inboxId: string, summary: CronSummary): Promise<void> {
   const stub = env.WITNESS.get(env.WITNESS.idFromName(inboxId));
+  await backfillReceipts(env, stub, inboxId, summary);
   const pendingRes = await stub.fetch("https://inbox/pending");
   if (!pendingRes.ok) throw new Error("inbox pending failed");
   const { envelopes } = (await pendingRes.json()) as { envelopes: Envelope[] };
@@ -83,4 +85,55 @@ async function checkpointInbox(env: Env, fetchFn: typeof fetch, inboxId: string,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ seq: maxSeq }),
   });
+}
+
+// M6 receipt backfill: lines appended before receipts existed (or whose
+// attach missed) get signed here. Honest because the statement only says
+// "this line is in my log at position N" — the chain itself is unchanged
+// and still covered by the daily checkpoint. Runs before checkpointing so
+// a fresh line is receipted at most ~1 day late (usually at append time).
+// Capped per inbox per run; the cursor advances oldest-first.
+async function backfillReceipts(
+  env: Env,
+  stub: { fetch: typeof fetch },
+  inboxId: string,
+  summary: CronSummary,
+): Promise<void> {
+  if (!env.WITNESS_SIGNING_KEY) return;
+  for (let round = 0; round < 3; round++) {
+    const res = await stub.fetch("https://inbox/unreceipted");
+    if (!res.ok) return;
+    const { entries } = (await res.json()) as {
+      entries: { seq: number; received_at: string; payload_raw: string }[];
+    };
+    if (!entries.length) return;
+    const receipts = [];
+    for (const e of entries) {
+      let payload: unknown = null;
+      try {
+        payload = JSON.parse(e.payload_raw);
+      } catch {
+        payload = null;
+      }
+      receipts.push({
+        seq: e.seq,
+        receipt_sig: signReceipt(env.WITNESS_SIGNING_KEY, {
+          inbox_id: inboxId,
+          seq: e.seq,
+          line_sha256: await sha256Hex(e.payload_raw),
+          artifact_sha256: receiptArtifactSha(payload),
+          received_at: e.received_at,
+        }).signature,
+      });
+    }
+    const put = await stub.fetch("https://inbox/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ receipts }),
+    });
+    if (!put.ok) return;
+    const { attached } = (await put.json()) as { attached: number };
+    summary.receipts += attached;
+    if (attached < entries.length) return;
+  }
 }
