@@ -362,11 +362,11 @@ def keys_list(
                 console.print("[dim]No keys registered.[/dim]")
                 return
             table = Table(title="Registered public keys (informational — not pins)")
-            for col in ("fingerprint", "label", "valid_from", "revoked_at"):
+            for col in ("fingerprint", "label", "valid_from", "revoked_at", "revoke_reason"):
                 table.add_column(col, overflow="fold")
             for row in rows:
                 table.add_row(*[str(row.get(col, "") or "")[:40] for col in
-                                ("fingerprint", "label", "valid_from", "revoked_at")])
+                                ("fingerprint", "label", "valid_from", "revoked_at", "revoke_reason")])
             console.print(table)
     except Exception as exc:
         console.print(f"[red][FAIL][/red] List failed: {escape(str(exc))}")
@@ -406,6 +406,40 @@ def keys_revoke(
         console.print(f"[red][FAIL][/red] Revoke failed: {escape(str(exc))}")
         raise typer.Exit(1) from exc
     console.print(f"[green][OK][/green] Revoked {want}. History is kept and marked revoked.")
+
+
+@keys_app.command("unrevoke")
+def keys_unrevoke(
+    fingerprint: str = typer.Argument(..., help="Key fingerprint (spaces optional)."),
+    url: str | None = typer.Option(None, "--url"),
+    org: str | None = typer.Option(None, "--org"),
+    api_key: str | None = typer.Option(None, "--api-key"),
+) -> None:
+    """Restore a mistakenly revoked key (clears the revocation mark)."""
+    creds = resolve_creds(url, org, api_key)
+    want = "".join(fingerprint.split()).lower()
+    try:
+        with _client(creds) as client:
+            res = client.get(f"/v1/orgs/{creds['org']}/keys")
+            res.raise_for_status()
+            match = next(
+                (k for k in res.json().get("keys", [])
+                 if str(k.get("fingerprint", "")).lower() == want and k.get("revoked_at")),
+                None,
+            )
+            if not match:
+                console.print("[red][FAIL][/red] No revoked registered key with that fingerprint.")
+                raise typer.Exit(1)
+            restore = client.post(
+                f"/v1/orgs/{creds['org']}/keys/{match['id']}/unrevoke"
+            )
+            restore.raise_for_status()
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f"[red][FAIL][/red] Unrevoke failed: {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green][OK][/green] Restored {want}.")
 
 
 @storage_app.command("show")

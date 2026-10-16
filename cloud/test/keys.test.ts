@@ -43,6 +43,10 @@ class FakeD1 {
       for (const o of this.orgs.values()) if (o.slug === a[0]) return { id: o.id };
       return null;
     }
+    if (q.startsWith("SELECT id, revoked_at FROM org_keys WHERE id = ?")) {
+      const k = this.keys.get(a[0] as string);
+      return k && k.org_id === a[1] ? { id: k.id, revoked_at: k.revoked_at } : null;
+    }
     if (q.startsWith("SELECT entry_hash FROM audit_log")) {
       const rows = this.audit.filter((r) => (r.org_id ?? null) === (a[0] ?? null));
       return rows.length ? { entry_hash: rows[rows.length - 1]!.entry_hash } : null;
@@ -52,10 +56,10 @@ class FakeD1 {
 
   private many(q: string, a: unknown[]): Row[] {
     if (q.includes("?") && a.length === 0) throw new Error(`FakeD1 unbound placeholders: ${q}`);
-    if (q.startsWith("SELECT id, public_key, fingerprint, label, valid_from, revoked_at FROM org_keys")) {
+    if (q.startsWith("SELECT id, public_key, fingerprint, label, valid_from, revoked_at, revoke_reason FROM org_keys")) {
       return [...this.keys.values()].filter((k) => k.org_id === a[0]);
     }
-    if (q.startsWith("SELECT public_key, fingerprint, label, valid_from, revoked_at FROM org_keys")) {
+    if (q.startsWith("SELECT public_key, fingerprint, label, valid_from, revoked_at, revoke_reason FROM org_keys")) {
       return [...this.keys.values()].filter((k) => k.org_id === a[0]);
     }
     throw new Error(`FakeD1 unhandled many: ${q}`);
@@ -72,7 +76,7 @@ class FakeD1 {
       });
       return 1;
     }
-    if (q.startsWith("UPDATE org_keys SET revoked_at")) {
+    if (q.startsWith("UPDATE org_keys SET revoked_at = ?")) {
       for (const k of this.keys.values()) {
         if (k.id === a[2] && k.org_id === a[3] && k.revoked_at == null) {
           k.revoked_at = a[0];
@@ -82,9 +86,19 @@ class FakeD1 {
       }
       return 0;
     }
+    if (q.startsWith("UPDATE org_keys SET revoked_at = NULL")) {
+      for (const k of this.keys.values()) {
+        if (k.id === a[0] && k.org_id === a[1] && k.revoked_at != null) {
+          k.revoked_at = null;
+          k.revoke_reason = null;
+          return 1;
+        }
+      }
+      return 0;
+    }
     if (q.startsWith("DELETE FROM org_keys")) {
       for (const [id, k] of this.keys) {
-        if (k.id === a[0] && k.org_id === a[1]) {
+        if (k.id === a[0] && k.org_id === a[1] && k.revoked_at == null) {
           this.keys.delete(id);
           return 1;
         }
@@ -147,9 +161,31 @@ describe("org public keys", () => {
     }, env as never);
     expect(revoke.status).toBe(200);
     expect(db.keys.get(created.id)!.revoked_at).toBeTruthy();
+    expect(db.keys.get(created.id)!.revoke_reason).toBe("rotated");
+    const listed = (await (await app.request("/v1/orgs/o1/keys", { headers: ck("sess-owner") }, env as never)).json()) as {
+      keys: { revoke_reason: string | null; revoked_at: string | null }[]
+    };
+    expect(listed.keys[0]).toMatchObject({ revoke_reason: "rotated" });
+    expect(listed.keys[0]!.revoked_at).toBeTruthy();
+    // Revoked keys are history: hard delete must refuse with 409 ...
+    const delRevoked = await app.request(`/v1/orgs/o1/keys/${created.id}`, { method: "DELETE", headers: ck("sess-owner") }, env as never);
+    expect(delRevoked.status).toBe(409);
+    expect(db.keys.has(created.id)).toBe(true);
+    // ... and a mistaken revoke is recovered with unrevoke, not delete+repost.
+    const unrevoke = await app.request(`/v1/orgs/o1/keys/${created.id}/unrevoke`, {
+      method: "POST", headers: ck("sess-owner"),
+    }, env as never);
+    expect(unrevoke.status).toBe(200);
+    expect(db.keys.get(created.id)).toMatchObject({ revoked_at: null, revoke_reason: null });
+    const unrevokeAgain = await app.request(`/v1/orgs/o1/keys/${created.id}/unrevoke`, {
+      method: "POST", headers: ck("sess-owner"),
+    }, env as never);
+    expect(unrevokeAgain.status).toBe(404);
+    // Never-revoked (e.g. mistyped) rows can still be deleted.
     const del = await app.request(`/v1/orgs/o1/keys/${created.id}`, { method: "DELETE", headers: ck("sess-owner") }, env as never);
     expect(del.status).toBe(200);
     expect(db.keys.has(created.id)).toBe(false);
+    expect((await app.request(`/v1/orgs/o1/keys/nope`, { method: "DELETE", headers: ck("sess-owner") }, env as never)).status).toBe(404);
   });
 
   it("rejects non-key material (private keys, junk, wrong length)", async () => {
@@ -164,18 +200,27 @@ describe("org public keys", () => {
 
   it("publishes history by org slug, including revocations", async () => {
     const { db, env, ck } = await setup();
-    await app.request("/v1/orgs/o1/keys", {
+    const reg = await app.request("/v1/orgs/o1/keys", {
       method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ public_key: PUB, label: "prod" }),
     }, env as never);
+    const created = (await reg.json()) as { id: string };
+    await app.request(`/v1/orgs/o1/keys/${created.id}/revoke`, {
+      method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ reason: "rotated" }),
+    }, env as never);
+    expect(db.keys.get(created.id)!.revoked_at).toBeTruthy();
     const pub = (await (
       await app.request("/o/acme/keys.json", {}, env as never)
     ).json()) as {
       org: string
-      keys: { fingerprint: string; revoked_at: string | null }[]
+      informational_only: boolean
+      keys: { fingerprint: string; revoked_at: string | null; revoke_reason: string | null }[]
     };
     expect(pub.org).toBe("acme");
+    expect(pub.informational_only).toBe(true);
     expect(pub.keys).toHaveLength(1);
     expect(pub.keys[0]).toMatchObject({ fingerprint: FP, public_key: PUB });
+    expect(pub.keys[0]!.revoked_at).toBeTruthy();
+    expect(pub.keys[0]!.revoke_reason).toBe("rotated");
     expect((await app.request("/o/nope/keys.json", {}, env as never)).status).toBe(404);
   });
 
@@ -185,5 +230,18 @@ describe("org public keys", () => {
       method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ public_key: PUB }),
     }, env as never)).status).toBe(403);
     expect((await app.request("/v1/orgs/o2/keys", { headers: ck("sess-owner") }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o2/keys/key_1/revoke", {
+      method: "POST", headers: ck("sess-owner"), body: JSON.stringify({}),
+    }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o2/keys/key_1/unrevoke", {
+      method: "POST", headers: ck("sess-owner"),
+    }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o2/keys/key_1", { method: "DELETE", headers: ck("sess-owner") }, env as never)).status).toBe(403);
+    // Unauthenticated on every keys route.
+    expect((await app.request("/v1/orgs/o1/keys", {}, env as never)).status).toBe(401);
+    expect((await app.request("/v1/orgs/o1/keys/key_1/revoke", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+    }, env as never)).status).toBe(401);
+    expect((await app.request("/v1/orgs/o1/keys/key_1", { method: "DELETE" }, env as never)).status).toBe(401);
   });
 });

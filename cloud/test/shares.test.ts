@@ -87,7 +87,7 @@ class FakeD1 {
       return this.checkpoints.filter((r) => r.inbox_id === a[0] && (r.day as string) >= (a[1] as string)).sort((x, y) => ((x.day as string) < (y.day as string) ? -1 : 1));
     }
     if (q.startsWith("SELECT id, agent_id, claimed_sha256")) return this.artifacts.filter((r) => r.org_id === a[0]);
-    if (q.startsWith("SELECT fingerprint, label, valid_from, revoked_at FROM org_keys")) {
+    if (q.startsWith("SELECT fingerprint, label, valid_from, revoked_at, revoke_reason FROM org_keys")) {
       return this.keys.filter((r) => r.org_id === a[0]);
     }
     if (q.startsWith("SELECT kind, detail, at FROM trust_events")) {

@@ -162,6 +162,130 @@ def test_push_list_revoke_roundtrip(monkeypatch) -> None:
         assert res.exit_code == 0, res.output
 
 
+def test_push_reports_already_registered(monkeypatch, tmp_path: Path) -> None:
+    routes = {("POST", "keys"): FakeResponse(409, {"error": "conflict"})}
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        pub = tmp_path / "prod.pub"
+        pub.write_text(PUB + "\n")
+        res = runner.invoke(cloud_app, ["keys", "push", str(pub), *CREDS])
+        assert res.exit_code == 0, res.output
+        assert "Already registered" in res.output
+
+
+def test_list_empty_and_revoke_reason(monkeypatch) -> None:
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with({("GET", "keys"): FakeResponse(200, {"keys": []})}))
+        res = runner.invoke(cloud_app, ["keys", "list", *CREDS])
+        assert res.exit_code == 0, res.output
+        assert "No keys registered" in res.output
+    rows = {"keys": [{
+        "id": "key_1", "fingerprint": "7004fce0a4a92327", "label": "prod",
+        "valid_from": "2026-10-16T00:00:00Z",
+        "revoked_at": "2026-10-17T00:00:00Z", "revoke_reason": "rotated",
+    }]}
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with({("GET", "keys"): FakeResponse(200, rows)}))
+        res = runner.invoke(cloud_app, ["keys", "list", *CREDS])
+        assert res.exit_code == 0, res.output
+        assert "rotated" in res.output
+
+
+def test_revoke_no_active_key(monkeypatch) -> None:
+    routes = {("GET", "keys"): FakeResponse(200, {"keys": [{
+        "id": "key_1", "fingerprint": "7004fce0a4a92327",
+        "revoked_at": "2026-10-17T00:00:00Z",
+    }]})}
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        res = runner.invoke(cloud_app, ["keys", "revoke", "7004fce0a4a92327", *CREDS])
+        assert res.exit_code == 1, res.output
+        assert "No active registered key" in res.output
+
+
+def test_unrevoke_roundtrip(monkeypatch) -> None:
+    routes = {
+        ("GET", "keys"): FakeResponse(200, {"keys": [{
+            "id": "key_1", "fingerprint": "7004fce0a4a92327",
+            "revoked_at": "2026-10-17T00:00:00Z",
+        }]}),
+        ("POST", "unrevoke"): FakeResponse(200, {"ok": True}),
+    }
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        res = runner.invoke(cloud_app, ["keys", "unrevoke", "7004fce0a4a92327", *CREDS])
+        assert res.exit_code == 0, res.output
+        assert "Restored" in res.output
+    active = {("GET", "keys"): FakeResponse(200, {"keys": [{
+        "id": "key_1", "fingerprint": "7004fce0a4a92327", "revoked_at": None,
+    }]})}
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(active))
+        res = runner.invoke(cloud_app, ["keys", "unrevoke", "7004fce0a4a92327", *CREDS])
+        assert res.exit_code == 1, res.output
+        assert "No revoked registered key" in res.output
+
+
+def test_trust_from_cloud_fetch_failure(monkeypatch, tmp_path: Path) -> None:
+    import urllib.request
+
+    trust_dir = tmp_path / "trusted"
+    trust_dir.mkdir()
+    monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(trust_dir))
+
+    def _boom(req, timeout=None):
+        raise ConnectionError("registry down")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    res = runner.invoke(cli_app, ["keys", "trust", "--from-cloud", "acme",
+                                  "--fingerprint", FP, "--name", "vendor"])
+    assert res.exit_code == 1, res.output
+    assert "Could not fetch" in res.output
+    assert list(trust_dir.glob("*.pub")) == []
+
+
+def test_trust_from_cloud_malformed_entry_not_pinned(monkeypatch, tmp_path: Path) -> None:
+    trust_dir = tmp_path / "trusted"
+    trust_dir.mkdir()
+    monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(trust_dir))
+    doc = _cloud_keys_doc([{
+        "public_key": "not-hex-at-all", "fingerprint": "7004fce0a4a92327", "revoked_at": None,
+    }])
+    _fake_cloud_keys(monkeypatch, doc)
+    res = runner.invoke(cli_app, ["keys", "trust", "--from-cloud", "acme",
+                                  "--fingerprint", FP, "--name", "vendor"])
+    assert res.exit_code == 1, res.output
+    assert list(trust_dir.glob("*.pub")) == []
+
+
+def test_trust_from_cloud_custom_base_url(monkeypatch, tmp_path: Path) -> None:
+    trust_dir = tmp_path / "trusted"
+    trust_dir.mkdir()
+    monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(trust_dir))
+    doc = _cloud_keys_doc([{
+        "public_key": PUB, "fingerprint": "7004fce0a4a92327", "revoked_at": None,
+    }])
+    calls: list = []
+    _fake_cloud_keys(monkeypatch, doc, calls)
+    res = runner.invoke(cli_app, ["keys", "trust", "--from-cloud", "acme",
+                                  "--fingerprint", FP, "--name", "vendor",
+                                  "--cloud-url", "https://custom.example"])
+    assert res.exit_code == 0, res.output
+    assert calls and calls[0].startswith("https://custom.example/o/acme/keys.json"), calls
+
+
 def test_trust_from_cloud_needs_fingerprint(monkeypatch, tmp_path: Path) -> None:
     trust_dir = tmp_path / "trusted"
     trust_dir.mkdir()
