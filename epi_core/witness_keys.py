@@ -16,7 +16,12 @@ from __future__ import annotations
 
 # Ed25519 public keys (64 lowercase hex chars) the verifier trusts for
 # witness receipts. Empty until the production witness key exists.
-EPI_WITNESS_PUBKEYS: tuple[str, ...] = ()
+EPI_WITNESS_PUBKEYS: tuple[str, ...] = (
+    # Production witness key, created 2026-10-16. Confirmed identical in
+    # /.well-known/epi-witness-key.json (live Worker) at pin time.
+    # Cross-check: public epi-witness-checkpoints GitHub repo.
+    "6a7dc25154809f8401892ff399a0b9c32ea9c14e5b519ccda3a48508b3e2aa97",
+)
 
 
 def pinned_witness_pubkeys() -> list[str]:

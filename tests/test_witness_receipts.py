@@ -35,6 +35,11 @@ def _hermetic(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("EPI_CHECKPOINTS_ENABLED", "0")
     for key in ("EPI_WITNESS_URL", "EPI_WITNESS_SECRET", "EPI_WITNESS_PUBKEY"):
         monkeypatch.delenv(key, raising=False)
+    # Tests assume no trusted key unless they set one: clear package pins
+    # (production pins them; hermetic tests must not inherit that trust).
+    import epi_core.witness_keys as _wk
+
+    monkeypatch.setattr(_wk, "EPI_WITNESS_PUBKEYS", ())
 
 
 def _seal(monkeypatch, tmp_path: Path, out: Path) -> Path:
