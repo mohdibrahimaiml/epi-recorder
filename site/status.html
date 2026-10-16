@@ -106,11 +106,8 @@
 
 <script>
 (function(){
-  var API = (function(){
-    var h = (location && location.hostname) || '';
-    if (h === 'epilabs.org' || h === 'www.epilabs.org' || h.endsWith('.pages.dev')) return '';
-    return 'https://epi-verify-portal.onrender.com';
-  })();
+  // Single account system: status checks the new EPI Cloud, not Render.
+  var CLOUD = 'https://cloud.epilabs.org';
 
   function check(name, dotId, detailId, timeId, url) {
     var dot = document.getElementById(dotId);
@@ -134,17 +131,13 @@
     });
   }
 
-  check('Verify API', 'dot-api', 'detail-api', 'time-api', API + '/api/ping');
-  check('SCITT Service', 'dot-scitt', 'detail-scitt', 'time-scitt', API + '/scitt/scitt-ledger');
-  check('Account / Auth', 'dot-auth', 'detail-auth', 'time-auth', API + '/api/auth/status');
+  check('EPI Cloud', 'dot-auth', 'detail-auth', 'time-auth', CLOUD + '/health');
 
   // Re-check every 60 seconds
   setInterval(function() {
     document.querySelectorAll('.status-indicator').forEach(function(d) { d.className = 'status-indicator checking'; });
     document.querySelectorAll('.status-detail:not(#detail-note)').forEach(function(d) { d.textContent = 'Re-checking...'; });
-    check('Verify API', 'dot-api', 'detail-api', 'time-api', API + '/api/ping');
-    check('SCITT Service', 'dot-scitt', 'detail-scitt', 'time-scitt', API + '/scitt/scitt-ledger');
-    check('Account / Auth', 'dot-auth', 'detail-auth', 'time-auth', API + '/api/auth/status');
+    check('EPI Cloud', 'dot-auth', 'detail-auth', 'time-auth', CLOUD + '/health');
   }, 60000);
 })();
 </script>
