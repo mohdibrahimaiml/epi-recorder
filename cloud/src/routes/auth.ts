@@ -413,7 +413,12 @@ app.get("/device", async (c) => {
     `    headers:{"Content-Type":"application/json"},body:JSON.stringify({user_code:code})})`,
     `    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})`,
     `    .then(function(x){`,
-    `      if(x.ok){reqEl.textContent="A computer requested access at "+x.j.requested_at+".";setMsg("Code accepted \\u2014 pick a workspace, then Authorize.",true);}`,
+    `      if(x.ok){`,
+    `        var when=x.j.requested_at;`,
+    `        try{when=new Date(x.j.requested_at).toLocaleString();}catch(e){}`,
+    `        reqEl.textContent="A computer requested access at "+when+".";`,
+    `        setMsg("Code accepted \\u2014 pick a workspace, then Authorize.",true);`,
+    `      }`,
     `      else{setMsg("Failed: "+((x.j&&x.j.error&&x.j.error.message)||"unknown"),false);}`,
     `    })`,
     `    .catch(function(){setMsg("Failed.",false);});`,
@@ -456,9 +461,26 @@ app.get("/device", async (c) => {
 
 // Confirm a typed code belongs to a pending request (signed in only,
 // so strangers cannot probe codes). Reveals only the request time.
+// RFC 8628 §5.1: throttle verification attempts (10/min per user AND
+// per IP) so a signed-in attacker cannot grind through code space.
+async function deviceLookupLimited(db: D1Database, req: Request, userId: string): Promise<Response | null> {
+  for (const key of [`devlookup-ip:${clientIp(req)}`, `devlookup-user:${userId}`]) {
+    const r = await checkRateLimit(d1CounterStore(db), key, 10, 60);
+    if (!r.ok) {
+      return Response.json(
+        { error: { code: "rate_limited", message: "Too many code checks. Wait a minute and retry." } },
+        { status: 429, headers: { "Retry-After": String(r.retryAfterSec) } },
+      );
+    }
+  }
+  return null;
+}
+
 app.post("/device/lookup", async (c) => {
   const user = await userFromRequest(c.env.DB, c.req.raw);
   if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
+  const throttled = await deviceLookupLimited(c.env.DB, c.req.raw, user.id);
+  if (throttled) return throttled;
   const body = z.object({ user_code: z.string().min(4).max(32) }).safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: { code: "bad_request", message: "user_code required." } }, 400);
   const code = normalizeUserCode(body.data.user_code);

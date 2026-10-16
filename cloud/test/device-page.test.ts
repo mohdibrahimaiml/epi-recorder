@@ -184,6 +184,31 @@ describe("device + dashboard pages (served HTML)", () => {
     db.close();
   });
 
+  it("code guessing is throttled (RFC 8628 5.1): guess 11 gets 429", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    const cookie = await signedInCookie(env);
+    const guess = (body: string) =>
+      app.request("/auth/device/lookup", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body }, env as never);
+    for (let i = 0; i < 10; i++) {
+      expect((await guess(JSON.stringify({ user_code: "AAAA-AAAA" }))).status).toBe(404);
+    }
+    const blocked = await guess(JSON.stringify({ user_code: "BBBB-BBBB" }));
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("Retry-After")).toBeTruthy();
+    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("rate_limited");
+    db.close();
+  });
+
+  it("request time renders in local time, not raw UTC", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    const cookie = await signedInCookie(env);
+    const html = await (await app.request("/auth/device", { headers: { Cookie: cookie } }, env as never)).text();
+    expect(html).toContain("toLocaleString");
+    db.close();
+  });
+
   it("trust links point at epilabs.org and long values wrap (390px-safe)", async () => {
     const db = openDb();
     const env = envFor(db);

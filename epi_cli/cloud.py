@@ -409,8 +409,23 @@ def status(
                     table.add_row(*[str(row.get(col, ""))[:40] for col in cols])
                 console.print(table)
     except Exception as exc:
+        if _is_forbidden(exc):
+            console.print(
+                "[yellow]This computer's key can only push runs — "
+                "it can't list the Evidence Room.[/yellow]"
+            )
+            console.print(
+                "[dim]See your runs at https://cloud.epilabs.org "
+                "(sign in, pick your workspace).[/dim]"
+            )
+            raise typer.Exit(1) from exc
         console.print(f"[red][FAIL][/red] Status failed: {escape(str(exc))}")
         raise typer.Exit(1) from exc
+
+
+def _is_forbidden(exc: Exception) -> bool:
+    """True when an HTTP client rejected the call with 403 (e.g. a push-only key listing runs)."""
+    return getattr(getattr(exc, "response", None), "status_code", None) == 403
 
 
 storage_app = typer.Typer(help="Customer-owned bucket: target, probe, outbox.")
