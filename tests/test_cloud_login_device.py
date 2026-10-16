@@ -28,8 +28,10 @@ class FakeDeviceClient:
         return False
 
     def post(self, url, **kwargs):
-        self.calls.append({"method": "POST", "url": url})
+        self.calls.append({"method": "POST", "url": url, "json": kwargs.get("json")})
         assert url.endswith("/auth/device/start")
+        # The CLI names this computer so the dashboard can list it.
+        assert (kwargs.get("json") or {}).get("device_name")
 
         class R:
             status_code = 201

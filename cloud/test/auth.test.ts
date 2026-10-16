@@ -250,20 +250,17 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     }, env as never);
     expect([201, 200]).toContain(init.status);
 
-    // 6. Dashboard (front door) has no dead end: org/key/inbox/trust + login cmd.
-    // Trust links are built at runtime from TRUST_ORIGIN=https://epilabs.org
-    // (the trust-page host), never the cloud origin.
+    // 6. Dashboard (front door): guided start, then dashboard tabs.
+    // Trust links are built at runtime, scoped per customer by default.
     const home = await app.request("/", { headers: { Cookie: cookie } }, env as never);
     expect(home.status).toBe(200);
     const html = await home.text();
-    expect(html).toContain("Create workspace");
-    expect(html).toContain("Create API key");
-    expect(html).toContain("Create inbox");
-    expect(html).toContain("Create trust link");
-    expect(html).toContain("epi cloud login");
+    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Computers &amp; keys", "Advanced"]) {
+      expect(html).toContain(copy);
+    }
     expect(html).toContain('TRUST_ORIGIN="https://epilabs.org"');
-    expect(html).toContain('"/t/"+j.id+"#k="+j.token');
-    expect(html).not.toContain('location.origin+"/t/"');
+    expect(html).toContain("{agents:[agent.id],inboxes:[inboxId]}");
+    expect(html).not.toContain("Create API key");
     db.close();
   });
 
@@ -284,6 +281,29 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     // Open redirects are refused: absolute URLs never become the target.
     const evil = await app.request("/auth/github?next=https://evil.test/phish", {}, env as never);
     expect(evil.headers.getSetCookie().join("; ")).not.toContain("epi_oauth_next");
+    db.close();
+  });
+
+  it("device name flows start -> authorize -> key label", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    githubProfile = { id: 4243, login: "name-user", email: "name@example.com", verified: true };
+    const start = await app.request("/auth/github", {}, env as never);
+    const stateParam = new URL(start.headers.get("Location")!).searchParams.get("state")!;
+    const oauthState = start.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!;
+    const cb = await app.request(`/auth/github/callback?code=n&state=${encodeURIComponent(stateParam)}`, { headers: { Cookie: `epi_oauth_state=${oauthState}` } }, env as never);
+    const cookie = `epi_session=${cb.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!}`;
+    const org = (await (
+      await app.request("/v1/orgs", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Acme", slug: "acme" }) }, env as never)
+    ).json()) as { id: string };
+    const dev = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_name: "field-laptop" }) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    const authz = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev.user_code, org_id: org.id }) }, env as never);
+    expect(authz.status).toBe(200);
+    const row = db.prepare("SELECT label, scopes FROM api_keys WHERE org_id = ?").get(org.id) as { label: string | null; scopes: string };
+    expect(row.label).toBe("field-laptop");
+    expect(row.scopes).toBe("push");
     db.close();
   });
 });

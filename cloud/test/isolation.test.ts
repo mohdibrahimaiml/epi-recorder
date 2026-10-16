@@ -116,7 +116,7 @@ class FakeD1 {
       return [...this.agents.values()].filter((g) => g.org_id === a[0]).map((g) => ({ id: g.id, name: g.name, status: g.status, created_at: g.created_at }));
     }
     if (q.startsWith("SELECT id, prefix, scopes")) {
-      return [...this.apiKeys.values()].filter((k) => k.org_id === a[0]).map((k) => ({ id: k.id, prefix: k.prefix, scopes: k.scopes, created_by: k.created_by, created_at: k.created_at, last_used_at: k.last_used_at, revoked_at: k.revoked_at }));
+      return [...this.apiKeys.values()].filter((k) => k.org_id === a[0]).map((k) => ({ id: k.id, prefix: k.prefix, scopes: k.scopes, label: k.label ?? null, created_by: k.created_by, created_at: k.created_at, last_used_at: k.last_used_at, revoked_at: k.revoked_at }));
     }
     throw new Error(`FakeD1 unhandled selectMany: ${q}`);
   }
@@ -174,7 +174,7 @@ class FakeD1 {
       return 1;
     }
     if (q.startsWith("INSERT INTO api_keys")) {
-      this.apiKeys.set(a[0] as string, { id: a[0], org_id: a[1], prefix: a[2], key_hash: a[3], scopes: a[4], created_by: a[5], created_at: a[6], last_used_at: null, revoked_at: null });
+      this.apiKeys.set(a[0] as string, { id: a[0], org_id: a[1], prefix: a[2], key_hash: a[3], scopes: a[4], label: a[5] ?? null, created_by: a[6], created_at: a[7], last_used_at: null, revoked_at: null });
       return 1;
     }
     if (q.startsWith("UPDATE api_keys SET last_used_at")) {
@@ -248,6 +248,13 @@ describe("tenant isolation (org A can never touch org B)", () => {
     expect(mint.status).toBe(201);
     const keyId = ((await mint.json()) as { id: string }).id;
     expect((await req("org_B", a, "/v1/orgs/:org/api-keys")).status).toBe(403);
+    // Labels round-trip (device names for CLI logins).
+    const labeled = await req("org_A", a, "/v1/orgs/:org/api-keys", { method: "POST", body: JSON.stringify({ scopes: ["read"], label: "laptop-1" }) });
+    expect(labeled.status).toBe(201);
+    const listed = (await (await req("org_A", a, "/v1/orgs/:org/api-keys")).json()) as { keys: { id: string; label: string | null }[] };
+    const labeledId = ((await labeled.json()) as { id: string }).id;
+    expect(listed.keys.find((k) => k.id === keyId)?.label).toBeNull();
+    expect(listed.keys.find((k) => k.id === labeledId)?.label).toBe("laptop-1");
     expect((await req("org_B", a, `/v1/orgs/:org/api-keys/${keyId}`, { method: "DELETE" })).status).toBe(403);
     expect((await req("org_A", a, `/v1/orgs/:org/api-keys/${keyId}`, { method: "DELETE" })).status).toBe(200);
 

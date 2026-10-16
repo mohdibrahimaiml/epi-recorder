@@ -1,0 +1,68 @@
+name: Dashboard guided-flow browser test
+
+# Boots real workerd (`wrangler dev --local`, isolated persist dir), seeds
+# one owner session into local D1, and walks the cloud dashboard guided
+# start on a 390px phone viewport the way a new customer would (company ->
+# connect -> first run -> customer -> trust link -> tabs), with screenshots
+# committed under docs/dashboard-v2/.
+
+on:
+  pull_request:
+    paths:
+      - "cloud/src/index.ts"
+      - "cloud/src/ui.ts"
+      - "cloud/src/routes/auth.ts"
+      - "cloud/src/routes/keys.ts"
+      - "cloud/src/routes/shares.ts"
+      - "cloud/src/routes/inboxes.ts"
+      - "cloud/src/routes/artifacts.ts"
+      - "tests/test_dashboard_guided.py"
+      - ".github/workflows/dashboard-browser.yml"
+  push:
+    branches: [main]
+    paths:
+      - "cloud/src/index.ts"
+      - "cloud/src/ui.ts"
+      - "cloud/src/routes/auth.ts"
+      - "cloud/src/routes/keys.ts"
+      - "cloud/src/routes/shares.ts"
+      - "cloud/src/routes/inboxes.ts"
+      - "cloud/src/routes/artifacts.ts"
+      - "tests/test_dashboard_guided.py"
+      - ".github/workflows/dashboard-browser.yml"
+  workflow_dispatch:
+
+jobs:
+  guided-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+
+      - name: Install Python dependencies (NOT the package itself)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python scripts/ci-install-deps.py
+          python -m pip install "playwright>=1.45.0" "pytest-playwright>=0.5.0"
+
+      - name: Install cloud dependencies (wrangler)
+        run: npm ci
+        working-directory: cloud
+
+      - name: Install chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Walk the guided flow on a 390px phone
+        run: python -m pytest tests/test_dashboard_guided.py -q --maxfail=1
