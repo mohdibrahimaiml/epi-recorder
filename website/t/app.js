@@ -85,7 +85,8 @@
       keys += '<div class="tier"><h3>Sealing key</h3>' +
         '<div style="font-family:var(--mono);font-size:.74rem;overflow-wrap:anywhere">fingerprint <code class="k">' +
         esc(k.fingerprint) + '</code> · since ' + esc(k.valid_from) +
-        (k.revoked_at ? ' · <span style="color:var(--bad)">revoked ' + esc(k.revoked_at) + '</span>' : ' · current') + '</div></div>';
+        (k.revoked_at ? ' · <span style="color:var(--bad)">revoked ' + esc(k.revoked_at) + '</span>' : ' · current') +
+        (k.revoke_reason ? '<br>revocation reason: ' + esc(k.revoke_reason) : '') + '</div></div>';
     });
     if (!keys) {
       keys = '<div class="tier"><h3>Key history</h3><div class="tdesc">No keys registered yet. Registration is informational only — never a pin. Claim-ready identity requires pinning out of band.</div></div>';
@@ -95,10 +96,11 @@
     var files = '';
     (doc.artifacts || []).forEach(function (f, idx) {
       var bad = f.signature_check === 'invalid' || f.witness_status === 'different_version';
+      var fileUrl = f && (f.content_url || f.download_url);
       files += '<div class="tier"><h3>' + esc(f.goal || f.workflow_id || 'Sealed run') + '</h3>' +
         '<div style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">sha256 <code class="k">' + esc(f.claimed_sha256) + '</code></div>' +
         (bad ? '<div style="color:var(--bad)">Needs review: ' + esc(f.signature_check) + ' / ' + esc(f.witness_status) + '</div>' : '') +
-        (f.download_url ? '<div style="margin-top:10px"><button type="button" class="btn btn-sec" data-artifact="' + idx + '">Verify these bytes</button></div><div class="vresult" role="status" aria-live="polite" style="margin-top:10px;font-size:.82rem"></div>' : '') +
+        (fileUrl ? '<div style="margin-top:10px"><button type="button" class="btn btn-sec" data-artifact="' + idx + '">Verify these bytes</button> <a href="#" data-dlartifact="' + idx + '" style="font-size:.8rem;color:var(--mut)">Download file</a></div><div class="vresult" role="status" aria-live="polite" style="margin-top:10px;font-size:.82rem"></div>' : '') +
         '</div>';
     });
     if (!files) {
@@ -123,16 +125,177 @@
         var box = btn.closest('.tier').querySelector('.vresult');
         box.style.display = '';
         box.innerHTML = '<span style="color:var(--dim)">Fetching shared bytes…</span>';
-        fetch(url, { credentials: 'same-origin', headers: { 'X-EPI-Share-Token': TOKEN } }).then(function (res) {
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.blob();
-        }).then(function (blob) {
-          verifyBlob(blob, box, f.claimed_sha256);
+        fetchBytes(url).then(function (buf) {
+          verifyBlob(new Blob([buf], { type: 'application/octet-stream' }), box, f.claimed_sha256);
         }).catch(function (e) {
           box.innerHTML = '<span style="color:var(--bad)">Could not fetch: ' + esc(e.message) + '</span>';
         });
       });
     });
+    document.querySelectorAll('[data-dlartifact]').forEach(function (a) {
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var idx = Number(a.getAttribute('data-dlartifact'));
+        var f = (currentDoc.artifacts || [])[idx];
+        var url = f && (f.content_url || f.download_url);
+        if (!f || !url) return;
+        var name = packFileName(f, idx, {});
+        if (/^data:/i.test(url)) {
+          var d = document.createElement('a');
+          d.href = url;
+          d.download = name;
+          document.body.appendChild(d);
+          d.click();
+          d.remove();
+          return;
+        }
+        fetchBytes(url).then(function (buf) {
+          triggerBlobDownload(new Blob([buf], { type: 'application/octet-stream' }), name);
+        }).catch(function () { /* fetch errors surface on the Verify button */ });
+      });
+    });
+  }
+
+  /* Whole-link evidence pack (M6). Human click only: nothing here runs on
+     page load or on the gate click. Every file is SHA-256 hash-checked
+     against the shared record BEFORE zipping; any mismatch aborts the
+     whole pack (no partial download, no events). */
+  function safeSlug(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'evidence';
+  }
+
+  function needsAuth(url) {
+    return /^https?:/i.test(url) || url.charAt(0) === '/';
+  }
+
+  function fetchBytes(url) {
+    var opts = { credentials: 'same-origin' };
+    if (needsAuth(url)) opts.headers = { 'X-EPI-Share-Token': TOKEN };
+    return fetch(url, opts).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.arrayBuffer();
+    });
+  }
+
+  function packFileName(f, idx, used) {
+    var fromUrl = '';
+    try {
+      var path = String(f.content_url || f.download_url || '').split('#')[0].split('?')[0];
+      var last = path.split('/').pop() || '';
+      if (/\.epi$/i.test(last)) fromUrl = last;
+    } catch (e) { /* ignore */ }
+    var base = fromUrl ||
+      (safeSlug(f.goal || f.workflow_id || String(f.claimed_sha256 || '').slice(0, 12) || ('file-' + (idx + 1))) + '.epi');
+    var name = base;
+    var n = 1;
+    while (used[name]) {
+      n += 1;
+      name = base.replace(/\.epi$/i, '') + '-' + n + '.epi';
+    }
+    used[name] = 1;
+    return name;
+  }
+
+  function triggerBlobDownload(blob, name) {
+    var objUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = objUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(objUrl); a.remove(); }, 4000);
+  }
+
+  var PACK_OFFLINE_CMD = 'epi verify FILE --policy strict --witness-log witness.json --witness-pubkey <PASTE-KEY> --offline';
+  var PACK_HONESTY_NOTE = 'Each witness line carries an Ed25519 receipt from the EPI witness \u2014 checkable offline ONLY against a witness public key you pinned yourself (see below). Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.';
+  var PACK_KEY_NOTE = 'NEVER trust the witness_pubkey printed inside witness.json: it arrives in the same file as the stamps, so a forger swaps in their own (a passport printing its own stamp sample). Get the EPI witness key from TWO places and check they match: (1) https://cloud.epilabs.org/.well-known/epi-witness-key.json  (2) the public epi-witness-checkpoints GitHub repo. Paste it as --witness-pubkey above (or EPI_WITNESS_PUBKEY). Without it the verifier answers STAMP NOT CONFIRMED, never WITNESSED. If the result does not say "verified witness receipt", the pack proves nothing about the witness.';
+
+  function buildPackReadme(doc, witness, folder, files) {
+    var out = [];
+    out.push('EPI evidence pack \u2014 offline verification');
+    out.push('========================================');
+    out.push('Vendor: ' + (doc.vendor || 'unknown') + ' \u2014 ' + (doc.link_label || ''));
+    out.push('');
+    out.push('Every file below was SHA-256 hash-checked against the shared');
+    out.push('record before zipping. Re-check everything yourself, offline:');
+    out.push('');
+    out.push('  ' + PACK_OFFLINE_CMD);
+    out.push('');
+    out.push('  (replace FILE with one of the .epi files in ' + folder + '/,');
+    out.push('   and <PASTE-KEY> with the EPI witness key — see below.)');
+    out.push('');
+    out.push(PACK_HONESTY_NOTE);
+    out.push('');
+    out.push(PACK_KEY_NOTE);
+    out.push('');
+    out.push('Files (sha256):');
+    files.forEach(function (x) {
+      out.push('  ' + folder + '/' + x.name + '  ' + x.sha + (x.goal ? '  (' + x.goal + ')' : ''));
+    });
+    out.push('');
+    out.push('Trust record: trust.json (vendor, witness counts, key history with fingerprints).');
+    out.push('Witness lines: witness.json (per-line Ed25519 receipts; its printed');
+    out.push('witness_pubkey is a hint for display ONLY — never trust it, pin the key');
+    out.push('from the two places above).');
+    out.push('Manifest: MANIFEST.json (name + sha256 of every zipped file).');
+    out.push('');
+    return out.join('\n');
+  }
+
+  async function downloadPack() {
+    var status = document.getElementById('packStatus');
+    var btn = document.getElementById('packBtn');
+    if (!currentDoc || !status || !btn) return;
+    btn.disabled = true;
+    status.style.color = 'var(--dim)';
+    status.textContent = 'Building evidence pack\u2026';
+    try {
+      var wres = await api('/v1/trust/' + encodeURIComponent(SLUG) + '/witness-lines', {
+        headers: { 'X-EPI-Share-Token': TOKEN },
+      });
+      if (!wres.ok) throw new Error('witness lines unavailable (HTTP ' + wres.status + '); pack aborted');
+      var witness = await wres.json();
+      var folder = safeSlug(currentDoc.vendor || 'vendor');
+      var used = {};
+      var files = [];
+      var arts = currentDoc.artifacts || [];
+      for (var i = 0; i < arts.length; i++) {
+        var f = arts[i];
+        var url = f && (f.content_url || f.download_url);
+        if (!url) throw new Error('a shared file has no download available; pack aborted');
+        status.textContent = 'Fetching file ' + (i + 1) + ' of ' + arts.length + '\u2026';
+        var buf = await fetchBytes(url);
+        var actual = hexOf(await crypto.subtle.digest('SHA-256', buf));
+        var claimed = String(f.claimed_sha256 || '').toLowerCase();
+        if (!claimed || actual !== claimed) {
+          throw new Error('a shared file does not match its record (sha256 ' +
+            (claimed || 'missing') + '); pack aborted \u2014 nothing was zipped');
+        }
+        files.push({ name: packFileName(f, i, used), buf: buf, sha: actual, goal: f.goal || f.workflow_id || '' });
+      }
+      if (typeof JSZip === 'undefined') throw new Error('zip engine did not load; retry in a moment');
+      var zip = new JSZip();
+      files.forEach(function (x) { zip.file(folder + '/' + x.name, x.buf); });
+      zip.file('trust.json', JSON.stringify(currentDoc, null, 2) + '\n');
+      zip.file('witness.json', JSON.stringify(witness, null, 2) + '\n');
+      zip.file('README.txt', buildPackReadme(currentDoc, witness, folder, files));
+      zip.file('MANIFEST.json', JSON.stringify(files.map(function (x) {
+        return { name: folder + '/' + x.name, sha256: x.sha };
+      }), null, 2) + '\n');
+      status.textContent = 'Compressing\u2026';
+      var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', streamFiles: true });
+      triggerBlobDownload(blob, folder + '-evidence-pack.zip');
+      status.style.color = 'var(--ok)';
+      status.textContent = 'Evidence pack downloaded (' + files.length + ' file(s), hashes verified).';
+      sendEvent('downloaded_pack');
+      sendEvent('downloaded_witness');
+    } catch (e) {
+      status.style.color = 'var(--bad)';
+      status.textContent = 'Evidence pack failed: ' + (e && e.message ? e.message : e);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   async function load() {
@@ -224,6 +387,18 @@
   }
 
   var gateBtn = document.getElementById('gateBtn');
+  var packBtn = document.getElementById('packBtn');
+  if (packBtn) {
+    packBtn.addEventListener('click', function () {
+      downloadPack().catch(function (e) {
+        var status = document.getElementById('packStatus');
+        if (status) {
+          status.style.color = 'var(--bad)';
+          status.textContent = 'Evidence pack failed: ' + (e && e.message ? e.message : e);
+        }
+      });
+    });
+  }
   if (!SLUG || !TOKEN) {
     document.getElementById('gateStatus').textContent = 'This trust link is incomplete (missing evidence reference). Ask the vendor for a fresh trust link.';
     if (gateBtn) gateBtn.disabled = true;

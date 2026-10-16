@@ -592,7 +592,87 @@ def _print_qr_code(url: str) -> None:
         console.print("└" + "─" * 50 + "┘")
 
 
-def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
+def _clean_witness_pubkey(value) -> str | None:
+    """Normalise a witness pubkey hex string; None when absent."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in ("null", "none"):
+        return None
+    if text.lower().startswith("0x"):
+        text = text[2:]
+    text = text.strip()
+    return text or None
+
+
+def _canonical_witness_receipt_bytes(receipt: dict) -> bytes:
+    """Canonical bytes the witness signs (M6 evidence pack contract).
+
+    canonical = JSON.stringify({artifact_sha256, inbox_id, line_sha256,
+    received_at, seq}) with EXACTLY this key order, compact separators,
+    UTF-8 bytes. Raises KeyError when a field is missing.
+    """
+    ordered = {
+        "artifact_sha256": receipt["artifact_sha256"],
+        "inbox_id": receipt["inbox_id"],
+        "line_sha256": receipt["line_sha256"],
+        "received_at": receipt["received_at"],
+        "seq": receipt["seq"],
+    }
+    return json.dumps(ordered, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _verify_witness_receipt(
+    payload_raw, receipt, pubkey, file_sha256: str
+) -> tuple[bool, str]:
+    """Verify one signed witness receipt. Returns (ok, failure_reason)."""
+    import hashlib as _hashlib
+
+    from cryptography.exceptions import InvalidSignature
+
+    if not isinstance(payload_raw, str):
+        return False, "receipt check failed: payload_raw is not a string"
+    if not isinstance(receipt, dict):
+        return False, "receipt check failed: receipt is not an object"
+    for _field in ("artifact_sha256", "inbox_id", "line_sha256", "received_at", "seq", "signature"):
+        if receipt.get(_field) is None and _field not in receipt:
+            return False, f"receipt check failed: receipt missing field '{_field}'"
+        if _field != "seq" and receipt.get(_field) is None:
+            return False, f"receipt check failed: receipt missing field '{_field}'"
+    if receipt.get("seq") is None:
+        return False, "receipt check failed: receipt missing field 'seq'"
+    try:
+        want_line = _hashlib.sha256(payload_raw.encode("utf-8")).hexdigest()
+    except Exception as exc:
+        return False, f"receipt check failed: cannot hash payload_raw ({exc})"
+    if str(receipt.get("line_sha256") or "") != want_line:
+        return False, (
+            "receipt check failed: line_sha256 mismatch "
+            f"(sha256(payload_raw)={want_line} != receipt.line_sha256={receipt.get('line_sha256')})"
+        )
+    try:
+        canonical = _canonical_witness_receipt_bytes(receipt)
+    except KeyError as exc:
+        return False, f"receipt check failed: receipt missing field {exc}"
+    except Exception as exc:
+        return False, f"receipt check failed: cannot build canonical receipt ({exc})"
+    try:
+        sig_hex = str(receipt.get("signature") or "").strip().removeprefix("0x")
+        pubkey.verify(bytes.fromhex(sig_hex), canonical)
+    except InvalidSignature:
+        return False, "receipt check failed: signature invalid (Ed25519 verification failed)"
+    except Exception as exc:
+        return False, f"receipt check failed: signature malformed ({exc})"
+    if str(receipt.get("artifact_sha256") or "") != str(file_sha256 or ""):
+        return False, (
+            "receipt check failed: artifact_sha256 mismatch "
+            f"(receipt.artifact_sha256={receipt.get('artifact_sha256')} != "
+            f"sha256(file bytes)={file_sha256})"
+        )
+    return True, ""
+
+
+def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
     Returns {"status", "received_at", "matches", "detail"} with status one of
@@ -608,41 +688,144 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
     if not witness_log:
         return result
     try:
-        lines = Path(witness_log).read_text(encoding="utf-8").splitlines()
+        raw_text = Path(witness_log).read_text(encoding="utf-8")
     except Exception as exc:
         # The verifier asked for this check; a typo in the path must not
         # silently drop it.
         result["status"] = "UNREADABLE"
         result["detail"] = f"witness log {witness_log} could not be read ({exc})"
         return result
-    entries = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    lines = raw_text.splitlines()
+    # --- Detect the NEW signed doc (M6 witness.json): a single JSON object
+    # with a "lines" array. Anything else falls through to legacy JSONL.
+    doc_pubkey_raw = None
+    doc_lines_raw: list | None = None
+    try:
+        _doc = json.loads(raw_text) if raw_text.strip() else None
+    except Exception:
+        _doc = None
+    if isinstance(_doc, dict) and isinstance(_doc.get("lines"), list):
+        doc_pubkey_raw = _doc.get("witness_pubkey")
+        doc_lines_raw = _doc.get("lines")
+    entries: list[dict] = []
+    signed_items: list[dict] = []  # {payload_raw, receipt, line_received_at, top_received_at, inner}
+    legacy_entries: list[dict] = []
+
+    def _parse_inner(payload_raw):
         try:
-            entry = json.loads(line)
+            if not isinstance(payload_raw, str):
+                return None
+            inner = json.loads(payload_raw)
+            return inner if isinstance(inner, dict) else None
         except Exception:
-            continue
-        if isinstance(entry, dict):
-            entries.append(entry)
-    _reports = [e for e in entries if e.get("workflow_id") and e.get("manifest_hash")]
-    if not _reports:
-        # Wrong file, empty file or not a witness log: the check could not be
-        # done. Never let that read as "the vendor never reported this".
-        result["status"] = "UNREADABLE"
-        result["detail"] = (
-            f"{witness_log} contains no witness reports ({len(lines)} lines, "
-            f"{len(entries)} JSON objects) — is it the --out file of `epi witness serve`?"
-        )
-        return result
+            return None
+
+    if doc_lines_raw is not None:
+        for item in doc_lines_raw:
+            if not isinstance(item, dict):
+                continue
+            if isinstance(item.get("payload_raw"), str) and isinstance(item.get("receipt"), dict):
+                signed_items.append(
+                    {
+                        "payload_raw": item.get("payload_raw"),
+                        "receipt": item.get("receipt"),
+                        "line_received_at": item.get("received_at"),
+                        "top_received_at": None,
+                        "inner": _parse_inner(item.get("payload_raw")),
+                        "raw": item,
+                    }
+                )
+            elif item.get("workflow_id"):
+                legacy_entries.append(item)
+            else:
+                # Unknown shape inside a signed doc: keep it visible for the
+                # UNREADABLE count but never matchable.
+                entries.append(item)
+        _reports_count = len(signed_items) + len(legacy_entries)
+        if not signed_items and not legacy_entries:
+            result["status"] = "UNREADABLE"
+            result["detail"] = (
+                f"{witness_log} contains no witness reports ({len(doc_lines_raw)} lines, "
+                "0 JSON objects) — is it the --out file of `epi witness serve`?"
+            )
+            return result
+    else:
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(entry, dict):
+                entries.append(entry)
+        for entry in entries:
+            if isinstance(entry.get("payload_raw"), str) and isinstance(entry.get("receipt"), dict):
+                signed_items.append(
+                    {
+                        "payload_raw": entry.get("payload_raw"),
+                        "receipt": entry.get("receipt"),
+                        "line_received_at": entry.get("received_at"),
+                        "top_received_at": entry.get("received_at"),
+                        "inner": _parse_inner(entry.get("payload_raw")),
+                        "raw": entry,
+                    }
+                )
+            else:
+                legacy_entries.append(entry)
+        _reports = [e for e in legacy_entries if e.get("workflow_id") and e.get("manifest_hash")]
+        if not _reports and not signed_items:
+            # Wrong file, empty file or not a witness log: the check could not be
+            # done. Never let that read as "the vendor never reported this".
+            result["status"] = "UNREADABLE"
+            result["detail"] = (
+                f"{witness_log} contains no witness reports ({len(lines)} lines, "
+                f"{len(entries)} JSON objects) — is it the --out file of `epi witness serve`?"
+            )
+            return result
+        _reports_count = len(_reports) + len(signed_items)
+    # --- Trusted keys: --witness-pubkey flag > EPI_WITNESS_PUBKEY env >
+    # package-pinned keys (epi_core/witness_keys.py). The witness_pubkey
+    # shipped INSIDE the file (witness.json) is NEVER trust: a forger
+    # self-stamps any run with their own key and swaps it in — a passport
+    # printing its own stamp sample. It is kept only to name the key in the
+    # NOT CONFIRMED message below.
+    from epi_core.witness_keys import pinned_witness_pubkeys
+
+    # Explicit auditor keys (flag/env) vs package pins. Package pins count
+    # for RECEIPTS but never turn a plain unsigned log into auditor mode:
+    # the customer's own received.jsonl must keep verifying after pinning.
+    _explicit_hexes: list[str] = []
+    for _candidate in (
+        [_clean_witness_pubkey(witness_pubkey)]
+        + [_clean_witness_pubkey(os.environ.get("EPI_WITNESS_PUBKEY"))]
+    ):
+        if _candidate and _candidate not in _explicit_hexes:
+            _explicit_hexes.append(_candidate)
+    _trusted_hexes: list[str] = list(_explicit_hexes)
+    for _candidate in pinned_witness_pubkeys():
+        if _candidate and _candidate not in _trusted_hexes:
+            _trusted_hexes.append(_candidate)
+    doc_key = _clean_witness_pubkey(doc_pubkey_raw)
     workflow_id = str(getattr(manifest, "workflow_id", ""))
-    same = [e for e in entries if str(e.get("workflow_id") or "") == workflow_id]
+    same_legacy = [e for e in legacy_entries if str(e.get("workflow_id") or "") == workflow_id]
+    same_signed = [
+        s
+        for s in signed_items
+        if isinstance(s.get("inner"), dict)
+        and str((s["inner"] or {}).get("workflow_id") or "") == workflow_id
+    ]
+    # Signed lines whose payload_raw is not valid JSON (or has no
+    # workflow_id) can never match, but they are still evidence that the
+    # log was consulted: keep them out of `same` exactly like legacy
+    # entries with a foreign workflow id.
+    same = same_legacy + same_signed  # type: ignore[operator]
     result["matches"] = len(same)
     if not same:
         result["status"] = "NOT IN WITNESS LOG"
         result["detail"] = (
-            f"workflow {workflow_id} not found in {len(_reports)} witness reports; "
+            f"workflow {workflow_id} not found in {_reports_count} witness reports; "
             "a missing entry for a case the customer knows happened is itself evidence"
         )
         return result
@@ -661,38 +844,205 @@ def _check_witness_log(epi_file: Path, manifest, witness_log) -> dict:
         content_digest = witness_content_digest(manifest)
     except Exception:
         content_digest = None
-    for entry in same:
-        if (
-            entry.get("manifest_hash") == manifest_hash
-            and entry.get("file_sha256") == file_sha256
-        ):
+
+    def _signed_received_at(item: dict) -> str | None:
+        receipt = item.get("receipt") or {}
+        return (
+            (receipt.get("received_at") if isinstance(receipt, dict) else None)
+            or item.get("line_received_at")
+            or item.get("top_received_at")
+            or ((item.get("inner") or {}).get("received_at") if isinstance(item.get("inner"), dict) else None)
+        )
+
+    if signed_items and not _trusted_hexes:
+        # FAIL CLOSED: this file carries witness receipts, so WITNESSED
+        # is only meaningful against a key the reviewer pinned OUT OF
+        # BAND. No trusted key was provided (flag, env, or package pin),
+        # so the stamps were not checked at all. A key arriving inside
+        # the file proves nothing — self-signed packs verify against
+        # their own forgery. Never WITNESSED here, never silent.
+        try:
+            _times = []
+            for item in same_signed:
+                _t = _signed_received_at(item)
+                if _t:
+                    _times.append(str(_t))
+            if _times:
+                result["received_at"] = max(_times)
+        except Exception:
+            pass
+        result["receipt_verified"] = 0
+        result["receipt_failures"] = len(same_signed)
+        _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
+        result["status"] = "NOT CONFIRMED"
+        result["detail"] = (
+            "WITNESS STAMP NOT CONFIRMED: this file carries witness receipts but no "
+            "trusted EPI witness key was provided, so no stamp was checked."
+            f"{_names_key} a key that arrives inside the file proves nothing — a forger "
+            "swaps in their own. Pin the EPI witness key out of band (fetch it from "
+            "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
+            "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+            "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
+        )
+        return result
+    if not signed_items and not _explicit_hexes:
+        # Pure unsigned log, no auditor key: the operator's OWN log (e.g.
+        # their `epi witness serve --out` file). Package pins deliberately do
+        # NOT apply here — otherwise pinning would break every customer's
+        # self-hosted flow. The verdict says whose log it is: a file handed
+        # over by someone else proves nothing without signed receipts.
+        candidates: list[dict] = list(same_legacy)
+        for entry in candidates:
+            if (
+                entry.get("manifest_hash") == manifest_hash
+                and entry.get("file_sha256") == file_sha256
+            ):
+                _at = entry.get("_witness_received_at", entry.get("received_at"))
+                result["status"] = "WITNESSED"
+                result["mode"] = "own-log-unsigned"
+                result["received_at"] = _at
+                result["detail"] = (
+                    "WITNESSED — YOUR OWN LOG (unsigned): customer record matches "
+                    f"(received {_at or 'unknown time'}). Trusted only because you kept "
+                    "this log yourself; a file received from someone else proves "
+                    "nothing — demand signed receipts and pin the EPI witness key."
+                )
+                return result
+        for entry in candidates:
+            # Re-packaged after the witness (e.g. `epi-register` added a
+            # transparency receipt and re-signed): the sealed evidence is what the
+            # customer was told about, the outer file is not byte-identical.
+            if content_digest and entry.get("content_digest") == content_digest:
+                _at = entry.get("_witness_received_at", entry.get("received_at"))
+                result["status"] = "WITNESSED"
+                result["mode"] = "own-log-unsigned"
+                result["received_at"] = _at
+                result["repackaged"] = True
+                result["detail"] = (
+                    "WITNESSED — YOUR OWN LOG (unsigned): sealed contents match the "
+                    "customer record "
+                    f"(received {_at or 'unknown time'}); the file was "
+                    "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
+                    "added, and re-signed). Trusted only because you kept this log "
+                    "yourself."
+                )
+                return result
+        result["status"] = "MISMATCH"
+        _latest = max(
+            (str(e.get("_witness_received_at", e.get("received_at")) or "") for e in candidates),
+            default="",
+        ) or "unknown time"
+        result["received_at"] = _latest
+        result["detail"] = (
+            f"a different version of this case (same workflow id) was reported to you "
+            f"({len(same)} report(s), latest {_latest}); this copy was never reported"
+        )
+        return result
+    # --- Trusted key(s) configured: only verified receipts count. Every
+    # workflow-matched line without a passing receipt (unsigned legacy
+    # entries included) is skipped; if none verify the answer is MISMATCH
+    # naming the receipt failure, never WITNESSED.
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        pubkeys = []
+        for _hx in _trusted_hexes:
+            try:
+                pubkeys.append(Ed25519PublicKey.from_public_bytes(bytes.fromhex(_hx)))
+            except Exception:
+                continue
+        pubkey_error: str | None = None
+        if not pubkeys:
+            pubkey_error = "invalid witness public key (no configured key parses)"
+    except Exception as exc:
+        pubkeys = []
+        pubkey_error = f"invalid witness public key ({exc})"
+    verified: list[dict] = []
+    failures: list[str] = []
+    for entry in same_legacy:
+        failures.append(
+            "missing witness receipt (unsigned entry; a witness public key is "
+            "configured so only signed receipts count)"
+        )
+    for item in same_signed:
+        if not pubkeys:
+            failures.append(pubkey_error or "invalid witness public key")
+            continue
+        if not isinstance(item.get("inner"), dict):
+            failures.append("receipt check failed: payload_raw is not valid JSON")
+            continue
+        _ok = False
+        _reason = "receipt check failed"
+        for _pub in pubkeys:
+            _ok, _reason = _verify_witness_receipt(
+                item.get("payload_raw"), item.get("receipt"), _pub, file_sha256
+            )
+            if _ok:
+                break
+        if _ok:
+            verified.append(item)
+        else:
+            failures.append(_reason or "receipt check failed")
+    result["receipt_verified"] = len(verified)
+    result["receipt_failures"] = len(failures)
+    if not verified:
+        _first = failures[0] if failures else "no verifiable receipt"
+        result["status"] = "MISMATCH"
+        result["received_at"] = None
+        # Try to surface a reported time even when nothing verified.
+        try:
+            _times = []
+            for item in same_signed:
+                _t = _signed_received_at(item)
+                if _t:
+                    _times.append(str(_t))
+            for entry in same_legacy:
+                if entry.get("received_at"):
+                    _times.append(str(entry.get("received_at")))
+            if _times:
+                result["received_at"] = max(_times)
+        except Exception:
+            pass
+        result["detail"] = (
+            f"witness receipt verification failed for {len(same)} matched line(s) "
+            f"({len(failures)} receipt failure(s)): {_first}; "
+            "this copy was never reported with a valid receipt"
+        )
+        return result
+    for item in verified:
+        inner = item.get("inner") or {}
+        if inner.get("manifest_hash") == manifest_hash and inner.get("file_sha256") == file_sha256:
+            _at = _signed_received_at(item)
             result["status"] = "WITNESSED"
-            result["received_at"] = entry.get("received_at")
+            result["mode"] = "verified-receipt"
+            result["received_at"] = _at
             result["detail"] = (
-                f"customer record matches (received {entry.get('received_at') or 'unknown time'})"
+                "WITNESSED — verified witness receipt: customer record matches "
+                f"(received {_at or 'unknown time'})"
             )
             return result
-    for entry in same:
-        # Re-packaged after the witness (e.g. `epi-register` added a
-        # transparency receipt and re-signed): the sealed evidence is what the
-        # customer was told about, the outer file is not byte-identical.
-        if content_digest and entry.get("content_digest") == content_digest:
+    for item in verified:
+        inner = item.get("inner") or {}
+        if content_digest and inner.get("content_digest") == content_digest:
+            _at = _signed_received_at(item)
             result["status"] = "WITNESSED"
-            result["received_at"] = entry.get("received_at")
+            result["mode"] = "verified-receipt"
+            result["received_at"] = _at
             result["repackaged"] = True
             result["detail"] = (
-                "sealed contents match the customer record "
-                f"(received {entry.get('received_at') or 'unknown time'}); the file was "
+                "WITNESSED — verified witness receipt: sealed contents match the "
+                "customer record "
+                f"(received {_at or 'unknown time'}); the file was "
                 "re-packaged afterwards (e.g. viewer refreshed or transparency receipt "
                 "added, and re-signed)"
             )
             return result
     result["status"] = "MISMATCH"
-    _latest = max((str(e.get("received_at") or "") for e in same), default="") or "unknown time"
+    _latest = max((_signed_received_at(v) or "" for v in verified), default="") or "unknown time"
     result["received_at"] = _latest
     result["detail"] = (
         f"a different version of this case (same workflow id) was reported to you "
-        f"({len(same)} report(s), latest {_latest}); this copy was never reported"
+        f"({len(verified)} verified receipt(s), latest {_latest}); this copy was never reported"
     )
     return result
 
@@ -921,6 +1271,7 @@ def verify_command(
         help="No network: skip DID resolution and remote fetches (local pins still apply).",
     ),
     witness_log: Path | None = None,
+    witness_pubkey: str | None = None,
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
 ) -> None:
@@ -1648,7 +1999,7 @@ def verify_command(
         # seal time: FAIL in every policy. A missing entry is WARN (FAIL under
         # strict); an unreadable log FAILs.
         try:
-            _witness = _check_witness_log(epi_file, manifest, witness_log)
+            _witness = _check_witness_log(epi_file, manifest, witness_log, witness_pubkey)
         except Exception:
             _witness = {"status": "NOT CHECKED", "received_at": None, "matches": 0,
                         "detail": "witness check crashed"}
@@ -1679,6 +2030,21 @@ def verify_command(
                         f"your witness log ({_witness.get('detail')}). It may be a re-run "
                         "or re-sealed copy; ask the vendor for the copy that is in your "
                         "witness log."
+                    )
+            except Exception:
+                pass
+        elif _witness.get("status") == "NOT CONFIRMED":
+            # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
+            # Never a clean PASS; FAIL under strict (the auditor acceptance
+            # command), WARN otherwise.
+            try:
+                if report["decision"].get("status") == "PASS":
+                    report["decision"]["status"] = (
+                        "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
+                    )
+                    report["decision"]["reason"] = (
+                        "Seal and signer are valid, but the witness stamps were not "
+                        f"checked ({_witness.get('detail')})"
                     )
             except Exception:
                 pass
@@ -2165,9 +2531,18 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         )
     elif _wit_status == "WITNESSED":
         _received = _wit.get("received_at") or "unknown time"
-        content_lines.append(
-            f"  [green]- Witness:      WITNESSED (received {_received})[/green]"
-        )
+        if _wit.get("mode") == "verified-receipt":
+            content_lines.append(
+                f"  [green]- Witness:      WITNESSED — verified witness receipt (received {_received})[/green]"
+            )
+        else:
+            content_lines.append(
+                f"  [green]- Witness:      WITNESSED — YOUR OWN LOG (unsigned) (received {_received})[/green]"
+            )
+            content_lines.append(
+                "  [dim]                Trusted only because you kept this log yourself; a file "
+                "received from someone else proves nothing.[/dim]"
+            )
         if _wit.get("repackaged"):
             content_lines.append(
                 "  [dim]                re-packaged after the witness; sealed contents unchanged[/dim]"
@@ -2180,6 +2555,10 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif _wit_status == "UNREADABLE":
         content_lines.append(
             f"  [red]- Witness:      NOT CHECKED — {_wit.get('detail')}[/red]"
+        )
+    elif _wit_status == "NOT CONFIRMED":
+        content_lines.append(
+            f"  [red]- Witness:      STAMP NOT CONFIRMED — {_wit.get('detail')}[/red]"
         )
     elif _wit_status == "MISMATCH":
         content_lines.append(

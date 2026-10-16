@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { app } from "../src/index.ts";
 import { sha256Hex } from "../src/lib/crypto.ts";
+import { edKeygen } from "../src/lib/signing.ts";
 
 type Row = Record<string, unknown>;
 
@@ -87,6 +88,12 @@ class FakeD1 {
       return this.checkpoints.filter((r) => r.inbox_id === a[0] && (r.day as string) >= (a[1] as string)).sort((x, y) => ((x.day as string) < (y.day as string) ? -1 : 1));
     }
     if (q.startsWith("SELECT id, agent_id, claimed_sha256")) return this.artifacts.filter((r) => r.org_id === a[0]);
+    if (q.startsWith("SELECT claimed_sha256, agent_id FROM artifacts")) {
+      return this.artifacts.filter((r) => r.org_id === a[0] && r.deleted_at == null);
+    }
+    if (q.startsWith("SELECT id FROM inboxes WHERE org_id = ?")) {
+      return [...this.inboxes.values()].filter((i) => i.org_id === a[0] && i.closed_at == null);
+    }
     if (q.startsWith("SELECT fingerprint, label, valid_from, revoked_at, revoke_reason FROM org_keys")) {
       return this.keys.filter((r) => r.org_id === a[0]);
     }
@@ -131,6 +138,26 @@ class FakeNS {
   get(id: { name: string }) {
     const n = this.counts.get(id.name) ?? 0;
     return { fetch: async () => Response.json({ count: n, head_hash: "GENESIS" }) };
+  }
+}
+
+// Minimal inbox stub for witness-lines: answers /info like FakeNS and
+// serves canned /find-receipts rows per inbox.
+class FakeWitnessNS {
+  counts = new Map<string, number>();
+  receipts = new Map<string, Row[]>();
+  idFromName(name: string) {
+    return { name };
+  }
+  get(id: { name: string }) {
+    const n = this.counts.get(id.name) ?? 0;
+    const rows = this.receipts.get(id.name) ?? [];
+    return {
+      fetch: async (url: string) => {
+        if (url.includes("/find-receipts")) return Response.json({ entries: rows });
+        return Response.json({ count: n, head_hash: "GENESIS" });
+      },
+    };
   }
 }
 
@@ -213,8 +240,7 @@ describe("share links", () => {
     expect(doc.inboxes[0]).toMatchObject({ total_witnessed: 40, d30: 0, awaiting_checkpoint: true });
   });
 
-  it("events record human actions; vendors read them per link", async () => {
-    const { db, env, ck } = await setup();
+  it("events record human actions; vendors read them per link", async () => {    const { db, env, ck } = await setup();
     const { id, token } = (await (await app.request("/v1/orgs/o1/share-links", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ label: "Bank" }) }, env as never)).json()) as { id: string; token: string };
     const h = { "X-EPI-Share-Token": token, "Content-Type": "application/json" };
     expect((await app.request(`/v1/trust/${id}/events`, { method: "POST", headers: h, body: JSON.stringify({ kind: "opened" }) }, env as never)).status).toBe(200);
@@ -230,6 +256,86 @@ describe("share links", () => {
     db.memberships.set("o2|u_evil", { org_id: "o2", user_id: "u_evil", role: "owner" });
     const evilCk = { Cookie: "epi_session=sess-evil", "Content-Type": "application/json" };
     expect((await app.request(`/v1/orgs/o1/share-links/${id}/events`, { headers: evilCk }, env as never)).status).toBe(403);
+  });
+});
+
+describe("link-scoped witness lines (M6 pack)", () => {
+  const SHA_A = "aa".repeat(32);
+  const SHA_B = "bb".repeat(32);
+  const SHA_OTHER = "cc".repeat(32);
+  const report = (sha: string, wf: string) =>
+    JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: wf, file_sha256: sha });
+
+  async function packSetup() {
+    const { db, env, ck } = await setup();
+    const ed = edKeygen();
+    const wns = new FakeWitnessNS();
+    wns.counts.set("inb_1", 3);
+    wns.counts.set("inb_2", 1);
+    wns.receipts.set("inb_1", [
+      { seq: 1, received_at: "2026-10-15T00:00:01.000Z", payload_raw: report(SHA_A, "wf-a"), receipt_sig: "sig-a" },
+      // Same link run, but the receipt never attached: withheld, not guessed.
+      { seq: 2, received_at: "2026-10-15T00:00:02.000Z", payload_raw: report(SHA_A, "wf-a2"), receipt_sig: null },
+      // Another run entirely: never this link's business.
+      { seq: 3, received_at: "2026-10-15T00:00:03.000Z", payload_raw: report(SHA_OTHER, "wf-x"), receipt_sig: "sig-x" },
+    ]);
+    wns.receipts.set("inb_2", [
+      { seq: 1, received_at: "2026-10-15T00:00:01.000Z", payload_raw: report(SHA_B, "wf-b"), receipt_sig: "sig-b" },
+    ]);
+    db.artifacts.push(
+      { org_id: "o1", claimed_sha256: SHA_A, agent_id: "g1", deleted_at: null },
+      { org_id: "o1", claimed_sha256: SHA_B, agent_id: "g9", deleted_at: null },
+    );
+    db.inboxes.set("inb_2", { id: "inb_2", org_id: "o1", customer_label: "Other", closed_at: null });
+    const keyed = { ...env, WITNESS: wns as unknown as DurableObjectNamespace, WITNESS_SIGNING_KEY: ed.secretHex };
+    return { db, env: keyed, ck, ed };
+  }
+
+  const mint = (env: unknown, ck: (r: string) => Record<string, string>, scope?: unknown) =>
+    app.request("/v1/orgs/o1/share-links", {
+      method: "POST", headers: ck("sess-owner"),
+      body: JSON.stringify(scope ? { label: "Pack", scope } : { label: "Pack" }),
+    }, env as never);
+
+  it("serves only this link's receipted lines, with the witness key", async () => {
+    const { env, ck, ed } = await packSetup();
+    const { id, token } = (await (await mint(env, ck)).json()) as { id: string; token: string };
+    const res = await app.request(`/v1/trust/${id}/witness-lines`, { headers: { "X-EPI-Share-Token": token } }, env as never);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      link: string; witness_pubkey: string; note: string;
+      lines: { inbox: string; seq: number; payload_raw: string; receipt: { signature: string; artifact_sha256: string } }[];
+    };
+    expect(body.link).toBe(id);
+    expect(body.witness_pubkey).toBe(ed.pubHex);
+    expect(body.note).toMatch(/receipt/);
+    // The two receipted, bound lines (SHA_A in inb_1, SHA_B in inb_2):
+    // the unsigned twin and the foreign run are withheld, not guessed.
+    expect(body.lines).toHaveLength(2);
+    expect(body.lines.map((l) => l.receipt.artifact_sha256).sort()).toEqual([SHA_A, SHA_B].sort());
+    expect(body.lines[0]).toMatchObject({ inbox: "inb_1", seq: 1, receipt: { signature: "sig-a", artifact_sha256: SHA_A } });
+    expect(body.lines[0]!.payload_raw).toContain(SHA_A);
+    expect(body.lines.map((l) => l.seq)).not.toContain(2);
+  });
+
+  it("respects agent and inbox scope", async () => {
+    const { env, ck } = await packSetup();
+    const { id, token } = (await (await mint(env, ck, { agents: ["g1"], inboxes: ["inb_1"] })).json()) as { id: string; token: string };
+    const body = (await (await app.request(`/v1/trust/${id}/witness-lines`, { headers: { "X-EPI-Share-Token": token } }, env as never)).json()) as {
+      lines: { receipt: { artifact_sha256: string } }[];
+    };
+    expect(body.lines.map((l) => l.receipt.artifact_sha256)).toEqual([SHA_A]);
+  });
+
+  it("wrong token, missing token, and revoked links all 404", async () => {
+    const { env, ck } = await packSetup();
+    const { id, token } = (await (await mint(env, ck)).json()) as { id: string; token: string };
+    const h = { "X-EPI-Share-Token": token };
+    expect((await app.request(`/v1/trust/${id}/witness-lines`, { headers: { "X-EPI-Share-Token": "00" } }, env as never)).status).toBe(404);
+    expect((await app.request(`/v1/trust/${id}/witness-lines`, {}, env as never)).status).toBe(404);
+    expect((await app.request(`/v1/trust/sh_nope/witness-lines`, { headers: h }, env as never)).status).toBe(404);
+    await app.request(`/v1/orgs/o1/share-links/${id}`, { method: "DELETE", headers: ck("sess-owner") }, env as never);
+    expect((await app.request(`/v1/trust/${id}/witness-lines`, { headers: h }, env as never)).status).toBe(404);
   });
 });
 

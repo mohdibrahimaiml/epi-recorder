@@ -4,6 +4,18 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+- **Evidence pack (M6).** One "Download evidence pack" button on trust pages
+  zips the whole link in the reviewer's browser (never on the server): every
+  artifact's hash-checked bytes, `trust.json`, `witness.json`, `README.txt`
+  with the exact offline verify commands, and `MANIFEST.json` with SHA-256
+  per file. Witness lines arrive link-scoped behind the share token, each
+  with a per-line Ed25519 receipt checkable offline (`epi verify
+  --witness-log witness.json --witness-pubkey ...` — the key in the file is
+  never trust; reviewers pin it from the well-known endpoint and the
+  checkpoints repo); revoked keys ride with
+  reasons. Full-log consistency stays covered by the signed daily checkpoint;
+  per-line Merkle inclusion proofs are planned, not present.
+
 - **Key registry (M5).** Vendors register **public** keys (`epi cloud keys
   push` reads only `*.pub` and refuses anything else); anyone can read the
   history at `/o/{slug}/keys.json`, shown on trust pages with revocations

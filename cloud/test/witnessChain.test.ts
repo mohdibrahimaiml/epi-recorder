@@ -3,12 +3,17 @@ import { DatabaseSync } from "node:sqlite";
 import {
   GENESIS,
   canonicalCheckpoint,
+  canonicalReceipt,
   dayOf,
   entryHash,
+  receiptArtifactSha,
   sha256Hex,
+  signReceipt,
   verifyChain,
+  verifyReceipt,
   type Envelope,
 } from "../src/lib/witnessChain.ts";
+import { edKeygen } from "../src/lib/signing.ts";
 
 async function chain3(): Promise<Envelope[]> {
   const raws = ['{"schema":"epi-witness/v1","n":1}', '{"schema":"epi-witness/v1","n":2}', '{"schema":"epi-witness/v1","n":3}'];
@@ -71,5 +76,32 @@ describe("witness hash chain", () => {
     db.prepare("INSERT INTO e(h) VALUES (?)").run("x");
     expect((db.prepare("SELECT h FROM e").get() as { h: string }).h).toBe("x");
     db.close();
+  });
+
+  it("canonical receipt has the exact signed shape (CLI must match)", () => {
+    expect(canonicalReceipt({
+      inbox_id: "inb_x", seq: 7, line_sha256: "aa", artifact_sha256: "bb", received_at: "2026-10-15T00:00:01.000Z",
+    })).toBe(
+      '{"artifact_sha256":"bb","inbox_id":"inb_x","line_sha256":"aa","received_at":"2026-10-15T00:00:01.000Z","seq":7}',
+    );
+  });
+
+  it("receipt signs and verifies; tampered line or forged key fails", async () => {
+    const { secretHex, pubHex } = edKeygen();
+    const r = signReceipt(secretHex, {
+      inbox_id: "inb_x", seq: 7, line_sha256: await sha256Hex("raw"),
+      artifact_sha256: "bb", received_at: "2026-10-15T00:00:01.000Z",
+    });
+    expect(verifyReceipt(pubHex, r)).toBe(true);
+    expect(verifyReceipt(pubHex, { ...r, line_sha256: "cc" })).toBe(false);
+    expect(verifyReceipt(pubHex, { ...r, seq: 8 })).toBe(false);
+    expect(verifyReceipt(edKeygen().pubHex, r)).toBe(false);
+  });
+
+  it("receipt binds the first identifying digest, else empty", () => {
+    expect(receiptArtifactSha({ file_sha256: "f", manifest_hash: "m" })).toBe("f");
+    expect(receiptArtifactSha({ manifest_hash: "m", content_digest: "c" })).toBe("m");
+    expect(receiptArtifactSha({ workflow_id: "w" })).toBe("");
+    expect(receiptArtifactSha(null)).toBe("");
   });
 });

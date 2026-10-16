@@ -63,6 +63,130 @@ class StubState:
         ]
         return doc
 
+    def pack_doc(self) -> dict:
+        """Whole-link pack slug: every artifact matches, keys carry history."""
+        from epi_core.container import EPIContainer
+        from epi_core.keys import key_fingerprint
+
+        manifest = EPIContainer.read_manifest(SAMPLE)
+        digest = hashlib.sha256(SAMPLE.read_bytes()).hexdigest()
+        current_fp = key_fingerprint(str(manifest.public_key), grouped=False)
+        return {
+            "vendor": "Acme Corp",
+            "link_label": "Acme Bank Q3",
+            "agents": [{"id": "g1", "name": "loans", "status": "active"}],
+            "inboxes": [
+                {
+                    "id": "inb_1",
+                    "label": "Acme Bank",
+                    "total_witnessed": 40,
+                    "d30": 40,
+                    "d90": 40,
+                    "last_day": "2026-10-15",
+                    "anchored": True,
+                }
+            ],
+            "artifacts": [
+                {
+                    "goal": "Website sample run",
+                    "workflow_id": str(manifest.workflow_id),
+                    "claimed_sha256": digest,
+                    "content_url": "/assets/sample.epi",
+                    "download_url": "/assets/sample.epi",
+                    "signature_check": "valid",
+                    "witness_status": "witnessed",
+                },
+            ],
+            "keys": [
+                {
+                    "fingerprint": "9aa7c001f00d0001",
+                    "label": "2024 sealer",
+                    "valid_from": "2024-01-10",
+                    "revoked_at": "2026-03-01",
+                    "revoke_reason": "scheduled rotation — superseded by the 2026 sealer",
+                },
+                {
+                    "fingerprint": current_fp,
+                    "label": "2026 sealer",
+                    "valid_from": "2026-03-01",
+                    "revoked_at": None,
+                    "revoke_reason": None,
+                },
+            ],
+            "note": "stub",
+        }
+
+    def witness_lines(self) -> dict:
+        """Signed-stub witness-lines doc (spec shape, real test signature).
+
+        A fresh test Ed25519 key signs the receipt canonical bytes exactly as
+        the server does; witness_pubkey rides in the doc so the pack test can
+        run the README flow for real: signed witness.json + --witness-pubkey.
+        """
+        from epi_core.container import EPIContainer
+        from epi_core.keys import key_fingerprint
+        from epi_core.serialize import get_canonical_hash
+        from epi_core.webhook import build_witness_payload, witness_content_digest
+
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import serialization
+
+        priv = Ed25519PrivateKey.generate()
+        pub_hex = priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+        ).hex()
+        raw = SAMPLE.read_bytes()
+        manifest = EPIContainer.read_manifest(SAMPLE)
+        manifest_hash = get_canonical_hash(manifest, exclude_fields=["signature"])
+        file_sha256 = hashlib.sha256(raw).hexdigest()
+        payload = build_witness_payload(
+            workflow_id=str(manifest.workflow_id),
+            manifest_hash=manifest_hash,
+            file_sha256=file_sha256,
+            public_key=getattr(manifest, "public_key", None),
+            content_digest=witness_content_digest(manifest),
+            key_fingerprint=key_fingerprint(str(manifest.public_key), grouped=False),
+            steps=1,
+            sealed_at="2026-10-15T12:00:00+00:00",
+            seal_timestamp={"status": "none", "gen_time": None},
+            goal=getattr(manifest, "goal", None),
+        )
+        payload["received_at"] = "2026-10-15T12:00:01+00:00"
+        payload_raw = json.dumps(payload, sort_keys=True)
+        line_sha256 = hashlib.sha256(payload_raw.encode("utf-8")).hexdigest()
+        canonical = json.dumps(
+            {
+                "artifact_sha256": file_sha256,
+                "inbox_id": "inb_1",
+                "line_sha256": line_sha256,
+                "received_at": payload["received_at"],
+                "seq": 1,
+            },
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return {
+            "link": "sh_pack",
+            "witness_pubkey": pub_hex,
+            "note": "stub (signed): receipt verifiable with witness_pubkey",
+            "lines": [
+                {
+                    "inbox": "inb_1",
+                    "seq": 1,
+                    "received_at": payload["received_at"],
+                    "payload_raw": payload_raw,
+                    "receipt": {
+                        "inbox_id": "inb_1",
+                        "seq": 1,
+                        "line_sha256": line_sha256,
+                        "artifact_sha256": file_sha256,
+                        "received_at": payload["received_at"],
+                        "signature": priv.sign(canonical).hex(),
+                    },
+                }
+            ],
+        }
+
 
 def _tampered(data: bytes) -> bytes:
     """Flip a byte inside the hashed ZIP payload (not presentation bytes).
@@ -113,6 +237,31 @@ def _make_stub(state: StubState) -> type[BaseHTTPRequestHandler]:
                     self._send(404, b'{"error":{}}')
                 else:
                     self._send(200, json.dumps(state.genuine_doc()).encode())
+            elif self.path == "/v1/trust/sh_pack":
+                if self.headers.get("X-EPI-Share-Token") != TOKEN:
+                    self._send(404, b'{"error":{}}')
+                else:
+                    self._send(200, json.dumps(state.pack_doc()).encode())
+            elif self.path == "/v1/trust/sh_pack/witness-lines":
+                if self.headers.get("X-EPI-Share-Token") != TOKEN:
+                    self._send(404, b'{"error":{}}')
+                else:
+                    self._send(200, json.dumps(state.witness_lines()).encode())
+            elif self.path == "/v1/trust/sh_test/witness-lines":
+                if self.headers.get("X-EPI-Share-Token") != TOKEN:
+                    self._send(404, b'{"error":{}}')
+                else:
+                    self._send(
+                        200,
+                        json.dumps(
+                            {
+                                "link": "sh_test",
+                                "witness_pubkey": None,
+                                "note": "stub",
+                                "lines": [],
+                            }
+                        ).encode(),
+                    )
             else:
                 self._send(404, b'{"error":{"code":"not_found"}}')
 
@@ -122,11 +271,18 @@ def _make_stub(state: StubState) -> type[BaseHTTPRequestHandler]:
             state.requests.append(
                 {"method": "POST", "path": self.path, "headers": dict(self.headers), "body": body}
             )
-            if self.path == "/v1/trust/sh_test/events":
+            if self.path in ("/v1/trust/sh_test/events", "/v1/trust/sh_pack/events"):
                 if self.headers.get("X-EPI-Share-Token") != TOKEN:
                     self._send(404, b"{}")
                 else:
-                    self._send(200, b'{"ok":true}')
+                    try:
+                        kind = json.loads(body.decode())["kind"]
+                    except Exception:
+                        kind = None
+                    if kind not in ("opened", "verified_file", "downloaded_pack", "downloaded_witness"):
+                        self._send(400, b"{}")
+                    else:
+                        self._send(200, b'{"ok":true}')
             else:
                 self._send(404, b"{}")
 
@@ -238,6 +394,220 @@ class _StaticHandler(BaseHTTPRequestHandler):
 
 def _page_url(static: str, api: str, slug: str = "sh_test") -> str:
     return f"{static}/t/{slug}?api={api}#k={TOKEN}"
+
+
+def _pack_url(static: str, api: str) -> str:
+    return f"{static}/t/sh_pack?api={api}#k={TOKEN}"
+
+
+def _tamper_manifest_goal(data: bytes) -> bytes:
+    """Rewrite one manifest field (goal) and re-zip, keeping the old signature.
+
+    The file still parses, but manifest_hash/content_digest no longer match
+    the witnessed version and the signature is invalid: `epi verify
+    --witness-log` must report witness MISMATCH (a different version).
+    """
+    import io
+    import zipfile
+
+    src = zipfile.ZipFile(io.BytesIO(data))
+    manifest = json.loads(src.read("manifest.json"))
+    manifest["goal"] = (manifest.get("goal") or "run") + " (altered)"
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dest:
+        for name in src.namelist():
+            info = src.getinfo(name)
+            dest.writestr(
+                name,
+                json.dumps(manifest).encode("utf-8") if name == "manifest.json" else src.read(name),
+                compress_type=info.compress_type,
+            )
+    return out.getvalue()
+
+
+def _event_kinds(state: StubState) -> list[str]:
+    return [json.loads(r["body"])["kind"] for r in state.requests if r["path"].endswith("/events")]
+
+
+def _verify_cli(epi_file, witness_log, tmp_path, name: str, pubkey: str | None = None) -> dict:
+    """Run the README offline flow and return the parsed JSON report."""
+    import subprocess
+    import sys
+
+    args = [
+        sys.executable, "-m", "epi_cli", "verify", str(epi_file),
+        "--policy", "strict", "--witness-log", str(witness_log),
+        "--offline", "--json",
+    ]
+    if pubkey:
+        args += ["--witness-pubkey", pubkey]
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=180, cwd=str(REPO))
+    (tmp_path / f"{name}.stdout").write_text(proc.stdout)
+    (tmp_path / f"{name}.stderr").write_text(proc.stderr[-4000:])
+    return json.loads(proc.stdout)
+
+
+def test_pack_gate_fires_no_pack_signal(servers, browser) -> None:
+    """Page load and the gate click never fetch witness-lines or fire pack events."""
+    state, static, api = servers
+    ctx = browser.new_context()
+    pg = ctx.new_page()
+    try:
+        pg.goto(_pack_url(static, api))
+        pg.wait_for_timeout(1200)
+        assert state.requests == [], f"page load must not touch the API: {state.requests}"
+        pg.click("#gateBtn")
+        pg.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+        assert pg.locator("#packBtn").is_visible()
+        assert _event_kinds(state) == ["opened"]
+        assert not any(r["path"].endswith("/witness-lines") for r in state.requests)
+    finally:
+        ctx.close()
+
+
+def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
+    """Full M6 flow: click pack -> verified zip -> offline `epi verify` says WITNESSED."""
+    import zipfile
+
+    state, static, api = servers
+    ctx = browser.new_context(accept_downloads=True)
+    pg = ctx.new_page()
+    try:
+        pg.goto(_pack_url(static, api))
+        pg.click("#gateBtn")
+        pg.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+        with pg.expect_download(timeout=30000) as dl_info:
+            pg.click("#packBtn")
+        download = dl_info.value
+        pack_zip = tmp_path / "evidence-pack.zip"
+        download.save_as(str(pack_zip))
+        pg.wait_for_function(
+            "() => document.querySelector('#packStatus').textContent.includes('downloaded')",
+            timeout=15000,
+        )
+    finally:
+        ctx.close()
+
+    with zipfile.ZipFile(pack_zip) as zf:
+        names = set(zf.namelist())
+        assert "acme-corp/sample.epi" in names, names
+        for required in ("trust.json", "witness.json", "README.txt", "MANIFEST.json"):
+            assert required in names, names
+
+        manifest = json.loads(zf.read("MANIFEST.json"))
+        assert manifest == [
+            {"name": "acme-corp/sample.epi", "sha256": hashlib.sha256(zf.read("acme-corp/sample.epi")).hexdigest()}
+        ]
+        for entry in manifest:
+            assert hashlib.sha256(zf.read(entry["name"])).hexdigest() == entry["sha256"]
+
+        readme = zf.read("README.txt").decode("utf-8")
+        assert "epi verify FILE --policy strict --witness-log witness.json --witness-pubkey <PASTE-KEY> --offline" in readme
+        assert (
+            "checkable offline ONLY against a witness public key you pinned yourself"
+            in readme
+        )
+        assert "NEVER trust the witness_pubkey printed inside witness.json" in readme
+        assert 'If the result does not say "verified witness receipt"' in readme
+        assert "cloud.epilabs.org/.well-known/epi-witness-key.json" in readme
+        assert "epi-witness-checkpoints" in readme
+        assert "per-line Merkle inclusion proofs are planned, not present" in readme
+        assert manifest[0]["sha256"] in readme
+
+        trust = json.loads(zf.read("trust.json"))
+        assert trust["vendor"] == "Acme Corp"
+        assert any("fingerprint" in k and k["fingerprint"] for k in trust["keys"])
+        revoked = [k for k in trust["keys"] if k.get("revoked_at")]
+        assert revoked and revoked[0].get("revoke_reason"), "revocation reasons must ride in trust.json"
+
+        witness = json.loads(zf.read("witness.json"))
+        assert witness["witness_pubkey"], "pack must carry the witness key for offline checks"
+        assert len(witness["lines"]) == 1
+        line = witness["lines"][0]
+        assert set(line["receipt"]) >= {
+            "inbox_id", "seq", "line_sha256", "artifact_sha256", "received_at", "signature",
+        }
+        assert line["receipt"]["signature"], "stub signs the receipt for real"
+        payload = json.loads(line["payload_raw"])
+        assert payload["workflow_id"] and payload["manifest_hash"] and payload["file_sha256"]
+
+        epi_bytes = zf.read("acme-corp/sample.epi")
+        witness_raw = zf.read("witness.json")
+    assert hashlib.sha256(epi_bytes).hexdigest() == manifest[0]["sha256"]
+    assert hashlib.sha256(epi_bytes).hexdigest() == hashlib.sha256(SAMPLE.read_bytes()).hexdigest()
+
+    # The README flow for real: signed witness.json + the packed witness key.
+    # Tampered payload or forged receipt must never read WITNESSED.
+    witness_file = tmp_path / "witness.json"
+    witness_file.write_text(witness_raw.decode("utf-8"))
+    epi_file = tmp_path / "downloaded.epi"
+    epi_file.write_bytes(epi_bytes)
+    report = _verify_cli(epi_file, witness_file, tmp_path, "pack-genuine", pubkey=witness["witness_pubkey"])
+    assert report["witness"]["status"] == "WITNESSED", report["witness"]
+    assert report["witness"].get("receipt_verified", 0) >= 1, report["witness"]
+
+    # Same log, altered copy: the witnessed version differs -> MISMATCH.
+    tampered = tmp_path / "tampered.epi"
+    tampered.write_bytes(_tamper_manifest_goal(epi_bytes))
+    bad_report = _verify_cli(tampered, witness_file, tmp_path, "pack-tampered", pubkey=witness["witness_pubkey"])
+    assert bad_report["witness"]["status"] == "MISMATCH", bad_report["witness"]
+    assert bad_report["decision"]["status"] == "FAIL"
+
+    # The #121 blocker repro through the real pack: same signed pack, but NO
+    # pinned key (the README command without --witness-pubkey). The stamps
+    # are UNCHECKED — must read NOT CONFIRMED, never WITNESSED.
+    nokey_report = _verify_cli(epi_file, witness_file, tmp_path, "pack-nokey")
+    assert nokey_report["witness"]["status"] == "NOT CONFIRMED", nokey_report["witness"]
+    assert "NOT CONFIRMED" in nokey_report["witness"]["detail"]
+    assert nokey_report["decision"]["status"] == "FAIL", nokey_report["decision"]
+
+    kinds = _event_kinds(state)
+    assert kinds.count("downloaded_pack") == 1, kinds
+    assert kinds.count("downloaded_witness") == 1, kinds
+
+
+def test_pack_aborts_on_mismatched_bytes(servers, page) -> None:
+    """One bad artifact aborts the whole pack: red message, no download, no events."""
+    state, static, api = servers
+    page.goto(_page_url(static, api))
+    page.click("#gateBtn")
+    page.wait_for_selector("[data-artifact='1']", timeout=10000)
+    seen: list = []
+    page.on("download", lambda dl: seen.append(dl))
+    page.click("#packBtn")
+    page.wait_for_function(
+        "() => document.querySelector('#packStatus').textContent.toLowerCase().includes('abort')",
+        timeout=30000,
+    )
+    assert "does not match" in page.inner_text("#packStatus")
+    style = page.get_attribute("#packStatus", "style") or ""
+    assert "var(--bad)" in style, f"abort message must be red: {style}"
+    page.wait_for_timeout(2000)
+    assert seen == [], "aborted pack must not trigger any download"
+    kinds = _event_kinds(state)
+    assert "downloaded_pack" not in kinds, kinds
+    assert "downloaded_witness" not in kinds, kinds
+
+
+def test_pack_per_file_download_link(servers, browser, tmp_path) -> None:
+    """The subtle per-file 'Download file' link saves the artifact bytes."""
+    import hashlib as _hashlib
+
+    _, static, api = servers
+    ctx = browser.new_context(accept_downloads=True)
+    pg = ctx.new_page()
+    try:
+        pg.goto(_page_url(static, api))
+        pg.click("#gateBtn")
+        pg.wait_for_selector("[data-dlartifact='0']", timeout=10000)
+        with pg.expect_download(timeout=30000) as dl_info:
+            pg.click("[data-dlartifact='0']")
+        download = dl_info.value
+        target = tmp_path / "single.epi"
+        download.save_as(str(target))
+    finally:
+        ctx.close()
+    assert _hashlib.sha256(target.read_bytes()).hexdigest() == _hashlib.sha256(SAMPLE.read_bytes()).hexdigest()
 
 
 def test_gate_load_creates_no_signal(servers, page) -> None:
