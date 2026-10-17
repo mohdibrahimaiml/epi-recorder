@@ -245,9 +245,18 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         pg.wait_for_selector("text=Add a customer", timeout=15000)
 
         # Step 4: add the customer, keep the env lines.
+        # API first (exact status in the log pinpoints server vs UI).
+        st, probe = _api(base, "POST", f"/v1/orgs/{org_id}/inboxes", cookie, {"customer_label": "Probe Bank"})
+        assert st == 201, (st, probe)
+        st, _ = _api(base, "POST", f"/v1/orgs/{org_id}/inboxes/{probe['id']}/close", cookie)
+        assert st == 200, st
         pg.fill("#cust-name", "Acme Bank")
         pg.click("#cust-go")
-        pg.wait_for_selector("text=EPI_WITNESS_SECRET=", timeout=15000)
+        try:
+            pg.wait_for_selector("text=EPI_WITNESS_SECRET=", timeout=15000)
+        except Exception:
+            msg = pg.locator("#cust-msg").text_content()
+            raise AssertionError(f"customer UI failed, msg={msg!r}")
         pg.screenshot(path=str(SHOTS / "03-customer.png"))
         _no_overflow(pg)
         pg.reload()

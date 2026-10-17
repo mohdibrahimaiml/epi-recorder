@@ -106,7 +106,7 @@ def _witness_export(
         _hint = (
             " — no secret set: export with EPI_WITNESS_SECRET (or --witness-secret)"
             if not witness_secret
-            else " — the receiver rejected the secret"
+            else " — witness secret changed — update EPI_WITNESS_SECRET"
         )
     return f"Witness: QUEUED ({_reason}){_hint} — run epi witness flush"
 
