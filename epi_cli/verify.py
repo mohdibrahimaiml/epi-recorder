@@ -672,6 +672,29 @@ def _verify_witness_receipt(
     return True, ""
 
 
+def _receipt_signature_verifies(receipt: dict, pubkeys: list) -> bool:
+    """True when `receipt` carries an Ed25519 signature from any of `pubkeys`.
+
+    Hash comparisons are deliberately skipped: this answers only "is this
+    stamp from someone we trust", never "does it match this file". Never
+    raises.
+    """
+    try:
+        if not isinstance(receipt, dict):
+            return False
+        canonical = _canonical_witness_receipt_bytes(receipt)
+        sig = bytes.fromhex(str(receipt.get("signature") or "").strip().removeprefix("0x"))
+    except Exception:
+        return False
+    for _pub in pubkeys:
+        try:
+            _pub.verify(sig, canonical)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
@@ -987,6 +1010,41 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
     result["receipt_failures"] = len(failures)
     if not verified:
         _first = failures[0] if failures else "no verifiable receipt"
+        _sig_ok = bool(pubkeys) and any(
+            _receipt_signature_verifies(item.get("receipt") or {}, pubkeys)
+            for item in same_signed
+        )
+        if same_signed and pubkeys and not _sig_ok:
+            # No stamp here is from the EPI witness: every matched receipt
+            # failed signature verification against every trusted key. That
+            # is a foreign stamp, not an edited file — say so explicitly
+            # instead of DIFFERENT VERSION (kept for valid receipts that
+            # match a different file, below).
+            result["status"] = "MISMATCH"
+            result["mode"] = "untrusted-stamp"
+            result["received_at"] = None
+            try:
+                _times = []
+                for item in same_signed:
+                    _t = _signed_received_at(item)
+                    if _t:
+                        _times.append(str(_t))
+                for entry in same_legacy:
+                    if entry.get("received_at"):
+                        _times.append(str(entry.get("received_at")))
+                if _times:
+                    result["received_at"] = max(_times)
+            except Exception:
+                pass
+            result["detail"] = (
+                "WITNESS STAMP NOT FROM THE EPI WITNESS: none of the "
+                f"{len(same)} matched receipt(s) carries a valid Ed25519 signature "
+                "from a trusted EPI witness key "
+                f"(first failure: {_first}); this copy was never stamped by the EPI "
+                "witness — ask for the reported copy, and pin the EPI witness key "
+                "out of band before trusting any stamp."
+            )
+            return result
         result["status"] = "MISMATCH"
         result["received_at"] = None
         # Try to surface a reported time even when nothing verified.
@@ -2282,7 +2340,11 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         status_symbol = "[bold red]✘ SEAL FAIL — SIGNATURE INVALID[/bold red]"
         panel_style = "red"
     elif ((report.get("witness") or {}).get("status") if isinstance(report, dict) else None) == "MISMATCH":
-        status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
+        _wit_mode = (report.get("witness") or {}).get("mode") if isinstance(report, dict) else None
+        if _wit_mode == "untrusted-stamp":
+            status_symbol = "[bold red]✘ FAIL — WITNESS STAMP NOT FROM THE EPI WITNESS[/bold red]"
+        else:
+            status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
         panel_style = "red"
     elif signature_valid is True and id_upper == "UNKNOWN" and (
         "facts" in report and (report.get("identity") or {}).get("pinned_names")
@@ -2561,9 +2623,15 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             f"  [red]- Witness:      STAMP NOT CONFIRMED — {_wit.get('detail')}[/red]"
         )
     elif _wit_status == "MISMATCH":
-        content_lines.append(
-            f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
-        )
+        if _wit.get("mode") == "untrusted-stamp":
+            content_lines.append(
+                "  [red]- Witness:      WITNESS STAMP NOT FROM THE EPI WITNESS"
+                f" — {_wit.get('detail')}[/red]"
+            )
+        else:
+            content_lines.append(
+                f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
+            )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
     # Read from environment.json, which the file hashes cover, and shown only

@@ -465,7 +465,7 @@ def test_pack_gate_fires_no_pack_signal(servers, browser) -> None:
         ctx.close()
 
 
-def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
+def test_pack_downloads_verified_zip(servers, browser, tmp_path, monkeypatch) -> None:
     """Full M6 flow: click pack -> verified zip -> offline `epi verify` says WITNESSED."""
     import zipfile
 
@@ -553,13 +553,25 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
     assert bad_report["witness"]["status"] == "MISMATCH", bad_report["witness"]
     assert bad_report["decision"]["status"] == "FAIL"
 
-    # The #121 blocker repro through the real pack: same signed pack, but NO
-    # pinned key (the README command without --witness-pubkey). The stamps
-    # are UNCHECKED — must read NOT CONFIRMED, never WITNESSED.
+    # Pinned production key, stub-signed pack: the pack's stamp is NOT from
+    # the EPI witness, so it is rejected (never WITNESSED) — with a verdict
+    # that names the real problem instead of DIFFERENT VERSION.
     nokey_report = _verify_cli(epi_file, witness_file, tmp_path, "pack-nokey")
-    assert nokey_report["witness"]["status"] == "NOT CONFIRMED", nokey_report["witness"]
-    assert "NOT CONFIRMED" in nokey_report["witness"]["detail"]
+    assert nokey_report["witness"]["status"] == "MISMATCH", nokey_report["witness"]
+    assert nokey_report["witness"].get("mode") == "untrusted-stamp", nokey_report["witness"]
+    assert "WITNESS STAMP NOT FROM THE EPI WITNESS" in nokey_report["witness"]["detail"]
     assert nokey_report["decision"]["status"] == "FAIL", nokey_report["decision"]
+
+    # Truly key-less (package pins cleared): the stamps go unchecked and the
+    # verdict is NOT CONFIRMED, never WITNESSED and never MISMATCH.
+    from epi_cli.verify import _check_witness_log
+    from epi_core.container import EPIContainer
+    import epi_core.witness_keys as _witness_keys
+
+    monkeypatch.setattr(_witness_keys, "EPI_WITNESS_PUBKEYS", ())
+    manifest = EPIContainer.read_manifest(epi_file)
+    noconfirm = _check_witness_log(epi_file, manifest, witness_file, None)
+    assert noconfirm["status"] == "NOT CONFIRMED", noconfirm
 
     kinds = _event_kinds(state)
     assert kinds.count("downloaded_pack") == 1, kinds
