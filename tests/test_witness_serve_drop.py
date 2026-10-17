@@ -281,10 +281,8 @@ def test_flush_auth_hint(monkeypatch, tmp_path, started):
     result = runner.invoke(cli_app, ["witness", "flush", "--secret", "wrong"])
     assert result.exit_code == 1
     flat = " ".join(result.output.split())
-    assert (
-        "The receiver rejected the secret (HTTP 401). Use the same secret as the "
-        "receiver: EPI_WITNESS_SECRET or --secret." in flat
-    )
+    assert "witness secret changed — update EPI_WITNESS_SECRET" in flat
+    assert "EPI_WITNESS_SECRET" in flat
     assert (
         "Still pending. Fix the URL/secret and flush again, or remove an entry with: "
         "epi witness drop <id>" in flat

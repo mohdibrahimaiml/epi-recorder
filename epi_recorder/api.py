@@ -1916,7 +1916,7 @@ def _print_witness_outcome(entry) -> None:
     for url, err in failed.items():
         hint = ""
         if "401" in str(err) or "403" in str(err):
-            hint = " (check EPI_WITNESS_SECRET)"
+            hint = " (witness secret changed — update EPI_WITNESS_SECRET)"
         print(
             f"[EPI] Witness: QUEUED for {host(url)}: {str(err)[:120]}{hint}. "
             "Run `epi witness flush` to retry.",

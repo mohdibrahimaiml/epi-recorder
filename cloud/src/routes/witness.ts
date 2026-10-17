@@ -6,6 +6,7 @@ import { checkRateLimit, d1CounterStore } from "../lib/ratelimit.ts";
 import { edPubOfSecret, p256PubOfSecret, p256SpkiPem } from "../lib/signing.ts";
 import { receiptArtifactSha, signReceipt } from "../lib/witnessChain.ts";
 import { keyFromRequest, membershipRole, userFromRequest } from "../lib/auth.ts";
+import { trustLinkFromRequest } from "./shares.ts";
 import { inboxSecret } from "./inboxes.ts";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -99,12 +100,18 @@ async function orgOfInbox(db: D1Database, inboxId: string): Promise<string | nul
   return row?.org_id ?? null;
 }
 
-// Member of the owning org (API key auth arrives in M3 push; share-token in M2).
-async function canReadExport(db: D1Database, req: Request, orgId: string): Promise<boolean> {
+// Member of the owning org (API key auth arrives in M3 push), a read-scope
+// key, or a trust link whose inbox scope covers this inbox. A link scoped
+// to inbox A can never read inbox B's lines: Bank A's reviewer never sees
+// Bank B's evidence.
+async function canReadExport(db: D1Database, req: Request, orgId: string, inboxId: string): Promise<boolean> {
   const user = await userFromRequest(db, req);
   if (user && (await membershipRole(db, orgId, user.id))) return true;
   const key = await keyFromRequest(db, req);
-  return !!key && key.orgId === orgId && key.scopes.includes("read");
+  if (key && key.orgId === orgId && key.scopes.includes("read")) return true;
+  const link = await trustLinkFromRequest(db, req);
+  if (!link || link.org_id !== orgId) return false;
+  return link.scope.inboxes === "all" || (link.scope.inboxes as string[]).includes(inboxId);
 }
 
 // Byte-compatible with received.jsonl from `epi witness serve`.
@@ -112,8 +119,8 @@ app.get("/:inboxId/export.jsonl", async (c) => {
   const inboxId = c.req.param("inboxId");
   const orgId = await orgOfInbox(c.env.DB, inboxId);
   if (!orgId) return c.json({ error: { code: "not_found", message: "Unknown inbox." } }, 404);
-  if (!(await canReadExport(c.env.DB, c.req.raw, orgId))) {
-    return c.json({ error: { code: "forbidden", message: "Member, read key, or share token required." } }, 403);
+  if (!(await canReadExport(c.env.DB, c.req.raw, orgId, inboxId))) {
+    return c.json({ error: { code: "forbidden", message: "Member, read key, or in-scope share token required." } }, 403);
   }
   const res = await inboxStub(c.env, inboxId).fetch("https://inbox/export");
   return new Response(res.body, { headers: { "Content-Type": "application/x-ndjson", "Content-Disposition": `attachment; filename="${inboxId}-export.jsonl"` } });
@@ -124,8 +131,8 @@ app.get("/:inboxId/chain.jsonl", async (c) => {
   const inboxId = c.req.param("inboxId");
   const orgId = await orgOfInbox(c.env.DB, inboxId);
   if (!orgId) return c.json({ error: { code: "not_found", message: "Unknown inbox." } }, 404);
-  if (!(await canReadExport(c.env.DB, c.req.raw, orgId))) {
-    return c.json({ error: { code: "forbidden", message: "Member, read key, or share token required." } }, 403);
+  if (!(await canReadExport(c.env.DB, c.req.raw, orgId, inboxId))) {
+    return c.json({ error: { code: "forbidden", message: "Member, read key, or in-scope share token required." } }, 403);
   }
   const res = await inboxStub(c.env, inboxId).fetch("https://inbox/chain");
   const { envelopes } = (await res.json()) as { envelopes: unknown[] };

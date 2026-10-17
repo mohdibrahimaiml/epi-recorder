@@ -191,6 +191,17 @@ def _write_config(base: str, org: str, api_key: str) -> None:
     console.print(f"[green][OK][/green] Saved to {path} (mode 0600 where supported).")
 
 
+def _device_name() -> str | None:
+    """Short name for this computer (shown in the dashboard's Computers tab)."""
+    try:
+        import platform
+
+        name = (platform.node() or "").strip()[:64]
+        return name or None
+    except Exception:
+        return None
+
+
 def _device_login(base: str) -> None:
     """Browser device flow (RFC 8628): show a user code, poll for key.
 
@@ -207,7 +218,7 @@ def _device_login(base: str) -> None:
     console.print("[bold]EPI Cloud login[/bold]")
     try:
         with httpx.Client(base_url=base, timeout=30.0) as client:
-            res = client.post("/auth/device/start")
+            res = client.post("/auth/device/start", json={"device_name": _device_name()})
             res.raise_for_status()
             data = res.json()
     except Exception as exc:

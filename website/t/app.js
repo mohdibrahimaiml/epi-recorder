@@ -97,7 +97,7 @@
     (doc.artifacts || []).forEach(function (f, idx) {
       var bad = f.signature_check === 'invalid' || f.witness_status === 'different_version';
       var fileUrl = f && (f.content_url || f.download_url);
-      files += '<div class="tier"><h3>' + esc(f.goal || f.workflow_id || 'Sealed run') + '</h3>' +
+      files += '<div class="tier"><h3>' + esc(f.goal || ('Sealed run ' + String(f.claimed_sha256 || '').slice(0, 8))) + '</h3>' +
         '<div style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">sha256 <code class="k">' + esc(f.claimed_sha256) + '</code></div>' +
         (bad ? '<div style="color:var(--bad)">Needs review: ' + esc(f.signature_check) + ' / ' + esc(f.witness_status) + '</div>' : '') +
         (fileUrl ? '<div style="margin-top:10px"><button type="button" class="btn btn-sec" data-artifact="' + idx + '">Verify these bytes</button> <a href="#" data-dlartifact="' + idx + '" style="font-size:.8rem;color:var(--mut)">Download file</a></div><div class="vresult" role="status" aria-live="polite" style="margin-top:10px;font-size:.82rem"></div>' : '') +
