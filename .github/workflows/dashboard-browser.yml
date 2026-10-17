@@ -11,24 +11,40 @@ on:
     paths:
       - "cloud/src/index.ts"
       - "cloud/src/ui.ts"
+      - "cloud/src/do/witness.ts"
       - "cloud/src/routes/auth.ts"
       - "cloud/src/routes/keys.ts"
       - "cloud/src/routes/shares.ts"
       - "cloud/src/routes/inboxes.ts"
       - "cloud/src/routes/artifacts.ts"
+      - "cloud/src/routes/orgs.ts"
+      - "epi_cli/record.py"
+      - "epi_cli/run.py"
+      - "epi_cli/_shared.py"
+      - "website/t/app.js"
+      - "functions/v1/**"
       - "tests/test_dashboard_guided.py"
+      - "tests/test_trust_walkthrough_e2e.py"
       - ".github/workflows/dashboard-browser.yml"
   push:
     branches: [main]
     paths:
       - "cloud/src/index.ts"
       - "cloud/src/ui.ts"
+      - "cloud/src/do/witness.ts"
       - "cloud/src/routes/auth.ts"
       - "cloud/src/routes/keys.ts"
       - "cloud/src/routes/shares.ts"
       - "cloud/src/routes/inboxes.ts"
       - "cloud/src/routes/artifacts.ts"
+      - "cloud/src/routes/orgs.ts"
+      - "epi_cli/record.py"
+      - "epi_cli/run.py"
+      - "epi_cli/_shared.py"
+      - "website/t/app.js"
+      - "functions/v1/**"
       - "tests/test_dashboard_guided.py"
+      - "tests/test_trust_walkthrough_e2e.py"
       - ".github/workflows/dashboard-browser.yml"
   workflow_dispatch:
 
@@ -66,3 +82,9 @@ jobs:
 
       - name: Walk the guided flow on a 390px phone
         run: python -m pytest tests/test_dashboard_guided.py -q --maxfail=1
+
+      - name: Unit-test the Pages trust proxy
+        run: node --test functions/v1/trust-proxy.test.mjs
+
+      - name: Vendor to reviewer to auditor end to end (real workerd + Chromium)
+        run: python -m pytest tests/test_trust_walkthrough_e2e.py -q --maxfail=1

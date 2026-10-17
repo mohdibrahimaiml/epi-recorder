@@ -449,6 +449,30 @@ describe("witness receive + export", () => {
     expect(((await put.json()) as { attached: number }).attached).toBe(1);
     db.close();
   });
+
+  it("find-receipts matches file_sha256 exactly, never by substring", async () => {
+    const { env, ck } = await setup();
+    const { id } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string };
+    const decoy = "ab".repeat(32);
+    const real = "cd".repeat(32);
+    // Legacy-shaped row: no file_sha256, but the decoy sha appears in
+    // another field. A LIKE filter would false-match it (and on Cloudflare
+    // the 66-char pattern 500s outright).
+    const legacy = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-exact", goal: `needs ${decoy} here` });
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName(id));
+    await stub.fetch("https://inbox/append", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload_raw: legacy }) });
+    const miss = (await (await setupNsFetch(env, id, `/find-receipts?sha=${decoy}`)).json()) as { entries: unknown[] };
+    expect(miss.entries).toEqual([]);
+    // Exact row is found by its own sha.
+    const withSha = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-exact", file_sha256: real });
+    await stub.fetch("https://inbox/append", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload_raw: withSha }) });
+    const hit = (await (await setupNsFetch(env, id, `/find-receipts?sha=${real}`)).json()) as { entries: { payload_raw: string }[] };
+    expect(hit.entries).toHaveLength(1);
+    expect(JSON.parse(hit.entries[0]!.payload_raw).file_sha256).toBe(real);
+    // Workflow lookup still finds the legacy row (backfill path).
+    const wf = (await (await setupNsFetch(env, id, "/find?workflow=wf-exact")).json()) as { matches: string[] };
+    expect(wf.matches).toHaveLength(2);
+  });
 });
 
 async function setupNsFetch(env: { WITNESS: DurableObjectNamespace }, inboxId: string, path: string): Promise<Response> {
@@ -462,6 +486,12 @@ describe("workerd safety guards", () => {
     const src = readFileSync(join(root, "src", "do", "witness.ts"), "utf8");
     expect(src).not.toMatch(/\.one\(\)/);
     expect(src).not.toMatch(/\.first\(\)/);
+  });
+
+  it("find routes never use LIKE (Cloudflare rejects >~50-byte patterns)", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const src = readFileSync(join(root, "src", "do", "witness.ts"), "utf8");
+    expect(src).not.toMatch(/ LIKE \?/);
   });
 
   it("wrangler registers SQLite-backed classes (required, immutable after deploy)", () => {

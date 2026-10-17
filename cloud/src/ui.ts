@@ -73,7 +73,7 @@ export const SITE_CSS = [
   "details.adv summary{cursor:pointer;color:var(--mut)}",
   ".copyrow{display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap}",
   ".copyrow code{flex:1;min-width:0}",
-  "pre.cmd{background:#0D1117;color:#E6EDF3;padding:.8rem 1rem;border-radius:.4rem;overflow-x:auto;max-width:100%;font-size:.82rem}",
+  "pre.cmd{background:#0D1117;color:#E6EDF3;padding:.8rem 1rem;border-radius:.4rem;overflow-x:auto;max-width:100%;font-size:.82rem;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}",
   "pre.cmd .c{color:#8B949E}",
 ].join("\n");
 

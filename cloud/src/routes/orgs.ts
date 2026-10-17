@@ -41,7 +41,7 @@ app.post("/", async (c) => {
   if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
   const body = z.object({ name: z.string().min(1).max(120), slug: z.string().min(3).max(50) }).safeParse(await c.req.json().catch(() => null));
   if (!body.success || !slugRe.test(body.data.slug)) {
-    return c.json({ error: { code: "bad_request", message: "Name and URL-safe slug (3-50 chars) required." } }, 400);
+    return c.json({ error: { code: "bad_request", message: "Please type your company name." } }, 400);
   }
   const id = newId("org");
   const now = nowIso();
