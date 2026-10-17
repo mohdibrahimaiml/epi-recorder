@@ -33,31 +33,31 @@
     {
       "path": "/assets/sample.epi",
       "label": "Website sample run (DEMO)",
-      "claimed_sha256": "07df0747e6f481a9c84e0f48341c380dce107dfa9bc1b4d698f3a743ac3c99ce",
-      "size_bytes": 463254,
-      "workflow_id": "ab368584-1f03-4d71-a9b9-8190263da574",
+      "claimed_sha256": "cbfdce1cf28555da36cb1b186398c6a7540ee1d5dbb33ae6a7daf940ab525088",
+      "size_bytes": 458046,
+      "workflow_id": "7385b43c-1c84-493a-8ed3-922548980c4e",
       "goal": "Website sample.epi for browser verify",
-      "created_at": "2026-10-14T04:04:09.899837Z",
+      "created_at": "2026-10-16T23:35:00.743073Z",
       "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
     },
     {
       "path": "/assets/demo/demo-lending-affordability.epi",
       "label": "Mortgage refinance evaluation (DEMO)",
-      "claimed_sha256": "d52edf079b28d471e3ad4a54b60865b8b5cc7fd5e2ff12cf84d06eeb6ef3eec0",
-      "size_bytes": 498683,
-      "workflow_id": "8fdf5949-52b1-4289-96b6-c302f6d6f917",
+      "claimed_sha256": "4541fa49a886d327b9fe3f74da19f8d6cab5c6ae5bbcc2e25ceb50a560c25a65",
+      "size_bytes": 498868,
+      "workflow_id": "14ef4b5c-3c91-4c85-9d63-ec1cf0f4f9ea",
       "goal": "Evaluate mortgage refinance application MORT-55102 for borrower affordability",
-      "created_at": "2026-10-14T04:03:25.712063Z",
+      "created_at": "2026-10-16T23:30:21.872357Z",
       "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
     },
     {
       "path": "/assets/demo/demo-finance-loan-underwriter.epi",
       "label": "Consumer loan underwriting (DEMO)",
-      "claimed_sha256": "4193af2f1ce9672b9ca3a5df0e0fc39bc4a467d26da143852509b1d929a6ea63",
-      "size_bytes": 507589,
-      "workflow_id": "a82b5643-e5a9-4a04-bd9d-23731a64751a",
+      "claimed_sha256": "9c5d58124efb304ab9d3f6fc601d3926f4fed1a1c9a5f624f152d9fae335d66b",
+      "size_bytes": 507732,
+      "workflow_id": "c2667049-4b46-4f71-9728-ca6204cc1596",
       "goal": "Underwrite consumer loan application APP-78421",
-      "created_at": "2026-10-14T04:02:51.318355Z",
+      "created_at": "2026-10-16T23:29:12.538257Z",
       "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
     }
   ]
