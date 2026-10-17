@@ -49,8 +49,13 @@ def _npx() -> str:
 def _wrangler(*args: str, persist: Path) -> None:
     cmd = [_npx(), "wrangler", *args, "--persist-to", str(persist), "--config", "wrangler.toml"]
     proc = subprocess.run(
-        cmd, cwd=str(CLOUD), capture_output=True, text=True, timeout=300,
-        encoding="utf-8", errors="replace",
+        cmd,
+        cwd=str(CLOUD),
+        capture_output=True,
+        text=True,
+        timeout=300,
+        encoding="utf-8",
+        errors="replace",
     )
     assert proc.returncode == 0, f"wrangler {' '.join(args)} failed:\n{proc.stdout}\n{proc.stderr}"
 
@@ -244,37 +249,58 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         pg.reload()
         pg.wait_for_selector("text=Add a customer", timeout=15000)
 
-        # Step 4: add the customer, keep the env lines.
+        # Step 4: add the customer. The secret must stay on screen in the
+        # persistent #reveal panel until the user clicks "I've saved it" —
+        # polling/loadAll must not advance past an unacknowledged secret.
         # API first (exact status in the log pinpoints server vs UI).
-        st, probe = _api(base, "POST", f"/v1/orgs/{org_id}/inboxes", cookie, {"customer_label": "Probe Bank"})
+        st, probe = _api(
+            base, "POST", f"/v1/orgs/{org_id}/inboxes", cookie, {"customer_label": "Probe Bank"}
+        )
         assert st == 201, (st, probe)
         st, _ = _api(base, "POST", f"/v1/orgs/{org_id}/inboxes/{probe['id']}/close", cookie)
         assert st == 200, st
         pg.fill("#cust-name", "Acme Bank")
         pg.click("#cust-go")
         try:
-            pg.wait_for_selector("text=EPI_WITNESS_SECRET=", timeout=15000)
+            pg.wait_for_selector("#reveal >> text=EPI_WITNESS_SECRET=", timeout=15000)
         except Exception:
             msg = pg.locator("#cust-msg").text_content()
             raise AssertionError(f"customer UI failed, msg={msg!r}")
+        # The secret must persist (not a sub-second flash): visible for 12 s
+        # while the guide stays on step 4 (step 5 must NOT appear yet).
+        secret_sel = "#reveal >> text=EPI_WITNESS_SECRET="
+        for _ in range(12):
+            assert pg.locator(secret_sel).is_visible(), "secret vanished before ack"
+            assert pg.locator("#link-go").count() == 0, "guide advanced past unacked secret"
+            pg.wait_for_timeout(1000)
         pg.screenshot(path=str(SHOTS / "03-customer.png"))
         _no_overflow(pg)
-        pg.reload()
-        pg.wait_for_selector("text=Share with that", timeout=15000)
+        # Ack is the ONLY thing that advances the guide.
+        pg.click("#reveal-ack")
+        pg.wait_for_selector("#link-go", timeout=15000)
+        assert not pg.locator("#reveal >> text=EPI_WITNESS_SECRET=").is_visible()
 
-        # Step 5: trust link scoped to that customer only.
+        # Step 5: trust link scoped to that customer only. Same ack gate:
+        # the token stays in #reveal for 12 s, dashboard must not appear.
         pg.select_option("#link-cust", label="Acme Bank")
         pg.fill("#link-label", "Acme review")
         assert not pg.locator("#link-all").is_checked()
         pg.click("#link-go")
-        pg.wait_for_selector("text=Preview as reviewer", timeout=15000)
-        href = pg.locator("text=Preview as reviewer").get_attribute("href")
+        pg.wait_for_selector("#reveal >> text=Preview as reviewer", timeout=15000)
+        href = pg.locator("#reveal >> text=Preview as reviewer").get_attribute("href")
         assert href and href.startswith("https://epilabs.org/t/"), href
+        link_sel = "#reveal >> text=Preview as reviewer"
+        for _ in range(12):
+            assert pg.locator(link_sel).is_visible(), "link token vanished before ack"
+            no_dash = pg.locator("text=Your evidence").is_visible()
+            assert not no_dash, "dashboard appeared past unacked link"
+            pg.wait_for_timeout(1000)
         pg.screenshot(path=str(SHOTS / "04-link.png"))
         _no_overflow(pg)
+        pg.click("#reveal-ack")
+        pg.wait_for_selector("text=Your evidence", timeout=15000)
 
         # Dashboard tabs after setup (tab content loads async — wait for it).
-        pg.reload()
         pg.wait_for_selector("button.tab:text-is('Computers & keys')", timeout=15000)
         pg.click("button.tab:text-is('Computers & keys')")
         pg.wait_for_selector("text=e2e-laptop", timeout=15000)
@@ -286,6 +312,21 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         assert pg.locator("#tab-customers >> text=Acme Bank").is_visible()
         pg.click("button.tab:text-is('Trust links')")
         assert pg.locator("#tab-links >> text=Acme review").is_visible()
+
+        # Rotate: the new secret obeys the same ack gate (12 s in #reveal).
+        pg.click("button.tab:text-is('Customers')")
+        pg.wait_for_selector("button[data-rotate]", timeout=15000)
+        pg.on("dialog", lambda d: d.accept())
+        pg.click("button[data-rotate]")
+        pg.wait_for_selector("#reveal >> text=EPI_WITNESS_SECRET=", timeout=15000)
+        for _ in range(12):
+            assert pg.locator(secret_sel).is_visible(), "rotated secret vanished before ack"
+            pg.wait_for_timeout(1000)
+        pg.screenshot(path=str(SHOTS / "06-rotate.png"))
+        _no_overflow(pg)
+        pg.click("#reveal-ack")
+        assert not pg.locator("#reveal >> text=EPI_WITNESS_SECRET=").is_visible()
+
         pg.click("button.tab:text-is('Runs')")
         pg.screenshot(path=str(SHOTS / "05-dashboard.png"))
         _no_overflow(pg)
