@@ -140,3 +140,24 @@ def test_cloud_login_device_flow_backs_off_on_429(home, monkeypatch):
     result = CliRunner().invoke(app, ["login"])
     assert result.exit_code == 0, result.output
     assert seen_waits and max(seen_waits) >= 7
+
+
+def test_warn_if_cli_outdated_matches_current_reports_nothing(capsys):
+    """The CLI built here must not warn when min == current (no catch-22)."""
+    from epi_core import __version__ as current
+
+    from epi_cli.cloud import _warn_if_cli_outdated, _version_tuple
+
+    assert _version_tuple("4.6.2") < _version_tuple("4.6.10")
+    assert not (_version_tuple(current) < _version_tuple(current))
+    _warn_if_cli_outdated(current)
+    out = capsys.readouterr().out
+    assert "too old" not in out.lower() and "pip install" not in out.lower()
+
+
+def test_warn_if_cli_outdated_tells_exact_pip_command(capsys):
+    from epi_cli.cloud import _warn_if_cli_outdated
+
+    _warn_if_cli_outdated("99.0.0")
+    out = " ".join(capsys.readouterr().out.split())
+    assert "pip install -U epi-recorder" in out

@@ -383,6 +383,48 @@ def use(
     base = str(cfg.get("url") or "").rstrip("/")
     org = str(cfg.get("org_id") or cfg.get("org") or "")
     key = str(cfg.get("api_key") or cfg.get("key") or "")
+    # Try to resolve witness settings from the cloud. Push keys never get
+    # secrets here (least privilege) — they must use their device-bound
+    # customer or re-run login. Owners get secrets (audited); members get
+    # URL only.
+    try:
+        creds = resolve_creds(base, org, key)
+        with _client(creds) as client:
+            res = client.post(
+                f"/v1/orgs/{creds['org']}/inboxes/by-customer",
+                json={"customer_label": name},
+            )
+        if res.status_code == 403:
+            try:
+                msg = str(res.json().get("error", {}).get("message", ""))
+            except Exception:
+                msg = ""
+            if "Ask an owner" in msg or "ask an owner" in msg.lower():
+                console.print(f"[yellow][!][/yellow] {escape(msg)}")
+            else:
+                console.print("[yellow][!][/yellow] This computer's key cannot fetch that customer's secret.")
+            console.print("[dim]Ask an owner to connect this computer to that customer (or re-run [cyan]epi cloud login[/cyan]).[/dim]")
+            raise typer.Exit(1)
+        res.raise_for_status()
+        body = res.json()
+        extra: dict = {"customer": name}
+        if body.get("url"):
+            extra["witness_url"] = body["url"]
+        if body.get("secret"):
+            extra["witness_secret"] = body["secret"]
+        if cfg.get("auto_push") not in (None, ""):
+            extra["auto_push"] = cfg["auto_push"]
+        _write_config(base, org, key, extra)
+        if body.get("secret"):
+            console.print(f"[green][OK][/green] Default customer: {escape(name)} (witness configured)")
+        else:
+            console.print(f"[green][OK][/green] Default customer: {escape(name)}")
+            console.print("[dim]No witness secret stored (member/owner flow will add it on login).[/dim]")
+        return
+    except typer.Exit:
+        raise
+    except Exception:
+        pass
     extra: dict = {"customer": name}
     for k in ("witness_url", "witness_secret", "auto_push"):
         if cfg.get(k) not in (None, ""):

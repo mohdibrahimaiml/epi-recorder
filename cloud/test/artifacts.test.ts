@@ -516,19 +516,46 @@ describe("by-customer resolve (onboarding without copied secrets)", () => {
     expect(two.status).toBe(402);
   });
 
-  it("non-owners can select but never mint", async () => {
-    const { env, ck, key } = await setup();
-    // Owner seeds one customer first.
-    await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
-    // Push-only key selects the existing inbox but cannot mint a new one.
+  it("least privilege: push keys never get secrets; members resolve without secrets", async () => {
+    const { env, ck, key, db } = await setup();
+    // Owner seeds one customer first (inb_1 Acme Bank already exists; owner gets secret).
+    const seed = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(seed.status).toBe(200);
+    expect(((await seed.json()) as { secret: string }).secret).toMatch(/^[0-9a-f]{64}$|^s3cr3t$/);
+    // Push-only key gets 403 for existing AND new customers (never a secret).
     const sel = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
-    expect(sel.status).toBe(200);
-    expect((await sel.json()) as { id: string }).toMatchObject({ id: "inb_1" });
+    expect(sel.status).toBe(403);
     const nope = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Nope Bank" }) }, env as never);
     expect(nope.status).toBe(403);
+    // Repeat push call still 403 (no re-reveal).
+    const again = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(again.status).toBe(403);
     // Viewer has no access at all.
     const denied = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-viewer"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
     expect(denied.status).toBe(403);
+  });
+
+  it("push key for Bank A cannot get Bank B secret; member resolves URL without secret", async () => {
+    const { env, ck, key, db } = await setup();
+    // Owner creates Bank B.
+    const b = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(b.status).toBe(201);
+    const bBody = (await b.json()) as { secret: string };
+    expect(bBody.secret).toMatch(/^[0-9a-f]{64}$/);
+    // Push key (bound to nothing here) cannot fetch Bank B.
+    const pb = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(pb.status).toBe(403);
+    // Member resolves Bank B URL but gets no secret.
+    const { sha256Hex: _h } = await import("../src/lib/crypto.ts");
+    db.users.set("u_member", { id: "u_member", email: "m@x.test" });
+    db.memberships.set("o1|u_member", { org_id: "o1", user_id: "u_member", role: "member" });
+    const mh = await _h("sess-member");
+    db.sessions.set(mh, { id_hash: mh, user_id: "u_member", expires_at: "2999-01-01T00:00:00.000Z" });
+    const mres = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-member"), body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(mres.status).toBe(200);
+    const mBody = (await mres.json()) as { secret: string | null; url: string };
+    expect(mBody.secret).toBeNull();
+    expect(mBody.url).toMatch(/\/w\//);
   });
 });
 
