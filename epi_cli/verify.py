@@ -987,13 +987,13 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             # With several trusted keys the loop tries each in turn, so the
             # last reason may blame the wrong key while an earlier key proved
             # the content differs. A proven content mismatch must win: it is
-            # the MISMATCH signal, never a wrong-key artefact.
+            # the MISMATCH signal, never a wrong-key artefact. Only the
+            # artifact comparison is signature-proven (the signature is
+            # verified first, then the receipt's file hash is compared), so
+            # only it counts here; line_sha256 is checked before any
+            # signature verifies and proves nothing about the file.
             _content = next(
-                (
-                    r
-                    for r in _key_reasons
-                    if "artifact_sha256 mismatch" in r or "line_sha256 mismatch" in r
-                ),
+                (r for r in _key_reasons if "artifact_sha256 mismatch" in r),
                 None,
             )
             failures.append(_content or _reason or "receipt check failed")
@@ -1015,6 +1015,12 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         )
         if _sig_only:
             result["status"] = "NOT CONFIRMED"
+            # An explicitly pinned key (flag/env) that verifies nothing is a
+            # forgery signal, not an unchecked stamp: the auditor named the
+            # key and the stamp is not from it. The decision step FAILs this
+            # in every mode; with only package pins (no explicit key) it
+            # stays WARN outside strict.
+            result["explicit_key"] = bool(_explicit_hexes)
             _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
             result["detail"] = (
                 "WITNESS STAMP NOT CONFIRMED — NOT FROM THE EPI WITNESS: this file "
@@ -2075,9 +2081,23 @@ def verify_command(
         elif _witness.get("status") == "NOT CONFIRMED":
             # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
             # Never a clean PASS; FAIL under strict (the auditor acceptance
-            # command), WARN otherwise.
+            # command), WARN otherwise. Exception: the auditor explicitly
+            # pinned a key and the stamp is not from it — a forged stamp.
+            # That FAILs in every mode; "unconfirmed" would understate a fake.
             try:
-                if report["decision"].get("status") == "PASS":
+                _prior = report["decision"].get("status")
+                if _witness.get("explicit_key"):
+                    if _prior != "FAIL":
+                        _rs = report["decision"].get("reason", "")
+                        _msg = (
+                            "Witness stamp is NOT FROM THE EPI WITNESS: a key was "
+                            "explicitly pinned and no receipt verifies against it."
+                        )
+                        report["decision"]["status"] = "FAIL"
+                        report["decision"]["reason"] = (
+                            f"{_rs}; {_msg}".strip("; ") if _prior == "WARN" else _msg
+                        )
+                elif _prior == "PASS":
                     report["decision"]["status"] = (
                         "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
                     )

@@ -250,6 +250,42 @@ def test_forged_signature_never_witnessed(monkeypatch, tmp_path: Path) -> None:
     # receipt, and here nothing verified at all.
     assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
     assert "receipt" in report["witness"]["detail"].lower()
+    # The auditor explicitly pinned this key and the stamp is not from it:
+    # a forged stamp FAILs in standard mode too, not just strict.
+    assert report["decision"]["status"] == "FAIL", report["decision"]
+
+
+def test_forged_stamp_fails_even_without_strict(monkeypatch, tmp_path: Path) -> None:
+    """Explicit-key forgery FAILs in every mode (standard here, strict in the
+    pack walkthrough): a fake stamp is not an 'unconfirmed' warning."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, payload_raw, _, _ = _payload_for(epi)
+    _, pub_hex = _fresh_keypair()
+    other_priv, _ = _fresh_keypair()
+    receipt = _make_receipt(other_priv, payload, payload_raw)
+    log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
+    result, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
+    assert report["decision"]["status"] == "FAIL", report["decision"]
+    assert result.exit_code == 1, result.output
+
+
+def test_unchecked_stamp_without_key_is_warn_in_standard_mode(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """No pinned key (only package pins) and an unverifiable stamp stays WARN
+    in standard mode — the stamp could not be checked at all. Strict still
+    FAILs (covered by the pack walkthrough)."""
+    _hermetic(monkeypatch, tmp_path)
+    epi = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    payload, payload_raw, _, _ = _payload_for(epi)
+    priv, pub_hex = _fresh_keypair()
+    receipt = _make_receipt(priv, payload, payload_raw)
+    log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
+    _, report = _verify_json(epi, log)
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
+    assert report["decision"]["status"] == "WARN", report["decision"]
 
 
 def test_wrong_artifact_bytes_is_mismatch(monkeypatch, tmp_path: Path) -> None:
