@@ -462,3 +462,18 @@ def test_flush_400_says_drop_dont_retry(monkeypatch, tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_compact_session_summary_skips_policy_detail(monkeypatch, tmp_path, capsys):
+    """`epi demo` sets EPI_COMPACT_SUMMARY: no Policy/Issue/Finding lines, steps kept."""
+    from epi_recorder import record as _record
+
+    _hermetic(monkeypatch, tmp_path)
+    monkeypatch.setenv("EPI_COMPACT_SUMMARY", "1")
+    out = tmp_path / "compact.epi"
+    with _record(str(out)) as epi:
+        epi.log_step("llm.request", {"content": "hello"})
+    err = capsys.readouterr().err
+    assert "steps" in err and ".epi" in err, err
+    for banned in ("Policy:", "Issue:", "Finding:", "Next:"):
+        assert banned not in err, err

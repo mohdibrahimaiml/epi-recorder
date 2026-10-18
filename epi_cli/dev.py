@@ -561,7 +561,7 @@ def _run_fast_demo(
     console.print()
     console.print(Panel.fit(
         "[bold cyan]epi demo[/bold cyan] — record · seal · verify · view\n"
-        "[dim]No API key. No server. One portable .epi file.[/dim]",
+        "[dim]No API key needed. Pushes automatically when logged in.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -593,6 +593,9 @@ def _run_fast_demo(
     if not no_run:
         console.print("  [dim]Recording refund agent (mock LLM if no OPENAI_API_KEY)…[/dim]")
         run_env = os.environ.copy()
+        # Keep the demo readable for normal users: the seal summary skips the
+        # policy/heuristic detail lines (still printed by `epi record`).
+        run_env["EPI_COMPACT_SUMMARY"] = "1"
         ok = _run_demo_script(demo_script, env=run_env)
         if not ok:
             console.print("  [yellow]![/yellow] Demo script exited non-zero — checking for artifact anyway")
@@ -692,10 +695,7 @@ def _run_fast_demo(
     console.print(Panel.fit(
         f"[bold green]Done.[/bold green] Your evidence file is ready.\n\n"
         f"  [cyan]{epi_path}[/cyan]\n\n"
-        f"Re-check anytime:\n"
-        f"  [white]epi verify {epi_path}[/white]\n"
-        f"  [white]epi view {epi_path}[/white]\n\n"
-        f"[dim]Optional team inbox UI: epi demo --review[/dim]",
+        f"Next: open cloud.epilabs.org -> Share",
         title="EPI demo",
         border_style="green",
     ))

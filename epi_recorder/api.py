@@ -1676,6 +1676,11 @@ class EpiRecorderSession:
         if parts:
             breakdown = " \u00b7 ".join(parts)
             print(f"      {breakdown}", file=target)
+        if os.getenv("EPI_COMPACT_SUMMARY", "0") == "1":
+            # `epi demo` stays readable: skip the policy/heuristic detail
+            # lines below. `epi record` still prints them.
+            print(file=target)
+            return
         # Seal-time policy/fault snapshot (reads sealed analysis — no extra user command)
         try:
             from epi_core.artifact_summary import format_artifact_run_summary_lines
@@ -2080,8 +2085,8 @@ def _avoid_overwrite(path: Path) -> Path:
             break
         n += 1
     print(
-        f"[EPI] {path} already exists; kept it. This run seals to {candidate} "
-        "(set EPI_OVERWRITE=1 to replace instead).",
+        f"[EPI] kept the existing {path}; this run sealed to {candidate} instead "
+        "(nothing overwritten; set EPI_OVERWRITE=1 to replace).",
         file=sys.stderr,
     )
     return candidate

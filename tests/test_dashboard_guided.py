@@ -257,6 +257,11 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         assert pg.locator("#cust-go").count() == 0
         assert pg.locator("text=EPI_WITNESS_SECRET=").count() == 0
         assert pg.locator("#link-all").count() == 0
+        # The step-3 status reflects the data: runs exist, so it must say
+        # received (with the latest run name), never "Waiting for the first run".
+        s3msg = pg.locator("#s3-msg").text_content() or ""
+        assert "received" in s3msg, s3msg
+        assert "Waiting for the first run" not in s3msg, s3msg
         pg.screenshot(path=str(SHOTS / "03-customer.png"))
         _no_overflow(pg)
 
@@ -268,6 +273,8 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         pg.wait_for_selector("#reveal >> text=Preview as reviewer", timeout=15000)
         href = pg.locator("#reveal >> text=Preview as reviewer").get_attribute("href")
         assert href and href.startswith("https://epilabs.org/t/"), href
+        # The ack button explains itself: click it to continue the guide.
+        assert "Click it to continue" in (pg.locator("#reveal").text_content() or "")
         link_sel = "#reveal >> text=Preview as reviewer"
         for _ in range(12):
             assert pg.locator(link_sel).is_visible(), "link token vanished before ack"
