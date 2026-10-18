@@ -228,7 +228,7 @@ describe("device + dashboard pages (served HTML)", () => {
     expect(html).toContain("word-break:break-all");
     expect(html).toContain("width=device-width");
     // Guided flow copy + raw keys out of the main flow.
-    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.2"]) {
+    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.1"]) {
       expect(html).toContain(copy);
     }
     expect(html).not.toContain("Create API key");

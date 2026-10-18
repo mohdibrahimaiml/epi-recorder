@@ -515,6 +515,40 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
 app = typer.Typer(help="Zero-friction developer onboarding for EPI.")
 
 
+def _demo_push_if_logged_in(epi_path: Path) -> None:
+    """Push the demo artifact with the saved customer (no flags, no secrets)."""
+    try:
+        from epi_cli.cloud import load_config
+    except Exception:
+        return
+    try:
+        cfg = load_config()
+    except Exception:
+        return
+    if not cfg.get("url") or not (cfg.get("org_id") or cfg.get("org")):
+        console.print("  [dim]Not logged in — skipping cloud push. Run epi cloud login, then epi demo again to share.[/dim]")
+        return
+    if not (cfg.get("api_key") or cfg.get("key")):
+        console.print("  [dim]Not logged in — skipping cloud push.[/dim]")
+        return
+    try:
+        from typer.testing import CliRunner
+
+        from epi_cli.cloud import app as cloud_app
+    except Exception as exc:
+        console.print(f"  [dim]Cloud push skipped ({exc})[/dim]")
+        return
+    console.print("  [dim]Pushing demo run to your Evidence Room…[/dim]")
+    result = CliRunner().invoke(cloud_app, ["push", str(epi_path), "--reason", "sample"])
+    if result.exit_code == 0:
+        console.print("  [green]✓[/green] Pushed to cloud      no flags needed — tagged to your customer")
+    else:
+        out = (result.output or "").strip().splitlines()
+        tail = out[-1] if out else f"exit {result.exit_code}"
+        console.print(f"  [yellow]![/yellow] Cloud push skipped: {tail}")
+        console.print("  [dim]Run epi cloud login (pick your customer), then epi demo again.[/dim]")
+
+
 def _run_fast_demo(
     *,
     demo_script: Path,
@@ -617,6 +651,9 @@ def _run_fast_demo(
                 console.print("  [green]✓[/green] Secrets redacted       no raw demo key in steps")
         except Exception:
             pass
+
+    if epi_path is not None and epi_path.exists():
+        _demo_push_if_logged_in(epi_path)
 
     if not no_browser and epi_path is not None:
         console.print("  [dim]Opening viewer…[/dim]")

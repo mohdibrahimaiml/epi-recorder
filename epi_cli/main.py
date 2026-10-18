@@ -63,7 +63,7 @@ Help is grouped: Start here · Everyday · Team · Advanced.
     callback=None  # Will set via decorator below
 )
 
-console = Console(legacy_windows=False)
+console = Console()
 
 _KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "import", "init", "doctor"}
 # Commands that should verify/repair Windows file association on every run.
