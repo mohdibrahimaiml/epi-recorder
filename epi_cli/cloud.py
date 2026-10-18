@@ -219,7 +219,7 @@ def saved_customer() -> dict:
 
 
 def _version_tuple(version: str) -> tuple:
-    """Numeric compare so 4.6.2 < 4.6.10 (stdlib only)."""
+    """Numeric tuple compare for dotted versions (stdlib only)."""
     parts: list = []
     for piece in str(version or "").split("."):
         num = "".join(ch for ch in piece if ch.isdigit())
