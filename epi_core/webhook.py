@@ -30,6 +30,22 @@ logger = logging.getLogger("epi.witness")
 _APPEND_LOCK = threading.Lock()
 
 
+def _user_agent() -> str:
+    """Identify this client at the edge (Cloudflare blocks bare urllib).
+
+    Cloudflare's bot protection in front of cloud.epilabs.org answers 403
+    to requests with urllib's default `User-Agent: Python-urllib/3.x`, which
+    looks like an unidentified bot. httpx callers already pass through; every
+    urllib POST here must carry this header so stamps reach the Worker (a bad
+    secret then correctly answers 401, never a misleading edge 403).
+    """
+    try:
+        from epi_core import __version__ as _v
+    except Exception:
+        _v = "unknown"
+    return f"epi-recorder/{_v}"
+
+
 class _OutboxFileLock:
     """Cross-process exclusive lock for the outbox file (stdlib only).
 
@@ -147,7 +163,7 @@ def send_signed_webhook(
         return
 
     payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": _user_agent()}
     if secret:
         digest = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
         headers["X-EPI-Signature"] = f"sha256={digest}"
@@ -362,7 +378,7 @@ def _post_once(
 ) -> None:
     """Single POST without retries (the outbox + flush is the retry layer)."""
     payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": _user_agent()}
     if secret:
         digest = hmac.new(
             secret.encode("utf-8"), payload_bytes, hashlib.sha256

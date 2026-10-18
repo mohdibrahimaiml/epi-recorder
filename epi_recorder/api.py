@@ -1701,7 +1701,11 @@ class EpiRecorderSession:
             secret = getattr(self, "witness_secret", None)
             if not urls:
                 # Simple onboarding: fall back to the witness settings saved
-                # by `epi cloud login` when no explicit url/secret was given.
+                # by `epi cloud login` when no explicit url was given. The
+                # URL and secret always come from the SAME source: an
+                # explicit/ENV url pairs only with an explicit/ENV secret,
+                # and a saved url pairs only with the saved secret. Mixing a
+                # stale ENV secret with a fresh saved url fails delivery.
                 try:
                     import json as _json
                     import os as _os
@@ -1714,8 +1718,7 @@ class EpiRecorderSession:
                         if isinstance(_saved, dict):
                             if isinstance(_saved.get("witness_url"), str) and _saved["witness_url"].strip():
                                 urls = split_witness_urls(_saved["witness_url"])
-                            if not secret and _saved.get("witness_secret"):
-                                secret = _saved["witness_secret"]
+                                secret = _saved.get("witness_secret") or None
                 except Exception:
                     pass
             if not urls:

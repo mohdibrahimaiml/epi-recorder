@@ -64,16 +64,21 @@ def flush(
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
-        if code and not _effective_secret:
+        if code == "401" and not _effective_secret:
             _plain(
                 f"  No secret set, so the receiver refused the report (HTTP {code}). "
                 "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
             )
-        elif code:
+        elif code == "401":
             _plain(
                 f"  The receiver rejected the secret (HTTP {code}): "
                 "witness secret changed — update EPI_WITNESS_SECRET "
                 "(same secret as the receiver, or --secret)."
+            )
+        elif code == "403":
+            _plain(
+                "  Blocked before reaching the receiver (HTTP 403: network/firewall, "
+                "not the witness secret). Still queued — flush again when reachable."
             )
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")
