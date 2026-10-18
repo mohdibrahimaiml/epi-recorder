@@ -244,7 +244,11 @@ def test_forged_signature_never_witnessed(monkeypatch, tmp_path: Path) -> None:
     log = _write_signed_doc(tmp_path / "witness.json", pub_hex, payload_raw, receipt)
     _, report = _verify_json(epi, log, extra=["--witness-pubkey", pub_hex])
     assert report["witness"]["status"] != "WITNESSED", report["witness"]
-    assert report["witness"]["status"] == "MISMATCH"
+    # A receipt forged under a different key is not from the trusted witness.
+    # It must read NOT CONFIRMED ("stamp not from the EPI witness"), never
+    # MISMATCH: MISMATCH means the file content differs from a verified
+    # receipt, and here nothing verified at all.
+    assert report["witness"]["status"] == "NOT CONFIRMED", report["witness"]
     assert "receipt" in report["witness"]["detail"].lower()
 
 

@@ -973,20 +973,59 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             continue
         _ok = False
         _reason = "receipt check failed"
+        _key_reasons: list[str] = []
         for _pub in pubkeys:
             _ok, _reason = _verify_witness_receipt(
                 item.get("payload_raw"), item.get("receipt"), _pub, file_sha256
             )
             if _ok:
                 break
+            _key_reasons.append(_reason or "receipt check failed")
         if _ok:
             verified.append(item)
         else:
-            failures.append(_reason or "receipt check failed")
+            # With several trusted keys the loop tries each in turn, so the
+            # last reason may blame the wrong key while an earlier key proved
+            # the content differs. A proven content mismatch must win: it is
+            # the MISMATCH signal, never a wrong-key artefact.
+            _content = next(
+                (
+                    r
+                    for r in _key_reasons
+                    if "artifact_sha256 mismatch" in r or "line_sha256 mismatch" in r
+                ),
+                None,
+            )
+            failures.append(_content or _reason or "receipt check failed")
     result["receipt_verified"] = len(verified)
     result["receipt_failures"] = len(failures)
     if not verified:
         _first = failures[0] if failures else "no verifiable receipt"
+        # Key mismatch is NOT content alteration: every receipt failed only
+        # because no trusted key verifies its signature, so the stamp is not
+        # from the EPI witness. MISMATCH must mean the file content differs
+        # (a verified receipt for a different version), never a wrong key —
+        # telling an auditor "altered" when nothing was altered is a
+        # trust-critical false positive.
+        _sig_only = bool(failures) and all(
+            ("signature invalid" in f)
+            or ("signature malformed" in f)
+            or ("invalid witness public key" in f)
+            for f in failures
+        )
+        if _sig_only:
+            result["status"] = "NOT CONFIRMED"
+            _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
+            result["detail"] = (
+                "WITNESS STAMP NOT CONFIRMED — NOT FROM THE EPI WITNESS: this file "
+                f"carries witness receipts but none verifies against a trusted key ({len(failures)} "
+                f"receipt failure(s)): {_first}.{_names_key} Pin the EPI witness key "
+                "out of band (fetch it from "
+                "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
+                "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+                "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
+            )
+            return result
         result["status"] = "MISMATCH"
         result["received_at"] = None
         # Try to surface a reported time even when nothing verified.
