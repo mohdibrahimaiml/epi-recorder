@@ -2,10 +2,11 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../env.ts";
 import { newId, newToken, nowIso } from "../lib/crypto.ts";
-import { membershipRole, userFromRequest } from "../lib/auth.ts";
+import { keyFromRequest, membershipRole, userFromRequest } from "../lib/auth.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
 import { openSecret, sealSecret } from "../lib/secretbox.ts";
 import { limitAllows, planOf } from "../lib/plans.ts";
+import { ensureCustomerInbox } from "../lib/customerInbox.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -97,6 +98,35 @@ app.post("/orgs/:orgId/inboxes/:inboxId/rotate", async (c) => {
   if (res.meta.changes === 0) return c.json({ error: { code: "not_found", message: "Inbox not found." } }, 404);
   await auditLog(d1AuditDb(c.env.DB), { orgId, actor: `user:${user.id}`, action: "inbox.rotate", detail: `${inboxId}` });
   return c.json({ id: inboxId, url: `${c.env.PUBLIC_WITNESS_URL}/w/${inboxId}`, secret }, 200);
+});
+
+// Resolve (or, for owners, create) the recorder identity + witness inbox
+// for one customer name. Used by `epi cloud use` and the device flow so a
+// computer learns its witness settings without anyone copying a secret.
+// Same-org push keys and members may select; only owners may create.
+app.post("/orgs/:orgId/inboxes/by-customer", async (c) => {
+  const orgId = c.req.param("orgId");
+  const key = await keyFromRequest(c.env.DB, c.req.raw);
+  let actor: string | null = null;
+  let role: string | null = null;
+  if (key && key.orgId === orgId && key.scopes.includes("push")) {
+    actor = `key:${key.id}`;
+  } else {
+    const user = await userFromRequest(c.env.DB, c.req.raw);
+    if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
+    role = await membershipRole(c.env.DB, orgId, user.id);
+    if (role !== "owner" && role !== "member") return c.json({ error: { code: "forbidden", message: "Owners or members only." } }, 403);
+    actor = `user:${user.id}`;
+  }
+  const body = z.object({ customer_label: z.string().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: { code: "bad_request", message: "customer_label required." } }, 400);
+  const res = await ensureCustomerInbox(c.env.DB, c.env, orgId, body.data.customer_label, actor, {
+    allowCreateInbox: role === "owner",
+    allowCreateAgent: role === "owner" || role === "member",
+  });
+  if (!res.ok) return c.json({ error: { code: res.code, message: res.message } }, res.status as 400);
+  await auditLog(d1AuditDb(c.env.DB), { orgId, actor, action: "inbox.resolve", detail: `${res.inboxId} for ${body.data.customer_label.trim()}` });
+  return c.json({ id: res.inboxId, agent_id: res.agentId, url: res.url, secret: res.secret, created: res.created }, res.created ? 201 : 200);
 });
 
 export default app;

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./env.ts";
 import { originAllowed, userFromRequest } from "./lib/auth.ts";
 import { esc, page } from "./ui.ts";
-import auth from "./routes/auth.ts";
+import auth, { MIN_CLI_VERSION } from "./routes/auth.ts";
 import orgs from "./routes/orgs.ts";
 import invites from "./routes/invites.ts";
 import keys from "./routes/keys.ts";
@@ -48,6 +48,8 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) => c.json({ ok: true, service: "epi-cloud", m: 1 }));
+// Public version gate: lets old CLIs warn instead of failing mysteriously.
+app.get("/v1/version", (c) => c.json({ service: "epi-cloud", min_cli_version: MIN_CLI_VERSION }));
 app.route("/auth", auth);
 app.route("/v1/orgs", orgs);
 app.route("/v1", invites);
