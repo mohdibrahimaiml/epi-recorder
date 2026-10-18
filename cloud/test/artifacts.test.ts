@@ -275,6 +275,15 @@ class FakeD1 {
       for (const r of this.artifacts.values()) if (r.id === a[1]) r.deleted_at = a[0];
       return 1;
     }
+    if (q.startsWith("UPDATE inboxes SET closed_at")) {
+      for (const i of this.inboxes.values()) {
+        if (i.id === a[1] && i.org_id === a[2] && i.closed_at == null) {
+          i.closed_at = a[0];
+          return 1;
+        }
+      }
+      return 0;
+    }
     if (q.startsWith("INSERT INTO agents")) {
       this.agents.set(a[0] as string, { id: a[0], org_id: a[1], name: a[2], status: "active", created_at: a[3] });
       return 1;
@@ -461,6 +470,36 @@ describe("push flow", () => {
     const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; witness_status: string };
     expect(second).toMatchObject({ id: first.id, deduped: true, witness_status: "witnessed" });
     expect(db.audit.map((a) => a.action)).toContain("artifact.refresh");
+  });
+
+  it("re-push never downgrades a witnessed run when the inbox is unreachable", async () => {
+    const { db, env, key, ck } = await setup();
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName("inb_1"));
+    const manifest = JSON.parse(FIXTURE_MANIFEST) as { workflow_id: string };
+    await stub.fetch("https://inbox/append", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload_raw: JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: manifest.workflow_id, file_sha256: FILE_SHA }) }),
+    });
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; witness_status: string };
+    expect(first.witness_status).toBe("witnessed");
+    // The inbox closes (or the fetch fails): a re-check reads "not found".
+    // The stored "witnessed" verdict must survive the re-push.
+    const closed = await app.request("/v1/orgs/o1/inboxes/inb_1/close", { method: "POST", headers: ck("sess-owner") }, env as never);
+    expect(closed.status).toBe(200);
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; witness_status: string };
+    expect(second).toMatchObject({ id: first.id, deduped: true, witness_status: "witnessed" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.witness_status).toBe("witnessed");
+  });
+
+  it("re-push with an unknown customer name keeps working and keeps the tag", async () => {
+    const { db, env, key } = await setup();
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; agent: string | null };
+    expect(first.agent).toBe("loans");
+    const second = await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: "ghost" })) }, env as never);
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(body).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
   });
 
   it("dedupes, rejects double-store and length lies", async () => {

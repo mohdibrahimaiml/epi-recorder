@@ -117,13 +117,6 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
   const fileCount = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM artifacts WHERE org_id = ? AND deleted_at IS NULL").bind(orgId).first<{ n: number }>();
   const room = limitAllows(plan, "evidenceFiles", fileCount?.n ?? 0);
 
-  let agentId: string | null = null;
-  if (body.data.agent) {
-    const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
-    if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
-    agentId = agent.id;
-  }
-
   const dupe = await c.env.DB.prepare("SELECT id, agent_id, manifest_json, upload_state, witness_status, signature_check FROM artifacts WHERE org_id = ? AND claimed_sha256 = ?")
     .bind(orgId, body.data.claimed_sha256).first<{ id: string; agent_id: string | null; manifest_json: string; upload_state: string; witness_status: string; signature_check: string }>();
   if (dupe) {
@@ -131,7 +124,16 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
     // report may have arrived since the first push) and fill in the customer
     // tag only when the stored run has none. An existing tag is never
     // replaced — moving a run between customers would leak it onto another
-    // customer's reviewer link.
+    // customer's reviewer link. An unknown customer name on re-push is
+    // ignored (pre-existing runs keep working); it only 400s on first push.
+    let agentId: string | null = null;
+    if (body.data.agent) {
+      const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+      if (agent) agentId = agent.id;
+    }
+    // Refresh the witness status, but never downgrade: an unreachable or
+    // closed inbox reads as "not found", which must not erase a "witnessed"
+    // verdict for the same bytes.
     let workflowId: string | null = null;
     try {
       const dm = JSON.parse(dupe.manifest_json) as Record<string, unknown>;
@@ -139,7 +141,8 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
     } catch {
       // Unreadable manifest: keep the stored status.
     }
-    const status = workflowId ? await witnessStatus(c.env.DB, c.env, orgId, workflowId, body.data.claimed_sha256) : dupe.witness_status;
+    const recomputed = workflowId ? await witnessStatus(c.env.DB, c.env, orgId, workflowId, body.data.claimed_sha256) : dupe.witness_status;
+    const status = dupe.witness_status === "witnessed" ? "witnessed" : recomputed;
     const adopt = !dupe.agent_id && agentId ? agentId : dupe.agent_id;
     if (status !== dupe.witness_status || adopt !== dupe.agent_id) {
       await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?").bind(adopt, status, dupe.id).run();
@@ -157,6 +160,13 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
     });
   }
   if (!room.ok) return c.json({ error: { code: "plan_limit", message: room.message } }, 402);
+
+  let agentId: string | null = null;
+  if (body.data.agent) {
+    const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+    if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+    agentId = agent.id;
+  }
 
   const status = await witnessStatus(c.env.DB, c.env, orgId, typeof manifest.workflow_id === "string" ? manifest.workflow_id : null, body.data.claimed_sha256);
   const now = nowIso();

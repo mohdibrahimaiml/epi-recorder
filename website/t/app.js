@@ -101,8 +101,10 @@
     if (st === 'no_inbox') {
       return '<div style="color:var(--warn)">Not witnessed \u2014 the vendor has no witness inbox for this yet.</div>';
     }
+    // different_version already shows the red "Needs review" line below;
+    // a second warning saying the same thing only adds noise.
     if (st === 'different_version') {
-      return '<div style="color:var(--warn)">Not witnessed \u2014 a different copy of this run was witnessed, not this file.</div>';
+      return '';
     }
     return '<div style="color:var(--warn)">Not witnessed \u2014 no witness stamp arrived for this file yet. Ask the vendor to witness it and re-share.</div>';
   }
