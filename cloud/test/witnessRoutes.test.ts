@@ -381,6 +381,18 @@ describe("witness receive + export", () => {
     expect((await post(raw, `sha256=${await hmacHex(secret, raw)}`)).status).toBe(410);
   });
 
+  it("accepts reports with null optional fields (older installed recorders send nulls)", async () => {
+    const { env, ck } = await setup();
+    const { id, secret } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string; secret: string };
+    const raw = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-null", content_digest: null, public_key: null, key_fingerprint: null, steps: 1 });
+    const r = await app.request(`/w/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(secret, raw)}` },
+      body: raw,
+    }, env as never);
+    expect(r.status).toBe(202);
+  });
+
   it("export is forbidden cross-tenant and anonymous (403)", async () => {
     const { env, ck } = await setup();
     const { id, secret } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string; secret: string };

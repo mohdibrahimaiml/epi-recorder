@@ -363,3 +363,102 @@ def test_print_witness_outcome_401_403_hints(monkeypatch, tmp_path, capsys):
     assert "update EPI_WITNESS_SECRET" in out, out
     assert "re-run epi cloud login" not in out
     _sys.stdout.flush()
+
+
+def test_build_witness_payload_omits_none_fields():
+    """None-valued optional fields are omitted, never sent as JSON null."""
+    from epi_core.webhook import build_witness_payload
+
+    payload = build_witness_payload(
+        workflow_id="wf-1",
+        manifest_hash="mh",
+        file_sha256="fs",
+        public_key=None,
+        content_digest=None,
+        key_fingerprint=None,
+        steps=3,
+        sealed_at="t",
+        seal_timestamp={"status": "none", "gen_time": None},
+    )
+    assert "public_key" not in payload
+    assert "content_digest" not in payload
+    assert "key_fingerprint" not in payload
+    assert payload["workflow_id"] == "wf-1"
+    assert payload["steps"] == 3
+    payload2 = build_witness_payload(
+        workflow_id="wf-1",
+        manifest_hash="mh",
+        file_sha256="fs",
+        public_key="pk",
+        content_digest="cd",
+        key_fingerprint="fp",
+        steps=1,
+        sealed_at="t",
+        seal_timestamp={"status": "none", "gen_time": None},
+    )
+    assert payload2["public_key"] == "pk"
+    assert payload2["content_digest"] == "cd"
+    assert payload2["key_fingerprint"] == "fp"
+
+
+def test_stage_same_file_twice_reports_once(monkeypatch, tmp_path):
+    """One sealed file stages exactly one pending entry, however often reported."""
+    from epi_core import webhook as _wh
+
+    _hermetic(monkeypatch, tmp_path)
+    import shutil as _shutil
+
+    f = tmp_path / "run.epi"
+    _shutil.copyfile(REPO / "website" / "assets" / "sample.epi", f)
+    url = "https://cloud.test/w/inb_tb"
+    first = _wh.stage_seal_report(f, urls=[url], path=_wh.outbox_path())
+    second = _wh.stage_seal_report(f, urls=[url], path=_wh.outbox_path())
+    assert first is not None and second is not None
+    assert first["id"] == second["id"]
+    entries = [e for e in _wh.read_outbox(_wh.outbox_path()) if e.get("pending")]
+    assert len(entries) == 1, entries
+
+
+def _bad_schema_server(tmp_path: Path):
+    """Always-400 receiver (malformed stamp, retrying can never help)."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(length)
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"bad schema")
+
+        def log_message(self, *args):  # silence stdlib logging
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_port}/"
+
+
+def test_flush_400_says_drop_dont_retry(monkeypatch, tmp_path):
+    """A 400 is malformed, not a secret problem: name the drop command with the id."""
+    import re as _re
+
+    from epi_core import webhook as _wh
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _bad_schema_server(tmp_path)
+    monkeypatch.setenv("EPI_WITNESS_URL", url)
+    monkeypatch.setenv("EPI_WITNESS_SECRET", "s")
+    try:
+        import shutil as _shutil
+
+        f = tmp_path / "dummy.epi"
+        _shutil.copyfile(REPO / "website" / "assets" / "sample.epi", f)
+        _wh.report_seal(f, urls=[url], secret="s", path=_wh.outbox_path())
+        result = runner.invoke(cli_app, ["witness", "flush"])
+        assert result.exit_code == 1, result.output
+        assert "Rejected as malformed" in result.output, result.output
+        assert _re.search(r"epi witness drop [0-9a-f]{16}", result.output), result.output
+        assert "Fix the URL/secret" not in result.output
+    finally:
+        server.shutdown()
+        server.server_close()

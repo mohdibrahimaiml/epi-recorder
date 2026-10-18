@@ -82,6 +82,18 @@ def flush(
         return
     for url in result["delivered"]:
         console.print(f"[green]Delivered:[/green] {escape(url)}")
+    # Map failing urls back to outbox entry ids (for the drop hint on 400s).
+    from epi_core.webhook import read_outbox as _read_outbox
+
+    _url_to_id: dict[str, str] = {}
+    try:
+        for _e in _read_outbox(outbox_path()):
+            for _u in _e.get("pending") or []:
+                _url_to_id.setdefault(str(_u), str(_e.get("id")))
+    except Exception:
+        _url_to_id = {}
+    import re as _re
+
     _saved_urls_for_hint: set[str] = set()
     if _effective_secret is None:
         try:
@@ -94,7 +106,13 @@ def flush(
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
-        if code == "401" and not _effective_secret and str(url) not in _saved_urls_for_hint:
+        if _re.search(r"\bHTTP(?: Error)? 400\b", str(error)):
+            _drop = f"epi witness drop {_url_to_id[url]}" if url in _url_to_id else "epi witness drop <id>"
+            _plain(
+                "  Rejected as malformed (HTTP 400): the stamp's format was refused, "
+                f"so retrying won't help — remove it with `{_drop}`."
+            )
+        elif code == "401" and not _effective_secret and str(url) not in _saved_urls_for_hint:
             _plain(
                 f"  No secret set, so the receiver refused the report (HTTP {code}). "
                 "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
@@ -118,10 +136,20 @@ def flush(
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")
     if result["failed"]:
-        _plain(
-            "Still pending. Fix the URL/secret and flush again, or remove an entry "
-            "with: epi witness drop <id>"
+        _all_malformed = all(
+            bool(_re.search(r"\bHTTP(?: Error)? 400\b", str(_err)))
+            for _err in result["failed"].values()
         )
+        if _all_malformed:
+            _plain(
+                "Nothing to retry: malformed stamps stay rejected. Remove "
+                "them with `epi witness drop <id>` (see ids above)."
+            )
+        else:
+            _plain(
+                "Still pending. Fix the URL/secret and flush again, or remove an entry "
+                "with: epi witness drop <id>"
+            )
         # Scripts and CI must see that reports are still undelivered.
         raise typer.Exit(1)
 

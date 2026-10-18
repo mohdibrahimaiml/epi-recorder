@@ -515,20 +515,28 @@ def build_witness_payload(
     goal: str | None = None,
     case_id: str | None = None,
 ) -> dict[str, Any]:
-    """Hash-only seal report. No content and no step data — hashes and counts only."""
+    """Hash-only seal report. No content and no step data — hashes and counts only.
+
+    Keys with a None value are omitted entirely: the Worker's report schema
+    rejects present-but-null fields, and retrying a malformed stamp can
+    never succeed.
+    """
     payload: dict[str, Any] = {
         "schema": WITNESS_SCHEMA,
         "type": "epi.sealed",
         "workflow_id": workflow_id,
         "manifest_hash": manifest_hash,
         "file_sha256": file_sha256,
-        "content_digest": content_digest,
-        "public_key": public_key,
-        "key_fingerprint": key_fingerprint,
         "steps": int(steps),
         "sealed_at": sealed_at,
         "seal_timestamp": dict(seal_timestamp),
     }
+    if content_digest is not None:
+        payload["content_digest"] = content_digest
+    if public_key is not None:
+        payload["public_key"] = public_key
+    if key_fingerprint is not None:
+        payload["key_fingerprint"] = key_fingerprint
     if goal is not None:
         payload["goal"] = goal
     if case_id is not None:
@@ -611,6 +619,22 @@ def stage_seal_report(
                 )
             except Exception as exc:
                 logger.warning("Witness seal signature failed: %s", exc)
+        # Report once per sealed file: the CLI wrapper and an instrumented
+        # session can both report the same artifact (e.g. `epi record` around
+        # a script that also uses record()). A second entry for an identical
+        # pending report only doubles deliveries and confusing flush output.
+        try:
+            for existing in read_outbox(path):
+                if not existing.get("pending"):
+                    continue
+                if not isinstance(existing.get("payload"), dict):
+                    continue
+                if str((existing["payload"] or {}).get("file_sha256") or "") != str(file_sha256):
+                    continue
+                if set(existing.get("pending") or []) == set(targets):
+                    return existing
+        except Exception:
+            pass
         return append_outbox_entry(payload, targets, headers=headers, path=path)
     except Exception as exc:
         logger.warning("Witness staging failed: %s", exc)
