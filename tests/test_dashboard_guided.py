@@ -1,9 +1,9 @@
-"""Dashboard v2 guided flow on a 390px phone: real workerd + real browser.
+"""Dashboard 3-step guided flow on a 390px phone: real workerd + real browser.
 
 Boots `wrangler dev --local` against an isolated persist dir, seeds one
 owner session straight into local D1, then walks the guided start the way
-a new customer would: company -> connect (device code) -> first run ->
-customer -> trust link -> dashboard tabs. Screenshots land in
+a new customer would: company -> connect + pick customer (device code) ->
+first run + share link -> dashboard tabs. Screenshots land in
 docs/dashboard-v2/ and are committed for the PR.
 
 Browser-marked: the release gate deselects it; .github/workflows/
@@ -194,7 +194,8 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         orgs = _api(base, "GET", "/v1/orgs", cookie)[1]["orgs"]
         org_id = [o for o in orgs if o["name"] == "Acme AI"][0]["id"]
 
-        # Step 2: connect via device code (what `epi cloud login` does).
+        # Step 2: connect via device code (what `epi cloud login` does),
+        # picking the customer in the browser. No secrets to copy.
         pg.screenshot(path=str(SHOTS / "02-connect.png"))
         _no_overflow(pg)
         _, started = _api(base, "POST", "/auth/device/start", cookie, {"device_name": "e2e-laptop"})
@@ -203,11 +204,14 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
             "POST",
             "/auth/device/authorize",
             cookie,
-            {"user_code": started["user_code"], "org_id": org_id},
+            {"user_code": started["user_code"], "org_id": org_id, "customer_label": "Acme Bank"},
         )
         assert st == 200, st
         pg.reload()
-        pg.wait_for_selector("text=Record your first run", timeout=15000)
+        pg.wait_for_selector("text=Record your first run and share it", timeout=15000)
+        # Guided step 2 is gone as a separate customer form: no secrets pasted.
+        assert pg.locator("#cust-go").count() == 0
+        assert pg.locator("text=EPI_WITNESS_SECRET=").count() == 0
 
         # Step 3: push one real run through the API the CLI uses.
         manifest = json.dumps(
@@ -247,44 +251,19 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
             with urllib.request.urlopen(put, timeout=30):
                 pass
         pg.reload()
-        pg.wait_for_selector("text=Add a customer", timeout=15000)
-
-        # Step 4: add the customer. The secret must stay on screen in the
-        # persistent #reveal panel until the user clicks "I've saved it" —
-        # polling/loadAll must not advance past an unacknowledged secret.
-        # API first (exact status in the log pinpoints server vs UI).
-        st, probe = _api(
-            base, "POST", f"/v1/orgs/{org_id}/inboxes", cookie, {"customer_label": "Probe Bank"}
-        )
-        assert st == 201, (st, probe)
-        st, _ = _api(base, "POST", f"/v1/orgs/{org_id}/inboxes/{probe['id']}/close", cookie)
-        assert st == 200, st
-        pg.fill("#cust-name", "Acme Bank")
-        pg.click("#cust-go")
-        try:
-            pg.wait_for_selector("#reveal >> text=EPI_WITNESS_SECRET=", timeout=15000)
-        except Exception:
-            msg = pg.locator("#cust-msg").text_content()
-            raise AssertionError(f"customer UI failed, msg={msg!r}")
-        # The secret must persist (not a sub-second flash): visible for 12 s
-        # while the guide stays on step 4 (step 5 must NOT appear yet).
-        secret_sel = "#reveal >> text=EPI_WITNESS_SECRET="
-        for _ in range(12):
-            assert pg.locator(secret_sel).is_visible(), "secret vanished before ack"
-            assert pg.locator("#link-go").count() == 0, "guide advanced past unacked secret"
-            pg.wait_for_timeout(1000)
+        # Step 3: run arrived, now share it. The link form lives in step 3;
+        # there is no separate customer step and no secrets pasted.
+        pg.wait_for_selector("#link-go", timeout=15000)
+        assert pg.locator("#cust-go").count() == 0
+        assert pg.locator("text=EPI_WITNESS_SECRET=").count() == 0
+        assert pg.locator("#link-all").count() == 0
         pg.screenshot(path=str(SHOTS / "03-customer.png"))
         _no_overflow(pg)
-        # Ack is the ONLY thing that advances the guide.
-        pg.click("#reveal-ack")
-        pg.wait_for_selector("#link-go", timeout=15000)
-        assert not pg.locator("#reveal >> text=EPI_WITNESS_SECRET=").is_visible()
 
-        # Step 5: trust link scoped to that customer only. Same ack gate:
+        # Trust link scoped to that customer only. Same ack gate:
         # the token stays in #reveal for 12 s, dashboard must not appear.
         pg.select_option("#link-cust", label="Acme Bank")
         pg.fill("#link-label", "Acme review")
-        assert not pg.locator("#link-all").is_checked()
         pg.click("#link-go")
         pg.wait_for_selector("#reveal >> text=Preview as reviewer", timeout=15000)
         href = pg.locator("#reveal >> text=Preview as reviewer").get_attribute("href")
@@ -314,6 +293,8 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         assert pg.locator("#tab-links >> text=Acme review").is_visible()
 
         # Rotate: the new secret obeys the same ack gate (12 s in #reveal).
+        # Rotation lives under Customers (Advanced), not the guided flow.
+        secret_sel = "#reveal >> text=EPI_WITNESS_SECRET="
         pg.click("button.tab:text-is('Customers')")
         pg.wait_for_selector("button[data-rotate]", timeout=15000)
         pg.on("dialog", lambda d: d.accept())
