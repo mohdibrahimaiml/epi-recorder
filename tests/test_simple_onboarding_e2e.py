@@ -96,7 +96,7 @@ def test_login_saves_test_bank_without_env(monkeypatch, tmp_path: Path):
             assert url.endswith("/auth/device/start")
             return FakeResponse(201, {"device_code": "dev_1", "user_code": "AAAA-BBBB",
                                       "verification_url": "https://cloud.test/auth/device",
-                                      "interval": 5, "min_cli_version": "4.6.2"})
+                                      "interval": 5, "min_cli_version": "4.6.1"})
 
         def get(self, url, **kwargs):
             self.polls += 1

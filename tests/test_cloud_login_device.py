@@ -148,7 +148,7 @@ def test_warn_if_cli_outdated_matches_current_reports_nothing(capsys):
 
     from epi_cli.cloud import _warn_if_cli_outdated, _version_tuple
 
-    assert _version_tuple("4.6.2") < _version_tuple("4.6.10")
+    assert _version_tuple("1.0.2") < _version_tuple("1.0.10")
     assert not (_version_tuple(current) < _version_tuple(current))
     _warn_if_cli_outdated(current)
     out = capsys.readouterr().out

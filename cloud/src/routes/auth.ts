@@ -266,7 +266,7 @@ app.post("/logout", async (c) => {
 // (e.g. WDJB-MJHT). The user types that code on /auth/device — the secret
 // never appears in a URL, so a forwarded link alone authorizes nothing.
 // Keys minted here are push-only, sealed at rest, single-retrieval.
-// Since 4.6.2 the browser also asks *which customer this computer records
+// The browser also asks *which customer this computer records
 // for*; the witness URL + secret travel back with the key so the user
 // never copies a secret.
 const DEVICE_TTL_MS = 10 * 60_000;
@@ -274,7 +274,7 @@ const DEVICE_POLL_SECONDS = 5;
 
 /** Oldest CLI the cloud still walks through setup. Older CLIs get a loud
  * nudge to `pip install -U epi-recorder` instead of a silent dead end. */
-export const MIN_CLI_VERSION = "4.6.2";
+export const MIN_CLI_VERSION = "4.6.1";
 
 const USER_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -559,7 +559,7 @@ app.post("/device/authorize", async (c) => {
     .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", dev.device_name, user.id, nowIso())
     .run();
   const sealed = await sealDeviceKey(c.env, key.raw);
-  // Optional customer binding (since 4.6.2): the browser asks which customer
+  // Optional customer binding: the browser asks which customer
   // this computer records for. The witness URL + sealed secret are stored
   // with the device row and handed to the CLI on first poll, so the user
   // never copies a secret.
