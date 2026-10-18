@@ -1932,14 +1932,42 @@ def _print_witness_outcome(entry) -> None:
 
     out = entry.get("_outcome") or {}
     host = lambda u: urlparse(u).netloc or u  # noqa: E731
+    try:
+        import os as _os
+
+        _env_url = _os.getenv("EPI_WITNESS_URL")
+    except Exception:
+        _env_url = None
+    _cloud_login_user = False
+    if not _env_url:
+        # A cloud-login user never sets env vars: if cloud.json holds witness
+        # settings, the stamp travelled password-free via `epi cloud login`.
+        # With neither env nor saved settings we know nothing — keep the env hints.
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+
+            _home = _os.getenv("EPI_HOME")
+            _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
+            if _cfg.exists():
+                _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
+                _cloud_login_user = bool(
+                    isinstance(_saved, dict) and str(_saved.get("witness_url") or "").strip()
+                )
+        except Exception:
+            pass
     delivered = [host(u) for u in out.get("delivered") or []]
     failed = out.get("failed") or {}
     if delivered:
         print(f"[EPI] Witness: delivered to {', '.join(delivered)}", file=sys.stderr)
     for url, err in failed.items():
         hint = ""
-        if "401" in str(err) or "403" in str(err):
+        if "401" in str(err) and _cloud_login_user:
+            hint = " (re-run epi cloud login to refresh this computer's witness secret)"
+        elif "401" in str(err):
             hint = " (witness secret changed — update EPI_WITNESS_SECRET)"
+        elif "403" in str(err):
+            hint = " (blocked before reaching EPI Cloud (network/firewall); queued, not lost)"
         print(
             f"[EPI] Witness: QUEUED for {host(url)}: {str(err)[:120]}{hint}. "
             "Run `epi witness flush` to retry.",

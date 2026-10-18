@@ -48,26 +48,61 @@ def flush(
     timeout: int = typer.Option(10, "--timeout", help="Per-request timeout in seconds."),
 ) -> None:
     """Retry every undelivered witness entry."""
-    from epi_core.webhook import flush_outbox, outbox_path
+    from epi_core.webhook import flush_outbox, outbox_path, split_witness_urls
 
     _effective_secret = secret if secret is not None else _secret()
+    # Cloud-login fallback (same-source rule): with no explicit --secret or
+    # env secret, use the secret saved by `epi cloud login` — but only for
+    # outbox entries whose URL matches the saved witness_url. The saved
+    # secret is never sent to any other URL.
+    _resolver = None
+    if _effective_secret is None:
+        try:
+            from epi_cli.cloud import saved_customer as _saved_preset_fn
+        except Exception:
+            _saved_preset_fn = None  # type: ignore
+        if _saved_preset_fn is not None:
+            try:
+                _preset = _saved_preset_fn() or {}
+            except Exception:
+                _preset = {}
+            _saved_urls = set(split_witness_urls(_preset.get("witness_url")))
+            _saved_secret = _preset.get("witness_secret") or None
+            if _saved_urls and _saved_secret:
+                def _resolver(url: str, _urls=_saved_urls, _sec=_saved_secret):  # type: ignore[misc]
+                    return _sec if str(url) in _urls else None
     result = flush_outbox(
         secret=_effective_secret,
         timeout_seconds=timeout,
         path=outbox_path(),
+        secret_for_url=_resolver,
     )
     if not result["entries"]:
         console.print("[dim]Nothing pending — every report in the outbox was delivered.[/dim]")
         return
     for url in result["delivered"]:
         console.print(f"[green]Delivered:[/green] {escape(url)}")
+    _saved_urls_for_hint: set[str] = set()
+    if _effective_secret is None:
+        try:
+            from epi_core.webhook import split_witness_urls as _split
+            from epi_cli.cloud import saved_customer as _hint_preset_fn
+            _hint_preset = (_hint_preset_fn() or {}) if _hint_preset_fn else {}
+            _saved_urls_for_hint = set(_split(_hint_preset.get("witness_url")))
+        except Exception:
+            _saved_urls_for_hint = set()
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
-        if code == "401" and not _effective_secret:
+        if code == "401" and not _effective_secret and str(url) not in _saved_urls_for_hint:
             _plain(
                 f"  No secret set, so the receiver refused the report (HTTP {code}). "
                 "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
+            )
+        elif code == "401" and str(url) in _saved_urls_for_hint:
+            _plain(
+                f"  The receiver rejected this computer's saved secret (HTTP {code}): "
+                "re-run epi cloud login to refresh it."
             )
         elif code == "401":
             _plain(

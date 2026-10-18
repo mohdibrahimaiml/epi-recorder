@@ -21,6 +21,7 @@ from epi_cli.main import app as cli_app
 
 runner = CliRunner()
 ROT_MSG = "witness secret changed — update EPI_WITNESS_SECRET"
+REPO = Path(__file__).resolve().parents[1]
 
 
 def _hermetic(monkeypatch, tmp_path: Path) -> None:
@@ -268,3 +269,97 @@ def test_forbidden_stamp_says_blocked_not_secret(monkeypatch, tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_flush_uses_saved_cloud_login_secret(monkeypatch, tmp_path):
+    """Flush with no --secret/env secret delivers via the saved cloud-login secret."""
+    from epi_core import webhook as _wh
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url, _ = _serve("cloud-secret", tmp_path, "flush.jsonl")
+    _write_cloud_json(tmp_path / "home", url, "cloud-secret")
+    import shutil as _shutil
+
+    f = tmp_path / "dummy.epi"
+    _shutil.copyfile(REPO / "website" / "assets" / "sample.epi", f)
+    try:
+        _wh.report_seal(f, urls=[url], secret=None, path=_wh.outbox_path())
+        result = runner.invoke(cli_app, ["witness", "flush"])
+        assert result.exit_code == 0, result.output
+        assert "Delivered:" in result.output, result.output
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_flush_never_sends_saved_secret_elsewhere(monkeypatch):
+    """The saved secret only goes to the saved URL; explicit secrets still win."""
+    import urllib.request as _url
+
+    from epi_core import webhook as _wh
+
+    seen: dict = {}
+
+    class _Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def _fake(req, timeout=None):
+        seen[req.full_url] = dict(req.header_items())
+        return _Resp()
+
+    monkeypatch.setattr(_url, "urlopen", _fake)
+    entry = {
+        "id": "e1",
+        "pending": ["https://cloud.test/w/inb_saved", "https://other.example/w/inb_x"],
+        "payload": {"schema": "epi-witness/v1"},
+    }
+    out = _wh.deliver_entry(entry, secret_for_url=lambda u: "saved-secret" if u == "https://cloud.test/w/inb_saved" else None)
+    assert out["delivered"] == ["https://cloud.test/w/inb_saved", "https://other.example/w/inb_x"]
+    saved_headers = {k.lower(): v for k, v in seen["https://cloud.test/w/inb_saved"].items()}
+    other_headers = {k.lower(): v for k, v in seen["https://other.example/w/inb_x"].items()}
+    assert saved_headers.get("x-epi-signature", "").startswith("sha256=")
+    assert "x-epi-signature" not in other_headers
+    # Explicit secret wins everywhere, resolver ignored.
+    seen.clear()
+    out = _wh.deliver_entry(entry, secret="explicit", secret_for_url=lambda u: "saved-secret")
+    assert out["delivered"] == ["https://cloud.test/w/inb_saved", "https://other.example/w/inb_x"]
+    for _u, _h in seen.items():
+        assert {k.lower() for k in _h} >= {"x-epi-signature"}
+
+
+def test_print_witness_outcome_401_403_hints(monkeypatch, tmp_path, capsys):
+    """The exact terminal line from epi demo: relogin for cloud users, blocked for 403."""
+    import sys as _sys
+
+    from epi_recorder.api import _print_witness_outcome
+
+    sys_path_home = tmp_path / "home"
+    monkeypatch.setenv("EPI_HOME", str(sys_path_home))
+    monkeypatch.delenv("EPI_WITNESS_URL", raising=False)
+    _write_cloud_json(sys_path_home, "https://cloud.test/w/inb_tb", "cloud-secret")
+
+    _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 401: Unauthorized"}}})
+    out = capsys.readouterr().err
+    assert "re-run epi cloud login" in out, out
+    assert "update EPI_WITNESS_SECRET" not in out
+
+    _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 403: Forbidden"}}})
+    out = capsys.readouterr().err
+    assert "blocked before reaching EPI Cloud" in out, out
+    assert "secret changed" not in out
+    assert "queued" in out.lower()
+
+    # Env-configured users keep the existing secret hints on 401.
+    monkeypatch.setenv("EPI_WITNESS_URL", "https://cloud.test/w/inb_tb")
+    monkeypatch.setenv("EPI_WITNESS_SECRET", "s")
+    _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 401: Unauthorized"}}})
+    out = capsys.readouterr().err
+    assert "update EPI_WITNESS_SECRET" in out, out
+    assert "re-run epi cloud login" not in out
+    _sys.stdout.flush()

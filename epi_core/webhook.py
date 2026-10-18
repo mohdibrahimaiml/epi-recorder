@@ -399,6 +399,7 @@ def deliver_entry(
     extra_headers: dict[str, str] | None = None,
     timeout_seconds: int = 10,
     path: Path | None = None,
+    secret_for_url: Any | None = None,
 ) -> dict[str, Any]:
     """Deliver one entry's pending urls. Returns {"delivered": [...], "failed": {url: error}}."""
     target = Path(path) if path else outbox_path()
@@ -407,11 +408,17 @@ def deliver_entry(
     delivered: list[str] = []
     failed: dict[str, str] = {}
     for url in list(entry.get("pending") or []):
+        resolved = secret
+        if resolved is None and secret_for_url is not None:
+            try:
+                resolved = secret_for_url(url)
+            except Exception:
+                resolved = None
         try:
             _post_once(
                 url,
                 entry["payload"],
-                secret=secret,
+                secret=resolved,
                 extra_headers=stored_headers,
                 timeout_seconds=timeout_seconds,
             )
@@ -456,8 +463,14 @@ def flush_outbox(
     secret: str | None = None,
     timeout_seconds: int = 10,
     path: Path | None = None,
+    secret_for_url: Any | None = None,
 ) -> dict[str, Any]:
-    """Retry every undelivered entry. Returns {"entries": n, "delivered": [...], "failed": {...}}."""
+    """Retry every undelivered entry. Returns {"entries": n, "delivered": [...], "failed": {...}}.
+
+    `secret_for_url`, when given, resolves a secret per pending URL and is
+    consulted only where no explicit `secret` was passed, so an explicit
+    --secret/env keeps winning for env-configured URLs.
+    """
     target = Path(path) if path else outbox_path()
     summary: dict[str, Any] = {"entries": 0, "delivered": [], "failed": {}}
     for entry in read_outbox(target):
@@ -467,7 +480,8 @@ def flush_outbox(
         # NOTE: per-entry secrets are not stored (the outbox holds hashes and
         # counts only, never secrets); flush reuses one secret if given.
         result = deliver_entry(
-            entry, secret=secret, timeout_seconds=timeout_seconds, path=target
+            entry, secret=secret, timeout_seconds=timeout_seconds, path=target,
+            secret_for_url=secret_for_url,
         )
         summary["delivered"].extend(result["delivered"])
         summary["failed"].update(result["failed"])
