@@ -318,5 +318,10 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         pg.click("button.tab:text-is('Runs')")
         pg.screenshot(path=str(SHOTS / "05-dashboard.png"))
         _no_overflow(pg)
+        # FIX 2/3/5: the run shows its short id under the goal, and the
+        # not-witnessed badge explains itself with a next step.
+        runs_text = pg.locator("#tab-runs").text_content() or ""
+        assert "No witness stamp arrived for this file yet" in runs_text, runs_text
+        assert "epi witness flush" in runs_text, runs_text
     finally:
         ctx.close()

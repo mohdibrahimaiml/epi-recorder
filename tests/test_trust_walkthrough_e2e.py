@@ -478,6 +478,8 @@ def test_vendor_records_pushes_and_reviewer_verifies_offline(
         pg.click("#gateBtn")
         pg.wait_for_selector("#trustFiles >> text=Sealed run", timeout=20000)
         assert pg.locator("#trustFiles >> text=Other Bank").count() == 0
+        # FIX 5: every shared file says why it is (not) witnessed, in one line.
+        assert pg.locator("#trustFiles >> text=Witnessed").count() >= 1
         pg.locator("text=Verify these bytes").first.click()
         pg.wait_for_selector(
             "#trustFiles .vresult >> text=/Hash matches|FAIL|Could not/", timeout=30000

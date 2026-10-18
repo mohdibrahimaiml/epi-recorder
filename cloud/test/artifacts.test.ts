@@ -142,12 +142,16 @@ class FakeD1 {
       for (const r of this.artifacts.values()) if (r.org_id === a[0] && r.deleted_at == null) n++;
       return { n };
     }
-    if (q.startsWith("SELECT id, upload_state, witness_status, signature_check FROM artifacts")) {
+    if (q.startsWith("SELECT id, agent_id, manifest_json, upload_state, witness_status, signature_check FROM artifacts")) {
       for (const r of this.artifacts.values()) {
         if (r.org_id === a[0] && r.claimed_sha256 === a[1]) {
-          return { id: r.id, upload_state: r.upload_state, witness_status: r.witness_status, signature_check: r.signature_check };
+          return { id: r.id, agent_id: r.agent_id ?? null, manifest_json: r.manifest_json, upload_state: r.upload_state, witness_status: r.witness_status, signature_check: r.signature_check };
         }
       }
+      return null;
+    }
+    if (q.startsWith("SELECT name FROM agents WHERE id = ?")) {
+      for (const g of this.agents.values()) if (g.id === a[0]) return { name: g.name };
       return null;
     }
     if (q.startsWith("SELECT id FROM agents WHERE org_id = ? AND name = ?")) {
@@ -424,6 +428,39 @@ describe("push flow", () => {
     });
     const d2 = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ claimed_sha256: "d".repeat(64) })) }, env as never)).json()) as { witness_status: string };
     expect(d2.witness_status).toBe("different_version");
+  });
+
+  it("dedupe re-push fills the tag when the stored run has none, never moves a tagged run", async () => {
+    const { db, env, key } = await setup();
+    db.agents.set("g2", { id: "g2", org_id: "o1", name: "other", status: "active", created_at: "t" });
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: null })) }, env as never)).json()) as { id: string; agent: string | null };
+    expect(first.agent).toBeNull();
+    // Same bytes re-pushed from a computer logged in for "loans": tag fills in.
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(second).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
+    expect(db.audit.map((a) => a.action)).toContain("artifact.assign");
+    // Same bytes re-pushed from a computer logged in for "other": the run
+    // stays with "loans" — it must never appear on another customer's link.
+    const third = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: "other" })) }, env as never)).json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(third).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
+  });
+
+  it("dedupe re-push refreshes a stale witness status", async () => {
+    const { db, env, key } = await setup();
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; witness_status: string };
+    expect(first.witness_status).toBe("not_in_witness");
+    // The witness report arrives after the first push.
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName("inb_1"));
+    const manifest = JSON.parse(FIXTURE_MANIFEST) as { workflow_id: string };
+    await stub.fetch("https://inbox/append", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload_raw: JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: manifest.workflow_id, file_sha256: FILE_SHA }) }),
+    });
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; witness_status: string };
+    expect(second).toMatchObject({ id: first.id, deduped: true, witness_status: "witnessed" });
+    expect(db.audit.map((a) => a.action)).toContain("artifact.refresh");
   });
 
   it("dedupes, rejects double-store and length lies", async () => {

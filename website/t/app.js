@@ -93,12 +93,27 @@
     }
     document.getElementById('trustKeys').innerHTML = keys; // static-html: built from esc() only
 
-    var files = '';
+    function witLine(f) {
+    var st = f.witness_status;
+    if (st === 'witnessed') {
+      return '<div style="color:var(--ok)">Witnessed \u2713 \u2014 this exact file is in the witness log.</div>';
+    }
+    if (st === 'no_inbox') {
+      return '<div style="color:var(--warn)">Not witnessed \u2014 the vendor has no witness inbox for this yet.</div>';
+    }
+    if (st === 'different_version') {
+      return '<div style="color:var(--warn)">Not witnessed \u2014 a different copy of this run was witnessed, not this file.</div>';
+    }
+    return '<div style="color:var(--warn)">Not witnessed \u2014 no witness stamp arrived for this file yet. Ask the vendor to witness it and re-share.</div>';
+  }
+
+  var files = '';
     (doc.artifacts || []).forEach(function (f, idx) {
       var bad = f.signature_check === 'invalid' || f.witness_status === 'different_version';
       var fileUrl = f && (f.content_url || f.download_url);
       files += '<div class="tier"><h3>' + esc(f.goal || ('Sealed run ' + String(f.claimed_sha256 || '').slice(0, 8))) + '</h3>' +
         '<div style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">sha256 <code class="k">' + esc(f.claimed_sha256) + '</code></div>' +
+        witLine(f) +
         (bad ? '<div style="color:var(--bad)">Needs review: ' + esc(f.signature_check) + ' / ' + esc(f.witness_status) + '</div>' : '') +
         (fileUrl ? '<div style="margin-top:10px"><button type="button" class="btn btn-sec" data-artifact="' + idx + '">Verify these bytes</button> <a href="#" data-dlartifact="' + idx + '" style="font-size:.8rem;color:var(--mut)">Download file</a></div><div class="vresult" role="status" aria-live="polite" style="margin-top:10px;font-size:.82rem"></div>' : '') +
         '</div>';
