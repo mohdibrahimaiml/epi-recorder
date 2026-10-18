@@ -37,9 +37,25 @@ def report_witness_for_cli(epi_path: Path | str) -> str | None:
         return None
     try:
         urls = split_witness_urls(os.environ.get("EPI_WITNESS_URL"))
+        secret = os.environ.get("EPI_WITNESS_SECRET") or None
+        if not urls:
+            # Simple onboarding: fall back to the witness settings saved by
+            # `epi cloud login` (or `epi cloud use`) when no env vars are set.
+            try:
+                from epi_cli.cloud import saved_customer as _saved_preset
+            except Exception:
+                _saved_preset = None  # type: ignore
+            if _saved_preset is not None:
+                try:
+                    preset = _saved_preset() or {}
+                except Exception:
+                    preset = {}
+                if isinstance(preset.get("witness_url"), str) and preset["witness_url"].strip():
+                    urls = split_witness_urls(preset["witness_url"])
+                if not secret and preset.get("witness_secret"):
+                    secret = preset["witness_secret"]
         if not urls:
             return None
-        secret = os.environ.get("EPI_WITNESS_SECRET") or None
         key_name: str | None = None
         private_key_bytes: bytes | None = None
         try:
