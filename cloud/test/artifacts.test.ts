@@ -148,6 +148,10 @@ class FakeD1 {
       const r = this.artifacts.get(a[0] as string);
       return r && r.org_id === a[1] && r.deleted_at == null ? { id: r.id, object_key: r.object_key, legal_hold: r.legal_hold } : null;
     }
+    if (q.startsWith("SELECT id, manifest_json, claimed_sha256 FROM artifacts")) {
+      const r = this.artifacts.get(a[0] as string);
+      return r && r.org_id === a[1] && r.deleted_at == null ? { id: r.id, manifest_json: r.manifest_json, claimed_sha256: r.claimed_sha256 } : null;
+    }
     if (q.includes("FROM artifacts WHERE id = ?")) {
       const r = this.artifacts.get(a[0] as string);
       if (!r || r.org_id !== a[1] || r.deleted_at != null) return null;
@@ -212,6 +216,16 @@ class FakeD1 {
       for (const r of this.artifacts.values()) {
         if (r.id === a[1] && r.org_id === a[2] && r.deleted_at == null) {
           r.legal_hold = a[0];
+          return 1;
+        }
+      }
+      return 0;
+    }
+    if (q.startsWith("UPDATE artifacts SET agent_id")) {
+      for (const r of this.artifacts.values()) {
+        if (r.id === a[2] && r.org_id !== undefined) {
+          r.agent_id = a[0];
+          r.witness_status = a[1];
           return 1;
         }
       }
@@ -382,6 +396,31 @@ describe("push flow", () => {
     expect((await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: ck("sess-viewer"), body: JSON.stringify(initBody()) }, env as never)).status).toBe(403);
     expect((await app.request("/v1/orgs/o1/artifacts", { headers: ck("sess-viewer") }, env as never)).status).toBe(200);
     expect((await app.request("/v1/orgs/o1/artifacts", {}, env as never)).status).toBe(403);
+  });
+});
+
+describe("assign agent", () => {
+  it("re-tags an Unassigned run to a customer; unknown agent 400; viewer 403", async () => {
+    const { db, env, key, ck } = await setup();
+    const init = await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: null })) }, env as never);
+    expect(init.status).toBe(201);
+    const created = (await init.json()) as { id: string; witness_status: string };
+    const row = [...db.artifacts.values()].find((a) => a.id === created.id)!;
+    expect(row.agent_id).toBeNull();
+    const assign = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
+    expect(assign.status).toBe(200);
+    expect(await assign.json()).toMatchObject({ id: created.id, agent_id: "g1" });
+    expect([...db.artifacts.values()].find((a) => a.id === created.id)!.agent_id).toBe("g1");
+    expect(db.audit.map((a) => a.action)).toContain("artifact.assign");
+    // Unknown customer recorder name is rejected like init does.
+    const bad = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: key, body: JSON.stringify({ agent: "nope" }) }, env as never);
+    expect(bad.status).toBe(400);
+    // Viewers cannot re-tag.
+    const viewer = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: ck("sess-viewer"), body: JSON.stringify({ agent: "loans" }) }, env as never);
+    expect(viewer.status).toBe(403);
+    // Missing run 404s.
+    const missing = await app.request("/v1/orgs/o1/artifacts/art_nope/agent", { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
+    expect(missing.status).toBe(404);
   });
 });
 

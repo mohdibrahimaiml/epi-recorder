@@ -141,6 +141,12 @@ class FakeD1 {
       i.closed_at = a[0];
       return 1;
     }
+    if (q.startsWith("UPDATE inboxes SET hmac_secret_enc")) {
+      const i = this.inboxes.get(a[1] as string);
+      if (!i || i.org_id !== a[2]) return 0;
+      i.hmac_secret_enc = a[0];
+      return 1;
+    }
     if (q.startsWith("INSERT INTO checkpoints")) {
       const key = `${a[0]}|${a[1]}`;
       const ex = this.checkpoints.find((r) => `${r.inbox_id}|${r.day}` === key);
@@ -221,6 +227,81 @@ describe("inbox management", () => {
     const list = (await (await app.request("/v1/orgs/o1/inboxes", { headers: ck("sess-owner") }, env as never)).json()) as { inboxes: { closed_at: string | null }[] };
     expect(list.inboxes).toHaveLength(1);
     expect(list.inboxes[0]!.closed_at).toBeTruthy();
+  });
+});
+
+describe("witness secret rotation", () => {
+  it("old secret stops working immediately; new secret delivers; old lines stay valid", async () => {
+    const { db, env, ck } = await setup();
+    const { id, secret: s1 } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never)).json()) as { id: string; secret: string };
+    const raw1 = REPORT(1);
+    expect((await app.request(`/w/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(s1, raw1)}` }, body: raw1,
+    }, env as never)).status).toBe(202);
+
+    const rot = await app.request(`/v1/orgs/o1/inboxes/${id}/rotate`, { method: "POST", headers: ck("sess-owner") }, env as never);
+    expect(rot.status).toBe(200);
+    const { secret: s2, url } = (await rot.json()) as { secret: string; url: string };
+    expect(url).toBe(`https://cloud.epilabs.org/w/${id}`);
+    expect(s2).toMatch(/^[0-9a-f]{64}$/);
+    expect(s2).not.toBe(s1);
+    const stored = db.inboxes.get(id)!.hmac_secret_enc as string;
+    expect(stored).not.toContain(s2);
+    expect(stored).not.toContain(s1);
+    expect(await openSecret(BOX_KEY, stored)).toBe(s2);
+
+    // Old secret is rejected; new secret is accepted. The first line stays.
+    const rawOld = REPORT(2);
+    expect((await app.request(`/w/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(s1, rawOld)}` }, body: rawOld,
+    }, env as never)).status).toBe(401);
+    const raw2 = REPORT(2);
+    expect((await app.request(`/w/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-EPI-Signature": `sha256=${await hmacHex(s2, raw2)}` }, body: raw2,
+    }, env as never)).status).toBe(202);
+    const exp = await app.request(`/w/${id}/export.jsonl`, { headers: ck("sess-owner") }, env as never);
+    expect(await exp.text()).toBe([raw1, raw2].join("\n") + "\n");
+  });
+
+  it("non-owner cannot rotate; unknown inbox 404; closed inbox 410", async () => {
+    const { env, ck } = await setup();
+    const { id } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string };
+    expect((await app.request(`/v1/orgs/o1/inboxes/${id}/rotate`, { method: "POST", headers: ck("sess-other") }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o1/inboxes/inb_nope/rotate", { method: "POST", headers: ck("sess-owner") }, env as never)).status).toBe(404);
+    await app.request(`/v1/orgs/o1/inboxes/${id}/close`, { method: "POST", headers: ck("sess-owner") }, env as never);
+    expect((await app.request(`/v1/orgs/o1/inboxes/${id}/rotate`, { method: "POST", headers: ck("sess-owner") }, env as never)).status).toBe(410);
+  });
+
+  it("errors during create/rotate never log the secret", async () => {
+    const { env, ck } = await setup();
+    const logs: string[] = [];
+    const origErr = console.error;
+    console.error = (...a: unknown[]) => { logs.push(a.map(String).join(" ")); };
+    try {
+      // Force a 500 inside create (broken D1) with a known label; the label
+      // is fine to log, but no secret/key/token may appear.
+      const brokenDb = { prepare: () => { throw new Error("db down"); } } as unknown as D1Database;
+      const brokenEnv = { ...env, DB: brokenDb };
+      const r1 = await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, brokenEnv as never);
+      expect(r1.status).toBe(500);
+      // Force a 500 inside rotate the same way.
+      const { id } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string };
+      const r2 = await app.request(`/v1/orgs/o1/inboxes/${id}/rotate`, { method: "POST", headers: ck("sess-owner") }, brokenEnv as never);
+      expect(r2.status).toBe(500);
+      // Also exercise the not-configured path: must not echo any secret.
+      const noKeyEnv = { ...env, INBOX_SECRET_KEY: undefined };
+      const r3 = await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "C" }) }, noKeyEnv as never);
+      expect(r3.status).toBe(503);
+      const r4 = await app.request(`/v1/orgs/o1/inboxes/${id}/rotate`, { method: "POST", headers: ck("sess-owner") }, noKeyEnv as never);
+      expect(r4.status).toBe(503);
+    } finally {
+      console.error = origErr;
+    }
+    const blob = logs.join("\n");
+    expect(blob).not.toMatch(/[0-9a-f]{32,}/);
+    expect(blob.toLowerCase()).not.toMatch(/secret|token|epik_|sess-/);
+    // The 500 path logs only the cause line, never request data.
+    expect(logs.every((l) => l.startsWith("request failed:"))).toBe(true);
   });
 });
 
@@ -368,6 +449,30 @@ describe("witness receive + export", () => {
     expect(((await put.json()) as { attached: number }).attached).toBe(1);
     db.close();
   });
+
+  it("find-receipts matches file_sha256 exactly, never by substring", async () => {
+    const { env, ck } = await setup();
+    const { id } = (await (await app.request("/v1/orgs/o1/inboxes", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "B" }) }, env as never)).json()) as { id: string };
+    const decoy = "ab".repeat(32);
+    const real = "cd".repeat(32);
+    // Legacy-shaped row: no file_sha256, but the decoy sha appears in
+    // another field. A LIKE filter would false-match it (and on Cloudflare
+    // the 66-char pattern 500s outright).
+    const legacy = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-exact", goal: `needs ${decoy} here` });
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName(id));
+    await stub.fetch("https://inbox/append", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload_raw: legacy }) });
+    const miss = (await (await setupNsFetch(env, id, `/find-receipts?sha=${decoy}`)).json()) as { entries: unknown[] };
+    expect(miss.entries).toEqual([]);
+    // Exact row is found by its own sha.
+    const withSha = JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: "wf-exact", file_sha256: real });
+    await stub.fetch("https://inbox/append", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload_raw: withSha }) });
+    const hit = (await (await setupNsFetch(env, id, `/find-receipts?sha=${real}`)).json()) as { entries: { payload_raw: string }[] };
+    expect(hit.entries).toHaveLength(1);
+    expect(JSON.parse(hit.entries[0]!.payload_raw).file_sha256).toBe(real);
+    // Workflow lookup still finds the legacy row (backfill path).
+    const wf = (await (await setupNsFetch(env, id, "/find?workflow=wf-exact")).json()) as { matches: string[] };
+    expect(wf.matches).toHaveLength(2);
+  });
 });
 
 async function setupNsFetch(env: { WITNESS: DurableObjectNamespace }, inboxId: string, path: string): Promise<Response> {
@@ -381,6 +486,12 @@ describe("workerd safety guards", () => {
     const src = readFileSync(join(root, "src", "do", "witness.ts"), "utf8");
     expect(src).not.toMatch(/\.one\(\)/);
     expect(src).not.toMatch(/\.first\(\)/);
+  });
+
+  it("find routes never use LIKE (Cloudflare rejects >~50-byte patterns)", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const src = readFileSync(join(root, "src", "do", "witness.ts"), "utf8");
+    expect(src).not.toMatch(/ LIKE \?/);
   });
 
   it("wrangler registers SQLite-backed classes (required, immutable after deploy)", () => {

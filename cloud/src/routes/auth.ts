@@ -315,6 +315,8 @@ app.post("/device/start", async (c) => {
   const limited = await loginLimited(c.env.DB, c.req.raw);
   if (limited) return limited;
   await purgeExpiredDevices(c.env.DB);
+  const nameRaw = z.object({ device_name: z.string().trim().min(1).max(64).optional() }).safeParse(await c.req.json().catch(() => null));
+  const deviceName = nameRaw.success ? (nameRaw.data.device_name ?? null) : null;
   const code = newToken();
   const now = Date.now();
   let userCode = "";
@@ -322,9 +324,9 @@ app.post("/device/start", async (c) => {
     const candidate = newUserCode();
     try {
       await c.env.DB.prepare(
-        "INSERT INTO device_codes (code, user_code, status, created_at, expires_at) VALUES (?, ?, 'pending', ?, ?)",
+        "INSERT INTO device_codes (code, user_code, device_name, status, created_at, expires_at) VALUES (?, ?, ?, 'pending', ?, ?)",
       )
-        .bind(code, candidate, new Date(now).toISOString(), new Date(now + DEVICE_TTL_MS).toISOString())
+        .bind(code, candidate, deviceName, new Date(now).toISOString(), new Date(now + DEVICE_TTL_MS).toISOString())
         .run();
       userCode = candidate;
       break;
@@ -514,12 +516,12 @@ app.post("/device/authorize", async (c) => {
   // once those 10-minute codes expire.
   const byUser = body.data.user_code ? normalizeUserCode(body.data.user_code) : null;
   const dev = byUser
-    ? await c.env.DB.prepare("SELECT code, status, expires_at FROM device_codes WHERE user_code = ?")
+    ? await c.env.DB.prepare("SELECT code, device_name, status, expires_at FROM device_codes WHERE user_code = ?")
       .bind(byUser)
-      .first<{ code: string; status: string; expires_at: string }>()
-    : await c.env.DB.prepare("SELECT code, status, expires_at FROM device_codes WHERE code = ?")
+      .first<{ code: string; device_name: string | null; status: string; expires_at: string }>()
+    : await c.env.DB.prepare("SELECT code, device_name, status, expires_at FROM device_codes WHERE code = ?")
       .bind(body.data.device_code!)
-      .first<{ code: string; status: string; expires_at: string }>();
+      .first<{ code: string; device_name: string | null; status: string; expires_at: string }>();
   if (!dev) return c.json({ error: { code: "not_found", message: "Unknown or mistyped code. Check and retry." } }, 404);
   if (dev.expires_at <= nowIso()) {
     await c.env.DB.prepare("DELETE FROM device_codes WHERE code = ?").bind(dev.code).run();
@@ -533,9 +535,9 @@ app.post("/device/authorize", async (c) => {
   const key = newApiKey();
   const id = newId("key");
   await c.env.DB.prepare(
-    "INSERT INTO api_keys (id, org_id, prefix, key_hash, scopes, created_by, created_at, last_used_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)",
+    "INSERT INTO api_keys (id, org_id, prefix, key_hash, scopes, label, created_by, created_at, last_used_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)",
   )
-    .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", user.id, nowIso())
+    .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", dev.device_name, user.id, nowIso())
     .run();
   const sealed = await sealDeviceKey(c.env, key.raw);
   const updated = await c.env.DB.prepare(

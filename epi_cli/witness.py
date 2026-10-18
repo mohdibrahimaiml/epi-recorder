@@ -71,8 +71,9 @@ def flush(
             )
         elif code:
             _plain(
-                f"  The receiver rejected the secret (HTTP {code}). Use the same secret "
-                "as the receiver: EPI_WITNESS_SECRET or --secret."
+                f"  The receiver rejected the secret (HTTP {code}): "
+                "witness secret changed — update EPI_WITNESS_SECRET "
+                "(same secret as the receiver, or --secret)."
             )
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")

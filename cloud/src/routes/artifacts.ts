@@ -234,6 +234,35 @@ app.post("/orgs/:orgId/artifacts/:artifactId/legal-hold", async (c) => {
   return c.json({ ok: true });
 });
 
+// Re-tag a pushed run to a customer (assign an Unassigned run).
+// Same permission as pushing (member session or push key). Re-tagging never
+// changes bytes, so the sha dedupe stays intact; witness_status is
+// recomputed because the run may now match a different inbox.
+app.patch("/orgs/:orgId/artifacts/:artifactId/agent", async (c) => {
+  const orgId = c.req.param("orgId");
+  const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
+  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  const body = z.object({ agent: z.string().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: { code: "bad_request", message: "agent (customer recorder name) required." } }, 400);
+  const row = await c.env.DB.prepare("SELECT id, manifest_json, claimed_sha256 FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
+    .bind(c.req.param("artifactId"), orgId).first<{ id: string; manifest_json: string; claimed_sha256: string }>();
+  if (!row) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
+  const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+  if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+  let workflowId: string | null = null;
+  try {
+    const manifest = JSON.parse(row.manifest_json) as Record<string, unknown>;
+    if (typeof manifest.workflow_id === "string") workflowId = manifest.workflow_id;
+  } catch {
+    // Keep the stored witness status if the manifest is unreadable.
+  }
+  const status = await witnessStatus(c.env.DB, c.env, orgId, workflowId, row.claimed_sha256);
+  await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?")
+    .bind(agent.id, status, row.id).run();
+  await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: "artifact.assign", detail: `${row.id} agent=${body.data.agent} ${status}` });
+  return c.json({ id: row.id, agent_id: agent.id, witness_status: status });
+});
+
 app.delete("/orgs/:orgId/artifacts/:artifactId", async (c) => {
   const orgId = c.req.param("orgId");
   const user = await userFromRequest(c.env.DB, c.req.raw);

@@ -108,18 +108,22 @@ describe("device + dashboard pages (served HTML)", () => {
       expect(res.status).toBe(200);
       expect(inlineScripts(await res.text())).toHaveLength(0);
     }
-    for (const res of [
-      await app.request("/", { headers: { Cookie: cookie } }, env as never),
-      await app.request("/auth/device", { headers: { Cookie: cookie } }, env as never),
-    ]) {
-      expect(res.status).toBe(200);
-      const html = await res.text();
+    const dashHtml = await (await app.request("/", { headers: { Cookie: cookie } }, env as never)).text();
+    const deviceHtml = await (await app.request("/auth/device", { headers: { Cookie: cookie } }, env as never)).text();
+    for (const html of [dashHtml, deviceHtml]) {
       const scripts = inlineScripts(html);
       expect(scripts.length).toBeGreaterThan(0);
       for (const body of scripts) {
         expect(() => new Script(body), `inline script must parse:\n${body.slice(0, 200)}`).not.toThrow();
       }
-      expect(html).not.toContain("}};");
+      // The #125 bug was a doubled close (`...})}};`) that killed the
+      // Authorize button. Plain `}};` is valid JS, so match the exact shape.
+      expect(html).not.toContain("})}};");
+    }
+    // Every dashboard function the wiring references must be defined —
+    // a dropped definition is a dead button with no console error.
+    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "loadAll", "boot"]) {
+      expect(dashHtml, `missing function ${fn}`).toContain(`function ${fn}(`);
     }
     db.close();
   });
@@ -215,14 +219,19 @@ describe("device + dashboard pages (served HTML)", () => {
     const cookie = await signedInCookie(env);
     const html = await (await app.request("/", { headers: { Cookie: cookie } }, env as never)).text();
     // The absolute trust URL is built at runtime from TRUST_ORIGIN, so assert
-    // the origin constant plus the "/t/<id>#k=<token>" shape — and that the
-    // old cloud-origin construction is gone.
+    // the origin constant plus the per-customer scope shape — and that the
+    // old unscoped construction is gone.
     expect(html).toContain('TRUST_ORIGIN="https://epilabs.org"');
-    expect(html).toContain('"/t/"+j.id+"#k="+j.token');
+    expect(html).toContain("{agents:[agent.id],inboxes:[inboxId]}");
     expect(html).not.toContain('location.origin+"/t/"');
     expect(html).toContain("overflow-wrap:anywhere");
     expect(html).toContain("word-break:break-all");
     expect(html).toContain("width=device-width");
+    // Guided flow copy + raw keys out of the main flow.
+    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.2"]) {
+      expect(html).toContain(copy);
+    }
+    expect(html).not.toContain("Create API key");
     db.close();
   });
 });
