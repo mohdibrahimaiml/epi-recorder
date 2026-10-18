@@ -1698,6 +1698,26 @@ class EpiRecorderSession:
             from epi_core.webhook import report_seal, split_witness_urls
 
             urls = split_witness_urls(getattr(self, "witness_url", None))
+            secret = getattr(self, "witness_secret", None)
+            if not urls:
+                # Simple onboarding: fall back to the witness settings saved
+                # by `epi cloud login` when no explicit url/secret was given.
+                try:
+                    import json as _json
+                    import os as _os
+                    from pathlib import Path as _Path
+
+                    _home = _os.getenv("EPI_HOME")
+                    _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
+                    if _cfg.exists():
+                        _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
+                        if isinstance(_saved, dict):
+                            if isinstance(_saved.get("witness_url"), str) and _saved["witness_url"].strip():
+                                urls = split_witness_urls(_saved["witness_url"])
+                            if not secret and _saved.get("witness_secret"):
+                                secret = _saved["witness_secret"]
+                except Exception:
+                    pass
             if not urls:
                 return
             key_name: str | None = None
@@ -1720,7 +1740,7 @@ class EpiRecorderSession:
             entry = report_seal(
                 self.output_path,
                 urls=urls,
-                secret=getattr(self, "witness_secret", None),
+                secret=secret,
                 key_name=key_name,
                 private_key_bytes=private_key_bytes,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
