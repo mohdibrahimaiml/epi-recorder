@@ -247,6 +247,22 @@ def _warn_if_cli_outdated(min_cli_version: str | None) -> None:
         pass
 
 
+def _check_server_version(client) -> None:
+    """Warn when the cloud advertises a newer minimum CLI (non-fatal)."""
+    try:
+        res = client.get("/v1/version")
+        if res.status_code != 200:
+            return
+        try:
+            body = res.json()
+        except Exception:
+            return
+        if isinstance(body, dict):
+            _warn_if_cli_outdated(body.get("min_cli_version"))
+    except Exception:
+        pass
+
+
 def _device_name() -> str | None:
     """Short name for this computer (shown in the dashboard's Computers tab)."""
     try:
@@ -471,6 +487,7 @@ def push(
     effective_agent = agent or load_config().get("customer")
     try:
         with _client(creds) as client:
+            _check_server_version(client)
             init = client.post(
                 f"/v1/orgs/{creds['org']}/artifacts/init",
                 json={
@@ -527,6 +544,7 @@ def status(
     creds = resolve_creds(url, org, api_key)
     try:
         with _client(creds) as client:
+            _check_server_version(client)
             if artifact_id:
                 res = client.get(f"/v1/orgs/{creds['org']}/artifacts/{artifact_id}")
                 res.raise_for_status()

@@ -17,7 +17,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-console = Console(legacy_windows=False)
+console = Console()
 
 enterprise_app = typer.Typer(
     name="enterprise",

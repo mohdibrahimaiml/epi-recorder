@@ -161,3 +161,19 @@ def test_warn_if_cli_outdated_tells_exact_pip_command(capsys):
     _warn_if_cli_outdated("99.0.0")
     out = " ".join(capsys.readouterr().out.split())
     assert "pip install -U epi-recorder" in out
+
+
+def test_no_forced_ansi_in_windows_cmd():
+    """No Console(legacy_windows=False): rich must translate ANSI for cmd.exe."""
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1] / "epi_cli"
+    offenders = []
+    for path in repo.rglob("*.py"):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if "legacy_windows=False" in text:
+            offenders.append(path.name)
+    assert not offenders, f"forced ANSI in windows cmd: {offenders}"
