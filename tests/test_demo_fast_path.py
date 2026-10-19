@@ -149,8 +149,15 @@ def test_demo_decision_line_cut_on_word_boundary(tmp_path: Path):
         "short = answer\n" + "\n".join(l[8:] for l in body.splitlines()) + "\nprint(short)\n",
         encoding="utf-8",
     )
-    out = subprocess.run([sys.executable, str(probe)], capture_output=True, text=True,
-                         encoding="utf-8").stdout.strip()
+    import os
+
+    # Windows: the child would print "…" in the console code page (cp1252)
+    # while we decode UTF-8; pin the child's stdout to UTF-8.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    res = subprocess.run([sys.executable, str(probe)], capture_output=True, text=True,
+                         encoding="utf-8", errors="replace", env=env)
+    assert res.returncode == 0, res.stderr
+    out = (res.stdout or "").strip()
     assert out.endswith("…"), out
     assert "windo…" not in out and len(out) <= 101
     assert out.startswith("Approved. Order ORD-9001 qualifies")
