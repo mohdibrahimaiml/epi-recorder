@@ -95,61 +95,67 @@ def flush(
     import re as _re
 
     _saved_urls_for_hint: set[str] = set()
+    _saved_customer: str | None = None
     if _effective_secret is None:
         try:
             from epi_core.webhook import split_witness_urls as _split
             from epi_cli.cloud import saved_customer as _hint_preset_fn
             _hint_preset = (_hint_preset_fn() or {}) if _hint_preset_fn else {}
             _saved_urls_for_hint = set(_split(_hint_preset.get("witness_url")))
+            _saved_customer = _hint_preset.get("customer") or None
         except Exception:
             _saved_urls_for_hint = set()
+    from epi_core.webhook import describe_witness_failure
+
+    _summaries: list[str] = []
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
+        _cloud = str(url) in _saved_urls_for_hint
         if _re.search(r"\bHTTP(?: Error)? 400\b", str(error)):
             _drop = f"epi witness drop {_url_to_id[url]}" if url in _url_to_id else "epi witness drop <id>"
             _plain(
                 "  Rejected as malformed (HTTP 400): the stamp's format was refused, "
                 f"so retrying won't help — remove it with `{_drop}`."
             )
-        elif code == "401" and not _effective_secret and str(url) not in _saved_urls_for_hint:
+            _summaries.append(
+                "Nothing to retry: malformed stamps stay rejected. Remove "
+                "them with `epi witness drop <id>` (see ids above)."
+            )
+            continue
+        if code == "401" and not _effective_secret and not _cloud:
             _plain(
                 f"  No secret set, so the receiver refused the report (HTTP {code}). "
                 "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
             )
-        elif code == "401" and str(url) in _saved_urls_for_hint:
-            _plain(
-                f"  The receiver rejected this computer's saved secret (HTTP {code}): "
-                "re-run epi cloud login to refresh it."
+            _summaries.append(
+                "Still pending. Fix the URL/secret and flush again, or remove an entry "
+                "with: epi witness drop <id>"
             )
-        elif code == "401":
-            _plain(
-                f"  The receiver rejected the secret (HTTP {code}): "
-                "witness secret changed — update EPI_WITNESS_SECRET "
-                "(same secret as the receiver, or --secret)."
+            continue
+        info = describe_witness_failure(error, cloud_login=_cloud, customer=_saved_customer)
+        _plain(f"  Not delivered: {info['reason']} — {info['fix']}")
+        if info["status"] == 410:
+            _summaries.append("Not retried: a closed customer can't receive reports.")
+        elif info["status"] == 401 and _cloud:
+            _summaries.append(
+                "Still pending. Run epi cloud login — it sends the waiting reports for you."
             )
-        elif code == "403":
-            _plain(
-                "  Blocked before reaching the receiver (HTTP 403: network/firewall, "
-                "not the witness secret). Still queued — flush again when reachable."
+        elif info["status"] == 401:
+            _summaries.append(
+                "Still pending. Fix the URL/secret and flush again, or remove an entry "
+                "with: epi witness drop <id>"
+            )
+        else:
+            _summaries.append(
+                "Still queued — flush again when it's reachable, or remove an entry "
+                "with: epi witness drop <id>"
             )
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")
     if result["failed"]:
-        _all_malformed = all(
-            bool(_re.search(r"\bHTTP(?: Error)? 400\b", str(_err)))
-            for _err in result["failed"].values()
-        )
-        if _all_malformed:
-            _plain(
-                "Nothing to retry: malformed stamps stay rejected. Remove "
-                "them with `epi witness drop <id>` (see ids above)."
-            )
-        else:
-            _plain(
-                "Still pending. Fix the URL/secret and flush again, or remove an entry "
-                "with: epi witness drop <id>"
-            )
+        for _line in dict.fromkeys(_summaries):
+            _plain(_line)
         # Scripts and CI must see that reports are still undelivered.
         raise typer.Exit(1)
 

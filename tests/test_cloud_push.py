@@ -164,7 +164,7 @@ def test_push_deduped_skips_upload(fake_transport, home):
             ]
         )
     assert result.exit_code == 0, result.output
-    assert "Already in the Evidence Room" in result.output
+    assert "Already in your EPI Cloud workspace" in result.output
 
 
 def test_push_sample_skip_is_deterministic(fake_transport, home):
@@ -249,23 +249,106 @@ def test_login_then_push_with_no_flags_or_env(fake_transport, home):
     assert "art_1" in result.output
 
 
-def test_status_with_push_only_key_explains_instead_of_raw_403(home):
-    """A device-minted push-only key can't list runs: say so, don't dump 403."""
+def test_status_with_push_only_key_shows_this_computer(home):
+    """A device-minted push-only key can't list runs: show the computer's settings, exit 0."""
+    (home / "cloud.json").write_text(json.dumps({
+        "url": "https://cloud.test", "org_id": "o1", "api_key": "epik_push",
+        "customer": "Test Bank", "witness_url": "https://cloud.test/w/inb_1",
+        "witness_secret": "s", "auto_push": False,
+    }))
+    from epi_core.webhook import append_outbox_entry, outbox_path
+
+    append_outbox_entry({"workflow_id": "wf"}, ["https://cloud.test/w/inb_1"], path=outbox_path())
     routes = {
-        ("GET", "artifacts"): FakeResponse(
-            403, {"error": {"code": "forbidden"}}, "Forbidden"
-        )
+        ("GET", "whoami"): FakeResponse(200, {"org_id": "o1", "scopes": ["push"], "org_name": "Acme AI"}),
+        ("GET", "artifacts"): FakeResponse(403, {"error": {"code": "forbidden"}}, "Forbidden"),
     }
     with pytest.MonkeyPatch().context() as mp:
         import httpx
 
         mp.setattr(httpx, "Client", _client_with(routes))
-        base = ["--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_push"]
-        result = _invoke(["status", *base])
-    assert result.exit_code == 1, result.output
-    assert "can only push runs" in result.output
-    assert "cloud.epilabs.org" in result.output
+        result = _invoke(["status"])
+    assert result.exit_code == 0, result.output
+    flat = " ".join(result.output.split())
+    assert "Workspace: Acme AI (o1)" in flat
+    assert "Customer: Test Bank" in flat
+    assert "Cloud: https://cloud.test" in flat
+    assert "Auto-push: off" in flat
+    assert "Witness: set up" in flat
+    assert "Witness reports waiting: 1" in flat
+    assert "See this workspace's runs at https://cloud.test" in flat
+    assert "Evidence Room" not in result.output
     assert "403" not in result.output and "Forbidden" not in result.output
+
+
+def test_flag_login_accepts_push_only_key(home):
+    """CI: a push-only key is valid (whoami), and on an older server a 403 list still means valid."""
+    import httpx
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("GET", "whoami"): FakeResponse(200, {"org_id": "o1", "scopes": ["push"]}),
+        }))
+        ok = _invoke(["login", "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_p"])
+    assert ok.exit_code == 0, ok.output
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("GET", "artifacts"): FakeResponse(403, {"error": {"code": "forbidden"}}),
+        }))
+        old = _invoke(["login", "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_p"])
+    assert old.exit_code == 0, old.output
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("GET", "whoami"): FakeResponse(401, {"error": {"code": "key_revoked"}}),
+        }))
+        bad = _invoke(["login", "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_bad"])
+    assert bad.exit_code == 1
+    assert "rejected" in bad.output
+
+
+def test_push_revoked_key_says_reconnect_not_raw_http(home):
+    import httpx
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("POST", "init"): FakeResponse(401, {"error": {"code": "key_invalid"}}),
+        }))
+        result = _invoke(["push", str(SAMPLE), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_r"])
+    assert result.exit_code == 1
+    flat = " ".join(result.output.split())
+    assert "revoked or is no longer valid. Reconnect with: epi cloud login" in flat
+    assert "mozilla" not in flat and "Client error" not in flat
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("POST", "init"): FakeResponse(401, {"error": {"code": "key_invalid", "message": "This key was revoked or isn't valid. Reconnect with: epi cloud login"}}),
+        }))
+        result = _invoke(["push", str(SAMPLE), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_r"])
+    assert "This key was revoked or isn't valid. Reconnect with: epi cloud login" in " ".join(result.output.split())
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("POST", "init"): FakeResponse(402, {"error": {"code": "plan_limit", "message": "Free plan: 100 runs a month."}}),
+        }))
+        result = _invoke(["push", str(SAMPLE), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_r"])
+    assert result.exit_code == 1
+    assert "Free plan: 100 runs a month." in result.output
+
+
+def test_use_with_push_key_says_once_and_writes_nothing(home):
+    cfg = {"url": "https://cloud.test", "org_id": "o1", "api_key": "epik_push", "customer": "Test Bank"}
+    (home / "cloud.json").write_text(json.dumps(cfg))
+    import httpx
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(httpx, "Client", _client_with({
+            ("POST", "by-customer"): FakeResponse(403, {"error": {"code": "forbidden", "message": "Ask an owner to connect this computer to that customer (or re-run epi cloud login)."}}),
+        }))
+        result = _invoke(["use", "Unknown Co"])
+    assert result.exit_code == 1
+    flat = " ".join(result.output.split())
+    assert flat.count("epi cloud login") == 1, flat
+    assert "type the customer's name on the Connect page" in flat
+    assert "[OK]" not in result.output and "Ask an owner" not in flat
+    assert json.loads((home / "cloud.json").read_text()) == cfg
 
 
 def test_login_honors_legacy_saved_spellings(home, monkeypatch):

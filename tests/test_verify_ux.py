@@ -77,8 +77,54 @@ def _run_node(driver: str) -> str:
 
 
 def test_polyglot_tamper_detected_in_code():
+    # One implementation, in the shared core, used by every verifying page
+    # (/verify/, homepage, trust page): home-verify.js only delegates to it.
+    core = (REPO / "website" / "js" / "epi-verify-core.js").read_text(encoding="utf-8")
+    assert "async function verifyPolyglotViewer(" in core
+    assert "global.epiVerifyPolyglotViewer = verifyPolyglotViewer" in core
+    assert "viewer = await verifyPolyglotViewer(u8, det0.offset)" in core, "verifyEPI must run the viewer check"
     assert "function verifyPolyglotViewer(" in HOME_VERIFY
+    assert "window.epiVerifyPolyglotViewer" in HOME_VERIFY
+    assert "reserved_tail" not in HOME_VERIFY.split("function toU8(")[0].split("async function verifyPolyglotViewer(")[1], \
+        "home-verify.js must not carry its own copy of the viewer check"
     assert "SEAL FAIL — FILE ALTERED" in HOME_VERIFY
+
+
+def test_core_verify_epi_rejects_tampered_viewer(tmp_path):
+    """verifyEPI (shared by /verify/, the homepage and the trust page) fails a
+    file whose embedded viewer HTML changed after sealing; genuine passes."""
+    sample = (REPO / "website" / "assets" / "sample.epi").read_bytes()
+    marker = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
+    assert sample[:4] == b"<!--" and marker in sample and any(sample[72:104])
+    bad = bytearray(sample)
+    at = bad.index(b"<html", 128)
+    bad[at + 1] ^= 0x20
+    (tmp_path / "good.epi").write_bytes(sample)
+    (tmp_path / "bad.epi").write_bytes(bytes(bad))
+    js = REPO / "website" / "js"
+    driver = tmp_path / "drv.mjs"
+    driver.write_text(
+        "import fs from 'fs'; import vm from 'vm'; import {webcrypto} from 'crypto';\n"
+        "const ctx = {console, TextEncoder, TextDecoder, crypto: webcrypto, Uint8Array, ArrayBuffer,"
+        " DataView, atob, btoa, setTimeout, Promise};\n"
+        "ctx.globalThis = ctx; ctx.window = ctx; ctx.self = ctx; vm.createContext(ctx);\n"
+        "for (const f of ['jszip.min.js','epi-manifest-preimage.js','epi-verify-core.js'])"
+        " vm.runInContext(fs.readFileSync(%s + '/' + f, 'utf8'), ctx);\n"
+        "for (const p of process.argv.slice(2)) {"
+        " const r = await ctx.verifyEPI(new Blob([fs.readFileSync(p)]));"
+        " console.log(JSON.stringify({integrity: r.integrity, viewer: r.viewer, message: r.message})); }\n"
+        % json.dumps(str(js)),
+        encoding="utf-8",
+    )
+    out = subprocess.run(
+        ["node", str(driver), str(tmp_path / "good.epi"), str(tmp_path / "bad.epi")],
+        capture_output=True, text=True,
+    )
+    assert out.returncode == 0, out.stderr[:800]
+    good, badr = [json.loads(x) for x in out.stdout.strip().splitlines()]
+    assert good["integrity"] is True and good["viewer"] is True, good
+    assert badr["integrity"] is False and badr["viewer"] is False, badr
+    assert "changed after it was sealed" in badr["message"], badr
 
 
 def test_legacy_numbers_match_python_repr():

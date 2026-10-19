@@ -109,6 +109,10 @@ class FakeD1 {
       return { n };
     }
     if (q.startsWith("SELECT id, org_id, scopes FROM api_keys")) return null;
+    if (q.startsWith("SELECT customer_label FROM inboxes WHERE id = ? AND org_id = ? AND closed_at IS NULL")) {
+      const i = this.inboxes.get(a[0] as string);
+      return i && i.org_id === a[1] && i.closed_at == null ? { customer_label: i.customer_label } : null;
+    }
     if (q.startsWith("SELECT entry_hash FROM audit_log")) {
       const rows = this.audit.filter((r) => (r.org_id ?? null) === (a[0] ?? null));
       return rows.length ? { entry_hash: rows[rows.length - 1]!.entry_hash } : null;
@@ -135,6 +139,7 @@ class FakeD1 {
       this.inboxes.set(a[0] as string, { id: a[0], org_id: a[1], customer_label: a[2], hmac_secret_enc: a[3], created_at: a[4], closed_at: a[5] });
       return 1;
     }
+    if (q.startsWith("UPDATE agents SET status")) return 0;
     if (q.startsWith("UPDATE inboxes SET closed_at")) {
       const i = this.inboxes.get(a[1] as string);
       if (!i || i.org_id !== a[2] || i.closed_at != null) return 0;

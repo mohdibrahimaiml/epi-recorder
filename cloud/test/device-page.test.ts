@@ -122,7 +122,7 @@ describe("device + dashboard pages (served HTML)", () => {
     }
     // Every dashboard function the wiring references must be defined —
     // a dropped definition is a dead button with no console error.
-    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "runTitle", "runSub", "witHint", "witSub", "loadAll", "boot"]) {
+    for (const fn of ["createOrg", "createCustomer", "resolveAgentId", "createLink", "rotateSecret", "closeCustomer", "reopenCustomer", "renderTeam", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "runTitle", "runSub", "witHint", "witSub", "loadAll", "boot"]) {
       expect(dashHtml, `missing function ${fn}`).toContain(`function ${fn}(`);
     }
     db.close();
@@ -134,7 +134,7 @@ describe("device + dashboard pages (served HTML)", () => {
     const cookie = await signedInCookie(env);
     const html = await (await app.request("/auth/device", { headers: { Cookie: cookie } }, env as never)).text();
     expect(html).toContain('id="go"');
-    expect(html).toContain('id="lookup"');
+    expect(html).toContain('id="user-code"');
     expect(html).toContain('id="user-code"');
     expect(html).toContain("/auth/device/lookup");
     expect(html).toContain("/auth/device/authorize");
@@ -209,7 +209,7 @@ describe("device + dashboard pages (served HTML)", () => {
     const env = envFor(db);
     const cookie = await signedInCookie(env);
     const html = await (await app.request("/auth/device", { headers: { Cookie: cookie } }, env as never)).text();
-    expect(html).toContain("toLocaleString");
+    expect(html).toContain("toLocaleTimeString");
     db.close();
   });
 
@@ -228,10 +228,18 @@ describe("device + dashboard pages (served HTML)", () => {
     expect(html).toContain("word-break:break-all");
     expect(html).toContain("width=device-width");
     // Guided flow copy + raw keys out of the main flow.
-    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.1"]) {
+    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Create share link", "Advanced", "4.6.2 or newer", "Share links"]) {
       expect(html).toContain(copy);
     }
     expect(html).not.toContain("Create API key");
+    // One name per concept: no internal words or setup-era copy in the UI.
+    for (const gone of ["Trust links", "Create trust link", "Share with reviewer", "Evidence Room", "Nothing here is final", "I\u2019ve saved it", "No workspace yet"]) {
+      expect(html).not.toContain(gone);
+    }
+    // Customers are added in one server call (no half-created customer).
+    expect(html).toContain("/inboxes/by-customer");
+    // Rotation tells people to re-run login; env vars only under Advanced.
+    expect(html).toContain("Advanced: CI or manual setup");
     db.close();
   });
 });

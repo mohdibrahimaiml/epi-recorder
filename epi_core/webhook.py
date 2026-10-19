@@ -368,6 +368,104 @@ def _mark_error(path: Path, entry_id: str, error: str) -> None:
         _write_outbox(entries, path)
 
 
+def _mark_gone(path: Path, entry_id: str, url: str, error: str) -> None:
+    """HTTP 410: the receiver is closed for good. Stop retrying this url
+    (keep a note in the entry) so flush never loops on it forever."""
+    entries = read_outbox(path)
+    changed = False
+    for entry in entries:
+        if entry.get("id") == entry_id:
+            entry["pending"] = [u for u in (entry.get("pending") or []) if u != url]
+            gone = entry.get("gone") or {}
+            gone[url] = {"at": _utc_now_iso(), "error": str(error)[:300]}
+            entry["gone"] = gone
+            entry["last_error"] = f"{url}: {error}"[:300]
+            changed = True
+    if changed:
+        _write_outbox(entries, path)
+
+
+def witness_http_status(error: Any) -> int | None:
+    """HTTP status in a delivery error string ("HTTP Error 401: ..."), or None."""
+    import re
+
+    match = re.search(r"\bHTTP(?: Error)? (\d{3})\b", str(error or ""))
+    return int(match.group(1)) if match else None
+
+
+def describe_witness_failure(
+    error: Any,
+    *,
+    cloud_login: bool = False,
+    customer: str | None = None,
+) -> dict[str, Any]:
+    """Plain-words reason + exact fix for one failed witness delivery.
+
+    Returns {"status", "reason", "fix", "retry_helps"}. `retry_helps` is
+    False when `epi witness flush` cannot fix it on its own (wrong secret,
+    closed customer, malformed report), so callers never suggest flush there.
+    """
+    status = witness_http_status(error)
+    where = "EPI Cloud" if cloud_login else "the witness receiver"
+    if status == 401:
+        if cloud_login:
+            return {
+                "status": 401,
+                "reason": "this computer's witness settings are out of date (the secret was rotated)",
+                "fix": "run: epi cloud login",
+                "retry_helps": False,
+            }
+        return {
+            "status": 401,
+            "reason": "witness secret changed",
+            "fix": "update EPI_WITNESS_SECRET to the receiver's new secret, then run: epi witness flush",
+            "retry_helps": False,
+        }
+    if status == 410:
+        name = (customer or "").strip()
+        who = f"the customer '{name}'" if name else "this customer"
+        if cloud_login:
+            return {
+                "status": 410,
+                "reason": f"{who} was closed in the dashboard",
+                "fix": "pick another: epi cloud login",
+                "retry_helps": False,
+            }
+        return {
+            "status": 410,
+            "reason": "the witness receiver is closed",
+            "fix": "ask your customer for a new witness URL",
+            "retry_helps": False,
+        }
+    if status == 403:
+        return {
+            "status": 403,
+            "reason": "blocked before reaching EPI Cloud (network/firewall); the report is queued",
+            "fix": "when the network allows it, run: epi witness flush",
+            "retry_helps": True,
+        }
+    if status == 400:
+        return {
+            "status": 400,
+            "reason": f"{where} refused the report as malformed",
+            "fix": "remove it with: epi witness drop <id>",
+            "retry_helps": False,
+        }
+    if status is not None and status >= 500:
+        return {
+            "status": status,
+            "reason": f"{where} had a temporary error (HTTP {status}); the report is queued",
+            "fix": "try again later: epi witness flush",
+            "retry_helps": True,
+        }
+    return {
+        "status": status,
+        "reason": f"could not reach {where}; the report is queued",
+        "fix": "when you're online, run: epi witness flush",
+        "retry_helps": True,
+    }
+
+
 def _post_once(
     url: str,
     payload: dict[str, Any],
@@ -424,7 +522,11 @@ def deliver_entry(
             )
         except Exception as exc:
             failed[url] = str(exc)[:300]
-            _mark_error(target, str(entry.get("id")), f"{url}: {exc}")
+            if witness_http_status(exc) == 410:
+                # Closed for good: never retried, so flush can't loop on it.
+                _mark_gone(target, str(entry.get("id")), url, str(exc))
+            else:
+                _mark_error(target, str(entry.get("id")), f"{url}: {exc}")
         else:
             delivered.append(url)
             _mark_delivered(target, str(entry.get("id")), url)

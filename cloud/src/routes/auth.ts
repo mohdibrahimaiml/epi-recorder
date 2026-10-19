@@ -8,6 +8,7 @@ import { checkRateLimit, d1CounterStore, clientIp } from "../lib/ratelimit.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
 import { openSecret, sealSecret } from "../lib/secretbox.ts";
 import { esc, page } from "../ui.ts";
+import { liveInvite } from "./invites.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -261,6 +262,56 @@ app.post("/logout", async (c) => {
   return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
 });
 
+// Human page behind an invite link. Shows which workspace and role, makes the
+// person sign in (coming back here afterwards), and only lets the invited
+// email accept. The token stays in the path; it is never put in a cookie.
+app.get("/invite/:token", async (c) => {
+  const token = c.req.param("token");
+  const inv = /^[A-Za-z0-9_-]{16,128}$/.test(token) ? await liveInvite(c.env.DB, token) : null;
+  if (!inv) {
+    return c.html(page("Invite — EPI Cloud",
+      `<span class="tag">Invite</span><h1>This invite can't be used</h1>` +
+      `<p class="lede">It may have expired (invites last 7 days), been used already, or been cancelled. Ask the person who invited you for a new link.</p>` +
+      `<p><a class="btn btn-sec" href="/">Go to EPI Cloud</a></p>`), 404);
+  }
+  const org = await c.env.DB.prepare("SELECT name FROM orgs WHERE id = ?").bind(inv.org_id).first<{ name: string }>();
+  const orgName = org?.name ?? "a workspace";
+  const roleWords: Record<string, string> = {
+    owner: "an owner (can manage customers, computers, share links and the team)",
+    member: "a member (can see runs and connect computers)",
+    viewer: "a viewer (can see runs)",
+  };
+  const head =
+    `<span class="tag">Invite</span><h1>Join ${esc(orgName)} on EPI Cloud</h1>` +
+    `<p class="lede">You were invited as ${esc(roleWords[inv.role] ?? inv.role)}. This invite is for <strong>${esc(inv.email)}</strong> and expires ${esc(new Date(inv.expires_at).toUTCString())}.</p>`;
+  const user = await userFromRequest(c.env.DB, c.req.raw);
+  const next = encodeURIComponent(`/auth/invite/${token}`);
+  if (!user) {
+    return c.html(page("Invite — EPI Cloud",
+      head +
+      `<p>Sign in with the account for <strong>${esc(inv.email)}</strong>, then you'll come back here to join.</p>` +
+      `<p><a class="btn btn-pri" href="/auth/github?next=${next}">Sign in with GitHub</a></p>` +
+      (c.env.GOOGLE_CLIENT_ID ? `<p><a class="btn btn-sec" href="/auth/google?next=${next}">Sign in with Google</a></p>` : ``)));
+  }
+  const matches = !!user.email && user.email.trim().toLowerCase() === inv.email.trim().toLowerCase();
+  if (!matches) {
+    return c.html(page("Invite — EPI Cloud",
+      head +
+      `<p class="warn">You're signed in as <strong>${esc(user.email ?? "an account without an email")}</strong>, but this invite is for <strong>${esc(inv.email)}</strong>. Sign out, then open this link again and sign in with the invited account.</p>` +
+      `<p><button type="button" class="btn btn-sec" id="so">Sign out</button></p>`,
+      { script: `document.getElementById("so").onclick=function(){fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).then(function(){location.reload();},function(){location.reload();});};` }));
+  }
+  return c.html(page("Invite — EPI Cloud",
+    head +
+    `<p><button type="button" class="btn btn-pri" id="go">Join ${esc(orgName)}</button></p><p id="msg" class="small" role="status"></p>`,
+    {
+      script:
+        `var t=${JSON.stringify(token)};document.getElementById("go").onclick=function(){var b=this;b.disabled=true;var m=document.getElementById("msg");m.textContent="Joining\\u2026";` +
+        `fetch("/v1/invites/"+encodeURIComponent(t)+"/accept",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:"{}"})` +
+        `.then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(r.ok){location.href="/";return;}b.disabled=false;m.textContent=(j&&j.error&&j.error.message)||"Couldn't join \\u2014 try again.";});},function(){b.disabled=false;m.textContent="Couldn't reach EPI Cloud \\u2014 check your connection and try again.";});};`,
+    }));
+});
+
 // Device-code flow for `epi cloud login` (no flags), RFC 8628 style.
 // The CLI keeps the long device secret and shows a short user code
 // (e.g. WDJB-MJHT). The user types that code on /auth/device — the secret
@@ -323,8 +374,13 @@ app.post("/device/start", async (c) => {
   const limited = await loginLimited(c.env.DB, c.req.raw);
   if (limited) return limited;
   await purgeExpiredDevices(c.env.DB);
-  const nameRaw = z.object({ device_name: z.string().trim().min(1).max(64).optional() }).safeParse(await c.req.json().catch(() => null));
+  const nameRaw = z.object({
+    device_name: z.string().trim().min(1).max(64).optional(),
+    // The key this computer already holds (re-login). Only its hash is kept.
+    replaces_key: z.string().startsWith("epik_").max(200).optional(),
+  }).safeParse(await c.req.json().catch(() => null));
   const deviceName = nameRaw.success ? (nameRaw.data.device_name ?? null) : null;
+  const replacesHash = nameRaw.success && nameRaw.data.replaces_key ? await sha256Hex(nameRaw.data.replaces_key) : null;
   const code = newToken();
   const now = Date.now();
   let userCode = "";
@@ -332,9 +388,9 @@ app.post("/device/start", async (c) => {
     const candidate = newUserCode();
     try {
       await c.env.DB.prepare(
-        "INSERT INTO device_codes (code, user_code, device_name, status, created_at, expires_at) VALUES (?, ?, ?, 'pending', ?, ?)",
+        "INSERT INTO device_codes (code, user_code, device_name, status, created_at, expires_at, replaces_key_hash) VALUES (?, ?, ?, 'pending', ?, ?, ?)",
       )
-        .bind(code, candidate, deviceName, new Date(now).toISOString(), new Date(now + DEVICE_TTL_MS).toISOString())
+        .bind(code, candidate, deviceName, new Date(now).toISOString(), new Date(now + DEVICE_TTL_MS).toISOString(), replacesHash)
         .run();
       userCode = candidate;
       break;
@@ -395,7 +451,7 @@ app.get("/device", async (c) => {
   if (!user) {
     return c.html(
       page(
-        "Authorize this computer — EPI Cloud",
+        "Connect this computer — EPI Cloud",
         `<span class="tag">Device login</span>` +
           `<h1>Authorize this computer</h1>` +
           `<p class="lede">Sign in first, then type the short code shown in <strong>your own</strong> terminal. A link alone authorizes nothing.</p>` +
@@ -409,71 +465,63 @@ app.get("/device", async (c) => {
   const script = [
     `var codeEl=document.getElementById("user-code");`,
     `var orgEl=document.getElementById("org");`,
+    `var custEl=document.getElementById("cust");`,
     `var msg=document.getElementById("msg");`,
     `var reqEl=document.getElementById("req");`,
-    `function setMsg(t,ok){msg.textContent=t;msg.className=ok?"ok":"";}`,
-    `function loadCustomers(){var oid=orgEl.value;var sel=document.getElementById("cust");if(!sel){return;}while(sel.options.length>1){sel.remove(1);}if(!oid){return;}fetch("/v1/orgs/"+encodeURIComponent(oid)+"/inboxes",{credentials:"same-origin"}).then(function(r){return r.json().catch(function(){return {};});}).then(function(j){(j.inboxes||[]).filter(function(b){return !b.closed_at;}).forEach(function(b){var o=document.createElement("option");o.value=b.customer_label;o.textContent=b.customer_label;sel.appendChild(o);});}).catch(function(){});}`,
+    `function setMsg(t,cls){msg.textContent=t;msg.className=cls||"msg";}`,
+    `function loadCustomers(){var oid=orgEl.value;var dl=document.getElementById("cust-list");dl.innerHTML="";if(!oid){return;}fetch("/v1/orgs/"+encodeURIComponent(oid)+"/inboxes",{credentials:"same-origin"}).then(function(r){return r.json().catch(function(){return {};});}).then(function(j){var open=(j.inboxes||[]).filter(function(b){return !b.closed_at;});open.forEach(function(b){var o=document.createElement("option");o.value=b.customer_label;dl.appendChild(o);});var hint=document.getElementById("cust-hint");if(open.length===1&&!custEl.value){custEl.value=open[0].customer_label;}if(hint){hint.textContent=open.length?("Your customers: "+open.map(function(b){return b.customer_label;}).join(", ")+". Type one of them, or a new name."):"Type the name of the company this evidence is for, e.g. Acme Bank.";}}).catch(function(){});}`,
     `fetch("/v1/orgs",{credentials:"same-origin"})`,
     `  .then(function(r){return r.json();})`,
     `  .then(function(j){`,
-    `    orgEl.innerHTML="";`,
-    `    (j.orgs||[]).forEach(function(o){`,
-    `      var el=document.createElement("option");`,
-    `      el.value=o.id;`,
-    `      el.textContent=o.name+" ("+o.id+")";`,
-    `      orgEl.appendChild(el);`,
-    `    });orgEl.onchange=loadCustomers;loadCustomers();`,
-    `    if(!orgEl.options.length){setMsg("No workspace yet \\u2014 create one on the front page first.",false);}`,
+    `    orgEl.innerHTML="";var orgs=j.orgs||[];`,
+    `    orgs.forEach(function(o){var el=document.createElement("option");el.value=o.id;el.textContent=o.name;orgEl.appendChild(el);});`,
+    `    document.getElementById("org-row").style.display=orgs.length>1?"":"none";`,
+    `    var one=document.getElementById("org-one");if(orgs.length===1){one.textContent=orgs[0].name;one.parentNode.style.display="";}`,
+    `    orgEl.onchange=loadCustomers;loadCustomers();`,
+    `    if(!orgs.length){setMsg("You don\\u2019t have a workspace yet. Create one on the EPI Cloud front page first, then come back.","warn");document.getElementById("go").disabled=true;}`,
     `  });`,
-    `document.getElementById("lookup").onclick=function(){`,
-    `  var code=codeEl.value;`,
-    `  setMsg("Checking code\\u2026",false);`,
-    `  reqEl.textContent="";`,
-    `  fetch("/auth/device/lookup",{method:"POST",credentials:"same-origin",`,
-    `    headers:{"Content-Type":"application/json"},body:JSON.stringify({user_code:code})})`,
+    `function checkCode(){var code=codeEl.value.replace(/[^A-Za-z0-9]/g,"");if(code.length<8){reqEl.textContent="";return;}`,
+    `  fetch("/auth/device/lookup",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_code:codeEl.value})})`,
     `    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})`,
-    `    .then(function(x){`,
-    `      if(x.ok){`,
-    `        var when=x.j.requested_at;`,
-    `        try{when=new Date(x.j.requested_at).toLocaleString();}catch(e){}`,
-    `        reqEl.textContent="A computer requested access at "+when+".";loadCustomers();`,
-    `        setMsg("Code accepted \\u2014 pick a workspace, then Authorize.",true);`,
-    `      }`,
-    `      else{setMsg("Failed: "+((x.j&&x.j.error&&x.j.error.message)||"unknown"),false);}`,
-    `    })`,
-    `    .catch(function(){setMsg("Failed.",false);});`,
-    `};`,
+    `    .then(function(x){if(x.ok){var when=x.j.requested_at;try{when=new Date(x.j.requested_at).toLocaleTimeString();}catch(e){}reqEl.textContent="\\u2713 Code found \\u2014 a computer asked at "+when+".";reqEl.className="small";}else{reqEl.textContent=(x.j&&x.j.error&&x.j.error.message)||"That code wasn\\u2019t found.";reqEl.className="small mut";}})`,
+    `    .catch(function(){});}`,
+    `codeEl.oninput=checkCode;`,
     `document.getElementById("go").onclick=function(){`,
-    `  var m=msg;var _cn=document.getElementById("cust-new").value.trim();var _cs=document.getElementById("cust");var _cl=_cn||(_cs?_cs.value:"");m.textContent="Authorizing\\u2026";m.className="";`,
+    `  var b=this;var cl=custEl.value.trim().replace(/\\s+/g," ");`,
+    `  if(!codeEl.value.trim()){setMsg("Type the code from your terminal first.","err");codeEl.focus();return;}`,
+    `  if(!cl){setMsg("Type which customer this computer records for (for example Acme Bank).","err");custEl.focus();return;}`,
+    `  b.disabled=true;setMsg("Connecting\\u2026");`,
     `  fetch("/auth/device/authorize",{method:"POST",credentials:"same-origin",`,
     `    headers:{"Content-Type":"application/json"},`,
-    `    body:JSON.stringify((function(){var b={user_code:codeEl.value,org_id:orgEl.value};if(typeof _cl!=="undefined"&&_cl){b.customer_label=_cl;}return b;})())})`,
+    `    body:JSON.stringify({user_code:codeEl.value,org_id:orgEl.value,customer_label:cl})})`,
     `    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})`,
     `    .then(function(x){`,
-    `      if(x.ok){m.textContent="Authorized \\u2014 return to your terminal.";m.className="ok";}`,
-    `      else{m.textContent="Failed: "+((x.j&&x.j.error&&x.j.error.message)||"unknown");m.className="";}`,
+    `      if(x.ok){setMsg("\\u2713 Done \\u2014 go back to your terminal. This computer now records for "+cl+". Next, run: epi demo","ok");}`,
+    `      else{b.disabled=false;setMsg((x.j&&x.j.error&&x.j.error.message)||"That didn\\u2019t work \\u2014 check the code and try again.","err");}`,
     `    })`,
-    `    .catch(function(){m.textContent="Failed.";});`,
+    `    .catch(function(){b.disabled=false;setMsg("Couldn\\u2019t reach EPI Cloud \\u2014 check your connection and try again.","err");});`,
     `};`,
   ].join("\n");
   return c.html(
     page(
-      "Authorize this computer — EPI Cloud",
-      `<span class="tag">Device login</span>` +
-        `<h1>Authorize this computer</h1>` +
-        `<div class="card"><p><strong>Step 1.</strong> In <strong>your own</strong> terminal you ran ` +
-        `<code>epi cloud login</code>. Type the short code it shows (looks like <code>WDJB-MJHT</code>):</p>` +
+      "Connect this computer — EPI Cloud",
+      `<span class="tag">Connect a computer</span>` +
+        `<h1>Connect this computer</h1>` +
+        `<p class="lede">You ran <code>epi cloud login</code> in your terminal. Type the code it shows and the customer this computer records for. Nothing secret to copy — the rest goes to your computer automatically.</p>` +
+        `<div class="card">` +
         `<label for="user-code">Code from your terminal</label>` +
         `<input id="user-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX">` +
-        `<p><button id="lookup" type="button" class="btn btn-sec">Check code</button></p>` +
-        `<p id="req" class="mut small" role="status"></p></div>` +
-        `<div class="card"><p><strong>Step 2.</strong> Pick the workspace, then the customer this computer records for, and authorize. The witness secret is delivered to your computer automatically - never copy it. The workspace receives a ` +
-        `<strong>push-only</strong> key (<code>epik_…</code>, selected runs only, revocable):</p>` +
-        `<label for="org">Workspace (org)</label><select id="org"></select><label for="cust">Customer (which customer is this computer recording for?)</label><select id="cust"><option value="">- just connect, no customer yet -</option></select><label for="cust-new">Or type a new customer name</label><input id="cust-new" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Acme Bank">` +
-        `<p><button id="go" type="button" class="btn btn-pri">Authorize this computer</button></p>` +
+        `<p id="req" class="mut small" role="status"></p>` +
+        `<p class="small" style="display:none">Workspace: <strong id="org-one"></strong></p>` +
+        `<div id="org-row" style="display:none"><label for="org">Workspace</label><select id="org"></select></div>` +
+        `<label for="cust">Customer this computer records for</label>` +
+        `<input id="cust" list="cust-list" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Acme Bank"><datalist id="cust-list"></datalist>` +
+        `<p id="cust-hint" class="small mut"></p>` +
+        `<p><button id="go" type="button" class="btn btn-pri">Connect this computer</button></p>` +
         `<p id="msg" class="msg" role="status"></p>` +
-        `<p class="small mut">Never type a code someone sent you. Codes only work for the computer that asked.</p></div>` +
-        `<p><a href="/">Back to setup</a></p>`,
+        `</div>` +
+        `<p class="small mut">Only type a code that <strong>your own</strong> terminal shows. Never a code someone sent you — it would connect their computer to your workspace. You can disconnect any computer later under Computers on the dashboard.</p>` +
+        `<p><a href="/">Back to the dashboard</a></p>`,
       { script },
     ),
   );
@@ -535,12 +583,12 @@ app.post("/device/authorize", async (c) => {
   // once those 10-minute codes expire.
   const byUser = body.data.user_code ? normalizeUserCode(body.data.user_code) : null;
   const dev = byUser
-    ? await c.env.DB.prepare("SELECT code, device_name, status, expires_at FROM device_codes WHERE user_code = ?")
+    ? await c.env.DB.prepare("SELECT code, device_name, status, expires_at, replaces_key_hash FROM device_codes WHERE user_code = ?")
       .bind(byUser)
-      .first<{ code: string; device_name: string | null; status: string; expires_at: string }>()
-    : await c.env.DB.prepare("SELECT code, device_name, status, expires_at FROM device_codes WHERE code = ?")
+      .first<{ code: string; device_name: string | null; status: string; expires_at: string; replaces_key_hash: string | null }>()
+    : await c.env.DB.prepare("SELECT code, device_name, status, expires_at, replaces_key_hash FROM device_codes WHERE code = ?")
       .bind(body.data.device_code!)
-      .first<{ code: string; device_name: string | null; status: string; expires_at: string }>();
+      .first<{ code: string; device_name: string | null; status: string; expires_at: string; replaces_key_hash: string | null }>();
   if (!dev) return c.json({ error: { code: "not_found", message: "Unknown or mistyped code. Check and retry." } }, 404);
   if (dev.expires_at <= nowIso()) {
     await c.env.DB.prepare("DELETE FROM device_codes WHERE code = ?").bind(dev.code).run();
@@ -550,19 +598,13 @@ app.post("/device/authorize", async (c) => {
     return c.json({ error: { code: "already_authorized", message: "Already authorized. No new key minted." } }, 409);
   }
   const role = await membershipRole(c.env.DB, body.data.org_id, user.id);
-  if (role !== "owner" && role !== "member") return c.json({ error: { code: "forbidden", message: "Owners or members only." } }, 403);
-  const key = newApiKey();
-  const id = newId("key");
-  await c.env.DB.prepare(
-    "INSERT INTO api_keys (id, org_id, prefix, key_hash, scopes, label, created_by, created_at, last_used_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)",
-  )
-    .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", dev.device_name, user.id, nowIso())
-    .run();
-  const sealed = await sealDeviceKey(c.env, key.raw);
-  // Optional customer binding: the browser asks which customer
-  // this computer records for. The witness URL + sealed secret are stored
-  // with the device row and handed to the CLI on first poll, so the user
-  // never copies a secret.
+  if (role !== "owner" && role !== "member") {
+    return c.json({ error: { code: "forbidden", message: "Only workspace owners and members can connect a computer. Ask an owner to invite you." } }, 403);
+  }
+  // Customer first: if it fails (plan limit, unknown customer) nothing is
+  // minted, so a failed attempt never leaves a dead key in the list.
+  // The witness URL + sealed secret are stored with the device row and
+  // handed to the CLI on first poll, so the user never copies a secret.
   let customerLabel: string | null = null;
   let witnessUrl: string | null = null;
   let witnessSealed: string | null = null;
@@ -573,17 +615,36 @@ app.post("/device/authorize", async (c) => {
       allowCreateAgent: true,
     });
     if (!ensured.ok) return c.json({ error: { code: ensured.code, message: ensured.message } }, ensured.status as 400);
-    customerLabel = rawLabel;
+    customerLabel = ensured.label;
     witnessUrl = ensured.url;
     witnessSealed = await sealDeviceKey(c.env, ensured.secret);
   }
+  const key = newApiKey();
+  const id = newId("key");
+  await c.env.DB.prepare(
+    "INSERT INTO api_keys (id, org_id, prefix, key_hash, scopes, label, created_by, created_at, last_used_at, revoked_at, customer_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+  )
+    .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", dev.device_name, user.id, nowIso(), customerLabel)
+    .run();
+  const sealed = await sealDeviceKey(c.env, key.raw);
   const updated = await c.env.DB.prepare(
     "UPDATE device_codes SET status = 'authorized', org_id = ?, api_key_id = ?, api_key_raw = ?, customer_label = ?, witness_url = ?, witness_secret_enc = ?, authorized_at = ? WHERE code = ? AND status = 'pending'",
   )
     .bind(body.data.org_id, id, sealed, customerLabel, witnessUrl, witnessSealed, nowIso(), dev.code)
     .run();
   if (updated.meta.changes === 0) {
+    // Lost a double-click race: retire the key we just made.
+    await c.env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ?").bind(nowIso(), id).run();
     return c.json({ error: { code: "already_authorized", message: "Already authorized. No new key minted." } }, 409);
+  }
+  // Re-login on the same computer: its previous key (proved by possession at
+  // /device/start) is retired, so the key list doesn't fill with dead rows.
+  if (dev.replaces_key_hash) {
+    const old = await c.env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE key_hash = ? AND org_id = ? AND revoked_at IS NULL AND id != ?")
+      .bind(nowIso(), dev.replaces_key_hash, body.data.org_id, id).run();
+    if (old.meta.changes) {
+      await auditLog(d1AuditDb(c.env.DB), { orgId: body.data.org_id, actor: `user:${user.id}`, action: "api_key.revoke", detail: "replaced by re-login" });
+    }
   }
   await auditLog(d1AuditDb(c.env.DB), { orgId: body.data.org_id, actor: `user:${user.id}`, action: "api_key.create", detail: `${id} scopes=push via device` });
   return c.json({ ok: true });

@@ -14,6 +14,7 @@ class FakeD1 {
   sessions = new Map<string, Row>();
   memberships = new Map<string, Row>();
   keys = new Map<string, Row>();
+  apiKeys = new Map<string, Row>();
   audit: Row[] = [];
 
   prepare(sql: string) {
@@ -33,6 +34,10 @@ class FakeD1 {
       const s = this.sessions.get(a[0] as string);
       if (!s) return null;
       return { user_id: s.user_id, expires_at: s.expires_at, email: this.users.get(s.user_id as string)?.email ?? null };
+    }
+    if (q.startsWith("SELECT id, org_id, scopes FROM api_keys")) {
+      const k = this.apiKeys.get(a[0] as string);
+      return k && k.revoked_at == null ? { id: k.id, org_id: k.org_id, scopes: k.scopes } : null;
     }
     if (q.startsWith("SELECT role FROM memberships")) return this.memberships.get(`${a[0]}|${a[1]}`) ?? null;
     if (q.startsWith("SELECT id, slug FROM orgs WHERE id = ?")) {
@@ -66,6 +71,7 @@ class FakeD1 {
   }
 
   private exec(q: string, a: unknown[]): number {
+    if (q.startsWith("UPDATE api_keys SET last_used_at")) return 1;
     if (q.startsWith("INSERT INTO org_keys")) {
       for (const k of this.keys.values()) {
         if (k.org_id === a[1] && k.public_key === a[2]) throw new Error("UNIQUE");
@@ -132,6 +138,14 @@ async function setup() {
   }
   db.memberships.set("o1|u_owner", { org_id: "o1", user_id: "u_owner", role: "owner" });
   db.memberships.set("o1|u_member", { org_id: "o1", user_id: "u_member", role: "member" });
+  for (const [raw, id, org, scopes, revoked] of [
+    ["epik_push_o1", "ak_push", "o1", "push", null],
+    ["epik_read_o1", "ak_read", "o1", "read", null],
+    ["epik_push_o2", "ak_push2", "o2", "push", null],
+    ["epik_revoked", "ak_rev", "o1", "push", "2026-01-01T00:00:00.000Z"],
+  ] as const) {
+    db.apiKeys.set(await sha256Hex(raw), { id, org_id: org, scopes, revoked_at: revoked });
+  }
   const ck = (raw: string) => ({ Cookie: `epi_session=${raw}`, "Content-Type": "application/json" });
   return { db, env, ck };
 }
@@ -243,5 +257,51 @@ describe("org public keys", () => {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
     }, env as never)).status).toBe(401);
     expect((await app.request("/v1/orgs/o1/keys/key_1", { method: "DELETE" }, env as never)).status).toBe(401);
+  });
+
+  it("a computer's push key registers its PUBLIC key once; everything else stays owner-only", async () => {
+    const { db, env, ck } = await setup();
+    const bk = (raw: string) => ({ Authorization: `Bearer ${raw}`, "Content-Type": "application/json" });
+    const reg = await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_push_o1"), body: JSON.stringify({ public_key: PUB, label: "laptop" }),
+    }, env as never);
+    expect(reg.status).toBe(201);
+    const created = (await reg.json()) as { id: string; fingerprint: string };
+    expect(created.fingerprint).toBe(FP);
+    expect(db.audit.at(-1)).toMatchObject({ actor: "key:ak_push", action: "org_key.register" });
+    // Idempotent: a second registration is a 409, not a second row.
+    const again = await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_push_o1"), body: JSON.stringify({ public_key: PUB }),
+    }, env as never);
+    expect(again.status).toBe(409);
+    expect(db.keys.size).toBe(1);
+    // Still refuses private keys / junk for key callers too.
+    expect((await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_push_o1"), body: JSON.stringify({ public_key: "ab".repeat(64) }),
+    }, env as never)).status).toBe(400);
+    // Wrong workspace, non-push scope, revoked/unknown keys are refused.
+    expect((await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_push_o2"), body: JSON.stringify({ public_key: PUB }),
+    }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_read_o1"), body: JSON.stringify({ public_key: PUB }),
+    }, env as never)).status).toBe(403);
+    expect((await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: bk("epik_revoked"), body: JSON.stringify({ public_key: PUB }),
+    }, env as never)).status).toBe(401);
+    // A push key can never list, revoke, unrevoke or delete.
+    expect((await app.request("/v1/orgs/o1/keys", { headers: bk("epik_push_o1") }, env as never)).status).toBe(401);
+    expect((await app.request(`/v1/orgs/o1/keys/${created.id}/revoke`, {
+      method: "POST", headers: bk("epik_push_o1"), body: JSON.stringify({}),
+    }, env as never)).status).toBe(401);
+    expect((await app.request(`/v1/orgs/o1/keys/${created.id}/unrevoke`, {
+      method: "POST", headers: bk("epik_push_o1"),
+    }, env as never)).status).toBe(401);
+    expect((await app.request(`/v1/orgs/o1/keys/${created.id}`, { method: "DELETE", headers: bk("epik_push_o1") }, env as never)).status).toBe(401);
+    expect(db.keys.get(created.id)!.revoked_at).toBeNull();
+    // Owner still registers with a session.
+    expect((await app.request("/v1/orgs/o1/keys", {
+      method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ public_key: PUB }),
+    }, env as never)).status).toBe(409);
   });
 });

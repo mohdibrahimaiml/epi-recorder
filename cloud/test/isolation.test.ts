@@ -63,7 +63,7 @@ class FakeD1 {
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.status === "active") n++;
       return { n };
     }
-    if (q.startsWith("SELECT id, org_id, role, expires_at, accepted_at FROM invites")) {
+    if (q.startsWith("SELECT id, org_id, role, expires_at, accepted_at FROM invites") || q.startsWith("SELECT id, org_id, email, role, expires_at, accepted_at FROM invites")) {
       for (const v of this.invites.values()) if (v.token_hash === a[0]) return { ...v };
       return null;
     }
@@ -283,6 +283,26 @@ describe("tenant isolation (org A can never touch org B)", () => {
     const r = await app.request(`/v1/invites/${raw}/accept`, { method: "POST", headers: { ...cookie(c), "Content-Type": "application/json" } }, env as never);
     expect(r.status).toBe(200);
     expect(db.memberships.get("org_A|usr_c")?.role).toBe("member");
+  });
+
+  it("an invite only works for the email it was made for (a forwarded link can't make someone owner)", async () => {
+    const db = new FakeD1();
+    const env = ENV(db);
+    await seedSession(db, "usr_a", "a@x.test");
+    const m = await seedSession(db, "usr_m", "mallory@x.test");
+    db.orgs.set("org_A", { id: "org_A", slug: "a", name: "A", plan: "free", created_at: "t" });
+    db.memberships.set("org_A|usr_a", { org_id: "org_A", user_id: "usr_a", role: "owner" });
+    const raw = "inviterawtoken-ownerinvite-0123456789abcdef0123456789abcdef";
+    db.invites.set(await sha256Hex(raw), { id: "inv_2", org_id: "org_A", email: "Boss@X.test", role: "owner", token_hash: await sha256Hex(raw), expires_at: "2999-01-01T00:00:00.000Z", accepted_at: null });
+    const r = await app.request(`/v1/invites/${raw}/accept`, { method: "POST", headers: { ...cookie(m), "Content-Type": "application/json" } }, env as never);
+    expect(r.status).toBe(403);
+    expect(((await r.json()) as { error: { code: string } }).error.code).toBe("wrong_account");
+    expect(db.memberships.get("org_A|usr_m")).toBeUndefined();
+    // The invited address (any case) can still accept.
+    const b = await seedSession(db, "usr_b", "boss@x.test");
+    const ok = await app.request(`/v1/invites/${raw}/accept`, { method: "POST", headers: { ...cookie(b), "Content-Type": "application/json" } }, env as never);
+    expect(ok.status).toBe(200);
+    expect(db.memberships.get("org_A|usr_b")?.role).toBe("owner");
   });
 
   it("API key auth is org-bound and honors revocation", async () => {

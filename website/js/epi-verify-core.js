@@ -272,6 +272,62 @@
     }).join('');
   }
 
+  /**
+   * Outer polyglot viewer check (envelope-v2 only). Mirrors
+   * EPIContainer.verify_polyglot_viewer: reserved_tail[0:32] (header bytes
+   * 72..103) is the SHA-256 of the display-layer HTML between the 128-byte
+   * header and EPI_ZIP_PAYLOAD_START. A flipped byte there must fail exactly
+   * like the CLI (SEAL FAIL - FILE ALTERED). An all-zero hash means a legacy
+   * seal whose display layer is not covered (informational note only).
+   *
+   * Returns { fail: bool, detail: string|null, note: string|null }.
+   * detail/note are plain text: callers must escape before rendering.
+   * This is the single implementation: home-verify.js and every page that
+   * calls verifyEPI() use it (window.epiVerifyPolyglotViewer).
+   */
+  async function verifyPolyglotViewer(input, headerOffset) {
+    try {
+      var all = toU8(input);
+      var off = headerOffset || 0;
+      var u8 = off ? all.subarray(off) : all;
+      if (u8.length < HEADER_SIZE || !isEnvelopeMagicAt(u8, 0)) {
+        return { fail: false, detail: null, note: null };
+      }
+      var tail = u8.subarray(72, 128);
+      var allZero = true, padZero = true, i;
+      for (i = 0; i < 32; i++) { if (tail[i] !== 0) { allZero = false; break; } }
+      for (i = 32; i < 56; i++) { if (tail[i] !== 0) { padZero = false; break; } }
+      // Non-zero padding: not the reserved_tail layout this check covers.
+      if (!padZero) return { fail: false, detail: null, note: null };
+      var idx = findBytes(u8, EPI_ZIP_MARKER, HEADER_SIZE);
+      var viewerBytes = idx === -1 ? null : u8.subarray(HEADER_SIZE, idx);
+      // The header's HTML comment is closed by " -->\n" before the viewer.
+      if (viewerBytes && viewerBytes.length >= 5 && viewerBytes[0] === 0x20 && viewerBytes[1] === 0x2d &&
+          viewerBytes[2] === 0x2d && viewerBytes[3] === 0x3e && viewerBytes[4] === 0x0a) {
+        viewerBytes = viewerBytes.subarray(5);
+      }
+      if (allZero) {
+        if (viewerBytes && viewerBytes.length > 0) {
+          return { fail: false, detail: null, note: 'Display layer (embedded viewer) not integrity-covered (legacy seal)' };
+        }
+        return { fail: false, detail: null, note: null };
+      }
+      if (!viewerBytes) {
+        return { fail: true, detail: 'polyglot viewer hash present in envelope header but no outer viewer HTML found', note: null };
+      }
+      var actual = await sha256Hex(viewerBytes.slice());
+      var claimed = '';
+      for (var c = 0; c < 32; c++) claimed += tail[c].toString(16).padStart(2, '0');
+      if (actual !== claimed) {
+        return { fail: true, detail: 'polyglot viewer HTML hash mismatch (display layer may have been tampered)', note: null };
+      }
+      return { fail: false, detail: null, note: null };
+    } catch (e) {
+      // Fail closed: an unexpected error must never read as a pass.
+      return { fail: true, detail: 'polyglot viewer check error: ' + (e && e.message ? e.message : e), note: null };
+    }
+  }
+
   async function computeIntegrityMismatches(zip, manifest) {
     var mismatches = [];
     var fileManifest = (manifest && manifest.file_manifest) || {};
@@ -320,6 +376,13 @@
     var JSZip = requireJsZip();
     var ab = await file.arrayBuffer();
     var u8 = new Uint8Array(ab);
+    // Outer display layer (envelope-v2 polyglot viewer). Checked before the
+    // ZIP so a tampered viewer can never read as SEAL VALID on any page.
+    var viewer = { fail: false, detail: null, note: null };
+    var det0 = detectContainer(u8);
+    if (det0 && det0.format === 'envelope-v2') {
+      viewer = await verifyPolyglotViewer(u8, det0.offset);
+    }
     var zipBytes;
     try {
       zipBytes = extractZipBytes(u8);
@@ -376,6 +439,7 @@
     // Zero files checked is not a pass: an empty file_manifest proves nothing.
     var listedFiles = (manifest.file_manifest && typeof manifest.file_manifest === 'object')
       ? Object.keys(manifest.file_manifest).length : 0;
+    if (viewer.fail) mismatches.push('viewer (outer polyglot HTML): ' + viewer.detail);
     var integrity = mismatches.length === 0 && listedFiles > 0;
     var sigResult = await verifyManifestSignature(manifest, rawManifest);
     var fileHash = await sha256Hex(ab);
@@ -383,7 +447,10 @@
     var trust_level = 'NONE';
     var identity = 'UNKNOWN';
     var message = '';
-    if (!integrity) {
+    if (viewer.fail) {
+      trust_level = 'NONE';
+      message = 'This file was changed after it was sealed: its embedded viewer (display layer) no longer matches the seal';
+    } else if (!integrity) {
       trust_level = 'NONE';
       message = 'Integrity failed - do not trust';
     } else if (sigResult.valid === false) {
@@ -415,6 +482,10 @@
       identity: identity,
       message: message,
       mismatches: mismatches,
+      // false = display layer altered after sealing; null = not an
+      // envelope-v2 file or legacy seal (see viewer_note).
+      viewer: det0 && det0.format === 'envelope-v2' ? !viewer.fail : null,
+      viewer_note: viewer.note,
       signer: manifest.signature ? String(manifest.signature).split(':')[1] : null
     };
   }
@@ -423,9 +494,11 @@
   global.epiExtractZipBytes = extractZipBytes;
   global.epiDetectContainer = detectContainer;
   global.epiIsPreJcsSpec = isPreJcsSpec;
+  global.epiVerifyPolyglotViewer = verifyPolyglotViewer;
   if (typeof window !== 'undefined') {
     window.verifyEPI = verifyEPI;
     window.epiExtractZipBytes = extractZipBytes;
     window.epiDetectContainer = detectContainer;
+    window.epiVerifyPolyglotViewer = verifyPolyglotViewer;
   }
 })(typeof window !== 'undefined' ? window : globalThis);

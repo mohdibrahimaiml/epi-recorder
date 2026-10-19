@@ -38,6 +38,7 @@ Start here (no API key):
   epi demo
   epi view <file.epi>
   epi verify <file.epi>
+  epi cloud login        connect this computer to EPI Cloud
 
 Everyday:
   epi run <script.py>
@@ -54,7 +55,7 @@ In code:
   with record("my_agent.epi"):
       ...
 
-Help is grouped: Start here · Everyday · Team · Advanced.
+Help is grouped: Start here · Everyday · Advanced · Team.
 """,
     add_completion=False,
     no_args_is_help=True,
@@ -944,8 +945,8 @@ from epi_cli.cloud import app as cloud_app
 app.add_typer(
     cloud_app,
     name="cloud",
-    help="EPI Cloud Evidence Room: push selected runs (login/push/status)",
-    rich_help_panel="Team",
+    help="EPI Cloud: connect this computer (epi cloud login), push runs, check status",
+    rich_help_panel="Start here",
 )
 
 from epi_cli.connect import app as connect_app

@@ -13,7 +13,7 @@ describe("plans (single source of truth)", () => {
     expect(limitAllows("free", "agents", 0)).toEqual({ ok: true });
     const r = limitAllows("free", "agents", 1);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toMatch(/Upgrade/);
+    if (!r.ok) { expect(r.message).toMatch(/epilabs.org\/plans/); expect(r.message).not.toMatch(/agents|inboxes|shareLinks/); }
   });
   it("enterprise (custom) never blocks", () => {
     expect(limitAllows("enterprise", "agents", 100000)).toEqual({ ok: true });

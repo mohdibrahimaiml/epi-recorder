@@ -560,14 +560,16 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
 
 
 def _print_share_hint() -> None:
-    """Show the lowest-friction next steps after a successful verification."""
+    """One neutral pointer after a verification (the reader may be a third party).
+
+    No vendor-side steps here (sharing, team workspace): whoever runs
+    `epi verify` is often the customer or an auditor, not the sender.
+    """
     console.print("")
-    console.print("[bold]Share / review this case file:[/bold]")
-    console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
     console.print(
-        "  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required"
+        "[dim]Anyone can re-check this file in a browser, no install: "
+        "[cyan]https://epilabs.org/verify[/cyan][/dim]"
     )
-    console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
 
 
 def _print_qr_code(url: str) -> None:
@@ -2608,8 +2610,8 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
     elif _wit_status == "NOT IN WITNESS LOG":
         content_lines.append(
-            "  [yellow]- Witness:      NOT IN WITNESS LOG — never reported to you at seal "
-            "time (re-run or re-sealed?)[/yellow]"
+            "  [yellow]- Witness:      NOT IN WITNESS LOG — this file was never reported "
+            "to this witness log when it was sealed (re-run or re-sealed copy?)[/yellow]"
         )
     elif _wit_status == "UNREADABLE":
         content_lines.append(

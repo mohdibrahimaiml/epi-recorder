@@ -93,6 +93,8 @@ class StubState:
                     "claimed_sha256": digest,
                     "content_url": "/assets/sample.epi",
                     "download_url": "/assets/sample.epi",
+                    "sealed_at": "2026-10-15T12:00:00Z",
+                    "key_fingerprint": current_fp,
                     "signature_check": "valid",
                     "witness_status": "witnessed",
                 },
@@ -207,6 +209,23 @@ def _tampered(data: bytes) -> bytes:
         for name in names:
             dest.writestr(name, bytes(raw) if name == target else src.read(name))
     return out.getvalue()
+
+
+def _viewer_tampered(data: bytes) -> bytes:
+    """Flip one byte in the outer polyglot viewer HTML (display layer).
+
+    The ZIP payload is untouched, so only the envelope header's viewer hash
+    (reserved_tail[0:32]) catches it — exactly what the CLI and /verify/
+    reject and what the trust page drop zone once let through as SEAL VALID.
+    """
+    marker = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
+    assert data[:4] == b"<!--" and marker in data, "sample must be an envelope-v2 polyglot"
+    assert any(data[72:104]), "sample must carry a viewer hash"
+    out = bytearray(data)
+    at = out.index(b"<html", 128)
+    assert at < data.index(marker)
+    out[at + 1] ^= 0x20  # <html -> <Html
+    return bytes(out)
 
 
 def _make_stub(state: StubState) -> type[BaseHTTPRequestHandler]:
@@ -513,6 +532,11 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
         assert "epi-witness-checkpoints" in readme
         assert "per-line Merkle inclusion proofs are planned, not present" in readme
         assert manifest[0]["sha256"] in readme
+        # Step 1: confirm + pin the vendor key (strict needs it), per-file expectation.
+        assert "STEP 1" in readme and "confirm" in readme.lower()
+        assert 'epi keys trust acme-corp/sample.epi --name acme-corp --fingerprint "' in readme
+        assert "expect: PASS" in readme
+        assert "received.jsonl" not in readme
 
         trust = json.loads(zf.read("trust.json"))
         assert trust["vendor"] == "Acme Corp"
@@ -560,6 +584,34 @@ def test_pack_downloads_verified_zip(servers, browser, tmp_path) -> None:
     assert nokey_report["witness"]["status"] == "NOT CONFIRMED", nokey_report["witness"]
     assert "NOT CONFIRMED" in nokey_report["witness"]["detail"]
     assert nokey_report["decision"]["status"] == "FAIL", nokey_report["decision"]
+
+    # The full README flow an auditor follows: pin the confirmed vendor key
+    # (step 1), then the exact step-3 command. Must reach a clear PASS.
+    import os
+    import subprocess
+    import sys
+
+    from epi_core.container import EPIContainer
+    from epi_core.keys import key_fingerprint
+
+    vendor_fp = key_fingerprint(str(EPIContainer.read_manifest(epi_file).public_key))
+    env = dict(os.environ, EPI_TRUSTED_KEYS_DIR=str(tmp_path / "auditor-trusted"), NO_COLOR="1")
+    env.pop("EPI_WITNESS_PUBKEY", None)
+    pin = subprocess.run(
+        [sys.executable, "-m", "epi_cli.main", "keys", "trust", str(epi_file),
+         "--name", "acme-corp", "--fingerprint", vendor_fp],
+        capture_output=True, text=True, timeout=120, cwd=str(REPO), env=env,
+    )
+    assert pin.returncode == 0, pin.stdout + pin.stderr
+    proc = subprocess.run(
+        [sys.executable, "-m", "epi_cli.main", "verify", str(epi_file), "--policy", "strict",
+         "--witness-log", str(witness_file), "--witness-pubkey", witness["witness_pubkey"],
+         "--offline", "--json"],
+        capture_output=True, text=True, timeout=180, cwd=str(REPO), env=env,
+    )
+    pinned = json.loads(proc.stdout)
+    assert pinned["decision"]["status"] == "PASS", pinned["decision"]
+    assert pinned["witness"]["status"] == "WITNESSED", pinned["witness"]
 
     kinds = _event_kinds(state)
     assert kinds.count("downloaded_pack") == 1, kinds
@@ -654,6 +706,87 @@ def test_tampered_file_verifies_red(servers, page, tmp_path) -> None:
         "() => document.querySelector('#dropResult').textContent.includes('FAIL')",
         timeout=30000,
     )
+
+
+def test_viewer_tampered_file_verifies_red(servers, page, tmp_path) -> None:
+    """A flipped byte in the embedded viewer must FAIL here, as on /verify/ and the CLI."""
+    _, static, api = servers
+    bad = tmp_path / "viewer-tampered.epi"
+    bad.write_bytes(_viewer_tampered(SAMPLE.read_bytes()))
+    page.goto(_page_url(static, api))
+    page.click("#gateBtn")
+    page.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+    page.set_input_files("#fileInput", str(bad))
+    page.wait_for_function(
+        "() => /FAIL|VALID/.test(document.querySelector('#dropResult').textContent)",
+        timeout=30000,
+    )
+    text = page.inner_text("#dropResult")
+    assert "FAIL" in text and "changed after it was sealed" in text, text
+    assert "SEAL VALID" not in text, text
+    assert "not one of the files shared" in text, text
+
+
+def test_dropped_shared_file_is_identified(servers, page) -> None:
+    """Dropping a shared file names it; the hash line is green only when checks pass."""
+    _, static, api = servers
+    page.goto(_page_url(static, api))
+    page.click("#gateBtn")
+    page.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+    page.set_input_files("#fileInput", str(SAMPLE))
+    page.wait_for_function(
+        "() => document.querySelector('#dropResult').textContent.includes('NOT PINNED')",
+        timeout=30000,
+    )
+    text = page.inner_text("#dropResult")
+    assert "This is the shared file" in text and "Website sample run" in text, text
+    assert "witnessed" in text, text
+
+
+def test_summary_and_cards_speak_plainly(servers, page) -> None:
+    _, static, api = servers
+    page.goto(_page_url(static, api))
+    gate = page.inner_text("#gate")
+    assert "An AI vendor shared sealed evidence" in gate
+    page.click("#gateBtn")
+    page.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+    summary = page.inner_text("#trustSummary")
+    assert "All 2 shared files were registered with EPI" in summary, summary
+    assert "not registered a signing key" in summary, summary
+    assert "What these terms mean" in summary
+    assert page.title() == "Acme Corp \u2014 evidence"
+    assert "2 of 2" in page.inner_text("#trustStats")
+    assert "received.jsonl" not in page.inner_text("#trustContent")
+
+
+def test_refresh_keeps_token_and_strips_url(servers, page) -> None:
+    _, static, api = servers
+    page.goto(_page_url(static, api))
+    page.wait_for_timeout(300)
+    assert "#k=" not in page.url
+    page.reload()
+    page.wait_for_timeout(300)
+    assert page.locator("#gateBtn").is_enabled()
+    page.click("#gateBtn")
+    page.wait_for_selector("#trustContent:not([style*='display: none'])", timeout=10000)
+
+
+def test_missing_token_explains_and_disables(servers, page) -> None:
+    _, static, api = servers
+    page.goto(f"{static}/t/sh_test?api={api}")
+    page.wait_for_timeout(300)
+    assert "copied without its key" in page.inner_text("#gateStatus")
+    assert not page.locator("#gateBtn").is_enabled()
+
+
+def test_dead_link_disables_open_button(servers, page) -> None:
+    _, static, api = servers
+    page.goto(f"{static}/t/sh_old?api={api}#k={TOKEN}")
+    page.click("#gateBtn")
+    page.wait_for_function(
+        "() => document.querySelector('#gateStatus').textContent.includes('invalid')", timeout=10000
+    )
+    assert not page.locator("#gateBtn").is_enabled()
 
 
 def test_claimed_mismatch_is_red(servers, page) -> None:
