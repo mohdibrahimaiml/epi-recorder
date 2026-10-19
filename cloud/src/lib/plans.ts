@@ -33,10 +33,40 @@ export function limitAllows(
   const max = PLAN_LIMITS[plan][metric];
   if (max === null) return { ok: true };
   if (current < max) return { ok: true };
-  return {
-    ok: false,
-    message: `Plan limit reached (${metric}: ${max} on ${plan}). Upgrade to add more — your data stays.`,
-  };
+  return { ok: false, message: limitMessage(plan, metric, max) };
+}
+
+const PLAN_NAMES: Record<PlanId, string> = {
+  free: "free",
+  design_partner: "design-partner",
+  startup: "Startup",
+  growth: "Growth",
+  enterprise: "Enterprise",
+};
+
+// Customer-facing words: a recorder ("agent") and its witness inbox are both
+// "a customer" in the product; never leak internal metric names.
+const METRIC_WORDS: Record<keyof PlanLimits, [string, string]> = {
+  agents: ["customer", "customers"],
+  inboxes: ["customer", "customers"],
+  evidenceFiles: ["stored run", "stored runs"],
+  retentionDays: ["day of storage", "days of storage"],
+  shareLinks: ["share link", "share links"],
+};
+
+const LIMIT_TIPS: Partial<Record<keyof PlanLimits, string>> = {
+  shareLinks: " Revoke an old link in Share links, or",
+  agents: " Close a customer you no longer need, or",
+  inboxes: " Close a customer you no longer need, or",
+};
+
+function limitMessage(plan: PlanId, metric: keyof PlanLimits, max: number): string {
+  const [one, many] = METRIC_WORDS[metric];
+  const tip = LIMIT_TIPS[metric] ?? "";
+  return (
+    `Your ${PLAN_NAMES[plan]} plan includes ${max} ${max === 1 ? one : many}.` +
+    `${tip}${tip ? " see" : " See"} https://epilabs.org/plans to add more — your data stays.`
+  );
 }
 
 export function retentionUntil(plan: PlanId, fromIso: string): string {

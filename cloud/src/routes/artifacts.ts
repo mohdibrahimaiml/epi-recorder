@@ -28,6 +28,19 @@ async function writerAuth(db: D1Database, req: Request, orgId: string): Promise<
   return null;
 }
 
+/** Why a writer was refused, in customer words (401 for a dead key so the
+ *  CLI can say "reconnect", 403 otherwise). */
+async function writerDenied(db: D1Database, req: Request): Promise<{ status: 401 | 403; body: { error: { code: string; message: string } } }> {
+  const h = req.headers.get("Authorization") ?? "";
+  if (h.startsWith("Bearer epik_") && !(await keyFromRequest(db, req))) {
+    return {
+      status: 401,
+      body: { error: { code: "key_invalid", message: "This computer's key was revoked or isn't valid for this workspace. Reconnect with: epi cloud login" } },
+    };
+  }
+  return { status: 403, body: { error: { code: "forbidden", message: "Sign in to the dashboard, or connect this computer with: epi cloud login" } } };
+}
+
 async function readerAuth(db: D1Database, req: Request, orgId: string): Promise<Reader | null> {
   const user = await userFromRequest(db, req);
   if (user) {
@@ -87,7 +100,7 @@ async function witnessStatus(
 app.post("/orgs/:orgId/artifacts/init", async (c) => {
   const orgId = c.req.param("orgId");
   const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
-  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  if (!auth) { const d = await writerDenied(c.env.DB, c.req.raw); return c.json(d.body, d.status); }
   const body = z.object({
     manifest_json: z.string().min(2).max(MAX_MANIFEST_BYTES),
     claimed_sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -190,7 +203,7 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
 app.put("/orgs/:orgId/artifacts/:artifactId/content", async (c) => {
   const orgId = c.req.param("orgId");
   const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
-  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  if (!auth) { const d = await writerDenied(c.env.DB, c.req.raw); return c.json(d.body, d.status); }
   const row = await c.env.DB.prepare("SELECT id, size_bytes, object_key, upload_state FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
     .bind(c.req.param("artifactId"), orgId).first<{ id: string; size_bytes: number; object_key: string; upload_state: string }>();
   if (!row) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
@@ -267,21 +280,30 @@ app.post("/orgs/:orgId/artifacts/:artifactId/legal-hold", async (c) => {
   return c.json({ ok: true });
 });
 
-// Re-tag a pushed run to a customer (assign an Unassigned run).
-// Same permission as pushing (member session or push key). Re-tagging never
-// changes bytes, so the sha dedupe stays intact; witness_status is
-// recomputed because the run may now match a different inbox.
+// Assign an Unassigned run to a customer (dashboard only).
+// Owner/member SESSION only — a computer's push key must never move runs:
+// moving a run between customers would leak it onto another customer's
+// share link. A run that already belongs to a customer stays there (409).
+// Re-tagging never changes bytes, so the sha dedupe stays intact;
+// witness_status is recomputed because the run may now match an inbox.
 app.patch("/orgs/:orgId/artifacts/:artifactId/agent", async (c) => {
   const orgId = c.req.param("orgId");
-  const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
-  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  const user = await userFromRequest(c.env.DB, c.req.raw);
+  const role = user ? await membershipRole(c.env.DB, orgId, user.id) : null;
+  if (!user || (role !== "owner" && role !== "member")) {
+    return c.json({ error: { code: "forbidden", message: "Only workspace owners and members can assign runs, from the dashboard." } }, 403);
+  }
+  const auth = { by: `user:${user.id}` };
   const body = z.object({ agent: z.string().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return c.json({ error: { code: "bad_request", message: "agent (customer recorder name) required." } }, 400);
-  const row = await c.env.DB.prepare("SELECT id, manifest_json, claimed_sha256 FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
-    .bind(c.req.param("artifactId"), orgId).first<{ id: string; manifest_json: string; claimed_sha256: string }>();
-  if (!row) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
+  if (!body.success) return c.json({ error: { code: "bad_request", message: "Pick a customer." } }, 400);
+  const row = await c.env.DB.prepare("SELECT id, agent_id, manifest_json, claimed_sha256 FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
+    .bind(c.req.param("artifactId"), orgId).first<{ id: string; agent_id: string | null; manifest_json: string; claimed_sha256: string }>();
+  if (!row) return c.json({ error: { code: "not_found", message: "That run no longer exists." } }, 404);
   const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
-  if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+  if (!agent) return c.json({ error: { code: "bad_request", message: `There is no customer called "${body.data.agent}".` } }, 400);
+  if (row.agent_id && row.agent_id !== agent.id) {
+    return c.json({ error: { code: "already_assigned", message: "This run already belongs to another customer and can't be moved." } }, 409);
+  }
   let workflowId: string | null = null;
   try {
     const manifest = JSON.parse(row.manifest_json) as Record<string, unknown>;

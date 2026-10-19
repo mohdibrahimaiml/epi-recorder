@@ -124,9 +124,9 @@ class FakeD1 {
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.status === "active") n++;
       return { n };
     }
-    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND customer_label = ?")) {
+    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND lower(customer_label) = lower(?)")) {
       for (const i of this.inboxes.values()) {
-        if (i.org_id === a[0] && i.customer_label === a[1] && i.closed_at == null) {
+        if (i.org_id === a[0] && String(i.customer_label).toLowerCase() === String(a[1]).toLowerCase() && i.closed_at == null) {
           return { id: i.id, hmac_secret_enc: i.hmac_secret_enc };
         }
       }
@@ -158,14 +158,18 @@ class FakeD1 {
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.name === a[1]) return { id: g.id };
       return null;
     }
+    if (q.startsWith("SELECT id, name, status FROM agents WHERE org_id = ? AND lower(name) = lower(?)") || q.startsWith("SELECT id, name FROM agents WHERE org_id = ? AND lower(name) = lower(?)")) {
+      for (const g of this.agents.values()) if (g.org_id === a[0] && String(g.name).toLowerCase() === String(a[1]).toLowerCase()) return { id: g.id, name: g.name };
+      return null;
+    }
     if (q.startsWith("SELECT COUNT(*) AS n FROM agents WHERE org_id = ?")) {
       let n = 0;
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.status === "active") n++;
       return { n };
     }
-    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND customer_label = ?")) {
+    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND lower(customer_label) = lower(?)")) {
       for (const i of this.inboxes.values()) {
-        if (i.org_id === a[0] && i.customer_label === a[1] && i.closed_at == null) {
+        if (i.org_id === a[0] && String(i.customer_label).toLowerCase() === String(a[1]).toLowerCase() && i.closed_at == null) {
           return { id: i.id, hmac_secret_enc: i.hmac_secret_enc };
         }
       }
@@ -191,6 +195,14 @@ class FakeD1 {
     if (q.startsWith("SELECT id, manifest_json, claimed_sha256 FROM artifacts")) {
       const r = this.artifacts.get(a[0] as string);
       return r && r.org_id === a[1] && r.deleted_at == null ? { id: r.id, manifest_json: r.manifest_json, claimed_sha256: r.claimed_sha256 } : null;
+    }
+    if (q.startsWith("SELECT id, agent_id, manifest_json, claimed_sha256 FROM artifacts")) {
+      const r = this.artifacts.get(a[0] as string);
+      return r && r.org_id === a[1] && r.deleted_at == null ? { id: r.id, agent_id: r.agent_id ?? null, manifest_json: r.manifest_json, claimed_sha256: r.claimed_sha256 } : null;
+    }
+    if (q.startsWith("SELECT customer_label FROM inboxes WHERE id = ? AND org_id = ? AND closed_at IS NULL")) {
+      const i = this.inboxes.get(a[0] as string);
+      return i && i.org_id === a[1] && i.closed_at == null ? { customer_label: i.customer_label } : null;
     }
     if (q.includes("FROM artifacts WHERE id = ?")) {
       const r = this.artifacts.get(a[0] as string);
@@ -274,6 +286,11 @@ class FakeD1 {
     if (q.startsWith("UPDATE artifacts SET deleted_at")) {
       for (const r of this.artifacts.values()) if (r.id === a[1]) r.deleted_at = a[0];
       return 1;
+    }
+    if (q.startsWith("UPDATE agents SET status = 'archived' WHERE org_id = ? AND name = ?")) {
+      let n = 0;
+      for (const g of this.agents.values()) if (g.org_id === a[0] && g.name === a[1] && g.status === "active") { g.status = "archived"; n++; }
+      return n;
     }
     if (q.startsWith("UPDATE inboxes SET closed_at")) {
       for (const i of this.inboxes.values()) {
@@ -543,19 +560,28 @@ describe("assign agent", () => {
     const created = (await init.json()) as { id: string; witness_status: string };
     const row = [...db.artifacts.values()].find((a) => a.id === created.id)!;
     expect(row.agent_id).toBeNull();
-    const assign = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
+    const assign = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: ck("sess-owner"), body: JSON.stringify({ agent: "loans" }) }, env as never);
     expect(assign.status).toBe(200);
     expect(await assign.json()).toMatchObject({ id: created.id, agent_id: "g1" });
     expect([...db.artifacts.values()].find((a) => a.id === created.id)!.agent_id).toBe("g1");
     expect(db.audit.map((a) => a.action)).toContain("artifact.assign");
+    // A computer's push key can never move runs (it could leak a run onto
+    // another customer's share link) — dashboard sessions only.
+    const byKey = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
+    expect(byKey.status).toBe(403);
+    // A run that already belongs to a customer stays there.
+    db.agents.set("g9", { id: "g9", org_id: "o1", name: "other bank", status: "active" });
+    const move = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: ck("sess-owner"), body: JSON.stringify({ agent: "other bank" }) }, env as never);
+    expect(move.status).toBe(409);
+    expect([...db.artifacts.values()].find((a) => a.id === created.id)!.agent_id).toBe("g1");
     // Unknown customer recorder name is rejected like init does.
-    const bad = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: key, body: JSON.stringify({ agent: "nope" }) }, env as never);
+    const bad = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: ck("sess-owner"), body: JSON.stringify({ agent: "nope" }) }, env as never);
     expect(bad.status).toBe(400);
     // Viewers cannot re-tag.
     const viewer = await app.request(`/v1/orgs/o1/artifacts/${created.id}/agent`, { method: "PATCH", headers: ck("sess-viewer"), body: JSON.stringify({ agent: "loans" }) }, env as never);
     expect(viewer.status).toBe(403);
     // Missing run 404s.
-    const missing = await app.request("/v1/orgs/o1/artifacts/art_nope/agent", { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
+    const missing = await app.request("/v1/orgs/o1/artifacts/art_nope/agent", { method: "PATCH", headers: ck("sess-owner"), body: JSON.stringify({ agent: "loans" }) }, env as never);
     expect(missing.status).toBe(404);
   });
 });

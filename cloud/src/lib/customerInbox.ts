@@ -1,7 +1,7 @@
 import type { Env } from "../env.ts";
 import { newId, newToken, nowIso } from "./crypto.ts";
 import { auditLog, d1AuditDb } from "./audit.ts";
-import { limitAllows, planOf, PLAN_LIMITS } from "./plans.ts";
+import { limitAllows, planOf } from "./plans.ts";
 import { openSecret, sealSecret } from "./secretbox.ts";
 
 export type EnsureCustomerResult =
@@ -12,6 +12,8 @@ export type EnsureCustomerResult =
       url: string;
       secret: string;
       created: boolean;
+      /** Canonical customer name (existing spelling wins over what was typed). */
+      label: string;
     }
   | { ok: false; status: 400 | 402 | 403 | 404 | 409 | 503; code: string; message: string };
 
@@ -40,7 +42,10 @@ export async function ensureCustomerInbox(
   actor: string,
   opts: { allowCreateInbox: boolean; allowCreateAgent: boolean },
 ): Promise<EnsureCustomerResult> {
-  const label = String(customerLabel ?? "").trim();
+  // "test bank " and "Test  Bank" are the same customer as "Test Bank":
+  // collapse whitespace and match case-insensitively, keeping the spelling
+  // the customer was first created with.
+  let label = String(customerLabel ?? "").trim().replace(/\s+/g, " ");
   if (!label || label.length > 120) {
     return fail(400, "bad_request", "A customer name (1-120 characters) is required.");
   }
@@ -50,22 +55,28 @@ export async function ensureCustomerInbox(
     return fail(503, "not_configured", "Inbox encryption is not configured yet.");
   }
 
-  let agent = await db.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?")
+  let agent = await db.prepare("SELECT id, name, status FROM agents WHERE org_id = ? AND lower(name) = lower(?)")
     .bind(orgId, agentNameForCustomer(label))
-    .first<{ id: string }>();
+    .first<{ id: string; name: string; status?: string }>();
+  if (agent) label = agent.name;
+  if (agent && agent.status === "archived") {
+    // A customer that was closed earlier and is being used again: it counts
+    // toward the plan once more.
+    if (!opts.allowCreateAgent) {
+      return fail(403, "forbidden", `"${label}" was closed. Ask a workspace owner to reopen it.`);
+    }
+    const active = await db.prepare("SELECT COUNT(*) AS n FROM agents WHERE org_id = ? AND status = 'active'").bind(orgId).first<{ n: number }>();
+    const allow = limitAllows(planOf(org.plan), "agents", active?.n ?? 0);
+    if (!allow.ok) return fail(402, "plan_limit", allow.message);
+    await db.prepare("UPDATE agents SET status = 'active' WHERE id = ?").bind(agent.id).run();
+  }
   if (!agent) {
     if (!opts.allowCreateAgent) {
       return fail(403, "forbidden", `Unknown customer "${label}". Ask a workspace owner to add it first.`);
     }
     const active = await db.prepare("SELECT COUNT(*) AS n FROM agents WHERE org_id = ? AND status = 'active'").bind(orgId).first<{ n: number }>();
     const agentAllow = limitAllows(planOf(org.plan), "agents", active?.n ?? 0);
-    if (!agentAllow.ok) {
-      // Recorder names follow customers one-to-one, so an "agents" cap reads
-      // as a customer cap to the person clicking. Say customers, not agents.
-      const planId = planOf(org.plan);
-      const max = PLAN_LIMITS[planId].agents;
-      return fail(402, "plan_limit", `Your ${planId} plan includes ${max === null ? "unlimited" : max} customer${max === 1 ? "" : "s"}. Upgrade to add more — your data stays.`);
-    }
+    if (!agentAllow.ok) return fail(402, "plan_limit", agentAllow.message);
     const agentId = newId("agt");
     try {
       await db.prepare("INSERT INTO agents (id, org_id, name, status, created_at) VALUES (?, ?, ?, 'active', ?)")
@@ -73,25 +84,25 @@ export async function ensureCustomerInbox(
         .run();
     } catch {
       // Lost a race with another creator: fall back to whatever exists now.
-      agent = await db.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?")
+      agent = await db.prepare("SELECT id, name FROM agents WHERE org_id = ? AND lower(name) = lower(?)")
         .bind(orgId, agentNameForCustomer(label))
-        .first<{ id: string }>();
+        .first<{ id: string; name: string }>();
       if (!agent) return fail(409, "conflict", "Agent name already exists in this org.");
     }
     if (!agent) {
-      agent = { id: agentId };
+      agent = { id: agentId, name: label };
       await auditLog(d1AuditDb(db), { orgId, actor, action: "agent.create", detail: label });
     }
   }
 
-  const row = await db.prepare("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND customer_label = ? AND closed_at IS NULL")
+  const row = await db.prepare("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND lower(customer_label) = lower(?) AND closed_at IS NULL")
     .bind(orgId, label)
     .first<{ id: string; hmac_secret_enc: string }>();
   if (row) {
     const secret = await openSecret(env.INBOX_SECRET_KEY, row.hmac_secret_enc);
     return {
       ok: true, agentId: agent.id, inboxId: row.id,
-      url: `${env.PUBLIC_WITNESS_URL}/w/${row.id}`, secret, created: false,
+      url: `${env.PUBLIC_WITNESS_URL}/w/${row.id}`, secret, created: false, label,
     };
   }
   if (!opts.allowCreateInbox) {
@@ -108,6 +119,6 @@ export async function ensureCustomerInbox(
   await auditLog(d1AuditDb(db), { orgId, actor, action: "inbox.create", detail: `${id} for ${label}` });
   return {
     ok: true, agentId: agent.id, inboxId: id,
-    url: `${env.PUBLIC_WITNESS_URL}/w/${id}`, secret, created: true,
+    url: `${env.PUBLIC_WITNESS_URL}/w/${id}`, secret, created: true, label,
   };
 }

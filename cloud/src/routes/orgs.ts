@@ -4,7 +4,7 @@ import type { Env } from "../env.ts";
 import { newId, nowIso } from "../lib/crypto.ts";
 import { membershipRole, userFromRequest, type Role } from "../lib/auth.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
-import { limitAllows, planOf } from "../lib/plans.ts";
+import { limitAllows, planOf, PLAN_LIMITS } from "../lib/plans.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -31,24 +31,47 @@ app.get("/", async (c) => {
     "SELECT o.id, o.slug, o.name, o.plan, m.role FROM orgs o JOIN memberships m ON m.org_id = o.id WHERE m.user_id = ? ORDER BY o.created_at",
   )
     .bind(user.id)
-    .all();
-  return c.json({ orgs: rows.results });
+    .all<{ id: string; slug: string; name: string; plan: string; role: Role }>();
+  // Plan, limits and usage in customer words, so the dashboard can say
+  // "Free — 1/1 customers" before anyone hits a wall.
+  const now = nowIso();
+  const orgs = await Promise.all((rows.results ?? []).map(async (o) => {
+    const plan = planOf(o.plan);
+    const lim = PLAN_LIMITS[plan];
+    const [cust, links, files] = await Promise.all([
+      c.env.DB.prepare("SELECT COUNT(*) AS n FROM inboxes WHERE org_id = ? AND closed_at IS NULL").bind(o.id).first<{ n: number }>(),
+      c.env.DB.prepare("SELECT COUNT(*) AS n FROM share_links WHERE org_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)").bind(o.id, now).first<{ n: number }>(),
+      c.env.DB.prepare("SELECT COUNT(*) AS n FROM artifacts WHERE org_id = ? AND deleted_at IS NULL").bind(o.id).first<{ n: number }>(),
+    ]);
+    return {
+      ...o,
+      plan,
+      limits: { customers: lim.inboxes, shareLinks: lim.shareLinks, evidenceFiles: lim.evidenceFiles },
+      usage: { customers: cust?.n ?? 0, shareLinks: links?.n ?? 0, evidenceFiles: files?.n ?? 0 },
+    };
+  }));
+  return c.json({ orgs });
 });
 
 // Create org (caller becomes owner).
 app.post("/", async (c) => {
   const user = await userFromRequest(c.env.DB, c.req.raw);
   if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
-  const body = z.object({ name: z.string().min(1).max(120), slug: z.string().min(3).max(50) }).safeParse(await c.req.json().catch(() => null));
+  const raw = (await c.req.json().catch(() => null)) as { name?: unknown; slug?: unknown } | null;
+  const name = typeof raw?.name === "string" ? raw.name.trim() : "";
+  if (!name || name.length > 120) {
+    return c.json({ error: { code: "bad_request", message: "Please type your company name (up to 120 characters)." } }, 400);
+  }
+  const body = z.object({ name: z.string().min(1).max(120), slug: z.string().min(3).max(50) }).safeParse({ name, slug: raw?.slug });
   if (!body.success || !slugRe.test(body.data.slug)) {
-    return c.json({ error: { code: "bad_request", message: "Please type your company name." } }, 400);
+    return c.json({ error: { code: "bad_request", message: "The short web name needs 3–50 lowercase letters, numbers or dashes (for example acme-ai)." } }, 400);
   }
   const id = newId("org");
   const now = nowIso();
   try {
     await c.env.DB.prepare("INSERT INTO orgs (id, slug, name, plan, created_at) VALUES (?, ?, ?, 'free', ?)").bind(id, body.data.slug, body.data.name, now).run();
   } catch {
-    return c.json({ error: { code: "conflict", message: "Slug already taken." } }, 409);
+    return c.json({ error: { code: "conflict", message: `The short web name "${body.data.slug}" is taken — try another, for example ${body.data.slug}-2.` } }, 409);
   }
   await c.env.DB.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')").bind(id, user.id).run();
   await auditLog(d1AuditDb(c.env.DB), { orgId: id, actor: `user:${user.id}`, action: "org.create", detail: body.data.slug });

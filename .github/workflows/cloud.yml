@@ -135,3 +135,5 @@ jobs:
             --command "SELECT email_verified FROM users LIMIT 0" --json
           npx wrangler d1 execute epi-cloud --remote --config wrangler.toml \
             --command "SELECT user_code FROM device_codes LIMIT 0" --json
+          npx wrangler d1 execute epi-cloud --remote --config wrangler.toml \
+            --command "SELECT customer_label FROM api_keys LIMIT 0" --json
