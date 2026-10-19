@@ -224,3 +224,35 @@ def test_device_login_hints_while_browser_has_not_authorized(home, monkeypatch):
     assert "Still waiting for the browser" in result.output
     saved = json.loads((home / "cloud.json").read_text())
     assert saved["org_id"] == "org_123"
+
+
+def test_relogin_sends_old_key_to_same_cloud_only_and_never_prints_it(home, monkeypatch):
+    """Re-login on the same cloud asks the server to retire the old key (full key, never printed)."""
+    import time
+    import webbrowser
+
+    import httpx
+
+    FakeDeviceClient.instances.clear()
+    monkeypatch.setattr(httpx, "Client", FakeDeviceClient)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    (home / "cloud.json").write_text(json.dumps(
+        {"url": "https://cloud.epilabs.org", "org_id": "org_123", "api_key": "epik_oldkey_SECRET"}
+    ))
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    start = [c for i in FakeDeviceClient.instances for c in i.calls if c["url"].endswith("/auth/device/start")]
+    assert start[0]["json"]["replaces_key"] == "epik_oldkey_SECRET"
+    assert "epik_oldkey_SECRET" not in result.output
+    assert "Type the code and your customer's name at https://cloud.test/auth/device" in " ".join(result.output.split())
+
+    # A saved key for a DIFFERENT cloud is never sent anywhere else.
+    FakeDeviceClient.instances.clear()
+    (home / "cloud.json").write_text(json.dumps(
+        {"url": "https://other.example", "org_id": "org_9", "api_key": "epik_other"}
+    ))
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    start = [c for i in FakeDeviceClient.instances for c in i.calls if c["url"].endswith("/auth/device/start")]
+    assert "replaces_key" not in start[0]["json"]

@@ -265,55 +265,78 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         pg.screenshot(path=str(SHOTS / "03-customer.png"))
         _no_overflow(pg)
 
-        # Trust link scoped to that customer only. Same ack gate:
-        # the token stays in #reveal for 12 s, dashboard must not appear.
+        # Share link scoped to that customer only. The result appears inline,
+        # right under the button (in view), with a ready-to-send message; it
+        # stays for 12 s across re-renders and the dashboard must not appear.
         pg.select_option("#link-cust", label="Acme Bank")
         pg.fill("#link-label", "Acme review")
         pg.click("#link-go")
-        pg.wait_for_selector("#reveal >> text=Preview as reviewer", timeout=15000)
-        href = pg.locator("#reveal >> text=Preview as reviewer").get_attribute("href")
+        rev = '[data-rev="guide-link"]'
+        link_sel = f"{rev} >> text=Open it as your customer will see it"
+        pg.wait_for_selector(link_sel, timeout=15000)
+        href = pg.locator(link_sel).get_attribute("href")
         assert href and href.startswith("https://epilabs.org/t/"), href
-        # The ack button explains itself: click it to continue the guide.
-        assert "Click it to continue" in (pg.locator("#reveal").text_content() or "")
-        link_sel = "#reveal >> text=Preview as reviewer"
+        rev_text = pg.locator(rev).text_content() or ""
+        assert "nothing to install" in rev_text, rev_text
+        assert "shown once" in rev_text, rev_text
+        # Visible without scrolling: the result is in the viewport.
+        assert pg.locator(f"{rev} .reveal").evaluate(
+            "e => { const r = e.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }"
+        )
+        # No second "Create" button next to the result (no accidental 2nd link).
+        assert pg.locator("#link-go").count() == 0
         for _ in range(12):
-            assert pg.locator(link_sel).is_visible(), "link token vanished before ack"
-            no_dash = pg.locator("text=Your evidence").is_visible()
-            assert not no_dash, "dashboard appeared past unacked link"
+            assert pg.locator(link_sel).is_visible(), "link token vanished before Done"
+            assert not pg.locator("#dash").is_visible(), "dashboard appeared past unacked link"
             pg.wait_for_timeout(1000)
         pg.screenshot(path=str(SHOTS / "04-link.png"))
         _no_overflow(pg)
-        pg.click("#reveal-ack")
-        pg.wait_for_selector("text=Your evidence", timeout=15000)
+        pg.click(f'[data-done="guide-link"]')
+        pg.wait_for_selector("#dash", state="visible", timeout=15000)
+        # Setup-complete banner appears once, right after the guide.
+        assert pg.locator("#setup-done").is_visible()
+        assert pg.locator("text=https://epilabs.org/t/").count() == 0, "token shown again after Done"
 
         # Dashboard tabs after setup (tab content loads async — wait for it).
         pg.wait_for_selector("button.tab:text-is('Computers & keys')", timeout=15000)
         pg.click("button.tab:text-is('Computers & keys')")
         pg.wait_for_selector("text=e2e-laptop", timeout=15000)
-        for tab in ("Customers", "Trust links"):
+        for tab in ("Customers", "Share links", "Team"):
             pg.click(f"button.tab:text-is('{tab}')")
             pg.wait_for_timeout(800)
             _no_overflow(pg)
         pg.click("button.tab:text-is('Customers')")
         assert pg.locator("#tab-customers >> text=Acme Bank").is_visible()
-        pg.click("button.tab:text-is('Trust links')")
+        pg.click("button.tab:text-is('Share links')")
         assert pg.locator("#tab-links >> text=Acme review").is_visible()
+        # A plan-limit error survives the re-render that follows the action.
+        pg.click("#tab-link-go")
+        pg.wait_for_selector('[data-msg="tab-link"] >> text=epilabs.org/plans', timeout=15000)
+        pg.wait_for_timeout(2500)
+        assert pg.locator('[data-msg="tab-link"] >> text=epilabs.org/plans').is_visible()
 
-        # Rotate: the new secret obeys the same ack gate (12 s in #reveal).
-        # Rotation lives under Customers (Advanced), not the guided flow.
-        secret_sel = "#reveal >> text=EPI_WITNESS_SECRET="
+        # Rotate: the result appears inline under that customer. The main
+        # instruction is `epi cloud login`; env vars stay collapsed under
+        # Advanced (CI only). It stays across re-renders until Done.
         pg.click("button.tab:text-is('Customers')")
         pg.wait_for_selector("button[data-rotate]", timeout=15000)
-        pg.on("dialog", lambda d: d.accept())
+        dialogs: list[str] = []
+        pg.on("dialog", lambda d: (dialogs.append(d.message), d.accept()))
         pg.click("button[data-rotate]")
-        pg.wait_for_selector("#reveal >> text=EPI_WITNESS_SECRET=", timeout=15000)
+        rot = "#tab-customers [data-rev] .reveal"
+        pg.wait_for_selector(f"{rot} >> text=On each computer for Acme Bank", timeout=15000)
+        assert dialogs and "epi cloud login" in dialogs[-1] and "EPI_WITNESS" not in dialogs[-1], dialogs
+        secret_sel = f"{rot} >> text=EPI_WITNESS_SECRET="
+        assert not pg.locator(secret_sel).is_visible(), "secret must be collapsed under Advanced"
         for _ in range(12):
-            assert pg.locator(secret_sel).is_visible(), "rotated secret vanished before ack"
+            assert pg.locator(f"{rot} >> text=On each computer for Acme Bank").is_visible(), "rotate result vanished"
             pg.wait_for_timeout(1000)
+        pg.locator(f"{rot} summary").click()
+        assert pg.locator(secret_sel).is_visible()
         pg.screenshot(path=str(SHOTS / "06-rotate.png"))
         _no_overflow(pg)
-        pg.click("#reveal-ack")
-        assert not pg.locator("#reveal >> text=EPI_WITNESS_SECRET=").is_visible()
+        pg.locator("#tab-customers [data-done]").click()
+        assert pg.locator(secret_sel).count() == 0
 
         pg.click("button.tab:text-is('Runs')")
         pg.screenshot(path=str(SHOTS / "05-dashboard.png"))

@@ -1930,20 +1930,25 @@ class EpiRecorderSession:
 
 
 def _print_witness_outcome(entry) -> None:
-    """One line telling the sealer whether the customer got the seal report."""
+    """One line telling the sealer whether the customer got the seal report.
+
+    With EPI_WITNESS_RESULT_FILE set (used by `epi demo`), the outcome is
+    written there as JSON instead, so the caller shows it in its own output.
+    """
     if not isinstance(entry, dict):
         return
     from urllib.parse import urlparse
 
     out = entry.get("_outcome") or {}
     host = lambda u: urlparse(u).netloc or u  # noqa: E731
-    try:
-        import os as _os
+    import os as _os
 
+    try:
         _env_url = _os.getenv("EPI_WITNESS_URL")
     except Exception:
         _env_url = None
     _cloud_login_user = False
+    _customer = None
     if not _env_url:
         # A cloud-login user never sets env vars: if cloud.json holds witness
         # settings, the stamp travelled password-free via `epi cloud login`.
@@ -1956,29 +1961,53 @@ def _print_witness_outcome(entry) -> None:
             _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
             if _cfg.exists():
                 _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
-                _cloud_login_user = bool(
-                    isinstance(_saved, dict) and str(_saved.get("witness_url") or "").strip()
-                )
+                if isinstance(_saved, dict):
+                    _cloud_login_user = bool(str(_saved.get("witness_url") or "").strip())
+                    _customer = str(_saved.get("customer") or "").strip() or None
         except Exception:
             pass
+    try:
+        from epi_core.webhook import describe_witness_failure
+    except Exception:  # pragma: no cover - same package
+        describe_witness_failure = None  # type: ignore[assignment]
     delivered = [host(u) for u in out.get("delivered") or []]
     failed = out.get("failed") or {}
+    still_sending = bool(out.get("pending") or out.get("error"))
+    problems = []
+    for url, err in failed.items():
+        if describe_witness_failure is not None:
+            info = describe_witness_failure(err, cloud_login=_cloud_login_user, customer=_customer)
+        else:  # pragma: no cover
+            info = {"status": None, "reason": str(err)[:120], "fix": "run: epi witness flush", "retry_helps": True}
+        problems.append({"host": host(url), "error": str(err)[:200], **info})
+
+    result_file = _os.getenv("EPI_WITNESS_RESULT_FILE")
+    if result_file:
+        try:
+            import json as _json
+
+            with open(result_file, "w", encoding="utf-8") as fh:
+                _json.dump(
+                    {
+                        "delivered": delivered,
+                        "failed": problems,
+                        "still_sending": still_sending,
+                        "cloud_login": _cloud_login_user,
+                    },
+                    fh,
+                )
+            return
+        except Exception:
+            pass
+
     if delivered:
         print(f"[EPI] Witness: delivered to {', '.join(delivered)}", file=sys.stderr)
-    for url, err in failed.items():
-        hint = ""
-        if "401" in str(err) and _cloud_login_user:
-            hint = " (re-run epi cloud login to refresh this computer's witness secret)"
-        elif "401" in str(err):
-            hint = " (witness secret changed — update EPI_WITNESS_SECRET)"
-        elif "403" in str(err):
-            hint = " (blocked before reaching EPI Cloud (network/firewall); queued, not lost)"
-        print(
-            f"[EPI] Witness: QUEUED for {host(url)}: {str(err)[:120]}{hint}. "
-            "Run `epi witness flush` to retry.",
-            file=sys.stderr,
-        )
-    if out.get("pending") or out.get("error"):
+    for item in problems:
+        # QUEUED only when a later retry can deliver it; otherwise say plainly
+        # that it was not delivered and give the one fix that works.
+        lead = f"QUEUED for {item['host']}" if item.get("retry_helps") else f"NOT delivered to {item['host']}"
+        print(f"[EPI] Witness: {lead}: {item['reason']} — {item['fix']}", file=sys.stderr)
+    if still_sending:
         print(
             "[EPI] Witness: still sending in the background; "
             "check `epi witness status`.",

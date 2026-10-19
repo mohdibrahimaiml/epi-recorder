@@ -154,6 +154,10 @@ class FakeD1 {
       for (const g of this.agents.values()) if (g.id === a[0]) return { name: g.name };
       return null;
     }
+    if (q.startsWith("SELECT id, status FROM agents WHERE org_id = ? AND name = ?")) {
+      for (const g of this.agents.values()) if (g.org_id === a[0] && g.name === a[1]) return { id: g.id, status: g.status };
+      return null;
+    }
     if (q.startsWith("SELECT id FROM agents WHERE org_id = ? AND name = ?")) {
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.name === a[1]) return { id: g.id };
       return null;
@@ -549,6 +553,18 @@ describe("push flow", () => {
     expect((await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: ck("sess-viewer"), body: JSON.stringify(initBody()) }, env as never)).status).toBe(403);
     expect((await app.request("/v1/orgs/o1/artifacts", { headers: ck("sess-viewer") }, env as never)).status).toBe(200);
     expect((await app.request("/v1/orgs/o1/artifacts", {}, env as never)).status).toBe(403);
+  });
+});
+
+describe("closed customer", () => {
+  it("a new run for a closed customer is refused with a plain reason (410)", async () => {
+    const { db, env, key } = await setup();
+    db.agents.get("g1")!.status = "archived";
+    const res = await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never);
+    expect(res.status).toBe(410);
+    const j = (await res.json()) as { error: { code: string; message: string } };
+    expect(j.error.code).toBe("customer_closed");
+    expect(j.error.message).toMatch(/epi cloud login/);
   });
 });
 

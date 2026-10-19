@@ -176,8 +176,11 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
 
   let agentId: string | null = null;
   if (body.data.agent) {
-    const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
-    if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+    const agent = await c.env.DB.prepare("SELECT id, status FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string; status?: string }>();
+    if (!agent) return c.json({ error: { code: "bad_request", message: `There is no customer called "${body.data.agent}" in this workspace. Connect this computer to a customer with: epi cloud login` } }, 400);
+    if (agent.status === "archived") {
+      return c.json({ error: { code: "customer_closed", message: `The customer "${body.data.agent}" was closed in the dashboard. Reopen it there, or pick another customer with: epi cloud login` } }, 410);
+    }
     agentId = agent.id;
   }
 

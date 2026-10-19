@@ -264,7 +264,7 @@ def test_forbidden_stamp_says_blocked_not_secret(monkeypatch, tmp_path):
         assert "secret changed" not in result.output
         assert "queued" in result.output.lower()
         flushed = runner.invoke(cli_app, ["witness", "flush"])
-        assert "Blocked before reaching" in flushed.output, flushed.output
+        assert "blocked before reaching EPI Cloud" in flushed.output, flushed.output
         assert "secret changed" not in flushed.output
     finally:
         server.shutdown()
@@ -346,8 +346,14 @@ def test_print_witness_outcome_401_403_hints(monkeypatch, tmp_path, capsys):
 
     _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 401: Unauthorized"}}})
     out = capsys.readouterr().err
-    assert "re-run epi cloud login" in out, out
+    assert "secret was rotated" in out and "run: epi cloud login" in out, out
+    assert "flush" not in out  # flush alone can't fix a rotated secret
     assert "update EPI_WITNESS_SECRET" not in out
+
+    _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 410: Gone"}}})
+    out = capsys.readouterr().err
+    assert "the customer 'Test Bank' was closed in the dashboard" in out and "pick another: epi cloud login" in out, out
+    assert "flush" not in out
 
     _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 403: Forbidden"}}})
     out = capsys.readouterr().err
@@ -361,7 +367,7 @@ def test_print_witness_outcome_401_403_hints(monkeypatch, tmp_path, capsys):
     _print_witness_outcome({"_outcome": {"delivered": [], "failed": {"https://cloud.test/w/inb_tb": "HTTP Error 401: Unauthorized"}}})
     out = capsys.readouterr().err
     assert "update EPI_WITNESS_SECRET" in out, out
-    assert "re-run epi cloud login" not in out
+    assert "run: epi cloud login" not in out
     _sys.stdout.flush()
 
 
@@ -477,3 +483,36 @@ def test_compact_session_summary_skips_policy_detail(monkeypatch, tmp_path, caps
     assert "steps" in err and ".epi" in err, err
     for banned in ("Policy:", "Issue:", "Finding:", "Next:"):
         assert banned not in err, err
+
+
+def test_closed_customer_410_is_not_retried_forever(monkeypatch, tmp_path):
+    """HTTP 410 (customer closed) leaves the retry queue; flush never loops on it."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from epi_core import webhook as _wh
+
+    class Gone(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            self.send_response(410)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Gone)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}/w/inb_closed"
+    monkeypatch.setenv("EPI_HOME", str(tmp_path))
+    try:
+        path = _wh.outbox_path()
+        entry = _wh.append_outbox_entry({"workflow_id": "wf"}, [url], path=path)
+        out = _wh.deliver_entry(entry, secret="s", path=path)
+        assert "410" in out["failed"][url]
+        stored = _wh.read_outbox(path)[0]
+        assert stored["pending"] == [] and url in stored["gone"]
+        assert _wh.flush_outbox(secret="s", path=path)["entries"] == 0
+    finally:
+        srv.shutdown()
+        srv.server_close()
