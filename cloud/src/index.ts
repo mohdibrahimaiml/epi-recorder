@@ -98,12 +98,12 @@ app.get("/", async (c) => {
   }
   const account =
     `<p>Signed in as <strong>${esc(email)}</strong>.</p>` +
-    `<form method="post" action="/auth/logout"><button type="submit" class="btn btn-sec">Sign out</button></form>` +
+    `<p><button type="button" class="btn btn-sec" id="signout">Sign out</button></p>` +
     `<p><label for="org-pick">Workspace</label><select id="org-pick"></select></p>` +
     `<div id="reveal" style="display:none"></div>` +
     `<div id="loading"><p class="mut">Loading your workspaces…</p></div>` +
     `<div id="guide" style="display:none">` +
-    `<span class="tag">Guided start</span><h2>Get set up in 5 steps</h2>` +
+    `<span class="tag">Guided start</span><h2>Get set up in 3 steps</h2>` +
     `<p class="lede">Each step unlocks the next. Nothing here is final — every name can change later.</p>` +
     `<div id="steps"></div></div>` +
     `<div id="dash" style="display:none">` +
@@ -143,6 +143,7 @@ app.get("/", async (c) => {
     `function scopeNames(scope){var an=scope.agents==="all"?["All recorders"]:(scope.agents||[]).map(function(id){return agentName(id)||id;});var bn=scope.inboxes==="all"?["All customers"]:(scope.inboxes||[]).map(function(id){return inboxLabel(id)||id;});return {agents:an,inboxes:bn};}`,
     `function boot(){api("/v1/orgs").then(function(x){S.orgs=(x.ok&&x.json.orgs)||[];var pick=document.getElementById("org-pick");pick.innerHTML="";if(!S.orgs.length){var o=document.createElement("option");o.value="";o.textContent="No workspace yet — start below";pick.appendChild(o);S.org=null;render();return;}S.orgs.forEach(function(o){var el=document.createElement("option");el.value=o.id;el.textContent=o.name;pick.appendChild(el);});S.org=S.orgs[0].id;pick.value=S.org;loadAll();});}`,
     `document.getElementById("org-pick").onchange=function(){S.org=this.value||null;if(S.org){loadAll();}else{render();}};`,
+    `document.getElementById("signout").onclick=function(){fetch("/auth/logout",{method:"POST",credentials:"same-origin"}).then(function(){location.reload();}).catch(function(){location.reload();});};`,
     `function loadAll(){stopTimers();var id=S.org;Promise.all([api("/v1/orgs/"+id+"/agents"),api("/v1/orgs/"+id+"/api-keys"),api("/v1/orgs/"+id+"/artifacts"),api("/v1/orgs/"+id+"/inboxes"),api("/v1/orgs/"+id+"/share-links")]).then(function(rs){S.agents=(rs[0].ok&&rs[0].json.agents)||[];S.keys=rs[1].ok?(rs[1].json.keys||[]):(rs[1].status===403?"forbidden":null);S.runs=(rs[2].ok&&rs[2].json.artifacts)||[];S.inboxes=(rs[3].ok&&rs[3].json.inboxes)||[];if(rs[4].ok){S.links=rs[4].json.links||[];S.linksForbidden=false;}else{S.links=null;S.linksForbidden=rs[4].status===403;}render();});}`,
     `function milestones(){return {org:!!S.org,key:!!(S.keys&&S.keys.length),run:S.runs.length>0,customer:S.inboxes.length>0,link:!!(S.links&&S.links.length)};}`,
     `function currentStep(m){var s=currentStepRaw(m);if(S.reveal){if(S.reveal.kind==="inbox"&&s>2){return 2;}if(S.reveal.kind==="link"&&s>3){return 3;}}return s;}`,

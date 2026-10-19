@@ -480,6 +480,9 @@ def test_vendor_records_pushes_and_reviewer_verifies_offline(
         assert pg.locator("#trustFiles >> text=Other Bank").count() == 0
         # FIX 5: every shared file says why it is (not) witnessed, in one line.
         assert pg.locator("#trustFiles >> text=Witnessed").count() >= 1
+        # Awaiting-checkpoint counts say when they appear; one Key history heading.
+        assert pg.locator("#trustStats >> text=Counts by date appear after tonight").count() >= 1
+        assert pg.locator("#trustContent >> text=Key history").count() == 1
         pg.locator("text=Verify these bytes").first.click()
         pg.wait_for_selector(
             "#trustFiles .vresult >> text=/Hash matches|FAIL|Could not/", timeout=30000
