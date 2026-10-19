@@ -122,7 +122,7 @@ describe("device + dashboard pages (served HTML)", () => {
     }
     // Every dashboard function the wiring references must be defined —
     // a dropped definition is a dead button with no console error.
-    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "loadAll", "boot"]) {
+    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "runTitle", "runSub", "witHint", "witSub", "loadAll", "boot"]) {
       expect(dashHtml, `missing function ${fn}`).toContain(`function ${fn}(`);
     }
     db.close();
