@@ -314,6 +314,8 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
     except Exception:
         pass
     deadline = time.time() + 10 * 60
+    started = time.time()
+    hinted = False
     org_id = ""
     raw_key = ""
     witness_url: str | None = None
@@ -360,6 +362,13 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
                 if body.get("status") == "expired":
                     console.print("[red][FAIL][/red] Code expired. Retry login.")
                     raise typer.Exit(1)
+                # The browser may have shown an error (unknown code, plan
+                # limit, closed customer) while this loop keeps polling a
+                # row that will never authorize. Nudge once so the terminal
+                # does not wait in silence for ten minutes.
+                if not hinted and time.time() - started >= 30:
+                    console.print("[dim]Still waiting for the browser — if it showed an error, fix it there and press Authorize again.[/dim]")
+                    hinted = True
                 time.sleep(interval)
     except typer.Exit:
         raise

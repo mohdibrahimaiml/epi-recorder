@@ -1,7 +1,7 @@
 import type { Env } from "../env.ts";
 import { newId, newToken, nowIso } from "./crypto.ts";
 import { auditLog, d1AuditDb } from "./audit.ts";
-import { limitAllows, planOf } from "./plans.ts";
+import { limitAllows, planOf, PLAN_LIMITS } from "./plans.ts";
 import { openSecret, sealSecret } from "./secretbox.ts";
 
 export type EnsureCustomerResult =
@@ -59,7 +59,13 @@ export async function ensureCustomerInbox(
     }
     const active = await db.prepare("SELECT COUNT(*) AS n FROM agents WHERE org_id = ? AND status = 'active'").bind(orgId).first<{ n: number }>();
     const agentAllow = limitAllows(planOf(org.plan), "agents", active?.n ?? 0);
-    if (!agentAllow.ok) return fail(402, "plan_limit", agentAllow.message);
+    if (!agentAllow.ok) {
+      // Recorder names follow customers one-to-one, so an "agents" cap reads
+      // as a customer cap to the person clicking. Say customers, not agents.
+      const planId = planOf(org.plan);
+      const max = PLAN_LIMITS[planId].agents;
+      return fail(402, "plan_limit", `Your ${planId} plan includes ${max === null ? "unlimited" : max} customer${max === 1 ? "" : "s"}. Upgrade to add more — your data stays.`);
+    }
     const agentId = newId("agt");
     try {
       await db.prepare("INSERT INTO agents (id, org_id, name, status, created_at) VALUES (?, ?, ?, 'active', ?)")

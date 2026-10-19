@@ -21,6 +21,22 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+- **Sign out works from the dashboard.** The Sign out button failed with
+  `Origin not allowed` (the form POST carries a null origin under the
+  no-referrer policy, which the CSRF check rejects). It now uses the same
+  fetch POST as every other dashboard button, then reloads to the signed-out
+  landing. A browser test clicks it and confirms a reload stays signed out.
+- **Honest setup count.** The guide heading said "5 steps" but shows 3.
+  Plan-limit errors on the customer path say "customers", not "agents"
+  (your free plan includes 1 customer).
+- **`epi cloud login` nudges instead of waiting silently.** If the browser
+  has not authorized after 30 seconds, the terminal says to fix any browser
+  error and press Authorize again, then keeps waiting.
+- **Trust page counts before the first checkpoint.** Runs witnessed but not
+  yet checkpointed say "Counts by date appear after tonight's checkpoint"
+  instead of a contradictory "0 in the last 30 days", and the Key history
+  heading appears once.
+
 - **Demo says what happened.** `epi demo`'s closing panel no longer always
   says "open cloud.epilabs.org -> Share". When the run was pushed it names
   the cloud host saved at login; when nothing was pushed it says "Not shared

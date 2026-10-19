@@ -177,3 +177,50 @@ def test_no_forced_ansi_in_windows_cmd():
         if "legacy_windows=False" in text:
             offenders.append(path.name)
     assert not offenders, f"forced ANSI in windows cmd: {offenders}"
+
+
+def test_device_login_hints_while_browser_has_not_authorized(home, monkeypatch):
+    """The terminal must not wait in silence when the browser failed.
+
+    Fake clock: pending for 35 s, then authorized. The loop must print the
+    "still waiting" nudge once and still complete the login.
+    """
+    import time as time_mod
+    import webbrowser
+
+    import httpx
+
+    ticks = [1000.0]
+    monkeypatch.setattr(time_mod, "time", lambda: ticks[0])
+    monkeypatch.setattr(time_mod, "sleep", lambda s: ticks.__setitem__(0, ticks[0] + s))
+
+    class PendingThenOk(FakeDeviceClient):
+        def get(self, url, **kwargs):
+            self.calls.append({"method": "GET", "url": url})
+            self.polls += 1
+            polls = self.polls
+
+            class R:
+                status_code = 200
+                headers: dict = {}
+
+                def json(self):
+                    if polls < 8:
+                        return {"status": "pending"}
+                    return {
+                        "status": "authorized",
+                        "org_id": "org_123",
+                        "api_key": "epik_devicekey123",
+                    }
+
+            return R()
+
+    PendingThenOk.instances.clear()
+    monkeypatch.setattr(httpx, "Client", PendingThenOk)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    assert "Still waiting for the browser" in result.output
+    saved = json.loads((home / "cloud.json").read_text())
+    assert saved["org_id"] == "org_123"

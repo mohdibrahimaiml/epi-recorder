@@ -323,5 +323,34 @@ def test_guided_flow_on_phone(cloud, browser, tmp_path) -> None:
         runs_text = pg.locator("#tab-runs").text_content() or ""
         assert "No witness stamp arrived for this file yet" in runs_text, runs_text
         assert "epi witness flush" in runs_text, runs_text
+        assert "then push the file again" in runs_text, runs_text
+    finally:
+        ctx.close()
+
+
+def test_sign_out_returns_to_landing(cloud, browser) -> None:
+    base, cookie = cloud
+    ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+    ctx.add_cookies(
+        [
+            {
+                "name": "epi_session",
+                "value": SESSION_RAW,
+                "domain": "127.0.0.1",
+                "path": "/",
+            }
+        ]
+    )
+    pg = ctx.new_page()
+    try:
+        pg.goto(base + "/")
+        pg.wait_for_selector("#signout", timeout=15000)
+        assert "Signed in as" in (pg.content() or "")
+        pg.click("#signout")
+        pg.wait_for_selector("text=Sign in with GitHub", timeout=15000)
+        assert "Signed in as" not in (pg.content() or "")
+        pg.reload()
+        pg.wait_for_selector("text=Sign in with GitHub", timeout=15000)
+        assert "Signed in as" not in (pg.content() or "")
     finally:
         ctx.close()
