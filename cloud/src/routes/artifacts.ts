@@ -117,13 +117,46 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
   const fileCount = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM artifacts WHERE org_id = ? AND deleted_at IS NULL").bind(orgId).first<{ n: number }>();
   const room = limitAllows(plan, "evidenceFiles", fileCount?.n ?? 0);
 
-  const dupe = await c.env.DB.prepare("SELECT id, upload_state, witness_status, signature_check FROM artifacts WHERE org_id = ? AND claimed_sha256 = ?")
-    .bind(orgId, body.data.claimed_sha256).first<{ id: string; upload_state: string; witness_status: string; signature_check: string }>();
+  const dupe = await c.env.DB.prepare("SELECT id, agent_id, manifest_json, upload_state, witness_status, signature_check FROM artifacts WHERE org_id = ? AND claimed_sha256 = ?")
+    .bind(orgId, body.data.claimed_sha256).first<{ id: string; agent_id: string | null; manifest_json: string; upload_state: string; witness_status: string; signature_check: string }>();
   if (dupe) {
+    // Re-push of the same bytes: refresh the witness status (a late witness
+    // report may have arrived since the first push) and fill in the customer
+    // tag only when the stored run has none. An existing tag is never
+    // replaced — moving a run between customers would leak it onto another
+    // customer's reviewer link. An unknown customer name on re-push is
+    // ignored (pre-existing runs keep working); it only 400s on first push.
+    let agentId: string | null = null;
+    if (body.data.agent) {
+      const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+      if (agent) agentId = agent.id;
+    }
+    // Refresh the witness status, but never downgrade: an unreachable or
+    // closed inbox reads as "not found", which must not erase a "witnessed"
+    // verdict for the same bytes.
+    let workflowId: string | null = null;
+    try {
+      const dm = JSON.parse(dupe.manifest_json) as Record<string, unknown>;
+      if (typeof dm.workflow_id === "string") workflowId = dm.workflow_id;
+    } catch {
+      // Unreadable manifest: keep the stored status.
+    }
+    const recomputed = workflowId ? await witnessStatus(c.env.DB, c.env, orgId, workflowId, body.data.claimed_sha256) : dupe.witness_status;
+    const status = dupe.witness_status === "witnessed" ? "witnessed" : recomputed;
+    const adopt = !dupe.agent_id && agentId ? agentId : dupe.agent_id;
+    if (status !== dupe.witness_status || adopt !== dupe.agent_id) {
+      await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?").bind(adopt, status, dupe.id).run();
+      await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: adopt !== dupe.agent_id ? "artifact.assign" : "artifact.refresh", detail: `${dupe.id} ${status}` });
+    }
+    let agentLabel: string | null = null;
+    if (adopt) {
+      const nm = await c.env.DB.prepare("SELECT name FROM agents WHERE id = ?").bind(adopt).first<{ name: string }>();
+      agentLabel = nm?.name ?? body.data.agent ?? null;
+    }
     return c.json({
       id: dupe.id, deduped: true,
       put_url: dupe.upload_state === "stored" ? null : `/v1/orgs/${orgId}/artifacts/${dupe.id}/content`,
-      witness_status: dupe.witness_status, signature_check: dupe.signature_check,
+      witness_status: status, signature_check: dupe.signature_check, agent: agentLabel,
     });
   }
   if (!room.ok) return c.json({ error: { code: "plan_limit", message: room.message } }, 402);
@@ -150,7 +183,7 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
     fingerprint, signatureCheck, status, body.data.reason, `${orgId}/${id}.epi`, now, retentionUntil(plan, now),
   ).run();
   await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: "artifact.init", detail: `${id} ${body.data.reason} ${status}` });
-  return c.json({ id, put_url: `/v1/orgs/${orgId}/artifacts/${id}/content`, witness_status: status, signature_check: signatureCheck }, 201);
+  return c.json({ id, put_url: `/v1/orgs/${orgId}/artifacts/${id}/content`, witness_status: status, signature_check: signatureCheck, agent: body.data.agent ?? null }, 201);
 });
 
 // Byte upload, streamed straight to R2. Content-Length must match init.
@@ -232,6 +265,35 @@ app.post("/orgs/:orgId/artifacts/:artifactId/legal-hold", async (c) => {
   if (res.meta.changes === 0) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
   await auditLog(d1AuditDb(c.env.DB), { orgId, actor: `user:${user.id}`, action: body.data.hold ? "artifact.hold" : "artifact.unhold", detail: c.req.param("artifactId") });
   return c.json({ ok: true });
+});
+
+// Re-tag a pushed run to a customer (assign an Unassigned run).
+// Same permission as pushing (member session or push key). Re-tagging never
+// changes bytes, so the sha dedupe stays intact; witness_status is
+// recomputed because the run may now match a different inbox.
+app.patch("/orgs/:orgId/artifacts/:artifactId/agent", async (c) => {
+  const orgId = c.req.param("orgId");
+  const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
+  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  const body = z.object({ agent: z.string().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: { code: "bad_request", message: "agent (customer recorder name) required." } }, 400);
+  const row = await c.env.DB.prepare("SELECT id, manifest_json, claimed_sha256 FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
+    .bind(c.req.param("artifactId"), orgId).first<{ id: string; manifest_json: string; claimed_sha256: string }>();
+  if (!row) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
+  const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+  if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+  let workflowId: string | null = null;
+  try {
+    const manifest = JSON.parse(row.manifest_json) as Record<string, unknown>;
+    if (typeof manifest.workflow_id === "string") workflowId = manifest.workflow_id;
+  } catch {
+    // Keep the stored witness status if the manifest is unreadable.
+  }
+  const status = await witnessStatus(c.env.DB, c.env, orgId, workflowId, row.claimed_sha256);
+  await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?")
+    .bind(agent.id, status, row.id).run();
+  await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: "artifact.assign", detail: `${row.id} agent=${body.data.agent} ${status}` });
+  return c.json({ id: row.id, agent_id: agent.id, witness_status: status });
 });
 
 app.delete("/orgs/:orgId/artifacts/:artifactId", async (c) => {

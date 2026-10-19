@@ -515,6 +515,85 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
 app = typer.Typer(help="Zero-friction developer onboarding for EPI.")
 
 
+def _demo_push_if_logged_in(epi_path: Path) -> bool:
+    """Push the demo artifact with the saved customer (no flags, no secrets).
+
+    Returns True when the push worked, False otherwise (not logged in or
+    push failed). Never raises: every failure prints its own next step.
+    """
+    try:
+        from epi_cli.cloud import load_config
+    except Exception:
+        return False
+    try:
+        cfg = load_config()
+    except Exception:
+        return False
+    if not cfg.get("url") or not (cfg.get("org_id") or cfg.get("org")):
+        console.print("  [dim]Not logged in — skipping cloud push. Run epi cloud login, then epi demo again to share.[/dim]")
+        return False
+    if not (cfg.get("api_key") or cfg.get("key")):
+        console.print("  [dim]Not logged in — skipping cloud push.[/dim]")
+        return False
+    try:
+        from typer.testing import CliRunner
+
+        from epi_cli.cloud import app as cloud_app
+    except Exception as exc:
+        console.print(f"  [dim]Cloud push skipped ({exc})[/dim]")
+        return False
+    console.print("  [dim]Pushing demo run to your Evidence Room…[/dim]")
+    result = CliRunner().invoke(cloud_app, ["push", str(epi_path), "--reason", "sample"])
+    if result.exit_code == 0:
+        customer = str(cfg.get("customer") or "").strip()
+        if customer:
+            console.print(f"  [green]✓[/green] Pushed to cloud      tagged to your customer ({customer})")
+        else:
+            console.print("  [green]✓[/green] Pushed to cloud      no customer saved — tag it with epi cloud use \"Name\"")
+        return True
+    out = (result.output or "").strip().splitlines()
+    tail = out[-1] if out else f"exit {result.exit_code}"
+    console.print(f"  [yellow]![/yellow] Cloud push skipped: {tail}")
+    console.print("  [dim]Run epi cloud login (pick your customer), then epi demo again.[/dim]")
+    return False
+
+
+def _demo_cloud_host() -> str:
+    """Host the user logged in to (saved cloud URL), without the scheme."""
+    try:
+        from epi_cli.cloud import load_config
+
+        url = str(load_config().get("url") or "").strip().rstrip("/")
+    except Exception:
+        url = ""
+    if url:
+        for scheme in ("https://", "http://"):
+            if url.startswith(scheme):
+                url = url[len(scheme):]
+                break
+        if url:
+            return url
+    return "cloud.epilabs.org"
+
+
+def _demo_done_lines(*, epi_path: Path | None, pushed: bool) -> list[str]:
+    """Closing panel for `epi demo`: share step when pushed, offline hints when not."""
+    lines = ["[bold green]Done.[/bold green] Your evidence file is ready.", ""]
+    if epi_path is not None:
+        lines.append(f"  [cyan]{epi_path}[/cyan]")
+        lines.append("")
+    if pushed:
+        lines.append(f"Next: open {_demo_cloud_host()} -> Share")
+    else:
+        lines.append("Not shared yet: run epi cloud login, then epi demo again")
+        lines.append("")
+        lines.append("Re-check anytime:")
+        if epi_path is not None:
+            lines.append(f"  epi verify {epi_path}")
+            lines.append(f"  epi view {epi_path}")
+    return lines
+
+
 def _run_fast_demo(
     *,
     demo_script: Path,
@@ -527,7 +606,7 @@ def _run_fast_demo(
     console.print()
     console.print(Panel.fit(
         "[bold cyan]epi demo[/bold cyan] — record · seal · verify · view\n"
-        "[dim]No API key. No server. One portable .epi file.[/dim]",
+        "[dim]No API key needed. Pushes automatically when logged in.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -559,6 +638,9 @@ def _run_fast_demo(
     if not no_run:
         console.print("  [dim]Recording refund agent (mock LLM if no OPENAI_API_KEY)…[/dim]")
         run_env = os.environ.copy()
+        # Keep the demo readable for normal users: the seal summary skips the
+        # policy/heuristic detail lines (still printed by `epi record`).
+        run_env["EPI_COMPACT_SUMMARY"] = "1"
         ok = _run_demo_script(demo_script, env=run_env)
         if not ok:
             console.print("  [yellow]![/yellow] Demo script exited non-zero — checking for artifact anyway")
@@ -618,6 +700,10 @@ def _run_fast_demo(
         except Exception:
             pass
 
+    pushed = False
+    if epi_path is not None and epi_path.exists():
+        pushed = _demo_push_if_logged_in(epi_path)
+
     if not no_browser and epi_path is not None:
         console.print("  [dim]Opening viewer…[/dim]")
         view_rc = subprocess.run(
@@ -653,12 +739,7 @@ def _run_fast_demo(
 
     console.print()
     console.print(Panel.fit(
-        f"[bold green]Done.[/bold green] Your evidence file is ready.\n\n"
-        f"  [cyan]{epi_path}[/cyan]\n\n"
-        f"Re-check anytime:\n"
-        f"  [white]epi verify {epi_path}[/white]\n"
-        f"  [white]epi view {epi_path}[/white]\n\n"
-        f"[dim]Optional team inbox UI: epi demo --review[/dim]",
+        "\n".join(_demo_done_lines(epi_path=epi_path, pushed=pushed)),
         title="EPI demo",
         border_style="green",
     ))

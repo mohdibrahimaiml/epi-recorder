@@ -21,6 +21,21 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+- **Demo says what happened.** `epi demo`'s closing panel no longer always
+  says "open cloud.epilabs.org -> Share". When the run was pushed it names
+  the cloud host saved at login; when nothing was pushed it says "Not shared
+  yet: run epi cloud login, then epi demo again" and keeps the offline
+  `epi verify` / `epi view` hints. The push line only claims a customer tag
+  when one is saved.
+- **Dashboard runs tell apart.** The Runs list shows a short id and the seal
+  time under each title, so identical demo goals are distinguishable. Runs
+  without a goal show "Run 29e5812b" (workflow short id) or "Sealed run
+  a1b2c3d4" instead of a bare UUID. Every non-witnessed badge carries a
+  one-line reason with a next step. Re-pushing the same file refreshes a
+  stale witness status and fills in the customer tag when the stored run has
+  none — an existing tag is never replaced. Trust pages show the same
+  one-line witness reason per file.
+
 - **Evidence pack (M6).** One "Download evidence pack" button on trust pages
   zips the whole link in the reviewer's browser (never on the server): every
   artifact's hash-checked bytes, `trust.json`, `witness.json`, `README.txt`

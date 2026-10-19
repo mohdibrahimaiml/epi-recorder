@@ -973,20 +973,65 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             continue
         _ok = False
         _reason = "receipt check failed"
+        _key_reasons: list[str] = []
         for _pub in pubkeys:
             _ok, _reason = _verify_witness_receipt(
                 item.get("payload_raw"), item.get("receipt"), _pub, file_sha256
             )
             if _ok:
                 break
+            _key_reasons.append(_reason or "receipt check failed")
         if _ok:
             verified.append(item)
         else:
-            failures.append(_reason or "receipt check failed")
+            # With several trusted keys the loop tries each in turn, so the
+            # last reason may blame the wrong key while an earlier key proved
+            # the content differs. A proven content mismatch must win: it is
+            # the MISMATCH signal, never a wrong-key artefact. Only the
+            # artifact comparison is signature-proven (the signature is
+            # verified first, then the receipt's file hash is compared), so
+            # only it counts here; line_sha256 is checked before any
+            # signature verifies and proves nothing about the file.
+            _content = next(
+                (r for r in _key_reasons if "artifact_sha256 mismatch" in r),
+                None,
+            )
+            failures.append(_content or _reason or "receipt check failed")
     result["receipt_verified"] = len(verified)
     result["receipt_failures"] = len(failures)
     if not verified:
         _first = failures[0] if failures else "no verifiable receipt"
+        # Key mismatch is NOT content alteration: every receipt failed only
+        # because no trusted key verifies its signature, so the stamp is not
+        # from the EPI witness. MISMATCH must mean the file content differs
+        # (a verified receipt for a different version), never a wrong key —
+        # telling an auditor "altered" when nothing was altered is a
+        # trust-critical false positive.
+        _sig_only = bool(failures) and all(
+            ("signature invalid" in f)
+            or ("signature malformed" in f)
+            or ("invalid witness public key" in f)
+            for f in failures
+        )
+        if _sig_only:
+            result["status"] = "NOT CONFIRMED"
+            # An explicitly pinned key (flag/env) that verifies nothing is a
+            # forgery signal, not an unchecked stamp: the auditor named the
+            # key and the stamp is not from it. The decision step FAILs this
+            # in every mode; with only package pins (no explicit key) it
+            # stays WARN outside strict.
+            result["explicit_key"] = bool(_explicit_hexes)
+            _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
+            result["detail"] = (
+                "WITNESS STAMP NOT CONFIRMED — NOT FROM THE EPI WITNESS: this file "
+                f"carries witness receipts but none verifies against a trusted key ({len(failures)} "
+                f"receipt failure(s)): {_first}.{_names_key} Pin the EPI witness key "
+                "out of band (fetch it from "
+                "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
+                "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+                "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
+            )
+            return result
         result["status"] = "MISMATCH"
         result["received_at"] = None
         # Try to surface a reported time even when nothing verified.
@@ -2036,9 +2081,23 @@ def verify_command(
         elif _witness.get("status") == "NOT CONFIRMED":
             # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
             # Never a clean PASS; FAIL under strict (the auditor acceptance
-            # command), WARN otherwise.
+            # command), WARN otherwise. Exception: the auditor explicitly
+            # pinned a key and the stamp is not from it — a forged stamp.
+            # That FAILs in every mode; "unconfirmed" would understate a fake.
             try:
-                if report["decision"].get("status") == "PASS":
+                _prior = report["decision"].get("status")
+                if _witness.get("explicit_key"):
+                    if _prior != "FAIL":
+                        _rs = report["decision"].get("reason", "")
+                        _msg = (
+                            "Witness stamp is NOT FROM THE EPI WITNESS: a key was "
+                            "explicitly pinned and no receipt verifies against it."
+                        )
+                        report["decision"]["status"] = "FAIL"
+                        report["decision"]["reason"] = (
+                            f"{_rs}; {_msg}".strip("; ") if _prior == "WARN" else _msg
+                        )
+                elif _prior == "PASS":
                     report["decision"]["status"] = (
                         "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
                     )

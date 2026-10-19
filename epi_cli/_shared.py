@@ -22,6 +22,90 @@ from epi_core.workspace import create_recording_workspace
 console = Console()
 
 
+def report_witness_for_cli(epi_path: Path | str) -> str | None:
+    """Report a sealed file to the customer witness (CLI record/run flows).
+
+    Reads EPI_WITNESS_URL / EPI_WITNESS_SECRET. Outbox-first, exactly like
+    the Python API seal path, so a queued report is HMAC-signed at send
+    time with the CURRENT secret (rotation-safe). Never raises: returns a
+    one-line status, or None when no witness is configured.
+    """
+    try:
+        from epi_cli.gateway import _short_reason
+        from epi_core.webhook import read_outbox, report_seal, split_witness_urls
+    except Exception:
+        return None
+    try:
+        urls = split_witness_urls(os.environ.get("EPI_WITNESS_URL"))
+        secret = os.environ.get("EPI_WITNESS_SECRET") or None
+        from_cloud_json = False
+        if not urls:
+            # Simple onboarding: fall back to the witness settings saved by
+            # `epi cloud login` (or `epi cloud use`) when no env URL is set.
+            # Same-source rule: an explicit/ENV url pairs only with an
+            # explicit/ENV secret; a saved url pairs only with the saved
+            # secret. Never mix a stale ENV secret with a fresh saved url.
+            try:
+                from epi_cli.cloud import saved_customer as _saved_preset
+            except Exception:
+                _saved_preset = None  # type: ignore
+            if _saved_preset is not None:
+                try:
+                    preset = _saved_preset() or {}
+                except Exception:
+                    preset = {}
+                if isinstance(preset.get("witness_url"), str) and preset["witness_url"].strip():
+                    urls = split_witness_urls(preset["witness_url"])
+                    secret = preset.get("witness_secret") or None
+                    from_cloud_json = True
+        if not urls:
+            return None
+        key_name: str | None = None
+        private_key_bytes: bytes | None = None
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from epi_cli.keys import KeyManager
+
+            _km = KeyManager()
+            _priv = _km.load_private_key("default")
+            private_key_bytes = _priv.private_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PrivateFormat.Raw,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            key_name = "default"
+        except Exception:
+            key_name, private_key_bytes = None, None
+        entry = report_seal(
+            Path(epi_path), urls=urls, secret=secret,
+            key_name=key_name, private_key_bytes=private_key_bytes,
+        )
+        if entry is None:
+            return "Witness: QUEUED (could not stage report) — run epi witness flush"
+        stored = next((e for e in read_outbox() if e.get("id") == entry.get("id")), entry)
+        pending = list(stored.get("pending") or [])
+        if not pending:
+            return f"Witness: delivered to {', '.join(urls)}"
+        reason = _short_reason(stored.get("last_error"), urls)
+        hint = ""
+        if "401" in reason:
+            # Rejected by the witness: the secret does not match the inbox.
+            if from_cloud_json:
+                hint = " — re-run epi cloud login to refresh this computer's witness secret"
+            elif not secret:
+                hint = " — no secret set: export with EPI_WITNESS_SECRET (or --witness-secret)"
+            else:
+                hint = " — witness secret changed — update EPI_WITNESS_SECRET"
+        elif "403" in reason:
+            # Cloudflare (or a firewall) blocked the stamp before it reached
+            # EPI Cloud — the Worker never answers 403. Nothing is wrong with
+            # the secret; the report stays queued for `epi witness flush`.
+            hint = " — blocked before reaching EPI Cloud (network/firewall); queued, not lost"
+        return f"Witness: QUEUED ({reason}){hint} — run epi witness flush"
+    except Exception:
+        return None
+
+
 def require_extra(
     extra_name: str,
     module_name: str | None = None,

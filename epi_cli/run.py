@@ -28,7 +28,7 @@ from epi_core.trust import verify_embedded_manifest_signature
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 
 from epi_cli.keys import KeyManager
-from epi_cli._shared import ensure_python_command, build_env_for_child
+from epi_cli._shared import ensure_python_command, build_env_for_child, report_witness_for_cli
 from epi_cli.view import (
     _build_viewer_context,
     _create_decision_ops_viewer,
@@ -629,7 +629,16 @@ def run(
         border_style=border_style,
     )
     console.print(panel)
-    
+
+    # Customer witness: report the final file if the recorder points at a
+    # customer inbox. Outbox-first; never fails the seal or the exit code.
+    try:
+        _witness_line = report_witness_for_cli(effective_out)
+        if _witness_line:
+            console.print(_witness_line, markup=False, soft_wrap=True, highlight=False)
+    except Exception:
+        pass
+
     # Exit with appropriate code
     if rc != 0:
         raise typer.Exit(rc)
