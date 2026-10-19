@@ -2,6 +2,23 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.6.2] - 2026-10-17
+
+- **EPI Cloud login from the terminal.** `epi cloud login` (no flags) shows a
+  short code; type it at cloud.epilabs.org/auth/device and the CLI picks up
+  a push-only key by itself (RFC 8628 device flow). Flag version
+  (`--url/--org/--api-key`) kept for automation. `epi auth login` is an
+  alias of the same flow.
+- **One account system.** Website Sign In and the CLI use EPI Cloud only;
+  the old Render login is retired (see docs/RENDER-RETIRE-PLAN.md).
+- **Cloud setup dashboard.** Guided start (company → computer → first run →
+  customer → trust link) then tabs for Runs, Customers, Trust links and
+  Computers & keys. Trust links are scoped to one customer by default.
+- **Smaller fixes.** D1 migrations run before every cloud deploy (prod
+  sign-in repair); device-code guess throttling; push-only `status`
+  explains instead of dumping 403; witness exports enforce trust-link
+  inbox scope.
+
 ## [Unreleased]
 
 - **Demo says what happened.** `epi demo`'s closing panel no longer always
