@@ -306,4 +306,95 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     expect(row.scopes).toBe("push");
     db.close();
   });
+
+  it("device authorize with a customer hands the witness secret to the CLI once", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    githubProfile = { id: 4244, login: "cust-user", email: "cust@example.com", verified: true };
+    const start = await app.request("/auth/github", {}, env as never);
+    const stateParam = new URL(start.headers.get("Location")!).searchParams.get("state")!;
+    const oauthState = start.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!;
+    const cb = await app.request(`/auth/github/callback?code=n&state=${encodeURIComponent(stateParam)}`, { headers: { Cookie: `epi_oauth_state=${oauthState}` } }, env as never);
+    const cookie = `epi_session=${cb.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!}`;
+    const org = (await (
+      await app.request("/v1/orgs", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Acme", slug: "acme" }) }, env as never)
+    ).json()) as { id: string };
+    const dev = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    // New customer typed at authorize time: owner mints agent + inbox.
+    const authz = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev.user_code, org_id: org.id, customer_label: "Acme Bank" }) }, env as never);
+    expect(authz.status).toBe(200);
+    const done = (await (await app.request(`/auth/device/${dev.device_code}/status`, {}, env as never)).json()) as { status: string; witness_url: string | null; witness_secret: string | null; customer_label: string | null; api_key: string };
+    expect(done.status).toBe("authorized");
+    expect(done.customer_label).toBe("Acme Bank");
+    expect(done.witness_url).toMatch(/^https:\/\/cloud\.epilabs\.org\/w\/inb_/);
+    expect(done.witness_secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(done.api_key.startsWith("epik_")).toBe(true);
+    // Single retrieval: the secret is nulled after the first poll.
+    const again = (await (await app.request(`/auth/device/${dev.device_code}/status`, {}, env as never)).json()) as { witness_secret: string | null };
+    expect(again.witness_secret).toBeNull();
+    // Without a customer the CLI gets a key but no witness material.
+    const dev2 = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: dev2.user_code, org_id: org.id }) }, env as never);
+    const bare = (await (await app.request(`/auth/device/${dev2.device_code}/status`, {}, env as never)).json()) as { witness_url: string | null; witness_secret: string | null; customer_label: string | null };
+    expect(bare.customer_label).toBeNull();
+    expect(bare.witness_url).toBeNull();
+    expect(bare.witness_secret).toBeNull();
+    db.close();
+  });
+
+  it("members cannot mint new customer inboxes via device flow, but can select", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    githubProfile = { id: 4245, login: "owner2", email: "owner2@example.com", verified: true };
+    const start = await app.request("/auth/github", {}, env as never);
+    const stateParam = new URL(start.headers.get("Location")!).searchParams.get("state")!;
+    const oauthState = start.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!;
+    const cb = await app.request(`/auth/github/callback?code=n&state=${encodeURIComponent(stateParam)}`, { headers: { Cookie: `epi_oauth_state=${oauthState}` } }, env as never);
+    const ownerCookie = `epi_session=${cb.headers.get("Set-Cookie")!.split("=")[1]!.split(";")[0]!}`;
+    const org = (await (
+      await app.request("/v1/orgs", { method: "POST", headers: { Cookie: ownerCookie, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Acme", slug: "acme" }) }, env as never)
+    ).json()) as { id: string };
+    // Owner creates the customer inbox first (dashboard or device flow).
+    const first = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    expect((await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: ownerCookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: first.user_code, org_id: org.id, customer_label: "Acme Bank" }) }, env as never)).status).toBe(200);
+    // Lift to growth so plan caps don't mask the permission check below.
+    db.prepare("UPDATE orgs SET plan = 'growth'").run();
+    // Promote a second user to member (owner-only creation stays closed to them).
+    db.prepare("INSERT INTO users (id, email, display_name, email_verified, created_at) VALUES ('u_member','m@x.test','M',1,'t')").run();
+    db.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?,'u_member','member')").run(org.id);
+    const memberHash = await sha256Hex("sess-member");
+    db.prepare("INSERT INTO sessions (id_hash, user_id, expires_at) VALUES (?, 'u_member', '2999-01-01T00:00:00.000Z')").run(memberHash);
+    const memberCookie = "epi_session=sess-member";
+    const second = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    // New customer as member: 403, nothing minted.
+    const denied = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: memberCookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: second.user_code, org_id: org.id, customer_label: "Other Bank" }) }, env as never);
+    expect(denied.status).toBe(403);
+    // Existing customer as member: fine, witness secret included.
+    const third = (await (
+      await app.request("/auth/device/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }, env as never)
+    ).json()) as { device_code: string; user_code: string };
+    const okRes = await app.request("/auth/device/authorize", { method: "POST", headers: { Cookie: memberCookie, "Content-Type": "application/json" }, body: JSON.stringify({ user_code: third.user_code, org_id: org.id, customer_label: "Acme Bank" }) }, env as never);
+    expect(okRes.status).toBe(200);
+    const done = (await (await app.request(`/auth/device/${third.device_code}/status`, {}, env as never)).json()) as { witness_secret: string | null; customer_label: string | null };
+    expect(done.customer_label).toBe("Acme Bank");
+    expect(done.witness_secret).toMatch(/^[0-9a-f]{64}$/);
+    db.close();
+  });
+
+  it("GET /v1/version advertises the minimum CLI", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    const res = (await (await app.request("/v1/version", {}, env as never)).json()) as { service: string; min_cli_version: string };
+    expect(res.service).toBe("epi-cloud");
+    expect(res.min_cli_version).toMatch(/^\d+\.\d+\.\d+$/);
+    db.close();
+  });
 });

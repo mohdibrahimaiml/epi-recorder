@@ -45,3 +45,70 @@ def test_demo_help_mentions_review_flag():
     result = runner.invoke(cli_app, ["demo", "--help"])
     assert result.exit_code == 0
     assert "--review" in result.output or "review" in result.output.lower()
+
+
+def test_demo_push_helper_false_when_not_logged_in(demo_cwd: Path, capsys):
+    from epi_cli.dev import _demo_push_if_logged_in
+
+    epi = demo_cwd / "run.epi"
+    epi.write_bytes(b"fake")
+    assert _demo_push_if_logged_in(epi) is False
+    out = capsys.readouterr().out
+    assert "epi cloud login" in out
+
+
+def test_demo_push_helper_true_when_push_succeeds(demo_cwd: Path, monkeypatch, capsys):
+    import json
+
+    from epi_cli.dev import _demo_push_if_logged_in
+
+    (demo_cwd / "epi_home" / "cloud.json").write_text(
+        json.dumps({"url": "https://cloud.test", "org_id": "org_1", "api_key": "k",
+                    "customer": "Acme Bank"}),
+        encoding="utf-8",
+    )
+
+    class _OkRunner:
+        def invoke(self, app, args):
+            class R:
+                exit_code = 0
+                output = "ok"
+
+            return R()
+
+    monkeypatch.setattr("typer.testing.CliRunner", _OkRunner)
+    epi = demo_cwd / "run.epi"
+    epi.write_bytes(b"fake")
+    assert _demo_push_if_logged_in(epi) is True
+    out = capsys.readouterr().out
+    assert "Pushed to cloud" in out
+    assert "Acme Bank" in out
+
+
+def test_demo_done_lines_pushed_uses_saved_host(demo_cwd: Path):
+    import json
+
+    from epi_cli.dev import _demo_cloud_host, _demo_done_lines
+    from pathlib import Path as _Path
+
+    assert _demo_cloud_host() == "cloud.epilabs.org"
+    (demo_cwd / "epi_home" / "cloud.json").write_text(
+        json.dumps({"url": "https://example.test/"}), encoding="utf-8"
+    )
+    assert _demo_cloud_host() == "example.test"
+    pushed = "\n".join(_demo_done_lines(epi_path=_Path("a.epi"), pushed=True))
+    assert "open example.test -> Share" in pushed
+    assert "Not shared yet" not in pushed
+    missing = "\n".join(_demo_done_lines(epi_path=_Path("a.epi"), pushed=False))
+    assert "Not shared yet: run epi cloud login, then epi demo again" in missing
+    assert "epi verify a.epi" in missing
+    assert "epi view a.epi" in missing
+    assert "-> Share" not in missing
+
+
+def test_demo_end_panel_when_not_logged_in(demo_cwd: Path):
+    result = runner.invoke(cli_app, ["demo", "--no-browser"])
+    assert result.exit_code == 0, result.output
+    assert "Not shared yet: run epi cloud login, then epi demo again" in result.output
+    assert "epi verify" in result.output
+    assert "-> Share" not in result.output

@@ -119,22 +119,62 @@ class FakeD1 {
       const o = this.orgs.get(a[0] as string);
       return o ? { plan: o.plan } : null;
     }
+    if (q.startsWith("SELECT COUNT(*) AS n FROM agents WHERE org_id = ?")) {
+      let n = 0;
+      for (const g of this.agents.values()) if (g.org_id === a[0] && g.status === "active") n++;
+      return { n };
+    }
+    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND customer_label = ?")) {
+      for (const i of this.inboxes.values()) {
+        if (i.org_id === a[0] && i.customer_label === a[1] && i.closed_at == null) {
+          return { id: i.id, hmac_secret_enc: i.hmac_secret_enc };
+        }
+      }
+      return null;
+    }
+    if (q.startsWith("SELECT COUNT(*) AS n FROM inboxes WHERE org_id = ?")) {
+      let n = 0;
+      for (const i of this.inboxes.values()) if (i.org_id === a[0] && i.closed_at == null) n++;
+      return { n };
+    }
     if (q.startsWith("SELECT COUNT(*) AS n FROM artifacts")) {
       let n = 0;
       for (const r of this.artifacts.values()) if (r.org_id === a[0] && r.deleted_at == null) n++;
       return { n };
     }
-    if (q.startsWith("SELECT id, upload_state, witness_status, signature_check FROM artifacts")) {
+    if (q.startsWith("SELECT id, agent_id, manifest_json, upload_state, witness_status, signature_check FROM artifacts")) {
       for (const r of this.artifacts.values()) {
         if (r.org_id === a[0] && r.claimed_sha256 === a[1]) {
-          return { id: r.id, upload_state: r.upload_state, witness_status: r.witness_status, signature_check: r.signature_check };
+          return { id: r.id, agent_id: r.agent_id ?? null, manifest_json: r.manifest_json, upload_state: r.upload_state, witness_status: r.witness_status, signature_check: r.signature_check };
         }
       }
+      return null;
+    }
+    if (q.startsWith("SELECT name FROM agents WHERE id = ?")) {
+      for (const g of this.agents.values()) if (g.id === a[0]) return { name: g.name };
       return null;
     }
     if (q.startsWith("SELECT id FROM agents WHERE org_id = ? AND name = ?")) {
       for (const g of this.agents.values()) if (g.org_id === a[0] && g.name === a[1]) return { id: g.id };
       return null;
+    }
+    if (q.startsWith("SELECT COUNT(*) AS n FROM agents WHERE org_id = ?")) {
+      let n = 0;
+      for (const g of this.agents.values()) if (g.org_id === a[0] && g.status === "active") n++;
+      return { n };
+    }
+    if (q.startsWith("SELECT id, hmac_secret_enc FROM inboxes WHERE org_id = ? AND customer_label = ?")) {
+      for (const i of this.inboxes.values()) {
+        if (i.org_id === a[0] && i.customer_label === a[1] && i.closed_at == null) {
+          return { id: i.id, hmac_secret_enc: i.hmac_secret_enc };
+        }
+      }
+      return null;
+    }
+    if (q.startsWith("SELECT COUNT(*) AS n FROM inboxes WHERE org_id = ?")) {
+      let n = 0;
+      for (const i of this.inboxes.values()) if (i.org_id === a[0] && i.closed_at == null) n++;
+      return { n };
     }
     if (q.startsWith("SELECT id, size_bytes, object_key, upload_state FROM artifacts")) {
       const r = this.artifacts.get(a[0] as string);
@@ -233,6 +273,39 @@ class FakeD1 {
     }
     if (q.startsWith("UPDATE artifacts SET deleted_at")) {
       for (const r of this.artifacts.values()) if (r.id === a[1]) r.deleted_at = a[0];
+      return 1;
+    }
+    if (q.startsWith("UPDATE inboxes SET closed_at")) {
+      for (const i of this.inboxes.values()) {
+        if (i.id === a[1] && i.org_id === a[2] && i.closed_at == null) {
+          i.closed_at = a[0];
+          return 1;
+        }
+      }
+      return 0;
+    }
+    if (q.startsWith("INSERT INTO agents")) {
+      this.agents.set(a[0] as string, { id: a[0], org_id: a[1], name: a[2], status: "active", created_at: a[3] });
+      return 1;
+    }
+    if (q.startsWith("INSERT INTO inboxes")) {
+      this.inboxes.set(a[0] as string, { id: a[0], org_id: a[1], customer_label: a[2], hmac_secret_enc: a[3], created_at: a[4], closed_at: a[5] });
+      return 1;
+    }
+    if (q.startsWith("INSERT INTO orgs")) {
+      this.orgs.set(a[0] as string, { id: a[0], slug: a[1], name: a[2], plan: "free", created_at: a[3] });
+      return 1;
+    }
+    if (q.startsWith("INSERT INTO memberships")) {
+      this.memberships.set(`${a[0]}|${a[1]}`, { org_id: a[0], user_id: a[1], role: a.length > 2 ? a[2] : "owner" });
+      return 1;
+    }
+    if (q.startsWith("INSERT INTO users")) {
+      this.users.set(a[0] as string, { id: a[0], email: a[1], display_name: a[2], email_verified: a[3], created_at: a[4] });
+      return 1;
+    }
+    if (q.startsWith("INSERT INTO sessions")) {
+      this.sessions.set(a[0] as string, { id_hash: a[0], user_id: a[1], expires_at: a[2] });
       return 1;
     }
     if (q.startsWith("INSERT INTO share_links")) {
@@ -366,6 +439,69 @@ describe("push flow", () => {
     expect(d2.witness_status).toBe("different_version");
   });
 
+  it("dedupe re-push fills the tag when the stored run has none, never moves a tagged run", async () => {
+    const { db, env, key } = await setup();
+    db.agents.set("g2", { id: "g2", org_id: "o1", name: "other", status: "active", created_at: "t" });
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: null })) }, env as never)).json()) as { id: string; agent: string | null };
+    expect(first.agent).toBeNull();
+    // Same bytes re-pushed from a computer logged in for "loans": tag fills in.
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(second).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
+    expect(db.audit.map((a) => a.action)).toContain("artifact.assign");
+    // Same bytes re-pushed from a computer logged in for "other": the run
+    // stays with "loans" — it must never appear on another customer's link.
+    const third = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: "other" })) }, env as never)).json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(third).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
+  });
+
+  it("dedupe re-push refreshes a stale witness status", async () => {
+    const { db, env, key } = await setup();
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; witness_status: string };
+    expect(first.witness_status).toBe("not_in_witness");
+    // The witness report arrives after the first push.
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName("inb_1"));
+    const manifest = JSON.parse(FIXTURE_MANIFEST) as { workflow_id: string };
+    await stub.fetch("https://inbox/append", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload_raw: JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: manifest.workflow_id, file_sha256: FILE_SHA }) }),
+    });
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; witness_status: string };
+    expect(second).toMatchObject({ id: first.id, deduped: true, witness_status: "witnessed" });
+    expect(db.audit.map((a) => a.action)).toContain("artifact.refresh");
+  });
+
+  it("re-push never downgrades a witnessed run when the inbox is unreachable", async () => {
+    const { db, env, key, ck } = await setup();
+    const stub = (env.WITNESS as unknown as FakeInboxNS).get((env.WITNESS as unknown as FakeInboxNS).idFromName("inb_1"));
+    const manifest = JSON.parse(FIXTURE_MANIFEST) as { workflow_id: string };
+    await stub.fetch("https://inbox/append", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload_raw: JSON.stringify({ schema: "epi-witness/v1", type: "epi.sealed", workflow_id: manifest.workflow_id, file_sha256: FILE_SHA }) }),
+    });
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; witness_status: string };
+    expect(first.witness_status).toBe("witnessed");
+    // The inbox closes (or the fetch fails): a re-check reads "not found".
+    // The stored "witnessed" verdict must survive the re-push.
+    const closed = await app.request("/v1/orgs/o1/inboxes/inb_1/close", { method: "POST", headers: ck("sess-owner") }, env as never);
+    expect(closed.status).toBe(200);
+    const second = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; deduped: boolean; witness_status: string };
+    expect(second).toMatchObject({ id: first.id, deduped: true, witness_status: "witnessed" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.witness_status).toBe("witnessed");
+  });
+
+  it("re-push with an unknown customer name keeps working and keeps the tag", async () => {
+    const { db, env, key } = await setup();
+    const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; agent: string | null };
+    expect(first.agent).toBe("loans");
+    const second = await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody({ agent: "ghost" })) }, env as never);
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as { id: string; deduped: boolean; agent: string | null };
+    expect(body).toMatchObject({ id: first.id, deduped: true, agent: "loans" });
+    expect([...db.artifacts.values()].find((a) => a.id === first.id)!.agent_id).toBe("g1");
+  });
+
   it("dedupes, rejects double-store and length lies", async () => {
     const { env, key } = await setup();
     const first = (await (await app.request("/v1/orgs/o1/artifacts/init", { method: "POST", headers: key, body: JSON.stringify(initBody()) }, env as never)).json()) as { id: string; put_url: string };
@@ -421,6 +557,81 @@ describe("assign agent", () => {
     // Missing run 404s.
     const missing = await app.request("/v1/orgs/o1/artifacts/art_nope/agent", { method: "PATCH", headers: key, body: JSON.stringify({ agent: "loans" }) }, env as never);
     expect(missing.status).toBe(404);
+  });
+});
+
+describe("by-customer resolve (onboarding without copied secrets)", () => {
+  it("owner creates agent+inbox on demand; second call selects without recreating", async () => {
+    const { db, env, ck } = await setup();
+    const first = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "New Bank" }) }, env as never);
+    expect(first.status).toBe(201);
+    const created = (await first.json()) as { id: string; agent_id: string; url: string; secret: string; created: boolean };
+    expect(created.created).toBe(true);
+    expect(created.url).toBe(`https://cloud.epilabs.org/w/${created.id}`);
+    expect(created.secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(created.agent_id).toBeTruthy();
+    expect(db.audit.map((a) => a.action)).toContain("inbox.resolve");
+    const second = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "New Bank" }) }, env as never);
+    expect(second.status).toBe(200);
+    const again = (await second.json()) as { id: string; secret: string; created: boolean };
+    expect(again.id).toBe(created.id);
+    expect(again.secret).toBe(created.secret);
+    expect(again.created).toBe(false);
+    expect(db.inboxes.get(created.id)!.customer_label).toBe("New Bank");
+  });
+
+  it("plan limits apply on creation; blank name 400s", async () => {
+    const { env, ck } = await setup();
+    const blank = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "  " }) }, env as never);
+    expect(blank.status).toBe(400);
+    // Free plan allows 1 inbox: create one, then the second new name 402s.
+    const org = (await (await app.request("/v1/orgs", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ name: "Small", slug: "small-free" }) }, env as never)).json()) as { id: string };
+    const one = await app.request(`/v1/orgs/${org.id}/inboxes/by-customer`, { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Only Bank" }) }, env as never);
+    expect(one.status).toBe(201);
+    const two = await app.request(`/v1/orgs/${org.id}/inboxes/by-customer`, { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Second Bank" }) }, env as never);
+    expect(two.status).toBe(402);
+  });
+
+  it("least privilege: push keys never get secrets; members resolve without secrets", async () => {
+    const { env, ck, key, db } = await setup();
+    // Owner seeds one customer first (inb_1 Acme Bank already exists; owner gets secret).
+    const seed = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(seed.status).toBe(200);
+    expect(((await seed.json()) as { secret: string }).secret).toMatch(/^[0-9a-f]{64}$|^s3cr3t$/);
+    // Push-only key gets 403 for existing AND new customers (never a secret).
+    const sel = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(sel.status).toBe(403);
+    const nope = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Nope Bank" }) }, env as never);
+    expect(nope.status).toBe(403);
+    // Repeat push call still 403 (no re-reveal).
+    const again = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(again.status).toBe(403);
+    // Viewer has no access at all.
+    const denied = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-viewer"), body: JSON.stringify({ customer_label: "Acme Bank" }) }, env as never);
+    expect(denied.status).toBe(403);
+  });
+
+  it("push key for Bank A cannot get Bank B secret; member resolves URL without secret", async () => {
+    const { env, ck, key, db } = await setup();
+    // Owner creates Bank B.
+    const b = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-owner"), body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(b.status).toBe(201);
+    const bBody = (await b.json()) as { secret: string };
+    expect(bBody.secret).toMatch(/^[0-9a-f]{64}$/);
+    // Push key (bound to nothing here) cannot fetch Bank B.
+    const pb = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: key, body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(pb.status).toBe(403);
+    // Member resolves Bank B URL but gets no secret.
+    const { sha256Hex: _h } = await import("../src/lib/crypto.ts");
+    db.users.set("u_member", { id: "u_member", email: "m@x.test" });
+    db.memberships.set("o1|u_member", { org_id: "o1", user_id: "u_member", role: "member" });
+    const mh = await _h("sess-member");
+    db.sessions.set(mh, { id_hash: mh, user_id: "u_member", expires_at: "2999-01-01T00:00:00.000Z" });
+    const mres = await app.request("/v1/orgs/o1/inboxes/by-customer", { method: "POST", headers: ck("sess-member"), body: JSON.stringify({ customer_label: "Bank B" }) }, env as never);
+    expect(mres.status).toBe(200);
+    const mBody = (await mres.json()) as { secret: string | null; url: string };
+    expect(mBody.secret).toBeNull();
+    expect(mBody.url).toMatch(/\/w\//);
   });
 });
 

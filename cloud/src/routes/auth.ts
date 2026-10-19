@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Env } from "../env.ts";
 import { hmacHex, newApiKey, newId, newToken, nowIso, randomHex, sha256Hex, verifyHmac } from "../lib/crypto.ts";
 import { createSession, sessionCookie, clearSessionCookie, membershipRole, userFromRequest } from "../lib/auth.ts";
+import { ensureCustomerInbox } from "../lib/customerInbox.ts";
 import { checkRateLimit, d1CounterStore, clientIp } from "../lib/ratelimit.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
 import { openSecret, sealSecret } from "../lib/secretbox.ts";
@@ -265,8 +266,15 @@ app.post("/logout", async (c) => {
 // (e.g. WDJB-MJHT). The user types that code on /auth/device — the secret
 // never appears in a URL, so a forwarded link alone authorizes nothing.
 // Keys minted here are push-only, sealed at rest, single-retrieval.
+// The browser also asks *which customer this computer records
+// for*; the witness URL + secret travel back with the key so the user
+// never copies a secret.
 const DEVICE_TTL_MS = 10 * 60_000;
 const DEVICE_POLL_SECONDS = 5;
+
+/** Oldest CLI the cloud still walks through setup. Older CLIs get a loud
+ * nudge to `pip install -U epi-recorder` instead of a silent dead end. */
+export const MIN_CLI_VERSION = "4.6.1";
 
 const USER_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -342,6 +350,7 @@ app.post("/device/start", async (c) => {
       verification_url: `${c.env.APP_ORIGIN}/auth/device`,
       expires_at: new Date(now + DEVICE_TTL_MS).toISOString(),
       interval: DEVICE_POLL_SECONDS,
+      min_cli_version: MIN_CLI_VERSION,
     },
     201,
   );
@@ -350,16 +359,16 @@ app.post("/device/start", async (c) => {
 app.get("/device/:code/status", async (c) => {
   const limited = await devicePollLimited(c.env.DB, c.req.raw);
   if (limited) return limited;
-  const row = await c.env.DB.prepare("SELECT status, org_id, api_key_raw, expires_at FROM device_codes WHERE code = ?")
+  const row = await c.env.DB.prepare("SELECT status, org_id, api_key_raw, customer_label, witness_url, witness_secret_enc, expires_at FROM device_codes WHERE code = ?")
     .bind(c.req.param("code"))
-    .first<{ status: string; org_id: string | null; api_key_raw: string | null; expires_at: string }>();
+    .first<{ status: string; org_id: string | null; api_key_raw: string | null; customer_label: string | null; witness_url: string | null; witness_secret_enc: string | null; expires_at: string }>();
   if (!row) return c.json({ error: { code: "not_found", message: "Unknown device code." } }, 404);
   if (row.expires_at <= nowIso()) {
     await c.env.DB.prepare("DELETE FROM device_codes WHERE code = ?").bind(c.req.param("code")).run();
     return c.json({ status: "expired" });
   }
   if (row.status !== "authorized") return c.json({ status: "pending" });
-  if (!row.api_key_raw) return c.json({ status: "authorized", org_id: row.org_id, api_key: null, consumed: true });
+  if (!row.api_key_raw) return c.json({ status: "authorized", org_id: row.org_id, api_key: null, customer_label: row.customer_label, witness_url: row.witness_url, witness_secret: null, consumed: true });
   // Single retrieval: hand the key out once, then forget it.
   let raw: string;
   try {
@@ -367,8 +376,16 @@ app.get("/device/:code/status", async (c) => {
   } catch {
     return c.json({ error: { code: "not_configured", message: "Device login is not configured yet." } }, 503);
   }
-  await c.env.DB.prepare("UPDATE device_codes SET api_key_raw = NULL WHERE code = ?").bind(c.req.param("code")).run();
-  return c.json({ status: "authorized", org_id: row.org_id, api_key: raw, url: c.env.APP_ORIGIN });
+  let witnessSecret: string | null = null;
+  if (row.witness_secret_enc) {
+    try {
+      witnessSecret = await openDeviceKey(c.env, row.witness_secret_enc);
+    } catch {
+      return c.json({ error: { code: "not_configured", message: "Device login is not configured yet." } }, 503);
+    }
+  }
+  await c.env.DB.prepare("UPDATE device_codes SET api_key_raw = NULL, witness_secret_enc = NULL WHERE code = ?").bind(c.req.param("code")).run();
+  return c.json({ status: "authorized", org_id: row.org_id, api_key: raw, url: c.env.APP_ORIGIN, customer_label: row.customer_label, witness_url: row.witness_url, witness_secret: witnessSecret });
 });
 
 // Browser page: type the short code from your OWN terminal (RFC 8628).
@@ -395,6 +412,7 @@ app.get("/device", async (c) => {
     `var msg=document.getElementById("msg");`,
     `var reqEl=document.getElementById("req");`,
     `function setMsg(t,ok){msg.textContent=t;msg.className=ok?"ok":"";}`,
+    `function loadCustomers(){var oid=orgEl.value;var sel=document.getElementById("cust");if(!sel){return;}while(sel.options.length>1){sel.remove(1);}if(!oid){return;}fetch("/v1/orgs/"+encodeURIComponent(oid)+"/inboxes",{credentials:"same-origin"}).then(function(r){return r.json().catch(function(){return {};});}).then(function(j){(j.inboxes||[]).filter(function(b){return !b.closed_at;}).forEach(function(b){var o=document.createElement("option");o.value=b.customer_label;o.textContent=b.customer_label;sel.appendChild(o);});}).catch(function(){});}`,
     `fetch("/v1/orgs",{credentials:"same-origin"})`,
     `  .then(function(r){return r.json();})`,
     `  .then(function(j){`,
@@ -404,7 +422,7 @@ app.get("/device", async (c) => {
     `      el.value=o.id;`,
     `      el.textContent=o.name+" ("+o.id+")";`,
     `      orgEl.appendChild(el);`,
-    `    });`,
+    `    });orgEl.onchange=loadCustomers;loadCustomers();`,
     `    if(!orgEl.options.length){setMsg("No workspace yet \\u2014 create one on the front page first.",false);}`,
     `  });`,
     `document.getElementById("lookup").onclick=function(){`,
@@ -418,7 +436,7 @@ app.get("/device", async (c) => {
     `      if(x.ok){`,
     `        var when=x.j.requested_at;`,
     `        try{when=new Date(x.j.requested_at).toLocaleString();}catch(e){}`,
-    `        reqEl.textContent="A computer requested access at "+when+".";`,
+    `        reqEl.textContent="A computer requested access at "+when+".";loadCustomers();`,
     `        setMsg("Code accepted \\u2014 pick a workspace, then Authorize.",true);`,
     `      }`,
     `      else{setMsg("Failed: "+((x.j&&x.j.error&&x.j.error.message)||"unknown"),false);}`,
@@ -426,10 +444,10 @@ app.get("/device", async (c) => {
     `    .catch(function(){setMsg("Failed.",false);});`,
     `};`,
     `document.getElementById("go").onclick=function(){`,
-    `  var m=msg;m.textContent="Authorizing\\u2026";m.className="";`,
+    `  var m=msg;var _cn=document.getElementById("cust-new").value.trim();var _cs=document.getElementById("cust");var _cl=_cn||(_cs?_cs.value:"");m.textContent="Authorizing\\u2026";m.className="";`,
     `  fetch("/auth/device/authorize",{method:"POST",credentials:"same-origin",`,
     `    headers:{"Content-Type":"application/json"},`,
-    `    body:JSON.stringify({user_code:codeEl.value,org_id:orgEl.value})})`,
+    `    body:JSON.stringify((function(){var b={user_code:codeEl.value,org_id:orgEl.value};if(typeof _cl!=="undefined"&&_cl){b.customer_label=_cl;}return b;})())})`,
     `    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})`,
     `    .then(function(x){`,
     `      if(x.ok){m.textContent="Authorized \\u2014 return to your terminal.";m.className="ok";}`,
@@ -449,9 +467,9 @@ app.get("/device", async (c) => {
         `<input id="user-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX">` +
         `<p><button id="lookup" type="button" class="btn btn-sec">Check code</button></p>` +
         `<p id="req" class="mut small" role="status"></p></div>` +
-        `<div class="card"><p><strong>Step 2.</strong> Pick the workspace that receives a ` +
+        `<div class="card"><p><strong>Step 2.</strong> Pick the workspace, then the customer this computer records for, and authorize. The witness secret is delivered to your computer automatically - never copy it. The workspace receives a ` +
         `<strong>push-only</strong> key (<code>epik_…</code>, selected runs only, revocable):</p>` +
-        `<label for="org">Workspace (org)</label><select id="org"></select>` +
+        `<label for="org">Workspace (org)</label><select id="org"></select><label for="cust">Customer (which customer is this computer recording for?)</label><select id="cust"><option value="">- just connect, no customer yet -</option></select><label for="cust-new">Or type a new customer name</label><input id="cust-new" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Acme Bank">` +
         `<p><button id="go" type="button" class="btn btn-pri">Authorize this computer</button></p>` +
         `<p id="msg" class="msg" role="status"></p>` +
         `<p class="small mut">Never type a code someone sent you. Codes only work for the computer that asked.</p></div>` +
@@ -505,6 +523,7 @@ app.post("/device/authorize", async (c) => {
       user_code: z.string().min(4).max(32).optional(),
       device_code: z.string().min(10).max(256).optional(),
       org_id: z.string().min(1).max(128),
+      customer_label: z.string().trim().min(1).max(120).optional(),
     })
     .safeParse(await c.req.json().catch(() => null));
   if (!body.success || (!body.data.user_code && !body.data.device_code)) {
@@ -540,10 +559,28 @@ app.post("/device/authorize", async (c) => {
     .bind(id, body.data.org_id, key.prefix, await sha256Hex(key.raw), "push", dev.device_name, user.id, nowIso())
     .run();
   const sealed = await sealDeviceKey(c.env, key.raw);
+  // Optional customer binding: the browser asks which customer
+  // this computer records for. The witness URL + sealed secret are stored
+  // with the device row and handed to the CLI on first poll, so the user
+  // never copies a secret.
+  let customerLabel: string | null = null;
+  let witnessUrl: string | null = null;
+  let witnessSealed: string | null = null;
+  const rawLabel = (body.data.customer_label ?? "").trim();
+  if (rawLabel) {
+    const ensured = await ensureCustomerInbox(c.env.DB, c.env, body.data.org_id, rawLabel, `user:${user.id}`, {
+      allowCreateInbox: role === "owner",
+      allowCreateAgent: true,
+    });
+    if (!ensured.ok) return c.json({ error: { code: ensured.code, message: ensured.message } }, ensured.status as 400);
+    customerLabel = rawLabel;
+    witnessUrl = ensured.url;
+    witnessSealed = await sealDeviceKey(c.env, ensured.secret);
+  }
   const updated = await c.env.DB.prepare(
-    "UPDATE device_codes SET status = 'authorized', org_id = ?, api_key_id = ?, api_key_raw = ?, authorized_at = ? WHERE code = ? AND status = 'pending'",
+    "UPDATE device_codes SET status = 'authorized', org_id = ?, api_key_id = ?, api_key_raw = ?, customer_label = ?, witness_url = ?, witness_secret_enc = ?, authorized_at = ? WHERE code = ? AND status = 'pending'",
   )
-    .bind(body.data.org_id, id, sealed, nowIso(), dev.code)
+    .bind(body.data.org_id, id, sealed, customerLabel, witnessUrl, witnessSealed, nowIso(), dev.code)
     .run();
   if (updated.meta.changes === 0) {
     return c.json({ error: { code: "already_authorized", message: "Already authorized. No new key minted." } }, 409);

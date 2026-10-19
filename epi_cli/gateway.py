@@ -102,12 +102,14 @@ def _witness_export(
         return f"Witness: delivered to {', '.join(urls)}"
     _reason = _short_reason(stored.get("last_error"), urls)
     _hint = ""
-    if "401" in _reason or "403" in _reason:
+    if "401" in _reason:
         _hint = (
             " — no secret set: export with EPI_WITNESS_SECRET (or --witness-secret)"
             if not witness_secret
             else " — witness secret changed — update EPI_WITNESS_SECRET"
         )
+    elif "403" in _reason:
+        _hint = " — blocked before reaching the receiver (network/firewall); queued, not lost"
     return f"Witness: QUEUED ({_reason}){_hint} — run epi witness flush"
 
 

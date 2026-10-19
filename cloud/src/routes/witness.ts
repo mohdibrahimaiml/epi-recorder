@@ -19,9 +19,9 @@ const reportSchema = z.object({
   workflow_id: z.string().min(1),
   manifest_hash: z.string().min(1).optional(),
   file_sha256: z.string().min(1).optional(),
-  content_digest: z.string().min(1).optional(),
-  public_key: z.string().min(1).optional(),
-  key_fingerprint: z.string().min(1).optional(),
+  content_digest: z.string().min(1).nullish(),
+  public_key: z.string().min(1).nullish(),
+  key_fingerprint: z.string().min(1).nullish(),
   steps: z.number().int().nonnegative().optional(),
   sealed_at: z.string().min(1).optional(),
 }).passthrough();

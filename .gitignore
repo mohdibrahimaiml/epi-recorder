@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 !epi-viewer/lib/
 !epi-viewer/lib/verification.cjs
 lib64/

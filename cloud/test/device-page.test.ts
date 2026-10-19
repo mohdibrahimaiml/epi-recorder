@@ -122,7 +122,7 @@ describe("device + dashboard pages (served HTML)", () => {
     }
     // Every dashboard function the wiring references must be defined —
     // a dropped definition is a dead button with no console error.
-    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "loadAll", "boot"]) {
+    for (const fn of ["createOrg", "createCustomer", "ensureAgent", "createLink", "renderRuns", "renderCustomers", "renderLinks", "renderKeys", "runTitle", "runSub", "witHint", "witSub", "loadAll", "boot"]) {
       expect(dashHtml, `missing function ${fn}`).toContain(`function ${fn}(`);
     }
     db.close();
@@ -228,7 +228,7 @@ describe("device + dashboard pages (served HTML)", () => {
     expect(html).toContain("word-break:break-all");
     expect(html).toContain("width=device-width");
     // Guided flow copy + raw keys out of the main flow.
-    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.2"]) {
+    for (const copy of ["Name your company", "Connect your computer", "Record your first run", "Add a customer", "Share with", "Advanced", "4.6.1"]) {
       expect(html).toContain(copy);
     }
     expect(html).not.toContain("Create API key");

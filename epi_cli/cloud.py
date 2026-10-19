@@ -134,12 +134,18 @@ def login(
         "--api-key",
         help="API key (epik_...). Flag version only; prompts when omitted.",
     ),
+    auto_push: bool | None = typer.Option(
+        None,
+        "--auto-push/--no-auto-push",
+        help="Auto-push every sealed run after recording (default off).",
+    ),
 ) -> None:
     """Save Evidence Room credentials (url/org_id/api_key) for push and status.
 
     No flags: browser device flow — this terminal shows a short code,
-    you type it at cloud.epilabs.org/auth/device, and the CLI receives
-    a push-only key automatically. With --org/--api-key: automation
+    you type it at cloud.epilabs.org/auth/device, pick the customer this
+    computer records for, and the CLI receives a push-only key plus the
+    witness settings automatically. With --org/--api-key: automation
     version (flags win).
     """
     base = (url or os.getenv("EPI_CLOUD_URL") or "https://cloud.epilabs.org").rstrip("/")
@@ -151,16 +157,16 @@ def login(
         if not key:
             console.print("[red][FAIL][/red] No API key given.")
             raise typer.Exit(2)
-        _save_flag_login(base, org, key)
+        _save_flag_login(base, org, key, auto_push)
         return
     if api_key:
         console.print("[red][FAIL][/red] --api-key needs --org.")
         console.print("[dim]Or run [cyan]epi cloud login[/cyan] with no flags.[/dim]")
         raise typer.Exit(2)
-    _device_login(base)
+    _device_login(base, auto_push)
 
 
-def _save_flag_login(base: str, org: str, api_key: str) -> None:
+def _save_flag_login(base: str, org: str, api_key: str, auto_push: bool | None = None) -> None:
     creds = {"url": base, "org": org, "key": api_key}
     try:
         with _client(creds) as client:
@@ -177,18 +183,84 @@ def _save_flag_login(base: str, org: str, api_key: str) -> None:
     _write_config(base, org, api_key)
 
 
-def _write_config(base: str, org: str, api_key: str) -> None:
+def _write_config(base: str, org: str, api_key: str, extra: dict | None = None) -> None:
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"url": base, "org_id": org, "api_key": api_key}, indent=2),
-        encoding="utf-8",
-    )
+    data: dict = {"url": base, "org_id": org, "api_key": api_key}
+    for key in ("witness_url", "witness_secret", "customer", "auto_push"):
+        if extra and extra.get(key) not in (None, ""):
+            data[key] = extra[key]
+        elif key == "auto_push" and extra and "auto_push" in extra and isinstance(extra["auto_push"], bool):
+            data[key] = extra[key]
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     try:
         os.chmod(path, 0o600)
     except Exception:
         pass
     console.print(f"[green][OK][/green] Saved to {path} (mode 0600 where supported).")
+
+
+def saved_customer() -> dict:
+    """Saved customer preset from login/use (url/secret never printed)."""
+    try:
+        cfg = load_config()
+    except Exception:
+        return {}
+    out: dict = {}
+    if isinstance(cfg.get("customer"), str) and cfg["customer"].strip():
+        out["customer"] = cfg["customer"].strip()
+    if isinstance(cfg.get("witness_url"), str) and cfg["witness_url"].strip():
+        out["witness_url"] = cfg["witness_url"].strip()
+    if cfg.get("witness_secret"):
+        out["witness_secret"] = cfg["witness_secret"]
+    if isinstance(cfg.get("auto_push"), bool):
+        out["auto_push"] = cfg["auto_push"]
+    return out
+
+
+def _version_tuple(version: str) -> tuple:
+    """Numeric tuple compare for dotted versions (stdlib only)."""
+    parts: list = []
+    for piece in str(version or "").split("."):
+        num = "".join(ch for ch in piece if ch.isdigit())
+        parts.append(int(num) if num else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts)
+
+
+def _warn_if_cli_outdated(min_cli_version: str | None) -> None:
+    """Loud, friendly nudge when the cloud needs a newer CLI than this one."""
+    if not min_cli_version:
+        return
+    try:
+        from epi_core import __version__ as current
+    except Exception:
+        return
+    try:
+        if _version_tuple(current) < _version_tuple(min_cli_version):
+            console.print(
+                f"[yellow][WARN][/yellow] This cloud needs epi-recorder >= {min_cli_version} "
+                f"(you have {current}). Run: [cyan]pip install -U epi-recorder[/cyan]"
+            )
+    except Exception:
+        pass
+
+
+def _check_server_version(client) -> None:
+    """Warn when the cloud advertises a newer minimum CLI (non-fatal)."""
+    try:
+        res = client.get("/v1/version")
+        if res.status_code != 200:
+            return
+        try:
+            body = res.json()
+        except Exception:
+            return
+        if isinstance(body, dict):
+            _warn_if_cli_outdated(body.get("min_cli_version"))
+    except Exception:
+        pass
 
 
 def _device_name() -> str | None:
@@ -202,7 +274,7 @@ def _device_name() -> str | None:
         return None
 
 
-def _device_login(base: str) -> None:
+def _device_login(base: str, auto_push: bool | None = None) -> None:
     """Browser device flow (RFC 8628): show a user code, poll for key.
 
     The short user code is typed on cloud.epilabs.org/auth/device by the
@@ -232,6 +304,7 @@ def _device_login(base: str) -> None:
     if not code or not user_code:
         console.print("[red][FAIL][/red] Login failed (no device code).")
         raise typer.Exit(1)
+    _warn_if_cli_outdated(data.get("min_cli_version"))
     console.print("Enter this code in your browser (only this computer):")
     console.print(f"[bold cyan]{escape(str(user_code))}[/bold cyan]")
     console.print(f"[dim]Page:[/dim] {verify_url}")
@@ -243,6 +316,9 @@ def _device_login(base: str) -> None:
     deadline = time.time() + 10 * 60
     org_id = ""
     raw_key = ""
+    witness_url: str | None = None
+    witness_secret: str | None = None
+    customer: str | None = None
     try:
         with httpx.Client(base_url=base, timeout=30.0) as client:
             while time.time() < deadline:
@@ -274,6 +350,9 @@ def _device_login(base: str) -> None:
                     if body.get("api_key"):
                         org_id = str(body.get("org_id", ""))
                         raw_key = str(body.get("api_key", ""))
+                        witness_url = str(body.get("witness_url") or "") or None
+                        witness_secret = str(body.get("witness_secret") or "") or None
+                        customer = str(body.get("customer_label") or "") or None
                         break
                     console.print("[red][FAIL][/red] Key already retrieved.")
                     console.print("[dim]Run login again for a new code.[/dim]")
@@ -290,9 +369,84 @@ def _device_login(base: str) -> None:
     if not raw_key or not org_id:
         console.print("[red][FAIL][/red] Login did not complete in time.")
         raise typer.Exit(1)
-    _write_config(base, org_id, raw_key)
+    previous = load_config()
+    if auto_push is None:
+        auto_push = bool(previous.get("auto_push", False))
+    _write_config(base, org_id, raw_key, {"witness_url": witness_url, "witness_secret": witness_secret, "customer": customer, "auto_push": auto_push})
     console.print("[green][OK][/green] This computer authorized (push-only key).")
     console.print(f"[dim]Org: {org_id} — revoke anytime from cloud.epilabs.org.[/dim]")
+    if customer:
+        console.print(f"[green][OK][/green] Recording for [bold]{escape(customer)}[/bold] — new runs are witnessed automatically, no secrets to copy.")
+    else:
+        console.print("[dim]Tip: run [cyan]epi cloud use \"Customer Name\"[/cyan] to tag this computer's runs to a customer.[/dim]")
+    if auto_push:
+        console.print("[dim]Auto-push is on: every sealed run will be pushed automatically.[/dim]")
+
+
+@app.command("use")
+def use(
+    customer: str = typer.Argument(..., help='Customer name, e.g. epi cloud use "Acme Bank".'),
+) -> None:
+    """Set the default customer for record/run/push (saved to ~/.epi/cloud.json)."""
+    name = customer.strip()
+    if not name:
+        console.print("[red][FAIL][/red] Customer name is required.")
+        raise typer.Exit(2)
+    cfg = load_config()
+    if not cfg.get("url") or not (cfg.get("org_id") or cfg.get("org")):
+        console.print("[red][FAIL][/red] Not logged in. Run [cyan]epi cloud login[/cyan] first.")
+        raise typer.Exit(2)
+    base = str(cfg.get("url") or "").rstrip("/")
+    org = str(cfg.get("org_id") or cfg.get("org") or "")
+    key = str(cfg.get("api_key") or cfg.get("key") or "")
+    # Try to resolve witness settings from the cloud. Push keys never get
+    # secrets here (least privilege) — they must use their device-bound
+    # customer or re-run login. Owners get secrets (audited); members get
+    # URL only.
+    try:
+        creds = resolve_creds(base, org, key)
+        with _client(creds) as client:
+            res = client.post(
+                f"/v1/orgs/{creds['org']}/inboxes/by-customer",
+                json={"customer_label": name},
+            )
+        if res.status_code == 403:
+            try:
+                msg = str(res.json().get("error", {}).get("message", ""))
+            except Exception:
+                msg = ""
+            if "Ask an owner" in msg or "ask an owner" in msg.lower():
+                console.print(f"[yellow][!][/yellow] {escape(msg)}")
+            else:
+                console.print("[yellow][!][/yellow] This computer's key cannot fetch that customer's secret.")
+            console.print("[dim]Ask an owner to connect this computer to that customer (or re-run [cyan]epi cloud login[/cyan]).[/dim]")
+            raise typer.Exit(1)
+        res.raise_for_status()
+        body = res.json()
+        extra: dict = {"customer": name}
+        if body.get("url"):
+            extra["witness_url"] = body["url"]
+        if body.get("secret"):
+            extra["witness_secret"] = body["secret"]
+        if cfg.get("auto_push") not in (None, ""):
+            extra["auto_push"] = cfg["auto_push"]
+        _write_config(base, org, key, extra)
+        if body.get("secret"):
+            console.print(f"[green][OK][/green] Default customer: {escape(name)} (witness configured)")
+        else:
+            console.print(f"[green][OK][/green] Default customer: {escape(name)}")
+            console.print("[dim]No witness secret stored (member/owner flow will add it on login).[/dim]")
+        return
+    except typer.Exit:
+        raise
+    except Exception:
+        pass
+    extra: dict = {"customer": name}
+    for k in ("witness_url", "witness_secret", "auto_push"):
+        if cfg.get(k) not in (None, ""):
+            extra[k] = cfg[k]
+    _write_config(base, org, key, extra)
+    console.print(f"[green][OK][/green] Default customer: {escape(name)}")
 
 
 @app.command("push")
@@ -330,8 +484,10 @@ def push(
             console.print(f"[dim]Skipped by --sample {sample}%% for this file.[/dim]")
             return
     creds = resolve_creds(url, org, api_key)
+    effective_agent = agent or load_config().get("customer")
     try:
         with _client(creds) as client:
+            _check_server_version(client)
             init = client.post(
                 f"/v1/orgs/{creds['org']}/artifacts/init",
                 json={
@@ -339,7 +495,7 @@ def push(
                     "claimed_sha256": digest,
                     "claimed_crc32": crc,
                     "size_bytes": size,
-                    "agent": agent,
+                    "agent": effective_agent,
                     "reason": reason,
                 },
             )
@@ -388,6 +544,7 @@ def status(
     creds = resolve_creds(url, org, api_key)
     try:
         with _client(creds) as client:
+            _check_server_version(client)
             if artifact_id:
                 res = client.get(f"/v1/orgs/{creds['org']}/artifacts/{artifact_id}")
                 res.raise_for_status()
