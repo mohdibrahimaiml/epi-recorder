@@ -131,6 +131,8 @@ export async function trustLinkFromRequest(db: D1Database, req: Request): Promis
 export interface TrustDoc {
   vendor: string;
   link_label: string;
+  /** When this share link stops working (shown to the reviewer). */
+  expires_at: string;
   agents: Array<{ id: string; name: string; status: string }>;
   inboxes: Array<{
     id: string; label: string; total_witnessed: number;
@@ -194,6 +196,7 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
   return {
     vendor: org?.name ?? "Vendor",
     link_label: link.label,
+    expires_at: link.expires_at,
     agents: agents.map((a) => ({ id: a.id, name: a.name, status: a.status })),
     inboxes: out,
     artifacts,

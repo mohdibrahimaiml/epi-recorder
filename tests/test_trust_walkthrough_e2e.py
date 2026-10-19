@@ -456,7 +456,7 @@ def test_vendor_records_pushes_and_reviewer_verifies_offline(
             [{"name": "epi_session", "value": SESSION_RAW, "domain": "127.0.0.1", "path": "/"}]
         )
         dpg.goto(base + "/")
-        dpg.wait_for_selector("text=Your evidence", timeout=20000)
+        dpg.wait_for_selector("#dash", state="visible", timeout=20000)
         dpg.wait_for_selector("#tab-runs td >> text=Unassigned", timeout=20000)
         dpg.locator("#tab-runs select[data-assign]").first.select_option(label="Acme Bank")
         dpg.locator("#tab-runs button[data-assignbtn]").first.click()
@@ -481,7 +481,7 @@ def test_vendor_records_pushes_and_reviewer_verifies_offline(
         # FIX 5: every shared file says why it is (not) witnessed, in one line.
         assert pg.locator("#trustFiles >> text=Witnessed").count() >= 1
         # Awaiting-checkpoint counts say when they appear; one Key history heading.
-        assert pg.locator("#trustStats >> text=Counts by date appear after tonight").count() >= 1
+        assert pg.locator("#trustStats >> text=Counts by date appear after the daily checkpoint (00:05 UTC)").count() >= 1
         assert pg.locator("#trustContent >> text=Key history").count() == 1
         pg.locator("text=Verify these bytes").first.click()
         pg.wait_for_selector(

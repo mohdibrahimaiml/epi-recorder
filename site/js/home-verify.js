@@ -99,39 +99,15 @@ async function verifyEd25519(sigStr,pubKeyHex,hashHex){
 var EPI_ZIP_MARKER='\n<!-- EPI_ZIP_PAYLOAD_START -->\n';
 var EPI_HEADER_SIZE=128;
 
-// Outer polyglot viewer check. Mirrors EPIContainer.verify_polyglot_viewer:
-// reserved_tail[0:32] seals the display-layer HTML; a flipped byte there must
-// fail exactly like the CLI (SEAL FAIL — FILE ALTERED). All-zero hash means
-// a legacy seal whose display layer is not covered (informational only).
+// Outer polyglot viewer check (SEAL FAIL — FILE ALTERED on a flipped byte in
+// the display layer). The one implementation lives in epi-verify-core.js
+// (window.epiVerifyPolyglotViewer) so /verify/, the homepage and the trust page
+// cannot drift. Fail closed if the core did not load.
 async function verifyPolyglotViewer(u8){
-  try{
-    if(u8.length<EPI_HEADER_SIZE||u8[0]!==0x3c||u8[1]!==0x21||u8[2]!==0x2d||u8[3]!==0x2d)return{fail:false,detail:null,note:null};
-    var tail=u8.slice(72,128);
-    var allZero=true,padZero=true,i;
-    for(i=0;i<32;i++){if(tail[i]!==0){allZero=false;break;}}
-    for(i=32;i<56;i++){if(tail[i]!==0){padZero=false;break;}}
-    if(!padZero)return{fail:false,detail:null,note:null};
-    var marker=new TextEncoder().encode(EPI_ZIP_MARKER);
-    var idx=-1;
-    outer:for(var k=EPI_HEADER_SIZE;k+marker.length<=u8.length;k++){
-      for(var m=0;m<marker.length;m++){if(u8[k+m]!==marker[m])continue outer;}
-      idx=k;break;
-    }
-    var viewerBytes=idx===-1?null:u8.slice(EPI_HEADER_SIZE,idx);
-    if(viewerBytes&&viewerBytes.length>=5&&viewerBytes[0]===0x20&&viewerBytes[1]===0x2d&&viewerBytes[2]===0x2d&&viewerBytes[3]===0x3e&&viewerBytes[4]===0x0a){
-      viewerBytes=viewerBytes.slice(5);
-    }
-    if(allZero){
-      if(viewerBytes&&viewerBytes.length>0)return{fail:false,detail:null,note:'Display layer (embedded viewer) not integrity-covered (legacy seal)'};
-      return{fail:false,detail:null,note:null};
-    }
-    if(!viewerBytes)return{fail:true,detail:'polyglot viewer hash present in envelope header but no outer viewer HTML found'};
-    var actual=await sha256(viewerBytes);
-    var claimed='';
-    for(var c=0;c<32;c++){claimed+=tail[c].toString(16).padStart(2,'0');}
-    if(actual!==claimed)return{fail:true,detail:'polyglot viewer HTML hash mismatch (display layer may have been tampered)'};
-    return{fail:false,detail:null,note:null};
-  }catch(e){return{fail:true,detail:'polyglot viewer check error: '+esc(e.message)};} // esc()d here: vw.detail is display-ready, used raw at the call site
+  if(typeof window!=='undefined'&&typeof window.epiVerifyPolyglotViewer==='function'){
+    return window.epiVerifyPolyglotViewer(u8,0);
+  }
+  return{fail:true,detail:'verifier core (epi-verify-core.js) did not load — hard-refresh and try again',note:null};
 }
 
 function toU8(buffer){
