@@ -233,6 +233,39 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 
 Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md)
 
+## EPI Cloud (share a run with a customer)
+
+Sealed runs stay offline by default. To share one with a customer (a bank
+reviewer, an auditor), push it to EPI Cloud and send them a trust link they
+open in a browser — nothing to install on their side.
+
+Install inside a virtual environment, so EPI's libraries stay separate from
+your other tools:
+
+```bash
+python -m venv epienv
+epienv\Scripts\activate
+pip install epi-recorder
+epi --version
+```
+
+(`source epienv/bin/activate` on macOS/Linux. If Windows says `epi` is
+"not on PATH" after install, the program landed in a folder Windows doesn't
+search: activate the environment first and install/run in that same window,
+or run `python -m epi_cli` instead of `epi`.)
+
+Then, in order:
+
+1. `epi cloud login` — the terminal shows a short code. Type it at
+   cloud.epilabs.org/auth/device and pick the customer this computer
+   records for. Nothing secret to copy.
+2. `epi demo` — records, seals and uploads a sample run for that customer.
+3. On cloud.epilabs.org, create a share link for the customer and send it
+   to them. They verify the run in their browser, or offline with
+   `epi verify`.
+
+Free plan: 1 customer. A second customer needs an upgrade (Plans page).
+
 ---
 
 ## Security defaults

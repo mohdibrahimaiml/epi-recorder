@@ -65,8 +65,14 @@ Evidence Rooms. Witness-first is what makes $0 viable.
    `WITNESS_SIGNING_KEY` (Ed25519 witness key, 32 bytes hex — signs daily
    checkpoints), `ANCHOR_SIGNING_KEY` (P-256 key, 32 bytes hex — submits
    checkpoint hashes to Rekor only), `PADDLE_WEBHOOK_SECRET` (M7).
-5. `FOUNDER_USER_IDS`: comma-separated user ids allowed on `/admin/usage`.
-   Find yours after first login (D1: `SELECT id, email FROM users`).
+5. `FOUNDER_USER_IDS`: comma-separated user ids for the founder pages:
+   `/admin/usage` and `/admin` (workspace list with owner email and usage,
+   plus a plan picker — every plan change is written to the audit log).
+   Set it with `wrangler --config cloud/wrangler.toml secret put
+   FOUNDER_USER_IDS` (a plain `[vars]` value in `wrangler.toml` works too,
+   but a secret keeps the allowlist out of the config file). Find your user
+   id after first login (D1: `SELECT id, email FROM users`). Open
+   `https://cloud.epilabs.org/admin` while signed in as that user.
 6. GitHub secret `CLOUDFLARE_API_TOKEN` (Workers/D1/R2 edit) for deploys.
 7. Custom domain: attach `cloud.epilabs.org` to the worker after first deploy.
 8. Create the empty public repo `epi-witness-checkpoints` (M1 mirror).
@@ -140,4 +146,12 @@ SHA-256; share tokens travel in the URL fragment + header only (M2).
   digest. It rejects high-S by default (ours are always low-S).
 - The public mirror repo `epi-witness-checkpoints` is filled by
   `.github/workflows/witness-mirror.yml` (daily; needs `MIRROR_PAT`,
-  `MIRROR_REPO`, `WITNESS_MIRROR_INBOXES` secrets — inboxes opt in).
+  `MIRROR_REPO`, `WITNESS_MIRROR_INBOXES` secrets - inboxes opt in).
+
+## 9. Customer path (what a new workspace does)
+
+Vendor side, in order: `epi cloud login` (short code typed on the Connect
+page with the customer name) → `epi demo` (records, seals and uploads a
+sample run for that customer) → Create share link on the dashboard, scoped
+to that customer. The reviewer opens the link in a browser — nothing to
+install — and verifies files there or offline with the evidence pack.
