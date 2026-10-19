@@ -75,6 +75,18 @@ export const SITE_CSS = [
   ".copyrow code{flex:1;min-width:0}",
   "pre.cmd{background:#0D1117;color:#E6EDF3;padding:.8rem 1rem;border-radius:.4rem;overflow-x:auto;max-width:100%;font-size:.82rem;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}",
   "pre.cmd .c{color:#8B949E}",
+  // Dark theme follows the OS setting. Same layout, remapped tokens so
+  // text stays contrast-safe; buttons keep dark text on the light accent.
+  "@media (prefers-color-scheme:dark){:root{color-scheme:dark;",
+  "--bg:#0D1117;--bg-2:#161B22;--bg-3:#0D1117;",
+  "--ink:#F0F6FC;--body:#C9D1D9;--mut:#8B949E;--dim:#8B949E;",
+  "--edge:#30363D;--acc:#3FB950;--acc-hi:#56D364;--acc-bg:#12261A;",
+  "--bad:#F85149;--bad-bg:#3D1113;--warn:#D29922;--warn-bg:#3A2C07;",
+  "--shadow:4px 4px 0 rgba(0,0,0,.5);}",
+  ".btn{color:#0D1117}.tab.active{color:#0D1117}",
+  "input,select{background:#0D1117;color:var(--ink);border-color:var(--edge)}",
+  "code,.val{background:#161B22;color:var(--ink)}",
+  "}",
 ].join("\n");
 
 export function esc(s: string): string {

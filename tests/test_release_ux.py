@@ -267,7 +267,9 @@ def test_record_paths_and_no_silent_overwrite(monkeypatch, tmp_path: Path, capsy
     (tmp_path / "epi-recordings" / "demo.epi").write_text("earlier evidence")
     second = _resolve_output_path("demo.epi")
     assert second == Path("epi-recordings") / "demo-2.epi"
-    assert "already exists" in capsys.readouterr().err
+    out = capsys.readouterr().err
+    assert "demo-2.epi" in out and "EPI_OVERWRITE=1" in out, out
+    assert "already exists" not in out
 
     monkeypatch.setenv("EPI_OVERWRITE", "1")
     assert _resolve_output_path("demo.epi") == Path("epi-recordings") / "demo.epi"
