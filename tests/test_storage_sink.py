@@ -139,21 +139,26 @@ def test_credentials_env_profile_missing(monkeypatch, tmp_path: Path):
 
 def test_sigv4_matches_botocore(monkeypatch):
     """Byte-identical Authorization header to AWS's own signer (frozen time)."""
+    # botocore (boto3) is a test/gateway extra, not a dev dependency: the
+    # Windows installer release gate installs .[dev] only. Skip — don't fail —
+    # when it is absent. Same pattern as the playwright browser tests.
+    botocore_auth = pytest.importorskip(
+        "botocore.auth",
+        reason="botocore not installed (optional test/gateway extra)",
+    )
     import datetime
-
-    import botocore.auth
 
     from epi_core.storage_sink import sign_v4
 
     frozen = datetime.datetime(2026, 10, 16, 12, 0, 0)
-    monkeypatch.setattr(botocore.auth, "get_current_datetime", lambda: frozen)
+    monkeypatch.setattr(botocore_auth, "get_current_datetime", lambda: frozen)
     from botocore.awsrequest import AWSRequest
     from botocore.credentials import Credentials
 
     url = "https://mybucket.s3.us-east-1.amazonaws.com/test.txt"
     headers = {"x-amz-content-sha256": "abc", "Content-Length": "5"}
     req = AWSRequest(method="PUT", url=url, data=b"hello", headers=dict(headers))
-    botocore.auth.SigV4Auth(Credentials("AKID", "SECRET"), "s3", "us-east-1").add_auth(req)
+    botocore_auth.SigV4Auth(Credentials("AKID", "SECRET"), "s3", "us-east-1").add_auth(req)
     mine = sign_v4(
         "AKID", "SECRET", "us-east-1", "PUT", url, dict(headers), b"hello",
         amz_date="20261016T120000Z",
