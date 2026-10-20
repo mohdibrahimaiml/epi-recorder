@@ -344,9 +344,20 @@ function renderHeader(caseData, context) {
   // Status pills
   const pillsEl = document.getElementById('header-pills');
   // Prefer the live check (done in this browser from the hashed bytes) over a
-  // flag stored inside the same editable page.
+  // flag stored inside the same editable page — but the live check only
+  // re-hashes the inner ZIP members. Envelope failures found server-side
+  // (__envelope_header__ / __polyglot_viewer__: outer display-layer edits,
+  // payload transplant, trailing bytes) leave inner hashes intact, so a live
+  // inner-only pass must never upgrade a baked failure back to green.
+  // Real life: a tampered outer viewer that flips APPROVE->REJECT renders the
+  // attacker's text while inner hashes still match; `epi verify` reports
+  // SEAL FAIL and the viewer must stay red.
   const hasLiveInt = context != null && typeof context.integrity_ok === 'boolean';
-  const intOk = hasLiveInt ? context.integrity_ok : caseData.integrity?.ok !== false;
+  const bakedFailed = !!(caseData.integrity && caseData.integrity.ok === false);
+  const liveOk = hasLiveInt ? context.integrity_ok === true : null;
+  const intOk = liveOk === null
+    ? caseData.integrity?.ok === true
+    : (liveOk && !bakedFailed);
   // Prefer live context sig_valid, but only when it's been explicitly set.
   // An empty/missing context must not override the preloaded case payload.
   const hasLiveSig = context != null && Object.prototype.hasOwnProperty.call(context, 'signature_valid');
@@ -798,6 +809,32 @@ async function verifyCaseInBrowser(caseData) {
     result.integrity_ok = caseData.integrity.ok;
   }
 
+  // Envelope authority: this live check only re-hashes inner ZIP members, so
+  // it cannot clear a server-side envelope verdict. Outer display-layer edits
+  // (polyglot viewer HTML), header transplants and payload-hash failures keep
+  // inner hashes intact — `epi verify` reports them via __envelope_header__ /
+  // __polyglot_viewer__ mismatches. Never upgrade baked failure to green.
+  if (caseData.integrity && caseData.integrity.ok === false) {
+    const bakedMis = Array.isArray(caseData.integrity.mismatches)
+      ? caseData.integrity.mismatches
+      : [];
+    const envMis = bakedMis.filter(
+      (m) => typeof m === 'string' && m.indexOf('__') === 0
+    );
+    result.integrity_ok = false;
+    const prev = Array.isArray(result.mismatches) ? result.mismatches : [];
+    result.mismatches = Array.from(new Set(prev.concat(envMis)));
+    if (envMis.length > 0) {
+      result.integrity_reason =
+        'Sealed file was altered after sealing (' + envMis.join(', ') +
+        '). The evidence shown is the sealed copy; do not trust the file. Run: epi verify.';
+    } else if (!result.integrity_reason) {
+      result.integrity_reason =
+        'Sealed file failed verification. Run: epi verify.';
+    }
+    result.client_verified = true;
+  }
+
   return result;
 }
 
@@ -807,13 +844,17 @@ function renderIntegrity(caseData, context) {
   const integrity = caseData.integrity || {};
   const sig = caseData.signature || {};
 
-  // Integrity indicator — prefer live client context
+  // Integrity indicator — prefer live client context, but fail closed:
+  // a baked envelope failure (__envelope_header__ / __polyglot_viewer__)
+  // survives a live inner-only pass (see renderHeader). Missing data is
+  // NOT verified — never default to green.
   const intEl = document.getElementById('ind-integrity');
+  const bakedFailed = integrity.ok === false;
   let intOk;
   if (context && typeof context.integrity_ok === 'boolean') {
-    intOk = context.integrity_ok;
+    intOk = context.integrity_ok === true && !bakedFailed;
   } else {
-    intOk = integrity.ok !== false;
+    intOk = integrity.ok === true;
   }
   if (intOk) {
     intEl.textContent = 'VERIFIED';
@@ -2221,6 +2262,16 @@ async function init() {
 
   // Always attempt real client-side crypto for standalone / export-html delivery.
   // This is the zero-install share path: must show VALID/INVALID, never a punt string.
+  // Fail-closed merge: the live check only re-hashes inner ZIP members, so it
+  // must never drop a server-baked envelope verdict (__envelope_header__ /
+  // __polyglot_viewer__) or flip baked failure to green.
+  const bakedIntegrityFailed = !!(caseData.integrity && caseData.integrity.ok === false);
+  const bakedEnvelopeMismatches = (() => {
+    const mis = caseData.integrity && Array.isArray(caseData.integrity.mismatches)
+      ? caseData.integrity.mismatches
+      : [];
+    return mis.filter((m) => typeof m === 'string' && m.indexOf('__') === 0);
+  })();
   try {
     const live = await verifyCaseInBrowser(caseData);
     if (live && live.client_verified) {
@@ -2228,16 +2279,17 @@ async function init() {
         context.signature_valid = live.signature_valid;
       }
       if (live.integrity_ok !== null && live.integrity_ok !== undefined) {
-        context.integrity_ok = live.integrity_ok;
+        context.integrity_ok = bakedIntegrityFailed ? false : live.integrity_ok;
       }
       if (live.signature_reason) context.signature_reason = live.signature_reason;
       if (live.integrity_reason) context.integrity_reason = live.integrity_reason;
       if (live.chain) context.chain = live.chain;
       if (live.sequence) context.sequence = live.sequence;
       if (typeof live.checked === 'number') {
+        const liveMis = Array.isArray(live.mismatches) ? live.mismatches : [];
         caseData.integrity = Object.assign({}, caseData.integrity || {}, {
           checked: live.checked,
-          mismatches: live.mismatches || [],
+          mismatches: Array.from(new Set(liveMis.concat(bakedEnvelopeMismatches))),
           unchecked: live.unchecked || [],
         });
       }
@@ -2245,6 +2297,10 @@ async function init() {
     }
   } catch (e) {
     console.warn('[epi] client-side verification failed:', e);
+  }
+  if (bakedIntegrityFailed) {
+    context.integrity_ok = false;
+    if (caseData.integrity) caseData.integrity.ok = false;
   }
 
   // Mobile nav toggle
