@@ -290,7 +290,14 @@ class EPIContainer:
                 **{
                     filename: base64.b64encode((source_dir / filename).read_bytes()).decode("ascii")
                     for filename in sorted(manifest.file_manifest.keys())
-                    if filename not in {"mimetype", "VERIFY.txt"} and (source_dir / filename).exists()
+                    # mimetype is re-added by readers as STORE; everything else
+                    # the manifest covers must be present so the browser
+                    # Sign & Seal fallback rebuild (no archive_base64) keeps
+                    # verifying. VERIFY.txt must be included: omitting it made
+                    # reviewed downloads fail with "VERIFY.txt: File missing".
+                    # source_dir/VERIFY.txt holds the final post-signing bytes
+                    # by the time this function runs during pack().
+                    if filename not in {"mimetype"} and (source_dir / filename).exists()
                 },
                 # manifest.json and viewer.html are written directly to the ZIP
                 # archive during packing, not saved to the workspace directory.
