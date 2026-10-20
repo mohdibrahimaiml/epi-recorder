@@ -418,6 +418,41 @@ class TestEPIContainer:
         assert not is_valid, "Integrity check should fail when VERIFY.txt is missing"
         assert "VERIFY.txt" in mismatches
 
+    def test_embedded_viewer_preloads_verify_txt_bytes(self, temp_workspace, sample_files):
+        """Pack-time viewer payload must carry VERIFY.txt bytes.
+
+        Regression: the browser Sign & Seal fallback rebuild (no
+        archive_base64) copies only what the preloaded ``files`` dict holds.
+        VERIFY.txt was excluded, so reviewed downloads failed verification
+        with ``VERIFY.txt: File missing`` while listed in file_manifest.
+        """
+        import base64
+        import io
+        import json
+
+        output_path = temp_workspace / "test.epi"
+        manifest = ManifestModel(cli_command="test command")
+
+        EPIContainer.pack(sample_files, manifest, output_path)
+
+        raw = output_path.read_bytes()
+        tag = b'<script id="epi-preloaded-cases"'
+        idx = raw.find(tag)
+        assert idx != -1, "packed artifact must embed preloaded cases"
+        end = raw.find(b"</script>", idx)
+        payload = json.loads(raw[idx + len(tag) + 1 : end].split(b">", 1)[1])
+        files = payload["cases"][0]["files"]
+        assert "VERIFY.txt" in files, (
+            "preloaded files must include VERIFY.txt bytes for Sign & Seal rebuilds"
+        )
+
+        zip_start = raw.find(b"PK\x03\x04")
+        with zipfile.ZipFile(io.BytesIO(raw[zip_start:])) as zf:
+            inner_verify = zf.read("VERIFY.txt")
+        assert base64.b64decode(files["VERIFY.txt"]) == inner_verify, (
+            "preloaded VERIFY.txt bytes must match the sealed payload bytes"
+        )
+
     def test_embedded_viewer_with_steps(self, temp_workspace, sample_files):
         """Test that embedded viewer includes steps data."""
         # Create steps.jsonl

@@ -583,6 +583,68 @@ class TestPass5ProhibitionViolation:
         prohibition_flags = [f for f in all_flags if f and f.rule_id == "R020"]
         assert len(prohibition_flags) == 1
 
+    def test_uppercase_literal_pattern_matches(self):
+        # Regression: _content_str() lowercases, so a pattern with an
+        # uppercase literal (DE[0-9]{20}) could never match. The pattern as
+        # written must be tried against the original case.
+        policy = EPIPolicy(
+            system_name="test",
+            system_version="1.0",
+            policy_version="2025-01-01",
+            rules=[
+                PolicyRule(
+                    id="R021",
+                    name="No IBANs",
+                    severity="critical",
+                    description="Never output IBANs.",
+                    type="prohibition_guard",
+                    prohibited_pattern=r"DE[0-9]{20}",
+                )
+            ],
+        )
+        analyzer = FaultAnalyzer(policy=policy)
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "test"}),
+            _make_step(1, "model.inference", {"prompt": "IBAN DE89370400440532013000 leaked"}),
+            _make_step(2, "session.end", {"success": True}),
+        ])
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        prohibition_flags = [f for f in all_flags if f and f.rule_id == "R021"]
+        assert len(prohibition_flags) == 1
+        assert prohibition_flags[0].fault_type == "POLICY_VIOLATION"
+        assert "DE[0-9]" in prohibition_flags[0].plain_english
+        assert "DE89370400440532013000" in prohibition_flags[0].fault_chain[0]["detail"]
+
+    def test_lowercase_pattern_still_matches_uppercase_content(self):
+        # Historical behavior lock: a lowercase pattern must keep matching
+        # uppercase content (via the lowercased comparison), exactly as before.
+        policy = EPIPolicy(
+            system_name="test",
+            system_version="1.0",
+            policy_version="2025-01-01",
+            rules=[
+                PolicyRule(
+                    id="R022",
+                    name="No MRNs",
+                    severity="critical",
+                    description="Never output MRNs.",
+                    type="prohibition_guard",
+                    prohibited_pattern=r"mrn-[0-9]{8}",
+                )
+            ],
+        )
+        analyzer = FaultAnalyzer(policy=policy)
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow_name": "test"}),
+            _make_step(1, "model.inference", {"prompt": "record MRN-48213977 reviewed"}),
+            _make_step(2, "session.end", {"success": True}),
+        ])
+        result = analyzer.analyze(steps)
+        all_flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        prohibition_flags = [f for f in all_flags if f and f.rule_id == "R022"]
+        assert len(prohibition_flags) == 1
+
 
 class TestPass6AgentApprovalGap:
     def test_detects_pending_approval_gap(self):
