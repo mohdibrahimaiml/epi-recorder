@@ -67,12 +67,16 @@ Evidence Rooms. Witness-first is what makes $0 viable.
    checkpoint hashes to Rekor only), `PADDLE_WEBHOOK_SECRET` (M7).
 5. `FOUNDER_USER_IDS`: comma-separated user ids for the founder pages:
    `/admin/usage` and `/admin` (workspace list with owner email and usage,
-   plus a plan picker — every plan change is written to the audit log).
-   Set it with `wrangler --config cloud/wrangler.toml secret put
+   plus a plan picker - every plan change is written to the audit log).
+   Never match on email: an unverified account can carry someone else's
+   address, so the server also requires `email_verified = 1` for founder
+   ids. Set it with `wrangler --config cloud/wrangler.toml secret put
    FOUNDER_USER_IDS` (a plain `[vars]` value in `wrangler.toml` works too,
    but a secret keeps the allowlist out of the config file). Find your user
-   id after first login (D1: `SELECT id, email FROM users`). Open
-   `https://cloud.epilabs.org/admin` while signed in as that user.
+   id after first login (D1: `SELECT id, email, email_verified FROM users`
+   - use a row with `email_verified = 1`; GitHub and Google logins are
+   separate rows). Open `https://cloud.epilabs.org/admin` while signed in
+   as that user; the page shows who you are signed in as.
 6. GitHub secret `CLOUDFLARE_API_TOKEN` (Workers/D1/R2 edit) for deploys.
 7. Custom domain: attach `cloud.epilabs.org` to the worker after first deploy.
 8. Create the empty public repo `epi-witness-checkpoints` (M1 mirror).

@@ -10,12 +10,18 @@ const app = new Hono<{ Bindings: Env }>();
 
 async function requireFounder(
   db: D1Database, req: Request, env: Env,
-): Promise<{ ok: true; userId: string } | { ok: false; status: 401 | 403 }> {
+): Promise<{ ok: true; userId: string; email: string | null } | { ok: false; status: 401 | 403 }> {
   const user = await userFromRequest(db, req);
   if (!user) return { ok: false, status: 401 };
   const founders = (env.FOUNDER_USER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!founders.includes(user.id)) return { ok: false, status: 403 };
-  return { ok: true, userId: user.id };
+  // The id alone is not enough: only a verified login counts. A user row
+  // can exist with someone else's address unverified, so an allowlist of
+  // bare ids would hand founder power to whoever claims one.
+  const row = await db.prepare("SELECT email_verified FROM users WHERE id = ?").bind(user.id)
+    .first<{ email_verified: number }>();
+  if (!row || !row.email_verified) return { ok: false, status: 403 };
+  return { ok: true, userId: user.id, email: user.email };
 }
 
 function founderDenied(status: 401 | 403) {
@@ -106,7 +112,12 @@ app.post("/orgs/:orgId/plan", async (c) => {
 // Same origin + session cookie; state changes go through the endpoints above.
 app.get("/", async (c) => {
   const f = await requireFounder(c.env.DB, c.req.raw, c.env);
-  if (!f.ok) return c.html(page("Founder admin — EPI Cloud", `<p class="err">Founder only. Sign in as the founder to manage workspace plans.</p>`));
+  if (!f.ok) {
+    return c.html(
+      page("Founder admin — EPI Cloud", `<p class="err">Founder only. Sign in as the founder to manage workspace plans.</p>`),
+      f.status as 401 | 403,
+    );
+  }
   const script = [
     `function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];});};`,
     `var PLANS=["free","design_partner","startup","growth","enterprise"];`,
@@ -117,6 +128,7 @@ app.get("/", async (c) => {
   return c.html(page(
     "Founder admin — EPI Cloud",
     `<span class="tag">Founder only</span><h1>Workspaces</h1>` +
+    `<p class="small mut">Signed in as <strong>${esc(f.email ?? f.userId)}</strong>.</p>` +
     `<p class="lede">Change a workspace's plan here instead of the database. Every change is audited.</p>` +
     `<div class="twrap"><table class="tbl"><thead><tr><th>Workspace</th><th>Owner</th><th>Usage</th><th>Plan</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>`,
     { script },

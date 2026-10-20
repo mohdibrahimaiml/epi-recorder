@@ -104,6 +104,10 @@ class FakeD1 {
       const u = this.users.get(a[0] as string);
       return u ? { email: u.email } : null;
     }
+    if (q.startsWith("SELECT email_verified FROM users WHERE id")) {
+      const u = this.users.get(a[0] as string);
+      return u ? { email_verified: u.email_verified ?? 0 } : null;
+    }
     if (q.startsWith("SELECT user_id FROM identities")) return null;
     if (q.includes("FROM device_codes")) return null;
     throw new Error(`FakeD1 unhandled select: ${q}`);
@@ -230,8 +234,8 @@ const ENV = (db: FakeD1) => ({
 
 const cookie = (raw: string) => ({ Cookie: `epi_session=${raw}` });
 
-async function seedSession(db: FakeD1, userId: string, email: string): Promise<string> {
-  db.users.set(userId, { id: userId, email, display_name: "T", created_at: "t" });
+async function seedSession(db: FakeD1, userId: string, email: string, verified = 1): Promise<string> {
+  db.users.set(userId, { id: userId, email, display_name: "T", created_at: "t", email_verified: verified });
   // Seed via the same shape createSession writes (tests hash the raw id).
   const raw = `sessraw-${userId}-0123456789abcdef0123456789abcdef`;
   db.sessions.set(await sha256Hex(raw), { id_hash: await sha256Hex(raw), user_id: userId, expires_at: "2999-01-01T00:00:00.000Z" });
@@ -393,9 +397,26 @@ describe("tenant isolation (org A can never touch org B)", () => {
     const again = (await (await app.request("/admin/orgs", { headers: cookie(f) }, env as never)).json()) as { orgs: { plan: string }[] };
     expect(again.orgs[0]!.plan).toBe("enterprise");
 
-    // Founder page renders for a signed-in founder.
+    // Founder page renders for a signed-in founder, showing who is signed in.
     const pageRes = await app.request("/admin", { headers: cookie(f) }, env as never);
     expect(pageRes.status).toBe(200);
-    expect(await pageRes.text()).toContain("Workspaces");
+    const pageHtml = await pageRes.text();
+    expect(pageHtml).toContain("Workspaces");
+    expect(pageHtml).toContain("f@x.test");
+  });
+
+  it("founder allowlist needs a verified login: unverified ids get 403", async () => {
+    const db = new FakeD1();
+    const base = ENV(db);
+    const f = await seedSession(db, "usr_founder", "f@x.test");
+    const u = await seedSession(db, "usr_unverified", "someone-else@x.test", 0);
+    const env = { ...base, FOUNDER_USER_IDS: "usr_founder,usr_unverified" };
+    // Verified founder: fine.
+    expect((await app.request("/admin/orgs", { headers: cookie(f) }, env as never)).status).toBe(200);
+    // Same allowlist, but the login never verified its email: blocked
+    // everywhere, because a bare id must not grant founder power.
+    expect((await app.request("/admin/orgs", { headers: cookie(u) }, env as never)).status).toBe(403);
+    expect((await app.request("/admin/usage", { headers: cookie(u) }, env as never)).status).toBe(403);
+    expect((await app.request("/admin", { headers: cookie(u) }, env as never)).status).toBe(403);
   });
 });
