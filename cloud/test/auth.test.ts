@@ -397,4 +397,36 @@ describe("device flow + dashboard e2e (mocked GitHub)", () => {
     expect(res.min_cli_version).toMatch(/^\d+\.\d+\.\d+$/);
     db.close();
   });
+
+  it("GET /auth/session answers signed-in state with site-only CORS", async () => {
+    const db = openDb();
+    const env = envFor(db);
+    db.prepare("INSERT INTO users (id, email, display_name, email_verified, created_at) VALUES ('u1','u@x.test','U',1,'t')").run();
+    const raw = "sessraw-0123456789abcdef0123456789abcdef01234567";
+    db.prepare("INSERT INTO sessions (id_hash, user_id, expires_at) VALUES (?, 'u1', '2999-01-01T00:00:00.000Z')").run(await sha256Hex(raw));
+    const cookie = `epi_session=${raw}`;
+
+    // Signed in, allowed site origin: true plus an exact-origin CORS grant.
+    const ok = await app.request("/auth/session", { headers: { Cookie: cookie, Origin: "https://epilabs.org" } }, env as never);
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ signed_in: true });
+    expect(ok.headers.get("Access-Control-Allow-Origin")).toBe("https://epilabs.org");
+    expect(ok.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    expect(ok.headers.get("Vary")).toBe("Origin");
+    expect(ok.headers.get("Cache-Control")).toBe("no-store");
+
+    // Signed in, foreign origin: same JSON but no CORS grant, so a foreign
+    // page cannot read it (and learns nothing beyond the status shape).
+    const evil = await app.request("/auth/session", { headers: { Cookie: cookie, Origin: "https://evil.example" } }, env as never);
+    expect(evil.status).toBe(200);
+    expect(await evil.json()).toEqual({ signed_in: true });
+    expect(evil.headers.get("Access-Control-Allow-Origin")).toBeNull();
+
+    // Signed out: false with no identity in the body, grant intact.
+    const out = await app.request("/auth/session", { headers: { Origin: "https://www.epilabs.org" } }, env as never);
+    expect(out.status).toBe(200);
+    expect(await out.json()).toEqual({ signed_in: false });
+    expect(out.headers.get("Access-Control-Allow-Origin")).toBe("https://www.epilabs.org");
+    db.close();
+  });
 });
