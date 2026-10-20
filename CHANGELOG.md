@@ -18,39 +18,37 @@ All notable changes to EPI Recorder are documented here.
   sign-in repair); device-code guess throttling; push-only `status`
   explains instead of dumping 403; witness exports enforce trust-link
   inbox scope.
+- **Witness verdicts say what happened (#131).** A witness receipt signed
+  by a key that is not the EPI witness reads NOT CONFIRMED ("STAMP NOT
+  FROM THE EPI WITNESS"), never MISMATCH — MISMATCH means the file bytes
+  differ.
+- **Witness stamps get through (#132).** The recorder stamps with a
+  distinctive client User-Agent (proxies were blocking the default one),
+  with honest hints: 401 means re-run login, 403 means a network block.
+- **Demo tells the truth (#133).** `epi demo` prints "Witnessed by EPI
+  Cloud" (or why not, with the fix) and one Next step; the Runs list shows
+  a short id and seal time under each title, goal-less runs show
+  "Run 29e5812b", and every non-witnessed badge explains itself. Re-pushing
+  refreshes a stale witness status and fills in a missing customer tag —
+  never replacing one.
+- **Walkthrough fixes (#134).** Sign out works (fetch POST, no more
+  `Origin not allowed`); the guide says 3 steps; plan limits say
+  "customers"; `epi cloud login` nudges after 30 silent seconds; trust
+  pages explain counts before the first checkpoint.
+- **Cloud customer overhaul (#135).** Team endpoints (members, invites,
+  remove member, never the last owner) with an invite page; dashboard plan
+  bar with usage; customer names match case-insensitively; closed
+  customers free their plan slot; device login resolves the customer first
+  (no dead keys); expired share links don't count toward limits; trust
+  page catches viewer-tampered files; three security fixes (invites bound
+  to the invited email, runs can't be moved between customers, reviewer
+  drop-zone checks the embedded viewer).
+- **Founder plan admin.** A founder-only page (`/admin`) lists every
+  workspace with owner, usage and a plan picker — no more D1 console for
+  plan changes. Every change is audited. Unlimited plans show a short
+  "Plan: <Name> — unlimited" with no Upgrade link.
 
 ## [Unreleased]
-
-- **Sign out works from the dashboard.** The Sign out button failed with
-  `Origin not allowed` (the form POST carries a null origin under the
-  no-referrer policy, which the CSRF check rejects). It now uses the same
-  fetch POST as every other dashboard button, then reloads to the signed-out
-  landing. A browser test clicks it and confirms a reload stays signed out.
-- **Honest setup count.** The guide heading said "5 steps" but shows 3.
-  Plan-limit errors on the customer path say "customers", not "agents"
-  (your free plan includes 1 customer).
-- **`epi cloud login` nudges instead of waiting silently.** If the browser
-  has not authorized after 30 seconds, the terminal says to fix any browser
-  error and press Authorize again, then keeps waiting.
-- **Trust page counts before the first checkpoint.** Runs witnessed but not
-  yet checkpointed say "Counts by date appear after tonight's checkpoint"
-  instead of a contradictory "0 in the last 30 days", and the Key history
-  heading appears once.
-
-- **Demo says what happened.** `epi demo`'s closing panel no longer always
-  says "open cloud.epilabs.org -> Share". When the run was pushed it names
-  the cloud host saved at login; when nothing was pushed it says "Not shared
-  yet: run epi cloud login, then epi demo again" and keeps the offline
-  `epi verify` / `epi view` hints. The push line only claims a customer tag
-  when one is saved.
-- **Dashboard runs tell apart.** The Runs list shows a short id and the seal
-  time under each title, so identical demo goals are distinguishable. Runs
-  without a goal show "Run 29e5812b" (workflow short id) or "Sealed run
-  a1b2c3d4" instead of a bare UUID. Every non-witnessed badge carries a
-  one-line reason with a next step. Re-pushing the same file refreshes a
-  stale witness status and fills in the customer tag when the stored run has
-  none — an existing tag is never replaced. Trust pages show the same
-  one-line witness reason per file.
 
 - **Evidence pack (M6).** One "Download evidence pack" button on trust pages
   zips the whole link in the reviewer's browser (never on the server): every
