@@ -1,7 +1,7 @@
 import type { Env } from "../env.ts";
 import { newId, newToken, nowIso } from "./crypto.ts";
 import { auditLog, d1AuditDb } from "./audit.ts";
-import { limitAllows, planOf, PLAN_LIMITS, type PlanId } from "./plans.ts";
+import { limitAllows, planOf } from "./plans.ts";
 import { openSecret, sealSecret } from "./secretbox.ts";
 
 export type EnsureCustomerResult =
@@ -19,18 +19,6 @@ export type EnsureCustomerResult =
 
 function fail(status: 400 | 402 | 403 | 404 | 409 | 503, code: string, message: string): EnsureCustomerResult {
   return { ok: false, status, code, message };
-}
-
-/**
- * Customer words for the "adding one more customer" wall. The person
- * clicking only knows customers; "agents" is an internal name for the
- * recorder identity each customer gets, so it never appears here.
- */
-function customerLimitMessage(plan: PlanId, metric: "agents" | "inboxes"): string {
-  const max = PLAN_LIMITS[plan][metric];
-  const n = max === null ? "unlimited" : max;
-  const s = max === 1 ? "" : "s";
-  return `Your ${plan} plan includes ${n} customer${s}. Upgrade to add more — your data stays.`;
 }
 
 /** Recorder name for a customer (dashboard convention: agent name == customer label). */
@@ -79,7 +67,7 @@ export async function ensureCustomerInbox(
     }
     const active = await db.prepare("SELECT COUNT(*) AS n FROM agents WHERE org_id = ? AND status = 'active'").bind(orgId).first<{ n: number }>();
     const allow = limitAllows(planOf(org.plan), "agents", active?.n ?? 0);
-    if (!allow.ok) return fail(402, "plan_limit", customerLimitMessage(planOf(org.plan), "agents"));
+    if (!allow.ok) return fail(402, "plan_limit", allow.message);
     await db.prepare("UPDATE agents SET status = 'active' WHERE id = ?").bind(agent.id).run();
   }
   if (!agent) {
@@ -88,7 +76,7 @@ export async function ensureCustomerInbox(
     }
     const active = await db.prepare("SELECT COUNT(*) AS n FROM agents WHERE org_id = ? AND status = 'active'").bind(orgId).first<{ n: number }>();
     const agentAllow = limitAllows(planOf(org.plan), "agents", active?.n ?? 0);
-    if (!agentAllow.ok) return fail(402, "plan_limit", customerLimitMessage(planOf(org.plan), "agents"));
+    if (!agentAllow.ok) return fail(402, "plan_limit", agentAllow.message);
     const agentId = newId("agt");
     try {
       await db.prepare("INSERT INTO agents (id, org_id, name, status, created_at) VALUES (?, ?, ?, 'active', ?)")
