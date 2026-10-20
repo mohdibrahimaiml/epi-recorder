@@ -24,10 +24,12 @@ on:
       - "website/t/app.js"
       - "website/verify/index.html"
       - "website/js/home-verify.js"
+      - "website/js/auth-ui.js"
       - "functions/v1/**"
       - "tests/test_dashboard_guided.py"
       - "tests/test_trust_walkthrough_e2e.py"
       - "tests/test_verify_drop.py"
+      - "tests/test_nav_signed_in.py"
       - ".github/workflows/dashboard-browser.yml"
   push:
     branches: [main]
@@ -47,10 +49,12 @@ on:
       - "website/t/app.js"
       - "website/verify/index.html"
       - "website/js/home-verify.js"
+      - "website/js/auth-ui.js"
       - "functions/v1/**"
       - "tests/test_dashboard_guided.py"
       - "tests/test_trust_walkthrough_e2e.py"
       - "tests/test_verify_drop.py"
+      - "tests/test_nav_signed_in.py"
       - ".github/workflows/dashboard-browser.yml"
   workflow_dispatch:
 
@@ -97,3 +101,6 @@ jobs:
 
       - name: Verify page drop zone with a real synthetic drop
         run: python -m pytest tests/test_verify_drop.py -q --maxfail=1
+
+      - name: Site nav reflects cloud sign-in
+        run: python -m pytest tests/test_nav_signed_in.py -q --maxfail=1

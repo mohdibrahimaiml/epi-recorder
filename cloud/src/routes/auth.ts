@@ -262,6 +262,26 @@ app.post("/logout", async (c) => {
   return new Response(null, { status: 204, headers: { "Set-Cookie": clearSessionCookie() } });
 });
 
+// Public sign-in probe for the marketing-site nav (epilabs.org): answers
+// only whether this request carries a valid session — never identity.
+// CORS is granted solely to the exact site origins; any other Origin gets
+// the same JSON with no CORS headers, so a foreign page cannot read it.
+// The session cookie is SameSite=Lax and epilabs.org is the same site, so
+// the browser sends it on this same-site fetch.
+const SITE_ORIGINS = ["https://epilabs.org", "https://www.epilabs.org"];
+
+app.get("/session", async (c) => {
+  const user = await userFromRequest(c.env.DB, c.req.raw).catch(() => null);
+  const headers: Record<string, string> = { "Cache-Control": "no-store", "Content-Type": "application/json" };
+  const origin = c.req.header("Origin");
+  if (origin && (SITE_ORIGINS as string[]).includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+    headers["Vary"] = "Origin";
+  }
+  return new Response(JSON.stringify({ signed_in: !!user }), { status: 200, headers });
+});
+
 // Human page behind an invite link. Shows which workspace and role, makes the
 // person sign in (coming back here afterwards), and only lets the invited
 // email accept. The token stays in the path; it is never put in a cookie.
