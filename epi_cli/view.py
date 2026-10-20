@@ -246,6 +246,30 @@ def _pick_free_localhost_port() -> int | None:
         return None
 
 
+def _wait_for_port(port: int, timeout_seconds: float = 15.0) -> bool:
+    """Block until something accepts on 127.0.0.1:port (or timeout).
+
+    The viewer server is a cold Python process: imports alone take longer
+    than any fixed sleep. Double-click launches (`epi view file.epi`) used to
+    open the browser after a flat 0.35 s, so on cold starts Chrome loaded
+    ERR_CONNECTION_REFUSED and stayed on the error page. Never open the
+    browser at a port that isn't serving yet.
+    """
+    import socket
+    import time
+
+    deadline = time.monotonic() + max(0.5, timeout_seconds)
+    while True:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            pass
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.1)
+
+
 def _spawn_detached_viewer_server(
     viewer_path: Path,
     *,
@@ -306,12 +330,25 @@ def _open_in_browser(viewer_path: Path) -> None:
     # 1) Detached localhost HTTP (reliable in Edge/Chrome; CLI can exit)
     http_url = _spawn_detached_viewer_server(viewer_path)
     if http_url:
+        import urllib.parse
+
         try:
-            webbrowser.open(http_url)
-            opened = True
-            console.print(f"[green]Opened viewer[/green]  {http_url}")
+            port = urllib.parse.urlparse(http_url).port
         except Exception:
-            opened = False
+            port = None
+        server_ready = _wait_for_port(port, timeout_seconds=15.0) if port else False
+        if server_ready:
+            try:
+                webbrowser.open(http_url)
+                opened = True
+                console.print(f"[green]Opened viewer[/green]  {http_url}")
+            except Exception:
+                opened = False
+        else:
+            console.print(
+                "[yellow]Local viewer server did not start in time; "
+                "falling back to opening the file directly.[/yellow]"
+            )
 
     # 2) Windows file association / startfile
     if not opened and sys.platform == "win32":

@@ -259,7 +259,8 @@ class TestOpenInBrowser:
              patch(
                  "epi_cli.view._spawn_detached_viewer_server",
                  return_value="http://127.0.0.1:9/viewer.html",
-             ):
+             ), \
+             patch("epi_cli.view._wait_for_port", return_value=True):
             _open_in_browser(viewer)
         mock_wb.assert_called_once()
         assert mock_wb.call_args[0][0].startswith("http://127.0.0.1:")
@@ -274,9 +275,33 @@ class TestOpenInBrowser:
              patch(
                  "epi_cli.view._spawn_detached_viewer_server",
                  return_value="http://127.0.0.1:9/viewer.html",
-             ):
+             ), \
+             patch("epi_cli.view._wait_for_port", return_value=True):
             _open_in_browser(viewer)
         mock_wb.assert_called_once_with("http://127.0.0.1:9/viewer.html")
+
+    def test_dead_server_falls_back_to_file_url(self, tmp_path):
+        """Cold server that never comes up must not open a dead http URL.
+
+        Regression: the browser was opened after a fixed 0.35 s sleep, so on
+        cold starts it landed on ERR_CONNECTION_REFUSED. An unready server
+        must fall back to the file URL instead.
+        """
+        from epi_cli.view import _open_in_browser
+        viewer = tmp_path / "viewer.html"
+        viewer.write_text("<html>ok</html>")
+        with patch("sys.platform", "linux"), \
+             patch("webbrowser.open") as mock_wb, \
+             patch(
+                 "epi_cli.view._spawn_detached_viewer_server",
+                 return_value="http://127.0.0.1:9/viewer.html",
+             ), \
+             patch("epi_cli.view._wait_for_port", return_value=False):
+            _open_in_browser(viewer)
+        mock_wb.assert_called_once()
+        opened = mock_wb.call_args[0][0]
+        assert opened.startswith("file:"), f"expected file:// fallback, got {opened!r}"
+        assert "127.0.0.1" not in opened
 
 # ─────────────────────────────────────────────────────────────
 # view._cleanup_after_delay
