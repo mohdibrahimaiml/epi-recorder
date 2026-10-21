@@ -1,13 +1,13 @@
 # EPI Policy Guide
 
-**User how-to (normal workflow):** [POLICY-AND-FAULT-ANALYZER.md](./POLICY-AND-FAULT-ANALYZER.md)  
-**Docs map:** [README.md](./README.md)
+**Version:** 4.6.2  
+**Docs map:** [README.md](./README.md) · **Verifier contract:** [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md)
 
 `epi_policy.json` is the rulebook for an AI workflow.
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
-In `v4.4.5`, the preferred way to create this file is:
+The preferred way to create this file is:
 
 ```bash
 epi policy init
@@ -360,7 +360,7 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 
 ## Where Enterprise Policy Goes Next
 
-`v4.4.5` policy is a strong workflow rulebook, but enterprises often need more:
+Shipped policy is a workflow rulebook, not a full GRC platform. Enterprises often also need:
 
 - layered policy inheritance
 - environment-aware controls
@@ -371,6 +371,6 @@ So `epi_policy.json` should be thought of as the machine-readable form of the co
 
 That next layer is intentionally outside this guide.
 
-This document stays focused on the shipped `v4.4.5` workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
+This document stays focused on the shipped workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
 - `policy_evaluation.json`
 - proposed CLI and API changes

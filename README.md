@@ -8,7 +8,7 @@
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![Version v4.6.2](https://img.shields.io/badge/version-v4.6.2-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
 ```bash
@@ -19,10 +19,11 @@ epi demo --no-browser    # record → seal → verify (no API key)
 [60-second path](#60-second-path) ·
 [What a .epi is](#what-a-epi-file-is) ·
 [CLI](#cli) ·
-[Docs & pilot](#docs--pilot) ·
+[How to use it](docs/USER-GUIDE.md) ·
+[Docs](#docs) ·
 [Standards](#standards--compliance)
 
-How it works: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md) — packages, integrity model, and where to read next.
+How it works: [ARCHITECTURE.md](ARCHITECTURE.md) — packages, integrity model, and where to read next. Docs map: [docs/README.md](docs/README.md).
 
 </div>
 
@@ -105,7 +106,7 @@ Typical first-run verify:
 > `epi keys trust <sender-key-file> --name <name>` (the sender's `.pub`, `did.json` or saved
 > `epi keys export` line — never the `.epi` you are checking) or
 > `epi keys trust --from-did did:web:vendor.com --name <name>`.  
-> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md).
+> Policy / “did the run break our rules?” is separate again: `epi analyze` — see [docs/POLICY.md](docs/POLICY.md).
 
 `epi-register` is a standalone alias for `epi scitt register` (same options, same result).
 Without `--service <url>` it creates a LOCAL self-issued receipt signed by your own key, not an
@@ -162,7 +163,7 @@ demo.epi
 | **Chain** | Each step’s `prev_hash` links the timeline |
 | **Privacy** | Default secret redaction (API keys, tokens, PII) |
 
-Samples: [docs/assets/SAMPLES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
+Samples: [docs/assets/SAMPLES.md](docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
 
 ---
 
@@ -210,7 +211,7 @@ Signing key order: `--key` → private key that sealed the `.epi` → `TRACE_PRI
 
 `policy.bundle_hash` in TRACE is specified as a Cedar policy hash. We hash `policy.json` (the sealed EPI policy document), not a Cedar bundle. `policy.enforcement_mode` is `"declared"` — we did not run a Cedar engine. `appraisal.status` is `"none"`.
 
-More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
+More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md)
 
 ---
 
@@ -231,7 +232,7 @@ More: [docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahima
 | `epi import agt <path>` | Import Microsoft AGT evidence |
 | `epi export trace <file.epi>` | TRACE v0.2 log-import record (self-consistency, not issuer attestation) |
 
-Policy + fault analyzer guide: [docs/POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/POLICY.md)
+Policy + fault analyzer guide: [docs/POLICY.md](docs/POLICY.md)
 
 ## EPI Cloud (share a run with a customer)
 
@@ -278,16 +279,22 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 
 ---
 
-## Docs & pilot
+## Docs
 
 | Topic | Link |
 |-------|------|
-| **Docs map** | [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
-| **How it works** | [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md) |
-| **Archive** (historical guides, may be out of date) | [Pilot pack](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/PILOT.md) · [Enterprise in 15 minutes](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/ENTERPRISE-15-MINUTES.md) · [Enterprise capability](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/ENTERPRISE-CAPABILITY.md) · [Policy + fault analyzer](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/POLICY-AND-FAULT-ANALYZER.md) |
-| Known limitations | [docs/KNOWN_LIMITATIONS.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/KNOWN_LIMITATIONS.md) |
-| CLI deep dive | [docs/CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/CLI.md) |
-| Auditors guide | [docs/AUDITORS-GUIDE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/AUDITORS-GUIDE.md) |
+| **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
+| **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
+| **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
+| **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |
+| **Known limitations** (read before a security review) | [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) |
+| Architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| CLI (`epi cloud` included) | [docs/CLI.md](docs/CLI.md) |
+| EPI Cloud | [docs/CLOUD.md](docs/CLOUD.md) |
+| Website source | [docs/WEBSITE.md](docs/WEBSITE.md) |
+| Auditors guide | [docs/AUDITORS-GUIDE.md](docs/AUDITORS-GUIDE.md) |
+
+Start at [docs/README.md](docs/README.md). Do not treat old search hits or forks as current.
 
 ---
 
@@ -299,9 +306,9 @@ is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|
-| EU AI Act Annex IV | [docs/ANNEX-IV.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/ANNEX-IV.md) |
-| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/standards/aiuc-1-evidence.md) |
-| SCITT | [docs/standards/scitt-predicate.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/standards/scitt-predicate.md) |
+| EU AI Act Annex IV (tooling, not a certificate) | [docs/ANNEX-IV.md](docs/ANNEX-IV.md) |
+| AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](docs/standards/aiuc-1-evidence.md) |
+| SCITT | [docs/standards/scitt-predicate.md](docs/standards/scitt-predicate.md) |
 
 ```bash
 epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certification)
@@ -331,34 +338,34 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 |------|------|
 | `epi_recorder/` | Python SDK (`record`, wrappers) |
 | `epi_core/` | Container, crypto, redaction, verify, fault analyzer |
-| `epi_cli/` | `epi` command |
+| `epi_cli/` | `epi` command (including `epi cloud`) |
 | `epi_gateway/` | Self-hosted capture/review runtime (`epi gateway serve`) |
+| `cloud/` | EPI Cloud Worker (`cloud.epilabs.org`) |
 | `web_viewer/` | Canonical browser UI (source for `epi view` and the embedded viewer) |
 | `epi_viewer_static/` | Browser crypto baked into every sealed file at pack time |
 | `pytest_epi/` | Pytest plugin |
 | `website/` | Public site source of truth (`epilabs.org`) |
 | `scripts/` | Build, sync, release and verification helper scripts |
-| `docs/` | Start at [docs/README.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/README.md) |
+| `docs/` | Start at [docs/README.md](docs/README.md) |
 | `tests/` | ~190 test files, including the `test_core_loop_golden.py` regression path |
 
 **Experimental** (frozen — works as documented, bug fixes allowed, no new features until a paying user asks; not on the critical path):
 
 | Path | Note |
 |------|------|
-| `epi_mcp/` | ChatGPT/Claude connector |
-| `verify_portal/` | Hosted portal, auth, Paddle billing, tier gating |
+| `epi_mcp/` | ChatGPT/Claude connector (hosted HTTP still on Render) |
+| `verify_portal/` | Legacy hosted share/verify API. Login is EPI Cloud, not this service. |
 | `epi_recorder/integrations/trace_exporter.py` | TRACE export |
 | `epi_recorder/integrations/agt*` | Microsoft AGT import/export |
 | `epi_guardrails/` | Guardrails |
-| `website-v2/` | Sandbox redesign (not deployed) |
 | remote SCITT service | Local SCITT receipt is core; the hosted service is not |
 
-Website edits: only under `website/` (the source of truth). `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/`, `epi-official/` and `site/`. Details: [ARCHITECTURE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/ARCHITECTURE.md), [docs/archive/SITE.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/docs/archive/SITE.md).
+Website edits: only under `website/`. `npm run build` copies it to `site/` for Cloudflare Pages; `python scripts/sync_website.py` mirrors it to `verify_portal/static/` and `epi-official/`. Details: [docs/WEBSITE.md](docs/WEBSITE.md), [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
 ## License
 
-MIT — see [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/v4.6.0/LICENSE).
+MIT — see [LICENSE](LICENSE).
 
 **Site:** [epilabs.org](https://epilabs.org) · **Issues:** [GitHub Issues](https://github.com/mohdibrahimaiml/epi-recorder/issues)

@@ -1,24 +1,32 @@
 # EPI CLI Reference (v4.6.2)
 
-**Version:** 4.6.1
-**Primary entrypoint:** `epi`
+**Version:** 4.6.2  
+**Primary entrypoint:** `epi`  
+**Docs map:** [README.md](./README.md)
 
 ---
 
 ## Start Here
 
-**Docs map:** [README.md](./README.md) · **Pilot (archived):** [archive/PILOT.md](./archive/PILOT.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)
+**How to use it:** [USER-GUIDE.md](./USER-GUIDE.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) · **Cloud:** [CLOUD.md](./CLOUD.md)
 
 Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
 
-For an enterprise customer pilot (org kit + auditor pack), use:
+To share a sealed run with a customer reviewer (EPI Cloud, private beta):
+
+```bash
+epi cloud login
+epi demo
+```
+
+Then create a customer-scoped trust link on `https://cloud.epilabs.org`.
+
+For an org kit + auditor pack on a local file:
 
 ```bash
 epi enterprise setup
 epi enterprise pack your-run.epi
 ```
-
-See [archive/ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md) (archived; may be out of date).
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, start with:
 
@@ -47,8 +55,12 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 
 | Command | Purpose |
 | --- | --- |
-| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. |
-| `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). See [archive/ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md). |
+| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. When logged into EPI Cloud, also pushes and reports witness status honestly. |
+| `epi cloud login` | Connect this computer to EPI Cloud (device code at `/auth/device`). Alias: `epi auth login`. |
+| `epi cloud push` / `status` / `use` | Upload a selected `.epi` to the Evidence Room; show workspace status; switch saved customer. |
+| `epi cloud keys push\|list\|revoke\|unrevoke` | Register **public** keys only (`*.pub`). Informational registry — not a pin. |
+| `epi cloud storage show\|set\|test\|flush` | Register customer-owned bucket metadata; credentials never leave this machine. |
+| `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). |
 | `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
 | `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
@@ -67,7 +79,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
-| `epi keys trust <file> --name <name>` / `--from-did <did>` | Pin a public key (PEM, `did.json` or base64 file, or a did:web DID) in the local trust registry. Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. |
+| `epi keys trust <file> --name <name>` / `--from-did <did>` / `--from-cloud <slug>` | Pin a public key (PEM, `did.json` or base64 file, a did:web DID, or a Cloud registry key **after** confirming the fingerprint with the sender). Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. Cloud listings are not pins by themselves. |
 | `epi keys revoke <name>` / `unrevoke <name>` | Revoke a pinned key, or undo the revocation. |
 | `epi keys trust --from-did did:web:<domain>` | Resolve a vendor's did:web document once and pin its key. |
 | `epi keys did --domain <domain>` | Write a `did.json` publishing this machine's key under your domain. |
@@ -86,6 +98,37 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi export trace <file.epi>` | Emit a TRACE v0.2 log-import Trust Record bound to the `.epi` hash. Signing: `--key` → sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. Embedded `cnf.jwk` proves internal consistency, not a trusted issuer. `policy.bundle_hash` hashes `policy.json`, not Cedar (`enforcement_mode: declared`). `appraisal.status` is `none`. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
+
+---
+
+## `epi cloud`
+
+Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, private beta). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
+
+```bash
+epi cloud login
+epi cloud login --url https://cloud.epilabs.org --org <org_id> --api-key <key>
+epi cloud use
+epi cloud push path/to/run.epi
+epi cloud status
+epi cloud keys push signing.pub --label prod-2026
+epi cloud keys list
+epi cloud keys revoke <fingerprint> --reason rotated
+epi cloud keys unrevoke <fingerprint>
+epi cloud storage show
+epi cloud storage set s3://bucket/prefix --endpoint https://...
+epi cloud storage test
+epi cloud storage flush
+```
+
+Behavior:
+
+- `login` with no flags is RFC 8628 device flow: a short code, typed at `/auth/device`. Saves `~/.epi/cloud.json` (0600). Flags/env (`EPI_CLOUD_URL`, `EPI_CLOUD_ORG`, `EPI_CLOUD_API_KEY`) remain for automation.
+- `push` streams the file; the Worker never unzips it. Max 25 MB. Client sends `manifest.json` separately.
+- `keys push` accepts only `*.pub` files of 64 hex chars (Ed25519). Private keys are refused. Registration is **informational**. Pinning is still `epi keys trust` (optionally `--from-cloud <slug>` after confirming the fingerprint with the sender). Revoked cloud keys are refused as pins.
+- `storage set` registers bucket metadata only. Credentials stay in the recorder environment (`EPI_STORAGE_URL` / AWS env). Cloud cannot read the bucket.
+
+`epi auth login` is an alias of `epi cloud login`.
 
 ---
 
@@ -354,15 +397,18 @@ $ epi verify case-002.epi --policy strict --witness-log received.jsonl
 
 All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#reading-the-verdict).
 
-After a successful verification, EPI now points to the two lowest-friction next steps:
-- `epi share <file.epi>` for a hosted browser link
-- `https://epilabs.org/verify` for client-side browser verification
+After a successful verification, typical next steps:
+- `https://epilabs.org/verify` for client-side browser verification (no account)
+- EPI Cloud trust link (customer-scoped) — `epi cloud login` then the dashboard
+- `epi share <file.epi>` still uploads to the **legacy Render** share API unless you point `--api-base-url` elsewhere. That path is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
 
 ---
 
 ## `epi share <file.epi>`
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
+
+As of 4.6.2 the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
 
 ```bash
 epi share demo.epi
@@ -397,7 +443,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In the current **v4.5.0** line, `epi policy init` is the guided front door for
+In the current **v4.6.2** line, `epi policy init` is the guided front door for
 policy. It asks a small number of business-language questions and writes the
 machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.

@@ -100,16 +100,16 @@ Do not treat embedded HTML alone as formal proof.
 3. Confirm integrity + signature.  
 4. Confirm identity status (KNOWN vs UNKNOWN).  
 5. Open timeline (`epi view` or forensic viewer) for what was decided.  
-6. If disputed: third party re-runs verify; see [EVIDENCE-ALIGNMENT.md](EVIDENCE-ALIGNMENT.md).
+6. If disputed: third party re-runs verify; see [VERIFICATION_CONTRACT.md](VERIFICATION_CONTRACT.md).
 
 ---
 
 ## 6. Format contract
 
-- Spec: [epi-spec SPEC v0.2](https://github.com/mohdibrahimaiml/epi-spec/blob/main/SPEC.md)  
-- Alignment: [EVIDENCE-ALIGNMENT.md](EVIDENCE-ALIGNMENT.md)  
-- Site deploy: [SITE.md](SITE.md)  
-- Deeper trust docs: [ENTERPRISE-TRUST-PROFILE.md](ENTERPRISE-TRUST-PROFILE.md), [ENTERPRISE-TRUST-BUNDLE.md](ENTERPRISE-TRUST-BUNDLE.md)
+- Spec: [spec/EPI-SPEC.md](spec/EPI-SPEC.md)  
+- Verify semantics: [VERIFICATION_CONTRACT.md](VERIFICATION_CONTRACT.md)  
+- Site: [WEBSITE.md](WEBSITE.md)  
+- Org keys: [design/org-trust-bundle.md](design/org-trust-bundle.md), [IDENTITY-ONBOARDING.md](IDENTITY-ONBOARDING.md)
 
 ---
 
