@@ -14,8 +14,10 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: { agents: 1, inboxes: 1, evidenceFiles: 50, retentionDays: 30, shareLinks: 1 },
   design_partner: { agents: 10, inboxes: 5, evidenceFiles: 2000, retentionDays: 2555, shareLinks: 10 },
-  startup: { agents: 3, inboxes: 2, evidenceFiles: 500, retentionDays: 365, shareLinks: 3 },
-  growth: { agents: 10, inboxes: 10, evidenceFiles: 5000, retentionDays: 2555, shareLinks: null },
+  // HOS pricing note (Oct 2026): relationships are the value metric —
+  // Startup 3 (+ add-ons), Growth 15; files per year via retention.
+  startup: { agents: 3, inboxes: 3, evidenceFiles: 1000, retentionDays: 365, shareLinks: 3 },
+  growth: { agents: 15, inboxes: 15, evidenceFiles: 10000, retentionDays: 2555, shareLinks: null },
   enterprise: { agents: null, inboxes: null, evidenceFiles: null, retentionDays: null, shareLinks: null },
 };
 
