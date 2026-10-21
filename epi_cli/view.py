@@ -246,7 +246,7 @@ def _pick_free_localhost_port() -> int | None:
         return None
 
 
-def _wait_for_port(port: int, timeout_seconds: float = 15.0) -> bool:
+def _wait_for_port(port: int, timeout_seconds: float = 15.0, _connect=None) -> bool:
     """Block until something accepts on 127.0.0.1:port (or timeout).
 
     The viewer server is a cold Python process: imports alone take longer
@@ -254,14 +254,19 @@ def _wait_for_port(port: int, timeout_seconds: float = 15.0) -> bool:
     open the browser after a flat 0.35 s, so on cold starts Chrome loaded
     ERR_CONNECTION_REFUSED and stayed on the error page. Never open the
     browser at a port that isn't serving yet.
+
+    `_connect` is an injectable stand-in for socket.create_connection (unit
+    tests script it: loopback SYNs can be blackholed for seconds on filtered
+    Windows hosts, which no real-socket timing test survives deterministically).
     """
     import socket
     import time
 
+    connect = _connect or socket.create_connection
     deadline = time.monotonic() + max(0.5, timeout_seconds)
     while True:
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            with connect(("127.0.0.1", port), timeout=0.5):
                 return True
         except OSError:
             pass
