@@ -137,7 +137,7 @@ epi view demo.epi
 |---------------------|---------|
 | Was the file altered after seal? | `epi verify file.epi` — look at Integrity + Signature |
 | Do I recognize who sealed it? | Receiver pins your `.pub` / `did.json`, then `epi verify --policy strict` |
-| Did the run break our rules? | `epi policy init`, re-record, `epi analyze file.epi` |
+| Did the run break our rules? | `epi policy init`, re-record, `epi analyze file.epi` (without a policy file, analyze is heuristic-only) |
 
 In a browser with no install: https://epilabs.org/verify/ (default path does not upload the file).
 
@@ -183,7 +183,7 @@ You do not need Cloud to prove a seal.
 |-----------|--------|
 | Account / Sign In | You are using EPI Cloud |
 | `epi-register` / SCITT | You have an independent `--service` URL. Without it, the receipt is **self-issued** |
-| Policy / `epi analyze` | You have written `epi_policy.json` rules |
+| Policy / `epi analyze` | You want rule-based checks. Without `epi_policy.json`, `epi analyze` still runs (heuristics only) |
 | Self-hosted gateway | You want live capture in a shared workspace ([SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md)) |
 | MCP / ChatGPT / Claude connectors | You specifically want those hosted connectors |
 
