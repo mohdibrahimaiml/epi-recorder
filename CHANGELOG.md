@@ -47,6 +47,10 @@ All notable changes to EPI Recorder are documented here.
   workspace with owner, usage and a plan picker — no more D1 console for
   plan changes. Every change is audited. Unlimited plans show a short
   "Plan: <Name> — unlimited" with no Upgrade link.
+- **Paid plan limits match the pricing note.** Startup: 3 customer
+  relationships and 1,000 evidence files (1-year retention). Growth: 15
+  relationships and 10,000 files (7-year retention). Limits speak in
+  customers, never internal metric names.
 
 ## [Unreleased]
 
