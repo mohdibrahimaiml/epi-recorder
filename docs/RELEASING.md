@@ -17,15 +17,15 @@ anything here.
 4. Go to **Account settings → API tokens** and **delete every token**
    for this project (Trusted Publishing replaces them).
 
-## Every release (example: v4.6.2)
+## Every release (example: v4.6.1)
 
 1. Make sure `main` is green and `CHANGELOG.md` has the version section dated.
 2. **Version-bump PRs merge only when you are about to publish.** The site
-   deploys on merge, so a merged bump advertises the release immediately —
-   do not merge a website version bump days before the release, or the
-   banner will claim a version that isn't out yet.
+deploys on merge, so a merged bump advertises the release immediately —
+do not merge a website version bump days before the release, or the
+banner will claim a version that isn't out yet.
 2. GitHub → **Releases** → **Draft a new release**.
-3. Tag: **`v4.6.2`** (must match `pyproject.toml`; the workflow refuses a
+3. Tag: **`v4.6.1`** (must match `pyproject.toml`; the workflow refuses a
    mismatch), target: `main`.
 4. Paste the CHANGELOG section for the version into the release notes.
 5. Click **Publish release**.
