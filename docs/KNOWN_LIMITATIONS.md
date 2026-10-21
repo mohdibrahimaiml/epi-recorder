@@ -1,5 +1,7 @@
 # Known Limitations
 
+**Product version:** 4.6.2. Docs map: [README.md](./README.md).
+
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
@@ -43,20 +45,14 @@ Standing rule, beyond this bug: recount from `results`, never from the
 header. A derived count is always weaker evidence than the thing it was
 derived from. New seals from 4.4.7 report the true total.
 
-## `epi_signature_valid` asserts presence, not validity (exporter helper)
+## `epi_signature_valid` in the AGT helper now runs a real check (fixed)
 
-`epi_recorder/integrations/agt_adapter/exporter.py:149` —
-`build_agt_log_data()` returns `"epi_signature_valid":
-bool(manifest.signature)`. What is actually established on that path: a
-signature string is present on the manifest. What the field name asserts:
-the signature is cryptographically *valid*. No verification runs there. A
-reader — or a downstream consumer logging this dict into AGT — could
-wrongly conclude EPI verified the artifact's signature when it only
-observed that one exists. To establish validity, run `epi verify` on the
-artifact (`verify_evidence_receipt()` covers the receipt itself). Present
-since 4.2.0. Deferred from 4.4.7 to avoid a behaviour change in a helper's
-output dict during a release carrying a sealed-data fix. Scheduled for
-4.5.0.
+`build_agt_log_data()` used to set `"epi_signature_valid":
+bool(manifest.signature)` (presence only). It now calls
+`verify_embedded_manifest_signature`. Independent of that helper, auditors
+should still run `epi verify` on the artifact. The old presence-only
+behaviour remains a reading risk on anything that consumed the helper
+before this fix.
 
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
@@ -121,8 +117,7 @@ hosted API (client token, price IDs, webhook secret, etc.). If those are empty,
 pricing CTAs should fall back to sign-in / contact — not a working checkout.
 
 **Pilot / invoice path (works without Paddle):** user signs in once at
-`/account`, then EPI Labs promotes the plan with the admin **set-plan** endpoint
-(see [OPERATOR-RUNBOOK.md](./OPERATOR-RUNBOOK.md) — operators only).
+`/account`, then EPI Labs promotes the plan from the Cloud founder admin page.
 
 Public tiers after `normalize_plan` (must match `verify_portal/tier_gating.py`
 and `website/pricing.html`):
@@ -184,9 +179,9 @@ or future product; PDF is CLI-only.
 ## Site mirrors
 
 Production static source is **`website/`**. `scripts/sync_website.py` copies into
-`site/`, `verify_portal/static/`, and `epi-official/`. `website-v2/` is a sandbox
-and is **not** the deploy source. Stale mirrors after editing `website/` are a
-known ops hazard until sync runs.
+`site/`, `verify_portal/static/`, and `epi-official/`. `site/` is build output.
+Stale mirrors after editing `website/` are a known ops hazard until sync runs.
+See [WEBSITE.md](./WEBSITE.md).
 
 ---
 

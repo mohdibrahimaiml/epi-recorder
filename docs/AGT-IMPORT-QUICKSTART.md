@@ -118,8 +118,6 @@ That means a reviewer can answer both:
 ## 7. Related Docs
 
 - [CLI Reference](CLI.md)
-- [EPI Specification](EPI-SPEC.md)
+- [EPI Specification](spec/EPI-SPEC.md)
 - [AGT example bundle details](../examples/agt/README.md)
-- [AGT -> EPI demo kit](../examples/agt-epi-demo/README.md)
-- [RFC: AGT -> EPI portable artifact layer](rfc/agt-epi-artifact.md)
-- [Docs index](README.md) · [Pilot pack](PILOT.md) · [Product guide](COMPLETE-PRODUCT-GUIDE.md)
+- [Docs index](README.md) · [Enterprise briefing](EPI_MASTER_DOCUMENTATION.md)

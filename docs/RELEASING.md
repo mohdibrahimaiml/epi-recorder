@@ -17,7 +17,7 @@ anything here.
 4. Go to **Account settings → API tokens** and **delete every token**
    for this project (Trusted Publishing replaces them).
 
-## Every release (example: v4.6.1)
+## Every release (example: v4.6.2)
 
 1. Make sure `main` is green and `CHANGELOG.md` has the version section dated.
 2. **Version-bump PRs merge only when you are about to publish.** The site
@@ -25,7 +25,7 @@ anything here.
    do not merge a website version bump days before the release, or the
    banner will claim a version that isn't out yet.
 2. GitHub → **Releases** → **Draft a new release**.
-3. Tag: **`v4.6.1`** (must match `pyproject.toml`; the workflow refuses a
+3. Tag: **`v4.6.2`** (must match `pyproject.toml`; the workflow refuses a
    mismatch), target: `main`.
 4. Paste the CHANGELOG section for the version into the release notes.
 5. Click **Publish release**.
@@ -41,7 +41,7 @@ attaches `epi-setup-<version>.exe` to the same GitHub release. No extra step.
 
 ## After a backend change ships in the release
 
-If the release changes the verify portal (e.g. 4.6.1's share expiry):
+If the release changes the verify portal (legacy Render share API):
 Render → **epi-verify** → **Manual Deploy** → **Deploy latest commit**.
 
 ## Never
