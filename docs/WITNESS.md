@@ -1,7 +1,10 @@
 # Customer witness
 
+**Product version:** 4.6.2. Cloud product claims: [CLOUD.md](./CLOUD.md).
+
 How a vendor reports every seal to its customer, and how the customer keeps
-and checks those reports.
+and checks those reports. A witness receipt is **hash-only**. It is not a
+copy of the run and not a regulatory certificate.
 
 ## What it is
 

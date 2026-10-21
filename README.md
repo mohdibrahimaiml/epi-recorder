@@ -306,7 +306,7 @@ is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|
-| EU AI Act Annex IV (tooling, not a certificate) | [docs/ANNEX-IV.md](docs/ANNEX-IV.md) |
+| EU AI Act Annex IV (templates, not a certificate) | [docs/ANNEX-IV.md](docs/ANNEX-IV.md), [docs/EU-AI-ACT-EVIDENCE-PREP.md](docs/EU-AI-ACT-EVIDENCE-PREP.md) |
 | AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](docs/standards/aiuc-1-evidence.md) |
 | SCITT | [docs/standards/scitt-predicate.md](docs/standards/scitt-predicate.md) |
 

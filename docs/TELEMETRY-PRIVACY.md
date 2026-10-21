@@ -1,5 +1,7 @@
 # EPI Telemetry Privacy
 
+**Product version:** 4.6.2.
+
 Telemetry in EPI Recorder is opt-in.
 
 It exists to answer product questions such as which integrations are being used, whether verification is working in CI, and whether teams want pilot/dashboard support. It is not import tracking, user tracking by default, or content collection.

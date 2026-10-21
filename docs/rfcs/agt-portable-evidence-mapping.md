@@ -1,6 +1,8 @@
 # AGT → EPI Portable Evidence Mapping
 
-- **Status**: Draft
+**Frozen RFC (May 2026).** This is a community mapping note written against **epi-recorder v4.1.0**. It is **not** current product documentation. Current import path: [../AGT-IMPORT-QUICKSTART.md](../AGT-IMPORT-QUICKSTART.md). Product version today: **4.6.2** ([../README.md](../README.md)).
+
+- **Status**: Draft (frozen; not a living spec)
 - **Date**: 2026-05-13
 - **Author**: Mohd Ibrahim Afridi (mohdibrahim@epilabs.org)
 - **Related**: [AGT Discussion #806](https://github.com/microsoft/agent-governance-toolkit/discussions/806)

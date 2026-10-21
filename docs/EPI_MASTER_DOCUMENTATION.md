@@ -67,7 +67,7 @@ Rely on the exit code only with `--policy strict` (WARN exits 0 under the defaul
 Say these out loud in a security review. They are product facts, not caveats hidden in a footer.
 
 - EPI does **not** prove that every LLM call, tool call, or human action was captured. The seal covers what was written into the file. Instrumentation gaps stay gaps. See [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
-- EPI does **not** certify EU AI Act, SR 11-7, SOC 2, or any other regime. [EU-AI-ACT-COMPLIANCE-MATRIX.md](./EU-AI-ACT-COMPLIANCE-MATRIX.md) and [ANNEX-IV.md](./ANNEX-IV.md) are **evidence-support mappings**.
+- EPI does **not** certify EU AI Act, SR 11-7, SOC 2, or any other regime. [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md) and [ANNEX-IV.md](./ANNEX-IV.md) are **evidence-support** (templates and packing), not mappings that claim coverage of the regulation.
 - A listing in a public key registry is **not** a pin. Reviewers pin keys themselves.
 - `epi-register` without `--service` embeds a **local, self-issued** SCITT receipt, not an independent ledger entry.
 - Browser viewer crypto checks integrity/signature in-page; RFC 3161 timestamp **validation** is done by `epi verify`, not by the viewer (the viewer says so).
@@ -172,4 +172,4 @@ Secrets are redacted by default (`redact=True`). Everyday how-to: [USER-GUIDE.md
 | Threat model | [THREAT_MODEL.md](./THREAT_MODEL.md) |
 | Cloud ops / CPU / D1 | [CLOUD.md](./CLOUD.md) |
 | Website editing | [WEBSITE.md](./WEBSITE.md) |
-| EU mapping (not a certificate) | [EU-AI-ACT-COMPLIANCE-MATRIX.md](./EU-AI-ACT-COMPLIANCE-MATRIX.md) |
+| EU evidence support (not a certificate) | [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md), [ANNEX-IV.md](./ANNEX-IV.md) |

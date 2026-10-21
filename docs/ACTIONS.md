@@ -1,45 +1,47 @@
-# EPI GitHub Actions for CI/CD
+# GitHub Actions shipped in this repo
 
-Copy-pasteable workflow snippets for adding EPI evidence and compliance to your CI/CD pipelines.
+**Product version:** 4.6.2.
 
----
+These are the composite actions under `.github/actions/`. They check or pack **files**. They do not certify EU AI Act conformity, SOC 2, or any other regime.
 
-## Quick Start: Add Evidence to Your AI Pipeline
+There is **no** `epi-evidence` composite action in this repository. To record tests in CI, install `epi-recorder` and run `pytest --epi` ([PYTEST-AGENT-REGRESSIONS.md](./PYTEST-AGENT-REGRESSIONS.md)).
+
+## `verify-epi`
+
+Verifies `.epi` files in a workflow: integrity and signatures. Source: `.github/actions/verify-epi/`.
 
 ```yaml
-name: AI Pipeline with Evidence
+name: Verify sealed runs
 on: [push]
 jobs:
-  run-and-record:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run AI agent and record evidence
-        uses: mohdibrahimaiml/epi-recorder/.github/actions/epi-evidence@main
+      - uses: mohdibrahimaiml/epi-recorder/.github/actions/verify-epi@main
         with:
-          epi-dir: './evidence'
-          epi-on-pass: 'true'
-
-      - name: Verify evidence
-        uses: mohdibrahimaiml/epi-recorder/.github/actions/verify-epi@main
-        with:
-          path: './evidence'
+          path: './epi-recordings'
           fail-on-tampered: true
           generate-summary: true
 ```
 
-## EU AI Act Annex IV Compliance Gate
+Inputs that exist today: `path`, `fail-on-tampered`, `fail-on-unsigned`, `python-version`, `generate-summary`.
 
-Add this to your PR checks to ensure compliance evidence is generated and verified before merge:
+A green job means those files still match their sealed hashes and (when signed) their signatures. It does not mean the agent captured every call, or that a reviewer has pinned the sealer key.
+
+## `annex-iv-compliance`
+
+Runs `epi annex` in CI and packs the JSON you (or the templates) produced into a `.epi`. Source: `.github/actions/annex-iv-compliance/`.
+
+The action name says “compliance.” That is historical. The job **generates and signs Annex IV *templates*** you still have to fill with true system facts. A passing workflow is not an EU declaration of conformity.
 
 ```yaml
-name: EU AI Act Compliance
+name: Pack Annex IV templates
 on:
   pull_request:
     branches: [main]
 jobs:
-  compliance:
+  annex:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,27 +49,20 @@ jobs:
         with:
           signing-key: ${{ secrets.EPI_SIGNING_KEY }}
           fail-on-block: true
-          report-format: pdf
+          report-format: html
 ```
 
-**Secrets required:**
-- `EPI_SIGNING_KEY`: Generate with `epi keys generate --name ci-compliance` and copy the hex-encoded private key. Add to GitHub repo Settings → Secrets → Actions.
+`EPI_SIGNING_KEY` is an Ed25519 private key your org generates (`epi keys generate`) and stores as a GitHub Actions secret. EPI Labs does not hold it.
 
-## Share Verified Evidence with Auditors
+Details of the nine sections: [ANNEX-IV.md](./ANNEX-IV.md). Boundary: [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md).
 
-Auditors can independently verify the artifact without any shared secrets:
+## After CI: independent check
+
+Anyone with the file can re-check it without GitHub or your secrets:
 
 ```bash
-# Auditor downloads the artifact from GitHub Actions
-# No shared secrets needed - the .epi proves itself
 pip install epi-recorder
-epi verify annex-iv-compliance.epi --verbose
+epi verify path/to/file.epi
 ```
 
-## Available Actions
-
-| Action | Purpose | Key Input |
-|--------|---------|-----------|
-| `epi-evidence` | Generate .epi files from AI tests | `epi-dir` |
-| `verify-epi` | Verify integrity and signatures | `path`, `fail-on-tampered` |
-| `annex-iv-compliance` | Full EU AI Act Annex IV pipeline | `signing-key`, `fail-on-block` |
+`--policy strict` fails on WARN (unpinned sealer). Default `epi verify` treats WARN as exit 0. See [CLI.md](./CLI.md) and [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md).

@@ -1,5 +1,7 @@
 # Framework Integrations in 5 Minutes
 
+**Product version:** 4.6.2. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
+
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
 Install only the extras you need, for example `pip install "epi-recorder[litellm]"`, `pip install "epi-recorder[langchain]"`, or `pip install "epi-recorder[opentelemetry]"`.

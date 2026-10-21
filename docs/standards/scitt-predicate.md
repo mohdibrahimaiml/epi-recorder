@@ -1,15 +1,18 @@
 # EPI SCITT Predicate & COSE Sign1 Specification
 
-**Status:** Active  
+**Status:** Active (technical note)  
 **Date:** 2026-05-17  
 **Version:** 1.0.0  
+**Product version:** 4.6.2  
 **Authors:** EPI Project Team  
+
+This is a **format note**, not a user guide. Product docs: [../README.md](../README.md). A SCITT receipt proves a statement was logged; it does not certify a regulation. Local `epi-register` without `--service` is self-issued — see [../EPI_MASTER_DOCUMENTATION.md](../EPI_MASTER_DOCUMENTATION.md).
 
 ---
 
 ## Abstract
 
-This document defines the integration of the **Supply Chain Integrity, Transparency, and Trust (SCITT)** standard within the **Evidence Packaged Infrastructure (EPI)** framework. Specifically, it specifies the manual `COSE_Sign1` signed statement implementation, the transparency receipt structure, and the custom EPI predicate type utilized to register `.epi` compliance artifacts with SCITT transparency registries.
+This document defines the integration of the **Supply Chain Integrity, Transparency, and Trust (SCITT)** standard within the **Evidence Packaged Infrastructure (EPI)** framework. Specifically, it specifies the manual `COSE_Sign1` signed statement implementation, the transparency receipt structure, and the custom EPI predicate type utilized to register `.epi` evidence artifacts with SCITT transparency registries.
 
 ---
 

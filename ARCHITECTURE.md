@@ -67,4 +67,4 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 - [Docs map](docs/README.md) — recorder, Cloud, website.
 - [EPI Cloud](docs/CLOUD.md) — customer path and ops limits.
 - [Website](docs/WEBSITE.md) — `website/` is the only public-site source.
-- [MCP contract](docs/EPI-MCP-CONTRACT.md) — the hosted connector's exact tools and honesty limits.
+- [MCP contract](docs/EPI-MCP-CONTRACT.md) — legacy Render connector tools and honesty limits (not EPI Cloud).

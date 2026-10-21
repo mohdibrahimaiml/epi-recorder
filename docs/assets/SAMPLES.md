@@ -1,6 +1,6 @@
 # Public `.epi` samples
 
-Sealed with the current epi-recorder tree (2026-07-23T16:58:52.246624+00:00).
+**Product version:** 4.6.2. These files were sealed on an older tree (2026-07-23). Re-check with the CLI you actually installed; WARN on unpinned identity is expected until you `epi keys trust`.
 
 | File | What it is | Expected `epi verify` |
 |------|------------|------------------------|

@@ -1,6 +1,8 @@
 # EPI Independent Verifier
 
-Zero-dependency verification for [EPI](https://epilabs.org) (.epi) evidence files. Runs in any browser, any JavaScript runtime.
+**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.6.2. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
+
+Zero-dependency **partial** verification for [EPI](https://epilabs.org) `.epi` files. Runs in a browser or Node. File-integrity hashing needs JSZip. Step-chain verification is **not implemented** (marked planned in the table below).
 
 ## Usage
 
