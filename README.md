@@ -19,7 +19,8 @@ epi demo --no-browser    # record → seal → verify (no API key)
 [60-second path](#60-second-path) ·
 [What a .epi is](#what-a-epi-file-is) ·
 [CLI](#cli) ·
-[Docs & pilot](#docs--pilot) ·
+[How to use it](docs/USER-GUIDE.md) ·
+[Docs](#docs) ·
 [Standards](#standards--compliance)
 
 How it works: [ARCHITECTURE.md](ARCHITECTURE.md) — packages, integrity model, and where to read next. Docs map: [docs/README.md](docs/README.md).
@@ -282,6 +283,7 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 
 | Topic | Link |
 |-------|------|
+| **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
 | **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |

@@ -1,8 +1,8 @@
 # EPI Usage Guide
 
 **Version:** 4.6.2  
-**Canonical short path:** root [README.md](../README.md).  
-**Docs map:** [README.md](./README.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) · **Cloud:** [CLOUD.md](./CLOUD.md)
+**Start here for “what / where / how”:** [USER-GUIDE.md](./USER-GUIDE.md).  
+This page is the short command cheat sheet. Root [README.md](../README.md) is the 60-second copy-paste.
 
 ---
 
@@ -24,7 +24,8 @@ Signing keys are created as needed. To inspect:
 ```bash
 epi keys list
 epi keys generate --name default   # if you want an explicit key
-epi keys trust default             # pin identity for stricter policies
+# A reviewer pins YOUR public key (the .pub / did.json you sent), not the .epi:
+#   epi keys trust sender.pub --name acme
 ```
 
 Private keys live under `~/.epi/keys/` — **never commit them**.

@@ -8,7 +8,7 @@
 
 ## Start Here
 
-**Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) · **Cloud:** [CLOUD.md](./CLOUD.md)
+**How to use it:** [USER-GUIDE.md](./USER-GUIDE.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) · **Cloud:** [CLOUD.md](./CLOUD.md)
 
 Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
 

@@ -6,6 +6,8 @@ PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `
 **License:** MIT (root `LICENSE`).  
 **Not legal advice. Not a certificate.** A `.epi` file is evidence a third party can re-check. It does not, by itself, certify EU AI Act conformity, SOC 2, ISO 27001, or any other regulatory outcome.
 
+**Normal user (install, record, verify, share a file):** [USER-GUIDE.md](./USER-GUIDE.md).
+
 If you are evaluating EPI for a bank, insurer, or auditor, start here:
 
 1. This page (what exists, what it proves, where to read).
@@ -19,7 +21,7 @@ If you are evaluating EPI for a bank, insurer, or auditor, start here:
 
 | Product | What it is | Canonical docs |
 |---------|------------|----------------|
-| **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. MIT. No account required. | Root [README.md](../README.md), [USAGE_GUIDE.md](./USAGE_GUIDE.md), [CLI.md](./CLI.md) |
+| **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. MIT. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
 | **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Private beta** — not a self-serve hosted-verification subscription. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
 | **Website** | Public site `https://epilabs.org`. Marketing, in-browser verify, plans, legal. Source of truth is `website/` only. | [WEBSITE.md](./WEBSITE.md) |
 
@@ -44,7 +46,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | You are… | Read first | Then |
 |----------|------------|------|
-| **Developer integrating the recorder** | Root [README.md](../README.md) | [USAGE_GUIDE.md](./USAGE_GUIDE.md), [CLI.md](./CLI.md), [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) |
+| **Normal user / developer** | **[USER-GUIDE.md](./USER-GUIDE.md)** | Root [README.md](../README.md), [CLI.md](./CLI.md), [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) |
 | **Risk / compliance / bank reviewer** | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md), [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) |
 | **Independent auditor** | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [WITNESS.md](./WITNESS.md) |
 | **Vendor sharing a run with a customer** | [CLOUD.md](./CLOUD.md) § customer path | [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md), [CLI.md](./CLI.md) (`epi cloud`) |
@@ -60,8 +62,9 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | Doc | Purpose |
 |-----|---------|
+| [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share |
 | Root [README.md](../README.md) | 60-second path |
-| [USAGE_GUIDE.md](./USAGE_GUIDE.md) | Install, record, verify |
+| [USAGE_GUIDE.md](./USAGE_GUIDE.md) | Short command cheat sheet |
 | [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Honest product boundaries |

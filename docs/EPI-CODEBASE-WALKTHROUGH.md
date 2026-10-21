@@ -329,7 +329,7 @@ flowchart TD
 
 ### Step-by-step
 
-1. Your code enters `record(...)` in [api.py](/Users/dell/epi-recorder/epi_recorder/api.py).
+1. Your code enters `record(...)` in [api.py](../epi_recorder/api.py).
 2. `EpiRecorderSession.__enter__()` creates a temporary recording workspace.
 3. It creates a `RecordingContext` and stores it thread-locally so wrappers and
    helpers can find the active session.
@@ -405,7 +405,7 @@ flowchart TD
 
 ### Core gateway pieces
 
-#### `GatewayRuntimeSettings` in [main.py](/Users/dell/epi-recorder/epi_gateway/main.py)
+#### `GatewayRuntimeSettings` in [main.py](../epi_gateway/main.py)
 
 This is the runtime configuration model.
 
@@ -422,7 +422,7 @@ It contains settings for:
 
 This file is the best single place to learn what the gateway is capable of.
 
-#### `EvidenceWorker` in [worker.py](/Users/dell/epi-recorder/epi_gateway/worker.py)
+#### `EvidenceWorker` in [worker.py](../epi_gateway/worker.py)
 
 This is the background persistence and projection engine.
 
@@ -435,7 +435,7 @@ Its job is to:
 - recover orphan sessions after crashes
 - run optional post-persist hooks
 
-#### `CaseStore` in [case_store.py](/Users/dell/epi-recorder/epi_core/case_store.py)
+#### `CaseStore` in [case_store.py](../epi_core/case_store.py)
 
 This is the SQLite-backed shared review model.
 
@@ -613,7 +613,7 @@ sealed evidence files are things like:
 
 ## 6.2 Signature model
 
-Signing lives in [trust.py](/Users/dell/epi-recorder/epi_core/trust.py).
+Signing lives in [trust.py](../epi_core/trust.py).
 
 The basic flow is:
 
@@ -659,8 +659,8 @@ a signed file may still be invalid if it was modified after sealing.
 
 Policy and analyzer behavior lives mainly in:
 
-- [policy.py](/Users/dell/epi-recorder/epi_core/policy.py)
-- [fault_analyzer.py](/Users/dell/epi-recorder/epi_core/fault_analyzer.py)
+- [policy.py](../epi_core/policy.py)
+- [fault_analyzer.py](../epi_core/fault_analyzer.py)
 
 ## 7.1 Policy model
 
@@ -772,8 +772,8 @@ The viewer works from a case payload containing things like:
 In local view mode, `epi_cli/view.py` extracts or regenerates a browser-ready
 viewer with preloaded case data.
 
-In hosted mode, `epi-official-site/cases/index.html` fetches raw `.epi` bytes
-and renders them client-side using trusted JS.
+In hosted mode, `website/cases/index.html` (synced copies under `site/` and
+`verify_portal/static/`) fetches raw `.epi` bytes and renders them client-side.
 
 ## 8.2 Viewer state model
 
@@ -818,7 +818,7 @@ verification story.
 
 ## 9. The CLI Architecture
 
-The CLI is implemented with Typer in [main.py](/Users/dell/epi-recorder/epi_cli/main.py).
+The CLI is implemented with Typer in [main.py](../epi_cli/main.py).
 
 It is not just a thin wrapper. It is a major product surface.
 
@@ -933,9 +933,9 @@ The pattern is consistent:
 
 Hosted share support lives in:
 
-- [epi_cli/share.py](/Users/dell/epi-recorder/epi_cli/share.py)
-- [epi_gateway/share.py](/Users/dell/epi-recorder/epi_gateway/share.py)
-- [epi-official-site/cases/index.html](/Users/dell/epi-recorder/epi-official-site/cases/index.html)
+- [epi_cli/share.py](../epi_cli/share.py)
+- [epi_gateway/share.py](../epi_gateway/share.py)
+- [website/cases/index.html](../website/cases/index.html) (legacy Render share). New customer reviews use EPI Cloud trust links.
 
 ## 11.1 Why sharing is a separate subsystem
 
@@ -1049,21 +1049,22 @@ reading the tests is often faster than reading the implementation.
 
 If you want to learn the repo quickly, read in this order:
 
-1. [README.md](/Users/dell/epi-recorder/README.md)
-2. [docs/EPI-SPEC.md](/Users/dell/epi-recorder/docs/EPI-SPEC.md)
-3. [epi_recorder/api.py](/Users/dell/epi-recorder/epi_recorder/api.py)
-4. [epi_core/schemas.py](/Users/dell/epi-recorder/epi_core/schemas.py)
-5. [epi_core/container.py](/Users/dell/epi-recorder/epi_core/container.py)
-6. [epi_core/trust.py](/Users/dell/epi-recorder/epi_core/trust.py)
-7. [epi_core/policy.py](/Users/dell/epi-recorder/epi_core/policy.py)
-8. [epi_core/fault_analyzer.py](/Users/dell/epi-recorder/epi_core/fault_analyzer.py)
-9. [epi_cli/main.py](/Users/dell/epi-recorder/epi_cli/main.py)
-10. [epi_cli/view.py](/Users/dell/epi-recorder/epi_cli/view.py)
-11. [web_viewer/README.md](/Users/dell/epi-recorder/web_viewer/README.md)
-12. [web_viewer/app.js](/Users/dell/epi-recorder/web_viewer/app.js)
-13. [epi_gateway/main.py](/Users/dell/epi-recorder/epi_gateway/main.py)
-14. [epi_gateway/worker.py](/Users/dell/epi-recorder/epi_gateway/worker.py)
-15. [epi_core/case_store.py](/Users/dell/epi-recorder/epi_core/case_store.py)
+1. [USER-GUIDE.md](./USER-GUIDE.md)
+2. [../README.md](../README.md)
+3. [spec/EPI-SPEC.md](./spec/EPI-SPEC.md)
+4. [../epi_recorder/api.py](../epi_recorder/api.py)
+5. [../epi_core/schemas.py](../epi_core/schemas.py)
+6. [../epi_core/container.py](../epi_core/container.py)
+7. [../epi_core/trust.py](../epi_core/trust.py)
+8. [../epi_core/policy.py](../epi_core/policy.py)
+9. [../epi_core/fault_analyzer.py](../epi_core/fault_analyzer.py)
+10. [../epi_cli/main.py](../epi_cli/main.py)
+11. [../epi_cli/view.py](../epi_cli/view.py)
+12. [../web_viewer/README.md](../web_viewer/README.md)
+13. [../web_viewer/app.js](../web_viewer/app.js)
+14. [../epi_gateway/main.py](../epi_gateway/main.py)
+15. [../epi_gateway/worker.py](../epi_gateway/worker.py)
+16. [../epi_core/case_store.py](../epi_core/case_store.py)
 
 That reading path goes from the outside in:
 

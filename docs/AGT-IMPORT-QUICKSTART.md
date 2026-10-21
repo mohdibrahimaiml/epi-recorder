@@ -3,7 +3,7 @@
 If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` case file.
 
 Related docs:
-- [AGT + .EPI docs](agt-epi/README.md)
+- [AGT example bundle](../examples/agt/README.md)
 - [AGT -> EPI Demo](../examples/agt-epi-demo/README.md)
 
 ---

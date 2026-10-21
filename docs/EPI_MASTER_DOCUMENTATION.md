@@ -158,7 +158,7 @@ epi verify demo.epi --policy strict
 epi view demo.epi
 ```
 
-Secrets are redacted by default (`redact=True`). Command reference: [CLI.md](./CLI.md). Usage: [USAGE_GUIDE.md](./USAGE_GUIDE.md).
+Secrets are redacted by default (`redact=True`). Everyday how-to: [USER-GUIDE.md](./USER-GUIDE.md). Command reference: [CLI.md](./CLI.md).
 
 ---
 
