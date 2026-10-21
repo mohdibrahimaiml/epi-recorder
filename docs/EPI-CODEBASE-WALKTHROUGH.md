@@ -1,5 +1,7 @@
 # EPI Codebase Walkthrough
 
+**Version:** 4.6.2. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
+
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:
 
@@ -30,9 +32,11 @@ The repo implements EPI as several connected layers:
 
 1. A **Python recorder SDK** for capturing agent activity in-process.
 2. A **core artifact and trust layer** that builds and verifies `.epi` files.
-3. A **CLI** for running, viewing, verifying, reviewing, exporting, and sharing artifacts.
-4. A **FastAPI gateway** for live capture, shared review, approval callbacks, and hosted sharing.
-5. A **browser viewer** for opening and reviewing case files without rebuilding context from raw logs.
+3. A **CLI** for running, viewing, verifying, reviewing, exporting, sharing, and `epi cloud`.
+4. An optional **self-hosted FastAPI gateway** (`epi_gateway`) for live capture and shared review — not EPI Cloud.
+5. **EPI Cloud** (`cloud/`) — Cloudflare Worker for device login, hash-only witness, trust pages, and the Evidence Room.
+6. A **browser viewer** for opening and reviewing case files without rebuilding context from raw logs.
+7. The **public website** (`website/` → epilabs.org). Sign-in is EPI Cloud.
 
 If you remember one sentence, remember this:
 
@@ -58,8 +62,9 @@ flowchart LR
 
     C1["epi_cli"] --> C
     C2["web_viewer"] --> C
-    C3["epi_gateway"] --> C
-    C4["epi-official-site"] --> C
+    C3["epi_gateway (self-host)"] --> C
+    C4["cloud/ (EPI Cloud)"] --> C
+    C5["website/"] --> C
 ```
 
 ### Capture Layer
@@ -82,7 +87,8 @@ This is the human-facing surface:
 - `epi verify`
 - `epi export-summary`
 - the browser case UI
-- hosted share links
+- EPI Cloud trust links (customer-scoped)
+- legacy `epi share` links (Render, still the default for that command)
 - local shared workspaces through `epi connect open`
 
 ## 3. The Most Important Top-Level Folders
@@ -246,30 +252,27 @@ This folder contains:
 - runbooks
 - architectural notes
 
-Some docs are current and useful. Some are roadmap or historical context. Treat
-code as the final source of truth when there is a mismatch.
+Some docs are current and useful. Some are roadmap or historical context.
+Start at [README.md](./README.md). Treat code as the final source of truth when
+there is a mismatch.
 
-### Public site folders
+### Public site and Cloud
 
-#### `epi-official-site/`
+#### `website/`
 
-This is the authoritative static site surface for `epilabs.org`.
+This is the **only** source of truth for `epilabs.org`. Edit here. Sync copies
+go to `site/` (Cloudflare Pages output), `verify_portal/static/`, and
+`epi-official/`. See [WEBSITE.md](./WEBSITE.md).
 
-It contains pages like:
+#### `cloud/`
 
-- `verify.html`
-- `verify/index.html`
-- `cases/index.html`
-- `claim-denial-evidence.html`
+EPI Cloud Worker (`epi-cloud` on Cloudflare): device login, witness inboxes,
+share links, Evidence Room uploads, public key registry, storage-target
+metadata. Product docs: [CLOUD.md](./CLOUD.md).
 
-This is where the public verifier and hosted case page live.
+#### `epi-official/` / `site/`
 
-#### `EPI-OFFICIAL/`
-
-This appears to be related to the official site surface as well. In practice,
-the repo currently contains a nested official-site working area. The active
-public-site implementation you have been using in this workspace is
-`epi-official-site/`.
+Sync/build **targets**. Do not hand-edit. They will be overwritten.
 
 ### Secondary or support folders
 
@@ -303,10 +306,8 @@ viewer in `web_viewer/` is the canonical review surface.
 
 ### Likely stale or non-canonical surfaces
 
-#### `website/`
-
-This is an older site mirror and should not be treated as the source of truth
-for `epilabs.org`.
+Older nested site working copies (`epi-official-site/` if present, hand-edited
+mirrors) are not canonical. Use `website/`.
 
 ## 4. The Main Runtime Paths
 
@@ -455,7 +456,7 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.4.5` line, it is a self-identifying binary envelope with a
+In the current `v4.6.2` line, it is a self-identifying binary envelope with a
 defined inner payload layout.
 
 ### Typical layout
@@ -486,7 +487,7 @@ A tiny marker file inside the ZIP payload containing:
 
 It is written first and uncompressed for standards-style ZIP compatibility
 inside the signed payload. The outermost `.epi` file itself no longer begins
-with ZIP magic bytes in `v4.4.5`.
+with ZIP magic bytes in `v4.6.2`.
 
 #### `steps.jsonl`
 
@@ -1083,10 +1084,11 @@ If you are trying to avoid confusion, use this rule:
 - `epi_core/`
 - `epi_cli/`
 - `epi_gateway/`
+- `cloud/`
 - `web_viewer/`
 - `pytest_epi/`
+- `website/`
 - `examples/starter_kits/`
-- `epi-official-site/`
 
 ### Treat these as support or secondary
 
@@ -1096,7 +1098,8 @@ If you are trying to avoid confusion, use this rule:
 ### Treat these as historical, experimental, or non-primary unless a specific
 ### workflow sends you there
 
-- `website/`
+- `verify_portal/` (legacy Render share/verify; login is Cloud)
+- `epi-official/`, `site/` (sync/build output)
 - `epi-viewer/`
 
 The repo has clearly evolved through multiple product phases:

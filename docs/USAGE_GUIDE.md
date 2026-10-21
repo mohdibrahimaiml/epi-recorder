@@ -1,7 +1,8 @@
 # EPI Usage Guide
 
+**Version:** 4.6.2  
 **Canonical short path:** root [README.md](../README.md).  
-**Docs map:** [README.md](./README.md) · **Pilot:** [PILOT.md](./PILOT.md)
+**Docs map:** [README.md](./README.md) · **Auditors:** [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) · **Cloud:** [CLOUD.md](./CLOUD.md)
 
 ---
 
@@ -11,9 +12,10 @@
 
 ```bash
 pip install epi-recorder
-# Pilots: prefer a git pin if PyPI lags — see PILOT.md
 epi --version
 ```
+
+Confirm the printed version is **4.6.2** (or newer). If PyPI lags the git tag, install from the tagged commit.
 
 ### 2. Keys (optional first run)
 
@@ -152,14 +154,23 @@ Field meanings:
 
 ---
 
-## Enterprise kit
+## Share with a customer (EPI Cloud)
+
+Optional. Verification does not need an account.
+
+```bash
+epi cloud login
+epi demo
+```
+
+Create a customer-scoped trust link on `https://cloud.epilabs.org`. Details: [CLOUD.md](./CLOUD.md).
+
+## Enterprise kit (local files)
 
 ```bash
 epi enterprise setup
 epi enterprise pack your-run.epi
 ```
-
-See [ENTERPRISE-15-MINUTES.md](./ENTERPRISE-15-MINUTES.md).
 
 ---
 
@@ -167,8 +178,8 @@ See [ENTERPRISE-15-MINUTES.md](./ENTERPRISE-15-MINUTES.md).
 
 | Doc | Topic |
 |-----|--------|
-| [POLICY-AND-FAULT-ANALYZER.md](./POLICY-AND-FAULT-ANALYZER.md) | Policy rulebook + fault analyzer for normal users |
-| [CLI.md](./CLI.md) | Full command reference |
+| [POLICY.md](./POLICY.md) | Policy schema and `epi policy init` |
+| [CLI.md](./CLI.md) | Full command reference, including `epi cloud` |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Product boundaries |
-| [POLICY.md](./POLICY.md) | Policy schema detail |
-| [PILOT.md](./PILOT.md) | Guided pilot pack |
+| [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) | Exact meaning of a verify result |
+| [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
