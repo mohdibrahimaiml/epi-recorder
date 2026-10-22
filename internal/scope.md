@@ -1,4 +1,11 @@
-# Scope
+# Scope (internal)
+
+**Internal — not for customers or partners.** Moved from `docs/SCOPE.md` on
+2026-10-22. The investment rule below ("no new surface until three external
+companies use the core") reads to a partner as "no external users yet" —
+true as an internal gate, wrong as partner collateral.
+
+---
 
 ## The rule
 

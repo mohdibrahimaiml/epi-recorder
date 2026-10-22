@@ -52,7 +52,22 @@ jobs:
           report-format: html
 ```
 
-`EPI_SIGNING_KEY` is an Ed25519 private key your org generates (`epi keys generate`) and stores as a GitHub Actions secret. EPI Labs does not hold it.
+`EPI_SIGNING_KEY` is your org's Ed25519 **private seed as 64 hex characters**
+(32 bytes). `epi annex pack` imports it under `--key-name` when that key does
+not exist locally, so CI signs with the org key — without it, pack mints a
+throwaway key and the seal proves nothing about your org. Make the secret
+once, from a key you generated:
+
+```bash
+epi keys generate --name ci-compliance
+python -c "from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PrivateFormat, NoEncryption; k=load_pem_private_key(open(r'$HOME/.epi/keys/ci-compliance.key','rb').read(),None); print(k.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()).hex())"
+# → paste the 64 hex chars as the EPI_SIGNING_KEY Actions secret
+```
+
+EPI Labs never holds it. The matching public key is embedded in every sealed
+file; reviewers pin it out of band before the seal means anything. In CI the
+seed is imported into the runner's key store for that job only (the runner is
+ephemeral); the file it lands in is never uploaded as an artifact.
 
 Details of the nine sections: [ANNEX-IV.md](./ANNEX-IV.md). Boundary: [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md).
 

@@ -122,6 +122,8 @@ epi record --out refund.epi -- python process_refund.py
 
 Secrets in prompts and headers are **redacted by default**. Do not turn redaction off in production.
 
+Lower-level `EpiRecorderSession` API also exists (`from epi_recorder.api import EpiRecorderSession`); prefer `record()` / wrappers for new code.
+
 ---
 
 ## 4. Check the file
@@ -139,7 +141,7 @@ epi view demo.epi
 | Do I recognize who sealed it? | Receiver pins your `.pub` / `did.json`, then `epi verify --policy strict` |
 | Did the run break our rules? | `epi policy init`, re-record, `epi analyze file.epi` (without a policy file, analyze is heuristic-only) |
 
-In a browser with no install: https://epilabs.org/verify/ (default path does not upload the file).
+In a browser with no install: https://epilabs.org/verify/ (default path does not upload the file; full-report upload mode: append `?mode=server`).
 
 Customers and auditors should use:
 
@@ -150,6 +152,11 @@ epi verify file.epi --policy strict
 Add `--witness-log received.jsonl` only if a witness log was actually produced. Rely on the exit code only with `--policy strict` (WARN exits 0 under the default policy).
 
 Exact meaning of PASS / WARN / FAIL: [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md).
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | PASS, or WARN under a non-strict policy (valid seal, not claim-ready) |
+| non-zero | FAIL under the selected policy (tamper, bad signature, strict identity, …) |
 
 ---
 
@@ -164,6 +171,8 @@ epi keys trust sender.pub --name acme
 epi verify file.epi --policy strict
 ```
 
+Need a named key explicitly? `epi keys generate --name default`. Private keys live under `~/.epi/keys/` — never commit them.
+
 **Optional — EPI Cloud** (private beta), when you want a link instead of a file:
 
 ```bash
@@ -172,6 +181,13 @@ epi demo
 ```
 
 Type the short code at https://cloud.epilabs.org/auth/device, pick the customer this computer records for, then create a customer-scoped trust link on the dashboard. Details: [CLOUD.md](./CLOUD.md).
+
+**Enterprise kit (local files):**
+
+```bash
+epi enterprise setup
+epi enterprise pack your-run.epi
+```
 
 You do not need Cloud to prove a seal.
 

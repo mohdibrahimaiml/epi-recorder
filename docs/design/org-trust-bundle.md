@@ -13,7 +13,10 @@ Amendments folded in after review (see §10):
 - A2: TSA corroboration of sealing time is opportunistic, never mandatory,
   and required only under `--policy strict`.
 - A3: first-contact root authenticity procedure specified (§8).
-- A4: successor-root generation is mandatory in bootstrap, not recommended.
+- A4: successor-root generation was specified as mandatory in bootstrap, not
+  recommended — **not implemented**: `epi enterprise bootstrap` has no
+  successor-root option or refusal (see `epi_cli/enterprise.py`). Treat as an
+  open requirement, not built behavior.
 - A5: open question recorded (§11): one org identity vs per-department/system.
 
 ## 0. What already exists

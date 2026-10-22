@@ -43,7 +43,7 @@ Schemas live in `epi_core.annex_schemas` and `docs/spec/schemas/annex-iv.schema.
 Each section file can be signed with Ed25519. Keys default to `~/.epi/keys/`. Example:
 
 ```
-epi annex sign 1 --key compliance-officer --officer did:web:example.com
+epi annex sign 1 --key-name compliance-officer --officer did:web:example.com
 epi annex verify 1
 ```
 
@@ -64,3 +64,6 @@ Files under `artifacts/annex_iv/` can be packed with the rest of a recording. Th
 | sign | Ed25519-sign a section (or `all`) |
 | verify | Verify those signatures |
 | report | HTML view of the templates |
+| pack | Generate all sections, sign, and pack into a signed `.epi` (`--out`, `--key-name`, `--force`; honors `EPI_SIGNING_KEY`) |
+| multi-sign | Append a multi-signer approval to the compliance summary (`signer`, `--key-name`, section scope; RBAC-enforced) |
+| role-bind / role-unbind / role-list / role-verify | Bind public keys to org roles, list them, verify all signers are authorized (`--strict` to require it) |

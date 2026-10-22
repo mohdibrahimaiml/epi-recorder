@@ -298,11 +298,15 @@ This is a smaller sidecar package used by debug flows. For example,
 It is not the main policy/fault-analysis engine. That main engine lives in
 `epi_core/fault_analyzer.py`.
 
-#### `epi-viewer/`
+#### `epi-viewer/` (existed; removed from the repo)
 
-This looks like a separate Electron-style desktop viewer app. It is not the
-main architecture path for understanding the current product. The browser-first
-viewer in `web_viewer/` is the canonical review surface.
+An Electron desktop viewer app used to live at `epi-viewer/` (see old
+CHANGELOG entries and the legacy `/epi-viewer` portal routes). It is gone
+from the repo. `epi view --native` still probes for a sibling `epi-viewer/`
+build and falls back to the browser view when absent (`view.py`
+`_find_native_viewer_command` guards every path with `.exists()`). The
+browser-first viewer in `web_viewer/` (baked into every seal as
+`viewer.html`) is the canonical review surface.
 
 ### Likely stale or non-canonical surfaces
 
@@ -1101,7 +1105,7 @@ If you are trying to avoid confusion, use this rule:
 
 - `verify_portal/` (legacy Render share/verify; login is Cloud)
 - `epi-official/`, `site/` (sync/build output)
-- `epi-viewer/`
+- (`epi-viewer/` Electron app: existed, removed; the CLI still probes for a sibling build)
 
 The repo has clearly evolved through multiple product phases:
 

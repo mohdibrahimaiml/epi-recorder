@@ -68,6 +68,34 @@ Cryptographically intact means **both** `integrity_ok` and `signature_valid` are
 
 **Public registry listings are not pins.** EPI Labs publishes a public list of keys at `https://epilabs.org/.well-known/epi-trust-registry.json`, but that file is unsigned: anyone able to change it could add their own key. So a key that appears **only** there is reported as `LISTED … (informational; not a pin)`, its status stays `UNKNOWN` (WARN under `standard`, FAIL under `strict`), and `epi verify` prints `Registry: listed as "<name>" by epilabs.org (not a pin)`. Only keys you pinned yourself (or, under standard only, a resolved DID:WEB) count as `KNOWN`. A remote revocation entry is honoured only for keys you have NOT pinned, and only under `standard` (strict never fetches). `--policy strict` never fetches the list at all: strict is local-only and needs no network.
 
+**`identity.pin_source` says where the trust came from.** `KNOWN` alone does not
+tell you *how much* the verifier knows:
+
+| `pin_source` | Meaning |
+|---|---|
+| `local_pin` | A key you pinned (`epi keys trust`, `--from-did`, trust bundle). A real pin. |
+| `did_web` | The key appears in a `did:web` document **published by the file's own author** at their own domain. Self-assertion, not a pin. |
+| `remote_registry` | The key appears in the unsigned public registry. Informational only. |
+| `revoked` | Explicitly revoked. |
+| `none` | Nothing recognised the key. |
+
+Because `did:web` is self-assertion, `epi verify` does not describe it as
+pinned. A DID-resolved identity prints:
+
+```
+✔ SEAL · SIGNER SELF-ASSERTED (DID)
+  - Status:  SELF-ASSERTED (not pinned)
+  - Trust:   The signer published this key in their own DID document at their
+             own domain. That is self-assertion, not a pin you chose.
+             Require an org pin with: epi verify --policy strict
+```
+
+The **policy decision** is unchanged by this: under `standard` a DID-resolved
+identity is still `KNOWN` and the decision is still `PASS` (see the identity
+table above). What changed is the wording — a green "IDENTITY PINNED" badge
+for a signer who vouched for themselves was a false claim. Use
+`--policy strict` when you need a pin you chose.
+
 ---
 
 ### Tier 3 — Policy (Optional, Human Layer)
@@ -101,8 +129,17 @@ Policy decisions (`apply_policy`, `--policy`) are separate from trust:
 | Policy `status` | Meaning |
 |-----------------|---------|
 | `PASS` | Meets the selected policy. |
-| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer, or incomplete evidence such as a `tool.call` with no `tool.response`, under `standard`). Do not treat as claim acceptance. |
-| `FAIL` | Policy requirements not met (e.g. unknown sealer or incomplete evidence under `strict`, integrity failure, revoked key). |
+| `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer, incomplete evidence such as a `tool.call` with no `tool.response`, or an absent step hash chain, under `standard`). Do not treat as claim acceptance. |
+| `FAIL` | Policy requirements not met (e.g. unknown sealer or incomplete evidence under `strict`, integrity failure, revoked key, absent step hash chain under `strict`). |
+
+**The step hash chain is part of the claim.** `facts.chain_ok` is the chain
+*check*; `facts.chain_present` says whether the steps carry any `prev_hash`
+links at all. A file with no links is a **pre-chain** artifact: the chain
+check passes *vacuously*, so nothing in it proves the recorded order — a
+producer could reorder or drop steps and re-sign, and the file would still
+verify. `strict` therefore FAILs such a file, and `standard` WARNs instead of
+printing a clean PASS. Legacy pre-chain artifacts (spec < 4.4.x) are affected;
+every current release seals a chained timeline.
 
 Sprint rule: external/claim use requires `--policy strict` (unknown sealer FAILs).
 `epi verify` exits `1` on FAIL and `0` on PASS **or WARN**, so scripts that

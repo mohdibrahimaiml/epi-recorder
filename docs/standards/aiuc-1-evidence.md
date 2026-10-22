@@ -38,7 +38,8 @@ It does not prove:
 - **That the agent behaved safely, fairly or correctly.** The file preserves what happened so a person can
   judge it.
 - **When it was sealed, beyond the sealer's own clock,** unless a trusted timestamp or transparency receipt
-  is present. RFC 3161 timestamp tokens are stored, but `epi verify` does not yet validate their signature.
+  is present. RFC 3161 timestamp tokens are stored, and since 4.6.0 `epi verify` validates them offline
+  (imprint, CMS signature, chain to pinned roots); pre-4.6 tokens are legacy presence-only.
 
 ## Evidence by AIUC-1 domain
 
