@@ -69,7 +69,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
 | `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi init --github-action` | Create a starter demo and optional CI evidence workflow. |
-| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, or AGT. |
+| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, AGT, or guardrails. |
 | `epi telemetry status|enable|disable|test` | Manage privacy-first opt-in telemetry and pilot signup. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
@@ -217,6 +217,7 @@ epi integrate langchain --write-examples
 epi integrate litellm --write-examples
 epi integrate opentelemetry --write-examples
 epi integrate agt --write-examples
+epi integrate guardrails --write-examples
 ```
 
 Supported targets:
@@ -225,6 +226,7 @@ Supported targets:
 - `litellm`
 - `opentelemetry`
 - `agt`
+- `guardrails`
 
 Default behavior:
 - non-interactive mode is dry-run unless `--apply` or `--write-examples` is set
@@ -361,6 +363,7 @@ Options (from `epi verify --help`):
 | `--qr` | Print a QR code that opens the artifact on verify.epilabs.org. |
 | `--offline` | No network: skip DID resolution and remote fetches (local pins still apply). |
 | `--witness-log <path>` | Customer witness log (`received.jsonl`) to check this file against. |
+| `--witness-pubkey <hex>` | Witness Ed25519 public key for signed receipts. Overrides `EPI_WITNESS_PUBKEY` and package-pinned keys. A key shipped inside the log file itself is never trusted. |
 
 Exit code is `1` on FAIL and `0` on PASS **or WARN**. Scripts must rely on
 the exit code **with `--policy strict`**: under the default `standard`

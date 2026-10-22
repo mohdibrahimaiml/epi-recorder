@@ -71,10 +71,13 @@ Command / test:
 - pytest --epi --epi-dir=evidence tests/test_refund_flow.py -k high_value_refund
 
 Artifact:
-- Attached: evidence/test_refund_flow.py__test_high_value_refund.epi
+- Attached: evidence/tests_test_refund_flow.py_test_high_value_refund.epi
+  (exact name varies: plugin maps `::`→`_` and keeps the path prefix —
+  `tests/test_refund_flow.py::test_high_value_refund` becomes
+  `tests_test_refund_flow.py_test_high_value_refund.epi`)
 
 Verification:
-- epi verify evidence/test_refund_flow.py__test_high_value_refund.epi
+- epi verify evidence/tests_test_refund_flow.py_test_high_value_refund.epi
 - Integrity: OK
 - Signature: Valid
 

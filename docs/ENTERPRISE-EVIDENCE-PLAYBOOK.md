@@ -25,10 +25,11 @@ Agent / workflow completes
     → store file next to job artifacts / object storage
 ```
 
-CI sketch:
+CI sketch (inline these steps in your own workflow file — there is no canned
+`epi-verify-samples.yml` in this repo; the reusable unit is
+`.github/actions/verify-epi`):
 
 ```yaml
-# .github/workflows/epi-verify-samples.yml (see also examples/epi-verify.yml)
 - run: pip install epi-recorder
 - run: epi verify docs/assets/sample-hello.epi --policy standard
 ```

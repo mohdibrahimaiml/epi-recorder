@@ -73,15 +73,15 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | Doc | Purpose |
 |-----|---------|
-| [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share |
+| [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share (includes the command cheat sheet) |
 | Root [README.md](../README.md) | 60-second path |
-| [USAGE_GUIDE.md](./USAGE_GUIDE.md) | Short command cheat sheet |
 | [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Honest product boundaries |
 | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) | Exact meaning of a verify result |
 | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | Offline independent check |
 | [THREAT_MODEL.md](./THREAT_MODEL.md) | In-scope / out-of-scope attacks |
+| [FILE-SAFETY.md](./FILE-SAFETY.md) | Is a `.epi` safe to open? (receiver guide) |
 | [ENTERPRISE-EVIDENCE-PLAYBOOK.md](./ENTERPRISE-EVIDENCE-PLAYBOOK.md) | Org process around evidence |
 | [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md) | Self-host gateway / connect |
 | [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) | SDK wrappers |
@@ -91,9 +91,12 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | Doc | Purpose |
 |-----|---------|
-| [CLOUD.md](./CLOUD.md) | Product claims, customer path, founder ops |
+| [CLOUD.md](./CLOUD.md) | Product claims, customer path ([founder ops](../internal/cloud-ops.md) is internal) |
 | [WITNESS.md](./WITNESS.md) | Hash-only receipts (self-hosted endpoint or Cloud) |
 | [STORAGE.md](./STORAGE.md) | Customer-owned bucket (credentials never leave the recorder) |
+| [DPA.md](./DPA.md) | Data processing addendum, starting point (counsel review) |
+| [SUBPROCESSORS.md](./SUBPROCESSORS.md) | Who touches customer data and what they see |
+| [DATA-RETENTION.md](./DATA-RETENTION.md) | What is kept, for how long, how to delete |
 
 ### Website
 
@@ -115,10 +118,12 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) | Import a Microsoft AGT export into `.epi` |
 | [AGT-EXPORT.md](./AGT-EXPORT.md) | Export `.epi` to AGT-shaped JSON (read-only; does not change the seal) |
 | [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
-| [RELEASING.md](./RELEASING.md) | How a PyPI release is published |
+| [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
+| [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.6.2 |
+| [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
 | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
 | [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
-| [SCOPE.md](./SCOPE.md) | What this repo invests in |
 
 ---
 
@@ -153,6 +158,8 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 | Path | What it is |
 |------|------------|
 | [spec/](./spec/) | Language-agnostic `.epi` wire format |
+| [api/](./api/) | Generated gateway OpenAPI spec (regenerate, don't hand-edit) |
+| [adr/](./adr/) | Architecture decision records (why, not just what) |
 | [standards/scitt-predicate.md](./standards/scitt-predicate.md) | SCITT predicate notes |
 | [rfcs/agt-portable-evidence-mapping.md](./rfcs/agt-portable-evidence-mapping.md) | Frozen community RFC (May 2026; names v4.1.0) |
 | [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Internal design note for org trust bundles |
@@ -167,6 +174,6 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
 3. Keep product-doc version numbers at **4.6.2** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
-4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [CLOUD.md](./CLOUD.md) founder setup).
+4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [../internal/cloud-ops.md](../internal/cloud-ops.md)).
 5. After structural changes, update this index.
 6. Do not add sales talk tracks or article-by-article “compliance” tables.

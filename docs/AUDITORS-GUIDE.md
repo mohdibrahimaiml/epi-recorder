@@ -152,6 +152,9 @@ all of them, with real samples below.
 | `⚠ SIGNER PINNED · SEE WARNING` | WARN | Pinned signer, but something else needs a look (e.g. a clock warning). `Reason:` says what. | Read the reason. |
 | `✘ SEAL FAIL — FILE ALTERED` | FAIL | A sealed file inside the `.epi` changed after sealing (hash or `prev_hash` chain mismatch). | Reject. Ask the vendor for the original. Keep the altered file. |
 | `✘ SEAL FAIL — SIGNATURE INVALID` | FAIL | The manifest was edited after signing, or the signature is corrupt. | Reject. Ask the vendor for the original. |
+| `⚠ EVIDENCE INCOMPLETE · SIGNER PINNED` | WARN | Seal valid, signer pinned, but expected evidence is missing (e.g. a `tool.call` with no `tool.response`). | Treat as incomplete, not as acceptance. |
+| `✘ FAIL — NOT THE VERSION REPORTED TO YOU` | FAIL | The handed-over copy differs from the witness-logged version (MISMATCH). | Ask for the reported copy. |
+| `⚠ VERIFIED (enforcement downgraded for N events)` | WARN | Integrity verified; gateway enforcement was downgraded for N events (fail-open episode). | Check what was downgraded and why before relying on capture completeness. |
 | `✘ FAIL — NOT A KEY YOU TRUST` | FAIL | The seal is valid but was made by a key other than the one(s) you pinned. | Reject unless the vendor explains (e.g. key rotation) **and** you pin the new key after confirming it. |
 | `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` | FAIL | Contents and signature are fine, but a requirement you asked for is not met: an unpinned sealer under `--policy strict`, no valid timestamp under `--require-timestamp`, incomplete evidence under `--policy strict`, or a seal that is not in your witness log under `--policy strict`. The `Reason:` line says which. | Pin the key (out of band), ask the vendor why the file carries no valid timestamp, or see "Evidence incomplete" below. |
 | `✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET` with IDENTITY `Status: REVOKED` | FAIL | Contents and signature are fine, but the sealing key is one you revoked (`epi keys revoke`). | Reject unless you revoked by mistake; undo with `epi keys unrevoke <name>`. |
@@ -182,13 +185,18 @@ capture path that logs calls but not results).
 
 ### Witness line (with `--witness-log`)
 
+Exact render strings (`epi_cli/verify.py`; `{…}` = the received timestamp).
+Note the em-dashes — copy-paste accordingly.
+
 | Line | Meaning |
 |------|---------|
-| `Witness: WITNESSED (received <time>)` | The sealed contents match a report the vendor's system sent you at seal time. A file re-packaged later (e.g. by `epi-register`) still matches. Shown in green only when the file's integrity also passed. |
-| `Witness: a report for this case exists …, but THIS file was altered` | You were told about this case, but this file is not what was reported. Verification FAILs on integrity. |
-| `Witness: NOT IN WITNESS LOG — never reported to you at seal time` | You were never sent a report for this seal. A PASS becomes WARN (`⚠ NOT IN YOUR WITNESS LOG`), and FAIL (exit 1) under `--policy strict`. For a case you know happened, ask the vendor why. |
-| `Witness: NOT CHECKED — witness log … could not be read` | The `--witness-log` path is wrong or unreadable. Verification FAILs so a typo never skips the check. |
-| `Witness: DIFFERENT VERSION — …` | You were told about this case (same workflow id), but not about this copy: a re-signed copy or an unreported gateway re-export. Headline `✘ FAIL — NOT THE VERSION REPORTED TO YOU`. Ask for the reported copy. |
+| `Witness:      WITNESSED — verified witness receipt (received {…})` | The sealed contents match a report the vendor system sent you at seal time. A file re-packaged later still matches. Shown in green only when the file integrity also passed. |
+| `Witness:      WITNESSED — YOUR OWN LOG (unsigned) (received {…})` + `re-packaged after the witness; sealed contents unchanged` when applicable | Match against your own unsigned log (you kept it yourself). Trusted only because *you* kept it — a file from someone else proves nothing. |
+| `Witness:      a report for this case exists (received {…}), but THIS file was altered — it is not what was reported` | You were told about this case, but this file is not what was reported. Verification FAILs on integrity. |
+| `Witness:      NOT IN WITNESS LOG — this file was never reported to this witness log when it was sealed (re-run or re-sealed copy?)` | You were never sent a report for this seal. A PASS becomes WARN, and FAIL (exit 1) under `--policy strict`. For a case you know happened, ask the vendor why. |
+| `Witness:      NOT CHECKED — <detail>` | The `--witness-log` path is wrong, unreadable, or not requested. Verification FAILs when the log was requested but cannot be read, so a typo never skips the check. |
+| `Witness:      STAMP NOT CONFIRMED — <detail>` | A witness stamp was present but its signature did not verify as the EPI witness. Never treated as a mismatch — it means the stamp is not from the witness. |
+| `Witness:      DIFFERENT VERSION — <detail>` | You were told about this case (same workflow id), but not about this copy: a re-signed copy or an unreported gateway re-export. Headline `FAIL — NOT THE VERSION REPORTED TO YOU`. Ask for the reported copy. |
 
 A vendor re-running a case produces a new, separately witnessed seal. Look
 for more than one log entry for the same case; see [WITNESS.md](./WITNESS.md).
@@ -220,7 +228,7 @@ header and the relevant lines; fingerprints shown as `<fingerprint>`.
 │   - Signature:    Valid                                                                          │
 │   - Forensic:     PASS                                                                           │
 │   - Timestamp:  none                                                                             │
-│   - Witness:      WITNESSED (received 2026-10-12T09:34:55.487339+00:00)                          │
+│   - Witness:      WITNESSED — verified witness receipt (received 2026-10-12T09:34:55.487339+00:00) │
 ```
 
 **Same file, auditor has not pinned anything, default policy** (`exit 0`, WARN):

@@ -9,6 +9,13 @@ All notable changes to EPI Recorder are documented here.
 First PyPI upload of 4.6.2 (GitHub had a tag; Trusted Publishing was not
 configured, so `pip install` stayed on 4.6.1).
 
+Release/tag alignment: the `v4.6.2` tag was re-pointed on 22 Oct to
+`623c22cf`, which contains the #143 viewer fail-closed fix and the #145
+pack-time fix — the same tree the PyPI wheel uploaded that day was built
+from (verified: the wheel's `epi_core/container.py` carries both fixes). If
+you fetched the tag on 20–21 Oct, re-fetch; the earlier position predated
+#145.
+
 ### Security
 
 - **Viewer fail-closed on envelope tamper (#141, #143).** Outer display-layer

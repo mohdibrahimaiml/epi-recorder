@@ -76,4 +76,4 @@ When a regulator or compliance team requests evidence:
 3. They see: `Signed ✓` — the file has not been altered since it was created
 4. They open `epi view refund_case.epi` to read the full decision timeline
 
-The `.epi` file is self-contained. It includes an offline viewer. It works forever, even if EPI Labs stops existing.
+The `.epi` file is self-contained. It includes an offline viewer. It verifies offline without EPI Labs: `epi verify` needs no account, no network, and no EPI service.

@@ -10,7 +10,7 @@ Analytics is an optional extra (`pandas` / `matplotlib`). Install it with:
 pip install epi-recorder[analytics]
 ```
 
-`import epi_recorder.analytics` works without pandas; constructing `AgentAnalytics` then raises a clear `ImportError` telling you to install pandas.
+`import epi_recorder.analytics` works without the extra installed; constructing `AgentAnalytics` then raises a clear `ImportError` telling you to install it (`pip install "epi-recorder[analytics]"`).
 
 ## Quick Start
 
@@ -183,7 +183,8 @@ Initialize analytics from directory of .epi files.
 ## Example Workflow
 
 ```python
-from epi_recorder import record, AgentAnalytics, wrap_openai
+from epi_recorder import record, wrap_openai
+from epi_recorder.analytics import AgentAnalytics
 from openai import OpenAI
 
 # 1. Record agent runs

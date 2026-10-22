@@ -13,7 +13,7 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/` (`index.html`) | Product home |
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
-| `/plans` | Pricing: open source free, Design Partner (5 places), EPI Cloud **private beta**, $1,500 sprint |
+| `/plans` | Pricing: open source free, Design Partner (5 places), EPI Cloud **private beta** |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/privacy`, `/terms`, `/refund` | Legal |
