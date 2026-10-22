@@ -6,6 +6,19 @@ This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
 
+## Plain summary (read this first)
+
+EPI seals whatever was written into the file and proves nobody changed it
+afterwards. It does **not** prove everything important was recorded, that the
+signer is who they claim (until you pin their key), or that any regulation is
+satisfied. A signed file from an unknown key is math, not trust. The viewer
+inside the file paints its own verdict — verify with `epi verify`, never with
+the in-file colours. Files from untrusted senders deserve HTML-attachment
+caution; a data-only form exists when the clickable shell is unwanted.
+Timestamps prove "existed no later than T" only when a valid RFC 3161 token or
+a customer witness backs them. Everything below is the engineering detail
+behind those sentences.
+
 ## Seal timestamp does not bind the signing key in the default record() flow
 
 **What you see:** `epi verify` reports a `valid` seal timestamp with
@@ -33,8 +46,7 @@ in 4.4.1; 4.4.2 was withdrawn and pre-4.4.1 has no auto-extract path).
 `policy_source` is `"auto_extracted"` (or `results` include
 `auto_policy_check` entries), count the entries with `"status": "failed"`
 and compare to the `controls_failed` header — if the header is lower, yours
-undercounts. Pure-baseline files and pre-4.4.1 seals are unaffected; the
-Task-3 `insp-2026-09-21-1120.epi` checks clean (header 1, recount 1).
+undercounts. Pure-baseline files and pre-4.4.1 seals are unaffected.
 
 **Can it be corrected? No — by design.** Fixing the number would change
 sealed bytes and break the file's own signature. The artifact stays valid
@@ -84,56 +96,51 @@ This affects anyone using streaming responses. The pricing page now notes
 
 ---
 
-## Hosted infrastructure
+## Hosted infrastructure (what runs where)
 
-**Render free tier.** The verify API, SCITT service, and account system all run
-on a single Render free-tier instance (`render.yaml: plan: free`). This means:
+EPI Cloud runs on Cloudflare (Workers + D1 + R2 + Durable Objects); limits and
+capacity math live in [CLOUD.md](./CLOUD.md). The old Render **login** is
+retired — sign-in for the website and the CLI goes through EPI Cloud.
 
-- 750 hours/month limit (~31 days)
-- Sleeps after 15 minutes of inactivity
-- Cold starts cause 2-5 second delays on first request
-- No horizontal scaling
-- No SLA, no uptime guarantee
+What still lives on Render (legacy hosted paths — not the account system, not
+required to record or verify): the default `epi share` upload, MCP HTTP
+hosting, opt-in telemetry/pilot signup URLs, the keep-warm cron, and some
+`/api/*` Cloudflare proxies. Offline CLI verify works regardless of any
+hosted service.
 
-The status page (`/status`) discloses this and the pricing page says "shared
-infrastructure, cold starts happen." Offline CLI verify works regardless.
+---
+
+## Plans and billing (no self-serve checkout)
+
+Cloud is **private beta**. Entitlements, in customers: Free 1 customer;
+Startup 3 customers / 1,000 stored files (1-year retention); Growth 15 / 10,000
+(7-year). Verification is never limited or charged, and Cloud checkout is not
+self-serve on the public site — the old hosted-verification subscriptions are
+not for sale. (The legacy `free` / `hosted` / `team` / `enterprise`
+hosted-check counters still exist in `verify_portal/tier_gating.py` for the
+retired self-serve path; do not quote them as current pricing.) Plan changes go
+through the Cloud founder admin page and are audit-logged. Product rules:
+[CLOUD.md](./CLOUD.md).
 
 ---
 
 ## verification_class auto-population
 
-**The model_validator doesn't fire during recording.** Steps are serialized as
-raw dicts in `packer.py`, bypassing Pydantic's `model_validator`. The
-classification is computed inline via `_compute_verification_class()` in
-`packer.py`. If a new step kind is added without updating that function, it gets
-`None` instead of a classification.
+**How it works:** `verification_class` (`recomputable` vs `attested_only`) is
+computed in one place — `compute_verification_class()` in
+`epi_core/schemas.py:15` — and applied two ways: the `StepModel`
+`mode="before"` validator fills it on every construction from a dict
+(`schemas.py:346-348`), and `epi_recorder/patcher.py` computes it explicitly
+at step creation (belt and braces, with a local fallback that never returns
+a silent `None`).
 
----
-
-## Hosted billing (Paddle) vs operator set-plan
-
-**Self-serve Subscribe is only live when Paddle env vars are configured** on the
-hosted API (client token, price IDs, webhook secret, etc.). If those are empty,
-pricing CTAs should fall back to sign-in / contact — not a working checkout.
-
-**Pilot / invoice path (works without Paddle):** user signs in once at
-`/account`, then EPI Labs promotes the plan from the Cloud founder admin page.
-
-Public tiers after `normalize_plan` (must match `verify_portal/tier_gating.py`
-and `website/pricing.html`):
-
-| Plan key | Public label | Hosted checks/mo | Remote SCITT | API keys |
-|----------|--------------|------------------|--------------|----------|
-| `free` | Open Source | 100 | no | 1 |
-| `hosted` | Hosted (~$15) | 10,000 | yes | 10 |
-| `team` | Team (design partners) | 50,000 | yes | 50 |
-| `enterprise` | Enterprise | custom | yes | unlimited |
-
-Aliases `pro` and `starter` normalize to **`hosted`**. Offline CLI verify is
-unlimited free. Hosted PDF API is **not** implemented (HTTP 501); use CLI Annex PDF.
-
-There is **no automated sync** between the Paddle dashboard and Render env vars —
-ops must keep them aligned when self-serve is enabled.
+**What to know:** non-empty unknown step kinds default to `attested_only`,
+never `None` (empty/missing `kind` yields `None` — a gap, not a silent
+default). And `recomputable` requires the recorder to set
+`epi_deterministic=True` on tool-like steps — i.e. the value is
+self-attested. A sealed file from a 4.6.2 recorder carries the field on every
+step (spot-check any `steps.jsonl`); pre-4.4.3 files may lack it. Treat the
+field as the recorder's claim about re-executability, not a proof of it.
 
 ---
 
@@ -158,6 +165,10 @@ manifest, `viewer.html` inside the archive) is sealed via `payload_sha256` and
 **New artifacts** also store `SHA-256(outer_viewer_html_bytes)` in
 `reserved_tail[0:32]` of the envelope header. Mutating CSS/JS/labels in the
 outer HTML region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`).
+Through 4.6.1 the **in-file viewer** could still paint INTEGRITY VERIFIED after
+that envelope failure (live inner-ZIP check overwrote the baked verdict).
+**4.6.2** is fail-closed (#141/#143): a baked envelope failure cannot be
+upgraded to green. Trust `epi verify`, not the colours.
 
 **Legacy artifacts** (viewer hash all-zero) still open and can PASS seal checks
 while the outer display HTML is forgeable. For those files: **trust `epi verify`,
@@ -187,7 +198,11 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current published line: **4.6.2**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.6.2**. This GitHub/PyPI release includes the
+viewer fail-closed fix (#141/#143) and the pack-time viewer / prohibition-guard
+fix (#145). **4.4.1** remains on PyPI (not yanked) and still truncates sealed
+strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full
+payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 
@@ -222,7 +237,7 @@ Current published line: **4.6.2**. **4.4.1** remains on PyPI (not yanked) and st
 **Summary from full 1 KB sweep (405 offsets + 26 member edges + 2 file edges = 433):**
 
 * **HTML prelude [128, 305552)** — 298 KB of outer viewer HTML **is sealed** via `reserved_tail[0:32]` (`__polyglot_viewer__`). Flipping any byte there → `integrity False` `__polyglot_viewer__` mismatch, not `file_manifest` or `step chain`. This is the display layer, not the evidence, but it is tamper-evident since 4.4.1 (legacy all-zero tail was not).
-* **ZIP payload [305584, 405612)** — all 12 members' headers, compressed data, central directory, and EOCD are sealed via `payload_sha256` (envelope) **and** for 10/12 members via `file_manifest` SHA256 (all except `mimetype` and `manifest.json`/`viewer.html` inside ZIP? Actually `viewer.html` **is** in `file_manifest` with `0c1f...`, `steps.jsonl` with `8abe...`, etc.). Flipping any byte there → `FAIL` (either `payload_sha256` or `file_manifest` mismatch, plus `step chain` for `steps.jsonl`).
+* **ZIP payload [305584, 405612)** — all 12 members' headers, compressed data, central directory, and EOCD are sealed via `payload_sha256` (envelope) **and** for members listed in `file_manifest` (including inner `viewer.html` and `steps.jsonl`). Flipping any byte there → `FAIL` (either `payload_sha256` or `file_manifest` mismatch, plus `step chain` for `steps.jsonl`).
 * **Envelope header [0,128)** — exhaustive 2026-08-29 XOR of every byte, then `epi verify` (4.4.1): **undetected** offsets **0–3** (magic), **16–31** (artifact UUID), **32–39** (`created_at_micros`). Detected: 4–15 (version/format/flags/length), 40–71 (`payload_sha256`), 72–103 (viewer hash), 104–127 (padding must be zero). These PASS bytes are not `spec_version` (that field is not in the 128-byte header).
 
 **Classification for offset 658:** **Inside sealed scope** (`__polyglot_viewer__`), **correctly detected** (`FAIL` with `integrity False`, `signature_valid True`), **not a verifier bug**. Documented here as display-layer seal, not evidence-layer. If the HTML were outside scope it would be a limitation, but it is inside when `reserved_tail[0:32]` is non-zero. Artifacts with an all-zero viewer hash still skip this check (legacy warning).
@@ -295,9 +310,9 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 
 ---
 
-## Sprint rule: strict mode for deliverables
+## Release rule: strict mode for deliverables
 
-Sprint deliverables (claims, insurer/bank/audit handoff, release gates) must use:
+Release deliverables (claims, insurer/bank/audit handoff, release gates) must use:
 
 ```bash
 epi verify run.epi --policy strict --witness-log received.jsonl
@@ -312,7 +327,7 @@ no `tool.response`). Scripts must rely on the exit code with
 `docs/VERIFICATION_CONTRACT.md` list every verdict; the browser verifier never
 ranks above the CLI for the same bytes.
 
-Recording gaps that survive this sprint (no silent completeness claim):
+Recording gaps that survive this rule (no silent completeness claim):
 
 - SDK `record()` is self-attestation; gateway witnesses LLM proxy traffic only.
 - Gateway streaming → 501 (streaming apps bypass or fail); async-enqueue worker

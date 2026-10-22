@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Date:** 2026-10-04  
-**Version:** 4.5.0  
+**Version:** 4.6.2  
 **Category:** Standards Track
 
 ---
@@ -11,7 +11,7 @@
 
 EPI provides structured JSON schemas for all 9 sections of EU AI Act Annex IV.
 See [schemas/annex-iv.schema.json](schemas/annex-iv.schema.json) for the full JSON Schema.
-The `epi annex` CLI subsystem generates, signs, and verifies Annex IV artifacts.
+The `epi annex` CLI generates, signs, and verifies Annex IV **templates you fill in**. That is not a certificate.
 
 ## Abstract
 

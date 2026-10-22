@@ -701,19 +701,17 @@ Subcommands:
 
 ## epi annex
 
-Generate and manage EU AI Act Annex IV compliance artifacts.
+Author, validate, sign, and pack **Annex IV JSON templates**. This is not a certificate and not a filed Declaration of Conformity. See [ANNEX-IV.md](ANNEX-IV.md).
 
 | Command | Description |
 |---------|-------------|
 | init | Create template JSON files for all 9 sections |
-| validate | Validate section JSON against Pydantic schemas |
-| status | Show per-section completion and approval status |
-| compile | Generate compliance-summary.json |
-| sign | Ed25519 sign a section (or all) |
-| verify | Verify Ed25519 signatures |
-| report | Generate browser-viewable HTML compliance report |
-
-Full docs: [ANNEX-IV.md](ANNEX-IV.md)
+| validate | Validate section JSON against schemas |
+| status | Show per-section template completion |
+| compile | Generate compliance-summary.json from the templates |
+| sign | Ed25519-sign a section (or all) |
+| verify | Verify those signatures |
+| report | HTML view of the templates |
 
 ## Notes
 

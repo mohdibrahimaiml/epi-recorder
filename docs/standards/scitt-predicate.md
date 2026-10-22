@@ -1,15 +1,18 @@
 # EPI SCITT Predicate & COSE Sign1 Specification
 
-**Status:** Active  
+**Status:** Active (technical note)  
 **Date:** 2026-05-17  
 **Version:** 1.0.0  
+**Product version:** 4.6.2  
 **Authors:** EPI Project Team  
+
+This is a **format note**, not a user guide. Product docs: [../README.md](../README.md). A SCITT receipt proves a statement was logged; it does not certify a regulation. Local `epi-register` without `--service` is self-issued — see [../EPI_MASTER_DOCUMENTATION.md](../EPI_MASTER_DOCUMENTATION.md).
 
 ---
 
 ## Abstract
 
-This document defines the integration of the **Supply Chain Integrity, Transparency, and Trust (SCITT)** standard within the **Evidence Packaged Infrastructure (EPI)** framework. Specifically, it specifies the manual `COSE_Sign1` signed statement implementation, the transparency receipt structure, and the custom EPI predicate type utilized to register `.epi` compliance artifacts with SCITT transparency registries.
+This document defines the integration of the **Supply Chain Integrity, Transparency, and Trust (SCITT)** standard within the **Evidence Packaged Infrastructure (EPI)** framework. Specifically, it specifies the manual `COSE_Sign1` signed statement implementation, the transparency receipt structure, and the custom EPI predicate type utilized to register `.epi` evidence artifacts with SCITT transparency registries.
 
 ---
 
@@ -17,7 +20,7 @@ This document defines the integration of the **Supply Chain Integrity, Transpare
 
 EPI implements **Mode B: SCITT Producer** as defined in the emerging IETF SCITT architecture. This integration provides a decentralized, auditable trust anchor by registering an EPI evidence container's manifest with a SCITT transparency service. 
 
-When registered, the transparency registry issues a cryptographic **SCITT Receipt**, which is embedded back into the `.epi` archive under `artifacts/scitt/receipt.cbor`. Together with the **SCITT Signed Statement** (`artifacts/scitt/statement.cbor`), this enables completely offline, independent verification of the container's integrity and regulatory audit-trail authenticity.
+When registered, the transparency registry issues a cryptographic **SCITT Receipt**, which is embedded back into the `.epi` archive under `artifacts/scitt/receipt.cbor`. Together with the **SCITT Signed Statement** (`artifacts/scitt/statement.cbor`), a reviewer can check offline that **this statement was logged** by that registry. A receipt does not prove the entire execution history was captured, and `epi-register` without `--service` is a local self-issued receipt, not an independent ledger entry.
 
 > **Operational note:** Public transparency endpoints such as `https://epilabs.org/scitt` may be protected by Cloudflare and can return HTTP 403 when accessed from automated CLI contexts. For CI, local development, or offline testing, run a local or mock SCITT service and point `--service` at it.
 
@@ -73,7 +76,7 @@ A SCITT transparency service registers the statement and returns a **SCITT Recei
 
 * **Content Type:** `"application/vnd.scitt.receipt"`
 * **Payload:** The raw SHA-256 hash of the original *SCITT Statement* bytes, cryptographically binding the receipt to the statement.
-* **Cryptographic Proof:** Signed by the registry's private key, sealing the statement's registration event and placing it in a cryptographically immutable, append-only transparency log.
+* **Cryptographic Proof:** Signed by the registry's private key, sealing the statement's registration event and placing it in a tamper-evident, append-only transparency log.
 
 ---
 

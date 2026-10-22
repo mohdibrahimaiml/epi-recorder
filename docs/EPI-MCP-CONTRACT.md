@@ -1,6 +1,8 @@
 # EPI Evidence Sealer: MCP contract
 
-For anyone building a plugin, app or skill on top of `https://epi-mcp.onrender.com/mcp`. Every statement here is taken from the server code (`epi_mcp/`, `epi_core/`). Where something is not built, it says so.
+**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2.
+
+For anyone building a plugin, app or skill on top of `https://epi-mcp.onrender.com/mcp`. Every statement here is taken from the server code (`epi_mcp/`, `epi_core/`). Where something is not built, it says so. This is **not** the EPI Cloud Worker at `cloud.epilabs.org`.
 
 ## 1. The honest answer to the hardest problem
 

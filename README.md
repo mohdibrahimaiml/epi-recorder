@@ -60,7 +60,7 @@ from epi_recorder import record, get_current_session
 with record("demo.epi", goal="show the golden path"):
     s = get_current_session()
     s.log("tool.call", tool="lookup", id="A-1")
-    s.log("tool.response", ok=True, balance=250)
+    s.log("tool.response", tool="lookup", ok=True, balance=250)
     s.log("decision", action="approve", reason="within limit")
 ```
 
@@ -148,12 +148,16 @@ binary that opens natively in any browser and can be extracted programmatically.
 
 ```text
 demo.epi
-├── manifest.json     # Ed25519 signature + SHA-256 file hashes
-├── steps.jsonl       # Timeline (hash-linked steps)
-├── environment.json  # Runtime snapshot (sensitive env redacted)
-├── analysis.json     # Fault / policy analysis (when generated at seal)
-├── viewer.html       # Offline forensic UI
-└── VERIFY.txt        # Plain-text auditor instructions
+├── mimetype
+├── manifest.json              # Ed25519 signature + SHA-256 file hashes
+├── steps.jsonl                # Timeline (hash-linked steps)
+├── environment.json           # Runtime snapshot (sensitive env redacted)
+├── policy.json                # Sealed rulebook copy (when policy ran)
+├── policy_evaluation.json     # Control results (when policy ran)
+├── analysis.json              # Fault / policy analysis (when generated at seal)
+├── viewer.html                # Offline forensic UI
+├── VERIFY.txt                 # Plain-text auditor instructions
+└── artifacts/notarization/    # RFC 3161 tokens (when a TSA answered)
 ```
 
 | Guarantee | How |
@@ -287,6 +291,8 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
 | **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |
+| **Support / SLA** | [SUPPORT.md](SUPPORT.md) |
+| **Is the file safe to open?** | [docs/FILE-SAFETY.md](docs/FILE-SAFETY.md) |
 | **Known limitations** (read before a security review) | [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) |
 | Architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | CLI (`epi cloud` included) | [docs/CLI.md](docs/CLI.md) |
@@ -306,7 +312,7 @@ is for the auditor or notified body to determine.
 
 | Topic | Docs |
 |-------|------|
-| EU AI Act Annex IV (tooling, not a certificate) | [docs/ANNEX-IV.md](docs/ANNEX-IV.md) |
+| EU AI Act Annex IV (templates, not a certificate) | [docs/ANNEX-IV.md](docs/ANNEX-IV.md), [docs/EU-AI-ACT-EVIDENCE-PREP.md](docs/EU-AI-ACT-EVIDENCE-PREP.md) |
 | AIUC-1 domains | [docs/standards/aiuc-1-evidence.md](docs/standards/aiuc-1-evidence.md) |
 | SCITT | [docs/standards/scitt-predicate.md](docs/standards/scitt-predicate.md) |
 
@@ -347,7 +353,7 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `website/` | Public site source of truth (`epilabs.org`) |
 | `scripts/` | Build, sync, release and verification helper scripts |
 | `docs/` | Start at [docs/README.md](docs/README.md) |
-| `tests/` | ~190 test files, including the `test_core_loop_golden.py` regression path |
+| `tests/` | 191 `test_*.py` files, including the `test_core_loop_golden.py` regression path |
 
 **Experimental** (frozen — works as documented, bug fixes allowed, no new features until a paying user asks; not on the critical path):
 

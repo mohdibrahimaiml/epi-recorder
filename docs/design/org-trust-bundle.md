@@ -1,5 +1,7 @@
 # Org Trust Bundle Lifecycle — Design (approved, v0 build spec)
 
+**Internal design note, not a customer guide.** Product version 4.6.2. Start at [../README.md](../README.md). Identity for reviewers: [../IDENTITY-ONBOARDING.md](../IDENTITY-ONBOARDING.md).
+
 Status: approved with amendments. Implements the auditor story: an offline
 auditor holding a company artifact from years ago answers (1) did this come
 from that company, and (2) was the sealing key legitimately the company's key

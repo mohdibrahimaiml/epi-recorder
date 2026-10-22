@@ -1,5 +1,7 @@
 # Identity onboarding (did:web)
 
+**Product version:** 4.6.2.
+
 A fresh key verifies as NOT_PINNED, and anyone can re-sign a rebuilt chain
 with a fresh key. This page binds the vendor's key to the vendor's domain
 once, for free.

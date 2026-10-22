@@ -1,5 +1,7 @@
 # Share One Failure With `.epi`
 
+**Product version:** 4.6.2.
+
 Use `.epi` as the bug-report artifact for AI systems: one file another engineer can open, verify, and inspect without reconstructing your environment first.
 
 ## Inspect before you share
@@ -25,8 +27,8 @@ Use the sample flow:
 
 ```bash
 epi demo
-epi view refund_case.epi
-epi verify refund_case.epi
+epi view epi-recordings/demo_refund.epi
+epi verify epi-recordings/demo_refund.epi
 ```
 
 Or capture your own run:

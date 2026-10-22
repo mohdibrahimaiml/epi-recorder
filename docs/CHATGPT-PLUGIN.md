@@ -1,5 +1,8 @@
 # ChatGPT plugin: connect + acceptance test
 
+**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2.  
+Record and verify without this service: [USER-GUIDE.md](./USER-GUIDE.md). Contract: [EPI-MCP-CONTRACT.md](./EPI-MCP-CONTRACT.md). Cloud login is [CLOUD.md](./CLOUD.md).
+
 The EPI mechanism is implemented and tested (`epi_mcp/`).
 This page covers the remaining deployment and the one test that can
 only run inside ChatGPT.

@@ -1,11 +1,10 @@
 # EPI File Format Specification
 
-**Status:** Open Standard | **Version:** 4.5.0 | **Date:** 2026-10
+**Status:** Open Standard | **Version:** 4.6.2 | **Date:** 2026-10
 
-This directory contains the open, language-agnostic specification for the EPI
-container format. Anyone may implement `.epi` file producers and consumers
-conforming to this specification without depending on the Python reference
-implementation.
+This directory is the **wire format**, not the product user guide. Start at [../README.md](../README.md) or [../USER-GUIDE.md](../USER-GUIDE.md) for how to record and verify.
+
+Anyone may implement `.epi` file producers and consumers conforming to this specification without depending on the Python reference implementation.
 
 ## Contents
 

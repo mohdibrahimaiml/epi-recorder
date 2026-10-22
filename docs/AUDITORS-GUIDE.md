@@ -407,9 +407,9 @@ epi analyze case.epi       # fault / policy summary sealed in the file
 epi verify case.epi --verbose --aiuc1   # evidence grouped by AIUC-1 domain (not a certification)
 ```
 
-To map evidence to EU AI Act articles, see
-[EU-AI-ACT-COMPLIANCE-MATRIX.md](./EU-AI-ACT-COMPLIANCE-MATRIX.md). Whether
-evidence meets a regulatory threshold is for you to decide.
+For what a `.epi` can contribute to an EU evidence file (and what it cannot), see
+[EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md) and
+[ANNEX-IV.md](./ANNEX-IV.md). Whether evidence meets a regulatory threshold is for you to decide.
 
 ## Glossary
 

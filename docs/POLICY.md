@@ -7,6 +7,8 @@
 
 It tells EPI what the system was supposed to do. The fault analyzer then compares the recorded run against those rules and writes the result into `analysis.json`.
 
+**Two different “policy” words:** `epi verify --policy strict` is **verifier strictness** (WARN vs FAIL, whether unknown identity fails, whether the command may use the network). It is not this rulebook. `epi_policy.json` / sealed `policy.json` is **what the run was supposed to do**. `epi analyze` grades the run against that rulebook (or heuristics if none was sealed). See [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) for verify verdicts.
+
 The preferred way to create this file is:
 
 ```bash
@@ -267,19 +269,26 @@ Example shape:
 
 ## What The Fault Analyzer Checks
 
-When a policy is present, the analyzer checks the recorded trace for:
+When a policy is present, the analyzer runs check families over the recorded
+trace — constraint, sequence, threshold, prohibition, approval-gap, and
+tool-permission checks. What lands in `analysis.json` is the **emitted
+`fault_type` value**, not the check name:
 
-- `constraint_violation`
-- `sequence_violation`
-- `threshold_violation`
-- `prohibition_violation`
-- `approval_violation`
-- `tool_permission_violation`
+- `POLICY_VIOLATION` — any policy-rule check that fired (sequence, threshold,
+  prohibition, approval, tool-permission families all record under this value)
+- `CONSTRAINT_VIOLATION` — baseline heuristic constraint faults
+- `ERROR_CONTINUATION`, `CONTEXT_DROP`, `HEURISTIC_OBSERVATION`,
+  `coverage_gap`, `time_gap_tamper` — heuristic passes
+
+Grepping a sealed file for `sequence_violation` or `threshold_violation`
+finds nothing — those are pass names in `epi_core/fault_analyzer.py`
+(`_pass3_sequence_violation`, `_pass4_threshold_violation`, …), not recorded
+values. Recount from `fault_type`, not from check names.
 
 It also performs heuristic checks such as:
 
-- `error_continuation`
-- `context_drop`
+- `ERROR_CONTINUATION`
+- `CONTEXT_DROP`
 
 So the analyzer can find:
 
@@ -372,5 +381,3 @@ Shipped policy is a workflow rulebook, not a full GRC platform. Enterprises ofte
 That next layer is intentionally outside this guide.
 
 This document stays focused on the shipped workflow: create `epi_policy.json`, run the workflow, inspect `analysis.json`, and review the sealed artifact.
-- `policy_evaluation.json`
-- proposed CLI and API changes

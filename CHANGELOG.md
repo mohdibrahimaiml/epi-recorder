@@ -2,7 +2,25 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [4.6.2] - 2026-10-17
+## [Unreleased]
+
+## [4.6.2] - 2026-10-22
+
+First PyPI upload of 4.6.2 (GitHub had a tag; Trusted Publishing was not
+configured, so `pip install` stayed on 4.6.1).
+
+### Security
+
+- **Viewer fail-closed on envelope tamper (#141, #143).** Outer display-layer
+  edits left inner ZIP hashes intact and the live browser check overwrote the
+  baked envelope failure with INTEGRITY VERIFIED. A baked envelope verdict
+  (`__envelope_header__` / `__polyglot_viewer__`) can never be upgraded to
+  green; missing data defaults to unverified; the loading placeholder is no
+  longer green. `epi verify` behaviour unchanged (it always caught this).
+- **Remote trust registry remains informational** (shipped in 4.6.1; still
+  true here).
+
+### Added
 
 - **EPI Cloud login from the terminal.** `epi cloud login` (no flags) shows a
   short code; type it at cloud.epilabs.org/auth/device and the CLI picks up
@@ -14,10 +32,34 @@ All notable changes to EPI Recorder are documented here.
 - **Cloud setup dashboard.** Guided start (company → computer → first run →
   customer → trust link) then tabs for Runs, Customers, Trust links and
   Computers & keys. Trust links are scoped to one customer by default.
-- **Smaller fixes.** D1 migrations run before every cloud deploy (prod
-  sign-in repair); device-code guess throttling; push-only `status`
-  explains instead of dumping 403; witness exports enforce trust-link
-  inbox scope.
+- **Evidence pack (M6).** One "Download evidence pack" button on trust pages
+  zips the whole link in the reviewer's browser (never on the server): every
+  artifact's hash-checked bytes, `trust.json`, `witness.json`, `README.txt`
+  with the exact offline verify commands, and `MANIFEST.json` with SHA-256
+  per file. Witness lines arrive link-scoped behind the share token, each
+  with a per-line Ed25519 receipt checkable offline (`epi verify
+  --witness-log witness.json --witness-pubkey ...` — the key in the file is
+  never trust; reviewers pin it from the well-known endpoint and the
+  checkpoints repo); revoked keys ride with
+  reasons. Full-log consistency stays covered by the signed daily checkpoint;
+  per-line Merkle inclusion proofs are planned, not present.
+- **Key registry (M5).** Vendors register **public** keys (`epi cloud keys
+  push` reads only `*.pub` and refuses anything else); anyone can read the
+  history at `/o/{slug}/keys.json`, shown on trust pages with revocations
+  and reasons. Revoked keys are kept as tombstones (hard delete refuses them;
+  a mistaken revoke is recovered with `epi cloud keys unrevoke`).
+  Registration is informational only and never a pin: `epi keys trust
+  --from-cloud {slug}` still requires the exact fingerprint confirmed with
+  the sender, and refuses revoked keys.
+- **Customer-owned storage (M4).** Every sealed `.epi` can also go straight
+  to the vendor's own S3-compatible bucket (`EPI_STORAGE_URL=s3://bucket/prefix`,
+  endpoint override for MinIO/R2/GCS, credentials from AWS env/profile).
+  Outbox-first with bounded background delivery: sealing never fails or slows
+  down, offline seals queue and `epi cloud storage flush` retries. EPI Cloud
+  never sees these bytes or credentials - it only shows the recorder's
+  health heartbeat as vendor-reported. New: `epi cloud storage
+  show|set|test|flush`, `docs/STORAGE.md` (write-only bucket policy,
+  Object Lock guidance).
 - **Witness verdicts say what happened (#131).** A witness receipt signed
   by a key that is not the EPI witness reads NOT CONFIRMED ("STAMP NOT
   FROM THE EPI WITNESS"), never MISMATCH — MISMATCH means the file bytes
@@ -47,43 +89,41 @@ All notable changes to EPI Recorder are documented here.
   workspace with owner, usage and a plan picker — no more D1 console for
   plan changes. Every change is audited. Unlimited plans show a short
   "Plan: <Name> — unlimited" with no Upgrade link.
-- **Paid plan limits match the pricing note.** Startup: 3 customer
+- **Paid plan limits match the pricing note (#139).** Startup: 3 customer
   relationships and 1,000 evidence files (1-year retention). Growth: 15
   relationships and 10,000 files (7-year retention). Limits speak in
   customers, never internal metric names.
 
-## [Unreleased]
+### Fixed
 
-- **Evidence pack (M6).** One "Download evidence pack" button on trust pages
-  zips the whole link in the reviewer's browser (never on the server): every
-  artifact's hash-checked bytes, `trust.json`, `witness.json`, `README.txt`
-  with the exact offline verify commands, and `MANIFEST.json` with SHA-256
-  per file. Witness lines arrive link-scoped behind the share token, each
-  with a per-line Ed25519 receipt checkable offline (`epi verify
-  --witness-log witness.json --witness-pubkey ...` — the key in the file is
-  never trust; reviewers pin it from the well-known endpoint and the
-  checkpoints repo); revoked keys ride with
-  reasons. Full-log consistency stays covered by the signed daily checkpoint;
-  per-line Merkle inclusion proofs are planned, not present.
-
-- **Key registry (M5).** Vendors register **public** keys (`epi cloud keys
-  push` reads only `*.pub` and refuses anything else); anyone can read the
-  history at `/o/{slug}/keys.json`, shown on trust pages with revocations
-  and reasons. Revoked keys are kept as tombstones (hard delete refuses them;
-  a mistaken revoke is recovered with `epi cloud keys unrevoke`).
-  Registration is informational only and never a pin: `epi keys trust
-  --from-cloud {slug}` still requires the exact fingerprint confirmed with
-  the sender, and refuses revoked keys.
-
-- **Customer-owned storage (M4).** Every sealed `.epi` can also go straight
-  to the vendor's own S3-compatible bucket (`EPI_STORAGE_URL=s3://bucket/prefix`,
-  endpoint override for MinIO/R2/GCS, credentials from AWS env/profile).
-  Outbox-first with bounded background delivery: sealing never fails or slows
-  down, offline seals queue and `epi cloud storage flush` retries. EPI Cloud
-  never sees these bytes or credentials — it only shows the recorder's
-  health heartbeat as vendor-reported. New: `epi cloud storage
-  show|set|test|flush`, `docs/STORAGE.md` (write-only bucket policy,
-  Object Lock guidance).
+- **Pack-time viewer carries VERIFY.txt; prohibition guards see original
+  case (#145).**
+- **CI signing uses the org key, not a throwaway.** `epi annex pack` (and
+  `sign` / `multi-sign`) now import `EPI_SIGNING_KEY` — a 64-hex Ed25519
+  seed — as the named key when it does not exist locally, instead of
+  minting a disposable key. A green compliance-gate run now proves the
+  signature came from the org's key. New `KeyManager.import_hex_seed()`.
+- **Independent JS verifier can read real artifacts.** `docs/epi-verifier/`
+  located the ZIP via a magic value that envelope-v2 files never have, and
+  its bundled Ed25519 core could not verify a signature. It now finds the
+  payload via the `EPI_ZIP_PAYLOAD_START` marker (legacy ZIP still works),
+  uses the same proven crypto core as the shipped viewer, and verifies
+  signatures for real 4.6.2 and legacy-zip seals.
+- **`epi integrate guardrails` is listed.** The target existed but was
+  missing from the help text and the command summary.
+- **Docs matched to code.** `docs/`: Annex IV commands, EU AI Act evidence
+  claims, EPI-SPEC required/optional members, trust-level table, canonical
+  hash references, witness render strings, telemetry opt-in wording, Cloud
+  plan entitlements, and the gateway/Cloudflare deployment notes now match
+  the implementation. New: `docs/FILE-SAFETY.md`, `docs/adr/`, `docs/api/`,
+  `docs/DPA.md`, `docs/SUBPROCESSORS.md`, `docs/DATA-RETENTION.md`,
+  `docs/MIGRATION.md`, `docs/ROADMAP.md`, `docs/GOVERNANCE.md`,
+  `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`, Dependabot, CodeQL,
+  Scorecard, SBOM, and Sigstore-signed releases with `SHA256SUMS`.
+- **Smaller Cloud fixes.** D1 migrations run before every cloud deploy (prod
+  sign-in repair); device-code guess throttling; push-only `status`
+  explains instead of dumping 403; witness exports enforce trust-link
+  inbox scope.
 
 ## [4.6.1] - 2026-10-13
 

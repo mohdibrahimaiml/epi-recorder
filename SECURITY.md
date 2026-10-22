@@ -49,9 +49,9 @@ repository, if it is enabled.
 EPI Recorder includes several security features:
 
 ### Cryptographic Signatures
-- **Ed25519** digital signatures (RFC 8032)
-- All `.epi` files are cryptographically signed
-- Tamper detection - any modification breaks the signature
+- **Ed25519** digital signatures (RFC 8032) on the sealed manifest
+- Default `record()` seals are signed; unsigned `.epi` files exist (`signature_valid` is `null`)
+- Tamper detection is **integrity hashes plus the signature together**. A valid signature over an unchanged manifest does **not** mean the ZIP members or display layer are intact (`integrity_ok` can still be `false`). See [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md).
 
 ### Automatic Secret Redaction
 - API keys automatically redacted (OpenAI, Anthropic, AWS, etc.)
@@ -66,8 +66,7 @@ EPI Recorder includes several security features:
 ## 🚨 Known Security Considerations
 
 ### API Interception
-- EPI uses monkey-patching to intercept API calls
-- This modifies library behavior at runtime
+- Current SDK integrations are **wrappers** (`wrap_openai`, `wrap_anthropic`, and the LangChain callback). They capture calls they wrap; they do not prove every model call in the process was captured.
 - Only enable recording when needed
 - Not recommended in security-critical contexts without review
 
@@ -81,7 +80,7 @@ EPI Recorder includes several security features:
 ### Signature Algorithm
 - **Algorithm**: Ed25519 (RFC 8032)
 - **Hash**: SHA-256
-- **Serialization**: Canonical CBOR (RFC 8949)
+- **Canonicalization**: RFC 8785 JCS for 4.4.1+ artifacts (`rfc8785`). Pre-4.4.1 uses legacy `json.dumps(sort_keys=True)`. Spec `1.x` used CBOR. The verifier dispatches by `manifest.spec_version` — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 - **Library**: Python `cryptography` package (industry standard)
 
 ### Key Management
@@ -101,24 +100,17 @@ Please follow responsible disclosure practices.
 
 ## 📝 Security Changelog
 
-### v2.7.2 (March 2026)
-- **Legacy Signature Compatibility**: `verify_signature()` and the HTML viewer now handle both Hex (v2.7.x) and Base64 (pre-v2.7.1) encoded signatures, preventing silent verification failures on old files.
-- **Verification Integrity**: Fixed `epi verify --verbose` leaking `typer.Exit` through the generic exception handler, which produced misleading tracebacks on tampered-file detection.
+4.x only. Older 2.x notes are in git history, not current product truth.
 
-### v2.7.1 (March 2026)
-- **Decentralized Trust Model**: Embedded public keys in manifests for zero-config verification.
-- **Self-Healing Integration**: Automated registry/MIME health checks to prevent association drift.
-- **Entire File Integrity**: SHA-256 archive-level hashing for all package components.
+### v4.6.2
+- **Viewer fail-closed on envelope tamper (#141 / #143).** Outer display-layer edits used to let the in-file viewer paint INTEGRITY VERIFIED. A baked envelope failure (`__envelope_header__` / `__polyglot_viewer__`) can no longer be upgraded to green. `epi verify` already caught this; the browser UI now matches.
+- **Pack-time viewer carries VERIFY.txt; prohibition guards see original case (#145).**
 
-### v2.7.0 (March 2026)
-- OS-level file association (cross-platform).
-- Unicode console safety (Windows).
+### v4.6.1
+- **Remote trust registry is informational only.** A key listed only at `epilabs.org/.well-known/epi-trust-registry.json` is not a pin. `--policy strict` never fetches the list.
 
-### v2.6.0 (February 2026)
-- Framework-native integrations (LiteLLM, LangChain, OTel).
-- CI/CD verification (GitHub Action).
-
-### v2.1.3 (January 2026)
+### v4.6.0
+- **RFC 3161 timestamps validated offline** by `epi verify` (imprint, CMS signature, timeStamping EKU, chain to pinned roots). Legacy tokens remain presence-only.
 
 
  

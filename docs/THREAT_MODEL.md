@@ -1,5 +1,7 @@
 # EPI Threat Model
 
+**Product version:** 4.6.2. Product map: [README.md](./README.md).
+
 ## What This Document Is
 
 This threat model describes what attacks EPI prevents, what attacks it does **not** prevent, and what assumptions the system relies on. If you are evaluating EPI for security, regulatory, or legal use, read this first.
@@ -136,7 +138,7 @@ EPI's security guarantees depend on these assumptions being true:
 ### 4. Algorithm Degradation
 **Attack:** In 20 years, quantum computers break Ed25519. Old artifacts can no longer be trusted.
 
-**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.3.0 uses industry-standard algorithms that are secure today.
+**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.6.2 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
 
 **Mitigation:** Re-sign important artifacts with newer algorithms as standards evolve.
 
