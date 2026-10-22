@@ -91,7 +91,7 @@ from epi_recorder import record, get_current_session
 with record("demo.epi", goal="show the golden path"):
     s = get_current_session()
     s.log("tool.call", tool="lookup", id="A-1")
-    s.log("tool.response", ok=True, balance=250)
+    s.log("tool.response", tool="lookup", ok=True, balance=250)
     s.log("decision", action="approve", reason="within limit")
 ```
 

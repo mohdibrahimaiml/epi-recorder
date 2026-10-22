@@ -149,7 +149,7 @@ from epi_recorder import record, get_current_session
 with record("demo.epi", goal="show the golden path"):
     s = get_current_session()
     s.log("tool.call", tool="lookup", id="A-1")
-    s.log("tool.response", ok=True, balance=250)
+    s.log("tool.response", tool="lookup", ok=True, balance=250)
     s.log("decision", action="approve", reason="within limit")
 ```
 
@@ -168,8 +168,10 @@ Secrets are redacted by default (`redact=True`). Everyday how-to: [USER-GUIDE.md
 |------|-----|
 | Docs map | [README.md](./README.md) |
 | Exact verify semantics | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) |
+| Is the file safe to open? | [FILE-SAFETY.md](./FILE-SAFETY.md) |
+| Cloud trust (DPA, subprocessors, retention, support) | [DPA.md](./DPA.md), [SUBPROCESSORS.md](./SUBPROCESSORS.md), [DATA-RETENTION.md](./DATA-RETENTION.md), [../SUPPORT.md](../SUPPORT.md) |
 | Honest gaps | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) |
 | Threat model | [THREAT_MODEL.md](./THREAT_MODEL.md) |
-| Cloud ops / CPU / D1 | [CLOUD.md](./CLOUD.md) |
+| Cloud ops / CPU / D1 (internal) | [../internal/cloud-ops.md](../internal/cloud-ops.md) |
 | Website editing | [WEBSITE.md](./WEBSITE.md) |
 | EU evidence support (not a certificate) | [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md), [ANNEX-IV.md](./ANNEX-IV.md) |

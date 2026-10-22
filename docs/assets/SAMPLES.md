@@ -16,7 +16,9 @@ epi verify docs/assets/sample-hello.epi -v
 # Insurers / claim acceptance — FAIL until pin:
 epi verify docs/assets/sample-hello.epi --policy strict
 epi view docs/assets/sample-hello.epi --extract /tmp/epi-hello
-epi keys trust docs/assets/sample-hello.epi --name sample-sealer
+# Pinning from a .epi needs the fingerprint you confirmed with the sender
+# (never skip this — the file under review is not a pin by itself):
+epi keys trust docs/assets/sample-hello.epi --name sample-sealer --fingerprint "<confirmed fingerprint>"
 epi verify docs/assets/sample-hello.epi --policy strict
 ```
 

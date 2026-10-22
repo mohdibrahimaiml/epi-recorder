@@ -12,7 +12,7 @@ By default:
 
 - telemetry is off
 - no network calls are made
-- an anonymous install ID is created locally on the first CLI run so events can be attributed after you opt in
+- an anonymous install ID is created locally only after you opt in (`epi telemetry enable` or the first post-opt-in event), so pre-opt-in runs create no identifier
 - importing EPI packages does not send anything
 - running normal capture/verify commands does not send anything
 - local opt-in reminders after high-intent commands do not send anything
@@ -122,12 +122,12 @@ These signals are only collected if git is available and the working directory i
 
 ## Optional Account System
 
-`epi login` is entirely optional and only required for cloud-only features such as registry, cloud sync, team collaboration, and enterprise features. When you log in:
+`epi cloud login` is entirely optional and only required for cloud-only features such as registry, cloud sync, team collaboration, and enterprise features. When you log in:
 
-- EPI opens a browser-based GitHub OAuth flow.
-- A bearer token is stored locally in `~/.epi/auth.json`.
+- EPI uses the EPI Cloud device flow (RFC 8628): the terminal shows a short code you type at `cloud.epilabs.org/auth/device`. `epi auth login` is an alias of the same flow.
+- A push-only key for EPI Cloud is stored locally in `~/.epi/cloud.json` (mode 0600). (`~/.epi/auth.json` is a leftover local-dev token file, not the Cloud login.)
 - Telemetry events may include `user_id` and `org_id` so usage can be linked to your account.
 
-You can log out at any time with `epi logout`.
+You can log out at any time with `epi auth logout` (clears `cloud.json`). There is no `epi login` / `epi logout` command.
 
 Core local commands (`epi record`, `epi verify`, `epi view`, `epi demo`) never require an account.

@@ -39,7 +39,7 @@ Look for:
 }
 ```
 
-If `signature_valid` is `true`, the artifact is cryptographically intact. This is a **mathematical guarantee** — not a trust judgment.
+Cryptographically intact means **both** `integrity_ok` and `signature_valid` are `true`. `signature_valid` alone is not enough: an altered file can still show a valid signature over the unchanged manifest while `integrity_ok` is `false` (display-layer or payload hashes fail). Together those two facts are a **mathematical guarantee** about the sealed bytes — not a trust judgment about the signer.
 
 ---
 
@@ -174,9 +174,9 @@ This is the most important field in the report. Here is exactly what each value 
 
 | Value | Meaning |
 |-------|---------|
-| `true` | The signature matches the manifest hash. The artifact is authentic. |
-| `false` | The signature does not match. The artifact has been tampered with OR the signature is corrupted. |
-| `null` | No signature is present. The artifact is unsigned. Integrity may still be valid. |
+| `true` | The Ed25519 signature matches the **manifest hash**. That does not by itself prove the ZIP members or display layer are intact — check `integrity_ok` too. It also does not prove the signer is who you think; that is identity (pin the key). |
+| `false` | The signature does not match the manifest hash. The manifest has been changed after signing, or the signature bytes are corrupted. |
+| `null` | No signature is present. The artifact is unsigned. Integrity hashes may still be valid. |
 
 ---
 

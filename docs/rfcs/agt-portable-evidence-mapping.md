@@ -19,7 +19,7 @@ This document specifies how AGT evidence bundles map into `.epi`, a portable, si
 
 ## 2. Motivation
 
-The EU AI Act enters into force across phased deadlines through 2027. Article 12 requires providers of high-risk AI systems to maintain logs of operation "appropriate to the system's lifecycle." The article specifies what must be recorded — input data, output data, decisions — but does not specify how that evidence must be packaged for external review. This is the gap.
+The EU AI Act enters into force across phased deadlines through 2027. Article 12 requires providers of high-risk AI systems to maintain automatically generated logs of operation, kept for a period appropriate to the system's lifecycle. Detailed input/output logging in Art. 12(2) is specified for biometric identification systems, not for every high-risk system. The article does not specify how that evidence must be packaged for external review. This is the gap.
 
 AGT generates the raw material that Article 12 demands. It captures `AuditEntry` records with Merkle-tree integrity, `ComplianceReport` evaluations, and `AnnexIVDocument` technical documentation. But AGT does not define a portable export format. The evidence stays where it was created.
 
@@ -49,7 +49,7 @@ Every transformation performed by `normalize_agt_steps()`, `build_control_map()`
 
 ### 3.5 Replayability
 
-The `steps.jsonl` timeline contains every `StepModel` needed to reconstruct the agent's execution offline. Each step carries a `prev_hash` forming an immutable chain. An auditor can replay the timeline in the embedded `viewer.html` or parse it programmatically without the original runtime environment.
+The `steps.jsonl` timeline contains every `StepModel` needed to reconstruct the agent's execution offline. Each step carries a `prev_hash` forming a tamper-evident chain. An auditor can replay the timeline in the embedded `viewer.html` or parse it programmatically without the original runtime environment.
 
 ### 3.6 Offline verification
 
@@ -174,13 +174,21 @@ The signature is computed over the canonical JSON hash of the manifest excluding
 
 ### 5.3 steps.jsonl
 
-`steps.jsonl` is an NDJSON stream where each line is a `StepModel`. Fields include `index`, `timestamp`, `kind`, `content`, `trace_id`, `span_id`, `parent_span_id`, `prev_hash`, and optional `governance`. The `prev_hash` field contains the SHA-256 hash of the canonical JSON of the previous step, forming an immutable chain. Kind values include `shell.command`, `python.call`, `llm.request`, `llm.response`, `file.write`, `security.redaction`, `validation.pass`, `validation.fail`, `validation.corrected`, and `validation.start`.
+`steps.jsonl` is an NDJSON stream where each line is a `StepModel`. Fields include `index`, `timestamp`, `kind`, `content`, `trace_id`, `span_id`, `parent_span_id`, `prev_hash`, and optional `governance`. The `prev_hash` field contains the SHA-256 hash of the canonical JSON of the previous step, forming a tamper-evident chain. Kind values include `shell.command`, `python.call`, `llm.request`, `llm.response`, `file.write`, `security.redaction`, `validation.pass`, `validation.fail`, `validation.corrected`, and `validation.start`.
 
 ### 5.4 Review System
 
 Reviews are additive metadata bound to the sealed artifact. `review.json` contains reviewer identity, verdict, notes, and a binding hash that ties the review to the exact `manifest.json` and `steps.jsonl` at the time of review. The review ledger is append-only: new reviews are added as `reviews/<review_id>.json` without rewriting the sealed execution files. Review versions are `1.0.0` (legacy) and `1.1.0` (with artifact binding and ledger chaining).
 
 ### 5.5 Cryptographic Integrity and Trust Levels
+
+> Frozen-table note (2026-10-22): the table below is the **v4.1.0** mapping
+> and does not match current code. Today: unsigned seals rank `LOW`, not
+> `MEDIUM`; `MEDIUM` is a valid signature with a local-machine key or a
+> SCITT-anchored unknown identity; `FAIL`/`INVALID`/`REVOKED`/`MISMATCH` are
+> distinct states (see `epi_core/trust.py` and
+> [VERIFICATION_CONTRACT](../VERIFICATION_CONTRACT.md)). Kept verbatim as
+> history; do not implement from it.
 
 Verification produces one of six trust levels:
 
