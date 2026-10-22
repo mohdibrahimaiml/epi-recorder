@@ -36,6 +36,20 @@ TOKEN = "0" * 64
 pytestmark = pytest.mark.browser
 
 
+def _host_is(url: str, host: str) -> bool:
+    """Exact-host match (never a substring/prefix check).
+
+    A prefix test such as ``url.startswith("https://evil.example")`` also
+    matches ``https://evil.example.attacker.test`` and userinfo tricks such
+    as ``https://evil.example@attacker.test/``. The handler below decides
+    where a request goes, so it must compare the parsed hostname exactly.
+    """
+    try:
+        return urlparse(url).hostname == host
+    except ValueError:
+        return False
+
+
 async def _serve_website(route) -> None:
     """Serve the real website tree, but under a chosen public hostname."""
     url = route.request.url
@@ -84,7 +98,7 @@ async def test_api_override_is_ignored_on_a_public_hostname():
 
             async def handler(route):
                 url = route.request.url
-                if url.startswith("https://evil.example"):
+                if _host_is(url, "evil.example"):
                     offenders.append(url)
                     await route.abort()
                     return
@@ -126,7 +140,7 @@ async def test_api_override_is_still_honoured_on_localhost():
 
             async def handler(route):
                 url = route.request.url
-                if url.startswith("https://local-api.test"):
+                if _host_is(url, "local-api.test"):
                     seen.append(url)
                     await route.fulfill(
                         status=200,
