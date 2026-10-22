@@ -340,19 +340,34 @@ app.delete("/orgs/:orgId/artifacts/:artifactId", async (c) => {
 
 // "Export everything": a week-long trust link covering all agents/inboxes,
 // the file list, and the witness exports — so a customer can leave any time.
+//
+// Owner-only, and it respects the same `shareLinks` plan limit as
+// POST /v1/orgs/:orgId/share-links. This route mints a reviewer-facing trust
+// link for the WHOLE org, so it must not be reachable by:
+//   - a machine API key (`push` scope) — that is the credential `epi cloud
+//     login` puts on a recorder machine, and a recorder must not be able to
+//     mint reviewer credentials (red-team C-01);
+//   - a plain member session — link issuance is an owner action;
+//   - a plan that has already spent its share-link allowance.
 app.post("/orgs/:orgId/export", async (c) => {
   const orgId = c.req.param("orgId");
   const user = await userFromRequest(c.env.DB, c.req.raw);
-  let actor: string | null = null;
-  if (user) {
-    const role = await membershipRole(c.env.DB, orgId, user.id);
-    if (role === "owner" || role === "member") actor = `user:${user.id}`;
+  if (!user) {
+    return c.json({ error: { code: "forbidden", message: "Owner session required." } }, 403);
   }
-  if (!actor) {
-    const key = await keyFromRequest(c.env.DB, c.req.raw);
-    if (key && key.orgId === orgId && key.scopes.includes("push")) actor = `key:${key.id}`;
+  const role = await membershipRole(c.env.DB, orgId, user.id);
+  if (role !== "owner") {
+    return c.json({ error: { code: "forbidden", message: "Owners only." } }, 403);
   }
-  if (!actor) return c.json({ error: { code: "forbidden", message: "Member session or push key required." } }, 403);
+  const org = await c.env.DB.prepare("SELECT plan FROM orgs WHERE id = ?").bind(orgId).first<{ plan: string }>();
+  if (!org) return c.json({ error: { code: "not_found", message: "Org not found." } }, 404);
+  const active = await c.env.DB
+    .prepare("SELECT COUNT(*) AS n FROM share_links WHERE org_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)")
+    .bind(orgId, nowIso())
+    .first<{ n: number }>();
+  const allow = limitAllows(planOf(org.plan), "shareLinks", active?.n ?? 0);
+  if (!allow.ok) return c.json({ error: { code: "plan_limit", message: allow.message } }, 402);
+  const actor = `user:${user.id}`;
   const { id, token } = await createShareLink(
     c.env.DB, orgId, `Full export ${nowIso().slice(0, 10)}`,
     { agents: "all", inboxes: "all" }, new Date(Date.now() + 7 * 86_400_000).toISOString(),

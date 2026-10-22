@@ -1,0 +1,25 @@
+# Automated dependency updates. Security-first: pip weekly, actions weekly,
+# cloud npm weekly. Grouped to keep the noise down; CI must stay green.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-deps:
+        patterns: ["*"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: "npm"
+    directory: "/cloud"
+    schedule:
+      interval: "weekly"
+    groups:
+      cloud-deps:
+        patterns: ["*"]

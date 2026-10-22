@@ -476,6 +476,24 @@ def _verify_step_chain(steps: list[dict], spec_version: str | None = None) -> tu
         return False, [f"chain verification error: {exc}"]
 
 
+def _chain_links_present(steps: list[dict]) -> bool:
+    """True when the steps carry at least one prev_hash link.
+
+    A file with no links at all is a *pre-chain* artifact: the chain check
+    passes vacuously, so nothing in it proves the recorded order. Fewer than
+    two steps cannot be reordered, so there is nothing to prove either way.
+    """
+    if len(steps) < 2:
+        return True
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        prev = s.get("prev_hash")
+        if prev not in (None, "CHAIN_START"):
+            return True
+    return False
+
+
 def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str]]:
     """
     AUD-CO-01: Step Sequence Completeness Audit.
@@ -1459,6 +1477,7 @@ def verify_command(
         steps_hash_ok = True
         chain_ok = True
         chain_breaks = []
+        chain_present = True
         seq_comp_gaps = []
         step_count_ok = True  # AUD-CO-02: safe default for old artifacts
         steps: list[dict] = []
@@ -1473,6 +1492,7 @@ def verify_command(
             steps = EPIContainer.read_steps(epi_file)
             spec_ver = getattr(manifest, "spec_version", None) if manifest else None
             chain_ok, chain_breaks = _verify_step_chain(steps, spec_version=spec_ver)
+            chain_present = _chain_links_present(steps)
             if steps:
 
                     # 1. Index Sequence Audit (Monotonicity, anchored at 0).
@@ -1780,6 +1800,7 @@ def verify_command(
             sequence_ok=sequence_ok,
             completeness_ok=completeness_ok,
             chain_ok=chain_ok,
+            chain_present=chain_present,
             transparency_ok=transparency_ok,
             completeness_gaps=seq_comp_gaps,
             forensic_reason=forensic_reason,
@@ -2313,13 +2334,26 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Header chrome: green only for org-trusted PASS. Unpinned seal is yellow
     # UNVERIFIED IDENTITY — never "SEAL OK" (skim must not imply claim safety).
+    #
+    # "PINNED" is reserved for a key the VERIFIER pinned. A key that only
+    # appears in a did:web document published by the file's own author is
+    # self-asserted — the signer vouches for themselves — and must never be
+    # described with the word "pinned" (red-team F-19).
     id_upper = str(identity_status).upper()
-    if decision_status == "PASS" and id_upper == "KNOWN":
+    pin_source = str((identity or {}).get("pin_source") or "none").lower()
+    self_asserted = id_upper == "KNOWN" and pin_source == "did_web"
+    if decision_status == "PASS" and id_upper == "KNOWN" and not self_asserted:
         status_symbol = "[bold green]✔ SEAL · IDENTITY PINNED[/bold green]"
         panel_style = "green"
+    elif decision_status == "PASS" and self_asserted:
+        status_symbol = "[bold yellow]✔ SEAL · SIGNER SELF-ASSERTED (DID)[/bold yellow]"
+        panel_style = "yellow"
     elif decision_status == "PASS":
         status_symbol = "[bold green]✔ PASS[/bold green]"
         panel_style = "green"
+    elif decision_status == "WARN" and id_upper == "KNOWN" and self_asserted:
+        status_symbol = "[bold yellow]⚠ SIGNER SELF-ASSERTED (DID) · SEE WARNING[/bold yellow]"
+        panel_style = "yellow"
     elif decision_status == "WARN" and id_upper == "KNOWN":
         # Signer is pinned; something else (witness log, clock) needs a look.
         _wit_hdr = (report.get("witness") or {}).get("status") if isinstance(report, dict) else None
@@ -2424,7 +2458,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         id_color = "red"
     else:
         id_color = "yellow"
+    if identity_status == "KNOWN" and self_asserted:
+        # Self-asserted identity must not read as green/pinned (red-team F-19).
+        id_color = "yellow"
+        id_status_display = "SELF-ASSERTED (not pinned)"
     content_lines.append(f"  [{id_color}]- Status:       {id_status_display}[/{id_color}]")
+    if self_asserted:
+        content_lines.append(
+            "  [yellow]- Trust:        The signer published this key in their own DID "
+            "document at their own domain.[/yellow]"
+        )
+        content_lines.append(
+            "  [yellow]                That is self-assertion, not a pin you chose. "
+            "Require an org pin with: epi verify --policy strict[/yellow]"
+        )
     if untrusted_despite_pins:
         content_lines.append(
             "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"

@@ -713,13 +713,17 @@ describe("holds, deletes, retention, export", () => {
   });
 
   it("export mints a scoped link reviewers can download through", async () => {
-    const { env, key } = await stored();
-    const exp = (await (await app.request("/v1/orgs/o1/export", { method: "POST", headers: key }, env as never)).json()) as {
+    const { env, key, ck } = await stored();
+    // Owner session: link issuance is an owner action (red-team C-01).
+    const exp = (await (await app.request("/v1/orgs/o1/export", { method: "POST", headers: ck("sess-owner") }, env as never)).json()) as {
       share_url: string; files: { content_url: string }[]; witness_exports: { export_url: string }[];
     };
     expect(exp.share_url).toMatch(/^\/t\/sh_[0-9a-f]+#k=[0-9a-f]{64}$/);
     expect(exp.files).toHaveLength(1);
     expect(exp.witness_exports[0]).toMatchObject({ export_url: "/w/inb_1/export.jsonl" });
+    // A machine API key must NOT be able to mint a whole-org reviewer link.
+    const viaKey = await app.request("/v1/orgs/o1/export", { method: "POST", headers: key }, env as never);
+    expect(viaKey.status).toBe(403);
     const token = exp.share_url.split("#k=")[1]!;
     const h = { "X-EPI-Share-Token": token };
     const list = (await (await app.request("/v1/orgs/o1/artifacts", { headers: h }, env as never)).json()) as { artifacts: unknown[] };

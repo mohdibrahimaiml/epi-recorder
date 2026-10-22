@@ -303,6 +303,10 @@ class TestReportStructureStability:
             "did",
             "pinned_names",
             "scitt",
+            # Added by the red-team fix for F-19: says WHERE the trust came
+            # from. "local_pin" is a pin the verifier chose; "did_web" means
+            # the signer published their own key at their own domain.
+            "pin_source",
         }
         assert set(report["metadata"].keys()) == {
             "spec_version",

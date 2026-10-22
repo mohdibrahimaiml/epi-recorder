@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <link rel="canonical" href="https://epilabs.org/status">
 <title>EPI Labs — Status</title>
-<meta name="description" content="EPI Labs hosted service status. Verify API, SCITT service, and account system uptime.">
+<meta name="description" content="EPI Cloud status. Offline CLI verification never depends on hosted services.">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <style>
 .status-card{max-width:640px;margin:0 auto;background:var(--bg-card);border-radius:16px;border:1px solid var(--border-str);padding:36px}
@@ -66,36 +66,23 @@
 </section>
 
 <div class="status-card">
-  <div class="status-row" id="row-api">
-    <span class="status-indicator checking" id="dot-api"></span>
-    <div>
-      <div class="status-name">Verify API</div>
-      <div class="status-detail" id="detail-api">Checking...</div>
-    </div>
-    <div class="status-time" id="time-api"></div>
-  </div>
-  <div class="status-row" id="row-scitt">
-    <span class="status-indicator checking" id="dot-scitt"></span>
-    <div>
-      <div class="status-name">SCITT Service</div>
-      <div class="status-detail" id="detail-scitt">Checking...</div>
-    </div>
-    <div class="status-time" id="time-scitt"></div>
-  </div>
   <div class="status-row" id="row-auth">
     <span class="status-indicator checking" id="dot-auth"></span>
     <div>
-      <div class="status-name">Account / Auth</div>
+      <div class="status-name">EPI Cloud</div>
       <div class="status-detail" id="detail-auth">Checking...</div>
     </div>
     <div class="status-time" id="time-auth"></div>
   </div>
 </div>
 
+<p style="text-align:center;color:var(--ink-soft);font-size:.85rem;max-width:640px;margin:18px auto 0">Legacy Render paths (default <code>epi share</code> upload, MCP hosting, opt-in telemetry endpoints) have no status probe on this page. Offline <code>epi verify</code> has no server dependency.</p>
+
 <div class="infra-note">
   <strong>Infrastructure note</strong><br><br>
-  Hosted services currently run on shared free-tier infrastructure.
-  Cold starts are expected after periods of inactivity. Offline CLI verification
+  EPI Cloud runs on Cloudflare's free tier while in private beta — cold starts
+  are not expected, but there is no contractual uptime yet.
+  Offline CLI verification
   (<code>epi verify</code>) has no server dependency and works regardless of
   hosted service status.<br><br>
   No incident history is available yet — this page is new. Status checks run

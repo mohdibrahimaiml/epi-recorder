@@ -411,6 +411,11 @@ def _build_viewer_context(epi_path: Path) -> dict:
         manifest=manifest,
     )
     report["viewer_version"] = getattr(manifest, "viewer_version", None)
+    # This context comes from the CLI's own verification of the file on disk,
+    # so it IS bound to the signed manifest. The viewer uses this flag to
+    # decide whether it may paint a verdict: a double-clicked polyglot file
+    # has no such context and must show "not verified here" instead of green.
+    report["authoritative"] = True
     return report
 
 
