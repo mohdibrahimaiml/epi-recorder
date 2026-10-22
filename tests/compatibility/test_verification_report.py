@@ -80,6 +80,10 @@ FROZEN_FACTS_KEYS = {
     "sequence_ok",
     "completeness_ok",
     "chain_ok",
+    # Added by the red-team fix for F-13: False means the steps carry no
+    # prev_hash links at all, so the chain check passed *vacuously* and the
+    # recorded order is not provable. Distinct from chain_ok=False (broken).
+    "chain_present",
     "has_signature",
     "mismatches",
     "transparency_ok",
@@ -154,6 +158,10 @@ def test_report_nested_identity_keys():
         "name",
         "detail",
         "registry_verified",
+        # Added by the red-team fix for F-19: says WHERE the trust came from.
+        # "local_pin" is a pin the verifier chose; "did_web" means the signer
+        # published their own key at their own domain (self-asserted).
+        "pin_source",
         "public_key_id",
         "public_key_fingerprint",
         "fingerprint",

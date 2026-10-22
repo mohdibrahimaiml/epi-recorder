@@ -1,0 +1,53 @@
+# Build a CycloneDX SBOM for the shipped Python distribution and attach it
+# to the GitHub Release (tags) plus keep it as a workflow artifact.
+# Independent job: it can never block the installer or PyPI publish paths.
+name: SBOM
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sbom:
+    name: CycloneDX SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and SBOM tool
+        run: |
+          python -m pip install --upgrade pip
+          pip install . cyclonedx-bom
+
+      - name: Generate SBOM (resolved environment)
+        run: |
+          cyclonedx-py environment --format json --output sbom.cdx.json
+          python -c "import json; d=json.load(open('sbom.cdx.json')); print('components:', len(d.get('components', [])))"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cdx
+          path: sbom.cdx.json
+
+      - name: Attach SBOM to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: sbom.cdx.json
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

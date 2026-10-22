@@ -48,7 +48,7 @@ def _print_plan(target: str, *, write_examples: bool, apply: bool, force: bool) 
 @app.callback(invoke_without_command=True)
 def integrate(
     ctx: typer.Context,
-    target: str = typer.Argument(..., help="Target: pytest | langchain | litellm | opentelemetry | agt"),
+    target: str = typer.Argument(..., help="Target: pytest | langchain | litellm | opentelemetry | agt | guardrails"),
     write_examples: bool = typer.Option(False, "--write-examples", help="Write .epi/examples scaffolding."),
     apply: bool = typer.Option(False, "--apply", help="Apply safe workflow/config changes."),
     force: bool = typer.Option(False, "--force", help="Overwrite generated files when they already exist."),
@@ -64,7 +64,7 @@ def integrate(
 
 
 def integrate_command(
-    target: str = typer.Argument(..., help="Target: pytest | langchain | litellm | opentelemetry | agt"),
+    target: str = typer.Argument(..., help="Target: pytest | langchain | litellm | opentelemetry | agt | guardrails"),
     write_examples: bool = typer.Option(False, "--write-examples", help="Write .epi/examples scaffolding."),
     apply: bool = typer.Option(False, "--apply", help="Apply safe workflow/config changes."),
     force: bool = typer.Option(False, "--force", help="Overwrite generated files when they already exist."),

@@ -121,16 +121,20 @@ def run_refund_agent():
         import time as _time
         _t0 = _time.time()
         if use_real:
-            print("[EPI demo] Using real OpenAI API")
+            print("Using the real OpenAI API")
             client = wrap_client(OpenAI())
             response = client.chat.completions.create(model=model, messages=msgs)
             answer = response.choices[0].message.content
         else:
-            print("[EPI demo] No OPENAI_API_KEY — using built-in mock LLM")
+            print("Using the built-in mock LLM (no OPENAI_API_KEY)")
             response = _MockClient().chat.completions.create(model=model, messages=msgs)
             answer = response.choices[0].message.content
         _latency = round(_time.time() - _t0, 3)
-        print(f"[EPI demo] Decision: {answer[:100]}")
+        short = answer
+        if len(short) > 100:
+            # Cut on a word boundary, never mid-word.
+            short = short[:100].rsplit(" ", 1)[0].rstrip(" ,.;:(") + "…"
+        print(f"Decision: {short}")
 
         session.log("llm.response",
             provider="openai",
@@ -163,4 +167,3 @@ def run_refund_agent():
 
 if __name__ == "__main__":
     run_refund_agent()
-    print("\n[EPI demo] Sealed → epi-recordings/demo_refund.epi")

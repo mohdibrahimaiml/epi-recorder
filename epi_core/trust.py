@@ -461,6 +461,29 @@ class TrustRegistry:
         Returns:
             tuple: (is_trusted: bool, identity_name: str, status_detail: str)
         """
+        is_trusted, identity_name, status_detail, _source = self.verify_key_trust_with_source(
+            public_key_hex, governance
+        )
+        return is_trusted, identity_name, status_detail
+
+    def verify_key_trust_with_source(
+        self,
+        public_key_hex: str,
+        governance: dict | None = None,
+    ) -> tuple[bool, str | None, str, str]:
+        """Check trust AND report where the trust decision came from.
+
+        The source matters. A key matched in the local trust registry is a real
+        pin chosen by the verifier. A key that only appears in a ``did:web``
+        document published by the file's own author is **self-asserted** — the
+        signer vouches for themselves. Both can make ``identity.status`` KNOWN,
+        but they must never be described with the same words.
+
+        Returns:
+            (is_trusted, identity_name, status_detail, source) where source is
+            one of: ``revoked``, ``local_pin``, ``did_web``, ``remote_registry``,
+            ``none``.
+        """
         # 1. Check Revocation First (exact match — substring would false-hit)
         if self.trusted_keys_dir.exists():
             for rev_file in self.trusted_keys_dir.glob("*.revoked"):
@@ -470,6 +493,7 @@ class TrustRegistry:
                             False,
                             rev_file.stem,
                             "REVOKED: This key has been explicitly compromised or retired.",
+                            "revoked",
                         )
                 except Exception:
                     continue
@@ -485,8 +509,11 @@ class TrustRegistry:
                         if self.offline and isinstance(governance, dict):
                             _did = (governance or {}).get("did")
                             if isinstance(_did, str) and _did.startswith("did:web:"):
-                                return self._verify_did_web(_did, public_key_hex)
-                        return True, pub_file.stem, "Verified via local trusted registry"
+                                trusted, name, detail = self._verify_did_web(_did, public_key_hex)
+                                # The key matched a LOCAL pin — that is a pin,
+                                # whatever the DID context says.
+                                return trusted, name, detail, "local_pin"
+                        return True, pub_file.stem, "Verified via local trusted registry", "local_pin"
                 except Exception:
                     continue
 
@@ -494,7 +521,10 @@ class TrustRegistry:
         if governance and isinstance(governance, dict):
             did = governance.get("did")
             if did and isinstance(did, str) and did.startswith("did:web:"):
-                return self._verify_did_web(did, public_key_hex)
+                trusted, name, detail = self._verify_did_web(did, public_key_hex)
+                # The trust anchor here is a server the file's own author
+                # controls — that is self-assertion, not a verifier-chosen pin.
+                return trusted, name, detail, "did_web"
 
         # 4. Remote Registry (Bootstrap / Anchor). Skipped offline.
         # WP-SEC-4: this file is unsigned static JSON, so it can NEVER grant
@@ -512,12 +542,13 @@ class TrustRegistry:
                 if resp.status_code == 200:
                     remote_data = resp.json()
                     if public_key_hex in remote_data.get("revoked_keys", []):
-                        return False, "Unknown", "REVOKED via remote anchor"
+                        return False, "Unknown", "REVOKED via remote anchor", "remote_registry"
                     if public_key_hex in remote_data.get("trusted_keys", {}):
                         return (
                             False,
                             remote_data["trusted_keys"][public_key_hex],
                             "LISTED: in EPI Labs public registry (informational; not a pin)",
+                            "remote_registry",
                         )
             except Exception:
                 # Network or parsing failure — don't block verification.
@@ -525,7 +556,7 @@ class TrustRegistry:
                 # verification remains possible.
                 pass
 
-        return False, None, "UNKNOWN: Identity not found in any trusted registry"
+        return False, None, "UNKNOWN: Identity not found in any trusted registry", "none"
 
 
 class VerificationPolicy(StrEnum):
@@ -574,6 +605,25 @@ def sealed_payload_gate(manifest: ManifestModel, integrity_ok: bool) -> bool:
     return integrity_ok
 
 
+def _pin_source_from_detail(status_detail: str) -> str:
+    """Fallback trust source when a registry only returns the 3-tuple result.
+
+    Used when a custom registry (or a test double) implements the older
+    `verify_key_trust` signature. The detail strings are stable and are
+    produced by `TrustRegistry.verify_key_trust_with_source` itself.
+    """
+    detail = (status_detail or "").lower()
+    if "revoked" in detail:
+        return "revoked"
+    if "did:web" in detail or "did_web" in detail:
+        return "did_web"
+    if "local trusted registry" in detail:
+        return "local_pin"
+    if "public registry" in detail:
+        return "remote_registry"
+    return "none"
+
+
 def create_verification_report(
     integrity_ok: bool,
     signature_valid: bool | None,
@@ -585,6 +635,7 @@ def create_verification_report(
     sequence_ok: bool = True,
     completeness_ok: bool = True,
     chain_ok: bool = True,
+    chain_present: bool = True,
     transparency_ok: bool | None = None,
     completeness_gaps: list[str] | None = None,
     forensic_reason: str | None = None,
@@ -599,6 +650,11 @@ def create_verification_report(
     status_detail = "Registry check not performed"
     identity_status = "UNKNOWN"
     local_key_name: str | None = None
+    # Where the trust decision came from: "local_pin" (the verifier chose it),
+    # "did_web" (the file's own author published the key at their own domain),
+    # "remote_registry", "revoked" or "none". A did_web source is
+    # self-assertion, never a pin.
+    pin_source: str = "none"
 
     if manifest.public_key and not trusted_registry:
         # Artifact is signed but caller supplied no registry to check against.
@@ -610,10 +666,23 @@ def create_verification_report(
         )
 
     if manifest.public_key and trusted_registry:
-        is_trusted_identity, identity_name, status_detail = trusted_registry.verify_key_trust(
-            manifest.public_key,
-            governance=manifest.governance,
-        )
+        # Prefer the source-aware call, but stay compatible with registries
+        # (and test doubles) that only implement the 3-tuple verify_key_trust.
+        try:
+            is_trusted_identity, identity_name, status_detail, pin_source = (
+                trusted_registry.verify_key_trust_with_source(
+                    manifest.public_key,
+                    governance=manifest.governance,
+                )
+            )
+        except (TypeError, ValueError, AttributeError):
+            is_trusted_identity, identity_name, status_detail = (
+                trusted_registry.verify_key_trust(
+                    manifest.public_key,
+                    governance=manifest.governance,
+                )
+            )
+            pin_source = _pin_source_from_detail(status_detail)
         if "REVOKED" in status_detail:
             identity_status = "REVOKED"
         elif "mismatch" in status_detail.lower() or "impersonation" in status_detail.lower():
@@ -650,6 +719,10 @@ def create_verification_report(
             "sequence_ok": sequence_ok,
             "completeness_ok": completeness_ok,
             "chain_ok": chain_ok,
+            # False means the steps carry no prev_hash links at all: the chain
+            # check passed *vacuously* and nothing in the file proves the
+            # recorded order. Distinct from chain_ok=False (a broken chain).
+            "chain_present": chain_present,
             "transparency_ok": transparency_ok,
             "has_signature": manifest.signature is not None,
             "mismatches": mismatches,
@@ -667,6 +740,11 @@ def create_verification_report(
             "name": identity_name or signer_name,
             "detail": status_detail,
             "registry_verified": is_trusted_identity,
+            # Explicit, machine-readable trust source. "local_pin" is a real
+            # pin; "did_web" means the signer published their own key at their
+            # own domain (self-asserted). Consumers must not describe the
+            # latter as pinned.
+            "pin_source": pin_source,
             "public_key_id": pk[:16] if pk else None,
             "public_key_fingerprint": pk[:32] if pk else None,
             "fingerprint": _key_fingerprint(pk) if pk else None,
@@ -900,6 +978,17 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "Evidence incomplete — seal and signer are valid, but the record has "
                 "gaps (see Forensic). --policy strict FAILs this."
             )
+        elif not facts.get("chain_present", True):
+            # The steps carry no prev_hash links at all. The chain check passed
+            # vacuously, so nothing here proves the recorded order: a producer
+            # could reorder or drop steps and re-sign. That is not a clean
+            # PASS — the ordering guarantee is simply absent.
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Step hash chain absent — the seal and signer are valid, but the steps "
+                "carry no prev_hash links, so the recorded order is not provable. "
+                "--policy strict FAILs this."
+            )
         else:
             decision["status"] = "PASS"
             decision["reason"] = "Integrity verified and identity not revoked"
@@ -937,6 +1026,16 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
         elif not facts["completeness_ok"]:
             decision["reason"] = (
                 "Evidence incomplete (Strict Policy requires full telemetry coverage)"
+            )
+        elif not facts.get("chain_present", True):
+            # The chain is what proves the recorded order. Without it, "Integrity,
+            # Identity, Completeness" would be a claim about a file whose step
+            # order can be rewritten and re-signed without detection. Strict is
+            # the claim-ready policy, so it must not certify that.
+            decision["reason"] = (
+                "Step hash chain absent (Strict Policy requires a provable step "
+                "order). The steps carry no prev_hash links, so the recorded order "
+                "could be rewritten and re-signed without detection."
             )
         else:
             decision["status"] = "PASS"

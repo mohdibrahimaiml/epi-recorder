@@ -176,6 +176,19 @@ class AutoSCITTAnchor:
             extract_dir.mkdir()
 
             with zipfile.ZipFile(epi_path, "r") as zf_in:
+                # Guard against zip-slip: no member name may escape the
+                # extraction directory. This path bypassed EPIContainer.unpack
+                # (which has the same guard) by opening the artifact as a bare
+                # ZIP, so the check has to be applied here too.
+                resolved_dest = extract_dir.resolve()
+                for member in zf_in.infolist():
+                    member_path = (extract_dir / member.filename).resolve()
+                    try:
+                        member_path.relative_to(resolved_dest)
+                    except ValueError:
+                        raise ValueError(
+                            f"Path traversal detected in .epi archive: {member.filename}"
+                        )
                 zf_in.extractall(extract_dir)
 
             scitt_dir = extract_dir / "artifacts" / "scitt"
