@@ -1,0 +1,51 @@
+name: Trust pack browser tests
+
+# The auditor's whole flow (open trust link -> download evidence pack ->
+# verify offline) is covered by browser-marked tests the release gate
+# deselects. This workflow runs them on every PR so the flow is checked
+# continuously. Floors mirror pyproject.toml [project.optional-dependencies]
+# test (playwright pair skipped by scripts/ci-install-deps.py on purpose).
+
+on:
+  pull_request:
+    paths:
+      - "tests/test_trust_page.py"
+      - "epi_cli/verify.py"
+      - "epi_core/witness_keys.py"
+      - "website/t/**"
+      - "site/t/**"
+      - ".github/workflows/trust-pack-browser.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tests/test_trust_page.py"
+      - "epi_cli/verify.py"
+      - "epi_core/witness_keys.py"
+      - "website/t/**"
+      - "site/t/**"
+      - ".github/workflows/trust-pack-browser.yml"
+  workflow_dispatch:
+
+jobs:
+  trust-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies (NOT the package itself)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python scripts/ci-install-deps.py
+          python -m pip install "playwright>=1.45.0" "pytest-playwright>=0.5.0"
+
+      - name: Install chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run trust-page browser tests
+        run: python -m pytest tests/test_trust_page.py -q --maxfail=3
