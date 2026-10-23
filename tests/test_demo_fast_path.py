@@ -41,6 +41,21 @@ def test_demo_no_browser_produces_verified_epi(demo_cwd: Path):
     assert "sk-" + ("d" * 40) not in str(steps)
 
 
+def test_demo_does_not_silently_pin_local_key(demo_cwd: Path):
+    """B3: demo may create a key, but it must not add it to the trust store."""
+    result = runner.invoke(cli_app, ["demo", "--no-browser"])
+    assert result.exit_code == 0, result.output
+    assert "IDENTITY PINNED" not in result.output
+
+    trusted = demo_cwd / "epi_home" / "trusted_keys"
+    pinned = sorted(trusted.glob("*.pub")) if trusted.exists() else []
+    assert pinned == [], f"epi demo silently pinned: {pinned}"
+
+    epi = demo_cwd / "epi-recordings" / "demo_refund.epi"
+    verify = runner.invoke(cli_app, ["verify", str(epi), "--json"])
+    assert verify.exit_code in (0, 1), verify.output
+
+
 def test_demo_help_mentions_review_flag():
     result = runner.invoke(cli_app, ["demo", "--help"])
     assert result.exit_code == 0
