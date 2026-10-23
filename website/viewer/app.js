@@ -368,7 +368,9 @@ function renderHeader(caseData, context) {
   const intVerdict = intOk ? 'pass' : (intKnown ? 'fail' : 'gray');
   const intLabel = intOk
     ? 'INTEGRITY VERIFIED'
-    : (intKnown ? 'INTEGRITY FAILED' : 'INTEGRITY NOT VERIFIED HERE');
+    : (intKnown
+      ? 'INTEGRITY FAILED'
+      : 'INTEGRITY NOT VERIFIED HERE — run epi verify');
   // Prefer live context sig_valid, but only when it's been explicitly set.
   // An empty/missing context must not override the preloaded case payload.
   const hasLiveSig = context != null && Object.prototype.hasOwnProperty.call(context, 'signature_valid');
@@ -969,7 +971,7 @@ function renderIntegrity(caseData, context) {
     intEl.className = 'indicator verified';
     intEl.title = 'File integrity verified — this measures whether the sealed record has been altered since sealing. It does not verify that the recording process captured every action the agent actually took.';
   } else if (!intKnown) {
-    intEl.textContent = 'NOT VERIFIED HERE';
+    intEl.textContent = 'NOT VERIFIED HERE — run epi verify';
     intEl.className = 'indicator unverified';
     intEl.title = 'This viewer does not hold the signed manifest bytes, so it cannot verify this file. ' +
       'Verify offline with: epi verify <file>.epi --policy strict';
@@ -2457,8 +2459,54 @@ async function init() {
 
 // ── Bootstrap ─────────────────────────────────────────────────
 
+/** Never leave a double-clicked file as a blank page. */
+function showViewerFailure(err) {
+  console.error('[epi] viewer failed:', err);
+  if (document.getElementById('epi-viewer-failure')) return;
+  const box = document.createElement('div');
+  box.id = 'epi-viewer-failure';
+  box.style.cssText =
+    'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;' +
+    'justify-content:center;padding:32px;background:#0b0b0b;color:#f5f5f5;' +
+    'font:16px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;text-align:center';
+  const inner = document.createElement('div');
+  inner.style.maxWidth = '680px';
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:12px;color:#ff6b6b';
+  title.textContent = 'This file is damaged or was altered.';
+  const body = document.createElement('div');
+  body.textContent =
+    'The embedded viewer could not load the sealed evidence. ' +
+    'Do not rely on what this page shows. Check the file with: epi verify <file>.epi';
+  inner.appendChild(title);
+  inner.appendChild(body);
+  box.appendChild(inner);
+  (document.body || document.documentElement).appendChild(box);
+}
+
+function startViewer() {
+  try {
+    const pending = init();
+    if (pending && typeof pending.catch === 'function') {
+      pending.catch(showViewerFailure);
+    }
+  } catch (err) {
+    showViewerFailure(err);
+  }
+}
+
+// CSP: inline event handlers are not allowed - bind here instead of onclick=.
+(function () {
+  const block = document.getElementById('verify-cmd-block');
+  if (block) {
+    block.addEventListener('click', function () {
+      window.copyVerifyCmd(this);
+    });
+  }
+})();
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { init(); });
+  document.addEventListener('DOMContentLoaded', startViewer);
 } else {
-  init();
+  startViewer();
 }
