@@ -1,6 +1,6 @@
 # Annex IV templates (`epi annex`)
 
-**Product version:** 4.6.2.  
+**Product version:** 4.6.2. **4.6.3 (release pending).**  
 **Not a certificate. Not a legal Declaration of Conformity.**
 
 `epi annex` helps you **author, validate, sign, and pack** nine JSON files whose *shape* follows EU AI Act Annex IV section headings. You supply the facts. EPI hashes and can sign the bytes you wrote.

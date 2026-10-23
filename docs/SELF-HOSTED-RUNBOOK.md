@@ -1,6 +1,6 @@
 # EPI Self-Hosted Reliability Runbook
 
-This runbook defines the supported `v4.6.2` self-hosted shape for EPI (the local gateway / connect path — not EPI Cloud):
+This runbook defines the supported `v4.6.2` self-hosted shape; **4.6.3 (release pending)** keeps that shape for EPI (the local gateway / connect path — not EPI Cloud):
 
 - single-node deployment
 - append-only event spool on disk

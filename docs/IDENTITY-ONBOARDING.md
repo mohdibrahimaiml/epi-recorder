@@ -1,6 +1,6 @@
 # Identity onboarding (did:web)
 
-**Product version:** 4.6.2.
+**Product version:** 4.6.2. **4.6.3 (release pending).**
 
 A fresh key verifies as NOT_PINNED, and anyone can re-sign a rebuilt chain
 with a fresh key. This page binds the vendor's key to the vendor's domain
@@ -9,6 +9,11 @@ once, for free.
 ## For the vendor (5 minutes)
 
 1. If you have no key yet: `epi keys generate`.
+   Optionally encrypt the private key at rest: set `EPI_KEY_PASSWORD` to a long
+   random passphrase *before* `epi keys generate` (and keep it set whenever the
+   key is loaded — sealing, signing, Cloud upload). The key is written as
+   encrypted PKCS#8 PEM; there is no HSM integration and no recovery if the
+   passphrase is lost. `epi keys import` honours the same variable.
 2. Publish your key:
    `epi keys did --domain vendor.com [--path agents/claims] [--key default]`
    This writes `did.json` and prints the DID (`did:web:vendor.com`, or

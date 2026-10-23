@@ -1,6 +1,6 @@
 # Share With Your Team Locally
 
-**Product version:** 4.6.2. This is the **self-hosted gateway**, not EPI Cloud.
+**Product version:** 4.6.2. **4.6.3 (release pending).** This is the **self-hosted gateway**, not EPI Cloud.
 
 `epi connect open` is the local team-review path. It starts the EPI gateway and the browser workspace together so another reviewer can inspect cases without piecing together ports and HTML files by hand.
 

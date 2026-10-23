@@ -1,12 +1,24 @@
 # EPI Conformance Test Vectors
 
-## tv-001: Manifest canonical hash (JSON, sort_keys=True, compact, SHA-256, excluding signature/governance/trust)
+These vectors are normative for the current specification line (4.6.2). The tv-001 example names **4.6.3 (release pending)**; its canonicalization is unchanged from 4.6.2. `test-vectors.json` is the machine-readable copy.
+
+## tv-001: Manifest canonical hash (JCS/RFC 8785, excluding signature only)
 
 ```json
 {
   "id": "tv-001",
-  "desc": "Manifest canonical hash (JSON, sort_keys=True, compact, SHA-256, excluding signature/governance/trust)",
-  "hash": "be5337ff4f336d73a889e6550a4b75b4a953be81900f54b944b848fc322b42f8"
+  "desc": "Manifest canonical hash (JCS/RFC 8785, excluding signature only)",
+  "input": {
+    "workflow_id": "00000000-0000-4000-8000-000000000001",
+    "spec_version": "4.6.3",
+    "created_at": "2026-10-23T00:00:00Z",
+    "goal": "test-vector"
+  },
+  "canonicalization": "jcs",
+  "exclude": [
+    "signature"
+  ],
+  "hash": "00e931af4939c8a6c3a1214cbf626511a784398b7759f615463286a59cf665ec"
 }
 ```
 
@@ -15,7 +27,7 @@
 ```json
 {
   "id": "tv-002",
-  "desc": "File hash verification \u2014 SHA-256 over raw bytes matches file_manifest entry",
+  "desc": "File hash verification — SHA-256 over raw bytes matches file_manifest entry",
   "manifest_files": {
     "analysis.json": "60d2887b82260d53c82ba4a7092db6c70a146bad5d4019c01b1e39b7cdcf2f34",
     "environment.json": "4d4edb57ccd35612cf66dbae0c537b96e6d3c21ca32aa622f001adbb84021036",
@@ -35,15 +47,15 @@
 }
 ```
 
-## tv-003: Envelope v2 header — read first 4 bytes of file for magic detection
+## tv-003: Container auto-detection (envelope-v2, legacy EPI1, bare ZIP)
 
 ```json
 {
   "id": "tv-003",
-  "desc": "Envelope v2 header \u2014 read first 4 bytes of file for magic detection",
-  "magic_detection": "If bytes 0-3 are 0x3C 0x21 0x2D 0x2D (ASCII <!--), it is envelope-v2. If 0x45 0x50 0x49 0x31 (EPI1), it is legacy-zip.",
+  "desc": "Container auto-detection (envelope-v2, legacy EPI1, bare ZIP)",
+  "magic_detection": "Read bytes 0-3. 0x3C 0x21 0x2D 0x2D (<!--) = envelope-v2. 0x45 0x50 0x49 0x31 (EPI1) = legacy EPI1 container; probe the first 64 bytes for PK\\x03\\x04. 0x50 0x4B 0x03 0x04 (PK\\x03\\x04) = bare ZIP (legacy-zip pipeline). Anything else is not a valid .epi file.",
   "header_size": 128,
-  "zip_marker": "\\n<!-- EPI_ZIP_PAYLOAD_START -->\\n"
+  "zip_marker": "\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
 }
 ```
 
@@ -53,7 +65,7 @@
 {
   "id": "tv-004",
   "desc": "MIME type constants",
-  "envelope_v2_mime": "application/vnd.epi",
+  "envelope_v2_mime": "application/vnd.epi+zip",
   "legacy_zip_mime": "application/vnd.epi+zip",
   "scitt_payload_mime": "application/vnd.epi.manifest+hash",
   "mimetype_file": "application/vnd.epi+zip"
@@ -95,11 +107,13 @@
     "MEDIUM",
     "LOW",
     "NONE",
-    "TAMPERED"
+    "FAIL",
+    "INVALID"
   ],
   "container_formats": [
-    "legacy-zip",
-    "envelope-v2"
+    "envelope-v2",
+    "EPI1",
+    "legacy-zip"
   ],
   "analysis_status": [
     "complete",
@@ -115,33 +129,44 @@
 }
 ```
 
-## tv-007: Canonical hash algorithm (normative)
+## tv-007: Canonical hash algorithm (normative, current spec versions)
 
 ```json
 {
   "id": "tv-007",
-  "desc": "Canonical hash algorithm (normative)",
+  "desc": "Canonical hash algorithm (normative, current spec versions)",
   "manifest_hash": {
+    "canonicalization": "JCS (RFC 8785)",
     "exclude": [
-      "signature",
-      "governance",
-      "trust"
+      "signature"
+    ],
+    "omit_when_null": [
+      "content_truncated",
+      "policy_load_status",
+      "producer_version"
     ],
     "datetime_fmt": "YYYY-MM-DDTHH:MM:SSZ",
     "uuid_fmt": "lowercase canonical",
-    "json_order": "sort_keys=True, separators=compact, ensure_ascii=True",
     "hash": "SHA-256"
   },
   "step_hash": {
+    "canonicalization": "JCS (RFC 8785)",
     "exclude": [
-      "source_type"
+      "source_type",
+      "verification_class"
+    ],
+    "omit_when_null": [
+      "content_truncated",
+      "policy_load_status",
+      "producer_version"
     ],
     "datetime_fmt": "YYYY-MM-DDTHH:MM:SSZ",
     "uuid_fmt": "lowercase canonical",
-    "json_order": "sort_keys=True, separators=compact, ensure_ascii=True",
     "hash": "SHA-256",
-    "step_0_prev_hash": "null"
-  }
+    "step_0_prev_hash": "CHAIN_START or null"
+  },
+  "legacy_dispatch": "Verifiers select canonicalization from the manifest spec_version: 1.x = CBOR; 2.x through pre-4.4.1 = legacy JSON (sort_keys, compact, ensure_ascii=False); 4.4.1+ = JCS. Current sealers always use JCS for steps."
 }
 ```
 
+Legacy artifacts are still verified: the canonicalization is selected from the manifest `spec_version` (see tv-007 `legacy_dispatch`).

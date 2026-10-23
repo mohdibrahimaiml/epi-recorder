@@ -1,6 +1,6 @@
 # Customer witness
 
-**Product version:** 4.6.2. Cloud product claims: [CLOUD.md](./CLOUD.md).
+**Product version:** 4.6.2. **4.6.3 (release pending).** Cloud product claims: [CLOUD.md](./CLOUD.md).
 
 How a vendor reports every seal to its customer, and how the customer keeps
 and checks those reports. A witness receipt is **hash-only**. It is not a
@@ -152,10 +152,17 @@ checks Rekor anchoring):
 epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc
 ```
 
-A daily cron signs `{"inbox","day","count","head_hash"}` with the EPI Cloud
-witness Ed25519 key and anchors it in the Sigstore Rekor transparency log, an
-RFC 3161 timestamp, and the public `epi-witness-checkpoints` git repo.
-Rewriting the log would require rewriting all three in public.
+A daily cron ( `cloud/wrangler.toml`: `crons = ["5 0 * * *"]` ) signs
+`{"inbox","day","count","head_hash"}` with the EPI Cloud witness Ed25519 key
+and anchors it in the Sigstore Rekor transparency log and an RFC 3161
+timestamp. Rewriting the log would require rewriting both public anchors.
+
+A separate public git mirror (`epi-witness-checkpoints`) is **planned but not
+published** as of 23 Oct 2026 — the GitHub URL currently returns 404. Until it
+exists, the signed `/w/{id}/checkpoints` endpoint plus Rekor are the public
+record; do not tell customers to cross-check a repo that is not there. The
+daily cron does **not** back up D1 — database exports are still a weekly
+manual founder op (see `internal/cloud-ops.md` §5).
 
 ## Customer: check a file
 

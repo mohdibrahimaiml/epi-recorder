@@ -68,13 +68,15 @@ If you also want the interactive browser flow after that deterministic proof ste
 epi view sample.epi
 ```
 
-For AGT imports, the first screen should immediately show:
+For AGT imports, the same eight-section viewer opens; expect:
 
-- `Source system: AGT`
-- `Import mode: EPI`
-- decision, review, and trust state in the `Overview`
-- a `Transformation Audit` panel that explains what was preserved raw, translated, derived, or synthesized
-- raw AGT payloads grouped under attachments for local inspection
+- decision, review, and trust state in **0 Summary** and **3 Verdict**
+- integrity/signature/chain details in **1 Integrity**
+- normalized AGT steps in **4 Evidence**
+- policy/control outcomes in **5 Governance**
+- findings in **6 Analysis**, with provenance markers on imported steps
+- the full transformation audit in `artifacts/agt/mapping_report.json`
+  (also surfaced in the Appendix) — there is no separate `Mapping` panel
 
 What you should expect inside the extracted review folder / artifact:
 

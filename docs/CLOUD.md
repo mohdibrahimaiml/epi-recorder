@@ -1,6 +1,6 @@
 # EPI Cloud
 
-**Status (v4.6.2):** private beta at `https://cloud.epilabs.org`.  
+**Status (v4.6.2; 4.6.3 (release pending)):** private beta at `https://cloud.epilabs.org`.  
 **Not:** a paywall on verification, a self-serve hosted-verification product, or a place that must hold every `.epi`.
 
 Open-source `epi-recorder` stays complete without Cloud. Cloud is how a vendor **connects a computer**, **witnesses runs (hashes)**, and **shares selected files** with a customer reviewer.
@@ -30,15 +30,18 @@ Commands: [CLI.md](./CLI.md) (`epi cloud login|use|push|status`, `epi cloud keys
 
 Public site: Cloud is private beta ([epilabs.org/plans](https://epilabs.org/plans)). Entitlements in code (`cloud/src/lib/plans.ts`):
 
-| Plan | Customers | Stored runs | Retention |
-|------|-----------|-------------|-----------|
-| Free | 1 | 50 | 30 days |
-| Startup | 3 | 1,000 | 1 year |
-| Growth | 15 | 10,000 | 7 years |
-| Design partner | 10 agents / 5 inboxes | 2,000 | 7 years |
-| Enterprise | as entitled | as entitled | as entitled |
+| Plan | Customers | Stored runs | Retention | Share links |
+|------|-----------|-------------|-----------|-------------|
+| Free | 1 | 50 | 30 days | 1 |
+| Startup | 3 | 1,000 | 1 year | 3 |
+| Growth | 15 | 10,000 | 7 years | unlimited |
+| Design partner | 5 | 2,000 | 7 years | 10 |
+| Enterprise | as entitled | as entitled | as entitled | as entitled |
 
-Verification is never limited or charged. Speak in **customers**, not internal metric names.
+Limits are per workspace and come from `PLAN_LIMITS` in
+`cloud/src/lib/plans.ts`; a share link is a reviewer trust link, and expired
+links do not count toward the limit. Verification is never limited or charged.
+Speak in **customers**, not internal metric names.
 
 Login for **epilabs.org Sign In** and the CLI is Cloud only.
 
