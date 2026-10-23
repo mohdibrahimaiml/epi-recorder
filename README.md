@@ -7,11 +7,9 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.6.2](https://img.shields.io/badge/version-v4.6.2-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.6.3](https://img.shields.io/badge/version-v4.6.3-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
-
-**Version note:** 4.6.2 is the current PyPI release. The next security/docs release is **4.6.3 (release pending)**; it is not on PyPI yet.
 
 ```bash
 pip install epi-recorder

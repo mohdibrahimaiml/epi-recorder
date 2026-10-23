@@ -78,10 +78,20 @@ DEFAULT_REDACTION_PATTERNS = [
      'Spoken password'),
     # JWT
     (r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', 'JWT token'),
-    # PII
+    # PII. Phone and US SSN require separators (or a leading `+`) so that
+    # plain numeric identifiers - order IDs, account numbers, paise amounts -
+    # are not silently destroyed. A bare 9-10 digit number is only redacted
+    # when the field name itself says it is PII (see _is_pii_key), and users
+    # can exempt a field explicitly with `redaction.allowlist_fields`.
     (r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', 'Email address'),
-    (r'\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b', 'Phone number'),
-    (r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b', 'Social Security Number'),
+    (
+        r'(?<![\w])\+\d{1,3}[\s.\-]?\d{1,4}[\s.\-]?\d{3,4}[\s.\-]?\d{3,4}\b'
+        r'|\(\d{2,4}\)[\s.\-]?\d{3,4}[\s.\-]?\d{3,4}\b'
+        r'|\b\d{3}[\s.\-]\d{3}[\s.\-]\d{4}\b',
+        'Phone number',
+    ),
+    (r'\b\d{3}-\d{2}-\d{4}\b', 'Social Security Number'),
+    (r'\b\d{3} \d{2} \d{4}\b', 'Social Security Number'),
     (r'\b(?:\d{4}[- ]?){3}\d{4}\b', 'Credit card number'),
     (r'\b\d{4}[- ]?\d{6}[- ]?\d{5}\b', 'American Express'),
     (r'(?:\.\.\.|\*\*\*\*|ending in)\s*\d{4}', 'Credit card last 4'),
@@ -126,6 +136,15 @@ def load_literal_secrets_from_env() -> List[str]:
         )
         return []
     return [text]
+
+
+def _contains_digit(value: Any) -> bool:
+    """True when a value (or anything nested in it) contains a digit."""
+    if isinstance(value, dict):
+        return any(_contains_digit(v) for v in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_digit(v) for v in value)
+    return any(ch.isdigit() for ch in str(value))
 
 
 def _filter_declared_secrets(values: list, source: str) -> list[str]:
@@ -217,6 +236,21 @@ SENSITIVE_KEY_TOKENS = (
     'CREDENTIAL',
     'CONNSTRING',
     'CONNECTIONSTRING',
+)
+
+# Field names whose values are PII even without separators (a bare
+# `123456789` under `ssn` or `phone` is PII; under `order_id` it is not).
+# Matched on word boundaries so e.g. "CLASSNAME" does not match "SSN".
+_PII_KEY_RE = re.compile(
+    r"(?:^|[^a-z0-9])("
+    r"ssn"
+    r"|social[ _-]?security(?:[ _-]?(?:number|no))?"
+    r"|phone(?:[ _-]?(?:number|no))?"
+    r"|mobile(?:[ _-]?number)?"
+    r"|telephone(?:[ _-]?number)?"
+    r"|fax(?:[ _-]?number)?"
+    r")(?:[^a-z0-9]|$)",
+    re.IGNORECASE,
 )
 
 class RedactionPlaceholderStr(str):
@@ -329,7 +363,8 @@ class Redactor:
     """
     
     def __init__(self, config_path: Path | None = None, enabled: bool = True, allowlist: List[str] = None,
-                 literal_secrets: List[str] | None = None):
+                 literal_secrets: List[str] | None = None,
+                 allowlist_fields: List[str] | None = None):
         """
         Initialize redactor with optional custom configuration.
         
@@ -341,11 +376,18 @@ class Redactor:
                 (re.escape'd, HMAC placeholders like everything else).
                 EPI_REDACT_SECRETS env (JSON list or single value) and
                 config `literal_secrets` are always merged in.
+            allowlist_fields: Optional list of field names that must never be
+                redacted (case-insensitive). Use this for IDs/amounts whose
+                field name is not PII; it is an explicit trust decision and
+                also disables key-name redaction for that field.
         """
         self.enabled = enabled
         self.patterns: List[Tuple[re.Pattern, str]] = []
         self.env_vars_to_redact = REDACT_ENV_VARS.copy()
         self.allowlist = set(allowlist) if allowlist else set()
+        self.allowlist_fields = {
+            str(name).strip().lower() for name in (allowlist_fields or []) if str(name).strip()
+        }
 
         # User-declared literal secrets: exact values, applied FIRST so they
         # win over (and are never mangled by) generic patterns. Short values
@@ -414,6 +456,25 @@ class Redactor:
             # Load allowlist
             if 'redaction' in config and 'allowlist' in config['redaction']:
                 self.allowlist.update(config['redaction']['allowlist'])
+
+            # Load field-name allowlist (never redact these fields)
+            if 'redaction' in config and 'allowlist_fields' in config['redaction']:
+                raw_fields = config['redaction']['allowlist_fields']
+                if isinstance(raw_fields, str) or not isinstance(raw_fields, list):
+                    import warnings as _warnings
+
+                    _warnings.warn(
+                        "redaction.allowlist_fields must be a TOML list - ignoring "
+                        f"malformed value of type {type(raw_fields).__name__}.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    self.allowlist_fields.update(
+                        str(name).strip().lower()
+                        for name in raw_fields
+                        if str(name).strip()
+                    )
 
             # Load literal secrets (exact values, TOML list)
             if 'redaction' in config and 'literal_secrets' in config['redaction']:
@@ -528,9 +589,20 @@ class Redactor:
         if isinstance(data, dict):
             redacted_dict = {}
             for key, value in data.items():
-                # Key-name based redaction (exact env names + sensitive substrings)
-                if self._is_sensitive_key(str(key)):
-                    redacted_dict[key] = self._get_placeholder(str(key), value)
+                key_name = str(key)
+                # Explicit field allowlist: an operator has declared this
+                # field safe (e.g. an order id that contains dashes).
+                if key_name.strip().lower() in self.allowlist_fields:
+                    redacted_dict[key] = value
+                    continue
+                # Key-name based redaction (exact env names + sensitive
+                # substrings), plus PII-named fields that actually carry
+                # digits. A plain numeric identifier is only redacted when
+                # its field name says it is PII.
+                if self._is_sensitive_key(key_name) or (
+                    self._is_pii_key(key_name) and _contains_digit(value)
+                ):
+                    redacted_dict[key] = self._get_placeholder(key_name, value)
                     redaction_count += 1
                 else:
                     redacted_value, count = self.redact(value)
@@ -596,6 +668,17 @@ class Redactor:
             return True
         return False
 
+    def _is_pii_key(self, key: str) -> bool:
+        """True if the field name itself marks its value as PII.
+
+        Word-boundary matched so identifiers such as ``CLASSNAME`` are not
+        mistaken for ``SSN``, and camelCase names are split first.
+        """
+        if not key:
+            return False
+        camel_split = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key)
+        return bool(_PII_KEY_RE.search(camel_split))
+
     def redact_dict_keys(self, data: Dict[str, Any], sensitive_keys: set[str]) -> Tuple[Dict[str, Any], int]:
         """
         Redact specific dictionary keys by name.
@@ -652,6 +735,11 @@ enabled = true
 
 # Allowlist: Strings that should NEVER be redacted (exact match)
 # allowlist = ["sk-not-actually-a-key", "my-public-token"]
+
+# Field allowlist: dict field names whose values should NEVER be redacted
+# (case-insensitive). Use for IDs/amounts that are not PII, e.g. an
+# order_id that contains dashes. This is an explicit trust decision.
+# allowlist_fields = ["order_id", "amount_paise", "account_number"]
 
 # Literal secrets: exact values to redact (custom formats no regex covers).
 # Prefer the EPI_REDACT_SECRETS env var (JSON list, or a single value) so

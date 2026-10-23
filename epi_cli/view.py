@@ -809,25 +809,33 @@ def view(
         raise typer.Exit(1)
 
     if extract:
+        # Verify before writing anything: an altered file is still extractable
+        # for forensics, but its output folder is marked so nobody mistakes it
+        # for a clean export.
+        _context = _build_viewer_context(resolved_path)
+        _altered = _print_seal_verdict(resolved_path, _context)
         dest = Path(extract)
+        if _altered:
+            dest = dest.with_name(dest.name + "_ALTERED")
+            console.print(
+                "[yellow]   Output folder marked _ALTERED because the seal failed.[/yellow]"
+            )
         dest.mkdir(parents=True, exist_ok=True)
         EPIContainer.unpack(resolved_path, dest)
         viewer_path = dest / "viewer.html"
         try:
             viewer_html = _create_decision_ops_viewer(dest, resolved_path)
             viewer_path.write_text(viewer_html, encoding="utf-8")
-            _inject_viewer_context(viewer_path, _build_viewer_context(resolved_path))
+            _inject_viewer_context(viewer_path, _context)
         except Exception:
             viewer_path = _refresh_viewer_html(dest, resolved_path)
-            _inject_viewer_context(viewer_path, _build_viewer_context(resolved_path))
+            _inject_viewer_context(viewer_path, _context)
         console.print(f"[green][OK][/green] Extracted to: {dest}")
         console.print(f"   File: {dest / 'viewer.html'}")
         console.print(
             "[dim]Tip: run [cyan]epi view file.epi[/cyan] (no --extract) to open via "
             "http://127.0.0.1 — more reliable than double-clicking the HTML.[/dim]"
         )
-        # Extracting an altered file is allowed (forensics), but say so.
-        _altered = _print_seal_verdict(resolved_path, _build_viewer_context(resolved_path))
         _print_share_hint()
         _emit_view_telemetry(resolved_path)
         raise typer.Exit(1 if _altered else 0)

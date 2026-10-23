@@ -48,6 +48,24 @@ def test_view_reports_altered_file(monkeypatch, tmp_path: Path) -> None:
     assert "ALTERED" not in out
 
 
+def test_view_extract_marks_altered_folder(monkeypatch, tmp_path: Path) -> None:
+    """B7: extraction still works for forensics, but the folder is marked."""
+    good, bad = _files(monkeypatch, tmp_path)
+
+    altered = tmp_path / "extract"
+    result = runner.invoke(cli_app, ["view", str(bad), "--extract", str(altered)])
+    assert result.exit_code != 0
+    assert (tmp_path / "extract_ALTERED").is_dir()
+    assert not altered.exists()
+    assert "_ALTERED" in result.output
+
+    clean = tmp_path / "clean"
+    result = runner.invoke(cli_app, ["view", str(good), "--extract", str(clean)])
+    assert result.exit_code == 0, result.output
+    assert clean.is_dir()
+    assert not (tmp_path / "clean_ALTERED").exists()
+
+
 def test_export_html_refuses_altered_file(monkeypatch, tmp_path: Path) -> None:
     good, bad = _files(monkeypatch, tmp_path)
 
@@ -87,7 +105,7 @@ def test_epi_register_finds_file_in_epi_recordings(monkeypatch, tmp_path: Path) 
 
 
 def test_own_key_pin_does_not_make_other_senders_fail(monkeypatch, tmp_path: Path) -> None:
-    """`epi demo` auto-pins the user's own key; that alone must not FAIL other files."""
+    """Pinning the user's own key must not make other senders FAIL."""
     from epi_core.keys import KeyManager
 
     _hermetic(monkeypatch, tmp_path)

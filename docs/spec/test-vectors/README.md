@@ -1,6 +1,6 @@
 # EPI Conformance Test Vectors
 
-These vectors are normative for the current specification line (4.6.2). The tv-001 example names **4.6.3 (release pending)**; its canonicalization is unchanged from 4.6.2. `test-vectors.json` is the machine-readable copy.
+These vectors are normative for the current specification (4.6.3). `test-vectors.json` is the machine-readable copy.
 
 ## tv-001: Manifest canonical hash (JCS/RFC 8785, excluding signature only)
 

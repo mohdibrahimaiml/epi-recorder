@@ -1,6 +1,6 @@
 # Public `.epi` samples
 
-**Product version:** 4.6.2. **4.6.3 (release pending).** These files were sealed on an older tree (2026-07-23). Re-check with the CLI you actually installed. On a fresh trust store the unpinned identity is a **WARN · UNVERIFIED IDENTITY**; if you have already pinned other keys it is a **FAIL · NOT A KEY YOU TRUST**. Both become PASS after you confirm the sender's fingerprint out of band and `epi keys trust` it.
+**Product version:** 4.6.3. These files were sealed on an older tree (2026-07-23). Re-check with the CLI you actually installed. On a fresh trust store the unpinned identity is a **WARN · UNVERIFIED IDENTITY**; if you have already pinned other keys it is a **FAIL · NOT A KEY YOU TRUST**. Both become PASS after you confirm the sender's fingerprint out of band and `epi keys trust` it.
 
 | File | What it is | Expected `epi verify` |
 |------|------------|------------------------|

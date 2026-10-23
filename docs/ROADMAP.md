@@ -7,7 +7,7 @@ and the standing rule for everything else.
 
 ## Committed — `CHANGELOG.md` `[Unreleased]`
 
-Nothing beyond the 4.6.3 (release pending) security/docs release (see `CHANGELOG.md`).
+Nothing beyond the 4.6.3 security/docs release (see `CHANGELOG.md`).
 
 ## Shipped in 4.6.2
 

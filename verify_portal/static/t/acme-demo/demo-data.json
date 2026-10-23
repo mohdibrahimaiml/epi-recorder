@@ -33,7 +33,7 @@
     {
       "path": "/assets/sample.epi",
       "label": "Website sample run (DEMO)",
-      "claimed_sha256": "cbfdce1cf28555da36cb1b186398c6a7540ee1d5dbb33ae6a7daf940ab525088",
+      "claimed_sha256": "74e7e7af8d4c7a269df876f2b22809b2366791b787562ea2c51f12a5e50a0cc6",
       "size_bytes": 458046,
       "workflow_id": "7385b43c-1c84-493a-8ed3-922548980c4e",
       "goal": "Website sample.epi for browser verify",
@@ -43,7 +43,7 @@
     {
       "path": "/assets/demo/demo-lending-affordability.epi",
       "label": "Mortgage refinance evaluation (DEMO)",
-      "claimed_sha256": "4541fa49a886d327b9fe3f74da19f8d6cab5c6ae5bbcc2e25ceb50a560c25a65",
+      "claimed_sha256": "b40af6c792a228e6dcfb4d11a0a1e110706eb4305be0a052c0a830a61dff123f",
       "size_bytes": 498868,
       "workflow_id": "14ef4b5c-3c91-4c85-9d63-ec1cf0f4f9ea",
       "goal": "Evaluate mortgage refinance application MORT-55102 for borrower affordability",
@@ -53,7 +53,7 @@
     {
       "path": "/assets/demo/demo-finance-loan-underwriter.epi",
       "label": "Consumer loan underwriting (DEMO)",
-      "claimed_sha256": "9c5d58124efb304ab9d3f6fc601d3926f4fed1a1c9a5f624f152d9fae335d66b",
+      "claimed_sha256": "6074f79fcabd0248ee13f419c650ef5fe2603f482d715f4f99cb208d93229bfb",
       "size_bytes": 507732,
       "workflow_id": "c2667049-4b46-4f71-9728-ca6204cc1596",
       "goal": "Underwrite consumer loan application APP-78421",

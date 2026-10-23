@@ -103,7 +103,7 @@ Please follow responsible disclosure practices.
 
 4.x only. Older 2.x notes are in git history, not current product truth.
 
-### v4.6.3 (release pending)
+### v4.6.3
 
 - **Display-layer forgery no longer passes `epi verify` (red-team F-01).** The outer
   polyglot viewer region is byte-identical to the sealed `viewer.html` member, whose

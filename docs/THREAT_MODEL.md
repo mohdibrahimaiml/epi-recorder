@@ -1,6 +1,6 @@
 # EPI Threat Model
 
-**Product version:** 4.6.2. **4.6.3 (release pending).** Product map: [README.md](./README.md).
+**Product version:** 4.6.3. Product map: [README.md](./README.md).
 
 ## What This Document Is
 
@@ -204,7 +204,7 @@ DID at all (strict is local-only). Two further notes:
 ### 4. Algorithm Degradation
 **Attack:** In 20 years, quantum computers break Ed25519. Old artifacts can no longer be trusted.
 
-**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.6.2 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
+**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.6.3 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
 
 **Mitigation:** Re-sign important artifacts with newer algorithms as standards evolve.
 
@@ -253,10 +253,10 @@ seal a plausible file and sign it with their own key.
   byte-identical to the sealed `viewer.html` member whose SHA-256 sits in the
   **signed** `file_manifest`, so editing the display layer of a real file
   fails `epi verify` even when the attacker also recomputes the unsigned
-  header copy. The signed display binding shipped in 4.6.3 (release pending); 4.6.2's #141/#143
+  header copy. The signed display binding shipped in 4.6.3; 4.6.2's #141/#143
   fixed only envelope tamper and still trusted the unsigned header copy for the
   viewer. The viewer itself refuses to paint a verdict it cannot support.
-- **The shipped viewer makes no network calls.** Scanned the current 4.6.3 (release pending)
+- **The shipped viewer makes no network calls.** Scanned the current 4.6.3
   artifact (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches,
   or sockets in the outer or inner viewer; every library is inlined. Reproduce it
   with the script in [FILE-SAFETY.md](./FILE-SAFETY.md) §2. Honest boundary:
@@ -302,7 +302,7 @@ payloads that execute when the victim opens the viewer.
 
 **Status:** the shipped viewer HTML-escapes recorded values in text positions
 and embeds sealed JSON script-safely (`_html_safe_json_dumps`), and a scan of a
-4.6.3 (release pending) seal shows no network primitives for exfiltrated data to reach — but there
+4.6.3 seal shows no network primitives for exfiltrated data to reach — but there
 is **no Content-Security-Policy** enforcing that, and the viewer has had **no
 independent penetration test**. Treat this as defense-in-depth, not a proven
 boundary.

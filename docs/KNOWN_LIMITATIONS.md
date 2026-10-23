@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.6.2. **4.6.3 (release pending).** Docs map: [README.md](./README.md).
+**Product version:** 4.6.3. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -247,7 +247,7 @@ corruption.
 Through 4.6.1 the **in-file viewer** could still paint INTEGRITY VERIFIED after
 an envelope failure (the live inner-ZIP check overwrote the baked verdict).
 **4.6.2** made the viewer fail-closed (#141/#143): a baked envelope failure
-cannot be upgraded to green. **4.6.3 (release pending)** makes `epi verify` check the signed
+cannot be upgraded to green. **4.6.3** made `epi verify` check the signed
 `viewer.html` hash, so a consistent display-layer forgery now fails the CLI
 too. Trust `epi verify`, not the colours.
 
@@ -260,7 +260,7 @@ display layer can recompute it and the file looks self-consistent. Through
 `THREAT_MODEL.md` R1 and the `VERIFY.txt` shipped inside every artifact were
 premature for 4.6.2.
 
-**Fixed in 4.6.3 (release pending):** the outer polyglot region is byte-identical to the sealed
+**Fixed in 4.6.3:** the outer polyglot region is byte-identical to the sealed
 `viewer.html` member, whose SHA-256 lives in the **signed** `file_manifest`.
 `epi verify` now checks the outer region against that signed value, so a
 display-layer edit fails even when the header copy is recomputed.
@@ -307,11 +307,13 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current published line: **4.6.2**. Current release line: **4.6.2**. Published on PyPI: **4.6.2**. **4.6.3 (release pending)** has not
-been uploaded. The published **4.6.2** wheel does **not** include the 4.6.3 (release pending) verifier
-fixes. The **4.6.3 (release pending)** release includes signed
-display-layer verification, the viewer fail-closed fix (#141/#143), and the
-pack-time viewer / prohibition-guard fix (#145). **4.4.1** remains on PyPI
+Current release line: **4.6.3**. Published on PyPI: **4.6.3**. The **4.6.3**
+wheel includes signed display-layer verification, the viewer fail-closed fix
+(#141/#143), and the pack-time viewer / prohibition-guard fix (#145). It has
+**no PEP 740 attestations** because it was uploaded with the project API token;
+its provenance endpoint returns HTTP 404. Trusted Publishing is still
+unconfigured. The published **4.6.2** wheel does **not** include the 4.6.3
+verifier fixes. **4.4.1** remains on PyPI
 (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2**
 never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`;
 verify FAILs when `true`, WARNs when absent).
@@ -418,7 +420,7 @@ Recording gaps that survive this rule (no silent completeness claim):
 - Legacy artifacts: pre-4.4.3 truncation (WARN), `controls_failed` undercount
   4.4.1–4.4.6 (recount `results`), all-zero viewer-hash polyglots **without** a
   signed `viewer.html` manifest entry (display layer not integrity-covered;
-  with the entry, 4.6.3 (release pending) verifies it), unsealed header bytes 0–3/16–39 (redundant
+  with the entry, 4.6.3 verifies it), unsealed header bytes 0–3/16–39 (redundant
   copies; manifest is authority), SCITT presence-only, pre-4.6 TSA tokens
   legacy/presence-only.
 

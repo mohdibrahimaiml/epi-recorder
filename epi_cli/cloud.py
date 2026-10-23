@@ -1033,7 +1033,7 @@ def storage_show(
 
 @storage_app.command("set")
 def storage_set(
-    url: str = typer.Argument(..., help="s3://bucket[/prefix]."),
+    url: str = typer.Argument(..., help=r"s3://bucket\[/prefix]."),
     endpoint: str | None = typer.Option(None, "--endpoint", help="Custom endpoint (MinIO/R2/GCS)."),
     region: str | None = typer.Option(None, "--region", help="Region (default us-east-1)."),
     object_lock: str = typer.Option(

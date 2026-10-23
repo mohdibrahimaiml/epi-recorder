@@ -6,13 +6,13 @@ All notable changes to EPI Recorder are documented here.
 
 ## [4.6.3] - 2026-10-23
 
-**Status: 4.6.3 (release pending).** 4.6.2 is the current PyPI release; this section describes the next upload.
-
 Security and honesty release. **4.6.2 on PyPI did not contain these
 verifier/identity fixes** even though parts of the docs described them; this
-section is the authoritative list of what changed after 4.6.2. Publish 4.6.3 (release pending)
-through Trusted Publishing so the wheel carries PEP 740 provenance (the 4.6.2
-wheel has none — see docs/RELEASING.md).
+section is the authoritative list of what changed after 4.6.2. **4.6.3 was
+uploaded on 2026-10-23 with the project API token because Trusted Publishing
+was still unconfigured. The 4.6.3 wheel has no PEP 740 attestations (its PyPI
+provenance endpoint returns HTTP 404). Configure Trusted Publishing before
+4.6.4.** See `docs/RELEASING.md`.
 
 ### Security
 
@@ -88,7 +88,7 @@ you fetched the tag on 20–21 Oct, re-fetch; the earlier position predated
   longer green. **This fixed the in-viewer badge only.** `epi verify` in
   4.6.2 still accepted a display-layer forgery whose unsigned
   `reserved_tail[0:32]` copy had been recomputed; the signed
-  `file_manifest` check ships in 4.6.3 (release pending).
+  `file_manifest` check ships in 4.6.3.
 - **Remote trust registry remains informational** (shipped in 4.6.1; still
   true here).
 

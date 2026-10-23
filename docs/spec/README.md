@@ -1,8 +1,6 @@
 # EPI File Format Specification
 
-**Status:** Open Standard | **Version:** 4.6.2 | **Date:** 2026-10
-
-**4.6.3 (release pending):** the 4.6.3 changelog row and display-layer checks are prepared but not on PyPI yet.
+**Status:** Open Standard | **Version:** 4.6.3 | **Date:** 2026-10
 
 This directory is the **wire format**, not the product user guide. Start at [../README.md](../README.md) or [../USER-GUIDE.md](../USER-GUIDE.md) for how to record and verify.
 

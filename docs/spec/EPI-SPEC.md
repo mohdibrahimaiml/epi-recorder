@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.6.2
+# EPI File Format Specification v4.6.3
 
 **Status:** Active  
 **Date:** 2026-10-23  
-**Version:** 4.6.2. **4.6.3 (release pending).**  
+**Version:** 4.6.3  
 **Category:** Standards Track
 
 ---
@@ -661,7 +661,7 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4.6.3 (release pending) | 2026-10-23 | `epi verify` binds the outer display layer to the signed `file_manifest["viewer.html"]` hash; viewer fail-closed on baked envelope failures; DID-only identities reported as self-asserted with `pin_source`; decompression-bomb guards; context-aware PII redaction and `allowlist_fields` |
+| 4.6.3 | 2026-10-23 | `epi verify` binds the outer display layer to the signed `file_manifest["viewer.html"]` hash; viewer fail-closed on baked envelope failures; DID-only identities reported as self-asserted with `pin_source`; decompression-bomb guards; context-aware PII redaction and `allowlist_fields` |
 | 4.6.2 | 2026-10-22 | Viewer fail-closed on envelope tamper (#141/#143); Cloud login/dashboard, evidence pack, key registry, customer-owned storage; witness wording fixes |
 | 4.6.1 | 2026-10-13 | Remote trust registry informational only; first-party Cloud fixes |
 | 4.6.0 | 2026-10-12 | RFC 3161 offline validation (`epi-tsa-imprint/v1`, pinned TSA roots, `report.timestamps`); dual-TSA seal stamping; `--tsa-root`, `--require-timestamp` |

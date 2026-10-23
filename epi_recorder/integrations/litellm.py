@@ -4,7 +4,7 @@ LiteLLM Integration for EPI Recorder
 Provides a custom callback that automatically logs all LLM calls
 made through LiteLLM to the active EPI recording session.
 
-Covers 100+ LLM providers in a single integration:
+Covers any provider routed through LiteLLM's completion callbacks in a single integration:
   OpenAI, Anthropic, Azure, Google, Groq, Mistral, Cohere,
   Ollama, Hugging Face, Bedrock, and many more.
 
@@ -43,11 +43,12 @@ class EPICallback:
     EPI recording session.
 
     Supports:
-    - Synchronous and async completions
+    - Synchronous and async ``completion`` / ``acompletion`` calls
     - Streaming responses
-    - All 100+ LiteLLM providers
-    - Token usage and cost tracking
-    - Error logging with full context
+    - Any LiteLLM-routed provider that emits the standard success/failure
+      callbacks (direct provider-SDK calls bypass LiteLLM entirely)
+    - Token usage and cost tracking when LiteLLM reports them
+    - Error logging with context
     """
 
     def __init__(self, provider_label: str = "litellm"):

@@ -286,7 +286,7 @@ app.get("/trust/:slug/witness-lines", async (c) => {
   return c.json({
     link: link.id,
     witness_pubkey: witnessPub,
-    note: "Each witness line carries an Ed25519 receipt from the EPI witness — checkable offline ONLY against a witness key pinned out of band. The witness_pubkey in this response is a display hint, never trust: pin the key from /.well-known/epi-witness-key.json and the public epi-witness-checkpoints repo. Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.",
+    note: "Each witness line carries an Ed25519 receipt from the EPI witness — checkable offline ONLY against a witness key pinned out of band. The witness_pubkey in this response is a display hint, never trust: pin the key from /.well-known/epi-witness-key.json and confirm its fingerprint independently (contract or a prior signed checkpoint). A public epi-witness-checkpoints mirror is planned, not yet published; cross-check there when it exists. Full-log consistency is additionally covered by the signed daily checkpoint; per-line Merkle inclusion proofs are planned, not present.",
     lines,
   });
 });

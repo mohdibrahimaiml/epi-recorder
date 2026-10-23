@@ -1,6 +1,6 @@
 # File safety — is a `.epi` file safe to open?
 
-**Product version:** 4.6.2. **4.6.3 (release pending).** Docs map: [README.md](./README.md).
+**Product version:** 4.6.3. Docs map: [README.md](./README.md).
 
 This page answers one question a bank, hospital, or insurer asks before it
 lets a vendor's evidence file through the email gateway: **"Is this `.epi`
@@ -30,7 +30,7 @@ nothing installed. The layout is:
 [ ZIP payload            ]  the sealed evidence
 ```
 
-The ZIP payload of a real 4.6.3 (release pending) seal contains (names vary with options; the
+The ZIP payload of a real 4.6.3 seal contains (names vary with options; the
 [spec](./spec/EPI-SPEC.md) is the contract):
 
 ```
@@ -63,7 +63,7 @@ browser's sandbox, when (and only when) you open the file in a browser.
 
 ## 2. The embedded viewer makes no network calls (evidence)
 
-We scanned a sealed **4.6.3 (release pending)** artifact — `docs/assets/demo-banking-aml.epi`
+We scanned a sealed **4.6.3** artifact — `docs/assets/demo-banking-aml.epi`
 (SHA-256 `bc8e900bbe508a1662bb85cb8e8a7107fc6044dab710d8c08703327af2b1c0a8`) —
 for any way the viewer could reach out. Both the **outer** polyglot HTML and
 the **inner** `viewer.html` were checked.
@@ -150,11 +150,11 @@ truth. So:
 - **The verdict chrome inside the file is not proof.** The colours are a
   convenience preview. `epi verify` (or the hosted verifier, where *you* chose
   the file) is the check.
-- Genuine **4.6.3 (release pending)** files bind the outer viewer to the **signed**
+- Genuine **4.6.3** files bind the outer viewer to the **signed**
   `file_manifest` entry (`viewer.html`), so editing the display layer makes
   `epi verify` FAIL. Pre-4.6.2 files stored only an unsigned copy in the
   envelope header (`reserved_tail[0:32]`); an attacker could edit the viewer and
-  recompute that copy, and 4.6.2 still reported PASS. The 4.6.3 (release pending) verifier checks
+  recompute that copy, and 4.6.2 still reported PASS. The 4.6.3 verifier checks
   the signed value for legacy files whose manifest lists `viewer.html` and
   reports when no signed binding exists.
 - **Legacy** artifacts with an all-zero viewer hash **and no signed
@@ -274,7 +274,7 @@ sealed original, so `epi verify` on the `.epi` remains the authoritative check.
 
 - A `.epi` is **data + an offline viewer**, not a program. No native code, no
   installer, no macro.
-- The shipped 4.6.3 (release pending) viewer makes **zero external/network calls** (§2, with a
+- The shipped 4.6.3 viewer makes **zero external/network calls** (§2, with a
   reproduction script). Verification is **fully offline** (§3).
 - **Do not trust the in-file verdict** — trust `epi verify`, and pin the
   sender's key (§3, §4).

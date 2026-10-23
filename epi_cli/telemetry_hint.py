@@ -45,5 +45,5 @@ def maybe_print_telemetry_hint(console: Console, context: HintContext) -> None:
         console.print("Want early access to artifact dashboard, compliance reports UI, and priority support?")
 
     console.print("[dim]EPI is running locally. No telemetry is sent unless you opt in.[/dim]")
-    console.print("  [cyan]epi telemetry enable[/cyan]                 share anonymous non-content usage")
+    console.print("  [cyan]epi telemetry enable[/cyan]                 share non-content usage (org signals optional)")
     console.print("  [cyan]epi telemetry enable --join-pilot[/cyan]    join the pilot for dashboard/support access")

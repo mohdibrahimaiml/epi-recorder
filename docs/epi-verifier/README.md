@@ -1,6 +1,6 @@
 # EPI Independent Verifier
 
-**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.6.2. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
+**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.6.3. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
 
 Zero-dependency **partial** verification for [EPI](https://epilabs.org) `.epi` files. Runs in a browser or Node. File-integrity hashing needs JSZip. Step-chain verification is **not implemented** (marked planned in the table below).
 
@@ -36,7 +36,7 @@ npm install jszip
 |-------|--------------|-----------|
 | Envelope location (polyglot marker / legacy ZIP) | Yes | Yes |
 | Manifest parsing | No (ZIP parsing needs JSZip) | Yes |
-| Signature verification | No (needs the manifest) — standalone `verifyManifestSignature(manifestObj)` works on a manifest you supply | Yes — verified against real 4.6.2 and legacy-zip seals |
+| Signature verification | No (needs the manifest) — standalone `verifyManifestSignature(manifestObj)` works on a manifest you supply | Yes — verified against real 4.6.3 and legacy-zip seals |
 | File integrity | No | Yes |
 | Step-chain verification | No | Planned |
 
@@ -67,4 +67,7 @@ and `tests/compatibility/golden/canonical_hash_vectors.json`.
 
 ## License
 
-Apache 2.0. Contains bundled noble-ed25519 (MIT) for zero-dependency operation.
+MIT — same license as the rest of `epi-recorder` (see the repository
+[`LICENSE`](../../LICENSE)). Contains bundled noble-ed25519 (MIT) for
+zero-dependency operation; the bundled code remains under its original MIT
+terms.

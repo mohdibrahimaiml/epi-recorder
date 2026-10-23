@@ -531,7 +531,12 @@ def _witness_verdict(result: Optional[dict]) -> tuple[str, Optional[str]]:
 
 
 def _ensure_default_key_trusted() -> None:
-    """Auto-trust the default signing key so demo verify shows PASS."""
+    """Explicitly trust the default signing key (test/helper only).
+
+    `epi demo` no longer calls this: silently pinning the local key made the
+    vendor's own files claim IDENTITY PINNED and hid the documented LOCAL
+    state. Users who want a pin run `epi keys trust` deliberately.
+    """
     try:
         from epi_core.keys import KeyManager
         from epi_core.trust import TrustRegistry
@@ -575,7 +580,6 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
         console.print(f"[green][OK][/green] Exported: {out_path}")
         if signed:
             console.print("[green][OK][/green] Signed with Ed25519 key")
-            _ensure_default_key_trusted()
         else:
             console.print("[yellow][!][/yellow] Unsigned (run `epi keys generate` to enable signing)")
     except Exception as exc:
@@ -743,7 +747,6 @@ def _run_fast_demo(
             km.generate_keypair("default", overwrite=False)
         except Exception:
             pass
-        _ensure_default_key_trusted()
     except Exception:
         pass
 

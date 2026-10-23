@@ -90,6 +90,9 @@ Evidence Rooms. Witness-first is what makes $0 viable.
 6. GitHub secret `CLOUDFLARE_API_TOKEN` (Workers/D1/R2 edit) for deploys.
 7. Custom domain: attach `cloud.epilabs.org` to the worker after first deploy.
 8. Create the empty public repo `epi-witness-checkpoints` (M1 mirror).
+   **Not yet created as of 2026-10-23** (the URL returns 404). Until it exists,
+   the signed `/w/{id}/checkpoints` endpoint and Rekor are the public anchors;
+   docs must not point customers at a missing repo.
 
 CI deploys only from `main` and skips while `database_id` is still the
 `TODO-...` placeholder.
@@ -123,7 +126,9 @@ needed, and record the outcome in the PR. Then retry sign-in.
 
 ## 5. Backups
 
-Weekly D1 backup to R2 (keep 4). Until the M1 cron ships, run by hand:
+Weekly D1 backup to R2 (keep 4). This is still a **manual** founder op — the
+daily cron in `cloud/wrangler.toml` signs witness checkpoints, it does not
+dump D1:
 
 ```bash
 wrangler --config cloud/wrangler.toml d1 export epi-cloud --output=backup-$(date +%F).sql
@@ -158,9 +163,11 @@ SHA-256; share tokens travel in the URL fragment + header only (M2).
   uses a dedicated P-256 key and nothing else. Checkpoints stay Ed25519.
 - Noble v2 ECDSA pre-hashes with sha256 by default: pass raw bytes, never a
   digest. It rejects high-S by default (ours are always low-S).
-- The public mirror repo `epi-witness-checkpoints` is filled by
-  `.github/workflows/witness-mirror.yml` (daily; needs `MIRROR_PAT`,
-  `MIRROR_REPO`, `WITNESS_MIRROR_INBOXES` secrets - inboxes opt in).
+- The public mirror repo `epi-witness-checkpoints` is **planned but not created**
+  as of 2026-10-23 (the URL returns 404). `.github/workflows/witness-mirror.yml`
+  would fill it daily once `MIRROR_PAT`, `MIRROR_REPO`, and
+  `WITNESS_MIRROR_INBOXES` secrets exist (inboxes opt in). Until then the
+  signed `/w/{id}/checkpoints` endpoint plus Rekor are the public anchors.
 
 ## 9. Customer path
 

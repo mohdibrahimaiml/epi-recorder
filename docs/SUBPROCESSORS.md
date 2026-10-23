@@ -1,6 +1,6 @@
 # EPI Labs sub-processors
 
-**Product version:** 4.6.2. **4.6.3 (release pending).** Last reviewed: 2026-10-22. Related:
+**Product version:** 4.6.3. Last reviewed: 2026-10-22. Related:
 [DPA](./DPA.md), [DATA-RETENTION](./DATA-RETENTION.md), [CLOUD](./CLOUD.md).
 
 EPI Cloud runs on infrastructure EPI Labs rents. This page names every third

@@ -1,6 +1,6 @@
 # EPI Auditor's Guide — Independent Verification of .epi Evidence
 
-**Version:** 2.2 (epi-recorder 4.6.2; 4.6.3 (release pending)) | **Last updated:** 2026-10-23
+**Version:** 2.2 (epi-recorder 4.6.3) | **Last updated:** 2026-10-23
 
 For banks, insurers, auditors and other reviewers who receive a `.epi` file
 from a vendor and need to check it themselves, offline, without trusting
@@ -205,7 +205,7 @@ for more than one log entry for the same case; see [WITNESS.md](./WITNESS.md).
 
 ## Real samples
 
-Generated with epi-recorder 4.6.3 (release pending) from a synthetic refund case
+Generated with epi-recorder 4.6.3 from a synthetic refund case
 (`case-001.epi`) whose vendor key was pinned as `vendor.pub`. Output trimmed to
 the header and relevant lines; fingerprints and timestamps shown as
 placeholders. These blocks were produced on 23 Oct 2026 and reflect the current

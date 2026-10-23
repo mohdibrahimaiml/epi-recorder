@@ -6,8 +6,8 @@ Canonical rules (same content, longer form): [docs/WEBSITE.md](../docs/WEBSITE.m
 
 | Consumer | How it uses `website/` |
 |----------|-------------------------|
-| **GitHub Pages** (`epilabs.org`) | Deployed from this folder |
-| **Cloudflare Pages** | `npm run build` copies this folder to `site/` (build output — do not hand-edit) |
+| **Cloudflare Pages (production, `epilabs.org`)** | `npm run build` copies this folder to `site/`; `wrangler.toml` publishes it |
+| GitHub Pages (mirror/fallback) | `.github/workflows/deploy-website.yml` uploads this folder; not the `epilabs.org` DNS origin |
 | **Render verify portal static files** | `python scripts/sync_website.py` → `verify_portal/static/` |
 
 ## Edit here
@@ -37,7 +37,7 @@ python scripts/sync_website.py
 
 Keep these true on every page:
 
-- Banner version matches `pyproject.toml` (currently **4.6.2**).
+- Banner version matches `pyproject.toml` (currently **4.6.3**).
 - Sign In goes to EPI Cloud, not Render.
 - Open-source record/seal/verify needs no account.
 - Verification is never charged.

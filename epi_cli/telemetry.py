@@ -54,7 +54,7 @@ def enable(
     link_telemetry: bool = typer.Option(
         False,
         "--link-telemetry",
-        help="Allow EPI to link this pilot profile with your anonymous telemetry install ID.",
+        help="Allow EPI to link this pilot profile with your telemetry install ID.",
     ),
     consent_to_contact: bool = typer.Option(
         False,

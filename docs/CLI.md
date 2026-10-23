@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.6.2)
+# EPI CLI Reference (v4.6.3)
 
-**Version:** 4.6.2. **4.6.3 (release pending).**  
+**Version:** 4.6.3  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
@@ -421,7 +421,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-As of 4.6.3 (release pending) the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
+As of 4.6.3 the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
 
 ```bash
 epi share demo.epi
@@ -456,7 +456,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In the current **v4.6.2** line, `epi policy init` is the guided front door for
+In the current **v4.6.3** line, `epi policy init` is the guided front door for
 policy. It asks a small number of business-language questions and writes the
 machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.

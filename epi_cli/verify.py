@@ -900,8 +900,9 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             "trusted EPI witness key was provided, so no stamp was checked."
             f"{_names_key} a key that arrives inside the file proves nothing — a forger "
             "swaps in their own. Pin the EPI witness key out of band (fetch it from "
-            "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
-            "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+            "https://cloud.epilabs.org/.well-known/epi-witness-key.json and confirm the "
+            "fingerprint through an independent channel, such as a prior signed "
+            "checkpoint or your contract) and re-run with "
             "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
         )
         return result
@@ -1047,8 +1048,9 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
                 f"carries witness receipts but none verifies against a trusted key ({len(failures)} "
                 f"receipt failure(s)): {_first}.{_names_key} Pin the EPI witness key "
                 "out of band (fetch it from "
-                "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
-                "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+                "https://cloud.epilabs.org/.well-known/epi-witness-key.json and confirm "
+                "the fingerprint through an independent channel, such as a prior signed "
+                "checkpoint or your contract) and re-run with "
                 "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
             )
             return result

@@ -4,7 +4,7 @@
     "title": "EPI Gateway",
     "description": "Shared EPI capture backend with live cases and portable proof export.",
     "version": "1.0.0",
-    "x-epi-product-version": "4.6.2",
+    "x-epi-product-version": "4.6.3",
     "x-generated-from": "epi_gateway/main.py via app.openapi()"
   },
   "paths": {

@@ -1,6 +1,6 @@
 # AGT export (`epi export agt`)
 
-**Product version:** 4.6.2. **4.6.3 (release pending).**
+**Product version:** 4.6.3.
 
 Read a sealed `.epi` and write a **separate** AGT-shaped JSON bundle. The original `.epi` is not modified. This is not Microsoft AGT, not a certificate, and not a substitute for [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) (the other direction).
 

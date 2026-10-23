@@ -1,6 +1,6 @@
 # EPI Cloud
 
-**Status (v4.6.2; 4.6.3 (release pending)):** private beta at `https://cloud.epilabs.org`.  
+**Status (v4.6.3):** private beta at `https://cloud.epilabs.org`.  
 **Not:** a paywall on verification, a self-serve hosted-verification product, or a place that must hold every `.epi`.
 
 Open-source `epi-recorder` stays complete without Cloud. Cloud is how a vendor **connects a computer**, **witnesses runs (hashes)**, and **shares selected files** with a customer reviewer.

@@ -1,6 +1,6 @@
 # EPI Codebase Walkthrough
 
-**Version:** 4.6.2. **4.6.3 (release pending).** Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
+**Version:** 4.6.3. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:
@@ -460,7 +460,7 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.6.2` line, it is a polyglot envelope: the same bytes open
+In the current `v4.6.3` line, it is a polyglot envelope: the same bytes open
 as an HTML page and carry a signed ZIP payload. Under that display layer it is
 a binary envelope with a fixed 128-byte header, followed by the outer viewer
 HTML and the ZIP payload.
@@ -497,7 +497,7 @@ A tiny marker file inside the ZIP payload containing:
 
 It is written first and uncompressed for standards-style ZIP compatibility
 inside the signed payload. The outermost `.epi` file itself no longer begins
-with ZIP magic bytes in `v4.6.2`.
+with ZIP magic bytes in `v4.6.3`.
 
 #### `steps.jsonl`
 
@@ -609,7 +609,7 @@ state they had when the artifact was created.
 `viewer.html` **is** part of `file_manifest` in current artifacts (4.6.2 and
 later). Although it is a generated presentation layer, its SHA-256 is signed
 and the outer polyglot display region is byte-identical to that member. The
-4.6.3 (release pending) verifier compares the outer region to that signed hash, which is what
+4.6.3 verifier compares the outer region to that signed hash, which is what
 lets it detect a display-layer edit even when the attacker recomputes the
 unsigned envelope header copy. 4.6.2 itself checked only the unsigned copy, so
 its own verdict could still be forged.

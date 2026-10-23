@@ -69,3 +69,15 @@ def test_attach_identity_signals_merges_values():
         assert result["email_domain"] == "example.com"
         assert result["user_id"] == "usr_123"
         assert result["org_id"] == "example.com"
+
+
+def test_org_signals_can_be_opted_out(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("EPI_TELEMETRY_ORG_SIGNALS", "0")
+    monkeypatch.setattr(
+        identity_signals,
+        "get_identity_signals",
+        lambda: {"email_domain": "example.com", "github_org": "acme"},
+    )
+    monkeypatch.setattr(identity_signals, "_get_auth_identity", lambda: {"user_id": "usr_123"})
+    result = identity_signals.attach_identity_signals({"command": "test"})
+    assert result == {"command": "test", "user_id": "usr_123"}

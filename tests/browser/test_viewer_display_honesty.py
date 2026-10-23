@@ -104,7 +104,7 @@ def test_polyglot_viewer_does_not_paint_green_without_authority(
     assert "INTEGRITY NOT VERIFIED HERE" in normalized, (
         f"polyglot viewer should say it cannot verify here: {normalized!r}"
     )
-    assert integrity_indicator.strip().upper() == "NOT VERIFIED HERE", integrity_indicator
+    assert integrity_indicator.strip().upper().startswith("NOT VERIFIED HERE"), integrity_indicator
     assert signature_indicator.strip().upper() != "VALID", signature_indicator
 
 

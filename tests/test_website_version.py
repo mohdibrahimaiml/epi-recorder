@@ -17,10 +17,12 @@ WEBSITE = REPO / "website"
 
 STALE_MARKERS = ("v4.5.0",)
 
-# Release stamps and the exact shape each one takes on the pages.
+# Release stamps and the exact shape each one takes on the pages. A release
+# branch may be version-bumped before the PyPI upload finishes; in that state the
+# banner says "PyPI pending" instead of claiming the wheel is already live.
 STAMP_PATTERNS = (
     r"MIT License · v\d+\.\d+\.\d+",
-    r"v\d+\.\d+\.\d+ on PyPI",
+    r"v\d+\.\d+\.\d+ (?:on PyPI|· PyPI publish pending)",
     r"v\d+\.\d+\.\d+ · envelope-v2",
 )
 
