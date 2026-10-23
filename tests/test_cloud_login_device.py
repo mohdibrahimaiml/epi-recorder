@@ -28,8 +28,10 @@ class FakeDeviceClient:
         return False
 
     def post(self, url, **kwargs):
-        self.calls.append({"method": "POST", "url": url})
+        self.calls.append({"method": "POST", "url": url, "json": kwargs.get("json")})
         assert url.endswith("/auth/device/start")
+        # The CLI names this computer so the dashboard can list it.
+        assert (kwargs.get("json") or {}).get("device_name")
 
         class R:
             status_code = 201
@@ -138,3 +140,119 @@ def test_cloud_login_device_flow_backs_off_on_429(home, monkeypatch):
     result = CliRunner().invoke(app, ["login"])
     assert result.exit_code == 0, result.output
     assert seen_waits and max(seen_waits) >= 7
+
+
+def test_warn_if_cli_outdated_matches_current_reports_nothing(capsys):
+    """The CLI built here must not warn when min == current (no catch-22)."""
+    from epi_core import __version__ as current
+
+    from epi_cli.cloud import _warn_if_cli_outdated, _version_tuple
+
+    assert _version_tuple("1.0.2") < _version_tuple("1.0.10")
+    assert not (_version_tuple(current) < _version_tuple(current))
+    _warn_if_cli_outdated(current)
+    out = capsys.readouterr().out
+    assert "too old" not in out.lower() and "pip install" not in out.lower()
+
+
+def test_warn_if_cli_outdated_tells_exact_pip_command(capsys):
+    from epi_cli.cloud import _warn_if_cli_outdated
+
+    _warn_if_cli_outdated("99.0.0")
+    out = " ".join(capsys.readouterr().out.split())
+    assert "pip install -U epi-recorder" in out
+
+
+def test_no_forced_ansi_in_windows_cmd():
+    """No Console(legacy_windows=False): rich must translate ANSI for cmd.exe."""
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1] / "epi_cli"
+    offenders = []
+    for path in repo.rglob("*.py"):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if "legacy_windows=False" in text:
+            offenders.append(path.name)
+    assert not offenders, f"forced ANSI in windows cmd: {offenders}"
+
+
+def test_device_login_hints_while_browser_has_not_authorized(home, monkeypatch):
+    """The terminal must not wait in silence when the browser failed.
+
+    Fake clock: pending for 35 s, then authorized. The loop must print the
+    "still waiting" nudge once and still complete the login.
+    """
+    import time as time_mod
+    import webbrowser
+
+    import httpx
+
+    ticks = [1000.0]
+    monkeypatch.setattr(time_mod, "time", lambda: ticks[0])
+    monkeypatch.setattr(time_mod, "sleep", lambda s: ticks.__setitem__(0, ticks[0] + s))
+
+    class PendingThenOk(FakeDeviceClient):
+        def get(self, url, **kwargs):
+            self.calls.append({"method": "GET", "url": url})
+            self.polls += 1
+            polls = self.polls
+
+            class R:
+                status_code = 200
+                headers: dict = {}
+
+                def json(self):
+                    if polls < 8:
+                        return {"status": "pending"}
+                    return {
+                        "status": "authorized",
+                        "org_id": "org_123",
+                        "api_key": "epik_devicekey123",
+                    }
+
+            return R()
+
+    PendingThenOk.instances.clear()
+    monkeypatch.setattr(httpx, "Client", PendingThenOk)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    assert "Still waiting for the browser" in result.output
+    saved = json.loads((home / "cloud.json").read_text())
+    assert saved["org_id"] == "org_123"
+
+
+def test_relogin_sends_old_key_to_same_cloud_only_and_never_prints_it(home, monkeypatch):
+    """Re-login on the same cloud asks the server to retire the old key (full key, never printed)."""
+    import time
+    import webbrowser
+
+    import httpx
+
+    FakeDeviceClient.instances.clear()
+    monkeypatch.setattr(httpx, "Client", FakeDeviceClient)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    (home / "cloud.json").write_text(json.dumps(
+        {"url": "https://cloud.epilabs.org", "org_id": "org_123", "api_key": "epik_oldkey_SECRET"}
+    ))
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    start = [c for i in FakeDeviceClient.instances for c in i.calls if c["url"].endswith("/auth/device/start")]
+    assert start[0]["json"]["replaces_key"] == "epik_oldkey_SECRET"
+    assert "epik_oldkey_SECRET" not in result.output
+    assert "Type the code and your customer's name at https://cloud.test/auth/device" in " ".join(result.output.split())
+
+    # A saved key for a DIFFERENT cloud is never sent anywhere else.
+    FakeDeviceClient.instances.clear()
+    (home / "cloud.json").write_text(json.dumps(
+        {"url": "https://other.example", "org_id": "org_9", "api_key": "epik_other"}
+    ))
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    start = [c for i in FakeDeviceClient.instances for c in i.calls if c["url"].endswith("/auth/device/start")]
+    assert "replaces_key" not in start[0]["json"]

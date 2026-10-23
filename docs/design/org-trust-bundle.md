@@ -1,5 +1,7 @@
 # Org Trust Bundle Lifecycle — Design (approved, v0 build spec)
 
+**Internal design note, not a customer guide.** Product version 4.6.2. Start at [../README.md](../README.md). Identity for reviewers: [../IDENTITY-ONBOARDING.md](../IDENTITY-ONBOARDING.md).
+
 Status: approved with amendments. Implements the auditor story: an offline
 auditor holding a company artifact from years ago answers (1) did this come
 from that company, and (2) was the sealing key legitimately the company's key
@@ -11,7 +13,10 @@ Amendments folded in after review (see §10):
 - A2: TSA corroboration of sealing time is opportunistic, never mandatory,
   and required only under `--policy strict`.
 - A3: first-contact root authenticity procedure specified (§8).
-- A4: successor-root generation is mandatory in bootstrap, not recommended.
+- A4: successor-root generation was specified as mandatory in bootstrap, not
+  recommended — **not implemented**: `epi enterprise bootstrap` has no
+  successor-root option or refusal (see `epi_cli/enterprise.py`). Treat as an
+  open requirement, not built behavior.
 - A5: open question recorded (§11): one org identity vs per-department/system.
 
 ## 0. What already exists

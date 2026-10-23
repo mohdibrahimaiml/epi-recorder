@@ -17,7 +17,17 @@ SEC={"1":"System Description","2":"Development Process","3":"Monitoring and Cont
 CLS={"1":Section01System,"2":Section02Development,"3":Section03Monitoring,"4":Section04Metrics,"5":Section05RiskManagement,"6":Section06Lifecycle,"7":Section07Standards,"8":Section08Declaration,"9":Section09PostMarket}
 
 def _canon(data):ac={k:v for k,v in data.get("approval",{}).items() if k!="signature"};cd=dict(data);cd["approval"]=ac;cd.pop("signature",None);return json.dumps(cd,sort_keys=True,separators=(",",":"),default=str)
-def _key(n):km=KeyManager();km.has_key(n)or km.generate_keypair(n);return km.load_private_key(n)
+def _key(n):
+    import os as _os
+    km=KeyManager()
+    if not km.has_key(n):
+        _seed=_os.environ.get("EPI_SIGNING_KEY","").strip()
+        if _seed:
+            # CI signing: import the org's hex seed instead of minting a throwaway.
+            km.import_hex_seed(n,_seed)
+        else:
+            km.generate_keypair(n)
+    return km.load_private_key(n)
 def _pub(n):return KeyManager().load_public_key(n)
 
 @annex_app.command()

@@ -13,6 +13,8 @@ Usage:
     print(analytics.error_patterns())
 """
 
+from __future__ import annotations
+
 from collections import Counter
 from datetime import datetime
 from importlib.util import find_spec
@@ -63,7 +65,8 @@ class AgentAnalytics:
         
         if not PANDAS_AVAILABLE:
             raise ImportError(
-                "AgentAnalytics requires pandas. Install it with: pip install pandas"
+                "AgentAnalytics requires the optional analytics dependencies. "
+                'Install them with: pip install "epi-recorder[analytics]"'
             )
 
         self.artifacts = self._load_all_artifacts()

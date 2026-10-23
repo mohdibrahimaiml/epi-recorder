@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.6.1
+# EPI File Format Specification v4.6.2
 
 **Status:** Active  
 **Date:** 2026-10-04  
-**Version:** 4.5.0  
+**Version:** 4.6.2  
 **Category:** Standards Track
 
 ---
@@ -11,7 +11,7 @@
 
 EPI provides structured JSON schemas for all 9 sections of EU AI Act Annex IV.
 See [schemas/annex-iv.schema.json](schemas/annex-iv.schema.json) for the full JSON Schema.
-The `epi annex` CLI subsystem generates, signs, and verifies Annex IV artifacts.
+The `epi annex` CLI generates, signs, and verifies Annex IV **templates you fill in**. That is not a certificate.
 
 ## Abstract
 
@@ -139,12 +139,18 @@ Implementers MUST detect the container format as follows:
 |------|---------|--------|
 | `mimetype` | MUST contain exactly `application/vnd.epi+zip` (uncompressed, first ZIP entry) | Plain text |
 | `manifest.json` | Signed manifest — the root of trust | `schemas/manifest.schema.json` |
-| `steps.jsonl` | Ordered, immutable execution timeline (NDJSON) | `schemas/step.schema.json` |
-| `environment.json` | Runtime environment snapshot | `schemas/environment.schema.json` |
+| `steps.jsonl` | Ordered, tamper-evident execution timeline (NDJSON) | `schemas/step.schema.json` |
+| `viewer.html` | Self-contained HTML forensic viewer | N/A (visual) |
+| `VERIFY.txt` | Human-readable offline verification instructions (always written by current packers; readers MUST accept older artifacts where it is absent) | Plain text |
+
+### 3.1b Conditional Files (present only when that run happened)
+
+| File | Purpose | Schema |
+|------|---------|--------|
+| `environment.json` | Runtime environment snapshot (written by the recorder; readers tolerate absence, legacy `env.json` accepted) | `schemas/environment.schema.json` |
 | `analysis.json` | Deterministic fault analysis output | `schemas/analysis.schema.json` |
 | `policy.json` | Governance rulebook applied during execution | `schemas/policy.schema.json` |
-| `viewer.html` | Self-contained HTML forensic viewer | N/A (visual) |
-| `VERIFY.txt` | Human-readable offline verification instructions | Plain text |
+| `policy_evaluation.json` | Sealed per-rule evaluation results | N/A (no standalone schema file) |
 
 `mimetype` MUST be the first entry in the ZIP and MUST be stored (Method 0,
 uncompressed). This convention follows the Open Document Format and EPUB
@@ -509,7 +515,8 @@ A conformant verifier MUST perform checks in this order:
 
 ### Pass 2: File Integrity
 - Every entry in `manifest.file_manifest` has a matching file in the ZIP.
-- No extra files exist in the ZIP (except `review.json`, `review_index.json`).
+- No extra files exist in the ZIP (except `review.json`, `review_index.json`,
+  `reviews/*`, and `artifacts/scitt/*` — see §5.4 for the full exemption list).
 - Computed SHA-256 matches stored hash for every file.
 
 ### Pass 3: Signature Verification
@@ -566,10 +573,11 @@ All are optional; verifiers MUST accept files without them.
 | Level | Integrity | Signature | Identity | Meaning |
 |-------|-----------|-----------|----------|---------|
 | **HIGH** | Pass | Valid | Known | Signer identity verified in trust registry |
+| **MEDIUM** | Pass | Valid | Local | Sealer key is on this machine, not an org pin |
 | **MEDIUM** | Pass | Valid | Unknown | SCITT-anchored (transparency verified) |
 | **LOW** | Pass | Valid | Unknown | Valid signature, identity not verified |
-| **NONE** | Pass | None | — | Unsigned artifact |
-| **TAMPERED** | Fail | Invalid | — | File has been modified or corrupted |
+| **NONE** | Pass | None | - | Unsigned artifact |
+| **TAMPERED** | Fail | Invalid | - | File has been modified or corrupted |
 
 ---
 

@@ -1676,6 +1676,11 @@ class EpiRecorderSession:
         if parts:
             breakdown = " \u00b7 ".join(parts)
             print(f"      {breakdown}", file=target)
+        if os.getenv("EPI_COMPACT_SUMMARY", "0") == "1":
+            # `epi demo` stays readable: skip the policy/heuristic detail
+            # lines below. `epi record` still prints them.
+            print(file=target)
+            return
         # Seal-time policy/fault snapshot (reads sealed analysis — no extra user command)
         try:
             from epi_core.artifact_summary import format_artifact_run_summary_lines
@@ -1698,6 +1703,29 @@ class EpiRecorderSession:
             from epi_core.webhook import report_seal, split_witness_urls
 
             urls = split_witness_urls(getattr(self, "witness_url", None))
+            secret = getattr(self, "witness_secret", None)
+            if not urls:
+                # Simple onboarding: fall back to the witness settings saved
+                # by `epi cloud login` when no explicit url was given. The
+                # URL and secret always come from the SAME source: an
+                # explicit/ENV url pairs only with an explicit/ENV secret,
+                # and a saved url pairs only with the saved secret. Mixing a
+                # stale ENV secret with a fresh saved url fails delivery.
+                try:
+                    import json as _json
+                    import os as _os
+                    from pathlib import Path as _Path
+
+                    _home = _os.getenv("EPI_HOME")
+                    _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
+                    if _cfg.exists():
+                        _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
+                        if isinstance(_saved, dict):
+                            if isinstance(_saved.get("witness_url"), str) and _saved["witness_url"].strip():
+                                urls = split_witness_urls(_saved["witness_url"])
+                                secret = _saved.get("witness_secret") or None
+                except Exception:
+                    pass
             if not urls:
                 return
             key_name: str | None = None
@@ -1720,7 +1748,7 @@ class EpiRecorderSession:
             entry = report_seal(
                 self.output_path,
                 urls=urls,
-                secret=getattr(self, "witness_secret", None),
+                secret=secret,
                 key_name=key_name,
                 private_key_bytes=private_key_bytes,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
@@ -1902,27 +1930,84 @@ class EpiRecorderSession:
 
 
 def _print_witness_outcome(entry) -> None:
-    """One line telling the sealer whether the customer got the seal report."""
+    """One line telling the sealer whether the customer got the seal report.
+
+    With EPI_WITNESS_RESULT_FILE set (used by `epi demo`), the outcome is
+    written there as JSON instead, so the caller shows it in its own output.
+    """
     if not isinstance(entry, dict):
         return
     from urllib.parse import urlparse
 
     out = entry.get("_outcome") or {}
     host = lambda u: urlparse(u).netloc or u  # noqa: E731
+    import os as _os
+
+    try:
+        _env_url = _os.getenv("EPI_WITNESS_URL")
+    except Exception:
+        _env_url = None
+    _cloud_login_user = False
+    _customer = None
+    if not _env_url:
+        # A cloud-login user never sets env vars: if cloud.json holds witness
+        # settings, the stamp travelled password-free via `epi cloud login`.
+        # With neither env nor saved settings we know nothing — keep the env hints.
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+
+            _home = _os.getenv("EPI_HOME")
+            _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
+            if _cfg.exists():
+                _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
+                if isinstance(_saved, dict):
+                    _cloud_login_user = bool(str(_saved.get("witness_url") or "").strip())
+                    _customer = str(_saved.get("customer") or "").strip() or None
+        except Exception:
+            pass
+    try:
+        from epi_core.webhook import describe_witness_failure
+    except Exception:  # pragma: no cover - same package
+        describe_witness_failure = None  # type: ignore[assignment]
     delivered = [host(u) for u in out.get("delivered") or []]
     failed = out.get("failed") or {}
+    still_sending = bool(out.get("pending") or out.get("error"))
+    problems = []
+    for url, err in failed.items():
+        if describe_witness_failure is not None:
+            info = describe_witness_failure(err, cloud_login=_cloud_login_user, customer=_customer)
+        else:  # pragma: no cover
+            info = {"status": None, "reason": str(err)[:120], "fix": "run: epi witness flush", "retry_helps": True}
+        problems.append({"host": host(url), "error": str(err)[:200], **info})
+
+    result_file = _os.getenv("EPI_WITNESS_RESULT_FILE")
+    if result_file:
+        try:
+            import json as _json
+
+            with open(result_file, "w", encoding="utf-8") as fh:
+                _json.dump(
+                    {
+                        "delivered": delivered,
+                        "failed": problems,
+                        "still_sending": still_sending,
+                        "cloud_login": _cloud_login_user,
+                    },
+                    fh,
+                )
+            return
+        except Exception:
+            pass
+
     if delivered:
         print(f"[EPI] Witness: delivered to {', '.join(delivered)}", file=sys.stderr)
-    for url, err in failed.items():
-        hint = ""
-        if "401" in str(err) or "403" in str(err):
-            hint = " (check EPI_WITNESS_SECRET)"
-        print(
-            f"[EPI] Witness: QUEUED for {host(url)}: {str(err)[:120]}{hint}. "
-            "Run `epi witness flush` to retry.",
-            file=sys.stderr,
-        )
-    if out.get("pending") or out.get("error"):
+    for item in problems:
+        # QUEUED only when a later retry can deliver it; otherwise say plainly
+        # that it was not delivered and give the one fix that works.
+        lead = f"QUEUED for {item['host']}" if item.get("retry_helps") else f"NOT delivered to {item['host']}"
+        print(f"[EPI] Witness: {lead}: {item['reason']} — {item['fix']}", file=sys.stderr)
+    if still_sending:
         print(
             "[EPI] Witness: still sending in the background; "
             "check `epi witness status`.",
@@ -2029,8 +2114,8 @@ def _avoid_overwrite(path: Path) -> Path:
             break
         n += 1
     print(
-        f"[EPI] {path} already exists; kept it. This run seals to {candidate} "
-        "(set EPI_OVERWRITE=1 to replace instead).",
+        f"[EPI] kept the existing {path}; this run sealed to {candidate} instead "
+        "(nothing overwritten; set EPI_OVERWRITE=1 to replace).",
         file=sys.stderr,
     )
     return candidate

@@ -4,6 +4,41 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.6.2] - 2026-10-22
+
+First PyPI upload of 4.6.2 (GitHub had a tag; Trusted Publishing was not
+configured, so `pip install` stayed on 4.6.1).
+
+Release/tag alignment: the `v4.6.2` tag was re-pointed on 22 Oct to
+`623c22cf`, which contains the #143 viewer fail-closed fix and the #145
+pack-time fix — the same tree the PyPI wheel uploaded that day was built
+from (verified: the wheel's `epi_core/container.py` carries both fixes). If
+you fetched the tag on 20–21 Oct, re-fetch; the earlier position predated
+#145.
+
+### Security
+
+- **Viewer fail-closed on envelope tamper (#141, #143).** Outer display-layer
+  edits left inner ZIP hashes intact and the live browser check overwrote the
+  baked envelope failure with INTEGRITY VERIFIED. A baked envelope verdict
+  (`__envelope_header__` / `__polyglot_viewer__`) can never be upgraded to
+  green; missing data defaults to unverified; the loading placeholder is no
+  longer green. `epi verify` behaviour unchanged (it always caught this).
+- **Remote trust registry remains informational** (shipped in 4.6.1; still
+  true here).
+
+### Added
+
+- **EPI Cloud login from the terminal.** `epi cloud login` (no flags) shows a
+  short code; type it at cloud.epilabs.org/auth/device and the CLI picks up
+  a push-only key by itself (RFC 8628 device flow). Flag version
+  (`--url/--org/--api-key`) kept for automation. `epi auth login` is an
+  alias of the same flow.
+- **One account system.** Website Sign In and the CLI use EPI Cloud only;
+  the old Render login is retired (see docs/CLOUD.md).
+- **Cloud setup dashboard.** Guided start (company → computer → first run →
+  customer → trust link) then tabs for Runs, Customers, Trust links and
+  Computers & keys. Trust links are scoped to one customer by default.
 - **Evidence pack (M6).** One "Download evidence pack" button on trust pages
   zips the whole link in the reviewer's browser (never on the server): every
   artifact's hash-checked bytes, `trust.json`, `witness.json`, `README.txt`
@@ -15,7 +50,6 @@ All notable changes to EPI Recorder are documented here.
   checkpoints repo); revoked keys ride with
   reasons. Full-log consistency stays covered by the signed daily checkpoint;
   per-line Merkle inclusion proofs are planned, not present.
-
 - **Key registry (M5).** Vendors register **public** keys (`epi cloud keys
   push` reads only `*.pub` and refuses anything else); anyone can read the
   history at `/o/{slug}/keys.json`, shown on trust pages with revocations
@@ -24,16 +58,79 @@ All notable changes to EPI Recorder are documented here.
   Registration is informational only and never a pin: `epi keys trust
   --from-cloud {slug}` still requires the exact fingerprint confirmed with
   the sender, and refuses revoked keys.
-
 - **Customer-owned storage (M4).** Every sealed `.epi` can also go straight
   to the vendor's own S3-compatible bucket (`EPI_STORAGE_URL=s3://bucket/prefix`,
   endpoint override for MinIO/R2/GCS, credentials from AWS env/profile).
   Outbox-first with bounded background delivery: sealing never fails or slows
   down, offline seals queue and `epi cloud storage flush` retries. EPI Cloud
-  never sees these bytes or credentials — it only shows the recorder's
+  never sees these bytes or credentials - it only shows the recorder's
   health heartbeat as vendor-reported. New: `epi cloud storage
   show|set|test|flush`, `docs/STORAGE.md` (write-only bucket policy,
   Object Lock guidance).
+- **Witness verdicts say what happened (#131).** A witness receipt signed
+  by a key that is not the EPI witness reads NOT CONFIRMED ("STAMP NOT
+  FROM THE EPI WITNESS"), never MISMATCH — MISMATCH means the file bytes
+  differ.
+- **Witness stamps get through (#132).** The recorder stamps with a
+  distinctive client User-Agent (proxies were blocking the default one),
+  with honest hints: 401 means re-run login, 403 means a network block.
+- **Demo tells the truth (#133).** `epi demo` prints "Witnessed by EPI
+  Cloud" (or why not, with the fix) and one Next step; the Runs list shows
+  a short id and seal time under each title, goal-less runs show
+  "Run 29e5812b", and every non-witnessed badge explains itself. Re-pushing
+  refreshes a stale witness status and fills in a missing customer tag —
+  never replacing one.
+- **Walkthrough fixes (#134).** Sign out works (fetch POST, no more
+  `Origin not allowed`); the guide says 3 steps; plan limits say
+  "customers"; `epi cloud login` nudges after 30 silent seconds; trust
+  pages explain counts before the first checkpoint.
+- **Cloud customer overhaul (#135).** Team endpoints (members, invites,
+  remove member, never the last owner) with an invite page; dashboard plan
+  bar with usage; customer names match case-insensitively; closed
+  customers free their plan slot; device login resolves the customer first
+  (no dead keys); expired share links don't count toward limits; trust
+  page catches viewer-tampered files; three security fixes (invites bound
+  to the invited email, runs can't be moved between customers, reviewer
+  drop-zone checks the embedded viewer).
+- **Founder plan admin.** A founder-only page (`/admin`) lists every
+  workspace with owner, usage and a plan picker — no more D1 console for
+  plan changes. Every change is audited. Unlimited plans show a short
+  "Plan: <Name> — unlimited" with no Upgrade link.
+- **Paid plan limits match the pricing note (#139).** Startup: 3 customer
+  relationships and 1,000 evidence files (1-year retention). Growth: 15
+  relationships and 10,000 files (7-year retention). Limits speak in
+  customers, never internal metric names.
+
+### Fixed
+
+- **Pack-time viewer carries VERIFY.txt; prohibition guards see original
+  case (#145).**
+- **CI signing uses the org key, not a throwaway.** `epi annex pack` (and
+  `sign` / `multi-sign`) now import `EPI_SIGNING_KEY` — a 64-hex Ed25519
+  seed — as the named key when it does not exist locally, instead of
+  minting a disposable key. A green compliance-gate run now proves the
+  signature came from the org's key. New `KeyManager.import_hex_seed()`.
+- **Independent JS verifier can read real artifacts.** `docs/epi-verifier/`
+  located the ZIP via a magic value that envelope-v2 files never have, and
+  its bundled Ed25519 core could not verify a signature. It now finds the
+  payload via the `EPI_ZIP_PAYLOAD_START` marker (legacy ZIP still works),
+  uses the same proven crypto core as the shipped viewer, and verifies
+  signatures for real 4.6.2 and legacy-zip seals.
+- **`epi integrate guardrails` is listed.** The target existed but was
+  missing from the help text and the command summary.
+- **Docs matched to code.** `docs/`: Annex IV commands, EU AI Act evidence
+  claims, EPI-SPEC required/optional members, trust-level table, canonical
+  hash references, witness render strings, telemetry opt-in wording, Cloud
+  plan entitlements, and the gateway/Cloudflare deployment notes now match
+  the implementation. New: `docs/FILE-SAFETY.md`, `docs/adr/`, `docs/api/`,
+  `docs/DPA.md`, `docs/SUBPROCESSORS.md`, `docs/DATA-RETENTION.md`,
+  `docs/MIGRATION.md`, `docs/ROADMAP.md`, `docs/GOVERNANCE.md`,
+  `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`, Dependabot, CodeQL,
+  Scorecard, SBOM, and Sigstore-signed releases with `SHA256SUMS`.
+- **Smaller Cloud fixes.** D1 migrations run before every cloud deploy (prod
+  sign-in repair); device-code guess throttling; push-only `status`
+  explains instead of dumping 403; witness exports enforce trust-link
+  inbox scope.
 
 ## [4.6.1] - 2026-10-13
 
@@ -217,9 +314,8 @@ All notable changes to EPI Recorder are documented here.
 - **Privacy, terms and support pages, and a ChatGPT app submission pack.** `/privacy`, `/terms` and
   `/support` describe what the hosted connector actually does (retention hours come from the code), with
   the contact set by `EPI_SUPPORT_EMAIL`. The server now deletes expired sealed files on a timer and forgets
-  rate-limit addresses after an hour, so those promises hold on a quiet server. `docs/CHATGPT-APP-SUBMISSION.md`
-  has the directory text, test cases and checklist for publishing EPI in ChatGPT's app directory, which is the
-  route to working on every plan.
+  rate-limit addresses after an hour, so those promises hold on a quiet server. Publishing EPI in
+  ChatGPT's app directory is the route to working on every plan.
 - **`/seal` takes the export zip as downloaded.** Upload the ChatGPT or Claude data-export zip
   directly (sharded `conversations-000.json` files included), pick one conversation by part of its
   title or its number, and large histories are read one conversation at a time with safe size limits

@@ -1,10 +1,55 @@
 # EPI documentation
 
-**Start here** if you opened the `docs/` folder.  
-Product version in this repo: **4.6.1**. PyPI may lag - check with `pip index versions epi-recorder` or pin git (see [PILOT.md](./archive/PILOT.md) (archived)).
+**Product version in this repo: 4.6.2** (see `pyproject.toml`).  
+PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
-**License:** MIT (see root `LICENSE`).  
-**Not legal advice:** evidence files support audits; they do not certify regulatory compliance by themselves.
+**License:** MIT (root `LICENSE`).  
+**Not legal advice. Not a certificate.** A `.epi` file is evidence a third party can re-check. It does not, by itself, certify EU AI Act conformity, SOC 2, ISO 27001, or any other regulatory outcome.
+
+**Normal user (install, record, verify, share a file):** [USER-GUIDE.md](./USER-GUIDE.md).
+
+If you are evaluating EPI for a bank, insurer, or auditor, start here:
+
+1. This page (what exists, what it proves, where to read).
+2. [What verification means](./VERIFICATION_CONTRACT.md).
+3. [What the product does not do](./KNOWN_LIMITATIONS.md).
+4. [Auditor path](./AUDITORS-GUIDE.md) — offline, no account.
+
+This folder has four kinds of files. Only the first kind is current product documentation.
+
+| Kind | What it is | How to treat it |
+|------------------|-----------------|
+| **Product docs** | Recorder, Cloud, website — kept at 4.6.2 | Canonical |
+| **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
+| **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
+| **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
+
+`docs/index.html` on GitHub Pages redirects to the **file-format spec**, not this index. Product reading starts here.
+
+---
+
+## Three products, one repo
+
+| Product | What it is | Canonical docs |
+|---------|------------|----------------|
+| **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. MIT. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
+| **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Private beta** — not a self-serve hosted-verification subscription. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
+| **Website** | Public site `https://epilabs.org`. Marketing, in-browser verify, plans, legal. Source of truth is `website/` only. | [WEBSITE.md](./WEBSITE.md) |
+
+How the pieces fit: [ARCHITECTURE.md](../ARCHITECTURE.md).  
+Enterprise briefing (CISO / risk / procurement): [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md).
+
+Login for the website and the CLI is **EPI Cloud**. Older Render login is retired. Some legacy hosted paths (`epi share` default upload, MCP on Render, telemetry) still exist — see [CLOUD.md](./CLOUD.md). They are **not** the account system and **not** required to record or verify.
+
+---
+
+## What a `.epi` file proves — and what it does not
+
+A sealed `.epi` proves: after sealing, these bytes were not altered, and they were signed by the private key that matches the public key in the manifest.
+
+It does **not** prove: that every model call or tool call was captured, that the signer is who they claim until you pin their key, that policy rules are complete, or that a regulation is satisfied.
+
+Seal, identity, and policy are three different checks. Details: [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md).
 
 ---
 
@@ -12,88 +57,123 @@ Product version in this repo: **4.6.1**. PyPI may lag - check with `pip index ve
 
 | You are… | Read first | Then |
 |----------|------------|------|
-| **New developer** | Root [README.md](../README.md) (60-second path) | [USAGE_GUIDE.md](./USAGE_GUIDE.md), [CLI.md](./CLI.md) |
-| **Policy & fault analysis** | **[POLICY-AND-FAULT-ANALYZER.md](./archive/POLICY-AND-FAULT-ANALYZER.md) (archived)** | [POLICY.md](./POLICY.md) |
-| **Enterprise / customer pilot** | **[PILOT.md](./archive/PILOT.md) (archived)** | [ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md) (archived), [ENTERPRISE-CAPABILITY.md](./archive/ENTERPRISE-CAPABILITY.md) (archived) |
-| **Auditor / independent verifier** | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [THREAT_MODEL.md](./THREAT_MODEL.md) |
-| **EPI Labs operator** (hosted plans) | [OPERATOR-RUNBOOK.md](./archive/OPERATOR-RUNBOOK.md) (archived) | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) |
-| **Spec / standards** | [spec/README.md](./spec/README.md), [spec/EPI-SPEC.md](./spec/EPI-SPEC.md) | [standards/aiuc-1-evidence.md](./standards/aiuc-1-evidence.md), [standards/scitt-predicate.md](./standards/scitt-predicate.md) |
-| **Integrations** | [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) | [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) |
+| **Normal user / developer** | **[USER-GUIDE.md](./USER-GUIDE.md)** | Root [README.md](../README.md), [CLI.md](./CLI.md), [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) |
+| **Risk / compliance / bank reviewer** | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md), [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) |
+| **Independent auditor** | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [WITNESS.md](./WITNESS.md) |
+| **Vendor sharing a run with a customer** | [CLOUD.md](./CLOUD.md) § customer path | [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md), [CLI.md](./CLI.md) (`epi cloud`) |
+| **Self-hosting capture/review** | [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md) | [CONNECT.md](./CONNECT.md) |
+| **Spec implementer** | [spec/README.md](./spec/README.md), [spec/EPI-SPEC.md](./spec/EPI-SPEC.md) | [standards/aiuc-1-evidence.md](./standards/aiuc-1-evidence.md), [standards/scitt-predicate.md](./standards/scitt-predicate.md) |
+| **Website / epilabs.org editor** | [WEBSITE.md](./WEBSITE.md) | `website/README.md` |
 
 ---
 
-## Pilot pack (curated)
+## 1. Product docs (keep current)
 
-For a guided pilot, use **only**:
-
-1. [PILOT.md](./archive/PILOT.md) (archived) — scope, install pin, success criteria  
-2. Root [README.md](../README.md) — golden path  
-3. [ENTERPRISE-15-MINUTES.md](./archive/ENTERPRISE-15-MINUTES.md) (archived) — customer engineer path  
-4. [ENTERPRISE-CAPABILITY.md](./archive/ENTERPRISE-CAPABILITY.md) (archived) — honest shipped vs not shipped  
-5. Optional: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)  
-6. Operator only: [OPERATOR-RUNBOOK.md](./archive/OPERATOR-RUNBOOK.md) (archived)
-
-Full narrative (internal / investor): [COMPLETE-PRODUCT-GUIDE.md](./archive/COMPLETE-PRODUCT-GUIDE.md) (archived).
-
----
-
-## Canonical product docs (Tier A)
+### epi-recorder
 
 | Doc | Purpose |
 |-----|---------|
-| [USAGE_GUIDE.md](./USAGE_GUIDE.md) | Day-to-day install, record, verify |
-| [POLICY-AND-FAULT-ANALYZER.md](./archive/POLICY-AND-FAULT-ANALYZER.md) (archived) | How users use policy + fault analysis |
-| [CLI.md](./CLI.md) | Command reference (v4.4.5) |
+| [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share (includes the command cheat sheet) |
+| Root [README.md](../README.md) | 60-second path |
+| [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
+| [POLICY.md](./POLICY.md) | Policy schema and authoring |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Honest product boundaries |
-| [POLICY.md](./POLICY.md) | Policy schema and authoring detail |
-| [ANNEX-IV.md](./ANNEX-IV.md) | Annex IV tooling |
-| [ACTIONS.md](./ACTIONS.md) | GitHub Actions |
-| [ENTERPRISE-TRUST-BUNDLE.md](./archive/ENTERPRISE-TRUST-BUNDLE.md) (archived) | Org trust bundles |
-| [ENTERPRISE-EVIDENCE-PLAYBOOK.md](./ENTERPRISE-EVIDENCE-PLAYBOOK.md) | Org process for evidence |
-| [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md) | Self-host paths |
-| [archive/SITE.md](./archive/SITE.md) | Public site source of truth (`website/`) |
+| [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) | Exact meaning of a verify result |
+| [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | Offline independent check |
+| [THREAT_MODEL.md](./THREAT_MODEL.md) | In-scope / out-of-scope attacks |
+| [FILE-SAFETY.md](./FILE-SAFETY.md) | Is a `.epi` safe to open? (receiver guide) |
+| [ENTERPRISE-EVIDENCE-PLAYBOOK.md](./ENTERPRISE-EVIDENCE-PLAYBOOK.md) | Org process around evidence |
+| [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md) | Self-host gateway / connect |
+| [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) | SDK wrappers |
+| [ACTIONS.md](./ACTIONS.md) | Composite GitHub Actions that actually exist in this repo |
+
+### EPI Cloud
+
+| Doc | Purpose |
+|-----|---------|
+| [CLOUD.md](./CLOUD.md) | Product claims, customer path ([founder ops](../internal/cloud-ops.md) is internal) |
+| [WITNESS.md](./WITNESS.md) | Hash-only receipts (self-hosted endpoint or Cloud) |
+| [STORAGE.md](./STORAGE.md) | Customer-owned bucket (credentials never leave the recorder) |
+| [DPA.md](./DPA.md) | Data processing addendum, starting point (counsel review) |
+| [SUBPROCESSORS.md](./SUBPROCESSORS.md) | Who touches customer data and what they see |
+| [DATA-RETENTION.md](./DATA-RETENTION.md) | What is kept, for how long, how to delete |
+
+### Website
+
+| Doc | Purpose |
+|-----|---------|
+| [WEBSITE.md](./WEBSITE.md) | Source of truth, deploy, what not to edit |
+| `website/README.md` | Same rules, next to the HTML |
 
 ---
 
-## Optional deep dives
+## 2. How-to (same product, narrower job)
 
 | Doc | When |
 |------|------|
-| [COMPLETE-PRODUCT-GUIDE.md](./archive/COMPLETE-PRODUCT-GUIDE.md) (archived) | Journeys, tiers, pitch narrative |
-| [DEMO-SCRIPT.md](./DEMO-SCRIPT.md) | Live demo talk track |
-| [EU-AI-ACT-COMPLIANCE-MATRIX.md](./EU-AI-ACT-COMPLIANCE-MATRIX.md) | Regulatory mapping (evidence support, not a certificate) |
-| [EPI-CANONICAL-HASH.md](./archive/EPI-CANONICAL-HASH.md) (archived — superseded by the [spec](spec/EPI-SPEC.md)) | Hash details |
-| [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Telemetry opt-in |
-| [CONNECT.md](./CONNECT.md) | Connect / review workspace |
-| [SHARE-A-FAILURE.md](./SHARE-A-FAILURE.md) | Sharing sealed failures |
+| [CONNECT.md](./CONNECT.md) | Local review workspace (`epi connect open`) |
+| [IDENTITY-ONBOARDING.md](./IDENTITY-ONBOARDING.md) | Keys, DID, pinning |
+| [SHARE-A-FAILURE.md](./SHARE-A-FAILURE.md) | Hand a sealed failure to another engineer |
+| [PYTEST-AGENT-REGRESSIONS.md](./PYTEST-AGENT-REGRESSIONS.md) | `pytest --epi` |
+| [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) | Import a Microsoft AGT export into `.epi` |
+| [AGT-EXPORT.md](./AGT-EXPORT.md) | Export `.epi` to AGT-shaped JSON (read-only; does not change the seal) |
+| [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
+| [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
+| [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.6.2 |
+| [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
+| [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
+| [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
 
 ---
 
-## Archive and historical (do not use for install)
+## 3. Evidence support for EU Annex IV (not a certificate)
 
-| Path | Status |
-|------|--------|
-| [archive/](./archive/) | Historical reports and old checklists only |
-| [archive/junk-docs/](./archive/junk-docs/) | **Ignore** for product decisions |
-| Files with large “master / pivot / strategy” titles | Often **historical**; prefer this index |
+These files describe **templates, schemas, and a packing CLI**. Filling them in does not make a system EU AI Act conformant.
 
-If a file has a banner **“historical / not current”**, treat it as non-canonical.
+| Doc | Purpose |
+|-----|---------|
+| [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md) | What a `.epi` can contribute to an evidence file, and what it cannot |
+| [ANNEX-IV.md](./ANNEX-IV.md) | `epi annex` CLI: nine JSON section templates you author and can sign |
+| [standards/aiuc-1-evidence.md](./standards/aiuc-1-evidence.md) | AIUC-1 evidence *grouping* (`epi verify --aiuc1`), not a certificate |
+
+There is **no** 113-article “compliance matrix” and **no** CEN-CENELEC implementation claim in this repo. Those documents were removed because they read like certification.
 
 ---
 
-## Website
+## 4. Legacy hosted MCP (Render — not EPI Cloud)
 
-| Path | Role |
-|------|------|
-| `website/` | **Production** public site source (`epilabs.org`) |
-| `website-v2/` | **Sandbox redesign** — not deployed by default |
-| [archive/SITE.md](./archive/SITE.md) | Sync rules (`python scripts/sync_website.py`) |
+Still running for ChatGPT / Claude connectors. Optional. Not required to record or verify. Not the Cloud account.
+
+| Doc | Purpose |
+|-----|---------|
+| [EPI-MCP-CONTRACT.md](./EPI-MCP-CONTRACT.md) | Tools, honesty limits, what the host does not send |
+| [CHATGPT-PLUGIN.md](./CHATGPT-PLUGIN.md) | ChatGPT connection / deploy notes |
+| [CLAUDE-CONNECTOR.md](./CLAUDE-CONNECTOR.md) | Claude connector copy |
+
+---
+
+## 5. Spec, RFC, design (not the product front door)
+
+| Path | What it is |
+|------|------------|
+| [spec/](./spec/) | Language-agnostic `.epi` wire format |
+| [api/](./api/) | Generated gateway OpenAPI spec (regenerate, don't hand-edit) |
+| [adr/](./adr/) | Architecture decision records (why, not just what) |
+| [standards/scitt-predicate.md](./standards/scitt-predicate.md) | SCITT predicate notes |
+| [rfcs/agt-portable-evidence-mapping.md](./rfcs/agt-portable-evidence-mapping.md) | Frozen community RFC (May 2026; names v4.1.0) |
+| [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Internal design note for org trust bundles |
+| [epi-verifier/](./epi-verifier/) | Independent JS helper; file-integrity needs JSZip; step-chain check is not done |
+| [assets/SAMPLES.md](./assets/SAMPLES.md) | Sample `.epi` files for `epi verify` |
+| `dashboard-v2/` | Browser-test screenshots, not a user guide |
 
 ---
 
 ## Contributing to docs
 
-1. Edit the **canonical** file for that topic (link from this index).  
-2. Do not invent paid features; check [ENTERPRISE-CAPABILITY.md](./archive/ENTERPRISE-CAPABILITY.md) (archived) and [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).   
-3. Keep **customer** docs free of admin keys and Render ops (those stay in OPERATOR-RUNBOOK).  
-4. After structural changes, update this index.
+1. Edit the **canonical** file for that topic (linked from this index).
+2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
+3. Keep product-doc version numbers at **4.6.2** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
+4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [../internal/cloud-ops.md](../internal/cloud-ops.md)).
+5. After structural changes, update this index.
+6. Do not add sales talk tracks or article-by-article “compliance” tables.

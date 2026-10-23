@@ -15,7 +15,7 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fetch checkpoints
         env:
           EPI_CLOUD_URL: ${{ secrets.EPI_CLOUD_URL }}

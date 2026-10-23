@@ -55,7 +55,7 @@ app.post("/orgs/:orgId/share-links", async (c) => {
   if (!body.success) return c.json({ error: { code: "bad_request", message: "Label required." } }, 400);
   const org = await c.env.DB.prepare("SELECT plan FROM orgs WHERE id = ?").bind(orgId).first<{ plan: string }>();
   if (!org) return c.json({ error: { code: "not_found", message: "Org not found." } }, 404);
-  const active = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM share_links WHERE org_id = ? AND revoked_at IS NULL").bind(orgId).first<{ n: number }>();
+  const active = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM share_links WHERE org_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)").bind(orgId, nowIso()).first<{ n: number }>();
   const allow = limitAllows(planOf(org.plan), "shareLinks", active?.n ?? 0);
   if (!allow.ok) return c.json({ error: { code: "plan_limit", message: allow.message } }, 402);
   const scope = body.data.scope ?? { agents: "all", inboxes: "all" };
@@ -131,6 +131,8 @@ export async function trustLinkFromRequest(db: D1Database, req: Request): Promis
 export interface TrustDoc {
   vendor: string;
   link_label: string;
+  /** When this share link stops working (shown to the reviewer). */
+  expires_at: string;
   agents: Array<{ id: string; name: string; status: string }>;
   inboxes: Array<{
     id: string; label: string; total_witnessed: number;
@@ -194,6 +196,7 @@ export async function buildTrustDoc(db: D1Database, env: Env, link: TrustLink): 
   return {
     vendor: org?.name ?? "Vendor",
     link_label: link.label,
+    expires_at: link.expires_at,
     agents: agents.map((a) => ({ id: a.id, name: a.name, status: a.status })),
     inboxes: out,
     artifacts,

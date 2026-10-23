@@ -1,6 +1,8 @@
 # EPI Independent Verifier
 
-Zero-dependency verification for [EPI](https://epilabs.org) (.epi) evidence files. Runs in any browser, any JavaScript runtime.
+**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.6.2. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
+
+Zero-dependency **partial** verification for [EPI](https://epilabs.org) `.epi` files. Runs in a browser or Node. File-integrity hashing needs JSZip. Step-chain verification is **not implemented** (marked planned in the table below).
 
 ## Usage
 
@@ -28,14 +30,20 @@ const report = await verifyEpi(bytes);
 npm install jszip
 ```
 
-## Verification Checks
+## Verification Checks (`verifyEpi`, end-to-end)
 
 | Check | Without JSZip | With JSZip |
 |-------|--------------|-----------|
-| Manifest parsing | Yes | Yes |
-| Signature verification | Yes | Yes |
+| Envelope location (polyglot marker / legacy ZIP) | Yes | Yes |
+| Manifest parsing | No (ZIP parsing needs JSZip) | Yes |
+| Signature verification | No (needs the manifest) — standalone `verifyManifestSignature(manifestObj)` works on a manifest you supply | Yes — verified against real 4.6.2 and legacy-zip seals |
 | File integrity | No | Yes |
-| Steps chain verification | No | Planned |
+| Step-chain verification | No | Planned |
+
+Notes: v1.x CBOR-sealed manifests are refused with directions, not a tamper
+verdict (no CBOR canonicalizer here — use `epi verify`). Step-chain checking
+is not implemented. Canonical check is always `epi verify`
+([VERIFICATION_CONTRACT](../VERIFICATION_CONTRACT.md)).
 
 ## API
 
@@ -54,7 +62,8 @@ full RFC 8785 library conformance).
 
 EPI golden vectors require: SHA-256(canonical_json) = expected_hash under the EPI
 normalization rules. Cross-checked against AlgoVoi interop fixtures where shared.
-See `docs/EPI-CANONICAL-HASH.md` for known divergences from full JCS.
+Divergence cases live with the vectors: `tests/compatibility/test_canonical_hash.py`
+and `tests/compatibility/golden/canonical_hash_vectors.json`.
 
 ## License
 

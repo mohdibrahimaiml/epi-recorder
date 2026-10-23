@@ -22,7 +22,7 @@ export class WitnessInbox {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS entries(
       seq INTEGER PRIMARY KEY AUTOINCREMENT, received_at TEXT NOT NULL,
       payload_raw TEXT NOT NULL, prev_hash TEXT NOT NULL, entry_hash TEXT NOT NULL,
-      receipt_sig TEXT)`);
+      receipt_sig TEXT, artifact_sha256 TEXT, workflow_id TEXT)`);
     // Pre-receipt databases (M1–M5): add the column in place. IF NOT EXISTS
     // does not alter existing tables, so migrate explicitly. Duplicate-column
     // on re-boot is expected and ignored.
@@ -31,7 +31,53 @@ export class WitnessInbox {
     } catch {
       // Column already exists.
     }
+    // Exact-match lookup columns (M6 fix): Cloudflare SQLite rejects LIKE
+    // patterns longer than ~50 bytes ("LIKE or GLOB pattern too complex"),
+    // and a file sha256 alone is 64 hex chars — so every /find-receipts
+    // query crashed and evidence packs shipped with empty witness.json.
+    // Lookups below use `=` on these columns; payload_raw LIKE is gone.
+    for (const ddl of [
+      `ALTER TABLE entries ADD COLUMN artifact_sha256 TEXT`,
+      `ALTER TABLE entries ADD COLUMN workflow_id TEXT`,
+    ]) {
+      try {
+        this.sql.exec(ddl);
+      } catch {
+        // Column already exists.
+      }
+    }
+    this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_entries_sha ON entries(artifact_sha256)`);
+    this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_entries_workflow ON entries(workflow_id)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+  }
+
+  /** Fill exact-match columns for pre-migration rows (bounded per call). */
+  private backfillColumns(): void {
+    let rows;
+    try {
+      rows = this.sql.exec(
+        "SELECT seq, payload_raw FROM entries WHERE artifact_sha256 IS NULL OR workflow_id IS NULL ORDER BY seq ASC LIMIT 200",
+      ).toArray() as Array<{ seq: number; payload_raw: string }>;
+    } catch {
+      return; // Schema too old for the new columns; the exact-match
+      // lookup below will 500 rather than return wrong data.
+    }
+    for (const r of rows) {
+      let sha = "";
+      let wf = "";
+      try {
+        const p = JSON.parse(r.payload_raw) as Record<string, unknown>;
+        if (typeof p.file_sha256 === "string") sha = p.file_sha256;
+        if (typeof p.workflow_id === "string") wf = p.workflow_id;
+      } catch {
+        // Unparseable payload: leave searchable-by-nothing, never fail.
+      }
+      try {
+        this.sql.exec("UPDATE entries SET artifact_sha256 = ?, workflow_id = ? WHERE seq = ?", sha, wf, r.seq);
+      } catch {
+        // Best-effort only.
+      }
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -45,9 +91,18 @@ export class WitnessInbox {
         const receivedAt = nowIso();
         const prev = (this.sql.exec("SELECT entry_hash FROM entries ORDER BY seq DESC LIMIT 1").toArray()[0]?.entry_hash as string | undefined) ?? GENESIS;
         const hash = await entryHash(prev, body.payload_raw, receivedAt);
+        let sha = "";
+        let wf = "";
+        try {
+          const p = JSON.parse(body.payload_raw) as Record<string, unknown>;
+          if (typeof p.file_sha256 === "string") sha = p.file_sha256;
+          if (typeof p.workflow_id === "string") wf = p.workflow_id;
+        } catch {
+          // Index columns stay empty; the line still chains fine.
+        }
         const cursor = this.sql.exec(
-          "INSERT INTO entries (received_at, payload_raw, prev_hash, entry_hash) VALUES (?, ?, ?, ?) RETURNING seq",
-          receivedAt, body.payload_raw, prev, hash,
+          "INSERT INTO entries (received_at, payload_raw, prev_hash, entry_hash, artifact_sha256, workflow_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING seq",
+          receivedAt, body.payload_raw, prev, hash, sha, wf,
         );
         const seq = (cursor.toArray()[0] as unknown as { seq: number }).seq;
         return Response.json({ seq, entry_hash: hash, received_at: receivedAt }, { status: 200 });
@@ -91,15 +146,17 @@ export class WitnessInbox {
         return Response.json({ entries: rows });
       }
       if (request.method === "GET" && url.pathname === "/find-receipts") {
-        // Link-scoped lookup (M6): lines whose report mentions this file sha,
-        // with their receipts. Worker exact-matches file_sha256 afterwards;
-        // LIKE is only the coarse filter. Capped like /find.
+        // Link-scoped lookup (M6): lines for exactly this file sha, with
+        // their receipts. Exact `=` match on the indexed column — never
+        // LIKE (Cloudflare SQLite rejects >~50-byte LIKE patterns, and a
+        // sha256 alone is 64 hex chars). The Worker exact-matches
+        // payload.file_sha256 afterwards as well (fail closed).
         const digest = url.searchParams.get("sha") ?? "";
         if (!digest || digest.length > 128) return Response.json({ error: { code: "bad_request", message: "sha required." } }, { status: 400 });
-        const esc = digest.replace(/[\\%_]/g, (m) => `\\${m}`);
+        this.backfillColumns();
         const rows = this.sql.exec(
-          "SELECT seq, received_at, payload_raw, receipt_sig FROM entries WHERE payload_raw LIKE ? ESCAPE '\\' ORDER BY seq ASC LIMIT 20",
-          `%${esc}%`,
+          "SELECT seq, received_at, payload_raw, receipt_sig FROM entries WHERE artifact_sha256 = ? ORDER BY seq ASC LIMIT 20",
+          digest,
         ).toArray();
         return Response.json({ entries: rows });
       }
@@ -128,12 +185,12 @@ export class WitnessInbox {
       }
       if (request.method === "GET" && url.pathname === "/find") {
         const digest = url.searchParams.get("workflow") ?? "";
-        if (!digest) return Response.json({ error: { code: "bad_request", message: "workflow required." } }, { status: 400 });
-        // Selected-run lookups only: full scan capped, LIKE-escaped.
-        const esc = digest.replace(/[\\%_]/g, (m) => `\\${m}`);
+        if (!digest || digest.length > 128) return Response.json({ error: { code: "bad_request", message: "workflow required." } }, { status: 400 });
+        // Selected-run lookups only: exact match on the indexed column.
+        this.backfillColumns();
         const rows = this.sql.exec(
-          "SELECT payload_raw FROM entries WHERE payload_raw LIKE ? ESCAPE '\\' ORDER BY seq ASC LIMIT 20",
-          `%${esc}%`,
+          "SELECT payload_raw FROM entries WHERE workflow_id = ? ORDER BY seq ASC LIMIT 20",
+          digest,
         ).toArray();
         return Response.json({ matches: rows.map((r) => r.payload_raw as string) });
       }

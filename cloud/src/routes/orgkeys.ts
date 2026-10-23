@@ -3,21 +3,34 @@ import { z } from "zod";
 import type { Env } from "../env.ts";
 import { newId, nowIso } from "../lib/crypto.ts";
 import { keyFingerprint } from "../lib/manifest.ts";
-import { membershipRole, userFromRequest } from "../lib/auth.ts";
+import { keyFromRequest, membershipRole, userFromRequest } from "../lib/auth.ts";
 import { auditLog, d1AuditDb } from "../lib/audit.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
 const HEX64 = /^[0-9a-fA-F]{64}$/;
 
-// Owner registers a PUBLIC key. Anything else (private keys, junk, wrong
-// length) is refused: this registry is informational only, never a pin.
+// Owner (or a computer's push key) registers a PUBLIC key. Anything else
+// (private keys, junk, wrong length) is refused: this registry is
+// informational only, never a pin. A push key may add its computer's own
+// public signing key (public information, so the trust page lists it);
+// revoke/unrevoke/delete/list stay owner-only.
 app.post("/orgs/:orgId/keys", async (c) => {
-  const user = await userFromRequest(c.env.DB, c.req.raw);
-  if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
   const orgId = c.req.param("orgId");
-  if ((await membershipRole(c.env.DB, orgId, user.id)) !== "owner") {
-    return c.json({ error: { code: "forbidden", message: "Owners only." } }, 403);
+  let actor: string | null = null;
+  const key = await keyFromRequest(c.env.DB, c.req.raw);
+  if (key) {
+    if (key.orgId !== orgId || !key.scopes.includes("push")) {
+      return c.json({ error: { code: "forbidden", message: "This key can't register keys for that workspace." } }, 403);
+    }
+    actor = `key:${key.id}`;
+  } else {
+    const user = await userFromRequest(c.env.DB, c.req.raw);
+    if (!user) return c.json({ error: { code: "unauthorized", message: "Sign in first." } }, 401);
+    if ((await membershipRole(c.env.DB, orgId, user.id)) !== "owner") {
+      return c.json({ error: { code: "forbidden", message: "Owners only." } }, 403);
+    }
+    actor = `user:${user.id}`;
   }
   const org = await c.env.DB.prepare("SELECT id, slug FROM orgs WHERE id = ?").bind(orgId).first<{ id: string; slug: string }>();
   if (!org) return c.json({ error: { code: "not_found", message: "Org not found." } }, 404);
@@ -36,7 +49,7 @@ app.post("/orgs/:orgId/keys", async (c) => {
   } catch {
     return c.json({ error: { code: "conflict", message: "Key already registered." } }, 409);
   }
-  await auditLog(d1AuditDb(c.env.DB), { orgId, actor: `user:${user.id}`, action: "org_key.register", detail: `${fingerprint}` });
+  await auditLog(d1AuditDb(c.env.DB), { orgId, actor, action: "org_key.register", detail: `${fingerprint}` });
   return c.json({ id, fingerprint }, 201);
 });
 

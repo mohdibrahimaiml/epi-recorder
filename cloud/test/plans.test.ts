@@ -9,11 +9,22 @@ describe("plans (single source of truth)", () => {
     expect(planOf("hosted")).toBe("free");
     expect(planOf(undefined)).toBe("free");
   });
+  it("paid tiers match the HOS pricing note (Oct 2026): relationships are the metric", () => {
+    expect(PLAN_LIMITS.startup).toEqual({ agents: 3, inboxes: 3, evidenceFiles: 1000, retentionDays: 365, shareLinks: 3 });
+    expect(PLAN_LIMITS.growth).toEqual({ agents: 15, inboxes: 15, evidenceFiles: 10000, retentionDays: 2555, shareLinks: null });
+    expect(limitAllows("startup", "inboxes", 2)).toEqual({ ok: true });
+    const full = limitAllows("startup", "inboxes", 3);
+    expect(full.ok).toBe(false);
+    if (!full.ok) { expect(full.message).toMatch(/customer/); expect(full.message).not.toMatch(/inboxes/); }
+    expect(limitAllows("growth", "inboxes", 14)).toEqual({ ok: true });
+    expect(limitAllows("growth", "inboxes", 15).ok).toBe(false);
+    expect(retentionUntil("startup", "2026-01-01T00:00:00.000Z")).toBe("2027-01-01T00:00:00.000Z");
+  });
   it("blocks at the limit with an upgrade hint, never deletes", () => {
     expect(limitAllows("free", "agents", 0)).toEqual({ ok: true });
     const r = limitAllows("free", "agents", 1);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toMatch(/Upgrade/);
+    if (!r.ok) { expect(r.message).toMatch(/epilabs.org\/plans/); expect(r.message).not.toMatch(/agents|inboxes|shareLinks/); }
   });
   it("enterprise (custom) never blocks", () => {
     expect(limitAllows("enterprise", "agents", 100000)).toEqual({ ok: true });

@@ -1,8 +1,10 @@
 // EPI Auth UI — single account system: EPI Cloud only.
 // Website "Sign In" points to https://cloud.epilabs.org. No Render calls.
 // The old Render login (/api/auth/*) is retired; cloud uses HttpOnly
-// session cookies on cloud.epilabs.org, so the marketing site never checks
-// session state cross-origin — nav always links to the cloud front door.
+// session cookies on cloud.epilabs.org. The nav quietly asks the cloud
+// whether this browser is signed in (same-site fetch, 2 s timeout) and
+// says "Dashboard" instead of "Sign In" when it is — either way the
+// button links to the cloud front door.
 (function () {
   'use strict';
 
@@ -10,6 +12,35 @@
 
   function cloudHref() {
     return CLOUD_URL + '/';
+  }
+
+  // Ask the cloud if this browser holds a session. Always resolves with a
+  // label; any failure (offline, timeout, CORS, bad JSON) keeps "Sign In".
+  function checkSession(done) {
+    var settled = false;
+    function finish(label) {
+      if (settled) return;
+      settled = true;
+      done(label);
+    }
+    try {
+      var ctl = ('AbortController' in window) ? new AbortController() : null;
+      var timer = null;
+      if (ctl) {
+        timer = setTimeout(function () { try { ctl.abort(); } catch (e) {} }, 2000);
+      }
+      fetch(CLOUD_URL + '/auth/session', { credentials: 'include', cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+        .then(function (r) {
+          if (timer) clearTimeout(timer);
+          return r.json().catch(function () { return {}; });
+        })
+        .then(function (j) { finish(j && j.signed_in === true ? 'Dashboard' : 'Sign In'); })
+        .catch(function () { if (timer) clearTimeout(timer); finish('Sign In'); });
+    } catch (e) {
+      finish('Sign In');
+    }
+    // Safety net for browsers without AbortController: never hang the nav.
+    setTimeout(function () { finish('Sign In'); }, 2500);
   }
 
   function findNavContainer() {
@@ -20,8 +51,8 @@
            document.querySelector('nav ul');
   }
 
-  function injectNav() {
-    var label = 'Sign In';
+  function injectNav(label) {
+    label = label || 'Sign In';
     var href = cloudHref();
     var slot = document.getElementById('nav-auth-slot');
     if (!slot) {
@@ -91,7 +122,7 @@
         el.href = cloudHref();
       }
     } catch (e) {}
-    injectNav();
+    checkSession(injectNav);
   }
 
   if (document.readyState !== 'loading') init();

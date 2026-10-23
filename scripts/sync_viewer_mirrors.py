@@ -1,7 +1,8 @@
 """Single-source sync for the browser viewer JS mirrors.
 
 Canonical source: web_viewer/app.js
-Mirrors (deployed sites): site/viewer/app.js, website/viewer/app.js
+Mirrors (deployed sites): site/viewer/app.js, website/viewer/app.js,
+    epi-official/viewer/app.js, verify_portal/static/viewer/app.js
 
 The packed/embedded viewer already reads only the canonical copy
 (epi_core.viewer_assets.load_viewer_assets); these mirrors exist for the
@@ -9,6 +10,10 @@ hosted sites and must stay byte-identical. Run after any web_viewer change:
 
     python scripts/sync_viewer_mirrors.py        # copy canonical -> mirrors
     python scripts/sync_viewer_mirrors.py --check  # CI: fail if diverged
+
+The mirror list must cover every path asserted by
+tests/test_viewer_utf8_manifest.py::test_viewer_mirrors_match_canonical —
+a mirror that is not synced here is a mirror that silently diverges.
 """
 from __future__ import annotations
 
@@ -17,7 +22,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 CANONICAL = REPO / "web_viewer" / "app.js"
-MIRRORS = [REPO / "site" / "viewer" / "app.js", REPO / "website" / "viewer" / "app.js"]
+MIRRORS = [
+    REPO / "site" / "viewer" / "app.js",
+    REPO / "website" / "viewer" / "app.js",
+    REPO / "epi-official" / "viewer" / "app.js",
+    REPO / "verify_portal" / "static" / "viewer" / "app.js",
+]
 
 
 def check() -> list[str]:

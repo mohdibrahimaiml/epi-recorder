@@ -2,6 +2,12 @@
 
 EPI (Evidence Packaged Infrastructure) turns an AI agent's run into a signed, tamper-evident `.epi` evidence file: a portable container holding the run's step timeline, environment snapshot, file hashes and an Ed25519 signature, which anyone can re-check offline with `epi verify` and no account, API key, or network access.
 
+Three surfaces share this repo:
+
+- **epi-recorder** — SDK + CLI. Offline record / seal / verify. Required.
+- **EPI Cloud** (`cloud/`, `https://cloud.epilabs.org`) — optional private-beta witness, trust pages, Evidence Room. Login for the website and `epi cloud login`.
+- **Website** (`website/` → `https://epilabs.org`) — marketing and in-browser verify. Not a docs site; technical docs live in `docs/`.
+
 ```mermaid
 flowchart LR
     SDK["epi_recorder<br/>(Python SDK)"] --> CORE["epi_core<br/>(container · hashing · signing · verification)"]
@@ -9,9 +15,11 @@ flowchart LR
     GW["epi_gateway<br/>(self-hosted runtime)"] --> CORE
     MCP["epi_mcp<br/>(hosted connector)"] --> CORE
     CORE --> EPIF[".epi file"]
-    EPIF --> VERIFY["verify offline (epi verify - browser)"]
+    EPIF --> VERIFY["verify offline (epi verify / browser)"]
     WV["web_viewer + epi_viewer_static<br/>(offline viewer)"] --> EPIF
-    PORTAL["verify_portal<br/>(hosted verify API)"] --> VERIFY
+    CLOUD["cloud/<br/>(EPI Cloud Worker)"] --> CLI
+    SITE["website/<br/>(epilabs.org)"] --> CLOUD
+    PORTAL["verify_portal<br/>(legacy Render share/MCP)"] --> EPIF
 ```
 
 Record → steps hash chain → manifest → signature → `.epi` → verify offline:
@@ -27,14 +35,16 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 |---|---|---|
 | `epi_recorder/` | Python SDK: `record()` sessions, LLM/framework wrappers | `from epi_recorder import record` |
 | `epi_core/` | Container pack/unpack, canonical hashing, signing, verification, policy/fault analysis | Library (`EPIContainer` in `epi_core/container.py`); no CLI script |
-| `epi_cli/` | The `epi` command (record, verify, view, policy, gateway, share) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
+| `epi_cli/` | The `epi` command (record, verify, view, policy, gateway, share, **cloud**) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
 | `web_viewer/` | Canonical browser UI for reviewing case files | Opened by `epi view` |
 | `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
 | `epi_gateway/` | Self-hosted capture, review, approval and share runtime | `epi gateway serve` |
-| `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (hosted; Render runs this) |
-| `verify_portal/` | Hosted verify/auth API behind epilabs.org | `python -m verify_portal.main` (Render runs this) |
+| `cloud/` | EPI Cloud Worker: GitHub/Google login, device-code CLI login, witness, share links, Evidence Room, public key registry, storage-target metadata | Cloudflare Worker `epi-cloud` (`cloud/src/index.ts`). Docs: [docs/CLOUD.md](docs/CLOUD.md) |
+| `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |
+| `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** `epi share` default upload, some `/api/*` proxies, telemetry and MCP keep-warm still hit Render — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |
 | `pytest_epi/` | Pytest plugin: attach `.epi` evidence to tests | `pytest --epi` |
-| `website/` / `site/` | Public site source / Cloudflare Pages build output | `npm run build` copies `website/` to `site/` |
+| `website/` | Public site source (`epilabs.org`) | Edit here only. [docs/WEBSITE.md](docs/WEBSITE.md) |
+| `site/` | Cloudflare Pages **build output** of `website/` | `npm run build` copies `website/` → `site/`. Do not hand-edit. |
 
 Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`, `epi-register`, `epi-mcp`, `epi-mcp-http`); the gateway and portal run via the `epi` CLI and `python -m` as above.
 
@@ -54,4 +64,7 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 - [File format spec](docs/spec/EPI-SPEC.md) — the authoritative wire format.
 - [Verification contract](docs/VERIFICATION_CONTRACT.md) — exactly what a verify result means (and does not mean).
 - [Threat model](docs/THREAT_MODEL.md) — which attacks are prevented and which are out of scope.
-- [MCP contract](docs/EPI-MCP-CONTRACT.md) — the hosted connector's exact tools and honesty limits.
+- [Docs map](docs/README.md) — recorder, Cloud, website.
+- [EPI Cloud](docs/CLOUD.md) — customer path and product claims ([founder ops](internal/cloud-ops.md) is internal).
+- [Website](docs/WEBSITE.md) — `website/` is the only public-site source.
+- [MCP contract](docs/EPI-MCP-CONTRACT.md) — legacy Render connector tools and honesty limits (not EPI Cloud).

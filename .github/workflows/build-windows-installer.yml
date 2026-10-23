@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  # Sigstore signing (free, transparent) mints short-lived certs via GitHub OIDC.
+  id-token: write
 
 jobs:
   build-installer:
@@ -16,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -69,13 +71,41 @@ jobs:
           Write-Host "Installer: $($installer.Name) - $([math]::Round($installer.Length / 1MB, 1)) MB"
         shell: powershell
 
+      - name: Write SHA256SUMS
+        run: |
+          Get-ChildItem "installer\windows\Output\epi-setup-*.exe" | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Out-File -Encoding ascii "installer\windows\Output\SHA256SUMS.txt"
+          Get-Content "installer\windows\Output\SHA256SUMS.txt"
+        shell: powershell
+
       - name: Upload installer to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: installer/windows/Output/epi-setup-*.exe
-          # Attach the exe only. Do not rewrite notes — a human-written body
+          files: |
+            installer/windows/Output/epi-setup-*.exe
+            installer/windows/Output/SHA256SUMS.txt
+          # Attach the exe + checksums first, so the release is complete even
+          # if Sigstore signing below hiccups. Do not rewrite notes - a human-written body
           # is already on the Release from the tag/publish step.
+          # NOTE: the exe is not Authenticode code-signed yet (no cert).
+          # SHA256SUMS lets a reviewer confirm bytes; it is not a signature.
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sigstore-sign exe + checksums (free, transparent)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: sigstore/gh-action-sigstore-python@v3
+        with:
+          inputs: |
+            installer/windows/Output/epi-setup-*.exe
+            installer/windows/Output/SHA256SUMS.txt
+
+      - name: Attach Sigstore bundles to GitHub Release
+        uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: installer/windows/Output/*.sigstore
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

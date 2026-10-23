@@ -11,7 +11,23 @@
 <meta name="theme-color" content="#F7F5F0">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/site.css?v=17">
+<style>
+/* Trust-page-only pieces (plain-language summary + glossary). */
+.sumbox{margin:28px 0 8px;padding:18px 20px;border:1px solid var(--edge);border-left:3px solid var(--acc);background:var(--bg-3)}
+.sumbox h2{margin:0 0 10px;font-size:1.1rem}
+.sum-line{margin:0 0 9px;font-size:.95rem;line-height:1.6;color:var(--ink);display:flex;gap:10px;align-items:baseline}
+.sum-line.sum-small{font-size:.82rem;color:var(--mut);display:block}
+.sum-dot{flex:0 0 9px;width:9px;height:9px;border-radius:50%;background:var(--dim);transform:translateY(-1px)}
+.sum-dot.ok{background:var(--ok)}.sum-dot.warn{background:var(--warn)}.sum-dot.bad{background:var(--bad)}.sum-dot.info{background:var(--dim)}
+.terms{margin-top:10px;font-size:.86rem}
+.terms summary{cursor:pointer;color:var(--acc);font-weight:600}
+.terms dl{margin:10px 0 0}
+.terms dt{font-weight:700;margin-top:8px;color:var(--ink)}
+.terms dd{margin:2px 0 0;color:var(--mut);line-height:1.6}
+.gate-small{display:block;margin-top:10px;font-size:.74rem;color:var(--dim)}
+#trustFiles code.k{overflow-wrap:anywhere;word-break:break-all;white-space:normal}
+</style>
 <script>
 (function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
 </script>
@@ -48,20 +64,26 @@
 
 <span class="tag">EPI Cloud · Trust page</span>
 <h1 class="d2x" id="vendorTitle">Shared evidence</h1>
-<p class="lede">Witness-first evidence. Hashes of every run are witnessed; full records stay in the vendor's bucket. Verification below runs in your browser — nothing is uploaded.</p>
+<p class="lede" id="lede">Sealed evidence an AI vendor shared with you. Full records stay with the vendor; EPI&rsquo;s independent witness keeps a fingerprint (hash) of each run the vendor registered. File checks below run in your browser &mdash; nothing you drop here is uploaded.</p>
 
-<!-- Gate: nothing loads until a human clicks. Scanners create no signal. -->
+<!-- Gate: nothing loads until a human clicks, so scanners/link previews fetch nothing. -->
 <div id="gate" style="margin:32px 0">
   <div class="tier">
     <h3 id="gateVendor">Evidence shared with you</h3>
-    <div class="tdesc">Witness counts, key history, and files. Nothing loads until you click — automated scanners and link previews create no view signal.</div>
+    <div class="tdesc">An AI vendor shared sealed evidence about their AI system with you. Click to open it.</div>
     <button type="button" class="btn btn-pri" id="gateBtn">Open evidence</button>
     <span id="gateStatus" role="status" aria-live="polite" style="display:block;margin-top:8px;font-size:.8rem;color:var(--dim)"></span>
+    <small class="gate-small">Nothing loads until you click. The vendor sees when this page is opened and files are checked; link previews and automated scanners load nothing.</small>
   </div>
 </div>
 
 <div id="trustContent" style="display:none">
-  <h2>Runs witnessed</h2>
+  <section class="sumbox" id="summaryBox" aria-labelledby="sumTitle">
+    <h2 id="sumTitle">In plain words</h2>
+    <div id="trustSummary"></div>
+  </section>
+
+  <h2 style="margin-top:28px">Witness summary</h2>
   <section class="stats"><div class="stats-in stagger" id="trustStats"></div></section>
 
   <h2 style="margin-top:36px">Key history</h2>
@@ -89,8 +111,10 @@
   </div>
 
   <h2 style="margin-top:36px">Verify yourself (offline, open tools)</h2>
-  <div class="term" id="verifyCmd">epi verify FILE --policy strict --witness-log received.jsonl --offline</div>
-  <p style="font-size:.86rem;color:var(--mut)">Ask the vendor for the witness export (<code class="k">received.jsonl</code>) covering the runs above, then run the command on your own machine.</p>
+  <div id="verifyYourself">
+    <div class="term" id="verifyCmd">epi verify FILE --policy strict --witness-log witness.json --witness-pubkey &lt;PASTE-KEY&gt; --offline</div>
+    <p style="font-size:.86rem;color:var(--mut)">Download the evidence pack above and follow its <code class="k">README.txt</code>: it lists every file, the key to confirm with the vendor, and the result to expect.</p>
+  </div>
 
   <div class="section-divider"></div>
   <p style="font-size:.9rem">Reviewing an AI vendor? Ask them for an EPI trust link. (Free for reviewers, always.) — <a href="/plans#contact" style="color:var(--acc)">Talk to EPI Labs</a></p>
@@ -108,11 +132,11 @@
 
 <script src="/js/jszip.min.js"></script>
 <script src="/js/epi-manifest-preimage.js?v=38"></script>
-<script src="/js/epi-verify-core.js?v=38"></script>
-<script src="/t/app.js"></script>
+<script src="/js/epi-verify-core.js?v=39"></script>
+<script src="/t/app.js?v=2"></script>
 <script src="/js/theme.js"></script>
 <script src="/js/aos.js"></script>
 <script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js"></script>
+<script src="/js/auth-ui.js?v=2"></script>
 </body>
 </html>

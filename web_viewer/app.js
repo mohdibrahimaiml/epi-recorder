@@ -344,20 +344,47 @@ function renderHeader(caseData, context) {
   // Status pills
   const pillsEl = document.getElementById('header-pills');
   // Prefer the live check (done in this browser from the hashed bytes) over a
-  // flag stored inside the same editable page.
+  // flag stored inside the same editable page — but the live check only
+  // re-hashes the inner ZIP members. Envelope failures found server-side
+  // (__envelope_header__ / __polyglot_viewer__: outer display-layer edits,
+  // payload transplant, trailing bytes) leave inner hashes intact, so a live
+  // inner-only pass must never upgrade a baked failure back to green.
+  // Real life: a tampered outer viewer that flips APPROVE->REJECT renders the
+  // attacker's text while inner hashes still match; `epi verify` reports
+  // SEAL FAIL and the viewer must stay red.
   const hasLiveInt = context != null && typeof context.integrity_ok === 'boolean';
-  const intOk = hasLiveInt ? context.integrity_ok : caseData.integrity?.ok !== false;
+  const bakedFailed = !!(caseData.integrity && caseData.integrity.ok === false);
+  // Authority: a verdict is only meaningful when it is bound to the signed
+  // manifest. The host (epi view) injects an authoritative context; a live
+  // in-page check is authoritative only when this page holds the signed
+  // manifest bytes. A double-clicked polyglot file carries a display copy
+  // only, so it must not paint green.
+  const authoritative = !!(context && context.authoritative);
+  const liveOk = hasLiveInt ? context.integrity_ok === true : null;
+  const intOk = liveOk === null
+    ? (authoritative ? caseData.integrity?.ok === true : false)
+    : (liveOk && !bakedFailed);
+  const intKnown = authoritative || (liveOk !== null);
+  const intVerdict = intOk ? 'pass' : (intKnown ? 'fail' : 'gray');
+  const intLabel = intOk
+    ? 'INTEGRITY VERIFIED'
+    : (intKnown ? 'INTEGRITY FAILED' : 'INTEGRITY NOT VERIFIED HERE');
   // Prefer live context sig_valid, but only when it's been explicitly set.
   // An empty/missing context must not override the preloaded case payload.
   const hasLiveSig = context != null && Object.prototype.hasOwnProperty.call(context, 'signature_valid');
-  const sigValid = hasLiveSig ? context.signature_valid : caseData.signature?.valid;
+  const sigValid = hasLiveSig ? context.signature_valid : (authoritative ? caseData.signature?.valid : null);
   const sigVerified = sigValid === true;
 
   pillsEl.innerHTML = '';
 
   const intPill = document.createElement('span');
-  intPill.className = 'pill ' + (intOk ? 'pass' : 'fail');
-  intPill.innerHTML = `<span class="pill-dot"></span>${intOk ? 'INTEGRITY VERIFIED' : 'INTEGRITY FAILED'}`;
+  intPill.className = 'pill ' + intVerdict;
+  intPill.innerHTML = `<span class="pill-dot"></span>${intLabel}`;
+  if (!intKnown) {
+    intPill.title =
+      'This viewer does not hold the signed manifest bytes, so it cannot verify this file. ' +
+      'Verify offline with: epi verify <file>.epi --policy strict';
+  }
   pillsEl.appendChild(intPill);
 
   const sigPill = document.createElement('span');
@@ -638,10 +665,80 @@ async function verifyCaseInBrowser(caseData) {
     signature_reason: null,
     integrity_reason: null,
     client_verified: false,
+    authoritative: false,
   };
   if (!caseData || typeof caseData !== 'object') return result;
 
-  const manifest = caseData.manifest || {};
+  // ── Locate the authoritative manifest bytes ──
+  // A verdict is only worth something if it is bound to the manifest the
+  // Ed25519 signature actually covers. The polyglot `.epi` page (the one a
+  // human opens by double-clicking) carries a pack-time COPY of the manifest
+  // inside itself: the archive's manifest.json is re-signed after the viewer
+  // is generated, so the baked copy is a different, stale pre-image — and it
+  // is editable by whoever holds the file.
+  //
+  // Re-hashing the baked members against the baked file_manifest is therefore
+  // self-consistent by construction and proves nothing. The authoritative
+  // manifest is available only when this page holds the archive (export-html,
+  // browser Sign & seal) or the manifest member itself.
+  let zip = null;
+  let zipUnavailable = false;
+  if (caseData.archive_base64) {
+    if (typeof JSZip !== 'undefined') {
+      try {
+        zip = await JSZip.loadAsync(base64ToUint8Array(caseData.archive_base64));
+      } catch (zipErr) {
+        zipUnavailable = true;
+      }
+    } else {
+      zipUnavailable = true; // cannot open the embedded archive
+    }
+  }
+
+  let rawManifestText = null;       // exact bytes of manifest.json
+  let authoritativeManifest = null; // parsed manifest
+  let manifestIsAuthoritative = false;
+  if (zip) {
+    try {
+      const mEntry = zip.file('manifest.json');
+      if (mEntry) {
+        const mBytes = await mEntry.async('uint8array');
+        rawManifestText = new TextDecoder('utf-8').decode(mBytes);
+        authoritativeManifest = JSON.parse(rawManifestText);
+        // These are the bytes the Ed25519 signature covers.
+        manifestIsAuthoritative = true;
+      }
+    } catch (mErr) {
+      authoritativeManifest = null;
+      rawManifestText = null;
+    }
+  }
+  if (!rawManifestText && caseData.files && caseData.files['manifest.json']) {
+    // The manifest member embedded in this page. Decode as UTF-8, NEVER with a
+    // bare atob(): atob() is Latin-1, so any non-ASCII character in signed
+    // metadata (an em dash in the goal) changed the hashed bytes and showed a
+    // valid signature as INVALID.
+    //
+    // It is NOT a source of authority. In the polyglot page this is the
+    // pack-time copy taken before the archive's manifest.json was re-signed —
+    // a different, stale pre-image (different signature, different
+    // file_manifest) — and the whole page is editable by whoever holds the
+    // file. The check below is a diagnostic only; it never drives a verdict.
+    try {
+      rawManifestText = new TextDecoder('utf-8').decode(base64ToUint8Array(caseData.files['manifest.json']));
+      authoritativeManifest = JSON.parse(rawManifestText);
+    } catch (mErr2) {
+      authoritativeManifest = null;
+      rawManifestText = null;
+    }
+  }
+
+  // Only a check bound to the signed manifest may drive a verdict.
+  result.authoritative = manifestIsAuthoritative;
+
+  // The manifest every check below works from: the authoritative one when we
+  // have it, otherwise the baked copy (display only).
+  const manifest = authoritativeManifest || (caseData.manifest || {});
   const hasSig = !!(manifest.signature || (caseData.signature && caseData.signature.present));
 
   // ── Signature (Ed25519 over canonical manifest hash) ──
@@ -650,19 +747,26 @@ async function verifyCaseInBrowser(caseData) {
   // Decode as UTF-8, not Latin-1: bare atob() turns every non-ASCII character
   // (an em dash, an accent, a checkmark in the goal) into mojibake, which
   // changes the signed bytes and showed a valid signature as INVALID.
-  const rawManifestText = caseData.files && caseData.files['manifest.json']
-    ? new TextDecoder('utf-8').decode(base64ToUint8Array(caseData.files['manifest.json']))
-    : null;
   if (typeof globalThis.verifyManifestSignature === 'function' && manifest.signature) {
-    try {
-      const vr = await globalThis.verifyManifestSignature(manifest, rawManifestText);
-      result.signature_valid = vr && vr.valid === true;
-      result.signature_reason = (vr && vr.reason) || null;
-      result.client_verified = true;
-    } catch (e) {
-      result.signature_valid = false;
-      result.signature_reason = e && e.message ? e.message : String(e);
-      result.client_verified = true;
+    if (!rawManifestText) {
+      // No signed manifest bytes in this view. Do NOT fall back to
+      // canonicalising the baked copy — that would verify a stale pre-image
+      // that the shipped signature does not cover, and paint a false green.
+      result.signature_valid = null;
+      result.signature_reason =
+        'This page carries a display copy of the manifest, not the signed one, so it cannot ' +
+        'check the signature here. Verify offline with: epi verify <file>.epi';
+    } else {
+      try {
+        const vr = await globalThis.verifyManifestSignature(manifest, rawManifestText);
+        result.signature_valid = vr && vr.valid === true;
+        result.signature_reason = (vr && vr.reason) || null;
+        result.client_verified = true;
+      } catch (e) {
+        result.signature_valid = false;
+        result.signature_reason = e && e.message ? e.message : String(e);
+        result.client_verified = true;
+      }
     }
   } else if (!manifest.signature && !hasSig) {
     result.signature_valid = false;
@@ -679,15 +783,6 @@ async function verifyCaseInBrowser(caseData) {
     const fm = manifest.file_manifest || {};
     const names = Object.keys(fm);
     if (names.length > 0) {
-      let zip = null;
-      let zipUnavailable = false;
-      if (caseData.archive_base64) {
-        if (typeof JSZip !== 'undefined') {
-          zip = await JSZip.loadAsync(base64ToUint8Array(caseData.archive_base64));
-        } else {
-          zipUnavailable = true; // cannot open the embedded archive
-        }
-      }
       const mismatches = [];
       const unchecked = [];
       let checked = 0;
@@ -791,11 +886,43 @@ async function verifyCaseInBrowser(caseData) {
     result.client_verified = true;
   }
 
-  // Only when the manifest lists no files at all is there nothing to re-hash;
-  // otherwise a flag stored inside this same editable page proves nothing.
-  if (result.integrity_ok == null && Object.keys((manifest.file_manifest || {})).length === 0 &&
-      caseData.integrity && typeof caseData.integrity.ok === 'boolean') {
-    result.integrity_ok = caseData.integrity.ok;
+  // Only a check bound to the signed manifest may produce a verdict. Without
+  // the authoritative manifest bytes, the members and the manifest this page
+  // can see are both baked into this same editable file, so any result is
+  // self-consistent by construction — report "not verifiable here" instead of
+  // a verdict. A flag stored inside this page proves nothing.
+  if (!result.authoritative) {
+    result.integrity_ok = null;
+    result.integrity_reason =
+      'This page carries a display copy of the evidence, not the sealed bytes, so it cannot ' +
+      'verify integrity here. Verify offline with: epi verify <file>.epi';
+    result.client_verified = false;
+  }
+
+  // Envelope authority: this live check only re-hashes inner ZIP members, so
+  // it cannot clear a server-side envelope verdict. Outer display-layer edits
+  // (polyglot viewer HTML), header transplants and payload-hash failures keep
+  // inner hashes intact — `epi verify` reports them via __envelope_header__ /
+  // __polyglot_viewer__ mismatches. Never upgrade baked failure to green.
+  if (caseData.integrity && caseData.integrity.ok === false) {
+    const bakedMis = Array.isArray(caseData.integrity.mismatches)
+      ? caseData.integrity.mismatches
+      : [];
+    const envMis = bakedMis.filter(
+      (m) => typeof m === 'string' && m.indexOf('__') === 0
+    );
+    result.integrity_ok = false;
+    const prev = Array.isArray(result.mismatches) ? result.mismatches : [];
+    result.mismatches = Array.from(new Set(prev.concat(envMis)));
+    if (envMis.length > 0) {
+      result.integrity_reason =
+        'Sealed file was altered after sealing (' + envMis.join(', ') +
+        '). The evidence shown is the sealed copy; do not trust the file. Run: epi verify.';
+    } else if (!result.integrity_reason) {
+      result.integrity_reason =
+        'Sealed file failed verification. Run: epi verify.';
+    }
+    result.client_verified = true;
   }
 
   return result;
@@ -807,18 +934,45 @@ function renderIntegrity(caseData, context) {
   const integrity = caseData.integrity || {};
   const sig = caseData.signature || {};
 
-  // Integrity indicator — prefer live client context
+  // Integrity indicator — prefer live client context, but fail closed:
+  // a baked envelope failure (__envelope_header__ / __polyglot_viewer__)
+  // survives a live inner-only pass (see renderHeader). Missing data is
+  // NOT verified — never default to green.
+  //
+  // Authority: a verdict is only meaningful when it is bound to the signed
+  // manifest. The host (epi view) injects an authoritative context; a live
+  // in-page check counts only when this page holds the signed manifest
+  // bytes. A double-clicked polyglot file carries a display copy only, so
+  // it gets a neutral "not verified here" — never green, never red.
   const intEl = document.getElementById('ind-integrity');
+  const authoritative = !!(context && context.authoritative);
+  const bakedFailed = integrity.ok === false;
   let intOk;
+  let intKnown;
   if (context && typeof context.integrity_ok === 'boolean') {
-    intOk = context.integrity_ok;
+    intOk = context.integrity_ok === true && !bakedFailed;
+    intKnown = true;
+  } else if (authoritative) {
+    intOk = integrity.ok === true;
+    intKnown = true;
   } else {
-    intOk = integrity.ok !== false;
+    intOk = false;
+    intKnown = false;
   }
-  if (intOk) {
+  if (bakedFailed) {
+    // Fail closed: a baked failure is never downgraded to "not verified".
+    intKnown = true;
+    intOk = false;
+  }
+  if (intKnown && intOk) {
     intEl.textContent = 'VERIFIED';
     intEl.className = 'indicator verified';
     intEl.title = 'File integrity verified — this measures whether the sealed record has been altered since sealing. It does not verify that the recording process captured every action the agent actually took.';
+  } else if (!intKnown) {
+    intEl.textContent = 'NOT VERIFIED HERE';
+    intEl.className = 'indicator unverified';
+    intEl.title = 'This viewer does not hold the signed manifest bytes, so it cannot verify this file. ' +
+      'Verify offline with: epi verify <file>.epi --policy strict';
   } else {
     intEl.textContent = 'COMPROMISED';
     intEl.className = 'indicator failed';
@@ -830,7 +984,7 @@ function renderIntegrity(caseData, context) {
   let resolvedSigValid;
   if (context && Object.prototype.hasOwnProperty.call(context, 'signature_valid')) {
     resolvedSigValid = context.signature_valid;
-  } else if (sig && typeof sig.valid === 'boolean') {
+  } else if (authoritative && sig && typeof sig.valid === 'boolean') {
     resolvedSigValid = sig.valid;
   } else {
     resolvedSigValid = null;
@@ -2221,30 +2375,53 @@ async function init() {
 
   // Always attempt real client-side crypto for standalone / export-html delivery.
   // This is the zero-install share path: must show VALID/INVALID, never a punt string.
+  // Fail-closed merge: the live check only re-hashes inner ZIP members, so it
+  // must never drop a server-baked envelope verdict (__envelope_header__ /
+  // __polyglot_viewer__) or flip baked failure to green.
+  const bakedIntegrityFailed = !!(caseData.integrity && caseData.integrity.ok === false);
+  const bakedEnvelopeMismatches = (() => {
+    const mis = caseData.integrity && Array.isArray(caseData.integrity.mismatches)
+      ? caseData.integrity.mismatches
+      : [];
+    return mis.filter((m) => typeof m === 'string' && m.indexOf('__') === 0);
+  })();
   try {
     const live = await verifyCaseInBrowser(caseData);
     if (live && live.client_verified) {
-      if (live.signature_valid !== null && live.signature_valid !== undefined) {
-        context.signature_valid = live.signature_valid;
+      // Only a check bound to the signed manifest may become a verdict.
+      // A live check against the baked display copy is self-consistent by
+      // construction — it may inform diagnostics, never the verdict chrome.
+      if (live.authoritative) {
+        if (live.signature_valid !== null && live.signature_valid !== undefined) {
+          context.signature_valid = live.signature_valid;
+        }
+        if (live.integrity_ok !== null && live.integrity_ok !== undefined) {
+          context.integrity_ok = bakedIntegrityFailed ? false : live.integrity_ok;
+        }
+        if (live.signature_reason) context.signature_reason = live.signature_reason;
+        if (live.integrity_reason) context.integrity_reason = live.integrity_reason;
+        if (live.chain) context.chain = live.chain;
+        if (live.sequence) context.sequence = live.sequence;
       }
-      if (live.integrity_ok !== null && live.integrity_ok !== undefined) {
-        context.integrity_ok = live.integrity_ok;
-      }
-      if (live.signature_reason) context.signature_reason = live.signature_reason;
-      if (live.integrity_reason) context.integrity_reason = live.integrity_reason;
-      if (live.chain) context.chain = live.chain;
-      if (live.sequence) context.sequence = live.sequence;
       if (typeof live.checked === 'number') {
+        const liveMis = Array.isArray(live.mismatches) ? live.mismatches : [];
         caseData.integrity = Object.assign({}, caseData.integrity || {}, {
           checked: live.checked,
-          mismatches: live.mismatches || [],
+          mismatches: Array.from(new Set(liveMis.concat(bakedEnvelopeMismatches))),
           unchecked: live.unchecked || [],
         });
       }
       context.client_verified = true;
     }
+    // Authority is sticky: the host context (epi view) is authoritative even
+    // when this page cannot re-derive it on its own.
+    if (live && live.authoritative) context.authoritative = true;
   } catch (e) {
     console.warn('[epi] client-side verification failed:', e);
+  }
+  if (bakedIntegrityFailed) {
+    context.integrity_ok = false;
+    if (caseData.integrity) caseData.integrity.ok = false;
   }
 
   // Mobile nav toggle

@@ -39,6 +39,25 @@ EPI_SUPPORTED_UPLOAD_MIMETYPES = {
 EPI_CONTAINER_FORMAT_LEGACY = "legacy-zip"
 EPI_CONTAINER_FORMAT_ENVELOPE = "envelope-v2"
 
+# ── Receiver-side decompression-bomb guard (red-team F-22) ─────────────────
+# A .epi is a ZIP. A hostile one can declare a member that expands to orders
+# of magnitude more than the file occupies on disk: the red team measured
+# `epi verify` expanding 524,637,162 bytes out of a 957,623-byte artifact
+# (547x) with no limit of any kind.
+#
+# These caps are checked against the ZIP *central directory* (declared
+# uncompressed sizes), so a bomb is refused without spending the memory or
+# disk needed to discover it. They are deliberately generous: legitimate
+# artifacts are text/JSON and compress at well under 50x.
+#
+# Override for operators who need different limits:
+#   EPI_MAX_EXPANDED_BYTES   total uncompressed budget
+#   EPI_MAX_MEMBER_BYTES     per-member uncompressed budget
+#   EPI_MAX_EXPANSION_RATIO  total_uncompressed / total_compressed
+EPI_MAX_EXPANDED_BYTES_DEFAULT = 2 * 1024 * 1024 * 1024    # 2 GiB total
+EPI_MAX_MEMBER_BYTES_DEFAULT = 512 * 1024 * 1024           # 512 MiB per member
+EPI_MAX_EXPANSION_RATIO_DEFAULT = 250.0                   # 250x
+
 # Legacy EPI1 (pre-v4.0.0) containers start with magic `EPI1` followed by a
 # header of historically varying length, then the raw ZIP payload. No single
 # header size is authoritative (4 per spec §2.2; 16/38/64 cited elsewhere, and
@@ -290,7 +309,14 @@ class EPIContainer:
                 **{
                     filename: base64.b64encode((source_dir / filename).read_bytes()).decode("ascii")
                     for filename in sorted(manifest.file_manifest.keys())
-                    if filename not in {"mimetype", "VERIFY.txt"} and (source_dir / filename).exists()
+                    # mimetype is re-added by readers as STORE; everything else
+                    # the manifest covers must be present so the browser
+                    # Sign & Seal fallback rebuild (no archive_base64) keeps
+                    # verifying. VERIFY.txt must be included: omitting it made
+                    # reviewed downloads fail with "VERIFY.txt: File missing".
+                    # source_dir/VERIFY.txt holds the final post-signing bytes
+                    # by the time this function runs during pack().
+                    if filename not in {"mimetype"} and (source_dir / filename).exists()
                 },
                 # manifest.json and viewer.html are written directly to the ZIP
                 # archive during packing, not saved to the workspace directory.
@@ -558,13 +584,29 @@ class EPIContainer:
         return viewer_bytes
 
     @staticmethod
-    def verify_polyglot_viewer(epi_path: Path) -> tuple[bool, str | None]:
+    def verify_polyglot_viewer(
+        epi_path: Path, expected_viewer_hash: bytes | None = None
+    ) -> tuple[bool, str | None]:
         """Verify outer polyglot viewer HTML against reserved_tail[0:32] hash.
 
+        `expected_viewer_hash` is the SHA-256 of the *signed* ZIP member
+        ``viewer.html`` (``manifest.file_manifest["viewer.html"]``). The outer
+        polyglot region is byte-identical to that member at pack time, so it is
+        the authoritative, signature-bound check for the display layer.
+
+        The envelope header's ``reserved_tail[0:32]`` copy is **unsigned and
+        self-referential**: it lives in the same untrusted header as the bytes
+        it describes, so an attacker who edits the display layer can simply
+        recompute it. The header copy alone therefore only catches naive
+        corruption, never a consistent forgery. When the signed hash is
+        available it is checked first and the header copy becomes a redundant
+        consistency check.
+
         Returns (ok, detail_message).
-        - Legacy (all-zero hash): ok=True, detail notes display layer not covered.
-        - Hash present and matches: ok=True, detail=None.
-        - Hash present and mismatches / missing viewer: ok=False with reason.
+        - Legacy (all-zero hash) and no signed coverage: ok=True, detail notes
+          the display layer is not integrity-covered.
+        - Signed coverage present and matching: ok=True, detail=None.
+        - Signed coverage present and mismatching: ok=False with reason.
         """
         fmt = EPIContainer.detect_container_format(epi_path)
         if fmt == EPI_CONTAINER_FORMAT_LEGACY:
@@ -575,20 +617,43 @@ class EPIContainer:
         zero = b"\x00" * EPI_VIEWER_HASH_SIZE
         viewer_bytes = EPIContainer._extract_polyglot_viewer_bytes(epi_path)
 
-        if claimed == zero:
-            if viewer_bytes is not None and len(viewer_bytes) > 0:
-                return True, (
-                    "legacy: polyglot viewer HTML is not integrity-covered "
-                    "(reserved_tail viewer hash is zero); trust epi verify, not the embedded UI"
+        if viewer_bytes is None:
+            if claimed != zero:
+                return False, (
+                    "polyglot viewer hash present in envelope header but no outer viewer HTML found"
+                )
+            # Envelope carries no outer display layer at all (e.g. `epi migrate`
+            # to envelope without a viewer). Nothing to bind.
+            return True, None
+
+        actual = hashlib.sha256(viewer_bytes).digest()
+
+        # (1) Signature-bound check — authoritative.
+        if expected_viewer_hash is not None:
+            if actual != expected_viewer_hash:
+                return False, (
+                    "outer display layer does not match the signed viewer.html hash: "
+                    f"expected {expected_viewer_hash.hex()[:16]}…, got {actual.hex()[:16]}… "
+                    "(display layer was modified after sealing)"
+                )
+            # The display layer is bound to the manifest signature. The header
+            # copy is now only a redundant consistency check.
+            if claimed != zero and claimed != actual:
+                return False, (
+                    f"polyglot viewer HTML hash mismatch: "
+                    f"expected {claimed.hex()[:16]}…, got {actual.hex()[:16]}… "
+                    f"(display layer may have been tampered)"
                 )
             return True, None
 
-        if viewer_bytes is None:
-            return False, (
-                "polyglot viewer hash present in envelope header but no outer viewer HTML found"
+        # (2) No signed coverage for this artifact: fall back to the unsigned
+        # envelope header hash, which only detects naive corruption.
+        if claimed == zero:
+            return True, (
+                "legacy: polyglot viewer HTML is not integrity-covered "
+                "(reserved_tail viewer hash is zero); trust epi verify, not the embedded UI"
             )
 
-        actual = hashlib.sha256(viewer_bytes).digest()
         if actual != claimed:
             return False, (
                 f"polyglot viewer HTML hash mismatch: "
@@ -1323,10 +1388,11 @@ class EPIContainer:
             f"  Trust `epi verify` (CLI / machine-readable report), not the colors or\n"
             f"  labels painted by the double-click embedded HTML viewer alone.\n"
             f"  Sealed data lives in the ZIP payload (file_manifest + Ed25519 seal).\n"
-            f"  New envelope-v2 artifacts also store SHA-256 of the outer polyglot\n"
-            f"  viewer HTML in the 128-byte header reserved_tail[0:32]. Mutating that\n"
-            f"  display layer fails verification. Legacy artifacts with an all-zero\n"
-            f"  viewer hash do not cover the outer HTML — still trust the CLI.\n\n"
+            f"  The outer polyglot viewer HTML is byte-identical to the sealed\n"
+            f"  viewer.html member, so the Ed25519 seal covers the display layer\n"
+            f"  too: editing what a double-click shows breaks verification, even\n"
+            f"  if the envelope header copy (reserved_tail[0:32]) is recomputed.\n"
+            f"  That header copy is only a consistency check.\n\n"
             f"This artifact is a signed, tamper-evident record.\n",
             encoding="utf-8"
         )
@@ -1778,6 +1844,65 @@ class EPIContainer:
 
 
     @staticmethod
+    def _expansion_limits() -> tuple[int, int, float]:
+        """Read the expansion budget from the environment, with safe defaults."""
+        import os as _os
+
+        def _pos_int(name: str, default: int) -> int:
+            raw = _os.environ.get(name)
+            if raw is None or not str(raw).strip():
+                return default
+            try:
+                value = int(str(raw).strip())
+            except ValueError:
+                return default
+            return value if value > 0 else default
+
+        total = _pos_int("EPI_MAX_EXPANDED_BYTES", EPI_MAX_EXPANDED_BYTES_DEFAULT)
+        member = _pos_int("EPI_MAX_MEMBER_BYTES", EPI_MAX_MEMBER_BYTES_DEFAULT)
+        ratio_raw = _os.environ.get("EPI_MAX_EXPANSION_RATIO")
+        try:
+            ratio = float(ratio_raw) if ratio_raw and str(ratio_raw).strip() else EPI_MAX_EXPANSION_RATIO_DEFAULT
+        except (TypeError, ValueError):
+            ratio = EPI_MAX_EXPANSION_RATIO_DEFAULT
+        if ratio <= 0:
+            ratio = EPI_MAX_EXPANSION_RATIO_DEFAULT
+        return total, member, ratio
+
+    @staticmethod
+    def _check_expansion_budget(zf: zipfile.ZipFile) -> None:
+        """Refuse an archive whose *declared* expansion exceeds the budget.
+
+        Uses the ZIP central directory, so nothing is expanded to make the
+        decision. Raises ValueError; callers surface it as a verification
+        failure rather than expanding the bomb.
+        """
+        total_cap, member_cap, ratio_cap = EPIContainer._expansion_limits()
+        total_size = 0
+        total_compressed = 0
+        for info in zf.infolist():
+            if info.file_size > member_cap:
+                raise ValueError(
+                    f"Refusing to expand {info.filename!r}: declared uncompressed size "
+                    f"{info.file_size:,} exceeds the {member_cap:,}-byte per-member limit "
+                    "(decompression-bomb guard)"
+                )
+            total_size += info.file_size
+            total_compressed += info.compress_size
+        if total_size > total_cap:
+            raise ValueError(
+                f"Refusing to expand .epi archive: declared uncompressed size "
+                f"{total_size:,} exceeds the {total_cap:,}-byte total limit "
+                "(decompression-bomb guard)"
+            )
+        if total_compressed > 0 and (total_size / total_compressed) > ratio_cap:
+            raise ValueError(
+                f"Refusing to expand .epi archive: expansion ratio "
+                f"{total_size / total_compressed:.0f}x exceeds the {ratio_cap:.0f}x limit "
+                "(decompression-bomb guard)"
+            )
+
+    @staticmethod
     def unpack(epi_path: Path, dest_dir: Path | None = None) -> Path:
         if not epi_path.exists():
             raise FileNotFoundError(f"EPI file not found: {epi_path}")
@@ -1789,6 +1914,8 @@ class EPIContainer:
 
         with EPIContainer._payload_zip_path(epi_path) as payload_zip:
             with zipfile.ZipFile(payload_zip, "r") as zf:
+                # Refuse a decompression bomb BEFORE extracting anything.
+                EPIContainer._check_expansion_budget(zf)
                 resolved_dest = dest_dir.resolve()
                 for member in zf.infolist():
                     member_path = (dest_dir / member.filename).resolve()
@@ -1810,6 +1937,8 @@ class EPIContainer:
     def read_member_bytes(epi_path: Path, member_name: str) -> bytes:
         with EPIContainer._payload_zip_path(epi_path) as payload_zip:
             with zipfile.ZipFile(payload_zip, "r") as zf:
+                # Refuse a decompression bomb BEFORE expanding any member.
+                EPIContainer._check_expansion_budget(zf)
                 try:
                     return zf.read(member_name)
                 except KeyError as exc:
@@ -1935,10 +2064,26 @@ class EPIContainer:
         finally:
             shutil.rmtree(temp_path, ignore_errors=True)
 
-        # Outer polyglot viewer HTML integrity (envelope reserved_tail[0:32]).
-        # ZIP-internal viewer.html is already covered by file_manifest above.
+        # Outer polyglot viewer HTML integrity.
+        # The authoritative binding is the SIGNED manifest's file_manifest hash
+        # for viewer.html: the outer polyglot region is byte-identical to that
+        # member at pack time, so the Ed25519 signature covers the display
+        # layer. The envelope reserved_tail[0:32] copy is unsigned and
+        # self-referential, so it cannot detect a display layer that was edited
+        # AND its header hash recomputed — which is exactly what an attacker
+        # does. Check the signed hash first; keep the header copy as a
+        # redundant consistency check.
         try:
-            poly_ok, poly_detail = EPIContainer.verify_polyglot_viewer(epi_path)
+            signed_viewer_hash: bytes | None = None
+            expected_hex = manifest.file_manifest.get("viewer.html")
+            if expected_hex:
+                try:
+                    signed_viewer_hash = bytes.fromhex(expected_hex)
+                except ValueError:
+                    signed_viewer_hash = None
+            poly_ok, poly_detail = EPIContainer.verify_polyglot_viewer(
+                epi_path, expected_viewer_hash=signed_viewer_hash
+            )
             if not poly_ok:
                 mismatches["__polyglot_viewer__"] = poly_detail or (
                     "polyglot viewer HTML integrity check failed"

@@ -48,39 +48,114 @@ def flush(
     timeout: int = typer.Option(10, "--timeout", help="Per-request timeout in seconds."),
 ) -> None:
     """Retry every undelivered witness entry."""
-    from epi_core.webhook import flush_outbox, outbox_path
+    from epi_core.webhook import flush_outbox, outbox_path, split_witness_urls
 
     _effective_secret = secret if secret is not None else _secret()
+    # Cloud-login fallback (same-source rule): with no explicit --secret or
+    # env secret, use the secret saved by `epi cloud login` — but only for
+    # outbox entries whose URL matches the saved witness_url. The saved
+    # secret is never sent to any other URL.
+    _resolver = None
+    if _effective_secret is None:
+        try:
+            from epi_cli.cloud import saved_customer as _saved_preset_fn
+        except Exception:
+            _saved_preset_fn = None  # type: ignore
+        if _saved_preset_fn is not None:
+            try:
+                _preset = _saved_preset_fn() or {}
+            except Exception:
+                _preset = {}
+            _saved_urls = set(split_witness_urls(_preset.get("witness_url")))
+            _saved_secret = _preset.get("witness_secret") or None
+            if _saved_urls and _saved_secret:
+                def _resolver(url: str, _urls=_saved_urls, _sec=_saved_secret):  # type: ignore[misc]
+                    return _sec if str(url) in _urls else None
     result = flush_outbox(
         secret=_effective_secret,
         timeout_seconds=timeout,
         path=outbox_path(),
+        secret_for_url=_resolver,
     )
     if not result["entries"]:
         console.print("[dim]Nothing pending — every report in the outbox was delivered.[/dim]")
         return
     for url in result["delivered"]:
         console.print(f"[green]Delivered:[/green] {escape(url)}")
+    # Map failing urls back to outbox entry ids (for the drop hint on 400s).
+    from epi_core.webhook import read_outbox as _read_outbox
+
+    _url_to_id: dict[str, str] = {}
+    try:
+        for _e in _read_outbox(outbox_path()):
+            for _u in _e.get("pending") or []:
+                _url_to_id.setdefault(str(_u), str(_e.get("id")))
+    except Exception:
+        _url_to_id = {}
+    import re as _re
+
+    _saved_urls_for_hint: set[str] = set()
+    _saved_customer: str | None = None
+    if _effective_secret is None:
+        try:
+            from epi_core.webhook import split_witness_urls as _split
+            from epi_cli.cloud import saved_customer as _hint_preset_fn
+            _hint_preset = (_hint_preset_fn() or {}) if _hint_preset_fn else {}
+            _saved_urls_for_hint = set(_split(_hint_preset.get("witness_url")))
+            _saved_customer = _hint_preset.get("customer") or None
+        except Exception:
+            _saved_urls_for_hint = set()
+    from epi_core.webhook import describe_witness_failure
+
+    _summaries: list[str] = []
     for url, error in result["failed"].items():
         console.print(f"[red]Failed:[/red] {escape(url)} ({escape(str(error))})")
         code = _auth_status(str(error))
-        if code and not _effective_secret:
+        _cloud = str(url) in _saved_urls_for_hint
+        if _re.search(r"\bHTTP(?: Error)? 400\b", str(error)):
+            _drop = f"epi witness drop {_url_to_id[url]}" if url in _url_to_id else "epi witness drop <id>"
+            _plain(
+                "  Rejected as malformed (HTTP 400): the stamp's format was refused, "
+                f"so retrying won't help — remove it with `{_drop}`."
+            )
+            _summaries.append(
+                "Nothing to retry: malformed stamps stay rejected. Remove "
+                "them with `epi witness drop <id>` (see ids above)."
+            )
+            continue
+        if code == "401" and not _effective_secret and not _cloud:
             _plain(
                 f"  No secret set, so the receiver refused the report (HTTP {code}). "
                 "Set EPI_WITNESS_SECRET or pass --secret (same secret as the receiver)."
             )
-        elif code:
-            _plain(
-                f"  The receiver rejected the secret (HTTP {code}). Use the same secret "
-                "as the receiver: EPI_WITNESS_SECRET or --secret."
+            _summaries.append(
+                "Still pending. Fix the URL/secret and flush again, or remove an entry "
+                "with: epi witness drop <id>"
+            )
+            continue
+        info = describe_witness_failure(error, cloud_login=_cloud, customer=_saved_customer)
+        _plain(f"  Not delivered: {info['reason']} — {info['fix']}")
+        if info["status"] == 410:
+            _summaries.append("Not retried: a closed customer can't receive reports.")
+        elif info["status"] == 401 and _cloud:
+            _summaries.append(
+                "Still pending. Run epi cloud login — it sends the waiting reports for you."
+            )
+        elif info["status"] == 401:
+            _summaries.append(
+                "Still pending. Fix the URL/secret and flush again, or remove an entry "
+                "with: epi witness drop <id>"
+            )
+        else:
+            _summaries.append(
+                "Still queued — flush again when it's reachable, or remove an entry "
+                "with: epi witness drop <id>"
             )
     if not result["delivered"] and not result["failed"]:
         console.print("[dim]Nothing pending.[/dim]")
     if result["failed"]:
-        _plain(
-            "Still pending. Fix the URL/secret and flush again, or remove an entry "
-            "with: epi witness drop <id>"
-        )
+        for _line in dict.fromkeys(_summaries):
+            _plain(_line)
         # Scripts and CI must see that reports are still undelivered.
         raise typer.Exit(1)
 

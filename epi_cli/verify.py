@@ -476,6 +476,24 @@ def _verify_step_chain(steps: list[dict], spec_version: str | None = None) -> tu
         return False, [f"chain verification error: {exc}"]
 
 
+def _chain_links_present(steps: list[dict]) -> bool:
+    """True when the steps carry at least one prev_hash link.
+
+    A file with no links at all is a *pre-chain* artifact: the chain check
+    passes vacuously, so nothing in it proves the recorded order. Fewer than
+    two steps cannot be reordered, so there is nothing to prove either way.
+    """
+    if len(steps) < 2:
+        return True
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        prev = s.get("prev_hash")
+        if prev not in (None, "CHAIN_START"):
+            return True
+    return False
+
+
 def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str]]:
     """
     AUD-CO-01: Step Sequence Completeness Audit.
@@ -560,14 +578,16 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
 
 
 def _print_share_hint() -> None:
-    """Show the lowest-friction next steps after a successful verification."""
+    """One neutral pointer after a verification (the reader may be a third party).
+
+    No vendor-side steps here (sharing, team workspace): whoever runs
+    `epi verify` is often the customer or an auditor, not the sender.
+    """
     console.print("")
-    console.print("[bold]Share / review this case file:[/bold]")
-    console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
     console.print(
-        "  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required"
+        "[dim]Anyone can re-check this file in a browser, no install: "
+        "[cyan]https://epilabs.org/verify[/cyan][/dim]"
     )
-    console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
 
 
 def _print_qr_code(url: str) -> None:
@@ -670,29 +690,6 @@ def _verify_witness_receipt(
             f"sha256(file bytes)={file_sha256})"
         )
     return True, ""
-
-
-def _receipt_signature_verifies(receipt: dict, pubkeys: list) -> bool:
-    """True when `receipt` carries an Ed25519 signature from any of `pubkeys`.
-
-    Hash comparisons are deliberately skipped: this answers only "is this
-    stamp from someone we trust", never "does it match this file". Never
-    raises.
-    """
-    try:
-        if not isinstance(receipt, dict):
-            return False
-        canonical = _canonical_witness_receipt_bytes(receipt)
-        sig = bytes.fromhex(str(receipt.get("signature") or "").strip().removeprefix("0x"))
-    except Exception:
-        return False
-    for _pub in pubkeys:
-        try:
-            _pub.verify(sig, canonical)
-            return True
-        except Exception:
-            continue
-    return False
 
 
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
@@ -996,53 +993,63 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             continue
         _ok = False
         _reason = "receipt check failed"
+        _key_reasons: list[str] = []
         for _pub in pubkeys:
             _ok, _reason = _verify_witness_receipt(
                 item.get("payload_raw"), item.get("receipt"), _pub, file_sha256
             )
             if _ok:
                 break
+            _key_reasons.append(_reason or "receipt check failed")
         if _ok:
             verified.append(item)
         else:
-            failures.append(_reason or "receipt check failed")
+            # With several trusted keys the loop tries each in turn, so the
+            # last reason may blame the wrong key while an earlier key proved
+            # the content differs. A proven content mismatch must win: it is
+            # the MISMATCH signal, never a wrong-key artefact. Only the
+            # artifact comparison is signature-proven (the signature is
+            # verified first, then the receipt's file hash is compared), so
+            # only it counts here; line_sha256 is checked before any
+            # signature verifies and proves nothing about the file.
+            _content = next(
+                (r for r in _key_reasons if "artifact_sha256 mismatch" in r),
+                None,
+            )
+            failures.append(_content or _reason or "receipt check failed")
     result["receipt_verified"] = len(verified)
     result["receipt_failures"] = len(failures)
     if not verified:
         _first = failures[0] if failures else "no verifiable receipt"
-        _sig_ok = bool(pubkeys) and any(
-            _receipt_signature_verifies(item.get("receipt") or {}, pubkeys)
-            for item in same_signed
+        # Key mismatch is NOT content alteration: every receipt failed only
+        # because no trusted key verifies its signature, so the stamp is not
+        # from the EPI witness. MISMATCH must mean the file content differs
+        # (a verified receipt for a different version), never a wrong key —
+        # telling an auditor "altered" when nothing was altered is a
+        # trust-critical false positive.
+        _sig_only = bool(failures) and all(
+            ("signature invalid" in f)
+            or ("signature malformed" in f)
+            or ("invalid witness public key" in f)
+            for f in failures
         )
-        if same_signed and pubkeys and not _sig_ok:
-            # No stamp here is from the EPI witness: every matched receipt
-            # failed signature verification against every trusted key. That
-            # is a foreign stamp, not an edited file — say so explicitly
-            # instead of DIFFERENT VERSION (kept for valid receipts that
-            # match a different file, below).
-            result["status"] = "MISMATCH"
-            result["mode"] = "untrusted-stamp"
-            result["received_at"] = None
-            try:
-                _times = []
-                for item in same_signed:
-                    _t = _signed_received_at(item)
-                    if _t:
-                        _times.append(str(_t))
-                for entry in same_legacy:
-                    if entry.get("received_at"):
-                        _times.append(str(entry.get("received_at")))
-                if _times:
-                    result["received_at"] = max(_times)
-            except Exception:
-                pass
+        if _sig_only:
+            result["status"] = "NOT CONFIRMED"
+            # An explicitly pinned key (flag/env) that verifies nothing is a
+            # forgery signal, not an unchecked stamp: the auditor named the
+            # key and the stamp is not from it. The decision step FAILs this
+            # in every mode; with only package pins (no explicit key) it
+            # stays WARN outside strict.
+            result["explicit_key"] = bool(_explicit_hexes)
+            _names_key = f" The file names key {doc_key[:16]}…;" if doc_key else ""
             result["detail"] = (
-                "WITNESS STAMP NOT FROM THE EPI WITNESS: none of the "
-                f"{len(same)} matched receipt(s) carries a valid Ed25519 signature "
-                "from a trusted EPI witness key "
-                f"(first failure: {_first}); this copy was never stamped by the EPI "
-                "witness — ask for the reported copy, and pin the EPI witness key "
-                "out of band before trusting any stamp."
+                "WITNESS STAMP NOT CONFIRMED — NOT FROM THE EPI WITNESS: this file "
+                f"carries witness receipts but none verifies against a trusted key ({len(failures)} "
+                f"receipt failure(s)): {_first}.{_names_key} Pin the EPI witness key "
+                "out of band (fetch it from "
+                "https://cloud.epilabs.org/.well-known/epi-witness-key.json AND the public "
+                "epi-witness-checkpoints GitHub repo, check both match) and re-run with "
+                "--witness-pubkey <key> (or EPI_WITNESS_PUBKEY)."
             )
             return result
         result["status"] = "MISMATCH"
@@ -1470,6 +1477,7 @@ def verify_command(
         steps_hash_ok = True
         chain_ok = True
         chain_breaks = []
+        chain_present = True
         seq_comp_gaps = []
         step_count_ok = True  # AUD-CO-02: safe default for old artifacts
         steps: list[dict] = []
@@ -1484,6 +1492,7 @@ def verify_command(
             steps = EPIContainer.read_steps(epi_file)
             spec_ver = getattr(manifest, "spec_version", None) if manifest else None
             chain_ok, chain_breaks = _verify_step_chain(steps, spec_version=spec_ver)
+            chain_present = _chain_links_present(steps)
             if steps:
 
                     # 1. Index Sequence Audit (Monotonicity, anchored at 0).
@@ -1791,6 +1800,7 @@ def verify_command(
             sequence_ok=sequence_ok,
             completeness_ok=completeness_ok,
             chain_ok=chain_ok,
+            chain_present=chain_present,
             transparency_ok=transparency_ok,
             completeness_gaps=seq_comp_gaps,
             forensic_reason=forensic_reason,
@@ -2094,9 +2104,23 @@ def verify_command(
         elif _witness.get("status") == "NOT CONFIRMED":
             # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
             # Never a clean PASS; FAIL under strict (the auditor acceptance
-            # command), WARN otherwise.
+            # command), WARN otherwise. Exception: the auditor explicitly
+            # pinned a key and the stamp is not from it — a forged stamp.
+            # That FAILs in every mode; "unconfirmed" would understate a fake.
             try:
-                if report["decision"].get("status") == "PASS":
+                _prior = report["decision"].get("status")
+                if _witness.get("explicit_key"):
+                    if _prior != "FAIL":
+                        _rs = report["decision"].get("reason", "")
+                        _msg = (
+                            "Witness stamp is NOT FROM THE EPI WITNESS: a key was "
+                            "explicitly pinned and no receipt verifies against it."
+                        )
+                        report["decision"]["status"] = "FAIL"
+                        report["decision"]["reason"] = (
+                            f"{_rs}; {_msg}".strip("; ") if _prior == "WARN" else _msg
+                        )
+                elif _prior == "PASS":
                     report["decision"]["status"] = (
                         "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
                     )
@@ -2310,13 +2334,26 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Header chrome: green only for org-trusted PASS. Unpinned seal is yellow
     # UNVERIFIED IDENTITY — never "SEAL OK" (skim must not imply claim safety).
+    #
+    # "PINNED" is reserved for a key the VERIFIER pinned. A key that only
+    # appears in a did:web document published by the file's own author is
+    # self-asserted — the signer vouches for themselves — and must never be
+    # described with the word "pinned" (red-team F-19).
     id_upper = str(identity_status).upper()
-    if decision_status == "PASS" and id_upper == "KNOWN":
+    pin_source = str((identity or {}).get("pin_source") or "none").lower()
+    self_asserted = id_upper == "KNOWN" and pin_source == "did_web"
+    if decision_status == "PASS" and id_upper == "KNOWN" and not self_asserted:
         status_symbol = "[bold green]✔ SEAL · IDENTITY PINNED[/bold green]"
         panel_style = "green"
+    elif decision_status == "PASS" and self_asserted:
+        status_symbol = "[bold yellow]✔ SEAL · SIGNER SELF-ASSERTED (DID)[/bold yellow]"
+        panel_style = "yellow"
     elif decision_status == "PASS":
         status_symbol = "[bold green]✔ PASS[/bold green]"
         panel_style = "green"
+    elif decision_status == "WARN" and id_upper == "KNOWN" and self_asserted:
+        status_symbol = "[bold yellow]⚠ SIGNER SELF-ASSERTED (DID) · SEE WARNING[/bold yellow]"
+        panel_style = "yellow"
     elif decision_status == "WARN" and id_upper == "KNOWN":
         # Signer is pinned; something else (witness log, clock) needs a look.
         _wit_hdr = (report.get("witness") or {}).get("status") if isinstance(report, dict) else None
@@ -2340,11 +2377,7 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         status_symbol = "[bold red]✘ SEAL FAIL — SIGNATURE INVALID[/bold red]"
         panel_style = "red"
     elif ((report.get("witness") or {}).get("status") if isinstance(report, dict) else None) == "MISMATCH":
-        _wit_mode = (report.get("witness") or {}).get("mode") if isinstance(report, dict) else None
-        if _wit_mode == "untrusted-stamp":
-            status_symbol = "[bold red]✘ FAIL — WITNESS STAMP NOT FROM THE EPI WITNESS[/bold red]"
-        else:
-            status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
+        status_symbol = "[bold red]✘ FAIL — NOT THE VERSION REPORTED TO YOU[/bold red]"
         panel_style = "red"
     elif signature_valid is True and id_upper == "UNKNOWN" and (
         "facts" in report and (report.get("identity") or {}).get("pinned_names")
@@ -2425,7 +2458,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         id_color = "red"
     else:
         id_color = "yellow"
+    if identity_status == "KNOWN" and self_asserted:
+        # Self-asserted identity must not read as green/pinned (red-team F-19).
+        id_color = "yellow"
+        id_status_display = "SELF-ASSERTED (not pinned)"
     content_lines.append(f"  [{id_color}]- Status:       {id_status_display}[/{id_color}]")
+    if self_asserted:
+        content_lines.append(
+            "  [yellow]- Trust:        The signer published this key in their own DID "
+            "document at their own domain.[/yellow]"
+        )
+        content_lines.append(
+            "  [yellow]                That is self-assertion, not a pin you chose. "
+            "Require an org pin with: epi verify --policy strict[/yellow]"
+        )
     if untrusted_despite_pins:
         content_lines.append(
             "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"
@@ -2611,8 +2657,8 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
     elif _wit_status == "NOT IN WITNESS LOG":
         content_lines.append(
-            "  [yellow]- Witness:      NOT IN WITNESS LOG — never reported to you at seal "
-            "time (re-run or re-sealed?)[/yellow]"
+            "  [yellow]- Witness:      NOT IN WITNESS LOG — this file was never reported "
+            "to this witness log when it was sealed (re-run or re-sealed copy?)[/yellow]"
         )
     elif _wit_status == "UNREADABLE":
         content_lines.append(
@@ -2623,15 +2669,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             f"  [red]- Witness:      STAMP NOT CONFIRMED — {_wit.get('detail')}[/red]"
         )
     elif _wit_status == "MISMATCH":
-        if _wit.get("mode") == "untrusted-stamp":
-            content_lines.append(
-                "  [red]- Witness:      WITNESS STAMP NOT FROM THE EPI WITNESS"
-                f" — {_wit.get('detail')}[/red]"
-            )
-        else:
-            content_lines.append(
-                f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
-            )
+        content_lines.append(
+            f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
+        )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).
     # Read from environment.json, which the file hashes cover, and shown only

@@ -16,15 +16,21 @@ export const SITE_CSS = [
   "background:var(--bg);color:var(--body);line-height:1.68;font-size:16px;",
   "margin:0;overflow-x:hidden}",
   "body::before{content:'';display:block;height:3px;background:var(--acc)}",
-  ".wrap{max-width:40rem;margin:0 auto;padding:0 clamp(20px,4vw,44px) 4rem}",
+  ".wrap{max-width:40rem;margin:0 auto;padding:0 clamp(16px,4vw,44px) 4rem}",
+  ".wide .wrap,.wide .nav-in{max-width:62rem}",
   ".nav{border-bottom:1px solid var(--edge);background:var(--bg-3)}",
   ".nav-in{max-width:40rem;margin:0 auto;padding:.8rem clamp(20px,4vw,44px);",
   "display:flex;align-items:center;gap:1rem;flex-wrap:wrap}",
+  ".nav-in{padding-left:clamp(16px,4vw,44px);padding-right:clamp(16px,4vw,44px)}",
   ".brand{font-family:Fraunces,Georgia,'Times New Roman',serif;font-weight:700;",
   "color:var(--ink);letter-spacing:-.02em;text-decoration:none;font-size:1.1rem}",
   ".brand em{font-style:normal;color:var(--acc)}",
   ".nav-links{margin-left:auto;display:flex;gap:1rem;font-size:.85rem;flex-wrap:wrap}",
   ".nav-links a{color:var(--mut);text-decoration:none}",
+  ".nav-user{margin-left:auto;display:flex;align-items:center;gap:.6rem;font-size:.8rem;color:var(--mut);flex-wrap:wrap;min-width:0}",
+  ".nav-user .who{overflow-wrap:anywhere}",
+  ".nav-user a{color:var(--mut)}",
+  ".linkbtn{background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;cursor:pointer;font-size:inherit}",
   "h1,h2{font-family:Fraunces,Georgia,'Times New Roman',serif;color:var(--ink);",
   "letter-spacing:-.02em;line-height:1.14;font-weight:500}",
   ".tag{display:inline-flex;align-items:center;gap:10px;",
@@ -49,14 +55,113 @@ export const SITE_CSS = [
   "#msg,.msg{min-height:1.4em}",
   ".err{background:var(--bad-bg);border:1px solid var(--bad);padding:.7rem .9rem;max-width:100%}",
   ".ok{background:var(--acc-bg);border:1px solid var(--acc);padding:.7rem .9rem;max-width:100%}",
+  ".warn{background:var(--warn-bg);border:1px solid var(--warn);padding:.7rem .9rem;max-width:100%}",
   "ol.setup>li{margin:.9rem 0}",
+  ".step{border-left:3px solid var(--edge);padding:.2rem 0 .2rem 1rem;margin:.8rem 0;max-width:100%}",
+  ".step.done{border-color:var(--acc)}",
+  ".step.current{border-color:var(--ink)}",
+  ".step.locked{opacity:.55}",
+  ".stephead{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}",
+  ".stepnum{font-family:ui-monospace,Consolas,monospace;font-size:.75rem;color:var(--mut)}",
+  ".mark{font-weight:700}",
+  ".mark.done{color:var(--acc)}",
+  ".tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin:1rem 0}",
+  ".tab{border:1px solid var(--edge);background:var(--bg-3);border-radius:.4rem;padding:.45rem .9rem}",
+  ".tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}",
+  ".twrap{overflow-x:auto;max-width:100%}",
+  "table.tbl{border-collapse:collapse;width:100%;font-size:.85rem}",
+  "table.tbl th,table.tbl td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--edge);vertical-align:top}",
+  "table.tbl th{font-family:ui-monospace,Consolas,monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}",
+  ".pill{display:inline-block;padding:.1rem .5rem;border-radius:1rem;font-size:.75rem;border:1px solid var(--edge);white-space:nowrap}",
+  ".pill.ok{background:var(--acc-bg);border-color:var(--acc)}",
+  ".pill.bad{background:var(--bad-bg);border-color:var(--bad)}",
+  "details.adv{margin-top:1rem}",
+  "details.adv summary{cursor:pointer;color:var(--mut)}",
+  ".copyrow{display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap}",
+  ".copyrow code{flex:1;min-width:0}",
+  "pre.cmd{background:#0D1117;color:#E6EDF3;padding:.8rem 1rem;border-radius:.4rem;overflow-x:auto;max-width:100%;font-size:.82rem;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}",
+  "pre.cmd .c{color:#8B949E}",
+  "a{color:var(--acc-hi)}",
+  "h3{color:var(--ink);font-size:1rem;margin:1.2rem 0 .4rem}",
+  ".btn-sm{padding:.3rem .7rem;font-size:.82rem}",
+  "button:disabled{opacity:.6;cursor:progress}",
+  "label.inline{display:inline-flex;align-items:center;gap:.4rem;margin-right:1rem}",
+  "label.inline input{width:auto;margin:0}",
+  ".note{padding:.6rem .8rem;margin:.6rem 0;font-size:.9rem;border:1px solid var(--edge);background:var(--bg-2)}",
+  ".note.err{background:var(--bad-bg);border-color:var(--bad)}",
+  ".note.ok{background:var(--acc-bg);border-color:var(--acc)}",
+  ".ok-t{color:var(--acc-hi)}",
+  ".reveal{border:2px solid var(--acc);background:var(--bg-3);padding:.9rem 1rem;margin:.8rem 0;box-shadow:var(--shadow)}",
+  ".reveal p{margin:.4rem 0}.reveal label{display:block;margin-top:.6rem}",
+  ".revdone{margin-top:.8rem!important}",
+  ".copyblock{display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;margin:.4rem 0 .6rem}",
+  ".copyblock pre.cmd{margin:0;width:100%}",
+  ".acts{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem;align-items:center}",
+  ".acts select{width:auto;min-width:8rem;margin:0}",
+  ".pill.warn{background:var(--warn-bg);border-color:var(--warn)}",
+  ".wshead{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-top:1.4rem}",
+  ".wsname{margin:.3rem 0 0;font-size:clamp(1.6rem,4vw,2.1rem)}",
+  ".wspick select{width:auto;min-width:12rem}",
+  ".planbar{display:flex;flex-wrap:wrap;gap:.2rem 1rem;align-items:baseline;border:1px solid var(--edge);background:var(--bg-3);padding:.55rem .8rem;margin:.9rem 0}",
+  ".planbar .upg{margin-left:auto;font-weight:600}",
+  ".planbar .full{color:var(--warn);font-weight:600}",
+  "tr.sub td{padding:0 .6rem;border-bottom:0}",
+  "tr.sub td:empty{display:none}",
+  ".hero{margin-top:1.6rem}",
+  ".card h3,.card h2{margin-top:0}",
+  "pre.msgbox{background:var(--bg-2);color:var(--ink);border:1px solid var(--edge);padding:.8rem 1rem;margin:0;width:100%;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:.9rem}",
+  ".hero h1{font-size:clamp(1.8rem,5vw,2.6rem);margin:.6rem 0}",
+  ".how{counter-reset:how;list-style:none;padding:0;margin:1rem 0;display:grid;gap:.8rem}",
+  ".how li{counter-increment:how;background:var(--bg-3);border:1px solid var(--edge);padding:.8rem 1rem .8rem 3.2rem;position:relative}",
+  ".how li::before{content:counter(how);position:absolute;left:1rem;top:.75rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--acc);color:#fff;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center}",
+  ".signin{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.2rem 0}",
+  // Phones: each table row becomes a stacked card (label: value) so
+  // action buttons never scroll off-screen.
+  "@media (max-width:600px){",
+  "table.tbl thead{display:none}",
+  "table.tbl,table.tbl tbody,table.tbl tr,table.tbl td{display:block;width:100%}",
+  "table.tbl tr{border:1px solid var(--edge);background:var(--bg-3);margin:.6rem 0;padding:.3rem .7rem}",
+  "table.tbl tr.sub{border:0;background:none;margin:-.5rem 0 .6rem;padding:0}",
+  "table.tbl tr.empty{padding:.6rem .7rem}",
+  "table.tbl td{border:0;padding:.3rem 0}",
+  "table.tbl td[data-l]:not([data-l=''])::before{content:attr(data-l);display:block;font-family:ui-monospace,Consolas,monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}",
+  ".planbar .upg{margin-left:0}",
+  "}",
+  // Dark theme follows the OS setting. Same layout, remapped tokens so
+  // text stays contrast-safe; buttons keep dark text on the light accent.
+  "@media (prefers-color-scheme:dark){:root{color-scheme:dark;",
+  "--bg:#0D1117;--bg-2:#161B22;--bg-3:#0D1117;",
+  "--ink:#F0F6FC;--body:#C9D1D9;--mut:#8B949E;--dim:#8B949E;",
+  "--edge:#30363D;--acc:#3FB950;--acc-hi:#56D364;--acc-bg:#12261A;",
+  "--bad:#F85149;--bad-bg:#3D1113;--warn:#D29922;--warn-bg:#3A2C07;",
+  "--shadow:4px 4px 0 rgba(0,0,0,.5);}",
+  ".btn{color:#0D1117}.btn-sec{color:var(--ink);background:var(--bg-2)}",
+  ".tab{color:var(--ink)}.tab.active{color:#0D1117}",
+  "button{color:var(--ink)}",
+  "input,select{background:#0D1117;color:var(--ink);border-color:var(--edge)}",
+  "code,.val{background:#161B22;color:var(--ink)}",
+  "pre.cmd{background:#010409;border:1px solid var(--edge)}",
+  ".how li::before{color:#0D1117}",
+  "a{color:var(--acc-hi)}",
+  "}",
 ].join("\n");
 
 export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 }
 
-function nav(): string {
+function nav(user?: string): string {
+  if (user !== undefined) {
+    // Signed-in chrome: who you are + sign out, small, top right.
+    return (
+      `<nav class="nav"><div class="nav-in">` +
+      `<a class="brand" href="/">EPI<em>.</em>Cloud</a>` +
+      `<span class="nav-user"><a href="https://epilabs.org/how-it-works">Help</a>` +
+      `<span class="who">Signed in as <strong>${esc(user)}</strong></span>` +
+      `<button type="button" class="linkbtn" id="signout">Sign out</button></span>` +
+      `</div></nav>`
+    );
+  }
   return (
     `<nav class="nav"><div class="nav-in">` +
     `<a class="brand" href="/">EPI<em>.</em>Cloud</a>` +
@@ -69,14 +174,15 @@ function nav(): string {
 }
 
 /** Full page in the epilabs.org visual language. No external assets. */
-export function page(title: string, inner: string, opts: { script?: string } = {}): string {
+export function page(title: string, inner: string, opts: { script?: string; user?: string; wide?: boolean } = {}): string {
   return (
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<meta name="robots" content="noindex,nofollow">` +
-    `<meta name="theme-color" content="#F6F8FA">` +
+    `<meta name="theme-color" content="#F6F8FA" media="(prefers-color-scheme: light)">` +
+    `<meta name="theme-color" content="#0D1117" media="(prefers-color-scheme: dark)">` +
     `<title>${esc(title)}</title><style>${SITE_CSS}</style></head>` +
-    `<body>${nav()}<div class="wrap">${inner}</div>` +
+    `<body${opts.wide ? ` class="wide"` : ``}>${nav(opts.user)}<div class="wrap">${inner}</div>` +
     (opts.script ? `<script>${opts.script}</script>` : ``) +
     `</body></html>`
   );

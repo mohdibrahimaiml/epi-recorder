@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 import stat
 import tempfile
 from pathlib import Path
@@ -175,6 +176,62 @@ class KeyManager:
             )
 
         private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key()
+
+        key_password = os.environ.get("EPI_KEY_PASSWORD")
+        encryption = serialization.BestAvailableEncryption(key_password.encode()) if key_password else serialization.NoEncryption()
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=encryption,
+        )
+        public_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        # Write to temp file then atomically rename to avoid TOCTOU race
+        private_tmp = private_key_path.with_suffix(private_key_path.suffix + ".tmp")
+        private_tmp.write_bytes(private_pem)
+        if os.name != "nt":
+            os.chmod(private_tmp, 0o600)
+        else:
+            os.chmod(private_tmp, stat.S_IREAD | stat.S_IWRITE)
+        private_tmp.replace(private_key_path)
+
+        public_key_path.write_bytes(public_pem)
+        if os.name != "nt":
+            os.chmod(public_key_path, 0o644)
+
+        return private_key_path, public_key_path
+
+    def import_hex_seed(self, name: str = "default", seed_hex: str = "", overwrite: bool = False) -> tuple[Path, Path]:
+        """Import an Ed25519 private key from a 64-hex-char seed (32 bytes).
+
+        Used for CI signing (e.g. ``EPI_SIGNING_KEY``): the caller supplies the
+        seed from a secret instead of a key file. The key is then stored like
+        any other key - ``<keys_dir>/<name>.key`` with 0600 permissions
+        (encrypted at rest when ``EPI_KEY_PASSWORD`` is set) - so a CI runner
+        holds it only for the life of the job.
+
+        Raises:
+            ValueError: If the seed is not exactly 64 hex characters.
+            FileExistsError: If keys exist and overwrite=False.
+        """
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        seed_hex = (seed_hex or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", seed_hex):
+            raise ValueError(
+                "Seed must be exactly 64 hex characters (32-byte Ed25519 seed)."
+            )
+        private_key_path = self.keys_dir / f"{name}.key"
+        public_key_path = self.keys_dir / f"{name}.pub"
+        if not overwrite and (private_key_path.exists() or public_key_path.exists()):
+            raise FileExistsError(
+                f"Key pair '{name}' already exists. Use overwrite=True to replace."
+            )
+        private_key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(seed_hex))
         public_key = private_key.public_key()
 
         key_password = os.environ.get("EPI_KEY_PASSWORD")

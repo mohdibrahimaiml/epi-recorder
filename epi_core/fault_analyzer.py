@@ -443,6 +443,20 @@ def _content_str(step: dict) -> str:
         return str(content).lower()
 
 
+def _content_str_raw(step: dict) -> str:
+    """Original-case string representation of step content for regex matching.
+
+    _content_str() lowercases, so a user-supplied prohibition pattern with an
+    uppercase literal (e.g. ``DE[0-9]{20}``) could never match. Regex guards
+    must see the original case; keyword matching keeps using _content_str().
+    """
+    content = step.get("content", {})
+    try:
+        return json.dumps(content, ensure_ascii=False)
+    except Exception:
+        return str(content)
+
+
 def _step_kind(step: dict) -> str:
     return str(step.get("kind", "")).lower()
 
@@ -1343,8 +1357,16 @@ class FaultAnalyzer:
                 # redacted pairs ("api_key": "***...***") prove the value is
                 # absent — flagging them punishes good hygiene.
                 from epi_core.redactor import scrub_redacted_pairs, strip_placeholders
-                content_text = _content_str(scrub_redacted_pairs(step))
-                match = pattern.search(strip_placeholders(content_text))
+                scrubbed = scrub_redacted_pairs(step)
+                # Match the pattern as written against the original case first:
+                # _content_str() lowercases, so uppercase literals such as
+                # ``DE[0-9]{20}`` could otherwise never match. Then preserve the
+                # historical behavior by also trying the lowercased text, so a
+                # lowercase pattern like ``api[_-]?key`` keeps matching
+                # ``API_KEY`` exactly as before.
+                match = pattern.search(strip_placeholders(_content_str_raw(scrubbed)))
+                if not match:
+                    match = pattern.search(strip_placeholders(_content_str(scrubbed)))
                 if not match:
                     continue
 

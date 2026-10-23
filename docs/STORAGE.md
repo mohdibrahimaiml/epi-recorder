@@ -1,5 +1,7 @@
 # Customer-owned storage (M4)
 
+**Product version:** 4.6.2. Cloud product claims: [CLOUD.md](./CLOUD.md).
+
 Every sealed `.epi` belongs in **your** S3-compatible bucket (AWS S3,
 Cloudflare R2, MinIO, GCS interoperability mode). EPI Cloud never sees these
 bytes and never holds your bucket credentials — it only witnesses hashes
@@ -25,13 +27,14 @@ does the same. Check it with:
 ```bash
 epi cloud storage test     # writes + re-reads one probe object
 epi cloud storage show     # server target + local outbox
-epi cloud storage set --url s3://my-bucket/epi-runs --object-lock on
+epi cloud storage set s3://my-bucket/epi-runs --object-lock on
 ```
 
-Register the bucket (no secrets — those stay in your environment):
+Register the bucket (no secrets - those stay in your environment;
+`url` is positional, `--url` means the Cloud base URL):
 
 ```bash
-epi cloud storage set --url s3://my-bucket/epi-runs --object-lock on
+epi cloud storage set s3://my-bucket/epi-runs --object-lock on
 ```
 
 ## Write-only bucket policy (AWS example)
@@ -64,7 +67,7 @@ For WORM retention, enable **Object Lock in Compliance mode** on the bucket
 matching your policy (e.g. 7 years). Report it honestly:
 
 ```bash
-epi cloud storage set --url s3://my-bucket/epi-runs --object-lock on
+epi cloud storage set s3://my-bucket/epi-runs --object-lock on
 ```
 
 `--object-lock` is **self-attested**: the trust page labels it

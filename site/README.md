@@ -2,41 +2,44 @@
 
 This folder is the **only** place to edit the public marketing site and account pages.
 
+Canonical rules (same content, longer form): [docs/WEBSITE.md](../docs/WEBSITE.md).
+
 | Consumer | How it uses `website/` |
 |----------|-------------------------|
-| **GitHub Pages** (`epilabs.org`) | Deployed directly from this folder |
-| **Render verify portal** | Synced into `verify_portal/static/` on app start + via `scripts/sync_website.py` |
+| **GitHub Pages** (`epilabs.org`) | Deployed from this folder |
+| **Cloudflare Pages** | `npm run build` copies this folder to `site/` (build output — do not hand-edit) |
+| **Render verify portal static files** | `python scripts/sync_website.py` → `verify_portal/static/` |
 
 ## Edit here
 
-- `index.html`, `pricing.html`, `account.html`, …
+- `index.html`, `plans.html`, `account.html`, `login.html`, …
 - `css/`, `js/`, `assets/`
 - `_redirects` (API proxies only — no `/page → page.html` rewrites)
 
 ## Do not edit
 
-- `site/` (removed / obsolete)
-- Root-level `account.html` / `pricing.html` (obsolete copies)
-- `epi-official/` by hand — it is a **sync target**, not a source
-- `verify_portal/static/*.html` marketing pages by hand — synced from here
+- `site/` — generated copy for Cloudflare Pages
+- `epi-official/` — sync **target**, not a source
+- `verify_portal/static/*.html` marketing pages — synced from here
 
 Portal-only extras (not in this folder):
 
 - `verify_portal/static/auth/`
 - `verify_portal/static/admin/`
 
-## Sync manually
+## Sync
 
 ```bash
 python scripts/sync_website.py
 ```
 
-## Deploy targets
+## Claims
 
-| Target | Path |
-|--------|------|
-| GitHub Pages | deploys website/ directly |
-| Cloudflare Pages | uses generated mirror site/ (output dir) |
-| Render portal | erify_portal/static/ via sync |
+Keep these true on every page:
 
-Always edit **website/** only, then run python scripts/sync_website.py.
+- Banner version matches `pyproject.toml` (currently **4.6.2**).
+- Sign In goes to EPI Cloud, not Render.
+- Open-source record/seal/verify needs no account.
+- Verification is never charged.
+- EPI Cloud is private beta, not a self-serve hosted-verification subscription.
+- The seal proves integrity after sealing, not completeness of capture.

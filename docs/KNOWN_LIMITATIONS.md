@@ -1,8 +1,101 @@
 # Known Limitations
 
+**Product version:** 4.6.2. Docs map: [README.md](./README.md).
+
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
 a current boundary. No implied promises — just what's true right now.
+
+## Plain summary (read this first)
+
+EPI seals whatever was written into the file and proves nobody changed it
+afterwards. It does **not** prove everything important was recorded, that the
+signer is who they claim (until you pin their key), or that any regulation is
+satisfied. A signed file from an unknown key is math, not trust. The viewer
+inside the file paints its own verdict — verify with `epi verify`, never with
+the in-file colours. Files from untrusted senders deserve HTML-attachment
+caution; a data-only form exists when the clickable shell is unwanted
+(`epi migrate case.epi --out case-data.epi --legacy-zip`, plus JSON/text
+exports — see [FILE-SAFETY.md](./FILE-SAFETY.md) §7).
+Timestamps prove "existed no later than T" only when a valid RFC 3161 token or
+a customer witness backs them. Everything below is the engineering detail
+behind those sentences.
+
+## The signature covers the canonical manifest, not its raw bytes (red-team F-07)
+
+**What you see:** `epi verify` passes a `manifest.json` that contains a duplicate
+JSON key.
+
+**What is true:** the Ed25519 signature is computed over the RFC 8785 canonical
+form of the manifest, not over its raw bytes. Duplicate keys and insignificant
+whitespace therefore sit **outside** the signature. Python and the browser
+canonicalizer both resolve duplicate keys last-wins, so they agree today — but a
+consumer that resolves them first-wins could read a different `goal` or
+`decision` than the verifier did.
+
+**Whether yours is affected:** only files that were modified after sealing (the
+signature would otherwise fail). It is a display-layer divergence risk, not a
+signature bypass: the canonical form the verifier checked is the authoritative
+one for EPI itself.
+
+---
+
+## A .epi can no longer expand without limit (red-team F-22)
+
+**What you see (before):** `epi verify` expanded whatever the archive declared.
+The red team measured **524,637,162 bytes written out of a 957,623-byte
+artifact (547x)** — enough to exhaust the disk of any machine that opens an
+untrusted file.
+
+**What is true now:** the container reader enforces an expansion budget, checked
+against the ZIP **central directory** so nothing is expanded to make the
+decision — a per-member uncompressed cap, a total uncompressed cap, and a total
+expansion-ratio cap (`epi_core/container.py::_check_expansion_budget`). The same
+file is now refused before a single member is expanded.
+
+**Residual:** the guard is a policy, not a format limit. Operators can raise it
+with `EPI_MAX_EXPANDED_BYTES`, `EPI_MAX_MEMBER_BYTES` and
+`EPI_MAX_EXPANSION_RATIO` (a value of `0` or an unparsable value falls back to
+the default). The defaults are deliberately generous: legitimate artifacts are
+text/JSON and compress well under 50x.
+
+---
+
+## The key-name derivation is not case-normalised (red-team F-09)
+
+**What you see:** nothing — this is fail-closed.
+
+**What is true:** the signing path (`epi_core/trust.py:85`) derives the key name
+from the public key string exactly as stored in the manifest, while the
+verification path (`trust.py:125`) and the browser (`crypto.js:652`) derive it
+from the lowercased hex. They agree only while the manifest stores lowercase
+hex. A manifest with an uppercase `public_key` is **rejected** (signature
+invalid), so this is a latent inconsistency rather than an impersonation path.
+
+---
+
+## A file with no step hash chain is not claim-ready (red-team F-13)
+
+**What you see:** `epi verify` reports `facts.chain_ok = true` and, under
+`--policy strict`, "All strict criteria met (Integrity, Identity, Completeness)".
+
+**What is true:** for an artifact whose steps carry **no `prev_hash` links at
+all**, the chain check passes *vacuously* — there is nothing to compare, so
+nothing fails. Such a file proves nothing about the recorded **order**: a
+producer could reorder the timeline, drop a step, and re-sign, and the file
+would still verify. `strict` is documented as the claim-ready policy, so
+certifying that file was an overclaim.
+
+**Fixed:** `facts.chain_present` now reports whether the steps carry any chain
+links at all. `--policy strict` FAILs a chainless file; `standard` WARNs
+instead of printing a clean PASS.
+
+**Whether yours is affected:** any artifact sealed before the chain existed
+(spec < 4.4.x) that never carried `prev_hash` links. Check
+`facts.chain_present`. Every current release seals a chained timeline, and all
+4.6.x sample artifacts in `docs/assets/` are chained.
+
+---
 
 ## Seal timestamp does not bind the signing key in the default record() flow
 
@@ -31,8 +124,7 @@ in 4.4.1; 4.4.2 was withdrawn and pre-4.4.1 has no auto-extract path).
 `policy_source` is `"auto_extracted"` (or `results` include
 `auto_policy_check` entries), count the entries with `"status": "failed"`
 and compare to the `controls_failed` header — if the header is lower, yours
-undercounts. Pure-baseline files and pre-4.4.1 seals are unaffected; the
-Task-3 `insp-2026-09-21-1120.epi` checks clean (header 1, recount 1).
+undercounts. Pure-baseline files and pre-4.4.1 seals are unaffected.
 
 **Can it be corrected? No — by design.** Fixing the number would change
 sealed bytes and break the file's own signature. The artifact stays valid
@@ -43,20 +135,14 @@ Standing rule, beyond this bug: recount from `results`, never from the
 header. A derived count is always weaker evidence than the thing it was
 derived from. New seals from 4.4.7 report the true total.
 
-## `epi_signature_valid` asserts presence, not validity (exporter helper)
+## `epi_signature_valid` in the AGT helper now runs a real check (fixed)
 
-`epi_recorder/integrations/agt_adapter/exporter.py:149` —
-`build_agt_log_data()` returns `"epi_signature_valid":
-bool(manifest.signature)`. What is actually established on that path: a
-signature string is present on the manifest. What the field name asserts:
-the signature is cryptographically *valid*. No verification runs there. A
-reader — or a downstream consumer logging this dict into AGT — could
-wrongly conclude EPI verified the artifact's signature when it only
-observed that one exists. To establish validity, run `epi verify` on the
-artifact (`verify_evidence_receipt()` covers the receipt itself). Present
-since 4.2.0. Deferred from 4.4.7 to avoid a behaviour change in a helper's
-output dict during a release carrying a sealed-data fix. Scheduled for
-4.5.0.
+`build_agt_log_data()` used to set `"epi_signature_valid":
+bool(manifest.signature)` (presence only). It now calls
+`verify_embedded_manifest_signature`. Independent of that helper, auditors
+should still run `epi verify` on the artifact. The old presence-only
+behaviour remains a reading risk on anything that consumed the helper
+before this fix.
 
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
@@ -88,57 +174,51 @@ This affects anyone using streaming responses. The pricing page now notes
 
 ---
 
-## Hosted infrastructure
+## Hosted infrastructure (what runs where)
 
-**Render free tier.** The verify API, SCITT service, and account system all run
-on a single Render free-tier instance (`render.yaml: plan: free`). This means:
+EPI Cloud runs on Cloudflare (Workers + D1 + R2 + Durable Objects); limits and
+capacity math live in [CLOUD.md](./CLOUD.md). The old Render **login** is
+retired — sign-in for the website and the CLI goes through EPI Cloud.
 
-- 750 hours/month limit (~31 days)
-- Sleeps after 15 minutes of inactivity
-- Cold starts cause 2-5 second delays on first request
-- No horizontal scaling
-- No SLA, no uptime guarantee
+What still lives on Render (legacy hosted paths — not the account system, not
+required to record or verify): the default `epi share` upload, MCP HTTP
+hosting, opt-in telemetry/pilot signup URLs, the keep-warm cron, and some
+`/api/*` Cloudflare proxies. Offline CLI verify works regardless of any
+hosted service.
 
-The status page (`/status`) discloses this and the pricing page says "shared
-infrastructure, cold starts happen." Offline CLI verify works regardless.
+---
+
+## Plans and billing (no self-serve checkout)
+
+Cloud is **private beta**. Entitlements, in customers: Free 1 customer;
+Startup 3 customers / 1,000 stored files (1-year retention); Growth 15 / 10,000
+(7-year). Verification is never limited or charged, and Cloud checkout is not
+self-serve on the public site — the old hosted-verification subscriptions are
+not for sale. (The legacy `free` / `hosted` / `team` / `enterprise`
+hosted-check counters still exist in `verify_portal/tier_gating.py` for the
+retired self-serve path; do not quote them as current pricing.) Plan changes go
+through the Cloud founder admin page and are audit-logged. Product rules:
+[CLOUD.md](./CLOUD.md).
 
 ---
 
 ## verification_class auto-population
 
-**The model_validator doesn't fire during recording.** Steps are serialized as
-raw dicts in `packer.py`, bypassing Pydantic's `model_validator`. The
-classification is computed inline via `_compute_verification_class()` in
-`packer.py`. If a new step kind is added without updating that function, it gets
-`None` instead of a classification.
+**How it works:** `verification_class` (`recomputable` vs `attested_only`) is
+computed in one place — `compute_verification_class()` in
+`epi_core/schemas.py:15` — and applied two ways: the `StepModel`
+`mode="before"` validator fills it on every construction from a dict
+(`schemas.py:346-348`), and `epi_recorder/patcher.py` computes it explicitly
+at step creation (belt and braces, with a local fallback that never returns
+a silent `None`).
 
----
-
-## Hosted billing (Paddle) vs operator set-plan
-
-**Self-serve Subscribe is only live when Paddle env vars are configured** on the
-hosted API (client token, price IDs, webhook secret, etc.). If those are empty,
-pricing CTAs should fall back to sign-in / contact — not a working checkout.
-
-**Pilot / invoice path (works without Paddle):** user signs in once at
-`/account`, then EPI Labs promotes the plan with the admin **set-plan** endpoint
-(see [OPERATOR-RUNBOOK.md](./OPERATOR-RUNBOOK.md) — operators only).
-
-Public tiers after `normalize_plan` (must match `verify_portal/tier_gating.py`
-and `website/pricing.html`):
-
-| Plan key | Public label | Hosted checks/mo | Remote SCITT | API keys |
-|----------|--------------|------------------|--------------|----------|
-| `free` | Open Source | 100 | no | 1 |
-| `hosted` | Hosted (~$15) | 10,000 | yes | 10 |
-| `team` | Team (design partners) | 50,000 | yes | 50 |
-| `enterprise` | Enterprise | custom | yes | unlimited |
-
-Aliases `pro` and `starter` normalize to **`hosted`**. Offline CLI verify is
-unlimited free. Hosted PDF API is **not** implemented (HTTP 501); use CLI Annex PDF.
-
-There is **no automated sync** between the Paddle dashboard and Render env vars —
-ops must keep them aligned when self-serve is enabled.
+**What to know:** non-empty unknown step kinds default to `attested_only`,
+never `None` (empty/missing `kind` yields `None` — a gap, not a silent
+default). And `recomputable` requires the recorder to set
+`epi_deterministic=True` on tool-like steps — i.e. the value is
+self-attested. A sealed file from a 4.6.2 recorder carries the field on every
+step (spot-check any `steps.jsonl`); pre-4.4.3 files may lack it. Treat the
+field as the recorder's claim about re-executability, not a proof of it.
 
 ---
 
@@ -163,11 +243,38 @@ manifest, `viewer.html` inside the archive) is sealed via `payload_sha256` and
 **New artifacts** also store `SHA-256(outer_viewer_html_bytes)` in
 `reserved_tail[0:32]` of the envelope header. Mutating CSS/JS/labels in the
 outer HTML region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`).
+Through 4.6.1 the **in-file viewer** could still paint INTEGRITY VERIFIED after
+that envelope failure (live inner-ZIP check overwrote the baked verdict).
+**4.6.2** is fail-closed (#141/#143): a baked envelope failure cannot be
+upgraded to green. Trust `epi verify`, not the colours.
 
-**Legacy artifacts** (viewer hash all-zero) still open and can PASS seal checks
-while the outer display HTML is forgeable. For those files: **trust `epi verify`,
-not the colors or verdict chrome of the double-click UI.** Documented in
-`VERIFY.txt` inside each new pack.
+**The header copy alone was not enough — and the docs said otherwise.** The
+`reserved_tail[0:32]` value is unsigned and self-referential: it lives in the
+same untrusted header as the bytes it describes, so an attacker who edits the
+display layer can recompute it and the file looks self-consistent. Until the
+red-team fix, `epi verify` reported **PASS** for such a file, including under
+`--policy strict` — contradicting the 4.6.2 release note, `THREAT_MODEL.md` R1
+and the `VERIFY.txt` shipped inside every artifact.
+
+**Fixed:** the outer polyglot region is byte-identical to the sealed
+`viewer.html` member, whose SHA-256 lives in the **signed** `file_manifest`.
+`epi verify` now checks the outer region against that signed value, so a
+display-layer edit fails even when the header copy is recomputed.
+
+**Legacy artifacts** (viewer hash all-zero) are covered by the same signed
+`file_manifest` entry, so their outer display layer is **not** forgeable
+either. The earlier claim that legacy artifacts left the display HTML
+unsealed no longer holds.
+
+**The viewer never paints a verdict it cannot support.** The double-click
+polyglot page carries a pack-time *copy* of the manifest — taken before the
+archive's `manifest.json` was re-signed, so it is a different, stale
+pre-image — and the whole page is editable by whoever holds the file. A check
+against that copy is self-consistent by construction. The viewer therefore
+requires the **shipped** manifest bytes (from the archive) before it will
+report a verdict, and otherwise shows a neutral **"INTEGRITY NOT VERIFIED
+HERE"** instead of green. `epi view` injects a context built from the CLI's
+own verification and still shows green for an intact file.
 
 ZIP-internal `viewer.html` was already in `file_manifest`; the gap was only the
 **outer** polyglot region used when a human double-clicks the file.
@@ -184,15 +291,19 @@ or future product; PDF is CLI-only.
 ## Site mirrors
 
 Production static source is **`website/`**. `scripts/sync_website.py` copies into
-`site/`, `verify_portal/static/`, and `epi-official/`. `website-v2/` is a sandbox
-and is **not** the deploy source. Stale mirrors after editing `website/` are a
-known ops hazard until sync runs.
+`site/`, `verify_portal/static/`, and `epi-official/`. `site/` is build output.
+Stale mirrors after editing `website/` are a known ops hazard until sync runs.
+See [WEBSITE.md](./WEBSITE.md).
 
 ---
 
 ## PyPI
 
-Current published line: **4.6.1**. **4.4.1** remains on PyPI (not yanked) and still truncates sealed strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.6.2**. This GitHub/PyPI release includes the
+viewer fail-closed fix (#141/#143) and the pack-time viewer / prohibition-guard
+fix (#145). **4.4.1** remains on PyPI (not yanked) and still truncates sealed
+strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full
+payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 
@@ -204,45 +315,16 @@ Current published line: **4.6.1**. **4.4.1** remains on PyPI (not yanked) and st
 
 ---
 
-## Byte-level seal scope (from 1KB sweep, 4.4.0 demo-banking-aml.epi, 405612 B)
+## Byte-level seal scope (summary; full sweep in appendix)
 
-**Task:** flip one byte at every 1 KB, plus first/last byte of every ZIP member and file, then `epi verify`. Offset 658 is the example from the report.
-
-**Map for `verify_portal/static/assets/demo/demo-banking-aml.epi` (marker at 305552, payload at 305584, 12 ZIP members):**
-
-| Outer offset | Region (from `ZipInfo.header_offset` + `compress_size`) | In `file_manifest`? | In `payload_sha256`? | In `__polyglot_viewer__` (reserved_tail[0:32])? | `epi verify` after flip |
-|---|---|---|---|---|---|
-| `0` | Envelope header byte 0 (`<` of `<!--`) | — | — | — | **PASS** (not detected — header magic not strictly hashed) |
-| `10` | Envelope header | — | — | — | **FAIL** (`payload_sha256` or header length) |
-| `128` | HTML prelude start (outer viewer) | No | No | **Yes** | **FAIL** (`__polyglot_viewer__` mismatch) |
-| `658` | **HTML prelude** (outer viewer, `viewer.html` not inner) | No | No | **Yes** | **FAIL** `integrity False {__polyglot_viewer__: expected 0c1f..., got 6c8a...}` `signature_valid True` `decision FAIL` |
-| `305542` | HTML prelude near marker | No | No | Yes | **FAIL** |
-| `305552` | Marker `<!-- EPI_ZIP_PAYLOAD_START -->` | No | No | No | **FAIL** (marker not hashed, but payload length changes) |
-| `305584` | ZIP local header for `mimetype` | No (mimetype excluded) | **Yes** (full ZIP hash) | No | **FAIL** |
-| `305622` | ZIP data `mimetype` | No | Yes | No | **FAIL** |
-| `310040` | ZIP data `steps.jsonl` start | **Yes** (`steps.jsonl` in `file_manifest`) | Yes | No | **FAIL** (both) |
-| `405611` | File last byte (EOCD) | — | Yes | No | **FAIL** |
-| `405512` | ZIP central directory | — | Yes | No | **FAIL** |
-
-**Summary from full 1 KB sweep (405 offsets + 26 member edges + 2 file edges = 433):**
-
-* **HTML prelude [128, 305552)** — 298 KB of outer viewer HTML **is sealed** via `reserved_tail[0:32]` (`__polyglot_viewer__`). Flipping any byte there → `integrity False` `__polyglot_viewer__` mismatch, not `file_manifest` or `step chain`. This is the display layer, not the evidence, but it is tamper-evident since 4.4.1 (legacy all-zero tail was not).
-* **ZIP payload [305584, 405612)** — all 12 members' headers, compressed data, central directory, and EOCD are sealed via `payload_sha256` (envelope) **and** for 10/12 members via `file_manifest` SHA256 (all except `mimetype` and `manifest.json`/`viewer.html` inside ZIP? Actually `viewer.html` **is** in `file_manifest` with `0c1f...`, `steps.jsonl` with `8abe...`, etc.). Flipping any byte there → `FAIL` (either `payload_sha256` or `file_manifest` mismatch, plus `step chain` for `steps.jsonl`).
-* **Envelope header [0,128)** — exhaustive 2026-08-29 XOR of every byte, then `epi verify` (4.4.1): **undetected** offsets **0–3** (magic), **16–31** (artifact UUID), **32–39** (`created_at_micros`). Detected: 4–15 (version/format/flags/length), 40–71 (`payload_sha256`), 72–103 (viewer hash), 104–127 (padding must be zero). These PASS bytes are not `spec_version` (that field is not in the 128-byte header).
-
-**Classification for offset 658:** **Inside sealed scope** (`__polyglot_viewer__`), **correctly detected** (`FAIL` with `integrity False`, `signature_valid True`), **not a verifier bug**. Documented here as display-layer seal, not evidence-layer. If the HTML were outside scope it would be a limitation, but it is inside when `reserved_tail[0:32]` is non-zero. Artifacts with an all-zero viewer hash still skip this check (legacy warning).
-
-**Offset 658 PASS vs FAIL contradiction:** Isolated re-run (2026-08-29) of the same `docs/assets/demo-banking-aml.epi` XOR at byte 658: **PyPI 4.4.0 and local 4.4.1 both FAIL** via `__polyglot_viewer__` (`verifier_version` 4.4.0 vs 4.4.1). Official `epi-recorder==4.4.0` wheel already contains `verify_polyglot_viewer`. 4.4.1 did not close a 4.4.0 detection hole for this offset. An earlier `rc=0 PASS` is not a version split; likely a sweep that only hashed ZIP/`file_manifest` (HTML prelude at 658 is outside those hashes) or `python -m epi_cli` from the repo cwd importing 4.4.1 sources while `pip show` said 4.4.0. The 433-offset sweep that reported FAIL used a verifier with `__polyglot_viewer__` (present in both 4.4.0 PyPI and 4.4.1).
-
-**Evidence for offset 658 flip (literal `epi verify --json`):**
-```
-manifest spec_version 4.4.0
-integrity False {'__polyglot_viewer__': 'polyglot viewer HTML hash mismatch: expected 0c1f41d1ef6281e7…, got 6c8a8cb340e25c1d… (display layer may have been tampered)'}
-signature_valid True
-decision FAIL Integrity compromised
-```
-
----
+A 1 KB byte-flip sweep of a 4.4.0 artifact (405 offsets + 26 member edges
++ 2 file edges = 433) found every modified byte detected by `epi verify`
+— except 28 unsealed envelope-header bytes (offsets 0–3, 16–39; see next
+section), which are redundant copies whose authoritative values live in
+the signed manifest. The outer viewer HTML is sealed via the signed
+`file_manifest` entry, so a consistent forgery that also recomputes the
+unsigned header copy still fails. Full per-region table, the red-team
+caveat, and the offset-658 evidence: [BYTE-SWEEP-APPENDIX.md](./BYTE-SWEEP-APPENDIX.md).
 
 ## Unsealed envelope header bytes (0–3, 16–39)
 
@@ -300,9 +382,9 @@ Through **4.4.1** (last PyPI release before 4.4.3), `RecordingContext.add_step` 
 
 ---
 
-## Sprint rule: strict mode for deliverables
+## Release rule: strict mode for deliverables
 
-Sprint deliverables (claims, insurer/bank/audit handoff, release gates) must use:
+Release deliverables (claims, insurer/bank/audit handoff, release gates) must use:
 
 ```bash
 epi verify run.epi --policy strict --witness-log received.jsonl
@@ -317,7 +399,7 @@ no `tool.response`). Scripts must rely on the exit code with
 `docs/VERIFICATION_CONTRACT.md` list every verdict; the browser verifier never
 ranks above the CLI for the same bytes.
 
-Recording gaps that survive this sprint (no silent completeness claim):
+Recording gaps that survive this rule (no silent completeness claim):
 
 - SDK `record()` is self-attestation; gateway witnesses LLM proxy traffic only.
 - Gateway streaming → 501 (streaming apps bypass or fail); async-enqueue worker
@@ -344,6 +426,7 @@ only with `witness_include_goal=True`.
 
 ## Last updated
 
+2026-10-22 — red-team F-01/F-02: display layer bound to the signed `file_manifest`; viewer no longer paints a verdict it cannot support. Red-team F-13: `--policy strict` FAILs a file with no step hash chain.
 2026-10-11 — customer witness on every seal (`epi-witness/v1`, outbox + `epi witness flush/status`, `epi verify --witness-log`).
 2026-10-10 — RFC 3161 offline validation in `epi verify` (4.6.0): imprint, CMS signature, critical timeStamping EKU, chain to pinned roots; legacy tokens presence-only; no revocation checks; viewer still presence-only.
 

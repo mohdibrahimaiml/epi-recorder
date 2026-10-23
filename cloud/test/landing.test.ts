@@ -58,6 +58,15 @@ describe("cloud front door", () => {
     expect(html).toContain("/auth/github");
     expect(html).toContain("Sign in with GitHub");
     expect(html).not.toContain("boss@acme.test");
+    // Explains itself: one plain sentence, 3 steps, the free plan.
+    expect(html).toContain("tamper-proof proof of what your AI agent did");
+    expect(html).toContain("epi demo");
+    expect(html).toContain("nothing to install");
+    expect(html).toContain("Free:</strong> 1 customer, 1 share link, 50 runs");
+    expect(html).toContain("https://epilabs.org/how-it-works");
+    // Static and self-contained: no scripts, no external assets.
+    expect(html).not.toContain("<script");
+    expect(html).not.toMatch(/<(link|img)[^>]+(href|src)="https?:/);
   });
 
   it("signed-in users see their account, email escaped", async () => {
@@ -77,5 +86,20 @@ describe("cloud front door", () => {
     const missing = await app.request("/nope", {}, env as never);
     expect(missing.status).toBe(404);
     expect((await missing.json()) as { error: { code: string } }).toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("people who mistype a URL get a small HTML page; API paths keep JSON", async () => {
+    const { env } = await setup();
+    const html = { Accept: "text/html,application/xhtml+xml" };
+    const page = await app.request("/dashbord", { headers: html }, env as never);
+    expect(page.status).toBe(404);
+    expect(page.headers.get("content-type")).toContain("text/html");
+    const body = await page.text();
+    expect(body).toContain('href="/"');
+    expect(body).not.toContain("<script");
+    for (const p of ["/v1/nope", "/w/nope/x", "/.well-known/nope", "/auth/device/abc/status"]) {
+      const r = await app.request(p, { headers: html }, env as never);
+      expect(r.headers.get("content-type"), p).toContain("application/json");
+    }
   });
 });

@@ -30,6 +30,22 @@ logger = logging.getLogger("epi.witness")
 _APPEND_LOCK = threading.Lock()
 
 
+def _user_agent() -> str:
+    """Identify this client at the edge (Cloudflare blocks bare urllib).
+
+    Cloudflare's bot protection in front of cloud.epilabs.org answers 403
+    to requests with urllib's default `User-Agent: Python-urllib/3.x`, which
+    looks like an unidentified bot. httpx callers already pass through; every
+    urllib POST here must carry this header so stamps reach the Worker (a bad
+    secret then correctly answers 401, never a misleading edge 403).
+    """
+    try:
+        from epi_core import __version__ as _v
+    except Exception:
+        _v = "unknown"
+    return f"epi-recorder/{_v}"
+
+
 class _OutboxFileLock:
     """Cross-process exclusive lock for the outbox file (stdlib only).
 
@@ -147,7 +163,7 @@ def send_signed_webhook(
         return
 
     payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": _user_agent()}
     if secret:
         digest = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
         headers["X-EPI-Signature"] = f"sha256={digest}"
@@ -352,6 +368,104 @@ def _mark_error(path: Path, entry_id: str, error: str) -> None:
         _write_outbox(entries, path)
 
 
+def _mark_gone(path: Path, entry_id: str, url: str, error: str) -> None:
+    """HTTP 410: the receiver is closed for good. Stop retrying this url
+    (keep a note in the entry) so flush never loops on it forever."""
+    entries = read_outbox(path)
+    changed = False
+    for entry in entries:
+        if entry.get("id") == entry_id:
+            entry["pending"] = [u for u in (entry.get("pending") or []) if u != url]
+            gone = entry.get("gone") or {}
+            gone[url] = {"at": _utc_now_iso(), "error": str(error)[:300]}
+            entry["gone"] = gone
+            entry["last_error"] = f"{url}: {error}"[:300]
+            changed = True
+    if changed:
+        _write_outbox(entries, path)
+
+
+def witness_http_status(error: Any) -> int | None:
+    """HTTP status in a delivery error string ("HTTP Error 401: ..."), or None."""
+    import re
+
+    match = re.search(r"\bHTTP(?: Error)? (\d{3})\b", str(error or ""))
+    return int(match.group(1)) if match else None
+
+
+def describe_witness_failure(
+    error: Any,
+    *,
+    cloud_login: bool = False,
+    customer: str | None = None,
+) -> dict[str, Any]:
+    """Plain-words reason + exact fix for one failed witness delivery.
+
+    Returns {"status", "reason", "fix", "retry_helps"}. `retry_helps` is
+    False when `epi witness flush` cannot fix it on its own (wrong secret,
+    closed customer, malformed report), so callers never suggest flush there.
+    """
+    status = witness_http_status(error)
+    where = "EPI Cloud" if cloud_login else "the witness receiver"
+    if status == 401:
+        if cloud_login:
+            return {
+                "status": 401,
+                "reason": "this computer's witness settings are out of date (the secret was rotated)",
+                "fix": "run: epi cloud login",
+                "retry_helps": False,
+            }
+        return {
+            "status": 401,
+            "reason": "witness secret changed",
+            "fix": "update EPI_WITNESS_SECRET to the receiver's new secret, then run: epi witness flush",
+            "retry_helps": False,
+        }
+    if status == 410:
+        name = (customer or "").strip()
+        who = f"the customer '{name}'" if name else "this customer"
+        if cloud_login:
+            return {
+                "status": 410,
+                "reason": f"{who} was closed in the dashboard",
+                "fix": "pick another: epi cloud login",
+                "retry_helps": False,
+            }
+        return {
+            "status": 410,
+            "reason": "the witness receiver is closed",
+            "fix": "ask your customer for a new witness URL",
+            "retry_helps": False,
+        }
+    if status == 403:
+        return {
+            "status": 403,
+            "reason": "blocked before reaching EPI Cloud (network/firewall); the report is queued",
+            "fix": "when the network allows it, run: epi witness flush",
+            "retry_helps": True,
+        }
+    if status == 400:
+        return {
+            "status": 400,
+            "reason": f"{where} refused the report as malformed",
+            "fix": "remove it with: epi witness drop <id>",
+            "retry_helps": False,
+        }
+    if status is not None and status >= 500:
+        return {
+            "status": status,
+            "reason": f"{where} had a temporary error (HTTP {status}); the report is queued",
+            "fix": "try again later: epi witness flush",
+            "retry_helps": True,
+        }
+    return {
+        "status": status,
+        "reason": f"could not reach {where}; the report is queued",
+        "fix": "when you're online, run: epi witness flush",
+        "retry_helps": True,
+    }
+
+
 def _post_once(
     url: str,
     payload: dict[str, Any],
@@ -362,7 +476,7 @@ def _post_once(
 ) -> None:
     """Single POST without retries (the outbox + flush is the retry layer)."""
     payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": _user_agent()}
     if secret:
         digest = hmac.new(
             secret.encode("utf-8"), payload_bytes, hashlib.sha256
@@ -383,6 +497,7 @@ def deliver_entry(
     extra_headers: dict[str, str] | None = None,
     timeout_seconds: int = 10,
     path: Path | None = None,
+    secret_for_url: Any | None = None,
 ) -> dict[str, Any]:
     """Deliver one entry's pending urls. Returns {"delivered": [...], "failed": {url: error}}."""
     target = Path(path) if path else outbox_path()
@@ -391,17 +506,27 @@ def deliver_entry(
     delivered: list[str] = []
     failed: dict[str, str] = {}
     for url in list(entry.get("pending") or []):
+        resolved = secret
+        if resolved is None and secret_for_url is not None:
+            try:
+                resolved = secret_for_url(url)
+            except Exception:
+                resolved = None
         try:
             _post_once(
                 url,
                 entry["payload"],
-                secret=secret,
+                secret=resolved,
                 extra_headers=stored_headers,
                 timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
             failed[url] = str(exc)[:300]
-            _mark_error(target, str(entry.get("id")), f"{url}: {exc}")
+            if witness_http_status(exc) == 410:
+                # Closed for good: never retried, so flush can't loop on it.
+                _mark_gone(target, str(entry.get("id")), url, str(exc))
+            else:
+                _mark_error(target, str(entry.get("id")), f"{url}: {exc}")
         else:
             delivered.append(url)
             _mark_delivered(target, str(entry.get("id")), url)
@@ -440,8 +565,14 @@ def flush_outbox(
     secret: str | None = None,
     timeout_seconds: int = 10,
     path: Path | None = None,
+    secret_for_url: Any | None = None,
 ) -> dict[str, Any]:
-    """Retry every undelivered entry. Returns {"entries": n, "delivered": [...], "failed": {...}}."""
+    """Retry every undelivered entry. Returns {"entries": n, "delivered": [...], "failed": {...}}.
+
+    `secret_for_url`, when given, resolves a secret per pending URL and is
+    consulted only where no explicit `secret` was passed, so an explicit
+    --secret/env keeps winning for env-configured URLs.
+    """
     target = Path(path) if path else outbox_path()
     summary: dict[str, Any] = {"entries": 0, "delivered": [], "failed": {}}
     for entry in read_outbox(target):
@@ -451,7 +582,8 @@ def flush_outbox(
         # NOTE: per-entry secrets are not stored (the outbox holds hashes and
         # counts only, never secrets); flush reuses one secret if given.
         result = deliver_entry(
-            entry, secret=secret, timeout_seconds=timeout_seconds, path=target
+            entry, secret=secret, timeout_seconds=timeout_seconds, path=target,
+            secret_for_url=secret_for_url,
         )
         summary["delivered"].extend(result["delivered"])
         summary["failed"].update(result["failed"])
@@ -485,20 +617,28 @@ def build_witness_payload(
     goal: str | None = None,
     case_id: str | None = None,
 ) -> dict[str, Any]:
-    """Hash-only seal report. No content and no step data — hashes and counts only."""
+    """Hash-only seal report. No content and no step data — hashes and counts only.
+
+    Keys with a None value are omitted entirely: the Worker's report schema
+    rejects present-but-null fields, and retrying a malformed stamp can
+    never succeed.
+    """
     payload: dict[str, Any] = {
         "schema": WITNESS_SCHEMA,
         "type": "epi.sealed",
         "workflow_id": workflow_id,
         "manifest_hash": manifest_hash,
         "file_sha256": file_sha256,
-        "content_digest": content_digest,
-        "public_key": public_key,
-        "key_fingerprint": key_fingerprint,
         "steps": int(steps),
         "sealed_at": sealed_at,
         "seal_timestamp": dict(seal_timestamp),
     }
+    if content_digest is not None:
+        payload["content_digest"] = content_digest
+    if public_key is not None:
+        payload["public_key"] = public_key
+    if key_fingerprint is not None:
+        payload["key_fingerprint"] = key_fingerprint
     if goal is not None:
         payload["goal"] = goal
     if case_id is not None:
@@ -581,6 +721,22 @@ def stage_seal_report(
                 )
             except Exception as exc:
                 logger.warning("Witness seal signature failed: %s", exc)
+        # Report once per sealed file: the CLI wrapper and an instrumented
+        # session can both report the same artifact (e.g. `epi record` around
+        # a script that also uses record()). A second entry for an identical
+        # pending report only doubles deliveries and confusing flush output.
+        try:
+            for existing in read_outbox(path):
+                if not existing.get("pending"):
+                    continue
+                if not isinstance(existing.get("payload"), dict):
+                    continue
+                if str((existing["payload"] or {}).get("file_sha256") or "") != str(file_sha256):
+                    continue
+                if set(existing.get("pending") or []) == set(targets):
+                    return existing
+        except Exception:
+            pass
         return append_outbox_entry(payload, targets, headers=headers, path=path)
     except Exception as exc:
         logger.warning("Witness staging failed: %s", exc)

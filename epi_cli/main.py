@@ -38,6 +38,7 @@ Start here (no API key):
   epi demo
   epi view <file.epi>
   epi verify <file.epi>
+  epi cloud login        connect this computer to EPI Cloud
 
 Everyday:
   epi run <script.py>
@@ -54,7 +55,7 @@ In code:
   with record("my_agent.epi"):
       ...
 
-Help is grouped: Start here · Everyday · Team · Advanced.
+Help is grouped: Start here · Everyday · Advanced · Team.
 """,
     add_completion=False,
     no_args_is_help=True,
@@ -63,7 +64,7 @@ Help is grouped: Start here · Everyday · Team · Advanced.
     callback=None  # Will set via decorator below
 )
 
-console = Console(legacy_windows=False)
+console = Console()
 
 _KEY_BOOTSTRAP_COMMANDS = {"run", "record", "review", "import", "init", "doctor"}
 # Commands that should verify/repair Windows file association on every run.
@@ -944,8 +945,8 @@ from epi_cli.cloud import app as cloud_app
 app.add_typer(
     cloud_app,
     name="cloud",
-    help="EPI Cloud Evidence Room: push selected runs (login/push/status)",
-    rich_help_panel="Team",
+    help="EPI Cloud: connect this computer (epi cloud login), push runs, check status",
+    rich_help_panel="Start here",
 )
 
 from epi_cli.connect import app as connect_app

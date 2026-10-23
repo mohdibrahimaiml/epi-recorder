@@ -1,8 +1,10 @@
 # EPI Threat Model
 
+**Product version:** 4.6.2. Product map: [README.md](./README.md).
+
 ## What This Document Is
 
-This threat model describes what attacks EPI prevents, what attacks it does **not** prevent, and what assumptions the system relies on. If you are evaluating EPI for security, regulatory, or legal use, read this first.
+This threat model describes what attacks EPI prevents, what attacks it does **not** prevent, what assumptions the system relies on, and what risks a **receiver** takes when opening a file they did not create. If you are evaluating EPI for security, regulatory, or legal use, read this first — and if your question is "is this file safe to open?", start with [FILE-SAFETY.md](./FILE-SAFETY.md).
 
 ---
 
@@ -47,10 +49,12 @@ EPI's security guarantees depend on these assumptions being true:
 
 ---
 
-### 4. Timestamp Forgery
-**Attack:** An attacker changes `created_at` to make an artifact appear older or newer.
+### 4. Post-Seal Timestamp Tampering
+**Attack:** An attacker changes `created_at` **after sealing** to make an artifact appear older or newer.
 
-**Prevention:** `created_at` is included in the signed manifest hash. Any change invalidates the signature.
+**Prevention:** `created_at` is included in the signed manifest hash. Any change after sealing invalidates the signature.
+
+**Scope — what this does NOT prevent:** a dishonest signer can write any `created_at` they like *before* signing. The signature proves the field was not altered after sealing; it does not prove the value was honest when written. Independent time evidence is the RFC 3161 token (next item) or a customer witness. Also note the 128-byte envelope header carries a redundant **unsealed** copy of the timestamp; authoritative readers use the signed manifest value ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 **Test:** Change `created_at` → `signature_valid=false`.
 
@@ -79,7 +83,13 @@ EPI's security guarantees depend on these assumptions being true:
 ### 7. Private Key Leakage into Artifact
 **Attack:** A bug causes the private key to be serialized into the `.epi` file.
 
-**Prevention:** The signing code only embeds the **public** key. The private key never leaves the `~/.epi/keys/` directory. Automated tests scan artifact bytes for private key material.
+**Prevention:** The signing code only embeds the **public** key. Automated tests scan artifact bytes for private key material.
+
+**Where the key rests (two paths):**
+- **CLI signing** (`epi record`, which seals on pack) loads the private key from `~/.epi/keys/` and never copies it into the artifact.
+- **Browser Sign & seal** generates or imports a key *in the browser*: by default a 32-byte Ed25519 seed stored as plain-text hex in `localStorage` (`epi.viewer.signingSeed.v1`), or a user-pasted unencrypted PKCS#8 PEM. The seed is **never written into the `.epi`**, but at rest it is weaker than a permission-protected CLI key — see Receiver-side threat R4 and [FILE-SAFETY.md](./FILE-SAFETY.md).
+
+The guarantee that holds for both paths: **no private key material is serialized into the artifact.** The weaker guarantee is *where the browser seed rests while you use it* — that is a key-custody risk (R4), not an artifact-leakage risk.
 
 ---
 
@@ -104,6 +114,27 @@ EPI's security guarantees depend on these assumptions being true:
 
 ---
 
+### 10. Step Reordering / Timeline Tampering
+**Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
+or drops one, so the evidence no longer reflects what actually happened.
+
+**Prevention:** Each step carries `prev_hash`, the canonical hash of the
+previous step; step 0 carries the genesis marker `CHAIN_START`. Verification
+recomputes the whole chain, so a reordered, dropped or altered step breaks it
+(`chain_ok=false` → `SEAL FAIL`). A genesis marker at an index > 0 is reported
+as a chain restart (possible truncation).
+
+**Scope:** the chain only helps if there **is** one. A pre-chain artifact — one
+whose steps carry no links at all — makes the check pass *vacuously*, and
+nothing in it proves the order. `facts.chain_present` reports this, `--policy
+strict` FAILs such a file, and `standard` WARNs rather than printing a clean
+PASS. Current releases always seal a chained timeline.
+
+**Test:** `tests/adversarial/test_chain_policy.py`,
+`tests/adversarial/test_completeness.py`, `tests/adversarial/test_integrity.py`.
+
+---
+
 ## Attacks NOT Prevented
 
 ### 1. Compromised Signing Key
@@ -125,18 +156,55 @@ EPI's security guarantees depend on these assumptions being true:
 ---
 
 ### 3. DID:WEB Server Compromise
-**Attack:** An attacker compromises the web server hosting the DID document and replaces the public key.
+**Attack:** An attacker controls the web server hosting the DID document and
+replaces the public key — or simply publishes their own DID document.
 
-**Why EPI cannot fully prevent this:** DID:WEB resolves to a web server. If the server is compromised, the resolver returns the attacker's key, making the attacker's artifact appear as `KNOWN`.
+**Why EPI cannot fully prevent this:** DID:WEB resolves to a web server. The
+server is chosen by the *file's author*, not by the verifier. Under the
+default (`standard`) policy a DID-resolved key makes `identity.status = KNOWN`,
+and a file that is entirely attacker-authored therefore verifies as
+**PASS / KNOWN**.
 
-**Mitigation:** Monitor DID documents for unexpected changes. Use local trusted keys as a fallback.
+The red team measured this end to end: an artifact signed with an
+attacker-generated key, declaring `did:web:attacker.example`, whose DID
+document lists that same key, produced
+
+```
+✔ SEAL · IDENTITY PINNED      DECISION: PASS      exit code 0
+```
+
+**Fixed (wording).** The *policy* decision is unchanged — it is a documented
+trade-off in `docs/VERIFICATION_CONTRACT.md` — but the report no longer
+describes a self-asserted identity as pinned:
+
+```
+✔ SEAL · SIGNER SELF-ASSERTED (DID)
+  - Status:  SELF-ASSERTED (not pinned)
+  - Trust:   The signer published this key in their own DID document at their
+             own domain. That is self-assertion, not a pin you chose.
+             Require an org pin with: epi verify --policy strict
+```
+
+`identity.pin_source` now reports the source explicitly (`local_pin`,
+`did_web`, `remote_registry`, `revoked`, `none`) so machine consumers can
+tell a real pin from self-assertion.
+
+**Residual:** `--policy strict` remains the defence, and it never resolves a
+DID at all (strict is local-only). Two further notes:
+
+- Under `standard`, resolving a DID makes an **outbound request to a host the
+  file chose**. There is no host allowlist, so a malicious artifact can point
+  the verifier at an arbitrary destination (verifier IP/UA disclosure, and an
+  SSRF pivot towards internal ranges).
+- `strict` forces `registry.offline`, but the SCITT service key fetch is
+  *not* covered by that flag — see the SCITT entry below.
 
 ---
 
 ### 4. Algorithm Degradation
 **Attack:** In 20 years, quantum computers break Ed25519. Old artifacts can no longer be trusted.
 
-**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.3.0 uses industry-standard algorithms that are secure today.
+**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.6.2 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
 
 **Mitigation:** Re-sign important artifacts with newer algorithms as standards evolve.
 
@@ -151,6 +219,137 @@ EPI's security guarantees depend on these assumptions being true:
 
 ---
 
+## Receiver-Side Threats (you received a file you did not create)
+
+The sections above cover **sender-side** attacks (tampering with a real file).
+A receiver faces a different set: the file itself may be the weapon. Read
+[FILE-SAFETY.md](./FILE-SAFETY.md) for the full receiver guide; the threat
+model summary is:
+
+### R0. Malicious or lookalike `.epi` file (start here as a receiver)
+
+**Threat:** the file itself is the weapon. An envelope-v2 `.epi` is a
+polyglot: double-clicking it renders attacker-controlled HTML/JavaScript in
+the reviewer's browser. A lookalike can also be fully "valid" — anyone can
+seal a plausible file and sign it with their own key.
+
+**What to do instead of opening it:**
+
+- **Do not trust rendering.** The in-file viewer paints its own verdict (see
+  R1) and its scripts run in your browser. Verify **before** you render — or
+  never render: `epi verify` parses the ZIP members in memory and never
+  executes the file's HTML or JavaScript. The CLI needs no browser and no
+  network (Tier 1 offline).
+- **Pin the sender's key out of band.** A signature from an unknown key is
+  math, not trust. An attacker-signed lookalike verifies cryptographically;
+  only a pinned key plus `epi verify --policy strict` tells it apart from the
+  real sender's file (DID-resolved `KNOWN` under `standard` is self-assertion,
+  not a pin).
+- **Extraction is guarded.** `EPIContainer.unpack` refuses decompression bombs
+  before extracting anything (expansion budget checked against the ZIP central
+  directory: `epi_core/container.py::_check_expansion_budget`) and rejects
+  path-traversal members (`../` escapes raise instead of writing).
+- **Display spoofing fails verification.** The outer viewer region is
+  byte-identical to the sealed `viewer.html` member whose SHA-256 sits in the
+  **signed** `file_manifest`, so editing the display layer of a real file
+  fails `epi verify` even when the attacker also recomputes the unsigned
+  header copy (fail-closed since 4.6.2, #141/#143). The viewer itself refuses
+  to paint a verdict it cannot support.
+- **The shipped viewer makes no network calls.** Scanned 4.6.2 artifact
+  (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches, or
+  sockets in the outer or inner viewer; every library is inlined. Reproduce it
+  with the script in [FILE-SAFETY.md](./FILE-SAFETY.md) §2. Honest boundary:
+  there is no Content-Security-Policy enforcing that, and no independent
+  penetration test yet ([issue #153](https://github.com/mohdibrahimaiml/epi-recorder/issues/153)) —
+  so files from untrusted senders still deserve HTML-attachment caution, or the
+  data-only form (`epi migrate --legacy-zip`, `epi export agt|trace`).
+
+Full receiver guide: [FILE-SAFETY.md](./FILE-SAFETY.md). Detail on each
+sub-threat: R1–R4 below.
+
+### R1. Attacker-crafted file with a fake "VERIFIED" viewer
+**Attack:** An attacker builds a `.epi`-shaped file whose embedded HTML viewer
+paints "VERIFIED / PASS" no matter what — or edits the display layer of a real
+file.
+
+**Why the viewer alone cannot be trusted:** the verdict chrome lives inside the
+file being judged. A wholly fabricated file carries no signature from a key you
+pinned, so it fails `epi verify` — but only if you run `epi verify` instead of
+believing the colours.
+
+The outer polyglot viewer (the HTML a double-click renders) is byte-identical to
+the sealed `viewer.html` member, whose SHA-256 sits in the **signed** manifest.
+Editing the display layer therefore breaks verification: the signed
+`file_manifest` no longer matches, and the artifact fails even if the attacker
+also recomputes the unsigned `reserved_tail[0:32]` copy in the envelope header.
+That header copy is self-referential and, on its own, only detects naive
+corruption.
+
+The viewer itself also refuses to paint a verdict it cannot support: when it
+does not hold the signed manifest bytes (the double-click polyglot case), it
+shows a neutral **"INTEGRITY NOT VERIFIED HERE"** rather than green. Only
+`epi view` (which injects a context built from the CLI's own verification) or
+an in-page check against the shipped archive may show green.
+
+**Mitigation:** never trust the in-file viewer. Verify with the CLI
+(`epi verify --policy strict`), pin the sender's key out of band, and consult
+the witness log when one exists.
+
+### R2. Malicious recorded content executing in the viewer (stored XSS)
+**Attack:** A hostile run's steps contain `</script>` breakouts or event-handler
+payloads that execute when the victim opens the viewer.
+
+**Status:** the shipped viewer HTML-escapes recorded values in text positions
+and embeds sealed JSON script-safely (`_html_safe_json_dumps`), and a scan of a
+4.6.2 seal shows no network primitives for exfiltrated data to reach — but there
+is **no Content-Security-Policy** enforcing that, and the viewer has had **no
+independent penetration test**. Treat this as defense-in-depth, not a proven
+boundary.
+
+**Mitigation:** verify-before-render (CLI first), open files from untrusted
+senders with normal HTML-attachment caution, prefer the data-only form
+(`epi migrate --legacy-zip`, `epi export agt|trace`) when the shell is not
+needed. CSP hardening is tracked in
+[issue #153](https://github.com/mohdibrahimaiml/epi-recorder/issues/153).
+
+### R3. Decompression bomb
+**Attack:** A crafted ZIP payload expands to exhaust memory or disk when the
+victim verifies or opens it.
+
+**Status: mitigated (red-team F-22).** The container reader now enforces an
+expansion budget, checked against the ZIP *central directory* so nothing is
+expanded to make the decision: a per-member uncompressed cap, a total
+uncompressed cap, and a total expansion-ratio cap
+(`epi_core/container.py::_check_expansion_budget`). The red team measured
+`epi verify` expanding **524,637,162 bytes out of a 957,623-byte artifact
+(547x)** before the guard; afterwards the same file is refused before a
+single member is expanded.
+
+The limits are operator-overridable (`EPI_MAX_EXPANDED_BYTES`,
+`EPI_MAX_MEMBER_BYTES`, `EPI_MAX_EXPANSION_RATIO`) and are deliberately
+generous: legitimate artifacts are text/JSON and compress well under 50x.
+
+**Residual:** the guard is a policy, not a format limit. A receiver that
+raises the caps, or a reader that bypasses `epi_core` (the legacy Render
+`/api/verify` path historically did) is not covered by it.
+
+### R4. Browser signing-seed theft
+**Attack:** Malware, or another local HTML file opened in the same browser
+profile, reads the browser's stored signing seed and signs artifacts as you.
+
+**Status:** browser Sign & seal keeps a 32-byte Ed25519 seed as **plain-text
+hex in `localStorage`** (`epi.viewer.signingSeed.v1`), or holds a user-pasted
+unencrypted PEM in memory. In Chromium-based browsers, `file://` pages share one
+`localStorage` area, so another local HTML file opened in the same profile can
+read it. CLI keys (`~/.epi/keys/`) are not affected.
+
+**Mitigation:** seal real evidence with CLI keys; treat browser-signed identity
+as low-assurance. Hardening options (non-extractable WebCrypto keys,
+session-only seed, passphrase wrapping) are tracked in
+[issue #153](https://github.com/mohdibrahimaiml/epi-recorder/issues/153).
+
+---
+
 ## Trust Boundaries
 
 ```
@@ -158,12 +357,15 @@ EPI's security guarantees depend on these assumptions being true:
 |  Attacker Controls                          |
 |  - The .epi file (can try to tamper)        |
 |  - The network (can try to intercept DID)   |
+|  - A crafted file's viewer (paints its own  |
+|    verdict — never trust in-file chrome)    |
 +---------------------------------------------+
               |
               v
 +---------------------------------------------+
 |  EPI Verifier Controls                      |
-|  - Private keys (never leaves ~/.epi/keys)  |
+|  - CLI private keys (~/.epi/keys/)          |
+|  - Browser seed (localStorage, weaker — R4) |
 |  - Trust registry (~/.epi/trusted_keys/)    |
 |  - DID cache (~/.epi/cache/did_web/)        |
 +---------------------------------------------+
@@ -174,6 +376,9 @@ EPI's security guarantees depend on these assumptions being true:
 |  - Tampering is detected                    |
 |  - Signature is mathematically valid        |
 |  - Identity is resolved (if DID provided)   |
+|  - Pre-seal honesty is NOT guaranteed       |
+|    (signer chose created_at; capture may    |
+|    be incomplete — see items 4–5, R1)       |
 +---------------------------------------------+
 ```
 
@@ -186,10 +391,10 @@ EPI's security guarantees depend on these assumptions being true:
 | Payload tampering | Yes | SHA-256 file manifest |
 | Manifest tampering | Yes | Ed25519 signature |
 | Signature replay | Yes | Manifest-bound signature |
-| Timestamp forgery | Yes | Signed `created_at` |
+| Post-seal timestamp tampering | Yes | Signed `created_at` (pre-seal honesty NOT covered — see item 4) |
 | Backdating / fabrication after the fact | Yes, when a valid RFC 3161 token is present | Offline TSA validation against pinned roots |
 | Silent re-seal after the fact | Yes, with customer witness configured | Independent witness log + `--witness-log` |
-| Private key leak | Yes | Public key only in artifact |
+| Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |
 | Compromised key | No | Out of scope |
@@ -197,3 +402,7 @@ EPI's security guarantees depend on these assumptions being true:
 | DID server compromise | Partial | Local fallback |
 | Algorithm degradation | No | Time-bound guarantee |
 | Social engineering | No | Out of scope |
+| Fake-verdict crafted file (receiver) | No — verify, don't trust chrome | CLI verify + key pinning (R1) |
+| Viewer stored-XSS (receiver) | Partial | Output escaping; no CSP, no pen-test (R2) |
+| Decompression bomb (receiver) | Partial — expansion budget enforced, caps are operator-overridable | Central-directory expansion guard (R3) |
+| Browser seed theft (receiver) | No | localStorage is plain text (R4) |

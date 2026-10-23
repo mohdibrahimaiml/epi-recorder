@@ -24,6 +24,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.markup import escape
 from rich.prompt import Confirm
 
 from epi_core.container import EPIContainer
@@ -160,16 +161,20 @@ def run_refund_agent():
         import time as _time
         _t0 = _time.time()
         if use_real:
-            print("[EPI demo] Using real OpenAI API")
+            print("Using the real OpenAI API")
             client = wrap_client(OpenAI())
             response = client.chat.completions.create(model=model, messages=msgs)
             answer = response.choices[0].message.content
         else:
-            print("[EPI demo] No OPENAI_API_KEY — using built-in mock LLM")
+            print("Using the built-in mock LLM (no OPENAI_API_KEY)")
             response = _MockClient().chat.completions.create(model=model, messages=msgs)
             answer = response.choices[0].message.content
         _latency = round(_time.time() - _t0, 3)
-        print(f"[EPI demo] Decision: {answer[:100]}")
+        short = answer
+        if len(short) > 100:
+            # Cut on a word boundary, never mid-word.
+            short = short[:100].rsplit(" ", 1)[0].rstrip(" ,.;:(") + "…"
+        print(f"Decision: {short}")
 
         session.log("llm.response",
             provider="openai",
@@ -202,7 +207,6 @@ def run_refund_agent():
 
 if __name__ == "__main__":
     run_refund_agent()
-    print("\\n[EPI demo] Sealed → epi-recordings/demo_refund.epi")
 '''
 
 
@@ -426,23 +430,106 @@ def _demo_subprocess_env(env: dict) -> dict:
     return merged
 
 
-def _run_demo_script(script_path: Path, env: dict) -> bool:
+_SEAL_LINE_PREFIXES = ("[EPI] Witness:", "[EPI] kept the existing")
+
+
+def _show_demo_script_output(stdout: str, stderr: str) -> None:
+    """Re-print the demo script's output in the `epi demo` style.
+
+    The step-count breakdown, the witness line (shown by `epi demo` itself)
+    and the "kept the existing file" note are dropped; anything else (errors,
+    warnings) is shown dim so nothing important is hidden.
+    """
+    for raw in (stdout or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("[EPI] "):
+            continue
+        if line.startswith("Decision: "):
+            console.print(f"  [green]✓[/green] Decision              {escape(line[len('Decision: '):])}")
+        else:
+            console.print(f"  [dim]{escape(line)}[/dim]")
+    skip_breakdown = False
+    for raw in (stderr or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("[EPI] ") and " steps \u2192 " in line:
+            skip_breakdown = True  # the next indented line is the step-type breakdown
+            continue
+        if skip_breakdown and raw.startswith("      "):
+            skip_breakdown = False
+            continue
+        skip_breakdown = False
+        if line.startswith(_SEAL_LINE_PREFIXES):
+            continue
+        console.print(f"  [dim]{escape(line)}[/dim]")
+
+
+def _run_demo_script(script_path: Path, env: dict, witness_file: Optional[Path] = None) -> bool:
     """Run the demo script. Returns True if it exited with code 0."""
+    child_env = _demo_subprocess_env(env)
+    if witness_file is not None:
+        child_env["EPI_WITNESS_RESULT_FILE"] = str(witness_file)
     try:
         result = subprocess.run(
             [sys.executable, str(script_path)],
-            env=_demo_subprocess_env(env),
+            env=child_env,
             timeout=60,
             encoding="utf-8",
             errors="replace",
+            capture_output=True,
         )
-        return result.returncode == 0
     except subprocess.TimeoutExpired:
-        console.print("[yellow][!][/yellow] Demo script timed out (60s)")
+        console.print("  [yellow]![/yellow] Demo script timed out (60s)")
         return False
     except Exception as exc:
-        console.print(f"[yellow][!][/yellow] Demo script error: {exc}")
+        console.print(f"  [yellow]![/yellow] Demo script error: {escape(str(exc))}")
         return False
+    _show_demo_script_output(result.stdout, result.stderr)
+    return result.returncode == 0
+
+
+def _read_witness_result(path: Optional[Path]) -> Optional[dict]:
+    """The seal's witness outcome written by the demo script, or None."""
+    if path is None or not path.exists():
+        return None
+    try:
+        import json as _json
+
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+    finally:
+        try:
+            path.unlink()
+        except Exception:
+            pass
+
+
+def _witness_verdict(result: Optional[dict]) -> tuple[str, Optional[str]]:
+    """('ok'|'failed'|'sending'|'none', fix-or-None) and print the witness line."""
+    if not result:
+        return "none", None
+    failed = result.get("failed") or []
+    if failed:
+        first = failed[0]
+        reason = str(first.get("reason") or "the report was not accepted")
+        fix = str(first.get("fix") or "run: epi witness flush")
+        console.print(f"  [red]✗[/red] Not witnessed: {escape(reason)} — {escape(fix)}")
+        return "failed", fix
+    if result.get("delivered"):
+        where = "EPI Cloud" if result.get("cloud_login") else ", ".join(result.get("delivered") or [])
+        console.print(f"  [green]✓[/green] Witnessed by {escape(where)}")
+        return "ok", None
+    if result.get("still_sending"):
+        console.print(
+            "  [yellow]![/yellow] Not witnessed yet: the report is still sending — check: epi witness status"
+        )
+        return "sending", "check: epi witness status"
+    return "none", None
+
+
 def _ensure_default_key_trusted() -> None:
     """Auto-trust the default signing key so demo verify shows PASS."""
     try:
@@ -515,6 +602,111 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
 app = typer.Typer(help="Zero-friction developer onboarding for EPI.")
 
 
+def _demo_push_if_logged_in(epi_path: Path) -> bool:
+    """Push the demo artifact with the saved customer (no flags, no secrets).
+
+    Returns True when the push worked, False otherwise (not logged in or
+    push failed). Never raises: every failure prints its own next step.
+    """
+    try:
+        from epi_cli.cloud import load_config
+    except Exception:
+        return False
+    try:
+        cfg = load_config()
+    except Exception:
+        return False
+    if not cfg.get("url") or not (cfg.get("org_id") or cfg.get("org")):
+        console.print("  [dim]·[/dim] Not shared            not logged in to EPI Cloud")
+        return False
+    if not (cfg.get("api_key") or cfg.get("key")):
+        console.print("  [dim]·[/dim] Not shared            not logged in to EPI Cloud")
+        return False
+    try:
+        from typer.testing import CliRunner
+
+        from epi_cli.cloud import app as cloud_app
+    except Exception as exc:
+        console.print(f"  [yellow]![/yellow] Not shared            {escape(str(exc))}")
+        return False
+    result = CliRunner().invoke(cloud_app, ["push", str(epi_path), "--reason", "sample"])
+    if result.exit_code == 0:
+        customer = str(cfg.get("customer") or "").strip()
+        if customer:
+            console.print(f"  [green]✓[/green] Pushed to EPI Cloud   your workspace, customer: {escape(customer)}")
+        else:
+            console.print("  [green]✓[/green] Pushed to EPI Cloud   your workspace (no customer set yet)")
+        try:
+            from epi_cli.cloud import register_signing_key
+
+            if register_signing_key():
+                console.print("  [green]✓[/green] Signing key registered with your workspace")
+        except Exception:
+            pass
+        return True
+    lines = [ln.strip() for ln in (result.output or "").splitlines() if ln.strip()]
+    tail = lines[-1] if lines else f"exit {result.exit_code}"
+    for prefix in ("[FAIL] ", "Push failed: "):
+        if tail.startswith(prefix):
+            tail = tail[len(prefix):]
+    console.print(f"  [yellow]![/yellow] Not shared            {escape(tail)}")
+    return False
+
+
+def _demo_cloud_url() -> str:
+    """Cloud URL the user logged in to (saved), with scheme."""
+    try:
+        from epi_cli.cloud import load_config
+
+        url = str(load_config().get("url") or "").strip().rstrip("/")
+    except Exception:
+        url = ""
+    return url or "https://cloud.epilabs.org"
+
+
+def _demo_cloud_host() -> str:
+    """Host the user logged in to (saved cloud URL), without the scheme."""
+    url = _demo_cloud_url()
+    for scheme in ("https://", "http://"):
+        if url.startswith(scheme):
+            return url[len(scheme):] or "cloud.epilabs.org"
+    return url
+
+
+def _demo_done_lines(
+    *,
+    epi_path: Path | None,
+    pushed: bool,
+    witness: str = "ok",
+    witness_fix: Optional[str] = None,
+) -> list[str]:
+    """Closing panel for `epi demo`: one honest headline, the file, ONE next step."""
+    not_witnessed = witness in ("failed", "sending")
+    if not_witnessed and witness == "failed":
+        lines = ["[bold yellow]Sealed, but not witnessed.[/bold yellow] Your customer can't confirm this run yet.", ""]
+    elif not_witnessed:
+        lines = ["[bold yellow]Sealed; witness still sending.[/bold yellow]", ""]
+    elif pushed:
+        lines = ["[bold green]Done.[/bold green] Sealed, witnessed and pushed.", ""]
+    else:
+        lines = ["[bold green]Done.[/bold green] Your evidence file is sealed.", ""]
+    if epi_path is not None:
+        lines.append(f"  [cyan]{epi_path}[/cyan]")
+        lines.append("")
+    if not_witnessed:
+        fix = (witness_fix or "check: epi witness status").strip()
+        if fix.startswith("pick another: "):
+            fix = "run " + fix[len("pick another: "):] + " and type another customer's name"
+        elif fix.startswith("run: "):
+            fix = "run " + fix[len("run: "):]
+        lines.append(f"Next: {fix}, then epi demo again")
+    elif pushed:
+        lines.append(f"Next: open {_demo_cloud_url()} and create a share link for your customer")
+    else:
+        lines.append("Next: run epi cloud login, then epi demo again to share it")
+    return lines
+
+
 def _run_fast_demo(
     *,
     demo_script: Path,
@@ -527,7 +719,7 @@ def _run_fast_demo(
     console.print()
     console.print(Panel.fit(
         "[bold cyan]epi demo[/bold cyan] — record · seal · verify · view\n"
-        "[dim]No API key. No server. One portable .epi file.[/dim]",
+        "[dim]No API key needed. Pushes automatically when logged in.[/dim]",
         border_style="cyan",
     ))
     console.print()
@@ -556,10 +748,21 @@ def _run_fast_demo(
         pass
 
     epi_path: Optional[Path] = None
+    witness_result: Optional[dict] = None
     if not no_run:
-        console.print("  [dim]Recording refund agent (mock LLM if no OPENAI_API_KEY)…[/dim]")
+        console.print("  [dim]Recording the refund agent…[/dim]")
         run_env = os.environ.copy()
-        ok = _run_demo_script(demo_script, env=run_env)
+        # Keep the demo readable for normal users: the seal summary skips the
+        # policy/heuristic detail lines (still printed by `epi record`).
+        run_env["EPI_COMPACT_SUMMARY"] = "1"
+        import tempfile as _tempfile
+
+        _fd, _wpath = _tempfile.mkstemp(prefix="epi_demo_witness_", suffix=".json")
+        os.close(_fd)
+        witness_file = Path(_wpath)
+        witness_file.unlink()  # the seal writes it only when a witness is set up
+        ok = _run_demo_script(demo_script, env=run_env, witness_file=witness_file)
+        witness_result = _read_witness_result(witness_file)
         if not ok:
             console.print("  [yellow]![/yellow] Demo script exited non-zero — checking for artifact anyway")
         time.sleep(0.2)
@@ -573,7 +776,7 @@ def _run_fast_demo(
             console.print("  [red]✗[/red] Could not find demo_refund.epi after the run")
             return None
         size_kb = epi_path.stat().st_size // 1024 + 1
-        console.print(f"  [green]✓[/green] Sealed artifact        [cyan]{epi_path}[/cyan]  ({size_kb} KB)")
+        console.print(f"  [green]✓[/green] Sealed                [cyan]{epi_path}[/cyan]  ({size_kb} KB)")
     else:
         epi_path = _find_demo_epi("demo_refund") or (Path("epi-recordings") / "demo_refund.epi")
         if not epi_path.exists():
@@ -605,18 +808,23 @@ def _run_fast_demo(
                 console.print(f"  [dim]{result.stderr.strip()[:200]}[/dim]")
 
         ok_color = "green" if integrity == "PASS" and signature == "PASS" else "yellow"
-        console.print(f"  [{ok_color}]✓[/{ok_color}] Offline verify         integrity={integrity}  signature={signature}")
+        console.print(f"  [{ok_color}]✓[/{ok_color}] Verified offline      integrity={integrity}  signature={signature}")
 
         # Prove redaction worked on the intentional demo secret
         try:
             steps = EPIContainer.read_steps(epi_path)
             blob = str(steps)
             if "sk-" + ("d" * 40) not in blob and "REDACTED" in blob:
-                console.print("  [green]✓[/green] Secrets redacted       demo API key not present in steps")
+                console.print("  [green]✓[/green] Secrets redacted      demo API key not in the file")
             elif "sk-" + ("d" * 40) not in blob:
-                console.print("  [green]✓[/green] Secrets redacted       no raw demo key in steps")
+                console.print("  [green]✓[/green] Secrets redacted      no raw demo key in the file")
         except Exception:
             pass
+
+    pushed = False
+    if epi_path is not None and epi_path.exists():
+        pushed = _demo_push_if_logged_in(epi_path)
+    witness, witness_fix = _witness_verdict(witness_result)
 
     if not no_browser and epi_path is not None:
         console.print("  [dim]Opening viewer…[/dim]")
@@ -652,15 +860,13 @@ def _run_fast_demo(
         pass
 
     console.print()
+    _ok = witness not in ("failed", "sending")
     console.print(Panel.fit(
-        f"[bold green]Done.[/bold green] Your evidence file is ready.\n\n"
-        f"  [cyan]{epi_path}[/cyan]\n\n"
-        f"Re-check anytime:\n"
-        f"  [white]epi verify {epi_path}[/white]\n"
-        f"  [white]epi view {epi_path}[/white]\n\n"
-        f"[dim]Optional team inbox UI: epi demo --review[/dim]",
+        "\n".join(_demo_done_lines(
+            epi_path=epi_path, pushed=pushed, witness=witness, witness_fix=witness_fix,
+        )),
         title="EPI demo",
-        border_style="green",
+        border_style="green" if _ok else "yellow",
     ))
     console.print()
     return epi_path

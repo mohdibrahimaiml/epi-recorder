@@ -1,6 +1,6 @@
 # EPI Self-Hosted Reliability Runbook
 
-This runbook defines the supported `v4.6.0` self-hosted shape for EPI:
+This runbook defines the supported `v4.6.2` self-hosted shape for EPI (the local gateway / connect path — not EPI Cloud):
 
 - single-node deployment
 - append-only event spool on disk
@@ -223,11 +223,17 @@ or:
 For serverless edge deployments without running Docker or a persistent VM:
 
 ### Cloudflare Pages (Static Frontend)
-- **Output Directory**: `site` (or `website`)
-- **Build Command**: None (or `python scripts/sync_website.py` during build)
+- **Output Directory**: `site`
+- **Build Command**: `npm run build` (copies `website/` → `site/` via
+  `scripts/cf-pages-build.mjs`)
 - **Custom Domain**: Configured via CNAME / Cloudflare DNS (`epilabs.org`).
 
 ### Cloudflare Functions (Edge API Workers)
-- Functions reside under `functions/api/` (e.g. `functions/api/verify.js`).
-- Handles serverless verification and API edge routes with zero cold-start latency.
+- Functions are `[[path]].js` catch-alls: `functions/api/[[path]].js`,
+  `functions/scitt/[[path]].js`, `functions/v1/[[path]].js` (plus
+  `_middleware.js`, `_proxy.js`). There is no `functions/api/verify.js` —
+  verification stays client-side / CLI; the edge only proxies.
+- Two backends: `/api/*` and `/scitt/*` proxy to the legacy Render portal
+  (`epi-verify-portal.onrender.com`); `/v1/trust/*` proxies to EPI Cloud
+  (`cloud.epilabs.org`, allow-listed routes only, no cookies forwarded).
 

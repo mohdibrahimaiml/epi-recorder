@@ -4,16 +4,18 @@ The Agent Analytics Engine provides powerful insights into agent performance acr
 
 ## Installation
 
-Analytics is included with EPI Recorder v2.4.0+:
+Analytics is an optional extra (`pandas` / `matplotlib`). Install it with:
 
 ```bash
-pip install epi-recorder
+pip install epi-recorder[analytics]
 ```
+
+`import epi_recorder.analytics` works without the extra installed; constructing `AgentAnalytics` then raises a clear `ImportError` telling you to install it (`pip install "epi-recorder[analytics]"`).
 
 ## Quick Start
 
 ```python
-from epi_recorder import AgentAnalytics
+from epi_recorder.analytics import AgentAnalytics
 
 # Analyze all .epi files in a directory
 analytics = AgentAnalytics("./production_runs")
@@ -181,7 +183,8 @@ Initialize analytics from directory of .epi files.
 ## Example Workflow
 
 ```python
-from epi_recorder import record, AgentAnalytics, wrap_openai
+from epi_recorder import record, wrap_openai
+from epi_recorder.analytics import AgentAnalytics
 from openai import OpenAI
 
 # 1. Record agent runs

@@ -82,7 +82,9 @@ class TestVerifyCommandVariations:
 
             assert result.exit_code == 0, result.output
             assert "https://epilabs.org/verify" in result.stdout
-            assert "epi connect open" in result.stdout
+            # The verifier may be a third party: no vendor-side share hints.
+            assert "epi connect open" not in result.stdout
+            assert "epi share" not in result.stdout
 
     def test_verify_keyboard_interrupt_handling(self):
         """Test verify handles interrupts gracefully."""

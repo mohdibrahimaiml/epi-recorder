@@ -246,6 +246,35 @@ def _pick_free_localhost_port() -> int | None:
         return None
 
 
+def _wait_for_port(port: int, timeout_seconds: float = 15.0, _connect=None) -> bool:
+    """Block until something accepts on 127.0.0.1:port (or timeout).
+
+    The viewer server is a cold Python process: imports alone take longer
+    than any fixed sleep. Double-click launches (`epi view file.epi`) used to
+    open the browser after a flat 0.35 s, so on cold starts Chrome loaded
+    ERR_CONNECTION_REFUSED and stayed on the error page. Never open the
+    browser at a port that isn't serving yet.
+
+    `_connect` is an injectable stand-in for socket.create_connection (unit
+    tests script it: loopback SYNs can be blackholed for seconds on filtered
+    Windows hosts, which no real-socket timing test survives deterministically).
+    """
+    import socket
+    import time
+
+    connect = _connect or socket.create_connection
+    deadline = time.monotonic() + max(0.5, timeout_seconds)
+    while True:
+        try:
+            with connect(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            pass
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.1)
+
+
 def _spawn_detached_viewer_server(
     viewer_path: Path,
     *,
@@ -306,12 +335,25 @@ def _open_in_browser(viewer_path: Path) -> None:
     # 1) Detached localhost HTTP (reliable in Edge/Chrome; CLI can exit)
     http_url = _spawn_detached_viewer_server(viewer_path)
     if http_url:
+        import urllib.parse
+
         try:
-            webbrowser.open(http_url)
-            opened = True
-            console.print(f"[green]Opened viewer[/green]  {http_url}")
+            port = urllib.parse.urlparse(http_url).port
         except Exception:
-            opened = False
+            port = None
+        server_ready = _wait_for_port(port, timeout_seconds=15.0) if port else False
+        if server_ready:
+            try:
+                webbrowser.open(http_url)
+                opened = True
+                console.print(f"[green]Opened viewer[/green]  {http_url}")
+            except Exception:
+                opened = False
+        else:
+            console.print(
+                "[yellow]Local viewer server did not start in time; "
+                "falling back to opening the file directly.[/yellow]"
+            )
 
     # 2) Windows file association / startfile
     if not opened and sys.platform == "win32":
@@ -369,6 +411,11 @@ def _build_viewer_context(epi_path: Path) -> dict:
         manifest=manifest,
     )
     report["viewer_version"] = getattr(manifest, "viewer_version", None)
+    # This context comes from the CLI's own verification of the file on disk,
+    # so it IS bound to the signed manifest. The viewer uses this flag to
+    # decide whether it may paint a verdict: a double-clicked polyglot file
+    # has no such context and must show "not verified here" instead of green.
+    report["authoritative"] = True
     return report
 
 

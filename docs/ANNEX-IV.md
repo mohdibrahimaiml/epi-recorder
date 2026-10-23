@@ -1,91 +1,69 @@
-# EU AI Act Annex IV Technical Documentation
+# Annex IV templates (`epi annex`)
 
-EPI provides a complete subsystem for generating, signing, and verifying
-EU AI Act Annex IV technical documentation. All 9 sections are covered
-with structured Pydantic schemas, Ed25519 cryptographic signing, and a
-browser-viewable compliance report.
+**Product version:** 4.6.2.  
+**Not a certificate. Not a legal Declaration of Conformity.**
 
-## Quick Start
+`epi annex` helps you **author, validate, sign, and pack** nine JSON files whose *shape* follows EU AI Act Annex IV section headings. You supply the facts. EPI hashes and can sign the bytes you wrote.
 
-```
-epi annex init              # Create all 9 section templates
-epi annex validate          # Validate against schemas
-epi annex sign 1            # Sign section 1 with Ed25519
-epi annex sign all          # Sign all 9 sections
-epi annex verify all         # Verify all signatures
-epi annex status            # Show per-section completion
-epi annex compile           # Generate compliance-summary.json
-epi annex report            # Generate HTML compliance report
-```
+A completed tree of JSON files, even when packed into a `.epi`, does **not** mean the AI system is EU AI Act conformant. Counsel and your notified body (if any) decide that.
 
-## The 9 Sections
+Related: [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 
-| Sec | Section | Description |
-|-----|---------|-------------|
-| 1 | System Description | 1(a) intended purpose, version, provider |
-| 2 | Development Process | 2(a-h) architecture, data, testing, cybersecurity |
-| 3 | Monitoring and Control | capabilities, limitations, subgroup accuracy |
-| 4 | Performance Metrics | justification of chosen metrics |
-| 5 | Risk Management | full FMEA-ML risk register with RPN scores |
-| 6 | Lifecycle Changes | change log, modification classification |
-| 7 | Applied Standards | harmonised standards register, gap analysis |
-| 8 | EU Declaration of Conformity | formal legal statement with Ed25519 |
-| 9 | Post-Market Monitoring | drift detection, incident escalation |
-
-## Signing and Verification
-
-Each section is signed independently using Ed25519. The canonical JSON is
-computed deterministically (sort_keys, no whitespace) so verification
-is portable across systems. Keys are stored in ~/.epi/keys/ and
-auto-generated on first use.
+## What the CLI does
 
 ```
-epi annex sign 1 --key compliance-officer --officer did:web:example.com
+epi annex init              # write nine section JSON templates
+epi annex validate          # schema-check the JSON
+epi annex sign 1            # Ed25519-sign section 1
+epi annex sign all
+epi annex verify all        # verify those signatures
+epi annex status            # per-section completion of the templates
+epi annex compile           # write compliance-summary.json from the templates
+epi annex report            # HTML report of the same JSON
+```
+
+Schemas live in `epi_core.annex_schemas` and `docs/spec/schemas/annex-iv.schema.json`.
+
+## The nine section files
+
+| Sec | Heading in the template | What you still owe |
+|-----|-------------------------|--------------------|
+| 1 | System description | Intended purpose, version, provider — in your words |
+| 2 | Development process | Architecture, data, testing, cybersecurity as they actually are |
+| 3 | Monitoring and control | Capabilities, limitations, subgroup metrics you measured |
+| 4 | Performance metrics | Why those metrics, with your numbers |
+| 5 | Risk management | Your risk register (the schema can compute RPN from values you enter) |
+| 6 | Lifecycle changes | Your change log |
+| 7 | Applied standards | Standards you actually applied, including gaps |
+| 8 | EU declaration of conformity | A **template** for a legal statement. Signing the JSON is not filing a DoC |
+| 9 | Post-market monitoring | Your monitoring and incident plan |
+
+## Signing
+
+Each section file can be signed with Ed25519. Keys default to `~/.epi/keys/`. Example:
+
+```
+epi annex sign 1 --key-name compliance-officer --officer did:web:example.com
 epi annex verify 1
 ```
 
-## Artifact Structure
+That signature proves **those JSON bytes** were signed by that key. It does not prove the JSON is complete or true.
 
-All files live under artifacts/annex_iv/ and can be packed into a .epi
-container using EPIContainer.pack() for signed, portable compliance artifacts.
+## Packing into a `.epi`
 
-```
-artifacts/annex_iv/
-  section-01.json
-  section-02.json
-  ...
-  section-09.json
-  compliance-summary.json
-  datasheets/
-    training-datasheet.json
-    validation-datasheet.json
-    test-datasheet.json
-```
+Files under `artifacts/annex_iv/` can be packed with the rest of a recording. They are then hashed in `file_manifest` like any other member. Tampering with them after seal fails `epi verify` integrity. That is integrity of **your documentation files**, not regulatory approval.
 
-## CLI Reference
+## Commands
 
 | Command | Description |
 |---------|-------------|
 | init | Generate template JSON files for all 9 sections |
-| validate | Validate JSON against Pydantic schemas |
-| status | Show per-section completion and approval |
-| compile | Generate compliance-summary.json |
-| sign | Ed25519 sign a section (or "all") |
-| verify | Verify Ed25519 signatures |
-| report | Generate browser-viewable HTML report |
-
-## Data Models
-
-The schemas are defined in epi_core.annex_schemas and include:
-- RiskEntry with auto-computed RPN scoring (probability x severity)
-- DatasetDatasheet with bias analysis and provenance tracking
-- Full FMEA-ML risk register
-- EU Declaration of Conformity with machine-readable structure
-- Post-market monitoring plan with Art. 73 reporting deadlines
-
-## Integration with .epi Container
-
-Annex IV artifacts follow the same pattern as SCITT artifacts:
-place them under artifacts/annex_iv/ and call EPIContainer.pack().
-They will be included in the ZIP payload and cryptographically hashed
-in the file_manifest, ensuring tamper-evident compliance documentation.
+| validate | Validate JSON against schemas |
+| status | Show per-section template completion |
+| compile | Generate `compliance-summary.json` from templates |
+| sign | Ed25519-sign a section (or `all`) |
+| verify | Verify those signatures |
+| report | HTML view of the templates |
+| pack | Generate all sections, sign, and pack into a signed `.epi` (`--out`, `--key-name`, `--force`; honors `EPI_SIGNING_KEY`) |
+| multi-sign | Append a multi-signer approval to the compliance summary (`signer`, `--key-name`, section scope; RBAC-enforced) |
+| role-bind / role-unbind / role-list / role-verify | Bind public keys to org roles, list them, verify all signers are authorized (`--strict` to require it) |

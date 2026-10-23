@@ -28,6 +28,19 @@ async function writerAuth(db: D1Database, req: Request, orgId: string): Promise<
   return null;
 }
 
+/** Why a writer was refused, in customer words (401 for a dead key so the
+ *  CLI can say "reconnect", 403 otherwise). */
+async function writerDenied(db: D1Database, req: Request): Promise<{ status: 401 | 403; body: { error: { code: string; message: string } } }> {
+  const h = req.headers.get("Authorization") ?? "";
+  if (h.startsWith("Bearer epik_") && !(await keyFromRequest(db, req))) {
+    return {
+      status: 401,
+      body: { error: { code: "key_invalid", message: "This computer's key was revoked or isn't valid for this workspace. Reconnect with: epi cloud login" } },
+    };
+  }
+  return { status: 403, body: { error: { code: "forbidden", message: "Sign in to the dashboard, or connect this computer with: epi cloud login" } } };
+}
+
 async function readerAuth(db: D1Database, req: Request, orgId: string): Promise<Reader | null> {
   const user = await userFromRequest(db, req);
   if (user) {
@@ -87,7 +100,7 @@ async function witnessStatus(
 app.post("/orgs/:orgId/artifacts/init", async (c) => {
   const orgId = c.req.param("orgId");
   const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
-  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  if (!auth) { const d = await writerDenied(c.env.DB, c.req.raw); return c.json(d.body, d.status); }
   const body = z.object({
     manifest_json: z.string().min(2).max(MAX_MANIFEST_BYTES),
     claimed_sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -117,21 +130,57 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
   const fileCount = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM artifacts WHERE org_id = ? AND deleted_at IS NULL").bind(orgId).first<{ n: number }>();
   const room = limitAllows(plan, "evidenceFiles", fileCount?.n ?? 0);
 
-  const dupe = await c.env.DB.prepare("SELECT id, upload_state, witness_status, signature_check FROM artifacts WHERE org_id = ? AND claimed_sha256 = ?")
-    .bind(orgId, body.data.claimed_sha256).first<{ id: string; upload_state: string; witness_status: string; signature_check: string }>();
+  const dupe = await c.env.DB.prepare("SELECT id, agent_id, manifest_json, upload_state, witness_status, signature_check FROM artifacts WHERE org_id = ? AND claimed_sha256 = ?")
+    .bind(orgId, body.data.claimed_sha256).first<{ id: string; agent_id: string | null; manifest_json: string; upload_state: string; witness_status: string; signature_check: string }>();
   if (dupe) {
+    // Re-push of the same bytes: refresh the witness status (a late witness
+    // report may have arrived since the first push) and fill in the customer
+    // tag only when the stored run has none. An existing tag is never
+    // replaced — moving a run between customers would leak it onto another
+    // customer's reviewer link. An unknown customer name on re-push is
+    // ignored (pre-existing runs keep working); it only 400s on first push.
+    let agentId: string | null = null;
+    if (body.data.agent) {
+      const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+      if (agent) agentId = agent.id;
+    }
+    // Refresh the witness status, but never downgrade: an unreachable or
+    // closed inbox reads as "not found", which must not erase a "witnessed"
+    // verdict for the same bytes.
+    let workflowId: string | null = null;
+    try {
+      const dm = JSON.parse(dupe.manifest_json) as Record<string, unknown>;
+      if (typeof dm.workflow_id === "string") workflowId = dm.workflow_id;
+    } catch {
+      // Unreadable manifest: keep the stored status.
+    }
+    const recomputed = workflowId ? await witnessStatus(c.env.DB, c.env, orgId, workflowId, body.data.claimed_sha256) : dupe.witness_status;
+    const status = dupe.witness_status === "witnessed" ? "witnessed" : recomputed;
+    const adopt = !dupe.agent_id && agentId ? agentId : dupe.agent_id;
+    if (status !== dupe.witness_status || adopt !== dupe.agent_id) {
+      await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?").bind(adopt, status, dupe.id).run();
+      await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: adopt !== dupe.agent_id ? "artifact.assign" : "artifact.refresh", detail: `${dupe.id} ${status}` });
+    }
+    let agentLabel: string | null = null;
+    if (adopt) {
+      const nm = await c.env.DB.prepare("SELECT name FROM agents WHERE id = ?").bind(adopt).first<{ name: string }>();
+      agentLabel = nm?.name ?? body.data.agent ?? null;
+    }
     return c.json({
       id: dupe.id, deduped: true,
       put_url: dupe.upload_state === "stored" ? null : `/v1/orgs/${orgId}/artifacts/${dupe.id}/content`,
-      witness_status: dupe.witness_status, signature_check: dupe.signature_check,
+      witness_status: status, signature_check: dupe.signature_check, agent: agentLabel,
     });
   }
   if (!room.ok) return c.json({ error: { code: "plan_limit", message: room.message } }, 402);
 
   let agentId: string | null = null;
   if (body.data.agent) {
-    const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
-    if (!agent) return c.json({ error: { code: "bad_request", message: `Unknown agent ${body.data.agent}.` } }, 400);
+    const agent = await c.env.DB.prepare("SELECT id, status FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string; status?: string }>();
+    if (!agent) return c.json({ error: { code: "bad_request", message: `There is no customer called "${body.data.agent}" in this workspace. Connect this computer to a customer with: epi cloud login` } }, 400);
+    if (agent.status === "archived") {
+      return c.json({ error: { code: "customer_closed", message: `The customer "${body.data.agent}" was closed in the dashboard. Reopen it there, or pick another customer with: epi cloud login` } }, 410);
+    }
     agentId = agent.id;
   }
 
@@ -150,14 +199,14 @@ app.post("/orgs/:orgId/artifacts/init", async (c) => {
     fingerprint, signatureCheck, status, body.data.reason, `${orgId}/${id}.epi`, now, retentionUntil(plan, now),
   ).run();
   await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: "artifact.init", detail: `${id} ${body.data.reason} ${status}` });
-  return c.json({ id, put_url: `/v1/orgs/${orgId}/artifacts/${id}/content`, witness_status: status, signature_check: signatureCheck }, 201);
+  return c.json({ id, put_url: `/v1/orgs/${orgId}/artifacts/${id}/content`, witness_status: status, signature_check: signatureCheck, agent: body.data.agent ?? null }, 201);
 });
 
 // Byte upload, streamed straight to R2. Content-Length must match init.
 app.put("/orgs/:orgId/artifacts/:artifactId/content", async (c) => {
   const orgId = c.req.param("orgId");
   const auth = await writerAuth(c.env.DB, c.req.raw, orgId);
-  if (!auth) return c.json({ error: { code: "forbidden", message: "Push API key or member session required." } }, 403);
+  if (!auth) { const d = await writerDenied(c.env.DB, c.req.raw); return c.json(d.body, d.status); }
   const row = await c.env.DB.prepare("SELECT id, size_bytes, object_key, upload_state FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
     .bind(c.req.param("artifactId"), orgId).first<{ id: string; size_bytes: number; object_key: string; upload_state: string }>();
   if (!row) return c.json({ error: { code: "not_found", message: "Artifact not found." } }, 404);
@@ -234,6 +283,44 @@ app.post("/orgs/:orgId/artifacts/:artifactId/legal-hold", async (c) => {
   return c.json({ ok: true });
 });
 
+// Assign an Unassigned run to a customer (dashboard only).
+// Owner/member SESSION only — a computer's push key must never move runs:
+// moving a run between customers would leak it onto another customer's
+// share link. A run that already belongs to a customer stays there (409).
+// Re-tagging never changes bytes, so the sha dedupe stays intact;
+// witness_status is recomputed because the run may now match an inbox.
+app.patch("/orgs/:orgId/artifacts/:artifactId/agent", async (c) => {
+  const orgId = c.req.param("orgId");
+  const user = await userFromRequest(c.env.DB, c.req.raw);
+  const role = user ? await membershipRole(c.env.DB, orgId, user.id) : null;
+  if (!user || (role !== "owner" && role !== "member")) {
+    return c.json({ error: { code: "forbidden", message: "Only workspace owners and members can assign runs, from the dashboard." } }, 403);
+  }
+  const auth = { by: `user:${user.id}` };
+  const body = z.object({ agent: z.string().min(1).max(120) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: { code: "bad_request", message: "Pick a customer." } }, 400);
+  const row = await c.env.DB.prepare("SELECT id, agent_id, manifest_json, claimed_sha256 FROM artifacts WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
+    .bind(c.req.param("artifactId"), orgId).first<{ id: string; agent_id: string | null; manifest_json: string; claimed_sha256: string }>();
+  if (!row) return c.json({ error: { code: "not_found", message: "That run no longer exists." } }, 404);
+  const agent = await c.env.DB.prepare("SELECT id FROM agents WHERE org_id = ? AND name = ?").bind(orgId, body.data.agent).first<{ id: string }>();
+  if (!agent) return c.json({ error: { code: "bad_request", message: `There is no customer called "${body.data.agent}".` } }, 400);
+  if (row.agent_id && row.agent_id !== agent.id) {
+    return c.json({ error: { code: "already_assigned", message: "This run already belongs to another customer and can't be moved." } }, 409);
+  }
+  let workflowId: string | null = null;
+  try {
+    const manifest = JSON.parse(row.manifest_json) as Record<string, unknown>;
+    if (typeof manifest.workflow_id === "string") workflowId = manifest.workflow_id;
+  } catch {
+    // Keep the stored witness status if the manifest is unreadable.
+  }
+  const status = await witnessStatus(c.env.DB, c.env, orgId, workflowId, row.claimed_sha256);
+  await c.env.DB.prepare("UPDATE artifacts SET agent_id = ?, witness_status = ? WHERE id = ?")
+    .bind(agent.id, status, row.id).run();
+  await auditLog(d1AuditDb(c.env.DB), { orgId, actor: auth.by, action: "artifact.assign", detail: `${row.id} agent=${body.data.agent} ${status}` });
+  return c.json({ id: row.id, agent_id: agent.id, witness_status: status });
+});
+
 app.delete("/orgs/:orgId/artifacts/:artifactId", async (c) => {
   const orgId = c.req.param("orgId");
   const user = await userFromRequest(c.env.DB, c.req.raw);
@@ -253,19 +340,34 @@ app.delete("/orgs/:orgId/artifacts/:artifactId", async (c) => {
 
 // "Export everything": a week-long trust link covering all agents/inboxes,
 // the file list, and the witness exports — so a customer can leave any time.
+//
+// Owner-only, and it respects the same `shareLinks` plan limit as
+// POST /v1/orgs/:orgId/share-links. This route mints a reviewer-facing trust
+// link for the WHOLE org, so it must not be reachable by:
+//   - a machine API key (`push` scope) — that is the credential `epi cloud
+//     login` puts on a recorder machine, and a recorder must not be able to
+//     mint reviewer credentials (red-team C-01);
+//   - a plain member session — link issuance is an owner action;
+//   - a plan that has already spent its share-link allowance.
 app.post("/orgs/:orgId/export", async (c) => {
   const orgId = c.req.param("orgId");
   const user = await userFromRequest(c.env.DB, c.req.raw);
-  let actor: string | null = null;
-  if (user) {
-    const role = await membershipRole(c.env.DB, orgId, user.id);
-    if (role === "owner" || role === "member") actor = `user:${user.id}`;
+  if (!user) {
+    return c.json({ error: { code: "forbidden", message: "Owner session required." } }, 403);
   }
-  if (!actor) {
-    const key = await keyFromRequest(c.env.DB, c.req.raw);
-    if (key && key.orgId === orgId && key.scopes.includes("push")) actor = `key:${key.id}`;
+  const role = await membershipRole(c.env.DB, orgId, user.id);
+  if (role !== "owner") {
+    return c.json({ error: { code: "forbidden", message: "Owners only." } }, 403);
   }
-  if (!actor) return c.json({ error: { code: "forbidden", message: "Member session or push key required." } }, 403);
+  const org = await c.env.DB.prepare("SELECT plan FROM orgs WHERE id = ?").bind(orgId).first<{ plan: string }>();
+  if (!org) return c.json({ error: { code: "not_found", message: "Org not found." } }, 404);
+  const active = await c.env.DB
+    .prepare("SELECT COUNT(*) AS n FROM share_links WHERE org_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)")
+    .bind(orgId, nowIso())
+    .first<{ n: number }>();
+  const allow = limitAllows(planOf(org.plan), "shareLinks", active?.n ?? 0);
+  if (!allow.ok) return c.json({ error: { code: "plan_limit", message: allow.message } }, 402);
+  const actor = `user:${user.id}`;
   const { id, token } = await createShareLink(
     c.env.DB, orgId, `Full export ${nowIso().slice(0, 10)}`,
     { agents: "all", inboxes: "all" }, new Date(Date.now() + 7 * 86_400_000).toISOString(),
