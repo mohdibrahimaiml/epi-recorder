@@ -410,3 +410,42 @@ class TestRedactor:
                 steps = zf.read("steps.jsonl").decode("utf-8")
         assert secret not in steps
         assert "REDACTED" in steps or "***" in steps
+
+    def test_plain_numeric_ids_are_not_pii(self):
+        """Regression (audit P0-3/B2): bare numeric IDs and amounts survive."""
+        redactor = Redactor()
+        data = {
+            "order_id": "123456789",
+            "amount_paise": "4500012345",
+            "account_number": "123456789012",
+            "invoice": "INV-2026-000123",
+        }
+        redacted, count = redactor.redact(data)
+        assert redacted == data
+        assert count == 0
+
+    def test_separated_ssn_and_phone_still_redacted(self):
+        redactor = Redactor()
+        redacted, count = redactor.redact(
+            {"note": "SSN 123-45-6789, phone 555-123-4567"}
+        )
+        assert count == 2
+        assert "123-45-6789" not in redacted["note"]
+        assert "555-123-4567" not in redacted["note"]
+
+    def test_pii_key_name_redacts_bare_number(self):
+        """A bare number under an ssn/phone field is PII even without separators."""
+        redactor = Redactor()
+        redacted, count = redactor.redact(
+            {"ssn": "123456789", "phone_number": "5551234567", "classname": "123456789"}
+        )
+        assert redacted["classname"] == "123456789"
+        assert "123456789" not in redacted["ssn"]
+        assert "5551234567" not in redacted["phone_number"]
+        assert count == 2
+
+    def test_allowlist_fields_skip_redaction(self):
+        redactor = Redactor(allowlist_fields=["order_id"])
+        redacted, count = redactor.redact({"order_id": "123-45-6789"})
+        assert redacted["order_id"] == "123-45-6789"
+        assert count == 0
