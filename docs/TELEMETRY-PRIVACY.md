@@ -1,6 +1,6 @@
 # EPI Telemetry Privacy
 
-**Product version:** 4.6.2.
+**Product version:** 4.6.3.
 
 Telemetry in EPI Recorder is opt-in.
 
@@ -12,7 +12,7 @@ By default:
 
 - telemetry is off
 - no network calls are made
-- an anonymous install ID is created locally only after you opt in (`epi telemetry enable` or the first post-opt-in event), so pre-opt-in runs create no identifier
+- a random install ID is created locally only after you opt in (`epi telemetry enable` or the first post-opt-in event), so pre-opt-in runs create no identifier; it is not linked to your identity unless you explicitly join the pilot
 - importing EPI packages does not send anything
 - running normal capture/verify commands does not send anything
 - local opt-in reminders after high-intent commands do not send anything
@@ -46,6 +46,7 @@ After opt-in, EPI sends only non-content metrics:
 - artifact bytes
 - artifact count
 - CI flag
+- organization-level git signals: `email_domain`, `github_org` (see below; can be omitted with `EPI_TELEMETRY_ORG_SIGNALS=0`)
 
 ## What Telemetry Never Sends
 
@@ -66,7 +67,7 @@ If telemetry input includes banned field names, the client drops the event and t
 
 ## Pilot Signup
 
-The EPI Pilot signup is separate from anonymous telemetry. It is used for people who explicitly want early access to artifact dashboard, compliance report exports, priority support, and roadmap input.
+The EPI Pilot signup is separate from telemetry events. It is used for people who explicitly want early access to artifact dashboard, compliance report exports, priority support, and roadmap input.
 
 ```bash
 epi telemetry enable --join-pilot --email you@example.com --use-case governance --consent-to-contact
@@ -108,17 +109,30 @@ Enabled gateways accept:
 - `POST /api/telemetry/events`
 - `POST /api/telemetry/pilot-signups`
 
-Records are appended under the gateway storage directory. Pilot signup records are stored separately from anonymous telemetry events.
+Records are appended under the gateway storage directory. Pilot signup records are stored separately from telemetry events.
 
 
-## Organization Discovery
+## Organization-level signals (on by default when telemetry is on)
 
-When telemetry is enabled, EPI may derive non-identifying organization signals from your local git config:
+When telemetry is enabled, EPI **automatically** attaches organization-level
+signals derived from your local git config to each telemetry event:
 
 - `email_domain`: extracted from `git config user.email` (e.g., `microsoft.com`). The full email address is never sent.
 - `github_org`: extracted from `git remote -v` for `github.com` remotes (e.g., `openai`). The repository name is never sent.
 
-These signals are only collected if git is available and the working directory is inside a git repository. They help EPI Labs understand which organizations are finding value in EPI, without identifying individual users.
+These are organization-level, **not anonymous** — an employer domain or GitHub
+org can identify a small team. They are collected only if git is available and
+the working directory is inside a git repository. They help EPI Labs understand
+which organizations are finding value in EPI.
+
+To omit them while keeping telemetry on, set:
+
+```bash
+export EPI_TELEMETRY_ORG_SIGNALS=0
+```
+
+Disabling telemetry (`epi telemetry disable`) stops all events, including these
+signals. Nothing is derived or sent before telemetry is opted in.
 
 ## Optional Account System
 

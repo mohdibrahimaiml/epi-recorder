@@ -135,9 +135,11 @@ def _get_auth_identity() -> dict[str, str]:
 def attach_identity_signals(metadata: dict[str, Any] | None) -> dict[str, Any]:
     """Merge identity signals into telemetry metadata without overwriting."""
     metadata = dict(metadata or {})
-    for key, value in get_identity_signals().items():
-        if key not in metadata and value:
-            metadata[key] = value
+    include_org = os.getenv("EPI_TELEMETRY_ORG_SIGNALS", "1").strip().lower()
+    if include_org not in {"0", "false", "no", "off"}:
+        for key, value in get_identity_signals().items():
+            if key not in metadata and value:
+                metadata[key] = value
     for key, value in _get_auth_identity().items():
         if key not in metadata and value:
             metadata[key] = value
