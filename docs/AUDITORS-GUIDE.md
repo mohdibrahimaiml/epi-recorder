@@ -1,6 +1,6 @@
 # EPI Auditor's Guide — Independent Verification of .epi Evidence
 
-**Version:** 2.1 (epi-recorder 4.6.2) | **Last updated:** 2026-10-21
+**Version:** 2.2 (epi-recorder 4.6.3) | **Last updated:** 2026-10-23
 
 For banks, insurers, auditors and other reviewers who receive a `.epi` file
 from a vendor and need to check it themselves, offline, without trusting
@@ -205,53 +205,72 @@ for more than one log entry for the same case; see [WITNESS.md](./WITNESS.md).
 
 ## Real samples
 
-Generated with epi-recorder 4.6.0. A small script sealed `case-001.epi` with
-the vendor's key; the auditor pinned `vendor.pub`. Output trimmed to the
-header and the relevant lines; fingerprints shown as `<fingerprint>`.
+Generated with epi-recorder 4.6.3 from a synthetic refund case
+(`case-001.epi`) whose vendor key was pinned as `vendor.pub`. Output trimmed to
+the header and relevant lines; fingerprints and timestamps shown as
+placeholders. These blocks were produced on 23 Oct 2026 and reflect the current
+renderer; exact spacing can change without changing a verdict.
 
-**Pinned vendor, strict policy, witnessed** (`exit 0`):
+**Pinned vendor, strict policy** (`exit 0`):
 
 ```text
-╭──────────────────────── ✔ SEAL · IDENTITY PINNED EPI Verification Report ────────────────────────╮
-│ DECISION: PASS                                                                                   │
-│ Policy: strict                                                                                   │
-│ Reason: All strict criteria met (Integrity, Identity, Completeness)                              │
-│                                                                                                  │
-│ IDENTITY (who sealed — required for claim trust)                                                 │
-│   - Status:       KNOWN                                                                          │
-│   - Name:         vendor                                                                         │
-│   - Fingerprint:  <fingerprint>                                                                  │
-│   - Detail:       Verified via local trusted registry                                            │
-│                                                                                                  │
-│ SEAL (Objective Proofs — not identity)                                                           │
-│   - Integrity:    Verified                                                                       │
-│   - Signature:    Valid                                                                          │
-│   - Forensic:     PASS                                                                           │
-│   - Timestamp:  none                                                                             │
-│   - Witness:      WITNESSED — verified witness receipt (received 2026-10-12T09:34:55.487339+00:00) │
+╭───────────── ✔ SEAL · IDENTITY PINNED EPI Verification Report ──────────────╮
+│ CAPTURE: path=sdk_wrapper enforcement=not_applicable                        │
+│                                                                             │
+│ DECISION: PASS                                                              │
+│ Policy: strict                                                              │
+│ Reason: All strict criteria met (Integrity, Identity, Completeness)         │
+│                                                                             │
+│ IDENTITY (who sealed — required for claim trust)                            │
+│   - Status:       KNOWN                                                     │
+│   - Name:         vendor                                                    │
+│   - Fingerprint:  <fingerprint>  (confirm with the sender by phone)         │
+│   - Detail:       Verified via local trusted registry                       │
+│                                                                             │
+│ SEAL (Objective Proofs — not identity)                                      │
+│   - Integrity:    Verified                                                  │
+│   - Signature:    Valid                                                     │
+│   - Forensic:     PASS                                                      │
+│   - Timestamp:    VERIFIED — existed no later than <timestamp>              │
+│ (chain to pinned root "DigiCert Assured ID Root CA"; chain to pinned root   │
+│ "FreeTSA Root CA")                                                          │
+│   - Capture:      path=sdk_wrapper streaming=false                          │
+│   - Active:       sdk_wrapper:agent framework                               │
+│   - Checkpoints:  none (seal-time notarization only)                        │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+With `--witness-log received.jsonl`, a `Witness: WITNESSED — verified witness
+receipt …` line is added to the SEAL block.
 
 **Same file, auditor has not pinned anything, default policy** (`exit 0`, WARN):
 
 ```text
-╭───────────────────────── ⚠ UNVERIFIED IDENTITY EPI Verification Report ──────────────────────────╮
-│ DECISION: WARN  — UNVERIFIED IDENTITY (seal valid · signer unknown)                              │
-│ Policy: standard                                                                                 │
-│ Reason: Unverified identity — signature valid but signer not pinned in any trusted registry.     │
-│ Anyone can generate a key and re-sign a rebuilt chain. ...                                       │
-│   - Status:       NOT_PINNED                                                                     │
+╭─────────────── ⚠ UNVERIFIED IDENTITY EPI Verification Report ───────────────╮
+│ CAPTURE: path=sdk_wrapper enforcement=not_applicable                        │
+│                                                                             │
+│ DECISION: WARN  — UNVERIFIED IDENTITY (seal valid · signer unknown)          │
+│ Policy: standard                                                            │
+│ Reason: Unverified identity — signature valid but signer not pinned in any  │
+│ trusted registry. Anyone can generate a key and re-sign a rebuilt chain.    │
+│ Pin the sender's key obtained from them directly (not from this file): epi  │
+│ keys trust --from-did <did> or epi keys trust <their-key-file>. For claims  │
+│ / audit: epi verify --policy strict (FAIL until org pin).                   │
+│   - Status:       NOT_PINNED                                                │
 ```
 
 **Not pinned, `--policy strict`** (`exit 1`):
 
 ```text
-╭─────────────── ✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET EPI Verification Report ────────────────╮
-│ DECISION: FAIL                                                                                   │
-│ Policy: strict                                                                                   │
-│ Reason: Identity unknown or revoked (Strict Policy requires trusted signer; LOCAL self-match is  │
-│ not enough — pin the sender's key obtained from them directly, then confirm its fingerprint by   │
-│ phone)                                                                                           │
-│   - Status:       NOT_PINNED                                                                     │
+╭───── ✘ FAIL — SEAL INTACT, REQUIREMENT NOT MET EPI Verification Report ─────╮
+│ CAPTURE: path=sdk_wrapper enforcement=not_applicable                        │
+│                                                                             │
+│ DECISION: FAIL                                                              │
+│ Policy: strict                                                              │
+│ Reason: Identity unknown or revoked (Strict Policy requires trusted signer; │
+│ LOCAL self-match is not enough — pin the sender's key obtained from them    │
+│ directly, then confirm its fingerprint by phone)                            │
+│   - Status:       NOT_PINNED                                                │
 ```
 
 **Pinned, but `--require-timestamp` and the file has no timestamp** (`exit 1`):
@@ -331,19 +350,24 @@ With `--witness-log`, the same edited manifest also shows
 **Permissive policy (integrity only)** (`exit 0`, not claim-ready):
 
 ```text
-╭───────────────────────────────── ✔ PASS EPI Verification Report ─────────────────────────────────╮
-│ DECISION: PASS                                                                                   │
-│ Policy: permissive                                                                               │
-│ Reason: Integrity verified (Permissive Policy)                                                   │
+╭────────────────────── ✔ PASS EPI Verification Report ───────────────────────╮
+│ CAPTURE: path=sdk_wrapper enforcement=not_applicable                        │
+│                                                                             │
+│ DECISION: PASS                                                              │
+│ Policy: permissive                                                          │
+│ Reason: Integrity verified (Permissive Policy)                              │
+│   - Status:       NOT_PINNED                                                │
 ```
 
 **On the vendor's own machine, default policy:**
 
 ```text
-╭──────────────────── ⚠ LOCAL SEALER · NOT ORG-PINNED EPI Verification Report ─────────────────────╮
-│ DECISION: WARN  — LOCAL SEALER (seal valid · not org-pinned)                                     │
-│   - Status:       LOCAL                                                                          │
-│   - Local key:    default (matches this computer — not org pin)                                  │
+╭────────── ⚠ LOCAL SEALER · NOT ORG-PINNED EPI Verification Report ──────────╮
+│ CAPTURE: path=sdk_wrapper enforcement=not_applicable                        │
+│                                                                             │
+│ DECISION: WARN  — LOCAL SEALER (seal valid · not org-pinned)                │
+│   - Status:       LOCAL                                                     │
+│   - Local key:    default (matches this computer — not org pin)             │
 ```
 
 ---

@@ -2,10 +2,14 @@
 
 No dates. Dates are promises; this is a private beta with one maintainer.
 Three lists: committed (in `CHANGELOG.md` `[Unreleased]`, being built),
-considering (open GitHub issues, not decided), and the standing rule for
-everything else.
+shipped in the last release, considering (open GitHub issues, not decided),
+and the standing rule for everything else.
 
 ## Committed — `CHANGELOG.md` `[Unreleased]`
+
+Nothing beyond the 4.6.3 security/docs release (see `CHANGELOG.md`).
+
+## Shipped in 4.6.2
 
 - **M4 — customer-owned storage.** Sealed `.epi` straight to the vendor's own
   S3-compatible bucket; EPI Cloud never sees bytes or credentials.
@@ -13,8 +17,6 @@ everything else.
   Informational only, never a pin.
 - **M6 — evidence pack.** Reviewer-side zip: hash-checked bytes, `trust.json`,
   `witness.json`, offline verify commands, per-file `MANIFEST.json`.
-
-When these land in a dated CHANGELOG section, they move off this list.
 
 ## Considering — open issues, no commitment
 

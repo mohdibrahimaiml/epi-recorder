@@ -1,6 +1,6 @@
 # Customer-owned storage (M4)
 
-**Product version:** 4.6.2. Cloud product claims: [CLOUD.md](./CLOUD.md).
+**Product version:** 4.6.3. Cloud product claims: [CLOUD.md](./CLOUD.md).
 
 Every sealed `.epi` belongs in **your** S3-compatible bucket (AWS S3,
 Cloudflare R2, MinIO, GCS interoperability mode). EPI Cloud never sees these

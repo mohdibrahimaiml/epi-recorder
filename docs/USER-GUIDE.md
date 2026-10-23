@@ -1,6 +1,6 @@
 # How to use EPI (normal path)
 
-**Version:** 4.6.2  
+**Version:** 4.6.3  
 You do not need an account, a dashboard, or EPI Cloud to record or verify.
 
 This is the everyday guide. Bank / auditor briefing: [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md). Command list: [CLI.md](./CLI.md).
@@ -122,6 +122,15 @@ epi record --out refund.epi -- python process_refund.py
 
 Secrets in prompts and headers are **redacted by default**. Do not turn redaction off in production.
 
+Redaction covers common secret and PII patterns: API keys/tokens, email addresses, phone numbers written with separators, card numbers and US SSNs. It cannot know your domain's IDs. If a numeric or dashed field must be preserved (for example `order_id` or `amount_paise`), add its field name to `redaction.allowlist_fields` in `~/.epi/config.toml`:
+
+```toml
+[redaction]
+allowlist_fields = ["order_id", "amount_paise"]
+```
+
+Bare numbers under a PII-named field (such as `ssn` or `phone`) are still redacted; allowlisting is an explicit decision that a field is not PII.
+
 Lower-level `EpiRecorderSession` API also exists (`from epi_recorder.api import EpiRecorderSession`); prefer `record()` / wrappers for new code.
 
 ---
@@ -172,6 +181,15 @@ epi verify file.epi --policy strict
 ```
 
 Need a named key explicitly? `epi keys generate --name default`. Private keys live under `~/.epi/keys/` — never commit them.
+
+**Encrypt the private key at rest (optional, recommended for shared machines/CI).** Set `EPI_KEY_PASSWORD` *before* generating or importing a key:
+
+```bash
+export EPI_KEY_PASSWORD='a long random passphrase'
+epi keys generate --name default   # PKCS#8 PEM is written encrypted
+```
+
+The same variable must be set whenever that key is loaded (sealing, `epi verify` with `--key`, Cloud upload, etc.); without it the load fails. There is **no HSM integration** and no recovery path — if you lose the passphrase, the key cannot be recovered. Keep it in your secrets manager, not in shell history.
 
 **Optional — EPI Cloud** (private beta), when you want a link instead of a file:
 

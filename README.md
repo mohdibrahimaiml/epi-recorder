@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.6.2](https://img.shields.io/badge/version-v4.6.2-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.6.3](https://img.shields.io/badge/version-v4.6.3-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
@@ -165,7 +165,7 @@ demo.epi
 | **Integrity** | SHA-256 over every sealed member |
 | **Authenticity** | Ed25519 signature on the manifest |
 | **Chain** | Each step’s `prev_hash` links the timeline |
-| **Privacy** | Default secret redaction (API keys, tokens, PII) |
+| **Privacy** | Default secret redaction (API keys, tokens, common PII patterns: email, phone, card, US SSN). Not names, IBANs, or domain-specific IDs — allowlist fields you must preserve. |
 
 Samples: [docs/assets/SAMPLES.md](docs/assets/SAMPLES.md) · try `docs/assets/readme-demo.epi`.
 

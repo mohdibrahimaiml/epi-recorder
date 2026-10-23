@@ -1,6 +1,6 @@
 # Data retention and deletion (EPI Cloud)
 
-**Product version:** 4.6.2. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.6.3. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced in
 `cloud/src/lib/plans.ts`; the table below states them in product words.
 
@@ -9,13 +9,13 @@ wherever you put them, and `epi verify` runs offline.
 
 ## Retention by plan
 
-| Plan | Stored runs | Retention |
-|------|-------------|-----------|
-| Free | 50 | 30 days |
-| Startup | 1,000 | 1 year |
-| Growth | 10,000 | 7 years |
-| Design partner | 2,000 | 7 years (10 agents / 5 inboxes) |
-| Enterprise | As entitled | As entitled |
+| Plan | Customers | Stored runs | Retention | Share links |
+|------|-----------|-------------|-----------|-------------|
+| Free | 1 | 50 | 30 days | 1 |
+| Startup | 3 | 1,000 | 1 year | 3 |
+| Growth | 15 | 10,000 | 7 years | unlimited |
+| Design partner | 5 | 2,000 | 7 years | 10 |
+| Enterprise | As entitled | As entitled | As entitled | As entitled |
 
 Verification is never metered and witness receipts are hash-only. Evidence
 Room files max 25 MB each. Expiry is enforced, not promised: every upload
@@ -49,8 +49,10 @@ private beta. Email `mohdibrahim@epilabs.org` with the workspace name:
 
 ## Backups
 
-Point-in-time D1 exports to R2, last 4 kept (4-week window) — currently a
-manual founder op until the M1 cron ships ([../internal/cloud-ops.md](../internal/cloud-ops.md)).
+Point-in-time D1 exports to R2, last 4 kept (4-week window) — this is still a
+manual weekly founder op. The daily cron in `cloud/wrangler.toml` publishes
+witness checkpoints; it does **not** back up the database. See
+[../internal/cloud-ops.md](../internal/cloud-ops.md) §5.
 Restores are documented per incident. Backup contents follow the same
 retention as live data — old backups age out; nothing is archived
 indefinitely.

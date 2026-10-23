@@ -11,7 +11,9 @@ def test_limitations_pypi_version_matches_pyproject():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     version = pyproject["project"]["version"]
     text = (ROOT / "docs" / "KNOWN_LIMITATIONS.md").read_text(encoding="utf-8")
-    assert f"Current published line: **{version}**" in text
+    # 4.6.3 is prepared in-tree but may not be on PyPI yet. The release-line
+    # stamp must match pyproject; the published-on-PyPI stamp is separate.
+    assert f"Current release line: **{version}**" in text
 
 
 def test_limitations_names_sprint_gaps():

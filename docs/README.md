@@ -1,6 +1,6 @@
 # EPI documentation
 
-**Product version in this repo: 4.6.2** (see `pyproject.toml`).  
+**Product version in this repo: 4.6.3** (see `pyproject.toml`).  
 PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
 **License:** MIT (root `LICENSE`).  
@@ -18,8 +18,8 @@ If you are evaluating EPI for a bank, insurer, or auditor, start here:
 This folder has four kinds of files. Only the first kind is current product documentation.
 
 | Kind | What it is | How to treat it |
-|------------------|-----------------|
-| **Product docs** | Recorder, Cloud, website — kept at 4.6.2 | Canonical |
+|------------------|-----------------|-----------------|
+| **Product docs** | Recorder, Cloud, website — kept at 4.6.3 | Canonical |
 | **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
 | **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
 | **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
@@ -120,7 +120,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
 | [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
 | [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
-| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.6.2 |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.6.3 |
 | [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
 | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
 | [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
@@ -173,7 +173,7 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
-3. Keep product-doc version numbers at **4.6.2** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
+3. Keep product-doc version numbers at **4.6.3** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
 4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [../internal/cloud-ops.md](../internal/cloud-ops.md)).
 5. After structural changes, update this index.
 6. Do not add sales talk tracks or article-by-article “compliance” tables.

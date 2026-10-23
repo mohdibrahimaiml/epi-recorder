@@ -1,6 +1,8 @@
 name: Witness mirror
 
 # Daily: copy signed checkpoints to the public epi-witness-checkpoints repo.
+# The repo is planned but NOT created as of 2026-10-23 (URL returns 404); this
+# workflow stays dormant until the repo and secrets exist.
 # Needs repo secrets: MIRROR_PAT (push access to the mirror repo),
 # MIRROR_REPO (owner/epi-witness-checkpoints), WITNESS_MIRROR_INBOXES
 # (comma-separated inbox ids, opt-in per customer), EPI_CLOUD_URL.

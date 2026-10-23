@@ -1,6 +1,6 @@
 # EPI Codebase Walkthrough
 
-**Version:** 4.6.2. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
+**Version:** 4.6.3. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:
@@ -460,15 +460,21 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.6.2` line, it is a self-identifying binary envelope with a
-defined inner payload layout.
+In the current `v4.6.3` line, it is a polyglot envelope: the same bytes open
+as an HTML page and carry a signed ZIP payload. Under that display layer it is
+a binary envelope with a fixed 128-byte header, followed by the outer viewer
+HTML and the ZIP payload.
 
 ### Typical layout
 
 ```text
 example.epi
-EPI1 header                    # outer identity, payload length, payload SHA-256
-payload.zip                    # signed ZIP evidence payload
+[128-byte binary header]        # magic "<!--", version, payload length,
+                                # artifact UUID, created_at, payload SHA-256,
+                                # SHA-256 of the outer viewer HTML
+[outer polyglot viewer HTML]    # what a browser renders on double-click
+\n<!-- EPI_ZIP_PAYLOAD_START -->\n
+ZIP payload:                    # signed evidence payload
   mimetype
   steps.jsonl
   environment.json
@@ -477,8 +483,8 @@ payload.zip                    # signed ZIP evidence payload
   policy_evaluation.json       # optional
   review.json                  # optional
   artifacts/...                # optional
-  viewer.html
-  manifest.json
+  viewer.html                  # signed member; matches the outer viewer bytes
+  manifest.json                # signed manifest (not in file_manifest)
 ```
 
 ### What each file does
@@ -491,7 +497,7 @@ A tiny marker file inside the ZIP payload containing:
 
 It is written first and uncompressed for standards-style ZIP compatibility
 inside the signed payload. The outermost `.epi` file itself no longer begins
-with ZIP magic bytes in `v4.6.2`.
+with ZIP magic bytes in `v4.6.3`.
 
 #### `steps.jsonl`
 
@@ -600,11 +606,16 @@ state they had when the artifact was created.
 
 ### Important nuance
 
-`viewer.html` is intentionally **not** part of `file_manifest`.
+`viewer.html` **is** part of `file_manifest` in current artifacts (4.6.2 and
+later). Although it is a generated presentation layer, its SHA-256 is signed
+and the outer polyglot display region is byte-identical to that member. The
+4.6.3 verifier compares the outer region to that signed hash, which is what
+lets it detect a display-layer edit even when the attacker recomputes the
+unsigned envelope header copy. 4.6.2 itself checked only the unsigned copy, so
+its own verdict could still be forged.
 
-Why?
-
-Because it is a generated presentation layer, not primary evidence content. The
+Older pre-4.6.2 artifacts may lack the `viewer.html` entry; for those the
+outer display layer is only covered when the sealed member is present. The
 sealed evidence files are things like:
 
 - `steps.jsonl`

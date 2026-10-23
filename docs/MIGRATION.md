@@ -1,6 +1,6 @@
 # Migration guide (old `.epi` files and old recorders)
 
-**Product version:** 4.6.2. Old files still verify — this page says what
+**Product version:** 4.6.3. Old files still verify — this page says what
 verdicts to expect and what changed, so a legacy artifact never surprises
 you. Background: [KNOWN_LIMITATIONS](./KNOWN_LIMITATIONS.md),
 [spec/EPI-SPEC](./spec/EPI-SPEC.md).
@@ -21,7 +21,7 @@ old artifacts could be quietly rewritten would be a worse format.
 | 4.4.2 | Unusual | Withdrawn before PyPI (new field's JSON `null` broke Ed25519 for older seals). If you hold one, treat it as suspect and re-record. |
 | 4.4.3+ | Current semantics | `content_truncated=false` on new seals; verify **FAILs** when `true`, **WARNs** when absent (everything through 4.4.1). |
 | Pre-4.6 timestamps | Presence-only | Seal-time/checkpoint tokens attest nothing checkable. Since 4.6.0, new-scheme tokens are validated offline (imprint, CMS signature, EKU, chain). |
-| All-zero viewer hash (legacy polyglot) | PASS possible, display forgeable | Outer viewer HTML is not integrity-covered. Trust `epi verify`, not the double-click colours. New seals (4.4.1+) hash the viewer. |
+| All-zero viewer hash (legacy polyglot) | PASS possible, display forgeable | Outer viewer HTML is not integrity-covered. Trust `epi verify`, not the double-click colours. New seals (4.4.1+) hash the viewer; 4.6.3+ also binds it in the signed `file_manifest`. |
 
 ## Moving to envelope-v2
 

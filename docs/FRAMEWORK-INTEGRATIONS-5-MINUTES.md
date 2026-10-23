@@ -1,6 +1,6 @@
 # Framework Integrations in 5 Minutes
 
-**Product version:** 4.6.2. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
+**Product version:** 4.6.3. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
@@ -12,7 +12,7 @@ Install only the extras you need, for example `pip install "epi-recorder[litellm
 | --- | --- | --- |
 | OpenAI wrapper | You already call the OpenAI SDK directly | request/response steps, model metadata, usage, surrounding workflow steps inside `record()` |
 | Anthropic wrapper | You use Claude via the Anthropic SDK | messages request/response steps, model metadata, usage, surrounding workflow steps inside `record()` |
-| LiteLLM callback | You fan out across many providers through LiteLLM | provider-normalized completion calls across your LiteLLM entrypoints |
+| LiteLLM callback | You fan out across many providers through LiteLLM | `litellm.completion` / `acompletion` calls that pass through the EPI callback (including streaming); provider SDK calls made outside LiteLLM are not captured |
 | LangChain callback | You already use chains, tools, or agents in LangChain | chain/tool/agent callbacks plus whatever your app logs around them |
 | LangGraph checkpoint saver | You want stateful agent graphs and replayable checkpoints | graph checkpoint save/load events and graph state transitions |
 | OpenTelemetry exporter | You already have tracing and want portable signed repros | spans grouped into `.epi` artifacts per trace |
@@ -45,7 +45,7 @@ client = wrap_anthropic(Anthropic())
 
 with record("anthropic-run.epi", goal="Inspect one Claude exchange"):
     client.messages.create(
-        model="claude-3-5-sonnet-latest",
+        model="claude-sonnet-4-5",  # or any current Claude model ID
         max_tokens=256,
         messages=[{"role": "user", "content": "Summarize the failing trace"}],
     )
@@ -69,9 +69,21 @@ with record("litellm-run.epi", goal="Capture one LiteLLM exchange"):
     )
 ```
 
-Use this when your app already routes multiple providers through LiteLLM.
+Use this when your app already routes multiple providers through LiteLLM. The
+callback fires for calls that go through `litellm.completion()` /
+`litellm.acompletion()` (sync, async, and streaming). If your app also calls a
+provider SDK directly, wrap that client separately; those calls never reach the
+LiteLLM callback. `enable_epi()` only registers callbacks — it does not patch
+the SDKs.
 
 ## LangChain
+
+The `langchain` extra installs only `langchain-core`. The example below also
+needs the provider package, so install it explicitly:
+
+```bash
+pip install "epi-recorder[langchain]" langchain-openai
+```
 
 ```python
 from langchain_openai import ChatOpenAI

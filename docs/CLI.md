@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.6.2)
+# EPI CLI Reference (v4.6.3)
 
-**Version:** 4.6.2  
+**Version:** 4.6.3  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
@@ -45,7 +45,8 @@ epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample
 
 If you are not in the repo checkout, replace the sample path with your own exported AGT bundle, evidence directory, or import manifest.
 
-If you prefer zero local setup, use the Colab notebook linked from [README.md](../README.md).
+If you prefer zero local setup for **checking** a file, use the hosted verifier at
+<https://epilabs.org/verify>. Recording and sealing still run locally.
 
 `epi view` is the canonical EPI case review experience. Older desktop viewer projects remain legacy/internal compatibility surfaces and are not the recommended front door.
 
@@ -95,7 +96,7 @@ If you prefer zero local setup, use the Colab notebook linked from [README.md](.
 | --- | --- |
 | `epi gateway serve` | Start the open-source AI capture gateway for low-friction developer adoption. |
 | `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` case file. |
-| `epi export trace <file.epi>` | Emit a TRACE v0.2 log-import Trust Record bound to the `.epi` hash. Signing: `--key` → sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. Embedded `cnf.jwk` proves internal consistency, not a trusted issuer. `policy.bundle_hash` hashes `policy.json`, not Cedar (`enforcement_mode: declared`). `appraisal.status` is `none`. |
+| `epi export trace <file.epi>` | Emit a TRACE v0.2 log-import Trust Record bound to the `.epi` hash. Signing: `--key` → sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. A **signed** export also requires `--transcript-uri <durable URL>`; add `--no-sign` for a local unsigned record. Embedded `cnf.jwk` proves internal consistency, not a trusted issuer. `policy.bundle_hash` hashes `policy.json`, not Cedar (`enforcement_mode: declared`). `appraisal.status` is `none`. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
 
@@ -174,10 +175,13 @@ What you should see in the resulting artifact:
 
 What you should see in the viewer:
 
-- `Source system: AGT`
-- `Import mode: EPI`
-- `Overview`, `Evidence`, `Policy`, `Review`, `Mapping`, `Trust`, and `Attachments`
-- a transformation audit that shows what EPI preserved, translated, derived, or synthesized
+- the same eight sections every EPI file uses: **0 Summary**, **1 Integrity**,
+  **2 Context**, **3 Verdict**, **4 Evidence**, **5 Governance**,
+  **6 Analysis**, **7 Attestation**, **8 Appendix**
+- AGT import provenance in `artifacts/agt/mapping_report.json` and in the
+  Analysis/Appendix views — not in separate `Mapping` or `Attachments` panels
+- a provenance marker on imported steps showing what EPI preserved,
+  translated, derived, or synthesized
 
 After the deterministic extract proof, you can still open the interactive browser flow with:
 
@@ -307,8 +311,10 @@ epi view my_run
 ```
 
 `epi view` opens a generated browser review page for the case. The `.epi` file
-itself remains a binary artifact container; browsers do not execute the
-embedded `viewer.html` directly from inside the `.epi` file.
+is a polyglot: its outer display layer is valid HTML, so renaming it to
+`.html` or opening it directly in a browser renders the embedded viewer. Use
+`epi view` when you want the review flow plus the CLI's own verification
+context.
 
 `epi view` exits `1` if the file was altered after sealing, so you never
 review tampered contents by accident; run `epi verify` for the full report.
@@ -322,11 +328,15 @@ look inside.
 
 The viewer is case-first. Expect the loaded artifact to open into:
 
-- `Overview` for decision, reason, review state, and trust state
-- `Evidence` for the step trail, tool calls, and model output
-- `Policy` and `Review` when those layers are present
-- `Mapping` for imported evidence such as AGT transformations
-- `Trust` for signature and integrity details
+- `0 Summary` — decision, reason, review state, and trust state
+- `1 Integrity` — signature, integrity, chain, and timestamp checks
+- `2 Context` — workflow/agent context when present
+- `3 Verdict` — decision and rationale
+- `4 Evidence` — the step trail, tool calls, and model output
+- `5 Governance` — policy and review layers when present
+- `6 Analysis` — deterministic findings and heuristic output
+- `7 Attestation` — review/signature attestation
+- `8 Appendix` — hashes, environment, and imported-evidence details
 
 ---
 
@@ -395,7 +405,7 @@ $ epi verify case-002.epi --policy strict --witness-log received.jsonl
 │   - Integrity:    Verified                                                                       │
 │   - Signature:    Valid                                                                          │
 │   - Forensic:     PASS                                                                           │
-│   - Witness:      WITNESSED (received 2026-10-12T09:34:55.487339+00:00)                          │
+│   - Witness:      WITNESSED — verified witness receipt (received 2026-10-12…)
 ```
 
 All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#reading-the-verdict).
@@ -411,7 +421,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-As of 4.6.2 the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
+As of 4.6.3 the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
 
 ```bash
 epi share demo.epi
@@ -446,7 +456,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In the current **v4.6.2** line, `epi policy init` is the guided front door for
+In the current **v4.6.3** line, `epi policy init` is the guided front door for
 policy. It asks a small number of business-language questions and writes the
 machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
@@ -713,6 +723,10 @@ Author, validate, sign, and pack **Annex IV JSON templates**. This is not a cert
 | status | Show per-section template completion |
 | compile | Generate compliance-summary.json from the templates |
 | sign | Ed25519-sign a section (or all) |
+| multi-sign | Append a multi-signer approval to the compliance summary |
+| pack | Generate all sections, sign, and pack into a signed `.epi` |
+| role-bind / role-unbind / role-list | Bind, unbind, or list key-to-role bindings for RBAC |
+| role-verify | Verify every signer is authorized for their role |
 | verify | Verify those signatures |
 | report | HTML view of the templates |
 

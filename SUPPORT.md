@@ -1,6 +1,6 @@
 # EPI support and service levels
 
-**Product version:** 4.6.2. Private beta status: [docs/CLOUD.md](./docs/CLOUD.md).
+**Product version:** 4.6.3. Private beta status: [docs/CLOUD.md](./docs/CLOUD.md).
 
 This page says what is supported, how to get help, and what to expect. It is
 not a legal SLA with penalties — EPI Cloud is in private beta and there is no

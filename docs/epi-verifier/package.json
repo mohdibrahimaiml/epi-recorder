@@ -2,7 +2,7 @@
   "name": "@epi-labs/verify",  
   "version": "1.0.0",  
   "description": "Zero-dependency EPI (.epi) evidence file verifier. Ed25519 + SHA-256 + JCS RFC 8785.",  
-  "license": "Apache-2.0",  
+  "license": "MIT",
   "author": {  
     "name": "EPI Labs",  
     "email": "mohdibrahim@epilabs.org",  

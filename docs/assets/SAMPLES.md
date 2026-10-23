@@ -1,10 +1,10 @@
 # Public `.epi` samples
 
-**Product version:** 4.6.2. These files were sealed on an older tree (2026-07-23). Re-check with the CLI you actually installed; WARN on unpinned identity is expected until you `epi keys trust`.
+**Product version:** 4.6.3. These files were sealed on an older tree (2026-07-23). Re-check with the CLI you actually installed. On a fresh trust store the unpinned identity is a **WARN · UNVERIFIED IDENTITY**; if you have already pinned other keys it is a **FAIL · NOT A KEY YOU TRUST**. Both become PASS after you confirm the sender's fingerprint out of band and `epi keys trust` it.
 
 | File | What it is | Expected `epi verify` |
 |------|------------|------------------------|
-| `readme-demo.epi` | Refund decision sample (README) | Signature VALID, identity UNKNOWN → **WARN · UNVERIFIED IDENTITY** until you pin |
+| `readme-demo.epi` | Refund decision sample (README) | Signature VALID, identity UNKNOWN → WARN/FAIL as above until you pin |
 | `sample-refund-ord9001.epi` | Same case, stable name | same |
 | `sample-hello.epi` | Tiny sealed run | same |
 

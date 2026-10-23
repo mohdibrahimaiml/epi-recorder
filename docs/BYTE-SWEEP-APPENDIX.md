@@ -1,6 +1,6 @@
 # Byte-sweep appendix (moved out of KNOWN_LIMITATIONS.md)
 
-**Product version:** 4.6.2. Overview first: [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
+**Product version:** 4.6.3. Overview first: [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 
 This is the full 1 KB byte-flip sweep that backs the short summary in KNOWN_LIMITATIONS.md ("Byte-level seal scope"). Read the summary first; come here only for the per-region table and the offset-658 evidence.
 

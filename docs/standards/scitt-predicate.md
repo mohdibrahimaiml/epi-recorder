@@ -3,7 +3,7 @@
 **Status:** Active (technical note)  
 **Date:** 2026-05-17  
 **Version:** 1.0.0  
-**Product version:** 4.6.2  
+**Product version:** 4.6.3  
 **Authors:** EPI Project Team  
 
 This is a **format note**, not a user guide. Product docs: [../README.md](../README.md). A SCITT receipt proves a statement was logged; it does not certify a regulation. Local `epi-register` without `--service` is self-issued — see [../EPI_MASTER_DOCUMENTATION.md](../EPI_MASTER_DOCUMENTATION.md).
@@ -18,7 +18,11 @@ This document defines the integration of the **Supply Chain Integrity, Transpare
 
 ## 1. Overview
 
-EPI implements **Mode B: SCITT Producer** as defined in the emerging IETF SCITT architecture. This integration provides a decentralized, auditable trust anchor by registering an EPI evidence container's manifest with a SCITT transparency service. 
+EPI implements the **Mode B: SCITT Producer** role described in the emerging
+IETF SCITT architecture. When a transparency service is configured, EPI
+registers an EPI evidence container's manifest with it and embeds the returned
+receipt. This is a transparency registration, not a claim of decentralization:
+the trust anchor is whichever service you point `--service` at.
 
 When registered, the transparency registry issues a cryptographic **SCITT Receipt**, which is embedded back into the `.epi` archive under `artifacts/scitt/receipt.cbor`. Together with the **SCITT Signed Statement** (`artifacts/scitt/statement.cbor`), a reviewer can check offline that **this statement was logged** by that registry. A receipt does not prove the entire execution history was captured, and `epi-register` without `--service` is a local self-issued receipt, not an independent ledger entry.
 
@@ -69,7 +73,7 @@ The SCITT Signed Statement is a `COSE_Sign1` envelope structured as follows (sho
 ])
 ```
 
-The payload is the canonical SHA-256 hash of the `manifest.json` (excluding the signature field). Because the manifest maps the hashes of all execution files, tool calls, and telemetry logs (`steps.jsonl`), signing the manifest hash guarantees that the entire execution history is bound to the SCITT ledger.
+The payload is the canonical SHA-256 hash of the `manifest.json` (excluding the signature field). Because the manifest maps the hashes of the sealed members listed in `file_manifest` (including `steps.jsonl` when present), a valid receipt binds exactly those bytes to the transparency registration. It does **not** prove that the recorder captured every action, that the listed steps are truthful, or that files omitted from `file_manifest` existed — capture completeness is a separate claim.
 
 ### 3.2 SCITT Receipt
 A SCITT transparency service registers the statement and returns a **SCITT Receipt**, which is a `COSE_Sign1` message signed by the transparency service itself.
@@ -105,5 +109,12 @@ A registered `.epi` container contains a dedicated `scitt` section in the manife
 When verifying an `.epi` file, `epi verify` executes the following checks:
 1. **Extraction:** Retrieves `artifacts/scitt/statement.cbor` and `artifacts/scitt/receipt.cbor` from the binary envelope's embedded ZIP payload.
 2. **Payload Match:** Asserts that the statement's payload exactly matches the canonical SHA-256 hash of `manifest.json` (excluding the signature).
-3. **Receipt Validation:** Resolves and validates the receipt's structural CBOR integrity.
-4. **Trust Assessment:** A valid SCITT receipt elevates the container's trust level. For example, if a signature is cryptographically valid but belongs to an unknown identity (not listed in local trust registries), the presence of a valid SCITT receipt upgrades the overall trust rating from `LOW` to `MEDIUM`—offering independent evidence that the execution was registered with a public, auditable transparency registry.
+3. **Receipt Validation:** Verifies the receipt's COSE signature against the
+   service's Ed25519 key. If the key cannot be fetched, the result is
+   **unverified**, never “valid”; a `local` self-issued receipt is never counted
+   as independent transparency.
+4. **Trust Assessment:** A cryptographically verified receipt from a
+   **non-local** service upgrades a cryptographically valid but unknown-identity
+   container from `LOW` to `MEDIUM` — evidence that the statement was
+   registered with that service. It does not upgrade a `MISMATCH`/`REVOKED`
+   identity, and a local/self-issued receipt leaves the level unchanged.

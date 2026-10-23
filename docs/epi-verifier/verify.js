@@ -1,6 +1,6 @@
 // EPI Independent Verifier v1.0
 // Zero-dependency verification for .epi evidence files.
-// License: Apache 2.0
+// License: MIT (same as the epi-recorder repository)
 // Cross-validated against AlgoVoi JCS conformance corpus (3 implementations).
 
 // === noble-ed25519 (MIT) - bundled for zero-dependency verification ===
