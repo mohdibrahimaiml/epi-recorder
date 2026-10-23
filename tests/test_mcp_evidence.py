@@ -1243,7 +1243,11 @@ def test_trust_command_works_with_the_fingerprint_rule(isolated_keys, tmp_path, 
     sealed = epi_seal_record_tool(_events(), output_path=str(out))
     cmd = sealed["trust_command"]
     assert "--fingerprint" in cmd
-    args = shlex.split(cmd.replace(sealed["filename"], sealed["epi_path"]).replace("<label>", "mcp-signer"))
+    # The tool prints a bare filename (cwd-relative). The test substitutes an
+    # absolute path; use forward slashes so POSIX-mode shlex.split does not eat
+    # Windows backslashes as escapes.
+    absolute = str(sealed["epi_path"]).replace("\\", "/")
+    args = shlex.split(cmd.replace(sealed["filename"], absolute).replace("<label>", "mcp-signer"))
     monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(tmp_path / "trusted"))
     result = CliRunner().invoke(cli_app, args[1:])
     assert result.exit_code == 0, result.output

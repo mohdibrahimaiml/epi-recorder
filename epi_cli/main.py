@@ -1806,9 +1806,15 @@ def keys(
             except Exception:
                 pass
             if not _is_revoked_now:
+                _witness_hint = ""
+                try:
+                    if Path("received.jsonl").exists():
+                        _witness_hint = " --witness-log received.jsonl"
+                except Exception:
+                    pass
                 console.print(
-                    "[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict --witness-log "
-                    "received.jsonl[/cyan]  — files sealed by this key now show IDENTITY PINNED.\n"
+                    f"[dim]Next:[/dim] [cyan]epi verify <file.epi> --policy strict{_witness_hint}[/cyan]"
+                    "  — files sealed by this key now show IDENTITY PINNED.\n"
                 )
         except (FileExistsError, FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")

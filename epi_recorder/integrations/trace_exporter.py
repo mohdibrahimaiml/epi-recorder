@@ -312,12 +312,14 @@ def epi_to_trace_record(
         if not transcript_uri_provided or _is_placeholder_transcript_uri(transcript_uri):
             raise ValueError(
                 "transcript_uri is required for signed TRACE export — pass --transcript-uri "
-                "with the real hosted .epi URL (placeholder epilabs.org/artifacts/* does not resolve)"
+                "with the real hosted .epi URL (placeholder epilabs.org/artifacts/* does not "
+                "resolve), or pass --no-sign for a local, unsigned record"
             )
         if _is_placeholder_transparency(transparency_uri):
             raise ValueError(
                 "transparency is required for signed TRACE export — pass a SCITT log entry "
-                "or TSA receipt URL via extra_transparency (placeholder does not resolve)"
+                "or TSA receipt URL via extra_transparency (placeholder does not resolve), "
+                "or pass --no-sign for a local, unsigned record"
             )
     record["_epi_warnings"] = []
     if "artifacts" in transcript_uri and "epilabs.org/artifacts" in transcript_uri:
