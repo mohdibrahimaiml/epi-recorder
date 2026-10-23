@@ -1,6 +1,6 @@
 # EPI File Format Specification
 
-**Status:** Open Standard | **Version:** 4.6.2 | **Date:** 2026-10
+**Status:** Open Standard | **Version:** 4.6.3 | **Date:** 2026-10
 
 This directory is the **wire format**, not the product user guide. Start at [../README.md](../README.md) or [../USER-GUIDE.md](../USER-GUIDE.md) for how to record and verify.
 
