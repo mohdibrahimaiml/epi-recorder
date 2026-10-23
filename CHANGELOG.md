@@ -8,9 +8,11 @@ All notable changes to EPI Recorder are documented here.
 
 Security and honesty release. **4.6.2 on PyPI did not contain these
 verifier/identity fixes** even though parts of the docs described them; this
-section is the authoritative list of what changed after 4.6.2. Publish 4.6.3
-through Trusted Publishing so the wheel carries PEP 740 provenance (the 4.6.2
-wheel has none — see docs/RELEASING.md).
+section is the authoritative list of what changed after 4.6.2. **4.6.3 was
+uploaded on 2026-10-23 with the project API token because Trusted Publishing
+was still unconfigured. The 4.6.3 wheel has no PEP 740 attestations (its PyPI
+provenance endpoint returns HTTP 404). Configure Trusted Publishing before
+4.6.4.** See `docs/RELEASING.md`.
 
 ### Security
 

@@ -1,8 +1,14 @@
 # Releasing epi-recorder
 
 Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
-The workflow is `.github/workflows/publish-pypi.yml` — read it before changing
+The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
+
+**4.6.3 status (23 Oct 2026): uploaded with the project API token, not Trusted
+Publishing.** The token upload succeeded after the 4.6.2 `invalid-publisher`
+failure, but the 4.6.3 wheel has **no PEP 740 attestations** (its provenance
+endpoint returns HTTP 404). Trusted Publishing is still unconfigured. Do not
+treat 4.6.3 as an attested release; configure the publisher before 4.6.4.
 
 ## One-time setup (founder, ~3 minutes)
 
@@ -20,16 +26,18 @@ anything here.
 The 20 Oct 2026 GitHub Release `v4.6.2` built the wheel and passed
 `twine check`, then failed upload with `invalid-publisher` (OIDC token valid,
 no matching publisher on PyPI). Until those four fields exist on
-pypi.org, every `release: published` run will fail the same way. Do not
-`twine upload` from a laptop as a workaround.
+pypi.org, every `release: published` run will fail the same way. Do not use
+the token path again for future releases: 4.6.3 was uploaded by token only
+because the publisher was still unconfigured, and that is why it has no
+attestations.
 
 **The published 4.6.2 wheel has no PEP 740 attestations.** Its PyPI
 provenance endpoint returns HTTP 404
 (`https://pypi.org/integrity/epi-recorder/4.6.2/epi_recorder-4.6.2-py3-none-any.whl/provenance`),
 because that upload did not come from this Trusted Publishing workflow. The
-exact upload path was not recorded. Treat 4.6.2 as unattested; 4.6.3 is the
-first release that must be published through the workflow above and show
-**Attestations** on PyPI before anyone is told it is reproducible.
+exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested;
+4.6.4 is the first release that must be published through the workflow above
+and show **Attestations** on PyPI before anyone is told it is reproducible.
 
 ## Every release (example: v4.6.3)
 

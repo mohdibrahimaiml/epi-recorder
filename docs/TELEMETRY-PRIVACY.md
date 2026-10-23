@@ -114,6 +114,9 @@ Records are appended under the gateway storage directory. Pilot signup records a
 
 ## Organization-level signals (on by default when telemetry is on)
 
+**4.6.3:** the `EPI_TELEMETRY_ORG_SIGNALS=0` opt-out ships in 4.6.3. In 4.6.2,
+organization signals are attached when telemetry is on and there is no opt-out.
+
 When telemetry is enabled, EPI **automatically** attaches organization-level
 signals derived from your local git config to each telemetry event:
 
