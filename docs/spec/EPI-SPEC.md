@@ -1,8 +1,8 @@
 # EPI File Format Specification v4.6.2
 
 **Status:** Active  
-**Date:** 2026-10-04  
-**Version:** 4.6.2  
+**Date:** 2026-10-23  
+**Version:** 4.6.2. **4.6.3 (release pending).**  
 **Category:** Standards Track
 
 ---
@@ -15,7 +15,7 @@ The `epi annex` CLI generates, signs, and verifies Annex IV **templates you fill
 
 ## Abstract
 
-The EPI (Evidence Portable Infrastructure) format defines a portable,
+The EPI (Evidence Packaged Infrastructure) format defines a portable,
 self-contained, cryptographically sealed container for AI agent execution
 evidence. A `.epi` file is a polyglot — valid HTML for browser-based
 inspection AND a binary envelope carrying a ZIP payload — enabling
@@ -41,7 +41,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
 document are to be interpreted as described in RFC 2119.
 
 - All hash values are SHA-256, represented as 64-character lowercase hex strings.
-- All signatures are Ed25519 (RFC 8032), represented as 64-character lowercase hex strings.
+- All signatures are Ed25519 (RFC 8032), represented as 128-character lowercase hex strings (64 bytes).
 - All timestamps are UTC ISO 8601 with second precision (`YYYY-MM-DDTHH:MM:SSZ`).
 - All UUIDs are lowercase RFC 4122 variant 4 (random).
 - "MUST be zero" fields that contain non-zero values cause verification to fail with an
@@ -92,9 +92,7 @@ of the ZIP payload is marked by the exact byte sequence:
 59 4C 4F 41 44 5F 53 54 41 52 54 20 2D 2D 3E 0A
 ```
 
-ASCII representation: `
-<!-- EPI_ZIP_PAYLOAD_START -->
-`
+ASCII representation: `<!-- EPI_ZIP_PAYLOAD_START -->`
 
 All bytes between the 128-byte header and this marker constitute the embedded
 viewer. All bytes after this marker constitute the ZIP payload.
@@ -105,29 +103,37 @@ The envelope is a polyglot (valid HTML comment + ZIP) and has no single
 MIME type. The canonical evidence identifier is `application/vnd.epi+zip`,
 carried in the `mimetype` ZIP member (§3.1) and in `manifest.trust.mimetype`.
 
-### 2.2 Legacy ZIP
+### 2.2 Legacy containers (`EPI1` and bare ZIP)
 
 Prior to v4.0.0, `.epi` files used a non-polyglot binary header with magic
 bytes `EPI1` (0x45 0x50 0x49 0x31). The ZIP payload followed immediately.
 
 Implementers SHOULD support reading legacy `EPI1` containers. New artifacts
-SHOULD use envelope-v2; `legacy-zip` (bare ZIP payload, same member layout
-as §3) remains supported for compatibility pipelines. Because historical
+SHOULD use envelope-v2; a **bare ZIP payload** (same member layout as §3, no
+envelope header and no outer viewer) remains supported for compatibility
+pipelines and is what `epi migrate --legacy-zip` writes. Because historical
 writers varied in header length, readers MUST NOT assume a fixed legacy
 header size: after matching `EPI1` magic,
 probe a bounded window (at least the first 64 bytes) for the ZIP
 local-file-header signature (`PK\x03\x04`) and treat everything before it as
 header. If no signature is found, the file is not a valid legacy container.
 
-The legacy MIME type is `application/vnd.epi+zip`.
+Both forms use the legacy MIME type `application/vnd.epi+zip` and verify
+exactly like a payload without a viewer.
 
 ### 2.3 Container Auto-detection
 
 Implementers MUST detect the container format as follows:
-1. Read first 4 bytes of the file.
-2. If `0x3C 0x21 0x2D 0x2D` → envelope-v2.
-3. If `0x45 0x50 0x49 0x31` → legacy-zip.
-4. Otherwise → not a valid `.epi` file.
+1. Read the first 4 bytes of the file.
+2. If `0x3C 0x21 0x2D 0x2D` (`<!--`) → **envelope-v2**.
+3. If `0x45 0x50 0x49 0x31` (`EPI1`) → **legacy `EPI1`**; probe for
+   `PK\x03\x04` as described in §2.2.
+4. If `0x50 0x4B 0x03 0x04` (`PK\x03\x04`) → **bare ZIP** (legacy-zip pipeline).
+5. Otherwise → not a valid `.epi` file.
+
+The ZIP payload inside envelope-v2 also starts with `PK\x03\x04`, but it is
+located via the `EPI_ZIP_PAYLOAD_START` marker (§2.1.2), never by scanning
+from byte 0.
 
 ---
 
@@ -332,12 +338,16 @@ Each step in `steps.jsonl` contains a `prev_hash` field:
 1. Step 0 carries the genesis marker: `prev_hash` is `null` or the string
    `"CHAIN_START"` (sealers write `"CHAIN_START"`). There is no previous
    step to link to, so nothing is checked for step 0 beyond this.
-2. For step N (N > 0), `prev_hash` is the SHA-256 hex digest of the
-   canonical hash of step N-1, using the §5.1 canonicalization selected by
-   the manifest's `spec_version`. A genesis marker at N > 0 means the chain
-   was restarted (possible truncation) and MUST be reported as a break.
-3. The step's own hash (stored separately, e.g., in the viewer or as
-   a computed value) is the SHA-256 of its own canonical JSON bytes.
+2. For step N (N > 0), `prev_hash` is **exactly** the 64-character
+   lowercase SHA-256 hex digest that is the canonical hash of step N-1 — not
+   a second SHA-256 over that digest string. Canonical hashing follows §5.1:
+   current sealers (specification `4.4.1` and later) always encode steps with
+   JCS, and verifiers select the canonicalization from the manifest's
+   `spec_version` so that pre-`4.4.1` artifacts remain readable with the
+   legacy JSON form. A genesis marker at N > 0 means the chain was restarted
+   (possible truncation) and MUST be reported as a break.
+3. The step's own canonical hash is the SHA-256 of its canonical JSON bytes
+   (the same value the next step stores in `prev_hash`).
 4. Verifying the chain: for each step N, compute its canonical hash,
    then verify that step N+1's `prev_hash` matches.
 
@@ -407,7 +417,8 @@ added.
 | `llm.request` | LLM API request (model, messages, parameters) |
 | `llm.response` | LLM API response (completion, tokens, latency) |
 | `tool.call` | Tool invocation (name, input) |
-| `tool.output` | Tool result |
+| `tool.response` | Tool result (what the verifier pairs with `tool.call`) |
+| `tool.output` | Legacy alias for a tool result; readers accept it |
 | `agent.decision` | Agent decision point |
 | `agent.handoff` | Agent delegation |
 | `agent.message` | Agent communication |
@@ -480,25 +491,39 @@ Governance rulebook applied during execution.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `policy_format_version` | string | Format version (currently `"1.0"`) |
 | `policy_id` | string | Unique policy identifier |
+| `system_name` | string | System/workflow the policy governs |
+| `system_version` | string | System version |
 | `policy_version` | string | Policy version |
+| `profile_id` | string | Optional profile identifier |
+| `scope` | object | Optional scope (intervention point, approval) |
+| `authorized_by` | string | Optional authorizing party |
+| `governance_url` | string | Optional governance URL |
+| `approval_policies` | array | Approval policy definitions (`approval_id`, …) |
+| `context_tracking` | object | Optional `identity_fields` / `exempt_fields` for context-drop detection |
 | `rules` | array | Policy rules (see below) |
-| `description` | string | Human-readable policy description |
-| `metadata` | object | Additional metadata |
 
-Each rule in `rules`:
+Each rule in `rules` (implemented by `epi_core.policy.PolicyRule`):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `rule_id` | string | Unique rule identifier |
-| `rule_name` | string | Human-readable rule name |
+| `id` | string | Unique rule identifier (e.g. `R001`) |
+| `name` | string | Human-readable rule name |
 | `severity` | string | `"critical"`, `"high"`, `"medium"`, or `"low"` |
-| `mode` | string | `"detect"`, `"block"`, or `"warn"` |
-| `conditions` | array | Rule conditions |
-| `action` | string | Action to take |
 | `description` | string | Rule description |
+| `type` | string | `constraint_guard`, `sequence_guard`, `threshold_guard`, `prohibition_guard`, `approval_guard`, or `tool_permission_guard` |
+| `mode` | string | Optional `"detect"`, `"block"`, or `"warn"` |
+| `applies_at` | string or array | Optional intervention point(s) |
+| `rationale`, `domain` | string | Optional metadata |
+| `watch_for`, `violation_if` | array/string | `constraint_guard` fields |
+| `required_before`, `must_call` | string | `sequence_guard` fields |
+| `threshold_value`, `threshold_field`, `required_action` | number/string | `threshold_guard` fields |
+| `prohibited_pattern` | string | `prohibition_guard` pattern (`pattern` is accepted as an alias) |
+| `approval_action`, `approved_by`, `approval_policy_ref` | string | `approval_guard` fields (`action` is accepted as an alias) |
+| `allowed_tools`, `denied_tools` | array | `tool_permission_guard` fields |
 
-See `schemas/policy.schema.json` for the formal definition.
+See `epi_core/policy.py` and `docs/POLICY.md` for the normative implementation.
 
 ---
 
@@ -572,12 +597,19 @@ All are optional; verifiers MUST accept files without them.
 
 | Level | Integrity | Signature | Identity | Meaning |
 |-------|-----------|-----------|----------|---------|
-| **HIGH** | Pass | Valid | Known | Signer identity verified in trust registry |
+| **HIGH** | Pass | Valid | Known (org-pinned) | Signer key was pinned out of band |
 | **MEDIUM** | Pass | Valid | Local | Sealer key is on this machine, not an org pin |
 | **MEDIUM** | Pass | Valid | Unknown | SCITT-anchored (transparency verified) |
 | **LOW** | Pass | Valid | Unknown | Valid signature, identity not verified |
-| **NONE** | Pass | None | - | Unsigned artifact |
-| **TAMPERED** | Fail | Invalid | - | File has been modified or corrupted |
+| **LOW** | Pass | None | - | Unsigned artifact: integrity only, no authenticity |
+| **NONE** | Fail | - | - | Integrity or signature verification failed; do not trust |
+| **FAIL** | Pass | Valid | Mismatch | Claimed identity does not match the signing key |
+| **INVALID** | Pass | Valid | Revoked | The signing key has been revoked |
+
+A `KNOWN` identity resolved only from the signer's own `did:web` document is
+still `KNOWN` for policy purposes but is described as
+`SIGNER SELF-ASSERTED (DID)`, never as `IDENTITY PINNED`. See
+[`docs/VERIFICATION_CONTRACT.md`](../VERIFICATION_CONTRACT.md).
 
 ---
 
@@ -629,7 +661,12 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4.6.0 | 2026-10-10 | RFC 3161 offline validation (`epi-tsa-imprint/v1`, pinned TSA roots, `report.timestamps`); dual-TSA seal stamping; `--tsa-root`, `--require-timestamp` |
+| 4.6.3 (release pending) | 2026-10-23 | `epi verify` binds the outer display layer to the signed `file_manifest["viewer.html"]` hash; viewer fail-closed on baked envelope failures; DID-only identities reported as self-asserted with `pin_source`; decompression-bomb guards; context-aware PII redaction and `allowlist_fields` |
+| 4.6.2 | 2026-10-22 | Viewer fail-closed on envelope tamper (#141/#143); Cloud login/dashboard, evidence pack, key registry, customer-owned storage; witness wording fixes |
+| 4.6.1 | 2026-10-13 | Remote trust registry informational only; first-party Cloud fixes |
+| 4.6.0 | 2026-10-12 | RFC 3161 offline validation (`epi-tsa-imprint/v1`, pinned TSA roots, `report.timestamps`); dual-TSA seal stamping; `--tsa-root`, `--require-timestamp` |
+| 4.5.0 | 2026-10-04 | Policy/governance and verification-contract updates; see `CHANGELOG.md` |
+| 4.4.1 | 2026-08-29 | JCS (RFC 8785) canonicalization for manifests and steps |
 | 4.3.0 | 2026-06-29 | Gateway fail-closed, key encryption, EPI_ENFORCE, formal schemas |
 | 4.1.0 | 2026-05-14 | SCITT, AGT adapter, AIUC-1 mapping |
 | 4.0.3 | 2026-05-03 | Viewer redesign, DID:WEB |

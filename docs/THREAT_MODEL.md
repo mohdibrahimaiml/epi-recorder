@@ -1,6 +1,6 @@
 # EPI Threat Model
 
-**Product version:** 4.6.2. Product map: [README.md](./README.md).
+**Product version:** 4.6.2. **4.6.3 (release pending).** Product map: [README.md](./README.md).
 
 ## What This Document Is
 
@@ -253,11 +253,12 @@ seal a plausible file and sign it with their own key.
   byte-identical to the sealed `viewer.html` member whose SHA-256 sits in the
   **signed** `file_manifest`, so editing the display layer of a real file
   fails `epi verify` even when the attacker also recomputes the unsigned
-  header copy (fail-closed since 4.6.2, #141/#143). The viewer itself refuses
-  to paint a verdict it cannot support.
-- **The shipped viewer makes no network calls.** Scanned 4.6.2 artifact
-  (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches, or
-  sockets in the outer or inner viewer; every library is inlined. Reproduce it
+  header copy. The signed display binding shipped in 4.6.3 (release pending); 4.6.2's #141/#143
+  fixed only envelope tamper and still trusted the unsigned header copy for the
+  viewer. The viewer itself refuses to paint a verdict it cannot support.
+- **The shipped viewer makes no network calls.** Scanned the current 4.6.3 (release pending)
+  artifact (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches,
+  or sockets in the outer or inner viewer; every library is inlined. Reproduce it
   with the script in [FILE-SAFETY.md](./FILE-SAFETY.md) §2. Honest boundary:
   there is no Content-Security-Policy enforcing that, and no independent
   penetration test yet ([issue #153](https://github.com/mohdibrahimaiml/epi-recorder/issues/153)) —
@@ -301,7 +302,7 @@ payloads that execute when the victim opens the viewer.
 
 **Status:** the shipped viewer HTML-escapes recorded values in text positions
 and embeds sealed JSON script-safely (`_html_safe_json_dumps`), and a scan of a
-4.6.2 seal shows no network primitives for exfiltrated data to reach — but there
+4.6.3 (release pending) seal shows no network primitives for exfiltrated data to reach — but there
 is **no Content-Security-Policy** enforcing that, and the viewer has had **no
 independent penetration test**. Treat this as defense-in-depth, not a proven
 boundary.

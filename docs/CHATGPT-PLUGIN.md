@@ -1,6 +1,6 @@
 # ChatGPT plugin: connect + acceptance test
 
-**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2.  
+**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2; 4.6.3 (release pending).  
 Record and verify without this service: [USER-GUIDE.md](./USER-GUIDE.md). Contract: [EPI-MCP-CONTRACT.md](./EPI-MCP-CONTRACT.md). Cloud login is [CLOUD.md](./CLOUD.md).
 
 The EPI mechanism is implemented and tested (`epi_mcp/`).
@@ -86,14 +86,14 @@ Then:
 1. Obtain the returned `.epi` — via the `download_url` first; the base64
    bytes are the fallback.
 2. Run locally: `epi verify <file>.epi`
-3. Expected: `Integrity: VALID`, `Signature: VALID`, `scope:
-   caller-provided`, identity LOW until the key is pinned.
+3. Expected: `Integrity: Verified`, `Signature: Valid`, `Status: NOT_PINNED`
+   (identity unknown) until the key is pinned with `epi keys trust`.
 
 Interpretation:
 
 | Result | Meaning |
 |--------|---------|
-| VALID / VALID file in hand | Ship it |
+| Verified / Valid file in hand | Ship it |
 | Bytes returned, no downloadable file | Report back — hosted-link flow needs work |
 | Connection / tool error | Paste the exact error — transport, auth, or deploy config |
 
@@ -182,10 +182,11 @@ Every seal returns two links. **`view_url`** opens the sealed record in any brow
 right away (integrity, signature and the full conversation); nobody needs `pip install`,
 a clone or any other software. **`download_url`** saves the `.epi` file to keep.
 
-A saved `.epi` can be checked later without installing anything by uploading it at
-https://epilabs.org/verify. A browser will not open a raw `.epi` by itself (it only
-offers to download it), which is why the view link exists. Installing `epi-recorder`
-is optional and only needed for command-line checks (`epi verify`).
+A saved `.epi` can be checked later without installing anything by uploading it
+at https://epilabs.org/verify — that is an explicit upload. The default seal path
+does not upload the file. Browsers may download a `.epi` based on its MIME type;
+rename it to `.html` (or use `epi view`) to render the embedded viewer. Installing
+`epi-recorder` is optional and only needed for command-line checks (`epi verify`).
 
 The view page is served sandboxed: its scripts run, but in an isolated origin with no
 access to this server. Both links share one random token and stop working after 24

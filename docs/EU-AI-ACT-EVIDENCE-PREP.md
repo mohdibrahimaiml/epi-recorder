@@ -1,6 +1,6 @@
 # Using `.epi` artifacts for AI evidence preparation
 
-**Product version:** 4.6.2.
+**Product version:** 4.6.2. **4.6.3 (release pending).**
 
 This guide is for teams that need durable evidence for AI workflows.
 

@@ -1,6 +1,6 @@
 # EPI Evidence Sealer: MCP contract
 
-**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2.
+**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.2; 4.6.3 (release pending).
 
 For anyone building a plugin, app or skill on top of `https://epi-mcp.onrender.com/mcp`. Every statement here is taken from the server code (`epi_mcp/`, `epi_core/`). Where something is not built, it says so. This is **not** the EPI Cloud Worker at `cloud.epilabs.org`.
 
@@ -87,7 +87,7 @@ An *agent run* uses the same events (`tool.call`, `tool.response`, `agent.decisi
 - **Public key:** the 32-byte key is embedded in the manifest as hex. Verification needs no server.
 - **Signer keys:** the hosted server derives a separate signing key per approved caller from a server secret, so the signer is stable across restarts. Trust is local: a verifier pins a signer with `epi keys trust`. Until then the result is `trust_level: LOW` with a message that the signer is not pinned.
 - **Identity:** an optional `sealer_identity` block in the signed `environment.json` (`method`: `pseudonymous`, `oidc` or `github`). It says what the sealing server saw; it never proves who typed the conversation.
-- **Trusted time:** a hash of the step list is sent to an RFC 3161 service (FreeTSA) when it answers within the server's timeout. The token is stored in the file. Verification reports that it is present; it does not yet validate the token's signature. If the service does not answer, the seal succeeds with a warning and only the server's receive time.
+- **Trusted time:** a hash of the step list is sent to an RFC 3161 service (FreeTSA) when it answers within the server's timeout. The token is stored in the file. Since 4.6.0 verification validates the token offline (CMS signature, message imprint, EKU, signer validity, pinned TSA roots) and reports the result in `report.timestamps`; an imprint mismatch or bad signature fails verification. If the service does not answer, the seal succeeds with a warning and only the server's receive time.
 - **Failure semantics:** `integrity_ok` false means a file does not match its recorded hash (`mismatches` names it); `signature_valid` false means the manifest or key does not match the signature. Either makes the file fail `epi verify`.
 
 ## 5. Delivery and verification

@@ -1,6 +1,6 @@
 # EPI Verification Contract
 
-**Product version:** 4.6.2. Product map: [README.md](./README.md).
+**Product version:** 4.6.2. **4.6.3 (release pending).** Product map: [README.md](./README.md).
 
 ## What This Document Is
 

@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EPI File Format Specification v4.3.0 — EPI Labs</title>
+<title>EPI File Format Specification v4.6.2 — EPI Labs</title>
 <meta name="description" content="Open standard for the EPI tamper-evident evidence container format. Language-agnostic specification with JSON Schemas and conformance test vectors.">
-<meta property="og:title" content="EPI File Format Specification v4.3.0">
+<meta property="og:title" content="EPI File Format Specification v4.6.2">
 <meta property="og:description" content="Open standard for tamper-evident AI evidence infrastructure.">
 <link rel="stylesheet" href="https://epilabs.org/css/epi.css?v=24">
 <link rel="shortcut icon" href="https://epilabs.org/assets/epi.ico" type="image/x-icon">
@@ -72,8 +72,9 @@
 
 <div style="text-align:center;padding:40px 0 48px;border-bottom:1px solid var(--border);margin-bottom:48px">
   <div class="spec-badge">Open Standard</div>
-  <h1 style="margin:0 auto 8px">EPI File Format Specification v4.3.0</h1>
+  <h1 style="margin:0 auto 8px">EPI File Format Specification v4.6.2</h1>
   <p style="font-size:1.05rem;color:var(--ink-muted);max-width:560px;margin:0 auto">Language-agnostic reference for the EPI container format, cryptographic protocol, and verification model. Anyone may implement <code>.epi</code> producers and consumers.</p>
+  <p style="font-size:0.95rem;color:var(--ink-muted);max-width:640px;margin:12px auto 0"><strong>Version note:</strong> 4.6.2 is the current release; <strong>4.6.3 (release pending)</strong> is the next security/docs release and is not on PyPI yet.</p>
 </div>
 
 <div class="spec-links">
@@ -95,14 +96,15 @@
 <table>
 <tr><th>Offset</th><th>Size</th><th>Field</th><th>Value / Description</th></tr>
 <tr><td>0</td><td>4</td><td><code>magic</code></td><td><code>0x3C 0x21 0x2D 0x2D</code> (ASCII <code>&lt;!--</code>)</td></tr>
-<tr><td>4</td><td>1</td><td><code>version</code></td><td><code>0x02</code></td></tr>
-<tr><td>5</td><td>1</td><td><code>flags</code></td><td>Reserved. MUST be <code>0x00</code></td></tr>
-<tr><td>6</td><td>2</td><td><code>reserved</code></td><td>Reserved. MUST be <code>0x0000</code></td></tr>
-<tr><td>8</td><td>8</td><td><code>payload_length</code></td><td>ZIP payload byte length (little-endian uint64)</td></tr>
-<tr><td>16</td><td>16</td><td><code>payload_uuid</code></td><td>UUID v4 (16 raw bytes)</td></tr>
+<tr><td>4</td><td>1</td><td><code>version</code></td><td><code>0x02</code> (envelope format version)</td></tr>
+<tr><td>5</td><td>1</td><td><code>format</code></td><td><code>0x01</code> (ZIP v1 payload format)</td></tr>
+<tr><td>6</td><td>2</td><td><code>flags</code></td><td>Reserved. MUST be <code>0x0000</code></td></tr>
+<tr><td>8</td><td>8</td><td><code>payload_length</code></td><td>ZIP payload byte length, excluding the viewer gap (little-endian uint64)</td></tr>
+<tr><td>16</td><td>16</td><td><code>payload_uuid</code></td><td>UUID v4 (16 raw bytes); MUST equal <code>manifest.workflow_id</code></td></tr>
 <tr><td>32</td><td>8</td><td><code>created_at</code></td><td>Unix epoch <strong>microseconds</strong> (little-endian uint64)</td></tr>
-<tr><td>40</td><td>32</td><td><code>payload_sha256</code></td><td>SHA-256 of ZIP payload (32 raw bytes)</td></tr>
-<tr><td>72</td><td>56</td><td><code>reserved</code></td><td>Reserved. MUST be zero</td></tr>
+<tr><td>40</td><td>32</td><td><code>payload_sha256</code></td><td>SHA-256 of ZIP payload bytes only (32 raw bytes)</td></tr>
+<tr><td>72</td><td>32</td><td><code>viewer_sha256</code></td><td>SHA-256 of the outer viewer HTML. Verified against the signed <code>file_manifest["viewer.html"]</code>; all-zero means a legacy artifact whose display layer is not covered</td></tr>
+<tr><td>104</td><td>24</td><td><code>reserved</code></td><td>Reserved. MUST be zero</td></tr>
 </table>
 
 <h4>ZIP Payload Marker</h4>
@@ -114,13 +116,19 @@
 <h4>MIME Types</h4>
 <table>
 <tr><th>Container</th><th>MIME</th></tr>
-<tr><td>Envelope v2</td><td><code>application/vnd.epi</code></td></tr>
-<tr><td>Legacy ZIP</td><td><code>application/vnd.epi+zip</code></td></tr>
+<tr><td>Envelope v2 (polyglot)</td><td>No single MIME identifies the polyglot; canonical evidence identifier <code>application/vnd.epi+zip</code></td></tr>
+<tr><td>Legacy <code>EPI1</code> / bare ZIP</td><td><code>application/vnd.epi+zip</code></td></tr>
 <tr><td>SCITT payload</td><td><code>application/vnd.epi.manifest+hash</code></td></tr>
 </table>
 
 <h4>Auto-detection</h4>
-<p>First 4 bytes: <code>0x3C 0x21 0x2D 0x2D</code> &rarr; envelope-v2. <code>0x45 0x50 0x49 0x31</code> &rarr; legacy-zip. Otherwise &rarr; invalid.</p>
+<p>Read the first 4 bytes:</p>
+<ol>
+<li><code>0x3C 0x21 0x2D 0x2D</code> (<code>&lt;!--</code>) &rarr; <strong>envelope-v2</strong>; locate the ZIP via <code>&lt;!-- EPI_ZIP_PAYLOAD_START --&gt;</code>.</li>
+<li><code>0x45 0x50 0x49 0x31</code> (<code>EPI1</code>) &rarr; <strong>legacy EPI1</strong>; probe at least the first 64 bytes for <code>PK\x03\x04</code> and treat the preceding bytes as header.</li>
+<li><code>0x50 0x4B 0x03 0x04</code> (<code>PK\x03\x04</code>) &rarr; <strong>bare ZIP</strong> (what <code>epi migrate --legacy-zip</code> writes).</li>
+<li>Anything else &rarr; not a valid <code>.epi</code> file.</li>
+</ol>
 
 <h2>3. Internal ZIP Payload</h2>
 
@@ -157,7 +165,7 @@
 <h3>Required Fields</h3>
 <table>
 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-<tr><td><code>spec_version</code></td><td>string</td><td>EPI version (auto-populated from package, e.g. <code>"4.3.0"</code>)</td></tr>
+<tr><td><code>spec_version</code></td><td>string</td><td>EPI version that sealed the file (e.g. <code>"4.6.3"</code>)</td></tr>
 <tr><td><code>workflow_id</code></td><td>UUID</td><td>Unique execution identifier (auto-generated UUID v4)</td></tr>
 <tr><td><code>created_at</code></td><td>datetime</td><td>UTC ISO 8601 (auto-set to current time): <code>YYYY-MM-DDTHH:MM:SSZ</code></td></tr>
 <tr><td><code>file_manifest</code></td><td>object</td><td>File paths mapped to 64-char hex SHA-256 hashes</td></tr>
@@ -186,19 +194,26 @@
 <h2>5. Cryptographic Protocol</h2>
 
 <h3>Canonical Hashing</h3>
+<p>Three canonicalizations exist, selected by the manifest's <code>spec_version</code>:</p>
+<table>
+<tr><th><code>spec_version</code></th><th>Canonicalization</th></tr>
+<tr><td><code>1.x</code></td><td>CBOR (RFC 8949, canonical encoding)</td></tr>
+<tr><td>through <code>4.4.0</code></td><td>Sorted-key compact JSON</td></tr>
+<tr><td><code>4.4.1</code> and later</td><td>JCS (RFC 8785)</td></tr>
+</table>
+<p>For JCS manifests and steps:</p>
 <ol>
-<li>Convert model to dictionary</li>
-<li>Exclude: <code>signature</code>, <code>governance</code>, <code>trust</code> (manifest); <code>source_type</code> (step)</li>
-<li>Normalize UUIDs to lowercase canonical form</li>
-<li>Normalize datetimes to UTC <code>YYYY-MM-DDTHH:MM:SSZ</code> (strip microseconds)</li>
-<li>JSON serialize: <code>sort_keys=True</code>, <code>separators=(",", ":")</code>, <code>ensure_ascii=True</code></li>
-<li>SHA-256 over UTF-8 bytes &rarr; 64-char lowercase hex</li>
+<li>Convert the model to a dictionary.</li>
+<li>Remove <code>signature</code> for manifests. <code>governance</code> and <code>trust</code> remain part of the signed preimage.</li>
+<li>Normalize UUIDs to lowercase canonical form and datetimes to UTC <code>YYYY-MM-DDTHH:MM:SSZ</code>.</li>
+<li>Serialize with RFC 8785 JCS: integers verbatim, non-integral numbers in ECMAScript form, non-ASCII as raw UTF-8.</li>
+<li>SHA-256 over the UTF-8 bytes &rarr; 64-character lowercase hex.</li>
 </ol>
-<p><strong>Conformance:</strong> Two implementations computing the canonical hash of identical data MUST produce identical hex strings.</p>
+<p><strong>Conformance:</strong> Two implementations computing the canonical hash of identical data MUST produce identical hex strings. See <a href="EPI-SPEC.md">EPI-SPEC.md</a> &sect;5.1 for the normative rules and test vectors.</p>
 
 <h3>Manifest Signing</h3>
 <ol>
-<li>Canonical hash of manifest (excluding signature fields)</li>
+<li>Canonical hash of manifest (excluding <code>signature</code> only)</li>
 <li>Convert hex to 32 raw bytes</li>
 <li>Ed25519 sign (RFC 8032) &rarr; 64 raw bytes</li>
 <li>Encode signature as 128-char hex</li>
@@ -221,8 +236,8 @@
 <h3>Step Hash Chain</h3>
 <p>Each step in <code>steps.jsonl</code> contains <code>prev_hash</code>:</p>
 <ul>
-<li>Step 0: <code>prev_hash: null</code></li>
-<li>Step N: <code>prev_hash</code> = canonical hash of step N-1</li>
+<li>Step 0: <code>prev_hash</code> is <code>null</code> or the genesis marker <code>"CHAIN_START"</code> (sealers write <code>"CHAIN_START"</code>)</li>
+<li>Step N: <code>prev_hash</code> is the 64-character canonical hash of step N-1 (not a hash of that digest)</li>
 </ul>
 <p>Append-only, hash-linked timeline. Any insertion, deletion, or reorder breaks the chain.</p>
 
@@ -245,7 +260,7 @@
 <p>&rarr; <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/spec/schemas/step.schema.json">Full JSON Schema</a></p>
 
 <h2>7. Verification Procedure</h2>
-<p>7 independent checks, in order:</p>
+<p>8 checks, in order (the last is optional):</p>
 <ol>
 <li><strong>Structural</strong> &mdash; Valid envelope, extractable ZIP, required files present</li>
 <li><strong>Integrity</strong> &mdash; <code>file_manifest</code> entries match SHA-256; no extra files</li>
@@ -254,16 +269,20 @@
 <li><strong>Completeness</strong> &mdash; <code>total_steps</code> matches line count</li>
 <li><strong>MIME</strong> &mdash; <code>mimetype</code> = <code>application/vnd.epi+zip</code></li>
 <li><strong>SCITT</strong> (optional) &mdash; COSE_Sign1 valid, Merkle proof correct</li>
+<li><strong>Timestamp</strong> (optional) &mdash; RFC 3161 token verifies against a pinned root; imprint covers the bound digest</li>
 </ol>
 
 <h2>8. Trust Model</h2>
 <table>
 <tr><th>Level</th><th>Integrity</th><th>Signature</th><th>Identity</th><th>Meaning</th></tr>
-<tr><td><strong>HIGH</strong></td><td>Pass</td><td>Valid</td><td>Known</td><td>Signer verified in trust registry</td></tr>
-<tr><td><strong>MEDIUM</strong></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>SCITT-anchored</td></tr>
-<tr><td><strong>LOW</strong></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>Valid sig, unverified identity</td></tr>
-<tr><td><strong>NONE</strong></td><td>Pass</td><td>None</td><td>&mdash;</td><td>Unsigned artifact</td></tr>
-<tr><td><strong>TAMPERED</strong></td><td>Fail</td><td>Invalid</td><td>&mdash;</td><td>Modified or corrupted</td></tr>
+<tr><td><strong>HIGH</strong></td><td>Pass</td><td>Valid</td><td>Known (org-pinned)</td><td>Signer key pinned out of band; claim-ready</td></tr>
+<tr><td><strong>MEDIUM</strong></td><td>Pass</td><td>Valid</td><td>Local</td><td>Sealer key is on this machine, not an org pin</td></tr>
+<tr><td><strong>MEDIUM</strong></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>SCITT transparency verified</td></tr>
+<tr><td><strong>LOW</strong></td><td>Pass</td><td>Valid</td><td>Unknown</td><td>Valid signature, identity not verified</td></tr>
+<tr><td><strong>LOW</strong></td><td>Pass</td><td>None</td><td>&mdash;</td><td>Unsigned artifact: integrity only, no authenticity</td></tr>
+<tr><td><strong>NONE</strong></td><td>Fail</td><td>&mdash;</td><td>&mdash;</td><td>Integrity or signature verification failed; do not trust</td></tr>
+<tr><td><strong>FAIL</strong></td><td>Pass</td><td>Valid</td><td>Mismatch</td><td>Claimed identity does not match the signing key</td></tr>
+<tr><td><strong>INVALID</strong></td><td>Pass</td><td>Valid</td><td>Revoked</td><td>The signing key has been revoked</td></tr>
 </table>
 
 <h2>9. Security Model</h2>
@@ -285,7 +304,7 @@
 <h2>10. Conformance</h2>
 <p>An implementation is conformant if:</p>
 <ol>
-<li>Produces <code>.epi</code> files passing the 7-pass verification procedure</li>
+<li>Produces <code>.epi</code> files passing the verification procedure (&sect;7)</li>
 <li>Produces correct canonical hashes matching published test vectors</li>
 <li>Produces valid Ed25519 signatures</li>
 <li>Correctly parses and validates <code>prev_hash</code> chains</li>

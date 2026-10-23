@@ -86,6 +86,7 @@ EPI Recorder includes several security features:
 ### Key Management
 - Private keys stored in `~/.epi/keys/`
 - File permissions: 600 (owner read/write only)
+- Optional at-rest encryption: set `EPI_KEY_PASSWORD` before `epi keys generate` / `epi keys import` to write encrypted PKCS#8 PEM. The same variable must be set for every load (sealing, signing, Cloud upload). There is no HSM integration and no recovery if the passphrase is lost.
 - Never share private keys
 - Public keys embedded in signed `.epi` files
 
@@ -102,7 +103,7 @@ Please follow responsible disclosure practices.
 
 4.x only. Older 2.x notes are in git history, not current product truth.
 
-### Unreleased (red-team fix)
+### v4.6.3 (release pending)
 
 - **Display-layer forgery no longer passes `epi verify` (red-team F-01).** The outer
   polyglot viewer region is byte-identical to the sealed `viewer.html` member, whose
@@ -112,8 +113,10 @@ Please follow responsible disclosure practices.
   edited the display layer could recompute that copy, and `epi verify` reported
   **PASS — including under `--policy strict`**. That contradicted the 4.6.2 release
   note, `docs/THREAT_MODEL.md` R1, `docs/KNOWN_LIMITATIONS.md` and the `VERIFY.txt`
-  shipped inside every artifact. Fixed for legacy artifacts too: their display layer
-  is bound through the same signed `file_manifest` entry.
+  shipped inside every artifact. Legacy envelope-v2 artifacts whose signed
+  `file_manifest` includes `viewer.html` are covered by the same check; artifacts
+  whose manifest predates that entry have no signed binding for the display layer,
+  and the verifier reports that instead of claiming coverage.
 - **The viewer no longer paints a verdict it cannot support (red-team F-02).** The
   double-click polyglot page carries a pack-time *copy* of the manifest — taken
   before the archive's `manifest.json` was re-signed, so it is a stale pre-image —

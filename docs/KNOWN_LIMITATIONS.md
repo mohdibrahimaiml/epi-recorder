@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.6.2. Docs map: [README.md](./README.md).
+**Product version:** 4.6.2. **4.6.3 (release pending).** Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -164,13 +164,11 @@ The following were gaps and are now fixed — kept here for audit trail:
 
 ## Pre-execution commitment (llm.pre_commit)
 
-**Streaming calls skip pre-commit entirely.** Both `openai.py` and `anthropic.py`
-generate `llm.pre_commit` entries for non-streaming API calls, but streaming
-paths (`stream=True`) silently fall back to the old behavior with no pre-commit
-entry. No error, no warning — the chain just doesn't include the commitment step.
-
-This affects anyone using streaming responses. The pricing page now notes
-"(non-streaming calls)" next to this feature. **Fixed in 4.4.6 for wrappers — see above; `patcher.py` legacy path still has gap.**
+**Streaming calls on the legacy patcher path still skip pre-commit.**
+`wrappers/openai.py` and `wrappers/anthropic.py` have emitted a streaming
+`pre_commit` since 4.4.6; `patcher.py`'s legacy path still falls back to the
+old behavior with no pre-commit entry and no warning. Do not assume every
+streaming call has a commitment step.
 
 ---
 
@@ -240,31 +238,41 @@ field as the recorder's claim about re-executability, not a proof of it.
 manifest, `viewer.html` inside the archive) is sealed via `payload_sha256` and
 `file_manifest` + Ed25519.
 
-**New artifacts** also store `SHA-256(outer_viewer_html_bytes)` in
-`reserved_tail[0:32]` of the envelope header. Mutating CSS/JS/labels in the
-outer HTML region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`).
+**New artifacts** bind the outer viewer to the **signed**
+`file_manifest["viewer.html"]` hash. Mutating CSS/JS/labels in the outer HTML
+region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`). The
+envelope's `reserved_tail[0:32]` copy is unsigned; it only catches naive
+corruption.
+
 Through 4.6.1 the **in-file viewer** could still paint INTEGRITY VERIFIED after
-that envelope failure (live inner-ZIP check overwrote the baked verdict).
-**4.6.2** is fail-closed (#141/#143): a baked envelope failure cannot be
-upgraded to green. Trust `epi verify`, not the colours.
+an envelope failure (the live inner-ZIP check overwrote the baked verdict).
+**4.6.2** made the viewer fail-closed (#141/#143): a baked envelope failure
+cannot be upgraded to green. **4.6.3 (release pending)** makes `epi verify` check the signed
+`viewer.html` hash, so a consistent display-layer forgery now fails the CLI
+too. Trust `epi verify`, not the colours.
 
 **The header copy alone was not enough — and the docs said otherwise.** The
 `reserved_tail[0:32]` value is unsigned and self-referential: it lives in the
 same untrusted header as the bytes it describes, so an attacker who edits the
-display layer can recompute it and the file looks self-consistent. Until the
-red-team fix, `epi verify` reported **PASS** for such a file, including under
-`--policy strict` — contradicting the 4.6.2 release note, `THREAT_MODEL.md` R1
-and the `VERIFY.txt` shipped inside every artifact.
+display layer can recompute it and the file looks self-consistent. Through
+4.6.2, `epi verify` reported **PASS** for such a file, including under
+`--policy strict`. The 4.6.2 release note claimed this was fixed; it was not.
+`THREAT_MODEL.md` R1 and the `VERIFY.txt` shipped inside every artifact were
+premature for 4.6.2.
 
-**Fixed:** the outer polyglot region is byte-identical to the sealed
+**Fixed in 4.6.3 (release pending):** the outer polyglot region is byte-identical to the sealed
 `viewer.html` member, whose SHA-256 lives in the **signed** `file_manifest`.
 `epi verify` now checks the outer region against that signed value, so a
 display-layer edit fails even when the header copy is recomputed.
 
-**Legacy artifacts** (viewer hash all-zero) are covered by the same signed
-`file_manifest` entry, so their outer display layer is **not** forgeable
-either. The earlier claim that legacy artifacts left the display HTML
-unsealed no longer holds.
+**Legacy envelope-v2 artifacts** whose signed `file_manifest` includes
+`viewer.html` are covered by the same check, even when their
+`reserved_tail[0:32]` is all-zero, so their outer display layer is **not
+forgeable**. Artifacts whose manifest predates the `viewer.html` entry have no
+signed binding for the display layer; the verifier says so rather than
+claiming coverage. The earlier blanket claim that *all* legacy artifacts left
+the display HTML unsealed is too broad in one direction and too narrow in the
+other — the manifest entry is what decides.
 
 **The viewer never paints a verdict it cannot support.** The double-click
 polyglot page carries a pack-time *copy* of the manifest — taken before the
@@ -299,11 +307,14 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current published line: **4.6.2**. This GitHub/PyPI release includes the
-viewer fail-closed fix (#141/#143) and the pack-time viewer / prohibition-guard
-fix (#145). **4.4.1** remains on PyPI (not yanked) and still truncates sealed
-strings at 2000 characters. **4.4.2** never reached PyPI. **4.4.3+** seals full
-payloads (`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current published line: **4.6.2**. Current release line: **4.6.2**. Published on PyPI: **4.6.2**. **4.6.3 (release pending)** has not
+been uploaded. The published **4.6.2** wheel does **not** include the 4.6.3 (release pending) verifier
+fixes. The **4.6.3 (release pending)** release includes signed
+display-layer verification, the viewer fail-closed fix (#141/#143), and the
+pack-time viewer / prohibition-guard fix (#145). **4.4.1** remains on PyPI
+(not yanked) and still truncates sealed strings at 2000 characters. **4.4.2**
+never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`;
+verify FAILs when `true`, WARNs when absent).
 
 ---
 
@@ -405,8 +416,9 @@ Recording gaps that survive this rule (no silent completeness claim):
 - Gateway streaming → 501 (streaming apps bypass or fail); async-enqueue worker
   crash after acceptance leaves a gap fail-closed cannot cover.
 - Legacy artifacts: pre-4.4.3 truncation (WARN), `controls_failed` undercount
-  4.4.1–4.4.6 (recount `results`), all-zero viewer-hash polyglots (forgeable
-  display, trust `epi verify`), unsealed header bytes 0–3/16–39 (redundant
+  4.4.1–4.4.6 (recount `results`), all-zero viewer-hash polyglots **without** a
+  signed `viewer.html` manifest entry (display layer not integrity-covered;
+  with the entry, 4.6.3 (release pending) verifies it), unsealed header bytes 0–3/16–39 (redundant
   copies; manifest is authority), SCITT presence-only, pre-4.6 TSA tokens
   legacy/presence-only.
 
