@@ -4,6 +4,66 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.6.3] - 2026-10-23
+
+Security and honesty release. **4.6.2 on PyPI did not contain these
+verifier/identity fixes** even though parts of the docs described them; this
+section is the authoritative list of what changed after 4.6.2. Publish 4.6.3
+through Trusted Publishing so the wheel carries PEP 740 provenance (the 4.6.2
+wheel has none — see docs/RELEASING.md).
+
+### Security
+
+- **Display-layer forgery is caught by `epi verify` (red-team F-01).** The
+  outer polyglot viewer is byte-identical to the sealed `viewer.html` member,
+  whose SHA-256 is in the signed `file_manifest`. 4.6.2 only checked the
+  unsigned, self-referential `reserved_tail[0:32]` copy, so an attacker who
+  edited the viewer and recomputed that copy still got `Integrity: Verified`.
+  `epi verify` now checks the outer region against the signed value (for legacy
+  envelope-v2 files whose signed `file_manifest` lists `viewer.html`) and
+  reports `FAIL — Integrity compromised`.
+- **The viewer no longer paints a verdict it cannot support (F-02).** A baked
+  envelope failure can never be upgraded to green; missing data defaults to
+  unverified.
+- **Identity wording stops implying a pin that does not exist (F-19).** A DID
+  key verified only against its own DID is reported as
+  `SIGNER SELF-ASSERTED (DID)`, with `pin_source` stating why a key counts as
+  known. Only an out-of-band pin earns `IDENTITY PINNED`.
+- **Remote trust registry remains informational**, and pinned local signing
+  keys no longer make unrelated senders fail.
+- **Hardening:** decompression-bomb guards and Cloud trust-link validation
+  (red-team batch #159 / PR #162).
+
+### Fixed
+
+- **Default redaction no longer destroys evidence values (P0-3/B2).** Bare
+  9–10 digit numbers are no longer matched as SSN/phone. Those patterns now
+  require separators or a `+`/parentheses, and a bare number is redacted only
+  when the field name itself is PII (`ssn`, `phone`, `mobile`, …). New
+  `redaction.allowlist_fields` exempts explicit non-PII fields.
+- **`epi demo` no longer silently pins the local key (B3).** The vendor's own
+  files show the documented `LOCAL` state instead of `IDENTITY PINNED`;
+  pinning is an explicit `epi keys trust`.
+- **`epi cloud storage set --help` no longer crashes** on Rich markup (B4).
+- **A damaged/altered file opened by double-click shows an explanation**
+  instead of a blank page (B5), and the neutral banner says how to verify
+  (B6).
+- **`epi view --extract` marks a failed-seal output folder `_ALTERED` (B7).**
+- **`epi keys trust` only suggests `--witness-log` when a witness log exists
+  (B8).**
+- **`epi export trace` explains the unsigned alternative** when
+  `--transcript-uri` is missing (B9).
+
+### Docs
+
+- Corrected product-version claims, canonicalization/test vectors, policy and
+  trust tables, viewer section names, `EPI_KEY_PASSWORD`, plan limits, SCITT
+  wording, telemetry wording, and stale roadmap/website/release notes.
+- `FILE-SAFETY.md` lists the real inert JSZip URLs and a working
+  `epi export trace` example.
+- `RELEASING.md` records the 4.6.2 attestation gap and the four Trusted
+  Publisher fields.
+
 ## [4.6.2] - 2026-10-22
 
 First PyPI upload of 4.6.2 (GitHub had a tag; Trusted Publishing was not
@@ -23,7 +83,10 @@ you fetched the tag on 20–21 Oct, re-fetch; the earlier position predated
   baked envelope failure with INTEGRITY VERIFIED. A baked envelope verdict
   (`__envelope_header__` / `__polyglot_viewer__`) can never be upgraded to
   green; missing data defaults to unverified; the loading placeholder is no
-  longer green. `epi verify` behaviour unchanged (it always caught this).
+  longer green. **This fixed the in-viewer badge only.** `epi verify` in
+  4.6.2 still accepted a display-layer forgery whose unsigned
+  `reserved_tail[0:32]` copy had been recomputed; the signed
+  `file_manifest` check ships in 4.6.3.
 - **Remote trust registry remains informational** (shipped in 4.6.1; still
   true here).
 
