@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./env.ts";
 import { originAllowed, userFromRequest } from "./lib/auth.ts";
 import { esc, page } from "./ui.ts";
+import { publicPage } from "./public-ui.ts";
 import auth, { MIN_CLI_VERSION } from "./routes/auth.ts";
 import orgs from "./routes/orgs.ts";
 import invites from "./routes/invites.ts";
@@ -83,23 +84,23 @@ function scriptJson(v: unknown): string {
 
 function landing(google: boolean): string {
   return (
-    `<div class="hero"><span class="tag">Sealed evidence for AI runs</span>` +
-    `<h1>Give your customers tamper-proof proof of what your AI agent did.</h1>` +
-    `<p class="lede">EPI records each run of your AI agent, seals it, and has it independently witnessed. ` +
-    `Your customer checks the evidence in their own browser.</p>` +
-    `<div class="signin"><a class="btn btn-pri" href="/auth/github">Sign in with GitHub</a>` +
-    (google ? `<a class="btn btn-sec" href="/auth/google">Sign in with Google</a>` : ``) +
-    `</div></div>` +
-    `<h2>How it works</h2>` +
-    `<ol class="how">` +
-    `<li><strong>Sign in</strong> and name your company. That’s your workspace.</li>` +
-    `<li><strong>Run <code>epi demo</code> on your computer.</strong> It records a run, seals it and uploads it for your customer.</li>` +
-    `<li><strong>Send your customer a share link.</strong> They open it in a browser — nothing to install — and see only their runs.</li>` +
-    `</ol>` +
-    `<div class="card"><strong>Free:</strong> 1 customer, 1 share link, 50 runs. ` +
-    `<a href="https://epilabs.org/plans">See plans</a></div>` +
-    `<p class="small mut">Want the details first? <a href="https://epilabs.org/how-it-works">How EPI works</a> · ` +
-    `<a href="https://epilabs.org/verify/">Check an evidence file</a></p>`
+    `<div class="c-eyebrow"><span class="c-dot"></span>Sealed evidence for AI runs</div>` +
+    `<h1 class="c-h1">Proof of what your AI <em>agent</em> did.</h1>` +
+    `<p class="c-lede">EPI records each run, seals it, and has it independently witnessed. ` +
+    `Your customer checks the evidence in their own browser — no install, no account.</p>` +
+    `<div class="c-signin">` +
+    `<a class="c-btn c-btn--primary" href="/auth/github">Continue with GitHub</a>` +
+    (google ? `<a class="c-btn c-btn--ghost" href="/auth/google">Continue with Google</a>` : ``) +
+    `</div>` +
+    `<p class="c-free">Free: 1 customer · 1 share link · 50 runs · MIT-licensed verifier</p>` +
+    `<div class="c-steps">` +
+    `<div class="c-step"><div class="c-num">01</div><h3>Sign in</h3>` +
+    `<p>Name your company. That’s your workspace.</p></div>` +
+    `<div class="c-step"><div class="c-num">02</div><h3>Run <code>epi demo</code></h3>` +
+    `<p>It records a run, seals it, and uploads it for your customer.</p></div>` +
+    `<div class="c-step"><div class="c-num">03</div><h3>Send the link</h3>` +
+    `<p>Your customer opens it in a browser and sees only their runs.</p></div>` +
+    `</div>`
   );
 }
 
@@ -235,7 +236,7 @@ app.get("/", async (c) => {
     email = null;
   }
   if (!email) {
-    return c.html(page("EPI Cloud — sealed evidence for AI runs", landing(!!c.env.GOOGLE_CLIENT_ID)));
+    return c.html(publicPage("EPI Cloud — sealed evidence for AI runs", landing(!!c.env.GOOGLE_CLIENT_ID)));
   }
   const script = `var TRUST_ORIGIN=${JSON.stringify(TRUST_ORIGIN)};var ME=${scriptJson(email)};\n` + DASH_JS;
   return c.html(page("EPI Cloud — your workspace", DASH_SHELL, { script, user: email, wide: true }));
