@@ -59,10 +59,12 @@ describe("cloud front door", () => {
     expect(html).toContain("Sign in with GitHub");
     expect(html).not.toContain("boss@acme.test");
     // Explains itself: one plain sentence, 3 steps, the free plan.
-    expect(html).toContain("tamper-proof proof of what your AI agent did");
+    // The hero splits "agent" into <em>, so assert the two halves.
+    expect(html).toContain("Proof of what your AI");
+    expect(html).toContain("<em>agent</em>");
     expect(html).toContain("epi demo");
-    expect(html).toContain("nothing to install");
-    expect(html).toContain("Free:</strong> 1 customer, 1 share link, 50 runs");
+    expect(html).toContain("no install");
+    expect(html).toContain("Free: 1 customer · 1 share link · 50 runs");
     expect(html).toContain("https://epilabs.org/how-it-works");
     // Static and self-contained: no scripts, no external assets.
     expect(html).not.toContain("<script");

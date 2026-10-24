@@ -89,8 +89,8 @@ function landing(google: boolean): string {
     `<p class="c-lede">EPI records each run, seals it, and has it independently witnessed. ` +
     `Your customer checks the evidence in their own browser — no install, no account.</p>` +
     `<div class="c-signin">` +
-    `<a class="c-btn c-btn--primary" href="/auth/github">Continue with GitHub</a>` +
-    (google ? `<a class="c-btn c-btn--ghost" href="/auth/google">Continue with Google</a>` : ``) +
+    `<a class="c-btn c-btn--primary" href="/auth/github">Sign in with GitHub</a>` +
+    (google ? `<a class="c-btn c-btn--ghost" href="/auth/google">Sign in with Google</a>` : ``) +
     `</div>` +
     `<p class="c-free">Free: 1 customer · 1 share link · 50 runs · MIT-licensed verifier</p>` +
     `<div class="c-steps">` +
