@@ -264,3 +264,5 @@ _oauth_url*.txt
 /_*.txt
 /_*.py
 audit_dir/
+
+cloud/node_modules/
