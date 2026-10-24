@@ -20,7 +20,7 @@ export const PUBLIC_CSS = [
   "background-image:repeating-linear-gradient(90deg,transparent 0 63px,rgba(255,255,255,.045) 63px 64px)}",
   ".c-nav{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;",
   "gap:1rem;padding:1.1rem clamp(20px,4vw,64px);border-bottom:1px solid var(--line)}",
-  ".c-brand{display:flex;align-items:center;gap:.6rem;color:var(--fg);text-decoration:none;",
+  ".c-brand{display:flex;align-items:center;gap:.6rem;color:var(--fg);text-decoration:none;white-space:nowrap;",
   "font-family:var(--mono);font-size:.72rem;letter-spacing:.22em}",
   ".c-dot{width:7px;height:7px;border-radius:50%;background:var(--em);box-shadow:0 0 10px var(--em);flex:0 0 auto}",
   ".c-chip{border:1px solid var(--line);padding:.15rem .45rem;border-radius:3px;color:var(--body);letter-spacing:.12em}",
@@ -65,7 +65,7 @@ export function publicPage(title: string, inner: string): string {
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<meta name="robots" content="noindex,nofollow">` +
-    `<meta name="theme-color" content="#000000">` +
+    `<meta name="theme-color" content="#000000"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%2310b981'/%3E%3C/svg%3E">` +
     `<title>${title}</title><style>${PUBLIC_CSS}</style></head><body>` +
     `<div class="c-grid"></div>` +
     `<header class="c-nav">` +

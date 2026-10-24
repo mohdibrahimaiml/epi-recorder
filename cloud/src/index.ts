@@ -48,7 +48,16 @@ app.onError((err, c) => {
   return c.json({ error: { code: "internal", message: "Unexpected error." } }, 500);
 });
 
-app.get("/health", (c) => c.json({ ok: true, service: "epi-cloud", m: 1 }));
+app.get("/health", (c) => {
+  // The status page on epilabs.org reads this cross-origin.
+  const o = c.req.header("Origin");
+  if (o === "https://epilabs.org" || o === "https://www.epilabs.org") {
+    c.header("Access-Control-Allow-Origin", o);
+    c.header("Vary", "Origin");
+  }
+  return c.json({ ok: true, service: "epi-cloud", m: 1 });
+});
+app.get("/device", (c) => c.redirect("/auth/device", 301));
 // Public version gate: lets old CLIs warn instead of failing mysteriously.
 app.get("/v1/version", (c) => c.json({ service: "epi-cloud", min_cli_version: MIN_CLI_VERSION }));
 app.route("/auth", auth);
