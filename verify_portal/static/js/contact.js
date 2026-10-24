@@ -6,7 +6,8 @@
   "use strict";
 
   // ── Configure this to activate server-side submission ──────────
-  window.EPI_CONTACT_ENDPOINT = ""; // e.g. "https://formspree.io/f/xxxxxxx"
+  // Same-origin: Cloudflare Pages proxies /api/* to the FastAPI verify portal.
+  window.EPI_CONTACT_ENDPOINT = "/api/contact";
 
   function $(s, c) { return (c || document).querySelector(s); }
 
@@ -36,12 +37,20 @@
       return ok;
     }
 
+    // The portal expects {name,email,company,tier,use_case}; map the form's
+    // role/interest/message fields onto that contract so nothing is dropped.
     function payload() {
       var d = {};
       form.querySelectorAll("input,select,textarea").forEach(function (f) {
         if (f.name) d[f.name] = f.value.trim();
       });
-      return d;
+      return {
+        name: d.name || "",
+        email: d.email || "",
+        company: d.company || "",
+        tier: d.interest || "",
+        use_case: [d.role, d.message].filter(Boolean).join("\n")
+      };
     }
 
     function mailtoFallback(d) {
@@ -134,7 +143,14 @@
       fetch(window.EPI_CONTACT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ email: v, interest: "Control Plane early access" })
+        // Same /api/contact contract; tier marks it as a waitlist lead.
+        body: JSON.stringify({
+          name: "Waitlist",
+          email: v,
+          company: "",
+          tier: "waitlist",
+          use_case: "Control Plane early access"
+        })
       }).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         form.reset();
