@@ -94,7 +94,8 @@
     var mmenu = document.getElementById("mmenu");
     if (burger && mmenu) {
       burger.addEventListener("click", function () {
-        var open = if (mmenu.classList.contains("open")) { mmenu.classList.remove("open"); } else { mmenu.classList.add("open"); };
+        var open = !mmenu.classList.contains("open");
+        if (open) { mmenu.classList.add("open"); } else { mmenu.classList.remove("open"); }
         burger.setAttribute("aria-expanded", open ? "true" : "false");
       });
       mmenu.querySelectorAll("a").forEach(function (a) {
