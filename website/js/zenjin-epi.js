@@ -94,7 +94,7 @@
     var mmenu = document.getElementById("mmenu");
     if (burger && mmenu) {
       burger.addEventListener("click", function () {
-        var open = mmenu.classList.toggle("open");
+        var open = if (mmenu.classList.contains("open")) { mmenu.classList.remove("open"); } else { mmenu.classList.add("open"); };
         burger.setAttribute("aria-expanded", open ? "true" : "false");
       });
       mmenu.querySelectorAll("a").forEach(function (a) {

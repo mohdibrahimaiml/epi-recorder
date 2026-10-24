@@ -1,243 +1,195 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Plans &amp; Pricing — EPI Labs</title>
-<meta name="description" content="Open-source sealing and verification stay free. Design Partner Program (5 places, founding price locked when you join) and EPI Cloud private beta.">
-<link rel="canonical" href="https://epilabs.org/plans">
-<meta property="og:title" content="Plans &amp; Pricing — EPI Labs">
-<meta property="og:description" content="Open source is free. Design Partner Program: 5 places. EPI Cloud is in private beta. Verification is never charged.">
-<meta property="og:image" content="https://epilabs.org/assets/logo.png">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/contact.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
-<script src="/js/paddle-config.js"></script>
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
-<style>
-  .bill-toggle{display:inline-flex;align-items:center;gap:14px;margin:8px auto 34px;padding:5px;border:1.5px solid var(--edge);background:var(--bg-3);position:relative}
-  .bill-toggle button{border:0;background:transparent;color:var(--mut);font-family:var(--mono);font-size:.78rem;font-weight:600;padding:9px 20px;cursor:pointer;position:relative;z-index:1;transition:color .2s}
-  .bill-toggle button.on{color:#fff;background:var(--ink)}
-  .save-badge{display:inline-block;margin-left:8px;font-size:.6rem;font-weight:700;letter-spacing:.06em;color:var(--acc);background:var(--acc-bg);padding:2px 7px;border-radius:999px}
-  .plans-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:stretch;max-width:780px;margin:0 auto}
-  @media(max-width:900px){.plans-grid{grid-template-columns:1fr}}
-  .tier{background:var(--bg-3);border:1.5px solid var(--edge);padding:32px 28px;display:flex;flex-direction:column;position:relative;text-align:left;transition:border-color .25s var(--ease),transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s var(--ease)}
-  .tier:hover{border-color:var(--ink);transform:translateY(-4px);box-shadow:0 14px 32px rgba(13,17,23,.1)}
-  .tier.featured{border-color:var(--acc);border-width:2px}
-  .tier .flag{position:absolute;top:-12px;left:26px;font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:var(--acc);color:#fff;padding:5px 13px}
-  .tier h3{font-size:1.15rem;margin-bottom:4px}
-  .tier .tdesc{font-size:.86rem;color:var(--mut);line-height:1.6;min-height:44px}
-  .tier .price-line{margin:22px 0 4px;font-family:var(--mono)}
-  .tier .amount{font-size:2.4rem;font-weight:700;color:var(--ink);letter-spacing:-.03em;line-height:1}
-  .tier .per{font-size:.72rem;color:var(--dim);letter-spacing:.06em;white-space:nowrap}
-  .tier ul{list-style:none;margin:20px 0 24px;padding:0;flex:1}
-  .tier ul li{position:relative;padding:7px 0 7px 26px;font-size:.87rem;color:var(--body)}
-  .tier ul li::before{content:'✓';position:absolute;left:0;color:var(--acc);font-weight:700}
-  .country-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;font-family:var(--mono);font-size:.72rem;color:var(--dim)}
-  .country-row select{padding:7px 10px;font-family:var(--mono);font-size:.74rem;background:var(--bg-3);color:var(--ink);border:1px solid var(--edge-2);cursor:pointer}
-  .pstatus{text-align:center;font-family:var(--mono);font-size:.72rem;color:var(--dim);min-height:1.2em;margin-bottom:14px}
-  .section-divider{border-top:1px solid var(--edge);margin:70px auto;max-width:1080px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plans &amp; Design Partners | EPI Labs</title>
+  <meta name="description" content="Open-source recording, sealing, and verification stay free forever under MIT. Design Partner Program (5 places) and EPI Cloud private beta.">
+  <link rel="canonical" href="https://epilabs.org/plans">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/how-it-works">How it works</a></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/enterprise">Enterprise</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <a href="/how-it-works">How it works</a>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/enterprise">Enterprise</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<main id="main">
-<div class="page in" data-aos="fade-up">
-
-<!-- Hero -->
-<span class="tag">Plans &amp; Pricing · Design partners · Private beta</span>
-<h1 class="d2x">Open source stays free. Cloud is private beta.</h1>
-<p class="lede">Recorder, sealing, <code class="k">.epi</code>, the viewer, the gateway, and <code class="k">epi verify</code> stay free. Verification is never limited or charged. What we sell is help getting agents approved by banks, insurers, and auditors faster — starting with five design partners.</p>
-
-<div class="plans stagger" style="margin:28px 0 40px">
-  <div class="plan in" data-aos="fade-up">
-    <h3>Open source</h3>
-    <div class="pr">$0</div>
-    <div class="pn">MIT · verification never billed</div>
-    <p>The product you can run offline without EPI Labs. That does not change.</p>
-    <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
-      <li>Recorder, verifier, viewer, <code class="k">.epi</code> format</li>
-      <li>Ed25519 seal + <code class="k">epi verify FILE --policy strict --witness-log received.jsonl --offline</code></li>
-      <li>CLI &amp; Python SDK, gateway, integrations</li>
-    </ul>
-    <a class="btn btn-sec" href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">pip install epi-recorder</a>
-  </div>
-
-  <div class="plan feat in" data-aos="fade-up">
-    <span class="flag">5 places</span>
-    <h3>Design Partner Program</h3>
-    <div class="pr" style="font-size:1.35rem;padding-top:12px">Founding price</div>
-    <div class="pn">Locked when you join</div>
-    <p>For AI vendors selling into a regulated customer who asked &ldquo;prove what the agent did.&rdquo; Founder instruments one workflow. Founding price is set in writing when you join — not published as a menu.</p>
-    <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
-      <li>Five places. No &ldquo;places left&rdquo; counter.</li>
-      <li>Founding price locked for that partner</li>
-      <li>Direct feedback calls; logo and case study only with their approval</li>
-    </ul>
-    <a class="btn btn-pri" href="mailto:mohdibrahim@epilabs.org?subject=Design%20partner&amp;body=Company%3A%0AWhat%20your%20agent%20does%3A%0AWho%20your%20regulated%20customer%20is%3A">Ask for a place</a>
-  </div>
-
-  <div class="plan in" data-aos="fade-up">
-    <h3>EPI Cloud</h3>
-    <div class="pr" style="font-size:1.35rem;padding-top:12px">Private beta</div>
-    <div class="pn">Not self-serve yet</div>
-    <p>Hosted witness (hash-only receipts), a trust page your reviewer opens, and an Evidence Room for runs you choose to share. Self-serve prices are not listed because checkout is not open.</p>
-    <ul style="font-size:.88rem;color:var(--mut);line-height:2;margin:0 0 22px;padding-left:18px">
-      <li>Witness every run; files you keep stay in your bucket</li>
-      <li>Verification stays free in the browser and the CLI</li>
-      <li>The old hosted-verification subscriptions are not for sale</li>
-    </ul>
-    <a class="btn btn-sec" href="mailto:mohdibrahim@epilabs.org?subject=EPI%20Cloud%20private%20beta">Request beta access</a>
-  </div>
-</div>
-
-<p style="margin:-10px 0 40px;font-size:.84rem;color:var(--dim)">Before you buy anything: read <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--warn);font-weight:600">KNOWN_LIMITATIONS.md</a> — the seal proves integrity after sealing, not completeness of capture.</p>
-
-<div class="section-divider"></div>
-
-<!-- Straight Answers FAQ -->
-<h2>Straight answers</h2>
-<div class="rows">
-  <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>Why is verification never charged?</h3></div>
-    <div class="an">A reviewer must be able to check a file without paying EPI Labs or logging into our dashboard. The CLI is MIT-licensed. That is the spine of the company.</div>
-  </div>
-  <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>Is there a free trial of Cloud?</h3></div>
-    <div class="an">Cloud is private beta, not a self-serve checkout. Open-source recording and verification do not need a trial. Refunds follow the refund page.</div>
-  </div>
-  <div class="rowq" style="grid-template-columns:1fr">
-    <div><h3>What is the Design Partner Program?</h3></div>
-    <div class="an">Five places. Founding price locked when you join (set in writing — not a public menu). The founder instruments one workflow. In return: feedback calls, and a logo or case study only if the partner approves.</div>
-  </div>
-</div>
-
-<div class="section-divider"></div>
-
-<!-- How Working Together Works -->
-<h2>How working together works</h2>
-<div class="rows">
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">01 · Talk</h3></div><div class="an">A 30-minute call — or just email. You describe the agent workflow and who needs to be convinced (auditor, insurer, regulator). We say honestly whether EPI fits. <strong style="color:var(--body)">If it doesn't, we'll tell you.</strong></div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">02 · Design partner</h3></div><div class="an">A Design Partner place (founding price locked when you join). Cloud is private beta — not a checkout page.</div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">03 · Prove it internally</h3></div><div class="an">Your team verifies with open tools — no dashboard login required to trust a seal. If your auditor can't reproduce it, we haven't finished the job.</div></div>
-  <div class="rowq" style="grid-template-columns:70px 1fr"><div><h3 style="font-size:1rem">04 · Scale</h3></div><div class="an">Design partners keep founding terms. Cloud self-serve plans come after beta; verification stays unmetered.</div></div>
-</div>
-
-<!-- Contact Form -->
-<h2 id="contact" style="margin-top:64px">Start the conversation</h2>
-<p style="font-size:.92rem;color:var(--mut);margin-bottom:20px;line-height:1.7">Tell us what you're deploying and what you need to prove. Founder reads every message — reply within one business day. No sales sequence, no CRM drip.</p>
-
-<form class="cform" novalidate>
-  <div class="row">
-    <div>
-      <label for="cf-name">Name <span class="req">*</span></label>
-      <input id="cf-name" name="name" type="text" required autocomplete="name">
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <a href="/how-it-works.html" class="z-nav__link">Architecture</a>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust.html" class="z-nav__link">Trust model</a>
+        <a href="/plans.html" class="z-nav__link" aria-current="page">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
     </div>
-    <div>
-      <label for="cf-email">Work email <span class="req">*</span></label>
-      <input id="cf-email" name="email" type="email" required autocomplete="email">
-    </div>
-  </div>
-  <div class="row">
-    <div>
-      <label for="cf-company">Company</label>
-      <input id="cf-company" name="company" type="text" autocomplete="organization">
-    </div>
-    <div>
-      <label for="cf-role">Role</label>
-      <select id="cf-role" name="role">
-        <option value="">Select…</option>
-        <option>CISO / Security</option>
-        <option>Risk / Compliance</option>
-        <option>Underwriting / Insurance</option>
-        <option>Engineering / Platform</option>
-        <option>Founder / Exec</option>
-        <option>Other</option>
-      </select>
-    </div>
-  </div>
-  <label for="cf-interest">Interested in</label>
-  <select id="cf-interest" name="interest">
-    <option>Design Partner Program</option>
-    <option>EPI Cloud private beta</option>
-    <option>Something else</option>
-  </select>
-  <label for="cf-message">What are you trying to prove? <span class="req">*</span></label>
-  <textarea id="cf-message" name="message" required placeholder="e.g. Our claims agent approves refunds; we need evidence our auditor can verify offline…"></textarea>
-  <div class="cf-actions">
-    <button class="btn btn-pri" type="submit">Send message</button>
-    <span class="cf-note">Your details are used only to reply. No newsletter, no drip campaign — see <a href="/privacy" style="color:var(--acc)">privacy</a>.</span>
-  </div>
-  <div class="cf-status" role="status" aria-live="polite"></div>
-</form>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
 
-</div>
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <a href="/how-it-works.html">Architecture</a>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust.html">Trust model</a>
+    <a href="/plans.html" style="color:var(--foreground)">Pricing &amp; Design Partners</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="plans-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">Plans &amp; Pricing · Design Partners · Private Beta</span>
+            <h1 id="plans-heading" class="z-h1" style="margin-top:1rem">
+              Open source stays <span style="color:var(--acc-envelope)">free</span>. Cloud is private beta.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
+              Recorder, sealing, <code style="font-family:var(--font-mono)">.epi</code>, the viewer, the gateway, and <code style="font-family:var(--font-mono)">epi verify</code> stay MIT-licensed and free forever. Verification is never metered or charged.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <p class="z-body">
+              What we sell is founder-led help getting consequential AI agents approved by banks, insurers, and auditors faster — starting with five design partners.
+            </p>
+          </div>
+        </div>
+
+        <!-- 3-Tier Architectural Grid -->
+        <div class="z-tri-grid">
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-envelope)">Tier 01 · MIT Open Source</div>
+            <h2 class="z-h3-card" style="margin-top:0.5rem">Open Source ($0 forever)</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              Everything required to record, seal, view, and verify offline without EPI Labs.
+            </p>
+            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
+              <li>&#10003; Python SDK, CLI, Envelope v2, embedded viewer</li>
+              <li>&#10003; Ed25519 + SHA-256 + <code style="font-family:var(--font-mono)">--policy strict</code></li>
+              <li>&#10003; Self-hosted <code style="font-family:var(--font-mono)">epi gateway serve</code></li>
+            </ul>
+            <div style="margin-top:2rem">
+              <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-btn-ghost">pip install epi-recorder</a>
+            </div>
+          </div>
+
+          <div class="z-tri-card" style="background:rgba(16,185,129,0.03)">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-trust)">Tier 02 · 5 Places</div>
+            <h2 class="z-h3-card" style="margin-top:0.5rem">Design Partner Program</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              For AI vendors selling into a regulated customer who asked <em>“prove what the agent did.”</em> Founding price locked in writing when you join.
+            </p>
+            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
+              <li>&#10003; Founder instruments one consequential workflow</li>
+              <li>&#10003; Founding price locked for that partner</li>
+              <li>&#10003; Direct feedback calls &amp; auditor pack review</li>
+            </ul>
+            <div style="margin-top:2rem">
+              <a href="#contact" class="z-btn-primary">Ask for a design partner place</a>
+            </div>
+          </div>
+
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-witness)">Tier 03 · Hosted Layer</div>
+            <h2 class="z-h3-card" style="margin-top:0.5rem">EPI Cloud (Private Beta)</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              Hosted hash-only witness receipts, reviewer trust pages (<code style="font-family:var(--font-mono)">/t/{slug}#k=…</code>), and an Evidence Room for runs you choose to share.
+            </p>
+            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
+              <li>&#10003; Witness every run; full files stay in your bucket</li>
+              <li>&#10003; Verification stays free in browser &amp; CLI</li>
+              <li>&#10003; No self-serve hosted-verification paywall</li>
+            </ul>
+            <div style="margin-top:2rem">
+              <a href="mailto:mohdibrahim@epilabs.org?subject=EPI%20Cloud%20private%20beta" class="z-btn-ghost">Request beta access</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Form Section -->
+        <div class="z-intro-grid" id="contact">
+          <div class="z-intro-grid__title">
+            <span class="z-eyebrow">Start the Conversation</span>
+            <h2 class="z-h2" style="margin-top:1rem">Talk directly to the founder.</h2>
+            <p class="z-body" style="margin-top:1rem;max-width:30rem">
+              Describe the agent workflow and who needs to be convinced (auditor, bank reviewer, insurer). We reply within one business day — and if EPI doesn’t fit, we’ll tell you honestly.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside">
+            <form class="cform z-form" novalidate>
+              <div class="z-form__row">
+                <div>
+                  <label for="cf-name">Name *</label>
+                  <input id="cf-name" name="name" type="text" required autocomplete="name">
+                </div>
+                <div>
+                  <label for="cf-email">Work email *</label>
+                  <input id="cf-email" name="email" type="email" required autocomplete="email">
+                </div>
+              </div>
+              <div class="z-form__row">
+                <div>
+                  <label for="cf-company">Company</label>
+                  <input id="cf-company" name="company" type="text" autocomplete="organization">
+                </div>
+                <div>
+                  <label for="cf-interest">Interested in</label>
+                  <select id="cf-interest" name="interest">
+                    <option>Design Partner Program</option>
+                    <option>EPI Cloud private beta</option>
+                    <option>Enterprise / Custom pilot</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label for="cf-message">What are you trying to prove? *</label>
+                <textarea id="cf-message" name="message" required placeholder="e.g. Our underwriting agent approves claims; we need offline-verifiable evidence for our auditor…"></textarea>
+              </div>
+              <div>
+                <button type="submit" class="z-btn-primary">Send message</button>
+              </div>
+              <div class="cf-status" role="status" aria-live="polite"></div>
+            </form>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  
+<section class="z-center" style="padding:2rem 0"><p class="z-body">Design Partner Program · 5 places · Founding price locked · EPI Cloud private beta.</p><p class="z-body" style="font-family:var(--font-mono);font-size:.8rem"><code>epi verify FILE --policy strict --witness-log received.jsonl --offline</code></p></section>
 </main>
 
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.6.3</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="/plans" style="color:var(--acc)">Pricing</a> · <a href="/account" style="color:var(--acc)">Account</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.6.3</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust.html" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
-</footer>
 
-<script src="/js/theme.js"></script>
-<script src="/js/contact.js"></script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script>
-(function(){
-  'use strict';
-  // Mobile menu toggle + nav scroll
-  var nav = document.getElementById('nav');
-  var onS = function(){ if(nav) nav.classList.toggle('scrolled', scrollY > 10); };
-  addEventListener('scroll', onS, {passive: true}); onS();
-  var b = document.getElementById('burger'), m = document.getElementById('mmenu');
-  if(b && m) {
-    b.addEventListener('click', function(){
-      var o = m.classList.toggle('open');
-      b.classList.toggle('x', o);
-      b.setAttribute('aria-expanded', o);
-      document.body.style.overflow = o ? 'hidden' : '';
-    });
-  }
-})();
-</script>
-<script src="/js/auth-ui.js?v=2"></script>
+  <script src="/js/contact.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>
