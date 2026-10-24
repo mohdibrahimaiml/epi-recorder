@@ -1,0 +1,6 @@
+node_modules/
+renders/
+.frames/
+.hyperframes/
+assets/audio/score.wav
+assets/audio/.*.tmp.wav
