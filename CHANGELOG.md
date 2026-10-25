@@ -4,6 +4,21 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Data-only is now the default seal; the embedded HTML viewer is opt-in
+  (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now
+  write a small `legacy-zip` `.epi` with **no** `viewer.html` member and no
+  outer polyglot HTML — a 5-step demo drops from ~507 KB to ~17 KB, small enough
+  to email. The artifact verifies identically with `epi verify` and still opens
+  in the local viewer via `epi view` (which regenerates the viewer locally).
+  Pass `--with-viewer` (or `record(..., with_viewer=True)`) to embed the
+  self-opening **envelope-v2** polyglot shell instead. `epi migrate` preserves
+  whichever form an artifact already has; `epi refresh-viewer` now **refuses** a
+  data-only file unless `--with-viewer` is given, rather than silently
+  re-adding a viewer. `epi verify` output is unchanged, including the key-bound
+  seal-timestamp line.
+
 ### Fixed
 
 - **Seal timestamps now bind the signing key.** `record()` packed the file

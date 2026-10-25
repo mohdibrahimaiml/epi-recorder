@@ -543,10 +543,26 @@ def run(
     metric: list[str] | None = typer.Option(None, "--metric", help="Key=value metrics (can be used multiple times)"),
     approved_by: str | None = typer.Option(None, "--approved-by", help="Person who approved this workflow"),
     tag: list[str] | None = typer.Option(None, "--tag", help="Tags for categorizing this workflow (can be used multiple times)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
 ):
     from epi_cli.run import run as run_command
 
-    return run_command(script, no_verify, no_open, goal, notes, metric, approved_by, tag)
+    return run_command(
+        script=script,
+        no_verify=no_verify,
+        no_open=no_open,
+        goal=goal,
+        notes=notes,
+        metric=metric,
+        approved_by=approved_by,
+        tag=tag,
+        with_viewer=with_viewer,
+    )
 
 # Phase 1: verify command
 from typing import Annotated, Optional
@@ -653,11 +669,27 @@ def record(
     no_sign: bool = typer.Option(False, "--no-sign", help="Do not sign the manifest"),
     no_redact: bool = typer.Option(False, "--no-redact", help="Disable secret redaction"),
     include_all_env: bool = typer.Option(False, "--include-all-env", help="Capture all env vars (redacted)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
     command: list[str] = typer.Argument(..., help="Command to execute after --"),
 ):
     from epi_cli.record import record as record_command
 
-    return record_command(ctx, out, name, tag, no_sign, no_redact, include_all_env, command)
+    return record_command(
+        ctx=ctx,
+        out=out,
+        name=name,
+        tag=tag,
+        no_sign=no_sign,
+        no_redact=no_redact,
+        include_all_env=include_all_env,
+        with_viewer=with_viewer,
+        command=command,
+    )
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
@@ -758,6 +790,12 @@ def refresh_viewer(
         False,
         "--force",
         help="Allow unsigned result when re-sign is not possible (drops the old signature).",
+    ),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Add a self-opening viewer to a data-only .epi (upgrades it to envelope-v2). "
+        "Without this flag, data-only artifacts are refused.",
     ),
 ):
     """Regenerate embedded viewer.html while keeping integrity hashes consistent.
@@ -865,6 +903,7 @@ def refresh_viewer(
                 output_path=destination,
                 signer_function=signer_fn,
                 clear_signature=clear_signature,
+                with_viewer=with_viewer,
             )
             if was_signed and signer_fn is None:
                 unsigned_results += 1

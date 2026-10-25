@@ -164,6 +164,7 @@ def test_declared_literal_secrets_redacted_param_and_env(monkeypatch: pytest.Mon
 
 def test_declared_secrets_reach_sealed_artifact(tmp_path: Path):
     """record(redact_secrets=[...]) must scrub the value from the .epi."""
+    from epi_core.container import EPIContainer
     from epi_recorder import record
 
     out = tmp_path / "declared.epi"
@@ -173,7 +174,12 @@ def test_declared_secrets_reach_sealed_artifact(tmp_path: Path):
         session.log_step("llm.request", {"prompt": f"token is {custom} ok"})
     raw = out.read_bytes().decode("utf-8", "ignore")
     assert custom not in raw
-    assert "Declared secret" in raw
+    # The redaction receipt lives in the sealed payload, which is compressed in
+    # the (now default) data-only container — read it from the archive, not the
+    # raw bytes, which are only store-visible in the polyglot form.
+    sealed_steps = str(EPIContainer.read_steps(out))
+    assert custom not in sealed_steps
+    assert "Declared secret" in sealed_steps
 
 
 def test_gateway_capture_redacts_remote_prompt_bodies_by_default(tmp_path: Path):

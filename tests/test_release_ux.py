@@ -488,7 +488,7 @@ def test_refresh_viewer_keeps_witnessed(monkeypatch, tmp_path: Path) -> None:
     _hermetic(monkeypatch, tmp_path)
     server, url = _serve()
     try:
-        out = _seal(monkeypatch, tmp_path, tmp_path / "case.epi", witness_url=url, witness_secret=SECRET)
+        out = _seal(monkeypatch, tmp_path, tmp_path / "case.epi", witness_url=url, witness_secret=SECRET, with_viewer=True)
         log = _witness_log_for(tmp_path, out)
     finally:
         server.shutdown()

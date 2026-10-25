@@ -14,7 +14,11 @@ import pytest
 from typer.testing import CliRunner
 
 from epi_cli.main import app as cli_app
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
 from epi_core.trust import verify_embedded_manifest_signature
 from epi_recorder import get_current_session, record
 
@@ -46,6 +50,9 @@ def test_record_seal_verify_no_duplicate_zip_members(epi_home, tmp_path: Path):
     assert out.is_file()
     assert out.stat().st_size > 1000
 
+    # Default seal is data-only: a plain legacy ZIP with no embedded viewer.
+    assert EPIContainer.detect_container_format(out) == EPI_CONTAINER_FORMAT_LEGACY
+
     # Unique zip member names (no Duplicate name: VERIFY.txt)
     with EPIContainer._payload_zip_path(out) as payload:
         with zipfile.ZipFile(payload) as zf:
@@ -55,8 +62,10 @@ def test_record_seal_verify_no_duplicate_zip_members(epi_home, tmp_path: Path):
     assert not dups, f"Duplicate archive members: {dups}"
     assert "VERIFY.txt" in counts and counts["VERIFY.txt"] == 1
     assert "manifest.json" in counts and counts["manifest.json"] == 1
-    assert "viewer.html" in counts and counts["viewer.html"] == 1
     assert "steps.jsonl" in counts
+    # Data-only default carries no embedded HTML viewer (viewer is opt-in).
+    assert "viewer.html" not in counts
+    assert "viewer.html" not in (EPIContainer.read_manifest(out).file_manifest or {})
 
     # Cryptographic verify via library
     manifest = EPIContainer.read_manifest(out)
@@ -73,15 +82,22 @@ def test_record_seal_verify_no_duplicate_zip_members(epi_home, tmp_path: Path):
     assert report["facts"]["integrity_ok"] is True
     assert report["facts"]["signature_valid"] is True
 
-    # CLI view should resolve without crash (open may launch browser — use --no-open if exists)
-    help_r = runner.invoke(cli_app, ["view", "--help"])
-    assert help_r.exit_code == 0
-    # Extract embedded viewer for smoke check
-    with EPIContainer._payload_zip_path(out) as payload:
+    # Opt-in viewer still produces the self-opening envelope-v2 shell.
+    out_viewer = tmp_path / "golden_viewer.epi"
+    with record(str(out_viewer), goal="golden-path", workflow_name="golden", with_viewer=True):
+        s = get_current_session()
+        assert s is not None
+        s.log_step("tool.call", {"tool": "lookup_account"})
+    assert EPIContainer.detect_container_format(out_viewer) == EPI_CONTAINER_FORMAT_ENVELOPE
+    with EPIContainer._payload_zip_path(out_viewer) as payload:
         with zipfile.ZipFile(payload) as zf:
             html = zf.read("viewer.html").decode("utf-8", errors="replace")
     assert len(html) > 500
     assert "html" in html.lower()
+
+    # CLI view should resolve without crash (data-only opens via a regenerated viewer).
+    help_r = runner.invoke(cli_app, ["view", "--help"])
+    assert help_r.exit_code == 0
 
 
 def test_record_zero_config_and_verify(epi_home, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

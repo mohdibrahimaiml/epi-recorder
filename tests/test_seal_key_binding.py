@@ -251,7 +251,9 @@ def test_refresh_viewer_resign_same_key_keeps_key_bound(
 
     out = tmp_path / "run.epi"
     _mock_tsa(monkeypatch, tmp_path, pki)
-    _record(out)
+    # refresh-viewer operates on a viewer-bearing artifact (data-only seals are
+    # refused without --with-viewer); this test is about key rebinding.
+    _record(out, with_viewer=True)
     root_pem = pki.root_pem_file(tmp_path / "root.pem")
 
     result = CliRunner().invoke(cli_app, ["refresh-viewer", str(out), "--resign"])
@@ -275,7 +277,8 @@ def test_refresh_viewer_resign_different_key_breaks_binding(
 
     out = tmp_path / "run.epi"
     _mock_tsa(monkeypatch, tmp_path, pki)
-    _record(out)
+    # refresh-viewer operates on a viewer-bearing artifact (see same-key test).
+    _record(out, with_viewer=True)
     root_pem = pki.root_pem_file(tmp_path / "root.pem")
     original_key = EPIContainer.read_manifest(out).public_key
 

@@ -21,7 +21,11 @@ from uuid import uuid4
 
 from cryptography.hazmat.primitives import serialization
 
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
 from epi_core.policy import EPIPolicy
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
@@ -788,6 +792,7 @@ class EpiRecorderSession:
         witness_secret: Optional[str] = None,
         witness_include_goal: bool = False,
         storage_url: Optional[str] = None,
+        with_viewer: bool = False,
     ):
         """
         Initialize EPI recording session.
@@ -822,6 +827,9 @@ class EpiRecorderSession:
             storage_url: Customer-owned bucket for every sealed `.epi`
                 (`s3://bucket[/prefix]`; EPI_STORAGE_URL fallback, endpoint via
                 EPI_STORAGE_ENDPOINT). Uploaded outbox-first; never fails/slows seal.
+            with_viewer: Embed the self-opening HTML viewer (envelope-v2, larger
+                file). Default False seals a small data-only ``legacy-zip``
+                artifact that still opens via ``epi view`` and verifies identically.
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -884,6 +892,9 @@ class EpiRecorderSession:
         self.legacy_patching = legacy_patching
         self.capture_prints = capture_prints
         self.capture_stderr = capture_stderr
+
+        # Sealed container shape: data-only by default, viewer is opt-in.
+        self.with_viewer = with_viewer
         
         # Runtime state
         self.temp_dir: Optional[Path] = None
@@ -1026,6 +1037,12 @@ class EpiRecorderSession:
                 manifest=manifest,
                 output_path=self.output_path,
                 notarize=False if self.auto_sign else None,
+                container_format=(
+                    EPI_CONTAINER_FORMAT_ENVELOPE
+                    if self.with_viewer
+                    else EPI_CONTAINER_FORMAT_LEGACY
+                ),
+                embed_viewer=self.with_viewer,
             )
 
             # Sign if requested — fail closed so callers never mistake an
@@ -1910,6 +1927,7 @@ class EpiRecorderSession:
                         ),
                         preserve_generated=True,
                         container_format=current_format,
+                        embed_viewer=(current_format == EPI_CONTAINER_FORMAT_ENVELOPE),
                         generate_analysis=False,
                     )
                 finally:
@@ -2149,6 +2167,7 @@ def record(
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
     storage_url: Optional[str] = None,
+    with_viewer: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -2237,6 +2256,7 @@ def record(
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
             storage_url=storage_url,
+            with_viewer=with_viewer,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -2301,6 +2321,7 @@ def record(
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
             storage_url=storage_url,
+            with_viewer=with_viewer,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator
