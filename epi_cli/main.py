@@ -76,10 +76,20 @@ _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
 
 def _analysis_has_fault(analysis: dict) -> bool:
-    """Treat a real primary fault as authoritative even if fault_detected drifted."""
+    """Treat a real (medium+) primary fault as authoritative even if fault_detected drifted.
+
+    Low/info-severity heuristic observations (e.g. P11b) are notes, not faults —
+    issue #157: `analysis.json` says ``fault_detected: false`` for them, so
+    `epi analyze` must not print FAULT DETECTED either.
+    """
     if not isinstance(analysis, dict):
         return False
-    return bool(analysis.get("primary_fault") or analysis.get("fault_detected"))
+    if analysis.get("fault_detected"):
+        return True
+    primary = analysis.get("primary_fault")
+    if isinstance(primary, dict):
+        return str(primary.get("severity", "")).lower() not in ("info", "low")
+    return False
 
 
 def _count_steps_in_artifact(epi_path: Path) -> int:
@@ -1313,7 +1323,23 @@ def analyze(
             console.print(f"  Action:     {action}")
             console.print(f"  Mode:       {mode}")
             console.print(f"  Steps:      {steps_recorded} recorded, "
-                          f"{coverage.get('coverage_percentage', '?')}% coverage\n")
+                          f"{coverage.get('coverage_percentage', '?')}% coverage")
+            # Low/info heuristic observations are notes, not faults (issue #157).
+            notes = [
+                f for f in ([primary_fault] if primary_fault else []) + secondary_flags
+                if isinstance(f, dict) and str(f.get("severity", "")).lower() in ("info", "low")
+            ]
+            if notes:
+                console.print(
+                    f"  [dim]Observations: {len(notes)} low-severity heuristic note(s)"
+                    " — not a fault[/dim]"
+                )
+                top = notes[0]
+                rid = top.get("rule_id") or ""
+                msg = str(top.get("plain_english") or "").strip()
+                if rid or msg:
+                    console.print(f"  [dim]  {rid} {msg}[/dim]")
+            console.print()
 
 
 # Windows file association commands

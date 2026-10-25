@@ -80,7 +80,7 @@ EPI_ZIP_MARKER = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
 EPI_VIEWER_HASH_SIZE = 32
 EPI_RESERVED_TAIL_PADDING_SIZE = 24
 EPI_RESERVED_TAIL_SIZE = EPI_VIEWER_HASH_SIZE + EPI_RESERVED_TAIL_PADDING_SIZE  # 56
-VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n===============================\n\nArtifact UUID: %(filename)s\nStep Count:    %(steps_count)s\n\nVERIFY:\n  epi verify <this_file>.epi\n"""
+VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n===============================\n\nEPI Version:   %(epi_version)s\nArtifact UUID: %(filename)s\nStep Count:    %(steps_count)s\n\nVERIFY:\n  epi verify <this_file>.epi\n  python -m epi_cli verify <this_file>.epi   # if `epi` is not on PATH\n"""
 # Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), reserved_tail(56)
 _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
@@ -188,6 +188,19 @@ def _verify_txt_fp(public_key_hex) -> str:
         return key_fingerprint(str(public_key_hex))
     except Exception:
         return "(unavailable)"
+
+
+def _sealing_epi_version(manifest) -> str:
+    """The EPI version that sealed this artifact — never a hardcoded string."""
+    version = getattr(manifest, "producer_version", None)
+    if version:
+        return str(version)
+    try:
+        from epi_core._version import get_version
+
+        return get_version()
+    except Exception:
+        return str(getattr(manifest, "spec_version", "") or "unknown")
 
 
 class EPIContainer:
@@ -1015,6 +1028,39 @@ class EPIContainer:
 
                     (source_dir / "analysis.json").write_text(analysis.to_json(), encoding="utf-8")
 
+                    # manifest.policy is the formal policy-evaluation record. It must be
+                    # populated whenever a policy was loaded and evaluated; previously it
+                    # was always null even with policy_load_status == "loaded". An absent
+                    # or failed policy correctly leaves it null.
+                    if policy is not None and policy_load_status == "loaded":
+                        try:
+                            from epi_core.policy import _slugify_policy_id
+                            from epi_core.schemas import PolicyModel
+
+                            eval_dict = analysis.to_policy_evaluation_dict() or {}
+                            results = eval_dict.get("results") or []
+                            failed = [r for r in results if r.get("status") == "failed"]
+                            only_low = bool(failed) and all(
+                                str(r.get("severity", "")).lower() in ("info", "low")
+                                for r in failed
+                            )
+                            if not failed:
+                                pol_status = "compliant"
+                            elif only_low:
+                                pol_status = "warning"
+                            else:
+                                pol_status = "violation"
+                            manifest.policy = PolicyModel(
+                                policy_id=policy.policy_id
+                                or _slugify_policy_id(policy.system_name),
+                                version=policy.policy_version,
+                                status=pol_status,
+                                rules=[r.id for r in policy.rules],
+                                violation_count=len(failed),
+                            )
+                        except Exception:
+                            pass
+
                     if policy is not None:
                         (source_dir / "policy.json").write_text(
                             policy.model_dump_json(indent=2), encoding="utf-8"
@@ -1378,9 +1424,13 @@ class EPIContainer:
         # so the archive cannot contain duplicate VERIFY.txt members.
         gov_info_post = manifest.governance or {}
         did_line = f"DID:           {gov_info_post.get('did')}\n" if gov_info_post.get("did") else ""
+        # The *sealing* EPI version — not a stale/hardcoded string.
+        verify_epi_version = _sealing_epi_version(manifest)
         verify_txt.write_text(
             f"EPI_FORENSIC_VERIFICATION_GUIDE\n"
             f"===============================\n\n"
+            f"EPI Version:   {verify_epi_version}\n"
+            f"Spec Version:  {manifest.spec_version}\n"
             f"Artifact UUID: {manifest.workflow_id}\n"
             f"Created At:    {manifest.created_at.isoformat()}\n"
             f"System:        {sys_name} v{sys_ver}\n"
@@ -1391,7 +1441,9 @@ class EPIContainer:
             f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n"
             f"   Key Fingerprint:      {_verify_txt_fp(manifest.public_key)}\n\n"
             f"COMMAND LINE:\n"
-            f"  python -m epi_cli verify <this_file>.epi\n\n"
+            f"  epi verify <this_file>.epi\n"
+            f"  python -m epi_cli verify <this_file>.epi   # if `epi` is not on PATH\n"
+            f"  (sealed by epi-recorder {verify_epi_version}; spec {manifest.spec_version})\n\n"
             f"TRUST MODEL:\n"
             f"  Trust `epi verify` (CLI / machine-readable report), not the colors or\n"
             f"  labels painted by the double-click embedded HTML viewer alone.\n"
@@ -1797,6 +1849,7 @@ class EPIContainer:
                     VERIFY_TXT_TEMPLATE % {
                         "filename": manifest.workflow_id or "unknown",
                         "steps_count": len(manifest.file_manifest),
+                        "epi_version": _sealing_epi_version(manifest),
                     },
                     compress_type=zipfile.ZIP_DEFLATED,
                 )

@@ -132,6 +132,37 @@ Policy decisions (`apply_policy`, `--policy`) are separate from trust:
 | `WARN` | Valid seal but not claim-ready under this policy (e.g. unknown/local sealer, incomplete evidence such as a `tool.call` with no `tool.response`, or an absent step hash chain, under `standard`). Do not treat as claim acceptance. |
 | `FAIL` | Policy requirements not met (e.g. unknown sealer or incomplete evidence under `strict`, integrity failure, revoked key, absent step hash chain under `strict`). |
 
+### Sealed manifest: `policy_load_status` vs `policy`
+
+Two manifest fields describe the sealed policy layer, and they mean different things:
+
+- `policy_load_status` — **was a policy present at seal time?** `loaded` (a valid
+  policy was found and used), `failed` (a policy file existed but was invalid),
+  `absent` (no policy; heuristic-only run). It lets a verifier tell whether a run
+  that *claims* policy enforcement actually had one.
+- `policy` — the **formal evaluation** of the loaded policy: `policy_id`,
+  `version`, `status` (`compliant` / `warning` / `violation`), the rule IDs
+  evaluated, and `violation_count`. It is **present only when
+  `policy_load_status == "loaded"`**; it is `null` for `absent` and `failed`.
+
+### Low-severity observations are not faults
+
+`analysis.json`'s `fault_detected` is `true` only for a **medium, high or
+critical** primary finding. `low`/`info` findings (e.g. P11b "orphaned tool
+call", P11c "unmatched LLM request") are **heuristic observations** — advisory
+notes, not faults. All three surfaces agree on that: `analysis.json` reports
+`fault_detected: false`, `epi analyze` prints "No anomalies detected" plus an
+"Observations" line (never `FAULT DETECTED`), and the seal summary reports
+"N low-severity observation(s) — not a fault" (never "no heuristic issues
+flagged"). Issue #157 tracks the historical disagreement.
+
+### VERIFY.txt states the sealing version
+
+Every sealed `VERIFY.txt` names the **EPI version that produced the file**
+(`producer_version`, read from the manifest) and the spec version, and gives the
+correct command (`epi verify <file>`, with `python -m epi_cli verify <file>` as a
+fallback) — never a hardcoded/stale version.
+
 **The step hash chain is part of the claim.** `facts.chain_ok` is the chain
 *check*; `facts.chain_present` says whether the steps carry any `prev_hash`
 links at all. A file with no links is a **pre-chain** artifact: the chain

@@ -21,6 +21,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **One story for low-severity observations (issue #157).** A `low`/`info`
+  heuristic finding (e.g. P11b orphaned `tool.call`) made `epi analyze` print
+  `FAULT DETECTED` while `analysis.json` said `fault_detected: false` and the
+  seal summary said "no heuristic issues flagged". Faults are now medium+ only;
+  `epi analyze` prints "No anomalies detected" plus an "Observations" line, and
+  the summary reports "N low-severity observation(s) — not a fault".
+- **`VERIFY.txt` states the sealing version, not a hardcoded one.** It now lists
+  `EPI Version:` (the artifact's `producer_version`) and `Spec Version:`, and the
+  correct command (`epi verify <file>`, with a `python -m epi_cli verify`
+  fallback). The refresh-path template was updated to match.
+- **`manifest.policy` is populated when a policy was actually applied.** It was
+  always `null` even with `policy_load_status: "loaded"`. It now carries the
+  formal evaluation (`policy_id`, `version`, `status`, rule IDs,
+  `violation_count`) when loaded and stays `null` when the policy is `absent` or
+  `failed`.
 - **Seal timestamps now bind the signing key.** `record()` packed the file
   unsigned, stamped that first pack (so `imprinted_public_key` was `null`), then
   signed a repack with `EPI_NOTARIZE=0`. The timestamp is now taken on the

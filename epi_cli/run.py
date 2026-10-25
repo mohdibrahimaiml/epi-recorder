@@ -596,6 +596,12 @@ def run(
                         f"[bold]Review:[/bold]   recommended — "
                         f"[cyan]epi review {effective_out.name}[/cyan]"
                     )
+            elif snap.get("heuristic_observation_count"):
+                n = int(snap["heuristic_observation_count"])
+                noun = "observation" if n == 1 else "observations"
+                lines.append(
+                    f"[bold]Finding:[/bold]  {n} low-severity {noun} — not a fault"
+                )
             elif ps == "applied":
                 lines.append("[bold]Finding:[/bold]  no rule issues flagged")
             elif ps == "missing":
