@@ -4,6 +4,20 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Seal timestamps now bind the signing key.** `record()` packed the file
+  unsigned, stamped that first pack (so `imprinted_public_key` was `null`), then
+  signed a repack with `EPI_NOTARIZE=0`. The timestamp is now taken on the
+  signed repack, once the key exists, so `imprinted_public_key` is the sealing
+  key and `epi verify` reports `sealed by key <fingerprint> no later than
+  <gen_time>` with `timestamps.key_binding: "key-bound"`. Verify also rejects a
+  file whose signing key was swapped after sealing (`imprint_mismatch`) instead
+  of recomputing the imprint with the recorded key and passing. Seals made
+  before this change keep verifying exactly as before as `"contents-only"` —
+  no silent upgrade, no new FAIL. See `docs/VERIFICATION_CONTRACT.md` and
+  `docs/KNOWN_LIMITATIONS.md`.
+
 ## [4.6.3] - 2026-10-23
 
 Security and honesty release. **4.6.2 on PyPI did not contain these

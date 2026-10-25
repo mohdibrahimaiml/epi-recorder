@@ -451,13 +451,17 @@ def test_auto_scitt_embed_receipt(tmp_path, monkeypatch):
     a = AutoSCITTAnchor(service_url="https://x", timeout=1)
     a._enabled = True
     info = SimpleNamespace(entry_id="e1", registered_at="now", service_url="https://x")
-    try:
-        a._embed_receipt(epi, signed, b"STMT", b"RCPT", info, pk, "default")
-        with zipfile.ZipFile(epi) as zf:
-            names = zf.namelist()
-            assert any("scitt" in n for n in names) or "manifest.json" in names
-    except Exception:
-        pass
+    # No swallow: a default manifest has governance=None and this path used to
+    # raise TypeError here, invisible behind try/except: pass.
+    a._embed_receipt(epi, signed, b"STMT", b"RCPT", info, pk, "default")
+    with zipfile.ZipFile(epi) as zf:
+        names = set(zf.namelist())
+        assert "artifacts/scitt/statement.cbor" in names
+        assert "artifacts/scitt/receipt.cbor" in names
+        assert zf.read("artifacts/scitt/statement.cbor") == b"STMT"
+        assert zf.read("artifacts/scitt/receipt.cbor") == b"RCPT"
+        embedded = ManifestModel.model_validate_json(zf.read("manifest.json"))
+    assert embedded.governance["scitt"]["entry_id"] == "e1"
 
 
 # ---------------------------------------------------------------------------

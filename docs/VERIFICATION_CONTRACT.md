@@ -253,17 +253,23 @@ manifest hash, which cannot be recomputed after sealing); the verifier
 recomputes it from the final manifest. Tokens sealed before 4.6 carry no
 `imprint_scheme` and report `legacy` (presence only, never a failure).
 
-**What the seal timestamp does not bind:** in the normal `record()` flow the
-file is first packed unsigned and signed on the second pack, so at stamping
-time `imprinted_public_key` is `None` and the imprint's `public_key` field is
-null. A `valid` seal timestamp therefore proves "these contents existed no
-later than T" — not "this signing key sealed them by time T". The signing key
-is covered only when `imprinted_public_key` is non-null (an explicit key was
-passed at stamp time); the statement line deliberately claims contents-only
-existence in the default flow.
+**Key binding:** `record()` takes the timestamp on its signed repack, after the
+signing key exists, so the imprint's `public_key` field is the sealing key.
+`notarization.json` records that key as `imprinted_public_key`; a `valid` seal
+token then reads `sealed by key <fingerprint> no later than <gen_time>` and
+`timestamps.key_binding` is `"key-bound"`.
+
+Seals made before that change carry `imprinted_public_key: null`. Their token
+still proves "these contents existed no later than T" and reports
+`key_binding: "contents-only"`; they are not upgraded and never FAIL for it.
+
+The recorded key is also checked against the file. If `imprinted_public_key`
+differs from the manifest's `public_key` (or the file carries none), the seal
+entry is `imprint_mismatch` — a key swapped after sealing cannot inherit the
+timestamp, even when the swapped signature verifies.
 
 **Seal statuses** (`timestamps.seal[]`, each `{url, status, gen_time,
-tsa_subject, tsa_root, imprint_scheme}`):
+tsa_subject, tsa_root, imprint_scheme, key_bound, imprinted_key_fingerprint}`):
 
 | Status | Meaning | Decision effect |
 |--------|---------|-----------------|
@@ -281,7 +287,11 @@ attests to. `imprint_mismatch` / `bad_signature` / `cert_invalid` prints
 
 **`earliest_verified`** is the oldest `gen_time` across valid seal and
 checkpoint tokens. **`statement`** is one sentence exactly as strong as what
-was checked (never "created at"). If `manifest.created_at` is more than 10
+was checked (never "created at"): `sealed by key <fingerprint> no later than T`
+when the imprint binds the signing key, `contents existed no later than T
+(contents-only timestamp; signing key not bound)` for pre-change seals.
+**`key_binding`** is `key-bound`, `contents-only` (valid token, no key
+imprint) or `none`. If `manifest.created_at` is more than 10
 minutes *after* `earliest_verified`, a clock warning is added (a creation
 time later than the TSA's time is impossible for honest data).
 
