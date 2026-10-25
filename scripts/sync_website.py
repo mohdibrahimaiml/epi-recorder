@@ -10,7 +10,18 @@ Portal-only paths under verify_portal/static that are NOT overwritten if missing
 from website: auth/, admin/ (and any other extra server-only assets).
 
 Usage:
-  python scripts/sync_website.py
+  python scripts/sync_website.py            # copy website/ into every target
+  python scripts/sync_website.py --prune    # copy, then delete drift
+  python scripts/sync_website.py --prune --dry-run   # report drift only
+
+`site/` and `epi-official/` are generated mirrors. `--prune` makes
+`epi-official/` byte-identical to `website/`; that target is the only one that
+is a *pure* mirror. `site/` is not pruned because `scripts/cf-pages-build.mjs`
+adds `_routes.json` to it, and `verify_portal/static/` is not pruned because it
+carries portal-only server assets (auth/, admin/, .well-known/did.json, favicons)
+that legitimately do not exist in `website/`. Without `--prune` the script only
+ever adds and overwrites — which is how `epi-official/` silently kept 31
+pre-Zenjin files.
 """
 
 from __future__ import annotations
@@ -35,6 +46,11 @@ PRESERVE_UNDER_STATIC = {
     "admin",
     "render.yaml",  # if present
 }
+
+# Only this target is a pure mirror of website/, so only this target may be
+# pruned. site/ gains _routes.json from scripts/cf-pages-build.mjs, and
+# verify_portal/static/ holds server-only assets (see module docstring).
+PRUNE_TARGETS = {ROOT / "epi-official"}
 
 
 # Only README.md may ship as Markdown in the public outputs. Internal *.md
@@ -116,7 +132,54 @@ def _purge_excluded_public_files() -> None:
             print(f"Removed {stale.relative_to(ROOT)} (internal file, not for public output)")
 
 
-def sync() -> None:
+def _mirror_files(src: Path) -> set[str]:
+    """Relative POSIX paths that a mirror must contain (same filter as _copy_tree)."""
+    out: set[str] = set()
+    for path in src.rglob("*"):
+        if path.is_dir():
+            continue
+        if path.name.startswith(".") and path.name != ".nojekyll":
+            continue
+        if _is_excluded_public_md(path):
+            continue
+        out.add(path.relative_to(src).as_posix())
+    return out
+
+
+def _prune_mirror(src: Path, dest: Path, *, dry_run: bool = False) -> int:
+    """Delete files under `dest` that have no counterpart in `src`.
+
+    Mirrors are generated, so any extra file is drift.
+    """
+    if not dest.is_dir():
+        return 0
+    wanted = _mirror_files(src)
+    removed = 0
+    for path in sorted(dest.rglob("*")):
+        if path.is_dir():
+            continue
+        rel = path.relative_to(dest).as_posix()
+        if rel in wanted:
+            continue
+        if dry_run:
+            print(f"  would remove {dest.name}/{rel}")
+        else:
+            path.unlink()
+            print(f"  removed {dest.name}/{rel}")
+        removed += 1
+
+    if not dry_run:
+        # Drop directories left empty by the prune (deepest first).
+        for path in sorted(dest.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+            if path.is_dir():
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+    return removed
+
+
+def sync(prune: bool = False, dry_run: bool = False) -> None:
     if not SOURCE.is_dir():
         raise SystemExit(f"Canonical website/ not found at {SOURCE}")
 
@@ -129,6 +192,15 @@ def sync() -> None:
 
     _purge_stale_pricing_dirs()
     _purge_excluded_public_files()
+
+    if prune:
+        pruned = 0
+        for dest in TARGETS:
+            if dest not in PRUNE_TARGETS:
+                continue
+            pruned += _prune_mirror(SOURCE, dest, dry_run=dry_run)
+        verb = "would prune" if dry_run else "pruned"
+        print(f"Drift {verb}: {pruned} file(s)")
 
     # Sync .well-known canonical to root and assets mirrors (drift fixed P3)
     for mirror in [ROOT / ".well-known", ROOT / "assets" / "well-known"]:
@@ -150,5 +222,11 @@ def sync() -> None:
 
 
 if __name__ == "__main__":
-    sync()
+    args = sys.argv[1:]
+    unknown = [a for a in args if a not in {"--prune", "--dry-run"}]
+    if unknown:
+        print(f"Unknown argument(s): {' '.join(unknown)}", file=sys.stderr)
+        print("Usage: python scripts/sync_website.py [--prune] [--dry-run]", file=sys.stderr)
+        sys.exit(2)
+    sync(prune="--prune" in args, dry_run="--dry-run" in args)
     sys.exit(0)
