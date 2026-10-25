@@ -938,8 +938,9 @@ class EPIContainer:
         embed_agt: bool = False,
         output_path: Path | str | None = None,
         notarize: bool | None = None,
+        embed_viewer: bool = True,
         **kwargs,
-    ) -> str:
+    ) -> str | None:
         if not source_dir.exists():
             raise FileNotFoundError(f"Source directory not found: {source_dir}")
 
@@ -1431,9 +1432,11 @@ class EPIContainer:
 
         # Prefer the real filename for the Verify command; fall back to workflow_name for legacy callers
         _output_for_viewer = output_path if output_path is not None else kwargs.get("output_path")
-        viewer_html = EPIContainer._create_embedded_viewer(
-            source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header, output_path=_output_for_viewer
-        )
+        viewer_html: str | None = None
+        if embed_viewer:
+            viewer_html = EPIContainer._create_embedded_viewer(
+                source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header, output_path=_output_for_viewer
+            )
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
@@ -1443,12 +1446,14 @@ class EPIContainer:
                     continue
                 zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
 
-            viewer_html_bytes = viewer_html.encode("utf-8")
-            zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
+            if viewer_html is not None:
+                viewer_html_bytes = viewer_html.encode("utf-8")
+                zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-            # Include viewer.html in the cryptographic file_manifest so that a
-            # visual-deception attack (swapping the UI layer) is detectable.
-            manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+                # Include viewer.html in the cryptographic file_manifest so that a
+                # visual-deception attack (swapping the UI layer) is detectable.
+                manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+
             # Recompute payload_hash now that file_manifest is final (was stale after viewer/VERIFY/notarization)
             _manifest_canon_final = json.dumps(
                 dict(sorted(manifest.file_manifest.items())), ensure_ascii=False, separators=(",", ":")
@@ -1459,7 +1464,7 @@ class EPIContainer:
 
             zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-            # Re-sign one final time because viewer.html hash was just added.
+            # Re-sign one final time because the viewer hash / payload_hash changed.
             if signer_function:
                 manifest = signer_function(manifest)
 
@@ -1662,6 +1667,7 @@ class EPIContainer:
         generate_analysis: bool = True,
         embed_agt: bool = False,
         notarize: bool | None = None,
+        embed_viewer: bool = True,
         **kwargs,
     ) -> None:
         """
@@ -1670,6 +1676,10 @@ class EPIContainer:
         ``notarize=None`` follows EPI_NOTARIZE; ``notarize=False`` seals
         without a timestamp (used when an unsigned pack will be replaced by a
         signed repack that takes the timestamp with the signing key).
+
+        Set ``embed_viewer=False`` to seal a small, data-only artifact (no
+        embedded ``viewer.html`` and no outer polyglot HTML). Data-only files
+        still open in the local viewer via ``epi view`` and verify identically.
         """
         with _zip_pack_lock:
             # New seals assert full step payloads. Viewer previews may still truncate.
@@ -1702,6 +1712,7 @@ class EPIContainer:
                     embed_agt=embed_agt,
                     output_path=output_path,
                     notarize=notarize,
+                    embed_viewer=embed_viewer,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
@@ -1798,6 +1809,7 @@ class EPIContainer:
         output_path: Path | None = None,
         signer_function: Callable[[ManifestModel], ManifestModel] | None = None,
         clear_signature: bool = False,
+        with_viewer: bool | None = None,
     ) -> Path:
         source_path = Path(epi_path)
         if not source_path.exists():
@@ -1822,10 +1834,12 @@ class EPIContainer:
         temp_output = temp_dir / "refreshed.epi"
 
         try:
+            payload_members: set[str] = set()
             with EPIContainer._payload_zip_path(source_path) as payload_zip:
                 with zipfile.ZipFile(payload_zip, "r") as zf:
                     resolved_unpack = unpack_dir.resolve()
                     for member in zf.infolist():
+                        payload_members.add(member.filename)
                         member_path = (unpack_dir / member.filename).resolve()
                         try:
                             member_path.relative_to(resolved_unpack)
@@ -1835,6 +1849,22 @@ class EPIContainer:
                             )
                         zf.extract(member, unpack_dir)
 
+            has_viewer = "viewer.html" in payload_members
+            if not has_viewer and not with_viewer:
+                raise ValueError(
+                    "This .epi is data-only (no embedded viewer.html). Pass "
+                    "--with-viewer to add a self-opening viewer, or re-seal the "
+                    "run with --with-viewer to produce one."
+                )
+
+            # Adding a viewer to a data-only artifact yields the self-opening
+            # envelope-v2 shell; viewer-bearing artifacts keep their format.
+            target_format = (
+                EPI_CONTAINER_FORMAT_ENVELOPE
+                if (with_viewer and not has_viewer)
+                else container_format
+            )
+
             viewer_html = EPIContainer._rebuild_payload_with_viewer(
                 unpack_dir, manifest, temp_payload, signer_function=signer_function,
                 output_path=destination,
@@ -1843,7 +1873,7 @@ class EPIContainer:
             EPIContainer._write_artifact_from_payload(
                 temp_payload,
                 temp_output,
-                container_format=container_format,
+                container_format=target_format,
                 manifest=manifest,
                 viewer_html=viewer_html,
             )

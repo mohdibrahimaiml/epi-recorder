@@ -240,6 +240,12 @@ field as the recorder's claim about re-executability, not a proof of it.
 manifest, `viewer.html` inside the archive) is sealed via `payload_sha256` and
 `file_manifest` + Ed25519.
 
+**Default is data-only.** `record()`, `epi demo`, `epi run` and `epi record`
+seal a plain `legacy-zip` with **no** `viewer.html` member and no outer HTML, so
+there is no display layer to forge; `epi view` regenerates the viewer locally.
+Everything below applies to artifacts sealed with `--with-viewer`, or to
+legacy/migrated envelope-v2 files that still embed a viewer.
+
 **New artifacts** bind the outer viewer to the **signed**
 `file_manifest["viewer.html"]` hash. Mutating CSS/JS/labels in the outer HTML
 region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`). The

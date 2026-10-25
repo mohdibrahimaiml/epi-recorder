@@ -23,7 +23,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
 from epi_core.schemas import ManifestModel
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
 from epi_cli.keys import KeyManager
@@ -51,6 +55,12 @@ def record(
     no_sign: bool = typer.Option(False, "--no-sign", help="Do not sign the manifest"),
     no_redact: bool = typer.Option(False, "--no-redact", help="Disable secret redaction"),
     include_all_env: bool = typer.Option(False, "--include-all-env", help="Capture all env vars (redacted)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
     command: List[str] = typer.Argument(..., help="Command to execute after --"),
 ):
     """
@@ -138,7 +148,16 @@ def record(
         except Exception as e:
             console.print(f"[yellow][WARN]  Signing setup failed:[/yellow] {e}")
 
-    EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
+    EPIContainer.pack(
+        temp_workspace,
+        manifest,
+        out,
+        signer_function=signer,
+        container_format=(
+            EPI_CONTAINER_FORMAT_ENVELOPE if with_viewer else EPI_CONTAINER_FORMAT_LEGACY
+        ),
+        embed_viewer=with_viewer,
+    )
 
     # Final output panel
     size_mb = out.stat().st_size / (1024 * 1024)

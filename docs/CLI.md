@@ -12,6 +12,8 @@
 
 Start with `epi demo` if you want to capture one AI run from Python, open it in the browser, and verify the resulting `.epi` artifact in minutes. The first browser screen is case-first: it leads with decision, review state, trust, and the evidence trail instead of a setup dashboard.
 
+`epi demo`, `epi run`, `epi record` and the SDK's `record()` seal a **data-only** `.epi` by default: a small plain ZIP (no embedded HTML viewer). Add `--with-viewer` (or `record(..., with_viewer=True)`) to embed the self-opening HTML viewer instead. Both forms verify identically with `epi verify`, and `epi view` opens either one.
+
 To share a sealed run with a customer reviewer (EPI Cloud, private beta):
 
 ```bash
@@ -56,15 +58,15 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 
 | Command | Purpose |
 | --- | --- |
-| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. When logged into EPI Cloud, also pushes and reports witness status honestly. |
+| `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. Seals data-only by default; `--with-viewer` embeds the self-opening HTML viewer. When logged into EPI Cloud, also pushes and reports witness status honestly. |
 | `epi cloud login` | Connect this computer to EPI Cloud (device code at `/auth/device`). Alias: `epi auth login`. |
 | `epi cloud push` / `status` / `use` | Upload a selected `.epi` to the Evidence Room; show workspace status; switch saved customer. |
 | `epi cloud keys push\|list\|revoke\|unrevoke` | Register **public** keys only (`*.pub`). Informational registry — not a pin. |
 | `epi cloud storage show\|set\|test\|flush` | Register customer-owned bucket metadata; credentials never leave this machine. |
 | `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). |
 | `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
-| `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). |
-| `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. |
+| `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). Data-only by default; `--with-viewer` embeds the HTML viewer. |
+| `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. Data-only by default; `--with-viewer` embeds the HTML viewer. |
 | `epi view <file.epi>` | Open a case file in the browser review view. |
 | `epi verify <file.epi>` | Verify case file integrity, signature, identity pin and policy. Auditors: `--policy strict --witness-log received.jsonl`. |
 | `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
