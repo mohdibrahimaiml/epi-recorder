@@ -526,7 +526,7 @@ def test_wrappers_base_and_openai():
     # package exports
     import epi_recorder.wrappers as w
 
-    assert hasattr(w, "wrap_openai") or True
+    assert hasattr(w, "wrap_openai")
 
 
 # ---------------------------------------------------------------------------
