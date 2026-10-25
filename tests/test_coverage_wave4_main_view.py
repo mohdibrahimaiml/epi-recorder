@@ -264,12 +264,8 @@ def test_view_build_context_and_tsr(tmp_path):
     from epi_cli import view as v
 
     epi = _sample_epi()
-    try:
-        ctx = v._build_viewer_context(epi)
-        assert isinstance(ctx, dict)
-    except Exception:
-        # unsigned/minimal may still return
-        pass
+    ctx = v._build_viewer_context(epi)
+    assert isinstance(ctx, dict)
 
     # TSR missing
     assert v._extract_tsr_gen_time(tmp_path / "no.tsr") is None
@@ -343,13 +339,8 @@ def test_view_preloaded_payload_helpers(tmp_path):
     (d / "manifest.json").write_text("{}", encoding="utf-8")
     (d / "steps.jsonl").write_text('{"index":0,"kind":"test","content":{}}\n', encoding="utf-8")
     epi = _make_mini_epi(tmp_path)
-    try:
-        payload = v._build_preloaded_case_payload(d, epi)
-        assert isinstance(payload, dict)
-    except Exception:
-        pass
-    try:
-        path = v._create_decision_ops_viewer(d, epi)
-        assert path is None or isinstance(path, str) or True
-    except Exception:
-        pass
+    payload = v._build_preloaded_case_payload(d, epi)
+    assert isinstance(payload, dict)
+    html = v._create_decision_ops_viewer(d, epi)
+    assert isinstance(html, str)
+    assert html

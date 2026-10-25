@@ -101,28 +101,13 @@ def test_audit_helpers(tmp_path):
     assert isinstance(steps, list)
     assert au._score_to_rating(0.95) in ("A", "B", "C", "D", "F") or isinstance(au._score_to_rating(0.95), str)
     assert au._score_to_rating(0.1)
-    report = {
-        "overall_score": 0.9,
-        "rating": "A",
-        "checks": [{"name": "integrity", "passed": True, "detail": "ok"}],
-        "summary": "good",
-        "file": str(epi),
-    }
-    try:
-        rich = au._render_rich(report)
-        assert isinstance(rich, str)
-    except Exception:
-        # report shape may differ
-        report2 = {"score": 9, "max_score": 10, "ratio": 0.9, "rating": "A", "sections": []}
-        try:
-            au._render_rich(report2)
-        except Exception:
-            pass
-    try:
-        md = au._render_markdown(report)
-        assert isinstance(md, str)
-    except Exception:
-        pass
+    report = au.audit_artifact(epi)
+    assert isinstance(report, dict)
+    assert "compliance_score" in report
+    rich = au._render_rich(report)
+    assert isinstance(rich, str)
+    md = au._render_markdown(report)
+    assert isinstance(md, str)
     # audit_command CLI if possible
     res = runner.invoke(au.app if hasattr(au, "app") else __import__("epi_cli.main", fromlist=["app"]).app, ["audit", "--help"] if not hasattr(au, "app") else ["--help"])
     # soft
@@ -132,11 +117,8 @@ def test_audit_artifact_function(tmp_path):
     from epi_cli import audit as au
     epi = _sample()
     if hasattr(au, "audit_artifact"):
-        try:
-            rep = au.audit_artifact(epi)
-            assert rep is not None
-        except Exception:
-            pass
+        rep = au.audit_artifact(epi)
+        assert rep is not None
     if hasattr(au, "audit_command"):
         try:
             au.audit_command(str(epi), json_output=True)
@@ -166,11 +148,8 @@ def test_langchain_callback_construct():
         from epi_recorder.integrations.langchain import EPICallbackHandler
     except Exception:
         pytest.skip("langchain not available")
-    try:
-        h = EPICallbackHandler()
-        assert h is not None
-    except Exception:
-        pass
+    h = EPICallbackHandler()
+    assert h is not None
 
 def test_connectors_clean_paths():
     from epi_core import connectors as c
