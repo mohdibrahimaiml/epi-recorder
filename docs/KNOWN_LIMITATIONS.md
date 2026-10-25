@@ -97,19 +97,21 @@ instead of printing a clean PASS.
 
 ---
 
-## Seal timestamp does not bind the signing key in the default record() flow
+## Seal timestamp does not bind the signing key in pre-change seals
 
 **What you see:** `epi verify` reports a `valid` seal timestamp with
-`existed no later than T`.
-**What is true:** in the normal `record()` flow the file is first packed
-unsigned and signed on the second pack, so at stamping time
-`imprinted_public_key` is `None`. The timestamp proves "these contents existed
-no later than T", not "this signing key sealed them by time T". The signing key
-is covered only when `imprinted_public_key` is non-null. See
-`docs/VERIFICATION_CONTRACT.md` (timestamps section) and `epi_core/notarize.py`.
-**Whether yours is affected:** any seal made through the default `record()`
-path. Check `artifacts/notarization/notarization.json`: `imprinted_public_key`
-null means contents-only time attestation.
+`contents existed no later than T` and `key_binding: "contents-only"`.
+**What is true:** seals made before the fix stamped the file on its unsigned
+first pack, so at stamping time `imprinted_public_key` is `None`. The timestamp
+proves "these contents existed no later than T", not "this signing key sealed
+them by time T". New seals stamp the signed repack, so `imprinted_public_key`
+is the sealing key and verify reports `key_binding: "key-bound"` with the key
+fingerprint. See `docs/VERIFICATION_CONTRACT.md` (timestamps section) and
+`epi_core/notarize.py`.
+**Whether yours is affected:** check
+`artifacts/notarization/notarization.json`: `imprinted_public_key` null means
+contents-only. Old files are not upgraded and keep verifying exactly as before
+(no FAIL for this); re-seal to obtain a key-bound timestamp.
 
 ## Sealed `controls_failed` may understate failures (4.4.1–4.4.6; fixed forward in 4.4.7)
 

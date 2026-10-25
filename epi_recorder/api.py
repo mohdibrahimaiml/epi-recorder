@@ -1017,11 +1017,15 @@ class EpiRecorderSession:
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 
-            # Pack into .epi file
+            # Pack into .epi file. When we are about to sign, defer the
+            # timestamp: stamping the unsigned first pack would imprint no key
+            # (public_key is None). _sign_epi_file() repacks and takes the
+            # timestamp there, once the signing key exists.
             EPIContainer.pack(
                 source_dir=self.temp_dir,
                 manifest=manifest,
-                output_path=self.output_path
+                output_path=self.output_path,
+                notarize=False if self.auto_sign else None,
             )
 
             # Sign if requested — fail closed so callers never mistake an
@@ -1144,13 +1148,17 @@ class EpiRecorderSession:
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 
-            # Pack into .epi file (run in executor to avoid blocking)
+            # Pack into .epi file (run in executor to avoid blocking).
+            # Timestamp is deferred to the signed repack (see __exit__).
             await loop.run_in_executor(
                 None,
-                EPIContainer.pack,
-                self.temp_dir,
-                manifest,
-                self.output_path
+                functools.partial(
+                    EPIContainer.pack,
+                    self.temp_dir,
+                    manifest,
+                    self.output_path,
+                    notarize=False if self.auto_sign else None,
+                ),
             )
 
             # Sign if requested (run in executor) — fail closed, same as sync.
@@ -1883,12 +1891,12 @@ class EpiRecorderSession:
 
                 # Re-pack from the extracted workspace so file manifests, viewer content,
                 # and the outer envelope stay coherent after signing.
-                # Suppress notarization: first pack already notarized.
-                # Re-timestamping tsa_reply.tsr after hashing causes mismatch.
-                # Suppress checkpoints too: a repacked/resealed artifact must not
+                # Notarization runs in this pack, after signer_function has set
+                # public_key, so the RFC 3161 imprint binds the signing key.
+                # record() skips the timestamp on its unsigned first pack for
+                # exactly this reason (see __exit__).
+                # Suppress checkpoints: a repacked/resealed artifact must not
                 # silently generate new checkpoints that paper over missing ones.
-                old_notarize = os.environ.get("EPI_NOTARIZE")
-                os.environ["EPI_NOTARIZE"] = "0"
                 old_checkpoints = os.environ.get("EPI_CHECKPOINTS_ENABLED")
                 os.environ["EPI_CHECKPOINTS_ENABLED"] = "0"
                 try:
@@ -1905,10 +1913,6 @@ class EpiRecorderSession:
                         generate_analysis=False,
                     )
                 finally:
-                    if old_notarize is None:
-                        os.environ.pop("EPI_NOTARIZE", None)
-                    else:
-                        os.environ["EPI_NOTARIZE"] = old_notarize
                     if old_checkpoints is None:
                         os.environ.pop("EPI_CHECKPOINTS_ENABLED", None)
                     else:

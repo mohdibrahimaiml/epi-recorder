@@ -99,6 +99,7 @@ def _build_timestamps_block(
         "seal": [],
         "checkpoints": [],
         "earliest_verified": None,
+        "key_binding": "none",
         "statement": "no timestamps collected",
         "clock_warning": None,
     }
@@ -120,6 +121,16 @@ def _build_timestamps_block(
                 }
             ]
         new_scheme = scheme == IMPRINT_SCHEME and notar.get("imprinted_digest")
+        from epi_core.keys import key_fingerprint
+
+        imprinted_key = notar.get("imprinted_public_key")
+        manifest_key = getattr(manifest, "public_key", None)
+        imprinted_key_fp = (
+            key_fingerprint(str(imprinted_key), grouped=False) if imprinted_key else None
+        )
+        # "Key-bound" means the timestamp was taken over an imprint that named
+        # a sealing key. Old seals (imprinted_public_key null) are contents-only.
+        key_bound = bool(imprinted_key)
         expected: bytes | None = None
         recomputed: str | None = None
         if new_scheme:
@@ -152,6 +163,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": None,
+                        "key_bound": False,
+                        "imprinted_key_fingerprint": None,
                         "detail": (
                             "legacy token: imprint not recomputable "
                             "(sealed before 4.6); presence only"
@@ -168,6 +181,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": "seal imprint cannot be recomputed from this manifest",
                     }
                 )
@@ -185,6 +200,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": "notarization record lists a token that is not in the file",
                     }
                 )
@@ -200,13 +217,41 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": f"timestamp validation crashed ({exc})",
                     }
                 )
                 continue
             status = validation.status
             detail = validation.detail
-            if recomputed != notar.get("imprinted_digest") and status == "valid":
+            entry_key_bound = key_bound
+            # The imprint was recomputed with the key RECORDED at seal time,
+            # so a swapped signing key would still reproduce it. Bind the
+            # timestamp to the key this file actually carries.
+            key_changed = False
+            if imprinted_key:
+                if not manifest_key:
+                    key_changed = True
+                    detail = (
+                        "the timestamp binds signing key "
+                        f"{imprinted_key_fp} but this file carries no signing key"
+                    )
+                elif (
+                    str(imprinted_key).strip().lower()
+                    != str(manifest_key).strip().lower()
+                ):
+                    key_changed = True
+                    detail = (
+                        "signing key changed after the timestamp was taken: "
+                        f"the timestamp binds key {imprinted_key_fp}, the file "
+                        "is signed by key "
+                        f"{key_fingerprint(str(manifest_key), grouped=False)}"
+                    )
+            if key_changed and status not in ("absent", "malformed"):
+                status = "imprint_mismatch"
+                entry_key_bound = False
+            elif recomputed != notar.get("imprinted_digest") and status == "valid":
                 # Payload drifted after stamping and was re-signed with the
                 # key: the old token no longer covers these bytes.
                 status = "imprint_mismatch"
@@ -222,6 +267,8 @@ def _build_timestamps_block(
                     "tsa_subject": validation.tsa_subject,
                     "tsa_root": validation.tsa_root,
                     "imprint_scheme": IMPRINT_SCHEME,
+                    "key_bound": entry_key_bound,
+                    "imprinted_key_fingerprint": imprinted_key_fp,
                     "detail": detail,
                 }
             )
@@ -255,6 +302,10 @@ def _build_timestamps_block(
         (c for c in block["checkpoints"] if c["status"] == "valid"),
         key=lambda c: (c["index"], c["event_count"]),
     )
+    keyed_seal = [e for e in valid_seal if e.get("key_bound")]
+    block["key_binding"] = (
+        "key-bound" if keyed_seal else ("contents-only" if valid_seal else "none")
+    )
     earliest: str | None = None
     for entry in valid_seal + valid_cp:
         gen = entry.get("gen_time")
@@ -273,9 +324,18 @@ def _build_timestamps_block(
     if valid_seal:
         seal_times = [e["gen_time"] for e in valid_seal if e.get("gen_time")]
         if seal_times:
-            clauses.append(
-                f"the sealed manifest existed no later than {min(seal_times)}"
-            )
+            earliest_seal = min(seal_times)
+            if keyed_seal:
+                clauses.append(
+                    "sealed by key "
+                    f"{keyed_seal[0].get('imprinted_key_fingerprint')} "
+                    f"no later than {earliest_seal}"
+                )
+            else:
+                clauses.append(
+                    f"the sealed contents existed no later than {earliest_seal} "
+                    "(contents-only timestamp; signing key not bound)"
+                )
     if any(e["status"] == "legacy" for e in block["seal"]):
         clauses.append("legacy seal token present (imprint not recomputable); presence only")
     if any(e["status"] in _TIMESTAMP_TAMPER_STATUSES for e in block["seal"]):
@@ -2613,9 +2673,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 {str(e.get("tsa_root") or e.get("url") or "?") for e in _ts_valid}
             )
             _ts_where = "; ".join(f'chain to pinned root "{r}"' for r in _ts_roots)
+            _ts_keyed = [e for e in _ts_valid if e.get("key_bound")]
+            if _ts_keyed:
+                _raw_fp = str(_ts_keyed[0].get("imprinted_key_fingerprint") or "?")
+                _ts_fp = " ".join(
+                    _raw_fp[i : i + 4] for i in range(0, len(_raw_fp), 4)
+                )
+                _ts_what = f"sealed by key {_ts_fp} no later than {_ts_earliest}"
+            else:
+                _ts_what = (
+                    f"contents existed no later than {_ts_earliest} "
+                    "(CONTENTS-ONLY — signing key not bound)"
+                )
             content_lines.append(
-                f"  [green]- Timestamp:    VERIFIED — existed no later than "
-                f"{_ts_earliest} ({_ts_where})[/green]"
+                f"  [green]- Timestamp:    VERIFIED — {_ts_what} ({_ts_where})[/green]"
             )
         elif _ts_legacy:
             content_lines.append(

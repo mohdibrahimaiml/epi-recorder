@@ -937,6 +937,7 @@ class EPIContainer:
         generate_analysis: bool = True,
         embed_agt: bool = False,
         output_path: Path | str | None = None,
+        notarize: bool | None = None,
         **kwargs,
     ) -> str:
         if not source_dir.exists():
@@ -1283,9 +1284,14 @@ class EPIContainer:
             manifest = signer_function(manifest)
 
         # ── Notarization (Tier 1: RFC 3161, Tier 2: OpenTimestamps/Bitcoin) ──
-        notarize_enabled = os.environ.get("EPI_NOTARIZE", "1").strip().lower() not in (
-            "0", "false", "no", "off",
-        )
+        # ``notarize`` lets the caller defer stamping to a later pack: record()
+        # skips it on the unsigned first pack so the timestamp is taken once
+        # the signing key exists (see epi_recorder/api.py).
+        if notarize is None:
+            notarize = os.environ.get("EPI_NOTARIZE", "1").strip().lower() not in (
+                "0", "false", "no", "off",
+            )
+        notarize_enabled = notarize
         notarization_result = None
         if notarize_enabled:
             try:
@@ -1318,10 +1324,11 @@ class EPIContainer:
                     # holds exactly the payload files (notarization members,
                     # VERIFY.txt and viewer.html are added afterwards), which
                     # is precisely the set the verifier filters down to.
-                    # public_key is None on unsigned first packs (record()
-                    # signs on repack with EPI_NOTARIZE=0); the value used is
-                    # stored in notarization.json so the verifier recomputes
-                    # with the identical input.
+                    # The sealing key is imprinted when it exists: record()
+                    # defers notarization to the signed repack, so
+                    # public_key here is the key the verifier will compare
+                    # against. The value used is stored in notarization.json
+                    # so the verifier recomputes with the identical input.
                     _imprint = compute_seal_imprint(
                         str(manifest.workflow_id),
                         manifest.created_at.isoformat(),
@@ -1654,10 +1661,15 @@ class EPIContainer:
         container_format: str = EPI_CONTAINER_FORMAT_ENVELOPE,
         generate_analysis: bool = True,
         embed_agt: bool = False,
+        notarize: bool | None = None,
         **kwargs,
     ) -> None:
         """
         Create a `.epi` file from a source directory.
+
+        ``notarize=None`` follows EPI_NOTARIZE; ``notarize=False`` seals
+        without a timestamp (used when an unsigned pack will be replaced by a
+        signed repack that takes the timestamp with the signing key).
         """
         with _zip_pack_lock:
             # New seals assert full step payloads. Viewer previews may still truncate.
@@ -1689,6 +1701,7 @@ class EPIContainer:
                     generate_analysis=generate_analysis,
                     embed_agt=embed_agt,
                     output_path=output_path,
+                    notarize=notarize,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(

@@ -72,7 +72,7 @@ Say these out loud in a security review. They are product facts, not caveats hid
 - `epi-register` without `--service` embeds a **local, self-issued** SCITT receipt, not an independent ledger entry.
 - Browser viewer crypto checks integrity/signature in-page; RFC 3161 timestamp **validation** is done by `epi verify`, not by the viewer (the viewer says so).
 - EPI Cloud in 4.6.3 is **private beta**. Public plans page does not sell a hosted-verification subscription.
-- Default `record()` timestamps attest that **contents existed no later than T**. They do not bind the signing key unless `imprinted_public_key` is present ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
+- `record()` timestamps are taken on the signed repack, so they bind the signing key and attest that **the contents, sealed by that key, existed no later than T** (`imprinted_public_key` present). Pre-change seals (`imprinted_public_key` null) attest contents-only existence ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 ---
 
