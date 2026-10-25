@@ -2,35 +2,37 @@
  *
  * Usage: node verify_epi_node.mjs <file.epi>
  * Prints a JSON object: {structure, manifest, integrity, signature, trust_level,
- * mismatches, message}. Exit code 0 on success, non-zero on loader failure.
+ * mismatches, mismatch_detail, message}. Exit code 0 on success, non-zero on
+ * loader failure.
+ *
+ * The scripts run in the HOST realm (indirect eval), not a `vm` sandbox: JSZip
+ * hands its ArrayBuffers to `crypto.subtle.digest`, and a `vm` sandbox is a
+ * separate realm whose ArrayBuffer fails Node 20's WebCrypto brand check
+ * ("2nd argument is not instance of ArrayBuffer…") even though the bytes are
+ * identical. Node 24 happens to tolerate the cross-realm buffer; Node 20 does
+ * not. One realm avoids the problem entirely.
  */
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(here, "..", "..");
 const WEB = path.join(REPO, "website");
 
-const sandbox = {
-  console,
-  crypto: globalThis.crypto,
-  fetch: async () => {
-    throw new Error("no fetch in verifier test");
-  },
-  atob: (s) => Buffer.from(s, "base64").toString("binary"),
-  btoa: (s) => Buffer.from(s, "binary").toString("base64"),
-  setTimeout,
-  TextEncoder,
-  TextDecoder,
-};
-sandbox.window = sandbox;
-sandbox.globalThis = sandbox;
-vm.createContext(sandbox);
+globalThis.window = globalThis;
+globalThis.self = globalThis;
 
-vm.runInContext(fs.readFileSync(path.join(WEB, "js", "jszip.min.js"), "utf8"), sandbox);
-vm.runInContext(fs.readFileSync(path.join(WEB, "js", "epi-verify-core.js"), "utf8"), sandbox);
+for (const rel of ["js/jszip.min.js", "js/epi-verify-core.js"]) {
+  // eslint-disable-next-line no-eval
+  (0, eval)(fs.readFileSync(path.join(WEB, rel), "utf8"));
+}
+
+const verifyEPI = globalThis.verifyEPI;
+if (typeof verifyEPI !== "function") {
+  console.error("verifyEPI not exposed by epi-verify-core.js");
+  process.exit(3);
+}
 
 const target = process.argv[2];
 if (!target) {
@@ -45,7 +47,7 @@ const blob = {
   name: path.basename(target),
 };
 
-const r = await sandbox.window.verifyEPI(blob);
+const r = await verifyEPI(blob);
 console.log(
   JSON.stringify({
     structure: r.structure,
@@ -54,6 +56,7 @@ console.log(
     signature: r.signature,
     trust_level: r.trust_level,
     mismatches: (r.mismatches || []).length,
+    mismatch_detail: (r.mismatches || []).slice(0, 10),
     message: r.message,
   })
 );
