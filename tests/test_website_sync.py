@@ -126,3 +126,74 @@ def test_sync_website_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     site = (ROOT / "site" / "account.html").read_bytes()
     assert web == static
     assert web == site
+
+
+# --- epi-official mirror contract -------------------------------------------
+# epi-official/ is a *pure* generated mirror of website/ (docs/WEBSITE.md).
+# It drifted twice: sync only ever copied (never pruned), and a case-insensitive
+# ".gitignore" rule "EPI-OFFICIAL/" matched the tracked "epi-official/" dir and
+# silently ignored every newly synced file. These tests pin both behaviours.
+
+MIRROR_SKIP_MD = {"README.md"}
+
+
+def _mirror_file_set(root: Path) -> set[str]:
+    """Paths the mirror must contain — same filter as scripts/sync_website.py."""
+    out: set[str] = set()
+    for path in root.rglob("*"):
+        if path.is_dir():
+            continue
+        if path.name.startswith(".") and path.name != ".nojekyll":
+            continue
+        if path.suffix.lower() == ".md" and path.name not in MIRROR_SKIP_MD:
+            continue
+        out.add(path.relative_to(root).as_posix())
+    return out
+
+
+def test_epi_official_is_an_exact_mirror_of_website():
+    website = ROOT / "website"
+    mirror = ROOT / "epi-official"
+    assert mirror.is_dir(), "epi-official/ mirror missing"
+
+    wanted = _mirror_file_set(website)
+    present = _mirror_file_set(mirror)
+
+    missing = sorted(wanted - present)
+    extra = sorted(present - wanted)
+    drifted = sorted(
+        rel for rel in (wanted & present) if (website / rel).read_bytes() != (mirror / rel).read_bytes()
+    )
+
+    assert not missing, f"epi-official/ missing synced files: {missing}"
+    assert not extra, (
+        "epi-official/ holds files that are not in website/ (legacy drift). "
+        f"Run: python scripts/sync_website.py --prune. Extra: {extra}"
+    )
+    assert not drifted, f"epi-official/ differs from website/: {drifted}"
+
+
+def test_gitignore_does_not_hide_new_epi_official_files():
+    """Guards the case-insensitive "EPI-OFFICIAL/" regression.
+
+    A synced file that is git-ignored never reaches the repository, so the
+    mirror silently falls out of sync even though it looks right on disk.
+    """
+    import subprocess
+
+    sample = "epi-official/__gitignore_probe__.html"
+    try:
+        probe = subprocess.run(
+            ["git", "check-ignore", "-q", "--no-index", sample],
+            cwd=ROOT,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        pytest.skip("git not available")
+    if probe.returncode not in (0, 1):
+        pytest.skip("git check-ignore unavailable")
+    assert probe.returncode == 1, (
+        f"{sample} is git-ignored, so newly synced mirror files never get "
+        "committed. Remove the case-colliding rule from .gitignore."
+    )
+

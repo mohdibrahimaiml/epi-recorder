@@ -162,7 +162,10 @@ spec/
 
 # Local companion sites/workspaces (not part of epi-recorder package)
 epi-official-site/
-EPI-OFFICIAL/
+# NOTE: do NOT re-add "EPI-OFFICIAL/" here. Git is case-insensitive on the
+# default Windows/macOS checkouts, so that rule also matched the tracked
+# generated mirror "epi-official/" and silently ignored every newly synced
+# file in it (404.html, css/zenjin-epi.css, js/zenjin-epi.js, assets/*).
 AI-Trader-Workspace/
 _viewer_launch_tmp/
 .epi-shared-workspace/
@@ -189,6 +192,8 @@ v2.8.5.ipynb
 !website/**/*.html
 !site/*.html
 !site/**/*.html
+!epi-official/*.html
+!epi-official/**/*.html
 !epi_viewer_static/*.html
 !web_viewer/*.html
 !verify_portal/static/*.html
