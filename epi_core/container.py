@@ -1058,8 +1058,15 @@ class EPIContainer:
                                 rules=[r.id for r in policy.rules],
                                 violation_count=len(failed),
                             )
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            # Never silently leave policy=null while
+                            # policy_load_status == "loaded" — that is the exact
+                            # bug this block fixes. Fail the seal closed (the
+                            # outer handler re-raises PolicyLoadError).
+                            raise PolicyLoadError(
+                                "policy was loaded but its evaluation record could "
+                                f"not be built; refusing to seal ({exc})"
+                            ) from exc
 
                     if policy is not None:
                         (source_dir / "policy.json").write_text(

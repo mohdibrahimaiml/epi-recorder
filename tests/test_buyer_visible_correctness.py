@@ -126,3 +126,26 @@ def test_manifest_policy_is_null_when_no_policy(env: Path):
     manifest = EPIContainer.read_manifest(out)
     assert manifest.policy_load_status == "absent"
     assert manifest.policy is None
+
+
+def test_policy_record_failure_fails_the_seal(env: Path, monkeypatch: pytest.MonkeyPatch):
+    """If the manifest.policy record cannot be built, the seal must fail closed.
+
+    Regression guard: never silently emit ``policy: null`` while
+    ``policy_load_status == "loaded"`` — that is the exact bug this PR fixes.
+    """
+    import epi_core.schemas as schemas
+    from epi_core.policy import PolicyLoadError
+
+    class _ExplodingPolicyModel:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("forced PolicyModel failure")
+
+    monkeypatch.setattr(schemas, "PolicyModel", _ExplodingPolicyModel)
+
+    out = env / "must-fail.epi"
+    with pytest.raises(PolicyLoadError) as excinfo:
+        _seal(out, with_policy=True)
+
+    assert "could not be built" in str(excinfo.value)
+    assert not out.exists(), "a failed policy record must not seal an artifact"
