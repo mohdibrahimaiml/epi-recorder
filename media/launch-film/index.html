@@ -1,0 +1,1426 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>EPI Labs — Don't argue with auditors. Hand them a file.</title>
+    <style>
+      @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 300;
+        src: url("assets/fonts/inter-300.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 400;
+        src: url("assets/fonts/inter-400.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 500;
+        src: url("assets/fonts/inter-500.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 600;
+        src: url("assets/fonts/inter-600.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        font-style: italic;
+        font-weight: 400;
+        src: url("assets/fonts/instrument-serif-italic.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-style: normal;
+        font-weight: 400;
+        src: url("assets/fonts/jbmono-400.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-style: normal;
+        font-weight: 500;
+        src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+        font-display: block;
+      }
+
+      :root {
+        --bg: #000000;
+        --stage: #070708;
+        --surface: #0a0b0e;
+        --fg: #fafafa;
+        --fg-2: #d4d4d8;
+        --body: #a1a1aa;
+        --muted: #8b8b96;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-2: rgba(255, 255, 255, 0.14);
+        --emerald: #10b981;
+        --amber: #f59e0b;
+        --violet: #8b5cf6;
+        --cyan: #06b6d4;
+        --rose: #f43f5e;
+        --indigo: #6366f1;
+        --sans: "Inter", system-ui, sans-serif;
+        --serif: "Instrument Serif", Georgia, serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      /* ---------- persistent architectural layers (untimed) ---------- */
+      .frame-grid {
+        position: absolute;
+        inset: 0;
+        background-image: repeating-linear-gradient(
+          90deg,
+          transparent 0 47px,
+          var(--line) 47px 48px
+        );
+        opacity: 0.55;
+        z-index: 0;
+      }
+
+      .frame-rule-top,
+      .frame-rule-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--line-2);
+        z-index: 1;
+      }
+      .frame-rule-top {
+        top: 68px;
+      }
+      .frame-rule-bottom {
+        bottom: 68px;
+      }
+
+      .vignette {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        background: radial-gradient(
+          ellipse 78% 68% at 50% 46%,
+          transparent 30%,
+          rgba(0, 0, 0, 0.55) 100%
+        );
+      }
+
+      .flash {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        background: var(--rose);
+        opacity: 0;
+      }
+
+      .fade-black {
+        position: absolute;
+        inset: 0;
+        z-index: 60;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* ---------- scene shell ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      .eyebrow {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-family: var(--mono);
+        font-size: 17px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .eyebrow .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .eyebrow .sep {
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 0;
+      }
+      .eyebrow .strong {
+        color: var(--fg-2);
+      }
+
+      .emerald {
+        background: var(--emerald);
+        box-shadow: 0 0 12px var(--emerald);
+      }
+      .amber {
+        background: var(--amber);
+        box-shadow: 0 0 12px var(--amber);
+      }
+      .violet {
+        background: var(--violet);
+        box-shadow: 0 0 12px var(--violet);
+      }
+      .cyan {
+        background: var(--cyan);
+        box-shadow: 0 0 12px var(--cyan);
+      }
+      .rose {
+        background: var(--rose);
+        box-shadow: 0 0 12px var(--rose);
+      }
+      .indigo {
+        background: var(--indigo);
+        box-shadow: 0 0 12px var(--indigo);
+      }
+
+      .timecode {
+        position: absolute;
+        font-family: var(--mono);
+        font-size: 18px;
+        letter-spacing: 0.16em;
+        color: var(--muted);
+      }
+
+      .big {
+        position: absolute;
+        font-size: 112px;
+        font-weight: 400;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+        color: var(--fg);
+      }
+      .big .line {
+        display: block;
+      }
+      .serif {
+        font-family: var(--serif);
+        font-style: italic;
+        letter-spacing: -0.012em;
+      }
+      .em {
+        color: var(--emerald);
+      }
+
+      .sub {
+        position: absolute;
+        font-family: var(--mono);
+        font-size: 20px;
+        line-height: 1.6;
+        color: var(--body);
+        letter-spacing: 0.01em;
+      }
+
+      .card {
+        position: absolute;
+        background: var(--stage);
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 52px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 16px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+
+      .dots {
+        display: flex;
+        gap: 7px;
+      }
+      .dots i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.18);
+        display: block;
+      }
+
+      /* ---------- scene 1 : the gap ---------- */
+      .log-row {
+        display: grid;
+        grid-template-columns: 120px 168px 1fr 88px;
+        align-items: baseline;
+        gap: 0;
+        padding: 15px 20px;
+        font-family: var(--mono);
+        font-size: 18px;
+        color: var(--fg-2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        white-space: nowrap;
+      }
+      .log-row .t {
+        color: #83838d;
+      }
+      .log-row .k {
+        color: var(--fg-2);
+      }
+      .log-row .v {
+        color: var(--body);
+      }
+      .log-row .d {
+        text-align: right;
+        color: #83838d;
+      }
+      .log-row.alert {
+        background: rgba(244, 63, 94, 0.09);
+        box-shadow: inset 2px 0 0 var(--rose);
+      }
+      .log-row.alert .k,
+      .log-row.alert .v,
+      .log-row.alert .t,
+      .log-row.alert .d {
+        color: #fda4af;
+      }
+
+      .log-row.missing {
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
+      }
+      .log-row.missing .t,
+      .log-row.missing .k,
+      .log-row.missing .v {
+        color: #6f6f7a;
+      }
+      .log-row.missing .d {
+        color: rgba(244, 63, 94, 0.75);
+      }
+      .log-foot {
+        padding: 10px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        font-family: var(--mono);
+        font-size: 13px;
+        letter-spacing: 0.06em;
+        color: #83838d;
+      }
+
+      /* ---------- scene 2 : seal ---------- */
+      .code {
+        padding: 22px 26px;
+        font-family: var(--mono);
+        font-size: 20px;
+        line-height: 1.85;
+        color: var(--fg-2);
+        white-space: pre;
+      }
+      .code .kw {
+        color: var(--violet);
+      }
+      .code .fn {
+        color: var(--cyan);
+      }
+      .code .str {
+        color: var(--emerald);
+      }
+      .code .cm {
+        color: #83838d;
+      }
+
+      .node {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        height: 74px;
+        padding: 0 20px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: rgba(7, 7, 8, 0.92);
+        font-family: var(--mono);
+      }
+      .node .idx {
+        font-size: 15px;
+        color: #83838d;
+        letter-spacing: 0.1em;
+      }
+      .node .name {
+        font-size: 19px;
+        color: var(--fg);
+        letter-spacing: 0.01em;
+      }
+      .node .meta {
+        margin-left: auto;
+        font-size: 16px;
+        color: var(--muted);
+      }
+      .node.lit {
+        border-color: rgba(16, 185, 129, 0.45);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
+      }
+      .node.lit .idx {
+        color: var(--emerald);
+      }
+
+      .spine {
+        position: absolute;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .spine-fill {
+        position: absolute;
+        width: 2px;
+        background: linear-gradient(
+          to bottom,
+          rgba(16, 185, 129, 0) 0%,
+          var(--emerald) 50%,
+          rgba(16, 185, 129, 0) 100%
+        );
+      }
+
+      /* ---------- scene 3 : verify ---------- */
+      .term-line {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        align-items: baseline;
+        font-family: var(--mono);
+        font-size: 23px;
+        line-height: 1.05;
+        padding: 18px 28px;
+        white-space: nowrap;
+      }
+      .term-line .lbl {
+        color: #83838d;
+        letter-spacing: 0.04em;
+      }
+      .term-line .val {
+        color: var(--fg-2);
+      }
+      .term-line .val .ok {
+        color: var(--emerald);
+      }
+      .term-line .val .warn {
+        color: var(--amber);
+      }
+      .term-line .val .bad {
+        color: var(--rose);
+      }
+      .swap {
+        position: relative;
+        display: inline-block;
+      }
+      .swap > .alt {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+      }
+      .term-line.cmd {
+        grid-template-columns: 1fr;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--line);
+        color: var(--fg);
+      }
+
+      .pill {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 76px;
+        padding: 0 22px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: var(--stage);
+        font-family: var(--mono);
+        font-size: 19px;
+        color: var(--muted);
+      }
+      .stwrap {
+        position: relative;
+        margin-left: 18px;
+        min-width: 132px;
+        height: 26px;
+      }
+      .pill .st {
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+      }
+      .pill .st-fail {
+        opacity: 0;
+        color: var(--rose);
+      }
+      .pill.p-ok {
+        border-color: rgba(16, 185, 129, 0.5);
+        background: rgba(16, 185, 129, 0.07);
+      }
+      .pill.p-ok .st {
+        color: var(--emerald);
+      }
+      .pill.p-warn {
+        border-color: rgba(245, 158, 11, 0.5);
+        background: rgba(245, 158, 11, 0.07);
+      }
+      .pill.p-warn .st {
+        color: var(--amber);
+      }
+
+      .hex {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 62px;
+        padding: 0 22px;
+        border: 1px solid var(--line-2);
+        border-radius: 6px;
+        background: var(--stage);
+        font-family: var(--mono);
+        font-size: 20px;
+        letter-spacing: 0.14em;
+        color: #83838d;
+        white-space: nowrap;
+      }
+      .hex .byte {
+        position: relative;
+        display: inline-flex;
+        width: 46px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+      }
+      .hex .byte .a,
+      .hex .byte .b {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+      }
+      .hex .byte .a {
+        color: var(--fg);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+      }
+      .hex .byte .b {
+        color: #fff;
+        background: var(--rose);
+        opacity: 0;
+      }
+
+      .stamp {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 640px;
+        height: 132px;
+        border: 3px solid var(--rose);
+        color: var(--rose);
+        font-family: var(--mono);
+        font-size: 34px;
+        font-weight: 500;
+        letter-spacing: 0.22em;
+        background: rgba(0, 0, 0, 0.93);
+        opacity: 0;
+        z-index: 30;
+      }
+
+      /* ---------- scene 4 : portable ---------- */
+      .polyglot {
+        position: absolute;
+        width: 300px;
+        height: 200px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: var(--stage);
+        font-family: var(--mono);
+        padding: 18px 20px;
+      }
+      .polyglot .tag {
+        font-size: 14px;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .polyglot .name {
+        margin-top: 10px;
+        font-size: 24px;
+        color: var(--fg);
+      }
+      .polyglot .desc {
+        margin-top: 8px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--body);
+      }
+      .polyglot.html {
+        border-color: rgba(16, 185, 129, 0.4);
+      }
+      .polyglot.html .tag {
+        color: var(--emerald);
+      }
+      .polyglot.zip {
+        border-color: rgba(139, 92, 246, 0.4);
+      }
+      .polyglot.zip .tag {
+        color: #a78bfa;
+      }
+
+      .browser {
+        position: absolute;
+        width: 620px;
+        height: 330px;
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .browser .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 44px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .browser .url {
+        flex: 1;
+        height: 24px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        color: #8f8f9a;
+        font-size: 14px;
+      }
+      .vrow {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 11px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--body);
+      }
+      .vrow .k {
+        width: 96px;
+        color: var(--muted);
+      }
+      .vrow .tick {
+        margin-left: auto;
+        color: var(--emerald);
+      }
+
+      .receipt {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 74px;
+        padding: 0 22px;
+        border: 1px solid rgba(6, 182, 212, 0.45);
+        background: rgba(6, 182, 212, 0.07);
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 18px;
+        color: var(--cyan);
+        white-space: nowrap;
+      }
+
+      /* ---------- scene 5 : payoff ---------- */
+      .close-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-weight: 400;
+        letter-spacing: -0.03em;
+      }
+      .install {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        height: 76px;
+        padding: 0 30px;
+        border: 1px solid var(--line-2);
+        border-radius: 8px;
+        background: var(--stage);
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--fg-2);
+      }
+      .install .prompt {
+        color: var(--emerald);
+      }
+      .install .copy {
+        margin-left: 6px;
+        padding: 4px 12px;
+        border: 1px solid var(--line-2);
+        border-radius: 4px;
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .brandmark {
+        position: absolute;
+        height: 108px;
+        width: auto;
+        opacity: 0;
+      }
+
+      .center-row {
+        position: absolute;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .center-row > * {
+        position: relative;
+        left: auto;
+        top: auto;
+      }
+
+      .slate {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 35;
+        font-family: var(--mono);
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: #83838d;
+        white-space: nowrap;
+      }
+      .slate-tl {
+        left: 48px;
+        top: 26px;
+      }
+      .slate-br {
+        right: 48px;
+        top: 1034px;
+      }
+
+      .sealchip {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 66px;
+        padding: 0 22px;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        background: rgba(16, 185, 129, 0.06);
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 19px;
+        letter-spacing: 0.12em;
+        color: var(--emerald);
+        white-space: nowrap;
+      }
+      .sealchip .fp {
+        color: var(--fg-2);
+        letter-spacing: 0.1em;
+      }
+      .sealchip .ts {
+        margin-left: auto;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="epi-launch"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="60.2"
+      data-fps="30"
+    >
+      <div class="frame-grid"></div>
+      <div class="frame-rule-top"></div>
+      <div class="frame-rule-bottom"></div>
+      <div class="vignette"></div>
+
+      <div class="slate slate-tl" data-layout-ignore="true">
+        <span class="dot emerald" style="width: 7px; height: 7px"></span>
+        <span>EPI Labs</span>
+      </div>
+      <div class="slate slate-br" data-layout-ignore="true">Evidence packaged infrastructure</div>
+
+      <!-- ============================ 01 · THE GAP ============================ -->
+      <section class="clip scene" id="s1" data-start="0" data-duration="11.8">
+        <div class="eyebrow" id="s1eye" style="left: 140px; top: 96px">
+          <span class="dot emerald"></span>
+          <span>01 — The coverage gap</span>
+        </div>
+        <div class="timecode" id="s1clock" style="right: 140px; top: 96px">
+          cloudtrail · worm
+        </div>
+
+        <h1 class="big" style="left: 140px; top: 268px; width: 920px; font-size: 94px">
+          <span class="line" id="s1l1">Immutable logs.</span>
+          <span class="line serif" id="s1l2">Incomplete evidence.</span>
+        </h1>
+
+        <div
+          id="s1rule"
+          style="position: absolute; left: 144px; top: 566px; width: 560px; height: 2px; background: var(--rose); opacity: 0"
+        ></div>
+
+        <p class="sub" id="s1sub" style="left: 144px; top: 640px; width: 800px">
+          CloudTrail proves the file wasn't touched.<br />
+          It doesn't record the decision the agent made,<br />
+          or whether policy passed.
+        </p>
+
+        <div class="card" id="s1log" style="left: 1040px; top: 208px; width: 740px">
+          <div class="card-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span>cloudtrail · integrity validated</span>
+            <span style="margin-left: auto; color: var(--emerald)">WORM</span>
+          </div>
+          <div id="s1rows">
+            <div class="log-row" data-row="1">
+              <span class="t">03:11:58</span>
+              <span class="k">InvokeModel</span>
+              <span class="v">bedrock runtime</span>
+              <span class="d">620ms</span>
+            </div>
+            <div class="log-row" data-row="2">
+              <span class="t">03:12:02</span>
+              <span class="k">PutObject</span>
+              <span class="v">s3://audit-bucket</span>
+              <span class="d">180ms</span>
+            </div>
+            <div class="log-row" data-row="3">
+              <span class="t">03:12:05</span>
+              <span class="k">AssumeRole</span>
+              <span class="v">arn:aws:iam::4821</span>
+              <span class="d">42ms</span>
+            </div>
+          </div>
+          <div class="log-foot">SHA-256 digest chain · immutable at rest</div>
+        </div>
+
+        <div
+          class="card"
+          id="s1gap"
+          style="left: 1040px; top: 470px; width: 740px; border-color: rgba(244, 63, 94, 0.28)"
+        >
+          <div class="card-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span>the run · not in the trail</span>
+            <span style="margin-left: auto; color: var(--rose)">MISSING</span>
+          </div>
+          <div id="s1miss">
+            <div class="log-row missing" data-mrow="1">
+              <span class="t">03:11:58</span>
+              <span class="k">prompt</span>
+              <span class="v">what the agent was asked</span>
+              <span class="d">×</span>
+            </div>
+            <div class="log-row missing" data-mrow="2">
+              <span class="t">03:11:59</span>
+              <span class="k">answer</span>
+              <span class="v">what the model returned</span>
+              <span class="d">×</span>
+            </div>
+            <div class="log-row missing" data-mrow="3">
+              <span class="t">03:12:05</span>
+              <span class="k">tool args</span>
+              <span class="v">issue_refund 4800.00</span>
+              <span class="d">×</span>
+            </div>
+            <div class="log-row missing" data-mrow="4">
+              <span class="t">03:12:07</span>
+              <span class="k">approval</span>
+              <span class="v">none recorded</span>
+              <span class="d">×</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ 02 · SEAL ============================ -->
+      <section class="clip scene" id="s2" data-start="11.8" data-duration="12.1">
+        <div class="eyebrow" style="left: 140px; top: 96px">
+          <span class="dot emerald"></span>
+          <span>02 — Application layer</span>
+        </div>
+        <div class="timecode" style="right: 140px; top: 96px">record · seal</div>
+
+        <h1 class="big" id="s2h" style="left: 140px; top: 168px; width: 1500px; font-size: 96px">
+          <span class="line">Record. Seal. Verify <span class="serif em">offline</span>.</span>
+        </h1>
+
+        <div class="card" id="s2code" style="left: 140px; top: 396px; width: 760px">
+          <div class="card-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span>agent.py</span>
+          </div>
+          <div class="code"><span class="kw">from</span> epi_recorder <span class="kw">import</span> record, wrap_openai
+
+client = <span class="fn">wrap_openai</span>(OpenAI())
+
+<span class="kw">with</span> <span class="fn">record</span>(<span class="str">"claim-4821.epi"</span>):
+    client.chat.completions.create(
+        model=<span class="str">"gpt-4o"</span>,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: q}],
+    )</div>
+        </div>
+
+        <div class="sealchip" id="s2seal" style="left: 140px; top: 812px; width: 760px">
+          <span class="dot emerald" style="width: 9px; height: 9px"></span>
+          <span>SEALED</span>
+          <span class="fp">59e3 6c77 0bd9 8524</span>
+          <span class="ts">2026-10-23T06:38:09Z</span>
+        </div>
+
+        <div class="node" id="n1" style="left: 1090px; top: 396px; width: 690px">
+          <span class="idx">01</span><span class="name">session.start</span>
+          <span class="meta">sdk_wrapper</span>
+        </div>
+        <div class="node" id="n2" style="left: 1090px; top: 492px; width: 690px">
+          <span class="idx">02</span><span class="name">llm.request</span>
+          <span class="meta">gpt-4o · 620ms</span>
+        </div>
+        <div class="node" id="n3" style="left: 1090px; top: 588px; width: 690px">
+          <span class="idx">03</span><span class="name">tool.call</span>
+          <span class="meta">issue_refund · 42ms</span>
+        </div>
+        <div class="node" id="n4" style="left: 1090px; top: 684px; width: 690px">
+          <span class="idx">04</span><span class="name">manifest.json</span>
+          <span class="meta">JCS RFC 8785</span>
+        </div>
+        <div class="node" id="n5" style="left: 1090px; top: 780px; width: 690px">
+          <span class="idx">05</span><span class="name">Ed25519 seal</span>
+          <span class="meta">59e3 6c77 0bd9 8524</span>
+        </div>
+        <div class="node" id="n6" style="left: 1090px; top: 876px; width: 690px">
+          <span class="idx">06</span><span class="name">RFC 3161 tsa</span>
+          <span class="meta">trusted time</span>
+        </div>
+      </section>
+
+      <!-- ============================ 03 · VERIFY ============================ -->
+      <section class="clip scene" id="s3" data-start="23.9" data-duration="12.8">
+        <div class="eyebrow" style="left: 140px; top: 96px">
+          <span class="dot emerald"></span>
+          <span>03 — Verify</span>
+        </div>
+        <div class="timecode" style="right: 140px; top: 96px">
+          offline · no account · no server
+        </div>
+
+        <div class="card" id="s3term" style="left: 140px; top: 196px; width: 1640px" data-layout-allow-overlap="true">
+          <div class="card-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span style="color: var(--fg-2)">sample.epi · 468 KB</span>
+            <span class="swap" style="margin-left: auto">
+              <span class="ex-ok">exit 0</span>
+              <span class="alt ex-fail" style="color: var(--rose)">exit 1</span>
+            </span>
+          </div>
+
+          <div class="term-line cmd">
+            <span class="val"><span style="color: var(--emerald)">$</span> epi verify sample.epi --policy strict</span>
+          </div>
+          <div class="term-line" data-tl="1">
+            <span class="lbl">container</span>
+            <span class="val">envelope-v2 · spec 4.6.3</span>
+          </div>
+          <div class="term-line" data-tl="2">
+            <span class="lbl">members</span>
+            <span class="val"><span class="ok">13 / 13</span> &nbsp;sha256 intact</span>
+          </div>
+          <div class="term-line" data-tl="3">
+            <span class="lbl">workflow</span>
+            <span class="val">3c9dfcf6-94ed-43ec-945d-d9be89b36a1c</span>
+          </div>
+          <div class="term-line" data-tl="4">
+            <span class="lbl">signature</span>
+            <span class="val">
+              <span class="swap">
+                <span class="sig-ok ok">ed25519:59e36c770bd98524 · VALID</span>
+                <span class="alt sig-fail bad">ed25519:59e36c770bd98524 · FAILED</span>
+              </span>
+            </span>
+          </div>
+          <div class="term-line" data-tl="5">
+            <span class="lbl">identity</span>
+            <span class="val"><span class="warn">NOT_PINNED</span> &nbsp;pin the key out of band</span>
+          </div>
+          <div class="term-line" data-tl="6">
+            <span class="lbl">policy</span>
+            <span class="val">cap-inspection-line-3 · <span class="ok">1 / 1 passed</span></span>
+          </div>
+        </div>
+
+        <div class="pill p-ok" id="p1" style="left: 140px; top: 724px; width: 486px">
+          <span class="dot emerald" style="width: 10px; height: 10px"></span>
+          <span>01 · Seal</span>
+          <span class="stwrap">
+            <span class="st st-ok">VALID</span>
+            <span class="st st-fail">FAILED</span>
+          </span>
+        </div>
+        <div class="pill p-warn" id="p2" style="left: 648px; top: 724px; width: 520px">
+          <span class="dot amber" style="width: 10px; height: 10px"></span>
+          <span>02 · Identity</span>
+          <span class="stwrap"><span class="st">NOT PINNED</span></span>
+        </div>
+        <div class="pill p-ok" id="p3" style="left: 1190px; top: 724px; width: 590px">
+          <span class="dot emerald" style="width: 10px; height: 10px"></span>
+          <span>03 · Policy</span>
+          <span class="stwrap"><span class="st">1/1 PASSED</span></span>
+        </div>
+
+        <div class="hex" id="s3hex" style="left: 140px; top: 828px; width: 1180px">
+          <span>23 AC B5 FD 73 D5 AA</span>
+          <span class="byte"><span class="a">3A</span><span class="b">C5</span></span>
+          <span>F4 4D 65 FE 44 46</span>
+          <span style="margin-left: auto; color: var(--rose); letter-spacing: 0.06em">1 byte changed</span>
+        </div>
+
+        <p class="sub" id="s3cap" style="left: 144px; top: 926px; font-size: 18px">
+          One altered byte invalidates the Ed25519 manifest seal.
+        </p>
+
+        <div class="stamp" id="s3stamp" style="left: 620px; top: 400px" data-layout-allow-overflow="true">
+          INTEGRITY BROKEN
+        </div>
+      </section>
+
+      <!-- ============================ 04 · PORTABLE ============================ -->
+      <section class="clip scene" id="s4" data-start="36.7" data-duration="13.0">
+        <div class="eyebrow" style="left: 140px; top: 96px">
+          <span class="dot violet"></span>
+          <span>04 — Portable</span>
+        </div>
+        <div class="timecode" style="right: 140px; top: 96px">html + zip</div>
+
+        <h1 class="big" id="s4h" style="left: 140px; top: 176px; width: 900px; font-size: 92px">
+          <span class="line">Open it anywhere.</span>
+          <span class="line">Prove it <span class="serif em">offline</span>.</span>
+        </h1>
+
+        <div class="polyglot html" id="s4html" style="left: 140px; top: 452px">
+          <div class="tag">Layer 01</div>
+          <div class="name">viewer.html</div>
+          <div class="desc">
+            Valid HTML. Double-click opens a forensic timeline in any browser.
+          </div>
+        </div>
+
+        <div class="polyglot zip" id="s4zip" style="left: 480px; top: 452px">
+          <div class="tag">Layer 02</div>
+          <div class="name">payload.zip</div>
+          <div class="desc">
+            Same bytes as a ZIP: manifest, steps, hashes, signature.
+          </div>
+        </div>
+
+        <div class="browser" id="s4browser" style="left: 140px; top: 690px; height: 272px">
+          <div class="bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="url">file:///claim-4821.epi</span>
+            <span style="color: var(--emerald)">sealed</span>
+          </div>
+          <div class="vrow"><span class="k">workflow</span><span>3c9dfcf6 · epilabs-sample</span><span class="tick">✓</span></div>
+          <div class="vrow"><span class="k">members</span><span>13 files · sha256 match</span><span class="tick">✓</span></div>
+          <div class="vrow"><span class="k">signature</span><span>ed25519 · 59e3 6c77</span><span class="tick">✓</span></div>
+          <div class="vrow"><span class="k">tsa</span><span>rfc 3161 · root pinned</span><span class="tick">✓</span></div>
+        </div>
+
+        <div class="card" id="s4witness" style="left: 1030px; top: 452px; width: 750px">
+          <div class="card-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span>epi witness</span>
+            <span style="margin-left: auto; color: var(--cyan)">hash only</span>
+          </div>
+          <div style="padding: 24px 26px">
+            <div class="code" style="padding: 0; font-size: 19px; line-height: 1.9">
+              payload&nbsp;&nbsp;→ stays in your bucket
+              digest&nbsp;&nbsp;&nbsp;→ 32 bytes, signed
+              receipt&nbsp;&nbsp;→ ed25519 #00419</div>
+          </div>
+        </div>
+
+        <div class="receipt" id="s4rcpt" style="left: 1030px; top: 730px; width: 750px">
+          <span class="dot cyan" style="width: 10px; height: 10px"></span>
+          <span>WITNESSED</span>
+          <span style="margin-left: auto; color: var(--fg-2)">checkpoint 00:05 UTC</span>
+        </div>
+
+        <p class="sub" id="s4cap" style="left: 1034px; top: 838px; width: 740px; font-size: 18px">
+          The auditor never needs your infrastructure. Only the receipt.
+        </p>
+      </section>
+
+      <!-- ============================ 05 · PAYOFF ============================ -->
+      <section class="clip scene" id="s5" data-start="49.7" data-duration="10.5">
+        <div class="center-row" style="top: 150px">
+          <div class="eyebrow" id="s5eye">
+            <span class="dot emerald"></span>
+            <span>05 — Close</span>
+          </div>
+        </div>
+
+        <div class="close-line" id="s5l1" style="top: 268px; font-size: 66px; color: var(--body)">
+          Don't argue with auditors.
+        </div>
+
+        <div class="close-line" id="s5l2" style="top: 358px; font-size: 132px; color: var(--fg)">
+          Hand them a <span class="serif em">file</span>.
+        </div>
+
+        <div class="center-row" style="top: 590px">
+          <div class="install" id="s5install">
+            <span class="prompt">$</span>
+            <span>pip install epi-recorder</span>
+            <span class="copy">copy</span>
+          </div>
+        </div>
+
+        <div class="center-row" style="top: 742px">
+          <div id="s5rule" style="width: 1180px; height: 1px; background: var(--line-2)"></div>
+        </div>
+
+        <div class="center-row" style="top: 800px">
+          <img class="brandmark" id="s5logo" src="assets/logo-white.png" alt="EPI Labs" />
+        </div>
+
+        <div class="timecode" id="s5micro" style="left: 0; right: 0; top: 954px; text-align: center; font-size: 17px">
+          MIT licensed · open source · epilabs.org
+        </div>
+      </section>
+
+      <div class="flash" id="flash"></div>
+      <div class="fade-black" id="fadeBlack"></div>
+
+      <audio
+        id="score"
+        src="assets/audio/score.wav"
+        data-start="0"
+        data-duration="60.2"
+        data-volume="1"
+      ></audio>
+    </div>
+
+    <script src="assets/gsap.min.js"></script>
+    <script>
+      (function () {
+        /* Scene starts — keep in sync with make_score.py SCENES. */
+        var S = { s1: 0, s2: 11.8, s3: 23.9, s4: 36.7, s5: 49.7, end: 60.2 };
+        var tl = gsap.timeline({ paused: true });
+        tl.addLabel("s1", S.s1);
+        tl.addLabel("s2", S.s2);
+        tl.addLabel("s3", S.s3);
+        tl.addLabel("s4", S.s4);
+        tl.addLabel("s5", S.s5);
+        tl.addLabel("end", S.end);
+
+        /* ---------------- persistent layers ---------------- */
+        tl.fromTo(
+          ".frame-grid",
+          { opacity: 0 },
+          { opacity: 0.55, duration: 1.6, ease: "power2.out" },
+          0
+        );
+        tl.fromTo(
+          ".frame-rule-top",
+          { scaleX: 0, transformOrigin: "left center" },
+          { scaleX: 1, duration: 1.4, ease: "power3.inOut" },
+          0.1
+        );
+        tl.fromTo(
+          ".frame-rule-bottom",
+          { scaleX: 0, transformOrigin: "right center" },
+          { scaleX: 1, duration: 1.4, ease: "power3.inOut" },
+          0.25
+        );
+
+        /* ---------------- 01 · IMMUTABLE, NOT COMPLETE ---------------- */
+        tl.fromTo(
+          "#s1eye",
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s1+=0.5"
+        );
+        tl.fromTo("#s1clock", { opacity: 0 }, { opacity: 1, duration: 1 }, "s1+=0.8");
+        tl.fromTo(
+          "#s1l1",
+          { opacity: 0, y: 34 },
+          { opacity: 1, y: 0, duration: 1.1, ease: "power3.out" },
+          "s1+=1.0"
+        );
+        tl.fromTo(
+          "#s1l2",
+          { opacity: 0, y: 34 },
+          { opacity: 1, y: 0, duration: 1.1, ease: "power3.out" },
+          "s1+=1.35"
+        );
+
+        tl.fromTo(
+          "#s1log",
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s1+=1.15"
+        );
+        [1, 2, 3].forEach(function (n, i) {
+          tl.fromTo(
+            '[data-row="' + n + '"]',
+            { opacity: 0, x: -14 },
+            { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" },
+            "s1+=" + (1.9 + i * 0.42).toFixed(2)
+          );
+        });
+        tl.fromTo(
+          "#s1sub",
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s1+=2.2"
+        );
+
+        /* the gap: what the trail does not hold */
+        tl.fromTo(
+          "#s1gap",
+          { opacity: 0, y: 22 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s1+=5.2"
+        );
+        [1, 2, 3, 4].forEach(function (n, i) {
+          tl.fromTo(
+            '[data-mrow="' + n + '"]',
+            { opacity: 0, x: -14 },
+            { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" },
+            "s1+=" + (5.45 + i * 0.36).toFixed(2)
+          );
+        });
+
+        tl.fromTo(
+          "#s1rule",
+          { opacity: 0, scaleX: 0, transformOrigin: "left center" },
+          { opacity: 1, scaleX: 1, duration: 0.75, ease: "power3.inOut" },
+          "s1+=7.0"
+        );
+        tl.to("#s1log", { opacity: 0.55, duration: 0.6 }, "s1+=7.3");
+        tl.to("#s1gap", { borderColor: "rgba(244,63,94,0.5)", duration: 0.5 }, "s1+=7.2");
+        tl.to("#s1log", { y: -10, duration: 1.8, ease: "sine.inOut" }, "s1+=8.4");
+        tl.to("#s1gap", { y: -6, duration: 1.6, ease: "sine.inOut" }, "s1+=9.2");
+        tl.to("#s1sub", { color: "#d4d4d8", duration: 0.8 }, "s1+=9.6");
+
+        tl.to("#s1", { opacity: 0, duration: 0.4 }, "s1+=11.4");
+
+        /* ---------------- 02 · APPLICATION LAYER (11.8 – 23.9) ---------------- */
+        tl.fromTo(
+          "#s2h",
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 1.0, ease: "power3.out" },
+          "s2+=0.25"
+        );
+        tl.fromTo(
+          "#s2code",
+          { opacity: 0, y: 22 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s2+=0.8"
+        );
+        tl.fromTo("#s2seal", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "s2+=5.9");
+        tl.to("#s2code", { y: -8, duration: 1.8, ease: "sine.inOut" }, "s2+=8.6");
+        tl.to("#n5", { borderColor: "rgba(16,185,129,0.85)", duration: 0.6 }, "s2+=9.8");
+        tl.to("#s2seal", { borderColor: "rgba(16,185,129,0.85)", duration: 0.6 }, "s2+=10.3");
+
+        [1, 2, 3, 4, 5, 6].forEach(function (n, i) {
+          tl.fromTo(
+            "#n" + n,
+            { opacity: 0, x: 22 },
+            { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" },
+            "s2+=" + (1.3 + i * 0.52).toFixed(2)
+          );
+          tl.to("#n" + n, { borderColor: "rgba(16,185,129,0.45)", duration: 0.35 }, "s2+=" + (1.6 + i * 0.52).toFixed(2));
+          tl.to("#n" + n + " .idx", { color: "#10b981", duration: 0.35 }, "s2+=" + (1.6 + i * 0.52).toFixed(2));
+        });
+        tl.to("#s2", { opacity: 0, duration: 0.4 }, "s2+=11.7");
+
+        /* ---------------- 03 · VERIFY (23.9 – 36.7) ---------------- */
+        tl.fromTo(
+          "#s3term",
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" },
+          "s3+=0.3"
+        );
+        [1, 2, 3, 4, 5, 6].forEach(function (n, i) {
+          tl.fromTo(
+            '[data-tl="' + n + '"]',
+            { opacity: 0, x: -10 },
+            { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" },
+            "s3+=" + (0.9 + i * 0.62).toFixed(2)
+          );
+        });
+
+        tl.fromTo("#p1", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "s3+=3.2");
+        tl.fromTo("#p2", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "s3+=3.8");
+        tl.fromTo("#p3", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "s3+=4.4");
+
+        /* the single-byte tamper */
+        tl.fromTo("#s3hex", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5 }, "s3+=6.8");
+        tl.to("#s3hex .byte .a", { opacity: 0, duration: 0.16 }, "s3+=8.15");
+        tl.to("#s3hex .byte .b", { opacity: 1, duration: 0.16 }, "s3+=8.15");
+        tl.fromTo("#flash", { opacity: 0 }, { opacity: 0.14, duration: 0.1 }, "s3+=8.15");
+        tl.to("#flash", { opacity: 0, duration: 0.6, ease: "power2.out" }, "s3+=8.25");
+
+        tl.fromTo(
+          "#s3stamp",
+          { opacity: 0, scale: 1.35, rotate: -4 },
+          { opacity: 1, scale: 1, rotate: -4, duration: 0.45, ease: "power4.out" },
+          "s3+=8.55"
+        );
+        tl.to("#s3term .sig-ok", { opacity: 0, duration: 0.16 }, "s3+=8.55");
+        tl.to("#s3term .sig-fail", { opacity: 1, duration: 0.16 }, "s3+=8.55");
+        tl.to("#s3term .ex-ok", { opacity: 0, duration: 0.16 }, "s3+=8.55");
+        tl.to("#s3term .ex-fail", { opacity: 1, duration: 0.16 }, "s3+=8.55");
+        tl.to("#p1", { borderColor: "rgba(244,63,94,0.6)", background: "rgba(244,63,94,0.07)", duration: 0.3 }, "s3+=8.55");
+        tl.to("#p1 .st-ok", { opacity: 0, duration: 0.16 }, "s3+=8.55");
+        tl.to("#p1 .st-fail", { opacity: 1, duration: 0.16 }, "s3+=8.55");
+        tl.fromTo("#s3cap", { opacity: 0 }, { opacity: 1, duration: 0.6 }, "s3+=9.0");
+        tl.to("#s3", { opacity: 0, duration: 0.4 }, "s3+=12.4");
+
+        /* ---------------- 04 · PORTABLE (36.7 – 49.7) ---------------- */
+        tl.fromTo(
+          "#s4h",
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          "s4+=0.3"
+        );
+        tl.fromTo(
+          "#s4html",
+          { opacity: 0, y: 30, rotate: -2 },
+          { opacity: 1, y: 0, rotate: 0, duration: 0.8, ease: "power3.out" },
+          "s4+=0.8"
+        );
+        tl.fromTo(
+          "#s4zip",
+          { opacity: 0, y: 30, rotate: 2 },
+          { opacity: 1, y: 0, rotate: 0, duration: 0.8, ease: "power3.out" },
+          "s4+=1.05"
+        );
+        tl.fromTo(
+          "#s4browser",
+          { opacity: 0, y: 28 },
+          { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" },
+          "s4+=2.4"
+        );
+        tl.fromTo(
+          "#s4witness",
+          { opacity: 0, x: 24 },
+          { opacity: 1, x: 0, duration: 0.8, ease: "power3.out" },
+          "s4+=2.1"
+        );
+        tl.fromTo(
+          "#s4rcpt",
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+          "s4+=4.4"
+        );
+        tl.fromTo("#s4cap", { opacity: 0 }, { opacity: 1, duration: 0.8 }, "s4+=5.6");
+        tl.to("#s4rcpt", { borderColor: "rgba(6,182,212,0.95)", duration: 0.7 }, "s4+=7.0");
+        tl.to("#s4witness", { y: -6, duration: 1.2, ease: "sine.inOut" }, "s4+=8.4");
+        tl.fromTo(
+          "#s4browser .vrow",
+          { backgroundColor: "rgba(16,185,129,0)" },
+          { backgroundColor: "rgba(16,185,129,0.10)", duration: 0.35, stagger: 0.3, yoyo: true, repeat: 1, ease: "sine.inOut" },
+          "s4+=9.6"
+        );
+        tl.to("#s4rcpt", { scale: 1.03, duration: 0.4, yoyo: true, repeat: 1, ease: "sine.inOut" }, "s4+=10.9");
+        tl.to("#s4browser", { y: -10, duration: 1.4, ease: "sine.inOut" }, "s4+=11.7");
+        tl.to("#s4", { opacity: 0, duration: 0.4 }, "s4+=12.7");
+
+        /* ---------------- 05 · PAYOFF (49.7 – 60.2) ---------------- */
+        tl.fromTo("#s5eye", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.8 }, "s5+=0.2");
+        tl.fromTo("#s5l1", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, "s5+=0.5");
+        tl.fromTo(
+          "#s5l2",
+          { opacity: 0, y: 30 },
+          { opacity: 1, y: 0, duration: 1.1, ease: "power3.out" },
+          "s5+=1.5"
+        );
+        tl.fromTo(
+          "#s5install",
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+          "s5+=3.9"
+        );
+        tl.fromTo("#s5rule", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.8, transformOrigin: "center" }, "s5+=4.9");
+        tl.fromTo("#s5logo", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 1.1, ease: "power3.out" }, "s5+=5.3");
+        tl.fromTo("#s5micro", { opacity: 0 }, { opacity: 1, duration: 0.9 }, "s5+=6.3");
+
+        tl.fromTo("#fadeBlack", { opacity: 0 }, { opacity: 1, duration: 1.2, ease: "power2.in" }, "end-=1.3");
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["epi-launch"] = tl;
+      })();
+    </script>
+  </body>
+</html>

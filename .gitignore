@@ -266,3 +266,6 @@ _oauth_url*.txt
 audit_dir/
 
 cloud/node_modules/
+
+# The launch-film composition (source of website/assets/epi-walkthrough.mp4)
+!media/launch-film/index.html
