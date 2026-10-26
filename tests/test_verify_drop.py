@@ -89,7 +89,9 @@ def test_genuine_file_dropped_on_verify_page(site, browser) -> None:
         )
         text = pg.locator("#dropResult").inner_text()
         assert "hasn't been changed since it was sealed" in text, text[:500]
-        pg.locator("#dropResult summary").click()
+        # What the AI did is shown up front, read from the sealed steps.
+        assert "WHAT THE AI DID" in text, text[:500]
+        pg.locator("#dropResult summary", has_text="Details").click()
         pg.wait_for_selector("#dropResult >> text=Signature:", timeout=10000)
         full = pg.locator("#dropResult").inner_text()
         assert "Signature: VALID" in full, full[:800]
