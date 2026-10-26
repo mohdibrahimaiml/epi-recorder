@@ -113,6 +113,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 |------|------|
 | [CONNECT.md](./CONNECT.md) | Local review workspace (`epi connect open`) |
 | [IDENTITY-ONBOARDING.md](./IDENTITY-ONBOARDING.md) | Keys, DID, pinning |
+| [KEY-CUSTODY.md](./KEY-CUSTODY.md) | Signing key in an HSM / AWS KMS / Google Cloud KMS (`epi keys link`) |
 | [SHARE-A-FAILURE.md](./SHARE-A-FAILURE.md) | Hand a sealed failure to another engineer |
 | [PYTEST-AGENT-REGRESSIONS.md](./PYTEST-AGENT-REGRESSIONS.md) | `pytest --epi` |
 | [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) | Import a Microsoft AGT export into `.epi` |

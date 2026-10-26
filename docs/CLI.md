@@ -80,6 +80,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi unassociate` | Remove file association support. |
 | `epi doctor` | Run self-healing diagnostics. |
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
+| `epi keys link --uri <vault-uri>` | Sign with an Ed25519 key held in an HSM, AWS KMS or Google Cloud KMS. See [KEY-CUSTODY.md](./KEY-CUSTODY.md). |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
 | `epi keys trust <file> --name <name>` / `--from-did <did>` / `--from-cloud <slug>` | Pin a public key (PEM, `did.json` or base64 file, a did:web DID, or a Cloud registry key **after** confirming the fingerprint with the sender). Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. Cloud listings are not pins by themselves. |

@@ -4,6 +4,19 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Signing keys in an HSM or cloud KMS (`epi keys link`).** A key name can now
+  point at an Ed25519 key held in a PKCS#11 HSM, AWS KMS
+  (`ECC_NIST_EDWARDS25519`) or Google Cloud KMS (`EC_SIGN_ED25519`). The
+  private key never leaves the vault. Signatures are standard Ed25519, so the
+  `.epi` format and every verifier are unchanged. Every signing path (record,
+  gateway, review, witness report, SCITT) signs through the vault. Each
+  signature is checked against the vault's public key, the vault key is pinned
+  at link time (a swapped key is refused), and `EPI_REQUIRE_EXTERNAL_KEY=1`
+  refuses key files on disk. Optional extras: `[pkcs11]`, `[aws-kms]`,
+  `[gcp-kms]`. See `docs/KEY-CUSTODY.md`.
+
 ### Changed
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in

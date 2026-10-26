@@ -142,7 +142,7 @@ PASS. Current releases always seal a chained timeline.
 
 **Why EPI cannot prevent this:** EPI verifies that a signature is mathematically valid. It cannot know whether the person holding the private key is the legitimate owner.
 
-**Mitigation:** Key rotation, HSM storage, revocation lists.
+**Mitigation:** Keep the key in an HSM or cloud KMS so it can't be copied off the agent host ([KEY-CUSTODY.md](./KEY-CUSTODY.md): `epi keys link`, `EPI_REQUIRE_EXTERNAL_KEY=1`). An attacker on the host can still ask the vault to sign while they hold access, so the vault's own audit log is the record of what was signed. Key rotation and revocation lists cover the rest.
 
 ---
 

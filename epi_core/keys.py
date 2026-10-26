@@ -14,6 +14,18 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
+# One live signer per (keys dir, name): vault sessions are slow to open.
+_EXTERNAL_SIGNERS: dict[tuple[str, str], object] = {}
+
+
+class ExternalKeyRequiredError(RuntimeError):
+    """EPI_REQUIRE_EXTERNAL_KEY is set but the key is a file on disk."""
+
+
+def external_key_required() -> bool:
+    val = os.environ.get("EPI_REQUIRE_EXTERNAL_KEY", "").strip().lower()
+    return val in {"1", "true", "yes", "on"}
+
 
 def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
     """The one fingerprint EPI shows for an Ed25519 public key.
@@ -167,13 +179,14 @@ class KeyManager:
         Raises:
             FileExistsError: If keys exist and overwrite=False
         """
-        private_key_path = self.keys_dir / f"{name}.key"
-        public_key_path = self.keys_dir / f"{name}.pub"
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
 
         if not overwrite and (private_key_path.exists() or public_key_path.exists()):
             raise FileExistsError(
                 f"Key pair '{name}' already exists. Use --overwrite to replace."
             )
+        self._unlink_external(name)
 
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
@@ -225,12 +238,13 @@ class KeyManager:
             raise ValueError(
                 "Seed must be exactly 64 hex characters (32-byte Ed25519 seed)."
             )
-        private_key_path = self.keys_dir / f"{name}.key"
-        public_key_path = self.keys_dir / f"{name}.pub"
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
         if not overwrite and (private_key_path.exists() or public_key_path.exists()):
             raise FileExistsError(
                 f"Key pair '{name}' already exists. Use overwrite=True to replace."
             )
+        self._unlink_external(name)
         private_key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(seed_hex))
         public_key = private_key.public_key()
 
@@ -261,9 +275,126 @@ class KeyManager:
 
         return private_key_path, public_key_path
 
+    # -- keys held in an HSM / cloud KMS ---------------------------------
+
+    def _key_file_path(self, name: str, suffix: str) -> Path:
+        if not name or name in {".", ".."} or "/" in name or "\\" in name or "\x00" in name:
+            raise ValueError(f"Invalid key name: {name!r}")
+        base = os.path.normpath(os.path.abspath(str(self.keys_dir)))
+        candidate = os.path.normpath(os.path.join(base, name + suffix))
+        if not candidate.startswith(base + os.sep):
+            raise ValueError(f"Invalid key name: {name!r}")
+        return Path(candidate)
+
+    def _signer_path(self, name: str) -> Path:
+        return self._key_file_path(name, ".signer")
+
+    def _unlink_external(self, name: str) -> None:
+        self._signer_path(name).unlink(missing_ok=True)
+        _EXTERNAL_SIGNERS.pop((str(self.keys_dir), name), None)
+
+    def external_signer_uri(self, name: str = "default") -> str | None:
+        """The vault URI a key name is linked to, or None for a file key."""
+        try:
+            path = self._signer_path(name)
+        except ValueError:
+            return None
+        if not path.is_file():
+            return None
+        import json
+
+        return str(json.loads(path.read_text(encoding="utf-8"))["uri"])
+
+    def link_external_key(
+        self, name: str, uri: str, *, overwrite: bool = False, **backend_kwargs
+    ) -> tuple[Path, str]:
+        """Point a key name at an Ed25519 key held in an HSM or cloud KMS.
+
+        Fetches the public key from the vault and writes ``<name>.pub`` plus
+        ``<name>.signer`` (the URI and the pinned public key; nothing
+        secret). Refuses while a ``<name>.key`` file exists: deleting a
+        private key is left to the owner. Returns (signer path, public hex).
+        """
+        import json
+
+        from epi_core.signers import load_signer
+
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
+        signer_path = self._signer_path(name)
+        if private_key_path.exists():
+            raise FileExistsError(
+                f"Key '{name}' is a key file ({private_key_path}). Move or delete it "
+                "first, or link the vault key under another name."
+            )
+        if not overwrite and (signer_path.exists() or public_key_path.exists()):
+            raise FileExistsError(
+                f"Key '{name}' already exists. Use --overwrite to re-link it."
+            )
+        signer = load_signer(uri, **backend_kwargs)
+        public_key_hex = signer.public_key_hex()
+        # Prove the vault can sign with it before anything is written.
+        signer.sign(b"epi-recorder key link check")
+
+        public_key_path.write_bytes(
+            signer.public_key().public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        )
+        if os.name != "nt":
+            os.chmod(public_key_path, 0o644)
+        signer_path.write_text(
+            json.dumps(
+                {"uri": signer.uri, "backend": signer.backend, "public_key": public_key_hex},
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        _EXTERNAL_SIGNERS[(str(self.keys_dir), name)] = signer
+        return signer_path, public_key_hex
+
+    def _load_external_signer(self, name: str):
+        import json
+
+        from epi_core.signers import ExternalSignerError, load_signer
+
+        cache_key = (str(self.keys_dir), name)
+        cached = _EXTERNAL_SIGNERS.get(cache_key)
+        if cached is not None:
+            return cached
+        record = json.loads(self._signer_path(name).read_text(encoding="utf-8"))
+        pinned = str(record.get("public_key") or "").lower()
+        signer = load_signer(str(record["uri"]))
+        live = signer.public_key_hex()
+        pub_exists = self._key_file_path(name, ".pub").exists()
+        file_pub = self.load_public_key(name).hex() if pub_exists else ""
+        # The vault must still hold the key that was linked: a swapped key
+        # would sign records nobody pinned.
+        if live != pinned or (file_pub and file_pub != pinned):
+            raise ExternalSignerError(
+                f"Key '{name}': the vault now returns public key {live[:16]}..., but "
+                f"{pinned[:16]}... was linked. Refusing to sign. Re-link with "
+                f"`epi keys link --name {name} --uri ... --overwrite` if the change is intended."
+            )
+        _EXTERNAL_SIGNERS[cache_key] = signer
+        return signer
+
     def load_private_key(self, name: str = "default") -> Ed25519PrivateKey:
-        """Load a private key from disk."""
-        key_path = self.keys_dir / f"{name}.key"
+        """Load a signing key: the vault signer when linked, else the key file.
+
+        A vault signer has the same ``sign()`` / ``public_key()`` surface as
+        ``Ed25519PrivateKey`` but cannot be exported.
+        """
+        if self._signer_path(name).is_file():
+            return self._load_external_signer(name)  # type: ignore[return-value]
+        key_path = self._key_file_path(name, ".key")
+        if external_key_required():
+            raise ExternalKeyRequiredError(
+                f"EPI_REQUIRE_EXTERNAL_KEY is set, so key '{name}' must be held in an "
+                f"HSM or KMS. Link one with: epi keys link --name {name} --uri <vault-uri>"
+            )
         if not key_path.exists():
             raise FileNotFoundError(
                 f"Private key '{name}' not found. Generate with: epi keys generate --name {name}"
@@ -273,7 +404,7 @@ class KeyManager:
 
     def load_public_key(self, name: str = "default") -> bytes:
         """Load a public key from disk."""
-        key_path = self.keys_dir / f"{name}.pub"
+        key_path = self._key_file_path(name, ".pub")
         if not key_path.exists():
             raise FileNotFoundError(
                 f"Public key '{name}' not found. Generate with: epi keys generate --name {name}"
@@ -292,13 +423,23 @@ class KeyManager:
         for pub_file in self.keys_dir.glob("*.pub"):
             key_name = pub_file.stem
             private_exists = (self.keys_dir / f"{key_name}.key").exists()
+            signer_uri = None
+            try:
+                signer_uri = self.external_signer_uri(key_name)
+            except Exception:
+                pass
             keys.append(
                 {
                     "name": key_name,
-                    "has_private": private_exists,
+                    "has_private": private_exists or bool(signer_uri),
                     "has_public": True,
                     "public_path": str(pub_file),
-                    "private_path": str(self.keys_dir / f"{key_name}.key") if private_exists else "N/A",
+                    "private_path": (
+                        signer_uri
+                        if signer_uri
+                        else str(self.keys_dir / f"{key_name}.key") if private_exists else "N/A"
+                    ),
+                    "external": bool(signer_uri),
                 }
             )
         return keys
@@ -309,14 +450,18 @@ class KeyManager:
         return base64.b64encode(public_key_bytes).decode("utf-8")
 
     def has_key(self, name: str = "default") -> bool:
-        """Check if a key pair exists."""
-        private_path = self.keys_dir / f"{name}.key"
-        public_path = self.keys_dir / f"{name}.pub"
-        return private_path.exists() and public_path.exists()
+        """Check if a key pair exists. Invalid names never exist."""
+        try:
+            private_path = self._key_file_path(name, ".key")
+            public_path = self._key_file_path(name, ".pub")
+            signer_path = self._signer_path(name)
+        except ValueError:
+            return False
+        return (private_path.exists() or signer_path.exists()) and public_path.exists()
 
     def has_default_key(self) -> bool:
-        """Check if default key pair exists."""
-        return (self.keys_dir / "default.key").exists()
+        """Check if default key pair exists (a key file or a linked vault key)."""
+        return (self.keys_dir / "default.key").exists() or self._signer_path("default").exists()
 
     def _load_public_key_raw_bytes(self, name: str) -> bytes:
         """Load the raw 32-byte Ed25519 public key for a key name."""

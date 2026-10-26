@@ -686,21 +686,18 @@ def _split_witness_urls(value: str | None) -> list[str]:
     return split_witness_urls(value)
 
 
-def _gateway_witness_key_bytes() -> bytes | None:
-    """Gateway signing key (raw) for the witness seal signature. Best-effort: None when unsigned."""
-    try:
-        from cryptography.hazmat.primitives import serialization
+def _gateway_witness_signer():
+    """Gateway signing key (file key or HSM/KMS signer) for the witness seal signature.
 
+    Best-effort: None when unsigned.
+    """
+    try:
         key_name = os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default")
         keys_dir = _clean(os.getenv("EPI_GATEWAY_KEYS_DIR"))
         manager = KeyManager(Path(keys_dir) if keys_dir else None)
         if not manager.has_key(key_name):
             return None
-        return manager.load_private_key(key_name).private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
+        return manager.load_private_key(key_name)
     except Exception:
         return None
 
@@ -1797,7 +1794,7 @@ def create_app(
                     Path(result.output_path),
                     urls=_witness_urls,
                     key_name=os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default"),
-                    private_key_bytes=_gateway_witness_key_bytes(),
+                    signer=_gateway_witness_signer(),
                     case_id=case_id,
                 )
                 if _entry is not None:
