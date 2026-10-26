@@ -1042,14 +1042,31 @@ function renderIntegrity(caseData, context) {
     idEl.style.fontSize = '12px';
   }
 
-  // Diagnostic matrix -- every line says whether it was computed in this page
+  // Diagnostic matrix -- every line says whether it was computed in this page.
+  // A file-integrity PASS is shown only when this page actually hashed the
+  // members against the signed manifest (authoritative), or the host injected a
+  // byte-bound result. A double-clicked polyglot carries an editable display
+  // copy, so it must never show a green "N checked / 0 mismatches" it did not
+  // compute — it says "not verified here" instead.
   const checked = integrity.checked || 0;
   const mismatches = Array.isArray(integrity.mismatches) ? integrity.mismatches.length : 0;
   const listed = Object.keys(m.file_manifest || {}).length;
   const unchecked = Array.isArray(integrity.unchecked) ? integrity.unchecked : [];
+  const integrityComputed = authoritative || integrity.computed === true;
 
   const filesEl = document.getElementById('diag-files');
-  if (checked > 0 || integrity.ok != null) {
+  if (integrity.ok === false) {
+    // Fail closed: a known failure is never downgraded to "not verified".
+    let txt = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
+    if (listed > 0 && listed > checked + mismatches) {
+      txt += ` · ${listed - checked - mismatches} of ${listed} listed files not checkable here`;
+    }
+    filesEl.textContent = txt;
+    filesEl.className = 'diag-status flagged';
+    filesEl.title = unchecked.length
+      ? 'Not checkable inside this page: ' + unchecked.join(', ') + '. Check them with: epi verify <file>.epi'
+      : 'Sealed file failed verification. Run: epi verify <file>.epi';
+  } else if (integrityComputed && (checked > 0 || mismatches > 0)) {
     let txt = `${checked} checked / ${mismatches} mismatch${mismatches !== 1 ? 'es' : ''}`;
     if (listed > 0 && listed > checked + mismatches) {
       txt += ` · ${listed - checked - mismatches} of ${listed} listed files not checkable here`;
@@ -1060,8 +1077,10 @@ function renderIntegrity(caseData, context) {
       ? 'Not checkable inside this page: ' + unchecked.join(', ') + '. Check them with: epi verify <file>.epi'
       : 'Every listed file was re-hashed in this page.';
   } else {
-    filesEl.textContent = '—';
+    filesEl.textContent = 'NOT VERIFIED HERE — drop this file on epilabs.org/verify';
     filesEl.className = 'diag-status unknown';
+    filesEl.title = 'This viewer did not hash these bytes against the signed manifest, so it shows no ' +
+      'verdict. Verify with epilabs.org/verify or: epi verify <file>.epi';
   }
 
   const setDiag = (el, text, cls, title) => {
