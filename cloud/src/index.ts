@@ -86,6 +86,11 @@ app.get("/.well-known/epi-witness-key.json", (c) => c.json(witnessKeys(c.env)));
 // URLs; only this human dashboard renders the absolute site link.
 const TRUST_ORIGIN = "https://epilabs.org";
 
+// The share-links API returns a relative "/t/:id#k=…" URL, so a client that
+// resolves it against the cloud origin lands here. Send it to the trust page.
+// Browsers carry the #k= fragment across the redirect; the server never sees it.
+app.get("/t/:id", (c) => c.redirect(`${TRUST_ORIGIN}/t/${encodeURIComponent(c.req.param("id"))}`, 302));
+
 /** JSON for an inline <script>: never lets data close the script tag. */
 function scriptJson(v: unknown): string {
   return JSON.stringify(v).replace(/</g, "\\u003c");

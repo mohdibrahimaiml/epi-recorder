@@ -559,7 +559,18 @@ async function processFile(f){
     var viewerNote=null;
     if(containerFmt==='envelope-v2'){
       var vw=await verifyPolyglotViewer(u8);
-      if(vw.fail){showResult('fail','<strong>This file was changed after it was sealed. Don\'t rely on it.</strong><br><span style="font-size:0.68rem;opacity:.85">'+esc(vw.detail)+'</span>');return}
+      if(vw.fail){
+        // Still show what the file claims (labelled as possibly forged), so a
+        // reviewer sees what was altered; the verdict stays a red fail.
+        var claims='';
+        try{
+          var tz=await JSZip.loadAsync(extractZIPPayload(u8,containerFmt));
+          var tm=tz.file('manifest.json')?parseJSONPreserveNumbers(await tz.file('manifest.json').async('string')):{};
+          var ts=[],tf=tz.file('steps.jsonl');
+          if(tf){(await tf.async('string')).split('\n').forEach(function(l){l=l.trim();if(l){try{ts.push(parseJSONPreserveNumbers(l))}catch(e){}}})}
+          claims=storyHTML(buildStory(ts,tm),true);
+        }catch(e){claims=''}
+        showResult('fail','<strong>This file was changed after it was sealed. Don\'t rely on it.</strong><br><span style="font-size:0.68rem;opacity:.85">'+esc(vw.detail)+'</span>'+claims);return}
       viewerNote=vw.note;
     }
 
@@ -604,6 +615,7 @@ async function processFile(f){
       }
     }
     report.metadata.steps_count=steps.length;
+    report.story=buildStory(steps,manifest);
 
     // Check 4: file_manifest integrity
     var fileManifest=manifest.file_manifest||{},mismatches={},checked=0;
@@ -701,6 +713,93 @@ function showResult(type,msg){
   else setDropSealState(null);
 }
 
+// What the AI did, read from the sealed steps: goal, the human review, the
+// final decision and a short timeline. Same verdict words as the offline
+// viewer (web_viewer/app.js renderVerdict). Data only — storyHTML escapes it.
+function normalizeVerdict(raw){
+  var d=String(raw||'').toUpperCase();
+  if(!d)return'';
+  var yes=['APPROVED','APPROVE','PASS','PASSED','ACCEPT','ACCEPTED'];
+  var no=['REJECTED','REJECT','DENY','DENIED','FAIL','FAILED','DECLINE','DECLINED','BLOCKED'];
+  var negated=['DIS','UN','NON','DE'].some(function(p){return d.indexOf(p)===0});
+  var isYes=yes.some(function(v){return d.indexOf(v)>=0});
+  var isNo=no.some(function(v){return d.indexOf(v)>=0});
+  if(isYes&&!negated)return'APPROVED';
+  if(isNo||(isYes&&negated))return'REJECTED';
+  return d.replace(/_/g,' ');
+}
+
+function stepLine(s){
+  var k=String(s&&s.kind||''),c=(s&&s.content&&typeof s.content==='object')?s.content:{};
+  var tool=c.tool||c.tool_name||c.name||'';
+  switch(k){
+    case'session.start':return'Run started'+(c.workflow_name?': '+c.workflow_name:'');
+    case'session.end':return'Run ended';
+    case'agent.run.start':return'Agent '+(c.agent_name||'')+' started';
+    case'agent.run.end':return'Agent '+(c.agent_name||'')+' finished';
+    case'tool.call':return'Called tool'+(tool?' '+tool:'');
+    case'tool.response':return'Tool'+(tool?' '+tool:'')+' answered'+(c.ok===false?' with an error':'');
+    case'llm.request':return'Asked AI model'+(c.model?' '+c.model:'');
+    case'llm.response':return'AI model'+(c.model?' '+c.model:'')+' answered';
+    case'model.inference':return'AI model'+(c.model?' '+c.model:'')+' planned'+(c.plan?': '+c.plan:'');
+    case'policy.check':return'Rule check'+(c.rule_name?' "'+c.rule_name+'"':'')+(c.status||c.policy_decision?': '+(c.status||c.policy_decision):'');
+    case'agent.approval.request':return'Asked a human to approve'+(c.action?' '+c.action:'')+(c.reason?': '+c.reason:'');
+    case'agent.approval.response':return(c.reviewer?c.reviewer:'Human reviewer')+(c.approved===true?' approved':c.approved===false?' rejected':' replied')+(c.reason?': '+c.reason:'');
+    case'agent.decision':return'Decision: '+normalizeVerdict(c.decision||c.verdict||c.outcome)+(c.rationale||c.reason?' — '+(c.rationale||c.reason):'');
+    case'security.redaction':return'Hid '+(c.count||'some')+' secret value(s) before sealing';
+    case'environment.captured':return'';
+    default:return k?k.replace(/[._]/g,' '):'';
+  }
+}
+
+function buildStory(steps,manifest){
+  steps=Array.isArray(steps)?steps:[];
+  var story={goal:manifest&&typeof manifest.goal==='string'?manifest.goal:'',workflow:'',verdict:'',rationale:'',review:null,lines:[],total:steps.length};
+  for(var i=0;i<steps.length;i++){
+    var s=steps[i]||{},k=s.kind||'',c=(s.content&&typeof s.content==='object')?s.content:{};
+    if(k==='session.start'&&c.workflow_name&&!story.workflow)story.workflow=String(c.workflow_name);
+    if(k==='agent.decision'){story.verdict=normalizeVerdict(c.decision||c.verdict||c.outcome);story.rationale=String(c.rationale||c.reason||'')}
+    if(k==='policy.check'&&!story.verdict){
+      var st=String(c.status||c.policy_decision||'').toLowerCase();
+      if(st==='deny'||st==='blocked')story.verdict='REJECTED';
+    }
+    if(k==='agent.approval.response')story.review={approved:c.approved===true?true:c.approved===false?false:null,reviewer:String(c.reviewer||''),reason:String(c.reason||'')};
+    var line=stepLine(s);
+    if(line)story.lines.push(line);
+  }
+  return story;
+}
+
+function trunc(t,n){t=String(t||'');return t.length>n?t.slice(0,n-1)+'…':t}
+
+// altered: the seal check failed, so everything here may be forged.
+function storyHTML(story,altered){
+  if(!story||!story.total)return'';
+  var ink='color:var(--ink,inherit)';
+  var head=altered
+    ?'<div style="font-size:0.72rem;font-weight:600;color:var(--tamper)">WHAT THIS FILE CLAIMS — changed after sealing, may be forged</div>'
+    :'<div style="font-size:0.72rem;font-weight:600;color:var(--ink-dim)">WHAT THE AI DID (as sealed)</div>';
+  var h='<div style="margin:0.4rem 0 0.6rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;'+ink+'">'+head;
+  var title=story.goal||story.workflow;
+  if(title)h+='<div style="margin-top:0.35rem"><strong>Task:</strong> '+esc(trunc(title,240))+'</div>';
+  if(story.verdict){
+    var vc=story.verdict==='APPROVED'?'var(--verified)':story.verdict==='REJECTED'?'var(--tamper)':'var(--warn)';
+    h+='<div style="margin-top:0.35rem"><strong>Decision:</strong> <span style="font-weight:700;color:'+vc+'">'+esc(story.verdict)+'</span>'+(story.rationale?' — '+esc(trunc(story.rationale,240)):'')+'</div>';
+  }
+  if(story.review){
+    var r=story.review,said=r.approved===true?'approved':r.approved===false?'rejected':'replied';
+    h+='<div style="margin-top:0.35rem"><strong>Human review:</strong> '+esc(trunc(r.reviewer||'Reviewer',80))+' '+said+(r.reason?' — '+esc(trunc(r.reason,240)):'')+'</div>';
+  }
+  var shown=story.lines.slice(0,15);
+  if(shown.length){
+    h+='<details style="margin-top:0.45rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Steps ('+story.total+')</summary><ol style="margin:0.35rem 0 0 1.1rem;padding:0;font-size:0.74rem">';
+    for(var i=0;i<shown.length;i++)h+='<li>'+esc(trunc(shown[i],200))+'</li>';
+    if(story.lines.length>shown.length)h+='<li style="list-style:none;color:var(--ink-dim)">… '+(story.lines.length-shown.length)+' more — open with epi view for the full record</li>';
+    h+='</ol></details>';
+  }
+  return h+'</div>';
+}
+
 // One plain sentence first; technical detail under a toggle. No jargon.
 function plainHeadline(report){
   var f=report.facts||{};
@@ -729,7 +828,7 @@ function showReport(report,errMsg){
     var idOk=report.identity&&report.identity.status==='KNOWN';
     type=idOk?'pass':'warn';
   }
-  showResult(type,'<div style="font-size:1rem;margin-bottom:0.6rem">'+esc(plainHeadline(report))+'</div><details style="margin-top:0.4rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Details</summary>'+reportDOM(report)+'</details>');
+  showResult(type,'<div style="font-size:1rem;margin-bottom:0.6rem">'+esc(plainHeadline(report))+'</div>'+storyHTML(report.story,!!report.facts&&(report.facts.integrity_ok===false||report.facts.signature_valid===false))+'<details style="margin-top:0.4rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Details</summary>'+reportDOM(report)+'</details>');
   updateChecks(report);
 }
 
