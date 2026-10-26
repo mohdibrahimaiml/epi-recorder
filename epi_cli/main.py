@@ -1558,7 +1558,7 @@ def keys(
                 "[cyan]epi keys export[/cyan] (or publish [cyan]epi keys did --domain ...[/cyan]) "
                 "and read them the fingerprint by phone.[/dim]\n"
             )
-        except FileExistsError as e:
+        except (FileExistsError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
 
@@ -1572,7 +1572,7 @@ def keys(
             raise typer.Exit(1)
         try:
             signer_path, public_hex = key_manager.link_external_key(name, link_uri, overwrite=overwrite)
-        except (FileExistsError, ExternalSignerError) as e:
+        except (FileExistsError, ExternalSignerError, ValueError) as e:
             console.print(f"[red][FAIL][/red] {e}")
             raise typer.Exit(1)
         console.print(f"\n[bold green][OK] Linked key:[/bold green] {name} -> {link_uri}")
@@ -1623,7 +1623,7 @@ def keys(
                 )
             except Exception:
                 console.print()
-        except FileNotFoundError as e:
+        except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
 

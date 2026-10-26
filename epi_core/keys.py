@@ -278,10 +278,10 @@ class KeyManager:
     # -- keys held in an HSM / cloud KMS ---------------------------------
 
     def _key_file_path(self, name: str, suffix: str) -> Path:
-        if not name or "/" in name or "\\" in name or ".." in name:
+        if not name or name in {".", ".."} or "/" in name or "\\" in name or "\x00" in name:
             raise ValueError(f"Invalid key name: {name!r}")
-        base = os.path.realpath(str(self.keys_dir))
-        candidate = os.path.realpath(os.path.join(base, f"{name}{suffix}"))
+        base = os.path.normpath(os.path.abspath(str(self.keys_dir)))
+        candidate = os.path.normpath(os.path.join(base, name + suffix))
         if not candidate.startswith(base + os.sep):
             raise ValueError(f"Invalid key name: {name!r}")
         return Path(candidate)
@@ -295,7 +295,10 @@ class KeyManager:
 
     def external_signer_uri(self, name: str = "default") -> str | None:
         """The vault URI a key name is linked to, or None for a file key."""
-        path = self._signer_path(name)
+        try:
+            path = self._signer_path(name)
+        except ValueError:
+            return None
         if not path.is_file():
             return None
         import json
@@ -447,10 +450,14 @@ class KeyManager:
         return base64.b64encode(public_key_bytes).decode("utf-8")
 
     def has_key(self, name: str = "default") -> bool:
-        """Check if a key pair exists."""
-        private_path = self._key_file_path(name, ".key")
-        public_path = self._key_file_path(name, ".pub")
-        return (private_path.exists() or self._signer_path(name).exists()) and public_path.exists()
+        """Check if a key pair exists. Invalid names never exist."""
+        try:
+            private_path = self._key_file_path(name, ".key")
+            public_path = self._key_file_path(name, ".pub")
+            signer_path = self._signer_path(name)
+        except ValueError:
+            return False
+        return (private_path.exists() or signer_path.exists()) and public_path.exists()
 
     def has_default_key(self) -> bool:
         """Check if default key pair exists (a key file or a linked vault key)."""

@@ -211,13 +211,68 @@ def test_link_refuses_existing_key_file(tmp_path):
 
 def test_key_name_rejects_path_traversal(tmp_path):
     km = KeyManager(tmp_path)
-    for bad in ("../escape", "sub/key", "sub\\key", "..", ""):
+    seed = "11" * 32
+    for bad in ("../escape", "sub/key", "sub\\key", "..", ".", "", "a\x00b"):
         with pytest.raises(ValueError, match="Invalid key name"):
             _link_aws(km, Ed25519PrivateKey.generate(), name=bad)
         with pytest.raises(ValueError, match="Invalid key name"):
             km.generate_keypair(bad)
         with pytest.raises(ValueError, match="Invalid key name"):
+            km.import_hex_seed(bad, seed)
+        with pytest.raises(ValueError, match="Invalid key name"):
             km.load_private_key(bad)
+        with pytest.raises(ValueError, match="Invalid key name"):
+            km.load_public_key(bad)
+    assert km.has_key("../x") is False
+    assert km.external_signer_uri("../x") is None
+
+
+def test_key_name_allows_dots_inside_name(tmp_path):
+    km = KeyManager(tmp_path)
+    km.generate_keypair("release..v2")
+    assert km.has_key("release..v2") is True
+    priv = km.load_private_key("release..v2")
+    pub = km.load_public_key("release..v2")
+    assert _raw_pub(priv) == pub
+
+
+def test_symlinked_key_outside_keys_dir_loads_and_signs(tmp_path):
+    secrets_dir = tmp_path / "secrets"
+    keys_dir = tmp_path / "keys"
+    secrets_km = KeyManager(secrets_dir)
+    real_priv, real_pub = secrets_km.generate_keypair("default")
+    keys_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(real_priv, keys_dir / "default.key")
+        os.symlink(real_pub, keys_dir / "default.pub")
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"os.symlink not permitted in this environment: {exc}")
+
+    km = KeyManager(keys_dir)
+    assert km.has_key("default") is True
+    assert km.has_default_key() is True
+    priv = km.load_private_key("default")
+    pub = km.load_public_key("default")
+    sig = priv.sign(b"mounted-secret")
+    priv.public_key().verify(sig, b"mounted-secret")
+    assert _raw_pub(priv) == pub
+
+
+def test_cli_keys_export_invalid_name_exits_cleanly():
+    from typer.testing import CliRunner
+
+    from epi_cli.main import app
+
+    runner = CliRunner()
+    for args in (
+        ["keys", "export", "../x"],
+        ["keys", "generate", "--name", "../x"],
+        ["keys", "link", "--name", "../x", "--uri", "awskms:alias/epi"],
+    ):
+        res = runner.invoke(app, args)
+        assert res.exit_code == 1, res.output
+        assert "Traceback" not in res.output
+        assert "Invalid key name" in res.output
 
 
 def test_link_refuses_relink_without_overwrite(tmp_path):
