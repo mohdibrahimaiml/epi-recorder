@@ -13,10 +13,12 @@ from pathlib import Path
 from types import SimpleNamespace
 import argparse
 import ctypes
+import hashlib
 import ipaddress
 import os
 import shutil
 import socket
+import subprocess
 import tempfile
 import uuid
 import warnings
@@ -256,3 +258,47 @@ def tmp_path():
         yield path
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Guard: a test run must not leave tracked files modified.
+#
+# Tests must write to tmp_path. A test that mutates a tracked file in the
+# checkout (e.g. by running a sync against the real tree) otherwise passes while
+# silently dirtying the repo — and the next person mistakes it for real work.
+# We snapshot `git diff` at session start and fail the session if it changed.
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parent
+_TRACKED_DIFF_BASELINE: dict[str, str | None] = {}
+
+
+def _tracked_diff_digest() -> str | None:
+    """sha256 of ``git diff`` for tracked files, or None outside a git checkout."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "diff", "--binary"],
+            capture_output=True,
+            timeout=120,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    return hashlib.sha256(proc.stdout).hexdigest()
+
+
+def pytest_sessionstart(session):  # type: ignore[no-untyped-def]
+    _TRACKED_DIFF_BASELINE["digest"] = _tracked_diff_digest()
+
+
+def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
+    start = _TRACKED_DIFF_BASELINE.get("digest")
+    end = _tracked_diff_digest()
+    if start is None or end is None or start == end:
+        return
+    session.exitstatus = 1
+    print(
+        "\n[pytest-guard] Test run changed tracked files. `git diff` differs from "
+        "session start — tests must write to tmp_path, not the repository."
+    )
