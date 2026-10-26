@@ -209,6 +209,17 @@ def test_link_refuses_existing_key_file(tmp_path):
     assert (tmp_path / "default.key").exists()
 
 
+def test_key_name_rejects_path_traversal(tmp_path):
+    km = KeyManager(tmp_path)
+    for bad in ("../escape", "sub/key", "sub\\key", "..", ""):
+        with pytest.raises(ValueError, match="Invalid key name"):
+            _link_aws(km, Ed25519PrivateKey.generate(), name=bad)
+        with pytest.raises(ValueError, match="Invalid key name"):
+            km.generate_keypair(bad)
+        with pytest.raises(ValueError, match="Invalid key name"):
+            km.load_private_key(bad)
+
+
 def test_link_refuses_relink_without_overwrite(tmp_path):
     km = KeyManager(tmp_path)
     _link_aws(km, Ed25519PrivateKey.generate())

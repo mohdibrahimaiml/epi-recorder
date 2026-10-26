@@ -23,7 +23,8 @@ class ExternalKeyRequiredError(RuntimeError):
 
 
 def external_key_required() -> bool:
-    return os.environ.get("EPI_REQUIRE_EXTERNAL_KEY", "").strip().lower() in {"1", "true", "yes", "on"}
+    val = os.environ.get("EPI_REQUIRE_EXTERNAL_KEY", "").strip().lower()
+    return val in {"1", "true", "yes", "on"}
 
 
 def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
@@ -178,8 +179,8 @@ class KeyManager:
         Raises:
             FileExistsError: If keys exist and overwrite=False
         """
-        private_key_path = self.keys_dir / f"{name}.key"
-        public_key_path = self.keys_dir / f"{name}.pub"
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
 
         if not overwrite and (private_key_path.exists() or public_key_path.exists()):
             raise FileExistsError(
@@ -237,8 +238,8 @@ class KeyManager:
             raise ValueError(
                 "Seed must be exactly 64 hex characters (32-byte Ed25519 seed)."
             )
-        private_key_path = self.keys_dir / f"{name}.key"
-        public_key_path = self.keys_dir / f"{name}.pub"
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
         if not overwrite and (private_key_path.exists() or public_key_path.exists()):
             raise FileExistsError(
                 f"Key pair '{name}' already exists. Use overwrite=True to replace."
@@ -276,8 +277,17 @@ class KeyManager:
 
     # -- keys held in an HSM / cloud KMS ---------------------------------
 
+    def _key_file_path(self, name: str, suffix: str) -> Path:
+        if not name or "/" in name or "\\" in name or ".." in name:
+            raise ValueError(f"Invalid key name: {name!r}")
+        base = os.path.realpath(str(self.keys_dir))
+        candidate = os.path.realpath(os.path.join(base, f"{name}{suffix}"))
+        if not candidate.startswith(base + os.sep):
+            raise ValueError(f"Invalid key name: {name!r}")
+        return Path(candidate)
+
     def _signer_path(self, name: str) -> Path:
-        return self.keys_dir / f"{name}.signer"
+        return self._key_file_path(name, ".signer")
 
     def _unlink_external(self, name: str) -> None:
         self._signer_path(name).unlink(missing_ok=True)
@@ -306,8 +316,8 @@ class KeyManager:
 
         from epi_core.signers import load_signer
 
-        private_key_path = self.keys_dir / f"{name}.key"
-        public_key_path = self.keys_dir / f"{name}.pub"
+        private_key_path = self._key_file_path(name, ".key")
+        public_key_path = self._key_file_path(name, ".pub")
         signer_path = self._signer_path(name)
         if private_key_path.exists():
             raise FileExistsError(
@@ -355,7 +365,8 @@ class KeyManager:
         pinned = str(record.get("public_key") or "").lower()
         signer = load_signer(str(record["uri"]))
         live = signer.public_key_hex()
-        file_pub = self.load_public_key(name).hex() if (self.keys_dir / f"{name}.pub").exists() else ""
+        pub_exists = self._key_file_path(name, ".pub").exists()
+        file_pub = self.load_public_key(name).hex() if pub_exists else ""
         # The vault must still hold the key that was linked: a swapped key
         # would sign records nobody pinned.
         if live != pinned or (file_pub and file_pub != pinned):
@@ -375,7 +386,7 @@ class KeyManager:
         """
         if self._signer_path(name).is_file():
             return self._load_external_signer(name)  # type: ignore[return-value]
-        key_path = self.keys_dir / f"{name}.key"
+        key_path = self._key_file_path(name, ".key")
         if external_key_required():
             raise ExternalKeyRequiredError(
                 f"EPI_REQUIRE_EXTERNAL_KEY is set, so key '{name}' must be held in an "
@@ -390,7 +401,7 @@ class KeyManager:
 
     def load_public_key(self, name: str = "default") -> bytes:
         """Load a public key from disk."""
-        key_path = self.keys_dir / f"{name}.pub"
+        key_path = self._key_file_path(name, ".pub")
         if not key_path.exists():
             raise FileNotFoundError(
                 f"Public key '{name}' not found. Generate with: epi keys generate --name {name}"
@@ -437,8 +448,8 @@ class KeyManager:
 
     def has_key(self, name: str = "default") -> bool:
         """Check if a key pair exists."""
-        private_path = self.keys_dir / f"{name}.key"
-        public_path = self.keys_dir / f"{name}.pub"
+        private_path = self._key_file_path(name, ".key")
+        public_path = self._key_file_path(name, ".pub")
         return (private_path.exists() or self._signer_path(name).exists()) and public_path.exists()
 
     def has_default_key(self) -> bool:
