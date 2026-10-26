@@ -1254,6 +1254,7 @@ def analyze(
             raise typer.Exit(1)
 
     fault_detected = _analysis_has_fault(analysis)
+    detector_errors = analysis.get("detector_errors") or []
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
     primary_fault = analysis.get("primary_fault")
@@ -1270,6 +1271,12 @@ def analyze(
             "[yellow][!][/yellow] No [bold]epi_policy.json[/bold] was found for this run. "
             "EPI used heuristic analysis only [dim](less precise)[/dim].\n"
             "    \u2192 Run [bold cyan]epi policy init[/bold cyan] to define compliance rules for your workflow.\n"
+        )
+
+    if detector_errors:
+        console.print(
+            f"[yellow][!][/yellow] Analysis incomplete: {len(detector_errors)} detector(s) failed "
+            "— a clean-looking result may be missing a fault category.\n"
         )
 
     if fault_detected:
@@ -1316,7 +1323,13 @@ def analyze(
             console.print("  Analysis:   Skipped meaningful fault review because no execution steps were captured")
             console.print("\n  [dim]Fix: instrument the workflow with record() or a supported integration, then rerun it.[/dim]\n")
         else:
-            console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
+            if detector_errors:
+                console.print(
+                    f"\n[yellow][!][/yellow] [bold]{epi_path.name}[/bold] — "
+                    "Analysis incomplete (no fault found among detectors that ran)"
+                )
+            else:
+                console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
             verdict, impact, action = _analyze_reviewer_guidance(False, steps_recorded)
             console.print(f"  Verdict:    [bold green]{verdict}[/bold green]")
             console.print(f"  Impact:     {impact}")
