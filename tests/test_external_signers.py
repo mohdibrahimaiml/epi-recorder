@@ -7,6 +7,7 @@ with a real Ed25519 key, so the request shape is checked byte for byte.
 
 from __future__ import annotations
 
+import enum
 import json
 import os
 import shutil
@@ -65,9 +66,15 @@ class FakeAwsKms:
         return {"Signature": self.key.sign(kwargs["Message"])}
 
 
+class _GcpAlgorithm(enum.IntEnum):
+    EC_SIGN_P256_SHA256 = 12
+    EC_SIGN_ED25519 = 40
+
+
 class FakeGcpKms:
-    def __init__(self, key: Ed25519PrivateKey):
+    def __init__(self, key: Ed25519PrivateKey, algorithm=_GcpAlgorithm.EC_SIGN_ED25519):
         self.key = key
+        self.algorithm = algorithm
         self.requests: list[dict] = []
 
     def get_public_key(self, request):
@@ -75,7 +82,8 @@ class FakeGcpKms:
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-        return SimpleNamespace(pem=pem.decode(), algorithm="EC_SIGN_ED25519")
+        # google-cloud-kms returns an IntEnum here (EC_SIGN_ED25519 == 40), not a string.
+        return SimpleNamespace(pem=pem.decode(), algorithm=self.algorithm)
 
     def asymmetric_sign(self, request):
         self.requests.append(request)
@@ -153,13 +161,19 @@ def test_gcp_kms_signs_data_not_digest():
     assert fake.requests == [{"name": GCP_URI.split(":", 1)[1], "data": b"payload"}]
 
 
+def test_gcp_kms_rejects_non_ed25519_algorithm():
+    fake = FakeGcpKms(Ed25519PrivateKey.generate(), algorithm=_GcpAlgorithm.EC_SIGN_P256_SHA256)
+    with pytest.raises(ExternalSignerError, match="EC_SIGN_P256_SHA256"):
+        GcpKmsSigner(GCP_URI, client=fake).public_key()
+
+
 def test_signature_from_a_different_key_is_refused():
     """A vault that signs with something other than the advertised key is caught at seal time."""
     advertised = Ed25519PrivateKey.generate()
     fake = FakeAwsKms(advertised)
     fake.sign = lambda **kw: {"Signature": Ed25519PrivateKey.generate().sign(kw["Message"])}
     signer = AwsKmsSigner("awskms:alias/epi", client=fake)
-    with pytest.raises(ExternalSignerError, match="does not verify"):
+    with pytest.raises(ExternalSignerError, match="does not verify against"):
         signer.sign(b"data")
 
 

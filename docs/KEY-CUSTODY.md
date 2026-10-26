@@ -91,6 +91,9 @@ The `.epi` file can't prove where its key was stored. A file that said "signed b
      | base64 -d | openssl pkey -pubin -inform DER -outform PEM > vault.pub
    epi keys trust vault.pub --name vendor-hsm   # prints the same fingerprint
    ```
+   For a PKCS#11 HSM, read the public key with the HSM's own tool, for example
+   `pkcs11-tool --module <lib.so> --token-label epi --read-object --type pubkey --label epi-signing -o vault.pub`
+   (recent OpenSC versions write PEM directly).
 3. If the fingerprints match, the signing key is the one inside the vault. The vault's own audit log (CloudTrail, Cloud Audit Logs, HSM audit) then lists every signature it made.
 
 ## Limits

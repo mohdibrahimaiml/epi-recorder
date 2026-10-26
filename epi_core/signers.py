@@ -92,8 +92,9 @@ class ExternalSigner:
             self.public_key().verify(signature, data)
         except InvalidSignature as exc:
             raise ExternalSignerError(
-                f"{self.backend}: the vault returned a signature that does not verify as "
-                "pure Ed25519 over the message (is the key set up for Ed25519ph/prehash?)"
+                f"{self.backend}: the vault returned a signature that does not verify against "
+                "the linked public key. Either the key in the vault was replaced, or it is set "
+                "up for prehashed Ed25519ph instead of pure Ed25519. Refusing to sign."
             ) from exc
         return signature
 
@@ -313,7 +314,9 @@ class GcpKmsSigner(ExternalSigner):
 
     def _fetch_public_key_raw(self) -> bytes:
         response = self._kms().get_public_key(request={"name": self.key_version})
-        algorithm = str(getattr(response, "algorithm", "") or "")
+        # The client returns an enum (str() of it is the number), so read its name.
+        raw_algorithm = getattr(response, "algorithm", None)
+        algorithm = str(getattr(raw_algorithm, "name", raw_algorithm) or "")
         if algorithm and "ED25519" not in algorithm.upper():
             raise ExternalSignerError(
                 f"Google Cloud KMS key is {algorithm}; EPI needs EC_SIGN_ED25519"

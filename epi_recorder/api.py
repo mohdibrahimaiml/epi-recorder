@@ -1055,7 +1055,7 @@ class EpiRecorderSession:
                     raise RuntimeError(
                         "EPI auto_sign=True but signing failed "
                         f"({detail}); artifact left unsigned. "
-                        "Fix keys (epi keys generate) or set "
+                        "Fix keys (epi keys generate, or epi keys link for an HSM/KMS key) or set "
                         "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
                     )
 
@@ -1187,7 +1187,7 @@ class EpiRecorderSession:
                     raise RuntimeError(
                         "EPI auto_sign=True but signing failed "
                         f"({detail}); artifact left unsigned. "
-                        "Fix keys (epi keys generate) or set "
+                        "Fix keys (epi keys generate, or epi keys link for an HSM/KMS key) or set "
                         "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
                     )
 
