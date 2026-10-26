@@ -3,8 +3,10 @@
 Boots `wrangler dev --local` against an isolated persist dir, seeds one
 owner session straight into local D1, then walks the guided start the way
 a new customer would: company -> connect + pick customer (device code) ->
-first run + share link -> dashboard tabs. Screenshots land in
-docs/dashboard-v2/ and are committed for the PR.
+first run + share link -> dashboard tabs. Screenshots land in a temp
+folder, because a test run must not modify tracked files (conftest guard).
+To refresh the committed docs/dashboard-v2/ shots, run with
+EPI_DASHBOARD_SHOTS=docs/dashboard-v2.
 
 Browser-marked: the release gate deselects it; .github/workflows/
 dashboard-browser.yml runs it with Playwright chromium on every PR.
@@ -14,10 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import shutil
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -28,7 +32,11 @@ pytestmark = pytest.mark.browser
 
 REPO = Path(__file__).resolve().parents[1]
 CLOUD = REPO / "cloud"
-SHOTS = REPO / "docs" / "dashboard-v2"
+SHOTS = (
+    REPO / os.environ["EPI_DASHBOARD_SHOTS"]
+    if os.environ.get("EPI_DASHBOARD_SHOTS")
+    else Path(tempfile.gettempdir()) / "epi-dashboard-v2"
+)
 
 SESSION_RAW = "dash-e2e-session-0123456789abcdef0123456789abcdef"
 INBOX_KEY = "cd" * 32
