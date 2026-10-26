@@ -61,24 +61,17 @@ def report_witness_for_cli(epi_path: Path | str) -> str | None:
         if not urls:
             return None
         key_name: str | None = None
-        private_key_bytes: bytes | None = None
+        signer = None
         try:
-            from cryptography.hazmat.primitives import serialization
             from epi_cli.keys import KeyManager
 
-            _km = KeyManager()
-            _priv = _km.load_private_key("default")
-            private_key_bytes = _priv.private_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PrivateFormat.Raw,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
+            signer = KeyManager().load_private_key("default")
             key_name = "default"
         except Exception:
-            key_name, private_key_bytes = None, None
+            key_name, signer = None, None
         entry = report_seal(
             Path(epi_path), urls=urls, secret=secret,
-            key_name=key_name, private_key_bytes=private_key_bytes,
+            key_name=key_name, signer=signer,
         )
         if entry is None:
             return "Witness: QUEUED (could not stage report) — run epi witness flush"

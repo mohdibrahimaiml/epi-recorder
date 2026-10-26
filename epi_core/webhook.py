@@ -202,18 +202,20 @@ def send_signed_webhook(
 
 
 def seal_signature_header(
-    payload_bytes: bytes, private_key_bytes: bytes, key_name: str
+    payload_bytes: bytes, private_key: Any, key_name: str
 ) -> str:
     """Ed25519 signature of the witness body: `ed25519:<keyname>:<hex>`.
 
     The customer verifies it with the vendor's pinned public key, so the
     witness record is authenticated even without a shared HMAC secret.
+    `private_key` is anything with `.sign()` (a key object or an HSM/KMS
+    signer), or raw 32-byte key material.
     """
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    if isinstance(private_key, (bytes, bytearray)):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    signature = Ed25519PrivateKey.from_private_bytes(bytes(private_key_bytes)).sign(
-        bytes(payload_bytes)
-    )
+        private_key = Ed25519PrivateKey.from_private_bytes(bytes(private_key))
+    signature = private_key.sign(bytes(payload_bytes))
     return f"ed25519:{key_name}:{signature.hex()}"
 
 
@@ -657,6 +659,7 @@ def stage_seal_report(
     goal: str | None = None,
     path: Path | None = None,
     case_id: str | None = None,
+    signer: Any = None,
 ) -> dict[str, Any] | None:
     """Build the witness payload from the FINAL file and append it to the outbox.
 
@@ -712,11 +715,12 @@ def stage_seal_report(
             case_id=case_id,
         )
         headers: dict[str, str] = {}
-        if private_key_bytes and key_name:
+        signing_key = signer if signer is not None else private_key_bytes
+        if signing_key and key_name:
             try:
                 headers["X-EPI-Seal-Signature"] = seal_signature_header(
                     json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                    private_key_bytes,
+                    signing_key,
                     key_name,
                 )
             except Exception as exc:
@@ -754,6 +758,7 @@ def report_seal(
     timeout_seconds: float | None = None,
     path: Path | None = None,
     case_id: str | None = None,
+    signer: Any = None,
 ) -> dict[str, Any] | None:
     """Witness one sealed `.epi` to customer endpoints. Never raises, never slows the seal.
 
@@ -769,6 +774,7 @@ def report_seal(
         goal=goal,
         path=path,
         case_id=case_id,
+        signer=signer,
     )
     if entry is None:
         return None

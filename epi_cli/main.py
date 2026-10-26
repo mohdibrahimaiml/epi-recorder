@@ -1487,7 +1487,7 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
+        help="Action: generate, link, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
@@ -1509,6 +1509,11 @@ def keys(
         "--fingerprint",
         help="'trust' from an .epi file: the fingerprint you confirmed with the sender (required).",
     ),
+    uri: Optional[str] = typer.Option(
+        None,
+        "--uri",
+        help="'link': Ed25519 key in an HSM or KMS (pkcs11:..., awskms:..., gcpkms:...). See docs/KEY-CUSTODY.md.",
+    ),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
@@ -1529,6 +1534,7 @@ def keys(
     from_cloud = _resolve_opt(from_cloud)
     cloud_url = _resolve_opt(cloud_url)
     fingerprint = _resolve_opt(fingerprint)
+    uri = _resolve_opt(uri)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1555,6 +1561,27 @@ def keys(
         except FileExistsError as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
+
+    elif action == "link":
+        from epi_core.keys import key_fingerprint as _key_fp
+        from epi_core.signers import ExternalSignerError
+
+        link_uri = uri or key
+        if not link_uri:
+            console.print("[red][FAIL][/red] Give the vault key: epi keys link --name default --uri <uri>")
+            raise typer.Exit(1)
+        try:
+            signer_path, public_hex = key_manager.link_external_key(name, link_uri, overwrite=overwrite)
+        except (FileExistsError, ExternalSignerError) as e:
+            console.print(f"[red][FAIL][/red] {e}")
+            raise typer.Exit(1)
+        console.print(f"\n[bold green][OK] Linked key:[/bold green] {name} -> {link_uri}")
+        console.print(f"  [cyan]Link file:[/cyan]   {signer_path}  [dim](no secrets)[/dim]")
+        console.print(f"  [cyan]Fingerprint:[/cyan] {_key_fp(public_hex)}")
+        console.print(
+            "\n[dim]The private key stays in the vault; EPI signs through it. Check this "
+            "fingerprint against the public key your vault reports (see docs/KEY-CUSTODY.md).[/dim]\n"
+        )
 
     elif action == "list":
         keys_list = key_manager.list_keys()

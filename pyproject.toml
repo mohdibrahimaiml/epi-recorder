@@ -105,6 +105,16 @@ analytics = [
 pdf = [
     "fpdf2>=2.8.0",
 ]
+# Signing keys held in an HSM or cloud KMS (docs/KEY-CUSTODY.md)
+pkcs11 = [
+    "python-pkcs11>=0.7.0",
+]
+aws-kms = [
+    "boto3>=1.34.0",
+]
+gcp-kms = [
+    "google-cloud-kms>=3.0.0",
+]
 gateway = [
     "fastapi>=0.111.0,<1",
     "uvicorn>=0.30.0,<1",

@@ -1754,28 +1754,22 @@ class EpiRecorderSession:
             if not urls:
                 return
             key_name: str | None = None
-            private_key_bytes: bytes | None = None
+            signer = None
             if signed:
                 try:
                     from epi_core.keys import KeyManager
-                    from cryptography.hazmat.primitives import serialization
 
                     km = KeyManager()
                     key_name = self.default_key_name
-                    private_key = km.load_private_key(key_name)
-                    private_key_bytes = private_key.private_bytes(
-                        encoding=serialization.Encoding.Raw,
-                        format=serialization.PrivateFormat.Raw,
-                        encryption_algorithm=serialization.NoEncryption(),
-                    )
+                    signer = km.load_private_key(key_name)
                 except Exception:
-                    key_name, private_key_bytes = None, None
+                    key_name, signer = None, None
             entry = report_seal(
                 self.output_path,
                 urls=urls,
                 secret=secret,
                 key_name=key_name,
-                private_key_bytes=private_key_bytes,
+                signer=signer,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
             )
             _print_witness_outcome(entry)
