@@ -232,8 +232,14 @@ def capture_full_environment(
             redactor = get_default_redactor()
             redacted_snapshot, _ = redactor.redact(snapshot)
             return redacted_snapshot
-        except Exception:
-            pass
+        except Exception as exc:
+            # Fail closed: never return the unredacted snapshot. Withhold it and
+            # record the failure so no secret can be sealed into the artifact.
+            return {
+                "redaction_failed": True,
+                "redaction_error": f"{type(exc).__name__}: {exc}"[:200],
+                "note": "environment snapshot withheld because redaction failed",
+            }
 
     return snapshot
 

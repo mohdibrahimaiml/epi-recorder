@@ -203,6 +203,8 @@ class AnalysisResult:
         self.steps = steps
         self.primary_fault: Optional[FaultFlag] = None
         self.secondary_flags: list[FaultFlag] = []
+        # A crashed detector must not read as 'no fault' (silent swallow).
+        self.detector_errors: list[dict] = []
         self.analyzer_version = ANALYZER_VERSION
         self.timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -274,6 +276,8 @@ class AnalysisResult:
                 "coverage_percentage": round(full_data / total * 100) if total else 0,
             },
             "fault_detected": self.fault_detected,
+            "detector_errors": list(self.detector_errors),
+            "detectors_failed": len(self.detector_errors),
             "confidence": self.confidence,
             "verdict": self._build_verdict(),
             "verdict_short": self._build_verdict_short(),
@@ -299,6 +303,13 @@ class AnalysisResult:
             "disclaimer": DISCLAIMER,
         }
         return d
+
+    def _record_detector_error(self, pass_name: str, exc: Exception) -> None:
+        """Record a crashed detector so the sealed analysis is not silently incomplete."""
+        self.detector_errors.append({
+            "pass": pass_name,
+            "error": f"{type(exc).__name__}: {exc}"[:200],
+        })
 
     def _all_flags(self) -> list[FaultFlag]:
         return ([self.primary_fault] if self.primary_fault else []) + self.secondary_flags
@@ -862,90 +873,90 @@ class FaultAnalyzer:
         # Pass 1: Error Continuation (always)
         try:
             flags.extend(self._pass1_error_continuation(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass1_error_continuation", exc)
 
         # Pass 2: Constraint Violation (always)
         try:
             flags.extend(self._pass2_constraint_violation(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass2_constraint_violation", exc)
 
         if self.policy:
             # Pass 3: Sequence Violation (policy only)
             try:
                 flags.extend(self._pass3_sequence_violation(steps))
-            except Exception:
-                pass
+            except Exception as exc:
+                result._record_detector_error("_pass3_sequence_violation", exc)
 
             # Pass 4: Threshold Violation (policy only)
             try:
                 flags.extend(self._pass4_threshold_violation(steps))
-            except Exception:
-                pass
+            except Exception as exc:
+                result._record_detector_error("_pass4_threshold_violation", exc)
 
             # Pass 5: Prohibition Violation (policy only)
             try:
                 flags.extend(self._pass5_prohibition_violation(steps))
-            except Exception:
-                pass
+            except Exception as exc:
+                result._record_detector_error("_pass5_prohibition_violation", exc)
 
         # Pass 6: Agent Approval Gap (always)
         try:
             flags.extend(self._pass6_agent_approval_gap(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass6_agent_approval_gap", exc)
 
         if self.policy:
             # Pass 7: Approval Guard Violation (policy only)
             try:
                 flags.extend(self._pass7_approval_guard_violation(steps))
-            except Exception:
-                pass
+            except Exception as exc:
+                result._record_detector_error("_pass7_approval_guard_violation", exc)
 
         # Pass 8: Context Drop (always)
         try:
             flags.extend(self._pass8_context_drop(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass8_context_drop", exc)
 
         if self.policy:
             # Pass 9: Tool Permission Guard (policy only)
             try:
                 flags.extend(self._pass9_tool_permission_guard(steps))
-            except Exception:
-                pass
+            except Exception as exc:
+                result._record_detector_error("_pass9_tool_permission_guard", exc)
 
 
         # Pass 10: Time-Gap Tamper (SCITT registered_at vs manifest created_at)
         try:
             flags.extend(self._pass10_time_gap_tamper(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass10_time_gap_tamper", exc)
 
         # Pass 11: Instrumentation Coverage Warning (always)
         try:
             flags.extend(self._pass11_coverage_gap(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass11_coverage_gap", exc)
 
         # Pass 11b: Orphaned Tool Calls (always)
         try:
             flags.extend(self._pass11b_tool_gaps(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass11b_tool_gaps", exc)
 
         # Pass 11c: Unmatched LLM Requests (always)
         try:
             flags.extend(self._pass11c_llm_gaps(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass11c_llm_gaps", exc)
 
         # Pass 11d: Anomalous Time Gaps (always)
         try:
             flags.extend(self._pass11d_time_gaps(steps))
-        except Exception:
-            pass
+        except Exception as exc:
+            result._record_detector_error("_pass11d_time_gaps", exc)
 
         # Deduplicate: same step_index + same rule/type keeps the highest severity
         flags = _deduplicate_flags(flags)

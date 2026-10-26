@@ -69,6 +69,7 @@ def build_artifact_run_summary(
         "fault_detected": None,
         "top_issue": None,
         "heuristic_observation_count": None,
+        "detectors_failed": None,
         "review_required": None,
         "next_hint": f"epi view {_shown(path)}" if path.name else "epi view <file.epi>",
     }
@@ -100,6 +101,8 @@ def build_artifact_run_summary(
 
     summary["mode"] = analysis.get("mode")
     summary["fault_detected"] = bool(analysis.get("fault_detected"))
+    # A crashed detector must not read as a clean analysis.
+    summary["detectors_failed"] = len(analysis.get("detector_errors") or [])
     summary["review_required"] = bool(analysis.get("review_required"))
     summary["policy_id"] = analysis.get("policy_id") or (
         policy_doc.get("policy_id") if policy_doc else None
@@ -212,6 +215,11 @@ def format_artifact_run_summary_lines(
             lines.append("Finding: no heuristic issues flagged (not a compliance pass)")
         else:
             lines.append("Finding: no rule issues flagged")
+
+    if s.get("detectors_failed"):
+        lines.append(
+            f"Analysis: {s['detectors_failed']} detector(s) failed — result may be incomplete"
+        )
 
     lines.append(f"Next:    {s.get('next_hint')}")
     return lines
