@@ -71,6 +71,16 @@ describe("cloud front door", () => {
     expect(html).not.toMatch(/<(link|img)[^>]+(href|src)="https?:/);
   });
 
+  it("share links opened on the cloud origin redirect to the trust page", async () => {
+    const { env } = await setup();
+    const res = await app.request("/t/sh_abc123", {}, env as never);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://epilabs.org/t/sh_abc123");
+    // The id is path-encoded, so it can never change the target host.
+    const odd = await app.request("/t/%2F%2Fevil.test", {}, env as never);
+    expect(odd.headers.get("location")).toBe("https://epilabs.org/t/%2F%2Fevil.test");
+  });
+
   it("signed-in users see their account, email escaped", async () => {
     const { env } = await setup();
     const me = await app.request("/", { headers: { Cookie: "epi_session=sess-ok" } }, env as never);
