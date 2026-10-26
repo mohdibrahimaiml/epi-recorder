@@ -345,9 +345,15 @@ class EPIContainer:
                 # we can't include its bytes here. The browser Sign & Seal
                 # flow receives it from the separate viewer generation step.
             },
+            # NOT a pass. The pack-time viewer has hashed nothing, and a copy
+            # opened by double-click is editable display data, so it must never
+            # paint a verdict it did not compute. The viewer shows "not verified
+            # here" (and points at epilabs.org/verify) until a byte-bound check
+            # — `epi view`'s injected context, or a live check against the
+            # archive — sets the real result.
             "integrity": {
-                "ok": True,
-                "checked": len(manifest.file_manifest) + (0 if "viewer.html" in manifest.file_manifest else 1),
+                "ok": None,
+                "checked": 0,
                 "mismatches": [],
             },
             "signature": {

@@ -47,6 +47,16 @@ All notable changes to EPI Recorder are documented here.
   before this change keep verifying exactly as before as `"contents-only"` —
   no silent upgrade, no new FAIL. See `docs/VERIFICATION_CONTRACT.md` and
   `docs/KNOWN_LIMITATIONS.md`.
+- **The embedded viewer no longer shows a file-integrity PASS it did not
+  compute.** `_create_embedded_viewer` baked `integrity: {ok: true}` at pack
+  time, so a `.epi` whose sealed evidence was rewritten after sealing still
+  displayed a green "N checked / 0 mismatches" in the viewer's diagnostic matrix
+  when opened by double-click — the display layer lying about the very thing EPI
+  exists to catch. The pack-time viewer now bakes no verdict (`ok: null`), and
+  the matrix shows a pass only when the page actually hashed the members against
+  the signed manifest (an authoritative `epi view` context, or a live check
+  against the archive); otherwise it reads "NOT VERIFIED HERE — drop this file on
+  epilabs.org/verify". The fail-closed path for a known failure is unchanged.
 
 ## [4.6.3] - 2026-10-23
 
