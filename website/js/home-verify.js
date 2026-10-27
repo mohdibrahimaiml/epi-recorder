@@ -88,6 +88,59 @@ async function verifyEd25519(sigStr,pubKeyHex,hashHex){
   return globalThis.epiVerifyEd25519(sigStr,pubKeyHex,hashHex);
 }
 
+// ── Approval labels (step 3c) ────────────────────────────────────────────────
+// The browser has no approver registry, so it can only say what KIND of
+// approval a step is — never that a human was verified. Wording is fixed here
+// and asserted by tests.
+function approvalSourceLabel(c){
+  c=c||{};
+  var claimed=typeof c.claimed_approval_source==='string'?c.claimed_approval_source:'';
+  if(claimed)return'Agent-reported (claimed '+claimed+'; the gateway did not accept it)';
+  var src=String(c.approval_source||'raw_api_unverified');
+  if(src==='gateway_link_unsigned')return'Gateway link click (not a signed approval)';
+  if(src==='gateway_link_authenticated')return'Gateway link click by a logged-in user (not a signed approval)';
+  if(src==='gateway_human')return'Gateway link click, older gateway (not a signed approval)';
+  return'Agent-reported';
+}
+
+function approvalStepLine(c){
+  c=c||{};
+  var said=c.approved===true?'approved':c.approved===false?'rejected':'replied';
+  var who=c.reviewer?String(c.reviewer):'a reviewer';
+  var action=c.action?' '+String(c.action):'';
+  var label=approvalSourceLabel(c);
+  var body=label==='Agent-reported'
+    ? 'Agent-reported: '+who+' '+said+action
+    : label;
+  return body+(c.reason?': '+String(c.reason):'');
+}
+
+function hexToBytes(h){
+  h=String(h||'');
+  var n=h.length>>1,a=new Uint8Array(n);
+  for(var i=0;i<n;i++)a[i]=parseInt(h.substr(i*2,2),16);
+  return a;
+}
+
+async function verifyEd25519Raw(pubHex,sigHex,msgBytes){
+  try{
+    var pub=hexToBytes(pubHex);
+    if(pub.length!==32)return false;
+    var key=await crypto.subtle.importKey('raw',pub,{name:'Ed25519'},false,['verify']);
+    return await crypto.subtle.verify({name:'Ed25519'},key,hexToBytes(sigHex),msgBytes);
+  }catch(e){return false}
+}
+
+// Same value as epi_core.keys.key_fingerprint: SHA-256 over the lowercase hex
+// key TEXT, first 16 hex chars, grouped by 4. Never over the raw key bytes.
+async function keyFingerprintHex(pubHex){
+  var text=String(pubHex||'').trim().toLowerCase();
+  if(text.length!==64)return null;
+  var digest=await sha256(new TextEncoder().encode(text));
+  var short=digest.substring(0,16);
+  return short.match(/.{1,4}/g).join(' ');
+}
+
 /*
   Container detection + ZIP extract.
   Prefer shared epi-verify-core (window.epiDetectContainer / epiExtractZipBytes)
@@ -526,6 +579,72 @@ async function auditSteps(steps,manifest){
   return{sequence_ok:seq,completeness_ok:comp,chain_ok:chain,step_count_ok:count};
 }
 
+// ── Signed approvals (review ledger, 1.2.0) ─────────────────────────────────
+// What the browser CAN check offline: the record's canonical hash, its Ed25519
+// signature, and that its artifact_binding is this file. It cannot check the
+// approver registry — that is `epi verify --require-human-approval`.
+async function reviewContentHash(record){
+  var payload={};
+  for(var k in record){if(k==='review_hash'||k==='review_signature')continue;payload[k]=record[k];}
+  return sha256(new TextEncoder().encode(sortedJSON(payload)));
+}
+
+async function computeArtifactBinding(zip,manifest,rawManifestBytes,containerFmt){
+  var fileManifest=manifest.file_manifest||{},names=Object.keys(fileManifest).sort(),entries=[];
+  for(var i=0;i<names.length;i++){
+    var name=names[i],entry=zip.file(name),digest='__missing__';
+    if(entry){try{digest=await sha256(await entry.async('uint8array'))}catch(e){digest='__missing__'}}
+    entries.push({path:name,sha256:digest});
+  }
+  return {
+    binding_version:'1.0.0',
+    binding_type:'epi_artifact',
+    workflow_id:String(manifest.workflow_id),
+    manifest_sha256:await sha256(rawManifestBytes),
+    manifest_signature:manifest.signature===undefined?null:manifest.signature,
+    manifest_public_key:manifest.public_key===undefined?null:manifest.public_key,
+    sealed_evidence_sha256:await sha256(new TextEncoder().encode(sortedJSON({files:entries}))),
+    container_format:containerFmt
+  };
+}
+
+async function verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt){
+  var out=[];
+  var names=Object.keys(zip.files).filter(function(n){return n.indexOf('reviews/')===0&&/\.json$/.test(n)});
+  if(!names.length&&zip.file('review.json'))names=['review.json'];
+  var expected=null;
+  for(var i=0;i<names.length;i++){
+    var raw,rec;
+    try{raw=await zip.file(names[i]).async('string');rec=parseJSONPreserveNumbers(raw)}catch(e){continue}
+    var entries=Array.isArray(rec.reviews)?rec.reviews:[];
+    if(entries.length!==1||!entries[0]||entries[0].entry_type!=='approval')continue;
+    var entry=entries[0];
+    var claimed=entry.approver&&typeof entry.approver==='object'?String(entry.approver.name||''):'';
+    var res={
+      approval_id:entry.approval_id?String(entry.approval_id):null,
+      case_level:entry.case_level===true,
+      decision:entry.decision==='deny'?'deny':'approve',
+      claimed_name:claimed,
+      status:'invalid',
+      fingerprint:null
+    };
+    try{
+      if(!expected)expected=await computeArtifactBinding(zip,manifest,rawManifestBytes,containerFmt);
+      var expectedHash=await reviewContentHash(rec);
+      if(String(rec.review_hash||'')!==expectedHash)throw new Error('hash');
+      var sig=String(rec.review_signature||'').split(':');
+      if(sig.length!==3||sig[0]!=='ed25519'||sig[1].length!==64||sig[2].length!==128)throw new Error('sig');
+      if(!await verifyEd25519Raw(sig[1],sig[2],hexToBytes(expectedHash)))throw new Error('sig');
+      if(sortedJSON(rec.artifact_binding||null)!==sortedJSON(expected))throw new Error('binding');
+      res.fingerprint=await keyFingerprintHex(sig[1]);
+      res.status=(manifest.public_key&&String(sig[1]).toLowerCase()===String(manifest.public_key).toLowerCase())
+        ?'sealing_key':'valid';
+    }catch(e){res.status='invalid'}
+    out.push(res);
+  }
+  return out;
+}
+
 async function processFile(f){
   var nm=(f&&f.name?f.name:'').toLowerCase();
   if(f&&f.size>25*1024*1024){showResult('fail','<strong>This file is too large to check in the browser</strong><br>Files over 25 MB cannot be checked here — use <code style="font-size:0.75em">epi verify</code> on your own machine.');return}
@@ -616,6 +735,10 @@ async function processFile(f){
     }
     report.metadata.steps_count=steps.length;
     report.story=buildStory(steps,manifest);
+    try{
+      var rawManifestBytes=await mf.async('uint8array');
+      report.story.approvals=await verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt);
+    }catch(e){report.story.approvals=[]}
 
     // Check 4: file_manifest integrity
     var fileManifest=manifest.file_manifest||{},mismatches={},checked=0;
@@ -744,7 +867,7 @@ function stepLine(s){
     case'model.inference':return'AI model'+(c.model?' '+c.model:'')+' planned'+(c.plan?': '+c.plan:'');
     case'policy.check':return'Rule check'+(c.rule_name?' "'+c.rule_name+'"':'')+(c.status||c.policy_decision?': '+(c.status||c.policy_decision):'');
     case'agent.approval.request':return'Asked a human to approve'+(c.action?' '+c.action:'')+(c.reason?': '+c.reason:'');
-    case'agent.approval.response':return(c.reviewer?c.reviewer:'Human reviewer')+(c.approved===true?' approved':c.approved===false?' rejected':' replied')+(c.reason?': '+c.reason:'');
+    case'agent.approval.response':return approvalStepLine(c);
     case'agent.decision':return'Decision: '+normalizeVerdict(c.decision||c.verdict||c.outcome)+(c.rationale||c.reason?' — '+(c.rationale||c.reason):'');
     case'security.redaction':return'Hid '+(c.count||'some')+' secret value(s) before sealing';
     case'environment.captured':return'';
@@ -763,7 +886,7 @@ function buildStory(steps,manifest){
       var st=String(c.status||c.policy_decision||'').toLowerCase();
       if(st==='deny'||st==='blocked')story.verdict='REJECTED';
     }
-    if(k==='agent.approval.response')story.review={approved:c.approved===true?true:c.approved===false?false:null,reviewer:String(c.reviewer||''),reason:String(c.reason||'')};
+    if(k==='agent.approval.response')story.review={approved:c.approved===true?true:c.approved===false?false:null,reviewer:String(c.reviewer||''),reason:String(c.reason||''),label:approvalStepLine(c)};
     var line=stepLine(s);
     if(line)story.lines.push(line);
   }
@@ -783,12 +906,28 @@ function storyHTML(story,altered){
   var title=story.goal||story.workflow;
   if(title)h+='<div style="margin-top:0.35rem"><strong>Task:</strong> '+esc(trunc(title,240))+'</div>';
   if(story.verdict){
-    var vc=story.verdict==='APPROVED'?'var(--verified)':story.verdict==='REJECTED'?'var(--tamper)':'var(--warn)';
-    h+='<div style="margin-top:0.35rem"><strong>Decision:</strong> <span style="font-weight:700;color:'+vc+'">'+esc(story.verdict)+'</span>'+(story.rationale?' — '+esc(trunc(story.rationale,240)):'')+'</div>';
+    // The decision comes from the run's own steps, so it is the agent's claim:
+    // label it, and never paint it as a green approved badge.
+    var vc=story.verdict==='REJECTED'?'var(--tamper)':'var(--ink,inherit)';
+    h+='<div style="margin-top:0.35rem"><strong>Decision (agent-reported):</strong> <span style="font-weight:700;color:'+vc+'">'+esc(story.verdict)+'</span>'+(story.rationale?' — '+esc(trunc(story.rationale,240)):'')+'</div>';
   }
   if(story.review){
-    var r=story.review,said=r.approved===true?'approved':r.approved===false?'rejected':'replied';
-    h+='<div style="margin-top:0.35rem"><strong>Human review:</strong> '+esc(trunc(r.reviewer||'Reviewer',80))+' '+said+(r.reason?' — '+esc(trunc(r.reason,240)):'')+'</div>';
+    var r=story.review;
+    h+='<div style="margin-top:0.35rem"><strong>Approval (in-run step):</strong> '+esc(trunc(r.label||'Agent-reported',300))+'</div>';
+  }
+  var approvals=Array.isArray(story.approvals)?story.approvals:[];
+  for(var ap=0;ap<approvals.length;ap++){
+    var a=approvals[ap]||{};
+    var what=a.case_level?'the whole run':(a.approval_id?('approval "'+a.approval_id+'"'):'an approval');
+    var verb=a.decision==='deny'?'deny':'approve';
+    var claimedName=a.claimed_name?' <span style="color:var(--ink-dim)">(claimed name: '+esc(a.claimed_name)+')</span>':'';
+    if(a.status==='invalid'){
+      h+='<div style="margin-top:0.35rem;color:var(--tamper)"><strong>Invalid signed approval (does not match this file)</strong></div>';
+    }else if(a.status==='sealing_key'){
+      h+='<div style="margin-top:0.35rem"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+':</strong> Signed by the same key that sealed the run (not independent of the agent)'+claimedName+'</div>';
+    }else{
+      h+='<div style="margin-top:0.35rem"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+',</strong> key fingerprint '+esc(a.fingerprint||'')+'. Pin approvers with <code>epi approvers add</code> and run <code>epi verify --require-human-approval</code> to confirm who.'+claimedName+'</div>';
+    }
   }
   var shown=story.lines.slice(0,15);
   if(shown.length){
@@ -856,5 +995,12 @@ if(dz&&fi&&dr){
 if(typeof window!=='undefined'){
   window.epiVerifyDroppedFile=processFile;
   window.epiIsPreJcsSpec=typeof globalThis.epiIsPreJcsSpec==='function'?globalThis.epiIsPreJcsSpec:undefined;
+  // Read-only label helpers. The browser tests use these to assert the exact
+  // wording and that the fingerprint matches epi_core.keys.key_fingerprint.
+  window.epiApprovalLabels={
+    approvalSourceLabel:approvalSourceLabel,
+    approvalStepLine:approvalStepLine,
+    keyFingerprintHex:keyFingerprintHex
+  };
 }
 })();
