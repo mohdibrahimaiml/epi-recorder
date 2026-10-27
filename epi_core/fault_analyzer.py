@@ -625,6 +625,31 @@ def _approval_actor_labels(content: dict) -> set[str]:
     return labels
 
 
+#: Approval sources recorded by the gateway that count as *gateway-attested* for
+#: an "approval required" rule in analysis. Neither is a signed approval:
+#: ``verify_human_approvals`` never treats either as ``human_signed``.
+APPROVAL_SOURCE_GATEWAY_AUTHENTICATED = "gateway_link_authenticated"
+APPROVAL_SOURCE_GATEWAY_LEGACY = "gateway_human"
+APPROVAL_SOURCES_GATEWAY_ATTESTED = frozenset(
+    {APPROVAL_SOURCE_GATEWAY_AUTHENTICATED, APPROVAL_SOURCE_GATEWAY_LEGACY}
+)
+
+_APPROVAL_SOURCE_LABELS = {
+    APPROVAL_SOURCE_GATEWAY_AUTHENTICATED: (
+        "gateway-attested (logged-in user), not a signed approval"
+    ),
+    APPROVAL_SOURCE_GATEWAY_LEGACY: (
+        "recorded by a pre-3b approval link that anyone with the URL could trigger"
+    ),
+}
+
+
+def _approval_source_label(source: Optional[str]) -> str:
+    """Human wording for an approval source (never a signed-approval claim)."""
+    text = str(source or "raw_api_unverified")
+    return _APPROVAL_SOURCE_LABELS.get(text, "self-reported, not a signed approval")
+
+
 def _approval_responses_satisfy_policy(
     responses: list[dict],
     requests: list[dict],
@@ -684,12 +709,29 @@ def _approval_responses_satisfy_policy(
     if not approved_responses:
         return False, "no approved response was recorded"
 
-    gateway_approved = any(
-        (resp.get("content") or {}).get("approval_source") == "gateway_human"
+    gateway_attested = any(
+        (resp.get("content") or {}).get("approval_source") in APPROVAL_SOURCES_GATEWAY_ATTESTED
         for resp in approved_responses
     )
-    if not gateway_approved:
-        return False, "all approvals are self-reported (raw_api_unverified) - no gateway-human approval recorded"
+    if not gateway_attested:
+        claimed = next(
+            (
+                (resp.get("content") or {}).get("claimed_approval_source")
+                for resp in approved_responses
+                if isinstance((resp.get("content") or {}).get("claimed_approval_source"), str)
+                and (resp.get("content") or {}).get("claimed_approval_source")
+            ),
+            None,
+        )
+        if claimed:
+            return False, (
+                f"the client claimed '{claimed}'; the gateway did not accept it - "
+                "no gateway-attested approval was recorded"
+            )
+        return False, (
+            "all approvals are self-reported (raw_api_unverified or an anonymous link "
+            "click) - no gateway-attested approval was recorded"
+        )
 
     return True, ""
 
@@ -1515,18 +1557,67 @@ class FaultAnalyzer:
                     ],
                 ))
 
-            # Check for self-reported vs gateway-verified approval
+            # Check for self-reported vs gateway-attested approval
             elif latest_response["approved"] is True:
                 approval_source = latest_response.get("content", {}).get("approval_source", "raw_api_unverified")
-                if approval_source != "gateway_human":
+                gateway_attested = approval_source in APPROVAL_SOURCES_GATEWAY_ATTESTED
+                claimed_source = latest_response.get("content", {}).get("claimed_approval_source")
+                if isinstance(claimed_source, str) and claimed_source:
+                    source_text = (
+                        f"the client claimed '{claimed_source}'; "
+                        "the gateway did not accept it"
+                    )
+                else:
+                    source_text = f"self-reported approval (source: {approval_source})"
+                if gateway_attested:
+                    # It satisfies the run, but a gateway link is a click, not a
+                    # signature. Note the source at low severity: visible in the
+                    # analysis, and never a fault verdict.
+                    flags.append(FaultFlag(
+                        step_index=latest_response["index"],
+                        fault_type="HEURISTIC_OBSERVATION",
+                        severity="low",
+                        plain_english=(
+                            f"Approval source '{approval_source}' as recorded: "
+                            f"{_approval_source_label(approval_source)}. Labels are written "
+                            "by whoever records the run; they are trustworthy only in a file "
+                            "exported and sealed by your own gateway. For proof, use a signed "
+                            "approval (epi verify --require-human-approval)."
+                        ),
+                        rule_id="P6b",
+                        rule_name="Gateway Approval Source — Not Signed",
+                        why_it_matters=(
+                            "A gateway link records a click, not a person's signature. For "
+                            "claim-grade evidence, pair it with a signed approval."
+                        ),
+                        remediation=(
+                            "Add a human-signed approval: "
+                            "epi review <file.epi> approve --as <name>"
+                        ),
+                        review_required=False,
+                        category="heuristic_observation",
+                        fault_chain=[
+                            {
+                                "step_index": latest_response["index"],
+                                "step_number": latest_response["index"] + 1,
+                                "role": "gateway_attested_approval",
+                                "detail": (
+                                    f"Action '{action}' ran after approval source "
+                                    f"'{approval_source}' as recorded: "
+                                    f"{_approval_source_label(approval_source)}"
+                                ),
+                            },
+                        ],
+                    ))
+                if not gateway_attested:
                     flags.append(FaultFlag(
                         step_index=step_idx,
                         fault_type="HEURISTIC_OBSERVATION",
                         severity="medium",
                         plain_english=(
-                            f"At step {step_idx + 1}, action '{action}' was executed after a "
-                            f"self-reported approval (source: {approval_source}). "
-                            "The approval was not verified through the gateway human review flow."
+                            f"At step {step_idx + 1}, action '{action}' was executed after "
+                            f"{source_text}. The approval was not verified through the "
+                            "gateway review flow."
                         ),
                         rule_id="P6",
                         rule_name="Agent Approval Gap — Self-Reported",

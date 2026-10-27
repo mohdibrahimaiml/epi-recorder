@@ -200,6 +200,34 @@ a human decision.
   claims.** They are labelled "reported by the agent (not signed by a person)"
   wherever the CLI prints them. They are never counted as human-signed.
 
+## Gateway link clicks vs signed approvals
+
+A gateway link records a **click**. Whether that click came from a logged-in
+user changes what *analysis* may say about it — never what verification says.
+
+| Kind of approval | Who can write it | Counts for "approval required" in `epi analyze`? | Counts for `--require-human-approval`? |
+|---|---|---|---|
+| Signed with the approver's key (`epi review … approve`, 3a) | only the approver's key | yes | **yes** (only this) |
+| Click by a logged-in gateway user (`gateway_link_authenticated`) | the gateway — or anything that writes steps in an SDK recording | **yes**, labelled "gateway-attested (logged-in user), not a signed approval" | no |
+| Anonymous link click (`gateway_link_unsigned`) | the gateway — or anything that writes steps in an SDK recording | no, labelled self-reported | no |
+| Old `gateway_human` events from before 3b | the gateway (pre-3b) — or anything that writes steps in an SDK recording | yes, unchanged, with a note that anyone with the URL could trigger them | no |
+
+So a gateway customer who has login turned on keeps their "approval required"
+checks passing, while a claim that needs a *signature* still needs
+`epi review … approve`.
+
+**`approval_source` is a claim, not a proof.** It is a plain string in the
+step content, so anything that records a step can write it. At the gateway's
+HTTP capture endpoints (`/capture`, `/capture/batch`, `/capture/llm` and the
+proxy paths) a client-supplied gateway label is demoted to
+`raw_api_unverified` and kept as `claimed_approval_source`, so the analysis can
+say "the client claimed X; the gateway did not accept it". Only the gateway's
+own approval route writes these labels. In an **SDK** recording the agent writes
+its own steps, so it can write any label it likes — that is why the analysis
+approval checks are **heuristics**. The only cryptographic proof is
+`epi verify --require-human-approval` with a signed approval from a pinned
+approver key.
+
 ## Fail-closed, on purpose
 
 Anyone who can edit the file can append a review record. If they append a
@@ -220,5 +248,9 @@ record that classifies as `human_signed`.
 - [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) — what a verify result means.
 - [THREAT_MODEL.md](./THREAT_MODEL.md) — agent self-approval and gateway-link forgery.
 - [CLI.md](./CLI.md) — `epi approvers`, `epi review approve`, `--require-human-approval`.
-- The gateway approval link (step 3b) records an **unsigned** click, never a
-  human-signed approval.
+- The gateway approval link records an **unsigned** click, never a human-signed
+  approval. The link is a single-use, expiring token: `GET` shows a
+  confirmation page (mail scanners pre-open links) and records nothing; only
+  the POST records, once. The event carries
+  `approval_source: "gateway_link_unsigned"`, and `epi analyze` treats it as a
+  self-reported approval. A link issued before the upgrade is refused.

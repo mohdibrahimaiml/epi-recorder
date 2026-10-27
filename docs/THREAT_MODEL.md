@@ -134,6 +134,28 @@ likewise unsigned and is not a human-signed approval. See
 **Residual:** a person who pins the wrong key pins the wrong identity — pinning
 is a human step. And a pinned approver who is coerced still signs.
 
+### 10b. Forged or replayed gateway approval link (mitigated)
+
+**Attack:** trigger the approval link without a person — an email scanner
+pre-opening it, a guessed workflow/approval id, a forwarded or reused link, an
+expired one, or a `?reviewer=ceo` query parameter.
+
+**Defence:** the link is a single-use token (≥256 bits, stored as SHA-256 only)
+bound to that workflow + approval and expiring after
+`EPI_APPROVAL_LINK_TTL_HOURS` (default 72). `GET` records nothing; only the POST
+records, and only once, spending the token atomically. A missing, wrong, expired
+or reused token returns the same 403, `reviewer` is never read from the query
+string, attempts are rate-limited per client IP, and everything interpolated into
+the page or the email is HTML-escaped. Links issued before the upgrade are
+refused with no fallback. The recorded event is
+`approval_source: "gateway_link_unsigned"` — or `"gateway_link_authenticated"`
+when a logged-in user made the click — and 3a never classifies either as
+`human_signed`; `--require-human-approval` fails on both.
+
+**Residual:** a link click is still *unauthenticated* — it records that someone
+clicked, which is why it is labelled an unsigned link click and never a signed
+approval. A person who forwards their link hands over that click.
+
 ### 11. Step Reordering / Timeline Tampering
 **Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
 or drops one, so the evidence no longer reflects what actually happened.
@@ -419,6 +441,7 @@ session-only seed, passphrase wrapping) are tracked in
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |
 | Agent self-approval | Yes | Approver registry (`epi approvers add`) + sealing-key rule + `--require-human-approval` |
+| Forged / replayed gateway approval link | Yes | Single-use expiring token (hash-only) + GET records nothing + POST-only + no query-string reviewer (10b) |
 | Compromised key | No | Out of scope |
 | Malicious signer | No | Out of scope |
 | DID server compromise | Partial | Local fallback |

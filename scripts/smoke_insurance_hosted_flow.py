@@ -379,9 +379,21 @@ def run_smoke() -> dict[str, Any]:
             raise RuntimeError("Approval webhook was not received during the smoke test.")
         summary["approval_webhook"] = _WebhookCaptureHandler.events[-1]
 
+        # Approval links now carry a single-use token that only the gateway can
+        # mint; the webhook payload is how an external caller receives one. A
+        # hand-built /api/approve/... URL is refused (403) on purpose.
+        approve_link = str((summary.get("approval_webhook") or {}).get("approve_url") or "")
+        parsed_link = urllib.parse.urlparse(approve_link)
+        link_token = urllib.parse.parse_qs(parsed_link.query).get("token", [""])[0]
+        if not link_token:
+            raise RuntimeError("Approval webhook did not include a tokenised approve_url.")
         approve_status, approve_payload = _json_request(
-            f"{gateway_url}/api/approve/smoke-approval-workflow/approval-smoke-1?decision=approve&reviewer=claims.manager%40carrier.com&reason=Smoke+approval",
+            f"{gateway_url}{parsed_link.path}",
             method="POST",
+            payload=urllib.parse.urlencode(
+                {"token": link_token, "decision": "approve", "reason": "Smoke approval"}
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=20.0,
         )
         if approve_status != 200:

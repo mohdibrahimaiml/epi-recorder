@@ -6,6 +6,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Hardened gateway approval links.** The approval link is now a single-use,
+  expiring capability instead of an unauthenticated GET/POST that recorded on
+  its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
+  and records **nothing** (mail scanners pre-open links); only the POST records,
+  once, with a token (≥256 bits, stored as SHA-256 only in the gateway's SQLite
+  store) that is bound to that workflow + approval and expires after
+  `EPI_APPROVAL_LINK_TTL_HOURS` (default 72). The body token doubles as the CSRF
+  token. `reviewer` is never taken from the query string: the authenticated
+  principal when gateway auth is on, otherwise `approval-link (identity not
+  verified)`. A missing, wrong, expired or reused token returns the **same**
+  403; attempts are rate-limited per client IP (60/min). Every value
+  interpolated into the gateway's HTML and the approval email is escaped, and
+  links issued before this change stop working (no fallback). See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+
 - **Human-signed approvals (`epi approvers`, `epi review approve`,
   `epi verify --require-human-approval`).** A `.epi` can now prove "a specific,
   known person approved this exact decision" with a signature from **that
@@ -49,6 +64,28 @@ All notable changes to EPI Recorder are documented here.
   `[gcp-kms]`. See `docs/KEY-CUSTODY.md`.
 
 ### Changed
+
+- **Gateway approval clicks are now labelled by who made them (behaviour
+  change).** A click by a **logged-in gateway user** is recorded as
+  `approval_source: "gateway_link_authenticated"` and still satisfies a policy's
+  "approval required" rule in `epi analyze`, labelled "gateway-attested
+  (logged-in user), not a signed approval". An **anonymous** link click is
+  `"gateway_link_unsigned"` and is treated as self-reported (`P6 Agent Approval
+  Gap — Self-Reported`), so it no longer satisfies that rule. Neither is a
+  signed approval: `verify_human_approvals()` never reports them
+  `human_signed`, and `--require-human-approval` still fails on both. Events
+  recorded by older gateways keep their stored `"gateway_human"` label, keep
+  satisfying the rule (no flipped results for old cases), and gain an
+  informational note that anyone with the URL could trigger them. For a signed
+  approval use `epi review <file.epi> approve` (step 3a).
+  `approval_source` is a **claim, not a proof**: it is a plain string, so the
+  gateway's capture endpoints (`/capture`, `/capture/batch`, `/capture/llm`, the
+  proxy paths) demote a client-supplied gateway label to
+  `raw_api_unverified` and keep it as `claimed_approval_source`; only the
+  gateway's own approval route writes the real labels. In an SDK recording the
+  agent writes its own steps, so the analysis approval checks remain
+  **heuristics** — the only cryptographic proof is
+  `epi verify --require-human-approval` with a signed approval.
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in
   (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now

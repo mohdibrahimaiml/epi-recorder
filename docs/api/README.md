@@ -11,7 +11,6 @@ Worker API (TypeScript) has no generated spec yet — its protocol is documented
 in prose ([WITNESS](../WITNESS.md), [STORAGE](../STORAGE.md),
 [internal/cloud-ops.md](../../internal/cloud-ops.md)).
 
-Known spec wart (code, not doc): `record_approval_decision` registers both GET
-and POST on `/api/approve/{workflow_id}/{approval_id}`, producing duplicate
-operation IDs (FastAPI warning at import). Harmless to serve, annoying to
-generated clients — fix in code, then regenerate this file.
+The approval link is two operations: `GET` renders the confirmation page and
+records nothing, `POST` records one link click (single-use token in the form
+body). See [HUMAN-APPROVAL.md](../HUMAN-APPROVAL.md).
