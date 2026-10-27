@@ -767,6 +767,13 @@ class TestPass7ApprovalGuardViolation:
         note = next(f for f in flags if f.rule_id == "P6b")
         assert note.severity == "low"
         assert "gateway-attested (logged-in user), not a signed approval" in note.plain_english
+        # It says plainly that the label is the recording's claim.
+        assert "as recorded" in note.plain_english
+        assert (
+            "trustworthy only in a file exported and sealed by your own gateway"
+            in note.plain_english
+        )
+        assert "epi verify --require-human-approval" in note.plain_english
         assert result.fault_detected is False
 
     def test_anonymous_link_click_does_not_satisfy_approval_policy(self):
@@ -782,6 +789,39 @@ class TestPass7ApprovalGuardViolation:
         note = next(f for f in flags if f.rule_id == "P6b")
         assert "pre-3b approval link" in note.plain_english
         assert result.fault_detected is False
+
+    def test_client_claimed_gateway_label_is_reported_as_a_claim(self):
+        """Repro B: what an SDK recording claims is not what the gateway accepted."""
+
+        def claimed(reviewer: str) -> dict:
+            return {
+                "action": "approve_refund",
+                "approved": True,
+                "reviewer": reviewer,
+                "role": "manager",
+                "approval_source": "raw_api_unverified",
+                "claimed_approval_source": "gateway_link_authenticated",
+            }
+
+        steps = "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(
+                1, "agent.approval.request",
+                {"action": "approve_refund", "reason": "manual review"},
+            ),
+            _make_step(2, "agent.approval.response", claimed("manager-a")),
+            _make_step(3, "agent.approval.response", claimed("manager-b")),
+            _make_step(4, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(5, "session.end", {"success": True}),
+        ])
+
+        result, flags = self._flags(steps)
+        r032 = next(f for f in flags if f.rule_id == "R032")
+        assert "the client claimed 'gateway_link_authenticated'" in r032.plain_english
+        assert "the gateway did not accept it" in r032.plain_english
+        p6 = next(f for f in flags if f.rule_id == "P6")
+        assert "the client claimed 'gateway_link_authenticated'" in p6.plain_english
+        assert result.fault_detected is True
 
 
 class TestPass8ToolPermissionGuard:

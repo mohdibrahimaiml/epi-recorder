@@ -714,6 +714,20 @@ def _approval_responses_satisfy_policy(
         for resp in approved_responses
     )
     if not gateway_attested:
+        claimed = next(
+            (
+                (resp.get("content") or {}).get("claimed_approval_source")
+                for resp in approved_responses
+                if isinstance((resp.get("content") or {}).get("claimed_approval_source"), str)
+                and (resp.get("content") or {}).get("claimed_approval_source")
+            ),
+            None,
+        )
+        if claimed:
+            return False, (
+                f"the client claimed '{claimed}'; the gateway did not accept it - "
+                "no gateway-attested approval was recorded"
+            )
         return False, (
             "all approvals are self-reported (raw_api_unverified or an anonymous link "
             "click) - no gateway-attested approval was recorded"
@@ -1547,6 +1561,14 @@ class FaultAnalyzer:
             elif latest_response["approved"] is True:
                 approval_source = latest_response.get("content", {}).get("approval_source", "raw_api_unverified")
                 gateway_attested = approval_source in APPROVAL_SOURCES_GATEWAY_ATTESTED
+                claimed_source = latest_response.get("content", {}).get("claimed_approval_source")
+                if isinstance(claimed_source, str) and claimed_source:
+                    source_text = (
+                        f"the client claimed '{claimed_source}'; "
+                        "the gateway did not accept it"
+                    )
+                else:
+                    source_text = f"self-reported approval (source: {approval_source})"
                 if gateway_attested:
                     # It satisfies the run, but a gateway link is a click, not a
                     # signature. Note the source at low severity: visible in the
@@ -1556,9 +1578,11 @@ class FaultAnalyzer:
                         fault_type="HEURISTIC_OBSERVATION",
                         severity="low",
                         plain_english=(
-                            f"At step {latest_response['index'] + 1}, action '{action}' ran "
-                            f"after an approval from source '{approval_source}': "
-                            f"{_approval_source_label(approval_source)}."
+                            f"Approval source '{approval_source}' as recorded: "
+                            f"{_approval_source_label(approval_source)}. Labels are written "
+                            "by whoever records the run; they are trustworthy only in a file "
+                            "exported and sealed by your own gateway. For proof, use a signed "
+                            "approval (epi verify --require-human-approval)."
                         ),
                         rule_id="P6b",
                         rule_name="Gateway Approval Source — Not Signed",
@@ -1578,7 +1602,8 @@ class FaultAnalyzer:
                                 "step_number": latest_response["index"] + 1,
                                 "role": "gateway_attested_approval",
                                 "detail": (
-                                    f"{approval_source}: "
+                                    f"Action '{action}' ran after approval source "
+                                    f"'{approval_source}' as recorded: "
                                     f"{_approval_source_label(approval_source)}"
                                 ),
                             },
@@ -1590,9 +1615,9 @@ class FaultAnalyzer:
                         fault_type="HEURISTIC_OBSERVATION",
                         severity="medium",
                         plain_english=(
-                            f"At step {step_idx + 1}, action '{action}' was executed after a "
-                            f"self-reported approval (source: {approval_source}). "
-                            "The approval was not verified through the gateway human review flow."
+                            f"At step {step_idx + 1}, action '{action}' was executed after "
+                            f"{source_text}. The approval was not verified through the "
+                            "gateway review flow."
                         ),
                         rule_id="P6",
                         rule_name="Agent Approval Gap — Self-Reported",

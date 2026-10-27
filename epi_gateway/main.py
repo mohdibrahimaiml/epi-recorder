@@ -22,6 +22,8 @@ from epi_core import __version__
 from epi_core.approval_links import (
     APPROVAL_LINK_AUTHENTICATED_SOURCE,
     APPROVAL_LINK_SOURCE,
+    CLIENT_APPROVAL_SOURCE,
+    GATEWAY_ONLY_APPROVAL_SOURCES,
     UNVERIFIED_REVIEWER,
 )
 from epi_core.auth_local import load_auth_users, normalize_role
@@ -939,6 +941,38 @@ def _log_capture_result(route_name: str, request: LLMCaptureRequest, events: lis
     )
 
 
+def _sanitize_client_approval_claims(event: dict) -> dict:
+    """Demote gateway-only approval labels written by a capture client.
+
+    ``approval_source`` is a plain string, so anything that records steps can
+    write it. Only the gateway's own approval route may label a decision; a
+    client claiming a gateway label is preserved as ``claimed_approval_source``
+    so the analysis can say "the client claimed X; the gateway did not accept
+    it". This runs at the HTTP capture boundary only — never in
+    ``store_items()``, which the approval route uses legitimately — so spool
+    replay cannot re-sanitise a gateway-written event.
+    """
+    content = event.get("content")
+    if not isinstance(content, dict):
+        return event
+
+    source = content.get("approval_source")
+    claims_source = isinstance(source, str) and source in GATEWAY_ONLY_APPROVAL_SOURCES
+    claims_verified = "reviewer_verified" in content
+    if not (claims_source or claims_verified):
+        return event
+
+    sanitized = dict(event)
+    new_content = dict(content)
+    if claims_source:
+        new_content["claimed_approval_source"] = source
+        new_content["approval_source"] = CLIENT_APPROVAL_SOURCE
+    if claims_verified:
+        new_content["claimed_reviewer_verified"] = new_content.pop("reviewer_verified")
+    sanitized["content"] = new_content
+    return sanitized
+
+
 def _enqueue_llm_capture(
     worker: EvidenceWorker,
     request: LLMCaptureRequest,
@@ -977,7 +1011,7 @@ def _enqueue_llm_capture(
     except Exception:
         pass
     for item in events:
-        worker.enqueue(item)
+        worker.enqueue(_sanitize_client_approval_claims(item.model_dump(mode="json")))
     _log_capture_result(route_name, retained, events, settings.retention_mode)
     return events
 
@@ -1397,7 +1431,9 @@ def create_app(
     @app.post("/capture", status_code=202)
     async def capture_evidence(request: CaptureEventModel):
         try:
-            runtime_worker.enqueue(request.model_dump(mode="json"))
+            runtime_worker.enqueue(
+                _sanitize_client_approval_claims(request.model_dump(mode="json"))
+            )
             return {
                 "status": "accepted",
                 "message": "Evidence queued for persistence",
@@ -1413,7 +1449,9 @@ def create_app(
     async def capture_evidence_batch(request: CaptureBatchRequest):
         try:
             for item in request.items:
-                runtime_worker.enqueue(item.model_dump(mode="json"))
+                runtime_worker.enqueue(
+                    _sanitize_client_approval_claims(item.model_dump(mode="json"))
+                )
             return {
                 "status": "accepted",
                 "message": "Evidence batch queued for persistence",

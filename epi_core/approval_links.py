@@ -25,6 +25,19 @@ APPROVAL_LINK_SOURCE = "gateway_link_unsigned"
 #: approval: it does not satisfy ``--require-human-approval``.
 APPROVAL_LINK_AUTHENTICATED_SOURCE = "gateway_link_authenticated"
 
+#: Legacy label written by gateways before 3b. Kept so old artifacts analyze the
+#: same, and so the ingest boundary knows it is a gateway-only label.
+APPROVAL_LINK_LEGACY_SOURCE = "gateway_human"
+
+#: Approval-source labels only the gateway itself may write. A capture client
+#: claiming one is demoted to ``raw_api_unverified`` at the HTTP boundary.
+GATEWAY_ONLY_APPROVAL_SOURCES = frozenset(
+    {APPROVAL_LINK_LEGACY_SOURCE, APPROVAL_LINK_AUTHENTICATED_SOURCE, APPROVAL_LINK_SOURCE}
+)
+
+#: The label a capture client's steps always end up with.
+CLIENT_APPROVAL_SOURCE = "raw_api_unverified"
+
 #: Recorded when no authenticated principal was presented with the request.
 UNVERIFIED_REVIEWER = "approval-link (identity not verified)"
 

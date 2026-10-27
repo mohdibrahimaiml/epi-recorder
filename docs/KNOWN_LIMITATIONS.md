@@ -41,6 +41,17 @@ it can never create a `human_signed` record. See
 on. Pin the approver's key yourself and read the fingerprint aloud; `--policy
 strict` does not imply human approval — pass `--require-human-approval` too.
 
+**Who can write `approval_source`.** It is a plain string in the step content.
+The gateway demotes a client-supplied gateway label at its capture endpoints
+(`/capture`, `/capture/batch`, `/capture/llm`, the proxy paths) to
+`raw_api_unverified` and records it as `claimed_approval_source`, so only the
+gateway's own approval route writes these labels there. But in an **SDK**
+recording the agent writes its own steps, so it can write any label — including
+`gateway_link_authenticated`. Treat `epi analyze`'s approval checks as
+heuristics. The only cryptographic proof that a person approved something is
+`epi verify --require-human-approval` with a signed approval from a pinned
+approver key.
+
 ---
 
 ## The signature covers the canonical manifest, not its raw bytes (red-team F-07)

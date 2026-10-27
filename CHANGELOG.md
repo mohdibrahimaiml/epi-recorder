@@ -78,6 +78,14 @@ All notable changes to EPI Recorder are documented here.
   satisfying the rule (no flipped results for old cases), and gain an
   informational note that anyone with the URL could trigger them. For a signed
   approval use `epi review <file.epi> approve` (step 3a).
+  `approval_source` is a **claim, not a proof**: it is a plain string, so the
+  gateway's capture endpoints (`/capture`, `/capture/batch`, `/capture/llm`, the
+  proxy paths) demote a client-supplied gateway label to
+  `raw_api_unverified` and keep it as `claimed_approval_source`; only the
+  gateway's own approval route writes the real labels. In an SDK recording the
+  agent writes its own steps, so the analysis approval checks remain
+  **heuristics** — the only cryptographic proof is
+  `epi verify --require-human-approval` with a signed approval.
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in
   (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now
