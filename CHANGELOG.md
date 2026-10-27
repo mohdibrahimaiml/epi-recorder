@@ -6,6 +6,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Pilot kit: run the whole story end to end.** `examples/pilot_kit/` holds a
+  LangGraph refund agent that runs with **no API key** (deterministic scripted
+  graph; `--openai` optional), records two approval requests, and a demo script
+  that walks vendor → approver → bank in three separate `EPI_HOME` dirs: seal
+  with a vault key, approve both requests with the approver's own key, then have
+  the bank pin both fingerprints and run
+  `epi verify run.epi --policy strict --require-human-approval`. It also proves
+  the failure paths (one byte tampered → non-zero; one approval missing →
+  `INCOMPLETE`) and that the bank's home holds no private key. Run it with
+  `bash examples/pilot_kit/run_pilot_demo.sh`. Two new documents:
+  [docs/PILOT-GUIDE.md](docs/PILOT-GUIDE.md) for the vendor and
+  [docs/BANK-REVIEWER-BRIEF.md](docs/BANK-REVIEWER-BRIEF.md) for the bank's
+  reviewer, whose every command is run by the demo and asserted by a test. A CI
+  workflow runs the demo on changes to the code it depends on, so it cannot rot.
+
 - **Hardened gateway approval links.** The approval link is now a single-use,
   expiring capability instead of an unauthenticated GET/POST that recorded on
   its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page

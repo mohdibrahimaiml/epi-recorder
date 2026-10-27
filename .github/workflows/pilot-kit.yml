@@ -1,0 +1,44 @@
+name: Pilot kit
+
+# The bank pilot demo must keep working: it is the thing a vendor and a bank
+# reviewer actually run. This fails if the demo rots.
+
+on:
+  push:
+    paths:
+      - "examples/pilot_kit/**"
+      - "epi_core/keys.py"
+      - "epi_core/signers.py"
+      - "epi_core/review.py"
+      - "epi_core/approvers.py"
+      - "epi_cli/verify.py"
+      - "epi_cli/review.py"
+      - ".github/workflows/pilot-kit.yml"
+  pull_request:
+    paths:
+      - "examples/pilot_kit/**"
+      - "epi_core/keys.py"
+      - "epi_core/signers.py"
+      - "epi_core/review.py"
+      - "epi_core/approvers.py"
+      - "epi_cli/verify.py"
+      - "epi_cli/review.py"
+      - ".github/workflows/pilot-kit.yml"
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq softhsm2
+          python -m pip install --upgrade pip
+          pip install -q -e ".[pkcs11]" langgraph
+      - name: Run the pilot demo end to end
+        run: bash examples/pilot_kit/run_pilot_demo.sh
