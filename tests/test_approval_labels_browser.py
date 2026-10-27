@@ -256,6 +256,15 @@ def test_embedded_name_is_only_a_claim(site, browser, tmp_path):
 
 
 def test_tampered_approval_record_is_invalid(site, browser, tmp_path):
+    """A rewritten approval record is rejected and the name is hidden.
+
+    The page checks three things independently — the record's canonical
+    ``review_hash``, its Ed25519 signature, and that its ``artifact_binding`` is
+    this file — and any one of them failing shows the same red label. Rewriting a
+    zip member changes the container, so the binding check fires too; that is the
+    point: there is no way to rewrite a sealed approval and keep it looking
+    signed.
+    """
     epi = _with_approval(tmp_path, "tampered.epi")
     member = sorted(
         name for name in EPIContainer.list_members(epi)
