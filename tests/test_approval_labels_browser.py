@@ -7,7 +7,9 @@ the real /verify/ page in Chromium, and their rendered text is asserted.
 from __future__ import annotations
 
 import base64
+import json
 import threading
+import zipfile
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -276,6 +278,68 @@ def test_tampered_approval_record_is_invalid(site, browser, tmp_path):
 
     text = _render(site, browser, epi)
     assert "Invalid signed approval (does not match this file)" in text, text
+    assert "alice@bank.com" not in text, text
+
+
+def _run_requesting(tmp_path: Path, name: str, approval_ids: tuple[str, ...]) -> Path:
+    """A sealed run that only *requests* the given approvals — no review at all."""
+    lines = ['{"index":0,"kind":"agent.decision","content":{"decision":"approve"}}']
+    for offset, approval_id in enumerate(approval_ids, start=1):
+        lines.append(
+            json.dumps({
+                "index": offset,
+                "kind": "agent.approval.request",
+                "content": {"action": f"refund {approval_id}", "approval_id": approval_id},
+            })
+        )
+    source = tmp_path / f"{name}.src"
+    source.mkdir(parents=True, exist_ok=True)
+    (source / "steps.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path = tmp_path / name
+    key = Ed25519PrivateKey.generate()
+    EPIContainer.pack(
+        source,
+        ManifestModel(workflow_id=__import__("uuid").uuid4(), created_at=utc_now(), cli_command="pytest"),
+        path,
+        signer_function=lambda manifest: sign_manifest(manifest, key, "test"),
+        preserve_generated=True,
+        generate_analysis=False,
+    )
+    return path
+
+
+def _copy_review_members(source: Path, dest: Path) -> list[str]:
+    """Lift a genuine, correctly-signed review out of one artifact into another."""
+    copied: list[str] = []
+    with zipfile.ZipFile(dest, "r") as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    for name in EPIContainer.list_members(source):
+        if name in ("review.json", "review_index.json") or name.startswith("reviews/"):
+            members[name] = EPIContainer.read_member_bytes(source, name)
+            copied.append(name)
+    assert copied, "source artifact carries no review members"
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, payload in members.items():
+            compress = zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+            archive.writestr(name, payload, compress_type=compress)
+    return copied
+
+
+def test_approval_copied_from_another_file_is_invalid(site, browser, tmp_path):
+    """A genuine approval lifted into another run must not read as a signed one.
+
+    Everything about the copied record is real — the signature, the hash, the
+    chain. Only the artifact binding says it belongs to a different file, and
+    that alone has to make it read as invalid, with no name shown anywhere.
+    """
+    source = _with_approval(tmp_path, "source.epi")  # signs approval "refund-7"
+    target = _run_requesting(tmp_path, "copy.epi", ("refund-7",))
+    _copy_review_members(source, target)
+
+    text = _render(site, browser, target)
+    assert text.count("Invalid signed approval (does not match this file)") == 1, text
+    assert "Signed approval (approve)" not in text, text
+    assert "(claimed name:" not in text, text
     assert "alice@bank.com" not in text, text
 
 

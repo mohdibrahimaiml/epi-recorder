@@ -383,6 +383,22 @@ def test_approval_copied_to_another_file_is_invalid(tmp_path):
     assert "binding" in state["detail"]
 
 
+def test_cli_verify_rejects_a_copied_approval(tmp_path, capsys):
+    """`epi verify --require-human-approval` exits 1 and names the binding."""
+    source, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")], name="source.epi")
+    target, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")], name="target.epi")
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(source, _approval_record(signing_key=approver), private_key=approver)
+    _copy_review_members(source, target)
+
+    with pytest.raises(typer.Exit) as exit_info:
+        verify_command(ctx=MagicMock(), epi_file=target, require_human_approval=True)
+
+    assert exit_info.value.exit_code == 1
+    assert "does not match this artifact binding" in _flat(capsys.readouterr().out)
+
+
 def test_broken_chain_makes_the_approval_invalid(tmp_path):
     epi_path, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")])
     approver = Ed25519PrivateKey.generate()
