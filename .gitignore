@@ -90,6 +90,9 @@ installer/windows/Output/
 !site/assets/demo/demo-lending-affordability.epi
 !site/assets/demo/demo-finance-loan-underwriter.epi
 !examples/*.epi
+# The published "Break the seal" challenge artifact (public keys only, no private
+# material — see CHALLENGE.md and tests/test_challenge_artifacts.py)
+!challenge/challenge-original.epi
 
 # Allow HTML files in site, website, and examples
 !examples/*.html

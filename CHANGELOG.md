@@ -6,6 +6,19 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **"Break the seal" public challenge (credit-only).** `CHALLENGE.md` states
+  exactly what counts as a break (an intact+signed file whose steps differ from
+  the published original; `--require-human-approval` passing without the
+  approver's key; a tampered file shown as intact in the browser; a wrong signer
+  fingerprint; a verifier crash/hang/code execution), what does not (stolen keys,
+  social engineering, attacks on hosted infrastructure), and the safe-harbour
+  rules (private report first, 90-day disclosure). `challenge/` holds the
+  published artifact sealed and approved with challenge keys whose private halves
+  are held offline, `challenge/check_submission.py` prints BREAK / NO BREAK for
+  criteria a–d locally, and `scripts/make_challenge_artifacts.py` regenerates
+  everything (writing private keys only to a temp dir outside the repo).
+  [GOVERNANCE.md](GOVERNANCE.md) still says no bug bounty: this is credit only.
+
 - **Hardened gateway approval links.** The approval link is now a single-use,
   expiring capability instead of an unauthenticated GET/POST that recorded on
   its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
