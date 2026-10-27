@@ -217,8 +217,20 @@ function summarizeStep(step) {
         return truncate(`Approval requested for ${action}${risk}${content.reason ? `: ${content.reason}` : ""}.`, 190);
     }
     if (kind === "agent.approval.response") {
+        // No approver registry here: report the KIND of approval, never a
+        // verified human decision (step 3c).
         const action = content.action || "requested action";
-        return truncate(`${content.approved ? "Approved" : "Rejected"} ${action}${content.reviewer ? ` by ${content.reviewer}` : ""}.`, 190);
+        const claimed = typeof content.claimed_approval_source === "string" ? content.claimed_approval_source : "";
+        const src = String(content.approval_source || "raw_api_unverified");
+        let label = "Agent-reported";
+        if (claimed) label = `Agent-reported (claimed ${claimed}; the gateway did not accept it)`;
+        else if (src === "gateway_link_unsigned") label = "Gateway link click (not a signed approval)";
+        else if (src === "gateway_link_authenticated") label = "Gateway link click by a logged-in user (not a signed approval)";
+        else if (src === "gateway_human") label = "Gateway link click, older gateway (not a signed approval)";
+        if (label === "Agent-reported") {
+            return truncate(`Agent-reported: ${content.approved ? "approved" : "rejected"} ${action}${content.reviewer ? ` (${content.reviewer})` : ""}.`, 190);
+        }
+        return truncate(`${label}: ${action}.`, 190);
     }
     if (kind === "agent.handoff") {
         return truncate(`Handed off from ${content.from_agent || getAgentName(content)} to ${content.to_agent || "another agent"}${content.reason ? `: ${content.reason}` : ""}.`, 190);

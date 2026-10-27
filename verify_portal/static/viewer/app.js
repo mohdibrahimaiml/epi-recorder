@@ -150,10 +150,22 @@ function summarizeStep(step) {
       }
 
       case 'agent.approval.response': {
-        const reviewer = c.reviewer || c.reviewed_by || 'reviewer';
+        // The viewer has no approver registry: it can only say what KIND of
+        // approval this step is, never that a human was verified (step 3c).
+        const reviewer = c.reviewer || c.reviewed_by || 'a reviewer';
         const approved = c.approved === true || String(c.status || c.decision || '').toLowerCase() === 'approved';
         const action = c.action || '';
-        return `${reviewer} ${approved ? 'approved' : 'rejected'}${action ? ': ' + trunc(action, 140) : ''}`;
+        const claimed = typeof c.claimed_approval_source === 'string' ? c.claimed_approval_source : '';
+        const src = String(c.approval_source || 'raw_api_unverified');
+        let label = 'Agent-reported';
+        if (claimed) label = `Agent-reported (claimed ${claimed}; the gateway did not accept it)`;
+        else if (src === 'gateway_link_unsigned') label = 'Gateway link click (not a signed approval)';
+        else if (src === 'gateway_link_authenticated') label = 'Gateway link click by a logged-in user (not a signed approval)';
+        else if (src === 'gateway_human') label = 'Gateway link click, older gateway (not a signed approval)';
+        if (label === 'Agent-reported') {
+          return `Agent-reported: ${reviewer} ${approved ? 'approved' : 'rejected'}${action ? ': ' + trunc(action, 140) : ''}`;
+        }
+        return `${label}${action ? ': ' + trunc(action, 140) : ''}`;
       }
 
       case 'agent.run.start': {
@@ -1974,7 +1986,7 @@ function normalizeReview(raw) {
       return {
         reviewed_by: reviewer,
         status: status,
-        notes: c.reason || c.notes || (c.action ? `Action ${c.action} approved by human supervisor.` : 'Approved by human supervisor.'),
+        notes: c.reason || c.notes || (c.action ? `Agent-reported: ${c.action} (not signed by a person).` : 'Agent-reported approval (not signed by a person).'),
         reviewed_at: appStep.timestamp || null,
       };
     }

@@ -21,6 +21,53 @@ All notable changes to EPI Recorder are documented here.
   reviewer, whose every command is run by the demo and asserted by a test. A CI
   workflow runs the demo on changes to the code it depends on, so it cannot rot.
 
+- **"Break the seal" public challenge (credit-only).** `CHALLENGE.md` states
+  exactly what counts as a break (an intact+signed file whose steps differ from
+  the published original; `--require-human-approval` passing without the
+  approver's key; a tampered file shown as intact in the browser; a wrong signer
+  fingerprint; a verifier crash/hang/code execution), what does not (stolen keys,
+  social engineering, attacks on hosted infrastructure), and the safe-harbour
+  rules (private report first, 90-day disclosure). `challenge/` holds the
+  published artifact sealed and approved with challenge keys whose private halves
+  are held offline, `challenge/check_submission.py` prints BREAK / NO BREAK for
+  criteria a–d locally, and `scripts/make_challenge_artifacts.py` regenerates
+  everything (writing private keys only to a temp dir outside the repo).
+  [GOVERNANCE.md](GOVERNANCE.md) still says no bug bounty: this is credit only.
+
+- **Cross-check the public witness mirror (`epi witness check --mirror`).**
+  Compare the live witness against the public `epi-witness-checkpoints` mirror
+  (a raw.githubusercontent.com base URL or a local clone; `--offline` works with
+  local files). It fails with a plain reason when a mirrored day differs on the
+  live side (`head_hash`, `count` or `signature`), when a mirrored day is
+  missing from the live witness (history rewritten), or when the witness key
+  changed without a key-rotation entry. A day that exists only on the live side
+  is fine — the mirror lags by up to a day. The mirror script is now
+  append-only: it verifies every checkpoint signature with the published key,
+  never rewrites an existing day, and exits non-zero with "history change
+  detected" so the workflow fails instead of rewriting history.
+  `mirror-template/` holds the README and `checkpoints/` placeholder to copy
+  into the new public repo; the workflow cross-checks the mirror before pushing
+  and still succeeds trivially while the secrets are unset. See
+  [docs/WITNESS.md](docs/WITNESS.md).
+
+- **Honest approval labels in every browser screen (step 3c).** The public
+  `/verify/` page and the offline viewers no longer present an approval as a
+  verified human decision. An in-run `agent.approval.response` reads
+  "Agent-reported: <reviewer> approved <action>"; a gateway link reads
+  "Gateway link click (not a signed approval)" (or "by a logged-in user", or
+  "older gateway"); a client-claimed label reads "Agent-reported (claimed X; the
+  gateway did not accept it)". The page decision line is labelled
+  "Decision (agent-reported)" and never painted green from an agent step.
+  A 1.2.0 signed approval is verified **in the browser** where it can be
+  (canonical `review_hash`, Ed25519 signature, `artifact_binding`), and shows
+  "Signed approval (approve|deny) for <id>, key fingerprint XXXX XXXX XXXX XXXX
+  … pin approvers with `epi approvers add` and run
+  `epi verify --require-human-approval` to confirm who"; a record that fails any
+  check shows "Invalid signed approval (does not match this file)" and never
+  the name; one signed by the sealing key says so. The embedded approver name is
+  only ever shown as "(claimed name: …)". The fingerprint matches
+  `epi_core.keys.key_fingerprint`, asserted in Chromium for three keys.
+
 - **Hardened gateway approval links.** The approval link is now a single-use,
   expiring capability instead of an unauthenticated GET/POST that recorded on
   its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
