@@ -300,6 +300,7 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 |-------|------|
 | **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
+| **Break the seal** — try to break the guarantees (credit-only) | [CHALLENGE.md](CHALLENGE.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
 | **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |
 | **Support / SLA** | [SUPPORT.md](SUPPORT.md) |

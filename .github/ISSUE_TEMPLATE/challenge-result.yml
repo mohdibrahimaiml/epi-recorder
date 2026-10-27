@@ -1,0 +1,65 @@
+name: Challenge result (public write-up)
+description: Publish a "Break the seal" result AFTER the fix has shipped.
+title: "[challenge] <criterion> — <one line>"
+labels: ["challenge"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not report a new, unfixed vulnerability here.**
+
+        A public issue tells everyone how to exploit it before we can fix it.
+        Report new findings privately through GitHub's security advisories
+        (Security → Report a vulnerability) — see SECURITY.md.
+
+        Use this template only for a write-up of something **already fixed**.
+  - type: dropdown
+    id: criterion
+    attributes:
+      label: Criterion
+      description: Which criterion from CHALLENGE.md did this break (or nearly break)?
+      options:
+        - a — intact+signed file whose steps differ from the original
+        - b — --require-human-approval passes without the approver's key
+        - c — tampered file shown as intact in the browser
+        - d — reported signer fingerprint differs from the signing key
+        - e — verifier crash, hang, or code execution
+    validations:
+      required: true
+  - type: input
+    id: fixed_in
+    attributes:
+      label: Fixed in
+      description: Release or pull request that fixed it.
+      placeholder: "v4.6.3 / #123"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What you did
+      description: The steps, in enough detail that someone can re-run them.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: What it meant
+      description: Which guarantee failed, and what a relying party would have believed wrongly.
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: How to credit you
+      description: Name or handle for the hall of fame. Leave blank for anonymous.
+      placeholder: "@yourhandle"
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This was fixed before I posted it here.
+          required: true
+        - label: I followed SECURITY.md and the safe-harbour rules in CHALLENGE.md.
+          required: true
