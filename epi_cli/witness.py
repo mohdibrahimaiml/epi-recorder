@@ -430,6 +430,78 @@ def _verify_anchor(anchor_pem: str, message: bytes, sig_der: bytes) -> bool:
         return False
 
 
+def _load_mirror(mirror: str, inbox_id: str, timeout: int) -> tuple[dict, dict]:
+    """Load the public mirror: an https base URL or a local directory clone."""
+    base = str(mirror).rstrip("/")
+    local = Path(base)
+    if local.is_dir():
+        cp_path = local / "checkpoints" / f"{inbox_id}.json"
+        key_path = local / "witness-key.json"
+        if not cp_path.is_file():
+            raise CheckError(f"mirror has no checkpoints for {inbox_id} ({cp_path})")
+        try:
+            cp_doc = json.loads(cp_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise CheckError(f"mirror checkpoints unreadable: {exc}") from exc
+        keys: dict = {}
+        if key_path.is_file():
+            try:
+                keys = json.loads(key_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise CheckError(f"mirror witness key unreadable: {exc}") from exc
+        return cp_doc, keys
+    return (
+        _fetch_json(f"{base}/checkpoints/{inbox_id}.json", timeout),
+        _fetch_json(f"{base}/witness-key.json", timeout),
+    )
+
+
+def _rotation_documented(
+    live_keys: dict, mirror_keys: dict, live_pub: str, mirror_pub: str
+) -> bool:
+    """A key change is acceptable only if one side names the other as a previous key."""
+    for doc, other in ((live_keys or {}, mirror_pub), (mirror_keys or {}, live_pub)):
+        previous = doc.get("previous_witness_ed25519_pub_hexes") or []
+        if isinstance(previous, list) and any(
+            str(item).lower() == str(other).lower() for item in previous
+        ):
+            return True
+    return False
+
+
+def _compare_mirror(
+    live_cps: list[dict], mirror_cps: list[dict], live_keys: dict, mirror_keys: dict
+) -> list[str]:
+    """Cross-check the mirror against the live witness. Days only on the live
+    side are fine (the mirror lags by up to a day); anything else is history."""
+    failures: list[str] = []
+    live_by_day = {str(cp.get("day")): cp for cp in live_cps}
+    for mirrored in mirror_cps:
+        day = str(mirrored.get("day"))
+        live = live_by_day.get(day)
+        if live is None:
+            failures.append(
+                f"mirror day {day} is missing from the live witness (history rewritten)"
+            )
+            continue
+        if (live.get("count"), live.get("head_hash")) != (
+            mirrored.get("count"),
+            mirrored.get("head_hash"),
+        ):
+            failures.append(f"mirror day {day} differs from the live witness (history rewritten)")
+        elif str(live.get("signature")) != str(mirrored.get("signature")):
+            failures.append(f"mirror day {day}: signature differs from the live witness")
+    live_pub = str((live_keys or {}).get("witness_ed25519_pub_hex") or "")
+    mirror_pub = str((mirror_keys or {}).get("witness_ed25519_pub_hex") or "")
+    if live_pub and mirror_pub and live_pub.lower() != mirror_pub.lower():
+        if not _rotation_documented(live_keys or {}, mirror_keys or {}, live_pub, mirror_pub):
+            failures.append(
+                "witness key changed without a key-rotation entry "
+                f"(live {live_pub[:16]}…, mirror {mirror_pub[:16]}…)"
+            )
+    return failures
+
+
 @app.command(name="check")
 def check(
     inbox_url: str = typer.Option(
@@ -443,6 +515,14 @@ def check(
         None, "--checkpoints", help="Local checkpoints JSON (offline mode)."
     ),
     offline: bool = typer.Option(False, "--offline", help="Verify local files only; no network."),
+    mirror: str | None = typer.Option(
+        None,
+        "--mirror",
+        help=(
+            "Public mirror base URL or local directory clone to cross-check against "
+            "(checkpoints/<inbox>.json + witness-key.json)."
+        ),
+    ),
     allow_http: bool = typer.Option(
         False, "--allow-http", help="Allow http:// inbox URLs (local trials only)."
     ),
@@ -545,6 +625,19 @@ def check(
                 _plain(f"Rekor: {uuid[:12]}… recorded (offline: not re-checked).")
             else:
                 _plain(f"Checkpoint {cp['day']}: not yet anchored (signed only).")
+
+        if mirror:
+            mirror_doc, mirror_keys = _load_mirror(mirror, inbox_id, timeout)
+            mirror_cps = mirror_doc.get("checkpoints", [])
+            if not isinstance(mirror_cps, list):
+                raise CheckError("mirror checkpoints document is malformed")
+            mismatches = _compare_mirror(cps, mirror_cps, keys or {}, mirror_keys)
+            if mismatches:
+                raise CheckError("; ".join(mismatches))
+            _plain(
+                f"Mirror: {len(mirror_cps)} checkpoint(s) match the live witness "
+                "(history not rewritten)."
+            )
     except CheckError as exc:
         failures.append(str(exc))
 
