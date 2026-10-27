@@ -1,12 +1,15 @@
 name: Witness mirror
 
 # Daily: copy signed checkpoints to the public epi-witness-checkpoints repo.
-# The repo is planned but NOT created as of 2026-10-23 (URL returns 404); this
-# workflow stays dormant until the repo and secrets exist.
-# Needs repo secrets: MIRROR_PAT (push access to the mirror repo),
+# The repo is planned but NOT created as of 2026-10-23; this workflow stays
+# dormant until the repo and secrets exist, and succeeds trivially without them.
+# Needs repo secrets: MIRROR_PAT (contents:write on the mirror repo only),
 # MIRROR_REPO (owner/epi-witness-checkpoints), WITNESS_MIRROR_INBOXES
 # (comma-separated inbox ids, opt-in per customer), EPI_CLOUD_URL.
-# Without secrets the job succeeds trivially (nothing configured yet).
+#
+# The mirror is append-only: the script verifies every checkpoint signature and
+# refuses to rewrite a day that changed upstream, and the cross-check below
+# compares the fetched mirror against the live witness before anything is pushed.
 
 on:
   schedule:
@@ -28,6 +31,20 @@ jobs:
             exit 0
           fi
           python scripts/mirror_witness_checkpoints.py --out mirror
+      - name: Cross-check the mirror against the live witness
+        env:
+          EPI_CLOUD_URL: ${{ secrets.EPI_CLOUD_URL }}
+          WITNESS_MIRROR_INBOXES: ${{ secrets.WITNESS_MIRROR_INBOXES }}
+        run: |
+          if [ -z "$WITNESS_MIRROR_INBOXES" ]; then
+            echo "WITNESS_MIRROR_INBOXES not set — nothing to cross-check."
+            exit 0
+          fi
+          pip install -q -e .
+          CLOUD="${EPI_CLOUD_URL:-https://cloud.epilabs.org}"
+          for inbox in $(echo "$WITNESS_MIRROR_INBOXES" | tr ',' ' '); do
+            epi witness check --inbox-url "${CLOUD%/}/w/${inbox}" --mirror ./mirror
+          done
       - name: Push to mirror repo
         env:
           MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
@@ -38,7 +55,7 @@ jobs:
             exit 0
           fi
           git clone --depth 1 "https://x-access-token:${MIRROR_PAT}@github.com/${MIRROR_REPO}.git" target
-          cp -r mirror/. target/checkpoints/
+          cp -r mirror/. target/
           cd target
           git config user.name "epi-witness-mirror"
           git config user.email "witness@epilabs.org"

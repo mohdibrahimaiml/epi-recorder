@@ -6,6 +6,22 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Cross-check the public witness mirror (`epi witness check --mirror`).**
+  Compare the live witness against the public `epi-witness-checkpoints` mirror
+  (a raw.githubusercontent.com base URL or a local clone; `--offline` works with
+  local files). It fails with a plain reason when a mirrored day differs on the
+  live side (`head_hash`, `count` or `signature`), when a mirrored day is
+  missing from the live witness (history rewritten), or when the witness key
+  changed without a key-rotation entry. A day that exists only on the live side
+  is fine — the mirror lags by up to a day. The mirror script is now
+  append-only: it verifies every checkpoint signature with the published key,
+  never rewrites an existing day, and exits non-zero with "history change
+  detected" so the workflow fails instead of rewriting history.
+  `mirror-template/` holds the README and `checkpoints/` placeholder to copy
+  into the new public repo; the workflow cross-checks the mirror before pushing
+  and still succeeds trivially while the secrets are unset. See
+  [docs/WITNESS.md](docs/WITNESS.md).
+
 - **Hardened gateway approval links.** The approval link is now a single-use,
   expiring capability instead of an unauthenticated GET/POST that recorded on
   its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
