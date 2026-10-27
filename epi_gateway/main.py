@@ -1730,7 +1730,8 @@ def create_app(
         page = f"""<!doctype html>
 <html><body style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:72px auto;padding:24px;color:#0f172a">
   <h2 style="margin-bottom:8px">Approval requested</h2>
-  <p style="margin-top:0">Workflow <strong>{esc(str(workflow_id))}</strong> is waiting for a decision.</p>
+  <p style="margin-top:0">Workflow <strong>{esc(str(workflow_id))}</strong>
+    is waiting for a decision.</p>
   <p><strong>Approval:</strong> {esc(str(approval_id))}</p>
   <p><strong>Action:</strong> {esc(action)}</p>
   <p><strong>Requested reason:</strong> {esc(requested_reason)}</p>
@@ -1749,10 +1750,11 @@ def create_app(
 </body></html>"""
         highlighted = str(decision or "").strip().lower()
         if highlighted in {"approve", "deny"}:
-            page = page.replace(
-                "</body>",
-                f'<p style="color:#475569;font-size:13px">You opened the {esc(highlighted)} link.</p></body>',
+            note = (
+                f'<p style="color:#475569;font-size:13px">'
+                f"You opened the {esc(highlighted)} link.</p></body>"
             )
+            page = page.replace("</body>", note)
         return HTMLResponse(page)
 
     @app.post("/api/approve/{workflow_id}/{approval_id}")

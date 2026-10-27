@@ -1276,7 +1276,8 @@ class CaseStore:
             connection.execute(
                 """
                 INSERT INTO approval_link_tokens
-                    (token_hash, workflow_id, approval_id, issued_at, expires_at, used_at, issued_by)
+                    (token_hash, workflow_id, approval_id,
+                     issued_at, expires_at, used_at, issued_by)
                 VALUES (?, ?, ?, ?, ?, NULL, ?)
                 """,
                 (
@@ -1291,7 +1292,9 @@ class CaseStore:
             connection.commit()
         return token
 
-    def _approval_link_status(self, workflow_id: str, approval_id: str, token: str) -> tuple[str, str]:
+    def _approval_link_status(
+        self, workflow_id: str, approval_id: str, token: str
+    ) -> tuple[str, str]:
         """Shared token check. Returns ``(status, token_hash)``; never spends it."""
         from epi_core.approval_links import hash_approval_link_token
         from epi_core.time_utils import utc_now

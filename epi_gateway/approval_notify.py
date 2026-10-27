@@ -66,8 +66,8 @@ def send_approval_email(
           <a href="{escaped_deny}" style="background:#b91c1c;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600;margin-left:12px">Deny</a>
         </p>
         {case_link_html}
-        <p style="color:#64748b;font-size:13px">These links open a confirmation page; clicking records a
-        <strong>link click</strong>, not a signed human approval.</p>
+        <p style="color:#64748b;font-size:13px">These links open a confirmation page;
+        clicking records a <strong>link click</strong>, not a signed human approval.</p>
       </body>
     </html>
     """
