@@ -24,9 +24,13 @@ All notable changes to EPI Recorder are documented here.
     self-approval (the sealing key), refuses an unknown `approval_id`, and signs
     only with a key from the approver keys dir.
   - `epi verify` gains a `human_approval` report field and a single
-    `Human approval:` line, and `--require-human-approval` FAILs unless every
-    sealed approval request has a human-signed approval (or a case-level
-    approval). `--policy strict` deliberately does **not** imply it.
+    `Human approval:` line that summarises the run's sealed requests
+    (`VERIFIED` / `INCOMPLETE` / `DENIED`), and `--require-human-approval` FAILs
+    unless every sealed approval request has a human-signed approval (or a
+    case-level approval). `--policy strict` deliberately does **not** imply it.
+  - Only the `approver` role counts: a key pinned with another role alone is
+    never `human_signed`. An approval whose `approval_id` is not a sealed
+    request is listed separately and never makes the status `verified`.
   - `review_version` moves to `1.2.0`. The record shape is unchanged, so an
     already-deployed 4.6.x verifier computes the same content hash and raises no
     tamper alarm — it just shows a signed review, never "human approved".

@@ -2799,6 +2799,8 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             "VERIFIED": "green",
             "NONE": "dim",
             "UNVERIFIED": "yellow",
+            "INCOMPLETE": "yellow",
+            "DENIED": "red",
             "FAILED": "red",
         }.get(_h_status, "yellow")
         content_lines.append(

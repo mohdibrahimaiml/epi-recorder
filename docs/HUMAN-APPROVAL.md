@@ -29,7 +29,9 @@ A run is reported as `human_signed` only when **all** of these hold:
    content, its `artifact_binding` matches *this* file, and the review chain is
    intact;
 2. the signature verifies against the key it names;
-3. that key is pinned in the verifier's **approver** registry (`epi approvers`);
+3. that key is pinned in the verifier's **approver** registry (`epi approvers`)
+   **with the `approver` role** — a key pinned only as, say, an `auditor` does
+   not count, and is reported as `signed_unknown_key`;
 4. that key is **not** the key that sealed the run.
 
 Anything else is reported honestly: `unsigned`, `signed_by_sealing_key`
@@ -142,9 +144,20 @@ epi verify run.epi                              # one plain line when the run ha
 epi verify run.epi --require-human-approval     # exit non-zero unless satisfied
 ```
 
-The report gains `human_approval`: `status` (`verified` / `none` / `unverified` /
-`failed`), one entry per approval with its `classification`, and `requests` —
-one result per sealed `agent.approval.request`.
+The report gains `human_approval`: `status` (`verified` / `incomplete` / `denied`
+/ `unverified` / `none` / `failed`), one entry per approval with its
+`classification`, and `requests` — one result per sealed
+`agent.approval.request`. When the run has sealed requests, the headline
+summarises them rather than the most recent approval:
+
+```text
+Human approval: VERIFIED — 2 of 2 requests approved by pinned approvers (alice@bank.com)
+Human approval: INCOMPLETE — 1 of 2 requests approved; missing: refund-8
+Human approval: DENIED — refund-7 denied by alice@bank.com
+```
+
+An approval whose `approval_id` is not a sealed request is listed in
+`approvals_not_in_run` and never makes the status `verified`.
 
 `--require-human-approval` passes only when:
 

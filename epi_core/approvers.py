@@ -139,6 +139,12 @@ class ApproverRegistry:
         return True
 
     def get_by_key(self, public_key_hex: str) -> dict[str, Any] | None:
+        """The pinned entry for a key, whatever its roles. Display only.
+
+        A key pinned without the ``approver`` role is **not** an approver: use
+        :meth:`get_approver_by_key` (or :meth:`is_approver`) wherever the
+        answer decides whether a record is human-signed.
+        """
         want = "".join(str(public_key_hex or "").split()).lower()
         if len(want) != 64:
             return None
@@ -147,12 +153,20 @@ class ApproverRegistry:
                 return entry
         return None
 
+    def get_approver_by_key(self, public_key_hex: str) -> dict[str, Any] | None:
+        """The entry for a key **only if** it carries the ``approver`` role."""
+        entry = self.get_by_key(public_key_hex)
+        if entry is None:
+            return None
+        roles = {str(role).strip().lower() for role in (entry.get("roles") or [])}
+        return entry if APPROVER_ROLE in roles else None
+
     def name_for_key(self, public_key_hex: str) -> str | None:
         entry = self.get_by_key(public_key_hex)
         return str(entry["name"]) if entry else None
 
     def is_approver(self, public_key_hex: str) -> bool:
-        return self.get_by_key(public_key_hex) is not None
+        return self.get_approver_by_key(public_key_hex) is not None
 
 
 def _utc_now() -> str:

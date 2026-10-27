@@ -748,6 +748,9 @@ epi approvers link --name alice@bank.com --uri "pkcs11:…"   # HSM / cloud KMS
 - `add` requires the `--fingerprint` the approver read aloud (whitespace and
   case insensitive), and refuses a key that is a local agent key or an already
   pinned signer unless `--force` (which prints a warning).
+- Only the `approver` role counts for `human_signed`. A key pinned with
+  `--role auditor` alone is listed, but an approval it signs is reported as
+  `signed_unknown_key`, never `human_signed`.
 - `keygen` writes to `EPI_APPROVER_KEYS_DIR` (default `~/.epi/approver_keys/`),
   requires encryption at rest (`EPI_KEY_PASSWORD` or a hidden prompt), and
   refuses to use the agent keys directory.

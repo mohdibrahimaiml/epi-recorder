@@ -215,6 +215,11 @@ def _classifications(state: dict) -> list[str]:
     return [item["classification"] for item in state["approvals"]]
 
 
+def _flat(text: str) -> str:
+    """Collapse the panel's box drawing and line wrapping for substring checks."""
+    return " ".join(text.replace("│", " ").split())
+
+
 # ---------------------------------------------------------------------------
 # BLOCKING: old readers must not see a false tamper alarm
 # ---------------------------------------------------------------------------
@@ -288,9 +293,10 @@ def test_unpinned_key_is_signed_unknown_key(tmp_path):
     add_review_to_artifact(epi_path, _approval_record(signing_key=approver), private_key=approver)
 
     state = verify_human_approvals(epi_path)
-    assert state["status"] == "unverified"
+    assert state["status"] == "incomplete"  # the sealed request is not covered
     assert state["requirement_met"] is False
     assert _classifications(state) == ["signed_unknown_key"]
+    assert "unpinned key" in state["detail"]
 
 
 def test_pinned_signer_is_not_an_approver(tmp_path, monkeypatch):
@@ -305,7 +311,7 @@ def test_pinned_signer_is_not_an_approver(tmp_path, monkeypatch):
 
     add_review_to_artifact(epi_path, _approval_record(signing_key=vendor), private_key=vendor)
     state = verify_human_approvals(epi_path)
-    assert state["status"] == "unverified"
+    assert state["status"] == "incomplete"
     assert _classifications(state) == ["signed_unknown_key"]
 
 
@@ -320,7 +326,8 @@ def test_sealing_key_signed_approval_is_not_independent(tmp_path):
     )
     state = verify_human_approvals(epi_path)
     assert _classifications(state) == ["signed_by_sealing_key"]
-    assert state["status"] == "unverified"
+    assert state["status"] == "incomplete"
+    assert "sealing key" in state["detail"]
 
 
 def test_tampered_approval_is_invalid(tmp_path):
@@ -455,7 +462,7 @@ def test_deny_on_a_request_fails_the_requirement(tmp_path):
         private_key=approver,
     )
     state = verify_human_approvals(epi_path)
-    assert state["status"] == "verified"  # a person really signed it
+    assert state["status"] == "denied"  # a person really signed it, and said no
     assert state["requirement_met"] is False
     with pytest.raises(typer.Exit):
         verify_command(ctx=MagicMock(), epi_file=epi_path, require_human_approval=True)
@@ -519,16 +526,31 @@ def test_verify_is_silent_for_a_run_with_no_approvals(tmp_path, capsys):
     assert "Human approval" not in capsys.readouterr().out
 
 
-def test_verify_prints_the_approvers_own_clock(tmp_path, capsys):
+def test_verify_headline_summarises_the_requests(tmp_path, capsys):
     epi_path, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")])
     approver = Ed25519PrivateKey.generate()
     _pin(tmp_path, "alice@bank.com", approver)
     add_review_to_artifact(epi_path, _approval_record(signing_key=approver), private_key=approver)
     verify_command(ctx=MagicMock(), epi_file=epi_path)
-    out = capsys.readouterr().out
+    assert (
+        "Human approval: VERIFIED — 1 of 1 requests approved by pinned approvers"
+        in _flat(capsys.readouterr().out)
+    )
+
+
+def test_verify_prints_the_approvers_own_clock_for_a_case_level_run(tmp_path, capsys):
+    epi_path, _ = _sealed_epi(tmp_path)  # no sealed requests
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(
+        epi_path,
+        _approval_record(signing_key=approver, approval_id=None, case_level=True, action=""),
+        private_key=approver,
+    )
+    verify_command(ctx=MagicMock(), epi_file=epi_path)
+    out = _flat(capsys.readouterr().out)
     assert "Human approval: VERIFIED" in out
     assert "approver's clock" in out
-    assert "refund REF-7" in out
 
 
 # ---------------------------------------------------------------------------
@@ -822,6 +844,158 @@ def test_plain_fault_review_never_reports_human_approval(tmp_path):
     )
     add_review_to_artifact(epi_path, record, private_key=sealing_key)
     assert verify_review_trust(epi_path)["human_approval"]["status"] == "none"
+
+
+# ---------------------------------------------------------------------------
+# Review round 2: roles, unknown ids, failed≠met, request-summary headline
+# ---------------------------------------------------------------------------
+
+
+def test_registry_approver_lookup_requires_the_role(tmp_path):
+    registry = ApproverRegistry(tmp_path / "approvers")
+    auditor = Ed25519PrivateKey.generate()
+    registry.add("bob", _pub_hex(auditor), roles=["auditor"])
+    assert registry.get_by_key(_pub_hex(auditor)) is not None  # display only
+    assert registry.get_approver_by_key(_pub_hex(auditor)) is None
+    assert registry.is_approver(_pub_hex(auditor)) is False
+
+    alice = Ed25519PrivateKey.generate()
+    registry.add("alice", _pub_hex(alice), roles=["auditor", "approver"])
+    assert registry.is_approver(_pub_hex(alice)) is True
+
+
+def test_a_key_pinned_without_the_approver_role_is_never_human_signed(tmp_path):
+    """Repro: pin Bob with --role auditor, approve every request, expect FAIL."""
+    epi_path, _ = _sealed_epi(
+        tmp_path, requests=[("refund-7", "refund REF-7"), ("refund-8", "refund REF-8")]
+    )
+    bob = Ed25519PrivateKey.generate()
+    ApproverRegistry(tmp_path / "trusted_approvers").add("bob", _pub_hex(bob), roles=["auditor"])
+    for approval_id in ("refund-7", "refund-8"):
+        add_review_to_artifact(
+            epi_path,
+            _approval_record(signing_key=bob, approval_id=approval_id, name="bob"),
+            private_key=bob,
+        )
+
+    state = verify_human_approvals(epi_path)
+    assert _classifications(state) == ["signed_unknown_key", "signed_unknown_key"]
+    assert "not with the approver role" in state["approvals"][0]["reason"]
+    assert state["requirement_met"] is False
+    assert state["status"] == "incomplete"
+    with pytest.raises(typer.Exit):
+        verify_command(ctx=MagicMock(), epi_file=epi_path, require_human_approval=True)
+
+
+def test_an_approval_for_a_request_not_in_the_run_is_not_verified(tmp_path):
+    """Repro: Alice signs refund-999 on a run whose requests are 7 and 8."""
+    epi_path, _ = _sealed_epi(
+        tmp_path, requests=[("refund-7", "refund REF-7"), ("refund-8", "refund REF-8")]
+    )
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(
+        epi_path,
+        _approval_record(signing_key=approver, approval_id="refund-999"),
+        private_key=approver,
+    )
+
+    state = verify_human_approvals(epi_path)
+    assert state["status"] == "incomplete"  # never "verified"
+    assert state["approvals"][0]["classification"] == "human_signed"
+    assert state["approvals"][0]["approval_id_present"] is False
+    assert [item["approval_id"] for item in state["approvals_not_in_run"]] == ["refund-999"]
+    assert state["requirement_met"] is False
+    assert any("not in this run" in warning for warning in state["warnings"])
+
+
+def test_requirement_met_is_false_when_an_approval_record_is_invalid(tmp_path):
+    """Repro: a satisfying approval, plus a record with an extra entry.
+
+    The valid approval alone would meet the requirement, so before the fix the
+    core function returned ``status="failed"`` together with
+    ``requirement_met=True``.
+    """
+    epi_path, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")])
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(epi_path, _approval_record(signing_key=approver), private_key=approver)
+    entry = make_approval_entry(
+        approval_id="refund-7",
+        decision="approve",
+        action="refund REF-7",
+        reason="ok",
+        approver_name="alice@bank.com",
+        key_fingerprint_hex=key_fingerprint(_pub_hex(approver), grouped=False),
+    )
+    record = ReviewRecord(
+        reviewed_by="alice@bank.com",
+        reviews=[entry, {"outcome": "dismissed", "reviewer": "alice@bank.com"}],
+        reviewer_identity={"type": "email", "value": "alice@bank.com", "verified": False},
+    )
+    add_review_to_artifact(epi_path, record, private_key=approver)
+
+    state = verify_human_approvals(epi_path)
+    assert state["status"] == "failed"
+    assert state["requirement_met"] is False
+
+
+def test_headline_reports_incomplete_and_denied(tmp_path, capsys):
+    epi_path, _ = _sealed_epi(
+        tmp_path, requests=[("refund-7", "refund REF-7"), ("refund-8", "refund REF-8")]
+    )
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(
+        epi_path,
+        _approval_record(signing_key=approver, approval_id="refund-7"),
+        private_key=approver,
+    )
+    verify_command(ctx=MagicMock(), epi_file=epi_path)
+    assert (
+        "Human approval: INCOMPLETE — 1 of 2 requests approved; missing: refund-8"
+        in _flat(capsys.readouterr().out)
+    )
+
+    denied_epi, _ = _sealed_epi(
+        tmp_path, requests=[("refund-7", "refund REF-7")], name="denied.epi"
+    )
+    add_review_to_artifact(
+        denied_epi, _approval_record(signing_key=approver, decision="deny"), private_key=approver
+    )
+    verify_command(ctx=MagicMock(), epi_file=denied_epi)
+    assert (
+        "Human approval: DENIED — refund-7 denied by alice@bank.com"
+        in _flat(capsys.readouterr().out)
+    )
+
+
+def test_two_sealed_requests_sharing_an_approval_id_warn(tmp_path):
+    epi_path, _ = _sealed_epi(
+        tmp_path, requests=[("refund-7", "refund REF-7"), ("refund-7", "refund REF-7 again")]
+    )
+    state = verify_human_approvals(epi_path)
+    assert any("used by 2 requests" in warning for warning in state["warnings"])
+
+
+def test_signed_action_text_differing_from_the_sealed_request_warns(tmp_path):
+    epi_path, _ = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")])
+    approver = Ed25519PrivateKey.generate()
+    _pin(tmp_path, "alice@bank.com", approver)
+    add_review_to_artifact(
+        epi_path,
+        _approval_record(signing_key=approver, action="refund REF-7 (edited)"),
+        private_key=approver,
+    )
+    state = verify_human_approvals(epi_path)
+    assert state["status"] == "verified"
+    assert state["requests"][0]["action"] == "refund REF-7"  # authority: the sealed step
+    assert state["requests"][0]["approved_action"] == "refund REF-7 (edited)"
+    assert state["requests"][0]["action_mismatch"] is True
+    assert any(
+        "approval text differs from the sealed request" in warning
+        for warning in state["warnings"]
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -935,7 +935,9 @@ def _classify_approval(
         result["reason"] = "Signed by the sealing key (not independent of the agent)"
         return result
 
-    registry_entry = scan["registry"].get_by_key(signing_key)
+    # Only a key pinned WITH the approver role counts. A key pinned for another
+    # purpose (say, an auditor) must never make an approval human-signed.
+    registry_entry = scan["registry"].get_approver_by_key(signing_key)
     if registry_entry is not None:
         result["classification"] = "human_signed"
         result["reason"] = "Signed by a pinned approver key"
@@ -946,6 +948,13 @@ def _classify_approval(
                 f"Approval claims to be '{claimed_name}' but the key is pinned as "
                 f"'{registry_name}'"
             )
+        return result
+
+    pinned_entry = scan["registry"].get_by_key(signing_key)
+    if pinned_entry is not None:
+        result["classification"] = "signed_unknown_key"
+        result["reason"] = "Key is pinned but not with the approver role"
+        result["approver_name"] = str(pinned_entry.get("name") or "") or claimed_name
         return result
 
     result["classification"] = "signed_unknown_key"
@@ -959,8 +968,30 @@ def _human_approval_none_detail(agent_reported: int) -> str:
     return "no human-signed approval on this run"
 
 
+def _request_label(result: dict[str, Any]) -> str:
+    return str(result.get("approval_id") or "?")
+
+
+def _approval_hint(item: dict[str, Any]) -> str:
+    """Why this approval does not count, in the CLI's own words."""
+    classification = item.get("classification")
+    if classification == "signed_by_sealing_key":
+        return "signed by the sealing key (not independent of the agent)"
+    if classification == "unsigned":
+        return "an approval is present but unsigned"
+    if classification == "invalid":
+        return str(item.get("reason") or "an approval is invalid")
+    if classification == "signed_unknown_key":
+        if "not with the approver role" in str(item.get("reason") or ""):
+            return str(item["reason"])
+        fp = _group_fingerprint(item.get("key_fingerprint") or "")
+        return f"signed by an unpinned key (fp {fp}); pin it with: epi approvers add"
+    return ""
+
+
 def _human_approval_detail(
     status: str,
+    request_results: list[dict[str, Any]],
     classifications: list[dict[str, Any]],
     human: list[dict[str, Any]],
 ) -> str:
@@ -969,14 +1000,43 @@ def _human_approval_detail(
             (item for item in classifications if item["classification"] == "invalid"), None
         )
         return invalid["reason"] if invalid else "an approval is invalid"
+    if status == "denied":
+        denied = next(item for item in request_results if item["status"] == "denied")
+        who = next(
+            (
+                item.get("approver_name")
+                for item in human
+                if item.get("review_id") == denied.get("review_id")
+            ),
+            None,
+        ) or "a pinned approver"
+        return f"{_request_label(denied)} denied by {who}"
+    if status == "incomplete":
+        approved = [item for item in request_results if item["status"] == "approved"]
+        missing = [item for item in request_results if item["status"] == "missing"]
+        detail = (
+            f"{len(approved)} of {len(request_results)} requests approved; "
+            f"missing: {', '.join(_request_label(item) for item in missing)}"
+        )
+        if not approved:
+            # Nothing covered this run: say why the approval in hand does not.
+            hint = next(
+                (_approval_hint(item) for item in classifications if _approval_hint(item)), ""
+            )
+            if hint:
+                detail = f"{detail} — {hint}"
+        return detail
+    if status == "verified" and request_results:
+        names = sorted({str(item.get("approver_name") or "an approver") for item in human})
+        return (
+            f"{len(request_results)} of {len(request_results)} requests approved by "
+            f"pinned approvers ({', '.join(names)})"
+        )
     if status == "unverified":
-        item = classifications[0]
-        if item["classification"] == "signed_by_sealing_key":
-            return "signed by the sealing key (not independent of the agent)"
-        if item["classification"] == "unsigned":
-            return "an approval is present but unsigned"
-        fp = _group_fingerprint(item.get("key_fingerprint") or "")
-        return f"signed by an unpinned key (fp {fp}); pin it with: epi approvers add"
+        return _approval_hint(classifications[0]) or "no human-signed approval on this run"
+    if not human:
+        return "no human-signed approval on this run"
+    # Verified with no sealed requests: a case-level approval of the whole run.
     item = human[-1]
     verb = "approved" if item.get("decision") == "approve" else "denied"
     target = f'"{item.get("action")}"' if item.get("action") else "the run (case-level)"
@@ -990,10 +1050,19 @@ def _human_approval_detail(
 def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str, Any]:
     """Classify every human approval and decide whether it satisfies a request.
 
+    ``status`` is ``verified`` / ``incomplete`` / ``denied`` / ``failed`` /
+    ``unverified`` / ``none``. When the run has sealed requests, the status
+    summarises them (all approved / some missing / one denied); a run with no
+    sealed requests falls back to the single case-level approval wording. An
+    approval for an ``approval_id`` that is not a sealed request is reported in
+    ``approvals_not_in_run`` and never makes the status ``verified``.
+
     ``requirement_met`` is the rule ``epi verify --require-human-approval``
     uses: every sealed ``agent.approval.request`` must have a human-signed
     approval whose latest human-signed decision is ``approve``, or the latest
     human-signed case-level approval must be ``approve`` with no request denied.
+    It is always ``False`` when ``status`` is ``failed`` — a tampered ledger can
+    block a run, never satisfy it.
     """
     from epi_core.approvers import ApproverRegistry
 
@@ -1001,6 +1070,7 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
         "status": "none",
         "agent_reported_approvals": 0,
         "approvals": [],
+        "approvals_not_in_run": [],
         "requests": [],
         "latest_decision": None,
         "latest_human_signed_review_id": None,
@@ -1037,6 +1107,17 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
     except Exception:
         records = []
 
+    # Two sealed requests sharing one approval_id is ambiguous: say so, but do
+    # not change how anything is classified.
+    id_counts: dict[str, int] = {}
+    for req in sealed_requests:
+        if req["approval_id"]:
+            key = str(req["approval_id"])
+            id_counts[key] = id_counts.get(key, 0) + 1
+    for approval_id, count in sorted(id_counts.items()):
+        if count > 1:
+            report["warnings"].append(f"approval_id {approval_id} is used by {count} requests")
+
     approval_records = [record for record in records if approval_entry_of(record) is not None]
     report["present"] = (
         bool(records) or bool(sealed_requests) or report["agent_reported_approvals"] > 0
@@ -1069,7 +1150,29 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
         if item["approval_id"] and str(item["approval_id"]) in sealed_ids:
             item["approval_id_present"] = True
     report["approvals"] = classifications
-    report["warnings"] = [item["warning"] for item in classifications if item.get("warning")]
+    report["warnings"].extend(
+        item["warning"] for item in classifications if item.get("warning")
+    )
+
+    # An approval for an approval_id that is not a sealed request is reported,
+    # but it never drives the headline: it approves something this run did not ask.
+    report["approvals_not_in_run"] = [
+        {
+            "review_id": item["review_id"],
+            "approval_id": item["approval_id"],
+            "approver_name": item["approver_name"],
+            "classification": item["classification"],
+        }
+        for item in classifications
+        if not item["case_level"] and not item["approval_id_present"]
+    ]
+    if report["approvals_not_in_run"]:
+        orphan_ids = sorted(
+            {str(item["approval_id"]) for item in report["approvals_not_in_run"]}
+        )
+        report["warnings"].append(
+            "approval(s) for requests not in this run: " + ", ".join(orphan_ids)
+        )
 
     position = {record.review_id: pos for pos, record in enumerate(scan["ordered"])}
     human = [item for item in classifications if item["classification"] == "human_signed"]
@@ -1090,17 +1193,31 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
             if candidates:
                 match = candidates[-1]
         if match is None:
-            status = "missing"
+            request_status = "missing"
         else:
-            status = "approved" if match["decision"] == "approve" else "denied"
-        request_results.append(
-            {
-                "approval_id": approval_id,
-                "action": req["action"],
-                "status": status,
-                "review_id": match["review_id"] if match else None,
-            }
-        )
+            request_status = "approved" if match["decision"] == "approve" else "denied"
+        entry = {
+            "approval_id": approval_id,
+            "action": req["action"],
+            "status": request_status,
+            "review_id": match["review_id"] if match else None,
+        }
+        if match is not None:
+            # The sealed step is the authority for what was asked; a signed
+            # approval that says something else is surfaced, not trusted.
+            entry["approved_action"] = match.get("action") or ""
+            sealed_action = str(req["action"] or "")
+            if (
+                sealed_action
+                and entry["approved_action"]
+                and sealed_action != entry["approved_action"]
+            ):
+                entry["action_mismatch"] = True
+                report["warnings"].append(
+                    f"approval text differs from the sealed request "
+                    f"({sealed_action!r} vs {entry['approved_action']!r})"
+                )
+        request_results.append(entry)
     report["requests"] = request_results
 
     case_level_human = [item for item in human if item["case_level"]]
@@ -1111,16 +1228,39 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
     rule_b = latest_case == "approve" and not any(
         item["status"] == "denied" for item in request_results
     )
-    report["requirement_met"] = bool(rule_a or rule_b)
+    requirement_met = bool(rule_a or rule_b)
 
+    # "verified" means a person approved something THIS run asked for (a sealed
+    # request, or the whole run as a case-level approval). An approval for an
+    # unknown id is never enough on its own.
+    counts_toward_decision = [
+        item for item in human if item["case_level"] or item["approval_id_present"]
+    ]
     if any(item["classification"] == "invalid" for item in classifications):
-        report["status"] = "failed"
-    elif human:
-        report["status"] = "verified"
+        status = "failed"
+    elif request_results:
+        if any(item["status"] == "denied" for item in request_results):
+            status = "denied"
+        elif all(item["status"] == "approved" for item in request_results):
+            status = "verified"
+        else:
+            status = "incomplete"
+    elif counts_toward_decision:
+        status = "verified"
+    elif classifications:
+        status = "unverified"
     else:
-        report["status"] = "unverified"
+        status = "none"
 
-    report["detail"] = _human_approval_detail(report["status"], classifications, human)
+    if status == "failed":
+        # A tampered ledger can block a run, never satisfy the requirement.
+        requirement_met = False
+
+    report["status"] = status
+    report["requirement_met"] = requirement_met
+    report["detail"] = _human_approval_detail(
+        status, request_results, classifications, human
+    )
     return report
 
 

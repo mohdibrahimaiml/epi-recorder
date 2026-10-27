@@ -343,16 +343,25 @@ Full details: [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
 
 | Status | Meaning |
 |---|---|
-| `verified` | At least one approval is `human_signed`. |
-| `unverified` | Approvals exist, but none is `human_signed`. |
+| `verified` | A person approved what **this run** asked for: every sealed `agent.approval.request` has a human-signed `approve`, or (no sealed requests) a human-signed case-level approval covers the run. |
+| `incomplete` | The run has sealed requests and at least one is not covered by a human-signed `approve` (and none was denied). The detail lists the missing ones. |
+| `denied` | A human-signed approval **denied** one of the sealed requests. |
+| `unverified` | Approvals exist but none counts: an unpinned key, the sealing key, an unsigned record, or an approval for a request not in this run when there are no sealed requests. |
 | `none` | No approvals at all (any `agent.approval.response` steps are agent claims, and say so). |
 | `failed` | At least one approval is `invalid`. Fail-closed: a tampered ledger blocks a run, it can never forge an approval. |
+
+An approval whose `approval_id` is not a sealed `agent.approval.request` is
+listed in `human_approval.approvals_not_in_run` and **never** makes the status
+`verified` — it approves something this run did not ask for.
+`human_approval.requests[]` carries each sealed request's `action` (taken from
+the sealed step, not from the approval) and, when an approval covered it,
+`approved_action` plus `action_mismatch` if the two differ.
 
 Each entry in `human_approval.approvals` carries a `classification`:
 
 | Classification | Meaning |
 |---|---|
-| `human_signed` | Valid signature; key pinned in **your** approver registry (`epi approvers add`); key ≠ the sealing key. |
+| `human_signed` | Valid signature; key pinned in **your** approver registry (`epi approvers add`) **with the `approver` role**; key ≠ the sealing key. |
 | `signed_by_sealing_key` | Signed by the key that sealed the run — **not independent of the agent**. |
 | `signed_unknown_key` | Valid signature, but the key is not a pinned approver. |
 | `unsigned` | An approval is present with no signature. |
@@ -362,6 +371,8 @@ Each entry in `human_approval.approvals` carries a `classification`:
 `agent.approval.request` (`approved` / `denied` / `missing`).
 `--require-human-approval` FAILs unless every request is `approved`, or the
 latest human-signed **case-level** approval is `approve` with no request denied.
+`human_approval.requirement_met` is `False` whenever the status is `failed` — a
+tampered ledger can block a run, never satisfy it.
 
 **What it proves:** a key you pinned as *that person's* approver signed this
 exact artifact's decision. **What it does not prove:** that the person saw the
