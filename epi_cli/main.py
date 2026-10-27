@@ -628,6 +628,14 @@ def verify(
         "--require-timestamp",
         help="FAIL unless at least one seal-time RFC 3161 token validates.",
     ),
+    require_human_approval: bool = typer.Option(
+        False,
+        "--require-human-approval",
+        help=(
+            "FAIL unless every sealed approval request has a human-signed approval "
+            "(pinned approver key, not the sealing key), or a case-level approval."
+        ),
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -661,6 +669,7 @@ def verify(
         witness_log=witness_log,
         witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
+        require_human_approval=require_human_approval,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -971,6 +980,14 @@ app.add_typer(
     help="Review fault analysis results for a saved case file",
     invoke_without_command=True,
     no_args_is_help=False,
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approvers import app as approvers_app
+app.add_typer(
+    approvers_app,
+    name="approvers",
+    help="Pin human approvers and hold their own keys (human sign-off)",
     rich_help_panel="Everyday",
 )
 

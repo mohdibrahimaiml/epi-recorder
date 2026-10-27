@@ -25,7 +25,14 @@ app = typer.Typer(
     help="Review fault analysis results for a .epi artifact.",
     invoke_without_command=True,
     no_args_is_help=False,
-    context_settings={"allow_interspersed_args": True},
+    # ignore_unknown_options/allow_extra_args let a subcommand receive its own
+    # options (`epi review <file> approve --approval-id ...`): otherwise the
+    # group parser rejects options it does not itself define.
+    context_settings={
+        "allow_interspersed_args": True,
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    },
 )
 console = Console()
 
@@ -273,6 +280,10 @@ def review(
         confirmed = sum(1 for e in review_entries if e["outcome"] == "confirmed_fault")
         dismissed = sum(1 for e in review_entries if e["outcome"] == "dismissed")
         console.print(f"  [dim]{confirmed} confirmed · {dismissed} dismissed · {len(review_entries) - confirmed - dismissed} skipped[/dim]")
+        console.print(
+            "[dim]A fault review is not a signed human approval. For an approval a "
+            "verifier can confirm: epi review <file.epi> approve --as <name>[/dim]"
+        )
     except Exception as e:
         console.print(f"[red][FAIL] Could not write review to artifact: {e}[/red]")
         raise typer.Exit(1)
@@ -307,13 +318,36 @@ def show_review(ctx: typer.Context):
         console.print(f"  Failures:    [red]{len(review_trust['failures'])}[/red]")
     console.print()
 
+    approvals = (review_trust.get("human_approval") or {}).get("approvals") or []
+    if approvals:
+        console.print("[bold]Approvals[/bold] (who signed, and how it was classified)")
+        for item in approvals:
+            _cls = str(item.get("classification") or "unknown")
+            _color = "green" if _cls == "human_signed" else ("red" if _cls == "invalid" else "yellow")
+            console.print(
+                f"  [{_color}]{_cls}[/{_color}]  {item.get('approver_name') or '—'}"
+                f"  [dim](fp {item.get('key_fingerprint') or '—'})[/dim]"
+                f"  {item.get('approval_id') or '(case-level)'}"
+            )
+        console.print(
+            "[dim]Only 'human_signed' means a pinned approver, not the agent, signed it.[/dim]"
+        )
+        console.print()
+
     for entry in record.reviews:
+        if entry.get("entry_type"):
+            continue
         outcome = entry.get("outcome", "?")
         color = {"confirmed_fault": "red", "dismissed": "green", "skipped": "dim"}.get(outcome, "white")
         console.print(
             f"  Step {entry.get('fault_step', '?')}  [{color}]{outcome}[/{color}]"
             + (f"  [dim]{entry.get('notes', '')}[/dim]" if entry.get("notes") else "")
         )
+
+    console.print(
+        "[dim]A person signs a real approval with: "
+        "epi review <file.epi> approve --approval-id <id> --as <name>[/dim]"
+    )
 
 
 @app.command("bind")
@@ -353,9 +387,24 @@ def bind_review(
         console.print(f"[red][X][/red] Could not load signing key '{key_name}': {exc}")
         raise typer.Exit(1) from exc
 
+    # Only fault-review entries can be re-signed by the agent's key. An approval
+    # belongs to the person who signed it: copying it into a record signed by a
+    # different key would make the approval's fingerprint claim false, and
+    # verification would (correctly) call the file invalid.
+    promotable = [
+        entry for entry in latest.reviews
+        if not (isinstance(entry, dict) and entry.get("entry_type") == "approval")
+    ]
+    if not promotable:
+        console.print(
+            "[yellow]Nothing to bind:[/yellow] the latest record is a signed human "
+            "approval, not a fault review. It stays as it is."
+        )
+        raise typer.Exit(0)
+
     record = ReviewRecord(
         reviewed_by=reviewer,
-        reviews=latest.reviews,
+        reviews=promotable,
     )
 
     try:
@@ -367,3 +416,163 @@ def bind_review(
     trust = verify_review_trust(epi_path, strict=True)
     console.print(f"[green][OK][/green] Added artifact-bound review to [bold]{epi_path.name}[/bold].")
     console.print(f"[dim]Review trust: {trust['status']} - latest review: {trust.get('latest_review_id') or 'unknown'}[/dim]")
+
+
+@app.command("approve")
+def approve(
+    ctx: typer.Context,
+    approval_id: Optional[str] = typer.Option(
+        None,
+        "--approval-id",
+        help="The approval_id of a sealed agent.approval.request step.",
+    ),
+    decision: str = typer.Option("approve", "--decision", help="approve or deny"),
+    as_: str = typer.Option(
+        ...,
+        "--as",
+        help="Approver name; also the key name in the approver keys dir.",
+    ),
+    reason: Optional[str] = typer.Option(None, "--reason", help="Why (shown to the verifier)."),
+    case_level: bool = typer.Option(
+        False, "--case-level", help="Approve the whole run when there is no request step."
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Skip the typed confirmation (scripted tests only; prints a warning).",
+    ),
+):
+    """Sign a human approval with an approver's own key.
+
+    Signs only with a key from the approver keys dir, never the agent key. The
+    key must differ from the sealing key, and a per-request approval needs an
+    approval_id that exists as an agent.approval.request in the sealed steps.
+    """
+    from cryptography.hazmat.primitives import serialization
+
+    from epi_cli.keys import KeyManager
+    from epi_core.approvers import _resolve_default_approver_keys_dir
+    from epi_core.keys import key_fingerprint
+    from epi_core.review import ReviewRecord, add_review_to_artifact, make_approval_entry
+    from epi_core.trust import verify_embedded_manifest_signature
+
+    epi_path = ctx.obj["epi_path"]
+
+    try:
+        EPIContainer.detect_container_format(epi_path)
+    except Exception:
+        console.print(f"[red][X] Not a valid .epi file:[/red] {epi_path.name}")
+        raise typer.Exit(1)
+
+    if decision not in ("approve", "deny"):
+        console.print("[red][X] --decision must be approve or deny.[/red]")
+        raise typer.Exit(1)
+
+    # Rule: verify first, refuse otherwise.
+    integrity_ok, mismatches = EPIContainer.verify_integrity(epi_path)
+    manifest = EPIContainer.read_manifest(epi_path)
+    signature_valid, _signer, _message = verify_embedded_manifest_signature(manifest)
+    if not integrity_ok or signature_valid is not True:
+        console.print("[red][X] Refusing to approve: this file does not verify.[/red]")
+        console.print(
+            f"  Integrity: {'ok' if integrity_ok else 'FAILED'}"
+            f" · Signature: {'valid' if signature_valid is True else 'INVALID or unsigned'}"
+        )
+        raise typer.Exit(1)
+
+    action = ""
+    if case_level:
+        if approval_id:
+            console.print("[red][X] --case-level cannot be combined with --approval-id.[/red]")
+            raise typer.Exit(1)
+    else:
+        if not approval_id:
+            console.print("[red][X] --approval-id is required (or use --case-level).[/red]")
+            raise typer.Exit(1)
+        request_content = None
+        for step in EPIContainer.read_steps(epi_path):
+            content = step.get("content") if isinstance(step.get("content"), dict) else {}
+            if (
+                step.get("kind") == "agent.approval.request"
+                and str(content.get("approval_id")) == str(approval_id)
+            ):
+                request_content = content
+                break
+        if request_content is None:
+            console.print(
+                f"[red][X] No agent.approval.request with approval_id "
+                f"'{approval_id}' in the sealed steps.[/red]"
+            )
+            raise typer.Exit(1)
+        action = str(request_content.get("action") or "")
+
+    keys_dir = _resolve_default_approver_keys_dir()
+    try:
+        private_key = KeyManager(keys_dir=keys_dir).load_private_key(as_)
+    except Exception as exc:
+        console.print(f"[red][X] No approver key '{as_}' in {keys_dir}:[/red] {exc}")
+        console.print("[dim]Create one: epi approvers keygen --name <approver>[/dim]")
+        raise typer.Exit(1)
+
+    approver_hex = private_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    ).hex()
+    sealing_key = str(manifest.public_key or "").strip().lower()
+    if approver_hex == sealing_key:
+        console.print(
+            "[red][X] Refusing: separation of duties.[/red] That key sealed this run, "
+            "so it cannot be the approver."
+        )
+        raise typer.Exit(1)
+
+    console.print("\n[bold]You are about to sign:[/bold]")
+    console.print(f"  Goal:      {manifest.goal or '—'}")
+    console.print(f"  Decision:  [bold]{decision}[/bold]")
+    console.print(f"  Action:    {action or '(case-level approval of the whole run)'}")
+    if approval_id:
+        console.print(f"  Approval:  {approval_id}")
+    console.print(f"  Manifest:  {_build_review_trust_report(epi_path)['workflow_id']}")
+    console.print(f"  Sealer fp: {' '.join(sealing_key[i:i + 4] for i in range(0, 16, 4))}")
+    console.print(f"  Your fp:   {key_fingerprint(approver_hex)}")
+
+    if not yes:
+        typed = Prompt.ask(f'Type "{decision}" to sign')
+        if typed.strip().lower() != decision:
+            console.print("[yellow]Cancelled — nothing was written.[/yellow]")
+            raise typer.Exit(1)
+    else:
+        console.print(
+            "[yellow]Warning: --yes skipped the confirmation prompt (scripted use only).[/yellow]"
+        )
+
+    entry = make_approval_entry(
+        approval_id=approval_id,
+        decision=decision,
+        action=action,
+        reason=reason,
+        approver_name=as_,
+        key_fingerprint_hex=key_fingerprint(approver_hex, grouped=False),
+        case_level=case_level,
+    )
+    record = ReviewRecord(
+        reviewed_by=as_,
+        reviews=[entry],
+        reviewer_identity={
+            "type": "email" if "@" in as_ else "name",
+            "value": as_,
+            "role": "Approver",
+            "org": "Unknown",
+            # In the file this is the writer's claim. It stays False: only the
+            # verifier decides, against its own approver registry.
+            "verified": False,
+        },
+    )
+
+    try:
+        add_review_to_artifact(epi_path, record, private_key=private_key)
+    except Exception as exc:
+        console.print(f"[red][FAIL] Could not write the approval:[/red] {exc}")
+        raise typer.Exit(1)
+
+    console.print(f"[green][OK][/green] Signed approval written to [bold]{epi_path.name}[/bold]")
+    console.print(f"  [cyan]Fingerprint:[/cyan] {key_fingerprint(approver_hex)}")

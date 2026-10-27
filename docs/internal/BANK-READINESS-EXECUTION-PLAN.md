@@ -8,7 +8,7 @@ One step at a time. Each step ships as its own reviewed PR with tests before the
 |---|---|---|
 | 1 | Viewer must not show a pass it didn't compute | ✅ Done ([#186](https://github.com/mohdibrahimaiml/epi-recorder/pull/186), plus [#185](https://github.com/mohdibrahimaiml/epi-recorder/pull/185) for the verify page) |
 | 2 | Key-vault signing (HSM / KMS) | ✅ Built on `claude/optimistic-turing-lusdoj` (awaiting PR review) |
-| 3 | Real human sign-off (approver signs with their own key / passkey) | ⏳ Next |
+| 3 | Real human sign-off (approver signs with their own key / passkey) | 🚧 3a in review ([#188](https://github.com/mohdibrahimaiml/epi-recorder/pull/188)); 3b (gateway link) and 3c (browser labels) next |
 | 4 | Public witness checkpoint mirror | ⏳ |
 | 5 | Gateway records streaming calls | ⏳ |
 | 6 | "Break the seal" public challenge | ⏳ |
@@ -59,6 +59,20 @@ Claiming "HSM-backed" inside the manifest. That would be a self-declared claim, 
 - An approval is a separate signed statement over (manifest hash, decision, approver identity, time) made with the **approver's** key, not the agent's.
 - Approver keys: a CLI key (`epi review sign`) or a WebAuthn passkey in the browser.
 - `epi verify` reports an approval as *human-signed* only when that signature verifies against a key pinned as an approver. It never reports it from an agent-written step.
+
+### Step 3 follow-up: fault_analyzer still accepts an agent-reported approval
+
+`epi_core/fault_analyzer.py` lets an `agent.approval.response` step satisfy a
+policy's "approval required" rule. That is a **policy-compliance** claim about
+the run (did the workflow do what the rulebook says), not an **identity** claim
+(who signed). Changing it now would flip existing policy results, so it is
+deliberately out of scope for 3a.
+
+**Open item:** once 3a is in, require a certificate that the approval was
+`human_signed` (a pinned approver key, not the sealing key) before that rule
+passes, and say so in the policy evaluation output.
+
+---
 
 ## Step 4: Checkpoint mirror (outline)
 - A GitHub Action publishes each day's signed witness checkpoint to a public repo.

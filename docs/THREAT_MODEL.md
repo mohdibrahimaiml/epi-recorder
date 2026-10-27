@@ -114,7 +114,27 @@ The guarantee that holds for both paths: **no private key material is serialized
 
 ---
 
-### 10. Step Reordering / Timeline Tampering
+### 10. Agent Self-Approval (mitigated)
+
+**Attack:** the agent (or whoever runs it) writes `agent.approval.response`,
+`record(approved_by=...)`, or a review signed with its own sealing key, and a
+screen presents that as "a person approved this".
+
+**Defence:** an approval counts as `human_signed` only when it is signed with a
+key pinned in the verifier's **approver** registry (`epi approvers add`) **and**
+that key differs from the run's sealing key. An approval signed by the sealing
+key is reported `signed_by_sealing_key` — "not independent of the agent" — and
+an unpinned key is `signed_unknown_key`. The sealing-key rule is checked before
+the registry, so pinning the agent's key as an approver does not help. Agent
+approval steps are labelled "reported by the agent (not signed by a person)"
+wherever the CLI prints them. The gateway approval link (a URL click) is
+likewise unsigned and is not a human-signed approval. See
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+**Residual:** a person who pins the wrong key pins the wrong identity — pinning
+is a human step. And a pinned approver who is coerced still signs.
+
+### 11. Step Reordering / Timeline Tampering
 **Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
 or drops one, so the evidence no longer reflects what actually happened.
 
@@ -398,6 +418,7 @@ session-only seed, passphrase wrapping) are tracked in
 | Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |
+| Agent self-approval | Yes | Approver registry (`epi approvers add`) + sealing-key rule + `--require-human-approval` |
 | Compromised key | No | Out of scope |
 | Malicious signer | No | Out of scope |
 | DID server compromise | Partial | Local fallback |

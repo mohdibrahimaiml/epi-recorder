@@ -1401,6 +1401,7 @@ def verify_command(
     witness_pubkey: str | None = None,
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
+    require_human_approval: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -2209,6 +2210,49 @@ def verify_command(
             except Exception:
                 pass
 
+        # ========== HUMAN APPROVAL (who approved, if anyone) ==========
+        # Computed whenever the file carries reviews or agent approval steps,
+        # so nobody needs a second flag to see it. Never trusts the file's own
+        # claim: only a key pinned as an approver, distinct from the sealing
+        # key, counts as human_signed. An invalid approval FAILs (fail-closed).
+        try:
+            from epi_core.review import verify_human_approvals
+
+            _human = verify_human_approvals(epi_file)
+        except Exception as _human_err:
+            _human = {
+                "status": "none",
+                "approvals": [],
+                "requests": [],
+                "present": False,
+                "requirement_met": False,
+                "detail": f"human approval not evaluated: {_human_err}",
+            }
+        _human["required"] = bool(require_human_approval)
+        report["human_approval"] = _human
+        if _human.get("status") == "failed":
+            try:
+                _prior = report["decision"].get("status")
+                _rs = report["decision"].get("reason", "")
+                _msg = str(_human.get("detail") or "an approval is invalid")
+                report["decision"]["status"] = "FAIL"
+                report["decision"]["reason"] = (
+                    f"{_rs}; approval invalid: {_msg}" if _prior == "FAIL"
+                    else f"Approval invalid — {_msg}. The seal itself is intact."
+                )
+            except Exception:
+                pass
+        if require_human_approval and not _human.get("requirement_met"):
+            try:
+                _prior = report["decision"].get("status")
+                _rs = report["decision"].get("reason", "")
+                _detail = _human.get("detail") or "no human-signed approval"
+                _msg = f"Human approval required: {_detail}"
+                report["decision"]["status"] = "FAIL"
+                report["decision"]["reason"] = f"{_rs}; {_msg}" if _prior == "FAIL" else _msg
+            except Exception:
+                pass
+
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
             aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps, epi_path=epi_file)
@@ -2744,6 +2788,23 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif _wit_status == "MISMATCH":
         content_lines.append(
             f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
+        )
+
+    # Human approval (step 3a). One line, and only when the run carries reviews
+    # or approval steps, or the operator asked with --require-human-approval.
+    _human = report.get("human_approval") if isinstance(report, dict) else None
+    if isinstance(_human, dict) and (_human.get("present") or _human.get("required")):
+        _h_status = str(_human.get("status") or "none").upper()
+        _h_color = {
+            "VERIFIED": "green",
+            "NONE": "dim",
+            "UNVERIFIED": "yellow",
+            "INCOMPLETE": "yellow",
+            "DENIED": "red",
+            "FAILED": "red",
+        }.get(_h_status, "yellow")
+        content_lines.append(
+            f"  [{_h_color}]- Human approval: {_h_status} — {_human.get('detail') or ''}[/{_h_color}]"
         )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).

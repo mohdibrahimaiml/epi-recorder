@@ -6,6 +6,37 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Human-signed approvals (`epi approvers`, `epi review approve`,
+  `epi verify --require-human-approval`).** A `.epi` can now prove "a specific,
+  known person approved this exact decision" with a signature from **that
+  person's own key**. The verbatim format, the approval block inside the
+  existing `reviews` list, the 1.2.0 review version, the five honest
+  classifications, and the per-request `--require-human-approval` rule are
+  documented in [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+  - New `epi_core/approvers.py` + `epi approvers add|list|remove|keygen|link`.
+    Approver keys live in `EPI_APPROVER_KEYS_DIR` (default
+    `~/.epi/approver_keys/`), never the agent keys dir; the approver registry is
+    separate from the trusted *signer* registry, so pinning a vendor's sealing
+    key cannot make it an approver. `epi approvers add` refuses a key that is a
+    local agent key or a pinned signer unless `--force` (with a warning).
+  - `epi review <file.epi> approve --approval-id <id> --decision approve|deny
+    --as <name>` verifies first, shows what is being signed, refuses
+    self-approval (the sealing key), refuses an unknown `approval_id`, and signs
+    only with a key from the approver keys dir.
+  - `epi verify` gains a `human_approval` report field and a single
+    `Human approval:` line that summarises the run's sealed requests
+    (`VERIFIED` / `INCOMPLETE` / `DENIED`), and `--require-human-approval` FAILs
+    unless every sealed approval request has a human-signed approval (or a
+    case-level approval). `--policy strict` deliberately does **not** imply it.
+  - Only the `approver` role counts: a key pinned with another role alone is
+    never `human_signed`. An approval whose `approval_id` is not a sealed
+    request is listed separately and never makes the status `verified`.
+  - `review_version` moves to `1.2.0`. The record shape is unchanged, so an
+    already-deployed 4.6.x verifier computes the same content hash and raises no
+    tamper alarm — it just shows a signed review, never "human approved".
+  - `agent.approval.response` / `approved_by` are labelled "reported by the
+    agent (not signed by a person)" wherever the CLI prints them;
+    `approval_id` is now an explicit field of `approval_request()`.
 - **Signing keys in an HSM or cloud KMS (`epi keys link`).** A key name can now
   point at an Ed25519 key held in a PKCS#11 HSM, AWS KMS
   (`ECC_NIST_EDWARDS25519`) or Google Cloud KMS (`EC_SIGN_ED25519`). The

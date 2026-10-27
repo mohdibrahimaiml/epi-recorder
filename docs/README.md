@@ -79,6 +79,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Honest product boundaries |
 | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) | Exact meaning of a verify result |
+| [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md) | What a human-signed approval proves (and doesn't) |
 | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | Offline independent check |
 | [THREAT_MODEL.md](./THREAT_MODEL.md) | In-scope / out-of-scope attacks |
 | [FILE-SAFETY.md](./FILE-SAFETY.md) | Is a `.epi` safe to open? (receiver guide) |
