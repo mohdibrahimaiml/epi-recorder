@@ -190,7 +190,7 @@ published** as of 23 Oct 2026 — the GitHub URL currently returns 404. Until it
 exists, the signed `/w/{id}/checkpoints` endpoint plus Rekor are the public
 record; do not tell customers to cross-check a repo that is not there. The
 daily cron does **not** back up D1 — database exports are still a weekly
-manual founder op (see `internal/cloud-ops.md` §5).
+manual founder op (documented in the internal ops runbook).
 
 **What changes when the mirror exists:** the `witness-mirror` workflow starts
 pushing to it every day (it is already written, append-only and signature-checked;

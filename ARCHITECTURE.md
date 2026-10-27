@@ -65,6 +65,6 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 - [Verification contract](docs/VERIFICATION_CONTRACT.md) — exactly what a verify result means (and does not mean).
 - [Threat model](docs/THREAT_MODEL.md) — which attacks are prevented and which are out of scope.
 - [Docs map](docs/README.md) — recorder, Cloud, website.
-- [EPI Cloud](docs/CLOUD.md) — customer path and product claims ([founder ops](internal/cloud-ops.md) is internal).
+- [EPI Cloud](docs/CLOUD.md) — customer path and product claims (founder ops are internal and are not linked from here).
 - [Website](docs/WEBSITE.md) — `website/` is the only public-site source.
 - [MCP contract](docs/EPI-MCP-CONTRACT.md) — legacy Render connector tools and honesty limits (not EPI Cloud).

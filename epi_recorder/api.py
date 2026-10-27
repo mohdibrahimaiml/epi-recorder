@@ -874,7 +874,7 @@ class EpiRecorderSession:
             raise ValueError(f"did must start with 'did:web:', got: {_did_value}")
         self.did_web = _did_value
 
-        # Org trust bundle binding (design docs/design/org-trust-bundle.md).
+        # Org trust bundle binding (design internal/design/org-trust-bundle.md).
         # Fingerprint (sha256 hex) of the customer root public key, bound
         # into manifest.governance at seal time. Explicit param wins, then
         # EPI_ORG_ROOT env. Validated eagerly so typos fail fast, not silent.

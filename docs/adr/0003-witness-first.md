@@ -34,4 +34,4 @@ against the customer's independent record.
 - Receipts are hashes and counts only (goal only with explicit opt-in), so
   the witness learns nothing about content.
 - Cloud economics work because the hot path is 1 receipt, not N megabytes
-  ([internal/cloud-ops.md](../../internal/cloud-ops.md)).
+  (the capacity math is operator detail, kept internal).

@@ -83,7 +83,7 @@ cryptographic proof remains `epi verify --require-human-approval`.
   signature-verified mirror script that exits non-zero on "history change
   detected", a dormant-safe workflow that cross-checks before pushing,
   `mirror-template/` to copy into the new repo, and a
-  [docs/WITNESS.md](../../docs/WITNESS.md) section.
+  [docs/WITNESS.md](../docs/WITNESS.md) section.
 - Waiting on the founder: create the public `epi-witness-checkpoints` repo from
   `mirror-template/`, create a fine-grained PAT (contents:write on that repo
   only), and set the `MIRROR_PAT`, `MIRROR_REPO`, `EPI_CLOUD_URL` and

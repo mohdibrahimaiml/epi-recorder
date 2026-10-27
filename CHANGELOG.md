@@ -127,6 +127,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **Docs split into public and internal — and the leak that motivated it.**
+  `docs/` is published as a website, so `docs/internal/` was world-readable:
+  `https://spec.epilabs.org/internal/BANK-READINESS-EXECUTION-PLAN.md` served
+  the bank-readiness plan to anyone. Internal material now lives in the
+  repo-root `internal/` tree: the bank-readiness assessment and execution plan,
+  the swallow audit, the coding-agent prompts, and the org trust bundle design
+  note (moved out of `docs/design/`). No public doc links into `internal/` any
+  more — the enterprise briefing, the docs map, `ARCHITECTURE.md`, `SUPPORT.md`,
+  `docs/adr/0003-witness-first.md`, `CLOUD`, `DATA-RETENTION`, `WITNESS`,
+  `ROADMAP` and `docs/api/README.md` now state that the detail is internal
+  without pointing at it. `tests/test_docs_placement.py` enforces both halves.
+  This makes the material **unlisted, not secret**: `internal/` is still inside
+  a public repository, so anything that must stay genuinely private does not
+  belong in this repo at all.
+
 - **Gateway approval clicks are now labelled by who made them (behaviour
   change).** A click by a **logged-in gateway user** is recorded as
   `approval_source: "gateway_link_authenticated"` and still satisfies a policy's

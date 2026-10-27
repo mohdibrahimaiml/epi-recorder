@@ -4,7 +4,7 @@
 
 ---
 
-In the `epi-recorder` repository, branch `claude/optimistic-turing-lusdoj` contains step 2 of `docs/internal/BANK-READINESS-EXECUTION-PLAN.md`: signing with an Ed25519 key held in an HSM or cloud KMS (`epi keys link`, `epi_core/signers.py`, `docs/KEY-CUSTODY.md`, `tests/test_external_signers.py`, `.github/workflows/key-custody.yml`).
+In the `epi-recorder` repository, branch `claude/optimistic-turing-lusdoj` contains step 2 of `internal/BANK-READINESS-EXECUTION-PLAN.md`: signing with an Ed25519 key held in an HSM or cloud KMS (`epi keys link`, `epi_core/signers.py`, `docs/KEY-CUSTODY.md`, `tests/test_external_signers.py`, `.github/workflows/key-custody.yml`).
 
 1. Merge the latest `main` into that branch (a merge commit, no rebase or force-push), and resolve conflicts if any.
 2. Run, and paste the results into the PR:

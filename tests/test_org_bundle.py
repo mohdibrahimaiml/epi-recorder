@@ -1,6 +1,6 @@
 """Org trust bundles v0 — issuance, offline verification, seal binding.
 
-Covers design docs/design/org-trust-bundle.md §5 (steps 1-6):
+Covers design internal/design/org-trust-bundle.md §5 (steps 1-6):
 valid steady state, stale bundles, tampered envelopes, foreign keys,
 window violations, missing org_root, and the seal-time governance write.
 No network anywhere in this file.
