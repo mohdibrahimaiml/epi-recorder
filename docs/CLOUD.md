@@ -51,6 +51,5 @@ Legacy hosted paths still on Render (not the account system, not required to rec
 
 ## Founder ops (internal)
 
-Setup, capacity, backups, and local dev live in
-[../internal/cloud-ops.md](../internal/cloud-ops.md) — internal, not
-customer-facing.
+Setup, capacity, backups, and local dev are internal operator material. They are
+deliberately not published on this site and are never linked from a public doc.

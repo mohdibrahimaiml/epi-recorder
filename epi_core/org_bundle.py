@@ -7,7 +7,7 @@ A bundle answers, for an auditor holding only (artifact, bundle file):
   2. was the sealing key legitimately the company's key at sealing time?
      (validity windows evaluated at T_seal, never retroactively revoked)
 
-Spec: docs/design/org-trust-bundle.md. v0 implements bundle schema,
+Spec: internal/design/org-trust-bundle.md. v0 implements bundle schema,
 issuance, and verification steps 1-6. No revocation workflow, no SCITT
 anchoring, no network — anywhere in this module. A function here that
 needs a socket is a bug.

@@ -4,7 +4,7 @@
 
 ---
 
-You are working in the `epi-recorder` repository (Python 3.11+, package `epi-recorder`, CLI `epi`). EPI seals AI-agent runs into signed `.epi` files that anyone can verify offline. This task is **step 3 of the bank-readiness plan** in `docs/internal/BANK-READINESS-EXECUTION-PLAN.md`. Read that file and `docs/internal/BANK-READINESS-ASSESSMENT.md` first.
+You are working in the `epi-recorder` repository (Python 3.11+, package `epi-recorder`, CLI `epi`). EPI seals AI-agent runs into signed `.epi` files that anyone can verify offline. This task is **step 3 of the bank-readiness plan** in `internal/BANK-READINESS-EXECUTION-PLAN.md`. Read that file and `internal/BANK-READINESS-ASSESSMENT.md` first.
 
 ## Goal (one sentence)
 
@@ -135,7 +135,7 @@ Known pre-existing failures to ignore (check that they also fail on `main`): `te
 ## Docs (in PR 3a, updated by 3b/3c)
 
 - New `docs/HUMAN-APPROVAL.md`: what a human-signed approval proves and doesn't, the approver onboarding steps (keygen → read the fingerprint aloud → `approvers add`), and how a bank enforces `--require-human-approval`.
-- Update `docs/VERIFICATION_CONTRACT.md` (the new `human_approval` field and its states), `docs/KNOWN_LIMITATIONS.md`, `docs/CLI.md`, `docs/THREAT_MODEL.md` (agent self-approval and gateway link forgery: now mitigated), `CHANGELOG.md` under `[Unreleased]`, and the step-3 row in `docs/internal/BANK-READINESS-EXECUTION-PLAN.md`.
+- Update `docs/VERIFICATION_CONTRACT.md` (the new `human_approval` field and its states), `docs/KNOWN_LIMITATIONS.md`, `docs/CLI.md`, `docs/THREAT_MODEL.md` (agent self-approval and gateway link forgery: now mitigated), `CHANGELOG.md` under `[Unreleased]`, and the step-3 row in `internal/BANK-READINESS-EXECUTION-PLAN.md`.
 
 ## Definition of done
 

@@ -172,6 +172,5 @@ Secrets are redacted by default (`redact=True`). Everyday how-to: [USER-GUIDE.md
 | Cloud trust (DPA, subprocessors, retention, support) | [DPA.md](./DPA.md), [SUBPROCESSORS.md](./SUBPROCESSORS.md), [DATA-RETENTION.md](./DATA-RETENTION.md), [../SUPPORT.md](../SUPPORT.md) |
 | Honest gaps | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) |
 | Threat model | [THREAT_MODEL.md](./THREAT_MODEL.md) |
-| Cloud ops / CPU / D1 (internal) | [../internal/cloud-ops.md](../internal/cloud-ops.md) |
 | Website editing | [WEBSITE.md](./WEBSITE.md) |
 | EU evidence support (not a certificate) | [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md), [ANNEX-IV.md](./ANNEX-IV.md) |

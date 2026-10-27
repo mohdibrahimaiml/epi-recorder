@@ -92,7 +92,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | Doc | Purpose |
 |-----|---------|
-| [CLOUD.md](./CLOUD.md) | Product claims, customer path ([founder ops](../internal/cloud-ops.md) is internal) |
+| [CLOUD.md](./CLOUD.md) | Product claims, customer path |
 | [WITNESS.md](./WITNESS.md) | Hash-only receipts (self-hosted endpoint or Cloud) |
 | [STORAGE.md](./STORAGE.md) | Customer-owned bucket (credentials never leave the recorder) |
 | [DPA.md](./DPA.md) | Data processing addendum, starting point (counsel review) |
@@ -164,7 +164,6 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 | [adr/](./adr/) | Architecture decision records (why, not just what) |
 | [standards/scitt-predicate.md](./standards/scitt-predicate.md) | SCITT predicate notes |
 | [rfcs/agt-portable-evidence-mapping.md](./rfcs/agt-portable-evidence-mapping.md) | Frozen community RFC (May 2026; names v4.1.0) |
-| [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Internal design note for org trust bundles |
 | [epi-verifier/](./epi-verifier/) | Independent JS helper; file-integrity needs JSZip; step-chain check is not done |
 | [assets/SAMPLES.md](./assets/SAMPLES.md) | Sample `.epi` files for `epi verify` |
 | `dashboard-v2/` | Browser-test screenshots, not a user guide |
@@ -176,6 +175,13 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
 3. Keep product-doc version numbers at **4.6.3** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
-4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [../internal/cloud-ops.md](../internal/cloud-ops.md)).
+4. Customer docs must not contain admin keys or Cloudflare wrangler secrets, and
+   must never link into the internal tree.
 5. After structural changes, update this index.
 6. Do not add sales talk tracks or article-by-article “compliance” tables.
+7. **Nothing internal goes in `docs/`.** Founder ops, capacity and pricing math,
+   execution plans, agent prompts and internal design notes live in the
+   repo-root `internal/` tree. This directory is published as a website
+   (`spec.epilabs.org`), so every file in it is world-readable, and a public doc
+   must never link into `internal/`. `tests/test_docs_placement.py` enforces
+   both halves.
