@@ -3,9 +3,7 @@
   "info": {
     "title": "EPI Gateway",
     "description": "Shared EPI capture backend with live cases and portable proof export.",
-    "version": "1.0.0",
-    "x-epi-product-version": "4.6.3",
-    "x-generated-from": "epi_gateway/main.py via app.openapi()"
+    "version": "1.0.0"
   },
   "paths": {
     "/": {
@@ -472,8 +470,9 @@
     },
     "/api/approve/{workflow_id}/{approval_id}": {
       "get": {
-        "summary": "Record Approval Decision",
-        "operationId": "record_approval_decision_api_approve__workflow_id___approval_id__get",
+        "summary": "Approval Confirmation Page",
+        "description": "Show what a click would record. Records nothing and spends nothing.",
+        "operationId": "approval_confirmation_page_api_approve__workflow_id___approval_id__get",
         "parameters": [
           {
             "name": "workflow_id",
@@ -494,32 +493,23 @@
             }
           },
           {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Token"
+            }
+          },
+          {
             "name": "decision",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
+              "default": "",
               "title": "Decision"
-            }
-          },
-          {
-            "name": "reviewer",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Reviewer"
-            }
-          },
-          {
-            "name": "reason",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Reason"
             }
           }
         ],
@@ -546,7 +536,8 @@
       },
       "post": {
         "summary": "Record Approval Decision",
-        "operationId": "record_approval_decision_api_approve__workflow_id___approval_id__get",
+        "description": "Record one link click. Requires this link's single-use token in the body.",
+        "operationId": "record_approval_decision_api_approve__workflow_id___approval_id__post",
         "parameters": [
           {
             "name": "workflow_id",
@@ -564,35 +555,6 @@
             "schema": {
               "type": "string",
               "title": "Approval Id"
-            }
-          },
-          {
-            "name": "decision",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Decision"
-            }
-          },
-          {
-            "name": "reviewer",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Reviewer"
-            }
-          },
-          {
-            "name": "reason",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Reason"
             }
           }
         ],

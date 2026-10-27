@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as _html
 import logging
 import smtplib
 import urllib.request  # noqa: F401 — kept as the patch target for webhook tests
@@ -33,14 +34,23 @@ def send_approval_email(
     if not recipient or not str(smtp_host or "").strip() or not str(smtp_from or "").strip():
         return
 
-    subject = f"EPI approval required: {action or 'review requested'}"
+    # Header values must not be able to inject CRLF into the message.
+    subject_action = " ".join(str(action or "review requested").split())
+    subject = f"EPI approval required: {subject_action}"
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
     message["From"] = smtp_from
     message["To"] = recipient
 
+    # Everything below is attacker-influenceable (it comes from captured run
+    # content and request parameters), so it is escaped for the HTML context.
+    escaped_workflow = _html.escape(str(workflow_id or ""))
+    escaped_action = _html.escape(str(action or "Review required"))
+    escaped_reason = _html.escape(str(reason or "No reason supplied."))
+    escaped_approve = _html.escape(str(approve_url or ""), quote=True)
+    escaped_deny = _html.escape(str(deny_url or ""), quote=True)
     case_link_html = (
-        f'<p><a href="{case_url}">Open the case</a></p>'
+        f'<p><a href="{_html.escape(str(case_url), quote=True)}">Open the case</a></p>'
         if str(case_url or "").strip()
         else ""
     )
@@ -48,14 +58,16 @@ def send_approval_email(
     <html>
       <body style="font-family:Segoe UI,Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#0f172a">
         <h2 style="margin-bottom:8px">Approval required</h2>
-        <p style="margin-top:0">Workflow <strong>{workflow_id}</strong> is waiting for a human decision.</p>
-        <p><strong>Action:</strong> {action or "Review required"}</p>
-        <p><strong>Reason:</strong> {reason or "No reason supplied."}</p>
+        <p style="margin-top:0">Workflow <strong>{escaped_workflow}</strong> is waiting for a human decision.</p>
+        <p><strong>Action:</strong> {escaped_action}</p>
+        <p><strong>Reason:</strong> {escaped_reason}</p>
         <p style="margin:24px 0">
-          <a href="{approve_url}" style="background:#15803d;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600">Approve</a>
-          <a href="{deny_url}" style="background:#b91c1c;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600;margin-left:12px">Deny</a>
+          <a href="{escaped_approve}" style="background:#15803d;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600">Approve</a>
+          <a href="{escaped_deny}" style="background:#b91c1c;color:#ffffff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:600;margin-left:12px">Deny</a>
         </p>
         {case_link_html}
+        <p style="color:#64748b;font-size:13px">These links open a confirmation page; clicking records a
+        <strong>link click</strong>, not a signed human approval.</p>
       </body>
     </html>
     """

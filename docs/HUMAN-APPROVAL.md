@@ -220,5 +220,9 @@ record that classifies as `human_signed`.
 - [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) — what a verify result means.
 - [THREAT_MODEL.md](./THREAT_MODEL.md) — agent self-approval and gateway-link forgery.
 - [CLI.md](./CLI.md) — `epi approvers`, `epi review approve`, `--require-human-approval`.
-- The gateway approval link (step 3b) records an **unsigned** click, never a
-  human-signed approval.
+- The gateway approval link records an **unsigned** click, never a human-signed
+  approval. The link is a single-use, expiring token: `GET` shows a
+  confirmation page (mail scanners pre-open links) and records nothing; only
+  the POST records, once. The event carries
+  `approval_source: "gateway_link_unsigned"`, and `epi analyze` treats it as a
+  self-reported approval. A link issued before the upgrade is refused.

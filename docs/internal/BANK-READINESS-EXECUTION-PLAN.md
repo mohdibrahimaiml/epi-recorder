@@ -8,7 +8,7 @@ One step at a time. Each step ships as its own reviewed PR with tests before the
 |---|---|---|
 | 1 | Viewer must not show a pass it didn't compute | ✅ Done ([#186](https://github.com/mohdibrahimaiml/epi-recorder/pull/186), plus [#185](https://github.com/mohdibrahimaiml/epi-recorder/pull/185) for the verify page) |
 | 2 | Key-vault signing (HSM / KMS) | ✅ Built on `claude/optimistic-turing-lusdoj` (awaiting PR review) |
-| 3 | Real human sign-off (approver signs with their own key / passkey) | 🚧 3a in review ([#188](https://github.com/mohdibrahimaiml/epi-recorder/pull/188)); 3b (gateway link) and 3c (browser labels) next |
+| 3 | Real human sign-off (approver signs with their own key / passkey) | 🚧 3a merged ([#188](https://github.com/mohdibrahimaiml/epi-recorder/pull/188)); 3b (gateway link) in review ([#190](https://github.com/mohdibrahimaiml/epi-recorder/pull/190)); 3c (browser labels) next |
 | 4 | Public witness checkpoint mirror | ⏳ |
 | 5 | Gateway records streaming calls | ⏳ |
 | 6 | "Break the seal" public challenge | ⏳ |

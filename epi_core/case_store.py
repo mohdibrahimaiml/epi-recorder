@@ -9,6 +9,7 @@ and portable `.epi` export on the same evidence model.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import shutil
@@ -929,6 +930,17 @@ class CaseStore:
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_capture_checkpoints_case ON capture_checkpoints(case_id, checkpoint_id);
+                CREATE TABLE IF NOT EXISTS approval_link_tokens (
+                    token_hash TEXT PRIMARY KEY,
+                    workflow_id TEXT NOT NULL,
+                    approval_id TEXT NOT NULL,
+                    issued_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used_at TEXT,
+                    issued_by TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_approval_link_tokens_binding
+                    ON approval_link_tokens(workflow_id, approval_id);
                 CREATE TABLE IF NOT EXISTS schema_version (
                     version INTEGER PRIMARY KEY,
                     applied_at TEXT NOT NULL
@@ -943,7 +955,8 @@ class CaseStore:
     #   1 — initial schema (applied_batches, events, cases, reviews, comments, activity, auth_users, auth_sessions)
     #   2 — extra case columns (assignee, due_at, priority_override, comment_count, last_comment_at) via _ensure_case_columns
     #   4 — capture-time hash chain (capture_heads) + capture checkpoints (capture_checkpoints)
-    _SCHEMA_VERSION = 4
+    #   5 — single-use approval-link tokens (approval_link_tokens)
+    _SCHEMA_VERSION = 5
 
     def _run_migrations(self, connection: sqlite3.Connection) -> None:
         """Apply outstanding schema migrations in order. Idempotent."""
@@ -983,6 +996,16 @@ class CaseStore:
                 (utc_now_iso(),),
             )
             current = 4  # noqa: F841
+
+        if current < 5:
+            # Version 5: single-use approval-link tokens. The table is created
+            # above via IF NOT EXISTS; this only stamps older databases, so a
+            # pre-upgrade link (which has no row at all) simply never matches.
+            connection.execute(
+                "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (5, ?)",
+                (utc_now_iso(),),
+            )
+            current = 5  # noqa: F841
 
     def _ensure_case_columns(self, connection: sqlite3.Connection) -> None:
         rows = connection.execute("PRAGMA table_info(cases)").fetchall()
@@ -1222,6 +1245,123 @@ class CaseStore:
                 "event": payload,
             }
         return None
+
+    def create_approval_link(
+        self,
+        workflow_id: str,
+        approval_id: str,
+        *,
+        ttl_hours: float,
+        issued_by: str | None = None,
+    ) -> str:
+        """Mint a single-use approval-link token. Only its hash is stored.
+
+        Returns the raw token exactly once — the caller puts it in the link and
+        then forgets it. There is deliberately no way to read it back.
+        """
+        from epi_core.approval_links import build_approval_link_token, hash_approval_link_token
+        from epi_core.time_utils import utc_now
+
+        workflow_key = _clean(workflow_id)
+        approval_key = _clean(approval_id)
+        if not workflow_key or not approval_key:
+            raise ValueError("workflow_id and approval_id are required")
+        if float(ttl_hours) <= 0:
+            raise ValueError("ttl_hours must be greater than 0")
+
+        token = build_approval_link_token()
+        issued_at = utc_now()
+        expires_at = issued_at + timedelta(hours=float(ttl_hours))
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO approval_link_tokens
+                    (token_hash, workflow_id, approval_id, issued_at, expires_at, used_at, issued_by)
+                VALUES (?, ?, ?, ?, ?, NULL, ?)
+                """,
+                (
+                    hash_approval_link_token(token),
+                    workflow_key,
+                    approval_key,
+                    issued_at.isoformat(),
+                    expires_at.isoformat(),
+                    _clean(issued_by),
+                ),
+            )
+            connection.commit()
+        return token
+
+    def _approval_link_status(self, workflow_id: str, approval_id: str, token: str) -> tuple[str, str]:
+        """Shared token check. Returns ``(status, token_hash)``; never spends it."""
+        from epi_core.approval_links import hash_approval_link_token
+        from epi_core.time_utils import utc_now
+
+        workflow_key = _clean(workflow_id)
+        approval_key = _clean(approval_id)
+        presented = str(token or "")
+        if not workflow_key or not approval_key or not presented:
+            return "missing", ""
+
+        token_hash = hash_approval_link_token(presented)
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT token_hash, workflow_id, approval_id, expires_at, used_at
+                FROM approval_link_tokens
+                WHERE token_hash = ?
+                """,
+                (token_hash,),
+            ).fetchone()
+        # Constant-time compare, even though the row was looked up by hash.
+        if row is None or not hmac.compare_digest(str(row["token_hash"]), token_hash):
+            return "missing", token_hash
+        if _clean(row["workflow_id"]) != workflow_key or _clean(row["approval_id"]) != approval_key:
+            return "mismatch", token_hash
+        if row["used_at"]:
+            return "used", token_hash
+        if str(row["expires_at"]) <= utc_now().isoformat():
+            return "expired", token_hash
+        return "ok", token_hash
+
+    def check_approval_link(self, workflow_id: str, approval_id: str, token: str) -> str:
+        """Validate a link token **without** spending it (the GET page does this)."""
+        return self._approval_link_status(workflow_id, approval_id, token)[0]
+
+    def consume_approval_link(self, workflow_id: str, approval_id: str, token: str) -> str:
+        """Spend a link token atomically.
+
+        Returns ``ok`` / ``missing`` / ``mismatch`` / ``expired`` / ``used``.
+        The caller must not distinguish those in the HTTP response: a missing,
+        wrong, expired or reused token is the same refusal.
+        """
+        from epi_core.time_utils import utc_now
+
+        status, token_hash = self._approval_link_status(workflow_id, approval_id, token)
+        if status != "ok":
+            return status
+
+        now_iso = utc_now().isoformat()
+        with self._connect() as connection:
+            updated = connection.execute(
+                """
+                UPDATE approval_link_tokens
+                   SET used_at = ?
+                 WHERE token_hash = ?
+                   AND workflow_id = ?
+                   AND approval_id = ?
+                   AND used_at IS NULL
+                   AND expires_at > ?
+                """,
+                (
+                    now_iso,
+                    token_hash,
+                    _clean(workflow_id),
+                    _clean(approval_id),
+                    now_iso,
+                ),
+            ).rowcount
+            connection.commit()
+        return "ok" if updated == 1 else "used"
 
     def replay_spool(self, events_dir: Path) -> ReplaySpoolResultModel:
         events_dir = Path(events_dir)

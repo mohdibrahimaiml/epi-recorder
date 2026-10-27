@@ -6,6 +6,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Hardened gateway approval links.** The approval link is now a single-use,
+  expiring capability instead of an unauthenticated GET/POST that recorded on
+  its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
+  and records **nothing** (mail scanners pre-open links); only the POST records,
+  once, with a token (≥256 bits, stored as SHA-256 only in the gateway's SQLite
+  store) that is bound to that workflow + approval and expires after
+  `EPI_APPROVAL_LINK_TTL_HOURS` (default 72). The body token doubles as the CSRF
+  token. `reviewer` is never taken from the query string: the authenticated
+  principal when gateway auth is on, otherwise `approval-link (identity not
+  verified)`. A missing, wrong, expired or reused token returns the **same**
+  403; attempts are rate-limited per client IP (60/min). Every value
+  interpolated into the gateway's HTML and the approval email is escaped, and
+  links issued before this change stop working (no fallback). See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+
 - **Human-signed approvals (`epi approvers`, `epi review approve`,
   `epi verify --require-human-approval`).** A `.epi` can now prove "a specific,
   known person approved this exact decision" with a signature from **that
@@ -49,6 +64,16 @@ All notable changes to EPI Recorder are documented here.
   `[gcp-kms]`. See `docs/KEY-CUSTODY.md`.
 
 ### Changed
+
+- **A gateway link click is no longer counted as a "gateway-human" approval
+  (behaviour change).** The recorded event now carries
+  `approval_source: "gateway_link_unsigned"` instead of `"gateway_human"`.
+  Because the link was never authenticated (no token, no expiry, anyone could
+  GET it), `epi analyze` now treats it as a **self-reported** approval: it is
+  flagged by the `P6 Agent Approval Gap — Self-Reported` rule and does **not**
+  satisfy a policy's "approval required" rule. Approvals recorded by older
+  gateways keep their stored `gateway_human` label and analyze as before. For a
+  human-signed approval use `epi review <file.epi> approve` (step 3a).
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in
   (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now
