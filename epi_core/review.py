@@ -26,12 +26,24 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from epi_core.container import EPIContainer
 
 LEGACY_REVIEW_VERSION = "1.0.0"
-REVIEW_VERSION = "1.1.0"
+# 1.2.0 adds only the optional approval entry (carried inside `reviews`). The
+# record shape itself is unchanged, so an older reader (4.6.x) that drops an
+# unknown top-level key still computes the same hash — see the approval block
+# below and `tests/test_approvers.py::test_old_reader_hash_is_stable`.
+REVIEW_VERSION = "1.2.0"
 REVIEW_BINDING_VERSION = "1.0.0"
 REVIEW_INDEX_VERSION = "1.0.0"
 REVIEW_LEDGER_PREFIX = "reviews/"
 REVIEW_LATEST_NAME = "review.json"
 REVIEW_INDEX_NAME = "review_index.json"
+
+# A human approval is an entry inside the existing `reviews` list, not a new
+# top-level field: old readers keep `reviews` verbatim, so their content hash
+# still matches and they never raise a false tamper alarm. Exactly one
+# approval entry per record, and no other entries beside it.
+APPROVAL_VERSION = "1.0.0"
+APPROVAL_ENTRY_TYPE = "approval"
+APPROVAL_DECISIONS = ("approve", "deny")
 
 
 def _utc_now() -> str:
@@ -280,7 +292,7 @@ class ReviewRecord:
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ReviewRecord":
+    def from_dict(cls, data: dict[str, Any]) -> ReviewRecord:
         review_version = str(data.get("review_version") or LEGACY_REVIEW_VERSION)
         return cls(
             reviewed_by=str(data.get("reviewed_by") or "reviewer"),
@@ -582,6 +594,7 @@ def verify_review_trust(epi_path: Path, *, strict: bool = False) -> dict[str, An
             report["failures"].append("No signed artifact-bound review found")
         report["chain_valid"] = None
         _finalize_review_report(report)
+        _attach_human_approval(report, epi_path)
         return report
 
     expected_binding = build_artifact_binding(epi_path)
@@ -672,6 +685,7 @@ def verify_review_trust(epi_path: Path, *, strict: bool = False) -> dict[str, An
     if strict and valid_bound_signed_count == 0:
         report["failures"].append("No signed artifact-bound review found")
     _finalize_review_report(report)
+    _attach_human_approval(report, epi_path)
     return report
 
 
@@ -694,3 +708,437 @@ def make_review_entry(fault: dict, outcome: str, notes: str, reviewer: str) -> d
         "reviewer": reviewer,
         "timestamp": _utc_now(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Human approval (review version 1.2.0)
+#
+# An approval rides inside the existing `reviews` list as a single entry. Old
+# readers keep `reviews` verbatim, so their content hash is unchanged and they
+# never report a false tamper. `reviewer_identity.verified` is always False on
+# records we write: it is the writer's claim, and only the verifier decides.
+# ---------------------------------------------------------------------------
+
+
+def make_approval_entry(
+    *,
+    approval_id: str | None,
+    decision: str,
+    action: str,
+    reason: str | None,
+    approver_name: str,
+    key_fingerprint_hex: str,
+    case_level: bool = False,
+) -> dict[str, Any]:
+    """Build the single ``reviews[]`` entry that carries a human approval."""
+    return {
+        "entry_type": APPROVAL_ENTRY_TYPE,
+        "approval_version": APPROVAL_VERSION,
+        "approval_id": None if case_level else approval_id,
+        "case_level": bool(case_level),
+        "decision": decision,
+        "action": str(action or ""),
+        "reason": str(reason or ""),
+        "approver": {
+            "name": str(approver_name or ""),
+            "key_fingerprint": str(key_fingerprint_hex or ""),
+        },
+    }
+
+
+def approval_entry_of(record: ReviewRecord) -> dict[str, Any] | None:
+    """The approval entry *record* carries, or ``None`` if it is not one."""
+    entries = record.reviews if isinstance(record.reviews, list) else []
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("entry_type") == APPROVAL_ENTRY_TYPE:
+            return entry
+    return None
+
+
+def is_approval_record(record: ReviewRecord) -> bool:
+    return approval_entry_of(record) is not None
+
+
+def _group_fingerprint(value: str) -> str:
+    text = "".join(str(value or "").split()).lower()
+    return " ".join(text[i : i + 4] for i in range(0, len(text), 4))
+
+
+def _fmt_clock(value: str | None) -> str:
+    text = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return text or "unknown time"
+
+
+def _approval_entry_problem(record: ReviewRecord, entry: dict[str, Any]) -> str | None:
+    entries = record.reviews if isinstance(record.reviews, list) else None
+    if entries is None or len(entries) != 1:
+        return "An approval record must carry exactly one entry"
+    if not isinstance(entry, dict):
+        return "Approval entry is malformed"
+    if entry.get("approval_version") != APPROVAL_VERSION:
+        return f"Unsupported approval_version: {entry.get('approval_version')!r}"
+    if entry.get("decision") not in APPROVAL_DECISIONS:
+        return "decision must be 'approve' or 'deny'"
+    case_level = entry.get("case_level")
+    if not isinstance(case_level, bool):
+        return "case_level must be a boolean"
+    if case_level:
+        if entry.get("approval_id") is not None:
+            return "A case-level approval must not carry an approval_id"
+    elif not (isinstance(entry.get("approval_id"), str) and entry.get("approval_id")):
+        return "approval_id is required for a per-request approval"
+    approver = entry.get("approver")
+    if not isinstance(approver, dict):
+        return "approver is required"
+    if not isinstance(approver.get("key_fingerprint"), str) or not approver.get("key_fingerprint"):
+        return "approver.key_fingerprint is required"
+    for field in ("action", "reason"):
+        if not isinstance(entry.get(field, ""), str):
+            return f"{field} must be a string"
+    return None
+
+
+def _order_by_chain(records: list[ReviewRecord]) -> list[ReviewRecord]:
+    """Records ordered head → tail by the review hash chain.
+
+    Falls back to ``reviewed_at``/``review_id`` when the chain is ambiguous:
+    a signer can write ``reviewed_at``, so it is never the primary ordering.
+    """
+    candidates = [
+        record for record in records
+        if record.review_hash and record.review_version != LEGACY_REVIEW_VERSION
+    ]
+    legacy = [record for record in records if record not in candidates]
+    ordered: list[ReviewRecord] = []
+    heads = [record for record in candidates if not record.previous_review_hash]
+    if len(heads) == 1:
+        by_previous: dict[str | None, list[ReviewRecord]] = {}
+        for record in candidates:
+            by_previous.setdefault(record.previous_review_hash, []).append(record)
+        cursor: ReviewRecord | None = heads[0]
+        seen: set[str] = set()
+        while cursor is not None and cursor.review_hash not in seen:
+            seen.add(cursor.review_hash)
+            ordered.append(cursor)
+            nexts = by_previous.get(cursor.review_hash) or []
+            cursor = nexts[0] if len(nexts) == 1 else None
+    if len(ordered) != len(candidates):
+        ordered = sorted(
+            candidates, key=lambda item: (item.reviewed_at or "", item.review_id or "")
+        )
+    ordered.extend(
+        sorted(legacy, key=lambda item: (item.reviewed_at or "", item.review_id or ""))
+    )
+    return ordered
+
+
+def _approval_scan(
+    epi_path: Path, records: list[ReviewRecord], *, registry: Any
+) -> dict[str, Any]:
+    try:
+        manifest = EPIContainer.read_manifest(epi_path)
+        sealing_key = str(getattr(manifest, "public_key", None) or "").strip().lower()
+    except Exception:
+        sealing_key = ""
+    try:
+        expected_binding = build_artifact_binding(epi_path)
+    except Exception:
+        expected_binding = None
+    v11 = [
+        record for record in records
+        if record.review_version != LEGACY_REVIEW_VERSION and record.artifact_binding
+    ]
+    chain_valid, _tail, chain_failures = _verify_v11_chain(v11)
+    return {
+        "sealing_key": sealing_key,
+        "expected_binding": expected_binding,
+        "chain_valid": chain_valid,
+        "chain_failures": chain_failures,
+        "registry": registry,
+        "ordered": _order_by_chain(records),
+    }
+
+
+def _classify_approval(
+    record: ReviewRecord, entry: dict[str, Any], scan: dict[str, Any]
+) -> dict[str, Any]:
+    from epi_core.approvers import normalize_fingerprint
+    from epi_core.keys import key_fingerprint
+
+    approver_claim = entry.get("approver") if isinstance(entry.get("approver"), dict) else {}
+    claimed_name = str(approver_claim.get("name") or "")
+    claimed_fp = normalize_fingerprint(approver_claim.get("key_fingerprint"))
+
+    result: dict[str, Any] = {
+        "review_id": record.review_id,
+        "reviewed_at": record.reviewed_at,
+        "approval_id": entry.get("approval_id"),
+        "case_level": bool(entry.get("case_level")),
+        "decision": entry.get("decision"),
+        "action": entry.get("action") or "",
+        "claimed_approver_name": claimed_name,
+        "approver_name": claimed_name,
+        "key_fingerprint": None,
+        "approval_id_present": False,
+        "classification": "invalid",
+        "reason": "",
+        "warning": None,
+    }
+
+    problem = _approval_entry_problem(record, entry)
+    if problem:
+        result["reason"] = problem
+        return result
+    if record.review_version == LEGACY_REVIEW_VERSION or not record.artifact_binding:
+        result["reason"] = "Approval is not artifact-bound"
+        return result
+    if scan["expected_binding"] is not None and record.artifact_binding != scan["expected_binding"]:
+        result["reason"] = "Approval does not match this artifact binding"
+        return result
+    if record.review_hash != record.content_hash():
+        result["reason"] = "review_hash does not match canonical content"
+        return result
+    if not scan["chain_valid"]:
+        result["reason"] = (scan["chain_failures"] or ["Review chain is broken"])[0]
+        return result
+
+    signature = record.review_signature
+    if not signature:
+        result["classification"] = "unsigned"
+        result["reason"] = "Approval is present but unsigned"
+        return result
+
+    parts = str(signature).split(":", 2)
+    if len(parts) != 3 or parts[0] != "ed25519" or len(parts[1]) != 64 or len(parts[2]) != 128:
+        result["reason"] = "Approval signature is malformed"
+        return result
+    signing_key = parts[1].lower()
+    valid, message = _verify_review_signature(record, record.content_hash())
+    if valid is not True:
+        result["reason"] = message or "Approval signature is invalid"
+        return result
+
+    signing_fp = key_fingerprint(signing_key, grouped=False)
+    result["key_fingerprint"] = signing_fp
+    if claimed_fp and claimed_fp != signing_fp:
+        result["reason"] = "approver.key_fingerprint does not match the signing key"
+        return result
+
+    # Sealing-key rule runs before the registry: a sealing key that someone
+    # also pinned as an approver still lands here.
+    if scan["sealing_key"] and signing_key == scan["sealing_key"]:
+        result["classification"] = "signed_by_sealing_key"
+        result["reason"] = "Signed by the sealing key (not independent of the agent)"
+        return result
+
+    registry_entry = scan["registry"].get_by_key(signing_key)
+    if registry_entry is not None:
+        result["classification"] = "human_signed"
+        result["reason"] = "Signed by a pinned approver key"
+        registry_name = str(registry_entry.get("name") or "")
+        result["approver_name"] = registry_name or claimed_name
+        if registry_name and claimed_name and registry_name != claimed_name:
+            result["warning"] = (
+                f"Approval claims to be '{claimed_name}' but the key is pinned as "
+                f"'{registry_name}'"
+            )
+        return result
+
+    result["classification"] = "signed_unknown_key"
+    result["reason"] = "Valid signature, but the key is not a pinned approver"
+    return result
+
+
+def _human_approval_none_detail(agent_reported: int) -> str:
+    if agent_reported > 0:
+        return "this run only contains approvals reported by the agent itself"
+    return "no human-signed approval on this run"
+
+
+def _human_approval_detail(
+    status: str,
+    classifications: list[dict[str, Any]],
+    human: list[dict[str, Any]],
+) -> str:
+    if status == "failed":
+        invalid = next(
+            (item for item in classifications if item["classification"] == "invalid"), None
+        )
+        return invalid["reason"] if invalid else "an approval is invalid"
+    if status == "unverified":
+        item = classifications[0]
+        if item["classification"] == "signed_by_sealing_key":
+            return "signed by the sealing key (not independent of the agent)"
+        if item["classification"] == "unsigned":
+            return "an approval is present but unsigned"
+        fp = _group_fingerprint(item.get("key_fingerprint") or "")
+        return f"signed by an unpinned key (fp {fp}); pin it with: epi approvers add"
+    item = human[-1]
+    verb = "approved" if item.get("decision") == "approve" else "denied"
+    target = f'"{item.get("action")}"' if item.get("action") else "the run (case-level)"
+    return (
+        f"{item.get('approver_name') or 'an approver'} "
+        f"(fp {_group_fingerprint(item.get('key_fingerprint') or '')}) {verb} {target} "
+        f"(signed {_fmt_clock(item.get('reviewed_at'))}, approver's clock)"
+    )
+
+
+def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str, Any]:
+    """Classify every human approval and decide whether it satisfies a request.
+
+    ``requirement_met`` is the rule ``epi verify --require-human-approval``
+    uses: every sealed ``agent.approval.request`` must have a human-signed
+    approval whose latest human-signed decision is ``approve``, or the latest
+    human-signed case-level approval must be ``approve`` with no request denied.
+    """
+    from epi_core.approvers import ApproverRegistry
+
+    report: dict[str, Any] = {
+        "status": "none",
+        "agent_reported_approvals": 0,
+        "approvals": [],
+        "requests": [],
+        "latest_decision": None,
+        "latest_human_signed_review_id": None,
+        "requirement_met": False,
+        "required": False,
+        "present": False,
+        "detail": "",
+        "warnings": [],
+    }
+
+    try:
+        steps = EPIContainer.read_steps(epi_path)
+    except Exception:
+        steps = []
+
+    sealed_requests: list[dict[str, Any]] = []
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        content = step.get("content") if isinstance(step.get("content"), dict) else {}
+        if step.get("kind") == "agent.approval.request":
+            sealed_requests.append(
+                {
+                    "approval_id": content.get("approval_id"),
+                    "action": content.get("action"),
+                    "step_index": index,
+                }
+            )
+        elif step.get("kind") == "agent.approval.response":
+            report["agent_reported_approvals"] += 1
+
+    try:
+        records = read_review_records(epi_path)
+    except Exception:
+        records = []
+
+    approval_records = [record for record in records if approval_entry_of(record) is not None]
+    report["present"] = (
+        bool(records) or bool(sealed_requests) or report["agent_reported_approvals"] > 0
+    )
+
+    report["requests"] = [
+        {
+            "approval_id": req["approval_id"],
+            "action": req["action"],
+            "status": "missing",
+            "review_id": None,
+        }
+        for req in sealed_requests
+    ]
+
+    if not approval_records:
+        report["detail"] = _human_approval_none_detail(report["agent_reported_approvals"])
+        return report
+
+    scan = _approval_scan(epi_path, records, registry=registry or ApproverRegistry())
+
+    classifications = [
+        _classify_approval(record, entry, scan)
+        for record in records
+        if (entry := approval_entry_of(record)) is not None
+    ]
+
+    sealed_ids = {str(req["approval_id"]) for req in sealed_requests if req["approval_id"]}
+    for item in classifications:
+        if item["approval_id"] and str(item["approval_id"]) in sealed_ids:
+            item["approval_id_present"] = True
+    report["approvals"] = classifications
+    report["warnings"] = [item["warning"] for item in classifications if item.get("warning")]
+
+    position = {record.review_id: pos for pos, record in enumerate(scan["ordered"])}
+    human = [item for item in classifications if item["classification"] == "human_signed"]
+    human.sort(key=lambda item: position.get(item["review_id"], -1))
+    if human:
+        report["latest_decision"] = human[-1]["decision"]
+        report["latest_human_signed_review_id"] = human[-1]["review_id"]
+
+    request_results: list[dict[str, Any]] = []
+    for req in sealed_requests:
+        approval_id = req["approval_id"]
+        match = None
+        if approval_id:
+            candidates = [
+                item for item in human
+                if not item["case_level"] and str(item["approval_id"]) == str(approval_id)
+            ]
+            if candidates:
+                match = candidates[-1]
+        if match is None:
+            status = "missing"
+        else:
+            status = "approved" if match["decision"] == "approve" else "denied"
+        request_results.append(
+            {
+                "approval_id": approval_id,
+                "action": req["action"],
+                "status": status,
+                "review_id": match["review_id"] if match else None,
+            }
+        )
+    report["requests"] = request_results
+
+    case_level_human = [item for item in human if item["case_level"]]
+    latest_case = case_level_human[-1]["decision"] if case_level_human else None
+    rule_a = bool(request_results) and all(
+        item["status"] == "approved" for item in request_results
+    )
+    rule_b = latest_case == "approve" and not any(
+        item["status"] == "denied" for item in request_results
+    )
+    report["requirement_met"] = bool(rule_a or rule_b)
+
+    if any(item["classification"] == "invalid" for item in classifications):
+        report["status"] = "failed"
+    elif human:
+        report["status"] = "verified"
+    else:
+        report["status"] = "unverified"
+
+    report["detail"] = _human_approval_detail(report["status"], classifications, human)
+    return report
+
+
+def _attach_human_approval(report: dict[str, Any], epi_path: Path) -> None:
+    try:
+        human = verify_human_approvals(epi_path)
+    except Exception as exc:
+        report["human_approval"] = {
+            "status": "none",
+            "approvals": [],
+            "requests": [],
+            "detail": f"human approval not evaluated: {exc}",
+        }
+        return
+    report["human_approval"] = human
+    by_id = {item.get("review_id"): item for item in human.get("approvals", [])}
+    for entry in report.get("reviews", []):
+        item = by_id.get(entry.get("review_id"))
+        if item is not None:
+            entry["classification"] = item["classification"]
+            entry["key_fingerprint"] = item.get("key_fingerprint")

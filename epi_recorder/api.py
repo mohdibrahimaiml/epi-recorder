@@ -428,6 +428,7 @@ class AgentRun:
         reason: Optional[str] = None,
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
+        approval_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
         self._log(
@@ -437,6 +438,7 @@ class AgentRun:
                 "reason": reason,
                 "risk_level": risk_level,
                 "requested_by": requested_by or self.agent_name,
+                "approval_id": approval_id,
                 **metadata,
             },
         )
@@ -448,6 +450,7 @@ class AgentRun:
         reason: Optional[str] = None,
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
+        approval_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
         await self._alog(
@@ -457,6 +460,7 @@ class AgentRun:
                 "reason": reason,
                 "risk_level": risk_level,
                 "requested_by": requested_by or self.agent_name,
+                "approval_id": approval_id,
                 **metadata,
             },
         )

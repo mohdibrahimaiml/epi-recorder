@@ -96,13 +96,35 @@ def _decision_label(value: str | None) -> str:
     return _titleize(text)
 
 
-def _review_outcome_label(value: str | None) -> str:
+def _review_outcome_label(value: str | None, *, human_signed: bool = False) -> str:
+    # "Human reviewer approved" is only fair when a key pinned as an approver,
+    # distinct from the sealing key, actually signed it (step 3a). Otherwise the
+    # record is a review entry, not a signed approval.
+    if not human_signed:
+        return "Reviewer recorded (not a signed approval)"
     mapping = {
         "dismissed": "Human reviewer approved the decision",
         "confirmed_fault": "Human reviewer rejected the decision",
         "skipped": "Human reviewer deferred the decision",
     }
     return mapping.get(str(value or "").strip(), "No final human review outcome recorded")
+
+
+def _human_approval_state(epi_path: Path) -> dict[str, Any]:
+    try:
+        from epi_core.review import verify_human_approvals
+
+        return verify_human_approvals(epi_path)
+    except Exception:
+        return {"status": "none", "approvals": []}
+
+
+def _has_human_signed_approval(epi_path: Path) -> bool:
+    state = _human_approval_state(epi_path)
+    return any(
+        item.get("classification") == "human_signed"
+        for item in (state.get("approvals") or [])
+    )
 
 
 def _extract_decision_step(steps: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -119,12 +141,19 @@ def _extract_latest_approval(steps: list[dict[str, Any]]) -> dict[str, Any] | No
     return None
 
 
-def _derive_outcome(manifest, steps: list[dict[str, Any]], review_info: dict[str, Any] | None) -> tuple[str, str]:
+def _derive_outcome(
+    manifest,
+    steps: list[dict[str, Any]],
+    review_info: dict[str, Any] | None,
+    *,
+    human_signed: bool = False,
+) -> tuple[str, str]:
     latest_review = None
     if review_info and isinstance(review_info.get("reviews"), list) and review_info["reviews"]:
         latest_review = review_info["reviews"][-1]
     if isinstance(latest_review, dict):
-        return _review_outcome_label(latest_review.get("outcome")), "human-reviewed"
+        state = "human-reviewed" if human_signed else "review-recorded"
+        return _review_outcome_label(latest_review.get("outcome"), human_signed=human_signed), state
 
     decision_step = _extract_decision_step(steps)
     if decision_step:
@@ -230,7 +259,11 @@ def _describe_step(step: dict[str, Any]) -> str:
     if kind == "agent.approval.response":
         reviewer = content.get("reviewer") or "Reviewer"
         status = "approved" if content.get("approved") else "did not approve"
-        return f"{reviewer} {status} {_titleize(content.get('action') or 'the requested action')}."
+        return (
+            f"Agent-reported: {reviewer} {status} "
+            f"{_titleize(content.get('action') or 'the requested action')} — "
+            "not signed by a person."
+        )
 
     if kind == "agent.decision":
         return f"Final decision recorded: {_decision_label(content.get('decision') or content.get('action'))}."
@@ -270,7 +303,8 @@ def _build_text_summary(
     analysis = context.get("analysis") or {}
     policy_eval = context.get("policy_evaluation") or {}
     review_info = context.get("review") or {}
-    outcome, _ = _derive_outcome(manifest, steps, review_info)
+    human_signed = _has_human_signed_approval(epi_path)
+    outcome, _ = _derive_outcome(manifest, steps, review_info, human_signed=human_signed)
 
     latest_review = review_info.get("reviews")[-1] if isinstance(review_info.get("reviews"), list) and review_info["reviews"] else {}
     approval_step = _extract_latest_approval(steps)
@@ -320,7 +354,7 @@ def _build_text_summary(
         "-" * 23,
         f"Latest approval: {_describe_step(approval_step) if approval_step else 'No approval step recorded'}",
         f"Reviewer: {latest_review.get('reviewer') or review_info.get('reviewed_by') or 'Not recorded'}",
-        f"Review outcome: {_review_outcome_label(latest_review.get('outcome')) if latest_review else 'No final review record attached'}",
+        f"Review outcome: {_review_outcome_label(latest_review.get('outcome'), human_signed=human_signed) if latest_review else 'No final review record attached'}",
         f"Review notes: {latest_review.get('notes') or 'Not recorded'}",
         "",
         "CRYPTOGRAPHIC PROOF",
@@ -354,7 +388,8 @@ def _build_html_summary(
     latest_review = review_info.get("reviews")[-1] if isinstance(review_info.get("reviews"), list) and review_info["reviews"] else {}
     approval_step = _extract_latest_approval(steps)
     decision_step = _extract_decision_step(steps)
-    outcome, outcome_state = _derive_outcome(manifest, steps, review_info)
+    human_signed = _has_human_signed_approval(epi_path)
+    outcome, outcome_state = _derive_outcome(manifest, steps, review_info, human_signed=human_signed)
     outcome_tone = _tone_for_outcome(outcome_state)
     timeline = _material_steps(steps)
 
@@ -738,7 +773,7 @@ def _build_html_summary(
       <div class="detail-list">
         <div class="detail-row"><dt>Latest approval</dt><dd>{_html.escape(_describe_step(approval_step) if approval_step else "No approval step recorded")}</dd></div>
         <div class="detail-row"><dt>Reviewer</dt><dd>{_html.escape(_render_value(latest_review.get("reviewer") or review_info.get("reviewed_by") or ((approval_step or {}).get("content") or {}).get("reviewer")))}</dd></div>
-        <div class="detail-row"><dt>Review outcome</dt><dd>{_html.escape(_review_outcome_label(latest_review.get("outcome")) if latest_review else "No final review record attached")}</dd></div>
+        <div class="detail-row"><dt>Review outcome</dt><dd>{_html.escape(_review_outcome_label(latest_review.get("outcome"), human_signed=human_signed) if latest_review else "No final review record attached")}</dd></div>
         <div class="detail-row"><dt>Review notes</dt><dd>{_html.escape(_render_value(latest_review.get("notes") or ((approval_step or {}).get("content") or {}).get("reason") or ((approval_step or {}).get("content") or {}).get("reviewer_note")))}</dd></div>
       </div>
     </section>

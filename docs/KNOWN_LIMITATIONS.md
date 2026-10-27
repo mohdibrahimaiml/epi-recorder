@@ -21,6 +21,28 @@ Timestamps prove "existed no later than T" only when a valid RFC 3161 token or
 a customer witness backs them. Everything below is the engineering detail
 behind those sentences.
 
+## A human approval proves a pinned key signed it, not that the person saw the truth
+
+**What you see:** `epi verify` says `Human approval: VERIFIED — alice@bank.com
+… approved "refund REF-7"`.
+
+**What is true:** that means a key **you** pinned as alice@bank.com signed an
+approval of *this artifact's* decision, and that key is not the key that sealed
+the run. It does **not** prove the person read the underlying data, that the
+recorded run is truthful, that the key really belongs to Alice (pinning is a
+human step done out of band), or that the approval is recognised on other hosts
+(registries differ). An approval also cannot be forged without the approver's
+private key, but anyone who can edit the file can append a **broken** review —
+which turns the status to FAILED, deliberately fail-closed. It can block a run;
+it can never create a `human_signed` record. See
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+**Whether yours is affected:** any run where "a person approved this" is relied
+on. Pin the approver's key yourself and read the fingerprint aloud; `--policy
+strict` does not imply human approval — pass `--require-human-approval` too.
+
+---
+
 ## The signature covers the canonical manifest, not its raw bytes (red-team F-07)
 
 **What you see:** `epi verify` passes a `manifest.json` that contains a duplicate
