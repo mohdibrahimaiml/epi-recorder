@@ -200,6 +200,22 @@ a human decision.
   claims.** They are labelled "reported by the agent (not signed by a person)"
   wherever the CLI prints them. They are never counted as human-signed.
 
+## Gateway link clicks vs signed approvals
+
+A gateway link records a **click**. Whether that click came from a logged-in
+user changes what *analysis* may say about it — never what verification says.
+
+| Kind of approval | Counts for "approval required" in `epi analyze`? | Counts for `--require-human-approval`? |
+|---|---|---|
+| Signed with the approver's key (`epi review … approve`, 3a) | yes | **yes** (only this) |
+| Click by a logged-in gateway user (`gateway_link_authenticated`) | **yes**, labelled "gateway-attested (logged-in user), not a signed approval" | no |
+| Anonymous link click (`gateway_link_unsigned`) | no, labelled self-reported | no |
+| Old `gateway_human` events from before 3b | yes, unchanged, with a note that anyone with the URL could trigger them | no |
+
+So a gateway customer who has login turned on keeps their "approval required"
+checks passing, while a claim that needs a *signature* still needs
+`epi review … approve`.
+
 ## Fail-closed, on purpose
 
 Anyone who can edit the file can append a review record. If they append a

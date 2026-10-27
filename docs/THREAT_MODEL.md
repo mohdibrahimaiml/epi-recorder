@@ -148,8 +148,9 @@ or reused token returns the same 403, `reviewer` is never read from the query
 string, attempts are rate-limited per client IP, and everything interpolated into
 the page or the email is HTML-escaped. Links issued before the upgrade are
 refused with no fallback. The recorded event is
-`approval_source: "gateway_link_unsigned"` and 3a never classifies it
-`human_signed`.
+`approval_source: "gateway_link_unsigned"` — or `"gateway_link_authenticated"`
+when a logged-in user made the click — and 3a never classifies either as
+`human_signed`; `--require-human-approval` fails on both.
 
 **Residual:** a link click is still *unauthenticated* — it records that someone
 clicked, which is why it is labelled an unsigned link click and never a signed

@@ -65,15 +65,19 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
-- **A gateway link click is no longer counted as a "gateway-human" approval
-  (behaviour change).** The recorded event now carries
-  `approval_source: "gateway_link_unsigned"` instead of `"gateway_human"`.
-  Because the link was never authenticated (no token, no expiry, anyone could
-  GET it), `epi analyze` now treats it as a **self-reported** approval: it is
-  flagged by the `P6 Agent Approval Gap — Self-Reported` rule and does **not**
-  satisfy a policy's "approval required" rule. Approvals recorded by older
-  gateways keep their stored `gateway_human` label and analyze as before. For a
-  human-signed approval use `epi review <file.epi> approve` (step 3a).
+- **Gateway approval clicks are now labelled by who made them (behaviour
+  change).** A click by a **logged-in gateway user** is recorded as
+  `approval_source: "gateway_link_authenticated"` and still satisfies a policy's
+  "approval required" rule in `epi analyze`, labelled "gateway-attested
+  (logged-in user), not a signed approval". An **anonymous** link click is
+  `"gateway_link_unsigned"` and is treated as self-reported (`P6 Agent Approval
+  Gap — Self-Reported`), so it no longer satisfies that rule. Neither is a
+  signed approval: `verify_human_approvals()` never reports them
+  `human_signed`, and `--require-human-approval` still fails on both. Events
+  recorded by older gateways keep their stored `"gateway_human"` label, keep
+  satisfying the rule (no flipped results for old cases), and gain an
+  informational note that anyone with the URL could trigger them. For a signed
+  approval use `epi review <file.epi> approve` (step 3a).
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in
   (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now

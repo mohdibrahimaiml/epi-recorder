@@ -414,20 +414,32 @@ def test_approval_email_escapes_captured_content():
     assert "&lt;script&gt;" in sent["html"]
 
 
-def test_gateway_link_click_never_satisfies_require_human_approval(tmp_path):
-    """The click is an agent/system-reported response, not a signed approval."""
-    worker, app = _app(tmp_path)
+@pytest.mark.parametrize(
+    ("headers", "expected_source", "expected_verified"),
+    [
+        ({}, "gateway_link_unsigned", False),
+        ({"Authorization": "Bearer shared-secret"}, "gateway_link_authenticated", True),
+    ],
+)
+def test_gateway_link_click_never_satisfies_require_human_approval(
+    tmp_path, headers, expected_source, expected_verified
+):
+    """A link click is agent/system-reported — anonymous or authenticated."""
+    worker, app = _app(tmp_path, access_token="shared-secret")
     worker.store_items([_approval_request_event()])
     token = _mint(worker)
 
     with TestClient(app) as client:
-        assert (
-            client.post(
-                "/api/approve/wf-approval-1/approval-1",
-                data={"token": token, "decision": "approve"},
-            ).status_code
-            == 200
+        response = client.post(
+            "/api/approve/wf-approval-1/approval-1",
+            headers=headers,
+            data={"token": token, "decision": "approve"},
         )
+    assert response.status_code == 200
+
+    content = _responses(worker)[-1]["content"]
+    assert content["approval_source"] == expected_source
+    assert content["reviewer_verified"] is expected_verified
 
     exported = tmp_path / "approved-by-link.epi"
     worker.case_store.export_case_to_artifact("case-approval-1", exported)
@@ -438,6 +450,87 @@ def test_gateway_link_click_never_satisfies_require_human_approval(tmp_path):
     assert state["requirement_met"] is False
     with pytest.raises(typer.Exit):
         verify_command(ctx=MagicMock(), epi_file=exported, require_human_approval=True)
+
+
+def test_approval_pages_set_no_store_and_locking_headers(tmp_path):
+    worker, app = _app(tmp_path)
+    worker.store_items([_approval_request_event()])
+    token = _mint(worker)
+
+    with TestClient(app) as client:
+        confirmation = client.get(
+            "/api/approve/wf-approval-1/approval-1", params={"token": token}
+        )
+        recorded = client.post(
+            "/api/approve/wf-approval-1/approval-1",
+            data={"token": token, "decision": "approve"},
+        )
+        refused = client.get(
+            "/api/approve/wf-approval-1/approval-1", params={"token": "nope"}
+        )
+
+    assert confirmation.status_code == 200
+    assert recorded.status_code == 200
+    assert refused.status_code == 403
+    for response in (confirmation, recorded, refused):
+        # The token is in the GET URL: no caches, no Referer, no framing.
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["referrer-policy"] == "no-referrer"
+        assert response.headers["x-frame-options"] == "DENY"
+        csp = response.headers["content-security-policy"]
+        assert "default-src 'none'" in csp
+        assert "form-action 'self'" in csp
+        assert "frame-ancestors 'none'" in csp
+
+
+def _request_without_approval_id(reason: str) -> dict:
+    return {
+        "case_id": "case-no-id",
+        "workflow_id": "wf-no-id",
+        "workflow_name": "No approval id",
+        "kind": "agent.approval.request",
+        "content": {"action": "deny_claim", "reason": reason},
+    }
+
+
+def test_requests_without_an_approval_id_get_distinct_ids_and_tokens(tmp_path):
+    worker = _make_worker(tmp_path)
+    settings = GatewayRuntimeSettings(
+        storage_dir=str(tmp_path),
+        approval_base_url="http://gateway.test",
+        approval_webhook_url="https://hook.example/approval",
+        approval_webhook_secret="pilot-secret",
+    )
+    create_app(worker=worker, settings=settings)
+
+    def _run_inline(func, *args, task_name=None, **kwargs):
+        func(*args, **kwargs)
+
+    payloads: list[dict] = []
+
+    def _capture(url, payload, **kwargs):
+        payloads.append(payload)
+
+    with patch("epi_gateway.main._spawn_background_task", side_effect=_run_inline):
+        with patch("epi_gateway.main.send_signed_webhook", side_effect=_capture):
+            worker.store_items(
+                [
+                    _request_without_approval_id("first"),
+                    _request_without_approval_id("second"),
+                ]
+            )
+
+    assert len(payloads) == 2
+    ids = {payload["approval_id"] for payload in payloads}
+    tokens = {
+        parse_qs(urlparse(payload["approve_url"]).query)["token"][0]
+        for payload in payloads
+    }
+    # Never the action name: two requests share it, so they would share one id
+    # (and approving one would approve both).
+    assert "deny_claim" not in ids
+    assert len(ids) == 2
+    assert len(tokens) == 2
 
 
 def test_worker_recovers_orphan_sessions_on_restart(tmp_path):

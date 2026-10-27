@@ -19,7 +19,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
 
 from epi_core import __version__
-from epi_core.approval_links import APPROVAL_LINK_SOURCE, UNVERIFIED_REVIEWER
+from epi_core.approval_links import (
+    APPROVAL_LINK_AUTHENTICATED_SOURCE,
+    APPROVAL_LINK_SOURCE,
+    UNVERIFIED_REVIEWER,
+)
 from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
 from epi_core.connectors import fetch_live_record
@@ -467,7 +471,19 @@ def _dispatch_approval_request_notifications(
         return
 
     content = dict(event.content or {})
-    approval_id = _first_nonempty(content.get("approval_id"), content.get("action"), event.event_id)
+    explicit_approval_id = _clean(content.get("approval_id"))
+    if explicit_approval_id:
+        approval_id = explicit_approval_id
+    else:
+        # Never address a request by its action name: two requests with the same
+        # action in one workflow would share an approval_id — and therefore one
+        # token, so approving one would mark both.
+        approval_id = str(event.event_id)
+        logger.warning(
+            "Approval request %s has no approval_id; addressing it by event id %s",
+            event.event_id,
+            approval_id,
+        )
     action = _first_nonempty(content.get("action"), approval_id) or "review"
     requested_from = _first_nonempty(
         content.get("requested_from"),
@@ -1687,9 +1703,25 @@ def create_app(
         "epi review <file.epi> approve --approval-id <id> --decision approve --as <name>"
     )
 
+    # The token lives in the GET URL: keep these pages out of caches and Referer
+    # headers, and do not let them be framed.
+    _approval_page_headers = {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Frame-Options": "DENY",
+        "Content-Security-Policy": (
+            "default-src 'none'; style-src 'unsafe-inline'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        ),
+    }
+
     def _approval_link_refused() -> HTMLResponse:
         # One body for every refusal: the endpoint must not say which it was.
-        return HTMLResponse(_approval_link_refused_html, status_code=403)
+        return HTMLResponse(
+            _approval_link_refused_html,
+            status_code=403,
+            headers=_approval_page_headers,
+        )
 
     def _approval_reviewer(request: Request) -> tuple[str, bool]:
         """Who clicked: the authenticated principal, else an honest 'not verified'."""
@@ -1755,7 +1787,7 @@ def create_app(
                 f"You opened the {esc(highlighted)} link.</p></body>"
             )
             page = page.replace("</body>", note)
-        return HTMLResponse(page)
+        return HTMLResponse(page, headers=_approval_page_headers)
 
     @app.post("/api/approve/{workflow_id}/{approval_id}")
     async def record_approval_decision(request: Request, workflow_id: str, approval_id: str):
@@ -1809,7 +1841,13 @@ def create_app(
                 "reason": response_reason,
                 # A link click is never a human-signed approval: 3a's
                 # verify_human_approvals() reports it as agent/system-reported.
-                "approval_source": APPROVAL_LINK_SOURCE,
+                # A click by a logged-in gateway user is gateway-attested (so
+                # analysis counts it), but is still not a signature.
+                "approval_source": (
+                    APPROVAL_LINK_AUTHENTICATED_SOURCE
+                    if reviewer_verified
+                    else APPROVAL_LINK_SOURCE
+                ),
                 "requested_from": _clean(
                     request_content.get("requested_from") or request_content.get("requested_by")
                 ),
@@ -1843,7 +1881,7 @@ def create_app(
   <p><strong>Recorded as:</strong> link click ({esc(reviewer)}) &mdash; <em>not a signed human approval</em>.</p>
   {case_link}
 </body></html>"""
-        return HTMLResponse(page)
+        return HTMLResponse(page, headers=_approval_page_headers)
 
     @app.get("/api/cases")
     async def list_cases(

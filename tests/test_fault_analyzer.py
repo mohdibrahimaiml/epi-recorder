@@ -732,6 +732,57 @@ class TestPass7ApprovalGuardViolation:
         assert result.primary_fault.rule_id == "R032"
         assert "reason was required" in result.primary_fault.plain_english
 
+    @staticmethod
+    def _two_manager_approvals(source: str) -> str:
+        def approval(reviewer: str) -> dict:
+            return {
+                "action": "approve_refund",
+                "approved": True,
+                "reviewer": reviewer,
+                "role": "manager",
+                "approval_source": source,
+            }
+
+        return "\n".join([
+            _make_step(0, "session.start", {"workflow": "agent_refund"}),
+            _make_step(
+                1, "agent.approval.request",
+                {"action": "approve_refund", "reason": "manual review"},
+            ),
+            _make_step(2, "agent.approval.response", approval("manager-a")),
+            _make_step(3, "agent.approval.response", approval("manager-b")),
+            _make_step(4, "agent.decision", {"decision": "approve_refund"}),
+            _make_step(5, "session.end", {"success": True}),
+        ])
+
+    def _flags(self, steps: str):
+        result = FaultAnalyzer(policy=_make_policy_with_approval_policy_ref()).analyze(steps)
+        flags = ([result.primary_fault] if result.primary_fault else []) + result.secondary_flags
+        return result, [flag for flag in flags if flag is not None]
+
+    def test_authenticated_link_click_satisfies_approval_policy(self):
+        """A logged-in gateway click counts — labelled gateway-attested, not signed."""
+        result, flags = self._flags(self._two_manager_approvals("gateway_link_authenticated"))
+        assert [f for f in flags if f.rule_id == "R032"] == []
+        note = next(f for f in flags if f.rule_id == "P6b")
+        assert note.severity == "low"
+        assert "gateway-attested (logged-in user), not a signed approval" in note.plain_english
+        assert result.fault_detected is False
+
+    def test_anonymous_link_click_does_not_satisfy_approval_policy(self):
+        result, flags = self._flags(self._two_manager_approvals("gateway_link_unsigned"))
+        assert any(f.rule_id == "R032" for f in flags)
+        assert any(f.rule_id == "P6" for f in flags)
+        assert result.fault_detected is True
+
+    def test_legacy_gateway_human_still_satisfies_with_a_note(self):
+        """Old events keep their result; the note says the link was widely reachable."""
+        result, flags = self._flags(self._two_manager_approvals("gateway_human"))
+        assert [f for f in flags if f.rule_id == "R032"] == []
+        note = next(f for f in flags if f.rule_id == "P6b")
+        assert "pre-3b approval link" in note.plain_english
+        assert result.fault_detected is False
+
 
 class TestPass8ToolPermissionGuard:
     def test_tool_permission_guard_flags_denied_tool(self):

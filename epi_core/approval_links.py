@@ -16,8 +16,14 @@ from __future__ import annotations
 import hashlib
 import secrets
 
-#: Event-content label for a decision recorded by clicking a gateway link.
+#: Event-content label for a decision recorded by clicking a gateway link
+#: without an authenticated principal.
 APPROVAL_LINK_SOURCE = "gateway_link_unsigned"
+
+#: Event-content label for a link click made by an authenticated gateway user.
+#: It is gateway-attested (analysis counts it), but it is still not a signed
+#: approval: it does not satisfy ``--require-human-approval``.
+APPROVAL_LINK_AUTHENTICATED_SOURCE = "gateway_link_authenticated"
 
 #: Recorded when no authenticated principal was presented with the request.
 UNVERIFIED_REVIEWER = "approval-link (identity not verified)"
