@@ -55,7 +55,7 @@ Claiming "HSM-backed" inside the manifest. That would be a self-declared claim, 
 
 ---
 
-## Step 3: Real human sign-off (outline, detailed when it starts)
+## Step 3: Real human sign-off — DONE (3a merged, 3b merged, 3c in review)
 - An approval is a separate signed statement over (manifest hash, decision, approver identity, time) made with the **approver's** key, not the agent's.
 - Approver keys: a CLI key (`epi review sign`) or a WebAuthn passkey in the browser.
 - `epi verify` reports an approval as *human-signed* only when that signature verifies against a key pinned as an approver. It never reports it from an agent-written step.
@@ -68,18 +68,41 @@ the run (did the workflow do what the rulebook says), not an **identity** claim
 (who signed). Changing it now would flip existing policy results, so it is
 deliberately out of scope for 3a.
 
-**Open item:** once 3a is in, require a certificate that the approval was
-`human_signed` (a pinned approver key, not the sealing key) before that rule
-passes, and say so in the policy evaluation output.
+**Resolved in 3b:** `epi_core/fault_analyzer.py` now splits the approval-source
+policy — `gateway_link_authenticated` and legacy `gateway_human` still satisfy
+"approval required" but carry an explicit P6b note that this is the recording's
+claim, and `gateway_link_unsigned` is treated as self-reported. The only
+cryptographic proof remains `epi verify --require-human-approval`.
 
 ---
 
-## Step 4: Checkpoint mirror (outline)
-- A GitHub Action publishes each day's signed witness checkpoint to a public repo.
-- `epi witness check-mirror` confirms that a checkpoint the witness served matches the public copy, so history can't be silently rewritten.
+## Step 4: Checkpoint mirror — CODE DONE, WAITING ON THE PUBLIC REPO
+- Done: `epi witness check --mirror <URL|dir>` (cross-checks the mirror against
+  the live witness: changed day, deleted day, or a key change without a rotation
+  entry all fail; a day only on the live side is fine), an append-only
+  signature-verified mirror script that exits non-zero on "history change
+  detected", a dormant-safe workflow that cross-checks before pushing,
+  `mirror-template/` to copy into the new repo, and a
+  [docs/WITNESS.md](../../docs/WITNESS.md) section.
+- Waiting on the founder: create the public `epi-witness-checkpoints` repo from
+  `mirror-template/`, create a fine-grained PAT (contents:write on that repo
+  only), and set the `MIRROR_PAT`, `MIRROR_REPO`, `EPI_CLOUD_URL` and
+  `WITNESS_MIRROR_INBOXES` secrets.
 
-## Step 5: Streaming capture (outline)
+## Step 5: Streaming capture — PAUSED
 - The gateway proxies SSE for OpenAI and Anthropic and stores the assembled response plus the chunk hashes. The 501 goes away.
+- **Paused on purpose:** no pilot is blocked on it, and the SDK already captures streaming. Do not start it before a pilot needs the gateway path.
 
-## Step 6: Break the seal (outline)
-- `CHALLENGE.md`, sample sealed files, rules, scope, hall of fame.
+## Step 6: Break the seal — DONE, WAITING ON KEY CUSTODY
+- Done: `CHALLENGE.md` (credit-only, exact criteria a–e, safe harbour),
+  `challenge/challenge-original.epi` with published signing/approver keys,
+  `challenge/check_submission.py` (BREAK / NO BREAK for a–d) and
+  `scripts/make_challenge_artifacts.py`.
+- Waiting on the founder: move the generated private keys offline (or destroy
+  them — recommended, since the published artifact is reproducible and a leaked
+  key would invalidate criterion b), and turn on GitHub private vulnerability
+  reporting if it is off.
+
+## Pilot kit — DONE
+- `examples/pilot_kit/` (`agent.py`, `run_pilot_demo.sh` / `.py`, CI workflow)
+  and `docs/PILOT-GUIDE.md` + `docs/BANK-REVIEWER-BRIEF.md`.
