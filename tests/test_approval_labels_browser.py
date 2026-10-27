@@ -143,8 +143,13 @@ def _with_approval(
 
 
 def _agent_run(tmp_path: Path, name: str, response_content: dict) -> Path:
+    request = {
+        "index": 1,
+        "kind": "agent.approval.request",
+        "content": {"action": "refund REF-7", "approval_id": "refund-7"},
+    }
     step = {
-        "index": 0,
+        "index": 2,
         "kind": "agent.approval.response",
         "content": {"action": "refund REF-7", "approved": True, **response_content},
     }
@@ -152,6 +157,8 @@ def _agent_run(tmp_path: Path, name: str, response_content: dict) -> Path:
     source.mkdir(parents=True, exist_ok=True)
     (source / "steps.jsonl").write_text(
         '{"index":0,"kind":"agent.decision","content":{"decision":"approve"}}\n'
+        + __import__("json").dumps(request)
+        + "\n"
         + __import__("json").dumps(step)
         + "\n",
         encoding="utf-8",
@@ -198,6 +205,45 @@ def test_signed_approval_shows_fingerprint_and_claimed_name(site, browser, tmp_p
     assert "key fingerprint" in text, text
     assert "epi approvers add" in text, text
     assert "epi verify --require-human-approval" in text, text
+    assert "(claimed name: alice@bank.com)" in text, text
+
+
+def test_cli_written_approval_is_labelled(site, browser, tmp_path):
+    """The signed-approval label must work on a record the real CLI wrote."""
+    import os
+    import subprocess
+    import sys
+
+    epi = _agent_run(tmp_path, "cli.epi", {})
+    home = tmp_path / "approver-home"
+    env = dict(
+        os.environ,
+        EPI_HOME=str(home),
+        EPI_KEYS_DIR=str(home / "keys"),
+        EPI_APPROVER_KEYS_DIR=str(home / "approver_keys"),
+        EPI_TRUSTED_APPROVERS_DIR=str(home / "trusted_approvers"),
+        EPI_KEY_PASSWORD="test-password",
+        EPI_NOTARIZE="0",
+        PYTHONPATH=str(REPO),
+    )
+    keygen = subprocess.run(
+        [sys.executable, "-m", "epi_cli", "approvers", "keygen", "--name", "alice@bank.com"],
+        env=env, capture_output=True, text=True,
+    )
+    assert keygen.returncode == 0, keygen.stdout + keygen.stderr
+    approve = subprocess.run(
+        [
+            sys.executable, "-m", "epi_cli", "review", str(epi), "approve",
+            "--approval-id", "refund-7", "--decision", "approve",
+            "--as", "alice@bank.com", "--yes",
+        ],
+        env=env, capture_output=True, text=True,
+    )
+    assert approve.returncode == 0, approve.stdout + approve.stderr
+
+    text = _render(site, browser, epi)
+    assert 'Signed approval (approve) for approval "refund-7"' in text, text
+    assert "key fingerprint" in text, text
     assert "(claimed name: alice@bank.com)" in text, text
 
 
