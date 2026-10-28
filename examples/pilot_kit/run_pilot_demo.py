@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -121,7 +122,12 @@ def prepare_softhsm(root: Path) -> dict[str, str]:
     conf = root / "softhsm2.conf"
     conf.write_text(f"directories.tokendir = {tokens}\nobjectstore.backend = file\n")
 
-    env = dict(os.environ, SOFTHSM2_CONF=str(conf), EPI_PKCS11_PIN=VAULT_PIN)
+    # The library reads SOFTHSM2_CONF once per process, so the token dir must be in
+    # *this* process's environment too — not only the children's — or `pkcs11.lib`
+    # below looks in the system token store and never sees the token we just made.
+    os.environ["SOFTHSM2_CONF"] = str(conf)
+    os.environ.setdefault("EPI_PKCS11_PIN", VAULT_PIN)
+    env = dict(os.environ)
     subprocess.run(
         [
             "softhsm2-util", "--init-token", "--free",
@@ -191,7 +197,13 @@ def main() -> int:
             check(True, "the sealing key is in the vault (epi keys link succeeded)")
             vault_ready = True
         except Exception as exc:  # noqa: BLE001 - report, then fall back loudly
-            line(f"  WARNING: SoftHSM is present but unusable: {exc}")
+            # Name the type and print the traceback: several SoftHSM/`pkcs11`
+            # errors stringify to nothing, which is not a diagnosis.
+            line(
+                f"  WARNING: SoftHSM is present but unusable: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            traceback.print_exc()
     if not vault_ready:
         line("  WARNING: SoftHSM not available — falling back to a key file.")
         line("           This is NOT vault-backed; install softhsm2 for the real path.")
