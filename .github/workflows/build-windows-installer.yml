@@ -89,6 +89,9 @@ jobs:
         uses: softprops/action-gh-release@v3
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
+          # See sbom.yml: an explicit tag_name is required when github.ref is a
+          # branch (a workflow_dispatch targeting an existing tag).
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             installer/windows/Output/epi-setup-*.exe
             installer/windows/Output/SHA256SUMS.txt
@@ -115,6 +118,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: installer/windows/Output/*.sigstore
           generate_release_notes: false
         env:
