@@ -154,7 +154,14 @@ class Pkcs11Signer(ExternalSigner):
             raise ExternalSignerError("pkcs11 URI needs token=<label>")
         if not (self.object_label or self.key_id):
             raise ExternalSignerError("pkcs11 URI needs object=<label> or id=<hex>")
-        self.module_path = params.get("module-path") or os.environ.get("EPI_PKCS11_MODULE")
+        # RFC 7512 defines module-path as a *query* attribute
+        # (`?module-path=/path`), but it is also widely written as a path
+        # attribute (`;module-path=/path`), so accept both.
+        self.module_path = (
+            params.get("module-path")
+            or attrs.get("module-path")
+            or os.environ.get("EPI_PKCS11_MODULE")
+        )
         self._lib = lib
         self._session = None
 

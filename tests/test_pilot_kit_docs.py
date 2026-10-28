@@ -15,6 +15,11 @@ GUIDE = REPO / "docs" / "PILOT-GUIDE.md"
 DEMO = REPO / "examples" / "pilot_kit" / "run_pilot_demo.py"
 AGENT = REPO / "examples" / "pilot_kit" / "agent.py"
 
+
+def _normalise(token: str) -> str:
+    """A URI's module path differs per machine, so compare everything before it."""
+    return token.split("?module-path=")[0]
+
 PLACEHOLDER = re.compile(r"[<>]")
 
 
@@ -44,8 +49,28 @@ def test_every_brief_command_runs_in_the_demo():
     commands = [c for c in _fenced_commands(BRIEF) if c.startswith("epi ")]
     assert len(commands) >= 3, commands
     for command in commands:
-        missing = [t for t in _tokens(command) if t not in demo]
+        tokens = [t for t in command.split()[1:] if not PLACEHOLDER.search(t)]
+        missing = [t for t in tokens if t not in demo]
         assert not missing, f"{command!r}: {missing} not in run_pilot_demo.py"
+
+
+def test_pilot_guide_vault_uri_matches_the_demo():
+    """The guide's `epi keys link` must be the command the demo actually runs."""
+    guide = GUIDE.read_text(encoding="utf-8")
+    uri_prefix = "pkcs11:token=epi-pilot;object=epi-sealer?module-path="
+    assert uri_prefix in guide
+    assert "pkcs11:token=epi-pilot;object=epi-sealer?module-path={module}" in DEMO.read_text(
+        encoding="utf-8"
+    )
+    assert 'epi keys link --name default --uri' in guide
+    assert '"keys", "link", "--name", "default", "--uri"' in DEMO.read_text(encoding="utf-8")
+
+
+def test_pilot_guide_does_not_teach_the_deprecated_uri_first():
+    guide = GUIDE.read_text(encoding="utf-8")
+    canonical = guide.index("?module-path=")
+    deprecated = guide.index(";module-path=")
+    assert canonical < deprecated
 
 
 def test_every_guide_command_runs_in_the_demo():
@@ -58,7 +83,7 @@ def test_every_guide_command_runs_in_the_demo():
     commands = [c for c in _fenced_commands(GUIDE) if c.startswith("epi ")]
     assert len(commands) >= 2, commands
     for command in commands:
-        missing = [t for t in _tokens(command) if t not in demo]
+        missing = [t for t in _tokens(command) if _normalise(t) not in demo]
         assert not missing, f"{command!r}: {missing} not in run_pilot_demo.py"
 
 

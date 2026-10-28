@@ -24,8 +24,9 @@ REPO = HERE.parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 PY = sys.executable
-# Kept identical to the URI in docs/PILOT-GUIDE.md step 3 (a test enforces it).
-VAULT_URI = "pkcs11:token=epi-pilot;object=epi-sealer;module-path=/usr/lib/softhsm/libsofthsm2.so"
+#: The URI from docs/PILOT-GUIDE.md step 3, with the module path filled in. It
+#: must stay identical to the guide's (minus the path); a test enforces that.
+VAULT_URI = "pkcs11:token=epi-pilot;object=epi-sealer?module-path={module}"
 FAILURES: list[str] = []
 
 try:  # Windows consoles are cp1252; the verifier prints box drawing
@@ -89,10 +90,56 @@ def epi(env: dict[str, str], *args: str, expect: int = 0, quiet: bool = True) ->
     return run([PY, "-m", "epi_cli", *args], env=env, expect=expect, quiet=quiet)
 
 
-def softhsm_available() -> bool:
-    return shutil.which("softhsm2-util") is not None and any(
-        Path(p).exists() for p in ("/usr/lib/softhsm/libsofthsm2.so", "/usr/local/lib/softhsm/libsofthsm2.so")
+SOFTHSM_LIBS = (
+    "/usr/lib/softhsm/libsofthsm2.so",
+    "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so",
+    "/usr/local/lib/softhsm/libsofthsm2.so",
+    "/opt/homebrew/lib/softhsm/libsofthsm2.so",
+)
+VAULT_TOKEN_LABEL = "epi-pilot"
+VAULT_PIN = "1234"
+
+
+def softhsm_library() -> str | None:
+    if shutil.which("softhsm2-util") is None:
+        return None
+    return next((p for p in SOFTHSM_LIBS if Path(p).is_file()), None)
+
+
+def prepare_softhsm(root: Path) -> dict[str, str]:
+    """Create a SoftHSM token with an Ed25519 key, as docs/KEY-CUSTODY.md says.
+
+    Returns the env a sealing process needs (the token dir and the PIN — the PIN
+    is an env var on purpose; a PIN never goes in the URI).
+    """
+    import pkcs11
+    from pkcs11 import Attribute, KeyType, Mechanism
+    from pkcs11.util.ec import encode_named_curve_parameters
+
+    tokens = root / "softhsm-tokens"
+    tokens.mkdir(parents=True, exist_ok=True)
+    conf = root / "softhsm2.conf"
+    conf.write_text(f"directories.tokendir = {tokens}\nobjectstore.backend = file\n")
+
+    env = dict(os.environ, SOFTHSM2_CONF=str(conf), EPI_PKCS11_PIN=VAULT_PIN)
+    subprocess.run(
+        [
+            "softhsm2-util", "--init-token", "--free",
+            "--label", VAULT_TOKEN_LABEL, "--pin", VAULT_PIN, "--so-pin", "5678",
+        ],
+        check=True, capture_output=True, env=env,
     )
+    lib = pkcs11.lib(softhsm_library())
+    with lib.get_token(token_label=VAULT_TOKEN_LABEL).open(user_pin=VAULT_PIN, rw=True) as session:
+        params = session.create_domain_parameters(
+            KeyType.EC_EDWARDS,
+            {Attribute.EC_PARAMS: encode_named_curve_parameters("1.3.101.112")},
+            local=True,
+        )
+        params.generate_keypair(
+            mechanism=Mechanism.EC_EDWARDS_KEY_PAIR_GEN, store=True, label="epi-sealer"
+        )
+    return {"SOFTHSM2_CONF": str(conf), "EPI_PKCS11_PIN": VAULT_PIN}
 
 
 def public_hex(path: Path) -> str:
@@ -128,21 +175,43 @@ def main() -> int:
     line(f"work dir: {root}")
 
     # ── a. VENDOR: vault-backed key, then record ────────────────────────────
-    line("\na. VENDOR — sealing key, then run the agent")
-    if softhsm_available():
-        # Link only — never `epi keys generate` first. A key file is exactly what
-        # the vault path exists to avoid, and `link` refuses when one exists.
-        epi(vendor, "keys", "link", "--name", "default", "--uri", VAULT_URI, expect=1, quiet=False)
-        line("  SoftHSM is installed; see docs/KEY-CUSTODY.md to create the token, then re-run.")
-    else:
+    line("\na. VENDOR — sealing key in the vault, then run the agent")
+    vault_ready = False
+    vault_lib = softhsm_library()
+    if vault_lib:
+        try:
+            vendor.update(prepare_softhsm(root))
+            uri = VAULT_URI.format(module=vault_lib)
+            line(f"  SoftHSM token '{VAULT_TOKEN_LABEL}' ready ({vault_lib})")
+            # Link only — never `epi keys generate` first. A key file is exactly
+            # what the vault path exists to avoid, and `link` refuses if one
+            # exists.
+            epi(vendor, "keys", "link", "--name", "default", "--uri", uri, quiet=False)
+            vendor["EPI_REQUIRE_EXTERNAL_KEY"] = "1"
+            check(True, "the sealing key is in the vault (epi keys link succeeded)")
+            vault_ready = True
+        except Exception as exc:  # noqa: BLE001 - report, then fall back loudly
+            line(f"  WARNING: SoftHSM is present but unusable: {exc}")
+    if not vault_ready:
         line("  WARNING: SoftHSM not available — falling back to a key file.")
         line("           This is NOT vault-backed; install softhsm2 for the real path.")
-    # Only because no vault exists on this machine. On a real one the key is
-    # created inside the vault and `link` is the last step, not this one.
-    epi(vendor, "keys", "generate", expect=0)
-    vendor["EPI_REQUIRE_EXTERNAL_KEY"] = "0"
+        if os.environ.get("EPI_PILOT_REQUIRE_VAULT", "").strip() == "1":
+            check(
+                False,
+                "EPI_PILOT_REQUIRE_VAULT=1 but the demo fell back to a key file "
+                "(install softhsm2 + the [pkcs11] extra)",
+            )
+        vendor["EPI_REQUIRE_EXTERNAL_KEY"] = "0"
+        # Only because no vault exists on this machine. On a real one the key is
+        # created inside the vault and `link` is the last step, not this one.
+        epi(vendor, "keys", "generate", expect=0)
+
     run([PY, "agent.py", "--out", str(run_file)], env=vendor)
     check(run_file.is_file(), "the vendor sealed run.epi")
+    if vault_ready:
+        keys_dir = Path(vendor["EPI_KEYS_DIR"])
+        leftovers = sorted(p.name for p in keys_dir.glob("*.key")) if keys_dir.is_dir() else []
+        check(not leftovers, f"the vendor home holds no key file (found {leftovers})")
 
     # ── b. APPROVER: own key, approve both requests ─────────────────────────
     line("\nb. APPROVER — own key, approve both requests")

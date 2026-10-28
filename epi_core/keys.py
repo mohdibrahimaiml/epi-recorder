@@ -27,6 +27,28 @@ def external_key_required() -> bool:
     return val in {"1", "true", "yes", "on"}
 
 
+def no_vault_key_message(name: str = "default") -> str:
+    return (
+        f"no vault key linked: run 'epi keys link --name {name} --uri "
+        "\"pkcs11:token=<label>;object=<label>?module-path=/path/to/lib.so\"' "
+        "(or unset EPI_REQUIRE_EXTERNAL_KEY to use a key file)"
+    )
+
+
+def reject_auto_key_generation(name: str = "default") -> None:
+    """Refuse to auto-create a key file while a vault key is required.
+
+    ``EPI_REQUIRE_EXTERNAL_KEY=1`` means the sealing key must live in a vault. A
+    first-run helper that quietly writes an unencrypted ``<name>.key`` is worse
+    than useless there: the file cannot be used for sealing, it blocks a correct
+    ``epi keys link`` (which refuses when a key file already exists), and it can
+    be picked up silently if the variable is later unset. So: no file, and a
+    clear instruction instead.
+    """
+    if external_key_required():
+        raise ExternalKeyRequiredError(no_vault_key_message(name))
+
+
 def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
     """The one fingerprint EPI shows for an Ed25519 public key.
 

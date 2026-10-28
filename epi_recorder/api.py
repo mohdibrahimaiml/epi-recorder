@@ -1896,7 +1896,11 @@ class EpiRecorderSession:
         """
         self._last_sign_error: str | None = None
         try:
-            from epi_core.keys import KeyManager
+            from epi_core.keys import (
+                KeyManager,
+                external_key_required,
+                no_vault_key_message,
+            )
             from epi_core.trust import sign_manifest
             
             # Load key manager
@@ -1904,6 +1908,14 @@ class EpiRecorderSession:
             
             # Check if default key exists
             if not km.has_key(self.default_key_name):
+                # A vault key is required, so never write a file key here: it is
+                # unusable for sealing, it blocks a later `epi keys link` (which
+                # refuses when a key file exists), and it could be picked up
+                # silently if the variable is unset later.
+                if external_key_required():
+                    self._last_sign_error = no_vault_key_message(self.default_key_name)
+                    print(f"[EPI] {self._last_sign_error}", file=sys.stderr)
+                    return False
                 # Try to generate default key
                 try:
                     km.generate_keypair(self.default_key_name)

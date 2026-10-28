@@ -45,21 +45,36 @@ Framework integrations (`wrap_openai`, `wrap_anthropic`, LangGraph) are listed i
 ## 3. Put the sealing key in a vault
 
 The key that seals must live where the agent cannot read it, and EPI will refuse
-to seal without it. Create the Ed25519 key **inside** the vault first — the
-SoftHSM token setup, the right module path for your platform, and the AWS KMS
-variant are in [docs/KEY-CUSTODY.md](KEY-CUSTODY.md). Then point EPI at it:
+to seal without it. Create the Ed25519 key **inside** the vault first. With
+SoftHSM that is:
+
+```bash
+softhsm2-util --init-token --free --label epi-pilot --pin 1234 --so-pin 5678
+pkcs11-tool --module /usr/lib/softhsm/libsofthsm2.so --login --pin 1234 \
+  --keypairgen --key-type EC:edwards25519 --label epi-sealer
+```
+
+The right module path for your platform, and the AWS KMS variant, are in
+[docs/KEY-CUSTODY.md](KEY-CUSTODY.md). Then point EPI at the key. `module-path`
+is a **query** attribute:
 
 ```bash
 export EPI_PKCS11_PIN='the vault PIN'
 export EPI_REQUIRE_EXTERNAL_KEY=1
-epi keys link --name default --uri "pkcs11:token=epi-pilot;object=epi-sealer;module-path=/usr/lib/softhsm/libsofthsm2.so"
+epi keys link --name default --uri "pkcs11:token=epi-pilot;object=epi-sealer?module-path=/usr/lib/softhsm/libsofthsm2.so"
 ```
+
+The older `;module-path=/path` spelling is accepted too, but the query form
+above is the canonical one (RFC 7512 defines `module-path` as a query
+attribute). The PIN never goes in the URI — it is read from `EPI_PKCS11_PIN`.
 
 Run `epi keys link` with **no** key file of that name present. Never run
 `epi keys generate` first: it writes a private key to disk — exactly what this
 step exists to avoid — and `link` then refuses, because a link name must not
-shadow a local key. If an earlier attempt left `default.key` behind, delete it
-before linking.
+shadow a local key. Under `EPI_REQUIRE_EXTERNAL_KEY=1` EPI will not generate a
+key file on its own either: a sealing run with no linked key stops with "no
+vault key linked", rather than writing a file you cannot use. If an earlier
+attempt left `default.key` behind, delete it before linking.
 
 ## 4. Set up approvers
 

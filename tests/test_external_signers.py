@@ -374,6 +374,56 @@ needs_softhsm = pytest.mark.skipif(
 )
 
 
+def test_module_path_is_accepted_as_a_path_and_a_query_attribute(monkeypatch):
+    """RFC 7512 puts module-path in the query; the `;` form must also work."""
+    from epi_core.signers import Pkcs11Signer
+
+    monkeypatch.delenv("EPI_PKCS11_MODULE", raising=False)
+    query = Pkcs11Signer("pkcs11:token=t;object=o?module-path=/x/lib.so")
+    assert query.module_path == "/x/lib.so"
+    path = Pkcs11Signer("pkcs11:token=t;object=o;module-path=/x/lib.so")
+    assert path.module_path == "/x/lib.so"
+    env = Pkcs11Signer("pkcs11:token=t;object=o")
+    monkeypatch.setenv("EPI_PKCS11_MODULE", "/env/lib.so")
+    assert Pkcs11Signer("pkcs11:token=t;object=o").module_path == "/env/lib.so"
+    assert env.module_path is None
+
+
+def test_required_external_key_refuses_to_auto_generate(tmp_path, monkeypatch):
+    from epi_core.keys import ExternalKeyRequiredError, reject_auto_key_generation
+
+    monkeypatch.setenv("EPI_KEYS_DIR", str(tmp_path / "keys"))
+    monkeypatch.setenv("EPI_REQUIRE_EXTERNAL_KEY", "1")
+    with pytest.raises(ExternalKeyRequiredError) as exc:
+        reject_auto_key_generation("default")
+    assert "no vault key linked" in str(exc.value)
+    assert "epi keys link" in str(exc.value)
+    keys_dir = tmp_path / "keys"
+    assert not (sorted(keys_dir.glob("*.key")) if keys_dir.is_dir() else [])
+
+
+def test_required_external_key_writes_no_key_file_when_recording(
+    tmp_path, monkeypatch
+):
+    """The SDK must not leave a stray default.key while a vault key is required."""
+    monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("EPI_KEYS_DIR", str(tmp_path / "home" / "keys"))
+    monkeypatch.setenv("EPI_REQUIRE_EXTERNAL_KEY", "1")
+    monkeypatch.setenv("EPI_NOTARIZE", "0")
+    monkeypatch.setenv("EPI_ALLOW_UNSIGNED", "1")
+
+    from epi_recorder import record
+
+    out = tmp_path / "run.epi"
+    with record(str(out), goal="vault required", auto_sign=True) as case:
+        case.log("agent.decision", {"decision": "approve"})
+
+    assert out.is_file()
+    keys_dir = tmp_path / "home" / "keys"
+    leftovers = sorted(p.name for p in keys_dir.glob("*.key")) if keys_dir.is_dir() else []
+    assert leftovers == [], f"record() wrote a key file: {leftovers}"
+
+
 @pytest.fixture(scope="module")
 def _softhsm_token(tmp_path_factory):
     """One SoftHSM token per module: the library reads its config once per process."""

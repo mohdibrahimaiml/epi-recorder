@@ -750,9 +750,10 @@ def _run_fast_demo(
 
     # Ensure default key exists so the artifact signs cleanly
     try:
-        from epi_core.keys import KeyManager
+        from epi_core.keys import KeyManager, reject_auto_key_generation
         km = KeyManager()
         try:
+            reject_auto_key_generation("default")
             km.generate_keypair("default", overwrite=False)
         except Exception:
             pass
