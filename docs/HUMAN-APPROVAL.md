@@ -1,6 +1,6 @@
 # Human approval
 
-**Product version:** 4.6.3. Product map: [README.md](./README.md).
+**Product version:** 4.7.0. Product map: [README.md](./README.md).
 
 A sealed `.epi` can prove **"a specific, known person approved this exact
 decision"** — with a signature from *that person's own key*. This page says
@@ -151,8 +151,8 @@ The report gains `human_approval`: `status` (`verified` / `incomplete` / `denied
 summarises them rather than the most recent approval:
 
 ```text
-Human approval: VERIFIED — 2 of 2 requests approved by pinned approvers (alice@bank.com)
-Human approval: INCOMPLETE — 1 of 2 requests approved; missing: refund-8
+Human approval: VERIFIED — 2 of 2 requests signed off by pinned approvers after sealing (alice@bank.com)
+Human approval: INCOMPLETE — 1 of 2 requests signed off; missing: refund-8
 Human approval: DENIED — refund-7 denied by alice@bank.com
 ```
 
@@ -189,6 +189,13 @@ a human decision.
 
 ## What an approval does NOT prove
 
+- **Not that the approval came *before* the action.** A signed approval is added
+  **after** the run is sealed — that is the only order the format allows, because
+  the signature covers the sealed bytes. So it evidences "a named person reviewed
+  this record and signed off on it", not "a person approved the payment before it
+  left". The verify line says `signed off by pinned approvers after sealing` for
+  exactly this reason. If a control requires pre-action approval, that must come
+  from the workflow that gated the action, not from the `.epi`.
 - **Not that the person saw the truth.** It proves they signed *this* artifact's
   decision; the run's contents are still whatever the recorder wrote.
 - **Not identity beyond the pin.** It says "the key you pinned as

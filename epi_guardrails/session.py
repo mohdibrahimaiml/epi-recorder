@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from epi_core.container import EPIContainer
 from epi_cli.keys import KeyManager
+from epi_core.keys import reject_auto_key_generation
 from epi_core.redactor import get_default_redactor
 from epi_core.schemas import ManifestModel, StepModel
 from epi_core.time_utils import utc_now, utc_now_iso
@@ -1119,6 +1120,9 @@ class GuardrailsRecorderSession:
             km = KeyManager()
             key_name = self.default_key_name or "default"
             if not km.has_key(key_name):
+                # Never write a key file when a vault key is required (see
+                # epi_core.keys.reject_auto_key_generation).
+                reject_auto_key_generation(key_name)
                 km.generate_keypair(key_name, overwrite=False)
             
             private_key = km.load_private_key(key_name)

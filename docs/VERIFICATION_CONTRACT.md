@@ -1,6 +1,6 @@
 # EPI Verification Contract
 
-**Product version:** 4.6.3. Product map: [README.md](./README.md).
+**Product version:** 4.7.0. Product map: [README.md](./README.md).
 
 ## What This Document Is
 
@@ -232,7 +232,7 @@ Identity pinning (`KNOWN`) requires CLI key pin / trust bundle.
 1. **Signer honesty:** EPI verifies that Alice signed it. It does not verify that Alice is telling the truth.
 2. **Key security:** EPI does not know if the private key was stolen.
 3. **Server availability:** DID:WEB resolution requires the server to be online. If the server is down, identity falls back to `UNKNOWN` — but the signature still verifies.
-4. **Future-proofing:** EPI 4.6.3 uses Ed25519 and SHA-256. If these algorithms are broken in the future, old artifacts cannot be re-verified.
+4. **Future-proofing:** EPI 4.7.0 uses Ed25519 and SHA-256. If these algorithms are broken in the future, old artifacts cannot be re-verified.
 
 ---
 

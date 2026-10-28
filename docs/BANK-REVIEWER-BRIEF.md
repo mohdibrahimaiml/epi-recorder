@@ -9,9 +9,13 @@ checkable by running the command next to it or by following the link.
 the file was sealed; the seal was made by the private key whose fingerprint you
 pinned; and each linked approval was signed by the approver key you pinned.
 
-**Does not prove:** that the recorded run is the *only* thing that happened, that
-the agent was honest, or that the model's decision was correct. EPI proves
-provenance and integrity — not truth. See
+**Does not prove — timing, in particular:** an approval is signed *after* the run
+has been sealed. It evidences that a person reviewed this record and signed off
+on it; it does **not** prove the person approved the action *before* it happened.
+If your control requires pre-action approval, that has to come from your workflow
+at the time, not from the file. EPI also does not prove the recorded run is the
+*only* thing that happened, that the agent was honest, or that the model's
+decision was correct. EPI proves provenance and integrity — not truth. See
 [docs/VERIFICATION_CONTRACT.md](VERIFICATION_CONTRACT.md) and
 [docs/KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
@@ -23,15 +27,17 @@ epi approvers add alice@bank.com.pub --name alice@bank.com --fingerprint <finger
 epi verify run.epi --policy strict --require-human-approval
 ```
 
-The two fingerprints must arrive on a different channel from the file (a phone
-call is enough). If an attacker swaps the file and its key, the pinned
-fingerprint no longer matches and `epi verify` fails.
+The vendor sends you **their sealing public key file** and each approver sends
+**theirs** — the commands pin files, not numbers. The two fingerprints must
+arrive on a **different channel** from the file (a phone call is enough). If an
+attacker swaps the file and its key, the pinned fingerprint no longer matches and
+`epi verify` fails.
 
 ## What each result means
 
 | Exit | Output | Meaning |
 |---|---|---|
-| `0` | `DECISION: PASS` | Seal intact, signer pinned, every approval signed by a pinned approver. |
+| `0` | `DECISION: PASS` | Seal intact, signer pinned, every request signed off by a pinned approver (after sealing). |
 | `1` | `Human approval: INCOMPLETE` | Some requests have no signed approval yet. Do not act on the run. |
 | `1` | `Human approval: DENIED` | A pinned approver said no. Treat as rejected. |
 | `1` | `DECISION: FAIL` / `Signature: Invalid` | The file changed after sealing, or the signature is bad. Do not use it. |

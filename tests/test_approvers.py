@@ -143,23 +143,47 @@ def _pin(tmp_path: Path, name: str, private_key) -> str:
 
 
 def _sealed_epi(
-    tmp_path: Path, *, requests=(), name="case.epi"
+    tmp_path: Path, *, requests=(), name="case.epi", chained=False
 ) -> tuple[Path, Ed25519PrivateKey]:
-    """A sealed artifact with a known sealing key and optional approval requests."""
+    """A sealed artifact with a known sealing key and optional approval requests.
+
+    ``chained=True`` writes real ``prev_hash`` links, which strict policy
+    requires (a pre-chain artifact FAILs on "Step hash chain absent" before the
+    approval rules are ever reached).
+    """
     source = tmp_path / f"{name}.src"
     source.mkdir(parents=True, exist_ok=True)
-    lines = [json.dumps({"index": 0, "kind": "agent.decision", "content": {"result": "approved"}})]
+    steps: list[dict] = [
+        {"index": 0, "kind": "agent.decision", "content": {"result": "approved"}}
+    ]
     for offset, (approval_id, action) in enumerate(requests, start=1):
-        lines.append(
-            json.dumps(
-                {
-                    "index": offset,
-                    "kind": "agent.approval.request",
-                    "content": {"action": action, "approval_id": approval_id},
-                }
-            )
+        steps.append(
+            {
+                "index": offset,
+                "kind": "agent.approval.request",
+                "content": {"action": action, "approval_id": approval_id},
+            }
         )
-    (source / "steps.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if chained:
+        from epi_core.schemas import StepModel
+        from epi_core.serialize import get_canonical_hash
+
+        prev_hash = "CHAIN_START"
+        chained_steps: list[dict] = []
+        for step in steps:
+            model = StepModel(
+                index=step["index"],
+                timestamp=utc_now(),
+                kind=step["kind"],
+                content=step["content"],
+                prev_hash=prev_hash,
+            )
+            chained_steps.append(model.model_dump(mode="json"))
+            prev_hash = get_canonical_hash(model, format="json")
+        steps = chained_steps
+    (source / "steps.jsonl").write_text(
+        "\n".join(json.dumps(step) for step in steps) + "\n", encoding="utf-8"
+    )
 
     sealing_key = Ed25519PrivateKey.generate()
     epi_path = tmp_path / name
@@ -549,7 +573,7 @@ def test_verify_headline_summarises_the_requests(tmp_path, capsys):
     add_review_to_artifact(epi_path, _approval_record(signing_key=approver), private_key=approver)
     verify_command(ctx=MagicMock(), epi_file=epi_path)
     assert (
-        "Human approval: VERIFIED — 1 of 1 requests approved by pinned approvers"
+        "Human approval: VERIFIED — 1 of 1 requests signed off by pinned approvers after sealing"
         in _flat(capsys.readouterr().out)
     )
 
@@ -969,7 +993,7 @@ def test_headline_reports_incomplete_and_denied(tmp_path, capsys):
     )
     verify_command(ctx=MagicMock(), epi_file=epi_path)
     assert (
-        "Human approval: INCOMPLETE — 1 of 2 requests approved; missing: refund-8"
+        "Human approval: INCOMPLETE — 1 of 2 requests signed off; missing: refund-8"
         in _flat(capsys.readouterr().out)
     )
 
@@ -1059,3 +1083,150 @@ def _copy_review_members(source: Path, dest: Path) -> None:
 def _append_step(epi_path: Path, step: dict) -> None:
     raw = EPIContainer.read_member_text(epi_path, "steps.jsonl")
     _replace_members(epi_path, {"steps.jsonl": raw + json.dumps(step) + "\n"})
+
+
+# ---------------------------------------------------------------------------
+# Strict completeness must accept a bound human signed approval as the response
+# ---------------------------------------------------------------------------
+
+
+def _pin_sealer(tmp_path: Path, monkeypatch, sealing_key) -> None:
+    """Pin the vendor's sealing key out of band, the way the bank does.
+
+    Without this, strict policy FAILs on identity and the completeness check is
+    never the reason the run fails.
+    """
+    trusted = tmp_path / "trusted_keys"
+    trusted.mkdir(exist_ok=True)
+    monkeypatch.setenv("EPI_TRUSTED_KEYS_DIR", str(trusted))
+    (trusted / "vendor.pub").write_text(_pub_hex(sealing_key), encoding="utf-8")
+
+
+def _verify_strict(epi_path: Path) -> None:
+    """`epi verify --policy strict --require-human-approval` (raises on FAIL)."""
+    verify_command(
+        ctx=MagicMock(),
+        epi_file=epi_path,
+        strict=True,
+        require_human_approval=True,
+    )
+
+
+def _approve(epi_path: Path, *, approval_id, action, case_level=False):
+    approver = Ed25519PrivateKey.generate()
+    _pin(epi_path.parent, "alice@bank.com", approver)
+    add_review_to_artifact(
+        epi_path,
+        _approval_record(
+            signing_key=approver,
+            approval_id=approval_id,
+            action=action,
+            case_level=case_level,
+        ),
+        private_key=approver,
+    )
+
+
+def test_bound_human_approval_answers_the_request_in_strict_completeness(
+    tmp_path, capsys, monkeypatch
+):
+    """The honest flow: the agent asks, the person signs after sealing, and no
+    `agent.approval.response` is self-reported by the agent.
+
+    Before this fix the bank's documented command FAILed on exactly this run
+    ("is missing a response"), so the pilot could only pass by having the agent
+    write the very self-reported response step 3a exists to replace.
+    """
+    epi_path, sealing = _sealed_epi(
+        tmp_path, requests=[("claim-4417-pay", "pay claim 4417")], chained=True
+    )
+    _pin_sealer(tmp_path, monkeypatch, sealing)
+    _approve(epi_path, approval_id="claim-4417-pay", action="pay claim 4417")
+
+    _verify_strict(epi_path)
+
+    text = _flat(capsys.readouterr().out)
+    assert "missing a response" not in text
+    assert "VERIFIED" in text
+
+
+def test_unanswered_request_still_fails_strict_completeness(tmp_path, capsys, monkeypatch):
+    """No signed approval at all: the gap stays — no blanket suppression."""
+    epi_path, sealing = _sealed_epi(
+        tmp_path, requests=[("claim-4417-pay", "pay claim 4417")], chained=True
+    )
+    _pin_sealer(tmp_path, monkeypatch, sealing)
+
+    with pytest.raises(typer.Exit):
+        _verify_strict(epi_path)
+
+    assert "missing a response" in _flat(capsys.readouterr().out)
+
+
+def test_approval_for_one_request_does_not_answer_another(tmp_path, capsys, monkeypatch):
+    """`approval_id` is the binding, not the action or a wildcard."""
+    epi_path, sealing = _sealed_epi(
+        tmp_path,
+        requests=[
+            ("claim-4417-pay", "pay claim 4417"),
+            ("claim-4418-pay", "pay claim 4418"),
+        ],
+        chained=True,
+    )
+    _pin_sealer(tmp_path, monkeypatch, sealing)
+    _approve(epi_path, approval_id="claim-4417-pay", action="pay claim 4417")
+
+    with pytest.raises(typer.Exit):
+        _verify_strict(epi_path)
+
+    text = _flat(capsys.readouterr().out)
+    assert "for 'pay claim 4418'" in text
+    assert "for 'pay claim 4417'" not in text
+
+
+def test_approve_screen_shows_the_real_sealer_fingerprint(tmp_path):
+    """The approver checks this against the number the vendor read aloud.
+
+    It used to print the first 16 characters of the *raw* key, which never
+    matches the fingerprint `epi keys list` and `epi verify` print — so an
+    honest approver saw a mismatch every time.
+    """
+    epi_path, sealing = _sealed_epi(tmp_path, requests=[("refund-7", "refund REF-7")])
+    approver_dir = tmp_path / "approver_keys"
+    _save_key(approver_dir, "alice@bank.com", Ed25519PrivateKey.generate())
+
+    result = runner.invoke(
+        review_app,
+        [
+            str(epi_path),
+            "approve",
+            "--approval-id",
+            "refund-7",
+            "--decision",
+            "approve",
+            "--as",
+            "alice@bank.com",
+            "--yes",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    sealing_hex = _pub_hex(sealing)
+    text = _flat(result.output)
+    assert key_fingerprint(sealing_hex) in text
+    raw_prefix = " ".join(sealing_hex[i : i + 4] for i in range(0, 16, 4))
+    assert raw_prefix not in text
+
+
+def test_case_level_approval_answers_every_request(tmp_path, capsys, monkeypatch):
+    """`--require-human-approval` already treats a case-level approval as
+    satisfying every request; strict completeness must not contradict it."""
+    epi_path, sealing = _sealed_epi(
+        tmp_path, requests=[("claim-4417-pay", "pay claim 4417")], chained=True
+    )
+    _pin_sealer(tmp_path, monkeypatch, sealing)
+    _approve(epi_path, approval_id=None, action="pay claim 4417", case_level=True)
+
+    _verify_strict(epi_path)
+
+    assert "missing a response" not in _flat(capsys.readouterr().out)

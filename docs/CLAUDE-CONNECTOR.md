@@ -1,6 +1,6 @@
 # EPI Evidence Sealer for Claude
 
-**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.6.3.  
+**Legacy hosted MCP on Render — not EPI Cloud.** Product version 4.7.0.  
 The connector seals **what Claude sends into the tool call**, not a host-authoritative transcript. Limits: [EPI-MCP-CONTRACT.md](./EPI-MCP-CONTRACT.md). Offline record/verify: [USER-GUIDE.md](./USER-GUIDE.md).
 
 Seal a Claude conversation or an agent run into a signed, tamper-evident `.epi` file. You get a link that opens the record in a browser, a download link and a SHA-256. Anyone can check the file later without an account.

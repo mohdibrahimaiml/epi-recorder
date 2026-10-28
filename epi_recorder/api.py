@@ -1267,7 +1267,44 @@ class EpiRecorderSession:
             merged.update(kwargs)
             content = merged
         self.log_step(kind, content)
-    
+
+    def approval_request(
+        self,
+        action: str,
+        *,
+        approval_id: str | None = None,
+        reason: str | None = None,
+        risk_level: str | None = None,
+        requested_by: str | None = None,
+        **metadata: Any,
+    ) -> None:
+        """Ask a person to approve ``action`` — the front door for human sign-off.
+
+        Records an ``agent.approval.request``. The agent never answers it: the
+        answer is a signed approval the person adds *after* sealing with their
+        own key (``epi review <file.epi> approve --approval-id <id> --as <name>``).
+        Pass the same ``approval_id`` here and there to bind the two, then check
+        the claim with ``epi verify <file.epi> --require-human-approval``.
+
+        Example::
+
+            with record("run.epi") as session:
+                session.approval_request(
+                    "refund REF-7",
+                    approval_id="refund-7",
+                    reason="over the auto-approve limit",
+                )
+        """
+        self.log(
+            "agent.approval.request",
+            action=action,
+            reason=reason,
+            risk_level=risk_level,
+            requested_by=requested_by,
+            approval_id=approval_id,
+            **metadata,
+        )
+
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Async version of log_step for async agent frameworks.
@@ -1859,7 +1896,11 @@ class EpiRecorderSession:
         """
         self._last_sign_error: str | None = None
         try:
-            from epi_core.keys import KeyManager
+            from epi_core.keys import (
+                KeyManager,
+                external_key_required,
+                no_vault_key_message,
+            )
             from epi_core.trust import sign_manifest
             
             # Load key manager
@@ -1867,6 +1908,14 @@ class EpiRecorderSession:
             
             # Check if default key exists
             if not km.has_key(self.default_key_name):
+                # A vault key is required, so never write a file key here: it is
+                # unusable for sealing, it blocks a later `epi keys link` (which
+                # refuses when a key file exists), and it could be picked up
+                # silently if the variable is unset later.
+                if external_key_required():
+                    self._last_sign_error = no_vault_key_message(self.default_key_name)
+                    print(f"[EPI] {self._last_sign_error}", file=sys.stderr)
+                    return False
                 # Try to generate default key
                 try:
                     km.generate_keypair(self.default_key_name)

@@ -348,16 +348,18 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.6.3**. Published on PyPI: **4.6.3**. The **4.6.3**
-wheel includes signed display-layer verification, the viewer fail-closed fix
-(#141/#143), and the pack-time viewer / prohibition-guard fix (#145). It has
-**no PEP 740 attestations** because it was uploaded with the project API token;
-its provenance endpoint returns HTTP 404. Trusted Publishing is still
-unconfigured. The published **4.6.2** wheel does **not** include the 4.6.3
-verifier fixes. **4.4.1** remains on PyPI
-(not yanked) and still truncates sealed strings at 2000 characters. **4.4.2**
-never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`;
-verify FAILs when `true`, WARNs when absent).
+Current release line: **4.7.0**. Published on PyPI: **4.6.3** — 4.7.0 is prepared
+in-tree and goes up through **Trusted Publishing**, so its files carry **PEP 740
+attestations** once the release is published (the publisher must be configured on
+pypi.org first; see [RELEASING.md](./RELEASING.md)). The **4.6.3** wheel — the
+newest on PyPI today — added signed display-layer verification, the viewer
+fail-closed fix (#141/#143), and the pack-time viewer / prohibition-guard fix
+(#145). It has **no PEP 740 attestations** because it was uploaded with the
+project API token; its provenance endpoint returns HTTP 404. The published
+**4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
+on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
+**4.4.2** never reached PyPI. **4.4.3+** seals full payloads
+(`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 

@@ -554,20 +554,55 @@ def _chain_links_present(steps: list[dict]) -> bool:
     return False
 
 
-def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str]]:
+def _human_answered_approval_ids(
+    human_report: dict | None,
+) -> tuple[set[str], bool]:
+    """What a human-signed approval has already answered, from the audit report.
+
+    Returns ``(approval_ids, case_level)``. A per-request approval answers the
+    request it names. A case-level approval counts for every request — that is
+    already what ``--require-human-approval`` means by "or a case-level
+    approval", and strict completeness must not contradict it.
+    """
+    if not isinstance(human_report, dict):
+        return set(), False
+    answered = {
+        str(req["approval_id"])
+        for req in human_report.get("requests") or []
+        if req.get("approval_id") and req.get("status") in ("approved", "denied")
+    }
+    case_level = any(
+        item.get("case_level") and item.get("classification") == "human_signed"
+        for item in human_report.get("approvals") or []
+    )
+    return answered, case_level
+
+
+def _audit_step_sequence_completeness(
+    steps: list[dict],
+    answered_approval_ids: set[str] | None = None,
+    case_level_answered: bool = False,
+) -> tuple[bool, list[str]]:
     """
     AUD-CO-01: Step Sequence Completeness Audit.
     Ensures:
       - Every tool.call has a corresponding tool.response
       - Every llm.request has a corresponding llm.response or llm.error
       - Every agent.approval.request has a corresponding agent.approval.response
+        or a human-signed approval bound to this artifact for that request
+
+    A person signs *after* sealing, so their approval is a review record, not an
+    in-run step. Without the second clause an honestly-built run (no
+    self-reported response) would fail strict completeness for having done
+    exactly the right thing.
     """
+    answered_ids = answered_approval_ids or set()
     gaps: list[str] = []
 
     pending_tool_calls: list[tuple[int, str | None]] = []
     pending_llm_requests: list[tuple[int, str | None]] = []
     pending_pre_commits: list[tuple[int, str | None]] = []
-    pending_approvals: list[tuple[int, str | None]] = []
+    pending_approvals: list[tuple[int, str | None, str | None]] = []
 
     for s in steps:
         kind = s.get("kind", "")
@@ -610,7 +645,7 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
 
         elif kind == "agent.approval.request":
             action = content.get("action")
-            pending_approvals.append((idx, action))
+            pending_approvals.append((idx, action, content.get("approval_id")))
         elif kind == "agent.approval.response":
             action = content.get("action")
             matched = False
@@ -631,7 +666,11 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
         gaps.append(f"llm.pre_commit at step {idx + 1} was committed but never executed — response never arrived (crash, timeout, or cancellation)")
     for idx, span_id in pending_llm_requests:
         gaps.append(f"llm.request at step {idx + 1} is missing a corresponding response or error")
-    for idx, action in pending_approvals:
+    for idx, action, approval_id in pending_approvals:
+        if case_level_answered:
+            continue
+        if approval_id is not None and str(approval_id) in answered_ids:
+            continue
         gaps.append(f"agent.approval.request for '{action}' at step {idx + 1} is missing a response")
 
     return len(gaps) == 0, gaps
@@ -1439,6 +1478,10 @@ def verify_command(
     signer_name = None
     mismatches = {}
     review_report = None
+    # The human-approval audit, computed once and reused: strict completeness
+    # needs it (a signed approval answers the request it names) and so does the
+    # human-approval report further down.
+    _human_cached = None
     registry = TrustRegistry()
     # WP-SEC-4: strict is always local-only — no network at all. A remote
     # listing can never satisfy a strict identity requirement.
@@ -1595,8 +1638,23 @@ def verify_command(
                         len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps
                     )
 
-                    # AUD-CO-01: Step Sequence Completeness Audit
-                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
+                    # AUD-CO-01: Step Sequence Completeness Audit. A person signs
+                    # off after sealing, so a bound human-signed approval answers
+                    # the request it names — otherwise an honest run (no
+                    # self-reported response) fails its own strict check.
+                    if _human_cached is None:
+                        try:
+                            from epi_core.review import verify_human_approvals
+
+                            _human_cached = verify_human_approvals(epi_file)
+                        except Exception:
+                            _human_cached = None
+                    _answered_ids, _case_level_answered = _human_answered_approval_ids(
+                        _human_cached
+                    )
+                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(
+                        steps, _answered_ids, _case_level_answered
+                    )
                     completeness_ok = completeness_ok and seq_comp_ok
 
                     # 4. Steps Hash Verification
@@ -2218,7 +2276,11 @@ def verify_command(
         try:
             from epi_core.review import verify_human_approvals
 
-            _human = verify_human_approvals(epi_file)
+            _human = (
+                _human_cached
+                if _human_cached is not None
+                else verify_human_approvals(epi_file)
+            )
         except Exception as _human_err:
             _human = {
                 "status": "none",

@@ -42,26 +42,19 @@ def _decide(balance: int) -> str:
 
 
 def _request_approvals() -> None:
+    session = get_current_session()
+    if session is None:
+        raise RuntimeError("agent.py must run inside record()")
     for approval_id, action in (("refund-7", "refund REF-7"), ("refund-8", "refund REF-8")):
-        _log(
-            "agent.approval.request",
-            action=action,
+        session.approval_request(
+            action,
             approval_id=approval_id,
             reason="high-value refund needs a human decision",
         )
-    # The runtime records the decision it was given. This is an agent-reported
-    # step, not a signature: the signed approval is a review record added by the
-    # approver's own key afterwards (epi review ... approve).
-    for approval_id, action in (("refund-7", "refund REF-7"), ("refund-8", "refund REF-8")):
-        _log(
-            "agent.approval.response",
-            action=action,
-            approval_id=approval_id,
-            approved=True,
-            reviewer="vendor-runtime",
-            approval_source="raw_api_unverified",
-            reason="decision received from the approver; signed approval attached separately",
-        )
+    # Deliberately NO self-reported approval response step: the agent does not
+    # answer its own request. The answer is the approver's signed approval,
+    # added after sealing with their own key (epi review <file.epi> approve),
+    # and strict completeness counts that bound approval as the response.
 
 
 def _run_scripted() -> None:

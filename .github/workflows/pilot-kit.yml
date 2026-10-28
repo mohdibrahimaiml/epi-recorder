@@ -41,4 +41,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -q -e ".[pkcs11]" langgraph
       - name: Run the pilot demo end to end
+        env:
+          # The vault path must be exercised, not skipped: the demo FAILS if it
+          # falls back to a key file.
+          EPI_PILOT_REQUIRE_VAULT: "1"
         run: bash examples/pilot_kit/run_pilot_demo.sh
