@@ -67,6 +67,24 @@ def test_dispatch_can_target_an_already_published_tag():
         )
 
 
+def test_release_attach_steps_name_the_release():
+    """`action-gh-release` will not infer the release from a branch ref.
+
+    It fails with "GitHub Releases requires a tag" — which is what happened on
+    the first v4.7.0 backfill: the SBOM was built and uploaded as an artifact,
+    then the attach step refused. Every attach step must name the release.
+    """
+    for path in (INSTALLER, SBOM):
+        text = _text(path)
+        steps = [s for s in text.split("- name: ") if "softprops/action-gh-release" in s]
+        assert steps, f"{path.name} no longer attaches anything to the Release"
+        for step in steps:
+            assert "tag_name: ${{ inputs.tag || github.ref_name }}" in step, (
+                f"{path.name}: a release-attach step has no tag_name, so it fails "
+                "with 'GitHub Releases requires a tag' when dispatched for a tag"
+            )
+
+
 def test_sigstore_action_is_pinned_to_a_real_release():
     text = _text(INSTALLER)
     refs = re.findall(r"uses:\s*sigstore/gh-action-sigstore-python@(\S+)", text)
