@@ -4,13 +4,14 @@ Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
 
-**4.7.0 status (28 Oct 2026): prepared and version-bumped, not yet published.**
-The one-time publisher setup below must exist on pypi.org first. 4.7.0 is the
-first release that must ship through this workflow and show **Attestations** on
-PyPI. Until it is published, the newest wheel on PyPI is **4.6.3**, which has
-**no PEP 740 attestations** (its provenance endpoint returns HTTP 404): it was
-uploaded with the project API token after the 4.6.2 `invalid-publisher` failure.
-Do not treat 4.6.3 as an attested release.
+**4.7.0 status (28 Oct 2026): published through Trusted Publishing**, with
+**PEP 740 attestations** on both files (the wheel and the sdist provenance
+endpoints return HTTP 200). It is the first release that shipped through this
+workflow. **4.6.3** is still on PyPI and has **no PEP 740 attestations** (its
+provenance endpoint returns HTTP 404): it was uploaded with the project API token
+after the 4.6.2 `invalid-publisher` failure. Do not treat 4.6.3 as an attested
+release. The one-time publisher setup below is the reason this worked — do not
+undo it.
 
 ## One-time setup (founder, ~3 minutes)
 
@@ -27,19 +28,19 @@ Do not treat 4.6.3 as an attested release.
 
 The 20 Oct 2026 GitHub Release `v4.6.2` built the wheel and passed
 `twine check`, then failed upload with `invalid-publisher` (OIDC token valid,
-no matching publisher on PyPI). Until those four fields exist on
-pypi.org, every `release: published` run will fail the same way. Do not use
-the token path again for future releases: 4.6.3 was uploaded by token only
-because the publisher was still unconfigured, and that is why it has no
-attestations.
+no matching publisher on PyPI). Those four fields now exist — 4.7.0 published
+with attestations on 28 Oct 2026 — so a failure here again means the publisher
+was changed or removed on pypi.org. Do not use the token path again for future
+releases: 4.6.3 was uploaded by token only because the publisher was still
+unconfigured, and that is why it has no attestations.
 
 **The published 4.6.2 wheel has no PEP 740 attestations.** Its PyPI
 provenance endpoint returns HTTP 404
 (`https://pypi.org/integrity/epi-recorder/4.6.2/epi_recorder-4.6.2-py3-none-any.whl/provenance`),
 because that upload did not come from this Trusted Publishing workflow. The
-exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested;
-4.7.0 is the first release that must be published through the workflow above
-and show **Attestations** on PyPI before anyone is told it is reproducible.
+exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested.
+4.7.0 is the first release published through the workflow above and it shows
+**Attestations** on PyPI.
 
 ## Every release (example: v4.7.0)
 
