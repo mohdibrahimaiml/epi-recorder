@@ -10,6 +10,7 @@ piped output; an interactive terminal keeps its own width.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,12 +18,20 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+# GitHub runners set GITHUB_ACTIONS, which makes typer force coloured output
+# even into a pipe; a user's pipe has none of these.
+_COLOUR_ENV = ("GITHUB_ACTIONS", "FORCE_COLOR", "PY_COLORS", "COLUMNS")
 
 
-def _piped_help(*args: str) -> str:
+def _piped_help(*args: str, keep_colour_env: bool = False) -> str:
     env = {**os.environ, "PYTHONPATH": str(REPO)}
     # Force the no-terminal fallback Rich uses when output is piped.
-    env.pop("COLUMNS", None)
+    for name in _COLOUR_ENV:
+        if not (keep_colour_env and name != "COLUMNS"):
+            env.pop(name, None)
+    if keep_colour_env:
+        env["GITHUB_ACTIONS"] = "true"
     proc = subprocess.run(
         [sys.executable, "-m", "epi_cli", *args],
         cwd=str(Path(__file__).resolve().parent),
@@ -34,7 +43,7 @@ def _piped_help(*args: str) -> str:
         timeout=300,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    return (proc.stdout or "") + (proc.stderr or "")
+    return _ANSI.sub("", (proc.stdout or "") + (proc.stderr or ""))
 
 
 @pytest.mark.parametrize(
@@ -53,3 +62,8 @@ def test_piped_help_does_not_ellipsize_the_human_approval_flag():
     out = _piped_help("verify", "--help")
     # The clipped rendering was "--require-human-appr…".
     assert "--require-human-appr\u2026" not in out
+
+
+def test_piped_help_keeps_the_flag_under_forced_colour():
+    """On a CI runner the help is coloured; the flag must survive once colour is removed."""
+    assert "--require-human-approval" in _piped_help("verify", "--help", keep_colour_env=True)
