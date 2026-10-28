@@ -61,14 +61,27 @@ def test_no_internal_material_sits_under_the_published_docs_tree():
         "the org trust bundle design note is internal"
     )
 
-    for name in (
-        "BANK-READINESS-ASSESSMENT.md",
-        "BANK-READINESS-EXECUTION-PLAN.md",
-        "swallow-audit.md",
-        "design/org-trust-bundle.md",
-        "prompts/STEP-3-HUMAN-SIGNOFF.md",
-    ):
-        assert (INTERNAL / name).is_file(), f"internal/{name} is missing"
+    assert (INTERNAL / "design" / "org-trust-bundle.md").is_file(), (
+        "internal/design/org-trust-bundle.md is missing (code cites it as the spec)"
+    )
+
+
+def test_private_planning_docs_are_not_in_this_public_repo():
+    # The repository is public, so planning, operations and assessment docs
+    # live in a private repository instead.
+    leaked = [
+        name
+        for name in (
+            "BANK-READINESS-ASSESSMENT.md",
+            "BANK-READINESS-EXECUTION-PLAN.md",
+            "cloud-ops.md",
+            "scope.md",
+            "swallow-audit.md",
+            "prompts",
+        )
+        if (INTERNAL / name).exists()
+    ]
+    assert not leaked, f"private docs are back in the public repo: internal/{leaked}"
 
 
 def test_no_public_doc_links_into_the_internal_tree():
