@@ -1267,7 +1267,44 @@ class EpiRecorderSession:
             merged.update(kwargs)
             content = merged
         self.log_step(kind, content)
-    
+
+    def approval_request(
+        self,
+        action: str,
+        *,
+        approval_id: str | None = None,
+        reason: str | None = None,
+        risk_level: str | None = None,
+        requested_by: str | None = None,
+        **metadata: Any,
+    ) -> None:
+        """Ask a person to approve ``action`` — the front door for human sign-off.
+
+        Records an ``agent.approval.request``. The agent never answers it: the
+        answer is a signed approval the person adds *after* sealing with their
+        own key (``epi review <file.epi> approve --approval-id <id> --as <name>``).
+        Pass the same ``approval_id`` here and there to bind the two, then check
+        the claim with ``epi verify <file.epi> --require-human-approval``.
+
+        Example::
+
+            with record("run.epi") as session:
+                session.approval_request(
+                    "refund REF-7",
+                    approval_id="refund-7",
+                    reason="over the auto-approve limit",
+                )
+        """
+        self.log(
+            "agent.approval.request",
+            action=action,
+            reason=reason,
+            risk_level=risk_level,
+            requested_by=requested_by,
+            approval_id=approval_id,
+            **metadata,
+        )
+
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Async version of log_step for async agent frameworks.

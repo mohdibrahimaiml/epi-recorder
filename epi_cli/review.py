@@ -532,7 +532,7 @@ def approve(
     if approval_id:
         console.print(f"  Approval:  {approval_id}")
     console.print(f"  Manifest:  {_build_review_trust_report(epi_path)['workflow_id']}")
-    console.print(f"  Sealer fp: {' '.join(sealing_key[i:i + 4] for i in range(0, 16, 4))}")
+    console.print(f"  Sealer fp: {key_fingerprint(sealing_key)}")
     console.print(f"  Your fp:   {key_fingerprint(approver_hex)}")
 
     if not yes:

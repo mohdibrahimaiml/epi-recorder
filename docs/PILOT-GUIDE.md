@@ -25,8 +25,17 @@ Wrap the run. Nothing changes about how the agent works.
 ```python
 from epi_recorder import record
 
-with record("run.epi", goal="Refund decision"):
+with record("run.epi", goal="Refund decision") as session:
     ...                      # your LangGraph graph, your tools, your model
+
+    # Ask for a human decision, and name it so the sign-off can be matched to
+    # it. The agent never answers this itself: a person signs the sealed record
+    # with their own key (step 4).
+    session.approval_request(
+        "refund REF-7",
+        approval_id="refund-7",
+        reason="over the auto-approve limit",
+    )
 ```
 
 Framework integrations (`wrap_openai`, `wrap_anthropic`, LangGraph) are listed in
@@ -36,16 +45,21 @@ Framework integrations (`wrap_openai`, `wrap_anthropic`, LangGraph) are listed i
 ## 3. Put the sealing key in a vault
 
 The key that seals must live where the agent cannot read it, and EPI will refuse
-to seal without it:
+to seal without it. Create the Ed25519 key **inside** the vault first — the
+SoftHSM token setup, the right module path for your platform, and the AWS KMS
+variant are in [docs/KEY-CUSTODY.md](KEY-CUSTODY.md). Then point EPI at it:
 
 ```bash
+export EPI_PKCS11_PIN='the vault PIN'
 export EPI_REQUIRE_EXTERNAL_KEY=1
-epi keys generate                          # one time
-epi keys link --name default --uri "pkcs11:token=epi-pilot"
+epi keys link --name default --uri "pkcs11:token=epi-pilot;object=epi-sealer;module-path=/usr/lib/softhsm/libsofthsm2.so"
 ```
 
-Full detail, including AWS KMS and Azure caveats:
-[docs/KEY-CUSTODY.md](KEY-CUSTODY.md).
+Run `epi keys link` with **no** key file of that name present. Never run
+`epi keys generate` first: it writes a private key to disk — exactly what this
+step exists to avoid — and `link` then refuses, because a link name must not
+shadow a local key. If an earlier attempt left `default.key` behind, delete it
+before linking.
 
 ## 4. Set up approvers
 
@@ -67,12 +81,18 @@ Cloud is optional, for hosted inboxes and dashboards.
 
 ## 6. Hand over to the bank
 
-Send the `.epi` file however you already send documents. Then, **on a separate
-channel**, give the bank:
+Send the `.epi` file however you already send documents. Then exchange **key
+files** with the bank — not just numbers — and read the numbers aloud to confirm
+them:
 
-1. your **sealing key fingerprint** (the 16 hex characters `epi keys list`
-   prints) — a human reads this aloud, so a swapped file cannot pass;
-2. the **approver fingerprints** for anyone whose sign-off should count.
+1. **You send your sealing public key file** — the `.pub` beside your sealing
+   key (`epi keys list` prints where it lives).
+2. **Each approver sends their own public key file**, for everyone whose
+   sign-off should count (`epi approvers list` prints their paths).
+3. **Then read the fingerprints aloud, by phone.** Your sealing key's
+   fingerprint — the 16 hex characters `epi keys list` prints — and each
+   approver's. The *file* is what the bank pins; the *spoken number* is how it
+   knows the file arrived unswapped.
 
-The bank pins both by fingerprint ([docs/BANK-REVIEWER-BRIEF.md](BANK-REVIEWER-BRIEF.md))
+The bank pins the keys by fingerprint ([docs/BANK-REVIEWER-BRIEF.md](BANK-REVIEWER-BRIEF.md))
 and runs three commands. That is the pilot.

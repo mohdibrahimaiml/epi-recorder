@@ -1015,7 +1015,7 @@ def _human_approval_detail(
         approved = [item for item in request_results if item["status"] == "approved"]
         missing = [item for item in request_results if item["status"] == "missing"]
         detail = (
-            f"{len(approved)} of {len(request_results)} requests approved; "
+            f"{len(approved)} of {len(request_results)} requests signed off; "
             f"missing: {', '.join(_request_label(item) for item in missing)}"
         )
         if not approved:
@@ -1028,9 +1028,12 @@ def _human_approval_detail(
         return detail
     if status == "verified" and request_results:
         names = sorted({str(item.get("approver_name") or "an approver") for item in human})
+        # "signed off ... after sealing", not "approved": the signature is made
+        # on the sealed record, so it evidences review of the record, not that a
+        # person approved the action before it happened.
         return (
-            f"{len(request_results)} of {len(request_results)} requests approved by "
-            f"pinned approvers ({', '.join(names)})"
+            f"{len(request_results)} of {len(request_results)} requests signed off by "
+            f"pinned approvers after sealing ({', '.join(names)})"
         )
     if status == "unverified":
         return _approval_hint(classifications[0]) or "no human-signed approval on this run"

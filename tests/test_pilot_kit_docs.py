@@ -11,21 +11,32 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 BRIEF = REPO / "docs" / "BANK-REVIEWER-BRIEF.md"
+GUIDE = REPO / "docs" / "PILOT-GUIDE.md"
 DEMO = REPO / "examples" / "pilot_kit" / "run_pilot_demo.py"
 AGENT = REPO / "examples" / "pilot_kit" / "agent.py"
 
 PLACEHOLDER = re.compile(r"[<>]")
 
 
+def _tokens(command: str) -> list[str]:
+    """Words of a command, quotes stripped, placeholders dropped."""
+    return [
+        token.strip("\"'")
+        for token in command.split()[1:]
+        if not PLACEHOLDER.search(token)
+    ]
+
+
 def _fenced_commands(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     blocks = re.findall(r"```(?:bash|sh)\n(.*?)```", text, re.S)
-    return [
-        line.strip()
-        for block in blocks
-        for line in block.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+    commands: list[str] = []
+    for block in blocks:
+        for line in block.splitlines():
+            stripped = re.sub(r"\s+#.*$", "", line.strip().strip())
+            if stripped and not stripped.startswith("#"):
+                commands.append(stripped)
+    return commands
 
 
 def test_every_brief_command_runs_in_the_demo():
@@ -33,9 +44,31 @@ def test_every_brief_command_runs_in_the_demo():
     commands = [c for c in _fenced_commands(BRIEF) if c.startswith("epi ")]
     assert len(commands) >= 3, commands
     for command in commands:
-        tokens = [t for t in command.split()[1:] if not PLACEHOLDER.search(t)]
-        missing = [t for t in tokens if t not in demo]
+        missing = [t for t in _tokens(command) if t not in demo]
         assert not missing, f"{command!r}: {missing} not in run_pilot_demo.py"
+
+
+def test_every_guide_command_runs_in_the_demo():
+    """The vendor guide must show the commands the demo actually runs.
+
+    This is what keeps step 3 honest: the guide cannot show a `keys generate`
+    before `link`, or a PKCS#11 URI the demo does not use.
+    """
+    demo = DEMO.read_text(encoding="utf-8")
+    commands = [c for c in _fenced_commands(GUIDE) if c.startswith("epi ")]
+    assert len(commands) >= 2, commands
+    for command in commands:
+        missing = [t for t in _tokens(command) if t not in demo]
+        assert not missing, f"{command!r}: {missing} not in run_pilot_demo.py"
+
+
+def test_guide_never_generates_a_key_before_linking():
+    """`link` refuses when a key file exists, so the order is the fix."""
+    commands = [c for c in _fenced_commands(GUIDE) if c.startswith("epi ")]
+    assert not any(c.startswith("epi keys generate") for c in commands)
+    guide = GUIDE.read_text(encoding="utf-8")
+    assert "object=" in guide and "module-path=" in guide
+    assert "EPI_PKCS11_PIN" in guide
 
 
 def test_demo_checks_the_bank_home_holds_no_private_key():
@@ -58,8 +91,17 @@ def test_agent_runs_without_an_api_key_by_default():
     source = AGENT.read_text(encoding="utf-8")
     assert "--offline" in source and "default=True" in source
     assert "OPENAI_API_KEY" in source
-    # Approval response steps are recorded as agent-reported, never as signed.
-    assert "raw_api_unverified" in source
+
+
+def test_agent_does_not_answer_its_own_approval_request():
+    """The pilot must prove the honest flow, not the self-reported one.
+
+    A recorded approval response is the very step human sign-off replaces: it
+    made the demo pass a strict check the product would otherwise fail.
+    """
+    source = AGENT.read_text(encoding="utf-8")
+    assert "agent.approval.response" not in source
+    assert "session.approval_request(" in source
 
 
 def test_the_demo_runs_offline():

@@ -24,6 +24,8 @@ REPO = HERE.parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 PY = sys.executable
+# Kept identical to the URI in docs/PILOT-GUIDE.md step 3 (a test enforces it).
+VAULT_URI = "pkcs11:token=epi-pilot;object=epi-sealer;module-path=/usr/lib/softhsm/libsofthsm2.so"
 FAILURES: list[str] = []
 
 try:  # Windows consoles are cp1252; the verifier prints box drawing
@@ -126,14 +128,18 @@ def main() -> int:
     line(f"work dir: {root}")
 
     # ── a. VENDOR: vault-backed key, then record ────────────────────────────
-    line("\na. VENDOR — key in a vault, run the agent")
-    epi(vendor, "keys", "generate", expect=0)
+    line("\na. VENDOR — sealing key, then run the agent")
     if softhsm_available():
-        epi(vendor, "keys", "link", "--name", "default", "--uri", "pkcs11:token=epi-pilot", expect=1, quiet=False)
+        # Link only — never `epi keys generate` first. A key file is exactly what
+        # the vault path exists to avoid, and `link` refuses when one exists.
+        epi(vendor, "keys", "link", "--name", "default", "--uri", VAULT_URI, expect=1, quiet=False)
         line("  SoftHSM is installed; see docs/KEY-CUSTODY.md to create the token, then re-run.")
     else:
         line("  WARNING: SoftHSM not available — falling back to a key file.")
         line("           This is NOT vault-backed; install softhsm2 for the real path.")
+    # Only because no vault exists on this machine. On a real one the key is
+    # created inside the vault and `link` is the last step, not this one.
+    epi(vendor, "keys", "generate", expect=0)
     vendor["EPI_REQUIRE_EXTERNAL_KEY"] = "0"
     run([PY, "agent.py", "--out", str(run_file)], env=vendor)
     check(run_file.is_file(), "the vendor sealed run.epi")
