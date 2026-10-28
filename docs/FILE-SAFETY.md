@@ -1,6 +1,6 @@
 # File safety — is a `.epi` file safe to open?
 
-**Product version:** 4.6.3. Docs map: [README.md](./README.md).
+**Product version:** 4.7.0. Docs map: [README.md](./README.md).
 
 This page answers one question a bank, hospital, or insurer asks before it
 lets a vendor's evidence file through the email gateway: **"Is this `.epi`
@@ -229,11 +229,20 @@ keys, or session-only, or passphrase-wrapped) is tracked in
 
 ---
 
-## 7. Send a data-only file (no clickable HTML shell)
+## 7. Data-only by default (no clickable HTML shell)
 
-If a receiver's gateway blocks HTML-in-ZIP polyglots, or you simply want to hand
-over evidence with **no browser-renderable shell**, send a data-only form. These
-are real, shipped options:
+New evidence is **data-only by default**. `record()`, `epi demo`, `epi run` and
+`epi record` seal a plain ZIP with **no** `viewer.html` member and **no** outer
+polyglot HTML — typically ~17 KB for a short run, small enough to email. There is
+no web page to render on double-click and no display layer to forge. `epi verify`
+and `epi view` behave exactly as for the polyglot: verify proves the seal;
+`epi view` regenerates the viewer locally and opens it.
+
+Opt back into the self-opening polyglot shell (larger — it bundles the viewer)
+with `--with-viewer` / `record(..., with_viewer=True)`.
+
+To strip the outer HTML shell from an **existing** polyglot (e.g. one a vendor
+sent you), convert the container:
 
 ```bash
 # Pure ZIP container — drops the outer HTML shell (double-click opens an archive
@@ -251,22 +260,15 @@ epi export trace case.epi --out case.trace.json --no-sign
 epi export-summary case.epi --text               # plain-text decision record
 ```
 
-On the scanned sample, `epi migrate --legacy-zip` turns the 503 KB polyglot into
-a 130 KB ZIP that starts with `PK` and carries **no outer HTML shell** — there
-is no web page to render on double-click. Integrity, signature, and timestamp
-verdicts are unchanged; identity is unchanged too (the sample's vendor key is
-not pinned, so the default `epi verify` reports an unpinned-identity verdict
-until you pin it, exactly as for the polyglot: WARN · `NOT_PINNED` on a fresh
-trust store, or FAIL · `NOT A KEY YOU TRUST` if you have already pinned other
-keys).
-
-**Honest caveat.** The `legacy-zip` container removes the *outer* clickable HTML
-shell, but the sealed `viewer.html` remains **inside** the ZIP as a member (it is
-part of the signed payload and cannot be removed without breaking the seal). It
-only executes if someone deliberately extracts and opens it. For a truly
-HTML-free handover, use the JSON/text exports (`epi export agt|trace`,
-`epi export-summary --text`) — and note those are **derived views**, not the
-sealed original, so `epi verify` on the `.epi` remains the authoritative check.
+**Honest caveat.** `epi migrate --legacy-zip` copies the sealed payload as-is, so
+the *outer* clickable shell goes away but any `viewer.html` that was already
+**inside** the ZIP stays as a member (it is part of the signed payload and cannot
+be removed without breaking the seal). It only runs if someone deliberately
+extracts and opens it. To hand over evidence that never contained a viewer at
+all, seal it that way — the new default — or use the JSON/text exports
+(`epi export agt|trace`, `epi export-summary --text`); note those are **derived
+views**, not the sealed original, so `epi verify` on the `.epi` remains the
+authoritative check.
 
 ---
 

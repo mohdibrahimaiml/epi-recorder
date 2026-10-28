@@ -110,7 +110,7 @@ Do not treat embedded HTML alone as formal proof.
 - Spec: [spec/EPI-SPEC.md](spec/EPI-SPEC.md)  
 - Verify semantics: [VERIFICATION_CONTRACT.md](VERIFICATION_CONTRACT.md)  
 - Site: [WEBSITE.md](WEBSITE.md)  
-- Org keys: [design/org-trust-bundle.md](design/org-trust-bundle.md), [IDENTITY-ONBOARDING.md](IDENTITY-ONBOARDING.md)
+- Org keys: [IDENTITY-ONBOARDING.md](IDENTITY-ONBOARDING.md)
 
 ---
 

@@ -210,6 +210,14 @@ if __name__ == "__main__":
 '''
 
 
+def _build_demo_script(with_viewer: bool) -> str:
+    """Return the demo script source, opting into the embedded viewer if asked."""
+    if not with_viewer:
+        return _DEMO_SCRIPT
+    anchor = "        metadata_tags=DEMO_TAGS,\n"
+    return _DEMO_SCRIPT.replace(anchor, anchor + "        with_viewer=True,\n")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -718,6 +726,7 @@ def _run_fast_demo(
     no_verify: bool,
     no_browser: bool,
     force_script: bool,
+    with_viewer: bool = False,
 ) -> Path | None:
     """Record → verify → view without gateway. Returns path to .epi or None."""
     console.print()
@@ -732,7 +741,7 @@ def _run_fast_demo(
     if force_script or not demo_script.exists() or demo_script.name == "demo_refund.py":
         # Overwrite stock demo so users always get the polished script
         if demo_script.name == "demo_refund.py" or not demo_script.exists():
-            demo_script.write_text(_DEMO_SCRIPT, encoding="utf-8")
+            demo_script.write_text(_build_demo_script(with_viewer), encoding="utf-8")
             console.print(f"  [green]✓[/green] Demo script ready     [cyan]{demo_script.name}[/cyan]")
         else:
             console.print(f"  [dim]Using existing {demo_script.name}[/dim]")
@@ -741,9 +750,10 @@ def _run_fast_demo(
 
     # Ensure default key exists so the artifact signs cleanly
     try:
-        from epi_core.keys import KeyManager
+        from epi_core.keys import KeyManager, reject_auto_key_generation
         km = KeyManager()
         try:
+            reject_auto_key_generation("default")
             km.generate_keypair("default", overwrite=False)
         except Exception:
             pass
@@ -778,13 +788,19 @@ def _run_fast_demo(
         if epi_path is None:
             console.print("  [red]✗[/red] Could not find demo_refund.epi after the run")
             return None
-        size_kb = epi_path.stat().st_size // 1024 + 1
-        console.print(f"  [green]✓[/green] Sealed                [cyan]{epi_path}[/cyan]  ({size_kb} KB)")
+        size_bytes = epi_path.stat().st_size
+        shape = "with viewer" if with_viewer else "data-only"
+        console.print(
+            f"  [green]✓[/green] Sealed                [cyan]{epi_path}[/cyan]  "
+            f"({size_bytes:,} bytes, {shape})"
+        )
     else:
         epi_path = _find_demo_epi("demo_refund") or (Path("epi-recordings") / "demo_refund.epi")
         if not epi_path.exists():
             console.print("  [red]✗[/red] --no-run set but no demo_refund.epi found")
             return None
+        size_bytes = epi_path.stat().st_size
+        console.print(f"  [dim]Existing artifact      {epi_path}  ({size_bytes:,} bytes)[/dim]")
 
     if not no_verify and epi_path is not None:
         console.print("  [dim]Verifying offline…[/dim]")
@@ -889,6 +905,12 @@ def dev(
         "--review",
         help="Also start the local team review workspace (requires epi-recorder[gateway]).",
     ),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
 ):
     """
     Fastest EPI loop: record a sample agent, seal a .epi, verify offline, open the viewer.
@@ -909,6 +931,7 @@ def dev(
             no_verify=no_verify,
             no_browser=no_browser,
             force_script=True,
+            with_viewer=with_viewer,
         )
         if epi is None:
             raise typer.Exit(1)
@@ -929,6 +952,7 @@ def dev(
         no_verify=no_verify,
         no_browser=True,  # gateway UI opens instead
         force_script=True,
+        with_viewer=with_viewer,
     )
 
     console.print()

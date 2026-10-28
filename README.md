@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.6.3](https://img.shields.io/badge/version-v4.6.3-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.7.0](https://img.shields.io/badge/version-v4.7.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
@@ -70,6 +70,14 @@ epi verify demo.epi
 epi-register demo.epi
 epi view demo.epi
 ```
+
+**The default seal is data-only.** `record()` writes a small `legacy-zip` `.epi`
+— a plain ZIP (`steps.jsonl`, `manifest.json`, `VERIFY.txt`, **no embedded
+HTML**) — typically ~17 KB for a short run and well under the 80 KB the demo
+test enforces. It still opens in the local viewer with `epi view`, and verifies
+identically to the polyglot form. Opt into the self-opening HTML shell (larger:
+it bundles the viewer) with `record("demo.epi", with_viewer=True)`,
+`epi demo --with-viewer`, `epi run --with-viewer`, or `epi record --with-viewer`.
 
 `record("demo.epi")` writes **`epi-recordings/demo.epi`**: a bare file name goes
 into `./epi-recordings/`. A path with a folder, such as `./demo.epi` or
@@ -143,7 +151,10 @@ API keys in prompts/headers are **redacted automatically** before they land in t
 
 ## What a `.epi` file is
 
-Every `.epi` uses the **Envelope v2** container format — a **polyglot HTML+ZIP**
+By default a sealed `.epi` is **data-only**: a plain ZIP (the members below,
+minus `viewer.html`) that verifies offline and opens in the local viewer via
+`epi view`, but carries no HTML shell. Sealed with `--with-viewer`, it uses the
+**Envelope v2** container format — a **polyglot HTML+ZIP**
 binary that opens natively in any browser and can be extracted programmatically.
 
 ```text
@@ -289,6 +300,7 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 |-------|------|
 | **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
+| **Break the seal** — try to break the guarantees (credit-only) | [CHALLENGE.md](CHALLENGE.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
 | **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |
 | **Support / SLA** | [SUPPORT.md](SUPPORT.md) |

@@ -183,7 +183,7 @@ def share(
         console.print("[dim]To fix this, either:[/dim]")
         console.print("[dim]  • Deploy the EPI gateway and set EPI_SHARE_API_URL=http://your-host:8765[/dim]")
         console.print("[dim]  • Use --api-base-url http://your-gateway-host:8765[/dim]")
-        console.print("[dim]  • Deploy epi-verify-portal.onrender.com (see docs/internal/HOSTED-PILOT-RUNBOOK.md)[/dim]")
+        console.print("[dim]  • Or use the legacy hosted portal at epi-verify-portal.onrender.com[/dim]")
         raise typer.Exit(1) from exc
 
     if json_output:

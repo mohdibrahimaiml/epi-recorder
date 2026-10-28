@@ -1,12 +1,42 @@
-"""Ensure website/ is the single source of truth and sync works."""
+"""Ensure website/ is the single source of truth and sync works.
+
+The two tests that *run* the sync must operate on an isolated copy of the tree:
+`sync_website.sync()` copies into the real deploy targets (site/, epi-official/,
+verify_portal/static/), which used to leave tracked files modified after a test
+run. Everything here now works under tmp_path.
+"""
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _isolated_sync_module(tmp_path: Path):
+    """Load sync_website.py and point its ROOT/SOURCE/TARGETS at tmp_path."""
+    import importlib.util
+
+    script = ROOT / "scripts" / "sync_website.py"
+    spec = importlib.util.spec_from_file_location("sync_website_isolated", script)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    source = tmp_path / "website"
+    shutil.copytree(ROOT / "website", source)
+
+    mod.ROOT = tmp_path
+    mod.SOURCE = source
+    mod.TARGETS = [
+        tmp_path / "verify_portal" / "static",
+        tmp_path / "epi-official",
+        tmp_path / "site",
+    ]
+    return mod, source
 
 
 def test_website_source_exists():
@@ -65,64 +95,35 @@ def test_site_mirror_exists_for_cloudflare():
     assert (site / "account.html").is_file()
 
 
-def test_sync_never_ships_internal_markdown():
+def test_sync_never_ships_internal_markdown(tmp_path: Path):
     """Internal *.md (e.g. outreach.md sales templates) must never reach public outputs.
 
     Plants a website/outreach.md source plus stale outreach.md copies in every
-    target, runs the real sync, and asserts none survive — while the public
-    website/README.md still syncs through.
+    target, runs the real sync against an isolated tree, and asserts none
+    survive — while the public website/README.md still syncs through.
     """
-    import importlib.util
+    mod, source = _isolated_sync_module(tmp_path)
+    targets = mod.TARGETS
 
-    script = ROOT / "scripts" / "sync_website.py"
-    spec = importlib.util.spec_from_file_location("sync_website_internal_md", script)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    (source / "outreach.md").write_text("# internal sales templates (test fixture)\n", encoding="utf-8")
+    (source / "INTERNAL_TEST_NOTE.md").write_text("# internal note (test fixture)\n", encoding="utf-8")
+    for target in targets:
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "outreach.md").write_text("# stale copy (test fixture)\n", encoding="utf-8")
 
-    planted_source = ROOT / "website" / "outreach.md"
-    planted_generic = ROOT / "website" / "INTERNAL_TEST_NOTE.md"
-    planted_targets = [
-        ROOT / "site" / "outreach.md",
-        ROOT / "verify_portal" / "static" / "outreach.md",
-        ROOT / "epi-official" / "outreach.md",
-    ]
-    planted_source.write_text("# internal sales templates (test fixture)\n", encoding="utf-8")
-    planted_generic.write_text("# internal note (test fixture)\n", encoding="utf-8")
-    for p in planted_targets:
-        p.write_text("# stale copy (test fixture)\n", encoding="utf-8")
-    try:
-        mod.sync()
-        for p in planted_targets:
-            assert not p.exists(), f"internal file shipped to public output: {p}"
-        assert not (ROOT / "site" / "INTERNAL_TEST_NOTE.md").exists()
-        assert not (ROOT / "verify_portal" / "static" / "INTERNAL_TEST_NOTE.md").exists()
-        assert not (ROOT / "epi-official" / "INTERNAL_TEST_NOTE.md").exists()
-    finally:
-        planted_source.unlink(missing_ok=True)
-        planted_generic.unlink(missing_ok=True)
-        for p in planted_targets:
-            p.unlink(missing_ok=True)
-        (ROOT / "site" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
-        (ROOT / "verify_portal" / "static" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
-        (ROOT / "epi-official" / "INTERNAL_TEST_NOTE.md").unlink(missing_ok=True)
-    # The public README.md must still sync through.
-    assert (ROOT / "site" / "README.md").is_file()
-
-
-def test_sync_website_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    # Run sync against real tree — should not raise
-    import importlib.util
-
-    script = ROOT / "scripts" / "sync_website.py"
-    spec = importlib.util.spec_from_file_location("sync_website", script)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
     mod.sync()
-    # After sync, static + site account match website
-    web = (ROOT / "website" / "account.html").read_bytes()
-    static = (ROOT / "verify_portal" / "static" / "account.html").read_bytes()
-    site = (ROOT / "site" / "account.html").read_bytes()
-    assert web == static
-    assert web == site
+
+    for target in targets:
+        assert not (target / "outreach.md").exists(), f"internal file shipped to {target}"
+        assert not (target / "INTERNAL_TEST_NOTE.md").exists(), f"internal note shipped to {target}"
+    # The public README.md must still sync through.
+    assert (tmp_path / "site" / "README.md").is_file()
+
+
+def test_sync_website_script(tmp_path: Path):
+    mod, source = _isolated_sync_module(tmp_path)
+    mod.sync()
+
+    web = (source / "account.html").read_bytes()
+    assert web == (tmp_path / "verify_portal" / "static" / "account.html").read_bytes()
+    assert web == (tmp_path / "site" / "account.html").read_bytes()

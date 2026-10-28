@@ -13,10 +13,12 @@ from pathlib import Path
 from types import SimpleNamespace
 import argparse
 import ctypes
+import hashlib
 import ipaddress
 import os
 import shutil
 import socket
+import subprocess
 import tempfile
 import uuid
 import warnings
@@ -256,3 +258,106 @@ def tmp_path():
         yield path
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Guard: a test run must not leave tracked files modified.
+#
+# Tests must write to tmp_path. A test that mutates a tracked file in the
+# checkout (e.g. by running a sync against the real tree) otherwise passes while
+# silently dirtying the repo — and the next person mistakes it for real work.
+# The guard hashes tracked files at session start and compares at the end, and
+# names every path that changed, so the failure says which file to look at. Only
+# changes the run caused count: a file that was already dirty the same way at
+# session start is not reported.
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parent
+_TRACKED_DIFF_BASELINE: dict[str, dict[str, str]] = {}
+
+#: Sampled file-by-file every session. The guard also picks up any other tracked
+#: file the run leaves dirty (via `git diff --name-only`), so this is not the
+#: coverage — it is the set that is cheap to hash and most often written by
+#: accident (generated demo assets).
+_GUARD_DIRS = ("website", "docs/assets", "examples")
+
+
+def _git_nul(*args: str) -> list[str] | None:
+    """NUL-separated git output as a list, or None outside a git checkout."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), *args],
+            capture_output=True,
+            timeout=120,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    text = proc.stdout.decode("utf-8", "replace")
+    return [part for part in text.split("\0") if part]
+
+
+def _file_digest(rel: str) -> str:
+    try:
+        return hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+    except OSError as exc:
+        return f"unreadable:{type(exc).__name__}"
+
+
+def _tree_snapshot() -> dict[str, str] | None:
+    """{path: sha256} for every tracked file the run could plausibly touch.
+
+    That is: everything already dirty (so a dirty working tree is not itself a
+    failure) plus every tracked file under ``_GUARD_DIRS``. ``git diff`` names
+    the dirty set at the end of the session too, which is what catches a run that
+    writes a tracked file anywhere else in the repository.
+    """
+    paths = _git_nul("ls-files", "-z", "--", *_GUARD_DIRS)
+    dirty = _git_nul("diff", "--name-only", "-z")
+    staged = _git_nul("diff", "--cached", "--name-only", "-z")
+    if paths is None or dirty is None or staged is None:
+        return None
+    watched = set(paths) | set(dirty) | set(staged)
+    return {rel: _file_digest(rel) for rel in sorted(watched)}
+
+
+def _changed_paths(
+    before: dict[str, str], after: dict[str, str]
+) -> list[tuple[str, str]]:
+    """Paths whose contents differ between the two snapshots, with a status."""
+    changed: list[tuple[str, str]] = []
+    for rel in sorted(set(before) | set(after)):
+        was, now = before.get(rel), after.get(rel)
+        if was == now:
+            continue
+        if was is None:
+            changed.append((rel, "newly modified"))
+        elif now is None:
+            changed.append((rel, "no longer modified"))
+        else:
+            changed.append((rel, "modified"))
+    return changed
+
+
+def pytest_sessionstart(session):  # type: ignore[no-untyped-def]
+    snapshot = _tree_snapshot()
+    if snapshot is not None:
+        _TRACKED_DIFF_BASELINE["snapshot"] = snapshot
+
+
+def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
+    before = _TRACKED_DIFF_BASELINE.get("snapshot")
+    after = _tree_snapshot()
+    if before is None or after is None:
+        return
+    changed = _changed_paths(before, after)
+    if not changed:
+        return
+    session.exitstatus = 1
+    print(
+        "\n[pytest-guard] Test run changed tracked files — tests must write to "
+        f"tmp_path, not the repository. {len(changed)} path(s):"
+    )
+    for rel, status in changed:
+        print(f"[pytest-guard]   {status:<20} {rel}")

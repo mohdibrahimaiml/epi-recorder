@@ -37,7 +37,7 @@ python scripts/sync_website.py
 
 Keep these true on every page:
 
-- Banner version matches `pyproject.toml` (currently **4.6.3**).
+- Banner version matches `pyproject.toml` (currently **4.7.0**).
 - Sign In goes to EPI Cloud, not Render.
 - Open-source record/seal/verify needs no account.
 - Verification is never charged.

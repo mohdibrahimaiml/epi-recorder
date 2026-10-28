@@ -126,6 +126,7 @@ class AgentMessageContent(TypedDict, total=False):
 class AgentApprovalRequestContent(TypedDict, total=False):
     """Content for an ``agent.approval.request`` step."""
     action: str
+    approval_id: NotRequired[str]   # id a person signs in epi review approve
     reason: NotRequired[str]
     risk_level: NotRequired[str]    # "low" | "medium" | "high"
     requested_by: NotRequired[str]

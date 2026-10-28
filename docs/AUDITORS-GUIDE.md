@@ -1,6 +1,6 @@
 # EPI Auditor's Guide — Independent Verification of .epi Evidence
 
-**Version:** 2.2 (epi-recorder 4.6.3) | **Last updated:** 2026-10-23
+**Version:** 2.2 (epi-recorder 4.7.0) | **Last updated:** 2026-10-23
 
 For banks, insurers, auditors and other reviewers who receive a `.epi` file
 from a vendor and need to check it themselves, offline, without trusting

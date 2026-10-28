@@ -1,6 +1,6 @@
 # How to use EPI (normal path)
 
-**Version:** 4.6.3  
+**Version:** 4.7.0  
 You do not need an account, a dashboard, or EPI Cloud to record or verify.
 
 This is the everyday guide. Bank / auditor briefing: [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md). Command list: [CLI.md](./CLI.md).

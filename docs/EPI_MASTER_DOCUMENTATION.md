@@ -1,4 +1,4 @@
-# EPI - enterprise briefing (v4.6.3)
+# EPI - enterprise briefing (v4.7.0)
 
 **Product:** `epi-recorder` (open source) + optional **EPI Cloud** (private beta) + public site **epilabs.org**.  
 **Container:** EPI Evidence Format (see [spec/EPI-SPEC.md](./spec/EPI-SPEC.md)).  
@@ -71,8 +71,8 @@ Say these out loud in a security review. They are product facts, not caveats hid
 - A listing in a public key registry is **not** a pin. Reviewers pin keys themselves.
 - `epi-register` without `--service` embeds a **local, self-issued** SCITT receipt, not an independent ledger entry.
 - Browser viewer crypto checks integrity/signature in-page; RFC 3161 timestamp **validation** is done by `epi verify`, not by the viewer (the viewer says so).
-- EPI Cloud in 4.6.3 is **private beta**. Public plans page does not sell a hosted-verification subscription.
-- Default `record()` timestamps attest that **contents existed no later than T**. They do not bind the signing key unless `imprinted_public_key` is present ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
+- EPI Cloud in 4.7.0 is **private beta**. Public plans page does not sell a hosted-verification subscription.
+- `record()` timestamps are taken on the signed repack, so they bind the signing key and attest that **the contents, sealed by that key, existed no later than T** (`imprinted_public_key` present). Pre-change seals (`imprinted_public_key` null) attest contents-only existence ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 ---
 
@@ -172,6 +172,5 @@ Secrets are redacted by default (`redact=True`). Everyday how-to: [USER-GUIDE.md
 | Cloud trust (DPA, subprocessors, retention, support) | [DPA.md](./DPA.md), [SUBPROCESSORS.md](./SUBPROCESSORS.md), [DATA-RETENTION.md](./DATA-RETENTION.md), [../SUPPORT.md](../SUPPORT.md) |
 | Honest gaps | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) |
 | Threat model | [THREAT_MODEL.md](./THREAT_MODEL.md) |
-| Cloud ops / CPU / D1 (internal) | [../internal/cloud-ops.md](../internal/cloud-ops.md) |
 | Website editing | [WEBSITE.md](./WEBSITE.md) |
 | EU evidence support (not a certificate) | [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md), [ANNEX-IV.md](./ANNEX-IV.md) |

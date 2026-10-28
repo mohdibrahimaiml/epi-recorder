@@ -21,6 +21,39 @@ Timestamps prove "existed no later than T" only when a valid RFC 3161 token or
 a customer witness backs them. Everything below is the engineering detail
 behind those sentences.
 
+## A human approval proves a pinned key signed it, not that the person saw the truth
+
+**What you see:** `epi verify` says `Human approval: VERIFIED — alice@bank.com
+… approved "refund REF-7"`.
+
+**What is true:** that means a key **you** pinned as alice@bank.com signed an
+approval of *this artifact's* decision, and that key is not the key that sealed
+the run. It does **not** prove the person read the underlying data, that the
+recorded run is truthful, that the key really belongs to Alice (pinning is a
+human step done out of band), or that the approval is recognised on other hosts
+(registries differ). An approval also cannot be forged without the approver's
+private key, but anyone who can edit the file can append a **broken** review —
+which turns the status to FAILED, deliberately fail-closed. It can block a run;
+it can never create a `human_signed` record. See
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+**Whether yours is affected:** any run where "a person approved this" is relied
+on. Pin the approver's key yourself and read the fingerprint aloud; `--policy
+strict` does not imply human approval — pass `--require-human-approval` too.
+
+**Who can write `approval_source`.** It is a plain string in the step content.
+The gateway demotes a client-supplied gateway label at its capture endpoints
+(`/capture`, `/capture/batch`, `/capture/llm`, the proxy paths) to
+`raw_api_unverified` and records it as `claimed_approval_source`, so only the
+gateway's own approval route writes these labels there. But in an **SDK**
+recording the agent writes its own steps, so it can write any label — including
+`gateway_link_authenticated`. Treat `epi analyze`'s approval checks as
+heuristics. The only cryptographic proof that a person approved something is
+`epi verify --require-human-approval` with a signed approval from a pinned
+approver key.
+
+---
+
 ## The signature covers the canonical manifest, not its raw bytes (red-team F-07)
 
 **What you see:** `epi verify` passes a `manifest.json` that contains a duplicate
@@ -97,19 +130,21 @@ instead of printing a clean PASS.
 
 ---
 
-## Seal timestamp does not bind the signing key in the default record() flow
+## Seal timestamp does not bind the signing key in pre-change seals
 
 **What you see:** `epi verify` reports a `valid` seal timestamp with
-`existed no later than T`.
-**What is true:** in the normal `record()` flow the file is first packed
-unsigned and signed on the second pack, so at stamping time
-`imprinted_public_key` is `None`. The timestamp proves "these contents existed
-no later than T", not "this signing key sealed them by time T". The signing key
-is covered only when `imprinted_public_key` is non-null. See
-`docs/VERIFICATION_CONTRACT.md` (timestamps section) and `epi_core/notarize.py`.
-**Whether yours is affected:** any seal made through the default `record()`
-path. Check `artifacts/notarization/notarization.json`: `imprinted_public_key`
-null means contents-only time attestation.
+`contents existed no later than T` and `key_binding: "contents-only"`.
+**What is true:** seals made before the fix stamped the file on its unsigned
+first pack, so at stamping time `imprinted_public_key` is `None`. The timestamp
+proves "these contents existed no later than T", not "this signing key sealed
+them by time T". New seals stamp the signed repack, so `imprinted_public_key`
+is the sealing key and verify reports `key_binding: "key-bound"` with the key
+fingerprint. See `docs/VERIFICATION_CONTRACT.md` (timestamps section) and
+`epi_core/notarize.py`.
+**Whether yours is affected:** check
+`artifacts/notarization/notarization.json`: `imprinted_public_key` null means
+contents-only. Old files are not upgraded and keep verifying exactly as before
+(no FAIL for this); re-seal to obtain a key-bound timestamp.
 
 ## Sealed `controls_failed` may understate failures (4.4.1–4.4.6; fixed forward in 4.4.7)
 
@@ -238,6 +273,12 @@ field as the recorder's claim about re-executability, not a proof of it.
 manifest, `viewer.html` inside the archive) is sealed via `payload_sha256` and
 `file_manifest` + Ed25519.
 
+**Default is data-only.** `record()`, `epi demo`, `epi run` and `epi record`
+seal a plain `legacy-zip` with **no** `viewer.html` member and no outer HTML, so
+there is no display layer to forge; `epi view` regenerates the viewer locally.
+Everything below applies to artifacts sealed with `--with-viewer`, or to
+legacy/migrated envelope-v2 files that still embed a viewer.
+
 **New artifacts** bind the outer viewer to the **signed**
 `file_manifest["viewer.html"]` hash. Mutating CSS/JS/labels in the outer HTML
 region fails `epi verify` (integrity mismatch on `__polyglot_viewer__`). The
@@ -307,16 +348,18 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.6.3**. Published on PyPI: **4.6.3**. The **4.6.3**
-wheel includes signed display-layer verification, the viewer fail-closed fix
-(#141/#143), and the pack-time viewer / prohibition-guard fix (#145). It has
-**no PEP 740 attestations** because it was uploaded with the project API token;
-its provenance endpoint returns HTTP 404. Trusted Publishing is still
-unconfigured. The published **4.6.2** wheel does **not** include the 4.6.3
-verifier fixes. **4.4.1** remains on PyPI
-(not yanked) and still truncates sealed strings at 2000 characters. **4.4.2**
-never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`;
-verify FAILs when `true`, WARNs when absent).
+Current release line: **4.7.0**. Published on PyPI: **4.6.3** — 4.7.0 is prepared
+in-tree and goes up through **Trusted Publishing**, so its files carry **PEP 740
+attestations** once the release is published (the publisher must be configured on
+pypi.org first; see [RELEASING.md](./RELEASING.md)). The **4.6.3** wheel — the
+newest on PyPI today — added signed display-layer verification, the viewer
+fail-closed fix (#141/#143), and the pack-time viewer / prohibition-guard fix
+(#145). It has **no PEP 740 attestations** because it was uploaded with the
+project API token; its provenance endpoint returns HTTP 404. The published
+**4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
+on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
+**4.4.2** never reached PyPI. **4.4.3+** seals full payloads
+(`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 

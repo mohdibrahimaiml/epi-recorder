@@ -59,14 +59,26 @@ describe("cloud front door", () => {
     expect(html).toContain("Sign in with GitHub");
     expect(html).not.toContain("boss@acme.test");
     // Explains itself: one plain sentence, 3 steps, the free plan.
-    expect(html).toContain("tamper-proof proof of what your AI agent did");
+    // The hero splits "agent" into <em>, so assert the two halves.
+    expect(html).toContain("Proof of what your AI");
+    expect(html).toContain("<em>agent</em>");
     expect(html).toContain("epi demo");
-    expect(html).toContain("nothing to install");
-    expect(html).toContain("Free:</strong> 1 customer, 1 share link, 50 runs");
+    expect(html).toContain("no install");
+    expect(html).toContain("Free: 1 customer · 1 share link · 50 runs");
     expect(html).toContain("https://epilabs.org/how-it-works");
     // Static and self-contained: no scripts, no external assets.
     expect(html).not.toContain("<script");
     expect(html).not.toMatch(/<(link|img)[^>]+(href|src)="https?:/);
+  });
+
+  it("share links opened on the cloud origin redirect to the trust page", async () => {
+    const { env } = await setup();
+    const res = await app.request("/t/sh_abc123", {}, env as never);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://epilabs.org/t/sh_abc123");
+    // The id is path-encoded, so it can never change the target host.
+    const odd = await app.request("/t/%2F%2Fevil.test", {}, env as never);
+    expect(odd.headers.get("location")).toBe("https://epilabs.org/t/%2F%2Fevil.test");
   });
 
   it("signed-in users see their account, email escaped", async () => {

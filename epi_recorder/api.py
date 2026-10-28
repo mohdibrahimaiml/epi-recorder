@@ -21,7 +21,11 @@ from uuid import uuid4
 
 from cryptography.hazmat.primitives import serialization
 
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
 from epi_core.policy import EPIPolicy
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
@@ -424,6 +428,7 @@ class AgentRun:
         reason: Optional[str] = None,
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
+        approval_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
         self._log(
@@ -433,6 +438,7 @@ class AgentRun:
                 "reason": reason,
                 "risk_level": risk_level,
                 "requested_by": requested_by or self.agent_name,
+                "approval_id": approval_id,
                 **metadata,
             },
         )
@@ -444,6 +450,7 @@ class AgentRun:
         reason: Optional[str] = None,
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
+        approval_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
         await self._alog(
@@ -453,6 +460,7 @@ class AgentRun:
                 "reason": reason,
                 "risk_level": risk_level,
                 "requested_by": requested_by or self.agent_name,
+                "approval_id": approval_id,
                 **metadata,
             },
         )
@@ -788,6 +796,7 @@ class EpiRecorderSession:
         witness_secret: Optional[str] = None,
         witness_include_goal: bool = False,
         storage_url: Optional[str] = None,
+        with_viewer: bool = False,
     ):
         """
         Initialize EPI recording session.
@@ -822,6 +831,9 @@ class EpiRecorderSession:
             storage_url: Customer-owned bucket for every sealed `.epi`
                 (`s3://bucket[/prefix]`; EPI_STORAGE_URL fallback, endpoint via
                 EPI_STORAGE_ENDPOINT). Uploaded outbox-first; never fails/slows seal.
+            with_viewer: Embed the self-opening HTML viewer (envelope-v2, larger
+                file). Default False seals a small data-only ``legacy-zip``
+                artifact that still opens via ``epi view`` and verifies identically.
         """
         if did_web is not None and not did_web.startswith("did:web:"):
             raise ValueError(f"did_web must start with 'did:web:', got: {did_web}")
@@ -862,7 +874,7 @@ class EpiRecorderSession:
             raise ValueError(f"did must start with 'did:web:', got: {_did_value}")
         self.did_web = _did_value
 
-        # Org trust bundle binding (design docs/design/org-trust-bundle.md).
+        # Org trust bundle binding (design internal/design/org-trust-bundle.md).
         # Fingerprint (sha256 hex) of the customer root public key, bound
         # into manifest.governance at seal time. Explicit param wins, then
         # EPI_ORG_ROOT env. Validated eagerly so typos fail fast, not silent.
@@ -884,6 +896,9 @@ class EpiRecorderSession:
         self.legacy_patching = legacy_patching
         self.capture_prints = capture_prints
         self.capture_stderr = capture_stderr
+
+        # Sealed container shape: data-only by default, viewer is opt-in.
+        self.with_viewer = with_viewer
         
         # Runtime state
         self.temp_dir: Optional[Path] = None
@@ -1017,11 +1032,21 @@ class EpiRecorderSession:
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 
-            # Pack into .epi file
+            # Pack into .epi file. When we are about to sign, defer the
+            # timestamp: stamping the unsigned first pack would imprint no key
+            # (public_key is None). _sign_epi_file() repacks and takes the
+            # timestamp there, once the signing key exists.
             EPIContainer.pack(
                 source_dir=self.temp_dir,
                 manifest=manifest,
-                output_path=self.output_path
+                output_path=self.output_path,
+                notarize=False if self.auto_sign else None,
+                container_format=(
+                    EPI_CONTAINER_FORMAT_ENVELOPE
+                    if self.with_viewer
+                    else EPI_CONTAINER_FORMAT_LEGACY
+                ),
+                embed_viewer=self.with_viewer,
             )
 
             # Sign if requested — fail closed so callers never mistake an
@@ -1034,7 +1059,7 @@ class EpiRecorderSession:
                     raise RuntimeError(
                         "EPI auto_sign=True but signing failed "
                         f"({detail}); artifact left unsigned. "
-                        "Fix keys (epi keys generate) or set "
+                        "Fix keys (epi keys generate, or epi keys link for an HSM/KMS key) or set "
                         "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
                     )
 
@@ -1144,13 +1169,17 @@ class EpiRecorderSession:
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 
-            # Pack into .epi file (run in executor to avoid blocking)
+            # Pack into .epi file (run in executor to avoid blocking).
+            # Timestamp is deferred to the signed repack (see __exit__).
             await loop.run_in_executor(
                 None,
-                EPIContainer.pack,
-                self.temp_dir,
-                manifest,
-                self.output_path
+                functools.partial(
+                    EPIContainer.pack,
+                    self.temp_dir,
+                    manifest,
+                    self.output_path,
+                    notarize=False if self.auto_sign else None,
+                ),
             )
 
             # Sign if requested (run in executor) — fail closed, same as sync.
@@ -1162,7 +1191,7 @@ class EpiRecorderSession:
                     raise RuntimeError(
                         "EPI auto_sign=True but signing failed "
                         f"({detail}); artifact left unsigned. "
-                        "Fix keys (epi keys generate) or set "
+                        "Fix keys (epi keys generate, or epi keys link for an HSM/KMS key) or set "
                         "EPI_ALLOW_UNSIGNED=1 to accept unsigned output."
                     )
 
@@ -1238,7 +1267,44 @@ class EpiRecorderSession:
             merged.update(kwargs)
             content = merged
         self.log_step(kind, content)
-    
+
+    def approval_request(
+        self,
+        action: str,
+        *,
+        approval_id: str | None = None,
+        reason: str | None = None,
+        risk_level: str | None = None,
+        requested_by: str | None = None,
+        **metadata: Any,
+    ) -> None:
+        """Ask a person to approve ``action`` — the front door for human sign-off.
+
+        Records an ``agent.approval.request``. The agent never answers it: the
+        answer is a signed approval the person adds *after* sealing with their
+        own key (``epi review <file.epi> approve --approval-id <id> --as <name>``).
+        Pass the same ``approval_id`` here and there to bind the two, then check
+        the claim with ``epi verify <file.epi> --require-human-approval``.
+
+        Example::
+
+            with record("run.epi") as session:
+                session.approval_request(
+                    "refund REF-7",
+                    approval_id="refund-7",
+                    reason="over the auto-approve limit",
+                )
+        """
+        self.log(
+            "agent.approval.request",
+            action=action,
+            reason=reason,
+            risk_level=risk_level,
+            requested_by=requested_by,
+            approval_id=approval_id,
+            **metadata,
+        )
+
     async def alog_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Async version of log_step for async agent frameworks.
@@ -1729,28 +1795,22 @@ class EpiRecorderSession:
             if not urls:
                 return
             key_name: str | None = None
-            private_key_bytes: bytes | None = None
+            signer = None
             if signed:
                 try:
                     from epi_core.keys import KeyManager
-                    from cryptography.hazmat.primitives import serialization
 
                     km = KeyManager()
                     key_name = self.default_key_name
-                    private_key = km.load_private_key(key_name)
-                    private_key_bytes = private_key.private_bytes(
-                        encoding=serialization.Encoding.Raw,
-                        format=serialization.PrivateFormat.Raw,
-                        encryption_algorithm=serialization.NoEncryption(),
-                    )
+                    signer = km.load_private_key(key_name)
                 except Exception:
-                    key_name, private_key_bytes = None, None
+                    key_name, signer = None, None
             entry = report_seal(
                 self.output_path,
                 urls=urls,
                 secret=secret,
                 key_name=key_name,
-                private_key_bytes=private_key_bytes,
+                signer=signer,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
             )
             _print_witness_outcome(entry)
@@ -1836,7 +1896,11 @@ class EpiRecorderSession:
         """
         self._last_sign_error: str | None = None
         try:
-            from epi_core.keys import KeyManager
+            from epi_core.keys import (
+                KeyManager,
+                external_key_required,
+                no_vault_key_message,
+            )
             from epi_core.trust import sign_manifest
             
             # Load key manager
@@ -1844,6 +1908,14 @@ class EpiRecorderSession:
             
             # Check if default key exists
             if not km.has_key(self.default_key_name):
+                # A vault key is required, so never write a file key here: it is
+                # unusable for sealing, it blocks a later `epi keys link` (which
+                # refuses when a key file exists), and it could be picked up
+                # silently if the variable is unset later.
+                if external_key_required():
+                    self._last_sign_error = no_vault_key_message(self.default_key_name)
+                    print(f"[EPI] {self._last_sign_error}", file=sys.stderr)
+                    return False
                 # Try to generate default key
                 try:
                     km.generate_keypair(self.default_key_name)
@@ -1883,12 +1955,12 @@ class EpiRecorderSession:
 
                 # Re-pack from the extracted workspace so file manifests, viewer content,
                 # and the outer envelope stay coherent after signing.
-                # Suppress notarization: first pack already notarized.
-                # Re-timestamping tsa_reply.tsr after hashing causes mismatch.
-                # Suppress checkpoints too: a repacked/resealed artifact must not
+                # Notarization runs in this pack, after signer_function has set
+                # public_key, so the RFC 3161 imprint binds the signing key.
+                # record() skips the timestamp on its unsigned first pack for
+                # exactly this reason (see __exit__).
+                # Suppress checkpoints: a repacked/resealed artifact must not
                 # silently generate new checkpoints that paper over missing ones.
-                old_notarize = os.environ.get("EPI_NOTARIZE")
-                os.environ["EPI_NOTARIZE"] = "0"
                 old_checkpoints = os.environ.get("EPI_CHECKPOINTS_ENABLED")
                 os.environ["EPI_CHECKPOINTS_ENABLED"] = "0"
                 try:
@@ -1902,13 +1974,10 @@ class EpiRecorderSession:
                         ),
                         preserve_generated=True,
                         container_format=current_format,
+                        embed_viewer=(current_format == EPI_CONTAINER_FORMAT_ENVELOPE),
                         generate_analysis=False,
                     )
                 finally:
-                    if old_notarize is None:
-                        os.environ.pop("EPI_NOTARIZE", None)
-                    else:
-                        os.environ["EPI_NOTARIZE"] = old_notarize
                     if old_checkpoints is None:
                         os.environ.pop("EPI_CHECKPOINTS_ENABLED", None)
                     else:
@@ -2145,6 +2214,7 @@ def record(
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
     storage_url: Optional[str] = None,
+    with_viewer: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -2233,6 +2303,7 @@ def record(
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
             storage_url=storage_url,
+            with_viewer=with_viewer,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -2297,6 +2368,7 @@ def record(
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
             storage_url=storage_url,
+            with_viewer=with_viewer,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

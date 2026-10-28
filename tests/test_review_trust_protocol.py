@@ -124,7 +124,9 @@ def test_signed_artifact_bound_review_verifies_strict(tmp_path):
     report = verify_review_trust(epi_path, strict=True)
 
     assert latest is not None
-    assert latest.review_version == "1.1.0"
+    # Version bump only: 1.2.0 adds the optional approval entry; the record shape
+    # is otherwise unchanged (see tests/test_approvers.py for the 4.6.x check).
+    assert latest.review_version == "1.2.0"
     assert latest.artifact_binding
     assert latest.review_hash
     assert latest.review_signature

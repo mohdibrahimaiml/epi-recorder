@@ -97,8 +97,9 @@ def test_main_cli_state_and_windows_probe(tmp_path, monkeypatch):
     # old marker → due
     assert m._windows_association_probe_due(now=time.time() + m._WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS + 10) is True
 
-    assert m._command_needs_default_keys("run") is True or m._command_needs_default_keys("view") in (True, False)
-    assert m._command_needs_default_keys("help") is False or True
+    assert m._command_needs_default_keys("run") is True
+    assert m._command_needs_default_keys("view") is False
+    assert m._command_needs_default_keys("help") is False
 
     # non-windows short-circuit
     monkeypatch.setattr("sys.platform", "linux")
@@ -182,7 +183,9 @@ def test_view_resolve_and_print_hint(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     epi = _make_mini_epi(tmp_path)
     assert v._resolve_epi_file(str(epi)) == epi
-    assert v._resolve_epi_file(epi.name) == epi.resolve() or True
+    bare = v._resolve_epi_file(epi.name)
+    assert bare.name == epi.name
+    assert bare.exists()
 
     rec = tmp_path / "epi-recordings"
     rec.mkdir()
@@ -212,7 +215,8 @@ def test_view_temp_and_cache_dirs(tmp_path, monkeypatch):
     assert "view-cache" in str(cache) or cache.exists()
 
     td = v._make_temp_dir()
-    assert td is None or td.exists() or True
+    assert td is not None
+    assert td.exists()
 
     root = v._repo_root()
     assert root.exists()
@@ -264,12 +268,8 @@ def test_view_build_context_and_tsr(tmp_path):
     from epi_cli import view as v
 
     epi = _sample_epi()
-    try:
-        ctx = v._build_viewer_context(epi)
-        assert isinstance(ctx, dict)
-    except Exception:
-        # unsigned/minimal may still return
-        pass
+    ctx = v._build_viewer_context(epi)
+    assert isinstance(ctx, dict)
 
     # TSR missing
     assert v._extract_tsr_gen_time(tmp_path / "no.tsr") is None
@@ -343,13 +343,8 @@ def test_view_preloaded_payload_helpers(tmp_path):
     (d / "manifest.json").write_text("{}", encoding="utf-8")
     (d / "steps.jsonl").write_text('{"index":0,"kind":"test","content":{}}\n', encoding="utf-8")
     epi = _make_mini_epi(tmp_path)
-    try:
-        payload = v._build_preloaded_case_payload(d, epi)
-        assert isinstance(payload, dict)
-    except Exception:
-        pass
-    try:
-        path = v._create_decision_ops_viewer(d, epi)
-        assert path is None or isinstance(path, str) or True
-    except Exception:
-        pass
+    payload = v._build_preloaded_case_payload(d, epi)
+    assert isinstance(payload, dict)
+    html = v._create_decision_ops_viewer(d, epi)
+    assert isinstance(html, str)
+    assert html

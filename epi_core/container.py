@@ -80,7 +80,7 @@ EPI_ZIP_MARKER = b"\n<!-- EPI_ZIP_PAYLOAD_START -->\n"
 EPI_VIEWER_HASH_SIZE = 32
 EPI_RESERVED_TAIL_PADDING_SIZE = 24
 EPI_RESERVED_TAIL_SIZE = EPI_VIEWER_HASH_SIZE + EPI_RESERVED_TAIL_PADDING_SIZE  # 56
-VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n===============================\n\nArtifact UUID: %(filename)s\nStep Count:    %(steps_count)s\n\nVERIFY:\n  epi verify <this_file>.epi\n"""
+VERIFY_TXT_TEMPLATE = """EPI_FORENSIC_VERIFICATION_GUIDE\n===============================\n\nEPI Version:   %(epi_version)s\nArtifact UUID: %(filename)s\nStep Count:    %(steps_count)s\n\nVERIFY:\n  epi verify <this_file>.epi\n  python -m epi_cli verify <this_file>.epi   # if `epi` is not on PATH\n"""
 # Structure: Magic(4), Version(1), Format(1), Flags(2), Length(8), UUID(16), CreatedAtMicros(8), Hash(32), reserved_tail(56)
 _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 
@@ -188,6 +188,19 @@ def _verify_txt_fp(public_key_hex) -> str:
         return key_fingerprint(str(public_key_hex))
     except Exception:
         return "(unavailable)"
+
+
+def _sealing_epi_version(manifest) -> str:
+    """The EPI version that sealed this artifact — never a hardcoded string."""
+    version = getattr(manifest, "producer_version", None)
+    if version:
+        return str(version)
+    try:
+        from epi_core._version import get_version
+
+        return get_version()
+    except Exception:
+        return str(getattr(manifest, "spec_version", "") or "unknown")
 
 
 class EPIContainer:
@@ -332,9 +345,15 @@ class EPIContainer:
                 # we can't include its bytes here. The browser Sign & Seal
                 # flow receives it from the separate viewer generation step.
             },
+            # NOT a pass. The pack-time viewer has hashed nothing, and a copy
+            # opened by double-click is editable display data, so it must never
+            # paint a verdict it did not compute. The viewer shows "not verified
+            # here" (and points at epilabs.org/verify) until a byte-bound check
+            # — `epi view`'s injected context, or a live check against the
+            # archive — sets the real result.
             "integrity": {
-                "ok": True,
-                "checked": len(manifest.file_manifest) + (0 if "viewer.html" in manifest.file_manifest else 1),
+                "ok": None,
+                "checked": 0,
                 "mismatches": [],
             },
             "signature": {
@@ -937,8 +956,10 @@ class EPIContainer:
         generate_analysis: bool = True,
         embed_agt: bool = False,
         output_path: Path | str | None = None,
+        notarize: bool | None = None,
+        embed_viewer: bool = True,
         **kwargs,
-    ) -> str:
+    ) -> str | None:
         if not source_dir.exists():
             raise FileNotFoundError(f"Source directory not found: {source_dir}")
 
@@ -1012,6 +1033,46 @@ class EPIContainer:
                     analysis = analyzer.analyze(steps_content)
 
                     (source_dir / "analysis.json").write_text(analysis.to_json(), encoding="utf-8")
+
+                    # manifest.policy is the formal policy-evaluation record. It must be
+                    # populated whenever a policy was loaded and evaluated; previously it
+                    # was always null even with policy_load_status == "loaded". An absent
+                    # or failed policy correctly leaves it null.
+                    if policy is not None and policy_load_status == "loaded":
+                        try:
+                            from epi_core.policy import _slugify_policy_id
+                            from epi_core.schemas import PolicyModel
+
+                            eval_dict = analysis.to_policy_evaluation_dict() or {}
+                            results = eval_dict.get("results") or []
+                            failed = [r for r in results if r.get("status") == "failed"]
+                            only_low = bool(failed) and all(
+                                str(r.get("severity", "")).lower() in ("info", "low")
+                                for r in failed
+                            )
+                            if not failed:
+                                pol_status = "compliant"
+                            elif only_low:
+                                pol_status = "warning"
+                            else:
+                                pol_status = "violation"
+                            manifest.policy = PolicyModel(
+                                policy_id=policy.policy_id
+                                or _slugify_policy_id(policy.system_name),
+                                version=policy.policy_version,
+                                status=pol_status,
+                                rules=[r.id for r in policy.rules],
+                                violation_count=len(failed),
+                            )
+                        except Exception as exc:
+                            # Never silently leave policy=null while
+                            # policy_load_status == "loaded" — that is the exact
+                            # bug this block fixes. Fail the seal closed (the
+                            # outer handler re-raises PolicyLoadError).
+                            raise PolicyLoadError(
+                                "policy was loaded but its evaluation record could "
+                                f"not be built; refusing to seal ({exc})"
+                            ) from exc
 
                     if policy is not None:
                         (source_dir / "policy.json").write_text(
@@ -1283,9 +1344,14 @@ class EPIContainer:
             manifest = signer_function(manifest)
 
         # ── Notarization (Tier 1: RFC 3161, Tier 2: OpenTimestamps/Bitcoin) ──
-        notarize_enabled = os.environ.get("EPI_NOTARIZE", "1").strip().lower() not in (
-            "0", "false", "no", "off",
-        )
+        # ``notarize`` lets the caller defer stamping to a later pack: record()
+        # skips it on the unsigned first pack so the timestamp is taken once
+        # the signing key exists (see epi_recorder/api.py).
+        if notarize is None:
+            notarize = os.environ.get("EPI_NOTARIZE", "1").strip().lower() not in (
+                "0", "false", "no", "off",
+            )
+        notarize_enabled = notarize
         notarization_result = None
         if notarize_enabled:
             try:
@@ -1318,10 +1384,11 @@ class EPIContainer:
                     # holds exactly the payload files (notarization members,
                     # VERIFY.txt and viewer.html are added afterwards), which
                     # is precisely the set the verifier filters down to.
-                    # public_key is None on unsigned first packs (record()
-                    # signs on repack with EPI_NOTARIZE=0); the value used is
-                    # stored in notarization.json so the verifier recomputes
-                    # with the identical input.
+                    # The sealing key is imprinted when it exists: record()
+                    # defers notarization to the signed repack, so
+                    # public_key here is the key the verifier will compare
+                    # against. The value used is stored in notarization.json
+                    # so the verifier recomputes with the identical input.
                     _imprint = compute_seal_imprint(
                         str(manifest.workflow_id),
                         manifest.created_at.isoformat(),
@@ -1370,9 +1437,13 @@ class EPIContainer:
         # so the archive cannot contain duplicate VERIFY.txt members.
         gov_info_post = manifest.governance or {}
         did_line = f"DID:           {gov_info_post.get('did')}\n" if gov_info_post.get("did") else ""
+        # The *sealing* EPI version — not a stale/hardcoded string.
+        verify_epi_version = _sealing_epi_version(manifest)
         verify_txt.write_text(
             f"EPI_FORENSIC_VERIFICATION_GUIDE\n"
             f"===============================\n\n"
+            f"EPI Version:   {verify_epi_version}\n"
+            f"Spec Version:  {manifest.spec_version}\n"
             f"Artifact UUID: {manifest.workflow_id}\n"
             f"Created At:    {manifest.created_at.isoformat()}\n"
             f"System:        {sys_name} v{sys_ver}\n"
@@ -1383,7 +1454,9 @@ class EPIContainer:
             f"3. Public Key (Raw Hex): {manifest.public_key or '(unsigned)'}\n"
             f"   Key Fingerprint:      {_verify_txt_fp(manifest.public_key)}\n\n"
             f"COMMAND LINE:\n"
-            f"  python -m epi_cli verify <this_file>.epi\n\n"
+            f"  epi verify <this_file>.epi\n"
+            f"  python -m epi_cli verify <this_file>.epi   # if `epi` is not on PATH\n"
+            f"  (sealed by epi-recorder {verify_epi_version}; spec {manifest.spec_version})\n\n"
             f"TRUST MODEL:\n"
             f"  Trust `epi verify` (CLI / machine-readable report), not the colors or\n"
             f"  labels painted by the double-click embedded HTML viewer alone.\n"
@@ -1424,9 +1497,11 @@ class EPIContainer:
 
         # Prefer the real filename for the Verify command; fall back to workflow_name for legacy callers
         _output_for_viewer = output_path if output_path is not None else kwargs.get("output_path")
-        viewer_html = EPIContainer._create_embedded_viewer(
-            source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header, output_path=_output_for_viewer
-        )
+        viewer_html: str | None = None
+        if embed_viewer:
+            viewer_html = EPIContainer._create_embedded_viewer(
+                source_dir, manifest, viewer_version=viewer_version, envelope_header=temp_header, output_path=_output_for_viewer
+            )
 
         with zipfile.ZipFile(payload_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("mimetype", EPI_LEGACY_MIMETYPE, compress_type=zipfile.ZIP_STORED)
@@ -1436,12 +1511,14 @@ class EPIContainer:
                     continue
                 zf.write(file_path, arc_name, compress_type=zipfile.ZIP_DEFLATED)
 
-            viewer_html_bytes = viewer_html.encode("utf-8")
-            zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
+            if viewer_html is not None:
+                viewer_html_bytes = viewer_html.encode("utf-8")
+                zf.writestr("viewer.html", viewer_html_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-            # Include viewer.html in the cryptographic file_manifest so that a
-            # visual-deception attack (swapping the UI layer) is detectable.
-            manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+                # Include viewer.html in the cryptographic file_manifest so that a
+                # visual-deception attack (swapping the UI layer) is detectable.
+                manifest.file_manifest["viewer.html"] = hashlib.sha256(viewer_html_bytes).hexdigest()
+
             # Recompute payload_hash now that file_manifest is final (was stale after viewer/VERIFY/notarization)
             _manifest_canon_final = json.dumps(
                 dict(sorted(manifest.file_manifest.items())), ensure_ascii=False, separators=(",", ":")
@@ -1452,7 +1529,7 @@ class EPIContainer:
 
             zf.writestr("VERIFY.txt", verify_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-            # Re-sign one final time because viewer.html hash was just added.
+            # Re-sign one final time because the viewer hash / payload_hash changed.
             if signer_function:
                 manifest = signer_function(manifest)
 
@@ -1654,10 +1731,20 @@ class EPIContainer:
         container_format: str = EPI_CONTAINER_FORMAT_ENVELOPE,
         generate_analysis: bool = True,
         embed_agt: bool = False,
+        notarize: bool | None = None,
+        embed_viewer: bool = True,
         **kwargs,
     ) -> None:
         """
         Create a `.epi` file from a source directory.
+
+        ``notarize=None`` follows EPI_NOTARIZE; ``notarize=False`` seals
+        without a timestamp (used when an unsigned pack will be replaced by a
+        signed repack that takes the timestamp with the signing key).
+
+        Set ``embed_viewer=False`` to seal a small, data-only artifact (no
+        embedded ``viewer.html`` and no outer polyglot HTML). Data-only files
+        still open in the local viewer via ``epi view`` and verify identically.
         """
         with _zip_pack_lock:
             # New seals assert full step payloads. Viewer previews may still truncate.
@@ -1689,6 +1776,8 @@ class EPIContainer:
                     generate_analysis=generate_analysis,
                     embed_agt=embed_agt,
                     output_path=output_path,
+                    notarize=notarize,
+                    embed_viewer=embed_viewer,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
@@ -1773,6 +1862,7 @@ class EPIContainer:
                     VERIFY_TXT_TEMPLATE % {
                         "filename": manifest.workflow_id or "unknown",
                         "steps_count": len(manifest.file_manifest),
+                        "epi_version": _sealing_epi_version(manifest),
                     },
                     compress_type=zipfile.ZIP_DEFLATED,
                 )
@@ -1785,6 +1875,7 @@ class EPIContainer:
         output_path: Path | None = None,
         signer_function: Callable[[ManifestModel], ManifestModel] | None = None,
         clear_signature: bool = False,
+        with_viewer: bool | None = None,
     ) -> Path:
         source_path = Path(epi_path)
         if not source_path.exists():
@@ -1809,10 +1900,12 @@ class EPIContainer:
         temp_output = temp_dir / "refreshed.epi"
 
         try:
+            payload_members: set[str] = set()
             with EPIContainer._payload_zip_path(source_path) as payload_zip:
                 with zipfile.ZipFile(payload_zip, "r") as zf:
                     resolved_unpack = unpack_dir.resolve()
                     for member in zf.infolist():
+                        payload_members.add(member.filename)
                         member_path = (unpack_dir / member.filename).resolve()
                         try:
                             member_path.relative_to(resolved_unpack)
@@ -1822,6 +1915,22 @@ class EPIContainer:
                             )
                         zf.extract(member, unpack_dir)
 
+            has_viewer = "viewer.html" in payload_members
+            if not has_viewer and not with_viewer:
+                raise ValueError(
+                    "This .epi is data-only (no embedded viewer.html). Pass "
+                    "--with-viewer to add a self-opening viewer, or re-seal the "
+                    "run with --with-viewer to produce one."
+                )
+
+            # Adding a viewer to a data-only artifact yields the self-opening
+            # envelope-v2 shell; viewer-bearing artifacts keep their format.
+            target_format = (
+                EPI_CONTAINER_FORMAT_ENVELOPE
+                if (with_viewer and not has_viewer)
+                else container_format
+            )
+
             viewer_html = EPIContainer._rebuild_payload_with_viewer(
                 unpack_dir, manifest, temp_payload, signer_function=signer_function,
                 output_path=destination,
@@ -1830,7 +1939,7 @@ class EPIContainer:
             EPIContainer._write_artifact_from_payload(
                 temp_payload,
                 temp_output,
-                container_format=container_format,
+                container_format=target_format,
                 manifest=manifest,
                 viewer_html=viewer_html,
             )

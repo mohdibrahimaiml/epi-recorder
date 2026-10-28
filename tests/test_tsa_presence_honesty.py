@@ -28,7 +28,9 @@ def test_viewer_does_not_claim_timestamped():
 
 def test_cli_validates_new_scheme_tokens():
     text = (ROOT / "epi_cli" / "verify.py").read_text(encoding="utf-8")
-    assert "VERIFIED — existed no later than" in text
+    assert "sealed by key" in text
+    assert "no later than" in text
+    assert "CONTENTS-ONLY" in text
     assert "imprint_mismatch" in text
     assert "timestamp_verified" in text
     assert "legacy token" in text

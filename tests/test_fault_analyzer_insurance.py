@@ -35,6 +35,14 @@ def test_insurance_claim_workflow_produces_no_false_positive_findings(tmp_path, 
     result = FaultAnalyzer(policy=policy).analyze(steps_jsonl)
     analysis_payload = result.to_dict()
     all_findings = ([analysis_payload["primary_fault"]] if analysis_payload.get("primary_fault") else []) + analysis_payload["secondary_flags"]
-    heuristic_findings = [item for item in all_findings if item.get("category") == "heuristic_observation"]
+    # P6b is an informational note about which approval source was used (a
+    # gateway click is not a signed approval). It is low severity, never a fault,
+    # and true of this example, so the false-positive guard ignores it; every
+    # other heuristic observation still fails here.
+    heuristic_findings = [
+        item
+        for item in all_findings
+        if item.get("category") == "heuristic_observation" and item.get("rule_id") != "P6b"
+    ]
 
     assert heuristic_findings == [], f"False positive findings: {heuristic_findings}"

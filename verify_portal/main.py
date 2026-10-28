@@ -46,6 +46,7 @@ from epi_core.telemetry import (
     validate_pilot_signup_payload,
 )
 from verify_portal import auth as auth_module
+from verify_portal import contact_store
 from verify_portal import telemetry_metrics
 from verify_portal.scitt_routes import router as scitt_router
 from verify_portal.share_routes import router as share_router
@@ -81,6 +82,10 @@ async def _lifespan(app: FastAPI):
     _sync_website_static()
     storage_dir = Path(os.environ.get("EPI_STORAGE_DIR", "./data"))
     auth_module.init_auth_for_app(storage_dir)
+    try:
+        contact_store.init_contact_table()
+    except Exception as exc:  # never block startup on the contact table
+        print(f"[epi] contact store init skipped: {exc}")
     purge_expired_shares()
     _start_share_purge_thread()
     yield
@@ -1392,12 +1397,23 @@ async def submit_contact(request: Request):
     if smtp_host:
         _send_contact_email(submission)
 
-    log_dir = Path("contact_submissions")
-    log_dir.mkdir(exist_ok=True)
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    safe = submission.name.replace(" ", "_")
-    log_file = log_dir / f"{ts}_{safe}.json"
-    log_file.write_text(submission.model_dump_json(indent=2), encoding="utf-8")
+    # Durable first: Turso when configured, else local SQLite. The disk
+    # fallback below only runs if the DB write fails, so a Render restart
+    # cannot silently drop a lead.
+    stored = False
+    try:
+        contact_store.save_submission(submission)
+        stored = True
+    except Exception as exc:
+        print(f"[epi] contact store write failed: {exc}")
+
+    if not stored:
+        log_dir = Path("contact_submissions")
+        log_dir.mkdir(exist_ok=True)
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        safe = submission.name.replace(" ", "_")
+        log_file = log_dir / f"{ts}_{safe}.json"
+        log_file.write_text(submission.model_dump_json(indent=2), encoding="utf-8")
 
     return {
         "status": "ok",

@@ -164,7 +164,11 @@ class AutoSCITTAnchor:
 
         # Build updated manifest
         manifest_dict = manifest.model_dump(mode="json")
-        manifest_dict.setdefault("governance", {})
+        # model_dump always includes "governance"; a default record() artifact
+        # carries None, so setdefault() would leave it as None and the item
+        # assignment below would raise TypeError.
+        if not manifest_dict.get("governance"):
+            manifest_dict["governance"] = {}
         manifest_dict["governance"]["scitt"] = scitt_gov
 
         updated_manifest = ManifestModel(**manifest_dict)

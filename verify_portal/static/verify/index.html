@@ -1,130 +1,182 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Verify a .epi file — EPI Labs</title>
-<meta name="description" content="Verify a sealed .epi evidence file in your browser. Private check: the file never leaves this tab. Offline-verifiable, Ed25519 + SHA-256.">
-<link rel="canonical" href="https://epilabs.org/verify/">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
-<style>
-  .mode-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
-  .mode-btn{flex:1;min-width:220px;text-align:left;background:var(--bg-3);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:var(--body);font-size:.86rem;line-height:1.5;transition:.2s}
-  .mode-btn b{display:block;color:var(--ink);margin-bottom:3px}
-  .mode-btn:hover{border-color:var(--acc-line)}
-  .mode-btn.active{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
-  .note{max-width:940px;margin:22px auto 0;padding:16px 20px;border:1px solid var(--line);border-left:2px solid var(--acc);border-radius:9px;background:var(--bg-3);font-size:.85rem;color:var(--mut);line-height:1.7}
-  .note strong{color:var(--ink)}
-  .note code{font-family:var(--mono);font-size:.78rem;background:var(--well);color:#D8DCE3;padding:2px 7px;border-radius:4px;border:1px solid var(--line)}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify a .epi file | EPI Labs</title>
+  <meta name="description" content="Verify a sealed .epi evidence file in your browser via WebCrypto (Ed25519 + SHA-256). Private check: your file never leaves this tab.">
+  <link rel="canonical" href="https://epilabs.org/verify/">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to verify</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/how-it-works">How it works</a></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/enterprise">Enterprise</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <a href="/how-it-works">How it works</a>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/enterprise">Enterprise</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<main id="main">
-<section style="padding:calc(var(--navh) + 56px) 0 40px">
-  <div class="wrap" style="text-align:center">
-    <span class="tag" style="justify-content:center">Verify · private by default</span>
-    <h1 class="d2x">Check a .epi file</h1>
-    <p class="lede" style="margin:16px auto 0">Yes — this page loads over the internet (like any website). That is not the choice.
-    The only choice is: <strong style="color:var(--ink)">does your .epi file get uploaded to EPI, or not?</strong></p>
-  </div>
-</section>
-
-<section style="padding:0 0 80px">
-  <div class="wrap">
-    <div class="inst in" data-aos="fade-up">
-      <div class="inst-top"><span class="inst-title">epi verify — browser engine</span><span class="vpill pass" id="enginePill" style="display:none">Ready</span></div>
-      <div style="padding:22px 24px">
-        <div class="mode-row" id="modeRow">
-          <button type="button" class="mode-btn active" data-mode="private"><b>Private check — recommended</b>Page online, <strong>file stays here</strong> (not uploaded). No account needed.</button>
-        </div>
-        <div class="inst-grid" style="padding:6px 0 0">
-          <div class="drop" id="dropZoneEl" role="button" tabindex="0" aria-label="Drop or choose a .epi file to verify offline">
-            <h3>Drop .epi file here</h3>
-            <p>or click to browse · file will not be uploaded</p>
-            <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
-            <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
-          </div>
-          <div class="checks">
-            <div class="chk" id="chk1"><span class="cd"></span> 01 · Structure</div>
-            <div class="chk" id="chk2"><span class="cd"></span> 02 · File hashes</div>
-            <div class="chk" id="chk3"><span class="cd"></span> 03 · Signature</div>
-            <div class="chk" id="chk4"><span class="cd"></span> 04 · Step chain</div>
-            <div class="chk" id="chk5"><span class="cd"></span> 05 · Identity (browser)</div>
-            <div class="chk" id="chk6"><span class="cd"></span> 06 · Full audit → CLI</div>
-          </div>
-        </div>
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <a href="/how-it-works" class="z-nav__link">Architecture</a>
+        <a href="/verify/" class="z-nav__link" aria-current="page">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
       </div>
     </div>
-    <div class="note">
-      <strong>Truly offline</strong> (no website at all): install the CLI and run <code>epi verify file.epi</code> on your PC.
-      &nbsp;·&nbsp; <a href="/assets/sample.epi" download style="color:var(--acc);font-weight:600">Download sample.epi</a>
-      <br><br>
-      Amber <strong>SEAL VALID · IDENTITY NOT PINNED</strong> means the seal passed (integrity + signature) and the signer is not on a trust list in this tab. That is correct for an unpinned key — not a failed verification. Claim-ready identity is a separate check (CLI: <code>epi keys trust</code> + <code>epi verify --policy strict</code>).
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <a href="/how-it-works">Architecture</a>
+    <a href="/verify/" style="color:var(--foreground)">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing &amp; Design Partners</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="verify-page-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <div class="z-eyebrow">
+              <span class="z-eyebrow__dot" aria-hidden="true"></span>
+              <span>Private Browser Verifier · Zero Upload</span>
+            </div>
+            <h1 id="verify-page-heading" class="z-h1" style="margin-top:1rem">
+              Check a <span style="color:var(--acc-envelope)">.epi</span> evidence file.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
+              This page loads over the internet, but your <code style="font-family:var(--font-mono)">.epi</code> file stays inside this browser tab. All container extraction, SHA-256 member hashing, step-chain checks, and Ed25519 signature verification run locally via WebCrypto.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <p style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--text-muted)">
+              No .epi file on your device yet?
+            </p>
+            <p class="z-body" style="margin-top:0.5rem">
+              Load our sealed <code style="font-family:var(--font-mono)">sample.epi</code> into the verifier. Once a file is loaded (yours or the sample), the Tamper Lab below unlocks so you can test flipping 1 byte in memory.
+            </p>
+            <div style="margin-top:1.25rem">
+              <button type="button" id="loadSampleValidBtn" class="z-btn-primary" style="padding:0.65rem 1.25rem;font-size:0.8125rem">
+                Load demo sample.epi
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="z-verifier-grid">
+          <div class="z-drop-cell">
+            <div class="drop" id="dropZoneEl" role="button" tabindex="0" aria-label="Drop or choose a .epi file to verify offline">
+              <svg style="width:2.25rem;height:2.25rem;margin:0 auto 0.75rem;color:var(--acc-envelope)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <h3>Drop .epi file here</h3>
+              <p>or click to browse · file will not be uploaded · <a href="/assets/sample.epi" download style="color:var(--acc-envelope);text-decoration:underline">download sample.epi</a></p>
+              <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
+              <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
+            </div>
+
+            <!-- Post-Upload Tamper Lab (Hidden until a file is uploaded or loaded!) -->
+            <div id="tamperLabBar" class="z-tamper-lab" role="region" aria-label="Tamper simulation lab for loaded file">
+              <div class="z-tamper-lab__head">
+                <span>LOADED FILE: <strong id="tamperFileName" style="color:var(--foreground)">—</strong></span>
+                <span style="color:var(--text-muted)">Interactive Tamper Test</span>
+              </div>
+              <p style="margin-top:0.35rem;color:var(--text-body);font-family:var(--font-sans);font-size:0.8125rem">
+                Want to verify that a single modified byte breaks the seal? Flip 1 byte in this loaded file in memory and re-run WebCrypto:
+              </p>
+              <div class="z-tamper-lab__actions">
+                <button type="button" id="tamperLoadedFileBtn" class="z-tamper-lab__btn">
+                  Flip 1 Byte in This File &amp; Re-Verify
+                </button>
+                <button type="button" id="restoreLoadedFileBtn" class="z-tamper-lab__btn z-tamper-lab__btn--restore" style="display:none">
+                  Restore Original Unmodified File
+                </button>
+              </div>
+              <p id="tamperLabStatus" style="display:none;margin-top:0.6rem;font-size:0.72rem;line-height:1.5"></p>
+            </div>
+          </div>
+
+          <div class="z-checks-cell">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted)">
+              <span>6-STAGE CRYPTOGRAPHIC AUDIT</span>
+              <span id="enginePill" style="color:var(--acc-envelope)">WebCrypto Ready</span>
+            </div>
+            <div class="checks">
+              <div class="chk" id="chk1"><span class="cd"></span> 01 · Structure</div>
+              <div class="chk" id="chk2"><span class="cd"></span> 02 · File hashes</div>
+              <div class="chk" id="chk3"><span class="cd"></span> 03 · Signature</div>
+              <div class="chk" id="chk4"><span class="cd"></span> 04 · Step chain</div>
+              <div class="chk" id="chk5"><span class="cd"></span> 05 · Identity (browser)</div>
+              <div class="chk" id="chk6"><span class="cd"></span> 06 · Full audit &rarr; CLI</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="z-tri-grid">
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0">Why Amber is Normal</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">SEAL VALID · IDENTITY NOT PINNED</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              A browser tab does not hold your organization’s pinned trust store. Amber means the SHA-256 hashes and Ed25519 signature passed, and tells you to confirm the signer’s key fingerprint out of band.
+            </p>
+          </div>
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0">Claim-Ready Strict Mode</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Pin &amp; Verify on the CLI</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              Run <code style="font-family:var(--font-mono);color:var(--text-secondary)">epi keys trust sender.pub --name vendor</code> and <code style="font-family:var(--font-mono);color:var(--text-secondary)">epi verify file.epi --policy strict</code> for air-gapped, exit-code-enforced verification.
+            </p>
+          </div>
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0">Outer Polyglot Protection</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Display Layer Covered</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              Envelope v2 covers both the inner ZIP members and the outer embedded HTML viewer (<code style="font-family:var(--font-mono);color:var(--text-secondary)">reserved_tail[0:32]</code>). Flipping a byte in either layer fails closed.
+            </p>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
-  </div>
-</section>
-</main>
+  </main>
 
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.6.3</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.7.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
-</footer>
 
-<script src="/js/jszip.min.js?v=32"></script>
-<script src="/js/epi-manifest-preimage.js?v=38"></script>
-<script src="/js/epi-verify-core.js?v=39"></script>
-<script src="/js/home-verify.js?v=39"></script>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+  <script src="/js/jszip.min.js"></script>
+  <script src="/js/epi-manifest-preimage.js"></script>
+  <script src="/js/epi-verify-core.js"></script>
+  <script src="/js/home-verify.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>

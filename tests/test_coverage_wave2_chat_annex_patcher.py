@@ -343,8 +343,10 @@ def test_annex_helpers():
         "signature": "outer",
     }
     c = _canon(data)
-    assert "signature" not in json.loads(c).get("approval", {}) or True
-    assert "outer" not in c or "signature" not in c
+    parsed = json.loads(c)
+    assert "signature" not in parsed["approval"]
+    assert "signature" not in parsed
+    assert "outer" not in c
 
 
 def test_annex_multi_sign_rbac_block(tmp_path, monkeypatch):

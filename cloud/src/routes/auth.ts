@@ -132,6 +132,7 @@ app.get("/github", async (c) => {
   url.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID);
   url.searchParams.set("state", `${state}.${sig}`);
   url.searchParams.set("scope", "read:user user:email");
+  url.searchParams.set("redirect_uri", `${c.env.APP_ORIGIN}/auth/github/callback`);
   const headers = new Headers({ Location: url.toString() });
   headers.append("Set-Cookie", stateCookie("epi_oauth_state", state, 600));
   const next = safeNext(c.req.query("next"));

@@ -307,7 +307,7 @@ def test_runtime_policy_engine_all_evaluators(tmp_path):
     assert eng._extract_numeric({"amount": 3}, "amount") == 3.0
     assert eng._extract_numeric({"amount": "4.5"}, "amount") == 4.5
     assert eng._extract_numeric({"x": {"amount": 7}}, "amount") == 7.0
-    assert eng._extract_numeric({"x": [{"amount": "bad"}]}, "amount") is None or True
+    assert eng._extract_numeric({"x": [{"amount": "bad"}]}, "amount") is None
     assert eng._extract_numeric({"z": 1}, "amount") is None
 
     # applies_at string form
@@ -428,7 +428,7 @@ async def test_approval_gate_full_flow(monkeypatch):
         requested_at=0,
         timeout_seconds=1,
     )
-    assert t.is_expired is False or True  # status not pending after? status pending, old time
+    assert t.is_expired is True  # requested_at=0, pending, timeout=1s → expired
     t.requested_at = 0.0
     assert t.is_expired is True
     t.status = "approved"
@@ -443,12 +443,13 @@ async def test_approval_gate_full_flow(monkeypatch):
     monkeypatch.setenv("EPI_AUTO_APPROVE", "1")
     seen = []
     gate.set_on_request(lambda ticket: seen.append(ticket.ticket_id))
+    assert await gate.request("act", reason="r") is True
+    assert len(seen) == 1
     # broken callback must not raise
     gate2 = ApprovalGate()
     gate2.set_on_request(lambda ticket: (_ for _ in ()).throw(RuntimeError("x")))
     ok = await gate2.request("act", reason="r", context={"a": 1})
     assert ok is True
-    assert seen or True
 
     monkeypatch.setenv("EPI_AUTO_APPROVE", "0")
     gate3 = ApprovalGate(default_timeout=1, auto_approve_after_timeout=True)

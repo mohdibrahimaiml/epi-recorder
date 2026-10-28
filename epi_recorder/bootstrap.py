@@ -139,9 +139,15 @@ def _finalize_bootstrap_recording() -> None:
             _restore_stdio_capture()
             context.finalize()
             set_recording_context(None)
-    except Exception:
-        # Never fail process shutdown because of cleanup.
-        pass
+    except Exception as exc:
+        # Never fail process shutdown — but never swallow silently either: a
+        # finalize failure can mean steps were not flushed before sealing.
+        import sys as _sys
+
+        print(
+            f"[EPI] Warning: bootstrap recording finalize failed: {exc}",
+            file=_sys.stderr,
+        )
 
 
 def initialize_recording():

@@ -67,6 +67,9 @@ def derived_signing_key(key_name: str):
 def _server_private_key():
     km = _key_manager()
     if not km.has_key(_SERVER_KEY_NAME):
+        from epi_core.keys import reject_auto_key_generation
+
+        reject_auto_key_generation(_SERVER_KEY_NAME)
         km.generate_keypair(_SERVER_KEY_NAME)
     return km.load_private_key(_SERVER_KEY_NAME), km
 
@@ -328,6 +331,9 @@ def seal_record(
     if private_key is None:
         km = _key_manager()
         if not km.has_key(key_name):
+            from epi_core.keys import reject_auto_key_generation
+
+            reject_auto_key_generation(key_name)
             km.generate_keypair(key_name)
         private_key = km.load_private_key(key_name)
 

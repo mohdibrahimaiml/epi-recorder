@@ -1,4 +1,5 @@
 import collections
+import html
 import logging
 import json
 import os
@@ -18,6 +19,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.background import BackgroundTask
 
 from epi_core import __version__
+from epi_core.approval_links import (
+    APPROVAL_LINK_AUTHENTICATED_SOURCE,
+    APPROVAL_LINK_SOURCE,
+    CLIENT_APPROVAL_SOURCE,
+    GATEWAY_ONLY_APPROVAL_SOURCES,
+    UNVERIFIED_REVIEWER,
+)
 from epi_core.auth_local import load_auth_users, normalize_role
 from epi_core.capture import CAPTURE_SPEC_VERSION, CaptureEventModel
 from epi_core.connectors import fetch_live_record
@@ -120,6 +128,7 @@ class GatewayRuntimeSettings(BaseModel):
     approval_webhook_url: str | None = None
     approval_webhook_secret: str | None = None
     approval_webhook_timeout_seconds: int = 10
+    approval_link_ttl_hours: float = 72.0  # EPI_APPROVAL_LINK_TTL_HOURS
     did_web: str | None = None
     witness_url: str | None = None
     witness_secret: str | None = None
@@ -171,6 +180,8 @@ class GatewayRuntimeSettings(BaseModel):
             )
         if self.approval_webhook_timeout_seconds < 1:
             raise ValueError("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS must be at least 1")
+        if self.approval_link_ttl_hours <= 0:
+            raise ValueError("EPI_APPROVAL_LINK_TTL_HOURS must be greater than 0")
         if self.smtp_port < 1:
             raise ValueError("EPI_SMTP_PORT must be at least 1")
         self.access_token = _clean(self.access_token)
@@ -356,6 +367,7 @@ def _build_settings_from_env() -> GatewayRuntimeSettings:
         approval_webhook_url=os.getenv("EPI_APPROVAL_WEBHOOK_URL"),
         approval_webhook_secret=os.getenv("EPI_APPROVAL_WEBHOOK_SECRET"),
         approval_webhook_timeout_seconds=int(os.getenv("EPI_APPROVAL_WEBHOOK_TIMEOUT_SECONDS", "10")),
+        approval_link_ttl_hours=float(os.getenv("EPI_APPROVAL_LINK_TTL_HOURS", "72")),
         # Identity + customer witness: gateway-specific env (set by
         # `epi gateway serve --did/--witness-url/--witness-secret`) wins,
         # then the same EPI_DID / EPI_WITNESS_* env the SDK record() reads.
@@ -424,12 +436,26 @@ def _spawn_background_task(func: Any, *args: Any, task_name: str | None = None, 
     thread.start()
 
 
-def _build_approval_action_urls(settings: GatewayRuntimeSettings, workflow_id: str, approval_id: str) -> tuple[str, str]:
+def _build_approval_action_urls(
+    settings: GatewayRuntimeSettings,
+    workflow_id: str,
+    approval_id: str,
+    token: str,
+) -> tuple[str, str]:
+    """The emailed links. They open the confirmation page; only its POST records.
+
+    ``token`` is single-use and bound to this workflow + approval. It is put in
+    the URL so the *page* can prove the link was issued for this approval; the
+    POST sends it in the body as the CSRF token.
+    """
     workflow_token = urllib.parse.quote(str(workflow_id), safe="")
     approval_token = urllib.parse.quote(str(approval_id), safe="")
-    approve_url = f"{settings.approval_base_url}/api/approve/{workflow_token}/{approval_token}?decision=approve"
-    deny_url = f"{settings.approval_base_url}/api/approve/{workflow_token}/{approval_token}?decision=deny"
-    return approve_url, deny_url
+    link_token = urllib.parse.quote(str(token), safe="")
+    base = (
+        f"{settings.approval_base_url}/api/approve/{workflow_token}/{approval_token}"
+        f"?token={link_token}"
+    )
+    return f"{base}&decision=approve", f"{base}&decision=deny"
 
 
 def _dispatch_approval_request_notifications(
@@ -447,7 +473,19 @@ def _dispatch_approval_request_notifications(
         return
 
     content = dict(event.content or {})
-    approval_id = _first_nonempty(content.get("approval_id"), content.get("action"), event.event_id)
+    explicit_approval_id = _clean(content.get("approval_id"))
+    if explicit_approval_id:
+        approval_id = explicit_approval_id
+    else:
+        # Never address a request by its action name: two requests with the same
+        # action in one workflow would share an approval_id — and therefore one
+        # token, so approving one would mark both.
+        approval_id = str(event.event_id)
+        logger.warning(
+            "Approval request %s has no approval_id; addressing it by event id %s",
+            event.event_id,
+            approval_id,
+        )
     action = _first_nonempty(content.get("action"), approval_id) or "review"
     requested_from = _first_nonempty(
         content.get("requested_from"),
@@ -456,7 +494,24 @@ def _dispatch_approval_request_notifications(
         content.get("reviewer_email"),
     )
     case_id = _first_nonempty(event.case_id, worker.find_case_id_for_workflow(workflow_id))
-    approve_url, deny_url = _build_approval_action_urls(settings, workflow_id, approval_id)
+    try:
+        link_token = worker.create_approval_link(
+            workflow_id,
+            approval_id,
+            ttl_hours=settings.approval_link_ttl_hours,
+            issued_by="gateway",
+        )
+    except Exception:
+        # Without a token the link would be refused, so do not send a dead one.
+        logger.exception(
+            "Could not issue an approval link for %s/%s; no notification sent",
+            workflow_id,
+            approval_id,
+        )
+        return
+    approve_url, deny_url = _build_approval_action_urls(
+        settings, workflow_id, approval_id, link_token
+    )
     case_url = (
         f"{settings.approval_base_url}/api/cases/{urllib.parse.quote(case_id, safe='')}"
         if case_id
@@ -515,6 +570,11 @@ def _build_post_persist_hook(settings: GatewayRuntimeSettings):
             _dispatch_approval_request_notifications(event, worker=worker, settings=settings)
 
     return _hook
+
+
+#: Cap on approval-link attempts per client IP per minute. The links are
+#: auth-exempt by design, so this is the only brake on guessing.
+_APPROVAL_LINK_MAX_ATTEMPTS_PER_MINUTE = 60
 
 
 class _SlidingWindowRateLimiter:
@@ -686,21 +746,18 @@ def _split_witness_urls(value: str | None) -> list[str]:
     return split_witness_urls(value)
 
 
-def _gateway_witness_key_bytes() -> bytes | None:
-    """Gateway signing key (raw) for the witness seal signature. Best-effort: None when unsigned."""
-    try:
-        from cryptography.hazmat.primitives import serialization
+def _gateway_witness_signer():
+    """Gateway signing key (file key or HSM/KMS signer) for the witness seal signature.
 
+    Best-effort: None when unsigned.
+    """
+    try:
         key_name = os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default")
         keys_dir = _clean(os.getenv("EPI_GATEWAY_KEYS_DIR"))
         manager = KeyManager(Path(keys_dir) if keys_dir else None)
         if not manager.has_key(key_name):
             return None
-        return manager.load_private_key(key_name).private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
+        return manager.load_private_key(key_name)
     except Exception:
         return None
 
@@ -884,6 +941,38 @@ def _log_capture_result(route_name: str, request: LLMCaptureRequest, events: lis
     )
 
 
+def _sanitize_client_approval_claims(event: dict) -> dict:
+    """Demote gateway-only approval labels written by a capture client.
+
+    ``approval_source`` is a plain string, so anything that records steps can
+    write it. Only the gateway's own approval route may label a decision; a
+    client claiming a gateway label is preserved as ``claimed_approval_source``
+    so the analysis can say "the client claimed X; the gateway did not accept
+    it". This runs at the HTTP capture boundary only — never in
+    ``store_items()``, which the approval route uses legitimately — so spool
+    replay cannot re-sanitise a gateway-written event.
+    """
+    content = event.get("content")
+    if not isinstance(content, dict):
+        return event
+
+    source = content.get("approval_source")
+    claims_source = isinstance(source, str) and source in GATEWAY_ONLY_APPROVAL_SOURCES
+    claims_verified = "reviewer_verified" in content
+    if not (claims_source or claims_verified):
+        return event
+
+    sanitized = dict(event)
+    new_content = dict(content)
+    if claims_source:
+        new_content["claimed_approval_source"] = source
+        new_content["approval_source"] = CLIENT_APPROVAL_SOURCE
+    if claims_verified:
+        new_content["claimed_reviewer_verified"] = new_content.pop("reviewer_verified")
+    sanitized["content"] = new_content
+    return sanitized
+
+
 def _enqueue_llm_capture(
     worker: EvidenceWorker,
     request: LLMCaptureRequest,
@@ -922,7 +1011,7 @@ def _enqueue_llm_capture(
     except Exception:
         pass
     for item in events:
-        worker.enqueue(item)
+        worker.enqueue(_sanitize_client_approval_claims(item.model_dump(mode="json")))
     _log_capture_result(route_name, retained, events, settings.retention_mode)
     return events
 
@@ -1034,6 +1123,10 @@ def create_app(
         if runtime_settings.share_rate_limit_per_hour > 0
         else None
     )
+    # Approval links are auth-exempt by design, so cap attempts per client IP.
+    _approval_link_limiter = _build_rate_limiter(
+        _APPROVAL_LINK_MAX_ATTEMPTS_PER_MINUTE, 60.0, "approval-link", runtime_settings.redis_url
+    )
     _CAPTURE_PATHS = {"/capture", "/capture/batch", "/capture/llm", "/v1/chat/completions", "/v1/messages"}
     runtime_share_service = share_service or ShareService(
         enabled=runtime_settings.share_enabled,
@@ -1106,6 +1199,16 @@ def create_app(
                 return JSONResponse(
                     status_code=429,
                     content={"ok": False, "error": "Rate limit exceeded — too many capture requests"},
+                    headers={"Retry-After": "60"},
+                )
+
+        # ── Approval-link attempt limiting ────────────────────────────────────
+        if _approval_link_limiter is not None and request.url.path.startswith("/api/approve/"):
+            client_ip = (request.client.host if request.client else None) or "unknown"
+            if not _approval_link_limiter.is_allowed(client_ip):
+                return JSONResponse(
+                    status_code=429,
+                    content={"ok": False, "error": "Too many approval-link attempts"},
                     headers={"Retry-After": "60"},
                 )
 
@@ -1328,7 +1431,9 @@ def create_app(
     @app.post("/capture", status_code=202)
     async def capture_evidence(request: CaptureEventModel):
         try:
-            runtime_worker.enqueue(request.model_dump(mode="json"))
+            runtime_worker.enqueue(
+                _sanitize_client_approval_claims(request.model_dump(mode="json"))
+            )
             return {
                 "status": "accepted",
                 "message": "Evidence queued for persistence",
@@ -1344,7 +1449,9 @@ def create_app(
     async def capture_evidence_batch(request: CaptureBatchRequest):
         try:
             for item in request.items:
-                runtime_worker.enqueue(item.model_dump(mode="json"))
+                runtime_worker.enqueue(
+                    _sanitize_client_approval_claims(item.model_dump(mode="json"))
+                )
             return {
                 "status": "accepted",
                 "message": "Evidence batch queued for persistence",
@@ -1616,17 +1723,136 @@ def create_app(
             },
         )
 
-    @app.api_route("/api/approve/{workflow_id}/{approval_id}", methods=["GET", "POST"])
-    async def record_approval_decision(
+    # ── Approval link (step 3b) ───────────────────────────────────────────────
+    # A link is a single-use, expiring capability bound to one workflow +
+    # approval. GET only shows a confirmation page (mail scanners pre-open
+    # links); only the POST records, and only once. A missing, wrong, expired or
+    # reused token gets the same 403 body, so the endpoint cannot be used to
+    # probe which link exists.
+    _approval_link_refused_html = (
+        '<html><body style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;'
+        'margin:72px auto;padding:24px;color:#0f172a">'
+        "<h2>Link not valid</h2>"
+        "<p>This approval link is missing, expired, already used, or not for this workflow.</p>"
+        "<p>Ask the sender for a new approval request.</p>"
+        "</body></html>"
+    )
+    _signed_approval_command = (
+        "epi review <file.epi> approve --approval-id <id> --decision approve --as <name>"
+    )
+
+    # The token lives in the GET URL: keep these pages out of caches and Referer
+    # headers, and do not let them be framed.
+    _approval_page_headers = {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Frame-Options": "DENY",
+        "Content-Security-Policy": (
+            "default-src 'none'; style-src 'unsafe-inline'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        ),
+    }
+
+    def _approval_link_refused() -> HTMLResponse:
+        # One body for every refusal: the endpoint must not say which it was.
+        return HTMLResponse(
+            _approval_link_refused_html,
+            status_code=403,
+            headers=_approval_page_headers,
+        )
+
+    def _approval_reviewer(request: Request) -> tuple[str, bool]:
+        """Who clicked: the authenticated principal, else an honest 'not verified'."""
+        if runtime_settings.auth_required:
+            try:
+                principal = _build_auth_principal(request, runtime_settings, runtime_worker)
+            except Exception:
+                principal = None
+            if principal:
+                name = str(principal.get("display_name") or principal.get("username") or "").strip()
+                if name:
+                    return name, True
+        return UNVERIFIED_REVIEWER, False
+
+    def _approval_path(workflow_id: str, approval_id: str) -> str:
+        return (
+            f"/api/approve/{urllib.parse.quote(str(workflow_id), safe='')}/"
+            f"{urllib.parse.quote(str(approval_id), safe='')}"
+        )
+
+    @app.get("/api/approve/{workflow_id}/{approval_id}")
+    async def approval_confirmation_page(
         workflow_id: str,
         approval_id: str,
-        decision: str = Query(...),
-        reviewer: str = Query(default=""),
-        reason: str = Query(default=""),
+        token: str = Query(default=""),
+        decision: str = Query(default=""),
     ):
-        normalized_decision = str(decision or "").strip().lower()
+        """Show what a click would record. Records nothing and spends nothing."""
+        if runtime_worker.check_approval_link(workflow_id, approval_id, token) != "ok":
+            return _approval_link_refused()
+
+        approval_request = runtime_worker.find_approval_request(workflow_id, approval_id)
+        request_content = (approval_request or {}).get("content") or {}
+        action = _first_nonempty(request_content.get("action"), approval_id) or str(approval_id)
+        requested_reason = _clean(request_content.get("reason")) or "No reason supplied."
+        esc = html.escape
+
+        page = f"""<!doctype html>
+<html><body style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:72px auto;padding:24px;color:#0f172a">
+  <h2 style="margin-bottom:8px">Approval requested</h2>
+  <p style="margin-top:0">Workflow <strong>{esc(str(workflow_id))}</strong>
+    is waiting for a decision.</p>
+  <p><strong>Approval:</strong> {esc(str(approval_id))}</p>
+  <p><strong>Action:</strong> {esc(action)}</p>
+  <p><strong>Requested reason:</strong> {esc(requested_reason)}</p>
+  <p style="background:#fef3c7;border-radius:6px;padding:12px">
+    <strong>This is a link click, not a signed approval.</strong>
+    Confirming below records an <em>unsigned</em> response attributed to this link.
+    To sign an approval as a person, run:
+    <br><code>{esc(_signed_approval_command)}</code>
+  </p>
+  <form method="post" action="{esc(_approval_path(workflow_id, approval_id), quote=True)}">
+    <input type="hidden" name="token" value="{esc(str(token), quote=True)}">
+    <p><label>Note (optional)<br><input name="reason" size="48"></label></p>
+    <button type="submit" name="decision" value="approve" style="background:#15803d;color:#fff;padding:12px 18px;border:0;border-radius:6px;font-weight:600">Approve</button>
+    <button type="submit" name="decision" value="deny" style="background:#b91c1c;color:#fff;padding:12px 18px;border:0;border-radius:6px;font-weight:600;margin-left:12px">Deny</button>
+  </form>
+</body></html>"""
+        highlighted = str(decision or "").strip().lower()
+        if highlighted in {"approve", "deny"}:
+            note = (
+                f'<p style="color:#475569;font-size:13px">'
+                f"You opened the {esc(highlighted)} link.</p></body>"
+            )
+            page = page.replace("</body>", note)
+        return HTMLResponse(page, headers=_approval_page_headers)
+
+    @app.post("/api/approve/{workflow_id}/{approval_id}")
+    async def record_approval_decision(request: Request, workflow_id: str, approval_id: str):
+        """Record one link click. Requires this link's single-use token in the body."""
+        try:
+            form = await request.form()
+        except Exception:
+            return _approval_link_refused()
+
+        def _form_str(name: str) -> str:
+            value = form.get(name)
+            return value if isinstance(value, str) else ""
+
+        token = _form_str("token")
+        normalized_decision = _form_str("decision").strip().lower()
+        # Validate the decision BEFORE spending the token: a malformed form must
+        # not burn a valid link.
         if normalized_decision not in {"approve", "deny"}:
             raise HTTPException(status_code=400, detail="decision must be approve or deny")
+
+        # The body token is the CSRF token: unguessable, bound to this workflow +
+        # approval, so a cross-site POST cannot supply it and a token minted for
+        # another approval does not match.
+        if runtime_worker.consume_approval_link(workflow_id, approval_id, token) != "ok":
+            return _approval_link_refused()
+
+        reviewer, reviewer_verified = _approval_reviewer(request)
 
         approval_request = runtime_worker.find_approval_request(workflow_id, approval_id)
         request_content = (approval_request or {}).get("content") or {}
@@ -1634,12 +1860,10 @@ def create_app(
             (approval_request or {}).get("case_id"),
             runtime_worker.find_case_id_for_workflow(workflow_id),
         )
-        action = _first_nonempty(request_content.get("action"), approval_id) or approval_id
+        action = _first_nonempty(request_content.get("action"), approval_id) or str(approval_id)
         approved = normalized_decision == "approve"
-        response_reason = _clean(reason) or (
-            "Approved via approval link"
-            if approved
-            else "Denied via approval link"
+        response_reason = _clean(_form_str("reason")) or (
+            "Approved via approval link" if approved else "Denied via approval link"
         )
 
         event = CaptureEventModel(
@@ -1650,34 +1874,52 @@ def create_app(
                 "approval_id": approval_id,
                 "action": action,
                 "approved": approved,
-                "reviewer": _clean(reviewer) or "approval-link",
+                "reviewer": reviewer,
+                "reviewer_verified": reviewer_verified,
                 "reason": response_reason,
-                "approval_source": "gateway_human",
-                "requested_from": _clean(request_content.get("requested_from") or request_content.get("requested_by")),
+                # A link click is never a human-signed approval: 3a's
+                # verify_human_approvals() reports it as agent/system-reported.
+                # A click by a logged-in gateway user is gateway-attested (so
+                # analysis counts it), but is still not a signature.
+                "approval_source": (
+                    APPROVAL_LINK_AUTHENTICATED_SOURCE
+                    if reviewer_verified
+                    else APPROVAL_LINK_SOURCE
+                ),
+                "requested_from": _clean(
+                    request_content.get("requested_from") or request_content.get("requested_by")
+                ),
                 "response_source": "approval-link",
             },
         )
         touched_case_ids = runtime_worker.store_items([event.model_dump(mode="json")])
         case_id = case_id or (touched_case_ids[0] if touched_case_ids else None)
 
+        esc = html.escape
         label = "Approved" if approved else "Denied"
+        icon = "&#9989; " if approved else "&#10060; "
         case_link = (
-            f'<p><a href="{runtime_settings.approval_base_url}/api/cases/{urllib.parse.quote(case_id, safe="")}">View case JSON</a></p>'
+            '<p><a href="'
+            + esc(
+                runtime_settings.approval_base_url
+                + "/api/cases/"
+                + urllib.parse.quote(case_id, safe=""),
+                quote=True,
+            )
+            + '">View case JSON</a></p>'
             if case_id
             else ""
         )
-        html = f"""
-        <html>
-          <body style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:72px auto;padding:24px;color:#0f172a">
-            <h2 style="margin-bottom:8px">{'✅ ' if approved else '❌ '}{label}</h2>
-            <p style="margin-top:0">Decision recorded for workflow <strong>{workflow_id}</strong>.</p>
-            <p><strong>Action:</strong> {action}</p>
-            <p><strong>Reason:</strong> {response_reason}</p>
-            {case_link}
-          </body>
-        </html>
-        """
-        return HTMLResponse(html)
+        page = f"""<!doctype html>
+<html><body style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:72px auto;padding:24px;color:#0f172a">
+  <h2 style="margin-bottom:8px">{icon}{label}</h2>
+  <p style="margin-top:0">Decision recorded for workflow <strong>{esc(str(workflow_id))}</strong>.</p>
+  <p><strong>Action:</strong> {esc(action)}</p>
+  <p><strong>Reason:</strong> {esc(response_reason)}</p>
+  <p><strong>Recorded as:</strong> link click ({esc(reviewer)}) &mdash; <em>not a signed human approval</em>.</p>
+  {case_link}
+</body></html>"""
+        return HTMLResponse(page, headers=_approval_page_headers)
 
     @app.get("/api/cases")
     async def list_cases(
@@ -1797,7 +2039,7 @@ def create_app(
                     Path(result.output_path),
                     urls=_witness_urls,
                     key_name=os.getenv("EPI_GATEWAY_SIGNING_KEY_NAME", "default"),
-                    private_key_bytes=_gateway_witness_key_bytes(),
+                    signer=_gateway_witness_signer(),
                     case_id=case_id,
                 )
                 if _entry is not None:

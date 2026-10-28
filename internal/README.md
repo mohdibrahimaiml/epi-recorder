@@ -1,10 +1,18 @@
 # Internal docs (not for partners)
 
-Everything here is operator truth: founder setup, capacity math, and
-investment rules. Do not link it from the public site, the enterprise
-briefing, or anything handed to a bank, insurer, or auditor.
+Planning, operations and assessment docs are kept in a private repository,
+not here. This repository is public: anything committed to it can be read by
+anyone, so planning notes, capacity or pricing math, assessments, agent
+prompts and operations runbooks do not belong in it.
+
+What stays here is internal-but-harmless engineering material that public code
+refers to. **Do not link it from the public site, the enterprise briefing, or
+anything handed to a bank, insurer, or auditor.**
+
+`docs/` is published as a website (`spec.epilabs.org`), so nothing internal may
+live under it. `tests/test_docs_placement.py` enforces that, and that no public
+doc links in here.
 
 | Doc | What it is | Moved from |
 |-----|------------|------------|
-| [cloud-ops.md](./cloud-ops.md) | EPI Cloud founder setup, limits, backups, local dev | `docs/CLOUD.md` |
-| [scope.md](./scope.md) | Investment rule: what the repo staffs vs freezes | `docs/SCOPE.md` |
+| [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Org trust bundle v0 build spec (referenced by `epi_core/org_bundle.py`) | `docs/design/` |

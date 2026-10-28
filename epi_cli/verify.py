@@ -99,6 +99,7 @@ def _build_timestamps_block(
         "seal": [],
         "checkpoints": [],
         "earliest_verified": None,
+        "key_binding": "none",
         "statement": "no timestamps collected",
         "clock_warning": None,
     }
@@ -120,6 +121,16 @@ def _build_timestamps_block(
                 }
             ]
         new_scheme = scheme == IMPRINT_SCHEME and notar.get("imprinted_digest")
+        from epi_core.keys import key_fingerprint
+
+        imprinted_key = notar.get("imprinted_public_key")
+        manifest_key = getattr(manifest, "public_key", None)
+        imprinted_key_fp = (
+            key_fingerprint(str(imprinted_key), grouped=False) if imprinted_key else None
+        )
+        # "Key-bound" means the timestamp was taken over an imprint that named
+        # a sealing key. Old seals (imprinted_public_key null) are contents-only.
+        key_bound = bool(imprinted_key)
         expected: bytes | None = None
         recomputed: str | None = None
         if new_scheme:
@@ -152,6 +163,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": None,
+                        "key_bound": False,
+                        "imprinted_key_fingerprint": None,
                         "detail": (
                             "legacy token: imprint not recomputable "
                             "(sealed before 4.6); presence only"
@@ -168,6 +181,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": "seal imprint cannot be recomputed from this manifest",
                     }
                 )
@@ -185,6 +200,8 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": "notarization record lists a token that is not in the file",
                     }
                 )
@@ -200,13 +217,41 @@ def _build_timestamps_block(
                         "tsa_subject": None,
                         "tsa_root": None,
                         "imprint_scheme": IMPRINT_SCHEME,
+                        "key_bound": key_bound,
+                        "imprinted_key_fingerprint": imprinted_key_fp,
                         "detail": f"timestamp validation crashed ({exc})",
                     }
                 )
                 continue
             status = validation.status
             detail = validation.detail
-            if recomputed != notar.get("imprinted_digest") and status == "valid":
+            entry_key_bound = key_bound
+            # The imprint was recomputed with the key RECORDED at seal time,
+            # so a swapped signing key would still reproduce it. Bind the
+            # timestamp to the key this file actually carries.
+            key_changed = False
+            if imprinted_key:
+                if not manifest_key:
+                    key_changed = True
+                    detail = (
+                        "the timestamp binds signing key "
+                        f"{imprinted_key_fp} but this file carries no signing key"
+                    )
+                elif (
+                    str(imprinted_key).strip().lower()
+                    != str(manifest_key).strip().lower()
+                ):
+                    key_changed = True
+                    detail = (
+                        "signing key changed after the timestamp was taken: "
+                        f"the timestamp binds key {imprinted_key_fp}, the file "
+                        "is signed by key "
+                        f"{key_fingerprint(str(manifest_key), grouped=False)}"
+                    )
+            if key_changed and status not in ("absent", "malformed"):
+                status = "imprint_mismatch"
+                entry_key_bound = False
+            elif recomputed != notar.get("imprinted_digest") and status == "valid":
                 # Payload drifted after stamping and was re-signed with the
                 # key: the old token no longer covers these bytes.
                 status = "imprint_mismatch"
@@ -222,6 +267,8 @@ def _build_timestamps_block(
                     "tsa_subject": validation.tsa_subject,
                     "tsa_root": validation.tsa_root,
                     "imprint_scheme": IMPRINT_SCHEME,
+                    "key_bound": entry_key_bound,
+                    "imprinted_key_fingerprint": imprinted_key_fp,
                     "detail": detail,
                 }
             )
@@ -255,6 +302,10 @@ def _build_timestamps_block(
         (c for c in block["checkpoints"] if c["status"] == "valid"),
         key=lambda c: (c["index"], c["event_count"]),
     )
+    keyed_seal = [e for e in valid_seal if e.get("key_bound")]
+    block["key_binding"] = (
+        "key-bound" if keyed_seal else ("contents-only" if valid_seal else "none")
+    )
     earliest: str | None = None
     for entry in valid_seal + valid_cp:
         gen = entry.get("gen_time")
@@ -273,9 +324,18 @@ def _build_timestamps_block(
     if valid_seal:
         seal_times = [e["gen_time"] for e in valid_seal if e.get("gen_time")]
         if seal_times:
-            clauses.append(
-                f"the sealed manifest existed no later than {min(seal_times)}"
-            )
+            earliest_seal = min(seal_times)
+            if keyed_seal:
+                clauses.append(
+                    "sealed by key "
+                    f"{keyed_seal[0].get('imprinted_key_fingerprint')} "
+                    f"no later than {earliest_seal}"
+                )
+            else:
+                clauses.append(
+                    f"the sealed contents existed no later than {earliest_seal} "
+                    "(contents-only timestamp; signing key not bound)"
+                )
     if any(e["status"] == "legacy" for e in block["seal"]):
         clauses.append("legacy seal token present (imprint not recomputable); presence only")
     if any(e["status"] in _TIMESTAMP_TAMPER_STATUSES for e in block["seal"]):
@@ -494,20 +554,55 @@ def _chain_links_present(steps: list[dict]) -> bool:
     return False
 
 
-def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str]]:
+def _human_answered_approval_ids(
+    human_report: dict | None,
+) -> tuple[set[str], bool]:
+    """What a human-signed approval has already answered, from the audit report.
+
+    Returns ``(approval_ids, case_level)``. A per-request approval answers the
+    request it names. A case-level approval counts for every request — that is
+    already what ``--require-human-approval`` means by "or a case-level
+    approval", and strict completeness must not contradict it.
+    """
+    if not isinstance(human_report, dict):
+        return set(), False
+    answered = {
+        str(req["approval_id"])
+        for req in human_report.get("requests") or []
+        if req.get("approval_id") and req.get("status") in ("approved", "denied")
+    }
+    case_level = any(
+        item.get("case_level") and item.get("classification") == "human_signed"
+        for item in human_report.get("approvals") or []
+    )
+    return answered, case_level
+
+
+def _audit_step_sequence_completeness(
+    steps: list[dict],
+    answered_approval_ids: set[str] | None = None,
+    case_level_answered: bool = False,
+) -> tuple[bool, list[str]]:
     """
     AUD-CO-01: Step Sequence Completeness Audit.
     Ensures:
       - Every tool.call has a corresponding tool.response
       - Every llm.request has a corresponding llm.response or llm.error
       - Every agent.approval.request has a corresponding agent.approval.response
+        or a human-signed approval bound to this artifact for that request
+
+    A person signs *after* sealing, so their approval is a review record, not an
+    in-run step. Without the second clause an honestly-built run (no
+    self-reported response) would fail strict completeness for having done
+    exactly the right thing.
     """
+    answered_ids = answered_approval_ids or set()
     gaps: list[str] = []
 
     pending_tool_calls: list[tuple[int, str | None]] = []
     pending_llm_requests: list[tuple[int, str | None]] = []
     pending_pre_commits: list[tuple[int, str | None]] = []
-    pending_approvals: list[tuple[int, str | None]] = []
+    pending_approvals: list[tuple[int, str | None, str | None]] = []
 
     for s in steps:
         kind = s.get("kind", "")
@@ -550,7 +645,7 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
 
         elif kind == "agent.approval.request":
             action = content.get("action")
-            pending_approvals.append((idx, action))
+            pending_approvals.append((idx, action, content.get("approval_id")))
         elif kind == "agent.approval.response":
             action = content.get("action")
             matched = False
@@ -571,7 +666,11 @@ def _audit_step_sequence_completeness(steps: list[dict]) -> tuple[bool, list[str
         gaps.append(f"llm.pre_commit at step {idx + 1} was committed but never executed — response never arrived (crash, timeout, or cancellation)")
     for idx, span_id in pending_llm_requests:
         gaps.append(f"llm.request at step {idx + 1} is missing a corresponding response or error")
-    for idx, action in pending_approvals:
+    for idx, action, approval_id in pending_approvals:
+        if case_level_answered:
+            continue
+        if approval_id is not None and str(approval_id) in answered_ids:
+            continue
         gaps.append(f"agent.approval.request for '{action}' at step {idx + 1} is missing a response")
 
     return len(gaps) == 0, gaps
@@ -1341,6 +1440,7 @@ def verify_command(
     witness_pubkey: str | None = None,
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
+    require_human_approval: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -1378,6 +1478,10 @@ def verify_command(
     signer_name = None
     mismatches = {}
     review_report = None
+    # The human-approval audit, computed once and reused: strict completeness
+    # needs it (a signed approval answers the request it names) and so does the
+    # human-approval report further down.
+    _human_cached = None
     registry = TrustRegistry()
     # WP-SEC-4: strict is always local-only — no network at all. A remote
     # listing can never satisfy a strict identity requirement.
@@ -1534,8 +1638,23 @@ def verify_command(
                         len(s.get("content", {}).get("validators", [])) > 0 for s in iteration_steps
                     )
 
-                    # AUD-CO-01: Step Sequence Completeness Audit
-                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(steps)
+                    # AUD-CO-01: Step Sequence Completeness Audit. A person signs
+                    # off after sealing, so a bound human-signed approval answers
+                    # the request it names — otherwise an honest run (no
+                    # self-reported response) fails its own strict check.
+                    if _human_cached is None:
+                        try:
+                            from epi_core.review import verify_human_approvals
+
+                            _human_cached = verify_human_approvals(epi_file)
+                        except Exception:
+                            _human_cached = None
+                    _answered_ids, _case_level_answered = _human_answered_approval_ids(
+                        _human_cached
+                    )
+                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(
+                        steps, _answered_ids, _case_level_answered
+                    )
                     completeness_ok = completeness_ok and seq_comp_ok
 
                     # 4. Steps Hash Verification
@@ -2149,6 +2268,53 @@ def verify_command(
             except Exception:
                 pass
 
+        # ========== HUMAN APPROVAL (who approved, if anyone) ==========
+        # Computed whenever the file carries reviews or agent approval steps,
+        # so nobody needs a second flag to see it. Never trusts the file's own
+        # claim: only a key pinned as an approver, distinct from the sealing
+        # key, counts as human_signed. An invalid approval FAILs (fail-closed).
+        try:
+            from epi_core.review import verify_human_approvals
+
+            _human = (
+                _human_cached
+                if _human_cached is not None
+                else verify_human_approvals(epi_file)
+            )
+        except Exception as _human_err:
+            _human = {
+                "status": "none",
+                "approvals": [],
+                "requests": [],
+                "present": False,
+                "requirement_met": False,
+                "detail": f"human approval not evaluated: {_human_err}",
+            }
+        _human["required"] = bool(require_human_approval)
+        report["human_approval"] = _human
+        if _human.get("status") == "failed":
+            try:
+                _prior = report["decision"].get("status")
+                _rs = report["decision"].get("reason", "")
+                _msg = str(_human.get("detail") or "an approval is invalid")
+                report["decision"]["status"] = "FAIL"
+                report["decision"]["reason"] = (
+                    f"{_rs}; approval invalid: {_msg}" if _prior == "FAIL"
+                    else f"Approval invalid — {_msg}. The seal itself is intact."
+                )
+            except Exception:
+                pass
+        if require_human_approval and not _human.get("requirement_met"):
+            try:
+                _prior = report["decision"].get("status")
+                _rs = report["decision"].get("reason", "")
+                _detail = _human.get("detail") or "no human-signed approval"
+                _msg = f"Human approval required: {_detail}"
+                report["decision"]["status"] = "FAIL"
+                report["decision"]["reason"] = f"{_rs}; {_msg}" if _prior == "FAIL" else _msg
+            except Exception:
+                pass
+
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
             aiuc1_statuses = map_verification_to_aiuc1(report, manifest=manifest, steps=steps, epi_path=epi_file)
@@ -2613,9 +2779,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 {str(e.get("tsa_root") or e.get("url") or "?") for e in _ts_valid}
             )
             _ts_where = "; ".join(f'chain to pinned root "{r}"' for r in _ts_roots)
+            _ts_keyed = [e for e in _ts_valid if e.get("key_bound")]
+            if _ts_keyed:
+                _raw_fp = str(_ts_keyed[0].get("imprinted_key_fingerprint") or "?")
+                _ts_fp = " ".join(
+                    _raw_fp[i : i + 4] for i in range(0, len(_raw_fp), 4)
+                )
+                _ts_what = f"sealed by key {_ts_fp} no later than {_ts_earliest}"
+            else:
+                _ts_what = (
+                    f"contents existed no later than {_ts_earliest} "
+                    "(CONTENTS-ONLY — signing key not bound)"
+                )
             content_lines.append(
-                f"  [green]- Timestamp:    VERIFIED — existed no later than "
-                f"{_ts_earliest} ({_ts_where})[/green]"
+                f"  [green]- Timestamp:    VERIFIED — {_ts_what} ({_ts_where})[/green]"
             )
         elif _ts_legacy:
             content_lines.append(
@@ -2673,6 +2850,23 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     elif _wit_status == "MISMATCH":
         content_lines.append(
             f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
+        )
+
+    # Human approval (step 3a). One line, and only when the run carries reviews
+    # or approval steps, or the operator asked with --require-human-approval.
+    _human = report.get("human_approval") if isinstance(report, dict) else None
+    if isinstance(_human, dict) and (_human.get("present") or _human.get("required")):
+        _h_status = str(_human.get("status") or "none").upper()
+        _h_color = {
+            "VERIFIED": "green",
+            "NONE": "dim",
+            "UNVERIFIED": "yellow",
+            "INCOMPLETE": "yellow",
+            "DENIED": "red",
+            "FAILED": "red",
+        }.get(_h_status, "yellow")
+        content_lines.append(
+            f"  [{_h_color}]- Human approval: {_h_status} — {_human.get('detail') or ''}[/{_h_color}]"
         )
 
     # Who signed in when the sealer ran (EPI evidence server, optional sign-in).

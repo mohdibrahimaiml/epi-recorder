@@ -369,16 +369,21 @@ def write_manifest(source_dir: Path, manifest: CaptureManifest) -> Path:
 
 
 def read_manifest_from_archive(epi_path: Path) -> CaptureManifest | None:
-    """Read embedded manifest.json from a sealed artifact; None if pre-v artifact."""
-    try:
-        from epi_core.container import EPIContainer
+    """Read embedded manifest.json from a sealed artifact; None if pre-v artifact.
 
-        data = EPIContainer.read_member_json(epi_path, "artifacts/manifest.json")
-        if isinstance(data, dict):
-            return CaptureManifest.model_validate(data)
-    except Exception:
-        pass
-    return None
+    ``None`` means the member is genuinely absent (a pre-v artifact). A present
+    but unreadable/invalid capture manifest must NOT be silently downgraded to
+    "no manifest" — that would let a corrupt sealed artifact verify while its
+    completeness is silently unknown.
+    """
+    from epi_core.container import EPIContainer
+
+    if "artifacts/manifest.json" not in EPIContainer.list_members(epi_path):
+        return None
+    data = EPIContainer.read_member_json(epi_path, "artifacts/manifest.json")
+    if not isinstance(data, dict):
+        raise ValueError("artifacts/manifest.json is not a JSON object")
+    return CaptureManifest.model_validate(data)
 
 
 def append_runtime_gap(source_dir: Path, gap: str) -> None:

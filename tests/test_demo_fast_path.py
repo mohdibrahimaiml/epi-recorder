@@ -32,7 +32,11 @@ def test_demo_no_browser_produces_verified_epi(demo_cwd: Path):
     assert "record · seal · verify · view" in result.output or "Sealed artifact" in result.output
     epi = demo_cwd / "epi-recordings" / "demo_refund.epi"
     assert epi.is_file(), f"missing {epi}; output was:\n{result.output}"
-    assert epi.stat().st_size > 10_000
+    # Data-only is the default seal: small enough to email. The 80 KB ceiling
+    # is the contract; the printed size makes any growth visible.
+    size = epi.stat().st_size
+    print(f"\n[epi demo data-only] {size} bytes")
+    assert size < 80 * 1024, f"data-only demo was {size} bytes"
     assert "integrity=PASS" in result.output or "Offline verify" in result.output
     # intentional demo secret must not leak
     from epi_core.container import EPIContainer

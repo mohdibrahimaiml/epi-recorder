@@ -1,96 +1,124 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Trust model — EPI Labs</title>
-<meta name="description" content="Seal, identity, and policy are three different questions in EPI. SCITT and notarization are optional layers. Offline verify stays free.">
-<link rel="canonical" href="https://epilabs.org/trust">
-<meta property="og:title" content="Trust model — EPI Labs">
-<meta property="og:description" content="Seal, identity, and policy are three different questions in EPI. SCITT and notarization are optional layers. Offline verify stays free.">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trust Model | EPI Labs</title>
+  <meta name="description" content="Seal, Identity, and Policy are three distinct cryptographic and governance layers in EPI. Offline verification stays free forever.">
+  <link rel="canonical" href="https://epilabs.org/trust">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/how-it-works">How it works</a></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/enterprise">Enterprise</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <a href="/how-it-works">How it works</a>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/enterprise">Enterprise</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main id="main">
-<div class="page in" data-aos="fade-up">
-<span class="tag">Trust</span>
-<h1>Seal · Identity · Policy</h1>
-<p class="lede">These are implemented as separate layers in code. Marketing that collapses them into one green badge is wrong.</p>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<h2>Optional transparency layers</h2>
-<ul>
-<li><strong>Local SCITT</strong> — offline transparency service under <code class="k">~/.epi/local-scitt</code>. Free. Not a public independent log.</li>
-<li><strong>Remote SCITT</strong> — hosted registration; requires Hosted plan or higher on the portal.</li>
-<li><strong>RFC 3161 / OpenTimestamps</strong> — best-effort token collection at seal time (needs network; can fail open; <code>epi verify</code> checks RFC 3161 tokens offline against pinned TSA roots).</li>
-<li><strong>Human review ledger</strong> — signed, append-only reviews bound to the sealed artifact.</li>
-</ul>
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <a href="/how-it-works" class="z-nav__link">Architecture</a>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link" aria-current="page">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
 
-<h2>Honesty notes</h2>
-<ul>
-<li>Hosted PDF API is <strong>not</strong> implemented (CLI Annex PDF is free).</li>
-<li>The seal proves integrity <strong>after sealing</strong>, not capture completeness. In-process <code class="k">record()</code> is self-attestation; the gateway proxy is the stronger observation path.</li>
-<li>Annex IV and AIUC-1 outputs are evidence input for those processes — not a conformity certificate or a certification anyone issued.</li>
-<li>A key appearing in the public trust list (<code class="k">/.well-known/epi-trust-registry.json</code>) is <strong>not</strong> a pin — that file is unsigned. Verify shows it as listed-for-information; only keys you pinned yourself count as trusted, and <code class="k">--policy strict</code> never even fetches that list.</li>
-<li>EU notification helpers generate local signed payloads — not a live EU database client.</li>
-<li>See <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" style="color:var(--acc)" target="_blank" rel="noopener">KNOWN_LIMITATIONS.md</a>.</li>
-</ul>
-<p style="margin-top:36px"><a class="btn btn-pri" href="/verify/">Try verify &rarr;</a> &nbsp; <a class="btn btn-sec" href="/how-it-works">How it works</a></p>
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.6.3</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <a href="/how-it-works">Architecture</a>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust" style="color:var(--foreground)">Trust model</a>
+    <a href="/plans">Pricing &amp; Design Partners</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
-</footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="trust-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">Verification Contract · Seal &ne; Identity &ne; Policy</span>
+            <h1 id="trust-heading" class="z-h1" style="margin-top:1rem">
+              Three questions. Never collapsed into one <span style="color:var(--acc-trust)">badge</span>.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
+              EPI separates cryptographic file integrity, signer identity pinning, and policy compliance in code so an auditor or underwriter sees the exact truth of what was proven.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);background:var(--stage);padding:1.1rem;border:1px solid var(--border-card);line-height:1.7;overflow-x:auto">
+              <div style="color:var(--acc-envelope)"># Strict Auditor / Insurer Command</div>
+              <div style="margin-top:0.35rem">$ epi verify FILE.epi \</div>
+              <div style="padding-left:1rem">--policy strict \</div>
+              <div style="padding-left:1rem">--witness-log witness.json \</div>
+              <div style="padding-left:1rem">--witness-pubkey &lt;KEY&gt; --offline</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="z-tri-grid" id="witness">
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-envelope)">01 · Seal Integrity</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">SHA-256 + Ed25519 + JCS</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              Proves that no member file, step in <code style="font-family:var(--font-mono)">steps.jsonl</code>, or byte in the outer embedded HTML viewer was modified after sealing.
+            </p>
+          </div>
+
+          <div class="z-tri-card">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-trust)">02 · Out-of-Band Key Pinning</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Never Trust In-Band Keys</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              Listing a key in <code style="font-family:var(--font-mono)">/.well-known/epi-trust-registry.json</code> is informational only. Claim-ready verification requires pinning the sender’s key out of band (<code style="font-family:var(--font-mono)">epi keys trust</code>).
+            </p>
+          </div>
+
+          <div class="z-tri-card" id="standards">
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-witness)">03 · Witness &amp; TSA</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Independent Time &amp; Order</h3>
+            <p class="z-body" style="margin-top:0.75rem">
+              RFC 3161 timestamp tokens are verified offline against pinned TSA roots. EPI Cloud Witness logs hash-only Ed25519 receipts and daily signed checkpoints.
+            </p>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.7.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>

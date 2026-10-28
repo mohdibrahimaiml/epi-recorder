@@ -1,6 +1,6 @@
 # EPI Threat Model
 
-**Product version:** 4.6.3. Product map: [README.md](./README.md).
+**Product version:** 4.7.0. Product map: [README.md](./README.md).
 
 ## What This Document Is
 
@@ -114,7 +114,49 @@ The guarantee that holds for both paths: **no private key material is serialized
 
 ---
 
-### 10. Step Reordering / Timeline Tampering
+### 10. Agent Self-Approval (mitigated)
+
+**Attack:** the agent (or whoever runs it) writes `agent.approval.response`,
+`record(approved_by=...)`, or a review signed with its own sealing key, and a
+screen presents that as "a person approved this".
+
+**Defence:** an approval counts as `human_signed` only when it is signed with a
+key pinned in the verifier's **approver** registry (`epi approvers add`) **and**
+that key differs from the run's sealing key. An approval signed by the sealing
+key is reported `signed_by_sealing_key` — "not independent of the agent" — and
+an unpinned key is `signed_unknown_key`. The sealing-key rule is checked before
+the registry, so pinning the agent's key as an approver does not help. Agent
+approval steps are labelled "reported by the agent (not signed by a person)"
+wherever the CLI prints them. The gateway approval link (a URL click) is
+likewise unsigned and is not a human-signed approval. See
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+**Residual:** a person who pins the wrong key pins the wrong identity — pinning
+is a human step. And a pinned approver who is coerced still signs.
+
+### 10b. Forged or replayed gateway approval link (mitigated)
+
+**Attack:** trigger the approval link without a person — an email scanner
+pre-opening it, a guessed workflow/approval id, a forwarded or reused link, an
+expired one, or a `?reviewer=ceo` query parameter.
+
+**Defence:** the link is a single-use token (≥256 bits, stored as SHA-256 only)
+bound to that workflow + approval and expiring after
+`EPI_APPROVAL_LINK_TTL_HOURS` (default 72). `GET` records nothing; only the POST
+records, and only once, spending the token atomically. A missing, wrong, expired
+or reused token returns the same 403, `reviewer` is never read from the query
+string, attempts are rate-limited per client IP, and everything interpolated into
+the page or the email is HTML-escaped. Links issued before the upgrade are
+refused with no fallback. The recorded event is
+`approval_source: "gateway_link_unsigned"` — or `"gateway_link_authenticated"`
+when a logged-in user made the click — and 3a never classifies either as
+`human_signed`; `--require-human-approval` fails on both.
+
+**Residual:** a link click is still *unauthenticated* — it records that someone
+clicked, which is why it is labelled an unsigned link click and never a signed
+approval. A person who forwards their link hands over that click.
+
+### 11. Step Reordering / Timeline Tampering
 **Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
 or drops one, so the evidence no longer reflects what actually happened.
 
@@ -142,7 +184,7 @@ PASS. Current releases always seal a chained timeline.
 
 **Why EPI cannot prevent this:** EPI verifies that a signature is mathematically valid. It cannot know whether the person holding the private key is the legitimate owner.
 
-**Mitigation:** Key rotation, HSM storage, revocation lists.
+**Mitigation:** Keep the key in an HSM or cloud KMS so it can't be copied off the agent host ([KEY-CUSTODY.md](./KEY-CUSTODY.md): `epi keys link`, `EPI_REQUIRE_EXTERNAL_KEY=1`). An attacker on the host can still ask the vault to sign while they hold access, so the vault's own audit log is the record of what was signed. Key rotation and revocation lists cover the rest.
 
 ---
 
@@ -204,7 +246,7 @@ DID at all (strict is local-only). Two further notes:
 ### 4. Algorithm Degradation
 **Attack:** In 20 years, quantum computers break Ed25519. Old artifacts can no longer be trusted.
 
-**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.6.3 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
+**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.7.0 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
 
 **Mitigation:** Re-sign important artifacts with newer algorithms as standards evolve.
 
@@ -256,7 +298,7 @@ seal a plausible file and sign it with their own key.
   header copy. The signed display binding shipped in 4.6.3; 4.6.2's #141/#143
   fixed only envelope tamper and still trusted the unsigned header copy for the
   viewer. The viewer itself refuses to paint a verdict it cannot support.
-- **The shipped viewer makes no network calls.** Scanned the current 4.6.3
+- **The shipped viewer makes no network calls.** Scanned the current 4.7.0
   artifact (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches,
   or sockets in the outer or inner viewer; every library is inlined. Reproduce it
   with the script in [FILE-SAFETY.md](./FILE-SAFETY.md) §2. Honest boundary:
@@ -398,6 +440,8 @@ session-only seed, passphrase wrapping) are tracked in
 | Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |
+| Agent self-approval | Yes | Approver registry (`epi approvers add`) + sealing-key rule + `--require-human-approval` |
+| Forged / replayed gateway approval link | Yes | Single-use expiring token (hash-only) + GET records nothing + POST-only + no query-string reviewer (10b) |
 | Compromised key | No | Out of scope |
 | Malicious signer | No | Out of scope |
 | DID server compromise | Partial | Local fallback |

@@ -76,10 +76,20 @@ _WINDOWS_ASSOCIATION_PROBE_TTL_SECONDS = 6 * 60 * 60
 
 
 def _analysis_has_fault(analysis: dict) -> bool:
-    """Treat a real primary fault as authoritative even if fault_detected drifted."""
+    """Treat a real (medium+) primary fault as authoritative even if fault_detected drifted.
+
+    Low/info-severity heuristic observations (e.g. P11b) are notes, not faults —
+    issue #157: `analysis.json` says ``fault_detected: false`` for them, so
+    `epi analyze` must not print FAULT DETECTED either.
+    """
     if not isinstance(analysis, dict):
         return False
-    return bool(analysis.get("primary_fault") or analysis.get("fault_detected"))
+    if analysis.get("fault_detected"):
+        return True
+    primary = analysis.get("primary_fault")
+    if isinstance(primary, dict):
+        return str(primary.get("severity", "")).lower() not in ("info", "low")
+    return False
 
 
 def _count_steps_in_artifact(epi_path: Path) -> int:
@@ -543,10 +553,26 @@ def run(
     metric: list[str] | None = typer.Option(None, "--metric", help="Key=value metrics (can be used multiple times)"),
     approved_by: str | None = typer.Option(None, "--approved-by", help="Person who approved this workflow"),
     tag: list[str] | None = typer.Option(None, "--tag", help="Tags for categorizing this workflow (can be used multiple times)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
 ):
     from epi_cli.run import run as run_command
 
-    return run_command(script, no_verify, no_open, goal, notes, metric, approved_by, tag)
+    return run_command(
+        script=script,
+        no_verify=no_verify,
+        no_open=no_open,
+        goal=goal,
+        notes=notes,
+        metric=metric,
+        approved_by=approved_by,
+        tag=tag,
+        with_viewer=with_viewer,
+    )
 
 # Phase 1: verify command
 from typing import Annotated, Optional
@@ -602,6 +628,14 @@ def verify(
         "--require-timestamp",
         help="FAIL unless at least one seal-time RFC 3161 token validates.",
     ),
+    require_human_approval: bool = typer.Option(
+        False,
+        "--require-human-approval",
+        help=(
+            "FAIL unless every sealed approval request has a human-signed approval "
+            "(or a case-level approval)."
+        ),
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -635,6 +669,7 @@ def verify(
         witness_log=witness_log,
         witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
+        require_human_approval=require_human_approval,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -653,11 +688,27 @@ def record(
     no_sign: bool = typer.Option(False, "--no-sign", help="Do not sign the manifest"),
     no_redact: bool = typer.Option(False, "--no-redact", help="Disable secret redaction"),
     include_all_env: bool = typer.Option(False, "--include-all-env", help="Capture all env vars (redacted)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
     command: list[str] = typer.Argument(..., help="Command to execute after --"),
 ):
     from epi_cli.record import record as record_command
 
-    return record_command(ctx, out, name, tag, no_sign, no_redact, include_all_env, command)
+    return record_command(
+        ctx=ctx,
+        out=out,
+        name=name,
+        tag=tag,
+        no_sign=no_sign,
+        no_redact=no_redact,
+        include_all_env=include_all_env,
+        with_viewer=with_viewer,
+        command=command,
+    )
 
 # Phase 3: view command
 from epi_cli.view import view as view_command
@@ -758,6 +809,12 @@ def refresh_viewer(
         False,
         "--force",
         help="Allow unsigned result when re-sign is not possible (drops the old signature).",
+    ),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Add a self-opening viewer to a data-only .epi (upgrades it to envelope-v2). "
+        "Without this flag, data-only artifacts are refused.",
     ),
 ):
     """Regenerate embedded viewer.html while keeping integrity hashes consistent.
@@ -865,6 +922,7 @@ def refresh_viewer(
                 output_path=destination,
                 signer_function=signer_fn,
                 clear_signature=clear_signature,
+                with_viewer=with_viewer,
             )
             if was_signed and signer_fn is None:
                 unsigned_results += 1
@@ -922,6 +980,14 @@ app.add_typer(
     help="Review fault analysis results for a saved case file",
     invoke_without_command=True,
     no_args_is_help=False,
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approvers import app as approvers_app
+app.add_typer(
+    approvers_app,
+    name="approvers",
+    help="Pin human approvers and hold their own keys (human sign-off)",
     rich_help_panel="Everyday",
 )
 
@@ -1205,6 +1271,7 @@ def analyze(
             raise typer.Exit(1)
 
     fault_detected = _analysis_has_fault(analysis)
+    detector_errors = analysis.get("detector_errors") or []
     mode = analysis.get("mode", "unknown")
     coverage = analysis.get("coverage", {})
     primary_fault = analysis.get("primary_fault")
@@ -1221,6 +1288,12 @@ def analyze(
             "[yellow][!][/yellow] No [bold]epi_policy.json[/bold] was found for this run. "
             "EPI used heuristic analysis only [dim](less precise)[/dim].\n"
             "    \u2192 Run [bold cyan]epi policy init[/bold cyan] to define compliance rules for your workflow.\n"
+        )
+
+    if detector_errors:
+        console.print(
+            f"[yellow][!][/yellow] Analysis incomplete: {len(detector_errors)} detector(s) failed "
+            "— a clean-looking result may be missing a fault category.\n"
         )
 
     if fault_detected:
@@ -1267,14 +1340,36 @@ def analyze(
             console.print("  Analysis:   Skipped meaningful fault review because no execution steps were captured")
             console.print("\n  [dim]Fix: instrument the workflow with record() or a supported integration, then rerun it.[/dim]\n")
         else:
-            console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
+            if detector_errors:
+                console.print(
+                    f"\n[yellow][!][/yellow] [bold]{epi_path.name}[/bold] — "
+                    "Analysis incomplete (no fault found among detectors that ran)"
+                )
+            else:
+                console.print(f"\n[green][OK][/green] [bold]{epi_path.name}[/bold] — No anomalies detected")
             verdict, impact, action = _analyze_reviewer_guidance(False, steps_recorded)
             console.print(f"  Verdict:    [bold green]{verdict}[/bold green]")
             console.print(f"  Impact:     {impact}")
             console.print(f"  Action:     {action}")
             console.print(f"  Mode:       {mode}")
             console.print(f"  Steps:      {steps_recorded} recorded, "
-                          f"{coverage.get('coverage_percentage', '?')}% coverage\n")
+                          f"{coverage.get('coverage_percentage', '?')}% coverage")
+            # Low/info heuristic observations are notes, not faults (issue #157).
+            notes = [
+                f for f in ([primary_fault] if primary_fault else []) + secondary_flags
+                if isinstance(f, dict) and str(f.get("severity", "")).lower() in ("info", "low")
+            ]
+            if notes:
+                console.print(
+                    f"  [dim]Observations: {len(notes)} low-severity heuristic note(s)"
+                    " — not a fault[/dim]"
+                )
+                top = notes[0]
+                rid = top.get("rule_id") or ""
+                msg = str(top.get("plain_english") or "").strip()
+                if rid or msg:
+                    console.print(f"  [dim]  {rid} {msg}[/dim]")
+            console.print()
 
 
 # Windows file association commands
@@ -1409,7 +1504,7 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
+        help="Action: generate, link, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
@@ -1431,6 +1526,11 @@ def keys(
         "--fingerprint",
         help="'trust' from an .epi file: the fingerprint you confirmed with the sender (required).",
     ),
+    uri: Optional[str] = typer.Option(
+        None,
+        "--uri",
+        help="'link': Ed25519 key in an HSM or KMS (pkcs11:..., awskms:..., gcpkms:...). See docs/KEY-CUSTODY.md.",
+    ),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
@@ -1451,6 +1551,7 @@ def keys(
     from_cloud = _resolve_opt(from_cloud)
     cloud_url = _resolve_opt(cloud_url)
     fingerprint = _resolve_opt(fingerprint)
+    uri = _resolve_opt(uri)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1474,9 +1575,30 @@ def keys(
                 "[cyan]epi keys export[/cyan] (or publish [cyan]epi keys did --domain ...[/cyan]) "
                 "and read them the fingerprint by phone.[/dim]\n"
             )
-        except FileExistsError as e:
+        except (FileExistsError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
+
+    elif action == "link":
+        from epi_core.keys import key_fingerprint as _key_fp
+        from epi_core.signers import ExternalSignerError
+
+        link_uri = uri or key
+        if not link_uri:
+            console.print("[red][FAIL][/red] Give the vault key: epi keys link --name default --uri <uri>")
+            raise typer.Exit(1)
+        try:
+            signer_path, public_hex = key_manager.link_external_key(name, link_uri, overwrite=overwrite)
+        except (FileExistsError, ExternalSignerError, ValueError) as e:
+            console.print(f"[red][FAIL][/red] {e}")
+            raise typer.Exit(1)
+        console.print(f"\n[bold green][OK] Linked key:[/bold green] {name} -> {link_uri}")
+        console.print(f"  [cyan]Link file:[/cyan]   {signer_path}  [dim](no secrets)[/dim]")
+        console.print(f"  [cyan]Fingerprint:[/cyan] {_key_fp(public_hex)}")
+        console.print(
+            "\n[dim]The private key stays in the vault; EPI signs through it. Check this "
+            "fingerprint against the public key your vault reports (see docs/KEY-CUSTODY.md).[/dim]\n"
+        )
 
     elif action == "list":
         keys_list = key_manager.list_keys()
@@ -1518,7 +1640,7 @@ def keys(
                 )
             except Exception:
                 console.print()
-        except FileNotFoundError as e:
+        except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
 
@@ -2610,6 +2732,20 @@ def cli_main():
             _auto_repair_windows_association(interactive=False, command_name=None)
         except Exception:
             pass  # Non-fatal: association is optional for CLI usage
+
+    # Rich falls back to 80 columns when stdout is a pipe. At 80 the help table
+    # clips a long option name (`--require-human-approval` renders as
+    # `--require-human-appr…`), so `epi verify --help | grep
+    # require-human-approval` finds nothing and the flag looks missing. Piped
+    # output has no terminal to overflow, so widen it; an interactive terminal
+    # keeps its own width.
+    try:
+        if not _sys.stdout.isatty():
+            import typer.rich_utils as _rich_utils
+
+            _rich_utils.MAX_WIDTH = max(_rich_utils.MAX_WIDTH or 0, 120)
+    except Exception:
+        pass
 
     app()
 

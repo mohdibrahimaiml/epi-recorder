@@ -68,6 +68,8 @@ def build_artifact_run_summary(
         "rules_failed": None,
         "fault_detected": None,
         "top_issue": None,
+        "heuristic_observation_count": None,
+        "detectors_failed": None,
         "review_required": None,
         "next_hint": f"epi view {_shown(path)}" if path.name else "epi view <file.epi>",
     }
@@ -99,6 +101,8 @@ def build_artifact_run_summary(
 
     summary["mode"] = analysis.get("mode")
     summary["fault_detected"] = bool(analysis.get("fault_detected"))
+    # A crashed detector must not read as a clean analysis.
+    summary["detectors_failed"] = len(analysis.get("detector_errors") or [])
     summary["review_required"] = bool(analysis.get("review_required"))
     summary["policy_id"] = analysis.get("policy_id") or (
         policy_doc.get("policy_id") if policy_doc else None
@@ -130,6 +134,13 @@ def build_artifact_run_summary(
         headline = analysis["summary"].get("headline")
         if headline and analysis.get("fault_detected"):
             summary["top_issue"] = str(headline).strip()
+
+    # Low/info heuristic observations are notes, not faults (issue #157).
+    flags = [primary] if isinstance(primary, dict) else []
+    flags.extend(f for f in (analysis.get("secondary_flags") or []) if isinstance(f, dict))
+    summary["heuristic_observation_count"] = sum(
+        1 for f in flags if str(f.get("severity", "")).lower() in ("info", "low")
+    )
 
     if summary["review_required"] and summary["fault_detected"]:
         summary["next_hint"] = f"epi review {_shown(path)}   # or: epi view {_shown(path)}"
@@ -196,10 +207,19 @@ def format_artifact_run_summary_lines(
         if s.get("review_required"):
             lines.append("Review:  recommended before trusting this outcome")
     else:
-        if s.get("mode") == "heuristic_only" or ps == "missing":
+        if s.get("heuristic_observation_count"):
+            n = int(s["heuristic_observation_count"])
+            noun = "observation" if n == 1 else "observations"
+            lines.append(f"Finding: {n} low-severity {noun} — not a fault")
+        elif s.get("mode") == "heuristic_only" or ps == "missing":
             lines.append("Finding: no heuristic issues flagged (not a compliance pass)")
         else:
             lines.append("Finding: no rule issues flagged")
+
+    if s.get("detectors_failed"):
+        lines.append(
+            f"Analysis: {s['detectors_failed']} detector(s) failed — result may be incomplete"
+        )
 
     lines.append(f"Next:    {s.get('next_hint')}")
     return lines

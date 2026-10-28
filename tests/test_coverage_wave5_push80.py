@@ -104,11 +104,8 @@ def test_view_build_preloaded_and_decision_ops(tmp_path):
     except FileNotFoundError:
         pytest.skip("viewer assets not packaged in this install")
 
-    try:
-        vp = v._refresh_viewer_html(extract, dest)
-        assert vp.exists() or True
-    except Exception:
-        pass
+    vp = v._refresh_viewer_html(extract, dest)
+    assert vp.exists()
 
     v._emit_view_telemetry(dest, success=True)
     v._emit_view_telemetry(dest, success=False)
@@ -229,15 +226,10 @@ def test_scitt_build_artifact_mocked(tmp_path, monkeypatch):
         registered_at="now",
     )
 
-    # If build is heavy/hang-prone, still exercise with real call under timeout
-    try:
-        s._build_scitt_artifact(
-            inp, out, manifest, b"stmt", b"rcpt", info, key, "default"
-        )
-        assert out.exists() or inp.exists()
-    except Exception:
-        # Cover error path without failing suite
-        pass
+    s._build_scitt_artifact(
+        inp, out, manifest, b"stmt", b"rcpt", info, key, "default"
+    )
+    assert out.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -451,13 +443,17 @@ def test_auto_scitt_embed_receipt(tmp_path, monkeypatch):
     a = AutoSCITTAnchor(service_url="https://x", timeout=1)
     a._enabled = True
     info = SimpleNamespace(entry_id="e1", registered_at="now", service_url="https://x")
-    try:
-        a._embed_receipt(epi, signed, b"STMT", b"RCPT", info, pk, "default")
-        with zipfile.ZipFile(epi) as zf:
-            names = zf.namelist()
-            assert any("scitt" in n for n in names) or "manifest.json" in names
-    except Exception:
-        pass
+    # No swallow: a default manifest has governance=None and this path used to
+    # raise TypeError here, invisible behind try/except: pass.
+    a._embed_receipt(epi, signed, b"STMT", b"RCPT", info, pk, "default")
+    with zipfile.ZipFile(epi) as zf:
+        names = set(zf.namelist())
+        assert "artifacts/scitt/statement.cbor" in names
+        assert "artifacts/scitt/receipt.cbor" in names
+        assert zf.read("artifacts/scitt/statement.cbor") == b"STMT"
+        assert zf.read("artifacts/scitt/receipt.cbor") == b"RCPT"
+        embedded = ManifestModel.model_validate_json(zf.read("manifest.json"))
+    assert embedded.governance["scitt"]["entry_id"] == "e1"
 
 
 # ---------------------------------------------------------------------------
@@ -522,18 +518,15 @@ def test_wrappers_base_and_openai():
             tc.create(model="gpt", messages=[], fail=True)
 
     # wrap_openai if exists
-    try:
-        from epi_recorder.wrappers.openai import wrap_openai as wo
+    from epi_recorder.wrappers.openai import wrap_openai as wo
 
-        wrapped = wo(FakeClient())
-        assert wrapped is not None
-    except Exception:
-        pass
+    wrapped = wo(FakeClient())
+    assert wrapped is not None
 
     # package exports
     import epi_recorder.wrappers as w
 
-    assert hasattr(w, "wrap_openai") or True
+    assert hasattr(w, "wrap_openai")
 
 
 # ---------------------------------------------------------------------------

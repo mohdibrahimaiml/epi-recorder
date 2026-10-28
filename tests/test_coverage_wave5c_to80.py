@@ -68,14 +68,12 @@ def test_review_show_and_bind_help(tmp_path):
     rv._show_fault(fault, dest)
     fault["severity"] = "MEDIUM"
     rv._show_fault(fault, dest)
-    try:
-        report = rv._build_review_trust_report(dest)
-        rv._print_review_trust_summary(report)
-        # vary report keys
-        rv._print_review_trust_summary({"trust_level": "HIGH", "facts": {}})
-        rv._print_review_trust_summary({"trust_level": "NONE", "facts": {"integrity_ok": False}})
-    except Exception:
-        pass
+    report = rv._build_review_trust_report(dest)
+    rv._print_review_trust_summary(report)
+    # _print_review_trust_summary indexes trust_level and trust_message;
+    # "facts" is not part of its contract.
+    rv._print_review_trust_summary({"trust_level": "HIGH", "trust_message": "test"})
+    rv._print_review_trust_summary({"trust_level": "NONE", "trust_message": "test"})
 
 def test_scitt_register_cli_local_fast(tmp_path, monkeypatch):
     from epi_cli.scitt import app as scitt_app

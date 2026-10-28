@@ -22,7 +22,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
 from epi_core.schemas import ManifestModel
 from epi_core.trust import verify_embedded_manifest_signature
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
@@ -292,6 +296,12 @@ def run(
     metric: Optional[List[str]] = typer.Option(None, "--metric", help="Key=value metrics (can be used multiple times)"),
     approved_by: Optional[str] = typer.Option(None, "--approved-by", help="Person who approved this workflow"),
     tag: Optional[List[str]] = typer.Option(None, "--tag", help="Tags for categorizing this workflow (can be used multiple times)"),
+    with_viewer: bool = typer.Option(
+        False,
+        "--with-viewer",
+        help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
+        "Default seals a small data-only .epi that still opens via `epi view`.",
+    ),
 ):
     """
     Record + verify + view for a script that already emits EPI steps.
@@ -453,8 +463,17 @@ def run(
     except Exception:
         pass  # Non-fatal
 
-    # Package into .epi
-    EPIContainer.pack(temp_workspace, manifest, out, signer_function=signer)
+    # Package into .epi (data-only by default; viewer is opt-in)
+    EPIContainer.pack(
+        temp_workspace,
+        manifest,
+        out,
+        signer_function=signer,
+        container_format=(
+            EPI_CONTAINER_FORMAT_ENVELOPE if with_viewer else EPI_CONTAINER_FORMAT_LEGACY
+        ),
+        embed_viewer=with_viewer,
+    )
 
     step_count, step_kinds = _summarize_recording_steps(temp_workspace)
     effective_out = out
@@ -577,6 +596,12 @@ def run(
                         f"[bold]Review:[/bold]   recommended — "
                         f"[cyan]epi review {effective_out.name}[/cyan]"
                     )
+            elif snap.get("heuristic_observation_count"):
+                n = int(snap["heuristic_observation_count"])
+                noun = "observation" if n == 1 else "observations"
+                lines.append(
+                    f"[bold]Finding:[/bold]  {n} low-severity {noun} — not a fault"
+                )
             elif ps == "applied":
                 lines.append("[bold]Finding:[/bold]  no rule issues flagged")
             elif ps == "missing":

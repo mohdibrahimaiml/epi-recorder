@@ -215,3 +215,77 @@ def test_polish_headlines():
     assert flat.count("isn't an EPI evidence file") >= 3
     assert "Not a valid EPI file" not in flat
     assert "No mimetype file in archive" not in flat
+
+
+def _story_driver(body: str) -> str:
+    """Run buildStory/storyHTML (and esc) from home-verify.js under node."""
+    def cut(start_mark: str, end_mark: str) -> str:
+        start = HOME_VERIFY.index(start_mark)
+        return HOME_VERIFY[start:HOME_VERIFY.index(end_mark, start)]
+
+    prelude = "\n".join([
+        cut("function esc(", "\n"),
+        # stepLine calls these to label an approval honestly (step 3c).
+        cut("function approvalSourceLabel(", "\nfunction hexToBytes("),
+        cut("function normalizeVerdict(", "\n// One plain sentence first"),
+    ])
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "story.mjs"
+        p.write_text(prelude + "\n" + body, encoding="utf-8")
+        out = subprocess.run(["node", str(p)], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr[:800]
+    return out.stdout
+
+
+def _steps(*items):
+    return json.dumps([{"index": i, "kind": k, "content": c} for i, (k, c) in enumerate(items)])
+
+
+def test_story_shows_decision_and_human_review():
+    steps = _steps(
+        ("session.start", {"workflow_name": "Scope check"}),
+        ("agent.approval.request", {"action": "vuln.scan", "reason": "scan 10.20.0.5"}),
+        ("agent.approval.response", {"approved": False, "reviewer": "vapt_lead", "reason": "Out of scope."}),
+        ("agent.decision", {"decision": "REJECT", "rationale": "Host 10.20.0.7 is core banking."}),
+        ("environment.captured", {}),
+        ("session.end", {}),
+    )
+    out = json.loads(_story_driver(
+        f"const s=buildStory({steps},{{goal:'Scan DemoBank'}});"
+        "console.log(JSON.stringify({s,ok:storyHTML(s,false),bad:storyHTML(s,true)}));"
+    ))
+    s = out["s"]
+    assert s["verdict"] == "REJECTED"
+    assert s["review"]["approved"] is False
+    assert s["review"]["reviewer"] == "vapt_lead"
+    assert s["review"]["reason"] == "Out of scope."
+    assert s["total"] == 6 and len(s["lines"]) == 5  # environment step is not a story line
+    assert "WHAT THE AI DID" in out["ok"] and "Scan DemoBank" in out["ok"]
+    # An agent-written response is labelled as the agent's claim, never as a
+    # human decision (step 3c).
+    assert "Agent-reported: vapt_lead rejected" in out["ok"]
+    assert "Human review:" not in out["ok"]
+    assert "Decision (agent-reported):" in out["ok"]
+    # A tampered file still shows its claims, but labelled as possibly forged.
+    assert "may be forged" in out["bad"] and "WHAT THE AI DID" not in out["bad"]
+
+
+def test_story_verdict_words_match_viewer():
+    out = _story_driver(
+        "console.log(JSON.stringify(['APPROVE','approved_with_conditions','DISAPPROVED',"
+        "'deny','escalate',''].map(normalizeVerdict)));"
+    )
+    assert json.loads(out) == ["APPROVED", "APPROVED", "REJECTED", "REJECTED", "ESCALATE", ""]
+
+
+def test_story_escapes_file_text():
+    evil = "<img src=x onerror=alert(1)>"
+    steps = _steps(("agent.decision", {"decision": evil, "rationale": evil}))
+    html = _story_driver(
+        f"console.log(storyHTML(buildStory({steps},{{goal:{json.dumps(evil)}}}),false));"
+    )
+    assert "<img" not in html and "&lt;img" in html
+
+
+def test_story_empty_file_renders_nothing():
+    assert _story_driver("console.log(JSON.stringify(storyHTML(buildStory([],{}),false)));").strip() == '""'

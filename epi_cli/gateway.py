@@ -80,18 +80,18 @@ def _witness_export(
     so a delivery failure never fails the export. Returns the status line.
     """
     from epi_core.webhook import read_outbox, report_seal, split_witness_urls
-    from epi_gateway.main import _gateway_witness_key_bytes
+    from epi_gateway.main import _gateway_witness_signer
 
     urls = split_witness_urls(witness_url)
     if not urls:
         return "Witness: none"
-    key_bytes = _gateway_witness_key_bytes()
+    signer = _gateway_witness_signer()
     entry = report_seal(
         epi_path,
         urls=urls,
         secret=witness_secret,
-        key_name=(_env("EPI_GATEWAY_SIGNING_KEY_NAME") or "default") if key_bytes else None,
-        private_key_bytes=key_bytes,
+        key_name=(_env("EPI_GATEWAY_SIGNING_KEY_NAME") or "default") if signer else None,
+        signer=signer,
         case_id=case_id,
     )
     if entry is None:

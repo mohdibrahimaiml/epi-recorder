@@ -7,7 +7,7 @@ and the standing rule for everything else.
 
 ## Committed — `CHANGELOG.md` `[Unreleased]`
 
-Nothing beyond the 4.6.3 security/docs release (see `CHANGELOG.md`).
+Nothing beyond the 4.7.0 security/docs release (see `CHANGELOG.md`).
 
 ## Shipped in 4.6.2
 
@@ -30,6 +30,6 @@ Nothing beyond the 4.6.3 security/docs release (see `CHANGELOG.md`).
 
 ## Everything else
 
-File an issue. The investment rule ([internal/scope.md](../internal/scope.md))
-still applies: fixes always, new surfaces only with external users asking.
+File an issue. The investment rule (stated in full internally) still applies:
+fixes always, new surfaces only with external users asking.
 Security reports skip the queue ([SUPPORT](../SUPPORT.md)).
