@@ -8,6 +8,11 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build for, e.g. v4.7.0 (empty = the ref you dispatch on)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -20,7 +25,10 @@ jobs:
       - name: Checkout the release tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref }}
+          # `tag` lets an already-published tag be built after the fact: the
+          # workflow file is read from the dispatch ref, so pointing this at the
+          # tag is the only way to get its tree without re-tagging.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -47,7 +55,7 @@ jobs:
 
       - name: Attach SBOM to GitHub Release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
           files: sbom.cdx.json
           generate_release_notes: false
