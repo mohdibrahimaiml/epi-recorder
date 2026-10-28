@@ -329,7 +329,16 @@ class EPIContainer:
                     # reviewed downloads fail with "VERIFY.txt: File missing".
                     # source_dir/VERIFY.txt holds the final post-signing bytes
                     # by the time this function runs during pack().
-                    if filename not in {"mimetype"} and (source_dir / filename).exists()
+                    #
+                    # viewer.html is excluded for the same reason it is absent
+                    # from the manifest at pack time: it is written to the
+                    # archive after this payload is built. Re-sealing a file
+                    # (refresh_viewer) unpacks its viewer.html into source_dir,
+                    # so without this exclusion every re-seal would base64 the
+                    # previous viewer into the new one and roughly double the
+                    # file each time.
+                    if filename not in {"mimetype", "viewer.html"}
+                    and (source_dir / filename).exists()
                 },
                 # manifest.json and viewer.html are written directly to the ZIP
                 # archive during packing, not saved to the workspace directory.
