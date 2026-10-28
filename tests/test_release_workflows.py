@@ -43,6 +43,30 @@ def test_release_artifact_workflows_still_run_on_tags():
         )
 
 
+def test_dispatch_can_target_an_already_published_tag():
+    """A tag cut *before* the workflow was fixed can still get its artifacts.
+
+    `workflow_dispatch` reads the workflow file from the ref you dispatch on, so
+    dispatching `main` builds main, and dispatching the tag runs the tag's own
+    (by then stale) file. Without an explicit `tag` input there is no way to
+    build an already-published tag without re-tagging it — which is exactly how
+    v4.7.0 ended up with no installer and no SBOM.
+    """
+    for path in (INSTALLER, SBOM):
+        text = _text(path)
+        assert re.search(r"workflow_dispatch:[^\n]*\n\s+inputs:", text), (
+            f"{path.name} has no workflow_dispatch inputs, so an already-published "
+            "tag cannot be built"
+        )
+        assert "tag:" in text, f"{path.name} has no `tag` input"
+        assert "inputs.tag || github.ref" in text, (
+            f"{path.name} does not check out the requested tag"
+        )
+        assert "inputs.tag != ''" in text, (
+            f"{path.name} would skip its release-attach steps when dispatched for a tag"
+        )
+
+
 def test_sigstore_action_is_pinned_to_a_real_release():
     text = _text(INSTALLER)
     refs = re.findall(r"uses:\s*sigstore/gh-action-sigstore-python@(\S+)", text)
