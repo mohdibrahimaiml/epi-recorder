@@ -30,11 +30,13 @@ jobs:
       - name: Install package and SBOM tool
         run: |
           python -m pip install --upgrade pip
-          pip install . cyclonedx-bom
+          # Pin the CLI generation: the flags below are cyclonedx-py 7.x
+          # (`--of`/`-o`). The 3.x spelling (`--format`/`--output`) was removed.
+          pip install . "cyclonedx-bom>=7,<8"
 
       - name: Generate SBOM (resolved environment)
         run: |
-          cyclonedx-py environment --format json --output sbom.cdx.json
+          cyclonedx-py environment --of json -o sbom.cdx.json
           python -c "import json; d=json.load(open('sbom.cdx.json')); print('components:', len(d.get('components', [])))"
 
       - name: Upload SBOM artifact
