@@ -285,11 +285,9 @@ def run_live_approval_demo(
         "timeout_minutes": 120,
     })
 
-    # Print the real approve/deny URLs — the gateway built these from EPI_APPROVAL_BASE_URL
-    wf_token = urllib.parse.quote(workflow_id, safe="")
-    ap_token = urllib.parse.quote(approval_id, safe="")
-    approve_url = f"{gateway_url}/api/approve/{wf_token}/{ap_token}?decision=approve"
-    deny_url    = f"{gateway_url}/api/approve/{wf_token}/{ap_token}?decision=deny"
+    # The approve/deny links carry a single-use token that only the gateway can
+    # mint; they arrive in the approval webhook payload (approve_url / deny_url)
+    # and in the approval email. A hand-built /api/approve/... URL is refused.
 
     print()
     print("  ┌─────────────────────────────────────────────────────────────┐")
@@ -298,11 +296,10 @@ def run_live_approval_demo(
     print(f"  │  Claim : {claim_id:<50}│")
     print(f"  │  Action: deny_claim                                         │")
     print("  │                                                             │")
-    print("  │  Open one of these URLs in your browser to respond:        │")
+    print("  │  The approval link carries a single-use token and is        │")
+    print("  │  delivered by webhook or email. A hand-built                │")
+    print("  │  /api/approve/... URL is refused (403).                     │")
     print("  └─────────────────────────────────────────────────────────────┘")
-    print()
-    print(f"  APPROVE → {approve_url}")
-    print(f"  DENY    → {deny_url}")
     print()
     print(f"  (If EPI_APPROVAL_WEBHOOK_URL is set, the reviewer was notified automatically)")
     print(f"  Waiting up to {APPROVAL_TIMEOUT_SECONDS // 60} minutes for a response...", flush=True)

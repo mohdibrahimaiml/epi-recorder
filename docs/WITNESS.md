@@ -1,6 +1,6 @@
 # Customer witness
 
-**Product version:** 4.6.3. Cloud product claims: [CLOUD.md](./CLOUD.md).
+**Product version:** 4.7.0. Cloud product claims: [CLOUD.md](./CLOUD.md).
 
 How a vendor reports every seal to its customer, and how the customer keeps
 and checks those reports. A witness receipt is **hash-only**. It is not a
@@ -157,12 +157,47 @@ A daily cron ( `cloud/wrangler.toml`: `crons = ["5 0 * * *"]` ) signs
 and anchors it in the Sigstore Rekor transparency log and an RFC 3161
 timestamp. Rewriting the log would require rewriting both public anchors.
 
+### Cross-check the public mirror
+
+`epi witness check --mirror` compares the live witness against a mirror and
+fails when history was rewritten:
+
+```bash
+# Against the hosted mirror (once it exists)
+epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc \
+  --mirror https://raw.githubusercontent.com/<owner>/epi-witness-checkpoints/main
+
+# Against a local clone, or entirely offline
+git clone https://github.com/<owner>/epi-witness-checkpoints
+epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc \
+  --mirror ./epi-witness-checkpoints
+```
+
+It fails — with a plain reason — when:
+
+- a checkpoint the live witness serves differs from the mirrored one for the
+  same day (`head_hash`, `count` or `signature`);
+- a day present in the mirror is missing from the live witness, or changed
+  there (history rewritten);
+- the witness public key differs without a key-rotation entry
+  (`previous_witness_ed25519_pub_hexes` on either side).
+
+A day that exists **only** on the live side is fine: the mirror lags by up to a
+day.
+
 A separate public git mirror (`epi-witness-checkpoints`) is **planned but not
 published** as of 23 Oct 2026 — the GitHub URL currently returns 404. Until it
 exists, the signed `/w/{id}/checkpoints` endpoint plus Rekor are the public
 record; do not tell customers to cross-check a repo that is not there. The
 daily cron does **not** back up D1 — database exports are still a weekly
-manual founder op (see `internal/cloud-ops.md` §5).
+manual founder op (documented in the internal ops runbook).
+
+**What changes when the mirror exists:** the `witness-mirror` workflow starts
+pushing to it every day (it is already written, append-only and signature-checked;
+it succeeds trivially while the secrets are unset), the two commands above become
+the customer-facing cross-check, and this paragraph plus the "planned" note in
+[docs/CLOUD.md](CLOUD.md) are updated to say it is live. Nothing else changes:
+the mirror holds hashes only, never customer evidence.
 
 ## Customer: check a file
 

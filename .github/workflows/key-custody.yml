@@ -1,0 +1,40 @@
+name: Key custody (real HSM)
+
+# Signing through a real PKCS#11 HSM (SoftHSM2): link a vault key, seal a
+# .epi inside the HSM, and verify it with `epi verify`. The same test file
+# runs in the release gate, where it skips the HSM cases when SoftHSM is not
+# installed; here EPI_TEST_REQUIRE_SOFTHSM=1 makes a missing HSM a FAILURE.
+
+on:
+  pull_request:
+    paths:
+      - "epi_core/signers.py"
+      - "epi_core/keys.py"
+      - "epi_core/trust.py"
+      - "epi_core/webhook.py"
+      - "epi_cli/main.py"
+      - "tests/test_external_signers.py"
+      - "pyproject.toml"
+      - ".github/workflows/key-custody.yml"
+  push:
+    branches: [main]
+    paths:
+      - "epi_core/signers.py"
+      - "epi_core/keys.py"
+      - "tests/test_external_signers.py"
+
+jobs:
+  softhsm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update -q && sudo apt-get install -y -q softhsm2
+      - run: pip install --upgrade pip && python scripts/ci-install-deps.py
+      - run: pip install "python-pkcs11>=0.7.0"
+      - name: External signer tests (SoftHSM required)
+        env:
+          EPI_TEST_REQUIRE_SOFTHSM: "1"
+        run: python -m pytest tests/test_external_signers.py -q -o addopts=""

@@ -1,6 +1,6 @@
 # AGT → EPI Portable Evidence Mapping
 
-**Frozen RFC (May 2026).** This is a community mapping note written against **epi-recorder v4.1.0**. It is **not** current product documentation. Current import path: [../AGT-IMPORT-QUICKSTART.md](../AGT-IMPORT-QUICKSTART.md). Product version today: **4.6.3** ([../README.md](../README.md)).
+**Frozen RFC (May 2026).** This is a community mapping note written against **epi-recorder v4.1.0**. It is **not** current product documentation. Current import path: [../AGT-IMPORT-QUICKSTART.md](../AGT-IMPORT-QUICKSTART.md). Product version today: **4.7.0** ([../README.md](../README.md)).
 
 - **Status**: Draft (frozen; not a living spec)
 - **Date**: 2026-05-13

@@ -176,7 +176,9 @@ def test_governance_workflow_policy_violation_review_and_export(tmp_path: Path):
     assert result.exit_code == 0, result.output
     html = summary_path.read_text(encoding="utf-8")
     assert "Policy Compliance Summary" in html
-    assert "Human reviewer approved" in html
+    # The fixture's review is an unsigned legacy review, so the summary must not
+    # claim a human approved it (step 3a: only a pinned approver's signature).
+    assert "Reviewer recorded (not a signed approval)" in html
 
 
 def test_agt_to_epi_to_regulator_round_trip(tmp_path: Path):

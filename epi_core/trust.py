@@ -884,6 +884,11 @@ def create_verification_report(
             "clock_warning": None,
         },
     )
+    # Human-approval surface: verify_command overwrites this with the real
+    # classification. Direct factory consumers (view/audit/review/portal) get
+    # None — honest, because they never evaluated it — never a claim that a
+    # person approved something.
+    report.setdefault("human_approval", None)
 
     return report
 

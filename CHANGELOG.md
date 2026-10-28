@@ -2,9 +2,173 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.7.0] - 2026-10-28
+
+### Added
+
+- **Pilot kit: run the whole story end to end.** `examples/pilot_kit/` holds a
+  LangGraph refund agent that runs with **no API key** (deterministic scripted
+  graph; `--openai` optional), records two approval requests, and a demo script
+  that walks vendor → approver → bank in three separate `EPI_HOME` dirs: seal
+  with a vault key, approve both requests with the approver's own key, then have
+  the bank pin both fingerprints and run
+  `epi verify run.epi --policy strict --require-human-approval`. It also proves
+  the failure paths (one byte tampered → non-zero; one approval missing →
+  `INCOMPLETE`) and that the bank's home holds no private key. Run it with
+  `bash examples/pilot_kit/run_pilot_demo.sh`. Two new documents:
+  [docs/PILOT-GUIDE.md](docs/PILOT-GUIDE.md) for the vendor and
+  [docs/BANK-REVIEWER-BRIEF.md](docs/BANK-REVIEWER-BRIEF.md) for the bank's
+  reviewer, whose every command is run by the demo and asserted by a test. A CI
+  workflow runs the demo on changes to the code it depends on, so it cannot rot.
+
+- **"Break the seal" public challenge (credit-only).** `CHALLENGE.md` states
+  exactly what counts as a break (an intact+signed file whose steps differ from
+  the published original; `--require-human-approval` passing without the
+  approver's key; a tampered file shown as intact in the browser; a wrong signer
+  fingerprint; a verifier crash/hang/code execution), what does not (stolen keys,
+  social engineering, attacks on hosted infrastructure), and the safe-harbour
+  rules (private report first, 90-day disclosure). `challenge/` holds the
+  published artifact sealed and approved with challenge keys whose private halves
+  are held offline, `challenge/check_submission.py` prints BREAK / NO BREAK for
+  criteria a–d locally, and `scripts/make_challenge_artifacts.py` regenerates
+  everything (writing private keys only to a temp dir outside the repo).
+  [GOVERNANCE.md](GOVERNANCE.md) still says no bug bounty: this is credit only.
+
+- **Cross-check the public witness mirror (`epi witness check --mirror`).**
+  Compare the live witness against the public `epi-witness-checkpoints` mirror
+  (a raw.githubusercontent.com base URL or a local clone; `--offline` works with
+  local files). It fails with a plain reason when a mirrored day differs on the
+  live side (`head_hash`, `count` or `signature`), when a mirrored day is
+  missing from the live witness (history rewritten), or when the witness key
+  changed without a key-rotation entry. A day that exists only on the live side
+  is fine — the mirror lags by up to a day. The mirror script is now
+  append-only: it verifies every checkpoint signature with the published key,
+  never rewrites an existing day, and exits non-zero with "history change
+  detected" so the workflow fails instead of rewriting history.
+  `mirror-template/` holds the README and `checkpoints/` placeholder to copy
+  into the new public repo; the workflow cross-checks the mirror before pushing
+  and still succeeds trivially while the secrets are unset. See
+  [docs/WITNESS.md](docs/WITNESS.md).
+
+- **Honest approval labels in every browser screen (step 3c).** The public
+  `/verify/` page and the offline viewers no longer present an approval as a
+  verified human decision. An in-run `agent.approval.response` reads
+  "Agent-reported: <reviewer> approved <action>"; a gateway link reads
+  "Gateway link click (not a signed approval)" (or "by a logged-in user", or
+  "older gateway"); a client-claimed label reads "Agent-reported (claimed X; the
+  gateway did not accept it)". The page decision line is labelled
+  "Decision (agent-reported)" and never painted green from an agent step.
+  A 1.2.0 signed approval is verified **in the browser** where it can be
+  (canonical `review_hash`, Ed25519 signature, `artifact_binding`), and shows
+  "Signed approval (approve|deny) for <id>, key fingerprint XXXX XXXX XXXX XXXX
+  … pin approvers with `epi approvers add` and run
+  `epi verify --require-human-approval` to confirm who"; a record that fails any
+  check shows "Invalid signed approval (does not match this file)" and never
+  the name; one signed by the sealing key says so. The embedded approver name is
+  only ever shown as "(claimed name: …)". The fingerprint matches
+  `epi_core.keys.key_fingerprint`, asserted in Chromium for three keys.
+
+- **Human-signed approvals (`epi approvers`, `epi review approve`,
+  `epi verify --require-human-approval`).** A `.epi` can now prove "a specific,
+  known person approved this exact decision" with a signature from **that
+  person's own key**. The verbatim format, the approval block inside the
+  existing `reviews` list, the 1.2.0 review version, the five honest
+  classifications, and the per-request `--require-human-approval` rule are
+  documented in [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+  - New `epi_core/approvers.py` + `epi approvers add|list|remove|keygen|link`.
+    Approver keys live in `EPI_APPROVER_KEYS_DIR` (default
+    `~/.epi/approver_keys/`), never the agent keys dir; the approver registry is
+    separate from the trusted *signer* registry, so pinning a vendor's sealing
+    key cannot make it an approver. `epi approvers add` refuses a key that is a
+    local agent key or a pinned signer unless `--force` (with a warning).
+  - `epi review <file.epi> approve --approval-id <id> --decision approve|deny
+    --as <name>` verifies first, shows what is being signed, refuses
+    self-approval (the sealing key), refuses an unknown `approval_id`, and signs
+    only with a key from the approver keys dir.
+  - `epi verify` gains a `human_approval` report field and a single
+    `Human approval:` line that summarises the run's sealed requests
+    (`VERIFIED` / `INCOMPLETE` / `DENIED`), and `--require-human-approval` FAILs
+    unless every sealed approval request has a human-signed approval (or a
+    case-level approval). `--policy strict` deliberately does **not** imply it.
+  - Only the `approver` role counts: a key pinned with another role alone is
+    never `human_signed`. An approval whose `approval_id` is not a sealed
+    request is listed separately and never makes the status `verified`.
+  - `review_version` moves to `1.2.0`. The record shape is unchanged, so an
+    already-deployed 4.6.x verifier computes the same content hash and raises no
+    tamper alarm — it just shows a signed review, never "human approved".
+  - `agent.approval.response` / `approved_by` are labelled "reported by the
+    agent (not signed by a person)" wherever the CLI prints them;
+    `approval_id` is now an explicit field of `approval_request()`.
+- **Signing keys in an HSM or cloud KMS (`epi keys link`).** A key name can now
+  point at an Ed25519 key held in a PKCS#11 HSM, AWS KMS
+  (`ECC_NIST_EDWARDS25519`) or Google Cloud KMS (`EC_SIGN_ED25519`). The
+  private key never leaves the vault. Signatures are standard Ed25519, so the
+  `.epi` format and every verifier are unchanged. Every signing path (record,
+  gateway, review, witness report, SCITT) signs through the vault. Each
+  signature is checked against the vault's public key, the vault key is pinned
+  at link time (a swapped key is refused), and `EPI_REQUIRE_EXTERNAL_KEY=1`
+  refuses key files on disk. Optional extras: `[pkcs11]`, `[aws-kms]`,
+  `[gcp-kms]`. See `docs/KEY-CUSTODY.md`.
 
 ### Changed
+
+- **Behaviour change: the demo exports HTML pages that no longer ship.** The 24
+  checked-in `demo-*.html` copies of the eight sector demos (under `website/`,
+  `site/`, and `examples/`) were stale: each embedded a **4.6.3** viewer, so they
+  showed 4.6.3's approval and verification wording to anyone who opened one, and
+  nothing linked to them. They are deleted, and
+  `scripts/generate_sector_demo_epis.py` no longer exports HTML — the `.epi` is
+  the evidence *and* the viewer. Open one with `epi view <file>`, or drop it on
+  <https://epilabs.org/verify>. If you linked to `/assets/demo/demo-*.html`,
+  link the matching `.epi` instead.
+- **Behaviour change: a vault key is required before `epi keys link`, and EPI
+  will not quietly make a key file when one is required.** With
+  `EPI_REQUIRE_EXTERNAL_KEY=1` set and no key linked, sealing used to write an
+  unencrypted `default.key` — unusable for vault-backed sealing and enough to make
+  the following `epi keys link` refuse. Sealing now stops with *"no vault key
+  linked: run 'epi keys link …'"* and writes nothing. `module-path` is accepted
+  in a PKCS#11 URI as a query attribute (canonical) **or** a path attribute.
+- **`pytest` names the file when the tracked-file guard fires.** A test run that
+  dirties the checkout used to fail with only "git diff differs from session
+  start". The guard now hashes each watched tracked file and prints every path
+  that changed, and it no longer trips on files that were already dirty before
+  the run started.
+- **Docs split into public and internal — and the leak that motivated it.**
+  `docs/` is published as a website, so `docs/internal/` was world-readable:
+  `https://spec.epilabs.org/internal/BANK-READINESS-EXECUTION-PLAN.md` served
+  the bank-readiness plan to anyone. Internal material now lives in the
+  repo-root `internal/` tree: the bank-readiness assessment and execution plan,
+  the swallow audit, the coding-agent prompts, and the org trust bundle design
+  note (moved out of `docs/design/`). No public doc links into `internal/` any
+  more — the enterprise briefing, the docs map, `ARCHITECTURE.md`, `SUPPORT.md`,
+  `docs/adr/0003-witness-first.md`, `CLOUD`, `DATA-RETENTION`, `WITNESS`,
+  `ROADMAP` and `docs/api/README.md` now state that the detail is internal
+  without pointing at it. `tests/test_docs_placement.py` enforces both halves.
+  This makes the material **unlisted, not secret**: `internal/` is still inside
+  a public repository, so anything that must stay genuinely private does not
+  belong in this repo at all.
+
+- **Gateway approval clicks are now labelled by who made them (behaviour
+  change).** A click by a **logged-in gateway user** is recorded as
+  `approval_source: "gateway_link_authenticated"` and still satisfies a policy's
+  "approval required" rule in `epi analyze`, labelled "gateway-attested
+  (logged-in user), not a signed approval". An **anonymous** link click is
+  `"gateway_link_unsigned"` and is treated as self-reported (`P6 Agent Approval
+  Gap — Self-Reported`), so it no longer satisfies that rule. Neither is a
+  signed approval: `verify_human_approvals()` never reports them
+  `human_signed`, and `--require-human-approval` still fails on both. Events
+  recorded by older gateways keep their stored `"gateway_human"` label, keep
+  satisfying the rule (no flipped results for old cases), and gain an
+  informational note that anyone with the URL could trigger them. For a signed
+  approval use `epi review <file.epi> approve` (step 3a).
+  `approval_source` is a **claim, not a proof**: it is a plain string, so the
+  gateway's capture endpoints (`/capture`, `/capture/batch`, `/capture/llm`, the
+  proxy paths) demote a client-supplied gateway label to
+  `raw_api_unverified` and keep it as `claimed_approval_source`; only the
+  gateway's own approval route writes the real labels. In an SDK recording the
+  agent writes its own steps, so the analysis approval checks remain
+  **heuristics** — the only cryptographic proof is
+  `epi verify --require-human-approval` with a signed approval.
 
 - **Data-only is now the default seal; the embedded HTML viewer is opt-in
   (behaviour change).** `record()`, `epi demo`, `epi run` and `epi record` now
@@ -57,6 +221,33 @@ All notable changes to EPI Recorder are documented here.
   the signed manifest (an authoritative `epi view` context, or a live check
   against the archive); otherwise it reads "NOT VERIFIED HERE — drop this file on
   epilabs.org/verify". The fail-closed path for a known failure is unchanged.
+
+### Security
+
+- **Hardened gateway approval links.** The approval link is now a single-use,
+  expiring capability instead of an unauthenticated GET/POST that recorded on
+  its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
+  and records **nothing** (mail scanners pre-open links); only the POST records,
+  once, with a token (≥256 bits, stored as SHA-256 only in the gateway's SQLite
+  store) that is bound to that workflow + approval and expires after
+  `EPI_APPROVAL_LINK_TTL_HOURS` (default 72). The body token doubles as the CSRF
+  token. `reviewer` is never taken from the query string: the authenticated
+  principal when gateway auth is on, otherwise `approval-link (identity not
+  verified)`. A missing, wrong, expired or reused token returns the **same**
+  403; attempts are rate-limited per client IP (60/min). Every value
+  interpolated into the gateway's HTML and the approval email is escaped, and
+  links issued before this change stop working (no fallback). See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+- **Approvals could be forged with the agent's own key, or claimed from an
+  unauthenticated link.** Before this release a review signature trusted the
+  public key embedded in the signature itself, so the agent (or anyone holding
+  the file) could present a "signed review" as a human approval; and a plain GET
+  on the gateway approval URL recorded a decision, so a mail scanner could
+  approve on its own. An approval is now `human_signed` only when it is signed
+  with a key pinned in the verifier's **approver** registry and differing from
+  the sealing key, and `epi verify --require-human-approval` is the only
+  cryptographic way to assert a person approved. See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
 
 ## [4.6.3] - 2026-10-23
 

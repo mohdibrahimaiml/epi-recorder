@@ -1,6 +1,6 @@
 # EPI Independent Verifier
 
-**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.6.3. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
+**JavaScript helper in this folder — not the `epi` CLI and not a complete verifier.** Product version 4.7.0. Canonical check: `epi verify` ([../VERIFICATION_CONTRACT.md](../VERIFICATION_CONTRACT.md)).
 
 Zero-dependency **partial** verification for [EPI](https://epilabs.org) `.epi` files. Runs in a browser or Node. File-integrity hashing needs JSZip. Step-chain verification is **not implemented** (marked planned in the table below).
 

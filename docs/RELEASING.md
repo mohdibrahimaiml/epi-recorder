@@ -4,11 +4,14 @@ Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
 
-**4.6.3 status (23 Oct 2026): uploaded with the project API token, not Trusted
-Publishing.** The token upload succeeded after the 4.6.2 `invalid-publisher`
-failure, but the 4.6.3 wheel has **no PEP 740 attestations** (its provenance
-endpoint returns HTTP 404). Trusted Publishing is still unconfigured. Do not
-treat 4.6.3 as an attested release; configure the publisher before 4.6.4.
+**4.7.0 status (28 Oct 2026): published through Trusted Publishing**, with
+**PEP 740 attestations** on both files (the wheel and the sdist provenance
+endpoints return HTTP 200). It is the first release that shipped through this
+workflow. **4.6.3** is still on PyPI and has **no PEP 740 attestations** (its
+provenance endpoint returns HTTP 404): it was uploaded with the project API token
+after the 4.6.2 `invalid-publisher` failure. Do not treat 4.6.3 as an attested
+release. The one-time publisher setup below is the reason this worked — do not
+undo it.
 
 ## One-time setup (founder, ~3 minutes)
 
@@ -25,21 +28,21 @@ treat 4.6.3 as an attested release; configure the publisher before 4.6.4.
 
 The 20 Oct 2026 GitHub Release `v4.6.2` built the wheel and passed
 `twine check`, then failed upload with `invalid-publisher` (OIDC token valid,
-no matching publisher on PyPI). Until those four fields exist on
-pypi.org, every `release: published` run will fail the same way. Do not use
-the token path again for future releases: 4.6.3 was uploaded by token only
-because the publisher was still unconfigured, and that is why it has no
-attestations.
+no matching publisher on PyPI). Those four fields now exist — 4.7.0 published
+with attestations on 28 Oct 2026 — so a failure here again means the publisher
+was changed or removed on pypi.org. Do not use the token path again for future
+releases: 4.6.3 was uploaded by token only because the publisher was still
+unconfigured, and that is why it has no attestations.
 
 **The published 4.6.2 wheel has no PEP 740 attestations.** Its PyPI
 provenance endpoint returns HTTP 404
 (`https://pypi.org/integrity/epi-recorder/4.6.2/epi_recorder-4.6.2-py3-none-any.whl/provenance`),
 because that upload did not come from this Trusted Publishing workflow. The
-exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested;
-4.6.4 is the first release that must be published through the workflow above
-and show **Attestations** on PyPI before anyone is told it is reproducible.
+exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested.
+4.7.0 is the first release published through the workflow above and it shows
+**Attestations** on PyPI.
 
-## Every release (example: v4.6.3)
+## Every release (example: v4.7.0)
 
 1. Make sure `main` is green and `CHANGELOG.md` has the version section dated.
 2. **Version-bump PRs merge only when you are about to publish.** The site
@@ -47,8 +50,8 @@ and show **Attestations** on PyPI before anyone is told it is reproducible.
    do not merge a website version bump days before the release, or the
    banner will claim a version that isn't out yet.
 3. GitHub → **Releases** → **Draft a new release**.
-4. Tag: **`v4.6.3`** (must match `pyproject.toml`; the workflow refuses a
-   mismatch), target: `main`. **Sign the tag** (`git tag -s v4.6.3 -m "…"`;
+4. Tag: **`v4.7.0`** (must match `pyproject.toml`; the workflow refuses a
+   mismatch), target: `main`. **Sign the tag** (`git tag -s v4.7.0 -m "…"`;
    verify with `git tag -v`). This is convention, not a gate — no workflow
    checks the signature yet, so the releaser owns it. Unsigned tags are a
    supply-chain gap.
@@ -67,7 +70,7 @@ and show **Attestations** on PyPI before anyone is told it is reproducible.
 ```bash
 sha256sum -c SHA256SUMS.txt
 pip install sigstore
-sigstore verify epi-setup-4.6.3.exe --bundle epi-setup-4.6.3.exe.sigstore \
+sigstore verify epi-setup-4.7.0.exe --bundle epi-setup-4.7.0.exe.sigstore \
   --cert-identity https://github.com/mohdibrahimaiml/epi-recorder \
   --cert-oidc-issuer https://token.actions.githubusercontent.com
 ```

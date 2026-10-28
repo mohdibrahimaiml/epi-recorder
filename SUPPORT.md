@@ -1,6 +1,6 @@
 # EPI support and service levels
 
-**Product version:** 4.6.3. Private beta status: [docs/CLOUD.md](./docs/CLOUD.md).
+**Product version:** 4.7.0. Private beta status: [docs/CLOUD.md](./docs/CLOUD.md).
 
 This page says what is supported, how to get help, and what to expect. It is
 not a legal SLA with penalties — EPI Cloud is in private beta and there is no
@@ -25,9 +25,8 @@ paid tier with contractual uptime yet.
 
 ## What is not promised (beta honesty)
 
-- No contractual uptime for EPI Cloud. Capacity math is public
-  ([internal/cloud-ops.md](./internal/cloud-ops.md) is operator detail; limits
-  are Cloudflare free-plan limits).
+- No contractual uptime for EPI Cloud. Capacity math is operator detail, kept
+  internal; the limits are Cloudflare free-plan limits.
 - No data-loss warranty on beta storage: keep your own copies of sealed `.epi`
   files. The sealed file is self-contained and verifiable offline — that is the
   durability story, not our servers.

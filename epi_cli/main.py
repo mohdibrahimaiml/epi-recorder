@@ -628,6 +628,14 @@ def verify(
         "--require-timestamp",
         help="FAIL unless at least one seal-time RFC 3161 token validates.",
     ),
+    require_human_approval: bool = typer.Option(
+        False,
+        "--require-human-approval",
+        help=(
+            "FAIL unless every sealed approval request has a human-signed approval "
+            "(or a case-level approval)."
+        ),
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -661,6 +669,7 @@ def verify(
         witness_log=witness_log,
         witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
+        require_human_approval=require_human_approval,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -971,6 +980,14 @@ app.add_typer(
     help="Review fault analysis results for a saved case file",
     invoke_without_command=True,
     no_args_is_help=False,
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approvers import app as approvers_app
+app.add_typer(
+    approvers_app,
+    name="approvers",
+    help="Pin human approvers and hold their own keys (human sign-off)",
     rich_help_panel="Everyday",
 )
 
@@ -1487,7 +1504,7 @@ def unassociate():
 def keys(
     action: str = typer.Argument(
         ...,
-        help="Action: generate, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
+        help="Action: generate, link, list, export, trust, revoke, unrevoke, bundle-export, bundle-import, did",
     ),
     key: Optional[str] = typer.Argument(None, help="Key name, path, or bundle path"),
     name: str = typer.Option("default", "--name", "-n", help="Key pair or trusted key name"),
@@ -1509,6 +1526,11 @@ def keys(
         "--fingerprint",
         help="'trust' from an .epi file: the fingerprint you confirmed with the sender (required).",
     ),
+    uri: Optional[str] = typer.Option(
+        None,
+        "--uri",
+        help="'link': Ed25519 key in an HSM or KMS (pkcs11:..., awskms:..., gcpkms:...). See docs/KEY-CUSTODY.md.",
+    ),
 ):
     """Manage Ed25519 key pairs and the local trust registry."""
     from epi_cli.keys import KeyManager, print_keys_table
@@ -1529,6 +1551,7 @@ def keys(
     from_cloud = _resolve_opt(from_cloud)
     cloud_url = _resolve_opt(cloud_url)
     fingerprint = _resolve_opt(fingerprint)
+    uri = _resolve_opt(uri)
 
     key_manager = KeyManager()
     trusted_keys_dir = TrustRegistry().trusted_keys_dir
@@ -1552,9 +1575,30 @@ def keys(
                 "[cyan]epi keys export[/cyan] (or publish [cyan]epi keys did --domain ...[/cyan]) "
                 "and read them the fingerprint by phone.[/dim]\n"
             )
-        except FileExistsError as e:
+        except (FileExistsError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
+
+    elif action == "link":
+        from epi_core.keys import key_fingerprint as _key_fp
+        from epi_core.signers import ExternalSignerError
+
+        link_uri = uri or key
+        if not link_uri:
+            console.print("[red][FAIL][/red] Give the vault key: epi keys link --name default --uri <uri>")
+            raise typer.Exit(1)
+        try:
+            signer_path, public_hex = key_manager.link_external_key(name, link_uri, overwrite=overwrite)
+        except (FileExistsError, ExternalSignerError, ValueError) as e:
+            console.print(f"[red][FAIL][/red] {e}")
+            raise typer.Exit(1)
+        console.print(f"\n[bold green][OK] Linked key:[/bold green] {name} -> {link_uri}")
+        console.print(f"  [cyan]Link file:[/cyan]   {signer_path}  [dim](no secrets)[/dim]")
+        console.print(f"  [cyan]Fingerprint:[/cyan] {_key_fp(public_hex)}")
+        console.print(
+            "\n[dim]The private key stays in the vault; EPI signs through it. Check this "
+            "fingerprint against the public key your vault reports (see docs/KEY-CUSTODY.md).[/dim]\n"
+        )
 
     elif action == "list":
         keys_list = key_manager.list_keys()
@@ -1596,7 +1640,7 @@ def keys(
                 )
             except Exception:
                 console.print()
-        except FileNotFoundError as e:
+        except (FileNotFoundError, ValueError) as e:
             console.print(f"[red][FAIL] Error:[/red] {e}")
             raise typer.Exit(1)
 
@@ -2688,6 +2732,20 @@ def cli_main():
             _auto_repair_windows_association(interactive=False, command_name=None)
         except Exception:
             pass  # Non-fatal: association is optional for CLI usage
+
+    # Rich falls back to 80 columns when stdout is a pipe. At 80 the help table
+    # clips a long option name (`--require-human-approval` renders as
+    # `--require-human-appr…`), so `epi verify --help | grep
+    # require-human-approval` finds nothing and the flag looks missing. Piped
+    # output has no terminal to overflow, so widen it; an interactive terminal
+    # keeps its own width.
+    try:
+        if not _sys.stdout.isatty():
+            import typer.rich_utils as _rich_utils
+
+            _rich_utils.MAX_WIDTH = max(_rich_utils.MAX_WIDTH or 0, 120)
+    except Exception:
+        pass
 
     app()
 

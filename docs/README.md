@@ -1,6 +1,6 @@
 # EPI documentation
 
-**Product version in this repo: 4.6.3** (see `pyproject.toml`).  
+**Product version in this repo: 4.7.0** (see `pyproject.toml`).  
 PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
 **License:** MIT (root `LICENSE`).  
@@ -19,7 +19,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 
 | Kind | What it is | How to treat it |
 |------------------|-----------------|-----------------|
-| **Product docs** | Recorder, Cloud, website — kept at 4.6.3 | Canonical |
+| **Product docs** | Recorder, Cloud, website — kept at 4.7.0 | Canonical |
 | **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
 | **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
 | **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
@@ -79,6 +79,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Honest product boundaries |
 | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) | Exact meaning of a verify result |
+| [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md) | What a human-signed approval proves (and doesn't) |
 | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | Offline independent check |
 | [THREAT_MODEL.md](./THREAT_MODEL.md) | In-scope / out-of-scope attacks |
 | [FILE-SAFETY.md](./FILE-SAFETY.md) | Is a `.epi` safe to open? (receiver guide) |
@@ -91,7 +92,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | Doc | Purpose |
 |-----|---------|
-| [CLOUD.md](./CLOUD.md) | Product claims, customer path ([founder ops](../internal/cloud-ops.md) is internal) |
+| [CLOUD.md](./CLOUD.md) | Product claims, customer path |
 | [WITNESS.md](./WITNESS.md) | Hash-only receipts (self-hosted endpoint or Cloud) |
 | [STORAGE.md](./STORAGE.md) | Customer-owned bucket (credentials never leave the recorder) |
 | [DPA.md](./DPA.md) | Data processing addendum, starting point (counsel review) |
@@ -113,6 +114,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 |------|------|
 | [CONNECT.md](./CONNECT.md) | Local review workspace (`epi connect open`) |
 | [IDENTITY-ONBOARDING.md](./IDENTITY-ONBOARDING.md) | Keys, DID, pinning |
+| [KEY-CUSTODY.md](./KEY-CUSTODY.md) | Signing key in an HSM / AWS KMS / Google Cloud KMS (`epi keys link`) |
 | [SHARE-A-FAILURE.md](./SHARE-A-FAILURE.md) | Hand a sealed failure to another engineer |
 | [PYTEST-AGENT-REGRESSIONS.md](./PYTEST-AGENT-REGRESSIONS.md) | `pytest --epi` |
 | [AGT-IMPORT-QUICKSTART.md](./AGT-IMPORT-QUICKSTART.md) | Import a Microsoft AGT export into `.epi` |
@@ -120,7 +122,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
 | [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
 | [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
-| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.6.3 |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.7.0 |
 | [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
 | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
 | [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
@@ -162,7 +164,6 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 | [adr/](./adr/) | Architecture decision records (why, not just what) |
 | [standards/scitt-predicate.md](./standards/scitt-predicate.md) | SCITT predicate notes |
 | [rfcs/agt-portable-evidence-mapping.md](./rfcs/agt-portable-evidence-mapping.md) | Frozen community RFC (May 2026; names v4.1.0) |
-| [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Internal design note for org trust bundles |
 | [epi-verifier/](./epi-verifier/) | Independent JS helper; file-integrity needs JSZip; step-chain check is not done |
 | [assets/SAMPLES.md](./assets/SAMPLES.md) | Sample `.epi` files for `epi verify` |
 | `dashboard-v2/` | Browser-test screenshots, not a user guide |
@@ -173,7 +174,14 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
-3. Keep product-doc version numbers at **4.6.3** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
-4. Customer docs must not contain admin keys or Cloudflare wrangler secrets (those stay in [../internal/cloud-ops.md](../internal/cloud-ops.md)).
+3. Keep product-doc version numbers at **4.7.0** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
+4. Customer docs must not contain admin keys or Cloudflare wrangler secrets, and
+   must never link into the internal tree.
 5. After structural changes, update this index.
 6. Do not add sales talk tracks or article-by-article “compliance” tables.
+7. **Nothing internal goes in `docs/`.** Founder ops, capacity and pricing math,
+   execution plans, agent prompts and internal design notes live in the
+   repo-root `internal/` tree. This directory is published as a website
+   (`spec.epilabs.org`), so every file in it is world-readable, and a public doc
+   must never link into `internal/`. `tests/test_docs_placement.py` enforces
+   both halves.

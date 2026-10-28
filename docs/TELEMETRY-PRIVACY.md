@@ -1,6 +1,6 @@
 # EPI Telemetry Privacy
 
-**Product version:** 4.6.3.
+**Product version:** 4.7.0.
 
 Telemetry in EPI Recorder is opt-in.
 

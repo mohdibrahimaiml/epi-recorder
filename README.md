@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.6.3](https://img.shields.io/badge/version-v4.6.3-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.7.0](https://img.shields.io/badge/version-v4.7.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
@@ -300,6 +300,7 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 |-------|------|
 | **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
+| **Break the seal** — try to break the guarantees (credit-only) | [CHALLENGE.md](CHALLENGE.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
 | **What verify means** | [docs/VERIFICATION_CONTRACT.md](docs/VERIFICATION_CONTRACT.md) |
 | **Support / SLA** | [SUPPORT.md](SUPPORT.md) |

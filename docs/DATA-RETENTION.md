@@ -1,6 +1,6 @@
 # Data retention and deletion (EPI Cloud)
 
-**Product version:** 4.6.3. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.7.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced in
 `cloud/src/lib/plans.ts`; the table below states them in product words.
 
@@ -51,8 +51,8 @@ private beta. Email `mohdibrahim@epilabs.org` with the workspace name:
 
 Point-in-time D1 exports to R2, last 4 kept (4-week window) — this is still a
 manual weekly founder op. The daily cron in `cloud/wrangler.toml` publishes
-witness checkpoints; it does **not** back up the database. See
-[../internal/cloud-ops.md](../internal/cloud-ops.md) §5.
+witness checkpoints; it does **not** back up the database. The backup runbook is
+internal.
 Restores are documented per incident. Backup contents follow the same
 retention as live data — old backups age out; nothing is archived
 indefinitely.

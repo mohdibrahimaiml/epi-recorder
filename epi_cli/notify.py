@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from epi_core.keys import KeyManager
+from epi_core.keys import KeyManager, reject_auto_key_generation
 
 console = Console()
 notify_app = typer.Typer(help="EU AI Act database notification")
@@ -59,6 +59,7 @@ def generate(
     # Sign the notification
     km = KeyManager()
     if not km.has_key(key_name):
+        reject_auto_key_generation(key_name)
         km.generate_keypair(key_name)
 
     pk = km.load_private_key(key_name)

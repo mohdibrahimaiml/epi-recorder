@@ -1,6 +1,6 @@
 # EPI Cloud
 
-**Status (v4.6.3):** private beta at `https://cloud.epilabs.org`.  
+**Status (v4.7.0):** private beta at `https://cloud.epilabs.org`.  
 **Not:** a paywall on verification, a self-serve hosted-verification product, or a place that must hold every `.epi`.
 
 Open-source `epi-recorder` stays complete without Cloud. Cloud is how a vendor **connects a computer**, **witnesses runs (hashes)**, and **shares selected files** with a customer reviewer.
@@ -51,6 +51,5 @@ Legacy hosted paths still on Render (not the account system, not required to rec
 
 ## Founder ops (internal)
 
-Setup, capacity, backups, and local dev live in
-[../internal/cloud-ops.md](../internal/cloud-ops.md) — internal, not
-customer-facing.
+Setup, capacity, backups, and local dev are internal operator material. They are
+deliberately not published on this site and are never linked from a public doc.

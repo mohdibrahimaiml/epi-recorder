@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.6.3. Docs map: [README.md](./README.md).
+**Product version:** 4.7.0. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -20,6 +20,39 @@ exports — see [FILE-SAFETY.md](./FILE-SAFETY.md) §7).
 Timestamps prove "existed no later than T" only when a valid RFC 3161 token or
 a customer witness backs them. Everything below is the engineering detail
 behind those sentences.
+
+## A human approval proves a pinned key signed it, not that the person saw the truth
+
+**What you see:** `epi verify` says `Human approval: VERIFIED — alice@bank.com
+… approved "refund REF-7"`.
+
+**What is true:** that means a key **you** pinned as alice@bank.com signed an
+approval of *this artifact's* decision, and that key is not the key that sealed
+the run. It does **not** prove the person read the underlying data, that the
+recorded run is truthful, that the key really belongs to Alice (pinning is a
+human step done out of band), or that the approval is recognised on other hosts
+(registries differ). An approval also cannot be forged without the approver's
+private key, but anyone who can edit the file can append a **broken** review —
+which turns the status to FAILED, deliberately fail-closed. It can block a run;
+it can never create a `human_signed` record. See
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+**Whether yours is affected:** any run where "a person approved this" is relied
+on. Pin the approver's key yourself and read the fingerprint aloud; `--policy
+strict` does not imply human approval — pass `--require-human-approval` too.
+
+**Who can write `approval_source`.** It is a plain string in the step content.
+The gateway demotes a client-supplied gateway label at its capture endpoints
+(`/capture`, `/capture/batch`, `/capture/llm`, the proxy paths) to
+`raw_api_unverified` and records it as `claimed_approval_source`, so only the
+gateway's own approval route writes these labels there. But in an **SDK**
+recording the agent writes its own steps, so it can write any label — including
+`gateway_link_authenticated`. Treat `epi analyze`'s approval checks as
+heuristics. The only cryptographic proof that a person approved something is
+`epi verify --require-human-approval` with a signed approval from a pinned
+approver key.
+
+---
 
 ## The signature covers the canonical manifest, not its raw bytes (red-team F-07)
 
@@ -315,16 +348,17 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.6.3**. Published on PyPI: **4.6.3**. The **4.6.3**
-wheel includes signed display-layer verification, the viewer fail-closed fix
-(#141/#143), and the pack-time viewer / prohibition-guard fix (#145). It has
-**no PEP 740 attestations** because it was uploaded with the project API token;
-its provenance endpoint returns HTTP 404. Trusted Publishing is still
-unconfigured. The published **4.6.2** wheel does **not** include the 4.6.3
-verifier fixes. **4.4.1** remains on PyPI
-(not yanked) and still truncates sealed strings at 2000 characters. **4.4.2**
-never reached PyPI. **4.4.3+** seals full payloads (`content_truncated=false`;
-verify FAILs when `true`, WARNs when absent).
+Current release line: **4.7.0**, published on PyPI: **4.7.0**. It went up through
+**Trusted Publishing** (28 Oct 2026), so both files carry **PEP 740 attestations**
+— check with `https://pypi.org/integrity/epi-recorder/4.7.0/<file>/provenance`
+(HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
+uploaded with the project API token; its provenance endpoint returns HTTP 404. It
+added signed display-layer verification, the viewer fail-closed fix (#141/#143),
+and the pack-time viewer / prohibition-guard fix (#145). The published
+**4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
+on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
+**4.4.2** never reached PyPI. **4.4.3+** seals full payloads
+(`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
 
 ---
 

@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.6.3)
+# EPI CLI Reference (v4.7.0)
 
-**Version:** 4.6.3  
+**Version:** 4.7.0  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
@@ -80,6 +80,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi unassociate` | Remove file association support. |
 | `epi doctor` | Run self-healing diagnostics. |
 | `epi keys generate` | Generate an Ed25519 signing key pair. |
+| `epi keys link --uri <vault-uri>` | Sign with an Ed25519 key held in an HSM, AWS KMS or Google Cloud KMS. See [KEY-CUSTODY.md](./KEY-CUSTODY.md). |
 | `epi keys list` | List signing key pairs. |
 | `epi keys export [--format hex]` | Export a public key as base64 (default) or hex. |
 | `epi keys trust <file> --name <name>` / `--from-did <did>` / `--from-cloud <slug>` | Pin a public key (PEM, `did.json` or base64 file, a did:web DID, or a Cloud registry key **after** confirming the fingerprint with the sender). Pinning from an `.epi` also needs `--fingerprint "<confirmed fingerprint>"`. Cloud listings are not pins by themselves. |
@@ -91,6 +92,9 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi witness serve` | Customer side: run the witness receiver that records every seal report (`--out received.jsonl`). |
 | `epi refresh-viewer <file.epi>` | Vendor side: regenerate the embedded viewer of your own sealed file and re-sign it with your key. Refuses altered files and files sealed by someone else's key. Stays `WITNESSED`. |
 | `epi review <file.epi>` | Confirm or dismiss policy-grounded issues and save human review notes. |
+| `epi review <file.epi> approve` | A person signs a human approval of a specific decision with their own key. See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md). |
+| `epi approvers add` / `list` / `remove` / `keygen` / `link` | Pin human approvers (separate from trusted signer keys) and hold their keys. |
+| `epi verify <file.epi> --require-human-approval` | FAIL unless every sealed approval request has a human-signed approval, or a case-level approval. |
 
 ### Advanced / operator commands
 
@@ -709,8 +713,49 @@ Options:
 
 Subcommands:
 
-- `show` — Display the existing review record, if present.
+- `show` — Display the existing review record, if present, with each approval's classification and fingerprint.
 - `bind` — Promote the latest unbound review into a signed, artifact-bound review entry.
+- `approve` — A **person** signs a human approval with **their own** key
+  (`epi approvers keygen`). Verifies the file first, shows what is being signed,
+  refuses self-approval (the sealing key) and an unknown `approval_id`, and
+  signs only with a key from the approver keys dir — never the agent key.
+
+```bash
+epi review run.epi approve --approval-id refund-7 --decision approve --as alice@bank.com
+epi review run.epi approve --case-level --decision approve --as alice@bank.com
+```
+
+A fault review (`epi review`) or `epi review bind` is **not** a human approval:
+those signatures classify as `signed_by_sealing_key` or `signed_unknown_key`,
+never `human_signed`. See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
+---
+
+## `epi approvers`
+
+Who counts as a human approver is a local decision the verifier makes, kept
+separate from the trusted *signer* keys (`epi keys trust`). Pinning a vendor's
+sealing key never makes that key an approver.
+
+```bash
+epi approvers keygen --name alice@bank.com          # the person's own key
+epi approvers add alice.pub --name alice@bank.com --fingerprint "3f78 7c9e 1a2b 4c5d"
+epi approvers list
+epi approvers remove --name alice@bank.com          # files they signed become signed_unknown_key
+epi approvers link --name alice@bank.com --uri "pkcs11:…"   # HSM / cloud KMS
+```
+
+- `add` requires the `--fingerprint` the approver read aloud (whitespace and
+  case insensitive), and refuses a key that is a local agent key or an already
+  pinned signer unless `--force` (which prints a warning).
+- Only the `approver` role counts for `human_signed`. A key pinned with
+  `--role auditor` alone is listed, but an approval it signs is reported as
+  `signed_unknown_key`, never `human_signed`.
+- `keygen` writes to `EPI_APPROVER_KEYS_DIR` (default `~/.epi/approver_keys/`),
+  requires encryption at rest (`EPI_KEY_PASSWORD` or a hidden prompt), and
+  refuses to use the agent keys directory.
+- The registry lives in `EPI_TRUSTED_APPROVERS_DIR` (default
+  `~/.epi/trusted_approvers/`), one JSON file per approver.
 
 ---
 

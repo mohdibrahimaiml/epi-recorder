@@ -1,6 +1,6 @@
 # EPI Codebase Walkthrough
 
-**Version:** 4.6.3. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
+**Version:** 4.7.0. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:
@@ -460,7 +460,7 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.6.3` line, it is a polyglot envelope: the same bytes open
+In the current `v4.7.0` line, it is a polyglot envelope: the same bytes open
 as an HTML page and carry a signed ZIP payload. Under that display layer it is
 a binary envelope with a fixed 128-byte header, followed by the outer viewer
 HTML and the ZIP payload.
@@ -1008,12 +1008,16 @@ Current runtime flow:
 1. the agent emits `agent.approval.request`
 2. the gateway can send a webhook
 3. the gateway can optionally send an email
-4. a human hits `/api/approve/{workflow_id}/{approval_id}`
-5. the gateway records `agent.approval.response`
-6. the workflow can continue with a durable human decision step
+4. the person opens the single-use link (`GET /api/approve/{workflow_id}/{approval_id}`),
+   which renders a confirmation page and records nothing
+5. confirming POSTs to the same path; the gateway spends the token and records
+   `agent.approval.response` with `approval_source: gateway_link_unsigned`
+6. the workflow can continue with a durable decision step
 
 That architecture is important because it turns approval from a fake demo step
-into a real event path.
+into a real event path. A link click is still **unsigned**: it is reported as
+agent/system-reported, never as a human-signed approval (see
+[HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md)).
 
 ## 13. Crash Recovery and Reliability Logic
 

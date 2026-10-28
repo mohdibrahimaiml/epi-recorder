@@ -6,7 +6,7 @@ Org trust bundles — customer-signed key history for offline verification.
 
 The customer root private key never leaves the caller's machine: it is loaded
 from their own key manager or PEM file and used only to sign the bundle
-envelope in-process. Spec: docs/design/org-trust-bundle.md (v0).
+envelope in-process. Spec: internal/design/org-trust-bundle.md (v0).
 """
 
 from __future__ import annotations

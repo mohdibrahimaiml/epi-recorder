@@ -16,7 +16,9 @@ python scripts/generate_sector_demo_epis.py
 | Asset | Path |
 |-------|------|
 | Sealed case | `docs/assets/demo-finance-loan-underwriter.epi` |
-| Zero-install HTML | `website/assets/demo/demo-finance-loan-underwriter.html` (also on site after deploy: `/assets/demo/demo-finance-loan-underwriter.html`) |
+
+Open it with `epi view docs/assets/demo-finance-loan-underwriter.epi`, or drop the
+file on <https://epilabs.org/verify> — no install needed.
 
 All eight checked-in seals use the same demo signing key. Its fingerprint is
 `59e3 6c77 0bd9 8524`; confirm it here (this repository) rather than copying it
@@ -31,7 +33,6 @@ epi keys trust docs/assets/demo-finance-loan-underwriter.epi \
   --name epi-demo --fingerprint "59e3 6c77 0bd9 8524"
 # Claim / insurer path — always use strict (FAIL if sealer not org-pinned):
 epi verify docs/assets/demo-finance-loan-underwriter.epi --policy strict
-# or open the HTML export in any browser
 ```
 
 ## All sector demos
@@ -47,6 +48,8 @@ epi verify docs/assets/demo-finance-loan-underwriter.epi --policy strict
 | `demo-insurance-underwriting.epi` | Insurance — property underwriting |
 | `demo-lending-affordability.epi` | Lending — affordability check |
 
-HTML exports for all eight live under `website/assets/demo/*.html`.
+Each of the eight is a single self-contained `.epi`: the `.epi` file is the
+evidence and the viewer. Open it with `epi view <file>`, or drop it on
+<https://epilabs.org/verify>. There are no separate HTML copies to keep in sync.
 
 Leak-scan every seal: no `gsk_` / `GROQ_API_KEY` in the archive.

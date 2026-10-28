@@ -225,6 +225,8 @@ def _story_driver(body: str) -> str:
 
     prelude = "\n".join([
         cut("function esc(", "\n"),
+        # stepLine calls these to label an approval honestly (step 3c).
+        cut("function approvalSourceLabel(", "\nfunction hexToBytes("),
         cut("function normalizeVerdict(", "\n// One plain sentence first"),
     ])
     with tempfile.TemporaryDirectory() as td:
@@ -254,10 +256,16 @@ def test_story_shows_decision_and_human_review():
     ))
     s = out["s"]
     assert s["verdict"] == "REJECTED"
-    assert s["review"] == {"approved": False, "reviewer": "vapt_lead", "reason": "Out of scope."}
+    assert s["review"]["approved"] is False
+    assert s["review"]["reviewer"] == "vapt_lead"
+    assert s["review"]["reason"] == "Out of scope."
     assert s["total"] == 6 and len(s["lines"]) == 5  # environment step is not a story line
     assert "WHAT THE AI DID" in out["ok"] and "Scan DemoBank" in out["ok"]
-    assert "vapt_lead rejected" in out["ok"]
+    # An agent-written response is labelled as the agent's claim, never as a
+    # human decision (step 3c).
+    assert "Agent-reported: vapt_lead rejected" in out["ok"]
+    assert "Human review:" not in out["ok"]
+    assert "Decision (agent-reported):" in out["ok"]
     # A tampered file still shows its claims, but labelled as possibly forged.
     assert "may be forged" in out["bad"] and "WHAT THE AI DID" not in out["bad"]
 

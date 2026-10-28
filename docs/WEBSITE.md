@@ -3,7 +3,7 @@
 **Source of truth:** the `website/` folder in this repo.  
 **Live site:** https://epilabs.org, served by **Cloudflare Pages** from the
 generated `site/` directory (`wrangler.toml`: `pages_build_output_dir = "site"`).  
-**Version shown on the banner must match `pyproject.toml` (currently 4.6.3).**
+**Version shown on the banner must match `pyproject.toml` (currently 4.7.0).**
 
 This is the marketing and in-browser verify surface. It is **not** a substitute for the technical docs in this folder. Sign-in on the site is **EPI Cloud** (`cloud.epilabs.org`), not the old Render portal.
 

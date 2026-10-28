@@ -8,6 +8,11 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build for, e.g. v4.7.0 (empty = the ref you dispatch on)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -20,7 +25,10 @@ jobs:
       - name: Checkout the release tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref }}
+          # `tag` lets an already-published tag be built after the fact: the
+          # workflow file is read from the dispatch ref, so pointing this at the
+          # tag is the only way to get its tree without re-tagging.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -30,11 +38,13 @@ jobs:
       - name: Install package and SBOM tool
         run: |
           python -m pip install --upgrade pip
-          pip install . cyclonedx-bom
+          # Pin the CLI generation: the flags below are cyclonedx-py 7.x
+          # (`--of`/`-o`). The 3.x spelling (`--format`/`--output`) was removed.
+          pip install . "cyclonedx-bom>=7,<8"
 
       - name: Generate SBOM (resolved environment)
         run: |
-          cyclonedx-py environment --format json --output sbom.cdx.json
+          cyclonedx-py environment --of json -o sbom.cdx.json
           python -c "import json; d=json.load(open('sbom.cdx.json')); print('components:', len(d.get('components', [])))"
 
       - name: Upload SBOM artifact
@@ -45,8 +55,11 @@ jobs:
 
       - name: Attach SBOM to GitHub Release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
+          # action-gh-release refuses to guess when github.ref is not a tag
+          # ("GitHub Releases requires a tag"), so name the release explicitly.
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: sbom.cdx.json
           generate_release_notes: false
         env:

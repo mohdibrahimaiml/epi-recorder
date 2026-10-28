@@ -162,6 +162,24 @@ class EvidenceWorker:
     def find_approval_request(self, workflow_id: str, approval_id: str) -> dict[str, Any] | None:
         return self.case_store.find_approval_request(workflow_id, approval_id)
 
+    def create_approval_link(
+        self,
+        workflow_id: str,
+        approval_id: str,
+        *,
+        ttl_hours: float,
+        issued_by: str | None = None,
+    ) -> str:
+        return self.case_store.create_approval_link(
+            workflow_id, approval_id, ttl_hours=ttl_hours, issued_by=issued_by
+        )
+
+    def check_approval_link(self, workflow_id: str, approval_id: str, token: str) -> str:
+        return self.case_store.check_approval_link(workflow_id, approval_id, token)
+
+    def consume_approval_link(self, workflow_id: str, approval_id: str, token: str) -> str:
+        return self.case_store.consume_approval_link(workflow_id, approval_id, token)
+
     def save_review(self, case_id: str, review_payload: dict[str, Any]) -> dict[str, Any]:
         return self.case_store.save_review(case_id, review_payload)
 

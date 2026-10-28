@@ -52,6 +52,10 @@ FROZEN_REPORT_KEYS = {
     # Added for offline RFC 3161 validation: verify_command attaches the
     # timestamps block to every success report. Additive only.
     "timestamps",
+    # Added for human-signed approvals (step 3a): verify_command attaches the
+    # human_approval classification to every success report. Defaults to None in
+    # the factory (never evaluated by direct consumers). Additive only.
+    "human_approval",
 }
 
 

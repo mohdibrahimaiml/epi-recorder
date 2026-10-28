@@ -5,6 +5,11 @@ on:
     tags:
       - "v*.*.*"        # triggers on v2.7.2, v3.0.0, etc.
   workflow_dispatch:    # also allow manual trigger from GitHub UI
+    inputs:
+      tag:
+        description: "Tag to build for, e.g. v4.7.0 (empty = the ref you dispatch on)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -19,6 +24,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # See sbom.yml: `tag` builds an already-published tag without re-tagging.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -79,8 +87,11 @@ jobs:
 
       - name: Upload installer to GitHub Release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
+          # See sbom.yml: an explicit tag_name is required when github.ref is a
+          # branch (a workflow_dispatch targeting an existing tag).
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             installer/windows/Output/epi-setup-*.exe
             installer/windows/Output/SHA256SUMS.txt
@@ -93,9 +104,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Pinned to a real release: sigstore publishes no floating `v3` tag, so
+      # `@v3` could not be resolved and the job died in 4s at action download.
       - name: Sigstore-sign exe + checksums (free, transparent)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: sigstore/gh-action-sigstore-python@v3
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
+        uses: sigstore/gh-action-sigstore-python@v3.5.0
         with:
           inputs: |
             installer/windows/Output/epi-setup-*.exe
@@ -103,8 +116,9 @@ jobs:
 
       - name: Attach Sigstore bundles to GitHub Release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: installer/windows/Output/*.sigstore
           generate_release_notes: false
         env:
