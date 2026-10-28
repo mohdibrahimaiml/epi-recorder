@@ -112,6 +112,27 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **Behaviour change: the demo exports HTML pages that no longer ship.** The 24
+  checked-in `demo-*.html` copies of the eight sector demos (under `website/`,
+  `site/`, and `examples/`) were stale: each embedded a **4.6.3** viewer, so they
+  showed 4.6.3's approval and verification wording to anyone who opened one, and
+  nothing linked to them. They are deleted, and
+  `scripts/generate_sector_demo_epis.py` no longer exports HTML — the `.epi` is
+  the evidence *and* the viewer. Open one with `epi view <file>`, or drop it on
+  <https://epilabs.org/verify>. If you linked to `/assets/demo/demo-*.html`,
+  link the matching `.epi` instead.
+- **Behaviour change: a vault key is required before `epi keys link`, and EPI
+  will not quietly make a key file when one is required.** With
+  `EPI_REQUIRE_EXTERNAL_KEY=1` set and no key linked, sealing used to write an
+  unencrypted `default.key` — unusable for vault-backed sealing and enough to make
+  the following `epi keys link` refuse. Sealing now stops with *"no vault key
+  linked: run 'epi keys link …'"* and writes nothing. `module-path` is accepted
+  in a PKCS#11 URI as a query attribute (canonical) **or** a path attribute.
+- **`pytest` names the file when the tracked-file guard fires.** A test run that
+  dirties the checkout used to fail with only "git diff differs from session
+  start". The guard now hashes each watched tracked file and prints every path
+  that changed, and it no longer trips on files that were already dirty before
+  the run started.
 - **Docs split into public and internal — and the leak that motivated it.**
   `docs/` is published as a website, so `docs/internal/` was world-readable:
   `https://spec.epilabs.org/internal/BANK-READINESS-EXECUTION-PLAN.md` served

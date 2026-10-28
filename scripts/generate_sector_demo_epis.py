@@ -16,6 +16,9 @@ Outputs (git-allowable under docs/assets/, site/assets/demo/, and examples/):
   7. demo-insurance-underwriting.epi
   8. demo-lending-affordability.epi
 
+The .epi is the deliverable; no HTML export is written (see
+docs/assets/SECTOR_DEMOS.md).
+
 Usage:
   python scripts/generate_sector_demo_epis.py
 """
@@ -1004,21 +1007,9 @@ def main() -> int:
             shutil.copy2(abs_target, EXAMPLES_DIR / name)
             shutil.copy2(abs_target, DEMO_DIR / name)
 
-            # Export HTML into EXAMPLES_DIR, SITE_DEMO_DIR, and WEBSITE_DEMO_DIR
-            html_name = name.replace(".epi", ".html")
-            html_out = EXAMPLES_DIR / html_name
-            try:
-                subprocess.run(
-                    [sys.executable, "-m", "epi_cli.main", "export-html", str(abs_target), "--output", str(html_out)],
-                    check=True,
-                    capture_output=True,
-                )
-                shutil.copy2(html_out, SITE_DEMO_DIR / html_name)
-                shutil.copy2(html_out, WEBSITE_DEMO_DIR / html_name)
-                print(f"  exported viewer HTML -> {html_out.name}")
-            except Exception as e:
-                print(f"  WARN: failed to export HTML for {name}: {e}", file=sys.stderr)
-
+            # No HTML export: the exported pages were stale copies of the viewer
+            # and nothing links to them. The .epi is the evidence — open it with
+            # `epi view`, or drop it on https://epilabs.org/verify.
             results.append(abs_target)
         else:
             print(f"  WARN: missing output for {name}", file=sys.stderr)
