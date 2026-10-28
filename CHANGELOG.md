@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.7.0] - 2026-10-28
 
 ### Added
 
@@ -67,21 +67,6 @@ All notable changes to EPI Recorder are documented here.
   the name; one signed by the sealing key says so. The embedded approver name is
   only ever shown as "(claimed name: …)". The fingerprint matches
   `epi_core.keys.key_fingerprint`, asserted in Chromium for three keys.
-
-- **Hardened gateway approval links.** The approval link is now a single-use,
-  expiring capability instead of an unauthenticated GET/POST that recorded on
-  its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
-  and records **nothing** (mail scanners pre-open links); only the POST records,
-  once, with a token (≥256 bits, stored as SHA-256 only in the gateway's SQLite
-  store) that is bound to that workflow + approval and expires after
-  `EPI_APPROVAL_LINK_TTL_HOURS` (default 72). The body token doubles as the CSRF
-  token. `reviewer` is never taken from the query string: the authenticated
-  principal when gateway auth is on, otherwise `approval-link (identity not
-  verified)`. A missing, wrong, expired or reused token returns the **same**
-  403; attempts are rate-limited per client IP (60/min). Every value
-  interpolated into the gateway's HTML and the approval email is escaped, and
-  links issued before this change stop working (no fallback). See
-  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
 
 - **Human-signed approvals (`epi approvers`, `epi review approve`,
   `epi verify --require-human-approval`).** A `.epi` can now prove "a specific,
@@ -215,6 +200,33 @@ All notable changes to EPI Recorder are documented here.
   the signed manifest (an authoritative `epi view` context, or a live check
   against the archive); otherwise it reads "NOT VERIFIED HERE — drop this file on
   epilabs.org/verify". The fail-closed path for a known failure is unchanged.
+
+### Security
+
+- **Hardened gateway approval links.** The approval link is now a single-use,
+  expiring capability instead of an unauthenticated GET/POST that recorded on
+  its own. `GET /api/approve/<workflow>/<approval>` renders a confirmation page
+  and records **nothing** (mail scanners pre-open links); only the POST records,
+  once, with a token (≥256 bits, stored as SHA-256 only in the gateway's SQLite
+  store) that is bound to that workflow + approval and expires after
+  `EPI_APPROVAL_LINK_TTL_HOURS` (default 72). The body token doubles as the CSRF
+  token. `reviewer` is never taken from the query string: the authenticated
+  principal when gateway auth is on, otherwise `approval-link (identity not
+  verified)`. A missing, wrong, expired or reused token returns the **same**
+  403; attempts are rate-limited per client IP (60/min). Every value
+  interpolated into the gateway's HTML and the approval email is escaped, and
+  links issued before this change stop working (no fallback). See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
+- **Approvals could be forged with the agent's own key, or claimed from an
+  unauthenticated link.** Before this release a review signature trusted the
+  public key embedded in the signature itself, so the agent (or anyone holding
+  the file) could present a "signed review" as a human approval; and a plain GET
+  on the gateway approval URL recorded a decision, so a mail scanner could
+  approve on its own. An approval is now `human_signed` only when it is signed
+  with a key pinned in the verifier's **approver** registry and differing from
+  the sealing key, and `epi verify --require-human-approval` is the only
+  cryptographic way to assert a person approved. See
+  [docs/HUMAN-APPROVAL.md](docs/HUMAN-APPROVAL.md).
 
 ## [4.6.3] - 2026-10-23
 

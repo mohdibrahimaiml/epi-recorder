@@ -1,6 +1,6 @@
 # Human approval
 
-**Product version:** 4.6.3. Product map: [README.md](./README.md).
+**Product version:** 4.7.0. Product map: [README.md](./README.md).
 
 A sealed `.epi` can prove **"a specific, known person approved this exact
 decision"** — with a signature from *that person's own key*. This page says

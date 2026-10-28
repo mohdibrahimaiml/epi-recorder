@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.6.3)
+# EPI CLI Reference (v4.7.0)
 
-**Version:** 4.6.3  
+**Version:** 4.7.0  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 

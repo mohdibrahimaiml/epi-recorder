@@ -633,7 +633,7 @@ def verify(
         "--require-human-approval",
         help=(
             "FAIL unless every sealed approval request has a human-signed approval "
-            "(pinned approver key, not the sealing key), or a case-level approval."
+            "(or a case-level approval)."
         ),
     ),
     web: bool = typer.Option(
@@ -2732,6 +2732,20 @@ def cli_main():
             _auto_repair_windows_association(interactive=False, command_name=None)
         except Exception:
             pass  # Non-fatal: association is optional for CLI usage
+
+    # Rich falls back to 80 columns when stdout is a pipe. At 80 the help table
+    # clips a long option name (`--require-human-approval` renders as
+    # `--require-human-appr…`), so `epi verify --help | grep
+    # require-human-approval` finds nothing and the flag looks missing. Piped
+    # output has no terminal to overflow, so widen it; an interactive terminal
+    # keeps its own width.
+    try:
+        if not _sys.stdout.isatty():
+            import typer.rich_utils as _rich_utils
+
+            _rich_utils.MAX_WIDTH = max(_rich_utils.MAX_WIDTH or 0, 120)
+    except Exception:
+        pass
 
     app()
 

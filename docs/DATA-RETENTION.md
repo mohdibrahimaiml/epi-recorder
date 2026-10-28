@@ -1,6 +1,6 @@
 # Data retention and deletion (EPI Cloud)
 
-**Product version:** 4.6.3. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.7.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced in
 `cloud/src/lib/plans.ts`; the table below states them in product words.
 

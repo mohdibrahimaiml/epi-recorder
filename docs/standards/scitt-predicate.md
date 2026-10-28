@@ -3,7 +3,7 @@
 **Status:** Active (technical note)  
 **Date:** 2026-05-17  
 **Version:** 1.0.0  
-**Product version:** 4.6.3  
+**Product version:** 4.7.0  
 **Authors:** EPI Project Team  
 
 This is a **format note**, not a user guide. Product docs: [../README.md](../README.md). A SCITT receipt proves a statement was logged; it does not certify a regulation. Local `epi-register` without `--service` is self-issued — see [../EPI_MASTER_DOCUMENTATION.md](../EPI_MASTER_DOCUMENTATION.md).
