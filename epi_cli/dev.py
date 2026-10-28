@@ -174,7 +174,11 @@ def run_refund_agent():
         if len(short) > 100:
             # Cut on a word boundary, never mid-word.
             short = short[:100].rsplit(" ", 1)[0].rstrip(" ,.;:(") + "…"
-        print(f"Decision: {short}")
+        # State the recommendation and the hand-off plainly. The AI's own words
+        # follow on their own line, never as the outcome of the case.
+        print("AI recommends: approve refund ($900). Waiting for human approval "
+              "(refunds above $500 need a manager).")
+        print(f"Model: {short}")
 
         session.log("llm.response",
             provider="openai",
@@ -440,6 +444,97 @@ def _demo_subprocess_env(env: dict) -> dict:
 
 _SEAL_LINE_PREFIXES = ("[EPI] Witness:", "[EPI] kept the existing")
 
+DEMO_APPROVER_NAME = "refund-manager"
+DEMO_APPROVER_DIRNAME = ".epi-demo-approver"
+
+
+def _demo_approver_paths() -> tuple[Path, Path]:
+    """Keys and pinned approvers for the demo manager, kept inside the demo cwd.
+
+    Never the user's real key ring or approver registry: the demo must not pin
+    a throwaway key where it could vouch for a real run later.
+    """
+    root = Path.cwd() / DEMO_APPROVER_DIRNAME
+    return root / "keys", root / "approvers"
+
+
+def _demo_approver_env(env: dict | None = None) -> dict:
+    """Environment pointing the verifier at the demo's own approver registry."""
+    keys_dir, approvers_dir = _demo_approver_paths()
+    merged = dict(os.environ if env is None else env)
+    merged["EPI_APPROVER_KEYS_DIR"] = str(keys_dir)
+    merged["EPI_TRUSTED_APPROVERS_DIR"] = str(approvers_dir)
+    return merged
+
+
+def _sign_demo_approval(epi_path: Path) -> tuple[str, str] | None:
+    """Pin a demo manager key (same registry path as `epi approvers add`) and
+    sign a case-level approval. Returns (name, grouped fingerprint) or None.
+
+    The signature is made on the sealed record, exactly like a real approver's:
+    the key is distinct from the sealing key, and only the verifier decides
+    whether it counts.
+    """
+    try:
+        from epi_core.approvers import ApproverRegistry
+        from epi_core.keys import KeyManager, key_fingerprint
+        from epi_core.review import ReviewRecord, add_review_to_artifact, make_approval_entry
+
+        keys_dir, approvers_dir = _demo_approver_paths()
+        keys_dir.mkdir(parents=True, exist_ok=True)
+        km = KeyManager(keys_dir=keys_dir)
+        km.generate_keypair(DEMO_APPROVER_NAME, overwrite=True)
+        private_key = km.load_private_key(DEMO_APPROVER_NAME)
+        public_hex = km.load_public_key(DEMO_APPROVER_NAME).hex()
+
+        # Same code path as `epi approvers add --role approver`.
+        ApproverRegistry(approvers_dir=approvers_dir).add(
+            DEMO_APPROVER_NAME, public_hex, roles=["approver"], overwrite=True
+        )
+        entry = make_approval_entry(
+            approval_id=None,
+            decision="approve",
+            action="refund $900 for order ORD-9001",
+            reason="Demo manager: refund exceeds the $500 auto-approval threshold.",
+            approver_name=DEMO_APPROVER_NAME,
+            key_fingerprint_hex=key_fingerprint(public_hex, grouped=False),
+            case_level=True,
+        )
+        record = ReviewRecord(
+            reviewed_by=DEMO_APPROVER_NAME,
+            reviews=[entry],
+            reviewer_identity={
+                "type": "name",
+                "value": DEMO_APPROVER_NAME,
+                "role": "approver",
+                "org": "demo",
+                "verified": False,
+            },
+            case_level_review=True,
+        )
+        add_review_to_artifact(epi_path, record, private_key=private_key)
+        return DEMO_APPROVER_NAME, key_fingerprint(public_hex)
+    except Exception as exc:
+        console.print(
+            f"  [yellow]![/yellow] Could not sign the demo approval: {escape(str(exc))}"
+        )
+        return None
+
+
+def _demo_approval_check(epi_path: Path) -> bool:
+    """Run the real policy check against the demo's pinned approver."""
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "epi_cli", "verify",
+            "--require-human-approval", "--json", str(epi_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=_demo_subprocess_env(_demo_approver_env(dict(os.environ))),
+    )
+    return result.returncode == 0
+
 
 def _show_demo_script_output(stdout: str, stderr: str) -> None:
     """Re-print the demo script's output in the `epi demo` style.
@@ -452,8 +547,12 @@ def _show_demo_script_output(stdout: str, stderr: str) -> None:
         line = raw.strip()
         if not line or line.startswith("[EPI] "):
             continue
-        if line.startswith("Decision: "):
-            console.print(f"  [green]✓[/green] Decision              {escape(line[len('Decision: '):])}")
+        if line.startswith("AI recommends: "):
+            # Keep the whole sentence on one line: tests and copy/paste both
+            # depend on it, and a wrapped approval sentence reads worse.
+            console.print(f"  [green]✓[/green] {escape(line)}", soft_wrap=True)
+        elif line.startswith("Model: "):
+            console.print(f"  [dim]{escape(line)}[/dim]")
         else:
             console.print(f"  [dim]{escape(line)}[/dim]")
     skip_breakdown = False
@@ -727,6 +826,7 @@ def _run_fast_demo(
     no_browser: bool,
     force_script: bool,
     with_viewer: bool = False,
+    with_approval: bool = False,
 ) -> Path | None:
     """Record → verify → view without gateway. Returns path to .epi or None."""
     console.print()
@@ -802,6 +902,12 @@ def _run_fast_demo(
         size_bytes = epi_path.stat().st_size
         console.print(f"  [dim]Existing artifact      {epi_path}  ({size_bytes:,} bytes)[/dim]")
 
+    # The demo "manager" signs after sealing, like a real approver. The key is
+    # generated and pinned inside the demo working directory only.
+    human_approval = None
+    if with_approval and epi_path is not None and epi_path.exists():
+        human_approval = _sign_demo_approval(epi_path)
+
     if not no_verify and epi_path is not None:
         console.print("  [dim]Verifying offline…[/dim]")
         result = subprocess.run(
@@ -829,6 +935,32 @@ def _run_fast_demo(
         ok_color = "green" if integrity == "PASS" and signature == "PASS" else "yellow"
         console.print(f"  [{ok_color}]✓[/{ok_color}] Verified offline      integrity={integrity}  signature={signature}")
 
+        if with_approval and human_approval is not None:
+            approver_name, approver_fp = human_approval
+            console.print(
+                f"  [green]✓[/green] Human approval: signed by {escape(approver_name)} "
+                f"(fp {escape(approver_fp)}).",
+                soft_wrap=True,
+            )
+            # Run the same policy a CI gate would: exit 0 only with a verified
+            # human-signed approval.
+            if _demo_approval_check(epi_path):
+                console.print(
+                    "  [green]✓[/green] Approval check       "
+                    "epi verify --require-human-approval → exit 0"
+                )
+            else:
+                console.print(
+                    "  [yellow]![/yellow] Approval check       "
+                    "epi verify --require-human-approval did not pass"
+                )
+        else:
+            console.print(
+                "  [dim]Human approval: not signed yet. Run with --with-approval "
+                "to see a signed approval.[/dim]",
+                soft_wrap=True,
+            )
+
         # Prove redaction worked on the intentional demo secret
         try:
             steps = EPIContainer.read_steps(epi_path)
@@ -850,6 +982,10 @@ def _run_fast_demo(
         view_rc = subprocess.run(
             [sys.executable, "-m", "epi_cli", "view", "--native", str(epi_path)],
             timeout=30,
+            env=(
+                _demo_subprocess_env(_demo_approver_env(dict(os.environ)))
+                if with_approval else None
+            ),
         )
         if view_rc.returncode == 0:
             console.print("  [green]✓[/green] Viewer opened")
@@ -911,6 +1047,12 @@ def dev(
         help="Embed the self-opening HTML viewer (envelope-v2, larger file). "
         "Default seals a small data-only .epi that still opens via `epi view`.",
     ),
+    with_approval: bool = typer.Option(
+        False,
+        "--with-approval",
+        help="Also show a signed human approval: a demo manager key (pinned only "
+        "inside .epi-demo-approver/) signs the sealed run.",
+    ),
 ):
     """
     Fastest EPI loop: record a sample agent, seal a .epi, verify offline, open the viewer.
@@ -932,6 +1074,7 @@ def dev(
             no_browser=no_browser,
             force_script=True,
             with_viewer=with_viewer,
+            with_approval=with_approval,
         )
         if epi is None:
             raise typer.Exit(1)
@@ -953,6 +1096,7 @@ def dev(
         no_browser=True,  # gateway UI opens instead
         force_script=True,
         with_viewer=with_viewer,
+        with_approval=with_approval,
     )
 
     console.print()
