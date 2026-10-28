@@ -882,6 +882,10 @@ def _classify_approval(
         "action": entry.get("action") or "",
         "claimed_approver_name": claimed_name,
         "approver_name": claimed_name,
+        # The key that actually made the signature, when one verifies. The
+        # viewer needs it to print a `epi approvers add <key>` line a reader can
+        # run when the signer is not pinned on their machine.
+        "signing_key": None,
         "key_fingerprint": None,
         "approval_id_present": False,
         "classification": "invalid",
@@ -923,6 +927,7 @@ def _classify_approval(
         return result
 
     signing_fp = key_fingerprint(signing_key, grouped=False)
+    result["signing_key"] = signing_key
     result["key_fingerprint"] = signing_fp
     if claimed_fp and claimed_fp != signing_fp:
         result["reason"] = "approver.key_fingerprint does not match the signing key"
