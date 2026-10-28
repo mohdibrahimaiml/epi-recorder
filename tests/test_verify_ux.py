@@ -71,7 +71,9 @@ def _run_node(driver: str) -> str:
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "drv.mjs"
         p.write_text(_node_prelude() + "\n" + driver, encoding="utf-8")
-        out = subprocess.run(["node", str(p)], capture_output=True, text=True)
+        out = subprocess.run(
+            ["node", str(p)], capture_output=True, text=True, encoding="utf-8"
+        )
     assert out.returncode == 0, out.stderr[:800]
     return out.stdout
 
@@ -232,7 +234,9 @@ def _story_driver(body: str) -> str:
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "story.mjs"
         p.write_text(prelude + "\n" + body, encoding="utf-8")
-        out = subprocess.run(["node", str(p)], capture_output=True, text=True)
+        out = subprocess.run(
+            ["node", str(p)], capture_output=True, text=True, encoding="utf-8"
+        )
     assert out.returncode == 0, out.stderr[:800]
     return out.stdout
 
@@ -276,6 +280,63 @@ def test_story_verdict_words_match_viewer():
         "'deny','escalate',''].map(normalizeVerdict)));"
     )
     assert json.loads(out) == ["APPROVED", "APPROVED", "REJECTED", "REJECTED", "ESCALATE", ""]
+
+
+def _story_driver_approvals(story_js: str) -> dict:
+    """storyHTML with the approval lines, driven from a literal story object."""
+    return json.loads(_story_driver(
+        f"console.log(JSON.stringify(storyHTML({story_js},false)));"
+    ))
+
+
+def test_story_approval_states_never_lie():
+    """A valid signature with no pinned list is not "nobody signed".
+
+    The browser verifier has no approver registry, so it must say the signer
+    is not trusted HERE — and print the command that would fix that — instead
+    of claiming no person signed. A bad signature is red, and the sealing key
+    is never a human approval.
+    """
+    base = (
+        "{total:3,goal:'Refund',lines:[],verdict:'',rationale:'',review:null,"
+        "approvals:[%s]}"
+    )
+    untrusted_key = "ab" * 32
+    html = _story_driver_approvals(base % json.dumps({
+        "status": "untrusted",
+        "decision": "approve",
+        "approval_id": "refund-7",
+        "claimed_name": "refund-manager",
+        "key": untrusted_key,
+        "fingerprint": "d746 bc7d 1111 2222 3333 4444 5555 6666 7777 8888 9999 aaaa bbbb cccc dddd",
+    }))
+    assert "SIGNED — APPROVER NOT TRUSTED HERE" in html, html
+    # The signature verifies; the name is only ever a claim.
+    assert "A signature verifies for the key with fingerprint" in html, html
+    assert "(claimed name: refund-manager)" in html, html
+    assert "--name &#39;refund-manager&#39;" in html, html
+    assert "epi approvers add " + untrusted_key in html, html
+    assert "--role approver" in html, html
+    assert "no person has signed" not in html.lower(), html
+    assert ">approved<" not in html.lower(), html
+
+    bad = _story_driver_approvals(base % json.dumps({
+        "status": "invalid",
+        "decision": "approve",
+        "approval_id": "refund-7",
+        "claimed_name": "refund-manager",
+    }))
+    assert "approval signature does not verify" in bad.lower(), bad
+    assert "var(--tamper)" in bad, bad
+    assert "no person has signed" not in bad.lower(), bad
+
+    sealing = _story_driver_approvals(base % json.dumps({
+        "status": "sealing_key",
+        "decision": "approve",
+        "case_level": True,
+    }))
+    assert "Not a human approval" in sealing, sealing
+    assert "no person has signed" not in sealing.lower(), sealing
 
 
 def test_story_escapes_file_text():

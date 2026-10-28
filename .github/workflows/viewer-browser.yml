@@ -1,0 +1,74 @@
+name: Viewer browser tests
+
+# The verdict box is rendered HTML+JS: a Python-only pass says nothing about
+# what a reader actually sees. This job installs Chromium and runs the
+# browser-marked viewer/demo tests on every PR that touches them.
+#
+# EPI_REQUIRE_BROWSER=1 makes a missing browser a hard error: those tests skip
+# when Chromium cannot launch, and a skipped browser test on green CI reads as a
+# pass when nothing was rendered at all.
+
+on:
+  pull_request:
+    paths:
+      - "web_viewer/**"
+      - "website/viewer/**"
+      - "site/viewer/**"
+      - "epi-official/viewer/**"
+      - "verify_portal/static/viewer/**"
+      - "website/js/home-verify.js"
+      - "epi_cli/view.py"
+      - "epi_cli/dev.py"
+      - "epi_core/review.py"
+      - "tests/browser/**"
+      - "tests/test_demo_human_approval.py"
+      - "tests/test_verify_ux.py"
+      - "conftest.py"
+      - ".github/workflows/viewer-browser.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web_viewer/**"
+      - "website/viewer/**"
+      - "site/viewer/**"
+      - "epi-official/viewer/**"
+      - "verify_portal/static/viewer/**"
+      - "website/js/home-verify.js"
+      - "epi_cli/view.py"
+      - "epi_cli/dev.py"
+      - "epi_core/review.py"
+      - "tests/browser/**"
+      - "tests/test_demo_human_approval.py"
+      - "tests/test_verify_ux.py"
+      - "conftest.py"
+      - ".github/workflows/viewer-browser.yml"
+  workflow_dispatch:
+
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    env:
+      EPI_REQUIRE_BROWSER: "1"
+      EPI_NOTARIZE: "0"
+      EPI_TELEMETRY: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python scripts/ci-install-deps.py
+          python -m pip install "playwright>=1.45.0" "pytest-playwright>=0.5.0"
+
+      - name: Install chromium
+        run: python -m playwright install --with-deps chromium
+
+      # Fails, not skips, if Chromium is missing (EPI_REQUIRE_BROWSER).
+      - name: Render the verdict box
+        run: python -m pytest tests/browser tests/test_demo_human_approval.py tests/test_approval_labels_browser.py -q --maxfail=5

@@ -128,6 +128,31 @@ def _safe_mkdtemp(
     )
 
 
+def _require_browser_if_asked() -> None:
+    """Refuse to pass a browser run that has no browser.
+
+    Browser-marked tests skip when Chromium cannot launch, so a missing browser
+    looks like a clean run. The viewer workflow sets EPI_REQUIRE_BROWSER=1 so
+    that case fails the job instead.
+    """
+    if os.environ.get("EPI_REQUIRE_BROWSER") != "1":
+        return
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:  # pragma: no cover - depends on the environment
+        raise pytest.UsageError(
+            f"EPI_REQUIRE_BROWSER=1 but playwright is not installed: {exc}"
+        )
+    try:
+        with sync_playwright() as started:
+            browser = started.chromium.launch(args=["--no-sandbox"])
+            browser.close()
+    except Exception as exc:  # pragma: no cover - depends on the environment
+        raise pytest.UsageError(
+            f"EPI_REQUIRE_BROWSER=1 but Chromium cannot launch: {exc}"
+        )
+
+
 def pytest_configure(config):  # type: ignore[no-untyped-def]
     import sys as _sys
 
@@ -341,6 +366,7 @@ def _changed_paths(
 
 
 def pytest_sessionstart(session):  # type: ignore[no-untyped-def]
+    _require_browser_if_asked()
     snapshot = _tree_snapshot()
     if snapshot is not None:
         _TRACKED_DIFF_BASELINE["snapshot"] = snapshot

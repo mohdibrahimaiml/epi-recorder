@@ -70,6 +70,8 @@ def browser():
         try:
             b = p.chromium.launch(args=["--no-sandbox"])
         except Exception as exc:  # pragma: no cover - depends on local install
+            if os.environ.get("EPI_REQUIRE_BROWSER") == "1":
+                raise RuntimeError(f"EPI_REQUIRE_BROWSER=1 but Chromium cannot launch: {exc}")
             pytest.skip(f"no chromium available: {exc}")
         yield b
         b.close()
@@ -158,6 +160,50 @@ def _pack(tmp_path: Path, name: str, steps: list[dict]) -> Path:
     return path
 
 
+def _signed_demo(cwd: Path) -> tuple[Path, Path]:
+    """Run `epi demo --with-approval`; return (the .epi, the demo registry)."""
+    result = runner.invoke(cli_app, ["demo", "--no-browser", "--with-approval"])
+    assert result.exit_code == 0, result.output
+    epi = cwd / "epi-recordings" / "demo_refund.epi"
+    approvers = cwd / ".epi-demo-approver" / "approvers"
+    assert epi.is_file() and approvers.is_dir(), result.output
+    return epi, approvers
+
+
+def _flip_review_signature(epi_path: Path) -> str:
+    """Corrupt one hex character of the approval's signature, in place."""
+    import shutil
+    import zipfile
+
+    member = next(
+        name
+        for name in EPIContainer.list_members(epi_path)
+        if name.startswith("reviews/") and name.endswith(".json")
+    )
+    payload = EPIContainer.read_member_json(epi_path, member)
+    signature = str(payload["review_signature"])
+    prefix, key_hex, sig_hex = signature.split(":", 2)
+    flipped = ("1" if sig_hex[0] != "1" else "2") + sig_hex[1:]
+    payload["review_signature"] = f"{prefix}:{key_hex}:{flipped}"
+
+    container_format = EPIContainer.detect_container_format(epi_path)
+    temp_dir = EPIContainer._make_temp_dir("test_demo_tamper_")
+    payload_zip = temp_dir / "payload.zip"
+    next_zip = temp_dir / "next.zip"
+    try:
+        EPIContainer.extract_inner_payload(epi_path, payload_zip)
+        with zipfile.ZipFile(payload_zip) as src, zipfile.ZipFile(next_zip, "w") as dst:
+            for item in src.infolist():
+                if item.filename == member:
+                    continue
+                dst.writestr(item, src.read(item.filename))
+            dst.writestr(member, json.dumps(payload))
+        EPIContainer.write_from_payload(next_zip, epi_path, container_format=container_format)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    return member
+
+
 # ── the required cases ───────────────────────────────────────────────────────
 
 
@@ -198,6 +244,11 @@ def test_with_approval_demo_shows_a_named_human_signer(
     assert result.exit_code == 0, result.output
     assert "Human approval: signed by refund-manager" in result.output, result.output
     assert "exit 0" in result.output, result.output
+    # The catch, said out loud at the end of the command.
+    assert (
+        "Other machines will show 'signed, approver not trusted here' until they "
+        "pin this key - that is by design."
+    ) in result.output, result.output
 
     epi = demo_cwd / "epi-recordings" / "demo_refund.epi"
     # The demo pins its approver only inside the demo working directory.
@@ -220,6 +271,62 @@ def test_with_approval_demo_shows_a_named_human_signer(
         },
     )
     assert check.returncode == 0, check.stdout + check.stderr
+
+
+def test_signed_approval_is_not_trusted_on_another_machine(
+    browser, demo_cwd: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The same signed file, seen where its key is not pinned.
+
+    Refusing green is correct there. Saying "no person has signed" is false:
+    the file carries a valid signature, the reader just has not pinned it.
+    """
+    epi, demo_approvers = _signed_demo(demo_cwd)
+
+    # (a) with the demo's own pins: green and named.
+    monkeypatch.setenv("EPI_TRUSTED_APPROVERS_DIR", str(demo_approvers))
+    trusted = _render(browser, epi, demo_cwd / "viewer-trusted")
+    assert trusted["verdict"] == "APPROVED", trusted
+
+    # (b) with an empty registry: signed, approver not trusted here.
+    empty = demo_cwd / "no-approvers-pinned"
+    empty.mkdir()
+    monkeypatch.setenv("EPI_TRUSTED_APPROVERS_DIR", str(empty))
+    untrusted = _render(browser, epi, demo_cwd / "viewer-untrusted")
+
+    assert untrusted["verdict"] == "SIGNED — APPROVER NOT TRUSTED HERE", untrusted
+    assert "approved" not in untrusted["verdict_class"], untrusted
+    # Who signed, and exactly what to run to trust them here.
+    assert "Signed by refund-manager (fp " in untrusted["note"], untrusted
+    assert "This machine has not pinned that key." in untrusted["note"], untrusted
+    assert "epi approvers add " in untrusted["note"], untrusted
+    assert "--role approver" in untrusted["note"], untrusted
+    # The lie this state exists to remove.
+    said = (untrusted["source"] + untrusted["note"] + untrusted["body"]).lower()
+    assert "no person has signed" not in said, untrusted
+    assert "no human-signed approval" not in said, untrusted
+    # And the §7 seal does not call it approved.
+    assert untrusted["review_seal"].upper() != "APPROVED", untrusted
+    assert "APPROVER NOT TRUSTED HERE" in untrusted["review_seal"], untrusted
+
+    # The rule itself still refuses to green the run on this machine.
+    check = _verify_require_human(
+        epi, approver_env={"EPI_TRUSTED_APPROVERS_DIR": str(empty)}
+    )
+    assert check.returncode == 1, check.stdout + check.stderr
+
+
+def test_tampered_approval_signature_is_red(browser, demo_cwd: Path):
+    """A byte flipped in the signature is a red page, not a waiting page."""
+    epi, _demo_approvers = _signed_demo(demo_cwd)
+    _flip_review_signature(epi)
+
+    rendered = _render(browser, epi, demo_cwd / "viewer-tampered")
+    assert rendered["verdict"] == "APPROVAL SIGNATURE DOES NOT VERIFY", rendered
+    assert "failed" in rendered["verdict_class"], rendered
+    assert "approved" not in rendered["verdict_class"].replace("failed", ""), rendered
+    assert "does not verify" in (rendered["source"] + rendered["note"]).lower(), rendered
+    assert "no person has signed" not in rendered["body"].lower(), rendered
 
 
 def test_agent_written_approval_is_never_green(browser, tmp_path: Path):
