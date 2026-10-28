@@ -961,7 +961,18 @@ def _run_fast_demo(
                 soft_wrap=True,
             )
 
-        # Prove redaction worked on the intentional demo secret
+    if with_approval and human_approval is not None:
+        # Say the catch out loud: the demo pins its approver inside the demo
+        # directory, so anywhere else the same file reads "signed, approver not
+        # trusted here" until that machine pins the key.
+        console.print(
+            "  [dim]Other machines will show 'signed, approver not trusted here' "
+            "until they pin this key - that is by design.[/dim]",
+            soft_wrap=True,
+        )
+
+    # Prove redaction worked on the intentional demo secret
+    if epi_path is not None and epi_path.exists():
         try:
             steps = EPIContainer.read_steps(epi_path)
             blob = str(steps)
@@ -990,20 +1001,47 @@ def _run_fast_demo(
         if view_rc.returncode == 0:
             console.print("  [green]✓[/green] Viewer opened")
         else:
-            # Fallback: extract viewer.html and open file://
+            # Fallback: build the same page `epi view` shows — with the verifier
+            # context, including the demo's pinned approver — instead of
+            # extracting the raw viewer.html, which carries no context and would
+            # wrongly report that nobody signed.
+            view_env = _demo_subprocess_env(
+                _demo_approver_env(dict(os.environ)) if with_approval else dict(os.environ)
+            )
             try:
                 import tempfile
-                import zipfile
+
                 td = Path(tempfile.mkdtemp(prefix="epi_demo_view_"))
-                with EPIContainer._payload_zip_path(epi_path) as payload:
-                    with zipfile.ZipFile(payload) as zf:
-                        zf.extract("viewer.html", path=td)
-                uri = (td / "viewer.html").resolve().as_uri()
+                built = subprocess.run(
+                    [
+                        sys.executable, "-m", "epi_cli", "view",
+                        "--extract", str(td), str(epi_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=60,
+                    env=view_env,
+                )
+                page = td / "viewer.html"
+                if built.returncode != 0 or not page.is_file():
+                    detail = (built.stderr or built.stdout or "").strip()[:200]
+                    raise RuntimeError(detail or "epi view --extract produced no viewer.html")
+                uri = page.resolve().as_uri()
                 webbrowser.open(uri)
                 console.print(f"  [green]✓[/green] Viewer opened          {uri}")
             except Exception as exc:
                 console.print(f"  [yellow]![/yellow] Could not open viewer automatically: {exc}")
-                console.print(f"  [dim]Run: epi view {epi_path}[/dim]")
+                console.print(f"  [dim]Run: epi view {epi_path}[/dim]", soft_wrap=True)
+                if with_approval:
+                    _keys_dir, approvers_dir = _demo_approver_paths()
+                    console.print(
+                        "  [dim]That file's approval only verifies with the demo's "
+                        f"registry: EPI_TRUSTED_APPROVERS_DIR={approvers_dir} "
+                        f"epi view {epi_path}[/dim]",
+                        soft_wrap=True,
+                    )
 
     try:
         telemetry_core.record_first_use()
