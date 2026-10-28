@@ -1,5 +1,5 @@
 """
-EPI Fault Intelligence — Nine-pass heuristic + policy-grounded fault analyzer.
+EPI Fault Intelligence — heuristic + policy-grounded fault analyzer.
 
 Reads steps.jsonl content, checks it against an optional EPIPolicy,
 and produces a structured analysis.json result.
@@ -10,16 +10,28 @@ Design principles:
   - Additive: never modifies steps.jsonl. Analysis is a separate sealed artifact.
   - Graceful: any exception inside a detection pass is caught; analysis completes.
 
-The nine detection passes (executed in order):
-  Pass 1. Error Continuation       — tool returned error, agent continued as if it succeeded.
-  Pass 2. Constraint Violation     — numerical limit set at step M violated at step N.
-  Pass 3. Sequence Violation       — action B occurred before required action A (policy only).
-  Pass 4. Threshold Violation      — value exceeded policy threshold without required action (policy only).
-  Pass 5. Prohibition Violation    — prohibited pattern appeared in output (policy only).
-  Pass 6. Agent Approval Gap       — action executed while approval was pending or after rejection.
-  Pass 7. Approval Guard Violation — named action executed without required explicit approval (policy only).
-  Pass 8. Context Drop             — key entity identifier vanishes from the final third.
-  Pass 9. Tool Permission Guard    — disallowed tool used in execution (policy only).
+Detection passes (executed in order, each individually guarded):
+
+  Heuristic (always):
+    Pass 1  Error Continuation       — tool returned error, agent continued as if it succeeded.
+    Pass 2  Constraint Violation     — budget observed at step M exceeded by a commitment at step N.
+    Pass 6  Agent Approval Gap       — action executed while approval was pending, rejected,
+                                       or self-reported instead of gateway-verified.
+    Pass 8  Context Drop             — key entity identifier vanishes from the final third.
+    Pass 10 Time-Gap Tamper          — manifest created_at far from SCITT registered_at.
+
+  Policy-grounded (only when epi_policy.json is loaded):
+    Pass 3  Sequence Violation       — action B occurred before required action A.
+    Pass 4  Threshold Violation      — value exceeded policy threshold without required action.
+    Pass 5  Prohibition Violation    — prohibited pattern appeared in output.
+    Pass 7  Approval Guard Violation — named action executed without required explicit approval.
+    Pass 9  Tool Permission Guard    — disallowed tool used in execution.
+
+  Telemetry completeness (always):
+    Pass 11  Instrumentation Coverage Gap — manifest claims agent activity, zero steps recorded.
+    Pass 11b Orphaned Tool Call           — tool.call with no matching tool.response.
+    Pass 11c Unmatched LLM Request        — more llm.request than llm.response steps.
+    Pass 11d Anomalous Time Gap           — a step gap far above the run's median.
 
 After all passes, flags are deduplicated (same step + same rule keeps highest severity),
 then ranked (policy violations first, then by severity, then by step index).
@@ -35,7 +47,9 @@ from epi_core.policy import EPIPolicy
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-ANALYZER_VERSION = "1.0.0"
+# 1.1.0: Pass 1 no longer scans LLM prompts/completions for the word "error",
+# and Pass 2 only compares a commitment against a budget of the same unit.
+ANALYZER_VERSION = "1.1.0"
 
 DISCLAIMER = (
     "The raw execution record in steps.jsonl is the ground truth. Policy violations "
@@ -95,6 +109,97 @@ _ENTITY_ID_EXEMPT_KEYS = {
     "eeoc_ref",
     "bsa_ref",
 }
+
+# ── Pass 1: which free text can carry an error ────────────────────────────────
+# Only machine output is scanned for the words "error"/"failed"/"traceback".
+# `llm.request`, `llm.response` and `agent.message` are excluded: a user prompt
+# such as "how do I fix this error?" is not a failed tool call, and scanning the
+# whole step JSON turned ordinary prompts into MEDIUM error-continuation faults.
+_FREE_TEXT_ERROR_SCAN_PREFIXES = (
+    "tool.",
+    "shell.",
+    "python.",
+    "file.",
+    "http.",
+    "validation.",
+)
+
+# `{"error": null}` and `{"error": ""}` are how SDKs report success.
+_NO_ERROR_VALUES = frozenset({"", "none", "null", "n/a", "na", "ok", "success", "no error"})
+
+# Zero-valued error bookkeeping (`"errors": 0`, `"error_count": false`) is not
+# an error signal, but the word "error" would still match a raw substring scan.
+_ZERO_ERROR_FIELD_RE = re.compile(
+    r'"[^"]*error[^"]*"\s*:\s*(?:0|false|null|""|\[\]|\{\})',
+    re.IGNORECASE,
+)
+
+_NEGATED_ERROR_PHRASES = (
+    "0 errors",
+    "0 error",
+    "0 failed",
+    "no errors",
+    "no error",
+    "error-free",
+    "error free",
+)
+
+# ── Pass 2: which numbers can bound a commitment ──────────────────────────────
+# `_CONSTRAINT_KEYWORDS` is a deliberately broad *candidate* filter (any key
+# containing "max", "limit", "allowed", ...). That breadth also matches model
+# configuration and telemetry, so a value is only admitted to the constraint
+# register when it passes the filters below and measures the same unit as the
+# committed amount. Before this split, an `llm.request` carrying
+# `max_tokens: 100` was compared against `amount: 250` and reported as a
+# constraint violation.
+_NON_BUDGET_CONSTRAINT_LEAVES = frozenset({
+    "allowed_tools", "allowed_models", "allowed_roles", "allowed_origins",
+    "max_tokens", "max_completion_tokens", "max_output_tokens",
+    "max_input_tokens", "max_context_tokens",
+    "max_retries", "max_retry", "max_attempts", "max_steps",
+    "max_iterations", "max_depth", "max_workers", "max_concurrency",
+    "max_batch_size", "max_results", "max_rows", "max_chars", "max_length",
+    "max_size", "max_bytes",
+    "timeout", "timeout_seconds", "retries", "attempts",
+    "temperature", "top_p", "top_k", "seed",
+})
+
+# Same idea for prefixed leaves: `max_request_tokens`, `request_timeout_ms`, ...
+_NON_BUDGET_LEAF_SUFFIXES = (
+    "_tokens", "_retries", "_retry", "_attempts", "_timeout",
+    "_seconds", "_millis", "_ms", "_nanos",
+)
+
+_MONETARY_LEAF_TERMS = frozenset({
+    "amount", "value", "total", "sum", "price", "cost", "balance",
+    "funds", "available", "available_funds", "remaining", "limit",
+    "credit", "credit_limit", "account_limit", "debit", "payment",
+    "refund", "charge", "transfer", "fee", "budget", "spend", "spent",
+    "salary", "wage", "invoice", "deposit", "withdrawal", "allowance",
+    "cap", "ceiling", "maximum", "max_amount", "quota",
+})
+
+_COUNT_LEAF_TERMS = frozenset({
+    "retries", "retry", "attempts", "tokens", "count", "steps",
+    "iterations", "depth", "chars", "length", "size", "rows", "items",
+    "workers", "calls", "batch_size", "concurrency",
+    # Permission/quota counters: a bare `allowed: 3` is a quantity, not money.
+    "allowed", "authorized", "permitted",
+})
+
+# Steps that can carry an externally observed budget. An LLM *request* carries
+# model configuration and an LLM *response* carries prose ("within 30 days");
+# neither is a spendable balance.
+_CONSTRAINT_SOURCE_PREFIXES = (
+    "tool.",
+    "shell.",
+    "python.",
+    "file.",
+    "http.",
+    "validation.",
+    "policy.check",
+    "agent.memory.read",
+)
 
 
 # ── Data classes ───────────────────────────────────────────────────────────────
@@ -714,34 +819,66 @@ def _matches_required_action(step: dict, required_action: str) -> bool:
     return _matches_named_action(step, required_lower)
 
 
+def _is_error_value(value: object) -> bool:
+    """True when an error-shaped field actually carries an error.
+
+    `{"error": null}`, `{"error": ""}` and `{"error_code": 0}` are how SDKs
+    report success; treating a present key as a failure flagged clean runs.
+    """
+    if value is None or value is False:
+        return False
+    if isinstance(value, str):
+        stripped = value.strip()
+        return bool(stripped) and stripped.lower() not in _NO_ERROR_VALUES
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, (list, dict, tuple, set)):
+        return len(value) > 0
+    return True
+
+
 def _has_error(step: dict) -> bool:
-    """Determine if a step contains an error signal."""
-    kind = step.get("kind", "")
-    if kind in ("llm.error", "http.error"):
+    """Determine if a step contains an error signal.
+
+    Structural signals (step kind, error fields, status, HTTP code) are checked
+    for every kind. The free-text scan is restricted to machine output: the word
+    "error" inside an LLM prompt or completion is content, not evidence that the
+    call failed.
+    """
+    kind = str(step.get("kind", "") or "").lower()
+    if kind in ("llm.error", "http.error") or kind.endswith(".error"):
         return True
 
     content = step.get("content", {})
     if not isinstance(content, dict):
         return False
 
-    # 1. Direct error keys (standard)
+    # 1. Direct error keys — only a value that carries an error counts.
     for key in _ERROR_KEYS:
-        if key in content:
+        if key in content and _is_error_value(content.get(key)):
             return True
 
     # 2. Status check (common API patterns)
-    if content.get("status") in ("error", "failed", "failure", "err"):
+    status = content.get("status")
+    if isinstance(status, str) and status.strip().lower() in ("error", "failed", "failure", "err"):
         return True
 
     # 3. status_code >= 400
-    if isinstance(content.get("status_code"), int) and content["status_code"] >= 400:
+    status_code = content.get("status_code")
+    if isinstance(status_code, int) and not isinstance(status_code, bool) and status_code >= 400:
         return True
 
-    # 4. Text scan for error phrases in string values or structure
-    content_text = _content_str(step).lower()
-    for phrase in ("error", "traceback", "failed"):
-        if phrase in content_text:
-            return True
+    # 4. Free-text scan for machine output only.
+    if kind.startswith(_FREE_TEXT_ERROR_SCAN_PREFIXES):
+        content_text = _content_str(step)
+        content_text = _ZERO_ERROR_FIELD_RE.sub(" ", content_text)
+        for negated in _NEGATED_ERROR_PHRASES:
+            content_text = content_text.replace(negated, " ")
+        for phrase in ("traceback", "failed", "error"):
+            if phrase in content_text:
+                return True
 
     return False
 
@@ -772,8 +909,77 @@ def _key_matches_constraints(key: str) -> bool:
     return any(kw in key_lower for kw in _CONSTRAINT_KEYWORDS)
 
 
+def _leaf_name(key_path: str) -> str:
+    """Last path segment of a flattened key, without list indices."""
+    return key_path.split(".")[-1].split("[")[0].strip().lower()
+
+
+def _is_budget_constraint_key(key_path: str) -> bool:
+    """True when a numeric field can bound a later committed amount.
+
+    `_CONSTRAINT_KEYWORDS` matches configuration (`max_tokens`, `max_retries`,
+    `allowed_tools`) as well as budgets. Those leaves are configuration, never
+    a spendable balance, so they are excluded before a value enters the
+    constraint register.
+    """
+    leaf = _leaf_name(key_path)
+    if not leaf:
+        return False
+    if leaf in _NON_BUDGET_CONSTRAINT_LEAVES:
+        return False
+    if leaf.endswith(_NON_BUDGET_LEAF_SUFFIXES):
+        return False
+    return _key_matches_constraints(key_path)
+
+
+def _numeric_unit_class(key_path: str) -> Optional[str]:
+    """Classify a numeric field as ``monetary``, ``count``, or ``None``.
+
+    Two numbers only bound each other when they measure the same thing: a retry
+    budget must never be compared against a currency amount. The last name
+    segment decides the compound (`total_tokens` is a count, `allowed_limit`
+    is money), then any segment is used as a fallback.
+    """
+    leaf = _leaf_name(key_path)
+    if not leaf:
+        return None
+    tokens = [token for token in re.split(r"[^a-z0-9]+", leaf) if token]
+    if not tokens:
+        return None
+    if tokens[-1] in _COUNT_LEAF_TERMS:
+        return "count"
+    if tokens[-1] in _MONETARY_LEAF_TERMS:
+        return "monetary"
+    token_set = set(tokens)
+    if token_set & _COUNT_LEAF_TERMS:
+        return "count"
+    if token_set & _MONETARY_LEAF_TERMS:
+        return "monetary"
+    return None
+
+
+def _units_compatible(constraint_key: str, commitment_key: str) -> bool:
+    """True when two numeric fields may be compared to each other."""
+    constraint_class = _numeric_unit_class(constraint_key)
+    commitment_class = _numeric_unit_class(commitment_key)
+    if constraint_class == "count" or commitment_class == "count":
+        return constraint_class == commitment_class
+    return True
+
+
+def _is_constraint_source_step(step: dict) -> bool:
+    """True when a step can carry an externally observed budget value."""
+    return _step_kind(step).startswith(_CONSTRAINT_SOURCE_PREFIXES)
+
+
 def _key_matches_commitment(key: str) -> bool:
-    """Return True if the key path suggests a committed amount."""
+    """Return True if the key path names a committed quantity of money/units.
+
+    Count fields are excluded even when their name contains a monetary word
+    (`usage.total_tokens` contains "total" but is not a payment).
+    """
+    if _numeric_unit_class(key) == "count":
+        return False
     key_lower = key.lower()
     return any(kw in key_lower for kw in {"amount", "value", "total", "sum", "price", "cost"})
 
@@ -1057,11 +1263,26 @@ class FaultAnalyzer:
         """
         Flag when a numerical constraint established at step M is exceeded at step N.
 
-        Builds a constraint register incrementally. Each entry:
-            key_path → (value, step_index, keyword_context)
+        A constraint only bounds a commitment when all three hold:
+
+          1. it was observed in a data-bearing step (tool / file / shell result),
+             not in model configuration (`max_tokens` on an `llm.request`);
+          2. it measures the same unit as the committed value — a retry budget
+             never bounds a monetary amount;
+          3. it precedes the commitment, with the most recent matching
+             constraint winning (a refreshed balance supersedes an older one).
+
+        Policy `watch_for` fields bypass (1) and (2): the operator named the
+        field explicitly.
         """
-        flags = []
-        constraint_register: dict[str, tuple[float, int, str]] = {}
+        flags: list[FaultFlag] = []
+        # Chronological observations, not a dict keyed by "step:leaf": two steps
+        # reporting `balance` are two observations of one budget, so the latest
+        # wins instead of an arbitrary one being overwritten. Keeping the rule
+        # object here also removes the old habit of re-parsing a synthetic key
+        # (rule ids containing "_" used to be truncated, silently downgrading a
+        # policy violation to a heuristic one).
+        constraint_register: list[dict] = []
 
         # Also apply policy constraint_guard rules
         policy_constraint_rules = (
@@ -1076,25 +1297,31 @@ class FaultAnalyzer:
             step_num = step_idx + 1
             numbers = _extract_numbers(content)
 
-            # Record constraint values — namespaced by step_idx to avoid
-            # cross-context false positives (two unrelated steps both having a
-            # field named 'balance' should not be compared).
-            for key, val in numbers:
-                if _key_matches_constraints(key):
-                    key_leaf = key.split(".")[-1]
-                    # Namespace: step_idx:leaf so two different tool calls'
-                    # 'balance' values are kept separate.
-                    namespaced_key = f"{step_idx}:{key_leaf}"
-                    constraint_register[namespaced_key] = (val, step_idx, key)
-
-                    # Also check policy watch_for lists
-                    for rule in policy_constraint_rules:
-                        if rule.watch_for:
-                            for watch_term in rule.watch_for:
-                                if watch_term.lower() in key.lower():
-                                    constraint_register[f"__policy_{rule.id}_{step_idx}_{watch_term}"] = (
-                                        val, step_idx, key
-                                    )
+            if _is_constraint_source_step(step):
+                for key, val in numbers:
+                    watched_by = [
+                        rule
+                        for rule in policy_constraint_rules
+                        if any(
+                            watch_term.lower() in key.lower()
+                            for watch_term in (rule.watch_for or [])
+                        )
+                    ]
+                    if watched_by:
+                        for rule in watched_by:
+                            constraint_register.append({
+                                "value": val,
+                                "step_idx": step_idx,
+                                "key_path": key,
+                                "policy_rule": rule,
+                            })
+                    elif _is_budget_constraint_key(key):
+                        constraint_register.append({
+                            "value": val,
+                            "step_idx": step_idx,
+                            "key_path": key,
+                            "policy_rule": None,
+                        })
 
             # Check for commitment violations against registered constraints
             is_commitment = _content_mentions(step, _COMMITMENT_KEYWORDS)
@@ -1117,67 +1344,89 @@ class FaultAnalyzer:
                 if not _key_matches_commitment(key):
                     continue
 
-                # Check against each registered constraint
-                for c_key, (c_val, c_step_idx, c_key_path) in constraint_register.items():
-                    # Don't compare constraint to itself
-                    if c_step_idx >= step_idx:
-                        continue
-
-                    if committed_val > c_val * 1.001:  # 0.1% tolerance for float precision
-                        c_step_num = c_step_idx + 1
-
-                        # Check if a policy rule matches
-                        rule_id = rule_name = None
-                        policy_rule = None
-                        if c_key.startswith("__policy_"):
-                            parts = c_key[10:].split("_")
-                            if parts:
-                                rule_id = parts[0]
-                                matching = [r for r in policy_constraint_rules if r.id == rule_id]
-                                if matching:
-                                    policy_rule = matching[0]
-                                    rule_name = policy_rule.name
-
-                        fault_type = "POLICY_VIOLATION" if rule_id else "CONSTRAINT_VIOLATION"
-                        severity = "critical" if rule_id else "medium"
-                        eff_rule_id = rule_id or "P2"
-                        eff_rule_name = rule_name or "Constraint Violation"
-                        eff_category = "policy_violation" if rule_id else "heuristic_observation"
-
-                        flags.append(FaultFlag(
-                            step_index=step_idx,
-                            fault_type=fault_type,
-                            severity=severity,
-                            rule_id=eff_rule_id,
-                            rule_name=eff_rule_name,
-                            category=eff_category,
-                            plain_english=(
-                                f"At step {c_step_num} the agent received a constraint value "
-                                f"of {c_val:,.2f} (field: {c_key_path.split('.')[-1]}). "
-                                f"At step {step_num} a committed value of {committed_val:,.2f} "
-                                f"exceeded this limit."
-                                + (f" Rule {rule_id} ({rule_name}) was violated." if rule_id else "")
-                            ),
-                            fault_chain=[
-                                {
-                                    "step_index": c_step_idx,
-                                    "step_number": c_step_num,
-                                    "role": "constraint_source",
-                                    "detail": f"Constraint value {c_val:,.2f} established",
-                                },
-                                {
-                                    "step_index": step_idx,
-                                    "step_number": step_num,
-                                    "role": "violation_point",
-                                    "detail": f"Committed value {committed_val:,.2f} exceeds constraint",
-                                },
-                            ],
-                            **(_policy_flag_kwargs(policy_rule) if policy_rule else {}),
-                        ))
-                        # One flag per commitment step — break inner loops
-                        break
-                else:
+                # Pick the most recent comparable budget first: a refreshed
+                # balance supersedes an older one, and a refresh that does not
+                # breach must retire the stale value it replaced.
+                comparable = [
+                    entry
+                    for entry in constraint_register
+                    if entry["step_idx"] < step_idx
+                    and (
+                        entry["policy_rule"] is not None
+                        or _units_compatible(entry["key_path"], key)
+                    )
+                ]
+                if not comparable:
                     continue
+
+                # A policy-declared field wins a tie so the finding is reported
+                # as a POLICY_VIOLATION.
+                breach = max(
+                    comparable,
+                    key=lambda entry: (entry["step_idx"], 1 if entry["policy_rule"] else 0),
+                )
+                if committed_val <= breach["value"] * 1.001:  # 0.1% float tolerance
+                    continue
+
+                c_val = breach["value"]
+                c_step_idx = breach["step_idx"]
+                c_key_path = breach["key_path"]
+                policy_rule = breach["policy_rule"]
+                c_step_num = c_step_idx + 1
+
+                rule_id = policy_rule.id if policy_rule else None
+                rule_name = policy_rule.name if policy_rule else None
+                fault_type = "POLICY_VIOLATION" if policy_rule else "CONSTRAINT_VIOLATION"
+                severity = "critical" if policy_rule else "medium"
+                eff_rule_id = rule_id or "P2"
+                eff_rule_name = rule_name or "Constraint Violation"
+                eff_category = "policy_violation" if policy_rule else "heuristic_observation"
+
+                # Build the policy metadata once: passing `rule_id` both
+                # explicitly and through `_policy_flag_kwargs` raised
+                # "got multiple values for keyword argument 'rule_id'", which
+                # the per-pass guard recorded as a detector error — silently
+                # downgrading every policy constraint finding to no finding.
+                flag_kwargs = {
+                    "rule_id": eff_rule_id,
+                    "rule_name": eff_rule_name,
+                }
+                if policy_rule:
+                    flag_kwargs.update({
+                        "policy_type": policy_rule.type,
+                        "policy_mode": policy_rule.mode or "detect",
+                        "policy_applies_at": policy_rule.applies_at,
+                    })
+
+                flags.append(FaultFlag(
+                    step_index=step_idx,
+                    fault_type=fault_type,
+                    severity=severity,
+                    category=eff_category,
+                    plain_english=(
+                        f"At step {c_step_num} the agent received a constraint value "
+                        f"of {c_val:,.2f} (field: {c_key_path.split('.')[-1]}). "
+                        f"At step {step_num} a committed value of {committed_val:,.2f} "
+                        f"exceeded this limit."
+                        + (f" Rule {rule_id} ({rule_name}) was violated." if rule_id else "")
+                    ),
+                    fault_chain=[
+                        {
+                            "step_index": c_step_idx,
+                            "step_number": c_step_num,
+                            "role": "constraint_source",
+                            "detail": f"Constraint value {c_val:,.2f} established",
+                        },
+                        {
+                            "step_index": step_idx,
+                            "step_number": step_num,
+                            "role": "violation_point",
+                            "detail": f"Committed value {committed_val:,.2f} exceeds constraint",
+                        },
+                    ],
+                    **flag_kwargs,
+                ))
+                # One flag per commitment step
                 break
 
         return flags
