@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.6.3. Docs map: [README.md](./README.md).
+**Product version:** 4.7.0. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -348,14 +348,13 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.7.0**. Published on PyPI: **4.6.3** — 4.7.0 is prepared
-in-tree and goes up through **Trusted Publishing**, so its files carry **PEP 740
-attestations** once the release is published (the publisher must be configured on
-pypi.org first; see [RELEASING.md](./RELEASING.md)). The **4.6.3** wheel — the
-newest on PyPI today — added signed display-layer verification, the viewer
-fail-closed fix (#141/#143), and the pack-time viewer / prohibition-guard fix
-(#145). It has **no PEP 740 attestations** because it was uploaded with the
-project API token; its provenance endpoint returns HTTP 404. The published
+Current release line: **4.7.0**, published on PyPI: **4.7.0**. It went up through
+**Trusted Publishing** (28 Oct 2026), so both files carry **PEP 740 attestations**
+— check with `https://pypi.org/integrity/epi-recorder/4.7.0/<file>/provenance`
+(HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
+uploaded with the project API token; its provenance endpoint returns HTTP 404. It
+added signed display-layer verification, the viewer fail-closed fix (#141/#143),
+and the pack-time viewer / prohibition-guard fix (#145). The published
 **4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
 on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
 **4.4.2** never reached PyPI. **4.4.3+** seals full payloads
