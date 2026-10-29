@@ -260,6 +260,40 @@ def _block_external_network_by_default(request, monkeypatch):  # type: ignore[no
 
 
 @pytest.fixture(autouse=True)
+def _no_real_browser_launch(request, monkeypatch):  # type: ignore[no-untyped-def]
+    """Never let a test open the user's real browser.
+
+    Code under test calls ``webbrowser.open`` (and on Windows ``os.startfile``)
+    to show a viewer or the hosted verify portal. Those are OS-level calls, so
+    the socket guard above does not stop them: a plain ``pytest`` run used to
+    leave a pile of ``https://epilabs.org/verify`` tabs open. Tests that want
+    to assert a launch still monkeypatch/patch these targets themselves and
+    win over this shim.
+    """
+    if os.environ.get("EPI_ALLOW_REAL_BROWSER") == "1":
+        return
+
+    import webbrowser
+
+    opened: list[str] = []
+
+    def _record_and_skip(url=None, *args, **kwargs):  # type: ignore[no-untyped-def]
+        opened.append(str(url))
+        return True
+
+    monkeypatch.setattr(webbrowser, "open", _record_and_skip, raising=False)
+    monkeypatch.setattr(webbrowser, "open_new", _record_and_skip, raising=False)
+    monkeypatch.setattr(webbrowser, "open_new_tab", _record_and_skip, raising=False)
+
+    if hasattr(os, "startfile"):
+        monkeypatch.setattr(os, "startfile", lambda *a, **k: None, raising=False)
+
+    # Expose what would have been launched so a test can assert on intent
+    # without anyone's browser being used.
+    request.node._epi_browser_urls = opened  # type: ignore[attr-defined]
+
+
+@pytest.fixture(autouse=True)
 def _isolated_trusted_keys(monkeypatch):  # type: ignore[no-untyped-def]
     """Each test gets its own trust registry dir.
 

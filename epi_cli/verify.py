@@ -1401,6 +1401,22 @@ def _write_verification_report(report: dict, epi_file: Path, report_out: Path) -
     report_out.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _option_flag(value: object) -> bool:
+    """Return a plain bool for a Typer bool option.
+
+    ``typer.Option(False, "--web")`` evaluates to a truthy ``OptionInfo``
+    object when the command function is called directly (tests, library use)
+    instead of being invoked by Typer. Without this coercion a direct call
+    behaved as if every flag had been passed — most visibly, it opened
+    ``https://epilabs.org/verify`` in the user's browser during test runs.
+    """
+    from typer.models import OptionInfo
+
+    if isinstance(value, OptionInfo):
+        return bool(value.default)
+    return bool(value)
+
+
 def verify_command(
     ctx: typer.Context,
     epi_file: Path,
@@ -1450,6 +1466,15 @@ def verify_command(
     2. Integrity: File hashes match manifest
     3. Authenticity: Ed25519 signature validation
     """
+    # Direct callers (tests, tools) receive OptionInfo objects for every
+    # typer.Option parameter. Resolve them to their declared defaults so a
+    # direct call cannot silently enable --web (browser pop-up), --qr,
+    # --aiuc1 or --offline.
+    aiuc1 = _option_flag(aiuc1)
+    web = _option_flag(web)
+    qr = _option_flag(qr)
+    offline = _option_flag(offline)
+
     try:
         epi_file = _resolve_epi_file(str(epi_file))
     except (FileNotFoundError, PermissionError, OSError):
@@ -1462,7 +1487,7 @@ def verify_command(
                 else '[dim]  epi verify "$HOME/project/artifact.epi"[/dim]\n'
             )
             + "[dim]Recordings made with record() are in ./epi-recordings/ (list them: epi ls).[/dim]\n"
-            + "[dim]Hosted (no path issues): https://epilabs.org/verify[/dim]"
+            + "[dim]Browser check (no install, device-local): https://epilabs.org/verify[/dim]"
         )
         _handle_verification_error(
             message=f"File not found: {epi_file}",
@@ -3017,8 +3042,14 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
                 "[dim]    epi keys trust --from-did did:web:<their-domain> --name <sender>[/dim]"
             )
             content_lines.append(
-                "[dim]    epi keys trust <their-key-file> --name <sender>   then compare the "
-                "Fingerprint by phone[/dim]"
+                "[dim]    epi keys trust <their-key-file> --name <sender>[/dim]"
+            )
+            content_lines.append(
+                '[dim]        --fingerprint "<the fingerprint they read you by phone>"[/dim]'
+            )
+            content_lines.append(
+                "[dim]  Never copy the fingerprint printed above: it is the file's own claim. "
+                "Type the one the sender reads to you; the command refuses if they differ.[/dim]"
             )
         content_lines.append(
             f'[dim]  epi verify "{epi_file}" --policy strict[/dim]'
@@ -3027,6 +3058,32 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             "[dim]For insurers / claim acceptance: always use --policy strict "
             "(FAIL until org pin).[/dim]"
         )
+
+    # One sentence for a reader who will not parse Facts / Seal / Policy.
+    # The panel is dense by design; this line is the answer to "can I rely on
+    # this file?", which is the only question most recipients actually have.
+    if not (integrity_ok and sequence_ok and chain_ok):
+        one_line = "This file was changed after it was sealed - do not rely on it."
+    elif signature_valid is False:
+        one_line = "The signature on this file is invalid - do not rely on it."
+    elif decision_status == "FAIL":
+        one_line = (
+            "The file is intact, but nobody you trust has vouched for who sealed it - "
+            "confirm the sender's key before relying on it."
+        )
+    elif decision_status == "WARN":
+        one_line = (
+            "The file is intact since sealing; what is not yet proven is who sealed it. "
+            "Pin the sender's key before relying on it."
+        )
+    else:
+        one_line = (
+            f"The file is intact and was sealed by {identity_name or 'a key you trust'}; "
+            f"policy {decision_policy} is satisfied."
+        )
+
+    content_lines.insert(0, "")
+    content_lines.insert(0, f"[bold]In one sentence:[/bold] {one_line}")
 
     content = "\n".join(content_lines)
 

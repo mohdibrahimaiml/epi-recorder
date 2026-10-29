@@ -2676,7 +2676,13 @@ def doctor(
     console.rule()
     if issues == 0:
         console.print()
-        console.print("  [bold green]System healthy. EPI is ready for production.[/bold green]")
+        console.print(
+            "  [bold green]System healthy. Local CLI, keys and recordings are working.[/bold green]"
+        )
+        console.print(
+            "  [dim]This checks this machine only. It is not a compliance or "
+            "production-readiness certification (see docs/KNOWN_LIMITATIONS.md).[/dim]"
+        )
     else:
         unfixed = issues - fixed
         if fixed:

@@ -189,7 +189,7 @@ export EPI_KEY_PASSWORD='a long random passphrase'
 epi keys generate --name default   # PKCS#8 PEM is written encrypted
 ```
 
-The same variable must be set whenever that key is loaded (sealing, `epi verify` with `--key`, Cloud upload, etc.); without it the load fails. There is **no HSM integration** and no recovery path — if you lose the passphrase, the key cannot be recovered. Keep it in your secrets manager, not in shell history.
+The same variable must be set whenever that key is loaded (sealing, `epi verify` with `--key`, Cloud upload, etc.); without it the load fails. There is no recovery path - if you lose the passphrase, the key cannot be recovered. Keep it in your secrets manager, not in shell history. For production, prefer a key that never touches disk: link a PKCS#11 HSM, AWS KMS or Google Cloud KMS key with `epi keys link --name default --uri <vault-uri>` (see [KEY-CUSTODY.md](./KEY-CUSTODY.md)).
 
 **Optional — EPI Cloud** (private beta), when you want a link instead of a file:
 
