@@ -134,7 +134,11 @@ def run_refund_agent():
         if len(short) > 100:
             # Cut on a word boundary, never mid-word.
             short = short[:100].rsplit(" ", 1)[0].rstrip(" ,.;:(") + "…"
-        print(f"Decision: {short}")
+        # State the recommendation and the hand-off plainly. The AI's own words
+        # follow on their own line, never as the outcome of the case.
+        print("AI recommends: approve refund ($900). Waiting for human approval "
+              "(refunds above $500 need a manager).")
+        print(f"Model: {short}")
 
         session.log("llm.response",
             provider="openai",

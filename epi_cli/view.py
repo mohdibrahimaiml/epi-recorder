@@ -416,6 +416,21 @@ def _build_viewer_context(epi_path: Path) -> dict:
     # decide whether it may paint a verdict: a double-clicked polyglot file
     # has no such context and must show "not verified here" instead of green.
     report["authoritative"] = True
+    # Same rule as `epi verify --require-human-approval`. The viewer must not
+    # re-implement it: green is painted only when this says a pinned approver
+    # signed, and the requirement is met.
+    try:
+        from epi_core.review import verify_human_approvals
+
+        report["human_approval"] = verify_human_approvals(epi_path)
+    except Exception as exc:  # never break opening the viewer over this
+        report["human_approval"] = {
+            "status": "none",
+            "requirement_met": False,
+            "approvals": [],
+            "requests": [],
+            "detail": f"human approval not evaluated: {exc}",
+        }
     return report
 
 

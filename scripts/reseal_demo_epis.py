@@ -43,12 +43,35 @@ def _stamps(path: Path) -> tuple[object, object]:
     return manifest.get("spec_version"), manifest.get("producer_version")
 
 
+def _viewer_is_stale(path: Path) -> bool:
+    """Does this sample carry an embedded viewer built from different JS?
+
+    The viewer is baked into the file at seal time, so a shipped sample keeps
+    showing whatever the viewer did on the day it was sealed — including bugs
+    that were fixed since. Compare the embedded page against the canonical
+    ``web_viewer/app.js`` the current install would embed.
+    """
+    canonical = (ROOT / "web_viewer" / "app.js").read_text(encoding="utf-8")
+    try:
+        with zipfile.ZipFile(path) as archive:
+            html = archive.read("viewer.html").decode("utf-8")
+    except KeyError:
+        return False  # data-only sample: no viewer to go stale
+    return canonical not in html
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
         action="store_true",
         help="only report which samples are stale; write nothing",
+    )
+    parser.add_argument(
+        "--refresh-viewer",
+        action="store_true",
+        help="also re-seal samples whose embedded viewer predates the current "
+        "web_viewer/app.js (keeps the sample's content and version)",
     )
     args = parser.parse_args()
 
@@ -59,15 +82,25 @@ def main() -> int:
         return 1
 
     stale = [path for path in samples if _stamps(path)[0] != version]
+    viewer_stale: list[Path] = []
     for path in samples:
         spec, producer = _stamps(path)
-        flag = "stale" if spec != version else "ok"
+        reasons = []
+        if spec != version:
+            reasons.append("stale")
+        if args.refresh_viewer and _viewer_is_stale(path):
+            reasons.append("viewer-stale")
+            viewer_stale.append(path)
+        flag = ", ".join(reasons) or "ok"
         print(f"{path.relative_to(ROOT)}: spec={spec} producer={producer} [{flag}]")
 
     if args.check:
-        print(f"\n{len(stale)} of {len(samples)} sample(s) not at {version}")
-        return 1 if stale else 0
-    if not stale:
+        print(
+            f"\n{len(stale)} of {len(samples)} sample(s) not at {version}; "
+            f"{len(viewer_stale)} sample(s) carry an outdated viewer"
+        )
+        return 1 if (stale or viewer_stale) else 0
+    if not stale and not viewer_stale:
         print(f"\nall {len(samples)} sample(s) already at {version}")
         return 0
 
@@ -82,7 +115,7 @@ def main() -> int:
         manifest.producer_version = version
         return sign_manifest(manifest, key, "epi-demo")
 
-    for path in stale:
+    for path in sorted(set(stale) | set(viewer_stale)):
         staged = path.with_suffix(".epi.resealed")
         EPIContainer.refresh_viewer(
             path, staged, signer_function=signer, with_viewer=None
@@ -90,7 +123,7 @@ def main() -> int:
         staged.replace(path)
         print(f"  re-sealed {path.relative_to(ROOT)}: {_stamps(path)[0]}")
 
-    print(f"\nre-sealed {len(stale)} sample(s) at {version}")
+    print(f"\nre-sealed {len(set(stale) | set(viewer_stale))} sample(s) at {version}")
     return 0
 
 

@@ -636,6 +636,7 @@ async function verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt)
       if(sig.length!==3||sig[0]!=='ed25519'||sig[1].length!==64||sig[2].length!==128)throw new Error('sig');
       if(!await verifyEd25519Raw(sig[1],sig[2],hexToBytes(expectedHash)))throw new Error('sig');
       if(sortedJSON(rec.artifact_binding||null)!==sortedJSON(expected))throw new Error('binding');
+      res.key=sig[1];
       res.fingerprint=await keyFingerprintHex(sig[1]);
       res.status=(manifest.public_key&&String(sig[1]).toLowerCase()===String(manifest.public_key).toLowerCase())
         ?'sealing_key':'valid';
@@ -922,11 +923,15 @@ function storyHTML(story,altered){
     var verb=a.decision==='deny'?'deny':'approve';
     var claimedName=a.claimed_name?' <span style="color:var(--ink-dim)">(claimed name: '+esc(a.claimed_name)+')</span>':'';
     if(a.status==='invalid'){
-      h+='<div style="margin-top:0.35rem;color:var(--tamper)"><strong>Invalid signed approval (does not match this file)</strong></div>';
+      h+='<div style="margin-top:0.35rem;color:var(--tamper)"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+': approval signature does not verify for this file.</strong></div>';
     }else if(a.status==='sealing_key'){
-      h+='<div style="margin-top:0.35rem"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+':</strong> Signed by the same key that sealed the run (not independent of the agent)'+claimedName+'</div>';
+      h+='<div style="margin-top:0.35rem"><strong>Not a human approval ('+esc(verb)+') for '+esc(what)+':</strong> signed by the same key that sealed the run (not independent of the agent).'+claimedName+'</div>';
     }else{
-      h+='<div style="margin-top:0.35rem"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+',</strong> key fingerprint '+esc(a.fingerprint||'')+'. Pin approvers with <code>epi approvers add</code> and run <code>epi verify --require-human-approval</code> to confirm who.'+claimedName+'</div>';
+      // A valid signature this page cannot make green: it has no pinned
+      // approver list, so it can only say the signer is not trusted HERE.
+      var who=a.claimed_name||'an approver';
+      var trust='epi approvers add '+String(a.key||'<their public key>')+" --name '"+who+"' --role approver --fingerprint '"+(a.fingerprint||'')+"'";
+      h+='<div style="margin-top:0.35rem"><strong>SIGNED — APPROVER NOT TRUSTED HERE ('+esc(verb)+' '+esc(what)+').</strong> A signature verifies for the key with fingerprint '+esc(a.fingerprint||'')+'. This browser has no pinned approver list, so it cannot confirm that signer is trusted; it is not shown as approved here. To trust it: <code>'+esc(trust)+'</code> then run <code>epi verify --require-human-approval</code> on your machine.'+claimedName+'</div>';
     }
   }
   var shown=story.lines.slice(0,15);

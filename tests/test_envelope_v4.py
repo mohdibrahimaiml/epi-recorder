@@ -181,6 +181,32 @@ def test_refresh_viewer_regenerates_embedded_viewer_without_changing_manifest(sa
     assert EPIContainer.detect_container_format(output) == EPI_CONTAINER_FORMAT_ENVELOPE
 
 
+def test_refresh_viewer_does_not_embed_the_previous_viewer(sample_workspace):
+    """Re-sealing twice must not fold the old viewer into the new one.
+
+    ``refresh_viewer`` unpacks the artifact (including ``viewer.html``) and
+    rebuilds the page from that directory. The page embeds the payload's files
+    as base64 for the browser Sign & Seal fallback, so a re-pack that included
+    ``viewer.html`` would embed the previous viewer inside the new viewer —
+    roughly doubling the .epi on every re-seal.
+    """
+    workspace, source = sample_workspace
+    output = workspace / "case.epi"
+    EPIContainer.pack(source, ManifestModel(cli_command="test"), output)
+
+    EPIContainer.refresh_viewer(output)
+    once = output.stat().st_size
+    EPIContainer.refresh_viewer(output)
+    twice = output.stat().st_size
+
+    assert twice < once * 1.25, (once, twice)
+    viewer = EPIContainer.read_member_text(output, "viewer.html")
+    assert viewer.count("EPI Forensic Artifact Viewer") >= 1
+    # The old viewer's own bytes must not appear base64'd inside the payload.
+    import base64 as _b64
+    assert _b64.b64encode(b"EPI Forensic Artifact Viewer").decode("ascii") not in viewer
+
+
 def test_refresh_viewer_cli_updates_directory_in_place(sample_workspace):
     runner = CliRunner()
     workspace, source = sample_workspace
