@@ -64,6 +64,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi cloud keys push\|list\|revoke\|unrevoke` | Register **public** keys only (`*.pub`). Informational registry — not a pin. |
 | `epi cloud storage show\|set\|test\|flush` | Register customer-owned bucket metadata; credentials never leave this machine. |
 | `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). |
+| `epi import steps <input> --out <file.epi>` | Seal a step log you already have — `.jsonl`/`.ndjson`, a JSON array, or `.csv`/`.tsv`. Each record needs `kind`; `timestamp` is optional (import time is used and declared if missing). Rebuilds the hash chain at import. |
 | `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
 | `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). Data-only by default; `--with-viewer` embeds the HTML viewer. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. Data-only by default; `--with-viewer` embeds the HTML viewer. |
@@ -136,6 +137,36 @@ Behavior:
 - `storage set` registers bucket metadata only. Credentials stay in the recorder environment (`EPI_STORAGE_URL` / AWS env). Cloud cannot read the bucket.
 
 `epi auth login` is an alias of `epi cloud login`.
+
+---
+
+## `epi import steps <input> --out <file.epi>`
+
+Seal a step log you already have, with no SDK at the source. This is the input path for
+evidence packs: a customer export becomes a signed, hash-chained `.epi` artifact.
+
+```bash
+epi import steps export.jsonl --out case.epi --goal "claim CL-77"
+epi import steps export.csv   --out case.epi
+epi import steps export.json  --out case.epi --with-viewer
+epi import steps export.jsonl --out case.epi --no-sign
+```
+
+Field rules:
+
+| Field | Required | Notes |
+|---|---|---|
+| `kind` (or `type` / `event`) | yes | e.g. `agent.run.start`, `tool.call`, `agent.decision` |
+| `timestamp` (or `time` / `ts`) | no | ISO 8601 or epoch (s/ms). If absent, import time is used and `_epi_import.timestamp_assumed` is set on that step |
+| `content` (or `data` / `payload`) | no | object, or a JSON string (CSV). Extra columns are merged into content |
+| `source_type` | no | one of `user`, `tool`, `reasoning`, `system`; inferred when absent |
+
+The chain is rebuilt at import, so the artifact proves the record has not changed
+**since you sealed it** — not that the exporter told the truth. Every step records
+`_epi_import` provenance (format, source file, source index).
+
+Accepted suffixes: `.jsonl`, `.ndjson`, `.json`, `.csv`, `.tsv`. Anything else is refused
+with a non-zero exit so a pack run cannot silently seal the wrong file.
 
 ---
 

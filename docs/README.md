@@ -57,6 +57,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 
 | You are… | Read first | Then |
 |----------|------------|------|
+| **Someone who just received a `.epi` file** | **[RECIPIENT-CARD.md](./RECIPIENT-CARD.md)** (one page, no jargon) | [FILE-SAFETY.md](./FILE-SAFETY.md), [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md) |
 | **Normal user / developer** | **[USER-GUIDE.md](./USER-GUIDE.md)** | Root [README.md](../README.md), [CLI.md](./CLI.md), [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](./FRAMEWORK-INTEGRATIONS-5-MINUTES.md) |
 | **Risk / compliance / bank reviewer** | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md), [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) |
 | **Independent auditor** | [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md) | [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md), [THREAT_MODEL.md](./THREAT_MODEL.md), [WITNESS.md](./WITNESS.md) |
