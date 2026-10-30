@@ -807,6 +807,7 @@ class EpiRecorderSession:
         witness_url: Optional[str] = None,
         witness_secret: Optional[str] = None,
         witness_include_goal: bool = False,
+        case_id: Optional[str] = None,
         storage_url: Optional[str] = None,
         with_viewer: bool = False,
     ):
@@ -898,6 +899,10 @@ class EpiRecorderSession:
         self.witness_url = witness_url if witness_url is not None else os.getenv("EPI_WITNESS_URL")
         self.witness_secret = witness_secret if witness_secret is not None else os.getenv("EPI_WITNESS_SECRET")
         self.witness_include_goal = bool(witness_include_goal)
+        # The customer's own identifier for this case (a claim number, a
+        # ticket). Sent to the witness so its log speaks the customer's
+        # language; an id, never case content.
+        self.case_id = case_id
 
         # Customer-owned storage (docs/STORAGE.md): every sealed `.epi` also
         # goes to the customer's own S3-compatible bucket. Explicit param
@@ -1643,6 +1648,46 @@ class EpiRecorderSession:
 
         self.log_step("llm.response", response_data)
     
+    def decision(
+        self,
+        decision: str,
+        *,
+        output: Optional[Any] = None,
+        confidence: Optional[float] = None,
+        rationale: Optional[str] = None,
+        basis: Optional[Any] = None,
+        review_required: Optional[bool] = None,
+        **metadata: Any,
+    ) -> None:
+        """Record one agent decision, without opening an ``agent_run`` block.
+
+        The same step ``agent.decision()`` writes, for the flat style:
+
+            with record("claim.epi") as epi:
+                epi.tool_call("lookup_policy", {"policy": "HO3"})
+                epi.decision("deny_claim", rationale="excluded peril",
+                             basis={"policy": "HO3-4.2"})
+
+        ``decision`` is the outcome, ``rationale`` the reason, ``basis`` the data
+        it relied on.
+        """
+        if not self._entered:
+            raise RuntimeError("Cannot log a decision outside of context manager")
+        self.log_step(
+            "agent.decision",
+            _compact_payload(
+                {
+                    "decision": decision,
+                    "output": output,
+                    "confidence": confidence,
+                    "rationale": rationale,
+                    "basis": basis,
+                    "review_required": review_required,
+                    **metadata,
+                }
+            ),
+        )
+
     def log_chat(
         self,
         model: str,
@@ -1864,6 +1909,7 @@ class EpiRecorderSession:
                 key_name=key_name,
                 signer=signer,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
+                case_id=getattr(self, "case_id", None),
             )
             _print_witness_outcome(entry)
         except Exception:
@@ -2265,6 +2311,7 @@ def record(
     witness_url: Optional[str] = None,
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
+    case_id: Optional[str] = None,
     storage_url: Optional[str] = None,
     with_viewer: bool = False,
 ) -> Union[EpiRecorderSession, Callable]:
@@ -2354,6 +2401,7 @@ def record(
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
+            case_id=case_id,
             storage_url=storage_url,
             with_viewer=with_viewer,
         )
@@ -2419,6 +2467,7 @@ def record(
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
+            case_id=case_id,
             storage_url=storage_url,
             with_viewer=with_viewer,
         )

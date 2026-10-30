@@ -2485,6 +2485,57 @@ def verify_command(
         raise typer.Exit(1)
 
 
+def _rich_escape(text: object) -> str:
+    """Literal text for a rich-markup line (a decision may contain brackets)."""
+    try:
+        from rich.markup import escape as _escape
+
+        return _escape(str(text))
+    except Exception:
+        return str(text).replace("[", "\\[")
+
+
+def _sealed_decision_summary(steps: list) -> str | None:
+    """One line: what the AI decided, read from the sealed steps.
+
+    A tool call is the decision when the agent acts through tools; otherwise the
+    explicit agent.decision step. Returns None when the run recorded neither, so
+    the report says nothing rather than guessing.
+    """
+    import json as _json
+
+    tool_call = None
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        kind = step.get("kind")
+        content = step.get("content") if isinstance(step.get("content"), dict) else {}
+        if kind in ("agent.decision", "decision"):
+            decision = content.get("decision") or content.get("verdict") or content.get("outcome")
+            if decision:
+                reason = content.get("rationale") or content.get("reason")
+                line = str(decision)
+                if reason:
+                    line += f" — {str(reason).strip()}"
+                return line
+        if kind == "llm.response" and tool_call is None:
+            calls = content.get("tool_calls") or []
+            if calls and isinstance(calls[0], dict):
+                call = calls[0]
+                args = call.get("arguments_parsed")
+                if args is None:
+                    args = call.get("arguments")
+                if isinstance(args, str):
+                    rendered = args
+                else:
+                    try:
+                        rendered = _json.dumps(args, ensure_ascii=False, sort_keys=True)
+                    except Exception:
+                        rendered = str(args)
+                tool_call = f"{call.get('name') or 'tool'}({rendered})"
+    return tool_call
+
+
 def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_root: str | None = None):
     """Print the human-readable verification results with Facts/Identity/Decision separation.
 
@@ -2628,6 +2679,18 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(f"[bold]DECISION: {decision_status}[/bold]")
     content_lines.append(f"Policy: {decision_policy}")
     content_lines.append(f"Reason: {decision_reason}")
+    sealed_decision = report.get("sealed_decision")
+    if sealed_decision is None:
+        try:
+            from epi_core.container import EPIContainer
+
+            sealed_decision = _sealed_decision_summary(EPIContainer.read_steps(epi_file))
+        except Exception:
+            sealed_decision = None
+    if sealed_decision:
+        content_lines.append(
+            f"[bold]  Decision:[/bold] {_rich_escape(sealed_decision)}"
+        )
     content_lines.append("")
 
     # Identity Layer FIRST — trust context before green seal proofs
