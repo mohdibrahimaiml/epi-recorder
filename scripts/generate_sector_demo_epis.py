@@ -122,6 +122,67 @@ def _seal_and_check(path: Path) -> None:
     print(f"  sealed {path.name}  size={path.stat().st_size}  CLEAN")
 
 
+def _sign_demo_approval(
+    path: Path,
+    *,
+    approval_id: str,
+    action: str,
+    reason: str,
+) -> dict:
+    """Sign the demo's human approval with a throwaway key, labelled DEMO KEY.
+
+    A public sample cannot carry a real person's signature. This is a genuine
+    Ed25519 signature by a key generated for this build, marked `demo_key` and
+    named so nobody mistakes it for a real approver. Pin the printed fingerprint
+    with `epi approvers add` to see it classified as `human_signed`.
+    """
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from epi_core.keys import key_fingerprint
+    from epi_core.review import ReviewRecord, add_review_to_artifact, make_approval_entry
+
+    key = Ed25519PrivateKey.generate()
+    pub_hex = key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    ).hex()
+    fingerprint = key_fingerprint(pub_hex, grouped=False)
+
+    record = ReviewRecord(
+        reviewed_by="EPI Demo Approver",
+        reviews=[
+            make_approval_entry(
+                approval_id=approval_id,
+                decision="approve",
+                action=action,
+                reason=reason,
+                approver_name="DEMO KEY - EPI Demo Approver (not a real person)",
+                key_fingerprint_hex=fingerprint,
+                demo_key=True,
+            )
+        ],
+        reviewer_identity={
+            "type": "name",
+            "value": "EPI Demo Approver",
+            "role": "Approver",
+            "org": "EPI demo (synthetic)",
+            "verified": False,
+        },
+    )
+    stamp = add_review_to_artifact(path, record, private_key=key, timestamp=True) or {}
+
+    stamp_status = stamp.get("status", "absent")
+    stamp_time = stamp.get("gen_time") or "-"
+    print(f"  approval DEMO KEY  fp={fingerprint}")
+    print(f"  approval independent time: {stamp_status} {stamp_time} {stamp.get('tsa_url') or ''}")
+    return {
+        "fingerprint": fingerprint,
+        "timestamp_status": stamp_status,
+        "timestamp_gen_time": stamp_time,
+        "timestamp_tsa": stamp.get("tsa_url") or "",
+    }
+
+
 # -----------------------------------------------------------------------------
 # 1. Finance Loan Underwriter
 # -----------------------------------------------------------------------------
@@ -449,6 +510,7 @@ def insurance_claim(api_key: str, out: Path) -> None:
             "agent.approval.request",
             {
                 "action": "issue_payout_check",
+                "approval_id": "payout-CLM-48219",
                 "claim_id": "CLM-48219",
                 "amount_usd": 4250,
             },
@@ -465,6 +527,13 @@ def insurance_claim(api_key: str, out: Path) -> None:
         )
         epi.log("agent.run.end", {"status": "completed", "claim_id": "CLM-48219"})
     _seal_and_check(out)
+    _sign_demo_approval(
+        out,
+        approval_id="payout-CLM-48219",
+        action="issue_payout_check",
+        reason="Coverage confirmed under HO3-884102; net payable $4,250 after the $500 deductible. "
+        "Signed by a demo key generated for this sample build - not a real person.",
+    )
 
 
 # -----------------------------------------------------------------------------
