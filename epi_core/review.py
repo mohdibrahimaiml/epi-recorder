@@ -8,6 +8,7 @@ artifact evidence and linked into an append-only review ledger.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -41,9 +42,21 @@ REVIEW_INDEX_NAME = "review_index.json"
 # top-level field: old readers keep `reviews` verbatim, so their content hash
 # still matches and they never raise a false tamper alarm. Exactly one
 # approval entry per record, and no other entries beside it.
-APPROVAL_VERSION = "1.0.0"
+#
+# 1.1.0 adds `signed_at` to the entry. It sits inside the signed payload, so the
+# approver's key covers when they approved. 1.0.0 entries stay valid: they have
+# only the record-level `reviewed_at`.
+APPROVAL_VERSION = "1.1.0"
+SUPPORTED_APPROVAL_VERSIONS = ("1.0.0", "1.1.0")
 APPROVAL_ENTRY_TYPE = "approval"
 APPROVAL_DECISIONS = ("approve", "deny")
+
+# An independent (RFC 3161) timestamp over the approval's own review hash.
+# Stored beside the record, not inside it: the token attests to `review_hash`,
+# which the approver's signature already covers, so the two bind each other.
+# Putting it inside the hashed payload would be a chicken-and-egg problem.
+APPROVAL_TIMESTAMP_SCHEME = "epi-approval-timestamp/v1"
+APPROVAL_TIMESTAMP_SUFFIX = ".approval-timestamp.json"
 
 
 def _utc_now() -> str:
@@ -463,13 +476,26 @@ def build_review_index(records: list[ReviewRecord], *, latest_review_id: str | N
     }
 
 
-def add_review_to_artifact(epi_path: Path, review: ReviewRecord, *, private_key: Any | None = None) -> None:
+def add_review_to_artifact(
+    epi_path: Path,
+    review: ReviewRecord,
+    *,
+    private_key: Any | None = None,
+    timestamp: bool = False,
+    tsa_urls: list[str] | None = None,
+) -> dict[str, Any] | None:
     """
     Add a review to a .epi artifact.
 
     New reviews are written to reviews/<review_id>.json, review.json is updated
     to point to the latest review, and review_index.json is regenerated for UI
     navigation. Existing legacy review.json readers remain compatible.
+
+    ``timestamp=True`` with a ``private_key`` (a human approval) asks independent
+    RFC 3161 authorities to stamp the signed review hash and stores the token
+    beside the record. It is off by default so library and test callers never
+    make an implicit network call; ``epi review approve`` turns it on.
+    Returns that timestamp record, or ``None`` when nothing was stamped.
     """
     if not epi_path.exists():
         raise FileNotFoundError(f"Artifact not found: {epi_path}")
@@ -489,6 +515,15 @@ def add_review_to_artifact(epi_path: Path, review: ReviewRecord, *, private_key:
     else:
         review.refresh_hash()
 
+    # Independent time for the approval: the token attests the review hash the
+    # approver just signed. Failure to reach an authority never blocks the
+    # approval; it is recorded so a verifier can see the difference.
+    approval_stamp: dict[str, Any] | None = None
+    if private_key is not None and timestamp and review.review_hash:
+        approval_stamp = stamp_review_hash(review.review_hash, tsa_urls=tsa_urls)
+        approval_stamp["review_id"] = review.review_id
+        approval_stamp["signed_at"] = _approval_signed_at(review)
+
     records_by_id = {record.review_id: record for record in existing_records if record.review_id}
     records_by_id[review.review_id] = review
     records = sorted(records_by_id.values(), key=lambda item: (item.reviewed_at or "", item.review_id or ""))
@@ -500,13 +535,18 @@ def add_review_to_artifact(epi_path: Path, review: ReviewRecord, *, private_key:
     temp_payload = temp_dir / "payload-with-review.zip"
     temp_artifact = temp_dir / epi_path.name
     ledger_paths = {_review_path(record) for record in records}
+    timestamp_paths = {approval_timestamp_member(record.review_id) for record in records if record.review_id}
 
     try:
         EPIContainer.extract_inner_payload(epi_path, payload_path)
 
         with zipfile.ZipFile(payload_path, "r") as src, zipfile.ZipFile(temp_payload, "w") as dst:
             for item in src.infolist():
-                if item.filename in {REVIEW_LATEST_NAME, REVIEW_INDEX_NAME} or item.filename in ledger_paths:
+                if (
+                    item.filename in {REVIEW_LATEST_NAME, REVIEW_INDEX_NAME}
+                    or item.filename in ledger_paths
+                    or item.filename in timestamp_paths
+                ):
                     continue
                 dst.writestr(item, src.read(item.filename))
 
@@ -518,11 +558,18 @@ def add_review_to_artifact(epi_path: Path, review: ReviewRecord, *, private_key:
                 json.dumps(review_index, indent=2, ensure_ascii=False),
                 compress_type=zipfile.ZIP_DEFLATED,
             )
+            if approval_stamp is not None:
+                dst.writestr(
+                    approval_timestamp_member(approval_stamp["review_id"]),
+                    json.dumps(approval_stamp, indent=2, ensure_ascii=False),
+                    compress_type=zipfile.ZIP_DEFLATED,
+                )
 
         EPIContainer.write_from_payload(temp_payload, temp_artifact, container_format=container_format)
         temp_artifact.replace(epi_path)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+    return approval_stamp
 
 
 def _verify_review_signature(record: ReviewRecord, expected_hash: str) -> tuple[bool | None, str]:
@@ -729,9 +776,19 @@ def make_approval_entry(
     approver_name: str,
     key_fingerprint_hex: str,
     case_level: bool = False,
+    signed_at: str | None = None,
+    demo_key: bool = False,
 ) -> dict[str, Any]:
-    """Build the single ``reviews[]`` entry that carries a human approval."""
-    return {
+    """Build the single ``reviews[]`` entry that carries a human approval.
+
+    ``signed_at`` is the approver's clock, inside the payload the approver's key
+    signs. It proves the approver asserted a time, not that the time was true;
+    that is what the RFC 3161 token beside the record is for.
+
+    ``demo_key`` marks a signature made with a throwaway key in a sample file,
+    so nobody mistakes the demo for a real person's sign-off.
+    """
+    entry: dict[str, Any] = {
         "entry_type": APPROVAL_ENTRY_TYPE,
         "approval_version": APPROVAL_VERSION,
         "approval_id": None if case_level else approval_id,
@@ -739,11 +796,15 @@ def make_approval_entry(
         "decision": decision,
         "action": str(action or ""),
         "reason": str(reason or ""),
+        "signed_at": str(signed_at or _utc_now()),
         "approver": {
             "name": str(approver_name or ""),
             "key_fingerprint": str(key_fingerprint_hex or ""),
         },
     }
+    if demo_key:
+        entry["demo_key"] = True
+    return entry
 
 
 def approval_entry_of(record: ReviewRecord) -> dict[str, Any] | None:
@@ -757,6 +818,161 @@ def approval_entry_of(record: ReviewRecord) -> dict[str, Any] | None:
 
 def is_approval_record(record: ReviewRecord) -> bool:
     return approval_entry_of(record) is not None
+
+
+def _approval_signed_at(record: ReviewRecord) -> str | None:
+    """When the approver said they signed: entry-level, falling back to the record."""
+    entry = approval_entry_of(record) or {}
+    value = entry.get("signed_at")
+    return value if isinstance(value, str) and value else record.reviewed_at
+
+
+# ---------------------------------------------------------------------------
+# Independent time for an approval (RFC 3161)
+#
+# The approver's own clock is in `signed_at`, covered by their signature. It
+# proves they *asserted* a time. The question in a dispute is whether the
+# approval existed before the payout went out, and only a third party can
+# answer that: an RFC 3161 token over the approval's review hash, from the same
+# pinned authorities used for the seal.
+#
+# The token lives beside the record (reviews/<id>.approval-timestamp.json)
+# because it timestamps that record's hash - it cannot be inside the payload
+# that produces the hash. Tampering with it fails either the TSA signature or
+# the imprint check against `review_hash`.
+# ---------------------------------------------------------------------------
+
+
+def approval_timestamp_member(review_id: str) -> str:
+    """Payload member that carries the independent timestamp for one approval."""
+    return f"{REVIEW_LEDGER_PREFIX}{review_id}{APPROVAL_TIMESTAMP_SUFFIX}"
+
+
+def stamp_review_hash(
+    review_hash: str,
+    *,
+    tsa_urls: list[str] | None = None,
+) -> dict[str, Any]:
+    """Ask independent RFC 3161 authorities to timestamp an approval's hash.
+
+    Never raises and never blocks an approval: an unavailable authority is
+    recorded as ``status: "unavailable"`` with the reason, so the absence is
+    visible to a verifier instead of looking like an ordinary approval.
+    """
+    digest_hex = str(review_hash or "").strip().lower()
+    stamp: dict[str, Any] = {
+        "scheme": APPROVAL_TIMESTAMP_SCHEME,
+        "hash_algorithm": "sha256",
+        "review_hash": digest_hex,
+        "status": "unavailable",
+        "tsa_url": "",
+        "token_b64": None,
+        "gen_time": None,
+        "reason": "",
+    }
+    try:
+        if len(bytes.fromhex(digest_hex)) != 32:
+            raise ValueError("review hash is not a 32-byte SHA-256 digest")
+    except (ValueError, TypeError):
+        stamp["reason"] = "review hash is not a SHA-256 hex digest"
+        return stamp
+
+    from epi_core.notarize import _parse_tsr_gen_time, _submit_rfc3161, _tsa_urls
+
+    urls = list(tsa_urls) if tsa_urls else _tsa_urls()
+    reasons: list[str] = []
+    for url in urls:
+        try:
+            token = _submit_rfc3161(digest_hex, url)
+        except Exception as exc:  # noqa: BLE001 - a TSA must never block an approval
+            reasons.append(f"{url}: {type(exc).__name__}")
+            continue
+        if not token:
+            reasons.append(f"{url}: no token")
+            continue
+        stamp.update(
+            {
+                "status": "stamped",
+                "tsa_url": url,
+                "token_b64": base64.b64encode(token).decode("ascii"),
+                "gen_time": _parse_tsr_gen_time(token),
+                "reason": "",
+            }
+        )
+        return stamp
+
+    stamp["reason"] = "; ".join(reasons) or "no timestamp authority configured"
+    return stamp
+
+
+def read_approval_timestamp(epi_path: Path, review_id: str | None) -> dict[str, Any] | None:
+    """The stored timestamp for an approval, or ``None`` when there is none."""
+    if not review_id:
+        return None
+    from epi_core.container import EPIContainer
+
+    try:
+        raw = EPIContainer.read_member_json(epi_path, approval_timestamp_member(review_id))
+    except Exception:
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def verify_approval_timestamp(epi_path: Path, record: ReviewRecord) -> dict[str, Any]:
+    """Check the approval's RFC 3161 token offline against the pinned roots.
+
+    ``status`` is one of verified / absent / unavailable / mismatch / malformed.
+    Only ``verified`` means an independent authority saw this approval hash at
+    ``gen_time``.
+    """
+    stamp = read_approval_timestamp(epi_path, record.review_id)
+    if stamp is None:
+        return {"status": "absent", "gen_time": None, "tsa_url": "", "detail": "no independent timestamp stored"}
+
+    if stamp.get("status") != "stamped" or not stamp.get("token_b64"):
+        return {
+            "status": "unavailable",
+            "gen_time": None,
+            "tsa_url": str(stamp.get("tsa_url") or ""),
+            "detail": str(stamp.get("reason") or "the authority was unreachable when the approval was signed"),
+        }
+
+    stored_hash = str(stamp.get("review_hash") or "").strip().lower()
+    if record.review_hash and stored_hash and stored_hash != record.review_hash:
+        return {
+            "status": "mismatch",
+            "gen_time": None,
+            "tsa_url": str(stamp.get("tsa_url") or ""),
+            "detail": "timestamp covers a different review hash than this approval",
+        }
+
+    try:
+        token = base64.b64decode(str(stamp.get("token_b64")))
+        expected = bytes.fromhex(record.review_hash or "")
+    except Exception:  # noqa: BLE001 - a broken token is a finding, not a crash
+        return {"status": "malformed", "gen_time": None, "tsa_url": "", "detail": "stored token is not decodable"}
+
+    from epi_core.tsa_verify import load_pinned_tsa_roots, validate_tsr
+
+    try:
+        validation = validate_tsr(token, expected, trust_roots=load_pinned_tsa_roots())
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "malformed", "gen_time": None, "tsa_url": "", "detail": f"token unreadable ({exc})"}
+
+    status = getattr(validation, "status", "") or ""
+    if status == "valid":
+        return {
+            "status": "verified",
+            "gen_time": getattr(validation, "gen_time", None),
+            "tsa_url": str(stamp.get("tsa_url") or ""),
+            "detail": "",
+        }
+    return {
+        "status": "mismatch" if status == "imprint_mismatch" else "malformed",
+        "gen_time": getattr(validation, "gen_time", None),
+        "tsa_url": str(stamp.get("tsa_url") or ""),
+        "detail": getattr(validation, "detail", "") or status,
+    }
 
 
 def _group_fingerprint(value: str) -> str:
@@ -779,8 +995,16 @@ def _approval_entry_problem(record: ReviewRecord, entry: dict[str, Any]) -> str 
         return "An approval record must carry exactly one entry"
     if not isinstance(entry, dict):
         return "Approval entry is malformed"
-    if entry.get("approval_version") != APPROVAL_VERSION:
+    if entry.get("approval_version") not in SUPPORTED_APPROVAL_VERSIONS:
         return f"Unsupported approval_version: {entry.get('approval_version')!r}"
+    signed_at = entry.get("signed_at")
+    if signed_at is not None:
+        if not isinstance(signed_at, str) or not signed_at:
+            return "signed_at must be a non-empty ISO-8601 string"
+        try:
+            datetime.fromisoformat(signed_at.replace("Z", "+00:00"))
+        except ValueError:
+            return f"signed_at is not a timestamp: {signed_at!r}"
     if entry.get("decision") not in APPROVAL_DECISIONS:
         return "decision must be 'approve' or 'deny'"
     case_level = entry.get("case_level")
@@ -1152,6 +1376,19 @@ def verify_human_approvals(epi_path: Path, *, registry: Any = None) -> dict[str,
         for record in records
         if (entry := approval_entry_of(record)) is not None
     ]
+
+    # When did the human sign (their clock), and can an independent authority
+    # prove it (RFC 3161 token over this approval's hash)?
+    approval_holders = [
+        record for record in records if approval_entry_of(record) is not None
+    ]
+    for item, record in zip(classifications, approval_holders):
+        item["signed_at"] = _approval_signed_at(record)
+        item["timestamp"] = verify_approval_timestamp(epi_path, record)
+        if item["timestamp"].get("status") in ("mismatch", "malformed"):
+            report["warnings"].append(
+                f"independent timestamp for approval {record.review_id} does not verify"
+            )
 
     sealed_ids = {str(req["approval_id"]) for req in sealed_requests if req["approval_id"]}
     for item in classifications:

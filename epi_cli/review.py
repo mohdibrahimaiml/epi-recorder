@@ -325,10 +325,23 @@ def show_review(ctx: typer.Context):
             _cls = str(item.get("classification") or "unknown")
             _color = "green" if _cls == "human_signed" else ("red" if _cls == "invalid" else "yellow")
             console.print(
-                f"  [{_color}]{_cls}[/{_color}]  {item.get('approver_name') or '—'}"
-                f"  [dim](fp {item.get('key_fingerprint') or '—'})[/dim]"
+                f"  [{_color}]{_cls}[/{_color}]  {item.get('approver_name') or '-'}"
+                f"  [dim](fp {item.get('key_fingerprint') or '-'})[/dim]"
                 f"  {item.get('approval_id') or '(case-level)'}"
             )
+            _ts = item.get("timestamp") or {}
+            _status = str(_ts.get("status") or "absent")
+            _detail = _ts.get("detail") or "only the approver's clock covers the time"
+            if _status == "verified":
+                console.print(
+                    f"       [dim]signed {item.get('signed_at') or '-'}; "
+                    f"independent time {_ts.get('gen_time') or '-'} ({_ts.get('tsa_url') or '-'})[/dim]"
+                )
+            else:
+                console.print(
+                    f"       [dim]signed {item.get('signed_at') or '-'}; "
+                    f"independent time [yellow]{_status}[/yellow] - {_detail}[/dim]"
+                )
         console.print(
             "[dim]Only 'human_signed' means a pinned approver, not the agent, signed it.[/dim]"
         )
@@ -440,6 +453,11 @@ def approve(
         False,
         "--yes",
         help="Skip the typed confirmation (scripted tests only; prints a warning).",
+    ),
+    no_timestamp: bool = typer.Option(
+        False,
+        "--no-timestamp",
+        help="Skip the independent RFC 3161 timestamp (offline; the absence stays visible).",
     ),
 ):
     """Sign a human approval with an approver's own key.
@@ -569,10 +587,28 @@ def approve(
     )
 
     try:
-        add_review_to_artifact(epi_path, record, private_key=private_key)
+        stamp = add_review_to_artifact(
+            epi_path, record, private_key=private_key, timestamp=not no_timestamp
+        )
     except Exception as exc:
         console.print(f"[red][FAIL] Could not write the approval:[/red] {exc}")
         raise typer.Exit(1)
 
     console.print(f"[green][OK][/green] Signed approval written to [bold]{epi_path.name}[/bold]")
     console.print(f"  [cyan]Fingerprint:[/cyan] {key_fingerprint(approver_hex)}")
+    if no_timestamp:
+        console.print(
+            "  [yellow]Time:[/yellow] approver's clock only (--no-timestamp) - "
+            "nothing independent attests when this was signed."
+        )
+    elif stamp and stamp.get("status") == "stamped":
+        console.print(
+            f"  [cyan]Independent time:[/cyan] {stamp.get('gen_time') or 'stamped'} "
+            f"({stamp.get('tsa_url')})"
+        )
+    else:
+        console.print(
+            "  [yellow]Independent time:[/yellow] unavailable - "
+            f"{stamp.get('reason') if stamp else 'no authority reached'}. "
+            "The approval stands; only the approver's clock covers the time."
+        )
