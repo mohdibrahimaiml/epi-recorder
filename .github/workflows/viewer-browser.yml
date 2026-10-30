@@ -17,6 +17,13 @@ on:
       - "epi-official/viewer/**"
       - "verify_portal/static/viewer/**"
       - "website/js/home-verify.js"
+      - "website/verify/**"
+      - "site/js/home-verify.js"
+      - "epi-official/js/home-verify.js"
+      - "verify_portal/static/js/home-verify.js"
+      - "tests/test_verify_drop.py"
+      - "tests/test_verify_witness.py"
+      - "tests/test_verify_witness_js.py"
       - "epi_cli/view.py"
       - "epi_cli/dev.py"
       - "epi_core/review.py"
@@ -34,6 +41,13 @@ on:
       - "epi-official/viewer/**"
       - "verify_portal/static/viewer/**"
       - "website/js/home-verify.js"
+      - "website/verify/**"
+      - "site/js/home-verify.js"
+      - "epi-official/js/home-verify.js"
+      - "verify_portal/static/js/home-verify.js"
+      - "tests/test_verify_drop.py"
+      - "tests/test_verify_witness.py"
+      - "tests/test_verify_witness_js.py"
       - "epi_cli/view.py"
       - "epi_cli/dev.py"
       - "epi_core/review.py"
@@ -71,4 +85,4 @@ jobs:
 
       # Fails, not skips, if Chromium is missing (EPI_REQUIRE_BROWSER).
       - name: Render the verdict box
-        run: python -m pytest tests/browser tests/test_demo_human_approval.py tests/test_approval_labels_browser.py -q --maxfail=5
+        run: python -m pytest tests/browser tests/test_demo_human_approval.py tests/test_approval_labels_browser.py tests/test_verify_drop.py tests/test_verify_witness.py -q --maxfail=5

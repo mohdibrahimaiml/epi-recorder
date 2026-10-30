@@ -92,6 +92,19 @@
               <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
             </div>
 
+            <div class="drop" id="witnessZoneEl" role="button" tabindex="0" aria-label="Drop your witness log (received.jsonl) to check the file against your own record"
+                 style="margin-top:0.75rem;padding:1rem 1.25rem;text-align:left">
+              <h3 style="font-size:0.9rem;margin:0">Drop your witness log <span style="color:var(--ink-muted);font-weight:400">(optional)</span></h3>
+              <p style="margin:0.35rem 0 0;font-size:0.75rem">
+                <code style="font-family:var(--font-mono)">received.jsonl</code> from your own
+                <code style="font-family:var(--font-mono)">epi witness serve</code>. The file proves it was not
+                edited; your log proves the vendor reported <em>this</em> case. A re-sealed forgery is a valid
+                file — only your log catches it.
+              </p>
+              <input type="file" id="witnessInput" accept=".jsonl,.json,.txt" style="display:none">
+              <div id="witnessStatus" style="display:none;margin-top:0.55rem;font-size:0.72rem;line-height:1.5" aria-live="polite" role="status"></div>
+            </div>
+
             <!-- Post-Upload Tamper Lab (Hidden until a file is uploaded or loaded!) -->
             <div id="tamperLabBar" class="z-tamper-lab" role="region" aria-label="Tamper simulation lab for loaded file">
               <div class="z-tamper-lab__head">

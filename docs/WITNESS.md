@@ -1,6 +1,6 @@
 # Customer witness
 
-**Product version:** 4.7.0. Cloud product claims: [CLOUD.md](./CLOUD.md).
+**Product version:** 4.8.0. Cloud product claims: [CLOUD.md](./CLOUD.md).
 
 How a vendor reports every seal to its customer, and how the customer keeps
 and checks those reports. A witness receipt is **hash-only**. It is not a
@@ -229,9 +229,27 @@ The SEAL block shows one `Witness:` line:
   permissions). Verification FAILs, so a typo never silently skips the check.
 - `DIFFERENT VERSION` (JSON status `MISMATCH`) — you were sent reports for
   this workflow id, but none for this copy: a re-signed copy, or a gateway
-  re-export of the same case that was never reported. The file's own seal may
-  be valid; it is simply not what you were told about. Headline
+  re-export of the same case that was never reported. When the case matches by
+  goal (the vendor ran it again under a new workflow id), the same verdict is
+  reported with the goal named: *"a different version of 'Adjudicate claim
+  CLM-1001' was reported to you"*. The file's own seal may be valid; it is
+  simply not what you were told about. Headline
   `✘ FAIL — NOT THE VERSION REPORTED TO YOU`, in every policy.
+
+### In the browser, no install
+
+`/verify` now takes **two** drops: the `.epi` file, and your `received.jsonl`
+next to it. Same matching as the CLI — exact file/manifest hash, then the
+content digest (a repacked file keeps it), then the case by goal:
+
+- `Witness: matches your log` — what the vendor reported.
+- `This is not the version your witness recorded.` — a re-sealed copy of a case
+  you have a report for. Without the log, the same file looks valid, because
+  every signature in it is real; that is the whole reason you keep the log.
+- `This file is not in your witness log` — never reported.
+- Signed logs (receipts) say **not confirmed** in the browser: it has no pinned
+  witness key, so it will not call a stamp verified. Use
+  `epi verify --witness-pubkey` for that.
 
 ## Re-runs: one case, several seals
 
