@@ -2,6 +2,18 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **The browser verifier can use the customer's witness log.** `/verify` now
+  takes `received.jsonl` next to the `.epi`, with the same matching as the CLI:
+  exact file/manifest hash, then the content digest, then the case by goal. A
+  re-sealed forgery that passes integrity and signature now reads
+  *"This is not the version your witness recorded"* on the no-install path.
+  Signed logs report `NOT CONFIRMED` until a witness key is pinned, because the
+  page holds no trust anchor.
+
 ## [4.8.0] - 2026-10-30
 
 ### Fixed
