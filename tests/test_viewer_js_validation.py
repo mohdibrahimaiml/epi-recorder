@@ -114,3 +114,17 @@ class TestViewerJSValidation:
                 f"({len(copy)} vs {len(canonical)} bytes). "
                 f"Run: python scripts/sync_viewer_mirrors.py"
             )
+
+
+def test_viewer_template_declares_a_network_denying_csp():
+    """The viewer is HTML from inside the evidence file.
+
+    A CSP makes "the viewer never talks to the network" a browser-enforced
+    guarantee instead of a property of the shipped code (docs/FILE-SAFETY.md
+    section 5). Removing it should fail here, not in a security review.
+    """
+    html = (REPO / "web_viewer" / "index.html").read_text(encoding="utf-8")
+
+    assert 'http-equiv="Content-Security-Policy"' in html
+    assert "default-src 'none'" in html
+    assert "connect-src 'none'" in html

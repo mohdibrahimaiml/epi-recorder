@@ -12,7 +12,7 @@
 |----------|------|-----|
 | `*.epi` sealed files | Yes — retention per policy | Portable evidence of the run |
 | `epi verify --json` / `--report` output | Optional but recommended | Machine-readable audit trail |
-| Signing private keys | Secrets manager, or encrypted at rest with `EPI_KEY_PASSWORD` | Never in git; no HSM integration |
+| Signing private keys | Secrets manager, or encrypted at rest with `EPI_KEY_PASSWORD`; production: a PKCS#11 HSM or AWS/GCP KMS key via `epi keys link --uri` ([KEY-CUSTODY](./KEY-CUSTODY.md)) | Never in git |
 | Trusted public keys | `~/.epi/trusted_keys/` or org bundle | Identity layer |
 
 ---

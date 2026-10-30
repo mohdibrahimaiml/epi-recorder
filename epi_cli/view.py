@@ -49,7 +49,9 @@ def _print_share_hint() -> None:
     console.print("[bold]Share / review this case file:[/bold]")
     console.print("  [cyan]epi export-html <file.epi>[/cyan] standalone HTML — no install required")
     console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
-    console.print("  [cyan]https://epilabs.org/verify[/cyan]  browser trust check, no install required")
+    console.print(
+        "  [cyan]https://epilabs.org/verify[/cyan]  browser check, no install (device-local)"
+    )
     console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
 
 
@@ -376,7 +378,8 @@ def _open_in_browser(viewer_path: Path) -> None:
     if not opened:
         console.print("[yellow]Could not open the browser automatically.[/yellow]")
         console.print(f"  Open this file yourself: {viewer_path}")
-        console.print("  Or upload at: https://epilabs.org/verify")
+        console.print("  Or check the artifact in a browser: https://epilabs.org/verify")
+        console.print("  [dim](device-local; `epi verify` stays authoritative)[/dim]")
 
 
 def _cleanup_after_delay(temp_dir: Path, delay_seconds: float = 30.0) -> None:
