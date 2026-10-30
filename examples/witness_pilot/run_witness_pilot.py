@@ -458,6 +458,18 @@ def main() -> int:
             "a different version of" in rerun_report or "MISMATCH" in rerun_report,
             "the report ties the re-run to the claim it re-ran, not 'never reported'",
         )
+        rerun_verify = epi(
+            bank,
+            "verify",
+            str(rerun_file),
+            "--witness-log",
+            str(witness_log),
+            expect=1,
+        )
+        check(
+            "DIFFERENT VERSION" in rerun_verify,
+            "epi verify uses the same stronger wording, not 'NOT IN WITNESS LOG'",
+        )
 
         # ── f. The customer's case report ───────────────────────────────────
         line("\nf. CUSTOMER — one report over the whole case")

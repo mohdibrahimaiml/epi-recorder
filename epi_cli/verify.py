@@ -942,6 +942,39 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
     same = same_legacy + same_signed  # type: ignore[operator]
     result["matches"] = len(same)
     if not same:
+        # The workflow id is not in the log. That is NOT the strongest thing we
+        # can say: if the customer's log holds a report for the SAME CASE (by
+        # goal), this is a different version of a case they were told about -
+        # a re-sealed record, not a case that never happened.
+        goal = str(getattr(manifest, "goal", "") or "").strip()
+        goal_hits: list[dict] = []
+        if goal:
+            goal_hits = [
+                entry for entry in legacy_entries
+                if str(entry.get("goal") or "").strip() == goal
+            ]
+            goal_hits += [
+                item["inner"]
+                for item in signed_items
+                if isinstance(item.get("inner"), dict)
+                and str(item["inner"].get("goal") or "").strip() == goal
+            ]
+        if goal_hits:
+            latest = max(
+                (str(entry.get("received_at") or entry.get("_witness_received_at") or "")
+                 for entry in goal_hits),
+                default="",
+            )
+            result["status"] = "MISMATCH"
+            result["matches"] = len(goal_hits)
+            result["received_at"] = latest or None
+            result["matched_by"] = "goal"
+            result["detail"] = (
+                f"a different version of {goal!r} was reported to you "
+                f"({len(goal_hits)} report(s), latest {latest or 'unknown time'}); "
+                "this copy was never reported"
+            )
+            return result
         result["status"] = "NOT IN WITNESS LOG"
         result["detail"] = (
             f"workflow {workflow_id} not found in {_reports_count} witness reports; "
