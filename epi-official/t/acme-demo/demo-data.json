@@ -33,7 +33,7 @@
     {
       "path": "/assets/sample.epi",
       "label": "Website sample run (DEMO)",
-      "claimed_sha256": "413dcfb5e4b1eebfa416621f8fc79203fa83a5f8a82d78c6ed7d4e72542204d0",
+      "claimed_sha256": "ad853b8c39934cb22de7af8a46d356457b8ae515e0f1f696752c469f9a37ec4b",
       "size_bytes": 458046,
       "workflow_id": "7385b43c-1c84-493a-8ed3-922548980c4e",
       "goal": "Website sample.epi for browser verify",
