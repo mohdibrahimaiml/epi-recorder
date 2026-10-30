@@ -169,14 +169,22 @@ def test_push_deduped_skips_upload(fake_transport, home):
 
 def test_push_sample_skip_is_deterministic(fake_transport, home):
     digest = hashlib.sha256(SAMPLE.read_bytes()).hexdigest()
-    pct = int(digest[:8], 16) % 100 or 1
+    bucket = int(digest[:8], 16) % 100
+    # --sample N keeps a file when bucket < N. Bucket 0 is inside every sample,
+    # so no value can exclude it; assert both branches rather than depending on
+    # which bucket this particular sample lands in (re-sealing it changes that).
+    sample = max(bucket, 1)
     result = _invoke(
-        ["push", str(SAMPLE), "--sample", str(pct),
+        ["push", str(SAMPLE), "--sample", str(sample),
          "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_x"]
     )
-    assert result.exit_code == 0, result.output
-    assert "Skipped by --sample" in result.output
-    assert FakeClient.instances == []
+    if bucket == 0:
+        assert result.exit_code == 1, result.output
+        assert "EPI Cloud said no" in result.output
+    else:
+        assert result.exit_code == 0, result.output
+        assert "Skipped by --sample" in result.output
+        assert FakeClient.instances == []
 
 
 def test_push_rejects_bad_reason_and_missing_file(home):

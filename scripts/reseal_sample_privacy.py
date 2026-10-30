@@ -80,6 +80,16 @@ def reseal(path: Path, *, signer, version: str) -> dict:
                 generated_path.unlink()
                 changed.append(generated)
 
+        # Post-seal proof members describe the OLD bytes. Keeping them while
+        # re-signing produces a file whose TSA imprint no longer matches, which
+        # `epi verify` correctly rejects ("modified and re-signed after
+        # sealing"). Drop them and let pack() stamp the new bytes.
+        for stale in ("artifacts/notarization", "artifacts/scitt", "artifacts/transparency"):
+            stale_dir = source / stale
+            if stale_dir.exists():
+                shutil.rmtree(stale_dir, ignore_errors=True)
+                changed.append(stale)
+
         manifest.spec_version = version
         manifest.producer_version = version
 
@@ -92,7 +102,7 @@ def reseal(path: Path, *, signer, version: str) -> dict:
             preserve_generated=True,
             container_format=container_format,
             generate_analysis=False,
-            notarize=False,
+            notarize=None,
             embed_viewer=had_viewer,
         )
         shutil.copyfile(staged, path)
