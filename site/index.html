@@ -429,9 +429,7 @@
             <h3 class="z-h3-module" style="margin-top:0.875rem">
               Every agent run seals into one portable <span style="color:var(--acc-envelope)">file</span>.
             </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Every <code style="font-family:var(--font-mono)">.epi</code> is a valid HTML+ZIP polyglot binary. Open it directly in any browser for an offline forensic timeline, or inspect its hash-linked <code style="font-family:var(--font-mono)">steps.jsonl</code> and Ed25519-signed <code style="font-family:var(--font-mono)">manifest.json</code> on the CLI.
-            </p>
+            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">By default a <code style="font-family:var(--font-mono)">.epi</code> is data-only: a plain ZIP holding a hash-linked <code style="font-family:var(--font-mono)">steps.jsonl</code> and an Ed25519-signed manifest, checked with <code style="font-family:var(--font-mono)">epi verify</code> or opened in the local viewer. Sealed with <code style="font-family:var(--font-mono)">--with-viewer</code>, the same bytes are also an HTML+ZIP polyglot that opens directly in any browser.</p>
             <div style="margin-top:2.25rem">
               <a href="/how-it-works" class="z-btn-ghost">Explore Envelope v2</a>
             </div>
@@ -979,7 +977,7 @@
             </span>
           </a>
           <p class="z-body" style="margin-top:1rem;max-width:22rem;font-size:0.875rem">
-            The evidence layer that makes AI agents insurable and auditable: Envelope v2 sealing, offline verification, identity pinning, and policy analysis in one open system.
+            Sealed run records for AI agents: portable, verifiable offline by the party who does not trust you. Open-source tooling under MIT.
           </p>
         </div>
 
@@ -1025,7 +1023,7 @@
           <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">GitHub</a>
         </div>
       </div>
-    <div style="font-size:.7rem;color:var(--text-muted)">MIT License · v4.7.0 · envelope-v2 · v4.7.0 · PyPI publish pending</div>
+    <div style="font-size:.7rem;color:var(--text-muted)">MIT License · v4.7.0 · envelope-v2 · v4.7.0 · v4.7.0 on PyPI</div>
     </footer>
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
