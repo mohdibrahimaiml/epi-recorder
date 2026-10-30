@@ -299,6 +299,8 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 | Topic | Link |
 |-------|------|
 | **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
+| **You received a `.epi` file** (one page, no jargon) | [docs/RECIPIENT-CARD.md](docs/RECIPIENT-CARD.md) |
+| **Verify with no Python installed** | [docs/STANDALONE-VERIFIER.md](docs/STANDALONE-VERIFIER.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
 | **Break the seal** — try to break the guarantees (credit-only) | [CHALLENGE.md](CHALLENGE.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |
