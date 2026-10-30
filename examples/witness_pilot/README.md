@@ -64,6 +64,14 @@ reports **WITNESSED**, **MISMATCH** (a different version of that case was
 reported), **NOT IN WITNESS LOG** (never reported at all) or **NOT CONFIRMED**
 (the log carries signed receipts and you have not pinned the witness key).
 
+`--expect cases.csv` is for the claims an insurer already knows about: each row
+is a claim or case id, and any with no witnessed record comes back **MISSING**.
+
+The vendor sets `case_id="CLM-9001"` on `record(...)`; it travels in the
+hash-only witness payload, so the report speaks claim numbers instead of
+workflow ids, and a re-run under a new workflow id is matched back to the claim
+by its goal.
+
 ## Files
 
 - `run_witness_pilot.py` - the whole flow, including the forgery

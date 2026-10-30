@@ -134,3 +134,31 @@ def test_non_epi_file_dropped_on_verify_page(site, browser) -> None:
         assert "isn't an EPI evidence file" in text, text[:500]
     finally:
         ctx.close()
+
+APPROVED_URL = "/assets/demo/demo-insurance-claim-adjudication.epi"
+
+
+def test_a_human_approved_file_is_not_reported_as_tampered(site, browser) -> None:
+    """An approved file carries review_timestamps/ (the RFC 3161 token added by
+    `epi review approve` after sealing). The browser's allowlist must know that
+    prefix, or every properly signed approval reads as "changed after sealing" -
+    the worst possible thing to tell a customer about their own claim.
+    """
+    ctx = browser.new_context()
+    pg = ctx.new_page()
+    try:
+        pg.goto(site + "/verify/")
+        pg.wait_for_selector("#dropZoneEl", timeout=15000)
+        assert pg.evaluate(DROP_JS + f'("{APPROVED_URL}")') == "dropped"
+        pg.wait_for_function(
+            "() => document.querySelector('#dropResult').textContent.length > 20",
+            timeout=30000,
+        )
+        text = pg.locator("#dropResult").inner_text()
+        assert "hasn't been changed since it was sealed" in text, text[:600]
+        assert "was changed after it was sealed" not in text, text[:600]
+        assert "Extra file" not in text, text[:800]
+        # The approval the human signed is shown, not hidden.
+        assert "Human approval" in text or "APPROVED" in text, text[:800]
+    finally:
+        ctx.close()

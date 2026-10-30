@@ -6,6 +6,18 @@ All notable changes to EPI Recorder are documented here.
 
 ### Fixed
 
+- **The browser verifier called every approved file tampered.** `epi review
+  approve` adds `review_timestamps/` (the RFC 3161 token for that approval)
+  after sealing; the CLI knew that folder is post-seal, the browser's allowlist
+  (`website/js/home-verify.js` and its three mirrors) did not. Any file a human
+  had signed was reported as *"changed after it was sealed — don't rely on it"*
+  on the no-install path. Fixed, with a browser test that drops an approved,
+  timestamped file and requires integrity to pass.
+
+- **`epi verify` now says what the AI decided**, in one line read from the
+  sealed steps: `Decision: deny_claim({"reason": "excluded peril"})`, or the
+  `agent.decision` outcome and its rationale when no tool call is present.
+
 - **Tool-call decisions were dropped from the sealed record.** `wrap_openai()`
   and `wrap_anthropic()` copied only `role` and `content` off each response, so
   an agent that decided by calling a tool - which is how most agents act - was
@@ -49,6 +61,19 @@ All notable changes to EPI Recorder are documented here.
   check a signature cannot make: a vendor who re-seals a changed decision signs a
   perfectly valid file, and only the customer's own record shows the bytes they
   were handed are not the bytes that were reported.
+
+  Cases are labelled the way the customer names them: `record(case_id="CLM-1001")`
+  travels in the hash-only witness payload, so the report says `CLM-1001`, not a
+  workflow uuid. When the vendor re-runs a case under a new workflow id, the
+  report matches it on the goal and says *"a different version of 'Adjudicate
+  claim CLM-1001' was reported"* instead of "never reported".
+  `--expect cases.csv` takes the claim numbers the customer already knows and
+  marks any with no witnessed record as `MISSING` — so a claim that was never
+  sealed at all is visible, not silently absent.
+
+- **`session.decision(...)`** — the flat form, without opening an `agent_run`:
+  `epi.decision("deny_claim", rationale=..., basis=...)`. `agent.decision()`
+  inside `agent_run` is unchanged.
 
 - **`examples/witness_pilot/` — the forged re-seal, demonstrated.** Four isolated
   homes (vendor, approver, customer, forger). The vendor seals and reports a

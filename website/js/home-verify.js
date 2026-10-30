@@ -752,7 +752,11 @@ async function processFile(f){
       if(actualHash!==expected){mismatches[fname]='Hash mismatch: expected '+expected.substring(0,12)+'... got '+actualHash.substring(0,12)+'...'}
     }
     // Check for extra unlisted files (not mimetype/manifest/viewer/review/artifacts)
-    var excludePrefixes=['mimetype','manifest.json','viewer.html','VERIFY.txt','review.json','review_index.json','reviews/','artifacts/scitt/'];
+    // review_timestamps/ is added by `epi review approve` AFTER sealing (the RFC 3161
+    // token for that approval). reviews/ and review.json are the same kind of
+    // post-seal addition; leaving the timestamps out told every approved file it
+    // had been tampered with.
+    var excludePrefixes=['mimetype','manifest.json','viewer.html','VERIFY.txt','review.json','review_index.json','reviews/','review_timestamps/','artifacts/scitt/'];
     Object.keys(zip.files).forEach(function(nm){
       var excluded=false;
       for(var k=0;k<excludePrefixes.length;k++){if(nm.indexOf(excludePrefixes[k])===0){excluded=true;break}}

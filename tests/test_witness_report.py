@@ -22,7 +22,9 @@ from epi_core.serialize import get_canonical_hash
 runner = CliRunner()
 
 
-def _seal(tmp_path: Path, name: str, decision: str = "approve") -> Path:
+def _seal(
+    tmp_path: Path, name: str, decision: str = "approve", goal: str | None = None
+) -> Path:
     source = tmp_path / f"{name}.src"
     source.mkdir(parents=True, exist_ok=True)
     (source / "steps.jsonl").write_text(
@@ -35,7 +37,7 @@ def _seal(tmp_path: Path, name: str, decision: str = "approve") -> Path:
     out = tmp_path / name
     EPIContainer.pack(
         source,
-        ManifestModel(cli_command="pytest"),
+        ManifestModel(cli_command="pytest", goal=goal),
         out,
         preserve_generated=True,
         generate_analysis=False,
@@ -48,7 +50,7 @@ def _seal(tmp_path: Path, name: str, decision: str = "approve") -> Path:
 def _report(epi: Path, received_at: str = "2026-10-30T10:00:00+00:00") -> dict:
     """The hash-only line a witness receiver would have written for this file."""
     manifest = EPIContainer.read_manifest(epi)
-    return {
+    report = {
         "schema": "epi-witness/v1",
         "type": "epi.sealed",
         "workflow_id": str(manifest.workflow_id),
@@ -58,6 +60,9 @@ def _report(epi: Path, received_at: str = "2026-10-30T10:00:00+00:00") -> dict:
         "sealed_at": "2026-10-30T09:59:00+00:00",
         "received_at": received_at,
     }
+    if manifest.goal:
+        report["goal"] = str(manifest.goal)
+    return report
 
 
 def _log(tmp_path: Path, entries: list[dict], name: str = "received.jsonl") -> Path:
@@ -172,3 +177,62 @@ def test_unreadable_log_is_an_error_not_a_verdict(tmp_path):
     result = runner.invoke(app, ["report", "--log", str(tmp_path / "missing.jsonl")])
     assert result.exit_code == 2
     assert "could not" in result.output and "read" in result.output
+
+
+def test_the_report_names_the_case_the_customer_knows(tmp_path):
+    """A claim number beats a workflow uuid for an insurer reading the report."""
+    epi = _seal(tmp_path, "claim.epi", goal="Adjudicate claim CLM-1001")
+    entry = _report(epi)
+    entry["case_id"] = "CLM-1001"
+    log = _log(tmp_path, [entry])
+
+    result = runner.invoke(app, ["report", "--log", str(log), "--cases", str(epi)])
+    assert result.exit_code == 0, result.output
+    assert "CLM-1001" in result.output
+    assert "WITNESSED" in result.output
+
+
+def test_a_new_run_of_the_same_case_is_reported_as_a_different_version(tmp_path):
+    """The vendor re-runs the agent: new workflow id, same claim.
+
+    By id alone this is "never reported". The log still names the case, so the
+    report can say the stronger thing: a different version of CLM-1001 exists.
+    """
+    original = _seal(tmp_path, "run.epi", decision="approve", goal="Adjudicate claim CLM-1001")
+    rerun = _seal(tmp_path, "rerun.epi", decision="deny", goal="Adjudicate claim CLM-1001")
+    log = _log(tmp_path, [_report(original)])
+
+    result = runner.invoke(
+        app, ["report", "--log", str(log), "--cases", str(rerun), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    checked = payload["checked_files"][0]
+    assert checked["status"] == "MISMATCH"
+    assert checked["detail"].startswith("a different version of")
+    assert "CLM-1001" in checked["detail"]
+    assert checked["case_id"] == "Adjudicate claim CLM-1001"
+
+
+def test_expect_csv_marks_claims_with_no_record_as_missing(tmp_path):
+    known = _seal(tmp_path, "known.epi", goal="Adjudicate claim CLM-1001")
+    entry = _report(known)
+    entry["case_id"] = "CLM-1001"
+    log = _log(tmp_path, [entry])
+    cases = tmp_path / "cases.csv"
+    cases.write_text("claim_id\nCLM-1001\nCLM-2002\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["report", "--log", str(log), "--expect", str(cases), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    statuses = {item["case"]: item["status"] for item in payload["expected"]}
+    assert statuses == {"CLM-1001": "FOUND", "CLM-2002": "MISSING"}
+    assert payload["missing"] == 1
+
+    strict = runner.invoke(
+        app,
+        ["report", "--log", str(log), "--expect", str(cases), "--fail-on-unwitnessed"],
+    )
+    assert strict.exit_code == 1, strict.output

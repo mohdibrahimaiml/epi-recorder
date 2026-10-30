@@ -54,6 +54,10 @@ def role_vendor(args: argparse.Namespace) -> int:
         goal="Decide refund ORD-9001 and request payout approval",
         witness_url=args.witness_url,
         witness_secret=args.witness_secret,
+        witness_include_goal=True,
+        # The customer's own identifier for the case. It travels in the
+        # hash-only witness payload, so their report speaks claim numbers.
+        case_id="CLM-9001",
     ) as epi:
         with epi.agent_run("refund-agent", user_input="Customer asks for a refund, ORD-9001") as agent:
             agent.tool_call("lookup_order", {"order_id": "ORD-9001"})
@@ -99,9 +103,15 @@ def role_forge(args: argparse.Namespace) -> int:
     from epi_core.serialize import get_canonical_hash
     from epi_core.trust import sign_manifest
 
+    from uuid import uuid4
+
     source_artifact = Path(args.infile)
     out = Path(args.out)
     manifest = EPIContainer.read_manifest(source_artifact)
+    if getattr(args, "new_workflow", False):
+        # A vendor re-running the agent: same case, new workflow id. The
+        # customer's log still names the case, which is what the report uses.
+        manifest.workflow_id = uuid4()
     steps = EPIContainer.read_steps(source_artifact)
 
     forged = 0
@@ -416,6 +426,39 @@ def main() -> int:
             "with the log, the forgery is caught (headline: not the version reported to you)",
         )
 
+        # ── e2. Same claim, NEW workflow id (the vendor "re-ran" it) ────────
+        line("\ne2. FORGERY — same claim, new workflow id (re-run with a different outcome)")
+        rerun_file = root / "run-rerun.epi"
+        subprocess.run(
+            [
+                PY,
+                str(HERE / "run_witness_pilot.py"),
+                "--role",
+                "forge",
+                "--in",
+                str(run_file),
+                "--out",
+                str(rerun_file),
+                "--new-workflow",
+            ],
+            cwd=HERE,
+            env={**os.environ, **vendor},
+            check=True,
+        )
+        rerun_report = epi(
+            bank,
+            "witness",
+            "report",
+            "--log",
+            str(witness_log),
+            "--cases",
+            str(rerun_file),
+        )
+        check(
+            "a different version of" in rerun_report or "MISMATCH" in rerun_report,
+            "the report ties the re-run to the claim it re-ran, not 'never reported'",
+        )
+
         # ── f. The customer's case report ───────────────────────────────────
         line("\nf. CUSTOMER — one report over the whole case")
         report = epi(
@@ -429,8 +472,23 @@ def main() -> int:
             "--cases",
             str(forged_file),
         )
+        check("CLM-9001" in report, "the report names the claim, not just a workflow id")
         check("WITNESSED" in report, "the run they were told about is WITNESSED")
         check("MISMATCH" in report, "the re-sealed copy is MISMATCH")
+
+        cases_csv = root / "cases.csv"
+        cases_csv.write_text("claim_id\nCLM-9001\nCLM-2002\n", encoding="utf-8")
+        expected = epi(
+            bank,
+            "witness",
+            "report",
+            "--log",
+            str(witness_log),
+            "--expect",
+            str(cases_csv),
+        )
+        check("CLM-9001" in expected and "FOUND" in expected, "the claim they know is FOUND")
+        check("CLM-2002" in expected and "MISSING" in expected, "a claim with no record is MISSING")
 
         failing = epi(
             bank,
@@ -465,6 +523,7 @@ if __name__ == "__main__":
     parser.add_argument("--role", choices=("vendor", "forge"))
     parser.add_argument("--out")
     parser.add_argument("--infile", "--in", dest="infile")
+    parser.add_argument("--new-workflow", action="store_true")
     parser.add_argument("--witness-url")
     parser.add_argument("--witness-secret")
     args = parser.parse_args()
