@@ -68,6 +68,13 @@ def main() -> int:
         help="only report which samples are stale; write nothing",
     )
     parser.add_argument(
+        "--with-viewer",
+        action="store_true",
+        help="add self-opening viewer.html to data-only samples (they have none "
+        "to refresh); without it, a data-only sample is re-sealed in place only "
+        "when it is not stale",
+    )
+    parser.add_argument(
         "--refresh-viewer",
         action="store_true",
         help="also re-seal samples whose embedded viewer predates the current "
@@ -117,9 +124,18 @@ def main() -> int:
 
     for path in sorted(set(stale) | set(viewer_stale)):
         staged = path.with_suffix(".epi.resealed")
-        EPIContainer.refresh_viewer(
-            path, staged, signer_function=signer, with_viewer=None
-        )
+        try:
+            EPIContainer.refresh_viewer(
+                path, staged, signer_function=signer,
+                with_viewer=True if args.with_viewer else None,
+            )
+        except ValueError as exc:
+            if "data-only" not in str(exc):
+                raise
+            # A data-only sample cannot be refreshed without adding a viewer;
+            # leave it for an explicit --with-viewer run.
+            print(f"  skipped {path.relative_to(ROOT)}: data-only (pass --with-viewer)")
+            continue
         staged.replace(path)
         print(f"  re-sealed {path.relative_to(ROOT)}: {_stamps(path)[0]}")
 

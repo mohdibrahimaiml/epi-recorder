@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.7.0](https://img.shields.io/badge/version-v4.7.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.8.0](https://img.shields.io/badge/version-v4.8.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
