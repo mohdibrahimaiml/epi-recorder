@@ -56,7 +56,11 @@ APPROVAL_DECISIONS = ("approve", "deny")
 # which the approver's signature already covers, so the two bind each other.
 # Putting it inside the hashed payload would be a chicken-and-egg problem.
 APPROVAL_TIMESTAMP_SCHEME = "epi-approval-timestamp/v1"
-APPROVAL_TIMESTAMP_SUFFIX = ".approval-timestamp.json"
+APPROVAL_TIMESTAMP_SUFFIX = ".json"
+# Deliberately NOT under REVIEW_LEDGER_PREFIX ("reviews/"): every .json there is
+# read as a review record, and a timestamp file would be mistaken for a second
+# first review and break the chain.
+APPROVAL_TIMESTAMP_PREFIX = "review_timestamps/"
 
 
 def _utc_now() -> str:
@@ -845,7 +849,7 @@ def _approval_signed_at(record: ReviewRecord) -> str | None:
 
 def approval_timestamp_member(review_id: str) -> str:
     """Payload member that carries the independent timestamp for one approval."""
-    return f"{REVIEW_LEDGER_PREFIX}{review_id}{APPROVAL_TIMESTAMP_SUFFIX}"
+    return f"{APPROVAL_TIMESTAMP_PREFIX}{review_id}{APPROVAL_TIMESTAMP_SUFFIX}"
 
 
 def stamp_review_hash(

@@ -89,12 +89,18 @@ _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 _RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html", "VERIFY.txt"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 _MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
+# Additive metadata written after the seal: the approval ledger, plus the
+# independent RFC 3161 timestamp of each approval. Neither is evidence the seal
+# covers, so neither may count as an unexpected file.
+_MUTABLE_APPROVAL_PREFIXES = ("reviews/", "review_timestamps/")
 
 _zip_pack_lock = threading.Lock()
 
 
 def _is_mutable_review_archive_name(arc_name: str) -> bool:
-    return arc_name in _MUTABLE_REVIEW_ARCHIVE_NAMES or arc_name.startswith("reviews/")
+    return arc_name in _MUTABLE_REVIEW_ARCHIVE_NAMES or arc_name.startswith(
+        _MUTABLE_APPROVAL_PREFIXES
+    )
 
 
 @dataclass(frozen=True)
