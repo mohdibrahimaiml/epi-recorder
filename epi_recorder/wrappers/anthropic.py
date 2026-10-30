@@ -12,6 +12,13 @@ from typing import Any
 
 from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase
+from epi_recorder.wrappers._extract import (
+    anthropic_blocks,
+    anthropic_request_fields,
+    anthropic_response_meta,
+    parse_arguments,
+    scalar,
+)
 
 
 class TracedMessages:
@@ -75,7 +82,11 @@ class TracedMessages:
                 request_data["top_p"] = top_p
             if system is not None:
                 request_data["system"] = system
-            
+            # Everything else that shaped the answer: top_k, stop_sequences,
+            # and the tools the model was offered.
+            for key, value in anthropic_request_fields(kwargs).items():
+                request_data.setdefault(key, value)
+
             session.log_step("llm.request", request_data)
             session.log_step("llm.pre_commit", {
                 "provider": self._provider,
@@ -100,33 +111,39 @@ class TracedMessages:
             
             # Log response if session is active
             if session:
-                # Extract response content
-                content = []
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        content.append({
-                            "type": "text",
-                            "text": block.text
-                        })
-                
+                # Every block, not just text: a tool_use block is the decision.
+                content = anthropic_blocks(response)
+
                 # Extract usage
                 usage = None
-                if hasattr(response, "usage") and response.usage:
+                usage_obj = getattr(response, "usage", None)
+                if usage_obj is not None:
                     usage = {
-                        "input_tokens": getattr(response.usage, "input_tokens", 0),
-                        "output_tokens": getattr(response.usage, "output_tokens", 0),
+                        "input_tokens": scalar(getattr(usage_obj, "input_tokens", None)),
+                        "output_tokens": scalar(getattr(usage_obj, "output_tokens", None)),
                     }
-                
-                session.log_step("llm.response", {
+                    if all(v is None for v in usage.values()):
+                        usage = None
+
+                response_data = {
                     "provider": self._provider,
                     "model": model,
-                    "role": getattr(response, "role", "assistant"),
+                    "role": scalar(getattr(response, "role", None)) or "assistant",
                     "content": content,
                     "usage": usage,
-                    "stop_reason": getattr(response, "stop_reason", None),
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
-                })
+                }
+                # Which provider request answered, and which model version.
+                response_data.update(anthropic_response_meta(response))
+                tool_uses = [b for b in content if b.get("type") == "tool_use"]
+                if tool_uses:
+                    response_data["tool_uses"] = [
+                        {"id": b.get("id", ""), "name": b.get("name", ""), "input": b.get("input")}
+                        for b in tool_uses
+                    ]
+
+                session.log_step("llm.response", response_data)
             
             return response
             
@@ -157,7 +174,8 @@ class TracedMessages:
         # Extract request info
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
-        
+        stream_request_fields = anthropic_request_fields(kwargs)
+
         # Log request + pre_commit for streaming (was missing)
         if session:
             import hashlib as _hashlib2
@@ -174,6 +192,7 @@ class TracedMessages:
                 "stream": True,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex2,
+                **stream_request_fields,
             })
             session.log_step("llm.pre_commit", {
                 "provider": self._provider,
@@ -190,6 +209,9 @@ class TracedMessages:
         accumulated_text = []
         accumulated_tool_blocks: list[dict] = []
         usage_accum: dict | None = None
+        served_model: str | None = None
+        response_id: str | None = None
+        stop_reason: str | None = None
         
         try:
             # Stream the response
@@ -217,6 +239,15 @@ class TracedMessages:
                         "input_tokens": getattr(chunk.message.usage, "input_tokens", 0),
                         "output_tokens": getattr(chunk.message.usage, "output_tokens", 0),
                     }
+                # message_start carries the provider request id and served model;
+                # message_delta carries stop_reason.
+                message = getattr(chunk, "message", None)
+                if message is not None:
+                    served_model = served_model or scalar(getattr(message, "model", None))
+                    response_id = response_id or scalar(getattr(message, "id", None))
+                delta = getattr(chunk, "delta", None)
+                if delta is not None:
+                    stop_reason = stop_reason or scalar(getattr(delta, "stop_reason", None))
                 
                 yield chunk
             
@@ -227,8 +258,18 @@ class TracedMessages:
                 content_blocks: list[dict] = []
                 if accumulated_text:
                     content_blocks.append({"type": "text", "text": "".join(accumulated_text)})
-                content_blocks.extend(accumulated_tool_blocks)
-                session.log_step("llm.response", {
+                for block in accumulated_tool_blocks:
+                    # input_json arrives as a raw string in deltas; decode it so
+                    # the decision's arguments are readable, keep the raw text.
+                    parsed_block = dict(block)
+                    raw_json = parsed_block.get("input_json")
+                    if raw_json:
+                        parsed = parse_arguments(raw_json)
+                        if parsed is not None:
+                            parsed_block["input"] = parsed
+                    content_blocks.append(parsed_block)
+
+                response_data = {
                     "provider": self._provider,
                     "model": model,
                     "role": "assistant",
@@ -237,7 +278,20 @@ class TracedMessages:
                     "stream": True,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
-                })
+                }
+                if served_model:
+                    response_data["served_model"] = served_model
+                if response_id:
+                    response_data["response_id"] = response_id
+                if stop_reason:
+                    response_data["stop_reason"] = stop_reason
+                if accumulated_tool_blocks:
+                    response_data["tool_uses"] = [
+                        {"id": b.get("id", ""), "name": b.get("name", ""), "input": b.get("input")}
+                        for b in content_blocks
+                        if b.get("type") == "tool_use"
+                    ]
+                session.log_step("llm.response", response_data)
                 
         except Exception as e:
             latency = time.time() - start_time

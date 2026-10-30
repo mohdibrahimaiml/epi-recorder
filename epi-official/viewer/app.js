@@ -79,6 +79,59 @@ function showSection(sectionId, navId) {
 // ── Step Summarization ────────────────────────────────────────
 
 /**
+ * Tool calls a response contains, in any of the shapes EPI records.
+ * An agent that decides by calling a tool has no text to summarise, so the
+ * timeline has to show the call itself.
+ */
+function responseToolCalls(c) {
+  const out = [];
+  const seen = new Set();
+  const push = (name, args) => {
+    if (!name) return;
+    let value = args;
+    // Arguments arrive as a JSON string on the wire; decode for display.
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[') {
+        try {
+          value = JSON.parse(trimmed);
+        } catch (e) {
+          value = trimmed;
+        }
+      }
+    }
+    let rendered;
+    try {
+      rendered = JSON.stringify(value === undefined || value === null ? {} : value);
+    } catch (e) {
+      rendered = String(value);
+    }
+    const key = name + '\u0000' + rendered;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ name: String(name), args: rendered });
+  };
+  if (Array.isArray(c.tool_calls)) {
+    c.tool_calls.forEach((tc) => push(tc.name || tc.function?.name, tc.arguments_parsed ?? tc.function?.arguments ?? tc.arguments));
+  }
+  if (Array.isArray(c.choices)) {
+    c.choices.forEach((ch) => {
+      const calls = ch && ch.message && ch.message.tool_calls;
+      if (Array.isArray(calls)) calls.forEach((tc) => push(tc.function?.name || tc.name, tc.function?.arguments ?? tc.arguments));
+    });
+  }
+  if (Array.isArray(c.tool_uses)) {
+    c.tool_uses.forEach((tu) => push(tu.name, tu.input));
+  }
+  if (Array.isArray(c.content)) {
+    c.content.forEach((b) => {
+      if (b && b.type === 'tool_use') push(b.name, b.input);
+    });
+  }
+  return out;
+}
+
+/**
  * Produce a human-readable one-liner for a step.
  * Covers all documented step kinds.
  */
@@ -122,6 +175,14 @@ function summarizeStep(step) {
           text = c.choices[0].message?.content || c.choices[0].text || '';
         }
         if (!text && typeof c.content === 'string') text = c.content;
+        if (typeof text !== 'string') text = '';
+        if (!text.trim()) {
+          // No prose: the decision was a tool call, so show the call.
+          const calls = responseToolCalls(c);
+          if (calls.length) {
+            return trunc(calls.map((call) => `Called ${call.name}(${trunc(call.args, 100)})`).join('; '), 200);
+          }
+        }
         return trunc(text, 200) || `Response from ${c.model || 'model'}`;
       }
 

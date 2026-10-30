@@ -34,6 +34,13 @@ class LLMRequestContent(TypedDict, total=False):
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     top_p: NotRequired[float]
+    top_k: NotRequired[int]
+    seed: NotRequired[int]
+    tools: NotRequired[List[Dict[str, Any]]]  # names/descriptions offered to the model
+    tool_choice: NotRequired[Any]             # "auto" | "required" | {"name": …}
+    parallel_tool_calls: NotRequired[bool]
+    response_format: NotRequired[Any]
+    stop_sequences: NotRequired[List[str]]
     stream: NotRequired[bool]
     timestamp: NotRequired[str]
 
@@ -41,8 +48,15 @@ class LLMRequestContent(TypedDict, total=False):
 class LLMResponseContent(TypedDict, total=False):
     """Content for a ``llm.response`` step."""
     provider: str
-    model: str
-    choices: List[Dict[str, Any]]   # [{"message": {"role": …, "content": …}, "finish_reason": …}]
+    model: str                      # model that was requested
+    served_model: NotRequired[str]  # model that answered (dated snapshot / alias)
+    response_id: NotRequired[str]   # provider request id (OpenAI "id", Anthropic "id")
+    system_fingerprint: NotRequired[str]
+    created: NotRequired[int]
+    choices: List[Dict[str, Any]]   # [{"message": {"role": …, "content": …, "tool_calls": …}, "finish_reason": …}]
+    content: NotRequired[List[Dict[str, Any]]]  # Anthropic content blocks, incl. tool_use
+    tool_calls: NotRequired[List[Dict[str, Any]]]  # flat OpenAI decisions: id / name / arguments
+    tool_uses: NotRequired[List[Dict[str, Any]]]   # flat Anthropic decisions: id / name / input
     usage: NotRequired[Dict[str, int]]   # {"prompt_tokens": …, "completion_tokens": …, "total_tokens": …}
     latency_seconds: NotRequired[float]
     cost_usd: NotRequired[float]
@@ -108,10 +122,11 @@ class AgentRunEndContent(TypedDict, total=False):
 
 class AgentDecisionContent(TypedDict, total=False):
     """Content for an ``agent.decision`` step."""
-    decision: str
-    output: NotRequired[Any]
+    decision: str                   # the outcome: "deny_claim"
+    output: NotRequired[Any]        # structured result of the decision
     confidence: NotRequired[float]  # 0.0 – 1.0
-    rationale: NotRequired[str]
+    rationale: NotRequired[str]     # why, in the agent's own words
+    basis: NotRequired[Any]         # what it relied on: ids, records, tool results
     review_required: NotRequired[bool]
     timestamp: NotRequired[str]
 
