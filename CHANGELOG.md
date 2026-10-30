@@ -28,7 +28,35 @@ All notable changes to EPI Recorder are documented here.
   fields are listed in `host_details.fields`. `scripts/check_artifact_privacy.py`
   reports any committed sample that still carries host detail.
 
+- **Every committed sample was leaking the builder's machine.** 16 shipped
+  `.epi` files still carried a username, folder paths, interpreter path, argv,
+  PIDs, CPU model or memory in `environment.json` - including `assets/sample.epi`
+  and the `demo_refund` copies. All are re-sealed
+  (`scripts/reseal_sample_privacy.py`, which replaces the snapshot, recomputes
+  the payload hashes and signs again), the stale `VERIFY.txt` is regenerated at
+  the current version, and the gate now runs in CI as its own job plus a test on
+  every platform. `real_llm_refund_case.epi` is renamed `refund_case.epi`
+  (nothing showed a live model produced it) and the unlinked
+  `epi-official/assets/sample_new.epi` is gone.
+
 ### Added
+
+- **`epi witness report` — what the customer's witness knows, by case.**
+  Without `--cases` it lists every case in the log with how often, and when, it
+  was reported. With `--cases <file|dir>` it matches each sealed file to the log
+  and reports `WITNESSED`, `MISMATCH`, `NOT IN WITNESS LOG` or `NOT CONFIRMED`;
+  `--json` for scripts and `--fail-on-unwitnessed` to exit non-zero. This is the
+  check a signature cannot make: a vendor who re-seals a changed decision signs a
+  perfectly valid file, and only the customer's own record shows the bytes they
+  were handed are not the bytes that were reported.
+
+- **`examples/witness_pilot/` — the forged re-seal, demonstrated.** Four isolated
+  homes (vendor, approver, customer, forger). The vendor seals and reports a
+  hash-only line; the approver signs with their own key; the customer pins both
+  fingerprints, keeps the log and verifies. Then the vendor's key re-seals
+  `approve` → `deny`: plain `epi verify` says **Integrity Verified / Signature
+  Valid**, and `epi verify --witness-log` says **NOT THE VERSION REPORTED TO
+  YOU**. A CI workflow runs it so the demo cannot rot.
 
 - **An approval now says when it was signed, and a third party proves it.**
   `signed_at` sits inside the payload the approver's key signs (approval
