@@ -204,3 +204,40 @@ def test_cli_keys_trust_from_epi(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert (trust_dir / "from-cli.pub").exists()
     assert "Trusted key" in result.output or "OK" in result.output
+
+
+def test_unpinned_report_teaches_fingerprint_pinning(capsys):
+    """The one hard step (pin the sender) must be copy-pasteable.
+
+    The command is printed with a blank fingerprint on purpose: pre-filling the
+    file's own value would turn the out-of-band check into a rubber stamp.
+    """
+    from epi_cli.verify import print_trust_report
+
+    report = {
+        "facts": {
+            "integrity_ok": True,
+            "signature_valid": True,
+            "sequence_ok": True,
+            "completeness_ok": True,
+            "chain_ok": True,
+        },
+        "identity": {
+            "status": "UNKNOWN",
+            "name": None,
+            "detail": "UNKNOWN",
+            "pinned_names": [],
+        },
+        "decision": {
+            "status": "WARN",
+            "policy": "standard",
+            "reason": "Unverified identity",
+        },
+    }
+
+    print_trust_report(report, Path("case.epi"))
+    out = capsys.readouterr().out
+
+    assert "--fingerprint" in out
+    assert "Never copy the fingerprint" in out
+    assert "epi keys trust" in out

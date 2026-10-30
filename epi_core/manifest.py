@@ -35,7 +35,7 @@ KNOWN_GAPS: list[str] = [
     "subprocess calls without instrumentation are not captured",
     "raw API calls with unwrapped credentials are not captured",
     "gateway returns 501 for streaming; streamed calls must use the SDK wrapper path",
-    "LangSmith export does not exist (only OpenTelemetry span exporter and LiteLLM callback)",
+    "LangSmith-native traces are not imported; only OpenTelemetry spans and the LiteLLM callback are supported",
 ]
 
 CapturePath = Literal["gateway", "sdk_wrapper", "caller_provided", "mixed", "unknown"]

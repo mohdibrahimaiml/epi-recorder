@@ -4,14 +4,23 @@ Import external evidence bundles into sealed .epi artifacts.
 
 from __future__ import annotations
 
+import csv
+import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 
 from epi_cli.keys import KeyManager
-from epi_core.container import EPIContainer
+from epi_core.container import (
+    EPIContainer,
+    EPI_CONTAINER_FORMAT_ENVELOPE,
+    EPI_CONTAINER_FORMAT_LEGACY,
+)
+from epi_core.schemas import ManifestModel
 from epi_core.trust import sign_manifest
 from epi_recorder.integrations.agt import AGTInputError, export_agt_to_epi, load_agt_input
 from epi_recorder.integrations.agt.loader import DEFAULT_AGT_IMPORT_MANIFEST
@@ -25,7 +34,8 @@ _ALLOWED_ANALYSIS = {"synthesized", "none"}
 app = typer.Typer(
     help=(
         "Import external evidence into a sealed .epi case file. "
-        "Start with `epi import agt <bundle-or-dir-or-manifest> --out run.epi`."
+        "`epi import steps <file.jsonl|.csv> --out run.epi` for any agent log, "
+        "or `epi import agt <bundle-or-dir-or-manifest> --out run.epi` for AGT bundles."
     )
 )
 console = Console()
@@ -287,3 +297,263 @@ def import_agt_raw_cmd(
         border_style="green",
     )
     console.print(panel)
+
+
+# ───────────────────────── generic step-log import ─────────────────────────
+
+# Columns that carry EPI's own structure; anything else on a CSV row is content.
+_STEP_RESERVED = {
+    "index", "timestamp", "time", "ts", "kind", "type", "event",
+    "content", "data", "payload", "source_type", "trace_id", "span_id",
+    "parent_span_id", "prev_hash", "governance", "verification_class",
+}
+_VALID_SOURCE_TYPES = {"user", "tool", "reasoning", "system"}
+
+
+def _read_step_rows(path: Path) -> tuple[list[dict[str, Any]], str]:
+    """Read a step log into rows. Returns (rows, format-name)."""
+    suffix = path.suffix.lower()
+
+    if suffix in (".jsonl", ".ndjson"):
+        rows: list[dict[str, Any]] = []
+        with path.open("r", encoding="utf-8-sig") as fh:
+            for n, line in enumerate(fh, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"line {n}: invalid JSON ({exc.msg})") from exc
+                if not isinstance(obj, dict):
+                    raise ValueError(f"line {n}: expected a JSON object, got {type(obj).__name__}")
+                rows.append(obj)
+        return rows, "jsonl"
+
+    if suffix == ".json":
+        obj = json.loads(path.read_text(encoding="utf-8-sig"))
+        if isinstance(obj, dict):
+            obj = obj.get("steps")
+            if obj is None:
+                raise ValueError("JSON object has no 'steps' array")
+        if not isinstance(obj, list):
+            raise ValueError("JSON must be an array of step objects, or {'steps': [...]}")
+        if not all(isinstance(r, dict) for r in obj):
+            raise ValueError("every entry must be a JSON object")
+        return obj, "json"
+
+    if suffix in (".csv", ".tsv"):
+        delim = "," if suffix == ".csv" else "\t"
+        with path.open("r", encoding="utf-8-sig", newline="") as fh:
+            rows = [dict(r) for r in csv.DictReader(fh, delimiter=delim)]
+        return rows, suffix.lstrip(".")
+
+    raise ValueError("unsupported input: use .jsonl, .ndjson, .json, .csv or .tsv")
+
+
+def _coerce_timestamp(raw: Any, fallback: datetime) -> tuple[datetime, bool]:
+    """Return (timestamp, assumed). Numbers are epoch seconds or milliseconds."""
+    if raw is None or str(raw).strip() == "":
+        return fallback, True
+
+    if isinstance(raw, (int, float)) or str(raw).strip().replace(".", "", 1).isdigit():
+        value = float(raw)
+        if value > 1e11:  # milliseconds
+            value /= 1000.0
+        return datetime.fromtimestamp(value, tz=UTC), False
+
+    text = str(raw).strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"unparseable timestamp {raw!r}") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed, False
+
+
+def _build_steps(
+    rows: list[dict[str, Any]], *, source_name: str, fmt: str
+) -> tuple[list[Any], int]:
+    """Turn external rows into hash-chained StepModels."""
+    from epi_core.schemas import StepModel
+    from epi_core.serialize import get_canonical_hash
+
+    base = datetime.now(UTC)
+    steps: list[Any] = []
+    assumed = 0
+    prev_hash = "CHAIN_START"
+
+    for i, row in enumerate(rows):
+        kind = str(row.get("kind") or row.get("type") or row.get("event") or "").strip()
+        if not kind:
+            raise ValueError(f"row {i + 1}: missing 'kind' (or 'type' / 'event')")
+
+        raw_content = row.get("content", row.get("data", row.get("payload")))
+        extras = {
+            k: v for k, v in row.items() if k not in _STEP_RESERVED and v is not None
+        }
+        if raw_content is None:
+            content = extras
+        else:
+            if isinstance(raw_content, dict):
+                parsed_content = dict(raw_content)
+            else:
+                try:
+                    parsed = json.loads(str(raw_content))
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"row {i + 1}: 'content' is not valid JSON ({exc.msg})"
+                    ) from exc
+                parsed_content = parsed if isinstance(parsed, dict) else {"value": parsed}
+            # Extra columns are provenance too; explicit content wins on clashes.
+            content = {**extras, **parsed_content}
+
+        timestamp, was_assumed = _coerce_timestamp(
+            row.get("timestamp", row.get("time", row.get("ts"))),
+            base + timedelta(microseconds=i),
+        )
+        if was_assumed:
+            assumed += 1
+
+        meta: dict[str, Any] = {"format": fmt, "source": source_name, "source_index": i}
+        if was_assumed:
+            meta["timestamp_assumed"] = True
+        existing = content.get("_epi_import")
+        if isinstance(existing, dict):
+            meta = {**existing, **meta}
+        content["_epi_import"] = meta
+
+        source_type = row.get("source_type")
+        step = StepModel(
+            index=i,
+            timestamp=timestamp,
+            kind=kind,
+            content=content,
+            source_type=source_type if source_type in _VALID_SOURCE_TYPES else None,
+            prev_hash=prev_hash,
+        )
+        prev_hash = get_canonical_hash(step, format="json")
+        steps.append(step)
+
+    return steps, assumed
+
+
+@app.command("steps")
+def import_steps(
+    input_path: Path = typer.Argument(
+        ...,
+        help="Step log to seal: .jsonl/.ndjson, a .json array, or .csv/.tsv.",
+    ),
+    out: Path | None = typer.Option(
+        None, "--out", "-o",
+        help="Output .epi path (default: epi-recordings/<input name>.epi).",
+    ),
+    goal: str | None = typer.Option(
+        None, "--goal", help="One-line goal recorded in the manifest."
+    ),
+    key_name: str = typer.Option("default", "--key", help="Signing key name."),
+    no_sign: bool = typer.Option(
+        False, "--no-sign", help="Seal unsigned (verification reports unsigned)."
+    ),
+    with_viewer: bool = typer.Option(
+        False, "--with-viewer", help="Embed the self-opening HTML viewer."
+    ),
+) -> None:
+    """Seal a step log you already have — no SDK, no integration.
+
+    Each record needs a ``kind``; everything else becomes content. The hash
+    chain is rebuilt at import, so the artifact proves the record has not
+    changed since you sealed it — not that the exporter told the truth.
+    """
+    import shutil
+    import tempfile
+
+    if not input_path.exists():
+        console.print(f"[red][X] File not found:[/red] {input_path}")
+        raise typer.Exit(1)
+
+    try:
+        rows, fmt = _read_step_rows(input_path)
+    except (ValueError, OSError, UnicodeDecodeError) as exc:
+        console.print(f"[red][X] Cannot read {input_path.name}:[/red] {exc}")
+        raise typer.Exit(1)
+
+    if not rows:
+        console.print(f"[red][X] No steps found in {input_path.name}.[/red]")
+        raise typer.Exit(1)
+
+    try:
+        steps, assumed = _build_steps(rows, source_name=input_path.name, fmt=fmt)
+    except ValueError as exc:
+        console.print(f"[red][X] Import failed:[/red] {exc}")
+        raise typer.Exit(1)
+
+    out_path = out or Path("epi-recordings") / f"{input_path.stem}.epi"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    notes = (
+        f"Imported from {input_path.name} ({fmt}); {len(steps)} steps; "
+        "hash chain rebuilt at import."
+    )
+    if assumed:
+        notes += (
+            f" {assumed} step(s) carried no timestamp: import time was assumed "
+            "and is declared in each step's _epi_import block."
+        )
+
+    manifest = ManifestModel(
+        cli_command=f"epi import steps {input_path.name}",
+        goal=goal,
+        notes=notes,
+    )
+    manifest.total_steps = len(steps)
+
+    signer = None if no_sign else _build_signer(False)
+    if signer is None and not no_sign:
+        console.print(
+            "[yellow][WARN][/yellow] No signing key available — sealing unsigned."
+        )
+
+    staging = Path(tempfile.mkdtemp(prefix="epi_import_steps_"))
+    try:
+        with (staging / "steps.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
+            for step in steps:
+                fh.write(step.model_dump_json() + "\n")
+
+        EPIContainer.pack(
+            staging,
+            manifest,
+            out_path,
+            signer_function=signer,
+            container_format=(
+                EPI_CONTAINER_FORMAT_ENVELOPE if with_viewer else EPI_CONTAINER_FORMAT_LEGACY
+            ),
+            embed_viewer=with_viewer,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface the real reason to the operator
+        console.print(f"[red][X] Packing failed:[/red] {exc}")
+        raise typer.Exit(1)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+    assumed_line = (
+        f"[bold]Timestamps assumed:[/bold] {assumed} (declared in each step)\n"
+        if assumed
+        else ""
+    )
+    console.print("")
+    console.print(
+        Panel(
+            f"[bold]Input:[/bold] {input_path}  ({fmt}, {len(rows)} rows)\n"
+            f"[bold]Output:[/bold] {out_path}  ({out_path.stat().st_size:,} bytes)\n"
+            f"[bold]Steps:[/bold] {len(steps)}  ·  hash chain rebuilt\n"
+            f"{assumed_line}"
+            f"[bold]Signed:[/bold] {'no (unsigned)' if signer is None else 'yes'}\n"
+            f"[dim]Verify:[/dim] epi verify {out_path} --policy strict",
+            title="[OK] Step log sealed",
+            border_style="green",
+        )
+    )

@@ -36,6 +36,14 @@ from epi_recorder.patcher import (
     set_recording_context,
 )
 from epi_recorder.environment import capture_full_environment
+from epi_recorder.wrappers._extract import (
+    anthropic_blocks,
+    anthropic_response_meta,
+    openai_choice,
+    openai_response_meta,
+    scalar,
+    tool_call_summary,
+)
 
 
 def _allow_unsigned_artifacts() -> bool:
@@ -384,6 +392,7 @@ class AgentRun:
         output: Optional[Any] = None,
         confidence: Optional[float] = None,
         rationale: Optional[str] = None,
+        basis: Optional[Any] = None,
         review_required: Optional[bool] = None,
         **metadata: Any,
     ) -> None:
@@ -394,6 +403,7 @@ class AgentRun:
                 "output": output,
                 "confidence": confidence,
                 "rationale": rationale,
+                "basis": basis,
                 "review_required": review_required,
                 **metadata,
             },
@@ -406,6 +416,7 @@ class AgentRun:
         output: Optional[Any] = None,
         confidence: Optional[float] = None,
         rationale: Optional[str] = None,
+        basis: Optional[Any] = None,
         review_required: Optional[bool] = None,
         **metadata: Any,
     ) -> None:
@@ -416,6 +427,7 @@ class AgentRun:
                 "output": output,
                 "confidence": confidence,
                 "rationale": rationale,
+                "basis": basis,
                 "review_required": review_required,
                 **metadata,
             },
@@ -1516,43 +1528,53 @@ class EpiRecorderSession:
         # Try OpenAI format
         if hasattr(response, "choices") and hasattr(response, "model"):
             provider = "openai" if provider == "auto" else provider
-            model = getattr(response, "model", "unknown")
+            served_model = scalar(getattr(response, "model", None))
+            model = served_model or "unknown"
             
-            for choice in response.choices:
-                msg = choice.message
-                choices.append({
-                    "message": {
-                        "role": getattr(msg, "role", "assistant"),
-                        "content": getattr(msg, "content", ""),
-                    },
-                    "finish_reason": getattr(choice, "finish_reason", None),
-                })
+            raw_choices = getattr(response, "choices", None)
+            raw_choices = raw_choices if isinstance(raw_choices, (list, tuple)) else []
+            choices = []
+            for choice in raw_choices:
+                entry = openai_choice(choice)
+                choices.append(entry)
                 if not content:
-                    content = getattr(msg, "content", "")
+                    text = entry["message"].get("content")
+                    content = text if isinstance(text, str) else ""
             
-            if hasattr(response, "usage") and response.usage:
+            usage_obj = getattr(response, "usage", None)
+            if usage_obj is not None:
                 usage = {
-                    "prompt_tokens": getattr(response.usage, "prompt_tokens", 0),
-                    "completion_tokens": getattr(response.usage, "completion_tokens", 0),
-                    "total_tokens": getattr(response.usage, "total_tokens", 0),
+                    "prompt_tokens": scalar(getattr(usage_obj, "prompt_tokens", None)),
+                    "completion_tokens": scalar(getattr(usage_obj, "completion_tokens", None)),
+                    "total_tokens": scalar(getattr(usage_obj, "total_tokens", None)),
                 }
+                if all(v is None for v in usage.values()):
+                    usage = None
         
         # Try Anthropic format
         elif hasattr(response, "content") and hasattr(response, "model"):
             provider = "anthropic" if provider == "auto" else provider
-            model = getattr(response, "model", "unknown")
+            served_model = scalar(getattr(response, "model", None))
+            model = served_model or "unknown"
             
-            # Anthropic returns content as a list of content blocks
-            content_blocks = getattr(response, "content", [])
-            if content_blocks and hasattr(content_blocks[0], "text"):
-                content = content_blocks[0].text
+            # Anthropic returns content as a list of blocks; tool_use blocks are
+            # the decision and used to be dropped here too.
+            blocks = anthropic_blocks(response)
+            text_parts = [b.get("text", "") for b in blocks if b.get("type") == "text"]
+            content = "".join(text_parts)
             choices = [{"message": {"role": "assistant", "content": content}}]
+            tool_uses = [b for b in blocks if b.get("type") == "tool_use"]
+            if tool_uses:
+                choices[0]["message"]["tool_uses"] = tool_uses
             
-            if hasattr(response, "usage"):
+            usage_obj = getattr(response, "usage", None)
+            if usage_obj is not None:
                 usage = {
-                    "input_tokens": getattr(response.usage, "input_tokens", 0),
-                    "output_tokens": getattr(response.usage, "output_tokens", 0),
+                    "input_tokens": scalar(getattr(usage_obj, "input_tokens", None)),
+                    "output_tokens": scalar(getattr(usage_obj, "output_tokens", None)),
                 }
+                if all(v is None for v in usage.values()):
+                    usage = None
         
         # Try Gemini format
         elif hasattr(response, "text") and hasattr(response, "candidates"):
@@ -1588,7 +1610,37 @@ class EpiRecorderSession:
         }
         if usage:
             response_data["usage"] = usage
-        
+
+        # Provider-side identity of this exact answer (request id, model
+        # snapshot, fingerprint), so a reader can trace it back.
+        try:
+            if provider == "openai":
+                meta = openai_response_meta(response)
+                meta.pop("served_model", None)  # already in "model"
+                response_data.update(meta)
+            elif provider == "anthropic":
+                meta = anthropic_response_meta(response)
+                meta.pop("served_model", None)
+                response_data.update(meta)
+        except Exception:  # noqa: BLE001 - identity is a bonus, not a reason to drop the step
+            pass
+
+        # Flat, readable decisions: for most agents the tool call is the answer.
+        decisions = [
+            call
+            for choice in choices
+            for call in (choice.get("message", {}).get("tool_calls") or [])
+        ]
+        if decisions:
+            response_data["tool_calls"] = tool_call_summary(decisions)
+        tool_uses = [
+            block
+            for choice in choices
+            for block in (choice.get("message", {}).get("tool_uses") or [])
+        ]
+        if tool_uses:
+            response_data["tool_uses"] = tool_uses
+
         self.log_step("llm.response", response_data)
     
     def log_chat(

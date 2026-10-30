@@ -7,7 +7,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Version v4.7.0](https://img.shields.io/badge/version-v4.7.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
+[![Version v4.8.0](https://img.shields.io/badge/version-v4.8.0-purple)](https://github.com/mohdibrahimaiml/epi-recorder/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
@@ -299,6 +299,8 @@ Free plan: 1 customer. A second customer needs an upgrade (Plans page).
 | Topic | Link |
 |-------|------|
 | **How to use it** (what / where / how) | [docs/USER-GUIDE.md](docs/USER-GUIDE.md) |
+| **You received a `.epi` file** (one page, no jargon) | [docs/RECIPIENT-CARD.md](docs/RECIPIENT-CARD.md) |
+| **Verify with no Python installed** | [docs/STANDALONE-VERIFIER.md](docs/STANDALONE-VERIFIER.md) |
 | **Docs map** (recorder · Cloud · website) | [docs/README.md](docs/README.md) |
 | **Break the seal** — try to break the guarantees (credit-only) | [CHALLENGE.md](CHALLENGE.md) |
 | **Bank / auditor briefing** | [docs/EPI_MASTER_DOCUMENTATION.md](docs/EPI_MASTER_DOCUMENTATION.md) |

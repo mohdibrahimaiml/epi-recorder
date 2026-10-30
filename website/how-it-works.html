@@ -54,12 +54,12 @@
       <section class="z-center" aria-labelledby="arch-heading">
         <div class="z-intro-grid">
           <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
-            <span class="z-eyebrow">Architecture &amp; Wire Specification · v4.7.0</span>
+            <span class="z-eyebrow">Architecture &amp; Wire Specification · v4.8.0</span>
             <h1 id="arch-heading" class="z-h1" style="margin-top:1rem">
               Inside an <span style="color:var(--acc-envelope)">Envelope v2</span> evidence file.
             </h1>
             <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
-              Every <code style="font-family:var(--font-mono)">.epi</code> artifact is a self-contained HTML+ZIP polyglot binary. It opens in any browser with zero dependencies and extracts programmatically for offline cryptographic verification.
+              Every <code style="font-family:var(--font-mono)">.epi</code> artifact is one self-contained Envelope v2 container. Sealed data-only (the default) it is a plain ZIP that any tool can open and <code style="font-family:var(--font-mono)">epi verify</code> can check offline; sealed with <code style="font-family:var(--font-mono)">--with-viewer</code> the same bytes are also an HTML+ZIP polyglot that opens in any browser with zero dependencies.
             </p>
           </div>
           <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
@@ -116,7 +116,7 @@ with record("claim.epi", goal="underwrite"):
     <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
     <footer class="z-center z-footer" aria-label="Site footer">
       <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
-        <div>&copy; 2026 EPI LABS · MIT License · v4.7.0</div>
+        <div>&copy; 2026 EPI LABS · MIT License · v4.8.0</div>
         <div style="display:flex;gap:1.25rem">
           <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
           <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>

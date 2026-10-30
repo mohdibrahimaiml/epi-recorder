@@ -16,10 +16,19 @@ Related: [THREAT_MODEL.md](./THREAT_MODEL.md) (attacks), [VERIFICATION_CONTRACT.
 
 ## 1. What is inside a `.epi` file
 
-A sealed `.epi` (container `envelope-v2`) is a **polyglot**: the same bytes are
-a valid HTML page *and* a binary envelope carrying a ZIP. This is deliberate —
-it lets a reviewer double-click the file and see the run in a browser with
-nothing installed. The layout is:
+There are two seal shapes, and the difference matters before you open anything.
+
+**Data-only (the default since 4.6).** `record()`, `epi demo`, `epi run` and
+`epi record` write a plain ZIP (container `legacy-zip`, ~17 KB for a short run).
+There is no HTML and nothing to render, so a data-only file does **not** open by
+double-click: inspect it with `epi view case.epi`, or unzip it and read
+`steps.jsonl`. This is the shape to send through an email gateway that blocks
+HTML attachments.
+
+**Polyglot (opt-in with `--with-viewer` / `with_viewer=True`).** The same bytes
+are a valid HTML page *and* a binary envelope carrying a ZIP. That is what lets
+a reviewer double-click the file and see the run in a browser with nothing
+installed. Its layout is:
 
 ```
 [ 128-byte binary header ]  magic "<!--", version, payload length,

@@ -41,6 +41,39 @@ def _load_public_key_hex(source: str) -> str:
     return KeyManager().load_public_key(text).hex()
 
 
+def _approval_key_for_fingerprint(source: str, fingerprint: str | None) -> str | None:
+    """An approval key inside a .epi whose fingerprint matches the one read aloud.
+
+    `approvers add <file.epi>` otherwise takes the *sealing* key from the
+    manifest, which is the wrong key when what you want to pin is the human who
+    approved. The fingerprint is still the check: a key is only accepted when
+    its fingerprint is the one the operator supplied.
+    """
+    if not fingerprint:
+        return None
+    candidate = Path(str(source))
+    if not candidate.exists() or candidate.suffix.lower() != ".epi":
+        return None
+    try:
+        from epi_core.review import read_review_records
+    except Exception:
+        return None
+    try:
+        records = read_review_records(candidate)
+    except Exception:
+        return None
+    wanted = normalize_fingerprint(fingerprint)
+    for record in records:
+        signature = str(record.review_signature or "")
+        parts = signature.split(":", 2)
+        if len(parts) != 3 or parts[0] != "ed25519" or len(parts[1]) != 64:
+            continue
+        public_hex = parts[1].lower()
+        if normalize_fingerprint(key_fingerprint(public_hex)) == wanted:
+            return public_hex
+    return None
+
+
 def _approver_keys_dir() -> Path:
     return _resolve_default_approver_keys_dir()
 
@@ -92,8 +125,21 @@ def add(
     try:
         public_hex = _load_public_key_hex(source)
     except Exception as exc:
-        console.print(f"[red][FAIL] Could not read a public key from {source!r}:[/red] {exc}")
-        raise typer.Exit(1)
+        approval_key = _approval_key_for_fingerprint(source, fingerprint)
+        if approval_key is None:
+            console.print(f"[red][FAIL] Could not read a public key from {source!r}:[/red] {exc}")
+            raise typer.Exit(1)
+        public_hex = approval_key
+    else:
+        # A signed .epi carries two keys: the sealer (manifest) and, if the run
+        # was approved, the approver (review signature). When the fingerprint the
+        # operator read aloud belongs to the approval, pin that one instead.
+        if fingerprint and normalize_fingerprint(fingerprint) != normalize_fingerprint(
+            key_fingerprint(public_hex)
+        ):
+            approval_key = _approval_key_for_fingerprint(source, fingerprint)
+            if approval_key is not None:
+                public_hex = approval_key
 
     actual_fp = key_fingerprint(public_hex)
     if not fingerprint or normalize_fingerprint(fingerprint) != normalize_fingerprint(actual_fp):
