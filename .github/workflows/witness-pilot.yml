@@ -1,0 +1,45 @@
+name: Witness pilot
+
+# The witness pilot must keep working end to end, including the forged re-seal:
+# it is the demo that shows why a signature is not enough. This fails if the
+# witness path, the review path or the CLI rots.
+
+on:
+  push:
+    paths:
+      - "examples/witness_pilot/**"
+      - "epi_core/witness_receiver.py"
+      - "epi_core/webhook.py"
+      - "epi_core/review.py"
+      - "epi_core/keys.py"
+      - "epi_cli/witness.py"
+      - "epi_cli/verify.py"
+      - "epi_cli/review.py"
+      - ".github/workflows/witness-pilot.yml"
+  pull_request:
+    paths:
+      - "examples/witness_pilot/**"
+      - "epi_core/witness_receiver.py"
+      - "epi_core/webhook.py"
+      - "epi_core/review.py"
+      - "epi_core/keys.py"
+      - "epi_cli/witness.py"
+      - "epi_cli/verify.py"
+      - "epi_cli/review.py"
+      - ".github/workflows/witness-pilot.yml"
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -q -e .
+      - name: Run the witness pilot end to end
+        run: python examples/witness_pilot/run_witness_pilot.py

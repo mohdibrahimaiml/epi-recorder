@@ -8,6 +8,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  artifact-privacy:
+    name: Artifact privacy (committed samples)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      # Fast, dependency-free: scans every committed .epi for the builder's
+      # username, folder paths, interpreter path, argv, PIDs, CPU model and
+      # memory. A sample is handed to a counterparty, so a leak here is a
+      # disclosure, not a lint. tests/goldens/ is skipped (frozen fixtures).
+      - name: Fail if any sealed sample carries host detail
+        run: python scripts/check_artifact_privacy.py
+
   release-gate:
     name: Full test, build, and wheel audit
     runs-on: ${{ matrix.os }}
