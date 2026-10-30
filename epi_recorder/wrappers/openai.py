@@ -12,6 +12,25 @@ from typing import Any
 
 from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase
+from epi_recorder.wrappers._extract import (
+    openai_choice,
+    openai_request_fields,
+    openai_response_meta,
+    scalar,
+    tool_call_summary,
+)
+
+
+def _openai_usage(usage_obj: Any) -> dict | None:
+    """Token counts, or ``None`` when the provider did not report any."""
+    if usage_obj is None:
+        return None
+    usage = {
+        "prompt_tokens": scalar(getattr(usage_obj, "prompt_tokens", None)),
+        "completion_tokens": scalar(getattr(usage_obj, "completion_tokens", None)),
+        "total_tokens": scalar(getattr(usage_obj, "total_tokens", None)),
+    }
+    return usage if any(v is not None for v in usage.values()) else None
 
 
 class TracedCompletions:
@@ -55,6 +74,10 @@ class TracedCompletions:
         # Extract request info
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
+        # Settings that changed the answer, and the tools the model could pick
+        # from. Without these a reader cannot tell what the model was allowed
+        # to decide.
+        request_fields = openai_request_fields(kwargs)
 
         # Log request if session is active
         if session:
@@ -71,6 +94,7 @@ class TracedCompletions:
                 "messages": messages,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex,
+                **request_fields,
             })
             # Pre-execution commitment: log intent before the API call fires.
             session.log_step("llm.pre_commit", {
@@ -96,35 +120,36 @@ class TracedCompletions:
             
             # Log response if session is active
             if session:
-                # Extract response content
-                choices = []
-                for choice in response.choices:
-                    msg = choice.message
-                    choices.append({
-                        "message": {
-                            "role": getattr(msg, "role", "assistant"),
-                            "content": getattr(msg, "content", ""),
-                        },
-                        "finish_reason": getattr(choice, "finish_reason", None),
-                    })
-                
+                # Extract response content, including tool calls: for most
+                # agents the tool call *is* the decision.
+                raw_choices = getattr(response, "choices", None)
+                if not isinstance(raw_choices, (list, tuple)):
+                    raw_choices = []
+                choices = [openai_choice(choice) for choice in raw_choices]
+
+                decisions = [
+                    call
+                    for choice in choices
+                    for call in choice["message"].get("tool_calls", [])
+                ]
+
                 # Extract usage
-                usage = None
-                if hasattr(response, "usage") and response.usage:
-                    usage = {
-                        "prompt_tokens": getattr(response.usage, "prompt_tokens", 0),
-                        "completion_tokens": getattr(response.usage, "completion_tokens", 0),
-                        "total_tokens": getattr(response.usage, "total_tokens", 0),
-                    }
-                
-                session.log_step("llm.response", {
+                usage = _openai_usage(getattr(response, "usage", None))
+
+                response_data = {
                     "provider": self._provider,
                     "model": model,
                     "choices": choices,
                     "usage": usage,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
-                })
+                }
+                # Which provider request answered, and which model version.
+                response_data.update(openai_response_meta(response))
+                if decisions:
+                    response_data["tool_calls"] = tool_call_summary(decisions)
+
+                session.log_step("llm.response", response_data)
             
             return response
             
@@ -156,7 +181,8 @@ class TracedCompletions:
         # Extract request info
         model = kwargs.get("model", "unknown")
         messages = kwargs.get("messages", [])
-        
+        request_fields = openai_request_fields(kwargs)
+
         # Log request + pre_commit for streaming (was missing)
         if session:
             import hashlib as _hashlib2
@@ -173,6 +199,7 @@ class TracedCompletions:
                 "stream": True,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex2,
+                **request_fields,
             })
             session.log_step("llm.pre_commit", {
                 "provider": self._provider,
@@ -194,6 +221,10 @@ class TracedCompletions:
         accumulated_reasoning: list[str] = []
         finish_reason = None
         usage = None
+        served_model = None
+        response_id = None
+        system_fingerprint = None
+        created = None
         
         try:
             stream = self._completions.create(*args, **kwargs)
@@ -235,13 +266,21 @@ class TracedCompletions:
                     if hasattr(chunk.choices[0], "finish_reason") and chunk.choices[0].finish_reason:
                         finish_reason = chunk.choices[0].finish_reason
                 
+                # Server-side identity arrives on every chunk; keep the first
+                # non-empty value seen.
+                served_model = served_model or scalar(getattr(chunk, "model", None))
+                response_id = response_id or scalar(getattr(chunk, "id", None))
+                system_fingerprint = system_fingerprint or scalar(
+                    getattr(chunk, "system_fingerprint", None)
+                )
+                created = created if created is not None else scalar(
+                    getattr(chunk, "created", None)
+                )
+
                 # Check for usage in final chunk (OpenAI sends it with stream_options)
-                if hasattr(chunk, "usage") and chunk.usage:
-                    usage = {
-                        "prompt_tokens": getattr(chunk.usage, "prompt_tokens", 0),
-                        "completion_tokens": getattr(chunk.usage, "completion_tokens", 0),
-                        "total_tokens": getattr(chunk.usage, "total_tokens", 0),
-                    }
+                reported_usage = _openai_usage(getattr(chunk, "usage", None))
+                if reported_usage:
+                    usage = reported_usage
                 
                 yield chunk
             
@@ -253,8 +292,9 @@ class TracedCompletions:
                     "role": "assistant",
                     "content": "".join(accumulated_content),
                 }
-                if accumulated_tool_calls:
-                    msg["tool_calls"] = [accumulated_tool_calls[k] for k in sorted(accumulated_tool_calls)]
+                tool_calls = [accumulated_tool_calls[k] for k in sorted(accumulated_tool_calls)]
+                if tool_calls:
+                    msg["tool_calls"] = tool_calls
                 if accumulated_reasoning:
                     msg["reasoning"] = "".join(accumulated_reasoning)
                 response_data = {
@@ -268,6 +308,16 @@ class TracedCompletions:
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
                 }
+                if served_model:
+                    response_data["served_model"] = served_model
+                if response_id:
+                    response_data["response_id"] = response_id
+                if system_fingerprint:
+                    response_data["system_fingerprint"] = system_fingerprint
+                if created is not None:
+                    response_data["created"] = created
+                if tool_calls:
+                    response_data["tool_calls"] = tool_call_summary(tool_calls)
                 if usage:
                     response_data["usage"] = usage
                 

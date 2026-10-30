@@ -179,6 +179,13 @@ should still run `epi verify` on the artifact. The old presence-only
 behaviour remains a reading risk on anything that consumed the helper
 before this fix.
 
+## Fixed in 4.7.x (unreleased batch)
+
+- **Tool-call decisions dropped by the SDK wrappers** - `wrappers/openai.py` and `wrappers/anthropic.py` copied only `role` and `content` off each response. A model that decided by calling a tool - which is how most agents act - was sealed as `content: null`, with the tool name and its arguments missing. Both now seal every `tool_calls` / `tool_use` block (id, name, arguments), the flat decision at the top of the step (`tool_calls` / `tool_uses`, with `arguments_parsed` when the payload is JSON), the served model (`served_model`), the provider request id (`response_id`), `system_fingerprint`, `created`/`stop_reason`, and the request settings that shaped the answer (`temperature`, `top_p`, `max_tokens`, `top_k`, `seed`, `tool_choice`, and the names/descriptions of the tools offered). `log_llm_call()` had the same defect and is fixed with it. Streaming was already partly covered and now records the same identity fields.
+- **No structured decision step** - `agent.decision()` now takes `basis=` for the data the decision relied on, next to `decision` (outcome), `rationale` (reason) and `output` (structured result).
+
+**Still a limit:** the wrapper records the model's *request* to call a tool. Whether the tool actually ran, and what it returned, is in the file only if the agent logs it (`agent.tool_call` / `agent.tool_result`, or a framework integration). The effect is still shown - a tool call with no recorded result is an incomplete-evidence finding under `--policy strict`.
+
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
 The following were gaps and are now fixed — kept here for audit trail:
