@@ -2,6 +2,53 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.8.0] - 2026-10-30
+
+### Fixed
+
+- **Tool-call decisions were dropped from the sealed record.** `wrap_openai()`
+  and `wrap_anthropic()` copied only `role` and `content` off each response, so
+  an agent that decided by calling a tool - which is how most agents act - was
+  sealed as `content: null`, with the tool name and its arguments missing. Both
+  now seal every `tool_calls` / `tool_use` block (id, name, arguments), a flat
+  decision at the top of the step (`tool_calls` / `tool_uses`, plus
+  `arguments_parsed` when the payload is JSON), the served model
+  (`served_model`), the provider request id (`response_id`),
+  `system_fingerprint`, `created` / `stop_reason`, and the request settings that
+  shaped the answer (`temperature`, `top_p`, `max_tokens`, `top_k`, `seed`,
+  `tool_choice`, plus the names/descriptions of the tools offered). Streaming
+  records the same identity fields, and Anthropic stream `input_json` is decoded
+  into `input`. `log_llm_call()` had the same defect and is fixed with it.
+  The viewer now shows `Called deny_claim({...})` for a response with no prose.
+  **If you are on 4.7.0, your records are missing the decision itself.**
+
+- **Host detail in sealed artifacts.** `environment.json` no longer captures
+  `USER`, `HOME`, `PWD`, `PYTHONPATH` or `VIRTUAL_ENV` (the username and folder
+  paths), the interpreter path/argv/PIDs, or the CPU model and memory. Withheld
+  fields are listed in `host_details.fields`. `scripts/check_artifact_privacy.py`
+  reports any committed sample that still carries host detail.
+
+### Added
+
+- **An approval now says when it was signed, and a third party proves it.**
+  `signed_at` sits inside the payload the approver's key signs (approval
+  version 1.1.0; 1.0.0 entries stay valid). After signing, the approval's review
+  hash is timestamped with RFC 3161 by the same pinned authorities as the seal
+  (FreeTSA, DigiCert) and the token is stored at
+  `review_timestamps/<id>.json`, beside the record. `epi review <file> show`
+  prints the independent time; `epi review <file> approve` stamps by default
+  (`--no-timestamp` for offline, and an unreachable authority is recorded as
+  `unavailable` rather than blocking the approval). `epi approvers add
+  <file.epi>` can now pin the *approval* key when the supplied fingerprint
+  belongs to it, not just the sealing key.
+
+- **`agent.decision(basis=...)`** records the data a decision relied on, next to
+  `decision` (outcome) and `rationale` (reason).
+
+- The insurance sector demo ships a labelled `DEMO KEY` approval with a real
+  FreeTSA token; pin the printed fingerprint to see it classified as
+  `human_signed`.
+
 ## [4.7.0] - 2026-10-28
 
 ### Added

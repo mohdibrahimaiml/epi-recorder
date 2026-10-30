@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.7.0
+# EPI File Format Specification v4.8.0
 
 **Status:** Active  
 **Date:** 2026-10-23  
-**Version:** 4.7.0  
+**Version:** 4.8.0  
 **Category:** Standards Track
 
 ---
@@ -661,6 +661,7 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4.8.0 | 2026-10-30 | Tool-call decisions sealed (`tool_calls` / `tool_use`, `served_model`, `response_id`, request settings); approval version 1.1.0 adds `signed_at` inside the signed entry; the approval's review hash is independently timestamped (RFC 3161) in `review_timestamps/<id>.json`, outside the review ledger namespace |
 | 4.7.0 | 2026-10-28 | `review_version` 1.2.0: a human approval is a single `entry_type: "approval"` entry inside the existing `reviews` list (no new top-level field, so older readers keep the same content hash); `verify` adds the `human_approval` classification field and `--require-human-approval`; approver registry (`epi approvers`) separate from trusted signer keys; HSM/KMS signing (`epi keys link`); gateway approval links become single-use tokenised capabilities |
 | 4.6.3 | 2026-10-23 | `epi verify` binds the outer display layer to the signed `file_manifest["viewer.html"]` hash; viewer fail-closed on baked envelope failures; DID-only identities reported as self-asserted with `pin_source`; decompression-bomb guards; context-aware PII redaction and `allowlist_fields` |
 | 4.6.2 | 2026-10-22 | Viewer fail-closed on envelope tamper (#141/#143); Cloud login/dashboard, evidence pack, key registry, customer-owned storage; witness wording fixes |

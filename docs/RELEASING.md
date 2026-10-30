@@ -4,6 +4,10 @@ Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
 
+**4.8.0 status (30 Oct 2026):** version-bumped in-tree and waiting on the
+signed `v4.8.0` tag. It restores the tool-call decision to the sealed record,
+so 4.7.0 must not be shown to a customer that installs from PyPI.
+
 **4.7.0 status (28 Oct 2026): published through Trusted Publishing**, with
 **PEP 740 attestations** on both files (the wheel and the sdist provenance
 endpoints return HTTP 200). It is the first release that shipped through this
