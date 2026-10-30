@@ -236,3 +236,32 @@ def test_expect_csv_marks_claims_with_no_record_as_missing(tmp_path):
         ["report", "--log", str(log), "--expect", str(cases), "--fail-on-unwitnessed"],
     )
     assert strict.exit_code == 1, strict.output
+
+
+def test_verify_uses_the_stronger_wording_when_the_case_matches(tmp_path):
+    """epi verify --witness-log must not say "never reported" when the log holds
+    a different version of the same case: that is the forged-record signal."""
+    from epi_cli.verify import _check_witness_log
+
+    original = _seal(tmp_path, "orig.epi", goal="Adjudicate claim CLM-1001")
+    rerun = _seal(tmp_path, "rerun.epi", decision="deny", goal="Adjudicate claim CLM-1001")
+    log = _log(tmp_path, [_report(original)])
+
+    manifest = EPIContainer.read_manifest(rerun)
+    result = _check_witness_log(rerun, manifest, log)
+
+    assert result["status"] == "MISMATCH"
+    assert result["matched_by"] == "goal"
+    assert "a different version of" in result["detail"]
+    assert "CLM-1001" in result["detail"]
+
+
+def test_verify_still_says_never_reported_when_nothing_matches(tmp_path):
+    from epi_cli.verify import _check_witness_log
+
+    known = _seal(tmp_path, "known.epi", goal="Adjudicate claim CLM-1001")
+    other = _seal(tmp_path, "other.epi", goal="Adjudicate claim CLM-9999")
+    log = _log(tmp_path, [_report(known)])
+
+    result = _check_witness_log(other, EPIContainer.read_manifest(other), log)
+    assert result["status"] == "NOT IN WITNESS LOG"

@@ -66,7 +66,10 @@ All notable changes to EPI Recorder are documented here.
   travels in the hash-only witness payload, so the report says `CLM-1001`, not a
   workflow uuid. When the vendor re-runs a case under a new workflow id, the
   report matches it on the goal and says *"a different version of 'Adjudicate
-  claim CLM-1001' was reported"* instead of "never reported".
+  claim CLM-1001' was reported"* instead of "never reported" — and
+  `epi verify --witness-log` now returns the same verdict (`MISMATCH`,
+  "DIFFERENT VERSION") for a re-sealed copy of a case it has a report for,
+  rather than the weaker "NOT IN WITNESS LOG".
   `--expect cases.csv` takes the claim numbers the customer already knows and
   marks any with no witnessed record as `MISSING` — so a claim that was never
   sealed at all is visible, not silently absent.
