@@ -356,8 +356,8 @@ See [WEBSITE.md](./WEBSITE.md).
 ## PyPI
 
 Current release line: **4.8.0**, published on PyPI: **4.8.0**. It went up through
-**Trusted Publishing** (28 Oct 2026), so both files carry **PEP 740 attestations**
-— check with `https://pypi.org/integrity/epi-recorder/4.7.0/<file>/provenance`
+**Trusted Publishing** (30 Oct 2026), so both files carry **PEP 740 attestations**
+— check with `https://pypi.org/integrity/epi-recorder/4.8.0/<file>/provenance`
 (HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
 uploaded with the project API token; its provenance endpoint returns HTTP 404. It
 added signed display-layer verification, the viewer fail-closed fix (#141/#143),
