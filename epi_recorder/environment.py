@@ -148,18 +148,15 @@ def capture_environment_variables(
     Returns:
         dict: Environment variable name -> value
     """
-    # Safe environment variables to capture by default
+    # Variables captured by default. Anything that names a person, a folder or
+    # a project is excluded: a .epi file is handed to a counterparty.
+    # (PYTHONPATH, HOME, USER, PWD and VIRTUAL_ENV used to be here and leaked
+    # the builder's username and paths into every artifact.)
     SAFE_ENV_VARS = {
-        "PYTHONPATH",
-        "HOME",
-        "USER",
-        "USER",
         "SHELL",
         "LANG",
         "LC_ALL",
         "TERM",
-        "PWD",
-        "VIRTUAL_ENV",
         "CONDA_DEFAULT_ENV",
     }
     
@@ -200,6 +197,18 @@ def capture_working_directory() -> Dict[str, str]:
     }
 
 
+_HOST_ENV_VARS = (
+    "PYTHONPATH",
+    "HOME",
+    "USER",
+    "USERNAME",
+    "LOGNAME",
+    "PWD",
+    "OLDPWD",
+    "VIRTUAL_ENV",
+)
+
+
 def _scrub_host_details(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     """Remove host-identifying detail from a snapshot that leaves the machine.
 
@@ -230,6 +239,14 @@ def _scrub_host_details(snapshot: Dict[str, Any]) -> Dict[str, Any]:
             if key in os_info:
                 os_info.pop(key, None)
                 removed.append(f"os.{key}")
+
+    # Variables that name a person, a folder or a project are not captured at
+    # all; report them so the redaction is visible to a reviewer.
+    captured_env = out.get("environment_variables")
+    captured_env = captured_env if isinstance(captured_env, dict) else {}
+    for name in _HOST_ENV_VARS:
+        if name in os.environ and name not in captured_env:
+            removed.append(f"env.{name}")
 
     if removed:
         out["host_details"] = {

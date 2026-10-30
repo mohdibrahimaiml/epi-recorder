@@ -7,6 +7,8 @@ names, hostnames — not the run.
 
 from __future__ import annotations
 
+import json
+
 from epi_recorder.environment import capture_full_environment
 
 
@@ -60,3 +62,57 @@ def test_saved_snapshot_on_disk_is_scrubbed(monkeypatch, tmp_path):
     assert "pid" not in written["python"]
     assert "executable" not in written["python"]
     assert "processor" not in written["os"]
+
+
+def test_host_environment_variables_are_not_captured(monkeypatch):
+    """USER is the username; HOME/PWD/PYTHONPATH are folders. None ship."""
+    monkeypatch.delenv("EPI_ENV_FULL", raising=False)
+    secrets = {
+        "USER": "dell",
+        "HOME": "C:\\Users\\dell",
+        "PWD": "C:\\Users\\dell\\epi-recorder",
+        "PYTHONPATH": "C:\\Users\\dell\\epi-recorder",
+        "VIRTUAL_ENV": "C:\\Users\\dell\\venv",
+    }
+    for k, v in secrets.items():
+        monkeypatch.setenv(k, v)
+
+    env = capture_full_environment(redact_env_vars=False)
+    blob = json.dumps(env)
+
+    for name, value in secrets.items():
+        assert value not in blob, f"{name} value leaked into environment.json"
+        assert f"env.{name}" in env["host_details"]["fields"], f"{name} not declared"
+
+    # The harmless, useful ones survive.
+    for keep in ("TERM", "LANG", "SHELL"):
+        monkeypatch.setenv(keep, f"value-of-{keep}")
+    env2 = capture_full_environment(redact_env_vars=False)
+    assert env2["environment_variables"].get("TERM") == "value-of-TERM"
+
+
+def test_sealed_artifact_contains_no_host_values(monkeypatch, tmp_path):
+    """End to end: the bytes handed to a counterparty carry no host detail."""
+    from epi_recorder import get_current_session, record
+
+    monkeypatch.delenv("EPI_ENV_FULL", raising=False)
+    secrets = {
+        "USER": "qa-private-user",
+        "HOME": "C:\\Users\\qa-private-user",
+        "PWD": "C:\\Users\\qa-private-user\\client-acme",
+        "PYTHONPATH": "C:\\Users\\qa-private-user\\client-acme",
+        "VIRTUAL_ENV": "C:\\Users\\qa-private-user\\venv",
+    }
+    for k, v in secrets.items():
+        monkeypatch.setenv(k, v)
+
+    out = tmp_path / "case.epi"
+    with record(str(out)):
+        session = get_current_session()
+        assert session is not None
+        session.log_step("tool.call", {"tool": "lookup"})
+
+    data = out.read_bytes()
+    for name, value in secrets.items():
+        assert value.encode() not in data, f"{name} value found in the sealed file"
+    assert b"qa-private-user" not in data
