@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>You're in — EPI Labs</title>
-<meta name="description" content="Your EPI Labs subscription is confirmed. Here's what happens next.">
-<link rel="canonical" href="https://epilabs.org/welcome/">
-<meta name="robots" content="noindex">
+<title>Standards support - EPI Labs</title>
+<meta name="description" content="How EPI decision files map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
+<link rel="canonical" href="https://epilabs.org/standards">
+<meta property="og:title" content="Standards support - EPI Labs">
+<meta property="og:description" content="How EPI decision files map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
 <meta name="theme-color" content="#F7F5F0">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
@@ -26,7 +27,7 @@
       <li><a href="/how-it-works">How it works</a></li>
       <li><a href="/trust">Trust model</a></li>
       <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/enterprise">Enterprise</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
       <li><a href="/plans">Pricing</a></li>
       <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
       <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
@@ -40,43 +41,42 @@
   <a href="/how-it-works">How it works</a>
   <a href="/trust">Trust model</a>
   <a href="/use-cases">Use cases</a>
-  <a href="/enterprise">Enterprise</a>
+  <a href="/reviewers">For reviewers</a>
   <a href="/plans">Pricing</a>
   <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
   <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
   <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
 </div>
-
 <main id="main">
-<section style="padding:calc(var(--navh) + 80px) 0 60px">
-  <div class="wrap" style="text-align:center;max-width:720px;margin:0 auto">
-    <div style="width:64px;height:64px;border:2px solid var(--ok);background:var(--ok-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 26px;font-size:1.8rem;color:var(--ok);font-weight:700">✓</div>
-    <span class="tag" style="justify-content:center">Payment received</span>
-    <h1 class="d2x" style="margin:18px 0 16px">You're in.</h1>
-    <p class="lede" style="margin:0 auto 40px;text-align:center">Your payment was processed securely by Paddle, and a receipt is on its way to your inbox. Welcome aboard.</p>
-    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-      <a class="btn btn-pri btn-lg" href="/how-it-works">Read how it works <span class="btn-ar">&rarr;</span></a>
-      <a class="btn btn-sec btn-lg" href="/verify/">Open the verifier</a>
-    </div>
-  </div>
-</section>
+<div class="page">
+<span class="tag">Standards</span>
+<h1>Standards support</h1>
+<p class="lede">What an <code class="k">.epi</code> decision file can contribute when a customer answers to an auditor, a regulator or an underwriter - and what it cannot.</p>
 
-<section style="padding:20px 0 100px">
-  <div class="wrap" style="max-width:760px;margin:0 auto">
-    <h2 style="font-size:1.3rem;margin-bottom:18px">What happens next</h2>
-    <div class="rows">
-      <div class="rowq" style="grid-template-columns:60px 1fr"><div><h3 style="font-size:1rem">01 · Receipt</h3></div><div class="an">Paddle emails your receipt within minutes — check spam if you don't see it. Manage your purchase anytime from the link in that email (customer portal).</div></div>
-      <div class="rowq" style="grid-template-columns:60px 1fr"><div><h3 style="font-size:1rem">02 · Onboarding</h3></div><div class="an">You'll receive a short setup guide for your tier. If anything in it doesn't match what you need, reply to the email — a human (the founder) reads it.</div></div>
-      <div class="rowq" style="grid-template-columns:60px 1fr"><div><h3 style="font-size:1rem">03 · Seal your first run</h3></div><div class="an">The CLI is the product: <code class="k">pip install epi-recorder</code>, wrap your agent, and verify the sealed file offline. Everything else builds on that loop.</div></div>
-    </div>
-    <p style="margin-top:34px;font-size:.84rem;color:var(--dim)">Questions in the meantime? <a href="/plans#contact" style="color:var(--acc)">Contact us</a> · Read the <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--warn)">known limitations</a> before relying on evidence in production.</p>
-  </div>
-</section>
+<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">EVIDENCE INPUT, NOT A LEGAL CERTIFICATE &middot; SPECIFICATION v4.8.0 · envelope-v2</p>
+
+<h2>EU AI Act - Annex IV technical documentation</h2>
+<p><code class="k">epi enterprise pack</code> assembles a per-system evidence pack: the sealed runs you select, their decision records, the manifest, and a reading guide. It is input to the technical documentation a provider must keep under Annex IV - not the document itself, and not a conformity assessment.</p>
+<p>Article 12 logging (high-risk systems) applies from 2 December 2027; Annex I products from 2 August 2028. A sealed record is evidence that a given decision happened as recorded; it does not prove the system is compliant.</p>
+<p><a href="/trust#standards" style="color:var(--acc)">How the pack is built and verified &rarr;</a></p>
+
+<h2>AIUC-1 domains</h2>
+<p><code class="k">epi verify --aiuc1</code> groups a run's sealed facts by AIUC-1 control domain so a reviewer can see which domains the record speaks to. It is a mapping aid: the control owner still decides whether the evidence satisfies the control.</p>
+
+<h2>SCITT and COSE receipts</h2>
+<p>Transparency receipts (SCITT/COSE Sign1) can be attached after sealing and re-signed. They are additive: removing or changing one is detectable, and a receipt never replaces the customer's own witness log.</p>
+
+<h2>What no standard requires</h2>
+<p>We found no rule that requires a digital signature on an AI decision record. What the regulations require is that the institution can explain a decision and show it kept the evidence - which is why the customer's copy matters more than the format.</p>
+
+<h2>Read the limits</h2>
+<p><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--acc)">Known limitations</a> lists what a seal does and does not prove, including capture gaps and the difference between a signature and a witness.</p>
+
+</div>
 </main>
-
 <footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
   <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.7.0</span>
+    <span>&copy; 2026 EPI LABS · MIT License · v4.8.0</span>
     <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
   </div>
 </footer>

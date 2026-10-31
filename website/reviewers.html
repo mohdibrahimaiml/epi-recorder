@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>For reviewers — EPI Labs</title>
+<meta name="description" content="You received an AI decision file from a vendor. Check it yourself: free, offline, no account.">
+<link rel="canonical" href="https://epilabs.org/reviewers">
+<meta property="og:title" content="For reviewers — EPI Labs">
+<meta property="og:description" content="You received an AI decision file from a vendor. Check it yourself: free, offline, no account.">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li><a href="/how-it-works">How it works</a></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <a href="/how-it-works">How it works</a>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+<main id="main">
+<div class="page in" data-aos="fade-up">
+<span class="tag">For reviewers</span>
+<h1>You received an AI decision file.<br>Check it yourself.</h1>
+<p class="lede">For the bank, insurer or lender whose AI vendor sends <code class="k">.epi</code> decision files. Checking one is free, runs on your own machine, and needs no account with EPI or with the vendor.</p>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px">
+<a class="btn btn-pri" href="/verify/">Check a file in your browser</a>
+<a class="btn btn-sec" href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" target="_blank" rel="noopener">One-page reviewer brief</a>
+</div>
+
+<h2>What you receive</h2>
+<ul>
+<li><strong>One file per case.</strong> What the AI decided, the principal reasons, the rules and data it relied on, which model answered, and who approved it.</li>
+<li><strong>Your own witness log.</strong> When the vendor seals each case, a short fingerprint of it arrives in a log that you keep. It holds no prompts and no personal data, and the vendor cannot change your copy.</li>
+</ul>
+
+<h2>Check one file &mdash; in a browser</h2>
+<p>Open <a href="/verify/" style="color:var(--acc)">epilabs.org/verify</a> and drop the <code class="k">.epi</code> file, plus your witness log (<code class="k">received.jsonl</code>) if you have one. Nothing is uploaded. You will see whether the file has changed since it was sealed and, with the log, whether it is the version you were told about on the day &mdash; a rewritten and re-signed file reads &ldquo;This is not the version your witness recorded.&rdquo;</p>
+
+<h2>Check it properly &mdash; on your machine</h2>
+<p>The vendor sends you their public key, and each approver sends theirs. Confirm the fingerprints by phone, not by email, then:</p>
+<pre>$ pip install epi-recorder
+$ epi keys trust vendor.pub --name vendor --fingerprint &lt;from the vendor&gt;
+$ epi approvers add approver.pub --name alice@bank.com --fingerprint &lt;from the approver&gt;
+$ epi verify case.epi --policy strict --require-human-approval --witness-log received.jsonl</pre>
+<p><code class="k">DECISION: PASS</code> means the file is unchanged, it was sealed by the vendor key you pinned, a person you pinned signed off, and it matches your log. Anything else tells you exactly what is missing. Details: <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" style="color:var(--acc)" target="_blank" rel="noopener">reviewer brief</a>.</p>
+
+<h2>The periodic review</h2>
+<p>For a quarter&rsquo;s worth of cases, <code class="k">epi oversight report</code> reads the files and your own log and writes one page: decisions by outcome, every model version that answered, who approved what, and the gaps &mdash; cases reported to you but never delivered, cases you expected that were never recorded, and files that don&rsquo;t match your log. Available from epi-recorder 4.9 (<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/OVERSIGHT.md" style="color:var(--acc)" target="_blank" rel="noopener">how it works</a>).</p>
+<pre>$ epi oversight report --cases ./received --log received.jsonl \
+    --since 2026-07-01 --until 2026-09-30 --out oversight-q3.html</pre>
+
+<h2>What a file proves &mdash; and what it doesn&rsquo;t</h2>
+<ul>
+<li><strong>Proves:</strong> the record has not changed since it was sealed, who sealed it and who approved it (once you have pinned their keys), and &mdash; with your log &mdash; that it is the version reported to you at the time.</li>
+<li><strong>Does not prove:</strong> that the AI&rsquo;s decision was right, that every case was recorded, or that an approval came before the action. A file is evidence for your review, not a certificate. See the <a href="/trust" style="color:var(--acc)">trust model</a> and <a href="/standards" style="color:var(--acc)">standards</a>.</li>
+</ul>
+
+<h2>More</h2>
+<ul>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" style="color:var(--acc)" target="_blank" rel="noopener">Bank reviewer brief</a> &mdash; one page, every claim checkable</li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/AUDITORS-GUIDE.md" style="color:var(--acc)" target="_blank" rel="noopener">Auditor&rsquo;s guide</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/WITNESS.md" style="color:var(--acc)" target="_blank" rel="noopener">Your witness log</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" style="color:var(--acc)" target="_blank" rel="noopener">Known limitations</a></li>
+</ul>
+<p style="margin-top:28px">Is your AI vendor not using EPI yet? <a href="/plans#contact" style="color:var(--acc)">Tell us who they are</a> &mdash; checking is free for reviewers, always.</p>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS · MIT License · v4.8.0</span>
+    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
+  addEventListener('scroll',onS,{passive:true});onS();
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

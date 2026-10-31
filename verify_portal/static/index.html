@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EPI Labs | The evidence layer for trusted AI agents</title>
-  <meta name="description" content="EPI seals AI agent runs into portable .epi evidence files — Ed25519 signatures, SHA-256 hash chains, verifiable offline without an account or server.">
+  <title>EPI Labs | Decision records your customer can check</title>
+  <meta name="description" content="When your customer asks why your AI made a decision, hand them a file they can check: what the agent decided, why, which model answered and who approved it, sealed and checkable offline.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://epilabs.org/">
-  <meta property="og:title" content="EPI Labs | The evidence layer for trusted AI agents">
-  <meta property="og:description" content="Record. Seal. Verify offline. Portable, cryptographically signed .epi evidence files for AI agents.">
+  <meta property="og:title" content="EPI Labs | Decision records your customer can check">
+  <meta property="og:description" content="AI decision records your customer can check: the outcome, the reasons, the model and the approval, sealed in one .epi file anyone can verify offline.">
   <meta property="og:url" content="https://epilabs.org/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
@@ -25,7 +25,7 @@
   <link rel="preload" as="image" href="/assets/logo-white.png">
   <link rel="preload" as="image" href="/assets/logo-trimmed.png">
   <link rel="preload" as="image" href="/assets/cryptographic_visual.png">
-  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <link rel="stylesheet" href="/css/zenjin-epi.css?v=2">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -117,15 +117,6 @@
                     </span>
                   </a>
                 </li>
-                <li>
-                  <a href="#mod-audit" role="menuitem" class="z-popover__item">
-                    <span class="z-popover__dot" style="background-color:#6366f1" aria-hidden="true"></span>
-                    <span>
-                      <span class="z-popover__title">Audit &amp; Annex IV Packs</span>
-                      <span class="z-popover__hint">AIUC-1, SCITT &amp; claims defense</span>
-                    </span>
-                  </a>
-                </li>
               </ul>
             </div>
           </div>
@@ -157,10 +148,9 @@
     <a href="#mod-capture" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#8b5cf6;margin:0"></span> Stack &amp; Gateway Capture</a>
     <a href="#mod-witness" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#06b6d4;margin:0"></span> EPI Cloud Witness</a>
     <a href="#mod-policy" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f43f5e;margin:0"></span> Policy &amp; Fault Analyzer</a>
-    <a href="#mod-audit" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#6366f1;margin:0"></span> Audit &amp; Annex IV Packs</a>
     <a href="/verify/">Verify a .epi file</a>
     <a href="/trust">Trust model</a>
-    <a href="/plans">Pricing &amp; Design Partners</a>
+    <a href="/plans">Pricing</a>
     <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer">GitHub</a>
     <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
@@ -176,32 +166,27 @@
           <div class="z-hero-copy">
             <div class="z-eyebrow z-blur-in z-blur-in--d1">
               <span class="z-eyebrow__dot" aria-hidden="true"></span>
-              <span>Evidence Packaged Infrastructure · MIT</span>
+              <span>AI decision records · Open source</span>
             </div>
 
             <h1 id="hero-heading" class="z-h1 z-blur-in z-blur-in--d1" style="margin-top:1.25rem">
-              The evidence layer for <span style="color:var(--acc-envelope)">trusted</span> AI agents.
+              When your customer asks why your AI made a decision,
+              <span style="color:var(--acc-envelope)">hand them a file they can check.</span>
             </h1>
 
             <p class="z-body z-blur-in z-blur-in--d2" style="margin-top:1.5rem;max-width:32rem">
-              AI agents approve claims and move money. When a decision is challenged six months later, the answer should be a <strong style="color:var(--foreground);font-weight:500">sealed <code style="font-family:var(--font-mono)">.epi</code> file</strong> — not a vendor dashboard login.
+              EPI records what your agent saw, what it decided and why, which model answered, and who approved it. Your customer keeps their own copy - a <strong style="color:var(--foreground);font-weight:500">sealed <code style="font-family:var(--font-mono)">.epi</code> file</strong> they can check without asking you to log in.
             </p>
 
             <div class="z-hero-actions z-blur-in z-blur-in--d3">
-              <a href="#verify" class="z-btn-primary">Verify a .epi file</a>
-              <a href="/plans" class="z-btn-ghost">Design Partner Program</a>
+              <a href="/verify" class="z-btn-primary">Check the example record</a>
+              <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download that .epi</a>
             </div>
 
             <div class="z-cli-pill z-blur-in z-blur-in--d4">
               <span class="z-cli-pill__prompt">$</span>
               <code>pip install epi-recorder</code>
               <button type="button" class="z-cli-pill__copy" data-copy-text="pip install epi-recorder">Copy</button>
-            </div>
-
-            <div class="z-hero-meta z-blur-in z-blur-in--d4">
-              <span><b>0 servers</b> to verify</span>
-              <span><b>Ed25519</b> + <b>SHA-256</b></span>
-              <span><b>1 byte</b> breaks seal</span>
             </div>
           </div>
 
@@ -213,25 +198,44 @@
             <div class="z-hero-scrim-r" aria-hidden="true"></div>
             <div class="z-hero-scrim-t" aria-hidden="true"></div>
 
-            <div id="heroMonolith" class="z-hero-monolith">
+            <div id="decisionCard" class="z-hero-monolith" role="region" aria-label="Example decision record produced by EPI from a sealed file">
               <div class="z-hero-monolith__bar">
                 <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span id="hmCmd" style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">$ epi verify claim-4821.epi</span>
-                <span id="hmBadge" class="z-hero-monolith__badge">01 / SEAL · VALID</span>
-              </div>
-
-              <!-- Interactive Layer Switcher Tabs -->
-              <div role="tablist" aria-label="Verification layers" style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border-grid);font-family:var(--font-mono);font-size:0.65rem">
-                <button type="button" role="tab" data-hm-tab="0" aria-selected="true" style="padding:0.6rem 0.25rem;border-right:1px solid var(--border-grid);border-bottom:2px solid #10b981;text-transform:uppercase;letter-spacing:0.1em">01 · Seal</button>
-                <button type="button" role="tab" data-hm-tab="1" aria-selected="false" style="padding:0.6rem 0.25rem;border-right:1px solid var(--border-grid);border-bottom:2px solid transparent;text-transform:uppercase;letter-spacing:0.1em">02 · Identity</button>
-                <button type="button" role="tab" data-hm-tab="2" aria-selected="false" style="padding:0.6rem 0.25rem;border-bottom:2px solid transparent;text-transform:uppercase;letter-spacing:0.1em">03 · Policy</button>
+                <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1001</span>
+                <span class="z-hero-monolith__badge" style="background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)">DENIED &middot; SIGNED</span>
               </div>
 
               <div class="z-hero-monolith__body">
-                <div id="hmRows"></div>
-                <div style="margin-top:0.85rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted)">
-                  <span>Envelope v2 · RFC 8785</span>
-                  <a href="#verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Test in browser &darr;</a>
+                <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
+                <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">deny_claim({claim_id: CLM-1001})</div>
+
+                <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
+                  <div>
+                    <span style="color:var(--text-muted)">Case</span><br>
+                    Adjudicate claim CLM-1001
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Principal reasons</span><br>
+                    Water damage exclusion HO3-4.2 applies to this peril.
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Rules and data relied on</span><br>
+                    <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-4.2 &middot; claim CLM-1001 &middot; peril water damage</span>
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Model</span><br>
+                    <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Approved by</span><br>
+                    DEMO KEY &middot; Claims Adjuster
+                    <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-10-31</span>
+                  </div>
+                </div>
+
+                <div style="margin-top:0.9rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
+                  <span>Rendered from the sealed file</span>
+                  <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
                 </div>
               </div>
             </div>
@@ -241,19 +245,238 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 2. WHY EPI EXISTS + WALKTHROUGH FILM (Matches Zenjin Launch Film Section) -->
+    <!-- 2. WHO ASKS FOR THIS (the buyer's reason, with sources) -->
+    <div class="z-shell" id="who-asks">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="who-asks-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-reveal">
+            <span class="z-eyebrow">Who asks for this</span>
+            <h2 id="who-asks-heading" class="z-h2" style="margin-top:1rem">
+              Your customers already have to <span class="z-serif-accent" style="color:var(--acc-envelope)">explain</span> these decisions.
+            </h2>
+          </div>
+          <div class="z-intro-grid__aside z-reveal">
+            <p class="z-body">
+              EPI is for <strong style="color:var(--foreground);font-weight:500">AI companies selling decision-making agents to insurers, lenders and banks</strong>. When an applicant is turned down or a claim is refused, your customer has to say why &mdash; and these rules do not accept &ldquo;the vendor&rsquo;s model is proprietary&rdquo; as the answer.
+            </p>
+          </div>
+        </div>
+
+        <div class="z-tri-grid">
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">US lending</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Specific reasons, even when a model decides</h3>
+            <p class="z-body" style="margin-top:0.875rem">
+              A lender that denies credit must give the applicant the specific, principal reasons. A vague statement or &ldquo;didn&rsquo;t meet our score&rdquo; is not enough, and the rule has no exception for decisions made by a model.
+            </p>
+            <p class="z-body" style="margin-top:0.875rem;font-size:0.8rem">
+              <a href="https://www.ecfr.gov/current/title-12/chapter-X/part-1002/subpart-A/section-1002.9" target="_blank" rel="noopener" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">ECOA &middot; Regulation B, 12 CFR 1002.9(b)(2)</a>
+            </p>
+          </div>
+
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">New York insurance</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">The vendor&rsquo;s secrecy is not a defence</h3>
+            <p class="z-body" style="margin-top:0.875rem">
+              Insurers must keep documentation of the AI systems they use, including vendors&rsquo;, and give the specific information behind a declination. They may not rely on a vendor&rsquo;s proprietary algorithm to avoid being specific.
+            </p>
+            <p class="z-body" style="margin-top:0.875rem;font-size:0.8rem">
+              <a href="https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07" target="_blank" rel="noopener" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">NYDFS Insurance Circular Letter No. 7 (2024)</a>
+            </p>
+          </div>
+
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">European Union</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">An explanation of the decision itself</h3>
+            <p class="z-body" style="margin-top:0.875rem">
+              A person affected by an automated decision is entitled to an explanation of the procedure and principles actually applied to them. Trade secrets do not automatically override that right.
+            </p>
+            <p class="z-body" style="margin-top:0.875rem;font-size:0.8rem">
+              <a href="https://curia.europa.eu/juris/liste.jsf?num=C-203/22" target="_blank" rel="noopener" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">CJEU, Dun &amp; Bradstreet Austria (C-203/22), 27 Feb 2025</a>
+            </p>
+          </div>
+        </div>
+
+        <p class="z-body z-reveal z-section-note">
+          EPI does not make anyone compliant. It gives your customer the record they need to answer the question &mdash; and you the proof that you handed it over. See <a href="/standards" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Standards</a> for what a record is, and is not.
+        </p>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+
+    <!-- 3. WHAT'S IN A DECISION FILE (the six fields, from the real example) -->
+    <div class="z-shell" id="decision-file">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="decision-file-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-reveal">
+            <span class="z-eyebrow">What&rsquo;s in a decision file</span>
+            <h2 id="decision-file-heading" class="z-h2" style="margin-top:1rem">
+              Six answers, sealed in <span class="z-serif-accent" style="color:var(--acc-envelope)">one file</span>.
+            </h2>
+          </div>
+          <div class="z-intro-grid__aside z-reveal">
+            <p class="z-body">
+              Every case your agent decides becomes one <code style="font-family:var(--font-mono)">.epi</code> file. Here is the example on this page, claim CLM-1001, field by field. Change a single byte and the file no longer checks out.
+            </p>
+            <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download the example</a>
+              <a href="/verify" class="z-btn-ghost">Check it in your browser</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="z-tri-grid">
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">01 &middot; Outcome</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">What the AI decided</h3>
+            <p class="z-body" style="margin-top:0.875rem">The action the agent actually took, as it took it: <code style="font-family:var(--font-mono);color:var(--text-secondary)">deny_claim</code> on claim CLM-1001.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">02 &middot; Case</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Which case it was</h3>
+            <p class="z-body" style="margin-top:0.875rem">The case the run was about, so a reviewer can find it among thousands.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">03 &middot; Reasons</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">The principal reasons</h3>
+            <p class="z-body" style="margin-top:0.875rem">In words a customer can pass on: water damage is excluded under HO3-4.2 for this peril.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">04 &middot; Basis</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Rules and data relied on</h3>
+            <p class="z-body" style="margin-top:0.875rem">The policy clause, the claim and the facts the decision rested on &mdash; the &ldquo;source&rdquo; regulators ask for.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">05 &middot; Model</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Which model answered</h3>
+            <p class="z-body" style="margin-top:0.875rem">The exact version that served the request, next to the one that was asked for &mdash; so a silent model change shows up.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">06 &middot; Approval</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Who approved it</h3>
+            <p class="z-body" style="margin-top:0.875rem">A person&rsquo;s approval, signed with their own key &mdash; or plainly marked as missing. If the agent claims an approval itself, it is labelled as just that.</p>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+
+    <!-- 4. YOUR CUSTOMER KEEPS A COPY (the witness, in plain words) -->
+    <div class="z-shell" id="customer-copy">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="customer-copy-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-reveal">
+            <span class="z-eyebrow">Your customer keeps a copy</span>
+            <h2 id="customer-copy-heading" class="z-h2" style="margin-top:1rem">
+              A record you <span class="z-serif-accent" style="color:var(--acc-envelope)">can&rsquo;t</span> quietly rewrite.
+            </h2>
+          </div>
+          <div class="z-intro-grid__aside z-reveal">
+            <p class="z-body">
+              A signature protects the file &mdash; but you, the vendor, hold the signing key. So when each case is sealed, EPI also sends a short fingerprint of it to <strong style="color:var(--foreground);font-weight:500">your customer&rsquo;s own log</strong>. Only the fingerprint: no prompts, no personal data.
+            </p>
+            <p class="z-body" style="margin-top:1rem">
+              If a record is ever rewritten and signed again, the signature still checks out &mdash; but it no longer matches what your customer recorded on the day.
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+              Your customer can run the log themselves, or use EPI Cloud&rsquo;s hosted witness and share links (private beta).
+            </p>
+          </div>
+        </div>
+
+        <div class="z-tri-grid">
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">On the day</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">The case is sealed</h3>
+            <p class="z-body" style="margin-top:0.875rem">Your agent decides; the file is sealed and its fingerprint lands in your customer&rsquo;s log.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Months later</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Someone edits the record</h3>
+            <p class="z-body" style="margin-top:0.875rem">The reason is changed and the file is re-signed with the vendor&rsquo;s own, perfectly valid key.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">At review</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">The forgery is caught</h3>
+            <p class="z-body" style="margin-top:0.875rem">Your customer drops the file and their log on <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">/verify</a>: <strong style="color:var(--foreground);font-weight:500">&ldquo;This is not the version your witness recorded.&rdquo;</strong></p>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+
+    <!-- 5. OVERSIGHT REPORT (the periodic review) -->
+    <div class="z-shell" id="oversight">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="oversight-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-reveal">
+            <span class="z-eyebrow">Oversight report</span>
+            <h2 id="oversight-heading" class="z-h2" style="margin-top:1rem">
+              The quarterly review, <span class="z-serif-accent" style="color:var(--acc-envelope)">answered</span>.
+            </h2>
+          </div>
+          <div class="z-intro-grid__aside z-reveal">
+            <p class="z-body">
+              Banks and insurers don&rsquo;t review one case at a time. They ask: over these three months, what did your AI decide, which model answered, who approved it &mdash; and what is missing? <code style="font-family:var(--font-mono)">epi oversight report</code> reads the decision files and your customer&rsquo;s own log for the period and writes one page they can keep.
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">Available from epi-recorder 4.9.</p>
+          </div>
+        </div>
+
+        <div class="z-tri-grid">
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Decisions</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">By outcome</h3>
+            <p class="z-body" style="margin-top:0.875rem">How many approved, denied or referred in the period.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Models</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">The model change log</h3>
+            <p class="z-body" style="margin-top:0.875rem">Every model version that answered, first and last seen &mdash; read from the records, not from a vendor&rsquo;s slide.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Approvals</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Who signed off</h3>
+            <p class="z-body" style="margin-top:0.875rem">Approved by a named person, signed by an unknown key, or no approval at all &mdash; kept apart, never blended.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Gaps</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Reported, never delivered</h3>
+            <p class="z-body" style="margin-top:0.875rem">Cases in your customer&rsquo;s log with no file handed over.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Gaps</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Expected, never recorded</h3>
+            <p class="z-body" style="margin-top:0.875rem">Cases your customer expected that have neither a file nor a report.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Mismatches</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Files that don&rsquo;t match the log</h3>
+            <p class="z-body" style="margin-top:0.875rem">Each one named, with the reason: never reported, or a different version of the same case.</p>
+          </div>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+
+    <!-- 6. HOW IT WORKS: WALKTHROUGH FILM -->
     <div class="z-shell">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
       <section class="z-center" aria-labelledby="why-epi-heading">
         <div class="z-intro-grid">
           <div class="z-intro-grid__title z-reveal">
-            <h2 id="why-epi-heading" class="z-h2">
-              Why EPI exists.
+            <span class="z-eyebrow">How it works</span>
+            <h2 id="why-epi-heading" class="z-h2" style="margin-top:1rem">
+              For the engineers: record, seal, check.
             </h2>
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              Teams were shipping AI agents whose decisions they could not prove to an auditor or underwriter. Watch how EPI records, seals, and verifies a run offline in 60 seconds.
+              Watch a run being recorded, sealed and checked offline in 60 seconds. No server is needed to check a file: it carries Ed25519 signatures and SHA-256 hashes, and changing one byte breaks the seal. The full specification is in <a href="/how-it-works" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">How it works</a> and the <a href="/trust" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Trust model</a>.
             </p>
           </div>
         </div>
@@ -278,7 +501,7 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 3. ASYMMETRIC 2:1 INTRO + 3-PILLAR MATRIX ("Record it, seal it, verify it.") -->
+    <!-- 7. HOW IT WORKS: RECORD, SEAL, CHECK ("Record it, seal it, verify it.") -->
     <div class="z-shell">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
       <section class="z-center" aria-labelledby="pillars-heading">
@@ -290,7 +513,7 @@
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              Point tools stop at a dashboard log. EPI is the cryptographic trail from what ran, through what policy checked, to a portable file any third party can verify offline.
+              A dashboard log stays with whoever runs the dashboard. EPI turns each run into a file that leaves your systems and that anyone can check offline &mdash; your customer, their auditor, or a regulator.
             </p>
             <div style="margin-top:1.75rem">
               <a href="/how-it-works" class="z-btn-ghost">Read the wire spec</a>
@@ -314,10 +537,10 @@
             <svg class="z-tri-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
             </svg>
-            <div class="z-tri-card__step">Step 02 · Cryptographic Lock</div>
+            <div class="z-tri-card__step">Step 02 · Seal</div>
             <h3 class="z-h3-card" style="margin-top:0.5rem">Seal it</h3>
             <p class="z-body" style="margin-top:0.875rem">
-              At run close, EPI packs an <strong style="color:var(--foreground);font-weight:500">Envelope v2</strong> polyglot (<code style="font-family:var(--font-mono);color:var(--text-secondary)">HTML + ZIP</code>), signs the canonical manifest with Ed25519, and attaches an optional RFC 3161 timestamp.
+              At run close, EPI seals the run into one file. By default a <code style="font-family:var(--font-mono);color:var(--text-secondary)">.epi</code> is data-only: a plain ZIP of hash-linked steps and a manifest signed with Ed25519. Sealed with <code style="font-family:var(--font-mono);color:var(--text-secondary)">--with-viewer</code>, the same file also opens in any browser.
             </p>
           </div>
 
@@ -336,7 +559,7 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 4. LIVE IN-BROWSER .EPI VERIFIER INSTRUMENT (#verify) -->
+    <!-- 8. LIVE IN-BROWSER .EPI VERIFIER INSTRUMENT (#verify) -->
     <div class="z-shell" id="verify">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
       <section class="z-center" aria-labelledby="verifier-heading">
@@ -417,383 +640,7 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 5. SIX ALTERNATING PRODUCT TELEMETRY ROWS (ZENJIN SIGNATURE) -->
-    <div class="z-shell">
-      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
-      <section class="z-center" aria-label="EPI Platform Architecture Modules">
-
-        <!-- MODULE 01: ENVELOPE V2 (#10b981 Emerald) -->
-        <div class="z-module-row" id="mod-envelope">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-envelope)">01 · Envelope v2 Polyglot</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Every agent run seals into one portable <span style="color:var(--acc-envelope)">file</span>.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">By default a <code style="font-family:var(--font-mono)">.epi</code> is data-only: a plain ZIP holding a hash-linked <code style="font-family:var(--font-mono)">steps.jsonl</code> and an Ed25519-signed manifest, checked with <code style="font-family:var(--font-mono)">epi verify</code> or opened in the local viewer. Sealed with <code style="font-family:var(--font-mono)">--with-viewer</code>, the same bytes are also an HTML+ZIP polyglot that opens directly in any browser.</p>
-            <div style="margin-top:2.25rem">
-              <a href="/how-it-works" class="z-btn-ghost">Explore Envelope v2</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="envelope" role="img" aria-label="Animated Envelope v2 sealing pipeline from steps.jsonl through redaction, JCS manifest hashing, Ed25519 signature, and RFC 3161 timestamping">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#10b981" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div class="z-stage-grid-3">
-                  <div data-node-id="n-steps" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#10b981;font-weight:600">steps.jsonl</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">prev_hash chain</div>
-                  </div>
-                  <div data-node-id="n-env" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground)">redact=True</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">keys/PII scrubbed</div>
-                  </div>
-                  <div data-node-id="n-manifest" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">manifest.json</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">JCS RFC 8785</div>
-                  </div>
-                  <div data-node-id="n-sig" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#10b981">Ed25519 Seal</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">64B signature</div>
-                  </div>
-                  <div data-node-id="n-tsa" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground)">RFC 3161 TSA</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">Trusted time</div>
-                  </div>
-                  <div data-node-id="n-epi" style="padding:0.75rem;border:1px solid #10b981;background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#10b981;font-weight:600">run.epi</div>
-                    <div style="color:var(--text-muted);font-size:0.625rem;margin-top:2px">HTML + ZIP v2</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Capture · steps.jsonl</p>
-                <p class="z-stage__caption">Every prompt, tool call, and decision appends to a SHA-256 hash-linked timeline.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODULE 02: THREE-LAYER TRUST MODEL (#f59e0b Amber — Reversed Row) -->
-        <div class="z-module-row z-module-row--reverse" id="mod-trust">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-trust)">02 · Cryptographic Separation</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Seal, identity, and policy are three different <span style="color:var(--acc-trust)">questions</span>.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Marketing that collapses integrity, identity, and compliance into one green badge is dishonest. EPI separates them in code: a valid seal proves bytes weren’t altered, <code style="font-family:var(--font-mono)">epi keys trust</code> pins who signed, and <code style="font-family:var(--font-mono)">epi analyze</code> grades policy rules.
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/trust" class="z-btn-ghost">Inspect trust model</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="trust" role="img" aria-label="Three-layer trust architecture separating Seal integrity, Signer Identity pinning, and Policy evaluation">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#f59e0b" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div style="width:100%;max-width:26rem;display:flex;flex-direction:column;gap:0.65rem;font-family:var(--font-mono)">
-                  <div data-node-id="t-seal" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.75rem 0.9rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div>
-                      <div style="font-size:0.625rem;color:var(--text-muted)">QUESTION 01 · SEAL</div>
-                      <div style="font-size:0.78rem;color:var(--foreground);margin-top:2px">Were bytes altered after sealing?</div>
-                    </div>
-                    <span style="font-size:0.65rem;padding:0.18rem 0.5rem;border-radius:999px;background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.4)">SHA-256 + Ed25519</span>
-                  </div>
-
-                  <div data-node-id="t-id" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.75rem 0.9rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div>
-                      <div style="font-size:0.625rem;color:var(--text-muted)">QUESTION 02 · IDENTITY</div>
-                      <div style="font-size:0.78rem;color:var(--foreground);margin-top:2px">Did a pinned org key sign this?</div>
-                    </div>
-                    <span style="font-size:0.65rem;padding:0.18rem 0.5rem;border-radius:999px;background:rgba(245,158,11,0.14);color:#f59e0b;border:1px solid rgba(245,158,11,0.45)">--policy strict</span>
-                  </div>
-
-                  <div data-node-id="t-policy" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.75rem 0.9rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div>
-                      <div style="font-size:0.625rem;color:var(--text-muted)">QUESTION 03 · POLICY</div>
-                      <div style="font-size:0.78rem;color:var(--foreground);margin-top:2px">Did the agent break our rules?</div>
-                    </div>
-                    <span style="font-size:0.65rem;padding:0.18rem 0.5rem;border-radius:999px;background:rgba(244,63,94,0.12);color:#fb7185;border:1px solid rgba(244,63,94,0.4)">epi analyze</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Layer 1 · Seal Integrity</p>
-                <p class="z-stage__caption">Checks SHA-256 file hashes, step prev_hash chain, outer viewer hash, and Ed25519 signature.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODULE 03: STACK & GATEWAY CAPTURE (#8b5cf6 Violet) -->
-        <div class="z-module-row" id="mod-capture">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-capture)">03 · Integrations &amp; Proxy</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Capture from the <span style="color:var(--acc-capture)">stack</span> you already ship.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Instrument in-process with <code style="font-family:var(--font-mono)">wrap_openai</code>, <code style="font-family:var(--font-mono)">wrap_anthropic</code>, <code style="font-family:var(--font-mono)">EpiCallbackHandler</code>, LiteLLM, OpenTelemetry, or <code style="font-family:var(--font-mono)">pytest --epi</code> — or deploy <code style="font-family:var(--font-mono)">epi gateway serve</code> as a fail-closed proxy for stronger observation.
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/how-it-works#integrations" class="z-btn-ghost">View 9 integrations</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="capture" role="img" aria-label="Laser scan across OpenAI, Anthropic, LiteLLM, LangChain, LangGraph, OpenTelemetry, EPI Gateway, pytest, and Microsoft AGT">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#8b5cf6" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-              <div class="z-scan-bar" style="background:linear-gradient(to bottom, transparent, rgba(139,92,246,0.32), transparent)" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div class="z-stage-grid-3">
-                  <div data-node-id="c-openai" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">OpenAI</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">wrap_openai()</div>
-                  </div>
-                  <div data-node-id="c-anthropic" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">Anthropic</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">wrap_anthropic()</div>
-                  </div>
-                  <div data-node-id="c-litellm" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">LiteLLM</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">EPICallback</div>
-                  </div>
-                  <div data-node-id="c-langchain" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">LangChain</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">CallbackHandler</div>
-                  </div>
-                  <div data-node-id="c-langgraph" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">LangGraph</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Checkpoints</div>
-                  </div>
-                  <div data-node-id="c-otel" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">OpenTelemetry</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">SpanExporter</div>
-                  </div>
-                  <div data-node-id="c-gateway" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#a78bfa;font-weight:600">EPI Gateway</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Fail-closed proxy</div>
-                  </div>
-                  <div data-node-id="c-pytest" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">pytest --epi</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">CI test evidence</div>
-                  </div>
-                  <div data-node-id="c-agt" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">Microsoft AGT</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">epi import agt</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Scan · LLM Providers</p>
-                <p class="z-stage__caption">wrap_openai() and wrap_anthropic() capture model calls, parameters, and token usage.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODULE 04: EPI CLOUD WITNESS (#06b6d4 Cyan — Reversed Row) -->
-        <div class="z-module-row z-module-row--reverse" id="mod-witness">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-witness)">04 · EPI Cloud Witness (Private Beta)</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Independent hash-only <span style="color:var(--acc-witness)">witness</span> receipts without uploading your payloads.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Full <code style="font-family:var(--font-mono)">.epi</code> records stay in your bucket. When a run seals, only its 32-byte SHA-256 digest is sent to the Witness log, which returns an Ed25519 receipt and signs a daily checkpoint at 00:05 UTC. Share selected runs with a reviewer via a fragment-protected trust link (<code style="font-family:var(--font-mono)">/t/{slug}#k=…</code>).
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/trust#witness" class="z-btn-ghost">How Witness works</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="witness" role="img" aria-label="Hash-only witness pipeline from vendor bucket to EPI Witness Ed25519 log, daily checkpoint, and reviewer offline pack">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#06b6d4" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div style="width:100%;max-width:27rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.65rem;font-family:var(--font-mono);font-size:0.7rem">
-                  <div data-node-id="w-recorder" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#06b6d4;font-size:0.6rem">01 · VENDOR BUCKET</div>
-                    <div style="color:var(--foreground);font-weight:600;margin-top:4px">Full .epi local</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:4px">sha256: 8f3a…91c2</div>
-                  </div>
-                  <div data-node-id="w-witness" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#06b6d4;font-size:0.6rem">02 · WITNESS LOG</div>
-                    <div style="color:var(--foreground);font-weight:600;margin-top:4px">Hash-only receipt</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:4px">Ed25519 #00419</div>
-                  </div>
-                  <div data-node-id="w-checkpoint" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#06b6d4;font-size:0.6rem">03 · CHECKPOINT</div>
-                    <div style="color:var(--foreground);font-weight:600;margin-top:4px">00:05 UTC head</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:4px">Signed log order</div>
-                  </div>
-                  <div data-node-id="w-reviewer" style="padding:0.75rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:#10b981;font-size:0.6rem">04 · AUDITOR PACK</div>
-                    <div style="color:var(--foreground);font-weight:600;margin-top:4px">--witness-log</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:4px">Offline verified</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Seal · Vendor Bucket</p>
-                <p class="z-stage__caption">Full .epi artifact stays in your local storage or BYO bucket — prompts never leave.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODULE 05: POLICY & FAULT ANALYZER (#f43f5e Rose) -->
-        <div class="z-module-row" id="mod-policy">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-policy)">05 · Policy &amp; Fault Analyzer</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Prove whether <span style="color:var(--acc-policy)">guardrails</span> held — or exactly where a run faulted.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Define mechanical rules in <code style="font-family:var(--font-mono)">epi_policy.json</code> via <code style="font-family:var(--font-mono)">epi policy init</code>. At seal time, the rulebook and evaluation results (<code style="font-family:var(--font-mono)">policy_evaluation.json</code>) are hashed into the manifest so a policy violation is preserved alongside a valid cryptographic seal.
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/how-it-works#policy" class="z-btn-ghost">Explore Policy Analyzer</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="policy" role="img" aria-label="Agent trace waterfall showing llm.request, tool.call lookup_order, tool.call issue_refund exceeding policy limit, and sealed fault verdict">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#f43f5e" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div style="width:100%;max-width:26rem;display:flex;flex-direction:column;gap:0.55rem;font-family:var(--font-mono);font-size:0.68rem">
-                  <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:0.625rem">
-                    <span>WORKFLOW: refund-ord-9001</span>
-                    <span>epi_policy.json</span>
-                  </div>
-
-                  <div data-node-id="p-span1" style="padding:0.55rem 0.7rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.375rem;transition:all 0.3s">
-                    <div style="display:flex;justify-content:space-between;gap:0.5rem">
-                      <span style="color:var(--text-secondary)">#01 llm.request (gpt-4o)</span>
-                      <span style="color:var(--text-muted)">620ms</span>
-                    </div>
-                    <div style="height:4px;background:rgba(56,189,248,0.2);border-radius:999px;margin-top:5px"><span style="display:block;width:72%;height:100%;background:#38bdf8;border-radius:999px"></span></div>
-                  </div>
-
-                  <div data-node-id="p-span2" style="padding:0.55rem 0.7rem;margin-left:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.375rem;transition:all 0.3s">
-                    <div style="display:flex;justify-content:space-between;gap:0.5rem">
-                      <span style="color:var(--text-secondary)">#02 tool.call lookup_order</span>
-                      <span style="color:var(--text-muted)">180ms</span>
-                    </div>
-                    <div style="height:4px;background:rgba(16,185,129,0.2);border-radius:999px;margin-top:5px"><span style="display:block;width:44%;height:100%;background:#10b981;border-radius:999px"></span></div>
-                  </div>
-
-                  <div data-node-id="p-span3" style="padding:0.55rem 0.7rem;margin-left:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.375rem;transition:all 0.3s">
-                    <div style="display:flex;justify-content:space-between;gap:0.5rem">
-                      <span style="color:#fda4af">#03 issue_refund ($4,800)</span>
-                      <span style="color:#f43f5e">&gt; $1,000</span>
-                    </div>
-                    <div style="height:4px;background:rgba(244,63,94,0.2);border-radius:999px;margin-top:5px"><span style="display:block;width:88%;height:100%;background:#f43f5e;border-radius:999px"></span></div>
-                  </div>
-
-                  <div data-node-id="p-span4" style="padding:0.55rem 0.7rem;margin-left:1.25rem;border:1px solid rgba(244,63,94,0.5);background:rgba(244,63,94,0.08);border-radius:0.375rem;transition:all 0.3s">
-                    <div style="display:flex;justify-content:space-between;gap:0.5rem">
-                      <span style="color:#fecdd3">policy.rule R-04</span>
-                      <span style="color:#f43f5e;font-weight:600">FAULT SEALED</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Span #01 · llm.request</p>
-                <p class="z-stage__caption">Agent receives refund claim ORD-9001 ($4,800) and queries order lookup tool.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODULE 06: AUDIT & INSURABILITY PACKS (#6366f1 Indigo — Reversed Row) -->
-        <div class="z-module-row z-module-row--reverse" id="mod-audit">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-audit)">06 · Insurability &amp; Governance</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Turn runtime traces into offline-verifiable <span style="color:var(--acc-audit)">audit</span> packs.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Package sealed runs with <code style="font-family:var(--font-mono)">epi enterprise pack</code>, group evidence by AIUC-1 domain (<code style="font-family:var(--font-mono)">epi verify --aiuc1</code>), author signed EU AI Act Annex IV templates, or embed COSE/SCITT receipts. <em>(Evidence input for auditors and underwriters — not a legal certificate.)</em>
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/trust#standards" class="z-btn-ghost">Explore standards support</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="audit" role="img" aria-label="Compliance and underwriting evidence pack mapping from sealed .epi files to Annex IV, AIUC-1, SCITT, and claims defense">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#6366f1" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div style="width:100%;max-width:26rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.65rem;font-family:var(--font-mono);font-size:0.7rem">
-                  <div data-node-id="a-center" style="grid-column:span 2;padding:0.75rem;border:1px solid #6366f1;background:var(--background);border-radius:0.5rem;text-align:center;transition:all 0.3s">
-                    <div style="color:#818cf8;font-weight:600">auditor-pack.zip (Offline Bundle)</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Sealed .epi + trust.json + witness.json + README.txt</div>
-                  </div>
-                  <div data-node-id="a-annex" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">EU Annex IV</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">9 signed templates</div>
-                  </div>
-                  <div data-node-id="a-aiuc" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">AIUC-1 Domains</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">epi verify --aiuc1</div>
-                  </div>
-                  <div data-node-id="a-scitt" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">SCITT Receipts</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">COSE Sign1</div>
-                  </div>
-                  <div data-node-id="a-claims" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">Underwriting</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Claims defense</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Input · Sealed .epi Runs</p>
-                <p class="z-stage__caption">Cryptographically verified execution records form the raw input for governance review.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </section>
-      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
-    </div>
-
-    <!-- 6. EVIDENCE COMPARED MATRIX & KNOWN LIMITATIONS -->
+    <!-- 9. EVIDENCE COMPARED MATRIX & KNOWN LIMITATIONS -->
     <div class="z-shell">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
       <section class="z-center" aria-labelledby="compare-heading">
@@ -874,7 +721,7 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 7. FAQ ACCORDION (ZENJIN 12-COLUMN SPLIT) -->
+    <!-- 10. FAQ ACCORDION (ZENJIN 12-COLUMN SPLIT) -->
     <div class="z-shell">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
       <section class="z-center z-faq-section" aria-labelledby="faq-heading">
@@ -894,7 +741,7 @@
                 </h3>
                 <div id="faq-p1" role="region" aria-labelledby="faq-b1" class="z-faq-panel">
                   <div class="z-faq-panel__inner">
-                    EPI (Evidence Packaged Infrastructure) is the open-source evidence layer for AI agents. It records agent executions, seals them into a portable <code>.epi</code> Envelope v2 container signed with Ed25519, and lets any third party verify the record offline without an account or server.
+                    EPI is open-source software that records what an AI agent saw, what it decided and why, which model answered and who approved it, and seals that into a portable <code>.epi</code> file signed with Ed25519. Anyone can check the file offline, without an account or a server.
                   </div>
                 </div>
               </li>
@@ -950,7 +797,7 @@
                 </h3>
                 <div id="faq-p5" role="region" aria-labelledby="faq-b5" class="z-faq-panel">
                   <div class="z-faq-panel__inner">
-                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal, and verify your first artifact offline in 60 seconds — or apply for one of the five Design Partner places to have the founder instrument a consequential workflow with you.
+                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal and verify your first decision offline in 60 seconds — or start a <strong style="color:var(--foreground);font-weight:500">Witnessed pilot (€4,500)</strong>: EPI on one of your AI workflows: decision files for every case, and your customer keeps their own copy.
                   </div>
                 </div>
               </li>
@@ -1006,7 +853,7 @@
         <div class="z-footer-col z-footer-col--wide">
           <p class="z-footer-col__heading">Resources &amp; Trust</p>
           <ul class="z-footer-col__list">
-            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">GitHub Repository (v4.7.0)</a></li>
+            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">GitHub Repository</a></li>
             <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">PyPI Package (epi-recorder)</a></li>
             <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">Known Limitations</a></li>
             <li><a href="https://cloud.epilabs.org/" class="z-footer-col__link">EPI Cloud Sign In</a></li>
@@ -1016,14 +863,15 @@
       </div>
 
       <div class="z-footer-bottom">
-        <div>&copy; 2026 EPI LABS · MIT License · v4.7.0 · Envelope v2</div>
+        <div>&copy; 2026 EPI LABS · MIT License · Envelope v2</div>
         <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+          <a href="/standards" class="z-footer-col__link" style="font-size:0.75rem">Standards</a>
           <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.75rem">Security.txt</a>
           <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.75rem">Trust Registry JSON</a>
           <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">GitHub</a>
         </div>
       </div>
-    <div style="font-size:.7rem;color:var(--text-muted)">MIT License · v4.7.0 · envelope-v2 · v4.7.0 · v4.7.0 on PyPI</div>
+      <div style="font-size:.7rem;color:var(--text-muted);margin-top:0.5rem">v4.8.0 on PyPI</div>
     </footer>
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>

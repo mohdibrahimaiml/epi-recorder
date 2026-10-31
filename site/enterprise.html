@@ -1,136 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Enterprise — EPI Labs</title>
-<meta name="description" content="Org seals the run. Humans add bound reviews. Auditors verify offline.">
-<link rel="canonical" href="https://epilabs.org/enterprise">
-<meta property="og:title" content="Enterprise — EPI Labs">
-<meta property="og:description" content="Org seals the run. Humans add bound reviews. Auditors verify offline.">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+<title>For reviewers — EPI Labs</title>
+<meta name="description" content="This page moved to epilabs.org/reviewers.">
+<link rel="canonical" href="https://epilabs.org/reviewers">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0;url=/reviewers">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/how-it-works">How it works</a></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/enterprise">Enterprise</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <a href="/how-it-works">How it works</a>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/enterprise">Enterprise</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main id="main">
-<div class="page in" data-aos="fade-up">
-<span class="tag">Enterprise</span>
-<h1>Org seals the run.<br>Humans add bound reviews.<br>Auditors verify offline.</h1>
-<p class="lede">EPI is a <strong>file-first</strong> evidence layer for enterprises — not a dashboard login. Portable cryptographic evidence, org key trust, policy checks, Annex IV evidence packs, CI gates. Optional hosted verify/SCITT for scale. Self-host when you must.</p>
-
-<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px">
-<a class="btn btn-pri" href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener">pip install epi-recorder</a>
-<a class="btn btn-sec" href="/plans#contact">Talk to us</a>
-<a class="btn btn-sec" href="/verify/">Verify a file</a>
-</div>
-
-<h2>15-minute path</h2>
-<p>Two commands for your engineer. No dashboards. No API keys required for a pilot pack.</p>
-<pre>$ pip install epi-recorder
-$ epi enterprise setup
-# record one agent run → your-run.epi
-$ epi enterprise pack your-run.epi
-# → send auditor-pack.zip to security / audit</pre>
-<p style="font-size:.85rem;color:var(--dim)">Details: <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/SELF-HOSTED-RUNBOOK.md" style="color:var(--acc)" target="_blank" rel="noopener">Self-hosted runbook</a></p>
-
-<h2>Shipped for enterprise</h2>
-<ul>
-<li>Sealed <code class="k">.epi</code> + offline verify/view</li>
-<li>Org keys + trust bundles</li>
-<li>Policy + fault analysis</li>
-<li>Annex IV evidence pack + multi-sign + CLI PDF (<a href="/standards" style="color:var(--acc)">what it proves</a>)</li>
-<li>GitHub Action CI gate</li>
-<li>Optional hosted verify + remote SCITT</li>
-<li>Self-hosted gateway / Decision Ops</li>
-</ul>
-
-<h2>Services (human + contract)</h2>
-<ul>
-<li>Dedicated onboarding / pilot</li>
-<li>Custom hosted volume &amp; ops attention</li>
-<li>Legal &amp; procurement support</li>
-<li>SLA only if signed in writing</li>
-</ul>
-
-<h2>Roadmap (not product yet)</h2>
-<ul>
-<li>Cloud SSO / SAML</li>
-<li>Multi-tenant SaaS seats</li>
-<li>FDA / HIPAA / NIST adapter suite</li>
-<li>Managed multi-tenant DID registry</li>
-</ul>
-
-<h2>Acceptance gate — what PASS means</h2>
-<ul>
-<li><strong>Air-gapped seal:</strong> <code class="k">EPI_NOTARIZE=0</code></li>
-<li><strong>Standard seal:</strong> RFC 3161 token requested by default (network at seal only; checked offline by <code class="k">epi verify</code> against pinned TSA roots)</li>
-<li><strong>Claims / insurers:</strong> always <code class="k">epi verify --policy strict</code> (integrity + org-pinned sealer + completeness)</li>
-<li><code class="k">--review</code> Binding True &rarr; human review bound to sealed evidence</li>
-<li>Standard default: unpinned sealer &rarr; <strong style="color:var(--warn)">WARN · UNVERIFIED IDENTITY</strong> (valid seal &ne; known who; not claim-ready)</li>
-</ul>
-
-<h2>Docs</h2>
-<ul>
-<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/AUDITORS-GUIDE.md" style="color:var(--acc)" target="_blank" rel="noopener">Auditor's guide</a></li>
-<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ENTERPRISE-EVIDENCE-PLAYBOOK.md" style="color:var(--acc)" target="_blank" rel="noopener">Evidence playbook</a></li>
-<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/IDENTITY-ONBOARDING.md" style="color:var(--acc)" target="_blank" rel="noopener">Identity onboarding</a></li>
-<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/SELF-HOSTED-RUNBOOK.md" style="color:var(--acc)" target="_blank" rel="noopener">Self-hosted runbook</a></li>
-</ul>
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · MIT License · v4.8.0</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
-  </div>
-</footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+<body style="font-family:system-ui,sans-serif;padding:2rem;max-width:36rem;margin:4rem auto;line-height:1.6">
+<h1>This page moved</h1>
+<p>Reviewing an AI vendor&rsquo;s decision files? Go to <a href="/reviewers">epilabs.org/reviewers</a>.</p>
 </body>
 </html>

@@ -2174,3 +2174,24 @@ html[data-theme="light"] .z-stage__pill {
 .cf-status.ok { border-color: var(--acc-envelope); color: var(--acc-envelope); }
 .cf-status.warn { border-color: var(--acc-trust); color: var(--acc-trust); }
 .cf-status.err { border-color: var(--acc-policy); color: var(--acc-policy); }
+
+/* Small footnote under a grid section (e.g. "EPI does not make anyone compliant"),
+   aligned with the card padding above it. */
+.z-section-note {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 40rem) {
+  .z-section-note {
+    padding: 1.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-section-note {
+    padding: 1.75rem 3rem;
+  }
+}
