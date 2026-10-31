@@ -117,15 +117,6 @@
                     </span>
                   </a>
                 </li>
-                <li>
-                  <a href="#mod-audit" role="menuitem" class="z-popover__item">
-                    <span class="z-popover__dot" style="background-color:#6366f1" aria-hidden="true"></span>
-                    <span>
-                      <span class="z-popover__title">Audit &amp; Annex IV Packs</span>
-                      <span class="z-popover__hint">AIUC-1, SCITT &amp; claims defense</span>
-                    </span>
-                  </a>
-                </li>
               </ul>
             </div>
           </div>
@@ -157,10 +148,9 @@
     <a href="#mod-capture" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#8b5cf6;margin:0"></span> Stack &amp; Gateway Capture</a>
     <a href="#mod-witness" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#06b6d4;margin:0"></span> EPI Cloud Witness</a>
     <a href="#mod-policy" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f43f5e;margin:0"></span> Policy &amp; Fault Analyzer</a>
-    <a href="#mod-audit" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#6366f1;margin:0"></span> Audit &amp; Annex IV Packs</a>
     <a href="/verify/">Verify a .epi file</a>
     <a href="/trust">Trust model</a>
-    <a href="/plans">Pricing &amp; Design Partners</a>
+    <a href="/plans">Pricing</a>
     <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer">GitHub</a>
     <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
@@ -753,62 +743,6 @@
             </div>
           </div>
         </div>
-
-        <!-- MODULE 06: AUDIT & INSURABILITY PACKS (#6366f1 Indigo — Reversed Row) -->
-        <div class="z-module-row z-module-row--reverse" id="mod-audit">
-          <article class="z-module-copy z-reveal">
-            <span class="z-eyebrow" style="color:var(--acc-audit)">06 · Insurability &amp; Governance</span>
-            <h3 class="z-h3-module" style="margin-top:0.875rem">
-              Turn runtime traces into offline-verifiable <span style="color:var(--acc-audit)">audit</span> packs.
-            </h3>
-            <p class="z-body" style="margin-top:1.25rem;max-width:30rem">
-              Package sealed runs with <code style="font-family:var(--font-mono)">epi enterprise pack</code>, group evidence by AIUC-1 domain (<code style="font-family:var(--font-mono)">epi verify --aiuc1</code>), author signed EU AI Act Annex IV templates, or embed COSE/SCITT receipts. <em>(Evidence input for auditors and underwriters — not a legal certificate.)</em>
-            </p>
-            <div style="margin-top:2.25rem">
-              <a href="/trust#standards" class="z-btn-ghost">Explore standards support</a>
-            </div>
-          </article>
-
-          <div class="z-module-visual z-reveal z-reveal--media">
-            <div class="z-stage" data-telemetry-stage="audit" role="img" aria-label="Compliance and underwriting evidence pack mapping from sealed .epi files to Annex IV, AIUC-1, SCITT, and claims defense">
-              <div class="z-stage__dots" aria-hidden="true"></div>
-              <div class="z-stage__glow" style="background-color:#6366f1" aria-hidden="true"></div>
-              <div class="z-stage__vignette" aria-hidden="true"></div>
-
-              <div class="z-stage__canvas">
-                <div style="width:100%;max-width:26rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.65rem;font-family:var(--font-mono);font-size:0.7rem">
-                  <div data-node-id="a-center" style="grid-column:span 2;padding:0.75rem;border:1px solid #6366f1;background:var(--background);border-radius:0.5rem;text-align:center;transition:all 0.3s">
-                    <div style="color:#818cf8;font-weight:600">auditor-pack.zip (Offline Bundle)</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Sealed .epi + trust.json + witness.json + README.txt</div>
-                  </div>
-                  <div data-node-id="a-annex" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">EU Annex IV</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">9 signed templates</div>
-                  </div>
-                  <div data-node-id="a-aiuc" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">AIUC-1 Domains</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">epi verify --aiuc1</div>
-                  </div>
-                  <div data-node-id="a-scitt" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">SCITT Receipts</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">COSE Sign1</div>
-                  </div>
-                  <div data-node-id="a-claims" style="padding:0.65rem;border:1px solid rgba(255,255,255,0.14);background:var(--background);border-radius:0.5rem;transition:all 0.3s">
-                    <div style="color:var(--foreground);font-weight:600">Underwriting</div>
-                    <div style="color:var(--text-muted);font-size:0.6rem;margin-top:2px">Claims defense</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="z-stage__hud">
-                <div class="z-stage__pills"></div>
-                <p class="z-stage__eyebrow">01 Input · Sealed .epi Runs</p>
-                <p class="z-stage__caption">Cryptographically verified execution records form the raw input for governance review.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
@@ -970,7 +904,7 @@
                 </h3>
                 <div id="faq-p5" role="region" aria-labelledby="faq-b5" class="z-faq-panel">
                   <div class="z-faq-panel__inner">
-                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal, and verify your first artifact offline in 60 seconds — or apply for one of the five Design Partner places to have the founder instrument a consequential workflow with you.
+                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal and verify your first decision offline in 60 seconds — or start a <strong style="color:var(--foreground);font-weight:500">Witnessed pilot (€4,500)</strong>: EPI on one of your AI workflows: decision files for every case, and your customer keeps their own copy.
                   </div>
                 </div>
               </li>
@@ -1026,7 +960,7 @@
         <div class="z-footer-col z-footer-col--wide">
           <p class="z-footer-col__heading">Resources &amp; Trust</p>
           <ul class="z-footer-col__list">
-            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">GitHub Repository (v4.8.0)</a></li>
+            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">GitHub Repository</a></li>
             <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">PyPI Package (epi-recorder)</a></li>
             <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">Known Limitations</a></li>
             <li><a href="https://cloud.epilabs.org/" class="z-footer-col__link">EPI Cloud Sign In</a></li>
@@ -1036,14 +970,15 @@
       </div>
 
       <div class="z-footer-bottom">
-        <div>&copy; 2026 EPI LABS · MIT License · v4.8.0 · Envelope v2</div>
+        <div>&copy; 2026 EPI LABS · MIT License · Envelope v2</div>
         <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+          <a href="/standards" class="z-footer-col__link" style="font-size:0.75rem">Standards</a>
           <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.75rem">Security.txt</a>
           <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.75rem">Trust Registry JSON</a>
           <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">GitHub</a>
         </div>
       </div>
-    <div style="font-size:.7rem;color:var(--text-muted)">MIT License · v4.8.0 · envelope-v2 · v4.8.0 · v4.8.0 on PyPI</div>
+      <div style="font-size:.7rem;color:var(--text-muted);margin-top:0.5rem">v4.8.0 on PyPI</div>
     </footer>
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>

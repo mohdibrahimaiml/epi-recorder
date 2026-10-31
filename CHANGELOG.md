@@ -4,6 +4,22 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **The site sells one thing, at a price.** The homepage and `/plans` no longer
+  offer a "Design Partner Program" with five places; they offer a **witnessed
+  pilot: €4,500, one workflow, thirty days**, with decision files for every case
+  and the customer keeping their own witness log. The contact form has two
+  choices instead of three. The "Insurability & Governance" section is gone: no
+  insurer requires or accepts EPI today, so the page says what the witness gives
+  them instead. Annex IV, AIUC-1 and SCITT moved to a new `/standards` page
+  linked from the footer, where they are labelled evidence input, not a
+  certificate. The footer shows the version once. `docs/PILOT-OFFER.md` matches
+  the site: one workflow, thirty days, €4,500, no discount or rush tier.
+  `tests/test_website_offer.py` fails if "Design Partner", an insurability claim,
+  a missing price, a duplicated version stamp or a missing `/standards` link
+  comes back, and if the deployed mirrors drift from `website/`.
+
 ### Fixed
 
 - **The Decision Record now explains the decision.** `epi export-summary` - the

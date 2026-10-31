@@ -3,7 +3,7 @@
 **Source of truth:** the `website/` folder in this repo.  
 **Live site:** https://epilabs.org, served by **Cloudflare Pages** from the
 generated `site/` directory (`wrangler.toml`: `pages_build_output_dir = "site"`).  
-**Version shown on the banner must match `pyproject.toml` (currently 4.7.0).**
+**Version shown on the banner must match `pyproject.toml` (currently 4.8.0).**
 
 This is the marketing and in-browser verify surface. It is **not** a substitute for the technical docs in this folder. Sign-in on the site is **EPI Cloud** (`cloud.epilabs.org`), not the old Render portal.
 
@@ -14,9 +14,10 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/` (`index.html`) | Product home |
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
-| `/plans` | Pricing: open source free, Design Partner (5 places), EPI Cloud **private beta** |
+| `/plans` | Pricing: open source free, one witnessed pilot (EUR 4,500, one workflow, 30 days), EPI Cloud **private beta** |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
+| `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |
 | `/privacy`, `/terms`, `/refund` | Legal |
 
 ## Edit rules
