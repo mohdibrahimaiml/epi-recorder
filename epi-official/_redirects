@@ -31,9 +31,11 @@
 /pricing/* /plans 301
 /pricing.html /plans 301
 #
-# Enterprise: canonical is flat enterprise.html; directory form redirects.
-/enterprise/ /enterprise 301
-/enterprise/index.html /enterprise 301
+# Enterprise page became the reviewer page (for the vendor's customer).
+/enterprise /reviewers 301
+/enterprise/ /reviewers 301
+/enterprise/index.html /reviewers 301
+/enterprise.html /reviewers 301
 #
 # DEMO trust page: static /t/acme-demo. Identity rules so
 # the /t/* splat below cannot steal demo.js / demo-data.json.
@@ -54,3 +56,8 @@
 #
 # Optional: force apex (uncomment if needed and not handled in CF dashboard)
 # https://www.epilabs.org/* https://epilabs.org/:splat 301
+
+# Old checkout success page (Paddle checkout is retired): never show a payment confirmation.
+/welcome /plans 301
+/welcome/ /plans 301
+/welcome.html /plans 301
