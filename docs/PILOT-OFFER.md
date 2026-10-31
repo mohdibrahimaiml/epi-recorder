@@ -34,7 +34,7 @@ The difference from a signed log: **a signature protects the file, and the vendo
 | A readable Decision Record per case | `epi export-summary`: one page a customer, regulator or affected person can read, with the verify instructions on it |
 | The customer's witness log | Every case the vendor reported, held by the insurer: case id, goal, and a content digest, appended as each file is sealed |
 | The forgery check | `epi verify case.epi --witness-log received.jsonl` — passes on the real file, fails on a re-sealed one that the vendor's key still signs |
-| The witness report | `epi witness report` — what the customer's log knows, by case: witnessed, unwitnessed, missing, mismatch |
+| The witness report | `epi oversight report` — decisions by outcome, model versions, approvals (pinned / unpinned / absent), cases reported but not delivered, and cases expected that were never sealed, for a period |
 
 ## What it proves — and what it does not
 
