@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EPI Labs | The evidence layer for trusted AI agents</title>
+  <title>EPI Labs | Decision records your customer can check</title>
   <meta name="description" content="EPI seals AI agent runs into portable .epi evidence files — Ed25519 signatures, SHA-256 hash chains, verifiable offline without an account or server.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://epilabs.org/">
@@ -176,20 +176,21 @@
           <div class="z-hero-copy">
             <div class="z-eyebrow z-blur-in z-blur-in--d1">
               <span class="z-eyebrow__dot" aria-hidden="true"></span>
-              <span>Evidence Packaged Infrastructure · MIT</span>
+              <span>Witnessed AI decisions · MIT</span>
             </div>
 
             <h1 id="hero-heading" class="z-h1 z-blur-in z-blur-in--d1" style="margin-top:1.25rem">
-              The evidence layer for <span style="color:var(--acc-envelope)">trusted</span> AI agents.
+              When your customer asks why your AI made a decision,
+              <span style="color:var(--acc-envelope)">hand them a file they can check.</span>
             </h1>
 
             <p class="z-body z-blur-in z-blur-in--d2" style="margin-top:1.5rem;max-width:32rem">
-              AI agents approve claims and move money. When a decision is challenged six months later, the answer should be a <strong style="color:var(--foreground);font-weight:500">sealed <code style="font-family:var(--font-mono)">.epi</code> file</strong> — not a vendor dashboard login.
+              EPI records what your agent saw, what it decided and why, which model answered, and who approved it. Your customer keeps their own copy - a <strong style="color:var(--foreground);font-weight:500">sealed <code style="font-family:var(--font-mono)">.epi</code> file</strong> they can check without asking you to log in.
             </p>
 
             <div class="z-hero-actions z-blur-in z-blur-in--d3">
-              <a href="#verify" class="z-btn-primary">Verify a .epi file</a>
-              <a href="/plans" class="z-btn-ghost">Design Partner Program</a>
+              <a href="/verify" class="z-btn-primary">Check the example record</a>
+              <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download that .epi</a>
             </div>
 
             <div class="z-cli-pill z-blur-in z-blur-in--d4">
@@ -213,25 +214,44 @@
             <div class="z-hero-scrim-r" aria-hidden="true"></div>
             <div class="z-hero-scrim-t" aria-hidden="true"></div>
 
-            <div id="heroMonolith" class="z-hero-monolith">
+            <div id="decisionCard" class="z-hero-monolith" role="region" aria-label="Example decision record produced by EPI from a sealed file">
               <div class="z-hero-monolith__bar">
                 <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span id="hmCmd" style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">$ epi verify claim-4821.epi</span>
-                <span id="hmBadge" class="z-hero-monolith__badge">01 / SEAL · VALID</span>
-              </div>
-
-              <!-- Interactive Layer Switcher Tabs -->
-              <div role="tablist" aria-label="Verification layers" style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border-grid);font-family:var(--font-mono);font-size:0.65rem">
-                <button type="button" role="tab" data-hm-tab="0" aria-selected="true" style="padding:0.6rem 0.25rem;border-right:1px solid var(--border-grid);border-bottom:2px solid #10b981;text-transform:uppercase;letter-spacing:0.1em">01 · Seal</button>
-                <button type="button" role="tab" data-hm-tab="1" aria-selected="false" style="padding:0.6rem 0.25rem;border-right:1px solid var(--border-grid);border-bottom:2px solid transparent;text-transform:uppercase;letter-spacing:0.1em">02 · Identity</button>
-                <button type="button" role="tab" data-hm-tab="2" aria-selected="false" style="padding:0.6rem 0.25rem;border-bottom:2px solid transparent;text-transform:uppercase;letter-spacing:0.1em">03 · Policy</button>
+                <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1001</span>
+                <span class="z-hero-monolith__badge" style="background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)">DENIED &middot; SIGNED</span>
               </div>
 
               <div class="z-hero-monolith__body">
-                <div id="hmRows"></div>
-                <div style="margin-top:0.85rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted)">
-                  <span>Envelope v2 · RFC 8785</span>
-                  <a href="#verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Test in browser &darr;</a>
+                <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
+                <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">deny_claim({claim_id: CLM-1001})</div>
+
+                <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
+                  <div>
+                    <span style="color:var(--text-muted)">Case</span><br>
+                    Adjudicate claim CLM-1001
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Principal reasons</span><br>
+                    Water damage exclusion HO3-4.2 applies to this peril.
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Rules and data relied on</span><br>
+                    <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-4.2 &middot; claim CLM-1001 &middot; peril water damage</span>
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Model</span><br>
+                    <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted)">Approved by</span><br>
+                    DEMO KEY &middot; Claims Adjuster
+                    <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-10-31</span>
+                  </div>
+                </div>
+
+                <div style="margin-top:0.9rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
+                  <span>Rendered from the sealed file</span>
+                  <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
                 </div>
               </div>
             </div>
