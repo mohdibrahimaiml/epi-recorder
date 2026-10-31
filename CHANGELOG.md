@@ -40,6 +40,19 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **`epi oversight report` - the period-shaped question, answered.** A folder of
+  decision files answers nothing on its own; the question a bank or an insurer
+  asks is "over these three months, what did your AI decide, which model
+  answered, who approved it, and which cases can you not produce?" The command
+  joins the sealed files, the customer's witness log and the customer's
+  `--expect` list, and reports: decisions by outcome (normalised, so `DENY` and
+  `deny_claim` are one outcome), model versions with first/last seen, approvals
+  kept distinct (pinned / signed-but-unpinned / absent / invalid / sealing key
+  only), cases reported but never delivered, cases expected but never sealed,
+  and the files that do not match the witness log. `--out` writes one page a
+  customer can keep; `--json` for dashboards; `--fail-on-gaps` for a scripted
+  check. See `docs/OVERSIGHT.md`.
+
 - **The browser verifier can use the customer's witness log.** `/verify` now
   takes `received.jsonl` next to the `.epi`, with the same matching as the CLI:
   exact file/manifest hash, then the content digest, then the case by goal. A

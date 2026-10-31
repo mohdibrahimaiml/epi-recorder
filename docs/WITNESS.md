@@ -266,6 +266,19 @@ case's `workflow_id`, and each report carries `case_id` (for example
 `trace::trace-123`). Exporting a case twice gives two reports with the same
 `workflow_id`; a copy you receive must match one of them.
 
+## Over a period: the oversight report
+
+One file answers "what did it decide?". A bank asks for a period: how many
+decisions, by outcome; which model versions answered; who approved them; which
+cases were reported but never delivered; which cases you expected that never
+arrived. `epi oversight report` joins your files, this log and your expected-case
+list into one page. See `docs/OVERSIGHT.md`.
+
+```bash
+epi oversight report --cases ./received --log received.jsonl \
+  --since 2026-09-01 --until 2026-10-31 --expect cases.csv --out oversight.html
+```
+
 ## Limits (read these)
 
 - The witness proves **what was sent**, not what happened. A vendor can
