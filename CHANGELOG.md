@@ -4,6 +4,24 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Decision Record now explains the decision.** `epi export-summary` - the
+  document handed to a customer, regulator or affected person - printed "Final
+  decision recorded: Denied" with no reason, no rule, no model, and called a
+  signed approval "not a signed approval" while `epi verify` reported it signed.
+  It now shows the outcome, the principal reasons, the data and rules relied on,
+  the served model version, the approver exactly as `epi verify` classifies them
+  (including "signed; key not pinned by this verifier"), the archive SHA-256 and
+  the command to check it. Tests fail if the reason, the basis, the served model
+  or a verified approval is missing.
+
+- **The homepage leads with the customer's question.** H1: "When your customer
+  asks why your AI made a decision, hand them a file they can check." The hero
+  shows a real decision record - sealed, signed and downloadable - instead of a
+  layer inspector. Every value on the card is asserted against the shipped
+  artifact, so the page cannot describe a record it does not ship.
+
 ### Added
 
 - **The browser verifier can use the customer's witness log.** `/verify` now

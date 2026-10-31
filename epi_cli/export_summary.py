@@ -96,11 +96,19 @@ def _decision_label(value: str | None) -> str:
     return _titleize(text)
 
 
-def _review_outcome_label(value: str | None, *, human_signed: bool = False) -> str:
+def _review_outcome_label(
+    value: str | None, *, human_signed: bool = False, signed: bool = False
+) -> str:
     # "Human reviewer approved" is only fair when a key pinned as an approver,
-    # distinct from the sealing key, actually signed it (step 3a). Otherwise the
-    # record is a review entry, not a signed approval.
+    # distinct from the sealing key, actually signed it (step 3a). A signature
+    # whose key this verifier has not pinned is still a signature: say so, and
+    # name what to pin, instead of calling it "not a signed approval".
     if not human_signed:
+        if signed:
+            return (
+                "Human reviewer approved the decision "
+                "(signed; the approver key is not pinned by this verifier)"
+            )
         return "Reviewer recorded (not a signed approval)"
     mapping = {
         "dismissed": "Human reviewer approved the decision",
@@ -141,25 +149,248 @@ def _extract_latest_approval(steps: list[dict[str, Any]]) -> dict[str, Any] | No
     return None
 
 
+
+_REASON_KEYS = ("rationale", "reason", "reasons", "explanation", "why", "justification")
+_BASIS_KEYS = (
+    "basis", "policy", "policy_clause", "policy_reference", "rules", "rule",
+    "data", "inputs", "evidence", "citations", "sources", "records",
+)
+
+
+def _first_text(content: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = content.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value not in (None, "", [], {}):
+            return _safe_excerpt(value, 800)
+    return None
+
+
+def _decision_detail(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Outcome, principal reasons, the data/rules relied on, and the model.
+
+    Everything here comes from the sealed steps: the decision step when the
+    agent recorded one, otherwise the tool call it acted through. A summary
+    that omits the reason is not a decision record a person can be shown.
+    """
+    decision_step = _extract_decision_step(steps)
+    decision = decision_step.get("content") if decision_step else {}
+    decision = decision if isinstance(decision, dict) else {}
+
+    outcome = (
+        decision.get("decision")
+        or decision.get("determination")
+        or decision.get("outcome")
+        or decision.get("verdict")
+        or decision.get("result")
+    )
+
+    tool_name = None
+    tool_args = None
+    rationale = _first_text(decision, _REASON_KEYS)
+    for step in reversed(steps):
+        if step.get("kind") != "llm.response":
+            continue
+        content = step.get("content") if isinstance(step.get("content"), dict) else {}
+        calls = content.get("tool_calls") or []
+        if calls and isinstance(calls[0], dict):
+            call = calls[0]
+            tool_name = call.get("name")
+            tool_args = call.get("arguments_parsed")
+            if tool_args is None:
+                tool_args = call.get("arguments")
+            if not outcome:
+                outcome = tool_name
+            if rationale is None and isinstance(tool_args, dict):
+                rationale = _first_text(tool_args, _REASON_KEYS)
+        break
+
+    basis: dict[str, Any] = {}
+    for key in _BASIS_KEYS:
+        value = decision.get(key)
+        if value in (None, "", [], {}):
+            continue
+        # `basis={"policy": ...}` is a bag of facts, not a fact called "basis".
+        if key == "basis" and isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                basis.setdefault(str(sub_key), sub_value)
+        else:
+            basis[key] = value
+    if isinstance(tool_args, dict):
+        for key in _BASIS_KEYS:
+            value = tool_args.get(key)
+            if value not in (None, "", [], {}) and key not in basis:
+                basis[key] = value
+
+    served_model = None
+    requested_model = None
+    for step in reversed(steps):
+        kind = step.get("kind")
+        content = step.get("content") if isinstance(step.get("content"), dict) else {}
+        if kind == "llm.response":
+            served_model = content.get("served_model") or content.get("model")
+            requested_model = content.get("model")
+            if served_model:
+                break
+        if kind == "llm.request" and requested_model is None:
+            requested_model = content.get("model")
+    if requested_model is None:
+        requested_model = served_model
+
+    return {
+        "outcome": outcome,
+        "rationale": rationale,
+        "basis": basis,
+        "served_model": served_model,
+        "requested_model": requested_model,
+        "tool": tool_name,
+        "tool_args": tool_args,
+    }
+
+
+def _approval_detail(epi_path: Path, steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Who approved it, exactly as `epi verify` classifies it.
+
+    A signature that exists but whose key is not pinned is still a signature:
+    the summary says so and names the fingerprint to pin, instead of calling it
+    "not a signed approval" while every other surface reports it signed.
+    """
+    approval_step = _extract_latest_approval(steps)
+    agent_reported = _describe_step(approval_step) if approval_step else None
+    state = _human_approval_state(epi_path)
+    approvals = [item for item in (state.get("approvals") or []) if isinstance(item, dict)]
+    detail: dict[str, Any] = {
+        "classification": None,
+        "name": None,
+        "fingerprint": None,
+        "signed_at": None,
+        "signed": False,
+        "timestamp": None,
+        "agent_reported": agent_reported,
+    }
+    if not approvals:
+        return detail
+    latest = approvals[-1]
+    classification = latest.get("classification")
+    detail.update(
+        {
+            "classification": classification,
+            "name": latest.get("approver_name"),
+            "fingerprint": latest.get("key_fingerprint"),
+            "signed_at": latest.get("signed_at"),
+            "signed": classification in ("human_signed", "signed_unknown_key"),
+            "timestamp": latest.get("timestamp"),
+        }
+    )
+    return detail
+
+
+def _approval_headline(detail: dict[str, Any]) -> str:
+    classification = detail.get("classification")
+    name = detail.get("name") or "an approver"
+    if classification == "human_signed":
+        return f"Signed approval by {name} (pinned)"
+    if classification == "signed_unknown_key":
+        return f"Signed approval by {name} (key not pinned by this verifier)"
+    if classification == "invalid":
+        return f"Approval signed by {name} does NOT verify"
+    if classification:
+        return f"Approval present, not verifiable ({classification})"
+    return "No signed approval attached"
+
+
+def _policy_basis_text(policy_eval: dict[str, Any]) -> str:
+    """The rules the record shows were applied, when the decision has no `basis`."""
+    if not isinstance(policy_eval, dict) or not policy_eval:
+        return "Not recorded"
+    policy_id = policy_eval.get("policy_id")
+    results = policy_eval.get("results") if isinstance(policy_eval.get("results"), list) else []
+    rules = [
+        str(result.get("rule_id") or result.get("name") or "")
+        for result in results
+        if isinstance(result, dict)
+    ]
+    rules = [rule for rule in rules if rule]
+    if not policy_id and not rules:
+        return "Not recorded"
+    text = f"policy={policy_id}" if policy_id else ""
+    if rules:
+        text += ("; " if text else "") + "rules=" + ", ".join(rules)
+    return _safe_excerpt(text, 600)
+
+
+def _flat_basis(value: Any, prefix: str = "") -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    if isinstance(value, dict) and not prefix:
+        for key, item in value.items():
+            out.extend(_flat_basis(item, str(key)))
+        return out
+    if isinstance(value, (list, tuple)):
+        rendered = ", ".join(
+            str(item) if not isinstance(item, (dict, list)) else json.dumps(item, ensure_ascii=False, sort_keys=True)
+            for item in value
+        )
+    elif isinstance(value, dict):
+        rendered = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    else:
+        rendered = str(value)
+    out.append((prefix, rendered))
+    return out
+
+
+def _basis_text(basis: dict[str, Any]) -> str:
+    """`policy=HO3-4.2; data=claim:CLM-1001, peril:water damage` - not a JSON blob."""
+    if not basis:
+        return "Not recorded"
+    parts = [f"{key}={value}" for key, value in _flat_basis(basis) if key]
+    return _safe_excerpt("; ".join(parts), 600)
+
+
+def _archive_sha256(epi_path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(Path(epi_path).read_bytes()).hexdigest()
+
+
+def _model_line(detail: dict[str, Any]) -> str:
+    served = detail.get("served_model")
+    requested = detail.get("requested_model")
+    if served and requested and str(served) != str(requested):
+        return f"{served} (requested {requested})"
+    return str(served or requested or "Not recorded")
+
+
 def _derive_outcome(
     manifest,
     steps: list[dict[str, Any]],
     review_info: dict[str, Any] | None,
     *,
     human_signed: bool = False,
+    signed: bool = False,
 ) -> tuple[str, str]:
+    """A decision record leads with what the AI decided, not with the review.
+
+    The review is a separate fact ("who approved it"), reported in its own
+    section. Leading with it told a reader the outcome was "reviewer recorded"
+    when the decision itself was, for example, "Denied".
+    """
+    decision = _decision_detail(steps)
+    if decision.get("outcome"):
+        state = "human-reviewed" if (human_signed or signed) else "system-recorded"
+        return _decision_label(str(decision["outcome"])), state
+
     latest_review = None
     if review_info and isinstance(review_info.get("reviews"), list) and review_info["reviews"]:
         latest_review = review_info["reviews"][-1]
     if isinstance(latest_review, dict):
         state = "human-reviewed" if human_signed else "review-recorded"
-        return _review_outcome_label(latest_review.get("outcome"), human_signed=human_signed), state
-
-    decision_step = _extract_decision_step(steps)
-    if decision_step:
-        content = decision_step.get("content") if isinstance(decision_step.get("content"), dict) else {}
-        raw = content.get("decision") or content.get("action") or content.get("result")
-        return _decision_label(raw), "system-recorded"
+        return (
+            _review_outcome_label(
+                latest_review.get("outcome"), human_signed=human_signed, signed=signed
+            ),
+            state,
+        )
 
     if getattr(manifest, "analysis_status", None) == "error":
         return "Analysis failed - inspect appendix", "analysis-error"
@@ -167,7 +398,12 @@ def _derive_outcome(
     return "Decision record captured", "captured"
 
 
-def _tone_for_outcome(outcome_state: str) -> str:
+def _tone_for_outcome(outcome_state: str, outcome: str | None = None) -> str:
+    raw = str(outcome or "").strip().lower()
+    if raw in ("denied", "deny", "rejected", "reject", "declined", "decline", "fail", "failed"):
+        return "tone-rejected"
+    if raw in ("approved", "approve", "accepted", "accept", "pass", "passed"):
+        return "tone-approved"
     if outcome_state == "human-reviewed":
         return "tone-approved"
     if outcome_state == "analysis-error":
@@ -304,10 +540,16 @@ def _build_text_summary(
     policy_eval = context.get("policy_evaluation") or {}
     review_info = context.get("review") or {}
     human_signed = _has_human_signed_approval(epi_path)
-    outcome, _ = _derive_outcome(manifest, steps, review_info, human_signed=human_signed)
+    approval_detail = _approval_detail(epi_path, steps)
+    signed = bool(approval_detail.get("signed"))
+    outcome, _ = _derive_outcome(
+        manifest, steps, review_info, human_signed=human_signed, signed=signed
+    )
 
     latest_review = review_info.get("reviews")[-1] if isinstance(review_info.get("reviews"), list) and review_info["reviews"] else {}
     approval_step = _extract_latest_approval(steps)
+    decision = _decision_detail(steps)
+    approval = _approval_detail(epi_path, steps)
     timeline = _material_steps(steps)
 
     if signature_valid is True:
@@ -335,6 +577,17 @@ def _build_text_summary(
         f"Analysis error: {getattr(manifest, 'analysis_error', None) or 'None'}",
         f"Analysis summary: {_analysis_headline(analysis)}",
         "",
+        "DECISION AND REASONS",
+        "-" * 21,
+        f"Outcome: {_decision_label(str(decision.get('outcome') or '')) or outcome}",
+        f"Principal reasons: {decision.get('rationale') or 'Not recorded'}",
+        f"Data and rules relied on: {_basis_text(decision.get('basis') or {}) if decision.get('basis') else _policy_basis_text(policy_eval)}",
+        f"Model: {_model_line(decision)}",
+    ]
+    if decision.get("tool"):
+        lines.append(f"Decision action: {decision.get('tool')}({_safe_excerpt(decision.get('tool_args'), 300)})")
+    lines += [
+        "",
         "POLICY COMPLIANCE",
         "-" * 17,
         f"Policy ID: {policy_eval.get('policy_id') or 'No embedded policy evaluation'}",
@@ -352,16 +605,30 @@ def _build_text_summary(
         "",
         "HUMAN REVIEW / APPROVAL",
         "-" * 23,
-        f"Latest approval: {_describe_step(approval_step) if approval_step else 'No approval step recorded'}",
+        f"Human approval: {_approval_headline(approval)}",
+        f"Approver: {approval.get('name') or 'Not recorded'}",
+        f"Approver key fingerprint: {approval.get('fingerprint') or 'Not recorded'}",
+        f"Signed at: {approval.get('signed_at') or 'Not recorded'}",
+    ]
+    stamp = approval.get("timestamp") or {}
+    if stamp:
+        files_line = (
+            f"Independent time: {stamp.get('status')} "
+            f"{(stamp.get('gen_time') or '')} {(stamp.get('tsa_url') or '')}"
+        ).strip()
+        lines.append(files_line)
+    lines += [
+        f"Agent-reported step: {approval.get('agent_reported') or 'None'}",
+        f"Review outcome: {_review_outcome_label(latest_review.get('outcome'), human_signed=human_signed, signed=approval.get('signed', False)) if latest_review else 'No final review record attached'}",
         f"Reviewer: {latest_review.get('reviewer') or review_info.get('reviewed_by') or 'Not recorded'}",
-        f"Review outcome: {_review_outcome_label(latest_review.get('outcome'), human_signed=human_signed) if latest_review else 'No final review record attached'}",
         f"Review notes: {latest_review.get('notes') or 'Not recorded'}",
         "",
         "CRYPTOGRAPHIC PROOF",
         "-" * 19,
         f"Integrity: {integrity_line}",
         f"Signature: {signature_line}",
-        f"Verify locally: epi verify {epi_path.name}",
+        f"Archive SHA-256: {_archive_sha256(epi_path)}",
+        f"Verify locally: epi verify {epi_path.name} --require-human-approval",
         "Verify in browser: https://epilabs.org/verify",
         "",
         "APPENDIX",
@@ -389,8 +656,28 @@ def _build_html_summary(
     approval_step = _extract_latest_approval(steps)
     decision_step = _extract_decision_step(steps)
     human_signed = _has_human_signed_approval(epi_path)
-    outcome, outcome_state = _derive_outcome(manifest, steps, review_info, human_signed=human_signed)
-    outcome_tone = _tone_for_outcome(outcome_state)
+    decision = _decision_detail(steps)
+    approval = _approval_detail(epi_path, steps)
+    outcome, outcome_state = _derive_outcome(
+        manifest, steps, review_info, human_signed=human_signed, signed=approval["signed"]
+    )
+    outcome_tone = _tone_for_outcome(outcome_state, outcome)
+    basis_label = (
+        _basis_text(decision.get("basis") or {})
+        if decision.get("basis")
+        else _policy_basis_text(policy_eval)
+    )
+    model_label = _model_line(decision)
+    if decision.get("tool"):
+        raw_args = decision.get("tool_args")
+        if isinstance(raw_args, (dict, list)):
+            raw_args = json.dumps(raw_args, ensure_ascii=False, sort_keys=True)
+        tool_label = f"{decision.get('tool')}({_safe_excerpt(raw_args, 200)})"
+    else:
+        tool_label = "Recorded decision"
+    approval_label = _approval_headline(approval)
+    approval_fingerprint = approval.get("fingerprint") or "Not recorded"
+    archive_sha = _archive_sha256(epi_path)
     timeline = _material_steps(steps)
 
     if signature_valid is True:
@@ -725,6 +1012,33 @@ def _build_html_summary(
     </section>
 
     <section class="record-card">
+      <h2>Decision and Reasons</h2>
+      <p class="section-copy">What the AI decided, the principal reasons it gave, and the data and rules it relied on. This is the part a customer, regulator or affected person reads.</p>
+      <div class="summary-grid" style="margin-top: 0; margin-bottom: 18px;">
+        <article class="summary-tile">
+          <p class="eyebrow">Outcome</p>
+          <strong><span class="status-pill {outcome_tone}">{_html.escape(outcome)}</span></strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Model</p>
+          <strong>{_html.escape(model_label)}</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Decision action</p>
+          <strong>{_html.escape(_safe_excerpt(tool_label, 120))}</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Human approval</p>
+          <strong>{_html.escape(approval_label)}</strong>
+        </article>
+      </div>
+      <div class="detail-list">
+        <div class="detail-row"><dt>Principal reasons</dt><dd>{_html.escape(str(decision.get("rationale") or "Not recorded"))}</dd></div>
+        <div class="detail-row"><dt>Data and rules relied on</dt><dd>{_html.escape(basis_label)}</dd></div>
+      </div>
+    </section>
+
+    <section class="record-card">
       <h2>Policy Compliance Summary</h2>
       <p class="section-copy">These are the control results embedded in the artifact at the time it was sealed.</p>
       <div class="summary-grid" style="margin-top: 0; margin-bottom: 18px;">
@@ -771,9 +1085,14 @@ def _build_html_summary(
       <h2>Human Review and Approval</h2>
       <p class="section-copy">This section records the human approval and any later attached review notes.</p>
       <div class="detail-list">
-        <div class="detail-row"><dt>Latest approval</dt><dd>{_html.escape(_describe_step(approval_step) if approval_step else "No approval step recorded")}</dd></div>
+        <div class="detail-row"><dt>Human approval</dt><dd>{_html.escape(approval_label)}</dd></div>
+        <div class="detail-row"><dt>Approver</dt><dd>{_html.escape(_render_value(approval.get("name")))}</dd></div>
+        <div class="detail-row"><dt>Approver key fingerprint</dt><dd>{_html.escape(_render_value(approval_fingerprint))}</dd></div>
+        <div class="detail-row"><dt>Signed at</dt><dd>{_html.escape(_render_value(approval.get("signed_at")))}</dd></div>
+        <div class="detail-row"><dt>Independent time</dt><dd>{_html.escape(_render_value((approval.get("timestamp") or {}).get("status")))} {_html.escape(str((approval.get("timestamp") or {}).get("gen_time") or ""))}</dd></div>
+        <div class="detail-row"><dt>Agent-reported step</dt><dd>{_html.escape(approval.get("agent_reported") or "None")}</dd></div>
+        <div class="detail-row"><dt>Review outcome</dt><dd>{_html.escape(_review_outcome_label(latest_review.get("outcome"), human_signed=human_signed, signed=approval["signed"]) if latest_review else "No final review record attached")}</dd></div>
         <div class="detail-row"><dt>Reviewer</dt><dd>{_html.escape(_render_value(latest_review.get("reviewer") or review_info.get("reviewed_by") or ((approval_step or {}).get("content") or {}).get("reviewer")))}</dd></div>
-        <div class="detail-row"><dt>Review outcome</dt><dd>{_html.escape(_review_outcome_label(latest_review.get("outcome"), human_signed=human_signed) if latest_review else "No final review record attached")}</dd></div>
         <div class="detail-row"><dt>Review notes</dt><dd>{_html.escape(_render_value(latest_review.get("notes") or ((approval_step or {}).get("content") or {}).get("reason") or ((approval_step or {}).get("content") or {}).get("reviewer_note")))}</dd></div>
       </div>
     </section>
@@ -784,8 +1103,10 @@ def _build_html_summary(
       <div class="proof-list">
         <div class="detail-row"><dt>Integrity</dt><dd><span class="status-pill {integrity_tone}">{_html.escape(integrity_label)}</span></dd></div>
         <div class="detail-row"><dt>Signature</dt><dd>{_html.escape(signature_label)}{_html.escape(f' - {signer_name}' if signer_name else '')}</dd></div>
-        <div class="detail-row"><dt>Verify locally</dt><dd>{_html.escape(f'epi verify {epi_path.name}')}</dd></div>
+        <div class="detail-row"><dt>Archive SHA-256</dt><dd><code>{_html.escape(archive_sha)}</code></dd></div>
+        <div class="detail-row"><dt>Verify locally</dt><dd>{_html.escape(f'epi verify {epi_path.name} --require-human-approval')}</dd></div>
         <div class="detail-row"><dt>Verify in browser</dt><dd>https://epilabs.org/verify</dd></div>
+        <div class="detail-row"><dt>Approver key to pin</dt><dd>{_html.escape(approval_fingerprint)}</dd></div>
       </div>
       <p class="footnote">The raw execution record in <code>steps.jsonl</code> remains the ground truth. This Decision Record is a readable summary of the sealed artifact.</p>
     </section>
