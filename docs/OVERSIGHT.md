@@ -51,7 +51,10 @@ epi oversight report \
 - **Expected, but never sealed or reported.** In your `--expect` list with
   neither a file nor a report.
 - **Decisions that do not match your witness log**, with the reason: never
-  reported, or a different version of the same case.
+  reported, or a different version of the same case. A file that is a different
+  version of a reported case is listed but **not counted** in the outcome, model
+  or approval totals — the customer cannot rely on anything inside it, least of
+  all the decision it shows.
 
 The period selects what is counted. The reconciliation is over the whole set, so
 a file delivered last month still counts as delivered for a case reported this
@@ -70,17 +73,21 @@ all; the `--expect` list is what turns that silence into a visible gap.
 ## Example: the witness pilot
 
 `examples/witness_pilot/run_witness_pilot.py` produces a vendor, an approver, a
-customer and a forger. Pointed at that customer's directory, the report shows
-three files, one witnessed, two that are a different version of the case that was
-reported, one pinned approval, and the case the customer expected that was never
-sealed:
+customer and a forger. Pointed at the customer's files — the run they were told
+about and the copy the vendor re-sealed afterwards — with their own log and
+expectations, the report counts the one decision the log confirms and names the
+other file as excluded:
 
 ```
-Decisions by outcome        Denied 2 · Approved 1
-Human approvals             signed, key pinned 1 · no approval attached 2
-Against the witness log     witnessed 1 · mismatch 2
+Oversight report  all records, 2026-11-01 to 2026-11-01
+  2 sealed file(s), 1 decision(s) counted, 1 excluded (not the copy your log reported)
+Decisions by outcome        Approved 1
+Human approvals             signed, key pinned 1
+Against the witness log     witnessed 1 · mismatch 1
+Not counted                 run-forged.epi — different version of this case
 Expected, never sealed      CLM-2002
 ```
 
-That is the shape of the conversation with a vendor: not "trust us", but "these
-two files are not the ones you reported, and this case never arrived".
+The forger's file is on the page, with its reason, but its outcome never joins
+the totals. That is the shape of the conversation with a vendor: not "trust us",
+but "this file is not the one you reported, and this case never arrived".
