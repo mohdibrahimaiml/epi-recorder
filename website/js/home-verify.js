@@ -824,7 +824,7 @@ async function processFile(f){
     else if(report.facts.signature_valid===false){report.trust_level='NONE';report.trust_message='Signature invalid — artifact may be tampered'}
     else{report.trust_level='NONE';report.trust_message='Verification incomplete in browser — not verified, use epi verify --policy strict offline for claim audit'}
 
-    try{report.witness=await witnessForFile(manifest,manifestHashForWitness,u8);}catch(e){report.witness={status:'NOT CHECKED'}}
+    try{report.witness=await witnessForFile(manifest,manifestHashForWitness,u8,report.facts.integrity_ok);}catch(e){report.witness={status:'NOT CHECKED'}}
     showReport(report,'');
   }catch(e){showResult('fail','<strong>Verification error</strong><br>'+esc(e.message))}
 }
@@ -889,7 +889,7 @@ async function witnessContentDigest(manifest){
   }catch(e){return null}
 }
 
-function witnessVerdict(manifest,manifestHash,fileSha,contentDigest,log){
+function witnessVerdict(manifest,manifestHash,fileSha,contentDigest,log,integrityOk){
   var goal=String((manifest&&manifest.goal)||'').trim();
   var wf=String((manifest&&manifest.workflow_id)||'');
   var sameId=[],sameCase=[];
@@ -897,9 +897,14 @@ function witnessVerdict(manifest,manifestHash,fileSha,contentDigest,log){
     if(wf&&String(r.workflow_id||'')===wf)sameId.push(r);
     if(goal&&String(r.goal||'').trim()===goal)sameCase.push(r);
   });
-  function exact(r){
+  // Same tiering as epi verify --witness-log: the file hash is the copy that
+  // was reported. A manifest/content match with different bytes is either a
+  // legitimate re-package (members still match the manifest) or an edit.
+  function sameBytes(r){
+    return !!(fileSha&&String(r.file_sha256||'')===fileSha);
+  }
+  function sameContent(r){
     if(manifestHash&&String(r.manifest_hash||'')===manifestHash)return true;
-    if(fileSha&&String(r.file_sha256||'')===fileSha)return true;
     if(contentDigest&&String(r.content_digest||'')===contentDigest)return true;
     return false;
   }
@@ -914,10 +919,24 @@ function witnessVerdict(manifest,manifestHash,fileSha,contentDigest,log){
     return{status:'NOT CONFIRMED',reports:sameId.length,
       detail:'this log carries signed witness receipts; pin the witness key to check them (epi verify --witness-pubkey)'};
   }
-  var hit=sameId.filter(exact)[0]||(log.reports||[]).filter(exact)[0];
-  if(hit){
-    return{status:'WITNESSED',reports:(log.reports||[]).length,received_at:hit.received_at||latest(sameId),
+  var pool=sameId.length?sameId:(log.reports||[]);
+  var exactHit=pool.filter(sameBytes)[0];
+  if(exactHit){
+    return{status:'WITNESSED',reports:(log.reports||[]).length,received_at:exactHit.received_at||latest(sameId),
       detail:'your own log (unsigned) records this case; the bytes you were handed match what was reported'};
+  }
+  var contentHit=pool.filter(sameContent)[0];
+  if(contentHit){
+    var when=contentHit.received_at||latest(sameId)||'unknown time';
+    if(integrityOk===false){
+      // The signed manifest matches, the bytes do not, and the members no
+      // longer match that manifest: this is the re-sealed forgery, not a
+      // re-package. Never hand it the customer's reassurance.
+      return{status:'MISMATCH',reports:(log.reports||[]).length,received_at:when,
+        detail:'a report for this case exists (received '+when+'), but this file was altered after it was reported: its contents no longer match the manifest that was witnessed'};
+    }
+    return{status:'WITNESSED',reports:(log.reports||[]).length,received_at:when,repackaged:true,
+      detail:'your own log (unsigned) records this case (received '+when+'); the file was re-packaged afterwards (viewer refreshed or receipt added) and its sealed contents still match'};
   }
   if(sameId.length){
     return{status:'MISMATCH',reports:sameId.length,received_at:latest(sameId),
@@ -958,12 +977,12 @@ async function loadWitnessFile(f){
   }
 }
 
-async function witnessForFile(manifest,manifestHash,u8){
+async function witnessForFile(manifest,manifestHash,u8,integrityOk){
   if(!witnessLog)return{status:'NOT CHECKED'};
   var fileSha=null,contentDigest=null;
   try{fileSha=await sha256(u8)}catch(e){}
   contentDigest=await witnessContentDigest(manifest);
-  return witnessVerdict(manifest,manifestHash,fileSha,contentDigest,witnessLog);
+  return witnessVerdict(manifest,manifestHash,fileSha,contentDigest,witnessLog,integrityOk);
 }
 
 function setDropSealState(type){
