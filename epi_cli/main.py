@@ -1007,6 +1007,14 @@ app.add_typer(
     rich_help_panel="Everyday",
 )
 
+from epi_cli.oversight import app as oversight_app
+app.add_typer(
+    oversight_app,
+    name="oversight",
+    help="Oversight: decisions by outcome, model and approval over a period, from your files and your witness log",
+    rich_help_panel="Everyday",
+)
+
 from epi_cli.cloud import app as cloud_app
 app.add_typer(
     cloud_app,

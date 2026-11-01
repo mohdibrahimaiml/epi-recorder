@@ -1,10 +1,8 @@
-"""Refresh `claimed_sha256` in every copy of the DEMO trust page data.
+"""Refresh `claimed_sha256` and `size_bytes` in every copy of the DEMO data.
 
-Run after `python scripts/reseal_demo_epis.py --refresh-viewer`: re-sealing
-changes the shipped bytes, so the hashes the DEMO page pins go stale
-(`tests/test_demo_trust_page.py` compares them to the shipped file).
-
-Only the hash strings are rewritten, so the diff stays three lines per copy.
+Run after `python scripts/reseal_demo_epis.py`: re-sealing changes the shipped
+bytes, so both the hash and the byte count the DEMO page prints go stale
+(`tests/test_demo_trust_page.py` compares each to the served file).
 """
 
 from __future__ import annotations
@@ -25,24 +23,28 @@ COPIES = [
 
 def main() -> int:
     canonical = json.loads(COPIES[0].read_text(encoding="utf-8"))
-    replacements: list[tuple[str, str]] = []
+    changed = False
     for item in canonical.get("files") or []:
         rel = str(item["path"]).lstrip("/")
-        digest = hashlib.sha256((WEBSITE / rel).read_bytes()).hexdigest()
-        old = str(item.get("claimed_sha256") or "")
-        if old != digest:
-            print(f"{rel}: {old} -> {digest}")
-            replacements.append((old, digest))
-    if not replacements:
-        print("pinned hashes already current")
+        path = WEBSITE / rel
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        size = path.stat().st_size
+        if str(item.get("claimed_sha256") or "") != digest:
+            print(f"{rel}: sha256 {item.get('claimed_sha256')} -> {digest}")
+            item["claimed_sha256"] = digest
+            changed = True
+        if item.get("size_bytes") != size:
+            print(f"{rel}: size {item.get('size_bytes')} -> {size}")
+            item["size_bytes"] = size
+            changed = True
+    if not changed:
+        print("pinned hashes and sizes already current")
         return 0
 
+    text = json.dumps(canonical, indent=2, ensure_ascii=False) + "\n"
     for path in COPIES:
         if not path.exists():
             continue
-        text = path.read_text(encoding="utf-8")
-        for old, new in replacements:
-            text = text.replace(old, new)
         path.write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote {path.relative_to(ROOT)}")
     return 0

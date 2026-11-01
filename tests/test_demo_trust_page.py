@@ -52,6 +52,53 @@ def test_demo_uses_three_real_epi_files_with_matching_hashes():
         assert "DEMO" in item.get("label", "")
 
 
+def test_demo_file_sizes_match_the_shipped_bytes():
+    """The card prints `size_bytes` next to the hash.
+
+    A stale count ("498868 bytes" for a 17 KB file) is a checkable falsehood on
+    the page whose whole claim is that you can check it. Hash-only tests let it
+    drift; this one compares the number the page prints with the file it serves.
+    """
+    data = json.loads(DEMO_JSON.read_text(encoding="utf-8"))
+    for item in data.get("files") or []:
+        rel = item["path"].lstrip("/")
+        path = WEBSITE / rel
+        assert path.is_file(), f"missing shipped sample {rel}"
+        assert item["size_bytes"] == path.stat().st_size, f"stale size_bytes for {rel}"
+
+
+def test_every_mirror_serves_the_same_demo_bytes():
+    """website/ is the source; the deployed mirrors must not re-seal or re-count.
+
+    Each mirror used to carry its own copy, so one page pinned a hash it did not
+    serve. Bytes and claimed size must now agree everywhere the page is served.
+    (verify_portal/static ships its own subset by design and is not checked.)
+    """
+    source = json.loads(DEMO_JSON.read_text(encoding="utf-8"))
+    mirrors = [
+        (WEBSITE, "website"),
+        (REPO / "site", "site"),
+        (REPO / "epi-official", "epi-official"),
+    ]
+    for mirror, name in mirrors:
+        mirror_data = mirror / "t" / "acme-demo" / "demo-data.json"
+        assert mirror_data.is_file(), f"{name} has no demo-data.json"
+        served = json.loads(mirror_data.read_text(encoding="utf-8"))
+        assert len(served.get("files") or []) == len(source.get("files") or []), (
+            f"{name} lists a different number of demo files"
+        )
+        for item, mirrored in zip(source["files"], served["files"]):
+            rel = item["path"].lstrip("/")
+            path = mirror / rel
+            assert path.is_file(), f"{name} is missing {rel}"
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == item["claimed_sha256"], (
+                f"{name} serves different bytes for {rel}"
+            )
+            assert mirrored["size_bytes"] == path.stat().st_size, (
+                f"{name} prints a stale size for {rel}"
+            )
+
+
 def test_demo_counts_are_labelled_illustrations():
     data = json.loads(DEMO_JSON.read_text(encoding="utf-8"))
     cp = data.get("checkpoint_DEMO") or {}

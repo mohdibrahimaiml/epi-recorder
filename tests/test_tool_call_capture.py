@@ -491,3 +491,21 @@ def test_viewer_shows_the_tool_call_instead_of_a_blank_response(tmp_path):
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_session_decision_works_without_an_agent_run(tmp_path):
+    """The obvious call must exist: epi.decision(...) on the session itself."""
+    from epi_recorder import record
+
+    epi = tmp_path / "flat.epi"
+    with record(str(epi)) as session:
+        session.decision(
+            "deny_claim",
+            rationale="Policy exclusion 4.2 (flood) applies.",
+            basis={"policy": "HO3-4.2"},
+        )
+
+    step = _step(_steps(epi), "agent.decision")
+    assert step["decision"] == "deny_claim"
+    assert "exclusion 4.2" in step["rationale"]
+    assert step["basis"]["policy"] == "HO3-4.2"

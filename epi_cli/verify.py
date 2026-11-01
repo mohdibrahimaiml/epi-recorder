@@ -791,6 +791,28 @@ def _verify_witness_receipt(
     return True, ""
 
 
+def _members_match_manifest(epi_file: Path) -> bool:
+    """True when the file's members still match the signed manifest.
+
+    A genuine re-package after the seal (``epi scitt register`` adds a
+    transparency receipt and re-signs the outer file) leaves every member
+    untouched: only the envelope changes. Edited evidence does not — the
+    members stop matching the manifest they were signed with.
+
+    The distinction matters because "re-packaged" reads as harmless. Calling a
+    tampered file "WITNESSED, re-packaged" would hand the forger the vendor's
+    own reassurance.
+    """
+    try:
+        from epi_core.container import EPIContainer
+
+        ok, _mismatches = EPIContainer.verify_integrity(epi_file)
+        return bool(ok)
+    except Exception:
+        # Fail closed: an unreadable file is not a re-package.
+        return False
+
+
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
@@ -942,6 +964,39 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
     same = same_legacy + same_signed  # type: ignore[operator]
     result["matches"] = len(same)
     if not same:
+        # The workflow id is not in the log. That is NOT the strongest thing we
+        # can say: if the customer's log holds a report for the SAME CASE (by
+        # goal), this is a different version of a case they were told about -
+        # a re-sealed record, not a case that never happened.
+        goal = str(getattr(manifest, "goal", "") or "").strip()
+        goal_hits: list[dict] = []
+        if goal:
+            goal_hits = [
+                entry for entry in legacy_entries
+                if str(entry.get("goal") or "").strip() == goal
+            ]
+            goal_hits += [
+                item["inner"]
+                for item in signed_items
+                if isinstance(item.get("inner"), dict)
+                and str(item["inner"].get("goal") or "").strip() == goal
+            ]
+        if goal_hits:
+            latest = max(
+                (str(entry.get("received_at") or entry.get("_witness_received_at") or "")
+                 for entry in goal_hits),
+                default="",
+            )
+            result["status"] = "MISMATCH"
+            result["matches"] = len(goal_hits)
+            result["received_at"] = latest or None
+            result["matched_by"] = "goal"
+            result["detail"] = (
+                f"a different version of {goal!r} was reported to you "
+                f"({len(goal_hits)} report(s), latest {latest or 'unknown time'}); "
+                "this copy was never reported"
+            )
+            return result
         result["status"] = "NOT IN WITNESS LOG"
         result["detail"] = (
             f"workflow {workflow_id} not found in {_reports_count} witness reports; "
@@ -1034,6 +1089,17 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             # customer was told about, the outer file is not byte-identical.
             if content_digest and entry.get("content_digest") == content_digest:
                 _at = entry.get("_witness_received_at", entry.get("received_at"))
+                if not _members_match_manifest(epi_file):
+                    # Same manifest, different members: the evidence was edited
+                    # after the report. That is the forgery, not a re-package.
+                    result["status"] = "MISMATCH"
+                    result["received_at"] = _at
+                    result["detail"] = (
+                        f"a report for this case exists (received {_at or 'unknown time'}), "
+                        "but THIS file's contents differ from the manifest that was "
+                        "reported — it was altered after the report, not re-packaged"
+                    )
+                    return result
                 result["status"] = "WITNESSED"
                 result["mode"] = "own-log-unsigned"
                 result["received_at"] = _at
@@ -1191,6 +1257,16 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         inner = item.get("inner") or {}
         if content_digest and inner.get("content_digest") == content_digest:
             _at = _signed_received_at(item)
+            if not _members_match_manifest(epi_file):
+                # Same manifest, different members: altered after the report.
+                result["status"] = "MISMATCH"
+                result["received_at"] = _at
+                result["detail"] = (
+                    f"a report for this case exists (received {_at or 'unknown time'}), "
+                    "but THIS file's contents differ from the manifest that was "
+                    "reported — it was altered after the report, not re-packaged"
+                )
+                return result
             result["status"] = "WITNESSED"
             result["mode"] = "verified-receipt"
             result["received_at"] = _at
@@ -2485,6 +2561,57 @@ def verify_command(
         raise typer.Exit(1)
 
 
+def _rich_escape(text: object) -> str:
+    """Literal text for a rich-markup line (a decision may contain brackets)."""
+    try:
+        from rich.markup import escape as _escape
+
+        return _escape(str(text))
+    except Exception:
+        return str(text).replace("[", "\\[")
+
+
+def _sealed_decision_summary(steps: list) -> str | None:
+    """One line: what the AI decided, read from the sealed steps.
+
+    A tool call is the decision when the agent acts through tools; otherwise the
+    explicit agent.decision step. Returns None when the run recorded neither, so
+    the report says nothing rather than guessing.
+    """
+    import json as _json
+
+    tool_call = None
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        kind = step.get("kind")
+        content = step.get("content") if isinstance(step.get("content"), dict) else {}
+        if kind in ("agent.decision", "decision"):
+            decision = content.get("decision") or content.get("verdict") or content.get("outcome")
+            if decision:
+                reason = content.get("rationale") or content.get("reason")
+                line = str(decision)
+                if reason:
+                    line += f" — {str(reason).strip()}"
+                return line
+        if kind == "llm.response" and tool_call is None:
+            calls = content.get("tool_calls") or []
+            if calls and isinstance(calls[0], dict):
+                call = calls[0]
+                args = call.get("arguments_parsed")
+                if args is None:
+                    args = call.get("arguments")
+                if isinstance(args, str):
+                    rendered = args
+                else:
+                    try:
+                        rendered = _json.dumps(args, ensure_ascii=False, sort_keys=True)
+                    except Exception:
+                        rendered = str(args)
+                tool_call = f"{call.get('name') or 'tool'}({rendered})"
+    return tool_call
+
+
 def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_root: str | None = None):
     """Print the human-readable verification results with Facts/Identity/Decision separation.
 
@@ -2628,6 +2755,18 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(f"[bold]DECISION: {decision_status}[/bold]")
     content_lines.append(f"Policy: {decision_policy}")
     content_lines.append(f"Reason: {decision_reason}")
+    sealed_decision = report.get("sealed_decision")
+    if sealed_decision is None:
+        try:
+            from epi_core.container import EPIContainer
+
+            sealed_decision = _sealed_decision_summary(EPIContainer.read_steps(epi_file))
+        except Exception:
+            sealed_decision = None
+    if sealed_decision:
+        content_lines.append(
+            f"[bold]  Decision:[/bold] {_rich_escape(sealed_decision)}"
+        )
     content_lines.append("")
 
     # Identity Layer FIRST — trust context before green seal proofs

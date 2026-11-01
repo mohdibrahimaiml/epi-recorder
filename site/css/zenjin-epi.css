@@ -1189,6 +1189,81 @@ html[data-theme="light"] .z-hero-monolith {
   }
 }
 
+/* Example decision switcher: deny / approve / escalate.
+   One monolith, three real records; the tab row sits inside the card so the
+   chrome does not change between outcomes. */
+.z-decision-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--border-grid);
+  background: var(--surface-elevated);
+}
+
+.z-decision-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0.4rem 0.4rem 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+.z-decision-tab:hover {
+  color: var(--foreground);
+}
+
+.z-decision-tab[aria-selected="true"] {
+  color: var(--foreground);
+  border-color: var(--border-card);
+  background: rgba(7, 7, 8, 0.86);
+}
+
+html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.z-decision-tab:focus-visible {
+  outline: 2px solid var(--acc-envelope);
+  outline-offset: 2px;
+}
+
+.z-decision-pause {
+  margin-left: auto;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.z-decision-pause:hover {
+  color: var(--foreground);
+  border-color: var(--border-grid);
+}
+
+.z-decision-pause:focus-visible {
+  outline: 2px solid var(--acc-envelope);
+  outline-offset: 2px;
+}
+
+.z-hero-monolith__panel[hidden] {
+  display: none;
+}
+
 /* ── Blur-Fade & Scroll-Reveal Animation Classes ─────────────────── */
 .z-blur-in {
   opacity: 0;
@@ -2174,3 +2249,24 @@ html[data-theme="light"] .z-stage__pill {
 .cf-status.ok { border-color: var(--acc-envelope); color: var(--acc-envelope); }
 .cf-status.warn { border-color: var(--acc-trust); color: var(--acc-trust); }
 .cf-status.err { border-color: var(--acc-policy); color: var(--acc-policy); }
+
+/* Small footnote under a grid section (e.g. "EPI does not make anyone compliant"),
+   aligned with the card padding above it. */
+.z-section-note {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 40rem) {
+  .z-section-note {
+    padding: 1.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-section-note {
+    padding: 1.75rem 3rem;
+  }
+}

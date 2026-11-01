@@ -1,64 +1,34 @@
 WEBVTT
 
-00:00:00.800 --> 00:00:03.119
-You already have immutable logs.
+00:00:00.600 --> 00:00:04.100
+When an AI denies a claim, someone asks why.
 
-00:00:03.219 --> 00:00:05.538
-CloudTrail integrity validation.
+00:00:05.000 --> 00:00:07.850
+The vendor sends a PDF, and a promise.
 
-00:00:05.638 --> 00:00:06.538
-Object Lock.
+00:00:09.200 --> 00:00:14.050
+EPI sends the decision itself: sealed, signed, and readable.
 
-00:00:06.638 --> 00:00:10.044
-But that only proves the record wasn't touched.
+00:00:14.600 --> 00:00:19.500
+What the model saw. What it decided. Which rule it applied. Who signed off.
 
-00:00:10.144 --> 00:00:11.380
-Not that it's complete.
+00:00:21.000 --> 00:00:25.200
+Their reviewer checks it in a browser. No install. No account.
 
-00:00:12.400 --> 00:00:15.108
-EPI records the application layer.
+00:00:26.600 --> 00:00:31.450
+And if someone edits the record, and re-seals it with the vendor's own key...
 
-00:00:15.208 --> 00:00:19.906
-The prompt, the answer, the tool call, the policy decision.
+00:00:31.600 --> 00:00:33.800
+the signature still verifies.
 
-00:00:20.006 --> 00:00:23.390
-Hash chained, redacted, signed into one file.
+00:00:34.200 --> 00:00:35.900
+Their copy does not.
 
-00:00:24.400 --> 00:00:26.605
-It answers three questions.
+00:00:37.000 --> 00:00:41.450
+A signature protects the file. The witness protects the customer.
 
-00:00:26.705 --> 00:00:28.583
-Were the bytes altered.
+00:00:43.000 --> 00:00:47.100
+One workflow. Thirty days. Four and a half thousand euros.
 
-00:00:28.683 --> 00:00:30.725
-Is the signing key yours.
-
-00:00:30.825 --> 00:00:32.948
-Did the run follow policy.
-
-00:00:33.048 --> 00:00:36.160
-Change one byte, and the seal fails closed.
-
-00:00:37.100 --> 00:00:39.479
-The file is HTML and a ZIP.
-
-00:00:39.579 --> 00:00:43.897
-Open it in a browser, no account, no AWS console.
-
-00:00:43.997 --> 00:00:49.260
-Or witness only the hash, and keep the payload in your bucket.
-
-00:00:50.500 --> 00:00:52.521
-Don't argue with auditors.
-
-00:00:52.621 --> 00:00:53.942
-Hand them a file.
-
-00:00:54.042 --> 00:00:57.461
-Your immutable logs can stay where they are.
-
-00:00:57.561 --> 00:00:58.494
-Open source.
-
-00:00:58.594 --> 00:00:58.660
-M I T.
+00:00:49.000 --> 00:00:51.700
+EPI. Hand them a file they can check.

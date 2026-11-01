@@ -1,0 +1,2272 @@
+/* ==========================================================================
+   EPI LABS — ZENJIN-GRADE ARCHITECTURAL DESIGN SYSTEM (zenjin-epi.css)
+   Mobile-First + 1fr minmax(0, 90rem) 1fr Subgrid Spine · 48px Ruled Gutters
+   Inter Variable + Instrument Serif + JetBrains Mono · OKLCH Jewel Accents
+   ========================================================================== */
+
+@import url('https://fonts.bunny.net/css?family=instrument-serif:400,400i|inter:300,400,500,600|jetbrains-mono:400,500,600&display=swap');
+
+:root {
+  color-scheme: dark;
+
+  /* Base Surfaces */
+  --background: #000000;
+  --stage: #070708;
+  --surface: #0a0b0e;
+  --surface-elevated: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.055);
+  --nav-bg: rgba(0, 0, 0, 0.82);
+  --popover-bg: rgba(7, 7, 8, 0.96);
+
+  /* Typography Colors (WCAG AA >= 4.5:1 calibrated on #000 & #070708) */
+  --foreground: oklch(98.5% 0 0);          /* #fafafa - zinc-50 */
+  --text-primary: #f4f4f5;                 /* zinc-100 */
+  --text-secondary: #d4d4d8;               /* zinc-300 */
+  --text-body: #a1a1aa;                    /* zinc-400 (8.1:1 on black) */
+  --text-muted: #90909b;                   /* calibrated > 5.2:1 on #070708 */
+
+  /* Hairline Structural Borders & Gutters */
+  --border-grid: rgba(255, 255, 255, 0.08);
+  --border-nav: rgba(255, 255, 255, 0.12);
+  --border-card: rgba(255, 255, 255, 0.12);
+  --border-faq: rgba(255, 255, 255, 0.24);
+  --border-ghost: rgba(255, 255, 255, 0.35);
+  --gutter-bg: #000000;
+  --gutter-line: rgba(255, 255, 255, 0.075);
+  --dot-matrix: rgba(255, 255, 255, 0.14);
+
+  /* Primary CTA Inversion */
+  --cta-bg: #ffffff;
+  --cta-fg: #09090b;
+  --cta-hover: #e4e4e7;
+
+  /* 6 Semantic Pillar Accents (OKLCH / Hex Jewel Tones) */
+  --acc-envelope: #10b981;                 /* Emerald: Envelope v2 */
+  --acc-trust: #f59e0b;                    /* Amber/Gold: Seal != Identity != Policy */
+  --acc-capture: #8b5cf6;                  /* Violet: Stack & Gateway Capture */
+  --acc-witness: #06b6d4;                  /* Cyan: EPI Cloud Witness */
+  --acc-policy: #f43f5e;                   /* Rose/Crimson: Policy & Fault Analyzer */
+  --acc-audit: #6366f1;                    /* Indigo: Annex IV / AIUC-1 / Claims */
+
+  /* Typography Stacks */
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, Cambria, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Easing & Motion */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-power3: cubic-bezier(0.215, 0.61, 0.355, 1);
+
+  /* Back-compat aliases required by home-verify.js & contact.js */
+  --acc: #10b981;
+  --acc-hi: #34d399;
+  --ok: #10b981;
+  --ok-bg: rgba(16, 185, 129, 0.1);
+  --verified: #34d399;
+  --verified-bg: rgba(16, 185, 129, 0.1);
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.1);
+  --bad: #f43f5e;
+  --bad-bg: rgba(244, 63, 94, 0.1);
+  --tamper: #f43f5e;
+  --tamper-bg: rgba(244, 63, 94, 0.1);
+  --ink: var(--foreground);
+  --ink-muted: var(--text-body);
+  --ink-dim: var(--text-muted);
+  --border: var(--border-card);
+  --line: var(--border-grid);
+  --edge: var(--border-card);
+  --edge-2: var(--border-faq);
+  --bg: var(--background);
+  --bg-2: var(--stage);
+  --bg-3: var(--surface);
+  --mut: var(--text-body);
+  --dim: var(--text-muted);
+  --body: var(--text-secondary);
+}
+
+/* Light Mode Support (Forensic Paper Theme) */
+html[data-theme="light"] {
+  color-scheme: light;
+  --background: #fafafa;
+  --stage: #f2f3f5;
+  --surface: #ffffff;
+  --surface-elevated: rgba(0, 0, 0, 0.025);
+  --surface-hover: rgba(0, 0, 0, 0.045);
+  --nav-bg: rgba(250, 250, 250, 0.85);
+  --popover-bg: rgba(255, 255, 255, 0.98);
+
+  --foreground: #09090b;
+  --text-primary: #18181b;
+  --text-secondary: #27272a;
+  --text-body: #52525b;
+  --text-muted: #5f5f69;
+
+  --border-grid: rgba(0, 0, 0, 0.08);
+  --border-nav: rgba(0, 0, 0, 0.1);
+  --border-card: rgba(0, 0, 0, 0.12);
+  --border-faq: rgba(0, 0, 0, 0.2);
+  --border-ghost: rgba(0, 0, 0, 0.35);
+  --gutter-bg: #f4f4f6;
+  --gutter-line: rgba(0, 0, 0, 0.06);
+  --dot-matrix: rgba(0, 0, 0, 0.14);
+
+  --cta-bg: #09090b;
+  --cta-fg: #fafafa;
+  --cta-hover: #27272a;
+
+  --acc-envelope: #059669;
+  --acc-trust: #d97706;
+  --acc-capture: #7c3aed;
+  --acc-witness: #0891b2;
+  --acc-policy: #e11d48;
+  --acc-audit: #4f46e5;
+
+  --verified: #059669;
+  --verified-bg: rgba(5, 150, 105, 0.08);
+  --warn: #b45309;
+  --warn-bg: rgba(180, 83, 9, 0.08);
+  --tamper: #be123c;
+  --tamper-bg: rgba(190, 18, 60, 0.08);
+}
+
+/* ── Base Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0 solid var(--border-grid);
+}
+
+html {
+  height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  scroll-behavior: smooth;
+  scroll-padding-top: 4rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  font-family: var(--font-sans);
+}
+
+body {
+  min-height: 100vh;
+  max-width: 100%;
+  overflow-x: clip;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  transition: background-color 0.35s var(--ease-out), color 0.35s var(--ease-out);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+::selection {
+  background-color: var(--foreground);
+  color: var(--background);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  z-index: 100;
+  background: var(--cta-bg);
+  color: var(--cta-fg);
+  padding: 0.6rem 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  transition: top 0.2s var(--ease-out);
+}
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+/* ── Focus Ring Standard (Matches Zenjin focus-visible) ──────────── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--foreground);
+}
+
+/* ── Architectural 3-Column Subgrid Spine ────────────────────────── */
+.z-shell {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-shell {
+    grid-template-columns: 1fr minmax(0, 90rem) 1fr;
+  }
+}
+
+.z-gutter {
+  display: none;
+  position: relative;
+  z-index: 20;
+  background-color: var(--gutter-bg);
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 47px,
+    var(--gutter-line) 47px 48px
+  );
+}
+
+@media (min-width: 64rem) {
+  .z-gutter {
+    display: block;
+  }
+  .z-gutter--left {
+    border-right: 1px solid var(--border-grid);
+  }
+  .z-gutter--right {
+    border-left: 1px solid var(--border-grid);
+  }
+}
+
+.z-center {
+  min-width: 0;
+  min-height: 100%;
+  width: 100%;
+  background-color: var(--background);
+}
+
+@media (min-width: 64rem) {
+  .z-center {
+    border-left: 1px solid var(--border-grid);
+    border-right: 1px solid var(--border-grid);
+  }
+}
+
+/* ── Fixed Glassmorphic Navbar (Zenjin Mobile-First Spec) ────────── */
+.z-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  width: 100%;
+  display: flex;
+  border-bottom: 1px solid var(--border-nav);
+  background-color: var(--nav-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+  transition: background-color 0.5s var(--ease-out), border-color 0.5s var(--ease-out);
+}
+
+@media (min-width: 64rem) {
+  .z-header {
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 90rem) 1fr;
+  }
+}
+
+.z-header__gutter-left,
+.z-header__gutter-right {
+  display: none;
+  min-height: 3.5rem;
+}
+
+@media (min-width: 64rem) {
+  .z-header__gutter-left {
+    display: block;
+    border-right: 1px solid var(--border-nav);
+  }
+  .z-header__gutter-right {
+    display: block;
+    border-left: 1px solid var(--border-nav);
+  }
+}
+
+.z-header__center {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+@media (min-width: 40rem) {
+  .z-header__center {
+    padding: 0.875rem 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-header__center {
+    padding: 0.875rem 2rem;
+    border-left: 1px solid var(--border-nav);
+    border-right: 1px solid var(--border-nav);
+  }
+}
+
+/* Dual-Theme Crossfading Brand Logo (Matches Zenjin inline-grid logo) */
+.z-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+}
+
+.z-brand__stack {
+  display: inline-grid;
+  align-items: center;
+}
+
+.z-brand__stack > img {
+  grid-column-start: 1;
+  grid-row-start: 1;
+  justify-self: start;
+  height: 1.625rem;           /* 26px on mobile (matches Zenjin h-6) */
+  width: auto;
+  max-width: min(11rem, 62vw);
+  object-fit: contain;
+  object-position: left center;
+  transition: opacity 0.35s var(--ease-out);
+}
+
+@media (min-width: 40rem) {
+  .z-brand__stack > img {
+    height: 2rem;             /* 32px on sm (matches Zenjin sm:h-8) */
+    max-width: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-brand__stack > img {
+    height: 2.25rem;          /* 36px on lg (matches Zenjin lg:h-9) */
+  }
+}
+
+.z-brand__img--dark {
+  opacity: 1;
+}
+.z-brand__img--light {
+  opacity: 0;
+}
+
+html[data-theme="light"] .z-brand__img--dark {
+  opacity: 0;
+}
+html[data-theme="light"] .z-brand__img--light {
+  opacity: 1;
+}
+
+.z-brand__version {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--acc-envelope);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+  padding: 0.1rem 0.42rem;
+  border-radius: 0.25rem;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 40rem) {
+  .z-brand__version {
+    display: inline-block;
+  }
+}
+
+/* Footer Statement Logo (Matches Zenjin h-16 sm:h-24 md:h-28 lg:h-32) */
+.z-footer-logo .z-brand__stack > img {
+  height: 3.25rem;            /* 52px mobile */
+  max-width: 100%;
+}
+@media (min-width: 40rem) {
+  .z-footer-logo .z-brand__stack > img {
+    height: 4.25rem;          /* 68px sm */
+  }
+}
+@media (min-width: 64rem) {
+  .z-footer-logo .z-brand__stack > img {
+    height: 5.25rem;          /* 84px lg */
+  }
+}
+
+.z-nav {
+  display: none;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+@media (min-width: 48rem) {
+  .z-nav {
+    display: flex;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-nav {
+    gap: 2rem;
+  }
+}
+
+.z-nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: 0.25rem;
+  transition: color 0.15s var(--ease-out);
+  padding: 0.2rem 0;
+}
+
+.z-nav__link:hover {
+  color: var(--foreground);
+}
+
+.z-nav__link[aria-current="page"] {
+  color: var(--foreground);
+}
+
+.z-nav__link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.25rem;
+  height: 1px;
+  background-color: var(--foreground);
+}
+
+.z-nav__chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  transition: transform 0.3s var(--ease-out);
+}
+
+.z-nav__dropdown-wrap {
+  position: relative;
+}
+
+.z-nav__dropdown-wrap[data-open="true"] .z-nav__chevron {
+  transform: rotate(180deg);
+}
+
+/* Mega-Menu Popover (Matches Zenjin Solutions Menu) */
+.z-popover {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  z-index: 60;
+  width: min(38rem, 78vw);
+  transform: translateX(-50%) translateY(-6px);
+  padding-top: 0.75rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease-power3), transform 0.22s var(--ease-power3), visibility 0.22s;
+}
+
+.z-nav__dropdown-wrap[data-open="true"] .z-popover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.z-popover__panel {
+  border-radius: 1rem;
+  border: 1px solid var(--border-nav);
+  background-color: var(--popover-bg);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  padding: 0.75rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+}
+
+.z-popover__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  transition: background-color 0.15s var(--ease-out);
+}
+
+.z-popover__top:hover {
+  background-color: var(--surface-hover);
+}
+
+.z-popover__grid {
+  margin-top: 0.25rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+}
+
+@media (min-width: 40rem) {
+  .z-popover__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.z-popover__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  transition: background-color 0.15s var(--ease-out);
+}
+
+.z-popover__item:hover {
+  background-color: var(--surface-hover);
+}
+
+.z-popover__dot {
+  margin-top: 0.375rem;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.z-popover__title {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.z-popover__hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+/* Nav Actions — On mobile (<768px), Sign In moves into #mmenu just like Zenjin */
+.z-nav__auth-desktop {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .z-nav__auth-desktop {
+    display: inline-flex;
+  }
+}
+
+.z-nav__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.375rem;
+  background-color: var(--cta-bg);
+  color: var(--cta-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background-color 0.15s var(--ease-out);
+}
+
+.z-nav__cta:hover {
+  background-color: var(--cta-hover);
+}
+
+.z-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.z-theme-btn:hover {
+  color: var(--foreground);
+  background-color: var(--surface-hover);
+}
+
+/* Zenjin Mobile "Menu" Button */
+.z-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: 0.25rem;
+  transition: color 0.15s;
+}
+
+.z-burger:hover {
+  color: var(--foreground);
+}
+
+@media (min-width: 48rem) {
+  .z-burger {
+    display: none;
+  }
+}
+
+/* Zenjin Mobile Floating Card Menu (left-4 right-4 top-full rounded-2xl border p-4 shadow-xl) */
+.z-mobile-menu {
+  display: none;
+  position: fixed;
+  top: 3.75rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 55;
+  max-height: calc(100dvh - 4.75rem);
+  overflow-y: auto;
+  border-radius: 1rem;
+  border: 1px solid var(--border-nav);
+  background-color: var(--popover-bg);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  padding: 1rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.75);
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.z-mobile-menu.open {
+  display: flex;
+}
+
+.z-mobile-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.z-mobile-menu a.z-mobile-menu__sub {
+  padding-left: 1.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-body);
+}
+
+.z-mobile-menu a:hover {
+  background-color: var(--surface-hover);
+  color: var(--foreground);
+}
+
+/* ── Typography System (Weight-400 Display + Tight Tracking) ─────── */
+.z-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-body);
+}
+
+.z-eyebrow__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background-color: var(--acc-envelope);
+  box-shadow: 0 0 10px var(--acc-envelope);
+  flex-shrink: 0;
+}
+
+.z-h1 {
+  max-width: 36rem;
+  font-family: var(--font-sans);
+  font-size: 1.875rem;        /* 30px on mobile (matches Zenjin text-3xl) */
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+  text-wrap: balance;
+}
+
+@media (min-width: 40rem) {
+  .z-h1 {
+    font-size: 2.25rem;       /* 36px sm:text-4xl */
+  }
+}
+
+@media (min-width: 48rem) {
+  .z-h1 {
+    font-size: 3rem;          /* 48px md:text-5xl */
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-h1 {
+    font-size: 3.5rem;        /* 56px lg:text-[3.5rem] */
+    line-height: 1.08;
+  }
+}
+
+@media (min-width: 80rem) {
+  .z-h1 {
+    font-size: 4rem;          /* 64px xl:text-[4rem] */
+  }
+}
+
+.z-serif-accent {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.z-h2 {
+  max-width: 36rem;
+  font-family: var(--font-sans);
+  font-size: 1.875rem;        /* 30px mobile (matches Zenjin text-3xl) */
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+  text-wrap: balance;
+}
+
+@media (min-width: 40rem) {
+  .z-h2 {
+    font-size: 2.25rem;       /* 36px sm:text-4xl */
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-h2 {
+    font-size: 3rem;          /* 48px lg:text-5xl */
+    line-height: 1.08;
+  }
+}
+
+.z-h2--display {
+  font-size: 3rem;            /* 48px mobile (matches Zenjin FAQ text-5xl) */
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+@media (min-width: 40rem) {
+  .z-h2--display {
+    font-size: 3.75rem;       /* 60px sm:text-6xl */
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-h2--display {
+    font-size: 4.5rem;        /* 72px lg:text-7xl */
+  }
+}
+
+.z-h3-module {
+  max-width: 32rem;
+  font-family: var(--font-sans);
+  font-size: 1.5rem;          /* 24px mobile (matches Zenjin text-2xl) */
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+  text-wrap: balance;
+}
+
+@media (min-width: 40rem) {
+  .z-h3-module {
+    font-size: 1.875rem;      /* 30px sm:text-3xl */
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-h3-module {
+    font-size: 2rem;          /* 32px lg:text-[2rem] */
+    line-height: 1.22;
+  }
+}
+
+.z-h3-card {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+@media (min-width: 40rem) {
+  .z-h3-card {
+    font-size: 1.25rem;
+  }
+}
+
+.z-body {
+  font-size: 0.875rem;        /* 14px mobile (matches Zenjin text-sm leading-relaxed) */
+  line-height: 1.65;
+  color: var(--text-body);
+  text-wrap: pretty;
+}
+
+@media (min-width: 40rem) {
+  .z-body {
+    font-size: 1rem;          /* 16px sm:text-base sm:leading-7 */
+    line-height: 1.75;
+  }
+}
+
+/* ── Buttons (Zenjin Two-Tier System) ────────────────────────────── */
+.z-btn-primary {
+  display: inline-flex;
+  min-height: 2.75rem;        /* 44px touch target */
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  background-color: var(--cta-bg);
+  color: var(--cta-fg);
+  padding: 0.75rem 2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  transition: background-color 0.18s var(--ease-out), transform 0.18s var(--ease-out);
+}
+
+.z-btn-primary:hover {
+  background-color: var(--cta-hover);
+}
+
+.z-btn-primary:active {
+  transform: translateY(1px);
+}
+
+.z-btn-ghost {
+  display: inline-flex;
+  min-height: 2.75rem;        /* 44px touch target */
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  border-radius: 0;
+  border: 1px solid var(--border-ghost);
+  background-color: transparent;
+  color: var(--foreground);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  transition: background-color 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
+}
+
+.z-btn-ghost:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--foreground);
+}
+
+/* ── Hero Section & Masked Artwork + Monolith ────────────────────── */
+.z-hero-wrap {
+  min-height: 100dvh;
+  padding-top: 3.5rem;
+  border-bottom: 1px solid var(--border-grid);
+}
+
+@media (min-width: 40rem) {
+  .z-hero-wrap {
+    padding-top: 4.25rem;
+  }
+}
+
+.z-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: calc(100dvh - 3.5rem);
+  position: relative;
+}
+
+@media (min-width: 64rem) {
+  .z-hero-grid {
+    grid-template-columns: 1fr 1fr;
+    min-height: calc(100dvh - 4.25rem);
+  }
+}
+
+.z-hero-copy {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem 1rem;         /* Matches Zenjin mobile px-4 py-12 */
+}
+
+@media (min-width: 40rem) {
+  .z-hero-copy {
+    padding: 3.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-hero-copy {
+    padding: 4rem 2.5rem 4rem 2rem;
+  }
+}
+
+.z-hero-actions {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (max-width: 29.99rem) {
+  .z-hero-actions > a {
+    width: 100%;
+  }
+}
+
+/* CLI Quick-Install Pill (Mobile-safe) */
+.z-cli-pill {
+  margin-top: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  max-width: 26rem;
+  border: 1px solid var(--border-card);
+  background-color: var(--stage);
+  padding: 0.5rem 0.55rem 0.5rem 0.875rem;
+  border-radius: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.z-cli-pill code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.z-cli-pill__prompt {
+  color: var(--acc-envelope);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.z-cli-pill__copy {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.3rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border-card);
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.z-cli-pill__copy:hover {
+  background-color: var(--cta-bg);
+  color: var(--cta-fg);
+}
+
+.z-hero-meta {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.z-hero-meta span b {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Hero Right Visual Stage (Zenjin .hero-guardian-fade + Monolith) */
+.z-hero-visual {
+  position: relative;
+  min-height: 21rem;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+@media (min-width: 40rem) {
+  .z-hero-visual {
+    padding: 2.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-hero-visual {
+    padding: 3rem 2rem;
+  }
+}
+
+.z-hero-art-mask {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: linear-gradient(270deg, transparent 0%, rgba(0,0,0,0.2) 8%, rgba(0,0,0,0.65) 20%, rgba(0,0,0,0.92) 36%, #000 48%);
+  mask-image: linear-gradient(270deg, transparent 0%, rgba(0,0,0,0.2) 8%, rgba(0,0,0,0.65) 20%, rgba(0,0,0,0.92) 36%, #000 48%);
+}
+
+.z-hero-art-mask img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(0.45) contrast(1.1) saturate(0.8);
+}
+
+html[data-theme="light"] .z-hero-art-mask img {
+  opacity: 0.14;
+  filter: grayscale(100%) contrast(1.1);
+}
+
+.z-hero-scrim-r {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, var(--background) 0%, transparent 55%);
+}
+
+.z-hero-scrim-t {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--background) 0%, transparent 35%, rgba(0,0,0,0.35) 100%);
+}
+
+.z-hero-monolith {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 30rem;
+  border: 1px solid var(--border-card);
+  background-color: rgba(7, 7, 8, 0.86);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+html[data-theme="light"] .z-hero-monolith {
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+.z-hero-monolith__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.875rem;
+  border-bottom: 1px solid var(--border-grid);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+}
+
+@media (min-width: 40rem) {
+  .z-hero-monolith__bar {
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+  }
+}
+
+.z-hero-monolith__dots {
+  display: none;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 26rem) {
+  .z-hero-monolith__dots {
+    display: inline-flex;
+  }
+}
+
+.z-hero-monolith__dots i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background-color: var(--border-faq);
+}
+
+.z-hero-monolith__badge {
+  font-size: 0.625rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--acc-trust);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.z-hero-monolith__body {
+  padding: 0.9rem 0.875rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 40rem) {
+  .z-hero-monolith__body {
+    padding: 1.15rem 1.25rem;
+    font-size: 0.76rem;
+    line-height: 1.65;
+  }
+}
+
+/* Example decision switcher: deny / approve / escalate.
+   One monolith, three real records; the tab row sits inside the card so the
+   chrome does not change between outcomes. */
+.z-decision-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--border-grid);
+  background: var(--surface-elevated);
+}
+
+.z-decision-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0.4rem 0.4rem 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+.z-decision-tab:hover {
+  color: var(--foreground);
+}
+
+.z-decision-tab[aria-selected="true"] {
+  color: var(--foreground);
+  border-color: var(--border-card);
+  background: rgba(7, 7, 8, 0.86);
+}
+
+html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.z-decision-tab:focus-visible {
+  outline: 2px solid var(--acc-envelope);
+  outline-offset: 2px;
+}
+
+.z-decision-pause {
+  margin-left: auto;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.z-decision-pause:hover {
+  color: var(--foreground);
+  border-color: var(--border-grid);
+}
+
+.z-decision-pause:focus-visible {
+  outline: 2px solid var(--acc-envelope);
+  outline-offset: 2px;
+}
+
+.z-hero-monolith__panel[hidden] {
+  display: none;
+}
+
+/* ── Blur-Fade & Scroll-Reveal Animation Classes ─────────────────── */
+.z-blur-in {
+  opacity: 0;
+  filter: blur(12px);
+  transform: translateY(10px);
+  animation: zBlurFadeIn 1.35s var(--ease-power3) forwards;
+}
+.z-blur-in--d1 { animation-delay: 0.05s; }
+.z-blur-in--d2 { animation-delay: 0.22s; }
+.z-blur-in--d3 { animation-delay: 0.42s; }
+.z-blur-in--d4 { animation-delay: 0.6s; }
+
+@keyframes zBlurFadeIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0);
+  }
+}
+
+.z-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 1.05s var(--ease-power3), transform 1.05s var(--ease-power3);
+}
+
+.z-reveal--media {
+  transform: translateY(24px) scale(1.015);
+}
+
+.z-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-blur-in,
+  .z-reveal,
+  .z-reveal--media {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Asymmetric 2:1 Section Header + 3-Column Bento Grid ─────────── */
+.z-intro-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-intro-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Matches Zenjin px-8 py-16 sm:px-10 sm:py-20 lg:px-12 lg:py-24 */
+.z-intro-grid__title {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 3.25rem 1.5rem;
+}
+
+@media (min-width: 40rem) {
+  .z-intro-grid__title {
+    padding: 4.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-intro-grid__title {
+    grid-column: span 2 / span 2;
+    border-right: 1px solid var(--border-grid);
+    padding: 5.5rem 3rem;
+  }
+}
+
+.z-intro-grid__aside {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 2.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (min-width: 40rem) {
+  .z-intro-grid__aside {
+    padding: 4rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-intro-grid__aside {
+    padding: 5.5rem 3rem;
+  }
+}
+
+/* Launch Film / Walkthrough Video Stage (Matches Zenjin Why Zenjin Exists) */
+.z-video-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: #000;
+  border-bottom: 1px solid var(--border-grid);
+  overflow: hidden;
+}
+
+.z-video-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.z-video-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.z-video-overlay:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.z-video-play-circle {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+
+@media (min-width: 40rem) {
+  .z-video-play-circle {
+    width: 5rem;
+    height: 5rem;
+  }
+}
+
+.z-video-overlay:hover .z-video-play-circle {
+  background-color: #e4e4e7;
+  transform: scale(1.05);
+}
+
+@media (max-width: 40rem) {
+  .z-video-overlay > span:not(.z-video-play-circle) {
+    display: none;
+  }
+}
+
+.z-tri-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-tri-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.z-tri-card {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 2.75rem 1.5rem;
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.z-tri-card:hover {
+  background-color: var(--surface-elevated);
+}
+
+@media (min-width: 40rem) {
+  .z-tri-card {
+    padding: 3.75rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-tri-card {
+    border-right: 1px solid var(--border-grid);
+    padding: 4.5rem 3rem;
+  }
+  .z-tri-card:nth-child(3n) {
+    border-right: 0;
+  }
+}
+
+.z-tri-card__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-body);
+}
+
+.z-tri-card__step {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2rem;
+}
+
+/* ── Alternating 50/50 Product Showcase Rows (Zenjin Signature) ──── */
+.z-module-row {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-module-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.z-module-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-grid);
+  padding: 3.25rem 1.5rem;
+}
+
+@media (min-width: 40rem) {
+  .z-module-copy {
+    padding: 4.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-module-copy {
+    padding: 5.5rem 3rem;
+    border-right: 1px solid var(--border-grid);
+  }
+  .z-module-row--reverse .z-module-copy {
+    grid-column-start: 2;
+    grid-row-start: 1;
+    border-right: 0;
+  }
+}
+
+.z-module-visual {
+  position: relative;
+  min-height: 22rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-grid);
+  background-color: var(--stage);
+}
+
+@media (min-width: 40rem) {
+  .z-module-visual {
+    min-height: 26rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-module-visual {
+    min-height: 28rem;
+  }
+  .z-module-row--reverse .z-module-visual {
+    grid-column-start: 1;
+    grid-row-start: 1;
+    border-right: 1px solid var(--border-grid);
+  }
+}
+
+/* ── Live Telemetry Diagram Stage (.z-stage — Mobile-First Safe) ─── */
+.z-stage {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  overflow: hidden;
+  background-color: var(--stage);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.z-stage__dots {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image: radial-gradient(var(--dot-matrix) 0.85px, transparent 0.85px);
+  background-size: 22px 22px;
+}
+
+.z-stage__glow {
+  pointer-events: none;
+  position: absolute;
+  left: -4rem;
+  top: 50%;
+  width: 15rem;
+  height: 15rem;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.16;
+}
+
+.z-stage__vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent 45%, rgba(0, 0, 0, 0.2));
+}
+
+html[data-theme="light"] .z-stage__vignette {
+  background: linear-gradient(to top, rgba(242, 243, 245, 0.75), transparent 45%, rgba(242, 243, 245, 0.25));
+}
+
+.z-stage__canvas {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem 0.75rem;
+}
+
+@media (min-width: 40rem) {
+  .z-stage__canvas {
+    padding: 2.25rem 2.25rem 1rem;
+  }
+}
+
+/* Responsive Grids inside Telemetry Stages (Never cramped on 375px!) */
+.z-stage-grid-3 {
+  width: 100%;
+  max-width: 27rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+}
+
+@media (min-width: 34rem) {
+  .z-stage-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+}
+
+/* Bottom Telemetry Caption Bar (Natural flex child so it never overlaps cards on mobile) */
+.z-stage__hud {
+  position: relative;
+  z-index: 30;
+  padding: 0.75rem 1rem 1.25rem;
+  background: linear-gradient(to top, var(--stage) 40%, transparent);
+  text-align: center;
+}
+
+.z-stage__pills {
+  display: flex;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.z-stage__pill {
+  height: 0.25rem;
+  width: 1.1rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.16);
+  transition: background-color 0.3s var(--ease-out), width 0.3s var(--ease-out);
+}
+
+html[data-theme="light"] .z-stage__pill {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.z-stage__pill.is-active {
+  width: 1.65rem;
+}
+
+.z-stage__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.z-stage__caption {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  max-width: 26rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 40rem) {
+  .z-stage__caption {
+    font-size: 0.8125rem;
+  }
+}
+
+/* SVG Beam Animation inside .z-stage */
+@keyframes zBeamFlow {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.z-svg-beam {
+  stroke-dasharray: 14 86;
+  animation: zBeamFlow 4.2s linear infinite;
+}
+
+@keyframes zScanSweep {
+  0% { top: 2%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 88%; opacity: 0; }
+}
+
+.z-scan-bar {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5.5rem;
+  z-index: 20;
+  animation: zScanSweep 5.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-svg-beam,
+  .z-scan-bar {
+    animation: none !important;
+  }
+}
+
+/* ── Live In-Browser .epi Verifier Section (#verify) ─────────────── */
+.z-verifier-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-bottom: 1px solid var(--border-grid);
+}
+
+@media (min-width: 64rem) {
+  .z-verifier-grid {
+    grid-template-columns: 7fr 5fr;
+  }
+}
+
+.z-drop-cell {
+  padding: 2rem 1.25rem;
+  border-bottom: 1px solid var(--border-grid);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (min-width: 40rem) {
+  .z-drop-cell {
+    padding: 3rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-drop-cell {
+    border-bottom: 0;
+    border-right: 1px solid var(--border-grid);
+    padding: 3.5rem 3rem;
+  }
+}
+
+.drop {
+  position: relative;
+  border: 1px dashed var(--border-ghost);
+  background-color: var(--stage);
+  padding: 2rem 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+
+@media (min-width: 40rem) {
+  .drop {
+    padding: 2.5rem 1.5rem;
+  }
+}
+
+.drop:hover,
+.drop.drag-over {
+  border-color: var(--acc-envelope);
+  background-color: rgba(16, 185, 129, 0.04);
+}
+
+.drop.seal-ok {
+  border-style: solid;
+  border-color: var(--acc-envelope);
+}
+
+.drop.seal-warn {
+  border-style: solid;
+  border-color: var(--acc-trust);
+}
+
+.drop.seal-fail {
+  border-style: solid;
+  border-color: var(--acc-policy);
+}
+
+.drop h3 {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.drop p {
+  margin-top: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+#dropResult {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* Post-Upload Interactive Tamper Lab Bar (Only shown AFTER a file is loaded!) */
+.z-tamper-lab {
+  display: none;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-card);
+  background-color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.z-tamper-lab.is-active {
+  display: block;
+}
+
+.z-tamper-lab__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.z-tamper-lab__actions {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.z-tamper-lab__btn {
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  border: 1px solid rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.1);
+  color: #fda4af;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s;
+}
+
+.z-tamper-lab__btn:hover {
+  background: rgba(244, 63, 94, 0.2);
+}
+
+.z-tamper-lab__btn--restore {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+
+.z-tamper-lab__btn--restore:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.z-checks-cell {
+  padding: 2rem 1.25rem;
+  background-color: var(--stage);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (min-width: 40rem) {
+  .z-checks-cell {
+    padding: 3rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-checks-cell {
+    padding: 3.5rem 3rem;
+  }
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.875rem;
+  border: 1px solid var(--border-grid);
+  background-color: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-body);
+}
+
+.chk .cd,
+.chk .check-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.chk.pass {
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--foreground);
+}
+
+.chk.pass .cd,
+.chk.pass .check-dot {
+  background-color: var(--acc-envelope);
+  box-shadow: 0 0 8px var(--acc-envelope);
+}
+
+/* ── Evidence Comparison Table (Mobile Scrollable) ───────────────── */
+.z-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--border-grid);
+}
+
+.z-table {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+@media (min-width: 40rem) {
+  .z-table {
+    font-size: 0.875rem;
+  }
+}
+
+.z-table th,
+.z-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border-grid);
+  border-right: 1px solid var(--border-grid);
+}
+
+@media (min-width: 40rem) {
+  .z-table th,
+  .z-table td {
+    padding: 1.125rem 1.5rem;
+  }
+}
+
+.z-table th:last-child,
+.z-table td:last-child {
+  border-right: 0;
+}
+
+.z-table th {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  background-color: var(--stage);
+}
+
+.z-table td {
+  color: var(--text-body);
+}
+
+.z-table td:first-child {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.z-table .is-epi {
+  background-color: rgba(16, 185, 129, 0.05);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+/* ── FAQ Accordion (Matches Zenjin 12-Col Layout) ────────────────── */
+.z-faq-section {
+  padding: 3.5rem 1rem;
+  border-bottom: 1px solid var(--border-grid);
+}
+
+@media (min-width: 40rem) {
+  .z-faq-section {
+    padding: 5.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-faq-section {
+    padding: 7rem 3rem;
+  }
+}
+
+.z-faq-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.25rem;
+}
+
+@media (min-width: 64rem) {
+  .z-faq-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 4rem;
+  }
+  .z-faq-grid__title {
+    grid-column: span 4 / span 4;
+  }
+  .z-faq-grid__list {
+    grid-column: span 8 / span 8;
+  }
+}
+
+.z-faq-list {
+  border-top: 1px solid var(--border-faq);
+}
+
+.z-faq-item {
+  border-bottom: 1px solid var(--border-faq);
+}
+
+.z-faq-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+}
+
+@media (min-width: 40rem) {
+  .z-faq-btn {
+    padding: 2rem 0;
+    font-size: 1.125rem;
+  }
+}
+
+.z-faq-icon {
+  margin-top: 0.25rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--foreground);
+  transition: transform 0.3s var(--ease-power3);
+}
+
+.z-faq-btn[aria-expanded="true"] .z-faq-icon {
+  transform: rotate(45deg);
+}
+
+.z-faq-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.45s var(--ease-power3), opacity 0.35s var(--ease-power3);
+}
+
+.z-faq-panel.is-open {
+  max-height: 28rem;
+  opacity: 1;
+}
+
+.z-faq-panel__inner {
+  padding-bottom: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--text-body);
+  max-width: 44rem;
+}
+
+@media (min-width: 40rem) {
+  .z-faq-panel__inner {
+    padding-bottom: 1.75rem;
+    font-size: 0.9375rem;
+  }
+}
+
+/* ── Architectural Footer (Matches Zenjin 12-Col Subgrid Footer) ─── */
+.z-footer {
+  padding: 3rem 1rem;
+}
+
+@media (min-width: 40rem) {
+  .z-footer {
+    padding: 4rem 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-footer {
+    padding: 4.5rem 2rem;
+  }
+}
+
+.z-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+}
+
+@media (min-width: 40rem) {
+  .z-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-footer-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 2.5rem;
+  }
+  .z-footer-brand {
+    grid-column: span 5 / span 5;
+  }
+  .z-footer-col {
+    grid-column: span 2 / span 2;
+  }
+  .z-footer-col--wide {
+    grid-column: span 3 / span 3;
+  }
+}
+
+.z-footer-col__heading {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.z-footer-col__list {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.z-footer-col__link {
+  display: inline-block;
+  padding: 0.25rem 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: color 0.15s var(--ease-out);
+}
+
+.z-footer-col__link:hover {
+  color: var(--foreground);
+}
+
+.z-footer-bottom {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-grid);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 40rem) {
+  .z-footer-bottom {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* ── Contact & Pricing Cards (for /plans.html) ───────────────────── */
+.z-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 38rem;
+}
+
+.z-form__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .z-form__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.z-form label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin-bottom: 0.375rem;
+}
+
+.z-form input,
+.z-form select,
+.z-form textarea {
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border-card);
+  background-color: var(--stage);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  border-radius: 0.25rem;
+}
+
+.z-form textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.cf-status {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  display: none;
+  border: 1px solid var(--border-card);
+}
+.cf-status.ok, .cf-status.warn, .cf-status.err { display: block; }
+.cf-status.ok { border-color: var(--acc-envelope); color: var(--acc-envelope); }
+.cf-status.warn { border-color: var(--acc-trust); color: var(--acc-trust); }
+.cf-status.err { border-color: var(--acc-policy); color: var(--acc-policy); }
+
+/* Small footnote under a grid section (e.g. "EPI does not make anyone compliant"),
+   aligned with the card padding above it. */
+.z-section-note {
+  border-bottom: 1px solid var(--border-grid);
+  padding: 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 40rem) {
+  .z-section-note {
+    padding: 1.5rem 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .z-section-note {
+    padding: 1.75rem 3rem;
+  }
+}
