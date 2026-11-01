@@ -96,6 +96,8 @@ installer/windows/Output/
 !website/assets/sample.epi
 !website/assets/demo/demo-lending-affordability.epi
 !website/assets/demo/demo-finance-loan-underwriter.epi
+!website/assets/demo/decision-example-approved.epi
+!website/assets/demo/decision-example-escalated.epi
 !site/assets/sample.epi
 !site/assets/demo/demo-lending-affordability.epi
 !site/assets/demo/demo-finance-loan-underwriter.epi

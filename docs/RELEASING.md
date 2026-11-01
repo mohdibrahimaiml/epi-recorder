@@ -4,6 +4,14 @@ Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
 
+**4.9.0 status (1 Nov 2026): cut, tagged `v4.9.0`, and uploaded through Trusted
+Publishing** — the same path as 4.8.0, so both files carry PEP 740 attestations.
+The tag is signed by the maintainer (`git tag -v v4.9.0`). It adds
+`epi oversight report` (period-shaped: outcomes, models, approvals, delivery
+gaps), the witness log in the browser verifier, one offer at one price on the
+site, and an oversight total that leaves out files which are not the version the
+customer's log recorded.
+
 **4.8.0 status (30 Oct 2026): published through Trusted Publishing**, with
 **PEP 740 attestations** on both files (provenance endpoints return HTTP 200).
 The tag `v4.8.0` is signed with the maintainer's SSH key

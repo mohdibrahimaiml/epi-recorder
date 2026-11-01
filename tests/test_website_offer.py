@@ -12,6 +12,13 @@ SITE = REPO / "website"
 PRICE = "\u20ac4,500"
 
 
+def _pyproject_version() -> str:
+    import tomllib
+
+    with (REPO / "pyproject.toml").open("rb") as fh:
+        return tomllib.load(fh)["project"]["version"]
+
+
 def _html(name: str) -> str:
     return (SITE / name).read_text(encoding="utf-8")
 
@@ -49,7 +56,8 @@ def test_there_is_one_paid_offer_and_it_has_a_price():
 def test_the_footer_shows_the_version_once():
     index = _html("index.html")
     footer = index[index.rindex("<footer"): index.rindex("</footer>")]
-    assert footer.count("v4.8.0") == 1, footer.count("v4.8.0")
+    version = _pyproject_version()
+    assert footer.count(f"v{version}") == 1, footer.count(f"v{version}")
 
 
 def test_standards_moved_to_its_own_page_linked_from_the_footer():

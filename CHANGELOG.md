@@ -2,9 +2,16 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.9.0] - 2026-11-01
 
 ### Changed
+
+- **The offer is called the Decision File pilot.** "Witnessed pilot" named the
+  mechanism; what a vendor buys is the Decision File, delivered on one workflow
+  for thirty days. Renamed on `/plans`, the homepage, the deployed mirrors and
+  in `docs/PILOT-OFFER.md`, and in the build guard that checks the page still
+  sells that one offer. Price, scope and terms are unchanged; "witness",
+  "witness log" and "witnessed" stay as the mechanism's name.
 
 - **The site sells one thing, at a price.** The homepage and `/plans` no longer
   offer a "Design Partner Program" with five places; they offer a **witnessed
@@ -21,6 +28,37 @@ All notable changes to EPI Recorder are documented here.
   comes back, and if the deployed mirrors drift from `website/`.
 
 ### Fixed
+
+- **`epi oversight report` no longer counts a forged copy.** A file that is a
+  different version of a case the customer's log reported was listed as a
+  mismatch and then counted in the outcome, model and approval totals — two
+  forged "Denied" copies could outvote the one decision the customer actually
+  holds. It is still listed with its reason, but `decisions_in_period`,
+  outcomes, models and approvals skip it (`sealed.excluded_forged` in JSON;
+  "not counted" on the page and in the console). Files that were never reported
+  at all are still counted: that is a delivery gap, not a forgery.
+
+- **The DEMO trust page prints the bytes it serves.** Every card's byte count
+  was stale (a 17,748-byte file labelled 498,868), on the one page whose claim
+  is that you can check it. The hashes were right, which is how the numbers
+  survived a test that compared hashes only. Fixed in `website/` and the
+  tracked mirrors, with a test that compares the printed size to the served
+  file and a test that every mirror serves identical bytes.
+
+- **`epi verify --witness-log` never calls a tampered file "re-packaged".** The
+  re-packaged branch matched on the content digest alone, so a file whose
+  evidence was rewritten after the seal (manifest untouched) came back as
+  `WITNESSED … re-packaged` — the vendor's own reassurance handed to the
+  forger. Both branches now compare the members with the signed manifest: same
+  members is a genuine re-package, different members is `MISMATCH`, "altered
+  after the report, not re-packaged".
+
+- **The Pages build guards the offer that exists.** It warned unless
+  `plans.html` contained two retired tiers, so it warned on the real page and
+  would have stayed silent if they came back. It now requires the offer the
+  site sells and warns when a retired one returns; a test parses the lists out
+  of the build script and checks them against the page. `.gitignore` also
+  ignores root `node_modules/` and `founder/`.
 
 - **The Decision Record now explains the decision.** `epi export-summary` - the
   document handed to a customer, regulator or affected person - printed "Final
