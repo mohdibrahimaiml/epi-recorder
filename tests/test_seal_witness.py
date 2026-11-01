@@ -350,3 +350,57 @@ def test_register_after_witness_is_still_witnessed(monkeypatch, tmp_path: Path) 
         assert report["decision"]["status"] != "FAIL"
     finally:
         server.shutdown()
+
+def test_edited_evidence_against_the_customers_log_is_not_called_repackaged(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A forgery shares the manifest with the real run; only the members differ.
+
+    "Re-packaged" reads as harmless, so a tampered file must never earn it: the
+    customer's log has to reject the copy, not reassure the forger.
+    """
+    import zipfile
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        out = tmp_path / "run.epi"
+        _seal(monkeypatch, tmp_path, out, witness_url=url, witness_secret=SECRET)
+        payload = json.loads(CaptureHandler.received[0]["body"].decode())
+        received = tmp_path / "received.jsonl"
+        received.write_text(
+            json.dumps({**payload, "received_at": "2026-10-11T00:00:00+00:00"}) + "\n",
+            encoding="utf-8",
+        )
+
+        from epi_core.container import EPIContainer
+
+        original_manifest = EPIContainer.read_manifest(out)
+        inner = tmp_path / "payload.zip"
+        EPIContainer.extract_inner_payload(out, inner)
+        with zipfile.ZipFile(inner, "r") as archive:
+            order = [info.filename for info in archive.infolist()]
+            members = {name: archive.read(name) for name in order}
+        forged = members["steps.jsonl"].replace(b"hello", b"forged")
+        assert forged != members["steps.jsonl"]
+        members["steps.jsonl"] = forged
+        with zipfile.ZipFile(inner, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name in order:
+                compress = (
+                    zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+                )
+                archive.writestr(name, members[name], compress_type=compress)
+        EPIContainer._write_envelope_from_payload(
+            inner, out, manifest=original_manifest
+        )
+
+        result = runner.invoke(
+            cli_app, ["verify", str(out), "--json", "--witness-log", str(received)]
+        )
+        report = json.loads(result.output)
+        assert report["decision"]["status"] == "FAIL", report["decision"]
+        assert report["witness"]["status"] == "MISMATCH", report["witness"]
+        assert not report["witness"].get("repackaged")
+        assert "altered after the report" in report["witness"]["detail"]
+    finally:
+        server.shutdown()
