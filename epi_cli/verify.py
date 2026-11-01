@@ -791,6 +791,28 @@ def _verify_witness_receipt(
     return True, ""
 
 
+def _members_match_manifest(epi_file: Path) -> bool:
+    """True when the file's members still match the signed manifest.
+
+    A genuine re-package after the seal (``epi scitt register`` adds a
+    transparency receipt and re-signs the outer file) leaves every member
+    untouched: only the envelope changes. Edited evidence does not — the
+    members stop matching the manifest they were signed with.
+
+    The distinction matters because "re-packaged" reads as harmless. Calling a
+    tampered file "WITNESSED, re-packaged" would hand the forger the vendor's
+    own reassurance.
+    """
+    try:
+        from epi_core.container import EPIContainer
+
+        ok, _mismatches = EPIContainer.verify_integrity(epi_file)
+        return bool(ok)
+    except Exception:
+        # Fail closed: an unreadable file is not a re-package.
+        return False
+
+
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
@@ -1067,6 +1089,17 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             # customer was told about, the outer file is not byte-identical.
             if content_digest and entry.get("content_digest") == content_digest:
                 _at = entry.get("_witness_received_at", entry.get("received_at"))
+                if not _members_match_manifest(epi_file):
+                    # Same manifest, different members: the evidence was edited
+                    # after the report. That is the forgery, not a re-package.
+                    result["status"] = "MISMATCH"
+                    result["received_at"] = _at
+                    result["detail"] = (
+                        f"a report for this case exists (received {_at or 'unknown time'}), "
+                        "but THIS file's contents differ from the manifest that was "
+                        "reported — it was altered after the report, not re-packaged"
+                    )
+                    return result
                 result["status"] = "WITNESSED"
                 result["mode"] = "own-log-unsigned"
                 result["received_at"] = _at
@@ -1224,6 +1257,16 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         inner = item.get("inner") or {}
         if content_digest and inner.get("content_digest") == content_digest:
             _at = _signed_received_at(item)
+            if not _members_match_manifest(epi_file):
+                # Same manifest, different members: altered after the report.
+                result["status"] = "MISMATCH"
+                result["received_at"] = _at
+                result["detail"] = (
+                    f"a report for this case exists (received {_at or 'unknown time'}), "
+                    "but THIS file's contents differ from the manifest that was "
+                    "reported — it was altered after the report, not re-packaged"
+                )
+                return result
             result["status"] = "WITNESSED"
             result["mode"] = "verified-receipt"
             result["received_at"] = _at
