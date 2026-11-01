@@ -1,19 +1,34 @@
 WEBVTT
 
-00:00:01.000 --> 00:00:07.500
-Your AI makes a decision. Your customer asks why.
+00:00:00.600 --> 00:00:04.100
+When an AI denies a claim, someone asks why.
 
-00:00:08.200 --> 00:00:17.500
-EPI records the decision and seals it into one file.
+00:00:05.000 --> 00:00:07.850
+The vendor sends a PDF, and a promise.
 
-00:00:18.300 --> 00:00:29.500
-They check it in their own browser. Nothing is uploaded.
+00:00:09.200 --> 00:00:14.050
+EPI sends the decision itself: sealed, signed, and readable.
 
-00:00:30.300 --> 00:00:41.500
-A re-sealed copy still verifies. Their witness log catches it.
+00:00:14.600 --> 00:00:19.500
+What the model saw. What it decided. Which rule it applied. Who signed off.
 
-00:00:42.300 --> 00:00:51.500
-One workflow. Thirty days. Four thousand five hundred euros.
+00:00:21.000 --> 00:00:25.200
+Their reviewer checks it in a browser. No install. No account.
 
-00:00:52.300 --> 00:00:59.000
-Decision records your customer can check.
+00:00:26.600 --> 00:00:31.450
+And if someone edits the record, and re-seals it with the vendor's own key...
+
+00:00:31.600 --> 00:00:33.800
+the signature still verifies.
+
+00:00:34.200 --> 00:00:35.900
+Their copy does not.
+
+00:00:37.000 --> 00:00:41.450
+A signature protects the file. The witness protects the customer.
+
+00:00:43.000 --> 00:00:47.100
+One workflow. Thirty days. Four and a half thousand euros.
+
+00:00:49.000 --> 00:00:51.700
+EPI. Hand them a file they can check.
