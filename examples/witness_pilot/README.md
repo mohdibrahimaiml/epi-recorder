@@ -1,4 +1,4 @@
-# Witnessed pilot: the customer holds the proof
+# Decision File pilot: the customer holds the proof
 
 Run it:
 
