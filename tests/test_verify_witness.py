@@ -201,6 +201,42 @@ def _wait_result(pg) -> str:
     return pg.locator("#dropResult").inner_text()
 
 
+def _forge_in_place(src: pathlib.Path) -> bytes:
+    """Edit the evidence, keep the signed manifest (the demo's forgery).
+
+    `_forge` re-seals with a new run id, which the case/goal match catches.
+    This one keeps the manifest byte-identical, so only the file hash differs:
+    the branch the browser used to call "the bytes you were handed match".
+    """
+    import tempfile
+
+    from epi_core.container import EPIContainer
+
+    manifest = EPIContainer.read_manifest(src)
+    with tempfile.TemporaryDirectory() as tmp:
+        inner = pathlib.Path(tmp) / "payload.zip"
+        EPIContainer.extract_inner_payload(src, inner)
+        with zipfile.ZipFile(inner) as zf:
+            order = [info.filename for info in zf.infolist()]
+            members = {name: zf.read(name) for name in order}
+        steps = members["steps.jsonl"]
+        forged_steps = steps.replace(b'"decision":"APPROVE"', b'"decision":"DENY"', 1)
+        assert forged_steps != steps, "fixture has no APPROVE decision to flip"
+        members["steps.jsonl"] = forged_steps
+        with zipfile.ZipFile(inner, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name in order:
+                zf.writestr(
+                    name,
+                    members[name],
+                    compress_type=(
+                        zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+                    ),
+                )
+        out = pathlib.Path(tmp) / "forged.epi"
+        EPIContainer._write_envelope_from_payload(inner, out, manifest=manifest)
+        return out.read_bytes()
+
+
 def test_genuine_file_with_the_customers_log_is_witnessed(site, browser) -> None:
     ctx = browser.new_context()
     pg = ctx.new_page()
@@ -233,6 +269,31 @@ def test_forged_file_with_the_customers_log_is_caught(site, browser) -> None:
         text = pg.locator("#dropResult").inner_text()
         assert "not the version your witness recorded" in text.lower(), text[:900]
         assert "different version" in text.lower(), text[:1200]
+    finally:
+        ctx.close()
+
+
+def test_edited_evidence_with_the_manifest_kept_is_not_called_a_match(site, browser) -> None:
+    """A digest match is not a byte match.
+
+    The file keeps the signed manifest, so its content digest is the one the
+    witness recorded; the bytes are not. With integrity broken that is an edit,
+    and the page must say so rather than "the bytes you were handed match".
+    """
+    forged = _forge_in_place(GENUINE)
+    ctx = browser.new_context()
+    pg = ctx.new_page()
+    try:
+        pg.goto(site + "/verify/")
+        pg.wait_for_selector("#witnessZoneEl", timeout=15000)
+        _drop(pg, log=_witness_line(GENUINE), forged=forged)
+        pg.wait_for_function(
+            "() => document.querySelector('#dropResult').textContent.length > 20",
+            timeout=30000,
+        )
+        text = pg.locator("#dropResult").inner_text().lower()
+        assert "altered after it was reported" in text, text[:900]
+        assert "bytes you were handed match" not in text, text[:900]
     finally:
         ctx.close()
 
