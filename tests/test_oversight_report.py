@@ -274,6 +274,61 @@ def test_gaps_can_fail_a_scripted_check(case_set):
     assert _run(case_set, "--fail-on-gaps").exit_code == 1
 
 
+def test_a_forged_copy_is_listed_but_not_counted(case_set, tmp_path):
+    """A different copy of a reported case is evidence of nothing.
+
+    The vendor re-seals the same case with a different outcome. The file
+    verifies on its own and carries the same key — only the customer's log
+    catches it. Its outcome, model and approval must not reach the totals.
+    """
+    import zipfile
+
+    original = case_set["files"][0]  # CLM-1: Approved, witnessed, pinned approval
+    manifest = EPIContainer.read_manifest(original)
+    inner = tmp_path / "forged-payload.zip"
+    EPIContainer.extract_inner_payload(original, inner)
+    with zipfile.ZipFile(inner, "r") as archive:
+        order = [info.filename for info in archive.infolist()]
+        members = {name: archive.read(name) for name in order}
+    forged_steps = []
+    for line in members["steps.jsonl"].decode("utf-8").splitlines():
+        step = json.loads(line)
+        if step.get("kind") == "agent.decision":
+            step["content"]["decision"] = "Denied"
+            step["content"]["rationale"] = "Denied after review."
+        forged_steps.append(json.dumps(step))
+    members["steps.jsonl"] = ("\n".join(forged_steps) + "\n").encode("utf-8")
+    with zipfile.ZipFile(inner, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in order:
+            compress = (
+                zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+            )
+            archive.writestr(name, members[name], compress_type=compress)
+    forged = tmp_path / "clm-1-forged.epi"
+    EPIContainer._write_envelope_from_payload(inner, forged, manifest=manifest)
+
+    out = tmp_path / "oversight.html"
+    payload = json.loads(_run(case_set, "--json").stdout)
+    assert _run(case_set, "--out", str(out)).exit_code == 0
+
+    assert payload["sealed"]["files"] == 4
+    assert payload["sealed"]["decisions_in_period"] == 2, "the forged copy is not a decision"
+    assert payload["sealed"]["excluded_forged"] == 1
+    # Counting the forgery would read Denied 2; counting the real files reads 1/1.
+    assert payload["outcomes"] == {"Approved": 1, "Denied": 1}
+    assert payload["models"][SERVED]["count"] == 2
+    assert payload["approvals"]["pinned"] == 1, "the forged copy must not add a pinned approval"
+    assert payload["approvals"]["unpinned"] == 1
+
+    row = next(item for item in payload["decisions"] if item["file"] == forged.name)
+    assert row["witnessed"] == "mismatch"
+    assert row["counted"] is False
+
+    html = out.read_text(encoding="utf-8")
+    assert "not counted" in html
+    assert "different version of a case your log reported" in html
+
+
 def test_a_bad_date_is_refused(case_set):
     result = runner.invoke(
         app,

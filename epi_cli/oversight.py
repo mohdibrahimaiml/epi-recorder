@@ -90,6 +90,7 @@ def _describe(record: dict[str, Any]) -> dict[str, Any]:
     approval = _approval_detail(file, record["steps"])
     bucket = _approval_bucket(approval)
     raw_outcome = decision.get("outcome")
+    witnessed = record["witnessed"]
     return {
         "case": record["case"],
         "file": file.name,
@@ -104,8 +105,12 @@ def _describe(record: dict[str, Any]) -> dict[str, Any]:
         "approver": approval.get("name"),
         "approver_fingerprint": approval.get("fingerprint"),
         "approval_classification": approval.get("classification"),
-        "witnessed": record["witnessed"],
+        "witnessed": witnessed,
         "witness_detail": record.get("witness_detail") or "",
+        # A copy that is not the one the customer's log reported must not add
+        # its outcome, model or approval to the totals: the customer cannot
+        # rely on anything inside it. It stays in the list, marked.
+        "counted": witnessed != "mismatch",
     }
 
 
@@ -197,6 +202,12 @@ def _counts(decisions: list[dict[str, Any]]) -> dict[str, Any]:
     witness: dict[str, int] = {}
 
     for item in decisions:
+        # The witness tally describes every file, counted or not.
+        witness[item["witnessed"]] = witness.get(item["witnessed"], 0) + 1
+        if not item.get("counted", True):
+            # A different copy of a reported case: its outcome, model and
+            # approval are the forger's, not the vendor's.
+            continue
         outcomes[str(item["outcome"])] = outcomes.get(str(item["outcome"]), 0) + 1
         model = str(item["model"] or "Not recorded")
         bucket = models.setdefault(model, {"count": 0, "first": None, "last": None})
@@ -206,7 +217,6 @@ def _counts(decisions: list[dict[str, Any]]) -> dict[str, Any]:
             bucket["first"] = min(filter(None, [bucket["first"], day]), default=None)
             bucket["last"] = max(filter(None, [bucket["last"], day]), default=None)
         approvals[item["approval"]] = approvals.get(item["approval"], 0) + 1
-        witness[item["witnessed"]] = witness.get(item["witnessed"], 0) + 1
 
     return {
         "outcomes": dict(sorted(outcomes.items(), key=lambda kv: (-kv[1], kv[0]))),
@@ -286,6 +296,7 @@ def _build_payload(
 ) -> dict[str, Any]:
     counts = _counts(decisions)
     days = sorted({item["day"] for item in decisions if item.get("day")})
+    counted = [item for item in decisions if item.get("counted", True)]
     return {
         "period": {
             "since": since,
@@ -297,7 +308,8 @@ def _build_payload(
         "sealed": {
             "files": len(decisions),
             "unreadable": sum(1 for item in decisions if item.get("error")),
-            "decisions_in_period": len(decisions),
+            "decisions_in_period": len(counted),
+            "excluded_forged": len(decisions) - len(counted),
         },
         "outcomes": counts["outcomes"],
         "models": counts["models"],
@@ -330,9 +342,17 @@ def _scope(period: dict[str, Any]) -> str:
 def _print_tables(payload: dict[str, Any]) -> None:
     period = payload["period"]
     scope = _scope(period)
+    sealed = payload["sealed"]
+    excluded = sealed.get("excluded_forged", 0)
     console.print(
         f"[bold]Oversight report[/bold]  {escape(scope)}  "
-        f"[dim]{payload['sealed']['files']} sealed decision(s)"
+        f"[dim]{sealed['files']} sealed file(s), "
+        f"{sealed['decisions_in_period']} decision(s) counted"
+        + (
+            f", {excluded} excluded (not the copy your log reported)"
+            if excluded
+            else ""
+        )
         + (f", log {escape(str(payload['log']))}" if payload["log"] else "")
         + "[/dim]"
     )
@@ -395,10 +415,13 @@ def _print_tables(payload: dict[str, Any]) -> None:
         table.add_column("state", no_wrap=True)
         table.add_column("detail", overflow="fold", ratio=1)
         for item in off_log:
+            state = escape(str(item.get("witnessed") or "-").replace("_", " "))
+            if item.get("counted") is False:
+                state += " — not counted"
             table.add_row(
                 escape(str(item.get("file") or "-")),
                 escape(str(item.get("case") or "-")),
-                f"[red]{escape(str(item.get('witnessed') or '-').replace('_', ' '))}[/red]",
+                f"[red]{state}[/red]",
                 escape(str(item.get("witness_detail") or "")[:160]),
             )
         console.print(table)
@@ -522,13 +545,28 @@ def _build_html(payload: dict[str, Any]) -> str:
             ),
             _html.escape(str(item.get("witness_detail") or "")),
             _pill(
-                "witnessed" if item.get("witnessed") == "witnessed" else str(item.get("witnessed") or "-").replace("_", " "),
+                (
+                    "witnessed"
+                    if item.get("witnessed") == "witnessed"
+                    else str(item.get("witnessed") or "-").replace("_", " ")
+                )
+                + ("" if item.get("counted", True) else " · not counted"),
                 "ok" if item.get("witnessed") == "witnessed" else "bad",
             ),
         )
         for item in payload["decisions"]
         if not item.get("error")
     ) or '<tr><td colspan="6">No readable decision files.</td></tr>'
+
+    excluded = payload["sealed"].get("excluded_forged", 0)
+    excluded_note = (
+        f'<p style="margin-top:.75rem;color:var(--bad)"><strong>{excluded}</strong> '
+        "file(s) are a different version of a case your log reported. Their outcome, "
+        "model and approval are not counted below — they are listed with the reason."
+        "</p>"
+        if excluded
+        else ""
+    )
 
     gaps = payload["reported_not_delivered"]
     gap_rows = "".join(
@@ -554,11 +592,12 @@ def _build_html(payload: dict[str, Any]) -> str:
   <p class="eyebrow" style="margin-top:1rem">Period</p>
   <p>{_html.escape(scope)} &middot; generated {generated}</p>
   <div class="grid">
-    <div class="tile"><p class="eyebrow">Decisions</p><strong>{payload['sealed']['files']}</strong></div>
+    <div class="tile"><p class="eyebrow">Decisions counted</p><strong>{payload['sealed']['decisions_in_period']}</strong></div>
     <div class="tile"><p class="eyebrow">Witnessed</p><strong>{payload['witness'].get('witnessed', 0)}</strong></div>
     <div class="tile"><p class="eyebrow">Reported, not delivered</p><strong>{len(gaps)}</strong></div>
     <div class="tile"><p class="eyebrow">Expected, never sealed</p><strong>{len(never)}</strong></div>
   </div>
+  {excluded_note}
   <p style="margin-top:1rem;color:var(--muted)">Every number here comes from files you hold, plus your
   own witness log. Nothing was asked of the vendor to produce it.</p>
 </section>
@@ -719,7 +758,6 @@ def report(
         expectations=expectations,
     )
     payload["sealed"]["files"] = len(readable)
-    payload["sealed"]["decisions_in_period"] = len(decisions)
     payload["sealed"]["unreadable"] = len(records) - len(readable)
 
     if out is not None:
