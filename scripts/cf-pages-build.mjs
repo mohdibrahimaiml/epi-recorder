@@ -18,6 +18,13 @@ const DESTINATIONS = ["site", "dist"];
 // ship to public output. Only README.md is allowed through — mirrors the
 // exclusion in scripts/sync_website.py.
 const PUBLIC_MD_ALLOWLIST = new Set(["README.md"]);
+
+// The site sells exactly one paid offer. These are the strings plans.html must
+// carry (one offer, one price), and the ones that must never come back
+// (retired tiers). tests/test_website_offer.py checks this list against the
+// real page, so the guard cannot drift away from the page again.
+const PLANS_PAGE_REQUIRED = ["Witnessed pilot", "4,500"];
+const PLANS_PAGE_RETIRED = ["Design Partner", "Agent Evidence Sprint", "Pick your evidence plan"];
 const skipExcludedPublicMd = (src) => {
   let st;
   try {
@@ -84,8 +91,16 @@ for (const DEST of DESTINATIONS) {
       return "";
     }
   })();
-  if (plansContent && (!plansContent.includes("Pick your evidence plan") || !plansContent.includes("Agent Evidence Sprint"))) {
-    console.warn(`WARNING: ${DEST}/plans.html may not be the unified plans page`);
+  const missing = PLANS_PAGE_REQUIRED.filter((needle) => !plansContent.includes(needle));
+  const retired = PLANS_PAGE_RETIRED.filter((needle) => plansContent.includes(needle));
+  if (plansContent && (missing.length || retired.length)) {
+    const detail = [
+      missing.length ? `missing: ${missing.join(", ")}` : "",
+      retired.length ? `retired offer back: ${retired.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+    console.warn(`WARNING: ${DEST}/plans.html is not the one-offer page (${detail})`);
   }
   console.log(`Cloudflare Pages build OK: copied ${SRC}/ → ${DEST}/ (index.html ${count} bytes)`);
 }

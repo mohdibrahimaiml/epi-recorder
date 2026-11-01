@@ -63,6 +63,15 @@ probe_*/
 
 # Vendored frontend dependencies
 epi-viewer/node_modules/
+# Root Node dependencies (npm install for the Pages build / AI SDK probes).
+# Derived code, thousands of files: never commit it.
+/node_modules/
+
+# Business-planning scratch (board, panel, CFO, competitors). Internal working
+# papers, not product docs; they carry superseded prices (€3,500 pack, €2,500
+# first-engagement discount, €12,000 bundle, €25,000 licence) and a "Not yet"
+# verdict. Sources of truth are docs/PILOT-OFFER.md and the strategy doc.
+/founder/
 
 # IDE
 .vscode/
@@ -255,9 +264,6 @@ contact_submissions/
 attic/
 # Large media not tracked
 *.mp4
-# Launch film ships with the site
-!website/assets/epi-brag.mp4
-!website/assets/epi-brag-vertical.mp4
 *.trace.json
 build-v4.4.1.trace.json
 # Local OAuth helper output (public client_id + single-use PKCE nonces, never commit)

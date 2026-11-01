@@ -62,6 +62,22 @@ def test_standards_moved_to_its_own_page_linked_from_the_footer():
     assert (SITE / "sitemap.xml").read_text(encoding="utf-8").count("/standards") == 1
 
 
+def _js_list(script: str, name: str) -> list[str]:
+    match = re.search(rf"const {name} = \[(.*?)\];", script, re.S)
+    assert match, f"{name} missing from scripts/cf-pages-build.mjs"
+    return re.findall(r'"([^"]+)"', match.group(1))
+
+
+def test_the_pages_build_checks_the_offer_that_actually_exists():
+    """The build guard must test for the page we ship, not a retired one."""
+    script = (REPO / "scripts" / "cf-pages-build.mjs").read_text(encoding="utf-8")
+    plans = _html("plans.html")
+    for needle in _js_list(script, "PLANS_PAGE_REQUIRED"):
+        assert needle in plans, f"cf-pages-build.mjs requires {needle!r}, plans.html lacks it"
+    for needle in _js_list(script, "PLANS_PAGE_RETIRED"):
+        assert needle not in plans, f"cf-pages-build.mjs still expects retired {needle!r}"
+
+
 def test_the_mirrors_serve_the_same_pages():
     for mirror in ("site", "epi-official"):
         for name in ("index.html", "plans.html", "standards.html"):
