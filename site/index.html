@@ -180,7 +180,7 @@
 
             <div class="z-hero-actions z-blur-in z-blur-in--d3">
               <a href="/verify" class="z-btn-primary">Check the example record</a>
-              <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download that .epi</a>
+              <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download a sample .epi</a>
             </div>
 
             <div class="z-cli-pill z-blur-in z-blur-in--d4">
@@ -198,44 +198,145 @@
             <div class="z-hero-scrim-r" aria-hidden="true"></div>
             <div class="z-hero-scrim-t" aria-hidden="true"></div>
 
-            <div id="decisionCard" class="z-hero-monolith" role="region" aria-label="Example decision record produced by EPI from a sealed file">
-              <div class="z-hero-monolith__bar">
-                <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1001</span>
-                <span class="z-hero-monolith__badge" style="background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)">DENIED &middot; SIGNED</span>
+            <div id="decisionCard" class="z-hero-monolith" role="region" aria-label="Three example decision records produced by EPI from sealed files">
+              <div class="z-decision-tabs" role="tablist" aria-label="Example decision outcomes">
+                <button type="button" class="z-decision-tab" role="tab" id="tab-denied" aria-controls="panel-denied" aria-selected="true" data-panel="panel-denied">Denied</button>
+                <button type="button" class="z-decision-tab" role="tab" id="tab-approved" aria-controls="panel-approved" aria-selected="false" data-panel="panel-approved">Approved</button>
+                <button type="button" class="z-decision-tab" role="tab" id="tab-escalated" aria-controls="panel-escalated" aria-selected="false" data-panel="panel-escalated">Escalated</button>
               </div>
 
-              <div class="z-hero-monolith__body">
-                <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
-                <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">deny_claim({claim_id: CLM-1001})</div>
-
-                <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
-                  <div>
-                    <span style="color:var(--text-muted)">Case</span><br>
-                    Adjudicate claim CLM-1001
-                  </div>
-                  <div>
-                    <span style="color:var(--text-muted)">Principal reasons</span><br>
-                    Water damage exclusion HO3-4.2 applies to this peril.
-                  </div>
-                  <div>
-                    <span style="color:var(--text-muted)">Rules and data relied on</span><br>
-                    <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-4.2 &middot; claim CLM-1001 &middot; peril water damage</span>
-                  </div>
-                  <div>
-                    <span style="color:var(--text-muted)">Model</span><br>
-                    <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
-                  </div>
-                  <div>
-                    <span style="color:var(--text-muted)">Approved by</span><br>
-                    DEMO KEY &middot; Claims Adjuster
-                    <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-10-31</span>
-                  </div>
+              <div class="z-hero-monolith__panel" id="panel-denied" role="tabpanel" aria-labelledby="tab-denied">
+                <div class="z-hero-monolith__bar">
+                  <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1001</span>
+                  <span class="z-hero-monolith__badge" style="background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.35)">DENIED &middot; SIGNED</span>
                 </div>
 
-                <div style="margin-top:0.9rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
-                  <span>Rendered from the sealed file</span>
-                  <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
+                <div class="z-hero-monolith__body">
+                  <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
+                  <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">deny_claim({claim_id: CLM-1001})</div>
+
+                  <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
+                    <div>
+                      <span style="color:var(--text-muted)">Case</span><br>
+                      Adjudicate claim CLM-1001
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Principal reasons</span><br>
+                      Water damage exclusion HO3-4.2 applies to this peril.
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Rules and data relied on</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-4.2 &middot; claim CLM-1001 &middot; peril water damage</span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Model</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Approved by</span><br>
+                      DEMO KEY &middot; Claims Adjuster
+                      <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-11-01</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:0.9rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
+                    <span>Rendered from the sealed file</span>
+                    <span style="display:inline-flex;gap:0.75rem">
+                      <a href="/assets/demo/decision-example.epi" download style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px">Download</a>
+                      <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="z-hero-monolith__panel" id="panel-approved" role="tabpanel" aria-labelledby="tab-approved" hidden>
+                <div class="z-hero-monolith__bar">
+                  <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1002</span>
+                  <span class="z-hero-monolith__badge" style="background:rgba(16,185,129,.12);color:#10b981;border-color:rgba(16,185,129,.35)">APPROVED &middot; SIGNED</span>
+                </div>
+
+                <div class="z-hero-monolith__body">
+                  <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
+                  <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">approve_claim({claim_id: CLM-1002, payable_usd: 4820})</div>
+
+                  <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
+                    <div>
+                      <span style="color:var(--text-muted)">Case</span><br>
+                      Approve claim CLM-1002
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Principal reasons</span><br>
+                      Covered peril under HO3-2.0 and the invoice is inside the limit.
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Rules and data relied on</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-2.0 &middot; claim CLM-1002 &middot; invoice INV-8841</span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Model</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Approved by</span><br>
+                      DEMO KEY &middot; Claims Adjuster
+                      <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-11-01</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:0.9rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
+                    <span>Rendered from the sealed file</span>
+                    <span style="display:inline-flex;gap:0.75rem">
+                      <a href="/assets/demo/decision-example-approved.epi" download style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px">Download</a>
+                      <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="z-hero-monolith__panel" id="panel-escalated" role="tabpanel" aria-labelledby="tab-escalated" hidden>
+                <div class="z-hero-monolith__bar">
+                  <span class="z-hero-monolith__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">EPI Decision Record &middot; CLM-1003</span>
+                  <span class="z-hero-monolith__badge" style="background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.35)">ESCALATED &middot; HUMAN</span>
+                </div>
+
+                <div class="z-hero-monolith__body">
+                  <div style="font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted)">What the AI decided</div>
+                  <div style="font-family:var(--font-mono);font-size:0.95rem;margin-top:0.3rem;color:var(--foreground)">escalate_claim({claim_id: CLM-1003, route: senior adjuster})</div>
+
+                  <div style="margin-top:0.85rem;display:grid;gap:0.6rem;font-size:0.78rem;line-height:1.5">
+                    <div>
+                      <span style="color:var(--text-muted)">Case</span><br>
+                      Escalate claim CLM-1003
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Principal reasons</span><br>
+                      Coverage is ambiguous: the loss sits between the seepage exclusion and the sudden-discharge wording.
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Rules and data relied on</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">policy HO3-4.2 / HO3-3.1 &middot; claim CLM-1003 &middot; inspection INS-2207</span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Model</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Approved by</span><br>
+                      DEMO KEY &middot; Claims Adjuster
+                      <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-11-01</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:0.9rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.68rem;color:var(--text-muted);border-top:1px solid var(--border-grid);padding-top:0.7rem">
+                    <span>Rendered from the sealed file</span>
+                    <span style="display:inline-flex;gap:0.75rem">
+                      <a href="/assets/demo/decision-example-escalated.epi" download style="color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px">Download</a>
+                      <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Check it yourself &rarr;</a>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -882,6 +983,7 @@
   <script src="/js/epi-verify-core.js"></script>
   <script src="/js/home-verify.js"></script>
   <script src="/js/auth-ui.js"></script>
+  <script src="/js/decision-tabs.js"></script>
   <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>
