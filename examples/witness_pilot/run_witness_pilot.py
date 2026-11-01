@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Witnessed pilot: the customer holds the proof, and a forgery is caught.
+"""Decision File pilot: the customer holds the proof, and a forgery is caught.
 
 Four roles, four separate homes, no shared secrets:
 

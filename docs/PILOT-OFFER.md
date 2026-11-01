@@ -1,6 +1,6 @@
-# The witnessed pilot — one page
+# The Decision File pilot — one page
 
-**Status:** decided 2026-10-30, revised 2026-10-31 to the witnessed pilot. **Revisit:** 2027-01-27 if unproven. **Owner:** founder.
+**Status:** decided 2026-10-30, revised 2026-10-31 to the Decision File pilot. **Revisit:** 2027-01-27 if unproven. **Owner:** founder.
 
 ---
 

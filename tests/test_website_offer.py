@@ -40,8 +40,8 @@ def test_insurability_claim_is_gone():
 def test_there_is_one_paid_offer_and_it_has_a_price():
     index = _html("index.html")
     plans = _html("plans.html")
-    assert "Witnessed pilot" in index and PRICE in index
-    assert "Witnessed pilot" in plans and PRICE in plans
+    assert "Decision File pilot" in index and PRICE in index
+    assert "Decision File pilot" in plans and PRICE in plans
     assert "one of your AI workflows" in plans
     assert "your customer keeps their own copy" in plans.lower()
 
