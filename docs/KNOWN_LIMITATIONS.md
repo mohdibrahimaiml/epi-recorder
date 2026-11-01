@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.6.3. Docs map: [README.md](./README.md).
+**Product version:** 4.7.0. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -179,6 +179,13 @@ should still run `epi verify` on the artifact. The old presence-only
 behaviour remains a reading risk on anything that consumed the helper
 before this fix.
 
+## Fixed in 4.7.x (unreleased batch)
+
+- **Tool-call decisions dropped by the SDK wrappers** - `wrappers/openai.py` and `wrappers/anthropic.py` copied only `role` and `content` off each response. A model that decided by calling a tool - which is how most agents act - was sealed as `content: null`, with the tool name and its arguments missing. Both now seal every `tool_calls` / `tool_use` block (id, name, arguments), the flat decision at the top of the step (`tool_calls` / `tool_uses`, with `arguments_parsed` when the payload is JSON), the served model (`served_model`), the provider request id (`response_id`), `system_fingerprint`, `created`/`stop_reason`, and the request settings that shaped the answer (`temperature`, `top_p`, `max_tokens`, `top_k`, `seed`, `tool_choice`, and the names/descriptions of the tools offered). `log_llm_call()` had the same defect and is fixed with it. Streaming was already partly covered and now records the same identity fields.
+- **No structured decision step** - `agent.decision()` now takes `basis=` for the data the decision relied on, next to `decision` (outcome), `rationale` (reason) and `output` (structured result).
+
+**Still a limit:** the wrapper records the model's *request* to call a tool. Whether the tool actually ran, and what it returned, is in the file only if the agent logs it (`agent.tool_call` / `agent.tool_result`, or a framework integration). The effect is still shown - a tool call with no recorded result is an incomplete-evidence finding under `--policy strict`.
+
 ## Fixed in 4.4.6 (2026-09-10 batch)
 
 The following were gaps and are now fixed — kept here for audit trail:
@@ -348,14 +355,14 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.7.0**. Published on PyPI: **4.6.3** — 4.7.0 is prepared
-in-tree and goes up through **Trusted Publishing**, so its files carry **PEP 740
-attestations** once the release is published (the publisher must be configured on
-pypi.org first; see [RELEASING.md](./RELEASING.md)). The **4.6.3** wheel — the
-newest on PyPI today — added signed display-layer verification, the viewer
-fail-closed fix (#141/#143), and the pack-time viewer / prohibition-guard fix
-(#145). It has **no PEP 740 attestations** because it was uploaded with the
-project API token; its provenance endpoint returns HTTP 404. The published
+Current release line: **4.9.0**, published on PyPI: **4.9.0**. It goes up through
+**Trusted Publishing** after the signed tag, as 4.8.0 did, so both files carry
+**PEP 740 attestations** — check with
+`https://pypi.org/integrity/epi-recorder/4.9.0/<file>/provenance`
+(HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
+uploaded with the project API token; its provenance endpoint returns HTTP 404. It
+added signed display-layer verification, the viewer fail-closed fix (#141/#143),
+and the pack-time viewer / prohibition-guard fix (#145). The published
 **4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
 on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
 **4.4.2** never reached PyPI. **4.4.3+** seals full payloads

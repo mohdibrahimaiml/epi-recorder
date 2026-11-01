@@ -89,12 +89,18 @@ _EPI_ENVELOPE_HEADER_STRUCT = struct.Struct("<4sBBHQ16sQ32s56s")
 _RESERVED_ROOT_ARCHIVE_NAMES = {"mimetype", "manifest.json", "viewer.html", "VERIFY.txt"}
 _GENERATED_WORKSPACE_FILES = {"analysis.json", "policy.json", "policy_evaluation.json"}
 _MUTABLE_REVIEW_ARCHIVE_NAMES = {"review.json", "review_index.json"}
+# Additive metadata written after the seal: the approval ledger, plus the
+# independent RFC 3161 timestamp of each approval. Neither is evidence the seal
+# covers, so neither may count as an unexpected file.
+_MUTABLE_APPROVAL_PREFIXES = ("reviews/", "review_timestamps/")
 
 _zip_pack_lock = threading.Lock()
 
 
 def _is_mutable_review_archive_name(arc_name: str) -> bool:
-    return arc_name in _MUTABLE_REVIEW_ARCHIVE_NAMES or arc_name.startswith("reviews/")
+    return arc_name in _MUTABLE_REVIEW_ARCHIVE_NAMES or arc_name.startswith(
+        _MUTABLE_APPROVAL_PREFIXES
+    )
 
 
 @dataclass(frozen=True)
@@ -329,7 +335,16 @@ class EPIContainer:
                     # reviewed downloads fail with "VERIFY.txt: File missing".
                     # source_dir/VERIFY.txt holds the final post-signing bytes
                     # by the time this function runs during pack().
-                    if filename not in {"mimetype"} and (source_dir / filename).exists()
+                    #
+                    # viewer.html is excluded for the same reason it is absent
+                    # from the manifest at pack time: it is written to the
+                    # archive after this payload is built. Re-sealing a file
+                    # (refresh_viewer) unpacks its viewer.html into source_dir,
+                    # so without this exclusion every re-seal would base64 the
+                    # previous viewer into the new one and roughly double the
+                    # file each time.
+                    if filename not in {"mimetype", "viewer.html"}
+                    and (source_dir / filename).exists()
                 },
                 # manifest.json and viewer.html are written directly to the ZIP
                 # archive during packing, not saved to the workspace directory.
@@ -1457,12 +1472,21 @@ class EPIContainer:
             f"  epi verify <this_file>.epi\n"
             f"  python -m epi_cli verify <this_file>.epi   # if `epi` is not on PATH\n"
             f"  (sealed by epi-recorder {verify_epi_version}; spec {manifest.spec_version})\n\n"
+            f"HOW TO LOOK AT THIS FILE:\n"
+            f"  Data-only files (no viewer.html inside) do not open by double-click.\n"
+            f"  Use:  epi view <this_file>.epi\n"
+            f"  Or unpack it with any ZIP tool: steps.jsonl is the timeline, in order.\n"
+            f"  If double-click does nothing on this machine, register the file type\n"
+            f"  once:  epi associate\n"
+            f"  Sealed with --with-viewer? Then the file also opens directly in a\n"
+            f"  browser. Either way the viewer is HTML that came from inside the\n"
+            f"  file: its colours are a convenience, not proof.\n\n"
             f"TRUST MODEL:\n"
             f"  Trust `epi verify` (CLI / machine-readable report), not the colors or\n"
-            f"  labels painted by the double-click embedded HTML viewer alone.\n"
+            f"  labels painted by the in-file HTML viewer alone.\n"
             f"  Sealed data lives in the ZIP payload (file_manifest + Ed25519 seal).\n"
-            f"  The outer polyglot viewer HTML is byte-identical to the sealed\n"
-            f"  viewer.html member, so the Ed25519 seal covers the display layer\n"
+            f"  In a --with-viewer seal the outer polyglot HTML is byte-identical to the\n"
+            f"  sealed viewer.html member, so the Ed25519 seal covers the display layer\n"
             f"  too: editing what a double-click shows breaks verification, even\n"
             f"  if the envelope header copy (reserved_tail[0:32]) is recomputed.\n"
             f"  That header copy is only a consistency check.\n\n"

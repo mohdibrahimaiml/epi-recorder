@@ -208,6 +208,372 @@ def _print_entry(verb: str, entry: dict) -> None:
     )
 
 
+def _load_witness_entries(log_path: Path) -> tuple[list[dict], str | None]:
+    """Every seal report in a witness log, newest shape or legacy JSONL.
+
+    Returns ``(entries, error)``. Each entry is the report payload plus the
+    ``received_at`` the receiver stamped. Signed docs (``witness.json`` with a
+    ``lines`` array) and plain JSONL (``epi witness serve --out``) both work.
+    """
+    import json as _json
+
+    try:
+        raw = log_path.read_text(encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 - reported, never raised
+        return [], f"{log_path} could not be read ({exc})"
+
+    def _from_item(item: dict) -> dict | None:
+        payload_raw = item.get("payload_raw")
+        receipt = item.get("receipt")
+        if isinstance(payload_raw, str) and isinstance(receipt, dict):
+            try:
+                inner = _json.loads(payload_raw)
+            except Exception:
+                return None
+            if not isinstance(inner, dict):
+                return None
+            inner = dict(inner)
+            inner.setdefault(
+                "received_at",
+                receipt.get("received_at") or item.get("received_at"),
+            )
+            return inner
+        return item if item.get("workflow_id") else None
+
+    items: list[dict] = []
+    try:
+        doc = _json.loads(raw) if raw.strip() else None
+    except Exception:
+        doc = None
+    if isinstance(doc, dict) and isinstance(doc.get("lines"), list):
+        items = [item for item in doc["lines"] if isinstance(item, dict)]
+    else:
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                parsed = _json.loads(line)
+            except Exception:
+                continue
+            if isinstance(parsed, dict):
+                items.append(parsed)
+
+    entries = [entry for item in items if (entry := _from_item(item)) is not None]
+    if not entries:
+        return [], (
+            f"{log_path} contains no witness reports — is it the --out file of "
+            "`epi witness serve`?"
+        )
+    return entries, None
+
+
+def _case_key(entry: dict) -> str:
+    """The customer's grouping key: case id when the vendor sent one, else workflow."""
+    return str(entry.get("case_id") or entry.get("workflow_id") or "")
+
+
+def _expand_cases(paths: list[Path]) -> list[Path]:
+    files: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            files.extend(sorted(path.rglob("*.epi")))
+        elif path.suffix.lower() == ".epi":
+            files.append(path)
+        elif path.exists():
+            files.extend(sorted(path.rglob("*.epi")))
+    # De-duplicate while keeping the caller's order.
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for file in files:
+        resolved = file.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(file)
+    return unique
+
+def _read_expectations(path: Path) -> list[str]:
+    """Claim/case IDs the customer expects to find. First cell of each row."""
+    import csv
+
+    try:
+        rows = list(csv.reader(path.read_text(encoding="utf-8-sig").splitlines()))
+    except Exception:
+        return []
+    header = {"case_id", "claim_id", "claim", "claim_number", "id", "case"}
+    values: list[str] = []
+    for index, row in enumerate(rows):
+        cells = [cell.strip() for cell in row if cell.strip()]
+        if not cells:
+            continue
+        if index == 0 and cells[0].lower() in header:
+            continue
+        values.append(cells[0])
+    return values
+
+
+def _entries_for_expectation(value: str, entries: list[dict]) -> list[dict]:
+    """Reports that speak to this claim id: an exact case_id, or the goal text."""
+    needle = value.strip().lower()
+    found = []
+    for entry in entries:
+        case_id = str(entry.get("case_id") or "").strip().lower()
+        goal = str(entry.get("goal") or "").strip().lower()
+        if case_id == needle or (needle and needle in goal):
+            found.append(entry)
+    return found
+
+def _print_expectations(expectations: list[dict], source: object) -> list[dict]:
+    """Table of expected claim/case ids. Returns the MISSING rows."""
+    missing = [item for item in expectations if item["status"] == "MISSING"]
+    if not expectations:
+        return missing
+    table = Table(title=f"Expected cases ({source})")
+    table.add_column("case", no_wrap=True)
+    table.add_column("reports", justify="right")
+    table.add_column("status", no_wrap=True)
+    table.add_column("last received (UTC)")
+    for item in expectations:
+        ok = item["status"] == "FOUND"
+        status = f"[green]{item['status']}[/green]" if ok else f"[red]{item['status']}[/red]"
+        table.add_row(
+            escape(item["case"]),
+            str(item["reports"]),
+            status,
+            str(item["last_received"] or "-")[:19].replace("T", " "),
+        )
+    console.print(table)
+    if missing:
+        console.print(
+            f"[red]{len(missing)} expected case(s) have no witnessed record:[/red] "
+            + escape(", ".join(item["case"] for item in missing[:12]))
+        )
+    return missing
+
+
+@app.command(name="report")
+def report(
+    log: Path | None = typer.Option(
+        None,
+        "--log",
+        envvar="EPI_WITNESS_LOG",
+        help="Witness log to read (default: EPI_WITNESS_LOG, then ./received.jsonl).",
+    ),
+    cases: list[Path] | None = typer.Option(
+        None,
+        "--cases",
+        help="A .epi file or a directory of them, checked against the log. Repeatable.",
+    ),
+    witness_pubkey: str | None = typer.Option(
+        None,
+        "--witness-pubkey",
+        envvar="EPI_WITNESS_PUBKEY",
+        help="Pinned EPI witness key, for logs that carry signed receipts.",
+    ),
+    expect: Path | None = typer.Option(
+        None,
+        "--expect",
+        help="CSV of claim/case IDs the customer expects. Any with no witnessed "
+        "record is reported MISSING, not silently absent.",
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output."),
+    fail_on_unwitnessed: bool = typer.Option(
+        False,
+        "--fail-on-unwitnessed",
+        help="Exit 1 when a case file is not in the log (scripted checks, CI gates).",
+    ),
+):
+    """What the customer's witness knows, by case.
+
+    Without ``--cases``: every case in the log, with how many times it was
+    witnessed and when. With ``--cases``: each sealed file is matched to the log
+    and reported as WITNESSED, NOT IN WITNESS LOG, MISMATCH or NOT CONFIRMED.
+
+    This is the check a signature cannot make. A vendor who re-seals a changed
+    decision signs a perfectly valid file; only the customer's own record shows
+    that the bytes they were handed are not the bytes that were reported.
+    """
+    import json as _json
+
+    from epi_core.container import EPIContainer
+
+    log_path = Path(log) if log else Path(os.environ.get("EPI_WITNESS_LOG") or "received.jsonl")
+    entries, error = _load_witness_entries(log_path)
+    if error:
+        console.print(f"[red]{escape(error)}[/red]")
+        raise typer.Exit(2)
+
+    by_case: dict[str, list[dict]] = {}
+    by_workflow: dict[str, list[dict]] = {}
+    for entry in entries:
+        by_case.setdefault(_case_key(entry), []).append(entry)
+        workflow = str(entry.get("workflow_id") or "")
+        if workflow:
+            by_workflow.setdefault(workflow, []).append(entry)
+
+    case_files: list[Path] = _expand_cases(list(cases or []))
+    results: list[dict] = []
+    for file in case_files:
+        try:
+            manifest = EPIContainer.read_manifest(file)
+        except Exception as exc:  # noqa: BLE001
+            results.append(
+                {
+                    "path": str(file),
+                    "workflow_id": "",
+                    "case_id": "",
+                    "status": "UNREADABLE",
+                    "received_at": None,
+                    "detail": f"not a readable .epi ({exc})",
+                }
+            )
+            continue
+        from epi_cli.verify import _check_witness_log
+
+        check = _check_witness_log(file, manifest, log_path, witness_pubkey)
+        workflow_id = str(getattr(manifest, "workflow_id", "") or "")
+        matching = by_workflow.get(workflow_id) or []
+        goal = str(getattr(manifest, "goal", "") or "").strip()
+        status = str(check.get("status") or "")
+        detail = str(check.get("detail") or "")
+
+        # A vendor who re-seals a forged decision under a NEW workflow id is
+        # "not in the log" by id alone - but the customer's log still names the
+        # case they were told about. Match on the goal and say that instead.
+        if status == "NOT IN WITNESS LOG" and goal:
+            same_goal = [
+                entry for entry in entries
+                if str(entry.get("goal") or "").strip() == goal
+            ]
+            if same_goal:
+                latest = max(
+                    (str(entry.get("received_at") or "") for entry in same_goal),
+                    default="",
+                )
+                status = "MISMATCH"
+                detail = (
+                    f"a different version of {goal!r} was reported to you "
+                    f"({len(same_goal)} report(s), latest {latest or 'unknown time'}); "
+                    "this copy was never reported"
+                )
+
+        label = str((matching[0].get("case_id") if matching else "") or "").strip() or goal
+        results.append(
+            {
+                "path": str(file),
+                "workflow_id": workflow_id,
+                "case_id": label,
+                "goal": goal,
+                "status": status,
+                "received_at": check.get("received_at"),
+                "matches": check.get("matches", 0),
+                "detail": detail,
+            }
+        )
+
+    unwitnessed = [r for r in results if r["status"] != "WITNESSED"]
+
+    expectations: list[dict] = []
+    for value in _read_expectations(expect) if expect is not None else []:
+        hits = _entries_for_expectation(value, entries)
+        latest = max((str(entry.get("received_at") or "") for entry in hits), default="")
+        expectations.append(
+            {
+                "case": value,
+                "reports": len(hits),
+                "status": "FOUND" if hits else "MISSING",
+                "last_received": latest,
+            }
+        )
+    missing = [item for item in expectations if item["status"] == "MISSING"]
+
+    if as_json:
+        payload = {
+            "log": str(log_path),
+            "reports": len(entries),
+            "cases_in_log": {
+                key: {
+                    "reports": len(items),
+                    "first_received": min(
+                        (str(e.get("received_at") or "") for e in items), default=""
+                    ),
+                    "last_received": max(
+                        (str(e.get("received_at") or "") for e in items), default=""
+                    ),
+                    "steps": max((int(e.get("steps") or 0) for e in items), default=0),
+                }
+                for key, items in sorted(by_case.items())
+            },
+            "checked_files": results,
+            "unwitnessed": len(unwitnessed),
+            "expected": expectations,
+            "missing": len(missing),
+        }
+        console.print_json(_json.dumps(payload))
+        raise typer.Exit(1 if (fail_on_unwitnessed and (unwitnessed or missing)) else 0)
+
+    if not case_files:
+        table = Table(title=f"Witness cases ({log_path})")
+        table.add_column("case", no_wrap=True, min_width=8)
+        table.add_column("reports", justify="right")
+        table.add_column("steps", justify="right")
+        table.add_column("first received (UTC)")
+        table.add_column("last received (UTC)")
+        for key, items in sorted(by_case.items()):
+            times = sorted(str(e.get("received_at") or "") for e in items)
+            table.add_row(
+                escape(key[:8]),
+                str(len(items)),
+                str(max((int(e.get("steps") or 0) for e in items), default=0)),
+                times[0][:19].replace("T", " ") if times else "-",
+                times[-1][:19].replace("T", " ") if times else "-",
+            )
+        console.print(table)
+        console.print(
+            f"[dim]{len(entries)} report(s) across {len(by_case)} case(s). "
+            "Check specific files with --cases <file-or-dir>.[/dim]"
+        )
+        if expectations:
+            _print_expectations(expectations, expect)
+            raise typer.Exit(1 if (fail_on_unwitnessed and missing) else 0)
+        return
+
+    if results:
+        table = Table(title=f"Witness report ({log_path})")
+        table.add_column("file", overflow="fold")
+        table.add_column("case", overflow="fold")
+        table.add_column("status", no_wrap=True)
+        table.add_column("received (UTC)")
+        table.add_column("detail", overflow="fold", ratio=1)
+        for row in results:
+            ok = row["status"] == "WITNESSED"
+            status = f"[green]{row['status']}[/green]" if ok else f"[red]{row['status']}[/red]"
+            table.add_row(
+                escape(Path(row["path"]).name),
+                escape((row["case_id"] or row["workflow_id"] or "-")[:60]),
+                status,
+                str(row["received_at"] or "-")[:19].replace("T", " "),
+                escape(str(row["detail"] or "")[:160]),
+            )
+        console.print(table)
+        console.print(
+            f"[dim]{len(results)} file(s) checked against {len(entries)} report(s); "
+            f"{len(results) - len(unwitnessed)} witnessed, {len(unwitnessed)} not.[/dim]"
+        )
+
+    if expectations:
+        _print_expectations(expectations, expect)
+
+    if (unwitnessed or missing) and not fail_on_unwitnessed:
+        console.print(
+            "[dim]A file that is not in the customer's log is not necessarily a forgery "
+            "- but it was never reported to the customer. Re-run with "
+            "--fail-on-unwitnessed to make that a non-zero exit.[/dim]"
+        )
+    raise typer.Exit(1 if (fail_on_unwitnessed and (unwitnessed or missing)) else 0)
+
+
 @app.command(name="drop")
 def drop(
     entry_id: str | None = typer.Argument(

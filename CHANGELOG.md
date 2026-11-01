@@ -2,6 +2,206 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.9.0] - 2026-11-01
+
+### Changed
+
+- **The offer is called the Decision File pilot.** "Witnessed pilot" named the
+  mechanism; what a vendor buys is the Decision File, delivered on one workflow
+  for thirty days. Renamed on `/plans`, the homepage, the deployed mirrors and
+  in `docs/PILOT-OFFER.md`, and in the build guard that checks the page still
+  sells that one offer. Price, scope and terms are unchanged; "witness",
+  "witness log" and "witnessed" stay as the mechanism's name.
+
+- **The site sells one thing, at a price.** The homepage and `/plans` no longer
+  offer a "Design Partner Program" with five places; they offer a **witnessed
+  pilot: €4,500, one workflow, thirty days**, with decision files for every case
+  and the customer keeping their own witness log. The contact form has two
+  choices instead of three. The "Insurability & Governance" section is gone: no
+  insurer requires or accepts EPI today, so the page says what the witness gives
+  them instead. Annex IV, AIUC-1 and SCITT moved to a new `/standards` page
+  linked from the footer, where they are labelled evidence input, not a
+  certificate. The footer shows the version once. `docs/PILOT-OFFER.md` matches
+  the site: one workflow, thirty days, €4,500, no discount or rush tier.
+  `tests/test_website_offer.py` fails if "Design Partner", an insurability claim,
+  a missing price, a duplicated version stamp or a missing `/standards` link
+  comes back, and if the deployed mirrors drift from `website/`.
+
+### Fixed
+
+- **`epi oversight report` no longer counts a forged copy.** A file that is a
+  different version of a case the customer's log reported was listed as a
+  mismatch and then counted in the outcome, model and approval totals — two
+  forged "Denied" copies could outvote the one decision the customer actually
+  holds. It is still listed with its reason, but `decisions_in_period`,
+  outcomes, models and approvals skip it (`sealed.excluded_forged` in JSON;
+  "not counted" on the page and in the console). Files that were never reported
+  at all are still counted: that is a delivery gap, not a forgery.
+
+- **The DEMO trust page prints the bytes it serves.** Every card's byte count
+  was stale (a 17,748-byte file labelled 498,868), on the one page whose claim
+  is that you can check it. The hashes were right, which is how the numbers
+  survived a test that compared hashes only. Fixed in `website/` and the
+  tracked mirrors, with a test that compares the printed size to the served
+  file and a test that every mirror serves identical bytes.
+
+- **`epi verify --witness-log` never calls a tampered file "re-packaged".** The
+  re-packaged branch matched on the content digest alone, so a file whose
+  evidence was rewritten after the seal (manifest untouched) came back as
+  `WITNESSED … re-packaged` — the vendor's own reassurance handed to the
+  forger. Both branches now compare the members with the signed manifest: same
+  members is a genuine re-package, different members is `MISMATCH`, "altered
+  after the report, not re-packaged".
+
+- **The Pages build guards the offer that exists.** It warned unless
+  `plans.html` contained two retired tiers, so it warned on the real page and
+  would have stayed silent if they came back. It now requires the offer the
+  site sells and warns when a retired one returns; a test parses the lists out
+  of the build script and checks them against the page. `.gitignore` also
+  ignores root `node_modules/` and `founder/`.
+
+- **The Decision Record now explains the decision.** `epi export-summary` - the
+  document handed to a customer, regulator or affected person - printed "Final
+  decision recorded: Denied" with no reason, no rule, no model, and called a
+  signed approval "not a signed approval" while `epi verify` reported it signed.
+  It now shows the outcome, the principal reasons, the data and rules relied on,
+  the served model version, the approver exactly as `epi verify` classifies them
+  (including "signed; key not pinned by this verifier"), the archive SHA-256 and
+  the command to check it. Tests fail if the reason, the basis, the served model
+  or a verified approval is missing.
+
+- **The homepage leads with the customer's question.** H1: "When your customer
+  asks why your AI made a decision, hand them a file they can check." The hero
+  shows a real decision record - sealed, signed and downloadable - instead of a
+  layer inspector. Every value on the card is asserted against the shipped
+  artifact, so the page cannot describe a record it does not ship.
+
+### Added
+
+- **`epi oversight report` - the period-shaped question, answered.** A folder of
+  decision files answers nothing on its own; the question a bank or an insurer
+  asks is "over these three months, what did your AI decide, which model
+  answered, who approved it, and which cases can you not produce?" The command
+  joins the sealed files, the customer's witness log and the customer's
+  `--expect` list, and reports: decisions by outcome (normalised, so `DENY` and
+  `deny_claim` are one outcome), model versions with first/last seen, approvals
+  kept distinct (pinned / signed-but-unpinned / absent / invalid / sealing key
+  only), cases reported but never delivered, cases expected but never sealed,
+  and the files that do not match the witness log. `--out` writes one page a
+  customer can keep; `--json` for dashboards; `--fail-on-gaps` for a scripted
+  check. See `docs/OVERSIGHT.md`.
+
+- **The browser verifier can use the customer's witness log.** `/verify` now
+  takes `received.jsonl` next to the `.epi`, with the same matching as the CLI:
+  exact file/manifest hash, then the content digest, then the case by goal. A
+  re-sealed forgery that passes integrity and signature now reads
+  *"This is not the version your witness recorded"* on the no-install path.
+  Signed logs report `NOT CONFIRMED` until a witness key is pinned, because the
+  page holds no trust anchor.
+
+## [4.8.0] - 2026-10-30
+
+### Fixed
+
+- **The browser verifier called every approved file tampered.** `epi review
+  approve` adds `review_timestamps/` (the RFC 3161 token for that approval)
+  after sealing; the CLI knew that folder is post-seal, the browser's allowlist
+  (`website/js/home-verify.js` and its three mirrors) did not. Any file a human
+  had signed was reported as *"changed after it was sealed — don't rely on it"*
+  on the no-install path. Fixed, with a browser test that drops an approved,
+  timestamped file and requires integrity to pass.
+
+- **`epi verify` now says what the AI decided**, in one line read from the
+  sealed steps: `Decision: deny_claim({"reason": "excluded peril"})`, or the
+  `agent.decision` outcome and its rationale when no tool call is present.
+
+- **Tool-call decisions were dropped from the sealed record.** `wrap_openai()`
+  and `wrap_anthropic()` copied only `role` and `content` off each response, so
+  an agent that decided by calling a tool - which is how most agents act - was
+  sealed as `content: null`, with the tool name and its arguments missing. Both
+  now seal every `tool_calls` / `tool_use` block (id, name, arguments), a flat
+  decision at the top of the step (`tool_calls` / `tool_uses`, plus
+  `arguments_parsed` when the payload is JSON), the served model
+  (`served_model`), the provider request id (`response_id`),
+  `system_fingerprint`, `created` / `stop_reason`, and the request settings that
+  shaped the answer (`temperature`, `top_p`, `max_tokens`, `top_k`, `seed`,
+  `tool_choice`, plus the names/descriptions of the tools offered). Streaming
+  records the same identity fields, and Anthropic stream `input_json` is decoded
+  into `input`. `log_llm_call()` had the same defect and is fixed with it.
+  The viewer now shows `Called deny_claim({...})` for a response with no prose.
+  **If you are on 4.7.0, your records are missing the decision itself.**
+
+- **Host detail in sealed artifacts.** `environment.json` no longer captures
+  `USER`, `HOME`, `PWD`, `PYTHONPATH` or `VIRTUAL_ENV` (the username and folder
+  paths), the interpreter path/argv/PIDs, or the CPU model and memory. Withheld
+  fields are listed in `host_details.fields`. `scripts/check_artifact_privacy.py`
+  reports any committed sample that still carries host detail.
+
+- **Every committed sample was leaking the builder's machine.** 16 shipped
+  `.epi` files still carried a username, folder paths, interpreter path, argv,
+  PIDs, CPU model or memory in `environment.json` - including `assets/sample.epi`
+  and the `demo_refund` copies. All are re-sealed
+  (`scripts/reseal_sample_privacy.py`, which replaces the snapshot, recomputes
+  the payload hashes and signs again), the stale `VERIFY.txt` is regenerated at
+  the current version, and the gate now runs in CI as its own job plus a test on
+  every platform. `real_llm_refund_case.epi` is renamed `refund_case.epi`
+  (nothing showed a live model produced it) and the unlinked
+  `epi-official/assets/sample_new.epi` is gone.
+
+### Added
+
+- **`epi witness report` — what the customer's witness knows, by case.**
+  Without `--cases` it lists every case in the log with how often, and when, it
+  was reported. With `--cases <file|dir>` it matches each sealed file to the log
+  and reports `WITNESSED`, `MISMATCH`, `NOT IN WITNESS LOG` or `NOT CONFIRMED`;
+  `--json` for scripts and `--fail-on-unwitnessed` to exit non-zero. This is the
+  check a signature cannot make: a vendor who re-seals a changed decision signs a
+  perfectly valid file, and only the customer's own record shows the bytes they
+  were handed are not the bytes that were reported.
+
+  Cases are labelled the way the customer names them: `record(case_id="CLM-1001")`
+  travels in the hash-only witness payload, so the report says `CLM-1001`, not a
+  workflow uuid. When the vendor re-runs a case under a new workflow id, the
+  report matches it on the goal and says *"a different version of 'Adjudicate
+  claim CLM-1001' was reported"* instead of "never reported" — and
+  `epi verify --witness-log` now returns the same verdict (`MISMATCH`,
+  "DIFFERENT VERSION") for a re-sealed copy of a case it has a report for,
+  rather than the weaker "NOT IN WITNESS LOG".
+  `--expect cases.csv` takes the claim numbers the customer already knows and
+  marks any with no witnessed record as `MISSING` — so a claim that was never
+  sealed at all is visible, not silently absent.
+
+- **`session.decision(...)`** — the flat form, without opening an `agent_run`:
+  `epi.decision("deny_claim", rationale=..., basis=...)`. `agent.decision()`
+  inside `agent_run` is unchanged.
+
+- **`examples/witness_pilot/` — the forged re-seal, demonstrated.** Four isolated
+  homes (vendor, approver, customer, forger). The vendor seals and reports a
+  hash-only line; the approver signs with their own key; the customer pins both
+  fingerprints, keeps the log and verifies. Then the vendor's key re-seals
+  `approve` → `deny`: plain `epi verify` says **Integrity Verified / Signature
+  Valid**, and `epi verify --witness-log` says **NOT THE VERSION REPORTED TO
+  YOU**. A CI workflow runs it so the demo cannot rot.
+
+- **An approval now says when it was signed, and a third party proves it.**
+  `signed_at` sits inside the payload the approver's key signs (approval
+  version 1.1.0; 1.0.0 entries stay valid). After signing, the approval's review
+  hash is timestamped with RFC 3161 by the same pinned authorities as the seal
+  (FreeTSA, DigiCert) and the token is stored at
+  `review_timestamps/<id>.json`, beside the record. `epi review <file> show`
+  prints the independent time; `epi review <file> approve` stamps by default
+  (`--no-timestamp` for offline, and an unreachable authority is recorded as
+  `unavailable` rather than blocking the approval). `epi approvers add
+  <file.epi>` can now pin the *approval* key when the supplied fingerprint
+  belongs to it, not just the sealing key.
+
+- **`agent.decision(basis=...)`** records the data a decision relied on, next to
+  `decision` (outcome) and `rationale` (reason).
+
+- The insurance sector demo ships a labelled `DEMO KEY` approval with a real
+  FreeTSA token; pin the printed fingerprint to see it classified as
+  `human_signed`.
+
 ## [4.7.0] - 2026-10-28
 
 ### Added

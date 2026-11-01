@@ -79,6 +79,59 @@ function showSection(sectionId, navId) {
 // ── Step Summarization ────────────────────────────────────────
 
 /**
+ * Tool calls a response contains, in any of the shapes EPI records.
+ * An agent that decides by calling a tool has no text to summarise, so the
+ * timeline has to show the call itself.
+ */
+function responseToolCalls(c) {
+  const out = [];
+  const seen = new Set();
+  const push = (name, args) => {
+    if (!name) return;
+    let value = args;
+    // Arguments arrive as a JSON string on the wire; decode for display.
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[') {
+        try {
+          value = JSON.parse(trimmed);
+        } catch (e) {
+          value = trimmed;
+        }
+      }
+    }
+    let rendered;
+    try {
+      rendered = JSON.stringify(value === undefined || value === null ? {} : value);
+    } catch (e) {
+      rendered = String(value);
+    }
+    const key = name + '\u0000' + rendered;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ name: String(name), args: rendered });
+  };
+  if (Array.isArray(c.tool_calls)) {
+    c.tool_calls.forEach((tc) => push(tc.name || tc.function?.name, tc.arguments_parsed ?? tc.function?.arguments ?? tc.arguments));
+  }
+  if (Array.isArray(c.choices)) {
+    c.choices.forEach((ch) => {
+      const calls = ch && ch.message && ch.message.tool_calls;
+      if (Array.isArray(calls)) calls.forEach((tc) => push(tc.function?.name || tc.name, tc.function?.arguments ?? tc.arguments));
+    });
+  }
+  if (Array.isArray(c.tool_uses)) {
+    c.tool_uses.forEach((tu) => push(tu.name, tu.input));
+  }
+  if (Array.isArray(c.content)) {
+    c.content.forEach((b) => {
+      if (b && b.type === 'tool_use') push(b.name, b.input);
+    });
+  }
+  return out;
+}
+
+/**
  * Produce a human-readable one-liner for a step.
  * Covers all documented step kinds.
  */
@@ -122,6 +175,14 @@ function summarizeStep(step) {
           text = c.choices[0].message?.content || c.choices[0].text || '';
         }
         if (!text && typeof c.content === 'string') text = c.content;
+        if (typeof text !== 'string') text = '';
+        if (!text.trim()) {
+          // No prose: the decision was a tool call, so show the call.
+          const calls = responseToolCalls(c);
+          if (calls.length) {
+            return trunc(calls.map((call) => `Called ${call.name}(${trunc(call.args, 100)})`).join('; '), 200);
+          }
+        }
         return trunc(text, 200) || `Response from ${c.model || 'model'}`;
       }
 
@@ -141,7 +202,9 @@ function summarizeStep(step) {
       case 'agent.decision': {
         const decision = String(c.decision || c.verdict || c.outcome || c.text || c.summary || '?').toUpperCase();
         const rationale = c.rationale || c.reasoning || c.reason || '';
-        return `Decision: ${decision}${rationale ? ' — ' + trunc(rationale, 160) : ''}`;
+        // Never present this as the final outcome: the agent recommends, a
+        // person approves. The verdict box says the same (step 4.7.1).
+        return `AI decision: ${decision}${rationale ? ' — ' + trunc(rationale, 160) : ''}`;
       }
 
       case 'agent.approval.request': {
@@ -222,7 +285,7 @@ function summarizeStep(step) {
  * Returns { htClass, kindClass } for a step.
  * htClass is used on heatmap ticks, kindClass on the ev-kind cell.
  */
-function stepTone(step) {
+function stepTone(step, awaitingReview = false) {
   const kind = (step.kind || '').toLowerCase();
   const c = step.content || {};
   const hasFault = c.fault || c.error || c.exception;
@@ -248,6 +311,13 @@ function stepTone(step) {
 
     case 'agent.decision': {
       const dec = String(c.decision || c.verdict || '').toUpperCase();
+      // An AI decision that still needs a person is not a green outcome —
+      // neither the step's own flag nor a later hand-off makes it approved.
+      if (awaitingReview
+        || c.review_required === true
+        || String(c.review_required).toLowerCase() === 'true') {
+        return { htClass: 'ht-warn', kindClass: 'ev-kind-warn' };
+      }
       if (dec.includes('APPROVED') || dec.includes('APPROVE') || dec.includes('PASS') || dec.includes('ACCEPT')) {
         return { htClass: 'ht-pass', kindClass: 'ev-kind-pass' };
       }
@@ -458,14 +528,35 @@ function renderHeader(caseData, context) {
   if (humanReview) {
     const reviewPill = document.createElement('span');
     const rs = humanReview.status;
-    if (rs === 'approved') {
-      reviewPill.className = 'pill pass';
-    } else if (rs === 'rejected') {
-      reviewPill.className = 'pill fail';
+    // A signed approval entry is only green when the verifier confirmed it;
+    // the viewer itself cannot check an approver registry.
+    const approval = approvalState(context);
+    const humanConfirmed = approval.kind === 'verified' || approval.kind === 'denied';
+    if (humanReview.is_approval_entry && !humanConfirmed) {
+      let label = 'APPROVAL RECORDED (NOT VERIFIED HERE)';
+      let cls = 'pill warn';
+      if (approval.kind === 'untrusted') {
+        label = 'SIGNED — APPROVER NOT TRUSTED HERE';
+      } else if (approval.kind === 'invalid') {
+        label = 'APPROVAL SIGNATURE DOES NOT VERIFY';
+        cls = 'pill fail';
+      } else if (approval.kind === 'agent_signed') {
+        label = 'NOT A HUMAN APPROVAL';
+      } else if (approval.kind === 'partial') {
+        label = 'PARTLY SIGNED — WAITING';
+      }
+      reviewPill.className = cls;
+      reviewPill.innerHTML = `<span class="pill-dot"></span>${label}`;
     } else {
-      reviewPill.className = 'pill warn';
+      if (rs === 'approved') {
+        reviewPill.className = 'pill pass';
+      } else if (rs === 'rejected') {
+        reviewPill.className = 'pill fail';
+      } else {
+        reviewPill.className = 'pill warn';
+      }
+      reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${rs.toUpperCase()}`;
     }
-    reviewPill.innerHTML = `<span class="pill-dot"></span>REVIEW ${rs.toUpperCase()}`;
     pillsEl.appendChild(reviewPill);
   }
 
@@ -1369,8 +1460,132 @@ function renderCaseContext(caseData) {
   document.getElementById('context-inner').innerHTML = html;
 }
 
+/**
+ * The verifier's own human-approval result, when the host supplied one.
+ *
+ * `epi view` puts it in the `epi-view-context` tag. It is computed by
+ * epi_core.review.verify_human_approvals — the same rule
+ * `epi verify --require-human-approval` uses. The viewer never re-implements
+ * that rule in JavaScript: green is only painted when this says the approval
+ * verified against a pinned approver key that is not the sealing key.
+ */
+function humanApprovalContext(context) {
+  const ha = context && context.human_approval;
+  return (ha && typeof ha === 'object') ? ha : null;
+}
+
+function humanApprovalVerified(context) {
+  const ha = humanApprovalContext(context);
+  return !!ha && ha.status === 'verified' && ha.requirement_met === true;
+}
+
+function lastHumanSigner(context) {
+  const ha = humanApprovalContext(context);
+  if (!ha || !Array.isArray(ha.approvals)) return null;
+  const human = ha.approvals.filter(a => a && a.classification === 'human_signed');
+  return human.length ? human[human.length - 1] : null;
+}
+
+/**
+ * What the file's signed approval actually proves, in one of seven states.
+ *
+ * The classifications come from epi_core.review.verify_human_approvals: this
+ * function only picks the wording, never re-verifies a signature in JS.
+ *
+ *   verified      a pinned approver's approval verifies for this run  -> green
+ *   denied        a pinned approver denied it                         -> red
+ *   partial       a pinned approver signed, but not everything asked  -> amber
+ *   untrusted     the signature verifies, the key is not pinned HERE  -> amber
+ *   agent_signed  the sealing key signed it (the agent's own claim)   -> amber
+ *   invalid       a signature or binding does not verify              -> red
+ *   none          no approval in the file                             -> current copy
+ *   unknown       the page was not given a verifier result (double-click)
+ */
+function approvalState(context) {
+  const ha = humanApprovalContext(context);
+  if (!ha) return { kind: 'unknown' };
+  const approvals = Array.isArray(ha.approvals)
+    ? ha.approvals.filter(a => a && typeof a === 'object')
+    : [];
+  const of = (classification) => approvals.filter(a => a.classification === classification);
+  const human = of('human_signed');
+  const latestHuman = human.length ? human[human.length - 1] : null;
+  const latestDecision = String(
+    (latestHuman && latestHuman.decision) || ha.latest_decision || ''
+  ).toLowerCase();
+  const denied = !!latestHuman
+    && (latestDecision === 'deny' || latestDecision === 'reject' || latestDecision === 'rejected');
+
+  if (denied) {
+    return { kind: 'denied', signer: latestHuman, detail: ha.detail || '' };
+  }
+  if (humanApprovalVerified(context) && latestHuman) {
+    return { kind: 'verified', signer: latestHuman, detail: ha.detail || '' };
+  }
+  if (ha.status === 'failed' || of('invalid').length) {
+    const bad = of('invalid')[0] || {};
+    return { kind: 'invalid', reason: bad.reason || 'the signed approval in this file does not verify' };
+  }
+  if (of('signed_unknown_key').length) {
+    const signer = of('signed_unknown_key').slice(-1)[0];
+    return { kind: 'untrusted', signer, reason: signer.reason || '' };
+  }
+  if (of('signed_by_sealing_key').length) {
+    return { kind: 'agent_signed', signer: of('signed_by_sealing_key').slice(-1)[0] };
+  }
+  if (human.length) {
+    // A person signed, but the run still needs something: say which, never
+    // "no person has signed".
+    return { kind: 'partial', signer: human[human.length - 1], detail: ha.detail || '' };
+  }
+  return { kind: 'none' };
+}
+
+/** The exact command a reader runs to trust this signer on their machine. */
+function approverTrustCommand(signer) {
+  if (!signer) return '';
+  const fp = groupFingerprint(signer.key_fingerprint);
+  const name = String(signer.approver_name || signer.claimed_approver_name || 'approver');
+  const key = String(signer.signing_key || '').trim();
+  return `epi approvers add ${key || '<their public key>'} --name '${name}' `
+    + `--role approver --fingerprint '${fp}'`;
+}
+
+function groupFingerprint(value) {
+  const text = String(value || '').replace(/\s+/g, '').toLowerCase();
+  const groups = text.match(/.{1,4}/g);
+  return groups ? groups.join(' ') : '';
+}
+
+/** "approve_refund" / "APPROVE" / "deny" -> APPROVE or REJECT. */
+function aiRecommendationOf(rawDecision) {
+  const value = String(rawDecision || '').toUpperCase();
+  const approvedList = ['APPROVED', 'APPROVE', 'PASS', 'PASSED', 'ACCEPT', 'ACCEPTED'];
+  const rejectedList = ['REJECTED', 'REJECT', 'DENY', 'DENIED', 'FAIL', 'FAILED', 'DECLINE', 'DECLINED'];
+  const negated = ['DIS', 'UN', 'NON', 'DE'].some(p => value.startsWith(p));
+  const approved = approvedList.some(v => value.includes(v));
+  const rejected = rejectedList.some(v => value.includes(v));
+  if (approved && !negated) return 'APPROVE';
+  if (rejected || (approved && negated)) return 'REJECT';
+  return value.replace(/_/g, ' ');
+}
+
+/** Does this run hand off to a person after the recorded decision? */
+function stepsRequireHumanReview(steps, decisionStep) {
+  const content = decisionStep?.content || {};
+  if (content.review_required === true || String(content.review_required).toLowerCase() === 'true') {
+    return true;
+  }
+  const from = (decisionStep && Array.isArray(steps)) ? steps.indexOf(decisionStep) : -1;
+  for (let i = Math.max(from + 1, 0); i < steps.length; i++) {
+    const kind = steps[i].kind || '';
+    if (kind === 'review.handoff' || kind === 'agent.approval.request') return true;
+  }
+  return false;
+}
+
 /** § 3  Verdict / Decision */
-function renderVerdict(caseData) {
+function renderVerdict(caseData, context) {
   const steps = caseData.steps || [];
   const analysis = caseData.analysis || null;
   const pe = caseData.policy_evaluation || null;
@@ -1393,32 +1608,85 @@ function renderVerdict(caseData) {
   const decisionContent = decisionStep?.content || {};
   const rawDecision = String(decisionContent.decision || decisionContent.verdict || decisionContent.policy_decision || decisionContent.status || '').toUpperCase();
 
-  // Check human review — it overrides the system verdict when present
+  // A human-signed approval is the ONLY source of a green final verdict.
+  // `humanReview` is a recorded review (possibly an agent-written claim): it
+  // may be described, never used to paint APPROVED/REJECTED.
   const humanReview = normalizeReview(caseData.review || caseData);
+  const approval = approvalState(context);
+  const humanVerified = approval.kind === 'verified';
+  const humanSigner = approval.signer || null;
+  const isAgentDecision = !!(decisionStep && decisionStep.kind === 'agent.decision');
+  const reviewPending = stepsRequireHumanReview(steps, decisionStep);
+  const aiRecommendation = isAgentDecision ? aiRecommendationOf(rawDecision) : null;
 
   // Determine verdict class and display text
   let verdictClass = 'pending';
   let verdictDisplay = 'PENDING';
   let systemVerdict = null;
+  let longHeadline = false;
 
-  if (rawDecision) {
-    systemVerdict = rawDecision;
-    // Negation prefixes: DISAPPROVE, UNAPPROVE, etc. are not approvals
-    const _approved_list = ['APPROVED', 'APPROVE', 'PASS', 'PASSED', 'ACCEPT', 'ACCEPTED'];
-    const _rejected_list = ['REJECTED', 'REJECT', 'DENY', 'DENIED', 'FAIL', 'FAILED', 'DECLINE', 'DECLINED'];
-    const is_approved = _approved_list.some(v => rawDecision.includes(v));
-    const is_rejected = _rejected_list.some(v => rawDecision.includes(v));
-    const has_negation = ['DIS', 'UN', 'NON', 'DE'].some(p => rawDecision.startsWith(p));
-
-    if (is_approved && !has_negation) {
-      verdictClass = 'approved';
-      verdictDisplay = 'APPROVED';
-    } else if (is_rejected || (is_approved && has_negation)) {
+  if (approval.kind === 'invalid') {
+    // A signature that does not verify is the loudest thing on the page: this
+    // is the one case where the file claims a person signed and cannot show it.
+    verdictClass = 'failed';
+    verdictDisplay = 'APPROVAL SIGNATURE DOES NOT VERIFY';
+    longHeadline = true;
+    systemVerdict = 'NOT VERIFIED';
+  } else if (approval.kind === 'denied') {
+    verdictClass = 'rejected';
+    verdictDisplay = 'REJECTED';
+    systemVerdict = 'REJECTED';
+  } else if (humanVerified) {
+    const decision = String(
+      (humanSigner && humanSigner.decision)
+      || humanApprovalContext(context)?.latest_decision
+      || 'approve'
+    ).toLowerCase();
+    if (decision === 'deny' || decision === 'reject' || decision === 'rejected') {
       verdictClass = 'rejected';
       verdictDisplay = 'REJECTED';
     } else {
-      verdictClass = 'pending';
-      verdictDisplay = rawDecision.replace(/_/g, ' ');
+      verdictClass = 'approved';
+      verdictDisplay = 'APPROVED';
+    }
+    systemVerdict = verdictDisplay;
+  } else if (approval.kind === 'untrusted') {
+    // The signature is intact; the signer is simply not pinned on this machine.
+    // Saying "nobody signed" here would be false, so say what is true.
+    verdictClass = 'pending';
+    verdictDisplay = 'SIGNED — APPROVER NOT TRUSTED HERE';
+    longHeadline = true;
+    systemVerdict = 'SIGNED, NOT TRUSTED HERE';
+  } else if (approval.kind === 'agent_signed') {
+    verdictClass = 'pending';
+    verdictDisplay = 'NOT A HUMAN APPROVAL';
+    systemVerdict = 'SIGNED BY THE SEALING KEY';
+  } else if (approval.kind === 'partial') {
+    verdictClass = 'pending';
+    verdictDisplay = 'WAITING FOR HUMAN APPROVAL';
+    longHeadline = true;
+    systemVerdict = 'PARTLY SIGNED';
+  } else if (isAgentDecision) {
+    systemVerdict = 'AI RECOMMENDATION';
+    verdictClass = 'pending';
+    if (reviewPending) {
+      verdictDisplay = 'WAITING FOR HUMAN APPROVAL';
+      longHeadline = true;
+    } else {
+      verdictDisplay = `AI RECOMMENDATION: ${aiRecommendation || 'RECORDED'}`;
+      longHeadline = true;
+    }
+  } else if (rawDecision) {
+    systemVerdict = rawDecision;
+    verdictClass = 'pending';
+    if (reviewPending) {
+      verdictDisplay = 'WAITING FOR HUMAN APPROVAL';
+      longHeadline = true;
+    } else {
+      // A policy engine's outcome is a recorded rule result, not a person's
+      // approval: keep it neutral rather than green.
+      verdictDisplay = `RECORDED: ${rawDecision.replace(/_/g, ' ')}`;
+      longHeadline = true;
     }
   } else if (analysis) {
     if (analysis.fault_detected === true) {
@@ -1442,28 +1710,17 @@ function renderVerdict(caseData) {
     }
   }
 
-  // Human review overrides
-  if (humanReview) {
-    const rs = humanReview.status;
-    if (rs === 'approved') {
-      verdictDisplay = 'APPROVED';
-      verdictClass = 'approved';
-    } else if (rs === 'rejected') {
-      verdictDisplay = 'REJECTED';
-      verdictClass = 'rejected';
-    } else if (rs === 'escalated') {
-      verdictDisplay = 'ESCALATED';
-      verdictClass = 'pending';
-    }
-  }
-
   const verdictEl = document.getElementById('verdict-text');
   verdictEl.textContent = verdictDisplay;
   verdictEl.className = 'verdict-text ' + verdictClass;
+  // The waiting headline is long; keep it on the page instead of clipping it.
+  verdictEl.style.fontSize = longHeadline ? '34px' : '';
+  verdictEl.style.letterSpacing = longHeadline ? '-1px' : '';
+  verdictEl.style.lineHeight = longHeadline ? '1.1' : '';
 
   // Provenance: a verdict display must never read as system adjudication
   // when it only echoes a recorded claim. Name the source (agent step +
-  // step number) and whether §7 attestation exists yet.
+  // step number), who signed it, and whether that signature verified.
   const sourceEl = document.getElementById('verdict-source');
   if (sourceEl) {
     const stepNo = decisionStep && typeof decisionStep.index === 'number'
@@ -1478,20 +1735,59 @@ function renderVerdict(caseData) {
     let srcText = '';
     let attestText = '';
     let attestCls = 'warn';
-    if (decisionStep && decisionStep.kind === 'agent.decision') {
-      if (humanReview) {
-        srcText = `Agent-reported outcome · recorded${who}${where} — attested: ${String(humanReview.status).toUpperCase()} by ${humanReview.reviewed_by || 'reviewer'} (§7).`;
-        attestText = `ATTESTED · ${String(humanReview.status).toUpperCase()}`;
-        attestCls = humanReview.status === 'approved' ? 'pass' : (humanReview.status === 'rejected' ? 'fail' : 'warn');
-      } else {
-        srcText = `Agent-reported outcome · recorded${who}${where} — pending human attestation (§7).`;
-        attestText = 'UNATTESTED';
-        attestCls = 'warn';
-      }
+
+    if (approval.kind === 'untrusted') {
+      const signer = approval.signer || {};
+      const name = signer.approver_name || signer.claimed_approver_name || 'an approver';
+      const fp = groupFingerprint(signer.key_fingerprint);
+      srcText = `Signed by ${name}${fp ? ` (fp ${fp})` : ''} — this machine has not pinned that key. `
+        + `To trust it: ${approverTrustCommand(signer)}`;
+      attestText = 'NOT TRUSTED HERE';
+      attestCls = 'warn';
+    } else if (approval.kind === 'agent_signed') {
+      srcText = 'The approval is signed by the same key that sealed this run — '
+        + "the agent's own claim, not a person's.";
+      attestText = 'NOT A PERSON';
+      attestCls = 'warn';
+    } else if (approval.kind === 'invalid') {
+      srcText = `A signed approval is present but does not verify: ${approval.reason}.`;
+      attestText = 'BAD SIGNATURE';
+      attestCls = 'fail';
+    } else if (approval.kind === 'denied') {
+      const signer = approval.signer || {};
+      const name = signer.approver_name || signer.claimed_approver_name || 'a pinned approver';
+      const fp = groupFingerprint(signer.key_fingerprint);
+      srcText = `REJECTED by ${name}${fp ? ` (fp ${fp})` : ''} — `
+        + 'human-signed approval verified against pinned approver keys.';
+      attestText = 'HUMAN-SIGNED';
+      attestCls = 'pass';
+    } else if (approval.kind === 'partial') {
+      srcText = 'A pinned approver signed part of this run — '
+        + (approval.detail || 'the rest is still waiting for a person.');
+      attestText = 'PARTLY SIGNED';
+      attestCls = 'warn';
+    } else if (humanVerified) {
+      const signerName = (humanSigner && (humanSigner.approver_name || humanSigner.claimed_approver_name))
+        || 'a pinned approver';
+      const fp = groupFingerprint(humanSigner && humanSigner.key_fingerprint);
+      srcText = `${verdictDisplay} by ${signerName}${fp ? ` (fp ${fp})` : ''} — `
+        + 'human-signed approval verified against pinned approver keys.';
+      attestText = 'HUMAN-SIGNED';
+      attestCls = 'pass';
+    } else if (isAgentDecision) {
+      srcText = `AI decision · recorded${who}${where} — `
+        + (reviewPending
+          ? 'waiting for a human-signed approval; no person has signed this outcome yet.'
+          : 'an AI recommendation, not a human approval; no person signed this outcome.');
+      attestText = reviewPending ? 'WAITING FOR SIGN-OFF' : 'AI ONLY';
+      attestCls = 'warn';
     } else if (decisionStep) {
-      srcText = `Recorded outcome (${decisionStep.kind})${where} — ${humanReview ? 'attested (§7).' : 'pending human attestation (§7).'}`;
-      attestText = humanReview ? 'ATTESTED' : 'UNATTESTED';
-      attestCls = humanReview ? 'pass' : 'warn';
+      srcText = `Recorded outcome (${decisionStep.kind})${where} — `
+        + (humanReview
+          ? 'a review is recorded (§7), but no human-signed approval verifies for this run.'
+          : 'no human-signed approval on this run.');
+      attestText = humanReview ? 'REVIEW RECORDED' : 'NO HUMAN APPROVAL';
+      attestCls = 'warn';
     }
     if (srcText) {
       sourceEl.innerHTML = `<span class="pill ${attestCls}"><span class="pill-dot"></span>${esc(attestText)}</span><span>${esc(srcText)}</span>`;
@@ -1533,30 +1829,78 @@ function renderVerdict(caseData) {
     }
   }
 
-  // Analysis note + human attestation context
+  // Analysis note + human approval context
   const noteEl = document.getElementById('verdict-note');
   const headline = analysis?.summary?.headline;
   const rationale = decisionContent.rationale || decisionContent.reasoning;
   const parts = [];
 
-  if (humanReview) {
-    parts.push(`Human attestation by ${humanReview.reviewed_by}: ${humanReview.status.toUpperCase()}.`);
-  }
-  // Name every pattern in the count: the headline alone names only the
-  // primary fault while secondary flags go unmentioned.
-  const nFlags = (analysis?.primary_fault ? 1 : 0)
-    + (analysis?.secondary_flags?.length || 0);
-  if (rationale) {
-    parts.push(trunc(rationale, 300));
-  } else if (headline) {
-    parts.push(nFlags > 1 ? `${nFlags} patterns detected — primary: ${headline}` : headline);
-  } else if (systemVerdict && humanReview) {
-    parts.push(`System verdict was ${systemVerdict}.`);
+  if (approval.kind === 'untrusted') {
+    // The exact sentence a reader needs: who signed, why it is not green here,
+    // and the command that would make the signature count on this machine.
+    const signer = approval.signer || {};
+    const name = signer.approver_name || signer.claimed_approver_name || 'an approver';
+    const fp = groupFingerprint(signer.key_fingerprint);
+    parts.push(`Signed by ${name}${fp ? ` (fp ${fp})` : ''}.`);
+    parts.push('This machine has not pinned that key.');
+    parts.push(`To trust it: ${approverTrustCommand(signer)}.`);
+    if (aiRecommendation) parts.push(`AI RECOMMENDATION: ${aiRecommendation}.`);
+  } else if (approval.kind === 'agent_signed') {
+    parts.push(
+      'The approval is signed by the key that sealed this run, so it is the '
+      + "agent's own claim — not a human approval."
+    );
+    if (aiRecommendation) parts.push(`AI RECOMMENDATION: ${aiRecommendation}.`);
+  } else if (approval.kind === 'invalid') {
+    parts.push(`The signed approval in this file does not verify: ${approval.reason}.`);
+  } else if (approval.kind === 'denied') {
+    const signer = approval.signer || {};
+    const name = signer.approver_name || signer.claimed_approver_name || 'a pinned approver';
+    const fp = groupFingerprint(signer.key_fingerprint);
+    parts.push(
+      `${name}${fp ? ` (fp ${fp})` : ''} denied this run — human-signed approval `
+      + 'verified against pinned approver keys.'
+    );
+    if (aiRecommendation) parts.push(`AI RECOMMENDATION: ${aiRecommendation}.`);
+  } else if (approval.kind === 'partial') {
+    parts.push(
+      'A pinned approver signed part of this run'
+      + (approval.detail ? `: ${approval.detail}` : '') + '.'
+    );
+    if (aiRecommendation) parts.push(`AI RECOMMENDATION: ${aiRecommendation}.`);
+  } else if (humanVerified) {
+    const detail = humanApprovalContext(context)?.detail;
+    parts.push(`Human-signed approval verified${detail ? ': ' + detail : '.'}`);
+    if (aiRecommendation) parts.push(`AI RECOMMENDATION: ${aiRecommendation}.`);
+  } else if (isAgentDecision) {
+    // The AI's own words belong here, labelled as a recommendation — never as
+    // the outcome of the case.
+    parts.push(`AI RECOMMENDATION: ${aiRecommendation || 'RECORDED'}.`);
+    if (reviewPending) {
+      parts.push('Waiting for human approval — no person has signed this outcome yet.');
+    }
+    if (rationale) parts.push(trunc(rationale, 300));
+  } else {
+    if (humanReview) {
+      parts.push(
+        `Human attestation by ${humanReview.reviewed_by}: ${humanReview.status.toUpperCase()} `
+        + '(recorded, not a signed approval).'
+      );
+    }
+    // Name every pattern in the count: the headline alone names only the
+    // primary fault while secondary flags go unmentioned.
+    const nFlags = (analysis?.primary_fault ? 1 : 0)
+      + (analysis?.secondary_flags?.length || 0);
+    if (rationale) {
+      parts.push(trunc(rationale, 300));
+    } else if (headline) {
+      parts.push(nFlags > 1 ? `${nFlags} patterns detected — primary: ${headline}` : headline);
+    } else if (systemVerdict) {
+      parts.push(`Recorded outcome was ${systemVerdict}.`);
+    }
   }
 
-  if (parts.length) {
-    noteEl.textContent = parts.join(' ');
-  }
+  noteEl.textContent = parts.join(' ');
 
   // 4-pass diagnostic matrix
   const diagEl = document.getElementById('verdict-diag');
@@ -1658,7 +2002,10 @@ function renderEvidence(caseData) {
   const startMs = steps[0]?.timestamp ? new Date(steps[0].timestamp).getTime() : 0;
 
   steps.forEach((step, idx) => {
-    const tone = stepTone(step);
+    // A decision row waiting on a person is not painted as a pass.
+    const awaitingReview = (step.kind === 'agent.decision' || step.kind === 'policy.check')
+      && stepsRequireHumanReview(steps, step);
+    const tone = stepTone(step, awaitingReview);
     const summary = summarizeStep(step);
     const kind = step.kind || 'step';
     const kindDisplay = kind.toUpperCase().replace(/\./g, '.');
@@ -1973,23 +2320,10 @@ function normalizeReview(raw) {
     return normalizeReview(raw.review);
   }
 
-  // Extract from recording steps if caseData object is passed or raw has steps
+  // A case object with no review record has no review. Never synthesize one
+  // from `agent.approval.response`: that step is the agent's own claim, and a
+  // self-reported approval must never look like a human one.
   if (typeof raw === 'object' && Array.isArray(raw.steps) && !raw.reviewed_by && !raw.reviewer) {
-    const steps = raw.steps || [];
-    const appStep = steps.find(s => s.kind === 'agent.approval.response');
-    if (appStep && appStep.content) {
-      const c = appStep.content;
-      const reviewer = c.reviewer || c.reviewed_by || c.user || 'compliance_officer';
-      const isApproved = c.decision === 'approved' || c.approved === true || c.status === 'approved';
-      const isRejected = c.decision === 'rejected' || c.approved === false || c.status === 'rejected';
-      const status = isApproved ? 'approved' : isRejected ? 'rejected' : 'escalated';
-      return {
-        reviewed_by: reviewer,
-        status: status,
-        notes: c.reason || c.notes || (c.action ? `Agent-reported: ${c.action} (not signed by a person).` : 'Agent-reported approval (not signed by a person).'),
-        reviewed_at: appStep.timestamp || null,
-      };
-    }
     return null;
   }
 
@@ -2009,6 +2343,22 @@ function normalizeReview(raw) {
 
   // ReviewRecord nested format: derive status/notes from reviews[]
   if (Array.isArray(raw.reviews) && raw.reviews.length > 0) {
+    // A signed approval entry is not a fault review: describe the decision it
+    // carries, and leave the green/red verdict to the verified context.
+    const approval = raw.reviews.find(r => r && r.entry_type === 'approval');
+    if (approval) {
+      const approved = String(approval.decision || '').toLowerCase() === 'approve';
+      const name = (approval.approver && approval.approver.name) || reviewedBy;
+      return {
+        reviewed_by: name,
+        status: approved ? 'approved' : 'rejected',
+        notes: (approved ? 'Approved' : 'Denied')
+          + (approval.action ? ` "${approval.action}"` : ' the run')
+          + ' — signed approval; only a verifier can confirm the signature.',
+        reviewed_at: raw.reviewed_at || null,
+        is_approval_entry: true,
+      };
+    }
     const outcomes = raw.reviews.map(r => String(r.outcome || '').toLowerCase());
     const hasConfirmed = outcomes.includes('confirmed_fault');
     const nonSkipped = outcomes.filter(o => o !== 'skipped');
@@ -2046,7 +2396,7 @@ function normalizeReview(raw) {
   };
 }
 
-function renderAttestation(caseData) {
+function renderAttestation(caseData, context) {
   const review = normalizeReview(caseData.review || caseData);
 
   if (review) {
@@ -2054,9 +2404,37 @@ function renderAttestation(caseData) {
     document.getElementById('review-display').classList.remove('hidden');
     document.getElementById('review-form').classList.add('hidden');
 
-    const status = review.status;
+    // A signed approval entry may be genuine, but this page cannot check the
+    // approver registry. Only `epi view`'s verified context may show it green.
+    const approval = approvalState(context);
+    let status = review.status;
+    let sealText = status.toUpperCase();
+    if (review.is_approval_entry) {
+      if (approval.kind === 'verified') {
+        status = 'approved';
+        sealText = 'APPROVED';
+      } else if (approval.kind === 'denied') {
+        status = 'rejected';
+        sealText = 'REJECTED';
+      } else if (approval.kind === 'untrusted') {
+        status = 'escalated';
+        sealText = 'SIGNED — APPROVER NOT TRUSTED HERE';
+      } else if (approval.kind === 'invalid') {
+        status = 'rejected';
+        sealText = 'APPROVAL SIGNATURE DOES NOT VERIFY';
+      } else if (approval.kind === 'agent_signed') {
+        status = 'escalated';
+        sealText = 'NOT A HUMAN APPROVAL';
+      } else if (approval.kind === 'partial') {
+        status = 'escalated';
+        sealText = 'PARTLY SIGNED — WAITING';
+      } else {
+        status = 'escalated';
+        sealText = 'APPROVAL RECORDED — NOT VERIFIED HERE';
+      }
+    }
     const seal = document.getElementById('review-seal');
-    seal.textContent = status.toUpperCase();
+    seal.textContent = sealText;
     seal.className = 'verdict-seal ' + status;
 
     document.getElementById('review-content').textContent = review.notes;
@@ -2478,11 +2856,11 @@ async function init() {
     renderHeader(caseData, context);
     renderIntegrity(caseData, context);
     renderCaseContext(caseData);
-    renderVerdict(caseData);
+    renderVerdict(caseData, context);
     renderEvidence(caseData);
     renderGovernance(caseData);
     renderAnalysis(caseData);
-    renderAttestation(caseData);
+    renderAttestation(caseData, context);
     renderAppendix(caseData);
     setupSidebarHighlight();
   });

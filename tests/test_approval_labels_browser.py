@@ -203,11 +203,16 @@ def test_gateway_link_click_is_not_a_signed_approval(site, browser, tmp_path):
 def test_signed_approval_shows_fingerprint_and_claimed_name(site, browser, tmp_path):
     epi = _with_approval(tmp_path, "signed.epi")
     text = _render(site, browser, epi)
-    assert "Signed approval (approve) for approval \"refund-7\"" in text, text
-    assert "key fingerprint" in text, text
-    assert "epi approvers add" in text, text
+    # A valid signature with no pinned approver list is not green and not
+    # "nobody signed": it says exactly what this page can prove.
+    assert 'SIGNED — APPROVER NOT TRUSTED HERE (approve approval' in text, text
+    assert "This browser has no pinned approver list" in text, text
+    assert "refund-7" in text, text
+    assert "epi approvers add " in text, text
+    assert "--role approver" in text, text
     assert "epi verify --require-human-approval" in text, text
     assert "(claimed name: alice@bank.com)" in text, text
+    assert "no person has signed" not in text.lower(), text
 
 
 def test_cli_written_approval_is_labelled(site, browser, tmp_path):
@@ -244,8 +249,8 @@ def test_cli_written_approval_is_labelled(site, browser, tmp_path):
     assert approve.returncode == 0, approve.stdout + approve.stderr
 
     text = _render(site, browser, epi)
-    assert 'Signed approval (approve) for approval "refund-7"' in text, text
-    assert "key fingerprint" in text, text
+    assert 'SIGNED — APPROVER NOT TRUSTED HERE (approve approval' in text, text
+    assert "epi approvers add " in text, text
     assert "(claimed name: alice@bank.com)" in text, text
 
 
@@ -253,8 +258,12 @@ def test_embedded_name_is_only_a_claim(site, browser, tmp_path):
     epi = _with_approval(tmp_path, "spoof.epi", approver_name="ceo@bank.com")
     text = _render(site, browser, epi)
     assert "(claimed name: ceo@bank.com)" in text, text
-    # Never shown as a fact: the only occurrence is inside the claimed-name note.
-    assert text.replace("(claimed name: ceo@bank.com)", "").count("ceo@bank.com") == 0, text
+    # Never shown as a fact: outside the claimed-name note and the suggested
+    # `--name` argument (a local label), the embedded name never appears.
+    rest = text.replace("(claimed name: ceo@bank.com)", "").replace(
+        "--name 'ceo@bank.com'", ""
+    )
+    assert "ceo@bank.com" not in rest, text
 
 
 def test_tampered_approval_record_is_invalid(site, browser, tmp_path):
@@ -277,7 +286,7 @@ def test_tampered_approval_record_is_invalid(site, browser, tmp_path):
     rewrite_legacy_member(epi, member, __import__("json").dumps(payload).encode("utf-8"))
 
     text = _render(site, browser, epi)
-    assert "Invalid signed approval (does not match this file)" in text, text
+    assert "approval signature does not verify for this file" in text, text
     assert "alice@bank.com" not in text, text
 
 
@@ -337,8 +346,8 @@ def test_approval_copied_from_another_file_is_invalid(site, browser, tmp_path):
     _copy_review_members(source, target)
 
     text = _render(site, browser, target)
-    assert text.count("Invalid signed approval (does not match this file)") == 1, text
-    assert "Signed approval (approve)" not in text, text
+    assert text.count("approval signature does not verify for this file") == 1, text
+    assert "SIGNED — APPROVER NOT TRUSTED HERE" not in text, text
     assert "(claimed name:" not in text, text
     assert "alice@bank.com" not in text, text
 
@@ -361,7 +370,8 @@ def test_approval_signed_by_the_sealing_key_is_not_independent(site, browser, tm
     add_review_to_artifact(path, record, private_key=seal)
 
     text = _render(site, browser, path)
-    assert "Signed by the same key that sealed the run (not independent of the agent)" in text, text
+    assert "Not a human approval (approve) for approval \"refund-7\"" in text, text
+    assert "same key that sealed the run" in text, text
 
 
 VIEWER_SOURCES = [

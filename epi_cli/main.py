@@ -1007,6 +1007,14 @@ app.add_typer(
     rich_help_panel="Everyday",
 )
 
+from epi_cli.oversight import app as oversight_app
+app.add_typer(
+    oversight_app,
+    name="oversight",
+    help="Oversight: decisions by outcome, model and approval over a period, from your files and your witness log",
+    rich_help_panel="Everyday",
+)
+
 from epi_cli.cloud import app as cloud_app
 app.add_typer(
     cloud_app,
@@ -2676,7 +2684,13 @@ def doctor(
     console.rule()
     if issues == 0:
         console.print()
-        console.print("  [bold green]System healthy. EPI is ready for production.[/bold green]")
+        console.print(
+            "  [bold green]System healthy. Local CLI, keys and recordings are working.[/bold green]"
+        )
+        console.print(
+            "  [dim]This checks this machine only. It is not a compliance or "
+            "production-readiness certification (see docs/KNOWN_LIMITATIONS.md).[/dim]"
+        )
     else:
         unfixed = issues - fixed
         if fixed:

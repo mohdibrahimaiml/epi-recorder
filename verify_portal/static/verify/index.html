@@ -44,7 +44,7 @@
     <a href="/how-it-works">Architecture</a>
     <a href="/verify/" style="color:var(--foreground)">Verify a .epi file</a>
     <a href="/trust">Trust model</a>
-    <a href="/plans">Pricing &amp; Design Partners</a>
+    <a href="/plans">Pricing</a>
     <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
 
@@ -90,6 +90,19 @@
               <p>or click to browse · file will not be uploaded · <a href="/assets/sample.epi" download style="color:var(--acc-envelope);text-decoration:underline">download sample.epi</a></p>
               <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
               <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
+            </div>
+
+            <div class="drop" id="witnessZoneEl" role="button" tabindex="0" aria-label="Drop your witness log (received.jsonl) to check the file against your own record"
+                 style="margin-top:0.75rem;padding:1rem 1.25rem;text-align:left">
+              <h3 style="font-size:0.9rem;margin:0">Drop your witness log <span style="color:var(--ink-muted);font-weight:400">(optional)</span></h3>
+              <p style="margin:0.35rem 0 0;font-size:0.75rem">
+                <code style="font-family:var(--font-mono)">received.jsonl</code> from your own
+                <code style="font-family:var(--font-mono)">epi witness serve</code>. The file proves it was not
+                edited; your log proves the vendor reported <em>this</em> case. A re-sealed forgery is a valid
+                file — only your log catches it.
+              </p>
+              <input type="file" id="witnessInput" accept=".jsonl,.json,.txt" style="display:none">
+              <div id="witnessStatus" style="display:none;margin-top:0.55rem;font-size:0.72rem;line-height:1.5" aria-live="polite" role="status"></div>
             </div>
 
             <!-- Post-Upload Tamper Lab (Hidden until a file is uploaded or loaded!) -->
@@ -161,7 +174,7 @@
     <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
     <footer class="z-center z-footer" aria-label="Site footer">
       <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
-        <div>&copy; 2026 EPI LABS · MIT License · v4.7.0</div>
+        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
         <div style="display:flex;gap:1.25rem">
           <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
           <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>

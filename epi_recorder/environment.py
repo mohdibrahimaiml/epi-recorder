@@ -148,18 +148,15 @@ def capture_environment_variables(
     Returns:
         dict: Environment variable name -> value
     """
-    # Safe environment variables to capture by default
+    # Variables captured by default. Anything that names a person, a folder or
+    # a project is excluded: a .epi file is handed to a counterparty.
+    # (PYTHONPATH, HOME, USER, PWD and VIRTUAL_ENV used to be here and leaked
+    # the builder's username and paths into every artifact.)
     SAFE_ENV_VARS = {
-        "PYTHONPATH",
-        "HOME",
-        "USER",
-        "USER",
         "SHELL",
         "LANG",
         "LC_ALL",
         "TERM",
-        "PWD",
-        "VIRTUAL_ENV",
         "CONDA_DEFAULT_ENV",
     }
     
@@ -200,17 +197,77 @@ def capture_working_directory() -> Dict[str, str]:
     }
 
 
+_HOST_ENV_VARS = (
+    "PYTHONPATH",
+    "HOME",
+    "USER",
+    "USERNAME",
+    "LOGNAME",
+    "PWD",
+    "OLDPWD",
+    "VIRTUAL_ENV",
+)
+
+
+def _scrub_host_details(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove host-identifying detail from a snapshot that leaves the machine.
+
+    A ``.epi`` file is routinely handed to a counterparty. The interpreter
+    path, argv, PIDs and CPU model describe the builder's machine — including
+    usernames, project names and internal hostnames — not the run. They are
+    stripped by default; set ``EPI_ENV_FULL=1`` to keep them for local
+    debugging.
+    """
+    import copy
+
+    out = copy.deepcopy(snapshot)
+    removed: list[str] = []
+
+    python_info = out.get("python")
+    if isinstance(python_info, dict):
+        argv = python_info.get("argv")
+        if isinstance(argv, list):
+            python_info["argv_count"] = len(argv)
+        for key in ("executable", "argv", "pid", "ppid"):
+            if key in python_info:
+                python_info.pop(key, None)
+                removed.append(f"python.{key}")
+
+    os_info = out.get("os")
+    if isinstance(os_info, dict):
+        for key in ("processor", "memory"):
+            if key in os_info:
+                os_info.pop(key, None)
+                removed.append(f"os.{key}")
+
+    # Variables that name a person, a folder or a project are not captured at
+    # all; report them so the redaction is visible to a reviewer.
+    captured_env = out.get("environment_variables")
+    captured_env = captured_env if isinstance(captured_env, dict) else {}
+    for name in _HOST_ENV_VARS:
+        if name in os.environ and name not in captured_env:
+            removed.append(f"env.{name}")
+
+    if removed:
+        out["host_details"] = {
+            "redacted": True,
+            "fields": removed,
+            "note": "host detail withheld; set EPI_ENV_FULL=1 to keep it",
+        }
+    return out
+
+
 def capture_full_environment(
     include_all_env_vars: bool = False,
     redact_env_vars: bool = True
 ) -> Dict[str, Any]:
     """
     Capture complete environment snapshot.
-    
+
     Args:
         include_all_env_vars: Whether to include all environment variables
         redact_env_vars: Whether to redact sensitive env vars
-        
+
     Returns:
         dict: Complete environment snapshot
     """
@@ -231,7 +288,7 @@ def capture_full_environment(
             from epi_core.redactor import get_default_redactor
             redactor = get_default_redactor()
             redacted_snapshot, _ = redactor.redact(snapshot)
-            return redacted_snapshot
+            snapshot = redacted_snapshot
         except Exception as exc:
             # Fail closed: never return the unredacted snapshot. Withhold it and
             # record the failure so no secret can be sealed into the artifact.
@@ -240,6 +297,10 @@ def capture_full_environment(
                 "redaction_error": f"{type(exc).__name__}: {exc}"[:200],
                 "note": "environment snapshot withheld because redaction failed",
             }
+
+    # Host detail is not evidence; do not ship it to a counterparty.
+    if os.environ.get("EPI_ENV_FULL") != "1":
+        snapshot = _scrub_host_details(snapshot)
 
     return snapshot
 

@@ -88,6 +88,59 @@ async function verifyEd25519(sigStr,pubKeyHex,hashHex){
   return globalThis.epiVerifyEd25519(sigStr,pubKeyHex,hashHex);
 }
 
+// ── Approval labels (step 3c) ────────────────────────────────────────────────
+// The browser has no approver registry, so it can only say what KIND of
+// approval a step is — never that a human was verified. Wording is fixed here
+// and asserted by tests.
+function approvalSourceLabel(c){
+  c=c||{};
+  var claimed=typeof c.claimed_approval_source==='string'?c.claimed_approval_source:'';
+  if(claimed)return'Agent-reported (claimed '+claimed+'; the gateway did not accept it)';
+  var src=String(c.approval_source||'raw_api_unverified');
+  if(src==='gateway_link_unsigned')return'Gateway link click (not a signed approval)';
+  if(src==='gateway_link_authenticated')return'Gateway link click by a logged-in user (not a signed approval)';
+  if(src==='gateway_human')return'Gateway link click, older gateway (not a signed approval)';
+  return'Agent-reported';
+}
+
+function approvalStepLine(c){
+  c=c||{};
+  var said=c.approved===true?'approved':c.approved===false?'rejected':'replied';
+  var who=c.reviewer?String(c.reviewer):'a reviewer';
+  var action=c.action?' '+String(c.action):'';
+  var label=approvalSourceLabel(c);
+  var body=label==='Agent-reported'
+    ? 'Agent-reported: '+who+' '+said+action
+    : label;
+  return body+(c.reason?': '+String(c.reason):'');
+}
+
+function hexToBytes(h){
+  h=String(h||'');
+  var n=h.length>>1,a=new Uint8Array(n);
+  for(var i=0;i<n;i++)a[i]=parseInt(h.substr(i*2,2),16);
+  return a;
+}
+
+async function verifyEd25519Raw(pubHex,sigHex,msgBytes){
+  try{
+    var pub=hexToBytes(pubHex);
+    if(pub.length!==32)return false;
+    var key=await crypto.subtle.importKey('raw',pub,{name:'Ed25519'},false,['verify']);
+    return await crypto.subtle.verify({name:'Ed25519'},key,hexToBytes(sigHex),msgBytes);
+  }catch(e){return false}
+}
+
+// Same value as epi_core.keys.key_fingerprint: SHA-256 over the lowercase hex
+// key TEXT, first 16 hex chars, grouped by 4. Never over the raw key bytes.
+async function keyFingerprintHex(pubHex){
+  var text=String(pubHex||'').trim().toLowerCase();
+  if(text.length!==64)return null;
+  var digest=await sha256(new TextEncoder().encode(text));
+  var short=digest.substring(0,16);
+  return short.match(/.{1,4}/g).join(' ');
+}
+
 /*
   Container detection + ZIP extract.
   Prefer shared epi-verify-core (window.epiDetectContainer / epiExtractZipBytes)
@@ -526,8 +579,76 @@ async function auditSteps(steps,manifest){
   return{sequence_ok:seq,completeness_ok:comp,chain_ok:chain,step_count_ok:count};
 }
 
+// ── Signed approvals (review ledger, 1.2.0) ─────────────────────────────────
+// What the browser CAN check offline: the record's canonical hash, its Ed25519
+// signature, and that its artifact_binding is this file. It cannot check the
+// approver registry — that is `epi verify --require-human-approval`.
+async function reviewContentHash(record){
+  var payload={};
+  for(var k in record){if(k==='review_hash'||k==='review_signature')continue;payload[k]=record[k];}
+  return sha256(new TextEncoder().encode(sortedJSON(payload)));
+}
+
+async function computeArtifactBinding(zip,manifest,rawManifestBytes,containerFmt){
+  var fileManifest=manifest.file_manifest||{},names=Object.keys(fileManifest).sort(),entries=[];
+  for(var i=0;i<names.length;i++){
+    var name=names[i],entry=zip.file(name),digest='__missing__';
+    if(entry){try{digest=await sha256(await entry.async('uint8array'))}catch(e){digest='__missing__'}}
+    entries.push({path:name,sha256:digest});
+  }
+  return {
+    binding_version:'1.0.0',
+    binding_type:'epi_artifact',
+    workflow_id:String(manifest.workflow_id),
+    manifest_sha256:await sha256(rawManifestBytes),
+    manifest_signature:manifest.signature===undefined?null:manifest.signature,
+    manifest_public_key:manifest.public_key===undefined?null:manifest.public_key,
+    sealed_evidence_sha256:await sha256(new TextEncoder().encode(sortedJSON({files:entries}))),
+    container_format:containerFmt
+  };
+}
+
+async function verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt){
+  var out=[];
+  var names=Object.keys(zip.files).filter(function(n){return n.indexOf('reviews/')===0&&/\.json$/.test(n)});
+  if(!names.length&&zip.file('review.json'))names=['review.json'];
+  var expected=null;
+  for(var i=0;i<names.length;i++){
+    var raw,rec;
+    try{raw=await zip.file(names[i]).async('string');rec=parseJSONPreserveNumbers(raw)}catch(e){continue}
+    var entries=Array.isArray(rec.reviews)?rec.reviews:[];
+    if(entries.length!==1||!entries[0]||entries[0].entry_type!=='approval')continue;
+    var entry=entries[0];
+    var claimed=entry.approver&&typeof entry.approver==='object'?String(entry.approver.name||''):'';
+    var res={
+      approval_id:entry.approval_id?String(entry.approval_id):null,
+      case_level:entry.case_level===true,
+      decision:entry.decision==='deny'?'deny':'approve',
+      claimed_name:claimed,
+      status:'invalid',
+      fingerprint:null
+    };
+    try{
+      if(!expected)expected=await computeArtifactBinding(zip,manifest,rawManifestBytes,containerFmt);
+      var expectedHash=await reviewContentHash(rec);
+      if(String(rec.review_hash||'')!==expectedHash)throw new Error('hash');
+      var sig=String(rec.review_signature||'').split(':');
+      if(sig.length!==3||sig[0]!=='ed25519'||sig[1].length!==64||sig[2].length!==128)throw new Error('sig');
+      if(!await verifyEd25519Raw(sig[1],sig[2],hexToBytes(expectedHash)))throw new Error('sig');
+      if(sortedJSON(rec.artifact_binding||null)!==sortedJSON(expected))throw new Error('binding');
+      res.key=sig[1];
+      res.fingerprint=await keyFingerprintHex(sig[1]);
+      res.status=(manifest.public_key&&String(sig[1]).toLowerCase()===String(manifest.public_key).toLowerCase())
+        ?'sealing_key':'valid';
+    }catch(e){res.status='invalid'}
+    out.push(res);
+  }
+  return out;
+}
+
 async function processFile(f){
   var nm=(f&&f.name?f.name:'').toLowerCase();
+  lastFile=f||lastFile;
   if(f&&f.size>25*1024*1024){showResult('fail','<strong>This file is too large to check in the browser</strong><br>Files over 25 MB cannot be checked here — use <code style="font-size:0.75em">epi verify</code> on your own machine.');return}
   showResult('warn','<em>Reading '+esc(f.name||'file')+'...</em>');
 
@@ -616,6 +737,12 @@ async function processFile(f){
     }
     report.metadata.steps_count=steps.length;
     report.story=buildStory(steps,manifest);
+    var manifestHashForWitness=null;
+    try{manifestHashForWitness=await computeManifestHash(rawManifest);}catch(e){}
+    try{
+      var rawManifestBytes=await mf.async('uint8array');
+      report.story.approvals=await verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt);
+    }catch(e){report.story.approvals=[]}
 
     // Check 4: file_manifest integrity
     var fileManifest=manifest.file_manifest||{},mismatches={},checked=0;
@@ -628,7 +755,11 @@ async function processFile(f){
       if(actualHash!==expected){mismatches[fname]='Hash mismatch: expected '+expected.substring(0,12)+'... got '+actualHash.substring(0,12)+'...'}
     }
     // Check for extra unlisted files (not mimetype/manifest/viewer/review/artifacts)
-    var excludePrefixes=['mimetype','manifest.json','viewer.html','VERIFY.txt','review.json','review_index.json','reviews/','artifacts/scitt/'];
+    // review_timestamps/ is added by `epi review approve` AFTER sealing (the RFC 3161
+    // token for that approval). reviews/ and review.json are the same kind of
+    // post-seal addition; leaving the timestamps out told every approved file it
+    // had been tampered with.
+    var excludePrefixes=['mimetype','manifest.json','viewer.html','VERIFY.txt','review.json','review_index.json','reviews/','review_timestamps/','artifacts/scitt/'];
     Object.keys(zip.files).forEach(function(nm){
       var excluded=false;
       for(var k=0;k<excludePrefixes.length;k++){if(nm.indexOf(excludePrefixes[k])===0){excluded=true;break}}
@@ -693,8 +824,165 @@ async function processFile(f){
     else if(report.facts.signature_valid===false){report.trust_level='NONE';report.trust_message='Signature invalid — artifact may be tampered'}
     else{report.trust_level='NONE';report.trust_message='Verification incomplete in browser — not verified, use epi verify --policy strict offline for claim audit'}
 
+    try{report.witness=await witnessForFile(manifest,manifestHashForWitness,u8,report.facts.integrity_ok);}catch(e){report.witness={status:'NOT CHECKED'}}
     showReport(report,'');
   }catch(e){showResult('fail','<strong>Verification error</strong><br>'+esc(e.message))}
+}
+
+
+/* ── CUSTOMER WITNESS LOG ──────────────────────────────────────────────────
+   Drop the log YOUR receiver wrote (received.jsonl) next to the .epi. The
+   file itself proves it was not edited; the log proves the vendor reported
+   THIS case. A re-sealed forgery is a valid file - only the log catches it.
+   Matching mirrors epi_cli/verify.py: exact bytes/manifest hash, then the
+   content digest (a repacked file keeps it), then the case (goal). */
+var wz=document.getElementById('witnessZoneEl'),wi=document.getElementById('witnessInput'),ws=document.getElementById('witnessStatus');
+var witnessLog=null,lastFile=null;
+
+function parseWitnessLog(text){
+  var reports=[],signed=false;
+  var trimmed=String(text||'').trim();
+  if(!trimmed)return{reports:[],signed:false,error:'the log is empty'};
+  var doc=null;
+  try{doc=JSON.parse(trimmed)}catch(e){}
+  var items=[];
+  if(doc&&typeof doc==='object'&&Array.isArray(doc.lines)){items=doc.lines}
+  else{trimmed.split('\n').forEach(function(line){line=line.trim();if(!line)return;try{items.push(JSON.parse(line))}catch(e){}})}
+  items.forEach(function(item){
+    if(!item||typeof item!=='object')return;
+    if(typeof item.payload_raw==='string'&&item.receipt&&typeof item.receipt==='object'){
+      signed=true;
+      var inner=null;try{inner=JSON.parse(item.payload_raw)}catch(e){}
+      if(!inner||typeof inner!=='object')return;
+      inner.received_at=inner.received_at||(item.receipt&&item.receipt.received_at)||item.received_at||null;
+      reports.push(inner);
+      return;
+    }
+    if(item.workflow_id)reports.push(item);
+  });
+  return{reports:reports,signed:signed,error:reports.length?'':'no witness reports in that file'};
+}
+
+// Same digest as epi_core.webhook.witness_content_digest: the manifest minus
+// the signature, presentation fields and post-seal transparency additions.
+async function witnessContentDigest(manifest){
+  try{
+    var data=JSON.parse(JSON.stringify(manifest));
+    delete data.signature;delete data.viewer_version;
+    if(data.governance&&typeof data.governance==='object'){
+      delete data.governance.scitt;delete data.governance.transparency;
+      if(!Object.keys(data.governance).length)data.governance=null;
+    }
+    if(data.file_manifest&&typeof data.file_manifest==='object'){
+      var keep={};
+      Object.keys(data.file_manifest).forEach(function(k){
+        if(k.indexOf('artifacts/scitt/')===0||k.indexOf('artifacts/transparency/')===0)return;
+        if(k==='viewer.html'||k==='VERIFY.txt')return;
+        keep[k]=data.file_manifest[k];
+      });
+      data.file_manifest=keep;
+    }
+    var text=typeof globalThis.epiSortedJSON==='function'
+      ?globalThis.epiSortedJSON(data)
+      :sortedJSON(data,jcsNumberFromRaw);
+    return await sha256(new TextEncoder().encode(text));
+  }catch(e){return null}
+}
+
+function witnessVerdict(manifest,manifestHash,fileSha,contentDigest,log,integrityOk){
+  var goal=String((manifest&&manifest.goal)||'').trim();
+  var wf=String((manifest&&manifest.workflow_id)||'');
+  var sameId=[],sameCase=[];
+  (log.reports||[]).forEach(function(r){
+    if(wf&&String(r.workflow_id||'')===wf)sameId.push(r);
+    if(goal&&String(r.goal||'').trim()===goal)sameCase.push(r);
+  });
+  // Same tiering as epi verify --witness-log: the file hash is the copy that
+  // was reported. A manifest/content match with different bytes is either a
+  // legitimate re-package (members still match the manifest) or an edit.
+  function sameBytes(r){
+    return !!(fileSha&&String(r.file_sha256||'')===fileSha);
+  }
+  function sameContent(r){
+    if(manifestHash&&String(r.manifest_hash||'')===manifestHash)return true;
+    if(contentDigest&&String(r.content_digest||'')===contentDigest)return true;
+    return false;
+  }
+  function latest(list){
+    var t='';
+    list.forEach(function(r){var v=String(r.received_at||'');if(v>t)t=v});
+    return t||null;
+  }
+  if(log.signed){
+    // Fail closed, exactly like the CLI: a receipt signs a key we have not
+    // pinned here, so this page cannot call the stamp verified.
+    return{status:'NOT CONFIRMED',reports:sameId.length,
+      detail:'this log carries signed witness receipts; pin the witness key to check them (epi verify --witness-pubkey)'};
+  }
+  var pool=sameId.length?sameId:(log.reports||[]);
+  var exactHit=pool.filter(sameBytes)[0];
+  if(exactHit){
+    return{status:'WITNESSED',reports:(log.reports||[]).length,received_at:exactHit.received_at||latest(sameId),
+      detail:'your own log (unsigned) records this case; the bytes you were handed match what was reported'};
+  }
+  var contentHit=pool.filter(sameContent)[0];
+  if(contentHit){
+    var when=contentHit.received_at||latest(sameId)||'unknown time';
+    if(integrityOk===false){
+      // The signed manifest matches, the bytes do not, and the members no
+      // longer match that manifest: this is the re-sealed forgery, not a
+      // re-package. Never hand it the customer's reassurance.
+      return{status:'MISMATCH',reports:(log.reports||[]).length,received_at:when,
+        detail:'a report for this case exists (received '+when+'), but this file was altered after it was reported: its contents no longer match the manifest that was witnessed'};
+    }
+    return{status:'WITNESSED',reports:(log.reports||[]).length,received_at:when,repackaged:true,
+      detail:'your own log (unsigned) records this case (received '+when+'); the file was re-packaged afterwards (viewer refreshed or receipt added) and its sealed contents still match'};
+  }
+  if(sameId.length){
+    return{status:'MISMATCH',reports:sameId.length,received_at:latest(sameId),
+      detail:'a different version of this case was reported to you ('+sameId.length+' report(s), latest '+(latest(sameId)||'unknown time')+'); this copy was never reported'};
+  }
+  if(sameCase.length){
+    return{status:'MISMATCH',reports:sameCase.length,received_at:latest(sameCase),
+      detail:'a different version of "'+goal+'" was reported to you ('+sameCase.length+' report(s), latest '+(latest(sameCase)||'unknown time')+'); this copy was never reported'};
+  }
+  return{status:'NOT IN WITNESS LOG',reports:(log.reports||[]).length,received_at:null,
+    detail:'this file was never reported to the customer; a missing entry for a case you know happened is itself evidence'};
+}
+
+function setWitnessStatus(html,kind){
+  if(!ws)return;
+  var colors={ok:'var(--verified)',warn:'var(--warn)',bad:'var(--tamper)',dim:'var(--ink-dim)'};
+  ws.style.display='block';
+  ws.style.color=colors[kind]||colors.dim;
+  ws.innerHTML=html; // static-html: callers pass fixed text + escaped file names
+}
+
+async function loadWitnessFile(f){
+  if(!f)return;
+  try{
+    var text=await f.text();
+    var parsed=parseWitnessLog(text);
+    if(parsed.error){
+      witnessLog=null;
+      setWitnessStatus('<strong>'+esc(parsed.error)+'</strong><br>Drop the <code>received.jsonl</code> your own <code>epi witness serve</code> wrote.','bad');
+      return;
+    }
+    witnessLog=parsed;
+    witnessLog.name=f.name||'received.jsonl';
+    setWitnessStatus('<strong>WITNESS LOG LOADED</strong> — '+parsed.reports.length+' report(s) from '+esc(witnessLog.name)+(parsed.signed?' (signed receipts)':' (unsigned, your own record)'),'ok');
+    if(lastFile)processFile(lastFile);
+  }catch(e){
+    setWitnessStatus('<strong>Could not read that log</strong><br>'+esc(e.message),'bad');
+  }
+}
+
+async function witnessForFile(manifest,manifestHash,u8,integrityOk){
+  if(!witnessLog)return{status:'NOT CHECKED'};
+  var fileSha=null,contentDigest=null;
+  try{fileSha=await sha256(u8)}catch(e){}
+  contentDigest=await witnessContentDigest(manifest);
+  return witnessVerdict(manifest,manifestHash,fileSha,contentDigest,witnessLog,integrityOk);
 }
 
 function setDropSealState(type){
@@ -744,7 +1032,7 @@ function stepLine(s){
     case'model.inference':return'AI model'+(c.model?' '+c.model:'')+' planned'+(c.plan?': '+c.plan:'');
     case'policy.check':return'Rule check'+(c.rule_name?' "'+c.rule_name+'"':'')+(c.status||c.policy_decision?': '+(c.status||c.policy_decision):'');
     case'agent.approval.request':return'Asked a human to approve'+(c.action?' '+c.action:'')+(c.reason?': '+c.reason:'');
-    case'agent.approval.response':return(c.reviewer?c.reviewer:'Human reviewer')+(c.approved===true?' approved':c.approved===false?' rejected':' replied')+(c.reason?': '+c.reason:'');
+    case'agent.approval.response':return approvalStepLine(c);
     case'agent.decision':return'Decision: '+normalizeVerdict(c.decision||c.verdict||c.outcome)+(c.rationale||c.reason?' — '+(c.rationale||c.reason):'');
     case'security.redaction':return'Hid '+(c.count||'some')+' secret value(s) before sealing';
     case'environment.captured':return'';
@@ -763,7 +1051,7 @@ function buildStory(steps,manifest){
       var st=String(c.status||c.policy_decision||'').toLowerCase();
       if(st==='deny'||st==='blocked')story.verdict='REJECTED';
     }
-    if(k==='agent.approval.response')story.review={approved:c.approved===true?true:c.approved===false?false:null,reviewer:String(c.reviewer||''),reason:String(c.reason||'')};
+    if(k==='agent.approval.response')story.review={approved:c.approved===true?true:c.approved===false?false:null,reviewer:String(c.reviewer||''),reason:String(c.reason||''),label:approvalStepLine(c)};
     var line=stepLine(s);
     if(line)story.lines.push(line);
   }
@@ -783,12 +1071,32 @@ function storyHTML(story,altered){
   var title=story.goal||story.workflow;
   if(title)h+='<div style="margin-top:0.35rem"><strong>Task:</strong> '+esc(trunc(title,240))+'</div>';
   if(story.verdict){
-    var vc=story.verdict==='APPROVED'?'var(--verified)':story.verdict==='REJECTED'?'var(--tamper)':'var(--warn)';
-    h+='<div style="margin-top:0.35rem"><strong>Decision:</strong> <span style="font-weight:700;color:'+vc+'">'+esc(story.verdict)+'</span>'+(story.rationale?' — '+esc(trunc(story.rationale,240)):'')+'</div>';
+    // The decision comes from the run's own steps, so it is the agent's claim:
+    // label it, and never paint it as a green approved badge.
+    var vc=story.verdict==='REJECTED'?'var(--tamper)':'var(--ink,inherit)';
+    h+='<div style="margin-top:0.35rem"><strong>Decision (agent-reported):</strong> <span style="font-weight:700;color:'+vc+'">'+esc(story.verdict)+'</span>'+(story.rationale?' — '+esc(trunc(story.rationale,240)):'')+'</div>';
   }
   if(story.review){
-    var r=story.review,said=r.approved===true?'approved':r.approved===false?'rejected':'replied';
-    h+='<div style="margin-top:0.35rem"><strong>Human review:</strong> '+esc(trunc(r.reviewer||'Reviewer',80))+' '+said+(r.reason?' — '+esc(trunc(r.reason,240)):'')+'</div>';
+    var r=story.review;
+    h+='<div style="margin-top:0.35rem"><strong>Approval (in-run step):</strong> '+esc(trunc(r.label||'Agent-reported',300))+'</div>';
+  }
+  var approvals=Array.isArray(story.approvals)?story.approvals:[];
+  for(var ap=0;ap<approvals.length;ap++){
+    var a=approvals[ap]||{};
+    var what=a.case_level?'the whole run':(a.approval_id?('approval "'+a.approval_id+'"'):'an approval');
+    var verb=a.decision==='deny'?'deny':'approve';
+    var claimedName=a.claimed_name?' <span style="color:var(--ink-dim)">(claimed name: '+esc(a.claimed_name)+')</span>':'';
+    if(a.status==='invalid'){
+      h+='<div style="margin-top:0.35rem;color:var(--tamper)"><strong>Signed approval ('+esc(verb)+') for '+esc(what)+': approval signature does not verify for this file.</strong></div>';
+    }else if(a.status==='sealing_key'){
+      h+='<div style="margin-top:0.35rem"><strong>Not a human approval ('+esc(verb)+') for '+esc(what)+':</strong> signed by the same key that sealed the run (not independent of the agent).'+claimedName+'</div>';
+    }else{
+      // A valid signature this page cannot make green: it has no pinned
+      // approver list, so it can only say the signer is not trusted HERE.
+      var who=a.claimed_name||'an approver';
+      var trust='epi approvers add '+String(a.key||'<their public key>')+" --name '"+who+"' --role approver --fingerprint '"+(a.fingerprint||'')+"'";
+      h+='<div style="margin-top:0.35rem"><strong>SIGNED — APPROVER NOT TRUSTED HERE ('+esc(verb)+' '+esc(what)+').</strong> A signature verifies for the key with fingerprint '+esc(a.fingerprint||'')+'. This browser has no pinned approver list, so it cannot confirm that signer is trusted; it is not shown as approved here. To trust it: <code>'+esc(trust)+'</code> then run <code>epi verify --require-human-approval</code> on your machine.'+claimedName+'</div>';
+    }
   }
   var shown=story.lines.slice(0,15);
   if(shown.length){
@@ -801,8 +1109,25 @@ function storyHTML(story,altered){
 }
 
 // One plain sentence first; technical detail under a toggle. No jargon.
+
+function witnessLineHTML(report){
+  var w=report.witness||{};
+  if(!w.status||w.status==='NOT CHECKED')return'';
+  var colors={WITNESSED:'var(--verified)',MISMATCH:'var(--tamper)','NOT IN WITNESS LOG':'var(--warn)','NOT CONFIRMED':'var(--warn)'};
+  var color=colors[w.status]||'var(--ink-dim)';
+  var label=w.status==='WITNESSED'?'Witness: matches your log':('Witness: '+w.status);
+  var when=w.received_at?(' <span style="color:var(--ink-dim)">(reported '+esc(String(w.received_at).slice(0,19).replace('T',' '))+' UTC)</span>'):'';
+  return '<div style="margin-top:0.45rem;font-size:0.72rem;color:'+color+'"><strong>'+esc(label)+'</strong>'+when+'<br><span style="color:var(--ink-dim)">'+esc(w.detail||'')+'</span></div>';
+}
+
 function plainHeadline(report){
-  var f=report.facts||{};
+  var f=report.facts||{},w=report.witness||{};
+  // The witness log is the only thing that can call a re-sealed forgery out,
+  // so its verdict leads when the seal itself is intact.
+  var sealOk=f.integrity_ok===true&&f.signature_valid!==false;
+  if(sealOk&&w.status==='MISMATCH')return'This is not the version your witness recorded. Don\'t rely on it.';
+  if(sealOk&&w.status==='NOT CONFIRMED')return'Your witness log carries signed receipts - pin the witness key to check them (epi verify --witness-pubkey).';
+  if(sealOk&&w.status==='NOT IN WITNESS LOG')return'This file is not in your witness log - it was never reported to you.';
   if(report.trust_level==='LOW'&&f.signature_valid===true){
     return'This file hasn\'t been changed since it was sealed. We can\'t confirm WHO sealed it — ask the sender for their key fingerprint.';
   }
@@ -828,7 +1153,7 @@ function showReport(report,errMsg){
     var idOk=report.identity&&report.identity.status==='KNOWN';
     type=idOk?'pass':'warn';
   }
-  showResult(type,'<div style="font-size:1rem;margin-bottom:0.6rem">'+esc(plainHeadline(report))+'</div>'+storyHTML(report.story,!!report.facts&&(report.facts.integrity_ok===false||report.facts.signature_valid===false))+'<details style="margin-top:0.4rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Details</summary>'+reportDOM(report)+'</details>');
+  showResult(type,'<div style="font-size:1rem;margin-bottom:0.6rem">'+esc(plainHeadline(report))+'</div>'+witnessLineHTML(report)+storyHTML(report.story,!!report.facts&&(report.facts.integrity_ok===false||report.facts.signature_valid===false))+'<details style="margin-top:0.4rem"><summary style="cursor:pointer;font-size:0.72rem;color:var(--ink-dim)">Details</summary>'+reportDOM(report)+'</details>');
   updateChecks(report);
 }
 
@@ -850,11 +1175,30 @@ if(dz&&fi&&dr){
   ['dragenter','dragover','dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,function(e){e.preventDefault()});document.body.addEventListener(ev,function(e){e.preventDefault()})});
   ['dragenter','dragover'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.add('drag-over')})});
   ['dragleave','drop'].forEach(function(ev){dz.addEventListener(ev,function(){dz.classList.remove('drag-over')})});
-  dz.addEventListener('drop',function(e){if(e.dataTransfer.files[0])resetChecks();processFile(e.dataTransfer.files[0])});
-  fi.addEventListener('change',function(){if(fi.files[0]){resetChecks();processFile(fi.files[0])}});
+  dz.addEventListener('drop',function(e){if(e.dataTransfer.files[0])resetChecks();lastFile=e.dataTransfer.files[0]||null;processFile(e.dataTransfer.files[0])});
+  fi.addEventListener('change',function(){if(fi.files[0]){resetChecks();lastFile=fi.files[0];processFile(fi.files[0])}});
+}
+if(wz&&wi){
+  wz.addEventListener('click',function(){wi.click()});
+  wz.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();wi.click()}});
+  ['dragenter','dragover','dragleave','drop'].forEach(function(ev){wz.addEventListener(ev,function(e){e.preventDefault()})});
+  ['dragenter','dragover'].forEach(function(ev){wz.addEventListener(ev,function(){wz.classList.add('drag-over')})});
+  ['dragleave','drop'].forEach(function(ev){wz.addEventListener(ev,function(){wz.classList.remove('drag-over')})});
+  wz.addEventListener('drop',function(e){if(e.dataTransfer.files[0])loadWitnessFile(e.dataTransfer.files[0])});
+  wi.addEventListener('change',function(){if(wi.files[0])loadWitnessFile(wi.files[0])});
 }
 if(typeof window!=='undefined'){
   window.epiVerifyDroppedFile=processFile;
+  window.epiLoadWitnessLog=loadWitnessFile;
+  window.epiWitnessVerdict=witnessVerdict;
+  window.epiWitnessContentDigest=witnessContentDigest;
   window.epiIsPreJcsSpec=typeof globalThis.epiIsPreJcsSpec==='function'?globalThis.epiIsPreJcsSpec:undefined;
+  // Read-only label helpers. The browser tests use these to assert the exact
+  // wording and that the fingerprint matches epi_core.keys.key_fingerprint.
+  window.epiApprovalLabels={
+    approvalSourceLabel:approvalSourceLabel,
+    approvalStepLine:approvalStepLine,
+    keyFingerprintHex:keyFingerprintHex
+  };
 }
 })();

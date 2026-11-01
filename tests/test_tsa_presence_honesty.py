@@ -46,7 +46,7 @@ def test_checkpoint_tokens_are_checked_not_presence_only():
 def test_marketing_names_epi_verify_for_validation():
     for p in [
         ROOT / "website" / "index.html",
-        ROOT / "website" / "enterprise.html",
+        ROOT / "website" / "reviewers.html",
         ROOT / "website" / "trust.html",
     ]:
         text = p.read_text(encoding="utf-8")

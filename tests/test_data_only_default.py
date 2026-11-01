@@ -218,3 +218,40 @@ def test_refresh_viewer_with_viewer_upgrades_data_only(epi_env: Path):
     assert "viewer.html" in _payload_members(src)
     ok, mismatches = EPIContainer.verify_integrity(src)
     assert ok is True, mismatches
+
+
+def test_verify_txt_tells_the_recipient_how_to_open_it(epi_env: Path):
+    """A data-only .epi does not open by double-click; VERIFY.txt must say so."""
+    import zipfile
+
+    out = epi_env / "data.epi"
+    _record_five_steps(out)
+
+    with zipfile.ZipFile(out) as zf:
+        verify_txt = zf.read("VERIFY.txt").decode("utf-8")
+
+    assert "HOW TO LOOK AT THIS FILE" in verify_txt
+    assert "epi view" in verify_txt
+    assert "epi associate" in verify_txt
+
+
+def test_viewer_carries_a_network_denying_csp_end_to_end(epi_env: Path):
+    """The sealed viewer must ship the CSP, in the member and the outer shell.
+
+    "No network calls" is then enforced by the browser, not only by the code
+    (docs/FILE-SAFETY.md section 5).
+    """
+    import zipfile
+
+    out = epi_env / "viewer.epi"
+    _record_five_steps(out, with_viewer=True)
+
+    outer = out.read_bytes().split(b"\\n<!-- EPI_ZIP_PAYLOAD_START -->")[0]
+    assert b"Content-Security-Policy" in outer
+    assert b"connect-src 'none'" in outer
+
+    with EPIContainer._payload_zip_path(out) as payload:
+        with zipfile.ZipFile(payload) as zf:
+            member = zf.read("viewer.html")
+    assert b"Content-Security-Policy" in member
+    assert b"connect-src 'none'" in member

@@ -12,8 +12,14 @@ once, for free.
    Optionally encrypt the private key at rest: set `EPI_KEY_PASSWORD` to a long
    random passphrase *before* `epi keys generate` (and keep it set whenever the
    key is loaded — sealing, signing, Cloud upload). The key is written as
-   encrypted PKCS#8 PEM; there is no HSM integration and no recovery if the
-   passphrase is lost. `epi keys import` honours the same variable.
+   encrypted PKCS#8 PEM; there is no recovery if the passphrase is lost.
+   `epi keys import` honours the same variable.
+   **For production, don't keep the key on disk at all:** link a key held in a
+   PKCS#11 HSM, AWS KMS or Google Cloud KMS instead with
+   `epi keys link --name default --uri <vault-uri>` — the private key never
+   leaves the vault and nothing secret is written to the machine. Supported
+   vaults, key types and credential wiring: [KEY-CUSTODY.md](./KEY-CUSTODY.md).
+   (Azure Key Vault has no Ed25519 key type; use an HSM over PKCS#11.)
 2. Publish your key:
    `epi keys did --domain vendor.com [--path agents/claims] [--key default]`
    This writes `did.json` and prints the DID (`did:web:vendor.com`, or
@@ -38,6 +44,14 @@ once, for free.
    (call, contract, existing secure channel). For rotation, pin each key in
    their `did.json`. No network? Ask the vendor for the `did.json` file
    itself and pin it offline: `epi keys trust did.json --name vendor`.
+   Only ever have the `.epi` file? You can pin from it, but only by supplying
+   the fingerprint the sender reads to you — the file's own fingerprint does
+   not count, because anyone can create a file carrying their own key:
+   ```bash
+   epi keys trust case.epi --name vendor --fingerprint "6090 c0d9 4782 bb06"
+   ```
+   The command refuses if the file's key does not match what you typed, and
+   refuses outright if you omit `--fingerprint`.
 2. Verify with the recommended command below.
    - Pinned key: identity KNOWN.
    - No pins at all: `NOT_PINNED` (WARN under the default policy, FAIL under

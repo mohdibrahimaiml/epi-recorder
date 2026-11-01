@@ -128,6 +128,31 @@ def _safe_mkdtemp(
     )
 
 
+def _require_browser_if_asked() -> None:
+    """Refuse to pass a browser run that has no browser.
+
+    Browser-marked tests skip when Chromium cannot launch, so a missing browser
+    looks like a clean run. The viewer workflow sets EPI_REQUIRE_BROWSER=1 so
+    that case fails the job instead.
+    """
+    if os.environ.get("EPI_REQUIRE_BROWSER") != "1":
+        return
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:  # pragma: no cover - depends on the environment
+        raise pytest.UsageError(
+            f"EPI_REQUIRE_BROWSER=1 but playwright is not installed: {exc}"
+        )
+    try:
+        with sync_playwright() as started:
+            browser = started.chromium.launch(args=["--no-sandbox"])
+            browser.close()
+    except Exception as exc:  # pragma: no cover - depends on the environment
+        raise pytest.UsageError(
+            f"EPI_REQUIRE_BROWSER=1 but Chromium cannot launch: {exc}"
+        )
+
+
 def pytest_configure(config):  # type: ignore[no-untyped-def]
     import sys as _sys
 
@@ -232,6 +257,40 @@ def _block_external_network_by_default(request, monkeypatch):  # type: ignore[no
 
     monkeypatch.setattr(socket.socket, "connect", guarded_connect)
     monkeypatch.setattr(socket, "create_connection", guarded_create_connection)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_browser_launch(request, monkeypatch):  # type: ignore[no-untyped-def]
+    """Never let a test open the user's real browser.
+
+    Code under test calls ``webbrowser.open`` (and on Windows ``os.startfile``)
+    to show a viewer or the hosted verify portal. Those are OS-level calls, so
+    the socket guard above does not stop them: a plain ``pytest`` run used to
+    leave a pile of ``https://epilabs.org/verify`` tabs open. Tests that want
+    to assert a launch still monkeypatch/patch these targets themselves and
+    win over this shim.
+    """
+    if os.environ.get("EPI_ALLOW_REAL_BROWSER") == "1":
+        return
+
+    import webbrowser
+
+    opened: list[str] = []
+
+    def _record_and_skip(url=None, *args, **kwargs):  # type: ignore[no-untyped-def]
+        opened.append(str(url))
+        return True
+
+    monkeypatch.setattr(webbrowser, "open", _record_and_skip, raising=False)
+    monkeypatch.setattr(webbrowser, "open_new", _record_and_skip, raising=False)
+    monkeypatch.setattr(webbrowser, "open_new_tab", _record_and_skip, raising=False)
+
+    if hasattr(os, "startfile"):
+        monkeypatch.setattr(os, "startfile", lambda *a, **k: None, raising=False)
+
+    # Expose what would have been launched so a test can assert on intent
+    # without anyone's browser being used.
+    request.node._epi_browser_urls = opened  # type: ignore[attr-defined]
 
 
 @pytest.fixture(autouse=True)
@@ -341,6 +400,7 @@ def _changed_paths(
 
 
 def pytest_sessionstart(session):  # type: ignore[no-untyped-def]
+    _require_browser_if_asked()
     snapshot = _tree_snapshot()
     if snapshot is not None:
         _TRACKED_DIFF_BASELINE["snapshot"] = snapshot

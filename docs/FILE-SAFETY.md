@@ -16,10 +16,19 @@ Related: [THREAT_MODEL.md](./THREAT_MODEL.md) (attacks), [VERIFICATION_CONTRACT.
 
 ## 1. What is inside a `.epi` file
 
-A sealed `.epi` (container `envelope-v2`) is a **polyglot**: the same bytes are
-a valid HTML page *and* a binary envelope carrying a ZIP. This is deliberate —
-it lets a reviewer double-click the file and see the run in a browser with
-nothing installed. The layout is:
+There are two seal shapes, and the difference matters before you open anything.
+
+**Data-only (the default since 4.6).** `record()`, `epi demo`, `epi run` and
+`epi record` write a plain ZIP (container `legacy-zip`, ~17 KB for a short run).
+There is no HTML and nothing to render, so a data-only file does **not** open by
+double-click: inspect it with `epi view case.epi`, or unzip it and read
+`steps.jsonl`. This is the shape to send through an email gateway that blocks
+HTML attachments.
+
+**Polyglot (opt-in with `--with-viewer` / `with_viewer=True`).** The same bytes
+are a valid HTML page *and* a binary envelope carrying a ZIP. That is what lets
+a reviewer double-click the file and see the run in a browser with nothing
+installed. Its layout is:
 
 ```
 [ 128-byte binary header ]  magic "<!--", version, payload length,
@@ -63,10 +72,18 @@ browser's sandbox, when (and only when) you open the file in a browser.
 
 ## 2. The embedded viewer makes no network calls (evidence)
 
-We scanned a sealed **4.6.3** artifact — `docs/assets/demo-banking-aml.epi`
-(SHA-256 `bc8e900bbe508a1662bb85cb8e8a7107fc6044dab710d8c08703327af2b1c0a8`) —
-for any way the viewer could reach out. Both the **outer** polyglot HTML and
-the **inner** `viewer.html` were checked.
+We scanned a sealed **polyglot** artifact - `docs/assets/demo-banking-aml.epi`
+as it shipped in **4.6.3** (SHA-256
+`bc8e900bbe508a1662bb85cb8e8a7107fc6044dab710d8c08703327af2b1c0a8`) - for any
+way the viewer could reach out. Both the **outer** polyglot HTML and the
+**inner** `viewer.html` were checked.
+
+> The samples shipped **today** are **data-only**: the same path is the 4.9.0
+> file, SHA-256 `6a286fcf51a189327d2fa6baafe3a3b285a029dcc1f71197c6a7e37500a9720e`,
+> and it carries no `viewer.html` member at all (it opens in `epi view` or on
+> `/verify`). The scan below still describes the viewer code that gets inlined
+> when a self-opening file *is* requested (`web_viewer/app.js`).
+
 
 | Check | Outer viewer | Inner `viewer.html` |
 |-------|:---:|:---:|
@@ -98,10 +115,13 @@ import io, re, zipfile, pathlib
 data = pathlib.Path("docs/assets/demo-banking-aml.epi").read_bytes()
 idx = data.find(b"PK\x03\x04")          # start of the ZIP payload
 outer, zf = data[:idx], zipfile.ZipFile(io.BytesIO(data[idx:]))
-inner = zf.read("viewer.html")
 net = rb"<script[^>]+src=|\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|\bimport\s*\("
-for name, blob in (("outer", outer), ("inner", inner)):
-    print(name, "network primitives:", len(re.findall(net, blob)))
+if "viewer.html" not in zf.namelist():
+    print("data-only sample: no embedded viewer, nothing to scan")
+else:
+    inner = zf.read("viewer.html")
+    for name, blob in (("outer", outer), ("inner", inner)):
+        print(name, "network primitives:", len(re.findall(net, blob)))
 ```
 
 Both print `0`. Offline integrity/signature verification needs no network
