@@ -80,6 +80,19 @@ def test_the_three_outcomes_are_offered_as_tabs():
     assert "/js/decision-tabs.js" in html, "the tabs need their script"
 
 
+def test_the_rotation_advances_and_can_be_paused():
+    """Three seconds per outcome, and an off switch the visitor controls."""
+    html = HOME.read_text(encoding="utf-8")
+    js = (REPO / "website" / "js" / "decision-tabs.js").read_text(encoding="utf-8")
+    assert "AUTO_MS = 3000" in js
+    assert "setInterval" in js
+    assert "prefers-reduced-motion" in js, "motion-sensitive visitors must not be animated"
+    assert "visibilitychange" in js, "a hidden tab must not keep rotating"
+    assert 'id="decisionPause"' in html
+    assert 'aria-label="Pause the example rotation"' in html
+    assert "Pause" in html and "Play" in js
+
+
 def test_the_approver_on_each_card_is_the_signed_one():
     from epi_core.review import verify_human_approvals
 

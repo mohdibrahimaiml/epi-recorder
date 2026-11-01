@@ -1235,6 +1235,31 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
   outline-offset: 2px;
 }
 
+.z-decision-pause {
+  margin-left: auto;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.z-decision-pause:hover {
+  color: var(--foreground);
+  border-color: var(--border-grid);
+}
+
+.z-decision-pause:focus-visible {
+  outline: 2px solid var(--acc-envelope);
+  outline-offset: 2px;
+}
+
 .z-hero-monolith__panel[hidden] {
   display: none;
 }
