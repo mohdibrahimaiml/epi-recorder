@@ -24,7 +24,8 @@ def test_plans_does_not_sell_hosted_199_799():
     assert "Decision File pilot" in text
     assert PRICE in text
     assert "one of your AI workflows" in text
-    assert "private beta" in text.lower()
+    assert "create a free workspace" in text.lower()
+    assert "request beta access" not in text.lower()
     assert "EPI Cloud" in text
     assert "id=\"tiersGrid\"" not in text
     assert "epi verify FILE --policy strict --witness-log received.jsonl --offline" in text
@@ -41,4 +42,4 @@ def test_home_teaser_is_not_hosted_team_checkout():
     assert "$799" not in text
     assert "Decision File pilot" in text
     assert PRICE in text
-    assert "private beta" in text.lower()
+    assert "free workspace" in text.lower()

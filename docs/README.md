@@ -19,7 +19,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 
 | Kind | What it is | How to treat it |
 |------------------|-----------------|-----------------|
-| **Product docs** | Recorder, Cloud, website — kept at 4.7.0 | Canonical |
+| **Product docs** | Recorder, Cloud, website — kept at 4.9.0 | Canonical |
 | **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
 | **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
 | **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
@@ -105,6 +105,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | Doc | Purpose |
 |-----|---------|
 | [WEBSITE.md](./WEBSITE.md) | Source of truth, deploy, what not to edit |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | One path per surface: Pages, Cloud Worker, legacy portal |
 | `website/README.md` | Same rules, next to the HTML |
 
 ---

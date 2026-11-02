@@ -40,8 +40,7 @@ back. A legal hold pauses deletion for that file until released.
 
 ## How to request export or deletion
 
-There is no self-serve checkout or self-serve deletion while Cloud is in
-private beta. Email `mohdibrahim@epilabs.org` with the workspace name:
+There is no self-serve deletion yet. Email `mohdibrahim@epilabs.org` with the workspace name:
 
 - **Export:** we return your Evidence Room files plus your witness lines.
 - **Deletion:** account + files + queryable metadata, confirmed in writing.

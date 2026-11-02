@@ -1,6 +1,6 @@
 # EPI Cloud
 
-**Status (v4.7.0):** private beta at `https://cloud.epilabs.org`.  
+**Status (v4.9.0):** free self-serve workspace at `https://cloud.epilabs.org`.  
 **Not:** a paywall on verification, a self-serve hosted-verification product, or a place that must hold every `.epi`.
 
 Open-source `epi-recorder` stays complete without Cloud. Cloud is how a vendor **connects a computer**, **witnesses runs (hashes)**, and **shares selected files** with a customer reviewer.
@@ -28,7 +28,9 @@ Commands: [CLI.md](./CLI.md) (`epi cloud login|use|push|status`, `epi cloud keys
 
 ## Plans (product, not a public checkout)
 
-Public site: Cloud is private beta ([epilabs.org/plans](https://epilabs.org/plans)).
+Public site: Cloud has a free self-serve workspace ([epilabs.org/plans](https://epilabs.org/plans)).
+Signing in creates it; there is no approval step. Free is 1 customer, 1 share
+link, 50 stored runs and 30 days of retention.
 Entitlements are part of the hosted service, not this repository; what a plan
 includes is stated in product words below.
 

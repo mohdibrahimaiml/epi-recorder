@@ -41,5 +41,8 @@ Keep these true on every page:
 - Sign In goes to EPI Cloud, not Render.
 - Open-source record/seal/verify needs no account.
 - Verification is never charged.
-- EPI Cloud is private beta, not a self-serve hosted-verification subscription.
+- EPI Cloud has a free self-serve workspace (1 customer, 1 share link, 50 runs,
+  30 days). Signing in creates it; verification itself is never charged.
+- Paid Team and Business plans exist as product tiers but are not sold through a
+  public checkout yet.
 - The seal proves integrity after sealing, not completeness of capture.

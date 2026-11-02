@@ -69,10 +69,11 @@
 
 <h2>Check it properly &mdash; on your machine</h2>
 <p>The vendor sends you their public key, and each approver sends theirs. Confirm the fingerprints by phone, not by email, then:</p>
-<pre>$ pip install epi-recorder
+<pre>$ pip install -U "epi-recorder&gt;=4.9.0"
 $ epi keys trust vendor.pub --name vendor --fingerprint &lt;from the vendor&gt;
 $ epi approvers add approver.pub --name alice@bank.com --fingerprint &lt;from the approver&gt;
 $ epi verify case.epi --policy strict --require-human-approval --witness-log received.jsonl</pre>
+<p class="small" style="color:var(--dim);font-size:0.8rem">Needs epi-recorder 4.9.0 or newer; check with <code class="k">epi --version</code>. Recording, verification and the commands above need no account and no licence.</p>
 <p><code class="k">DECISION: PASS</code> means the file is unchanged, it was sealed by the vendor key you pinned, a person you pinned signed off, and it matches your log. Anything else tells you exactly what is missing. Details: <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" style="color:var(--acc)" target="_blank" rel="noopener">reviewer brief</a>.</p>
 
 <h2>The periodic review</h2>
