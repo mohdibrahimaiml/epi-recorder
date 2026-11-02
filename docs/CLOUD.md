@@ -49,7 +49,7 @@ commit. The `epi cloud` client here only consumes the API.
 
 Login for **epilabs.org Sign In** and the CLI is Cloud only.
 
-Legacy hosted paths still on Render (not the account system, not required to record or verify): the one-shot fallback for `epi share` uploads, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. `epi share` already defaults to `https://cloud.epilabs.org`; Cloud trust links are the customer path going forward.
+Legacy hosted paths still on Render (not the account system, not required to record or verify): the one-shot fallback for `epi share` uploads, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. `epi share` defaults to `https://cloud.epilabs.org`, which now serves `POST /api/share`; the fallback exists for clients older than the current release. Cloud trust links are the customer path going forward.
 
 ---
 
