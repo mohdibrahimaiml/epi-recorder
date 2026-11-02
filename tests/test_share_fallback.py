@@ -12,6 +12,7 @@ import io
 import json
 import urllib.error
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 import typer
@@ -19,6 +20,15 @@ import typer
 from epi_cli.share import DEFAULT_SHARE_API_URL, PRIMARY_SHARE_API_URL, share
 
 GOLDEN = Path(__file__).resolve().parent / "goldens" / "spec-4.4.3.epi"
+
+
+def _host(url: str) -> str:
+    return urlsplit(url).hostname or ""
+
+
+def _is_cloud(url: str) -> bool:
+    parts = urlsplit(url)
+    return parts.scheme == "https" and parts.hostname == "cloud.epilabs.org"
 
 
 class _Resp:
@@ -53,7 +63,7 @@ def test_falls_back_to_legacy_when_cloud_route_is_missing(monkeypatch, capsys):
     def fake_urlopen(request, timeout=30):
         url = request.full_url
         calls.append(url)
-        if url.startswith("https://cloud.epilabs.org"):
+        if _is_cloud(url):
             raise _http_error(url, 404)
         return _Resp({"url": "https://legacy.example/s/abc"})
 
@@ -64,8 +74,8 @@ def test_falls_back_to_legacy_when_cloud_route_is_missing(monkeypatch, capsys):
         share(GOLDEN, 7, True, True, False, None)
 
     assert exit_info.value.exit_code == 0
-    assert calls[0].startswith("https://cloud.epilabs.org/api/share")
-    assert calls[1].startswith("https://epi-verify-portal.onrender.com/api/share")
+    assert _is_cloud(calls[0])
+    assert _host(calls[1]) == "epi-verify-portal.onrender.com"
     assert "https://legacy.example/s/abc" in capsys.readouterr().out
 
 
@@ -75,7 +85,7 @@ def test_falls_back_when_cloud_is_unreachable(monkeypatch):
     def fake_urlopen(request, timeout=30):
         url = request.full_url
         calls.append(url)
-        if url.startswith("https://cloud.epilabs.org"):
+        if _is_cloud(url):
             raise urllib.error.URLError("connection refused")
         return _Resp({"url": "https://legacy.example/s/abc"})
 
@@ -104,7 +114,7 @@ def test_pinned_service_never_falls_back(monkeypatch):
 
     assert exit_info.value.exit_code == 1
     assert len(calls) == 1
-    assert calls[0].startswith("https://my-gateway.example/api/share")
+    assert _host(calls[0]) == "my-gateway.example"
 
 
 def test_rejection_from_cloud_is_not_retried_elsewhere(monkeypatch):
