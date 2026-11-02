@@ -14,6 +14,10 @@ All notable changes to EPI Recorder are documented here.
 - **`epi share` now targets EPI Cloud** (`https://cloud.epilabs.org`) and falls
   back to the legacy Render portal when Cloud does not serve the upload route
   yet. A pinned `--api-base-url` or `EPI_SHARE_API_URL` never falls back.
+- **`epi share` identifies itself at the Cloudflare edge.** Uploads send
+  `User-Agent: epi-recorder/<version>`; Cloudflare error 1010 rejects bare
+  urllib agents with 403. A 403 during the migration also falls back to the
+  legacy portal so older clients keep working.
 - **The public trust anchors moved to `epilabs.org`.** `did:web:epilabs.org`
   resolution, the trust registry and `security.txt` are committed to
   `website/.well-known/` and served from `https://epilabs.org/.well-known/`.

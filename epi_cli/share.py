@@ -26,6 +26,15 @@ from epi_core import telemetry as telemetry_core
 
 console = Console()
 
+try:
+    from epi_core import __version__ as _EPI_VERSION
+except Exception:  # pragma: no cover - version resolution is best effort
+    _EPI_VERSION = "unknown"
+
+# Cloudflare's edge answers 403 (error 1010) to urllib's default
+# ``Python-urllib/3.x`` User-Agent. Identify the real client on every upload.
+_USER_AGENT = f"epi-recorder/{_EPI_VERSION}"
+
 DEFAULT_SHARE_API_URL = "https://epi-verify-portal.onrender.com"
 # EPI Cloud implements the same POST /api/share contract. It becomes the default;
 # the legacy Render portal is kept only as an automatic fallback so installed
@@ -177,6 +186,7 @@ def share(
             headers={
                 "Content-Type": EPIContainer.container_mimetype(resolved_file),
                 "X-EPI-Filename": resolved_file.name,
+                "User-Agent": _USER_AGENT,
             },
         )
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -195,9 +205,14 @@ def share(
         raise typer.Exit(1) from exc
 
     def _route_missing(exc: Exception) -> bool:
-        """Only a missing/unreachable primary justifies the legacy fallback."""
+        """Only a missing/unreachable primary justifies the legacy fallback.
+
+        403 is included for the migration window: Cloudflare's edge returns
+        error 1010 to older CLIs that still send urllib's default User-Agent,
+        and those uploads should fall back rather than fail.
+        """
         if isinstance(exc, urllib.error.HTTPError):
-            return exc.code in {404, 501, 502, 503}
+            return exc.code in {403, 404, 501, 502, 503}
         return isinstance(exc, urllib.error.URLError)
 
     try:

@@ -132,3 +132,42 @@ def test_rejection_from_cloud_is_not_retried_elsewhere(monkeypatch):
 
     assert exit_info.value.exit_code == 1
     assert len(calls) == 1
+
+def test_upload_identifies_the_client(monkeypatch):
+    """Cloudflare rejects urllib's default UA with 403 error 1010."""
+    seen: dict[str, str | None] = {}
+
+    def fake_urlopen(request, timeout=30):
+        if _is_cloud(request.full_url):
+            seen["ua"] = request.get_header("User-agent")
+        return _Resp({"url": "https://cloud.example/s/abc"})
+
+    monkeypatch.delenv("EPI_SHARE_API_URL", raising=False)
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(typer.Exit) as exit_info:
+        share(GOLDEN, 7, True, True, False, None)
+
+    assert exit_info.value.exit_code == 0
+    assert seen["ua"].startswith("epi-recorder/")
+
+
+def test_cloudflare_edge_403_falls_back_for_older_clients(monkeypatch):
+    calls: list[str] = []
+
+    def fake_urlopen(request, timeout=30):
+        url = request.full_url
+        calls.append(url)
+        if _is_cloud(url):
+            raise _http_error(url, 403)
+        return _Resp({"url": "https://legacy.example/s/abc"})
+
+    monkeypatch.delenv("EPI_SHARE_API_URL", raising=False)
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(typer.Exit) as exit_info:
+        share(GOLDEN, 7, True, True, False, None)
+
+    assert exit_info.value.exit_code == 0
+    assert calls[0].startswith("https://cloud.epilabs.org/api/share")
+    assert calls[1].startswith("https://epi-verify-portal.onrender.com/api/share")
