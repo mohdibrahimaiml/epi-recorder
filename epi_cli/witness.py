@@ -713,7 +713,11 @@ def _fetch_json(url: str, timeout: int) -> dict:
     """GET JSON over HTTPS (stdlib). Raises CheckError on any failure."""
     import urllib.request
 
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    from epi_core.useragent import user_agent
+
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/json", "User-Agent": user_agent()}
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
             return json.loads(res.read().decode("utf-8"))
@@ -724,7 +728,11 @@ def _fetch_json(url: str, timeout: int) -> dict:
 def _fetch_text_lines(url: str, timeout: int) -> list[str]:
     import urllib.request
 
-    req = urllib.request.Request(url, headers={"Accept": "application/x-ndjson"})
+    from epi_core.useragent import user_agent
+
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/x-ndjson", "User-Agent": user_agent()}
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
             return res.read().decode("utf-8").splitlines()

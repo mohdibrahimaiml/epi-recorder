@@ -23,17 +23,13 @@ from epi_core.container import EPIContainer
 from epi_core.time_utils import utc_now_iso
 from epi_cli.view import _resolve_epi_file
 from epi_core import telemetry as telemetry_core
+from epi_core.useragent import user_agent
 
 console = Console()
 
-try:
-    from epi_core import __version__ as _EPI_VERSION
-except Exception:  # pragma: no cover - version resolution is best effort
-    _EPI_VERSION = "unknown"
-
 # Cloudflare's edge answers 403 (error 1010) to urllib's default
 # ``Python-urllib/3.x`` User-Agent. Identify the real client on every upload.
-_USER_AGENT = f"epi-recorder/{_EPI_VERSION}"
+_USER_AGENT = user_agent()
 
 DEFAULT_SHARE_API_URL = "https://epi-verify-portal.onrender.com"
 # EPI Cloud implements the same POST /api/share contract. It becomes the default;

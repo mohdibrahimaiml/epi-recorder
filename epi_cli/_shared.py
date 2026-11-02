@@ -144,7 +144,11 @@ def require_service(url: str, timeout: float = 5.0, label: str | None = None) ->
     """
     display = label or url
     try:
-        req = urllib.request.Request(url, method="HEAD")
+        from epi_core.useragent import user_agent
+
+        req = urllib.request.Request(
+            url, method="HEAD", headers={"User-Agent": user_agent()}
+        )
         urllib.request.urlopen(req, timeout=timeout)
     except urllib.error.HTTPError:
         # Service is reachable; let the command handle the HTTP status.
