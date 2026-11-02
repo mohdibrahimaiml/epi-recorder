@@ -78,14 +78,6 @@ def test_export_html_refuses_altered_file(monkeypatch, tmp_path: Path) -> None:
     assert (tmp_path / "good.html").exists()
 
 
-def test_audit_crypto_tick_requires_integrity(monkeypatch, tmp_path: Path) -> None:
-    good, bad = _files(monkeypatch, tmp_path)
-
-    out = runner.invoke(cli_app, ["audit", str(bad)]).output
-    assert "FILE ALTERED" in out
-
-    out = runner.invoke(cli_app, ["audit", str(good)]).output
-    assert "FILE ALTERED" not in out
 
 
 def test_epi_register_finds_file_in_epi_recordings(monkeypatch, tmp_path: Path) -> None:

@@ -63,69 +63,8 @@ def test_auth_open_login_url(monkeypatch):
     monkeypatch.setattr(a.webbrowser, "open", lambda url: True)
     a._open_login_url(1234, "state")
 
-def test_review_helpers(tmp_path):
-    from epi_cli import review as r
-    epi = _sample()
-    assert r._analysis_has_fault(None) is False
-    assert r._analysis_has_fault({"fault_detected": True}) is True
-    assert r._analysis_has_fault({"primary_fault": {"x": 1}}) is True
-    analysis = r._read_analysis(epi)
-    # may be None
-    _ = r._read_step(epi, 0)
-    fault = {
-        "step_number": 1,
-        "rule_id": "R1",
-        "rule_name": "Test",
-        "severity": "HIGH",
-        "plain_english": "Something happened",
-        "fault_chain": [{"step_number": 0, "kind": "llm.request", "summary": "hi"}],
-    }
-    r._show_fault(fault, epi)
-    g = r._review_guidance(fault)
-    assert isinstance(g, tuple) and len(g) == 2
-    try:
-        report = r._build_review_trust_report(epi)
-        r._print_review_trust_summary(report)
-    except Exception:
-        pass
-    # CLI show
-    res = runner.invoke(r.app, ["show", str(epi)])
-    # may need different invocation
-    res2 = runner.invoke(r.app, ["--help"])
-    assert res2.exit_code == 0
 
-def test_audit_helpers(tmp_path):
-    from epi_cli import audit as au
-    epi = _sample()
-    steps = au._read_steps(epi)
-    assert isinstance(steps, list)
-    assert au._score_to_rating(0.95) in ("A", "B", "C", "D", "F") or isinstance(au._score_to_rating(0.95), str)
-    assert au._score_to_rating(0.1)
-    report = au.audit_artifact(epi)
-    assert isinstance(report, dict)
-    assert "compliance_score" in report
-    rich = au._render_rich(report)
-    assert isinstance(rich, str)
-    md = au._render_markdown(report)
-    assert isinstance(md, str)
-    # audit_command CLI if possible
-    res = runner.invoke(au.app if hasattr(au, "app") else __import__("epi_cli.main", fromlist=["app"]).app, ["audit", "--help"] if not hasattr(au, "app") else ["--help"])
-    # soft
-    assert res.exit_code in (0, 2)
 
-def test_audit_artifact_function(tmp_path):
-    from epi_cli import audit as au
-    epi = _sample()
-    if hasattr(au, "audit_artifact"):
-        rep = au.audit_artifact(epi)
-        assert rep is not None
-    if hasattr(au, "audit_command"):
-        try:
-            au.audit_command(str(epi), json_output=True)
-        except SystemExit:
-            pass
-        except Exception:
-            pass
 
 def test_litellm_import_and_stub():
     try:

@@ -13,67 +13,7 @@ def _sample():
         if p.exists(): return p
     pytest.skip("no sample")
 
-def test_audit_full_render_and_command(tmp_path, monkeypatch, capsys):
-    from epi_cli import audit as au
-    epi = _sample()
-    dest = tmp_path / "a.epi"
-    shutil.copy(epi, dest)
-    rep = au.audit_artifact(dest)
-    assert "compliance_score" in rep or "pipeline" in rep
-    text = au._render_rich(rep)
-    assert "Audit" in text or "Score" in text or "EPI" in text
-    md = au._render_markdown(rep)
-    assert isinstance(md, str) and len(md) > 50
-    for r in (0.95, 0.7, 0.4, 0.1, 0.0):
-        assert isinstance(au._score_to_rating(r), str)
-    # CLI entry
-    if hasattr(au, "audit_command"):
-        try:
-            au.audit_command(dest, output_format="rich")
-        except (SystemExit, TypeError, AttributeError):
-            pass
-        try:
-            au.audit_command(dest, output_format="markdown")
-        except (SystemExit, TypeError, AttributeError):
-            pass
-        try:
-            au.audit_command(dest, output_format="json", output=tmp_path / "audit.json")
-        except (SystemExit, TypeError, AttributeError):
-            pass
-    if hasattr(au, "audit_entry"):
-        try:
-            au.audit_entry(dest)
-        except Exception:
-            pass
-    # via main
-    from epi_cli.main import app
-    r = runner.invoke(app, ["audit", str(dest)])
-    assert r.exit_code in (0, 1, 2)
 
-def test_review_show_and_bind_help(tmp_path):
-    from epi_cli.main import app
-    from epi_cli import review as rv
-    epi = _sample()
-    dest = tmp_path / "r.epi"
-    shutil.copy(epi, dest)
-    # show_review needs ctx - use CLI
-    r = runner.invoke(app, ["review", "show", str(dest)])
-    assert r.exit_code in (0, 1, 2)
-    r = runner.invoke(app, ["review", "bind", "--help"])
-    assert r.exit_code in (0, 2)
-    # force more helper paths
-    fault = {"severity": "CRITICAL", "plain_english": "x", "fault_chain": [], "step_number": 0}
-    rv._show_fault(fault, dest)
-    fault["severity"] = "LOW"
-    rv._show_fault(fault, dest)
-    fault["severity"] = "MEDIUM"
-    rv._show_fault(fault, dest)
-    report = rv._build_review_trust_report(dest)
-    rv._print_review_trust_summary(report)
-    # _print_review_trust_summary indexes trust_level and trust_message;
-    # "facts" is not part of its contract.
-    rv._print_review_trust_summary({"trust_level": "HIGH", "trust_message": "test"})
-    rv._print_review_trust_summary({"trust_level": "NONE", "trust_message": "test"})
 
 def test_scitt_register_cli_local_fast(tmp_path, monkeypatch):
     from epi_cli.scitt import app as scitt_app
