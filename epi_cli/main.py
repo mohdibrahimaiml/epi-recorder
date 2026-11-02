@@ -976,11 +976,38 @@ app.add_typer(
     rich_help_panel="Everyday",
 )
 
+# NEW: fault intelligence commands (v2.8.0)
+from epi_cli.review import app as review_app
+app.add_typer(
+    review_app,
+    name="review",
+    help="Review fault analysis results for a saved case file",
+    invoke_without_command=True,
+    no_args_is_help=False,
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approvers import app as approvers_app
+app.add_typer(
+    approvers_app,
+    name="approvers",
+    help="Pin human approvers and hold their own keys (human sign-off)",
+    rich_help_panel="Everyday",
+)
+
 from epi_cli.witness import app as witness_app
 app.add_typer(
     witness_app,
     name="witness",
     help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.oversight import app as oversight_app
+app.add_typer(
+    oversight_app,
+    name="oversight",
+    help="Oversight: decisions by outcome, model and approval over a period, from your files and your witness log",
     rich_help_panel="Everyday",
 )
 
@@ -1119,6 +1146,17 @@ try:
     )
 except ImportError:
     pass  # cbor2 missing — should never happen since it's a core dependency
+
+try:
+    from epi_cli.org_cmd import app as org_app
+    app.add_typer(
+        org_app,
+        name="org",
+        help="Org trust bundles: customer-signed key history for offline verification",
+        rich_help_panel="Team",
+    )
+except ImportError:
+    pass
 
 try:
     from epi_cli.agt_cmd import app as agt_cmd_app

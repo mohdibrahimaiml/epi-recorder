@@ -4,11 +4,11 @@
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
-> **Paid commands.** `epi review`, `epi approvers`, `epi oversight`, `epi audit`,
-> `epi annex`, `epi notify`, `epi org`, `epi enterprise` and `epi chat` ship in
-> the private `epi-enterprise` package and require a signed offline licence. The
-> free CLI records, seals, verifies, views, shares and runs the customer-side
-> witness without it.
+> **Paid commands.** `epi audit`, `epi annex`, `epi notify`, `epi enterprise`
+> and `epi chat` ship in the private `epi-enterprise` package and require a
+> signed offline licence. The free CLI records, seals, verifies, views, shares,
+> pins approver keys (`epi approvers`), signs approvals (`epi review`), runs the
+> single-user oversight report and checks the customer's own org bundle.
 
 ---
 
@@ -732,7 +732,7 @@ Check a file:     epi verify run.epi --policy strict --witness-log /srv/witness/
 Press Ctrl-C to stop.
 ```
 
-## `epi review <file.epi>` (EPI Enterprise)
+## `epi review <file.epi>`
 
 Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the case file as review notes without replacing the original sealed evidence files.
 
@@ -768,7 +768,7 @@ never `human_signed`. See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
 
 ---
 
-## `epi approvers` (EPI Enterprise)
+## `epi approvers`
 
 Who counts as a human approver is a local decision the verifier makes, kept
 separate from the trusted *signer* keys (`epi keys trust`). Pinning a vendor's

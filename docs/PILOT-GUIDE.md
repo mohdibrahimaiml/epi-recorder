@@ -4,10 +4,10 @@ How to run a bank pilot in a day. Two pages, no jargon. Everything here is
 checkable against `examples/pilot_kit/run_pilot_demo.sh` (which runs the same
 steps as a script, offline, with no API key).
 
-> **EPI Enterprise is required for the approver stage.** The pilot kit uses
-> `epi approvers` and `epi review approve`, which ship in the private
-> `epi-enterprise` package. Recording, the customer witness and verification
-> stay free.
+> **No licence is needed for the pilot.** `epi approvers`, `epi review`,
+> `epi verify`, the customer witness and `epi oversight report` are in the free
+> package. EPI Enterprise is only for `audit`, `annex`, `notify`, `chat` and the
+> enterprise kit.
 
 ## 1. Install
 

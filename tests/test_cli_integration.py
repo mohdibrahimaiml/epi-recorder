@@ -171,6 +171,78 @@ class TestCLIVersion:
         assert "EPI" in result.stdout or "epi" in result.stdout.lower()
 
 
+class TestCLIReview:
+    """Test epi review command routing."""
+
+    @pytest.fixture
+    def analyzed_epi_file(self):
+        """Create a minimal .epi with analysis.json for review command tests."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            source_dir = tmpdir_path / "source"
+            source_dir.mkdir()
+            (source_dir / "steps.jsonl").write_text('{"index":0,"kind":"session.start","content":{}}\n')
+            (source_dir / "analysis.json").write_text(json.dumps({
+                "fault_detected": False,
+                "primary_fault": None,
+                "secondary_flags": [],
+                "coverage": {"steps_recorded": 1, "coverage_percentage": 100},
+            }))
+            output_path = tmpdir_path / "review_test.epi"
+            manifest = ManifestModel(cli_command="test review command")
+            EPIContainer.pack(source_dir, manifest, output_path)
+            yield output_path
+
+    def test_review_interactive_entrypoint_accepts_epi_file(self, analyzed_epi_file):
+        """`epi review <file>` should execute callback path, not parser-error on EPI_FILE."""
+        result = runner.invoke(
+            app,
+            ["review", str(analyzed_epi_file), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 0
+        assert "Missing argument 'EPI_FILE'" not in result.stdout
+        assert "Nothing to review" in result.stdout or "No faults detected" in result.stdout
+
+    def test_review_show_still_works(self, analyzed_epi_file):
+        result = runner.invoke(app, ["review", str(analyzed_epi_file), "show"])
+        assert result.exit_code == 0
+
+    def test_review_blocks_tampered_artifact_before_review(self, analyzed_epi_file):
+        tampered_path = analyzed_epi_file.parent / "tampered_review_test.epi"
+        with zipfile.ZipFile(analyzed_epi_file, "r") as zin:
+            files = {name: zin.read(name) for name in zin.namelist()}
+        files["analysis.json"] = json.dumps(
+            {
+                "fault_detected": True,
+                "primary_fault": {
+                    "step_number": 1,
+                    "fault_type": "POLICY_VIOLATION",
+                    "severity": "critical",
+                    "plain_english": "Tampered copy",
+                },
+                "secondary_flags": [],
+            }
+        ).encode("utf-8")
+        with zipfile.ZipFile(tampered_path, "w") as zout:
+            for name, data in files.items():
+                zout.writestr(name, data)
+
+        result = runner.invoke(
+            app,
+            ["review", str(tampered_path), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 1
+        assert "Review stopped" in result.stdout
+        assert "trustworthy evidence" in result.stdout
+
+    def test_review_shows_unsigned_trust_summary_for_intact_artifact(self, analyzed_epi_file):
+        result = runner.invoke(
+            app,
+            ["review", str(analyzed_epi_file), "--reviewer", "cli.tester@epilabs.org"],
+        )
+        assert result.exit_code == 0
+        assert "Trust Check" in result.stdout
+        assert "Unsigned" in result.stdout
 
 
 class TestCLIErrors:

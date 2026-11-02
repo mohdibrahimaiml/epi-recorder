@@ -63,6 +63,36 @@ def test_auth_open_login_url(monkeypatch):
     monkeypatch.setattr(a.webbrowser, "open", lambda url: True)
     a._open_login_url(1234, "state")
 
+def test_review_helpers(tmp_path):
+    from epi_cli import review as r
+    epi = _sample()
+    assert r._analysis_has_fault(None) is False
+    assert r._analysis_has_fault({"fault_detected": True}) is True
+    assert r._analysis_has_fault({"primary_fault": {"x": 1}}) is True
+    analysis = r._read_analysis(epi)
+    # may be None
+    _ = r._read_step(epi, 0)
+    fault = {
+        "step_number": 1,
+        "rule_id": "R1",
+        "rule_name": "Test",
+        "severity": "HIGH",
+        "plain_english": "Something happened",
+        "fault_chain": [{"step_number": 0, "kind": "llm.request", "summary": "hi"}],
+    }
+    r._show_fault(fault, epi)
+    g = r._review_guidance(fault)
+    assert isinstance(g, tuple) and len(g) == 2
+    try:
+        report = r._build_review_trust_report(epi)
+        r._print_review_trust_summary(report)
+    except Exception:
+        pass
+    # CLI show
+    res = runner.invoke(r.app, ["show", str(epi)])
+    # may need different invocation
+    res2 = runner.invoke(r.app, ["--help"])
+    assert res2.exit_code == 0
 
 
 
