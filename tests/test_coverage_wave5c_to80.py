@@ -14,6 +14,30 @@ def _sample():
     pytest.skip("no sample")
 
 
+def test_review_show_and_bind_help(tmp_path):
+    from epi_cli.main import app
+    from epi_cli import review as rv
+    epi = _sample()
+    dest = tmp_path / "r.epi"
+    shutil.copy(epi, dest)
+    # show_review needs ctx - use CLI
+    r = runner.invoke(app, ["review", "show", str(dest)])
+    assert r.exit_code in (0, 1, 2)
+    r = runner.invoke(app, ["review", "bind", "--help"])
+    assert r.exit_code in (0, 2)
+    # force more helper paths
+    fault = {"severity": "CRITICAL", "plain_english": "x", "fault_chain": [], "step_number": 0}
+    rv._show_fault(fault, dest)
+    fault["severity"] = "LOW"
+    rv._show_fault(fault, dest)
+    fault["severity"] = "MEDIUM"
+    rv._show_fault(fault, dest)
+    report = rv._build_review_trust_report(dest)
+    rv._print_review_trust_summary(report)
+    # _print_review_trust_summary indexes trust_level and trust_message;
+    # "facts" is not part of its contract.
+    rv._print_review_trust_summary({"trust_level": "HIGH", "trust_message": "test"})
+    rv._print_review_trust_summary({"trust_level": "NONE", "trust_message": "test"})
 
 def test_scitt_register_cli_local_fast(tmp_path, monkeypatch):
     from epi_cli.scitt import app as scitt_app

@@ -41,21 +41,23 @@ or use your own with `EPI_TSA_URLS`).
 
 **Free forever, MIT, in this repository:** the `.epi` format, `epi verify`, the viewer,
 the recorder and its integrations, the gateway, the customer-side witness receiver
-(`epi witness serve` / `epi witness report`), the policy engine, and every offline proof check.
+(`epi witness serve` / `epi witness report`), the policy engine, `epi approvers`
+(pin the customer's approver keys), `epi review` (the approver signs), single-user
+`epi oversight report`, `epi org bundle` (the customer's own key history), and every
+offline proof check.
 
 **Paid, and not in this repository:** two products.
 
-- **EPI Enterprise** (`epi-enterprise`, private): `epi org`, `epi oversight`,
-  `epi audit`, `epi annex`, `epi approvers`, `epi review`, `epi chat`, `epi notify`
-  and the regulatory mappings they produce. These are the organisation features
-  — identity, approvals, reporting, regulatory packs, collaboration.
+- **EPI Enterprise** (`epi-enterprise`, private): `epi audit`, `epi annex`,
+  `epi notify`, `epi chat`, the `epi enterprise` kit and the regulatory mappings
+  they produce. These are the compliance-team and multi-workflow features.
 - **EPI Cloud** (hosted): witnessing, trust pages, retention, team review,
   admin, managed keys. The client (`epi_cli/cloud.py`) and the witness protocol
   stay open so anyone can build a compatible service.
 
 Enterprise commands appear only when a licensed `epi-enterprise` package is
-installed; the public CLI is complete without it. The verifier never imports a
-licence check.
+installed; the public CLI is complete without it. The checker and the approver
+never need a licence, and the verifier never imports one.
 
 **The promise that makes the file worth anything:** `epi verify` will never require
 an account, a licence, a server, or a network connection. If that ever changes, the

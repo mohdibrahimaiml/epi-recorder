@@ -163,10 +163,11 @@ Important files:
 - `epi_cli/run.py`
 - `epi_cli/ls.py`
 
-The organisation commands (`review`, `approvers`, `oversight`, `audit`, `annex`,
-`notify`, `org`, `enterprise`, `chat`) are not in this package. They ship in the
-private `epi-enterprise` package and plug in through `epi.plugins`; the public
-CLI is complete without them.
+The compliance-team commands (`audit`, `annex`, `notify`, `enterprise`, `chat`)
+are not in this package. They ship in the private `epi-enterprise` package and
+plug in through `epi.plugins`; the public CLI is complete without them. The
+checker and approver commands (`approvers`, `review`, `oversight`, `org`) stay
+here and need no licence.
 
 This package answers:
 

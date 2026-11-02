@@ -57,20 +57,32 @@ PAID_MODULES = {
 
 PREMIUM_COMMAND_MODULES = (
     "epi_cli/annex.py",
-    "epi_cli/approvers.py",
     "epi_cli/audit.py",
     "epi_cli/chat.py",
     "epi_cli/enterprise.py",
     "epi_cli/notify.py",
-    "epi_cli/org_cmd.py",
-    "epi_cli/oversight.py",
-    "epi_cli/review.py",
     "epi_cli/role_bindings.py",
     "epi_core/annex_report_template.py",
     "epi_core/annex_schemas.py",
-    "epi_core/org_bundle.py",
     "epi_core/eu_notification.py",
 )
+
+# The checker and the approver must never need a licence. These are the
+# commands the customer and their reviewer run on a free install.
+FREE_TRUST_MODULES = (
+    "epi_cli/approvers.py",
+    "epi_cli/review.py",
+    "epi_cli/oversight.py",
+    "epi_cli/org_cmd.py",
+    "epi_core/org_bundle.py",
+)
+
+FREE_TRUST_COMMANDS = {
+    "approvers",
+    "review",
+    "oversight",
+    "org",
+}
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -175,17 +187,36 @@ def test_public_cli_has_no_premium_command_names():
     names |= {g.name for g in app.registered_groups if g.name}
     premium = {
         "annex",
-        "approvers",
         "audit",
         "chat",
         "enterprise",
         "notify",
-        "org",
-        "oversight",
-        "review",
     }
     leaked = sorted(names & premium)
     assert not leaked, (
         f"premium commands leaked into the public CLI: {leaked}. "
         "They must be registered by epi-enterprise through the plugin seam."
     )
+
+
+def test_free_trust_commands_are_public_modules():
+    missing = [name for name in FREE_TRUST_MODULES if not (REPO / name).exists()]
+    assert not missing, f"trust-critical modules are missing from the free core: {missing}"
+
+
+def test_free_trust_commands_are_registered_without_a_licence():
+    from epi_cli.main import app
+
+    names = {c.name for c in app.registered_commands if c.name}
+    names |= {g.name for g in app.registered_groups if g.name}
+    missing = sorted(FREE_TRUST_COMMANDS - names)
+    assert not missing, (
+        f"trust-critical commands missing from the free CLI: {missing}. "
+        "The checker and approver must not need a licence."
+    )
+
+
+def test_verify_keeps_the_free_human_approval_checks():
+    text = VERIFIER.read_text(encoding="utf-8")
+    for option in ("--require-human-approval", "--witness-log", "--policy"):
+        assert option in text, f"epi verify lost {option}"

@@ -30,16 +30,23 @@ All notable changes to EPI Recorder are documented here.
   that adds top-level commands. It is additive only: with no plugin installed
   the CLI is complete, and a broken plugin cannot stop it starting.
   `epi verify` still contains no licence check and needs no plugin.
-- **The enterprise command surface moved to `epi-enterprise`.** `epi org`,
-  `epi oversight`, `epi audit`, `epi annex`, `epi approvers`, `epi review`,
-  `epi chat`, `epi notify` and their report/mapping generators now live in the
-  private package and require a signed offline licence. Without it the public
-  CLI is unchanged; the paid commands simply do not appear.
+- **The compliance-team command surface moved to `epi-enterprise`.** `epi audit`,
+  `epi annex`, `epi notify`, `epi chat`, `epi enterprise` and their report/mapping
+  generators now live in the private package and require a signed offline
+  licence. Without it the public CLI is unchanged; the paid commands simply do
+  not appear.
+- **The checker and approver stay free.** `epi approvers` (pin the customer's
+  approver keys), `epi review` (the approver signs), single-user
+  `epi oversight report` and `epi org bundle` remain in the public CLI and need
+  no licence. A free install can pin an approver, sign an approval, run the
+  oversight report and check the customer's own key history.
 
 ### Added
 
-- `tests/test_open_core_boundary.py` — fails if the verifier gains a network
+- `tests/test_open_core_boundary.py` - fails if the verifier gains a network
   client or a gating token, or if paid modules enter the wheel allowlist.
+- `tests/test_free_trust_commands.py` - a free install can pin an approver, sign
+  an approval, run the oversight report and open the org bundle check.
 - `tests/test_plugins.py`, `tests/test_share_fallback.py`.
 
 ### Removed from this repository
