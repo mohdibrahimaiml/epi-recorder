@@ -1,9 +1,9 @@
 # EPI support and service levels
 
-**Product version:** 4.7.0. Private beta status: [docs/CLOUD.md](./docs/CLOUD.md).
+**Product version:** 4.9.0. Cloud service status: [docs/CLOUD.md](./docs/CLOUD.md).
 
 This page says what is supported, how to get help, and what to expect. It is
-not a legal SLA with penalties — EPI Cloud is in private beta and there is no
+not a legal SLA with penalties — EPI Cloud is a free beta and there is no
 paid tier with contractual uptime yet.
 
 ## What is supported
@@ -11,7 +11,7 @@ paid tier with contractual uptime yet.
 | Surface | Status | Help channel |
 |---|---|---|
 | `epi-recorder` open source (record / seal / `epi verify` / viewer) | Supported, MIT | GitHub issues |
-| EPI Cloud (witness, trust links, Evidence Room) | **Private beta** — works, but expect changes | Email (below) + GitHub issues |
+| EPI Cloud (witness, trust links, Evidence Room) | **Free beta** - self-serve, works, expect changes | Email (below) + GitHub issues |
 | Legacy hosted paths (`epi share` default upload, MCP on Render) | Best-effort, frozen | GitHub issues |
 | Spec implementers (`docs/spec/`) | Supported via test vectors | GitHub issues |
 

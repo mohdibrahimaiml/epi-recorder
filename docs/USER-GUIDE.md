@@ -1,6 +1,6 @@
 # How to use EPI (normal path)
 
-**Version:** 4.7.0  
+**Version:** 4.9.0  
 You do not need an account, a dashboard, or EPI Cloud to record or verify.
 
 This is the everyday guide. Bank / auditor briefing: [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md). Command list: [CLI.md](./CLI.md).
@@ -44,7 +44,7 @@ Skip EPI for throwaway chat UIs with no later audit question.
 |--------|-----|
 | **You (vendor / developer)** | Install, record one workflow, keep the `.epi` file. Optionally share it. |
 | **Reviewer (customer, auditor, risk)** | Opens the file with `epi view` or `epi verify`. Pins **your** public key if identity matters. No EPI account. |
-| **EPI Cloud (optional)** | Lets you send a browser link instead of emailing the file. Private beta. Verification stays free either way. |
+| **EPI Cloud (optional)** | Lets you send a browser link instead of emailing the file. Free beta workspace, created by signing in. Verification stays free either way. |
 
 ---
 
@@ -191,7 +191,7 @@ epi keys generate --name default   # PKCS#8 PEM is written encrypted
 
 The same variable must be set whenever that key is loaded (sealing, `epi verify` with `--key`, Cloud upload, etc.); without it the load fails. There is no recovery path - if you lose the passphrase, the key cannot be recovered. Keep it in your secrets manager, not in shell history. For production, prefer a key that never touches disk: link a PKCS#11 HSM, AWS KMS or Google Cloud KMS key with `epi keys link --name default --uri <vault-uri>` (see [KEY-CUSTODY.md](./KEY-CUSTODY.md)).
 
-**Optional — EPI Cloud** (private beta), when you want a link instead of a file:
+**Optional — EPI Cloud** (free beta), when you want a link instead of a file:
 
 ```bash
 epi cloud login

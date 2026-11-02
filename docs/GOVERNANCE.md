@@ -1,13 +1,13 @@
 # Governance (how this project is run)
 
-**Status:** founder-led, private beta. This page states the current reality,
+**Status:** founder-led, free beta. This page states the current reality,
 not an aspiration. It changes when reality does.
 
 ## Who decides
 
 - **Maintainer:** mohdibrahimaiml (repo owner). Final say on scope, releases,
   and security.
-- **Design partners:** 5 places ([plans page](https://epilabs.org/plans)).
+- **Paid tiers:** Team, Business and Enterprise are arranged directly; there is no public checkout yet. Free is self-serve ([plans page](https://epilabs.org/plans)).
   Partners get founding terms and direct feedback calls; they advise, they
   do not vote.
 - **Decisions with lasting cost** are recorded as [ADRs](./adr/README.md).

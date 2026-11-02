@@ -1,6 +1,6 @@
 # File safety — is a `.epi` file safe to open?
 
-**Product version:** 4.7.0. Docs map: [README.md](./README.md).
+**Product version:** 4.9.0. Docs map: [README.md](./README.md).
 
 This page answers one question a bank, hospital, or insurer asks before it
 lets a vendor's evidence file through the email gateway: **"Is this `.epi`

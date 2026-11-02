@@ -1,6 +1,6 @@
 # EPI - enterprise briefing (v4.9.0)
 
-**Product:** `epi-recorder` (open source) + optional **EPI Cloud** (private beta) + public site **epilabs.org**.  
+**Product:** `epi-recorder` (open source) + optional **EPI Cloud** (free beta) + public site **epilabs.org**.  
 **Container:** EPI Evidence Format (see [spec/EPI-SPEC.md](./spec/EPI-SPEC.md)).  
 **Name:** EPI = **Evidence Packaged Infrastructure**.
 
@@ -23,7 +23,7 @@ Agent workflow  →  epi-recorder (record, redact, seal)  →  recording.epi
                          (local; no upload required)
 ```
 
-### EPI Cloud (optional, private beta)
+### EPI Cloud (optional, free beta)
 
 A hosted layer at `https://cloud.epilabs.org` for vendors who need to **show a customer a run** without mailing files around:
 
@@ -71,7 +71,7 @@ Say these out loud in a security review. They are product facts, not caveats hid
 - A listing in a public key registry is **not** a pin. Reviewers pin keys themselves.
 - `epi-register` without `--service` embeds a **local, self-issued** SCITT receipt, not an independent ledger entry.
 - Browser viewer crypto checks integrity/signature in-page; RFC 3161 timestamp **validation** is done by `epi verify`, not by the viewer (the viewer says so).
-- EPI Cloud in 4.9.0 is **private beta**. Public plans page does not sell a hosted-verification subscription.
+- EPI Cloud in 4.9.0 is a **free self-serve beta**: anyone can sign in and create a workspace. The public plans page does not sell a hosted-verification subscription; paid Team/Business tiers are arranged directly.
 - `record()` timestamps are taken on the signed repack, so they bind the signing key and attest that **the contents, sealed by that key, existed no later than T** (`imprinted_public_key` present). Pre-change seals (`imprinted_public_key` null) attest contents-only existence ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 ---
@@ -136,7 +136,7 @@ Then create a **customer-scoped** share/trust link on the Cloud dashboard. The r
 
 Witness receipts are hash-only. Full files in the Evidence Room are only what the vendor uploaded. Customer-bucket credentials never go to EPI Cloud ([STORAGE.md](./STORAGE.md), [CLOUD.md](./CLOUD.md)).
 
-Free Cloud plan: **1 customer**. Paid plan numbers (when entitled): Startup 3 customers / 1,000 stored files (1-year retention); Growth 15 / 10,000 (7-year). Verification is not metered. Cloud checkout is not self-serve on the public site.
+Free Cloud plan: **1 customer, 1 share link, 50 stored runs, 30 days**. Paid plan numbers (when entitled): Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000 (7-year); Enterprise as agreed. Verification is not metered. Cloud checkout is not self-serve on the public site.
 
 ---
 

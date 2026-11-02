@@ -1,6 +1,6 @@
 # Share One Failure With `.epi`
 
-**Product version:** 4.7.0.
+**Product version:** 4.9.0.
 
 Use `.epi` as the bug-report artifact for AI systems: one file another engineer can open, verify, and inspect without reconstructing your environment first.
 

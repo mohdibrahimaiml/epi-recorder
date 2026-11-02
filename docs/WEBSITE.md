@@ -14,7 +14,7 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/` (`index.html`) | Product home |
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
-| `/plans` | Pricing: open source free, one Decision File pilot (EUR 4,500, one workflow, 30 days), EPI Cloud **private beta** |
+| `/plans` | Pricing: open source free, one Decision File pilot (EUR 4,500, one workflow, 30 days), EPI Cloud **free beta** (1 customer, 1 share link, 50 runs, 30 days) |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |
@@ -48,7 +48,7 @@ Match these or the page is wrong:
 
 - Open-source record / seal / verify is MIT and free. No account required.
 - Verification is never charged.
-- EPI Cloud is **private beta**, not a self-serve hosted-verification subscription.
+- EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall.
 - The seal proves integrity **after sealing**, not completeness of capture.
 - Accounts live on EPI Cloud.
 
