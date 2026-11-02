@@ -39,11 +39,9 @@ def _user_agent() -> str:
     urllib POST here must carry this header so stamps reach the Worker (a bad
     secret then correctly answers 401, never a misleading edge 403).
     """
-    try:
-        from epi_core import __version__ as _v
-    except Exception:
-        _v = "unknown"
-    return f"epi-recorder/{_v}"
+    from epi_core.useragent import user_agent
+
+    return user_agent()
 
 
 class _OutboxFileLock:

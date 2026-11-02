@@ -32,6 +32,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
+from epi_core.useragent import user_agent
+
 import cbor2
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -662,6 +664,7 @@ class SCITTServiceClient:
             headers={
                 "Content-Type": "application/cose",
                 "Accept": "application/cose",
+                "User-Agent": user_agent(),
             },
             method="POST",
         )
