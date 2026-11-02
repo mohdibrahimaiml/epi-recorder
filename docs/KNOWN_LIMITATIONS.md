@@ -220,11 +220,11 @@ EPI Cloud runs on Cloudflare (Workers + D1 + R2 + Durable Objects); limits and
 capacity math live in [CLOUD.md](./CLOUD.md). The old Render **login** is
 retired — sign-in for the website and the CLI goes through EPI Cloud.
 
-What still lives on Render (legacy hosted paths — not the account system, not
-required to record or verify): the default `epi share` upload, MCP HTTP
-hosting, opt-in telemetry/pilot signup URLs, the keep-warm cron, and some
-`/api/*` Cloudflare proxies. Offline CLI verify works regardless of any
-hosted service.
+What still lives on Render (legacy hosted paths - not the account system, not
+required to record or verify): the fallback `epi share` upload (Cloud serves it
+by default), MCP HTTP hosting, opt-in telemetry/pilot signup URLs, the
+keep-warm cron, and some `/api/*` Cloudflare proxies. Offline CLI verify works
+regardless of any hosted service.
 
 ---
 

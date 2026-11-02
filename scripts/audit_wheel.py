@@ -27,7 +27,6 @@ EXPECTED_TOP_LEVEL = {
     "pytest_epi",
     "epi_guardrails",
     "epi_mcp",
-    "verify_portal",
 }
 
 REQUIRED_RUNTIME_MEMBERS = {

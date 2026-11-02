@@ -450,7 +450,7 @@ All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.m
 After a successful verification, typical next steps:
 - `https://epilabs.org/verify` for client-side browser verification (no account)
 - EPI Cloud trust link (customer-scoped) — `epi cloud login` then the dashboard
-- `epi share <file.epi>` still uploads to the **legacy Render** share API unless you point `--api-base-url` elsewhere. That path is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
+- `epi share <file.epi>` uploads to EPI Cloud by default, with one automatic fallback to the legacy Render portal while that migration finishes. It is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
 
 ---
 
@@ -458,7 +458,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-As of 4.6.3 the **default** host is still the legacy Render verify portal, not EPI Cloud. Prefer a Cloud trust link for new customer reviews. `epi share` remains for the old hosted-link path until that migration finishes.
+The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud does not serve the upload route yet, or is unreachable, the command retries once against the legacy Render portal and says so. Pinning `--api-base-url` or `EPI_SHARE_API_URL` disables the fallback. CLIs older than 4.9.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
 
 ```bash
 epi share demo.epi
@@ -471,11 +471,11 @@ Behavior:
 - validates the `.epi` locally before upload
 - rejects files larger than 5 MB
 - accepts valid signed artifacts and valid unsigned artifacts
-- returns a hosted link shaped like `https://epilabs.org/cases/?id=...`
+- returns a hosted link: `https://cloud.epilabs.org/s/<id>` by default, or an `epilabs.org/cases/` link from the legacy portal
 
 This is the fastest path when a teammate should be able to open the repro in a browser without installing EPI first.
 
-If the default hosted backend is not available yet, point the command at your own gateway with `--api-base-url` or `EPI_SHARE_API_URL`.
+To use your own service, set `--api-base-url` or `EPI_SHARE_API_URL`. An explicit value is used as-is and never falls back.
 
 ---
 

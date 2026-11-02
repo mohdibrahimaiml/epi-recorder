@@ -1,5 +1,11 @@
 # EPI Verify Portal
 
+> **Deprecated — being retired.** This is the legacy hosted share/verify service
+> on Render. Billing, tier gating, the dashboard and admin telemetry have moved
+> to the private service repository; the files here are kept only until
+> `epi share` has fully migrated to EPI Cloud (`/api/share`). Do not build new
+> features here. See [docs/CLOUD.md](../docs/CLOUD.md).
+
 Web-based verification service for `.epi` artifacts. No installation required.
 
 ## Features

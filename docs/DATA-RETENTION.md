@@ -1,8 +1,9 @@
 # Data retention and deletion (EPI Cloud)
 
 **Product version:** 4.7.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
-[DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced in
-`cloud/src/lib/plans.ts`; the table below states them in product words.
+[DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced by the
+hosted service, which is not in this repository; the table below states them in
+product words.
 
 Open-source use keeps no data with EPI Labs at all: sealed `.epi` files live
 wherever you put them, and `epi verify` runs offline.
@@ -12,10 +13,9 @@ wherever you put them, and `epi verify` runs offline.
 | Plan | Customers | Stored runs | Retention | Share links |
 |------|-----------|-------------|-----------|-------------|
 | Free | 1 | 50 | 30 days | 1 |
-| Startup | 3 | 1,000 | 1 year | 3 |
-| Growth | 15 | 10,000 | 7 years | unlimited |
-| Design partner | 5 | 2,000 | 7 years | 10 |
-| Enterprise | As entitled | As entitled | As entitled | As entitled |
+| Team | 5 | 5,000 / month | 1 year | 10 |
+| Business | 15 | 25,000 / month | 7 years | unlimited |
+| Enterprise | as entitled | as entitled | as entitled | as entitled |
 
 Verification is never metered and witness receipts are hash-only. Evidence
 Room files max 25 MB each. Expiry is enforced, not promised: every upload
@@ -35,8 +35,8 @@ back. A legal hold pauses deletion for that file until released.
   anchors remain, containing hashes only, never content. Full account removal
   is a written request (below), not a button.
 - **Login data:** OAuth identifiers are deleted with the account.
-- **Legacy Render share uploads:** `epi share` links honor `--expires`.
-  Ask for early deletion any time.
+- **Share uploads:** `epi share` links (EPI Cloud by default, legacy portal as
+  fallback) honor `--expires`, capped at 30 days. Ask for early deletion any time.
 
 ## How to request export or deletion
 
@@ -50,7 +50,7 @@ private beta. Email `mohdibrahim@epilabs.org` with the workspace name:
 ## Backups
 
 Point-in-time D1 exports to R2, last 4 kept (4-week window) — this is still a
-manual weekly founder op. The daily cron in `cloud/wrangler.toml` publishes
+manual weekly founder op. The daily cron in the hosted service publishes
 witness checkpoints; it does **not** back up the database. The backup runbook is
 internal.
 Restores are documented per incident. Backup contents follow the same

@@ -28,9 +28,9 @@ Render only redeploys `main`.
 | Piece | Where | Role |
 |---|---|---|
 | Marketing site | Cloudflare Pages, project `epilabs`, output `site/` | static pages, `/assets` |
-| `/api/*`, `/scitt/*`, `/.well-known/*` | Pages Functions (`functions/`) | proxy to `epi-verify-portal.onrender.com` |
+| `/api/*`, `/scitt/*`, `/.well-known/*` | Pages Functions (`functions/`) | `/.well-known/*` serves the committed static file first, then falls back to the proxy; `/api/*` and `/scitt/*` proxy to `epi-verify-portal.onrender.com` |
 | Verify portal | Render (`verify_portal/`) | `/api/verify`, `/api/contact`, billing, shares, telemetry, explicit page routes |
-| EPI Cloud | Worker `epi-cloud` (`cloud/`) | auth, orgs, keys, artifacts, witness, shares, plans |
+| EPI Cloud | Worker `epi-cloud` (private repository) | auth, orgs, keys, artifacts, witness, shares, plans |
 | Checkout | Paddle v2, client-side (`js/paddle-config.js`) | plans page |
 
 The frontend already calls its own origin (`/api/...`); no backend change is needed.

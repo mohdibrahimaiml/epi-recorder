@@ -34,7 +34,7 @@ The repo implements EPI as several connected layers:
 2. A **core artifact and trust layer** that builds and verifies `.epi` files.
 3. A **CLI** for running, viewing, verifying, reviewing, exporting, sharing, and `epi cloud`.
 4. An optional **self-hosted FastAPI gateway** (`epi_gateway`) for live capture and shared review — not EPI Cloud.
-5. **EPI Cloud** (`cloud/`) — Cloudflare Worker for device login, hash-only witness, trust pages, and the Evidence Room.
+5. **EPI Cloud** (`cloud.epilabs.org`) - hosted device login, hash-only witness, trust pages, and the Evidence Room. The server is in a separate private repository; the open client is `epi_cli/cloud.py`.
 6. A **browser viewer** for opening and reviewing case files without rebuilding context from raw logs.
 7. The **public website** (`website/` → epilabs.org). Sign-in is EPI Cloud.
 
@@ -63,7 +63,7 @@ flowchart LR
     C1["epi_cli"] --> C
     C2["web_viewer"] --> C
     C3["epi_gateway (self-host)"] --> C
-    C4["cloud/ (EPI Cloud)"] --> C
+    C4["EPI Cloud (hosted, private repo)"] --> C
     C5["website/"] --> C
 ```
 
@@ -88,7 +88,7 @@ This is the human-facing surface:
 - `epi export-summary`
 - the browser case UI
 - EPI Cloud trust links (customer-scoped)
-- legacy `epi share` links (Render, still the default for that command)
+- `epi share` links (EPI Cloud by default; the legacy Render portal is a fallback)
 - local shared workspaces through `epi connect open`
 
 ## 3. The Most Important Top-Level Folders
@@ -264,11 +264,14 @@ This is the **only** source of truth for `epilabs.org`. Edit here. Sync copies
 go to `site/` (Cloudflare Pages output), `verify_portal/static/`, and
 `epi-official/`. See [WEBSITE.md](./WEBSITE.md).
 
-#### `cloud/`
+#### EPI Cloud (hosted, not in this repo)
 
-EPI Cloud Worker (`epi-cloud` on Cloudflare): device login, witness inboxes,
+EPI Cloud (`epi-cloud` on Cloudflare): device login, witness inboxes,
 share links, Evidence Room uploads, public key registry, storage-target
-metadata. Product docs: [CLOUD.md](./CLOUD.md).
+metadata. The Worker source moved to a separate private repository during the
+open-core split. This repository keeps the client (`epi_cli/cloud.py`), the
+witness protocol, and the verification path so a third party can interoperate.
+Product docs: [CLOUD.md](./CLOUD.md).
 
 #### `epi-official/` / `site/`
 
@@ -1104,7 +1107,6 @@ If you are trying to avoid confusion, use this rule:
 - `epi_core/`
 - `epi_cli/`
 - `epi_gateway/`
-- `cloud/`
 - `web_viewer/`
 - `pytest_epi/`
 - `website/`
