@@ -39,7 +39,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 How the pieces fit: [ARCHITECTURE.md](../ARCHITECTURE.md).  
 Enterprise briefing (CISO / risk / procurement): [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md).
 
-Login for the website and the CLI is **EPI Cloud**. Older Render login is retired. Some legacy hosted paths (`epi share` default upload, MCP on Render, telemetry) still exist — see [CLOUD.md](./CLOUD.md). They are **not** the account system and **not** required to record or verify.
+Login for the website and the CLI is **EPI Cloud**. Older Render login is retired. Some legacy hosted paths (`epi share` now defaults to Cloud with a one-shot Render fallback, MCP on Render, telemetry) still exist - see [CLOUD.md](./CLOUD.md). They are **not** the account system and **not** required to record or verify.
 
 ---
 

@@ -85,9 +85,8 @@ Say these out loud in a security review. They are product facts, not caveats hid
 | `epi_cli/` | `epi` command: record, verify, view, policy, keys, witness, **cloud** |
 | `web_viewer/` + `epi_viewer_static/` | Offline case UI baked into the file |
 | `epi_gateway/` | Optional **self-hosted** capture/review (`epi gateway serve`) |
-| `cloud/` | EPI Cloud Worker (Cloudflare): auth, witness, shares, artifacts, keys, storage target |
 | `website/` | epilabs.org |
-| `verify_portal/` | Legacy hosted verify/share API on Render. Login moved to Cloud. Still used for some `epi share` / MCP / telemetry paths ([CLOUD.md](./CLOUD.md)). |
+| `verify_portal/` | Legacy hosted verify/share API on Render. Login moved to Cloud. `epi share` falls back to it only while the Cloud upload route is unavailable; MCP and some telemetry paths still use it ([CLOUD.md](./CLOUD.md)). |
 
 Integrity model (short):
 

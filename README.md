@@ -37,6 +37,23 @@ No account and no EPI server: verification is fully offline. When sealing, EPI a
 RFC 3161 timestamp services for a trusted time (only a hash is sent; switch off with `EPI_NOTARIZE=0`
 or use your own with `EPI_TSA_URLS`).
 
+### Open core: what is free, what is paid
+
+**Free forever, MIT, in this repository:** the `.epi` format, `epi verify`, the viewer,
+the recorder and its integrations, the gateway, the customer-side witness receiver
+(`epi witness serve` / `epi witness report`), the policy engine, and every offline proof check.
+
+**Paid, and not in this repository:** EPI Cloud — hosted witnessing, trust pages,
+retention, team review, SSO, managed keys and regulatory reporting. The hosted
+server implementation is closed so it can be developed commercially; the client
+(`epi_cli/cloud.py`) and the witness protocol stay open so anyone can build a
+compatible service.
+
+**The promise that makes the file worth anything:** `epi verify` will never require
+an account, a licence, a server, or a network connection. If that ever changes, the
+proof stops being proof. `scripts/audit_wheel.py` and `tests/test_open_core_boundary.py`
+enforce both halves of this: no paid code in the wheel, and no gate in the verifier.
+
 <div align="center">
   <p><strong>Open a sealed <code>.epi</code> offline</strong> — <code>epi view run.epi</code></p>
   <img
@@ -360,7 +377,6 @@ epi verify agent.epi --aiuc1   # evidence grouped by AIUC-1 domain (not a certif
 | `epi_core/` | Container, crypto, redaction, verify, fault analyzer |
 | `epi_cli/` | `epi` command (including `epi cloud`) |
 | `epi_gateway/` | Self-hosted capture/review runtime (`epi gateway serve`) |
-| `cloud/` | EPI Cloud Worker (`cloud.epilabs.org`) |
 | `web_viewer/` | Canonical browser UI (source for `epi view` and the embedded viewer) |
 | `epi_viewer_static/` | Browser crypto baked into every sealed file at pack time |
 | `pytest_epi/` | Pytest plugin |

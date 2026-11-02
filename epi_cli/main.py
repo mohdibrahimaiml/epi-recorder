@@ -2704,6 +2704,23 @@ def doctor(
 
 
 # Entry point for CLI
+def _register_optional_plugins() -> None:
+    """Attach paid/enterprise command groups when a plugin is installed.
+
+    Additive only, and never on the verification path: with no plugins this is
+    a no-op, and a broken plugin cannot stop the CLI from starting.
+    """
+    try:
+        from epi_core.plugins import register_typer
+
+        register_typer(app)
+    except Exception:
+        pass
+
+
+_register_optional_plugins()
+
+
 def cli_main():
     """CLI entry point (called by `epi` command)."""
     # Fix Windows console encoding (cp1252 → utf-8) BEFORE any output.

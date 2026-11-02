@@ -27,11 +27,20 @@ from epi_core import telemetry as telemetry_core
 console = Console()
 
 DEFAULT_SHARE_API_URL = "https://epi-verify-portal.onrender.com"
+# EPI Cloud implements the same POST /api/share contract. It becomes the default;
+# the legacy Render portal is kept only as an automatic fallback so installed
+# CLIs keep working during the migration.
+PRIMARY_SHARE_API_URL = "https://cloud.epilabs.org"
 MAX_LOCAL_SHARE_BYTES = 5 * 1024 * 1024
 
 
 def _resolve_share_api_base_url(explicit: str | None) -> str:
-    return str(explicit or os.getenv("EPI_SHARE_API_URL") or DEFAULT_SHARE_API_URL).rstrip("/")
+    return str(explicit or os.getenv("EPI_SHARE_API_URL") or PRIMARY_SHARE_API_URL).rstrip("/")
+
+
+def _resolve_explicit_override(explicit: str | None) -> bool:
+    """True when the user pinned a service; never fall back in that case."""
+    return bool(explicit or os.getenv("EPI_SHARE_API_URL"))
 
 
 def _local_preflight(epi_file: Path):
@@ -130,7 +139,10 @@ def share(
     api_base_url: str | None = typer.Option(
         None,
         "--api-base-url",
-        help="Override the share API base URL (default: EPI_SHARE_API_URL or https://epi-verify-portal.onrender.com).",
+        help=(
+            "Override the share API base URL (default: EPI_SHARE_API_URL or "
+            "https://cloud.epilabs.org, falling back to the legacy portal)."
+        ),
     ),
 ):
     """
@@ -154,37 +166,53 @@ def share(
     if _offline_share_dir() is not None:
         _share_offline(resolved_file, expires, inspection, json_output)
 
-    from epi_cli._shared import require_service
-
-    require_service(api_root, label="EPI share service")
-
-    request_url = f"{api_root}/api/share?{urllib.parse.urlencode({'expires_days': expires})}"
     payload_bytes = resolved_file.read_bytes()
-    request = urllib.request.Request(
-        request_url,
-        data=payload_bytes,
-        method="POST",
-        headers={
-            "Content-Type": EPIContainer.container_mimetype(resolved_file),
-            "X-EPI-Filename": resolved_file.name,
-        },
-    )
 
-    try:
+    def _upload(base: str) -> dict[str, Any]:
+        request_url = f"{base}/api/share?{urllib.parse.urlencode({'expires_days': expires})}"
+        request = urllib.request.Request(
+            request_url,
+            data=payload_bytes,
+            method="POST",
+            headers={
+                "Content-Type": EPIContainer.container_mimetype(resolved_file),
+                "X-EPI-Filename": resolved_file.name,
+            },
+        )
         with urllib.request.urlopen(request, timeout=30) as response:
-            response_payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = _parse_error_body(exc)
-        console.print(f"[red][FAIL][/red] Share upload failed: {detail}")
-        raise typer.Exit(1) from exc
-    except urllib.error.URLError as exc:
-        api_root_shown = _resolve_share_api_base_url(api_base_url)
-        console.print(f"[red][FAIL][/red] Could not reach the share service at {api_root_shown}")
+            return json.loads(response.read().decode("utf-8"))
+
+    def _fail(exc: Exception, base: str) -> None:
+        if isinstance(exc, urllib.error.HTTPError):
+            detail = _parse_error_body(exc)
+            console.print(f"[red][FAIL][/red] Share upload failed: {detail}")
+            raise typer.Exit(1) from exc
+        console.print(f"[red][FAIL][/red] Could not reach the share service at {base}")
         console.print("[dim]To fix this, either:[/dim]")
         console.print("[dim]  • Deploy the EPI gateway and set EPI_SHARE_API_URL=http://your-host:8765[/dim]")
         console.print("[dim]  • Use --api-base-url http://your-gateway-host:8765[/dim]")
         console.print("[dim]  • Or use the legacy hosted portal at epi-verify-portal.onrender.com[/dim]")
         raise typer.Exit(1) from exc
+
+    def _route_missing(exc: Exception) -> bool:
+        """Only a missing/unreachable primary justifies the legacy fallback."""
+        if isinstance(exc, urllib.error.HTTPError):
+            return exc.code in {404, 501, 502, 503}
+        return isinstance(exc, urllib.error.URLError)
+
+    try:
+        response_payload = _upload(api_root)
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        pinned = _resolve_explicit_override(api_base_url)
+        if pinned or api_root == DEFAULT_SHARE_API_URL or not _route_missing(exc):
+            _fail(exc, api_root)
+        # Cloud does not serve the legacy contract yet (or is down): keep the
+        # installed CLI working instead of failing the upload.
+        console.print("[dim]EPI Cloud share upload unavailable; using the legacy portal.[/dim]")
+        try:
+            response_payload = _upload(DEFAULT_SHARE_API_URL)
+        except (urllib.error.HTTPError, urllib.error.URLError) as fallback_exc:
+            _fail(fallback_exc, DEFAULT_SHARE_API_URL)
 
     if json_output:
         sys.stdout.write(json.dumps(response_payload, indent=2) + "\n")

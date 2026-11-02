@@ -152,7 +152,7 @@ checks Rekor anchoring):
 epi witness check --inbox-url https://cloud.epilabs.org/w/inb_abc
 ```
 
-A daily cron ( `cloud/wrangler.toml`: `crons = ["5 0 * * *"]` ) signs
+A daily cron in the hosted service (`crons = ["5 0 * * *"]`) signs
 `{"inbox","day","count","head_hash"}` with the EPI Cloud witness Ed25519 key
 and anchors it in the Sigstore Rekor transparency log and an RFC 3161
 timestamp. Rewriting the log would require rewriting both public anchors.

@@ -28,24 +28,28 @@ Commands: [CLI.md](./CLI.md) (`epi cloud login|use|push|status`, `epi cloud keys
 
 ## Plans (product, not a public checkout)
 
-Public site: Cloud is private beta ([epilabs.org/plans](https://epilabs.org/plans)). Entitlements in code (`cloud/src/lib/plans.ts`):
+Public site: Cloud is private beta ([epilabs.org/plans](https://epilabs.org/plans)).
+Entitlements are part of the hosted service, not this repository; what a plan
+includes is stated in product words below.
 
-| Plan | Customers | Stored runs | Retention | Share links |
-|------|-----------|-------------|-----------|-------------|
+| Plan | Customer relationships | Witnessed runs | Retention | Share links |
+|------|------------------------|----------------|-----------|-------------|
 | Free | 1 | 50 | 30 days | 1 |
-| Startup | 3 | 1,000 | 1 year | 3 |
-| Growth | 15 | 10,000 | 7 years | unlimited |
-| Design partner | 5 | 2,000 | 7 years | 10 |
+| Team | 5 | 5,000 / month | 1 year | 10 |
+| Business | 15 | 25,000 / month | 7 years | unlimited |
 | Enterprise | as entitled | as entitled | as entitled | as entitled |
 
-Limits are per workspace and come from `PLAN_LIMITS` in
-`cloud/src/lib/plans.ts`; a share link is a reviewer trust link, and expired
+Limits are per workspace. A share link is a reviewer trust link, and expired
 links do not count toward the limit. Verification is never limited or charged.
 Speak in **customers**, not internal metric names.
 
+The entitlement code lives with the hosted service. It is deliberately not in
+this repository, so plan names, limits and pricing can change without a public
+commit. The `epi cloud` client here only consumes the API.
+
 Login for **epilabs.org Sign In** and the CLI is Cloud only.
 
-Legacy hosted paths still on Render (not the account system, not required to record or verify): default `epi share` upload, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. Cloud trust links are the customer path going forward.
+Legacy hosted paths still on Render (not the account system, not required to record or verify): the one-shot fallback for `epi share` uploads, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. `epi share` already defaults to `https://cloud.epilabs.org`; Cloud trust links are the customer path going forward.
 
 ---
 

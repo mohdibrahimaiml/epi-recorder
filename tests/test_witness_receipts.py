@@ -448,8 +448,9 @@ def test_signed_jsonl_lines_are_accepted(monkeypatch, tmp_path: Path) -> None:
 
 def test_noble_cross_language_golden_vector() -> None:
     """Server (TS @noble/curves) and CLI (python cryptography) must agree byte
-    for byte. Canonical golden matches cloud/test/witnessChain.test.ts; the
-    signature below was produced by noble over those exact bytes (secret ab*32).
+    for byte. The canonical golden also exists in the hosted service's test
+    suite (private repository); the signature below was produced by noble over
+    those exact bytes (secret ab*32).
     If either serializer drifts, this fails instead of shipping bad receipts."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 

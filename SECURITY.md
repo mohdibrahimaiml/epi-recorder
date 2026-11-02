@@ -154,7 +154,7 @@ Please follow responsible disclosure practices.
   scope over the whole workspace. The route is now **owner-only**, enforces the
   same `shareLinks` plan limit as its sibling, and rejects API keys entirely.
   The previous Cloud test suite asserted the vulnerable behaviour as intended;
-  `cloud/test/redteam.test.ts` now pins the boundary.
+  the hosted service's `test/redteam.test.ts` (private repository) pins the boundary.
 - **A self-asserted identity is no longer described as pinned (red-team F-19).**
   `manifest.governance.did` is written by whoever seals the file. Under the default
   (`standard`) policy the verifier resolves that DID, and if the resolved document

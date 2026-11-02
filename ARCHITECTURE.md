@@ -2,10 +2,10 @@
 
 EPI (Evidence Packaged Infrastructure) turns an AI agent's run into a signed, tamper-evident `.epi` evidence file: a portable container holding the run's step timeline, environment snapshot, file hashes and an Ed25519 signature, which anyone can re-check offline with `epi verify` and no account, API key, or network access.
 
-Three surfaces share this repo:
+Two surfaces live in this repo, plus one hosted service that deliberately does not:
 
 - **epi-recorder** — SDK + CLI. Offline record / seal / verify. Required.
-- **EPI Cloud** (`cloud/`, `https://cloud.epilabs.org`) — optional private-beta witness, trust pages, Evidence Room. Login for the website and `epi cloud login`.
+- **EPI Cloud** (`https://cloud.epilabs.org`) — optional private-beta witness, trust pages, Evidence Room. Login for the website and `epi cloud login`. **The server implementation is not part of this repository**; only the open client (`epi_cli/cloud.py`) and the witness protocol are. See [Open core](#open-core-what-is-free-and-what-is-paid).
 - **Website** (`website/` → `https://epilabs.org`) — marketing and in-browser verify. Not a docs site; technical docs live in `docs/`.
 
 ```mermaid
@@ -17,7 +17,7 @@ flowchart LR
     CORE --> EPIF[".epi file"]
     EPIF --> VERIFY["verify offline (epi verify / browser)"]
     WV["web_viewer + epi_viewer_static<br/>(offline viewer)"] --> EPIF
-    CLOUD["cloud/<br/>(EPI Cloud Worker)"] --> CLI
+    CLOUD["EPI Cloud<br/>(hosted · server not in this repo)"] --> CLI
     SITE["website/<br/>(epilabs.org)"] --> CLOUD
     PORTAL["verify_portal<br/>(legacy Render share/MCP)"] --> EPIF
 ```
@@ -39,7 +39,6 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 | `web_viewer/` | Canonical browser UI for reviewing case files | Opened by `epi view` |
 | `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
 | `epi_gateway/` | Self-hosted capture, review, approval and share runtime | `epi gateway serve` |
-| `cloud/` | EPI Cloud Worker: GitHub/Google login, device-code CLI login, witness, share links, Evidence Room, public key registry, storage-target metadata | Cloudflare Worker `epi-cloud` (`cloud/src/index.ts`). Docs: [docs/CLOUD.md](docs/CLOUD.md) |
 | `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |
 | `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** `epi share` default upload, some `/api/*` proxies, telemetry and MCP keep-warm still hit Render — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |
 | `pytest_epi/` | Pytest plugin: attach `.epi` evidence to tests | `pytest --epi` |
@@ -47,6 +46,14 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 | `site/` | Cloudflare Pages **build output** of `website/` | `npm run build` copies `website/` → `site/`. Do not hand-edit. |
 
 Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`, `epi-register`, `epi-mcp`, `epi-mcp-http`); the gateway and portal run via the `epi` CLI and `python -m` as above.
+
+## Open core: what is free and what is paid
+
+The trust layer is free forever and MIT: the `.epi` format, `epi verify`, the viewer, the recorder, the gateway, the customer-side witness receiver, and every offline proof check. Verification never requires an account, a licence, or a network connection.
+
+The operating layer is the paid product and is not in this repository: the hosted service (multi-tenancy, hosting, retention, admin), billing and entitlements, managed signing keys, and regulatory content packs. Keeping that code private protects future development; it does **not** make the earlier published versions secret.
+
+Rule for contributors: no paid code may enter the published wheel (`scripts/audit_wheel.py` enforces the allowlist), and `epi verify` must never gain a licence check or a network call.
 
 ## How integrity works
 
