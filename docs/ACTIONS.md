@@ -29,47 +29,12 @@ Inputs that exist today: `path`, `fail-on-tampered`, `fail-on-unsigned`, `python
 
 A green job means those files still match their sealed hashes and (when signed) their signatures. It does not mean the agent captured every call, or that a reviewer has pinned the sealer key.
 
-## `annex-iv-compliance`
+## `annex-iv-compliance` (EPI Enterprise)
 
-Runs `epi annex` in CI and packs the JSON you (or the templates) produced into a `.epi`. Source: `.github/actions/annex-iv-compliance/`.
-
-The action name says “compliance.” That is historical. The job **generates and signs Annex IV *templates*** you still have to fill with true system facts. A passing workflow is not an EU declaration of conformity.
-
-```yaml
-name: Pack Annex IV templates
-on:
-  pull_request:
-    branches: [main]
-jobs:
-  annex:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mohdibrahimaiml/epi-recorder/.github/actions/annex-iv-compliance@main
-        with:
-          signing-key: ${{ secrets.EPI_SIGNING_KEY }}
-          fail-on-block: true
-          report-format: html
-```
-
-`EPI_SIGNING_KEY` is your org's Ed25519 **private seed as 64 hex characters**
-(32 bytes). `epi annex pack` imports it under `--key-name` when that key does
-not exist locally, so CI signs with the org key — without it, pack mints a
-throwaway key and the seal proves nothing about your org. Make the secret
-once, from a key you generated:
-
-```bash
-epi keys generate --name ci-compliance
-python -c "from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PrivateFormat, NoEncryption; k=load_pem_private_key(open(r'$HOME/.epi/keys/ci-compliance.key','rb').read(),None); print(k.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()).hex())"
-# → paste the 64 hex chars as the EPI_SIGNING_KEY Actions secret
-```
-
-EPI Labs never holds it. The matching public key is embedded in every sealed
-file; reviewers pin it out of band before the seal means anything. In CI the
-seed is imported into the runner's key store for that job only (the runner is
-ephemeral); the file it lands in is never uploaded as an artifact.
-
-Details of the nine sections: [ANNEX-IV.md](./ANNEX-IV.md). Boundary: [EU-AI-ACT-EVIDENCE-PREP.md](./EU-AI-ACT-EVIDENCE-PREP.md).
+The Annex IV compliance action is part of **EPI Enterprise** and is not in this
+repository. `epi annex` is a paid command; the free CLI records, verifies and
+views evidence without it. Licensed customers get the action from their private
+distribution.
 
 ## After CI: independent check
 

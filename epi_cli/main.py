@@ -955,10 +955,6 @@ app.command(
 from epi_cli.ls import ls as ls_command
 app.command(name="ls", help="List local recordings (./epi-recordings/)", rich_help_panel="Everyday")(ls_command)
 
-# NEW: chat command (v2.1.3 - AI-powered evidence querying)
-from epi_cli.chat import chat as chat_command
-app.command(name="chat", help="Chat with your evidence file using AI", rich_help_panel="Advanced")(chat_command)
-
 # NEW: debug command (v2.2.0 - AI-powered mistake detection)
 from epi_cli.debug import debug as debug_command
 app.command(name="debug", help="Debug AI agent recordings for mistakes", rich_help_panel="Advanced")(debug_command)
@@ -970,25 +966,6 @@ app.add_typer(
     name="global",
     help="Install/uninstall EPI auto-recording globally",
     rich_help_panel="Advanced",
-)
-
-# NEW: fault intelligence commands (v2.8.0)
-from epi_cli.review import app as review_app
-app.add_typer(
-    review_app,
-    name="review",
-    help="Review fault analysis results for a saved case file",
-    invoke_without_command=True,
-    no_args_is_help=False,
-    rich_help_panel="Everyday",
-)
-
-from epi_cli.approvers import app as approvers_app
-app.add_typer(
-    approvers_app,
-    name="approvers",
-    help="Pin human approvers and hold their own keys (human sign-off)",
-    rich_help_panel="Everyday",
 )
 
 from epi_cli.policy import app as policy_app
@@ -1004,14 +981,6 @@ app.add_typer(
     witness_app,
     name="witness",
     help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
-    rich_help_panel="Everyday",
-)
-
-from epi_cli.oversight import app as oversight_app
-app.add_typer(
-    oversight_app,
-    name="oversight",
-    help="Oversight: decisions by outcome, model and approval over a period, from your files and your witness log",
     rich_help_panel="Everyday",
 )
 
@@ -1152,17 +1121,6 @@ except ImportError:
     pass  # cbor2 missing — should never happen since it's a core dependency
 
 try:
-    from epi_cli.org_cmd import app as org_app
-    app.add_typer(
-        org_app,
-        name="org",
-        help="Org trust bundles: customer-signed key history for offline verification",
-        rich_help_panel="Team",
-    )
-except ImportError:
-    pass
-
-try:
     from epi_cli.agt_cmd import app as agt_cmd_app
     app.add_typer(
         agt_cmd_app,
@@ -1179,24 +1137,6 @@ app.command(
     help="Generate EPI integration examples and CI workflows",
     rich_help_panel="Advanced",
 )(integrate_command)
-
-from epi_cli.audit import audit_command
-from epi_cli.annex import annex_app
-from epi_cli.notify import notify_app
-from epi_cli.enterprise import enterprise_app
-app.add_typer(annex_app, name="annex", help="Annex IV compliance artifacts", rich_help_panel="Advanced")
-app.add_typer(notify_app, name="notify", help="EU database notification", rich_help_panel="Advanced")
-app.command(
-    name="audit",
-    help="Run a self-audit on .epi artifacts producing machine-readable compliance reports",
-    rich_help_panel="Advanced",
-)(audit_command)
-app.add_typer(
-    enterprise_app,
-    name="enterprise",
-    help="Enterprise evidence kit: org trust bootstrap and auditor packs",
-    rich_help_panel="Team",
-)
 
 
 @app.command(rich_help_panel="Everyday")

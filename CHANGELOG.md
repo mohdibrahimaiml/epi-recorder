@@ -21,9 +21,15 @@ All notable changes to EPI Recorder are documented here.
   legacy portal for paths that are not in the site, so retiring Render no
   longer breaks the trust anchor.
 - **Optional plugin seam.** `epi_core/plugins.py` discovers `epi.plugins` entry
-  points and can add a command group. It is additive only: with no plugin
-  installed the CLI is complete, and a broken plugin cannot stop it starting.
+  points and supports either a Typer command group or a `register(app)` hook
+  that adds top-level commands. It is additive only: with no plugin installed
+  the CLI is complete, and a broken plugin cannot stop it starting.
   `epi verify` still contains no licence check and needs no plugin.
+- **The enterprise command surface moved to `epi-enterprise`.** `epi org`,
+  `epi oversight`, `epi audit`, `epi annex`, `epi approvers`, `epi review`,
+  `epi chat`, `epi notify` and their report/mapping generators now live in the
+  private package and require a signed offline licence. Without it the public
+  CLI is unchanged; the paid commands simply do not appear.
 
 ### Added
 
@@ -37,6 +43,10 @@ All notable changes to EPI Recorder are documented here.
   the Paddle catalog seeder, tier matrices, and the pricing/billing tests. All
   moved to the private service repository; their published history stays public
   under MIT.
+- The enterprise command modules (`epi_cli/{annex,approvers,audit,chat,enterprise,notify,org_cmd,oversight,review,role_bindings}.py`)
+  and the report/mapping generators they use (`epi_core/{annex_report_template,annex_schemas,org_bundle,eu_notification}.py`).
+  They are now `epi-enterprise`, distributed to licensed customers only. Their
+  previously published versions remain MIT.
 
 ## [4.9.0] - 2026-11-01
 

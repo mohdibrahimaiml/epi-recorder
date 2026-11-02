@@ -328,22 +328,6 @@ def _tampered(src: Path, dst: Path) -> Path:
     return dst
 
 
-def test_audit_on_tampered_file_fails_every_domain_and_exits_1(monkeypatch, tmp_path: Path) -> None:
-    _hermetic(monkeypatch, tmp_path)
-    good = _seal(monkeypatch, tmp_path, tmp_path / "good.epi")
-    bad = _tampered(good, tmp_path / "bad.epi")
-
-    res = runner.invoke(cli_app, ["audit", str(bad), "-f", "json"])
-    assert res.exit_code == 1
-    report = json.loads(res.output[: res.output.rindex("}") + 1])
-    for dom in report["pipeline"]["aiuc1"]["domains"].values():
-        assert dom["status"] == "FAIL"
-        assert "chain_ok" not in dom["evidence"]
-    assert report["compliance_score"]["rating"] == "altered"
-
-    ok = runner.invoke(cli_app, ["audit", str(good)])
-    assert ok.exit_code == 0, ok.output
-    assert ok.output.count("Compliance Report") == 1  # printed once
 
 
 def test_verify_never_suggests_pinning_from_the_file(monkeypatch, tmp_path: Path) -> None:
@@ -580,10 +564,6 @@ def test_rezipped_file_gives_clear_errors_and_report(monkeypatch, tmp_path: Path
     res = runner.invoke(cli_app, ["verify", str(bad), "--report", str(rep)])
     assert res.exit_code == 1
     assert rep.exists() and "DECISION:  FAIL" in rep.read_text()
-    audit = runner.invoke(cli_app, ["audit", str(bad)])
-    assert audit.exit_code == 1
-    assert "Traceback" not in audit.output
-    assert "re-packed" in audit.output
 
 
 def test_refresh_viewer_refuses_altered_or_foreign_files(monkeypatch, tmp_path: Path) -> None:

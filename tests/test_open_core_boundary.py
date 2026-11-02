@@ -47,7 +47,30 @@ GATING_TOKENS = (
     "activate_license",
 )
 
-PAID_MODULES = {"cloud", "verify_portal", "epi_enterprise", "billing", "tier_gating"}
+PAID_MODULES = {
+    "cloud",
+    "verify_portal",
+    "epi_enterprise",
+    "billing",
+    "tier_gating",
+}
+
+PREMIUM_COMMAND_MODULES = (
+    "epi_cli/annex.py",
+    "epi_cli/approvers.py",
+    "epi_cli/audit.py",
+    "epi_cli/chat.py",
+    "epi_cli/enterprise.py",
+    "epi_cli/notify.py",
+    "epi_cli/org_cmd.py",
+    "epi_cli/oversight.py",
+    "epi_cli/review.py",
+    "epi_cli/role_bindings.py",
+    "epi_core/annex_report_template.py",
+    "epi_core/annex_schemas.py",
+    "epi_core/org_bundle.py",
+    "epi_core/eu_notification.py",
+)
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -133,3 +156,36 @@ def test_billing_internals_are_not_publicly_testable():
     assert not (REPO / "tests" / "test_tier_gating_plans.py").exists()
     assert not (REPO / "scripts" / "_tier_capability_matrix.py").exists()
     assert not (REPO / "scripts" / "seed-paddle-catalog.mjs").exists()
+
+
+def test_premium_command_modules_are_not_public():
+    """The paid command surface lives in epi-enterprise, not in the public wheel."""
+    present = [name for name in PREMIUM_COMMAND_MODULES if (REPO / name).exists()]
+    assert not present, (
+        f"premium modules are back in the public tree: {present}. "
+        "They belong to epi-enterprise; see ARCHITECTURE.md 'Open core'."
+    )
+
+
+def test_public_cli_has_no_premium_command_names():
+    """Without epi-enterprise installed, the public CLI must not advertise paid commands."""
+    from epi_cli.main import app
+
+    names = {c.name for c in app.registered_commands if c.name}
+    names |= {g.name for g in app.registered_groups if g.name}
+    premium = {
+        "annex",
+        "approvers",
+        "audit",
+        "chat",
+        "enterprise",
+        "notify",
+        "org",
+        "oversight",
+        "review",
+    }
+    leaked = sorted(names & premium)
+    assert not leaked, (
+        f"premium commands leaked into the public CLI: {leaked}. "
+        "They must be registered by epi-enterprise through the plugin seam."
+    )

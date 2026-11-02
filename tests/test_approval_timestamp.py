@@ -280,35 +280,3 @@ def _rewrite_member(epi_path, member, payload):
             zf.writestr(name, data)
     C.write_from_payload(tmp, epi_path, container_format=C.detect_container_format(epi_path))
 
-def test_pinning_from_the_artifact_finds_the_approval_key(tmp_path, pinned, monkeypatch):
-    """`approvers add <file.epi>` must be able to pin the human, not just the sealer.
-
-    The fingerprint read aloud is the check: the key is taken from the review
-    signature only when its fingerprint matches the one supplied.
-    """
-    from typer.testing import CliRunner
-
-    from epi_cli.main import app as cli_app
-    from epi_core.review import verify_human_approvals
-
-    _fake_tsr(monkeypatch)
-    epi_path = _seal(tmp_path)
-    approver = Ed25519PrivateKey.generate()  # deliberately not pinned yet
-    add_review_to_artifact(
-        epi_path, _record(approver, name="demo@bank.com"), private_key=approver, timestamp=True
-    )
-
-    before = verify_human_approvals(epi_path)["approvals"][0]["classification"]
-    assert before == "signed_unknown_key"
-
-    fingerprint = key_fingerprint(_pub_hex(approver))
-    result = CliRunner().invoke(
-        cli_app,
-        ["approvers", "add", str(epi_path), "--name", "demo@bank.com", "--fingerprint", fingerprint],
-    )
-    assert result.exit_code == 0, result.output
-    assert "Pinned approver" in result.output
-
-    after = verify_human_approvals(epi_path)["approvals"][0]
-    assert after["classification"] == "human_signed"
-    assert after["key_fingerprint"].replace(" ", "") == fingerprint.replace(" ", "")

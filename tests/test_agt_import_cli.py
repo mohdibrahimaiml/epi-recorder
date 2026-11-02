@@ -6,7 +6,6 @@ from typer.testing import CliRunner
 import pytest
 
 from epi_cli.main import app as cli_app
-from epi_cli.review import app as review_app
 from epi_core.container import EPIContainer
 
 pytestmark = pytest.mark.experimental
@@ -262,17 +261,6 @@ class TestAGTImportCLI:
         assert "EPI DECISION RECORD" in summary_result.output
         assert "POLICY COMPLIANCE" in summary_result.output
 
-        review_result = runner.invoke(
-            review_app,
-            [str(output_path), "--reviewer", "reviewer@example.com"],
-            input="c\nImported AGT failure confirmed\n",
-        )
-        assert review_result.exit_code == 0, review_result.output
-        assert "Review saved" in review_result.output
-
-        review_payload = EPIContainer.read_member_json(output_path, "review.json")
-
-        assert review_payload["reviews"][0]["outcome"] == "confirmed_fault"
 
     def test_demo_bundle_round_trip_contains_expected_artifact_members(self, tmp_path):
         output_path = tmp_path / "demo_case.epi"

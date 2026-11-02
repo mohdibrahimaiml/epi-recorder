@@ -1,5 +1,10 @@
 # Decision File pilot: the customer holds the proof
 
+> **EPI Enterprise is required for the approver stage.** This demo uses
+> `epi approvers` and `epi review approve`, which ship in the private
+> `epi-enterprise` package. The vendor, customer-witness and verification
+> stages stay free.
+
 Run it:
 
 ```bash

@@ -4,6 +4,11 @@ How to run a bank pilot in a day. Two pages, no jargon. Everything here is
 checkable against `examples/pilot_kit/run_pilot_demo.sh` (which runs the same
 steps as a script, offline, with no API key).
 
+> **EPI Enterprise is required for the approver stage.** The pilot kit uses
+> `epi approvers` and `epi review approve`, which ship in the private
+> `epi-enterprise` package. Recording, the customer witness and verification
+> stay free.
+
 ## 1. Install
 
 ```bash
