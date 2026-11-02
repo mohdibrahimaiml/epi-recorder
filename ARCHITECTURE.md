@@ -51,7 +51,7 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 
 The trust layer is free forever and MIT: the `.epi` format, `epi verify`, the viewer, the recorder, the gateway, the customer-side witness receiver, and every offline proof check. Verification never requires an account, a licence, or a network connection.
 
-The operating layer is the paid product and is not in this repository: the hosted service (multi-tenancy, hosting, retention, admin), billing and entitlements, managed signing keys, and regulatory content packs. Keeping that code private protects future development; it does **not** make the earlier published versions secret.
+The operating layer is the paid product and is not in this repository: the hosted service (multi-tenancy, hosting, retention, admin), billing and entitlements, and now **EPI Enterprise** — the private `epi-enterprise` package that adds `epi org`, `epi oversight`, `epi audit`, `epi annex`, `epi approvers`, `epi review`, `epi chat`, `epi notify` and their regulatory mappings. Those commands are discovered through the `epi.plugins` entry point and require a signed offline licence; the public CLI is complete without them. Keeping that code private protects future development; it does **not** make the earlier published versions secret.
 
 Rule for contributors: no paid code may enter the published wheel (`scripts/audit_wheel.py` enforces the allowlist), and `epi verify` must never gain a licence check or a network call.
 

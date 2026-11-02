@@ -29,6 +29,14 @@ EXPECTED_TOP_LEVEL = {
     "epi_mcp",
 }
 
+FORBIDDEN_TOP_LEVEL = {
+    "epi_enterprise",
+    "cloud",
+    "verify_portal",
+    "billing",
+    "tier_gating",
+}
+
 REQUIRED_RUNTIME_MEMBERS = {
     "epi_viewer_static/crypto.js",
     "web_viewer/index.html",
@@ -66,6 +74,10 @@ def audit_wheel(wheel_path: Path) -> list[str]:
 
             parts = normalized.split("/")
             top_level = parts[0]
+
+            if top_level in FORBIDDEN_TOP_LEVEL:
+                issues.append(f"paid module in wheel: {normalized}")
+                continue
 
             if top_level not in EXPECTED_TOP_LEVEL and not _is_allowed_dist_info(top_level):
                 issues.append(f"unexpected top-level entry: {normalized}")

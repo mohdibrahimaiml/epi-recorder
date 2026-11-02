@@ -724,34 +724,8 @@ def test_analytics_engine_module(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# eu_notification + annex templates + __main__
+# __main__
 # ---------------------------------------------------------------------------
-
-def test_eu_notification_model():
-    from epi_core.eu_notification import EUDatabaseNotification
-
-    n = EUDatabaseNotification(
-        system_name="LoanBot",
-        manufacturer="EPI Labs",
-        risk_category="high",
-        conformity_declaration_ref="DOC-1",
-        technical_documentation_hash="a" * 64,
-        member_states=["DE", "FR"],
-        intended_purpose="underwriting",
-        contact_email="a@b.c",
-    )
-    d = n.model_dump_notification()
-    assert d["system_name"] == "LoanBot"
-    assert "member_states" in d
-
-
-def test_annex_report_templates():
-    from epi_core import annex_report_template as art
-
-    assert "Annex IV" in art.REPORT_HTML
-    assert "DOC_HASH" in art.REPORT_HTML_PDF
-    assert "REPORT_HTML" in art.__all__
-
 
 def test_epi_cli_main_module_import():
     import epi_cli.__main__ as m

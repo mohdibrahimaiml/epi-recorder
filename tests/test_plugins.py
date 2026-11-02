@@ -100,3 +100,45 @@ def test_duplicate_names_load_once(monkeypatch):
         ],
     )
     assert len(plugin_mod.load()) == 1
+
+class _RegisterHook:
+    """A plugin that adds top-level commands itself, like epi-enterprise."""
+
+    def __init__(self, error: Exception | None = None):
+        self.error = error
+        self.calls: list[object] = []
+
+    def register(self, app):
+        if self.error is not None:
+            raise self.error
+        self.calls.append(app)
+
+        @app.command("premium")
+        def _premium():  # pragma: no cover - registered, not invoked
+            pass
+
+
+def test_register_hook_adds_top_level_commands(monkeypatch):
+    hook = _RegisterHook()
+    monkeypatch.setattr(
+        plugin_mod.metadata,
+        "entry_points",
+        lambda group=None: [_FakeEntryPoint("enterprise", obj=hook)],
+    )
+    root = typer.Typer()
+    attached = plugin_mod.register_typer(root)
+    assert [p.name for p in attached] == ["enterprise"]
+    assert hook.calls == [root]
+    assert "premium" in {c.name for c in root.registered_commands}
+
+
+def test_broken_register_hook_is_skipped(monkeypatch):
+    hook = _RegisterHook(error=RuntimeError("boom"))
+    monkeypatch.setattr(
+        plugin_mod.metadata,
+        "entry_points",
+        lambda group=None: [_FakeEntryPoint("enterprise", obj=hook)],
+    )
+    app = typer.Typer()
+    assert plugin_mod.register_typer(app) == []
+    assert app.registered_commands == []

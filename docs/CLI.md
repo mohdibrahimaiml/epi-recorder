@@ -4,6 +4,12 @@
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
+> **Paid commands.** `epi review`, `epi approvers`, `epi oversight`, `epi audit`,
+> `epi annex`, `epi notify`, `epi org`, `epi enterprise` and `epi chat` ship in
+> the private `epi-enterprise` package and require a signed offline licence. The
+> free CLI records, seals, verifies, views, shares and runs the customer-side
+> witness without it.
+
 ---
 
 ## Start Here
@@ -726,7 +732,7 @@ Check a file:     epi verify run.epi --policy strict --witness-log /srv/witness/
 Press Ctrl-C to stop.
 ```
 
-## `epi review <file.epi>`
+## `epi review <file.epi>` (EPI Enterprise)
 
 Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the case file as review notes without replacing the original sealed evidence files.
 
@@ -762,7 +768,7 @@ never `human_signed`. See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
 
 ---
 
-## `epi approvers`
+## `epi approvers` (EPI Enterprise)
 
 Who counts as a human approver is a local decision the verifier makes, kept
 separate from the trusted *signer* keys (`epi keys trust`). Pinning a vendor's
@@ -790,7 +796,7 @@ epi approvers link --name alice@bank.com --uri "pkcs11:…"   # HSM / cloud KMS
 
 ---
 
-## epi annex
+## epi annex (EPI Enterprise)
 
 Author, validate, sign, and pack **Annex IV JSON templates**. This is not a certificate and not a filed Declaration of Conformity. See [ANNEX-IV.md](ANNEX-IV.md).
 

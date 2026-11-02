@@ -43,11 +43,19 @@ or use your own with `EPI_TSA_URLS`).
 the recorder and its integrations, the gateway, the customer-side witness receiver
 (`epi witness serve` / `epi witness report`), the policy engine, and every offline proof check.
 
-**Paid, and not in this repository:** EPI Cloud — hosted witnessing, trust pages,
-retention, team review, SSO, managed keys and regulatory reporting. The hosted
-server implementation is closed so it can be developed commercially; the client
-(`epi_cli/cloud.py`) and the witness protocol stay open so anyone can build a
-compatible service.
+**Paid, and not in this repository:** two products.
+
+- **EPI Enterprise** (`epi-enterprise`, private): `epi org`, `epi oversight`,
+  `epi audit`, `epi annex`, `epi approvers`, `epi review`, `epi chat`, `epi notify`
+  and the regulatory mappings they produce. These are the organisation features
+  — identity, approvals, reporting, regulatory packs, collaboration.
+- **EPI Cloud** (hosted): witnessing, trust pages, retention, team review,
+  admin, managed keys. The client (`epi_cli/cloud.py`) and the witness protocol
+  stay open so anyone can build a compatible service.
+
+Enterprise commands appear only when a licensed `epi-enterprise` package is
+installed; the public CLI is complete without it. The verifier never imports a
+licence check.
 
 **The promise that makes the file worth anything:** `epi verify` will never require
 an account, a licence, a server, or a network connection. If that ever changes, the
