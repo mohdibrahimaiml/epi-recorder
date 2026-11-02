@@ -2,6 +2,42 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **Open-core split.** The hosted service (`cloud/`) and the commercial
+  billing/entitlement tooling moved to a separate private repository. Nothing
+  that was already published is removed from the license grant: the recorder,
+  the verifier, the `.epi` format, the gateway, the customer-side witness
+  receiver and every offline proof check remain MIT and stay here.
+- **`epi share` now targets EPI Cloud** (`https://cloud.epilabs.org`) and falls
+  back to the legacy Render portal when Cloud does not serve the upload route
+  yet. A pinned `--api-base-url` or `EPI_SHARE_API_URL` never falls back.
+- **The public trust anchors moved to `epilabs.org`.** `did:web:epilabs.org`
+  resolution, the trust registry and `security.txt` are committed to
+  `website/.well-known/` and served from `https://epilabs.org/.well-known/`.
+  The Pages Function serves the committed file first and only proxies to the
+  legacy portal for paths that are not in the site, so retiring Render no
+  longer breaks the trust anchor.
+- **Optional plugin seam.** `epi_core/plugins.py` discovers `epi.plugins` entry
+  points and can add a command group. It is additive only: with no plugin
+  installed the CLI is complete, and a broken plugin cannot stop it starting.
+  `epi verify` still contains no licence check and needs no plugin.
+
+### Added
+
+- `tests/test_open_core_boundary.py` — fails if the verifier gains a network
+  client or a gating token, or if paid modules enter the wheel allowlist.
+- `tests/test_plugins.py`, `tests/test_share_fallback.py`.
+
+### Removed from this repository
+
+- `cloud/` server implementation, `cloud/src/lib/plans.ts`, Cloud CI workflows,
+  the Paddle catalog seeder, tier matrices, and the pricing/billing tests. All
+  moved to the private service repository; their published history stays public
+  under MIT.
+
 ## [4.9.0] - 2026-11-01
 
 ### Changed
