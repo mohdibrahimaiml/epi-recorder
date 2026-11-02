@@ -127,6 +127,42 @@
           </div>
         </div>
 
+        <!-- Enterprise feature demand test: clearly marked as research, not shipped functionality. -->
+        <section id="enterprise-demand-test" aria-labelledby="demand-test-heading" style="margin-top:4rem;padding:2rem 0;border-top:1px solid var(--border-grid)">
+          <div style="max-width:48rem">
+            <span class="z-eyebrow">Product research · Enterprise</span>
+            <h2 id="demand-test-heading" class="z-h2" style="margin-top:1rem">Help shape the next EPI enterprise capabilities.</h2>
+            <p class="z-body" style="margin-top:1rem">These are concepts we are evaluating, not features currently available in EPI Cloud. Select the capability that would solve a real problem for your team and tell us about your use case.</p>
+          </div>
+          <div class="z-tri-grid" style="margin-top:2rem">
+            <article class="z-tri-card">
+              <div class="z-tri-card__step" style="color:var(--acc-envelope)">Concept 01</div>
+              <h3 class="z-h3-card" style="margin-top:.5rem">Organization-wide evidence analytics</h3>
+              <p class="z-body" style="margin-top:.75rem">A consolidated view of agent runs, evidence coverage, verification outcomes and policy exceptions across workspaces.</p>
+              <button type="button" class="z-btn-ghost" style="margin-top:1.5rem" data-demand-feature="Organization-wide evidence analytics">Register interest</button>
+            </article>
+            <article class="z-tri-card">
+              <div class="z-tri-card__step" style="color:var(--acc-trust)">Concept 02</div>
+              <h3 class="z-h3-card" style="margin-top:.5rem">Enterprise identity &amp; access</h3>
+              <p class="z-body" style="margin-top:.75rem">SSO, SCIM provisioning, granular roles and organization-level access controls for larger teams.</p>
+              <button type="button" class="z-btn-ghost" style="margin-top:1.5rem" data-demand-feature="Enterprise identity and access (SSO, SCIM, granular roles)">Register interest</button>
+            </article>
+            <article class="z-tri-card">
+              <div class="z-tri-card__step" style="color:var(--acc-witness)">Concept 03</div>
+              <h3 class="z-h3-card" style="margin-top:.5rem">Compliance evidence workspace</h3>
+              <p class="z-body" style="margin-top:.75rem">Organize EPI evidence against internal controls and frameworks, with reviewer-ready evidence packs and traceability.</p>
+              <button type="button" class="z-btn-ghost" style="margin-top:1.5rem" data-demand-feature="Compliance evidence workspace and framework mapping">Register interest</button>
+            </article>
+            <article class="z-tri-card">
+              <div class="z-tri-card__step" style="color:var(--acc-policy)">Concept 04</div>
+              <h3 class="z-h3-card" style="margin-top:.5rem">Automated evidence delivery</h3>
+              <p class="z-body" style="margin-top:.75rem">Scheduled evidence exports, webhook notifications and integrations into existing audit or risk workflows.</p>
+              <button type="button" class="z-btn-ghost" style="margin-top:1.5rem" data-demand-feature="Automated evidence delivery, webhooks and integrations">Register interest</button>
+            </article>
+          </div>
+          <p class="z-body" style="margin-top:1rem;font-size:.8rem;color:var(--text-muted)">No payment is requested. Registering interest does not grant access or imply a delivery commitment.</p>
+        </section>
+
         <!-- Contact Form Section -->
         <div class="z-intro-grid" id="contact">
           <div class="z-intro-grid__title">
@@ -158,7 +194,11 @@
                   <select id="cf-interest" name="interest">
                     <option>Decision File pilot (€4,500)</option>
                     <option>EPI Cloud private beta</option>
-                  </select>
+                  
+                    <option>Organization-wide evidence analytics (concept research)</option>
+                    <option>Enterprise identity and access (concept research)</option>
+                    <option>Compliance evidence workspace (concept research)</option>
+                    <option>Automated evidence delivery (concept research)</option></select>
                 </div>
               </div>
               <div>
@@ -194,6 +234,27 @@
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
 
+  <script>
+    (function () {
+      "use strict";
+      document.querySelectorAll("[data-demand-feature]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          var form = document.querySelector("form.cform");
+          var interest = form && form.querySelector('[name="interest"]');
+          var message = form && form.querySelector('[name="message"]');
+          if (!form || !interest || !message) return;
+          var feature = button.getAttribute("data-demand-feature") || "";
+          var option = Array.prototype.find.call(interest.options, function (item) {
+            return item.textContent.indexOf(feature.split(" (")[0]) === 0;
+          });
+          if (option) interest.value = option.value;
+          message.value = "I'm interested in this proposed capability: " + feature + ".\n\nOur current workflow / problem: ";
+          form.scrollIntoView({ behavior: "smooth", block: "center" });
+          message.focus({ preventScroll: true });
+        });
+      });
+    }());
+  </script>
   <script src="/js/contact.js"></script>
   <script src="/js/auth-ui.js"></script>
   <script src="/js/zenjin-epi.js"></script>
