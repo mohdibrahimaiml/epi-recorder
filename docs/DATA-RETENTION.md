@@ -1,6 +1,6 @@
 # Data retention and deletion (EPI Cloud)
 
-**Product version:** 4.7.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.9.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced by the
 hosted service, which is not in this repository; the table below states them in
 product words.
@@ -40,8 +40,7 @@ back. A legal hold pauses deletion for that file until released.
 
 ## How to request export or deletion
 
-There is no self-serve checkout or self-serve deletion while Cloud is in
-private beta. Email `mohdibrahim@epilabs.org` with the workspace name:
+There is no self-serve deletion yet. Email `mohdibrahim@epilabs.org` with the workspace name:
 
 - **Export:** we return your Evidence Room files plus your witness lines.
 - **Deletion:** account + files + queryable metadata, confirmed in writing.

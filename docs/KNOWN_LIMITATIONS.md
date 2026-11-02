@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.7.0. Docs map: [README.md](./README.md).
+**Product version:** 4.9.0. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -230,9 +230,9 @@ regardless of any hosted service.
 
 ## Plans and billing (no self-serve checkout)
 
-Cloud is **private beta**. Entitlements, in customers: Free 1 customer;
-Startup 3 customers / 1,000 stored files (1-year retention); Growth 15 / 10,000
-(7-year). Verification is never limited or charged, and Cloud checkout is not
+Cloud is a **free self-serve beta**. Entitlements, in customers: Free 1 customer;
+Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000
+(7-year); Enterprise as agreed. Verification is never limited or charged, and Cloud checkout is not
 self-serve on the public site — the old hosted-verification subscriptions are
 not for sale. (The legacy `free` / `hosted` / `team` / `enterprise`
 hosted-check counters still exist in `verify_portal/tier_gating.py` for the

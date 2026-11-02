@@ -1,6 +1,6 @@
 # Standalone verifier (no Python, no pip)
 
-**Product version:** 4.7.0. Related: [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md),
+**Product version:** 4.9.0. Related: [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md),
 [RECIPIENT-CARD.md](./RECIPIENT-CARD.md), [KEY-CUSTODY.md](./KEY-CUSTODY.md).
 
 `epi verify` is the authoritative check, but it normally needs Python 3.11+ and
@@ -19,7 +19,7 @@ Then hand over one file:
 ```bash
 ./epi-verify verify case.epi                    # human-readable report
 ./epi-verify verify case.epi --policy strict    # exit 1 = do not rely
-./epi-verify --version                          # epi-verify 4.7.0
+./epi-verify --version                          # epi-verify 4.9.0
 ```
 
 The binary is self-contained: Python, `cryptography`, `typer`, `rich` and the

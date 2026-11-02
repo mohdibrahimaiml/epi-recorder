@@ -6,6 +6,16 @@ All notable changes to EPI Recorder are documented here.
 
 ### Changed
 
+- **EPI Cloud has one access model: a free, self-serve workspace.** Signing in
+  creates it; there is no approval step and no "request beta access". Free is
+  1 customer, 1 share link, 50 stored runs and 30 days. Team, Business and
+  Enterprise are arranged directly and are not sold through a public checkout.
+  The Cloud onboarding is now a skippable checklist, not a gate: it can create
+  a personal workspace, use a test customer, and leave sharing optional.
+- **A file is still the product.** The Cloud landing page shows
+  `pip install epi-recorder` / `epi demo` / `epi verify` before asking anyone to
+  sign in, and the dashboard names the signed-in account so separate GitHub and
+  Google identities are not a silent surprise.
 - **Open-core split.** The hosted service (`cloud/`) and the commercial
   billing/entitlement tooling moved to a separate private repository. Nothing
   that was already published is removed from the license grant: the recorder,

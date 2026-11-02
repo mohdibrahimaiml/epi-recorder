@@ -20,7 +20,7 @@ Start with `epi demo` if you want to capture one AI run from Python, open it in 
 
 `epi demo`, `epi run`, `epi record` and the SDK's `record()` seal a **data-only** `.epi` by default: a small plain ZIP (no embedded HTML viewer). Add `--with-viewer` (or `record(..., with_viewer=True)`) to embed the self-opening HTML viewer instead. Both forms verify identically with `epi verify`, and `epi view` opens either one.
 
-To share a sealed run with a customer reviewer (EPI Cloud, private beta):
+To share a sealed run with a customer reviewer (EPI Cloud, free beta):
 
 ```bash
 epi cloud login
@@ -117,7 +117,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 
 ## `epi cloud`
 
-Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, private beta). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
+Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, free beta). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
 
 ```bash
 epi cloud login

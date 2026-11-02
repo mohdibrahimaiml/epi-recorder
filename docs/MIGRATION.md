@@ -1,6 +1,6 @@
 # Migration guide (old `.epi` files and old recorders)
 
-**Product version:** 4.7.0. Old files still verify — this page says what
+**Product version:** 4.9.0. Old files still verify — this page says what
 verdicts to expect and what changed, so a legacy artifact never surprises
 you. Background: [KNOWN_LIMITATIONS](./KNOWN_LIMITATIONS.md),
 [spec/EPI-SPEC](./spec/EPI-SPEC.md).

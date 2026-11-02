@@ -1,6 +1,6 @@
 # EPI documentation
 
-**Product version in this repo: 4.7.0** (see `pyproject.toml`).  
+**Product version in this repo: 4.9.0** (see `pyproject.toml`).  
 PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
 **License:** MIT (root `LICENSE`).  
@@ -19,7 +19,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 
 | Kind | What it is | How to treat it |
 |------------------|-----------------|-----------------|
-| **Product docs** | Recorder, Cloud, website — kept at 4.7.0 | Canonical |
+| **Product docs** | Recorder, Cloud, website — kept at 4.9.0 | Canonical |
 | **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
 | **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
 | **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
@@ -33,7 +33,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 | Product | What it is | Canonical docs |
 |---------|------------|----------------|
 | **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. MIT. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
-| **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Private beta** — not a self-serve hosted-verification subscription. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
+| **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Free self-serve beta** - sign-in creates a workspace, no approval step; not a hosted-verification paywall. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
 | **Website** | Public site `https://epilabs.org`. Marketing, in-browser verify, plans, legal. Source of truth is `website/` only. | [WEBSITE.md](./WEBSITE.md) |
 
 How the pieces fit: [ARCHITECTURE.md](../ARCHITECTURE.md).  
@@ -105,6 +105,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | Doc | Purpose |
 |-----|---------|
 | [WEBSITE.md](./WEBSITE.md) | Source of truth, deploy, what not to edit |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | One path per surface: Pages, Cloud Worker, legacy portal |
 | `website/README.md` | Same rules, next to the HTML |
 
 ---
@@ -123,7 +124,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
 | [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
 | [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
-| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.7.0 |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.9.0 |
 | [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
 | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
 | [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
@@ -175,7 +176,7 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
-3. Keep product-doc version numbers at **4.7.0** until the next release bumps `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
+3. Keep product-doc version numbers at **4.9.0**, matching `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
 4. Customer docs must not contain admin keys or Cloudflare wrangler secrets, and
    must never link into the internal tree.
 5. After structural changes, update this index.
