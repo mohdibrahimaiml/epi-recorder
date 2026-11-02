@@ -161,8 +161,12 @@ Important files:
 - `epi_cli/connect.py`
 - `epi_cli/gateway.py`
 - `epi_cli/run.py`
-- `epi_cli/review.py`
 - `epi_cli/ls.py`
+
+The organisation commands (`review`, `approvers`, `oversight`, `audit`, `annex`,
+`notify`, `org`, `enterprise`, `chat`) are not in this package. They ship in the
+private `epi-enterprise` package and plug in through `epi.plugins`; the public
+CLI is complete without them.
 
 This package answers:
 
