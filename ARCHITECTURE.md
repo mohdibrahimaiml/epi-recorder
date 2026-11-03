@@ -36,7 +36,7 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 | `epi_recorder/` | Python SDK: `record()` sessions, LLM/framework wrappers | `from epi_recorder import record` |
 | `epi_core/` | Container pack/unpack, canonical hashing, signing, verification, policy/fault analysis | Library (`EPIContainer` in `epi_core/container.py`); no CLI script |
 | `epi_cli/` | The `epi` command (record, verify, view, policy, gateway, share, **cloud**) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
-| `web_viewer/` | Canonical browser UI for reviewing case files | Opened by `epi view` |
+| `web_viewer/` | Canonical browser UI for reviewing Decision Records | Opened by `epi view` |
 | `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
 | `epi_gateway/` | Self-hosted capture, review, approval and share runtime | `epi gateway serve` |
 | `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |

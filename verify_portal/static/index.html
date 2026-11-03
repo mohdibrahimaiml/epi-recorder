@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EPI Labs | Decision records your customer can check</title>
-  <meta name="description" content="When your customer asks why your AI made a decision, hand them a file they can check: what the agent decided, why, which model answered and who approved it, sealed and checkable offline.">
+  <title>EPI Labs | Every AI decision needs a Decision Record</title>
+  <meta name="description" content="A Decision Record is one readable record per AI decision: what the model saw, what it decided and why, which model answered, and who approved it. Your customer can open and check it without asking you to log in.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://epilabs.org/">
-  <meta property="og:title" content="EPI Labs | Decision records your customer can check">
-  <meta property="og:description" content="AI decision records your customer can check: the outcome, the reasons, the model and the approval, sealed in one .epi file anyone can verify offline.">
+  <meta property="og:title" content="EPI Labs | Every AI decision needs a Decision Record">
+  <meta property="og:description" content="One readable Decision Record per AI decision: the outcome, the reasons, the model, the approval and what happened next. Your customer can open and check it without asking you to log in.">
   <meta property="og:url" content="https://epilabs.org/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
@@ -170,20 +170,20 @@
             </div>
 
             <h1 id="hero-heading" class="z-h1 z-blur-in z-blur-in--d1" style="margin-top:1.25rem">
-              When your customer asks why your AI made a decision,
-              <span style="color:var(--acc-envelope)">hand them a file they can check.</span>
+              Every AI decision needs a
+              <span style="color:var(--acc-envelope)">Decision Record.</span>
             </h1>
 
             <p class="z-body z-blur-in z-blur-in--d2" style="margin-top:1.5rem;max-width:32rem">
-              EPI records what your agent saw, what it decided and why, which model answered, and who approved it. Your customer keeps their own copy - a <strong style="color:var(--foreground);font-weight:500">sealed <code style="font-family:var(--font-mono)">.epi</code> file</strong> they can check without asking you to log in.
+              EPI records what your agent saw, what it decided and why, which model answered, and who approved it. Your customer gets one readable <strong style="color:var(--foreground);font-weight:500">Decision Record</strong> they can open and check without asking you to log in.
             </p>
 
             <div class="z-hero-actions z-blur-in z-blur-in--d3">
-              <a href="/verify" class="z-btn-primary">Check the example record</a>
+              <a href="/decision-record" class="z-btn-primary">See a Decision Record</a>
               <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download a sample .epi</a>
             </div>
             <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:33rem">
-              The browser check proves the seal and contents. The demo signer is not pinned, so it reports &ldquo;signer unknown&rdquo; &mdash; that is the honest default. For a local <code style="font-family:var(--font-mono)">DECISION: PASS</code>, run <code style="font-family:var(--font-mono)">epi demo</code> and verify the file it writes.
+              The sample is a real Decision Record. Open the summary, or download the <code style="font-family:var(--font-mono)">.epi</code> file and check it offline. Technical trust details live on the <a href="/trust" style="color:var(--acc)">trust model</a> page.
             </p>
 
             <div class="z-cli-pill z-blur-in z-blur-in--d4">
@@ -410,20 +410,20 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
 
-    <!-- 3. WHAT'S IN A DECISION FILE (the six fields, from the real example) -->
-    <div class="z-shell" id="decision-file">
+    <!-- 3. WHAT'S IN A DECISION RECORD (the six fields, from the real example) -->
+    <div class="z-shell" id="decision-record">
       <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
-      <section class="z-center" aria-labelledby="decision-file-heading">
+      <section class="z-center" aria-labelledby="decision-record-heading">
         <div class="z-intro-grid">
           <div class="z-intro-grid__title z-reveal">
-            <span class="z-eyebrow">What&rsquo;s in a decision file</span>
-            <h2 id="decision-file-heading" class="z-h2" style="margin-top:1rem">
-              Six answers, sealed in <span class="z-serif-accent" style="color:var(--acc-envelope)">one file</span>.
+            <span class="z-eyebrow">What&rsquo;s in a Decision Record</span>
+            <h2 id="decision-record-heading" class="z-h2" style="margin-top:1rem">
+              Six answers in <span class="z-serif-accent" style="color:var(--acc-envelope)">one Decision Record</span>.
             </h2>
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              Every case your agent decides becomes one <code style="font-family:var(--font-mono)">.epi</code> file. Here is the example on this page, claim CLM-1001, field by field. Change a single byte and the file no longer checks out.
+              Every case your agent decides becomes one Decision Record, stored in a single <code style="font-family:var(--font-mono)">.epi</code> file. Here is the example on this page, claim CLM-1001, field by field. Change a single byte and the file no longer checks out.
             </p>
             <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
               <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download the example</a>
@@ -526,7 +526,7 @@
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              Banks and insurers don&rsquo;t review one case at a time. They ask: over these three months, what did your AI decide, which model answered, who approved it &mdash; and what is missing? <code style="font-family:var(--font-mono)">epi oversight report</code> reads the decision files and your customer&rsquo;s own log for the period and writes one page they can keep.
+              Banks and insurers don&rsquo;t review one case at a time. They ask: over these three months, what did your AI decide, which model answered, who approved it &mdash; and what is missing? <code style="font-family:var(--font-mono)">epi oversight report</code> reads the Decision Records and your customer&rsquo;s own log for the period and writes one page they can keep.
             </p>
             <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">Available from epi-recorder 4.9.</p>
           </div>

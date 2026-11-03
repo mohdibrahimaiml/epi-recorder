@@ -1,9 +1,11 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Logo" width="180"/>
 
-# EPI (Evidence Packaged Infrastructure) — Evidence for AI agents
+# EPI (Evidence Packaged Infrastructure) - Decision Records for AI agents
 
-### Record. Seal. Verify offline. The answer is a **file**.
+### Every AI decision needs a **Decision Record**.
+
+Record what the model saw, what it decided and why, which model answered, and who approved it - then hand your customer one readable record they can check.
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
@@ -18,6 +20,7 @@ epi demo --no-browser    # record → seal → verify (no API key)
 
 [60-second path](#60-second-path) ·
 [What a .epi is](#what-a-epi-file-is) ·
+[Decision Record](docs/DECISION-RECORD.md) ·
 [CLI](#cli) ·
 [How to use it](docs/USER-GUIDE.md) ·
 [Docs](#docs) ·

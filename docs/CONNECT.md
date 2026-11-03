@@ -107,7 +107,7 @@ Once the workspace is open, the reviewer flow is:
 2. inspect the case summary and timeline
 3. review rules, guidance, and trust state
 4. add review notes
-5. export the reviewed case file
+5. export the reviewed Decision Record
 
 This is the right path when the team wants a shared local workspace instead of trading `.epi` files one by one.
 

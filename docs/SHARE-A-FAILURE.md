@@ -10,7 +10,7 @@ Use `.epi` as the bug-report artifact for AI systems: one file another engineer 
 
 ## What a `.epi` file actually contains
 
-A typical `.epi` case file includes:
+A typical `.epi` Decision Record includes:
 
 - `steps.jsonl`: the ordered step timeline
 - tool calls and results when your run emitted them

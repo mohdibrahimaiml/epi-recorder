@@ -71,12 +71,12 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi cloud storage show\|set\|test\|flush` | Register customer-owned bucket metadata; credentials never leave this machine. |
 | `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). |
 | `epi import steps <input> --out <file.epi>` | Seal a step log you already have — `.jsonl`/`.ndjson`, a JSON array, or `.csv`/`.tsv`. Each record needs `kind`; `timestamp` is optional (import time is used and declared if missing). Rebuilds the hash chain at import. |
-| `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` case file from a bundle JSON, evidence directory, or AGT import manifest. |
+| `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` Decision Record from a bundle JSON, evidence directory, or AGT import manifest. |
 | `epi run [script.py]` | Record a Python workflow that already emits EPI steps (prompts for a script if omitted). Data-only by default; `--with-viewer` embeds the HTML viewer. |
 | `epi record --out <file.epi> -- <cmd...>` | Record an arbitrary command with an explicit output path. Data-only by default; `--with-viewer` embeds the HTML viewer. |
-| `epi view <file.epi>` | Open a case file in the browser review view. |
-| `epi verify <file.epi>` | Verify case file integrity, signature, identity pin and policy. Auditors: `--policy strict --witness-log received.jsonl`. |
-| `epi share <file.epi>` | Upload a hosted browser link for a portable case file. |
+| `epi view <file.epi>` | Open a Decision Record in the browser review view. |
+| `epi verify <file.epi>` | Verify Decision Record integrity, signature, identity pin and policy. Auditors: `--policy strict --witness-log received.jsonl`. |
+| `epi share <file.epi>` | Upload a hosted browser link for a portable Decision Record. |
 | `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi init --github-action` | Create a starter demo and optional CI evidence workflow. |
 | `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, AGT, or guardrails. |
@@ -108,7 +108,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | Command | Purpose |
 | --- | --- |
 | `epi gateway serve` | Start the open-source AI capture gateway for low-friction developer adoption. |
-| `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` case file. |
+| `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` Decision Record. |
 | `epi export trace <file.epi>` | Emit a TRACE v0.2 log-import Trust Record bound to the `.epi` hash. Signing: `--key` → sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. A **signed** export also requires `--transcript-uri <durable URL>`; add `--no-sign` for a local unsigned record. Embedded `cnf.jwk` proves internal consistency, not a trusted issuer. `policy.bundle_hash` hashes `policy.json`, not Cedar (`enforcement_mode: declared`). `appraisal.status` is `none`. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
 | `epi connect serve` | Run only the local connector bridge for the browser Setup Wizard. |
@@ -178,7 +178,7 @@ with a non-zero exit so a pack run cannot silently seal the wrong file.
 
 ## `epi import agt <input> --out <file.epi>`
 
-Use this when you already have exported AGT evidence and want a normal `.epi` case file that works with `epi verify`, `epi view`, `epi review`, and `epi export-summary`.
+Use this when you already have exported AGT evidence and want a normal `.epi` Decision Record that works with `epi verify`, `epi view`, `epi review`, and `epi export-summary`.
 
 ```bash
 epi import agt examples/agt/sample_bundle.json --out sample.epi
@@ -343,7 +343,7 @@ Think of the evidence quality like this:
 
 ## `epi view <file.epi>`
 
-Opens a saved case file using the canonical browser review flow.
+Opens a saved Decision Record using the canonical browser review flow.
 
 ```bash
 epi view my_run.epi
@@ -734,7 +734,7 @@ Press Ctrl-C to stop.
 
 ## `epi review <file.epi>`
 
-Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the case file as review notes without replacing the original sealed evidence files.
+Supports human review of policy-grounded faults. Reviewers can confirm, dismiss, or skip flagged issues. The result is appended to the Decision Record as review notes without replacing the original sealed evidence files.
 
 ```bash
 epi review payment_run.epi

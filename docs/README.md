@@ -75,6 +75,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | Doc | Purpose |
 |-----|---------|
 | [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share (includes the command cheat sheet) |
+| [DECISION-RECORD.md](./DECISION-RECORD.md) | The category: what a Decision Record is, why not a log, ten-question checklist |
 | Root [README.md](../README.md) | 60-second path |
 | [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |

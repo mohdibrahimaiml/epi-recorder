@@ -7,7 +7,7 @@ in a period-shaped way:
 > approved it, which cases did the vendor report but never deliver, and which
 > cases did you expect that were never sealed at all?
 
-A folder of decision files answers none of that on its own. The report joins the
+A folder of Decision Records answers none of that on its own. The report joins the
 three things a customer already holds — the sealed files, their own witness log,
 and their own list of expected cases — and names the gaps instead of quietly
 leaving them out.
