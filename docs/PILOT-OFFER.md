@@ -32,9 +32,9 @@ We produce the record, and leave your customer a copy they can check themselves.
 
 The fee is **credited in full** against the full engagement if you start it within 30 days.
 
-### 2. Full engagement — €9,500 founding price
+### 2. Full engagement — €9,500 founding price (first three customers)
 
-**Thirty days, one workflow.** Standard price **€12,000**; the founding price applies to the first engagements while the offer is being proven.
+**Thirty days, one workflow.** The **€9,500 founding price is for the first three customers only**, in exchange for a named reference and a verification session with the relying party. Standard price after those three: **€15,000**. Each additional workflow: **+€6,000**.
 
 | Deliverable | What it is |
 |---|---|

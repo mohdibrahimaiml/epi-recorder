@@ -24,7 +24,7 @@ def test_plans_does_not_sell_hosted_199_799():
     assert "Team Plan" not in text
     assert "AI vendor review" in text
     assert PRICE in text
-    assert "9,500" in text and "12,000" in text
+    assert "9,500" in text and "15,000" in text
     assert "one workflow" in text.lower()
     assert "create a free workspace" in text.lower()
     assert "request beta access" not in text.lower()

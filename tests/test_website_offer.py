@@ -11,7 +11,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 SITE = REPO / "website"
 PRICE = "\u20ac4,500"
 FULL = "\u20ac9,500"
-STANDARD = "\u20ac12,000"
+STANDARD = "\u20ac15,000"
 
 
 def _pyproject_version() -> str:
@@ -54,6 +54,7 @@ def test_there_is_one_paid_offer_and_it_has_a_price():
     assert FULL in plans and STANDARD in plans
     assert "one workflow" in plans.lower()
     assert "your customer keeps their own witness log" in plans.lower()
+    assert "first 3 customers" in plans.lower()
 
 
 def test_the_three_offers_are_distinct():
