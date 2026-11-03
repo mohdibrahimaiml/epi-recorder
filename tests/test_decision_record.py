@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "website"
 PAGE = SITE / "decision-record" / "index.html"
-CHECKLIST = SITE / "assets" / "decision-record-checklist.md"
+CHECKLIST = SITE / "assets" / "decision-record-checklist.txt"
 DEMO = SITE / "assets" / "demo" / "decision-record-example.html"
 
 
@@ -25,7 +25,7 @@ def test_checklist_has_ten_questions_and_a_download_link():
     questions = re.findall(r"^\d+\.\s", text, re.M)
     assert len(questions) == 10, questions
     page = PAGE.read_text(encoding="utf-8")
-    assert "/assets/decision-record-checklist.md" in page
+    assert "/assets/decision-record-checklist.txt" in page
     assert "download" in page
 
 
