@@ -44,7 +44,7 @@ The fee is **credited in full** against the full engagement if you start it with
 | Customer-side witness | The relying party keeps its own log of what it was sent; a rewritten file no longer matches |
 | Verification session | We walk the named reviewer through checking a file offline or in a browser, and record the outcome in writing |
 | Review pack | Record specification, rule mapping, audit summary, and Annex IV-style documentation where it applies |
-| Handover | Your team runs it without us; 30 days of support after handover |
+| Handover | Your team runs it without us; 30 days of email support after handover |
 
 ## Qualification rule
 
@@ -64,6 +64,14 @@ If there is no named party, the readiness assessment is the right first step —
 2. The name of the relying party and what they asked for.
 3. Access to the people who own the integration and the customer relationship.
 4. Permission to describe the outcome anonymously, if the customer accepts the record.
+5. Invoiced in full at the start.
+6. Access within 5 working days of the invoice.
+
+## Terms
+
+- **Invoiced in full at the start.** The engagement is paid up front, not on completion.
+- **Access within 5 working days.** We start once the invoice clears and the workflow owner is available.
+- **30 days of email support after handover.** Email, not on-call or embedded support.
 
 ## What this proves — and what it does not
 
