@@ -572,3 +572,16 @@ footer{border-top:1px solid var(--edge);padding:56px 0 36px;background:var(--bg)
 }
 html{overflow-x:clip}
 @supports not (overflow:clip){html{overflow-x:hidden}}
+
+/* Architecture section: Decision Record lives under it, not beside it. */
+.nlinks__menu{position:relative}
+.nlinks__menu>details>summary{list-style:none;cursor:pointer;padding:9px 12px;font-family:var(--mono);font-size:.76rem;font-weight:500;color:var(--mut)}
+.nlinks__menu>details>summary::-webkit-details-marker{display:none}
+.nlinks__menu>details>summary::after{content:"\25BE";font-size:.55rem;margin-left:.3rem;opacity:.6}
+.nlinks__panel{position:absolute;top:calc(100% + 4px);left:0;min-width:12.5rem;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.35rem;display:flex;flex-direction:column;z-index:60;box-shadow:0 14px 34px rgba(0,0,0,.2)}
+.nlinks__panel a{padding:.5rem .65rem;font-size:.8rem;color:var(--mut)}
+.nlinks__panel a:hover{color:var(--fg)}
+.mmenu__group{display:flex;flex-direction:column}
+.mmenu__group>summary{cursor:pointer;padding:10px 0;font-family:var(--mono);font-size:.9rem;color:var(--mut)}
+.mmenu__group>summary::-webkit-details-marker{display:none}
+.mmenu__group a{padding-left:1rem;font-size:.85rem}
