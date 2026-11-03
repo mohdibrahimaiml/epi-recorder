@@ -17,32 +17,37 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Pages pages
+      # Fetch first, then match. `curl | grep -q` would kill curl with
+      # "Failure writing output to destination" as soon as grep exits.
+      - name: Pages and trust anchors
         run: |
           set -euo pipefail
-          curl -fsS https://epilabs.org/ | grep -q "Decision records"
-          curl -fsS https://epilabs.org/verify/ | grep -q "Verify a .epi file"
-          curl -fsS https://epilabs.org/plans | grep -q "Create a free workspace"
-          curl -fsS https://epilabs.org/reviewers | grep -q "4.9.0"
-
-      - name: Trust anchors
-        run: |
-          set -euo pipefail
-          curl -fsS https://epilabs.org/.well-known/did.json | grep -q '"id"'
-          curl -fsS https://epilabs.org/.well-known/security.txt | grep -q "Contact:"
+          check() {
+            local body
+            body=$(curl -fsS "$1")
+            grep -qF "$2" <<<"$body"
+          }
+          check https://epilabs.org/ "Decision records"
+          check https://epilabs.org/verify/ "Verify a .epi file"
+          check https://epilabs.org/plans "Create a free workspace"
+          check https://epilabs.org/reviewers "4.9.0"
+          check https://epilabs.org/.well-known/did.json '"id"'
+          check https://epilabs.org/.well-known/security.txt "Contact:"
 
       - name: Cloud health
         run: |
           set -euo pipefail
           code=$(curl -s -o /dev/null -w '%{http_code}' https://cloud.epilabs.org/health)
           test "$code" = "200"
-          curl -fsS https://cloud.epilabs.org/ | grep -q "no approval step"
+          body=$(curl -fsS https://cloud.epilabs.org/)
+          grep -qF "no approval step" <<<"$body"
 
       - name: Legacy verify host redirects
         run: |
           set -euo pipefail
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://verify.epilabs.org/)
-          location=$(curl -sI https://verify.epilabs.org/ | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}')
+          headers=$(curl -sI https://verify.epilabs.org/)
+          code=$(awk 'NR==1{print $2}' <<<"$headers")
+          location=$(awk 'tolower($1)=="location:"{print $2}' <<<"$headers" | tr -d '\r')
           test "$code" = "301"
           test "$location" = "https://epilabs.org/verify/"
 
