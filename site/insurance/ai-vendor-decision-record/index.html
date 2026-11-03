@@ -7,7 +7,7 @@
   <meta name="description" content="The smallest set of facts a carrier needs from an AI vendor, per decision: inputs, reasons, the policy clause and version, the model, the human review, and timestamps. Answers the NAIC supplement's vendor questions without asking for source code, training data or model weights.">
   <link rel="canonical" href="https://epilabs.org/insurance/ai-vendor-decision-record">
   <meta property="og:title" content="The minimum AI decision record for insurance AI vendors | EPI Labs">
-  <meta property="og:description" content="Eight fields that answer the NAIC supplement's vendor questions, per decision, without the model internals. Includes a ten-question checklist and a worked claim example.">
+  <meta property="og:description" content="Eight fields that answer the NAIC supplement's vendor questions, per decision, without the model internals. Includes one checklist and a worked claim example.">
   <meta property="og:url" content="https://epilabs.org/insurance/ai-vendor-decision-record">
   <meta name="theme-color" content="#0D1117">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -83,7 +83,7 @@
             </p>
             <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
               <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" class="z-btn-primary">Open a sample claim record</a>
-              <a href="/assets/naic-ai-decision-record-checklist.pdf" download class="z-btn-ghost">Download the checklist (PDF)</a>
+              <a href="/checklist" class="z-btn-ghost">Open the checklist</a>
             </div>
             <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:34rem">
               The sample uses invented claim data. The NAIC does not require a decision record today, and this page does not claim otherwise.
@@ -156,6 +156,18 @@
           </blockquote>
           <p class="z-body" style="margin-top:1rem">
             Both can be satisfied at once. A carrier does not need the vendor's model to reconstruct one decision. It needs the facts of that decision, written down when it happened, in a form it can open without the vendor's help.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            There is already a template for the contract term. In New York, Insurance Circular Letter No. 7 (11 July 2024), paragraph 37, says insurers should include terms in vendor contracts that:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--acc);background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “provide audit rights or entitle the insurer to receive audit reports by qualified auditing entities”
+          </blockquote>
+          <p class="z-body" style="margin-top:0.9rem">
+            The same paragraph asks for terms that “require the third-party vendor to cooperate with the insurer regarding regulatory inquiries and investigations.” That is the clause that makes a record useful: the carrier can ask, and the vendor must answer.
+          </p>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+            Scope: the circular letter addresses AI in underwriting and pricing for New York-authorized insurers, so it is a template rather than a rule for claims in every state. Check your own state and your own contracts.
           </p>
         </div>
 
@@ -232,29 +244,23 @@
           <div class="z-intro-grid">
             <div class="z-intro-grid__title">
               <span class="z-eyebrow">Readiness</span>
-              <h2 class="z-h2" style="margin-top:1rem">The ten-question checklist.</h2>
+              <h2 class="z-h2" style="margin-top:1rem">The checklist.</h2>
               <p class="z-body" style="margin-top:1rem;max-width:31rem">
-                Pick one real decision the AI touched. Answer from the record itself, not from what the vendor could assemble for an exam. <strong>Every no is a gap.</strong>
+                Ten questions for any AI decision, then four more for insurance: whether the reviewer agreed, changed or overrode the AI; which version of the policy was in force that day; whether the record was made at the time; and whether you would notice a change after handover.
+              </p>
+              <p class="z-body" style="margin-top:1rem;max-width:31rem">
+                Pick one real decision the AI touched. Answer from the record itself. <strong>Every no is a gap.</strong>
               </p>
               <p style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap">
-                <a href="/assets/naic-ai-decision-record-checklist.pdf" download class="z-btn-ghost">Download the one-page PDF</a>
-                <a href="/assets/naic-ai-decision-record-checklist.txt" download class="z-btn-ghost">Plain text</a>
+                <a href="/checklist" class="z-btn-primary">Open the checklist</a>
+                <a href="/assets/checklist.pdf" download class="z-btn-ghost">Download the one-page PDF</a>
               </p>
             </div>
             <div class="z-intro-grid__aside">
               <div class="z-tri-card" style="padding:1.5rem 1.6rem">
-                <ol style="margin:0;padding-left:1.4rem;list-style:decimal outside;display:flex;flex-direction:column;gap:0.7rem;font-size:0.9rem;color:var(--text-secondary)">
-                  <li>For one specific decision, can you show what data the AI saw?</li>
-                  <li>Can you show what it recommended or decided, and why?</li>
-                  <li>Which policy provisions or rules did it rely on, and which version was in force that day?</li>
-                  <li>Which model and version answered, and would the record show if it changed later?</li>
-                  <li>Who reviewed it, and did they agree, change or override the AI?</li>
-                  <li>When did each step happen?</li>
-                  <li>Was the record made at the time of the decision, not assembled later for an exam?</li>
-                  <li>Can the carrier open it without logging into the vendor's system?</li>
-                  <li>Would the carrier notice if the record were changed after it was handed over?</li>
-                  <li>Can you list decisions that should have a record but don't?</li>
-                </ol>
+                <div class="z-tri-card__step">One link</div>
+                <p class="z-body" style="margin:0.6rem 0 0">One page, one PDF, one version to cite. The same checklist covers the NAIC's vendor questions and every other decision the AI touches.</p>
+                <p style="margin-top:1.25rem;font-family:var(--font-mono);font-size:0.85rem;color:var(--acc-envelope)">epilabs.org/checklist</p>
               </div>
             </div>
           </div>
@@ -299,6 +305,7 @@
             <li><a href="https://content.naic.org/sites/default/files/model-law-902.pdf" target="_blank" rel="noopener" style="color:var(--acc)">NAIC Model Regulation 902</a>, Section 4, File and Record Documentation.</li>
             <li><a href="https://content.naic.org/sites/default/files/inline-files/comments-received-combined-10.02.2026-1-2.pdf" target="_blank" rel="noopener" style="color:var(--acc)">Comments received on version 5.0</a> — APCIA and ACLI letters quoted above.</li>
             <li><a href="https://content.naic.org/sites/default/files/call_materials/slides-bdaiwg110226.pdf" target="_blank" rel="noopener" style="color:var(--acc)">8 October 2026 meeting minutes and timeline</a> — “Consider v. 7.0 for adoption at Fall NM.”</li>
+            <li><a href="https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07" target="_blank" rel="noopener" style="color:var(--acc)">NYDFS Insurance Circular Letter No. 7</a>, paragraph 37 — audit rights in third-party contracts.</li>
           </ul>
         </div>
 
