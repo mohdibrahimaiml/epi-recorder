@@ -62,3 +62,19 @@ def test_docs_page_and_index_point_to_the_category():
     assert (REPO / "docs" / "DECISION-RECORD.md").is_file()
     index = (REPO / "docs" / "README.md").read_text(encoding="utf-8")
     assert "DECISION-RECORD.md" in index
+
+
+def test_decision_record_sits_inside_the_architecture_nav():
+    home = (SITE / "index.html").read_text(encoding="utf-8")
+    # Homepage uses the Architecture popover.
+    assert 'href="/decision-record" role="menuitem"' in home
+    assert 'id="arch-menu"' in home
+
+    plans = (SITE / "plans.html").read_text(encoding="utf-8")
+    assert '<details class="z-nav__menu">' in plans
+    assert '<summary class="z-nav__link">Architecture</summary>' in plans
+    assert 'href="/decision-record">Decision Record</a>' in plans
+
+    reviewers = (SITE / "reviewers.html").read_text(encoding="utf-8")
+    assert 'class="nlinks__menu"' in reviewers
+    assert 'href="/decision-record">Decision Record</a>' in reviewers
