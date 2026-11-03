@@ -11,7 +11,7 @@ customer, auditor or insurer asks:
 > "Why was this case decided this way, and who approved it?"
 
 Live page: <https://epilabs.org/decision-record>  
-Download the checklist: <https://epilabs.org/assets/decision-record-checklist.txt>  
+Download the checklist: <https://epilabs.org/checklist>  
 See real output: <https://epilabs.org/assets/demo/decision-record-example.html>
 
 ## What is inside
@@ -36,24 +36,15 @@ See real output: <https://epilabs.org/assets/demo/decision-record-example.html>
 | Governance dashboards | Risk and compliance | Do we have the policy and inventory? | Produce the record of a specific decision |
 | **Decision Record** | **Customer, reviewer, auditor** | **Why was this case decided this way, and who approved it?** | Replace your observability stack |
 
-## The ten-question completeness checklist
+## The checklist
 
-Score one point per question you can answer **from the record itself**, without
-asking the vendor to log in or search another system.
+The questions live in one place: <https://epilabs.org/checklist>. Ten for any AI
+decision, then four more for insurance. Score one point per question you can
+answer **from the record itself**, without asking the vendor to log in or search
+another system.
 
-1. What was decided, in plain language?
-2. What outcome was recorded, and when?
-3. What inputs and data did the model rely on?
-4. Which model and version answered?
-5. What rules, policy or limit applied?
-6. What reasons were recorded for the decision?
-7. Who or what approved it, and when?
-8. If a human approval was required, is it attached to this record?
-9. What happened next — the action taken or the customer outcome?
-10. Can the customer or reviewer read this record without the vendor's system?
-
-**9–10:** a Decision Record. **6–8:** close, but reasons, approval or outcome are
-incomplete. **3–5:** observability data. **0–2:** logs.
+**12-14:** a decision record a carrier can rely on. **8-11:** close, but reasons,
+review or timing are incomplete. **4-7:** observability data. **0-3:** logs.
 
 ## How EPI produces it
 
