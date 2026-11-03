@@ -1,6 +1,6 @@
 # AGT -> EPI Quickstart (v4.9.0)
 
-If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` case file.
+If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` Decision Record.
 
 Related docs:
 - [AGT example bundle](../examples/agt/README.md)
@@ -107,7 +107,7 @@ Useful options:
 
 Imported AGT artifacts carry two trust layers:
 
-1. EPI sealing and verification for the final `.epi` case file
+1. EPI sealing and verification for the final `.epi` Decision Record
 2. `artifacts/agt/mapping_report.json` so the transformation itself is inspectable
 
 That means a reviewer can answer both:

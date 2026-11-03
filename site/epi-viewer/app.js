@@ -361,7 +361,7 @@ function deriveCaseSummary(manifest, steps, trustState, analysis, policy, review
         (agentStart && agentStart.content && agentStart.content.agent_name && `${agentStart.content.agent_name} run`) ||
         (startStep && startStep.content && startStep.content.workflow_name) ||
         manifest.notes ||
-        "Decision Case File";
+        "Decision Record";
 
     const subtitleParts = [];
     if (agentStart && agentStart.content && agentStart.content.agent_name) {
@@ -706,7 +706,7 @@ function buildCaseSummaryText(summary, trustState, analysis, review, policyEvalu
     const reviewEntries = getReviewEntries(review);
     const reviewOutcome = review && (review.outcome || (reviewEntries[0] && reviewEntries[0].outcome));
     const lines = [
-        summary.title || "Decision Case File",
+        summary.title || "Decision Record",
         summary.subtitle || "Case summary for offline review.",
         "",
         `Case status: ${trustState.displayLabel || getTrustDisplayLabel(trustState.label)}`,

@@ -35,12 +35,12 @@ The repo implements EPI as several connected layers:
 3. A **CLI** for running, viewing, verifying, reviewing, exporting, sharing, and `epi cloud`.
 4. An optional **self-hosted FastAPI gateway** (`epi_gateway`) for live capture and shared review — not EPI Cloud.
 5. **EPI Cloud** (`cloud.epilabs.org`) - hosted device login, hash-only witness, trust pages, and the Evidence Room. The server is in a separate private repository; the open client is `epi_cli/cloud.py`.
-6. A **browser viewer** for opening and reviewing case files without rebuilding context from raw logs.
+6. A **browser viewer** for opening and reviewing Decision Records without rebuilding context from raw logs.
 7. The **public website** (`website/` → epilabs.org). Sign-in is EPI Cloud.
 
 If you remember one sentence, remember this:
 
-**EPI turns an AI run into a sealed, reviewable case file.**
+**EPI turns an AI run into a sealed, reviewable Decision Record.**
 
 ## 2. The Best Mental Model
 
@@ -196,7 +196,7 @@ This package answers:
 
 #### `web_viewer/`
 
-This is the canonical browser UI for reviewing EPI case files.
+This is the canonical browser UI for reviewing EPI Decision Records.
 
 Important files:
 
@@ -1144,11 +1144,11 @@ surfaces and why some folders feel newer than others.
 EPI is best understood as:
 
 **a capture SDK + artifact format + trust system + review UI + gateway, all
-organized around one portable case file.**
+organized around one portable Decision Record.**
 
 If you are lost in the codebase, keep coming back to the central question:
 
 **Which part of the system is responsible for turning raw execution into a
-sealed, reviewable, trustworthy case file?**
+sealed, reviewable, trustworthy Decision Record?**
 
 Most of the repo is just one piece of that answer.

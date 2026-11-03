@@ -2,7 +2,7 @@
 
 **For AI vendors selling into insurers, lenders and other regulated buyers.** One workflow, fixed scope, a per-decision record your customer can check without asking you to log in.
 
-**Status:** replaces the Decision File pilot, 3 November 2026. **Owner:** founder.
+**Status:** replaces the earlier pilot, 3 November 2026. **Owner:** founder.
 
 ---
 

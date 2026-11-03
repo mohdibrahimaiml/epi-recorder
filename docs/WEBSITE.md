@@ -14,7 +14,8 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/` (`index.html`) | Product home |
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
-| `/plans` | Pricing: open source free, one Decision File pilot (EUR 4,500, one workflow, 30 days), EPI Cloud **free beta** (1 customer, 1 share link, 50 runs, 30 days) |
+| `/decision-record` | The category page: what a Decision Record is, why not a log, ten-question checklist, real CLI output |
+| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud free workspace (1 customer, 1 share link, 50 runs, 30 days) |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |

@@ -52,8 +52,8 @@ def test_the_examples_are_shipped_everywhere_they_are_linked():
 
 def test_the_hero_cards_match_the_sealed_records():
     html = HOME.read_text(encoding="utf-8")
-    assert "When your customer asks why your AI made a decision" in html
-    assert "hand them a file they can check" in html
+    assert "Every AI decision needs a" in html
+    assert "Decision Record." in html
     assert "EPI records what your agent saw" in html
 
     for name, badge, _approval in VARIANTS:
