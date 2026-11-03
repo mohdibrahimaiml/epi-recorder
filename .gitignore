@@ -42,7 +42,10 @@ dist-test/
 scratch/
 scratch_clone/
 # Customer-named / live-ops artifacts must never re-enter the tree
-agicomply*.epi
+agicomply# Local private material: never committed, never published.
+PRIVATE-EPI/
+
+*.epi
 paddle-catalog-live.json
 # Website sandbox only — production source is website/
 website-v2/
