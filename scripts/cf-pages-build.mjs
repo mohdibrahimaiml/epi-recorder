@@ -23,8 +23,8 @@ const PUBLIC_MD_ALLOWLIST = new Set(["README.md"]);
 // carry (one offer, one price), and the ones that must never come back
 // (retired tiers). tests/test_website_offer.py checks this list against the
 // real page, so the guard cannot drift away from the page again.
-const PLANS_PAGE_REQUIRED = ["Decision File pilot", "4,500"];
-const PLANS_PAGE_RETIRED = ["Design Partner", "Agent Evidence Sprint", "Pick your evidence plan"];
+const PLANS_PAGE_REQUIRED = ["AI vendor review", "4,500", "9,500"];
+const PLANS_PAGE_RETIRED = ["Decision File pilot", "Design Partner", "Agent Evidence Sprint", "Pick your evidence plan"];
 const skipExcludedPublicMd = (src) => {
   let st;
   try {

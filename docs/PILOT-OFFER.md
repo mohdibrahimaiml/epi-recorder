@@ -1,87 +1,90 @@
-# The Decision File pilot — one page
+# Pass your customer's AI vendor review
 
-**Status:** decided 2026-10-30, revised 2026-10-31 to the Decision File pilot. **Revisit:** 2027-01-27 if unproven. **Owner:** founder.
+**For AI vendors selling into insurers, lenders and other regulated buyers.** One workflow, fixed scope, a per-decision record your customer can check without asking you to log in.
+
+**Status:** replaces the Decision File pilot, 3 November 2026. **Owner:** founder.
 
 ---
-
-## Who this is for
-
-**AI vendors whose agents make decisions for insurers** — underwriting, pricing, claims triage, claims denial.
-
-Not banks. The April 2026 US bank model-risk guidance excludes generative and agentic AI, so banks are a slow, low-urgency buyer. Insurance has a written duty, per decision, already in force.
 
 ## The moment we sell into
 
-The insurer's compliance or third-party-risk team asks the vendor:
+Your customer's compliance, model-risk or third-party team asks:
 
-> "Our regulator expects us to explain the specific data behind this decision, and our contract says you cooperate with their inquiries. Show us the record for this application."
+> "Show us the record behind this decision — what the model saw, what it decided and why, which model version answered, who approved it, and whether it has changed since."
 
-That question is not hypothetical. New York's Insurance Circular Letter No. 7 (11 July 2024) expects insurers to keep documentation of every AI system they use, including vendor-supplied ones, and to make it available to the Department on request (§29); to include **audit rights and cooperation duties** in vendor contracts (§37); and, for an adverse decision, to disclose "details about all information upon which the insurer based any declination, limitation, rate differential" **including the source** (§39). §40 removes the escape hatch: an insurer "may not rely on the proprietary nature of a third-party vendor's algorithmic processes to justify the lack of specificity."
+Today the answer is logs, a PDF, screenshots, or a promise. The reviewer cannot verify any of it. The deal stalls in vendor review.
 
-**That last paragraph is the business.** The vendor's secrecy is no longer a defence. Someone has to produce a specific, source-attributed record — and the vendor is the only party that has it.
+We produce the record, and leave your customer a copy they can check themselves. If the file is rewritten afterwards, their copy catches it — even if your key still signs the new one.
 
-## What the pilot is
+## Two ways to start
 
-**One workflow, thirty days, fixed price.** We instrument one consequential decision the vendor already makes for an insurer, and every case that flows through it produces a decision file. The insurer keeps its own copy of the proof.
+### 1. Readiness assessment — €4,500
 
-The difference from a signed log: **a signature protects the file, and the vendor holds the key. A witness protects the customer** — the customer's own record of what they were given, so a re-sealed or re-written file is caught even when the vendor's key still signs it.
-
-## What the vendor gets
+**Five working days.** For a team that needs to know whether this is solvable before committing to an integration.
 
 | Deliverable | What it is |
 |---|---|
-| A sealed `.epi` per case | What the agent saw, what it decided and why, the rules and data it relied on, the model that answered, and who approved it — hash-chained and signed |
-| A readable Decision Record per case | `epi export-summary`: one page a customer, regulator or affected person can read, with the verify instructions on it |
-| The customer's witness log | Every case the vendor reported, held by the insurer: case id, goal, and a content digest, appended as each file is sealed |
-| The forgery check | `epi verify case.epi --witness-log received.jsonl` — passes on the real file, fails on a re-sealed one that the vendor's key still signs |
-| The witness report | `epi oversight report` — decisions by outcome, model versions, approvals (pinned / unpinned / absent), cases reported but not delivered, and cases expected that were never sealed, for a period |
+| Scoping interview | One workflow, the decision inside it, and the named relying party asking for evidence |
+| Decision-record specification | The fields your customer's review actually asks for, mapped to the rule in play: NYDFS Circular Letter 7, the NAIC AI bulletin, Reg B adverse-action reasons, EU AI Act Article 12 logging, or DORA log-integrity controls, as applicable |
+| Gap report | What you can prove today, what you cannot, and what would have to change |
+| Questionnaire answers | Draft responses to the AI/audit-trail questions in the customer's vendor review |
+| Walkthrough | 60 minutes with your team, plus the written pack |
 
-## What it proves — and what it does not
+The fee is **credited in full** against the full engagement if you start it within 30 days.
 
-**Proves:** the record has not changed since sealing; the signature matches the key that sealed it; the file is the one the vendor reported to the customer at the time. One altered byte fails verification, including the embedded viewer.
+### 2. Full engagement — €9,500 founding price
 
-**Does not prove:** that the run was captured completely, that the signer is who they claim until the key is pinned out of band, that a decision was correct, or that the insurer has met its regulatory duty. This is evidence input, not a certificate, and every report says so.
+**Thirty days, one workflow.** Standard price **€12,000**; the founding price applies to the first engagements while the offer is being proven.
 
-## Price
+| Deliverable | What it is |
+|---|---|
+| Integration | One consequential decision instrumented end to end, in your environment |
+| A record per case | Outcome, reasons, rules and data relied on, model and version, approver, timestamp — sealed and hash-chained |
+| A readable summary per case | One page a customer, auditor or affected person can read, with verification instructions |
+| Customer-side witness | The relying party keeps its own log of what it was sent; a rewritten file no longer matches |
+| Verification session | We walk the named reviewer through checking a file offline or in a browser, and record the outcome in writing |
+| Review pack | Record specification, rule mapping, audit summary, and Annex IV-style documentation where it applies |
+| Handover | Your team runs it without us; 30 days of support after handover |
 
-**€4,500 fixed.** One workflow, thirty days, one revision included. Paid at the start; the pilot is the deliverable, not a subscription.
+## Qualification rule
 
-No discount tier and no rush tier: the first engagement is the price, and the price is the thing being tested. If the number is wrong, the calls will say so — not a discount.
+**No named relying party with a stuck review, no engagement.**
+
+We do not take open-ended "explore EPI" work. Before quoting, we ask:
+
+1. Which carrier, bank or auditor is asking?
+2. Which questionnaire item or contract clause is stuck?
+3. What is the deadline?
+
+If there is no named party, the readiness assessment is the right first step — or no step.
+
+## What we need from you
+
+1. One workflow and the decision inside it that a customer would question.
+2. The name of the relying party and what they asked for.
+3. Access to the people who own the integration and the customer relationship.
+4. Permission to describe the outcome anonymously, if the customer accepts the record.
+
+## What this proves — and what it does not
+
+**Proves:** the record has not changed since sealing; it was signed by the key you pinned; it is the version the customer was given; the customer can check it without you.
+
+**Does not prove:** that capture was complete, that the decision was correct, that the signer is who they claim until the key is pinned out of band, or that your customer has met its regulatory duty. This is evidence input, not a certificate, and every report says so.
+
+## Not included
+
+- Compliance certification, SOC 2, legal advice, or a guarantee that a regulator or insurer will accept the evidence.
+- More than one workflow, custom product development, or an SLA.
+- Hosting beyond the engagement; EPI Cloud is a separate free workspace with paid tiers arranged directly.
 
 ## Guarantee
 
-Full refund if the pilot's files fail to verify on the customer's machine using the instructions we supply, or if the witness log does not catch a re-sealed file we produced ourselves.
+Full refund if the engagement's files fail to verify on the customer's machine using the instructions we supply, or if the customer's witness log does not catch a re-sealed file we produced ourselves.
 
-## The three questions that qualify a buyer
+## Why this is different
 
-Ask these on every call, before quoting:
+Most tools give the vendor a dashboard. The reviewer still has to trust the vendor. We give the reviewer a file, and the customer keeps their own copy of what they were sent. That is the part a vendor cannot fake alone.
 
-1. Has an insurer customer ever asked you for the record behind a specific AI decision?
-2. What did you send them?
-3. Did it delay anything, or cost you anything?
+## Start
 
-**Decision rule:** if 3 of the first 10 qualified calls answer "yes" to (1), the pain is real and the price stands. If almost nobody does, stop selling and change the buyer — not the code.
-
-## What we need from them
-
-1. One workflow, and the decision inside it that an insurer would question.
-2. The name of the insurer or auditor asking, and what they asked for.
-3. Permission to quote them anonymously if the insurer accepts the record.
-
-## What we will not do
-
-- Claim admissibility, compliance, or insurability. No insurer requires or accepts EPI today; what the witness gives them is a record they can check without asking the vendor to log in.
-- Sign as their custodian — the declaration is theirs to sign; we supply the facts.
-- Accept "we'll decide later" as a deadline. No date, no pilot.
-
----
-
-## Decision record
-
-- **Buyer:** AI vendors selling agents into insurance. One buyer, one site.
-- **Trigger:** a documented regulatory duty, not a guessed "stuck deal".
-- **Deliverable:** decision files per case, the customer's witness log, and the report over both. No platform, no seats, no SSO.
-- **Price:** €4,500 for one workflow over thirty days.
-- **Why insurance and not lending:** the April 2026 US bank model-risk guidance excludes generative and agentic AI; the insurance duty is specific, per-decision, and already in force in New York.
-- **Kill-switch:** 2027-01-27 — one paid engagement, or one written acceptance from a counterparty. Neither means the buyer is wrong, not the code.
-- **Build rule:** nothing unless a signed pilot asks. The one exception is capture-at-decision (gateway, issue #26), because a substitute cannot replicate it.
+Email `mohdibrahim@epilabs.org` with the named relying party and the questionnaire item. We reply within one business day, and we will tell you if EPI is the wrong fit.
