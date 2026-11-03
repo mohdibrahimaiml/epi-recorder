@@ -20,13 +20,14 @@ def test_the_page_exists_and_names_the_category():
     assert "ten-question completeness checklist" in text.lower()
 
 
-def test_checklist_has_ten_questions_and_a_download_link():
+def test_checklist_lives_on_the_one_checklist_page():
+    """There is one checklist. The category page points at it, it does not repeat it."""
     text = CHECKLIST.read_text(encoding="utf-8")
     questions = re.findall(r"^\d+\.\s", text, re.M)
-    assert len(questions) == 10, questions
+    assert len(questions) == 14, "ten general questions, then four for insurance"
     page = PAGE.read_text(encoding="utf-8")
-    assert "/assets/decision-record-checklist.txt" in page
-    assert "download" in page
+    assert 'href="/checklist"' in page
+    assert "/assets/checklist.pdf" in page
 
 
 def test_the_demo_is_real_output_from_the_cli():

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The minimum AI decision record for insurance AI vendors | EPI Labs</title>
+  <meta name="description" content="The smallest set of facts a carrier needs from an AI vendor, per decision: inputs, reasons, the policy clause and version, the model, the human review, and timestamps. Answers the NAIC supplement's vendor questions without asking for source code, training data or model weights.">
+  <link rel="canonical" href="https://epilabs.org/insurance/ai-vendor-decision-record">
+  <meta property="og:title" content="The minimum AI decision record for insurance AI vendors | EPI Labs">
+  <meta property="og:description" content="Eight fields that answer the NAIC supplement's vendor questions, per decision, without the model internals. Includes one checklist and a worked claim example.">
+  <meta property="og:url" content="https://epilabs.org/insurance/ai-vendor-decision-record">
+  <meta name="theme-color" content="#0D1117">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <style>
+    /* Keep long-form prose aligned with the hero's inner padding. */
+    .naic-block { padding-left: 1.5rem; padding-right: 1.5rem; }
+    @media (min-width: 40rem) { .naic-block { padding-left: 2.5rem; padding-right: 2.5rem; } }
+    @media (min-width: 64rem) { .naic-block { padding-left: 3rem; padding-right: 3rem; } }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="naic-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">For carriers, and the AI vendors who serve them</span>
+            <h1 id="naic-heading" class="z-h1" style="margin-top:1rem">
+              The minimum AI decision record for <span style="color:var(--acc-envelope)">insurance AI vendors</span>.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:38rem">
+              One page per AI decision: what the model saw, what it recommended and why, which policy clause and version applied, who reviewed it, and what they did with it. It is the smallest set of facts a carrier needs to answer the NAIC's vendor questions — and it never asks you to hand over the model.
+            </p>
+            <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" class="z-btn-primary">Open a sample claim record</a>
+              <a href="/checklist" class="z-btn-ghost">Open the checklist</a>
+            </div>
+            <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:34rem">
+              The sample uses invented claim data. The NAIC does not require a decision record today, and this page does not claim otherwise.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <div class="z-tri-card" style="padding:1.35rem 1.5rem">
+              <div class="z-tri-card__step">Status · 3 November 2026</div>
+              <ul style="margin:0.75rem 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:0.55rem;font-size:0.85rem;color:var(--text-secondary)">
+                <li>The AI Risk Evaluation Supplement is a <strong>draft</strong>, not an adopted rule.</li>
+                <li>Version 6.0 closed for written comment on 30 October 2026.</li>
+                <li>The Big Data and Artificial Intelligence (H) Working Group meets at the Fall National Meeting on <strong>16 November 2026, 12:00–1:00 p.m. CT</strong>, and plans to consider version 7.0 for adoption.</li>
+                <li>Even if adopted, the exhibits are optional supplemental material for examiners, and the draft says it does not create new legal duties.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="naic-block" style="margin-top:4rem;max-width:46rem">
+          <span class="z-eyebrow">Why now</span>
+          <h2 class="z-h2" style="margin-top:1rem">The NAIC asked insurers how they oversee AI they did not build.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The supplement is a set of optional exhibits a state examiner can send an insurer. Exhibit B is the AI governance program. In version 6.0 it asks, at checklist item <strong>3n</strong>:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--acc);background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “Governs, monitors, tests and ensures transparency of AI Systems developed by vendors.”
+          </blockquote>
+          <p class="z-body" style="margin-top:0.9rem;font-size:0.85rem;color:var(--text-muted)">
+            The same question was item 3p in version 5.0. Version 6.0 renumbered the checklist, so cite the text and the version, not a number alone.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            Three other parts of the draft push in the same direction. Exhibit B asks, for uses with a direct consumer impact, “whether there is a human in the loop … how the company assures itself the human review is appropriate, and how any exceptions or errors are found and resolved.” It asks “how the company ensures explainability and transparency into any AI models recommending or making decisions.” And checklist item 3l now asks whether the company “ensures human oversight is appropriate.”
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            Exhibit C goes one level down. For each high-risk model it asks how the model was developed — internal, third party, or a mix, with the vendor name — and, at item 6, whether the company purchased the model, whether it was developed specifically for the company, and “is the Company able to modify the AI model as necessary?” Items 10 and 10a ask for testing for drift, unfair discrimination and proxy effects.
+          </p>
+        </div>
+
+        <div class="naic-block" style="margin-top:3.5rem;max-width:46rem">
+          <span class="z-eyebrow">The older requirement underneath</span>
+          <h2 class="z-h2" style="margin-top:1rem">A claim file already has to permit reconstruction.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            NAIC Model Regulation 902, the Unfair Property/Casualty Claims Settlement Practices Model Regulation, is not new and is not about AI. Section 4B requires that:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--accent2, var(--acc));background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “Detailed documentation shall be contained in each claim file in order to permit reconstruction of the insurer's activities relative to each claim.”
+          </blockquote>
+          <p class="z-body" style="margin-top:0.9rem">
+            Section 4C adds: “Each relevant document within the claim file shall be noted as to date received, date processed or date mailed.” That is the dates field, in 1997 language.
+          </p>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+            Two caveats. Model 902 covers property and casualty claims; if you write life or health, check the claims model your state has adopted before relying on §4B. And it is a model regulation, adopted state by state with local variation — not a federal rule.
+          </p>
+        </div>
+
+        <div class="naic-block" style="margin-top:3.5rem;max-width:46rem">
+          <span class="z-eyebrow">The open question</span>
+          <h2 class="z-h2" style="margin-top:1rem">The trade groups asked for a minimum. Nobody published one.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            In comments on version 5.0, APCIA asked the NAIC for exactly this:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--acc);background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “Additional guidance regarding the minimum information insurers are expected to obtain from third-party vendors would help companies better understand how to satisfy governance, validation, transparency, and oversight expectations for externally developed systems.”
+          </blockquote>
+          <p class="z-body" style="margin-top:1rem">
+            ACLI drew the other line, and it is a reasonable one:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--acc);background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “The Supplement should not imply that an insurer must produce source code, training data, model weights, proprietary validation materials, or other information that it has no legal or contractual right to obtain.”
+          </blockquote>
+          <p class="z-body" style="margin-top:1rem">
+            Both can be satisfied at once. A carrier does not need the vendor's model to reconstruct one decision. It needs the facts of that decision, written down when it happened, in a form it can open without the vendor's help.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            There is already a template for the contract term. In New York, Insurance Circular Letter No. 7 (11 July 2024), paragraph 37, says insurers should include terms in vendor contracts that:
+          </p>
+          <blockquote style="margin:1rem 0 0;padding:0.9rem 1.1rem;border-left:3px solid var(--acc);background:rgba(127,127,127,0.06);font-size:0.95rem;color:var(--text-secondary)">
+            “provide audit rights or entitle the insurer to receive audit reports by qualified auditing entities”
+          </blockquote>
+          <p class="z-body" style="margin-top:0.9rem">
+            The same paragraph asks for terms that “require the third-party vendor to cooperate with the insurer regarding regulatory inquiries and investigations.” That is the clause that makes a record useful: the carrier can ask, and the vendor must answer.
+          </p>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+            Scope: the circular letter addresses AI in underwriting and pricing for New York-authorized insurers, so it is a template rather than a rule for claims in every state. Check your own state and your own contracts.
+          </p>
+        </div>
+
+        <div class="naic-block" style="margin-top:4rem">
+          <span class="z-eyebrow">The record</span>
+          <h2 class="z-h2" style="margin-top:1rem">Eight fields, one per decision.</h2>
+          <div style="overflow-x:auto;margin-top:1.75rem">
+            <table style="width:100%;min-width:42rem;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary)">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--line)">
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text);width:22%">Field</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text);width:42%">What the record holds</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">The question it answers</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Inputs the AI saw</strong></td>
+                  <td style="padding:0.7rem 0.6rem">The claim data, documents and policy text given to the model, and the tool results that came back</td>
+                  <td style="padding:0.7rem 0.6rem">Model 902 §4B — reconstruction of the insurer's activities</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Recommendation or decision, and reasons</strong></td>
+                  <td style="padding:0.7rem 0.6rem">The outcome in plain language, and the reasons recorded at the time rather than reconstructed</td>
+                  <td style="padding:0.7rem 0.6rem">Exhibit B — explainability and transparency into models making or recommending decisions</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Policy provisions or rules relied on, and their version</strong></td>
+                  <td style="padding:0.7rem 0.6rem">The clause cited, and the form revision in force on the date of loss</td>
+                  <td style="padding:0.7rem 0.6rem">Model 902 §4B; the claim-file rule. The version answers “which policy applied that day”</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Model and version, and whether it changed</strong></td>
+                  <td style="padding:0.7rem 0.6rem">The model requested, the version that actually answered, and the date</td>
+                  <td style="padding:0.7rem 0.6rem">Exhibit C item 1 (name and version) and item 6 (can the company modify it)</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Human reviewer: agreed, changed or overrode</strong></td>
+                  <td style="padding:0.7rem 0.6rem">Who reviewed it, when, and the action they took — signed, with their role</td>
+                  <td style="padding:0.7rem 0.6rem">Exhibit B item 3l and the human-in-the-loop question, including how errors are found and resolved</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Dates and times of each step</strong></td>
+                  <td style="padding:0.7rem 0.6rem">A timestamp on each step, taken from the record rather than added later</td>
+                  <td style="padding:0.7rem 0.6rem">Model 902 §4C — date received, processed or mailed</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Created at decision time</strong></td>
+                  <td style="padding:0.7rem 0.6rem">Written as the decision runs, not assembled in response to an exam request</td>
+                  <td style="padding:0.7rem 0.6rem">“Contemporaneous” evidence — the difference examiners can see</td>
+                </tr>
+                <tr>
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">The carrier can open it without the vendor</strong></td>
+                  <td style="padding:0.7rem 0.6rem">A portable file the carrier can read in a browser, with no account and no vendor login</td>
+                  <td style="padding:0.7rem 0.6rem">The access gap behind ACLI's comment — and why this needs no model internals</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="naic-block" style="margin-top:3.5rem;max-width:46rem">
+          <span class="z-eyebrow">What it leaves out</span>
+          <h2 class="z-h2" style="margin-top:1rem">No source code. No training data. No model weights.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The record is deliberately thin. It does not contain the vendor's model, its training data, its weights, or its proprietary validation material. None of that is needed to show what one decision saw, why it was reached, who changed it, and when.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            That is the trade. A carrier gets a reconstructable record of the decision; the vendor keeps the model. If your contract has no right to the record, that is the clause to fix — not the model to expose.
+          </p>
+        </div>
+
+        <div style="margin-top:4rem" id="checklist">
+          <div class="z-intro-grid">
+            <div class="z-intro-grid__title">
+              <span class="z-eyebrow">Readiness</span>
+              <h2 class="z-h2" style="margin-top:1rem">The checklist.</h2>
+              <p class="z-body" style="margin-top:1rem;max-width:31rem">
+                Ten questions for any AI decision, then four more for insurance: whether the reviewer agreed, changed or overrode the AI; which version of the policy was in force that day; whether the record was made at the time; and whether you would notice a change after handover.
+              </p>
+              <p class="z-body" style="margin-top:1rem;max-width:31rem">
+                Pick one real decision the AI touched. Answer from the record itself. <strong>Every no is a gap.</strong>
+              </p>
+              <p style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+                <a href="/checklist" class="z-btn-primary">Open the checklist</a>
+                <a href="/assets/checklist.pdf" download class="z-btn-ghost">Download the one-page PDF</a>
+              </p>
+            </div>
+            <div class="z-intro-grid__aside">
+              <div class="z-tri-card" style="padding:1.5rem 1.6rem">
+                <div class="z-tri-card__step">One link</div>
+                <p class="z-body" style="margin:0.6rem 0 0">One page, one PDF, one version to cite. The same checklist covers the NAIC's vendor questions and every other decision the AI touches.</p>
+                <p style="margin-top:1.25rem;font-family:var(--font-mono);font-size:0.85rem;color:var(--acc-envelope)">epilabs.org/checklist</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="naic-block" style="margin-top:4rem">
+          <span class="z-eyebrow">A worked example</span>
+          <h2 class="z-h2" style="margin-top:1rem">Denied by the model. Paid by the adjuster.</h2>
+          <p class="z-body" style="margin-top:1rem;max-width:40rem">
+            The sample is an invented homeowners claim, CLM-2026-04417, with invented people and invented policy wording. It is generated by the recorder, not written as marketing copy. Read it in this order:
+          </p>
+          <div class="z-tri-grid" style="margin-top:2rem">
+            <div class="z-tri-card"><div class="z-tri-card__step">01 · Inputs</div><h3 class="z-h3-card" style="margin-top:0.5rem">What the model saw</h3><p class="z-body" style="margin-top:0.75rem">The claim, the policy clause E.2(c), the form revision in force, and the adjuster's report — each with a timestamp.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">02 · The model</div><h3 class="z-h3-card" style="margin-top:0.5rem">A denial, and why</h3><p class="z-body" style="margin-top:0.75rem">The model recommends denial, citing the 14-day seepage exclusion, and records its reason and the clause it relied on.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">03 · The person</div><h3 class="z-h3-card" style="margin-top:0.5rem">An override, signed</h3><p class="z-body" style="margin-top:0.75rem">The adjuster reads the same report, disagrees, and signs an override approving a partial payment — reason recorded.</p></div>
+          </div>
+          <p style="margin-top:2rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+            <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" class="z-btn-primary">Open the sample record</a>
+            <a href="/assets/demo/naic-claim-override.epi" download class="z-btn-ghost">Download the record file</a>
+          </p>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted);max-width:40rem">
+            Every field on this page appears in that record. The data is invented; the structure, the order and the review are what a carrier would receive.
+          </p>
+        </div>
+
+        <div class="naic-block" style="margin-top:4rem;max-width:44rem">
+          <span class="z-eyebrow">If you want it checked</span>
+          <h2 class="z-h2" style="margin-top:1rem">Run the ten questions against one workflow.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The readiness assessment takes one AI workflow, answers the ten questions against a real decision, and gives you the gaps in writing — including the ones that only appear when the record has to be produced by someone outside your team. €4,500, delivered in five days, credited toward the full <a href="/plans" style="color:var(--acc)">AI vendor review engagement</a>.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            To produce and read records yourself, the recorder and checker are free and open source. The <a href="/decision-record" style="color:var(--acc)">Decision Record</a> page explains the eight fields.
+          </p>
+        </div>
+
+        <div class="naic-block" style="margin-top:4rem;max-width:46rem">
+          <span class="z-eyebrow">Sources</span>
+          <h2 class="z-h2" style="margin-top:1rem">Check us against the originals.</h2>
+          <ul class="z-body" style="margin-top:1.25rem;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:0.6rem;font-size:0.9rem">
+            <li><a href="https://content.naic.org/committees/h/big-data-artificial-intelligence-wg" target="_blank" rel="noopener" style="color:var(--acc)">NAIC Big Data and Artificial Intelligence (H) Working Group</a> — the version 6.0 exposure, the 2 November call, and the 16 November session.</li>
+            <li><a href="https://content.naic.org/sites/default/files/model-law-902.pdf" target="_blank" rel="noopener" style="color:var(--acc)">NAIC Model Regulation 902</a>, Section 4, File and Record Documentation.</li>
+            <li><a href="https://content.naic.org/sites/default/files/inline-files/comments-received-combined-10.02.2026-1-2.pdf" target="_blank" rel="noopener" style="color:var(--acc)">Comments received on version 5.0</a> — APCIA and ACLI letters quoted above.</li>
+            <li><a href="https://content.naic.org/sites/default/files/call_materials/slides-bdaiwg110226.pdf" target="_blank" rel="noopener" style="color:var(--acc)">8 October 2026 meeting minutes and timeline</a> — “Consider v. 7.0 for adoption at Fall NM.”</li>
+            <li><a href="https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07" target="_blank" rel="noopener" style="color:var(--acc)">NYDFS Insurance Circular Letter No. 7</a>, paragraph 37 — audit rights in third-party contracts.</li>
+          </ul>
+        </div>
+
+        <div class="naic-block" style="margin-top:3.5rem;max-width:46rem;padding-top:1.5rem;border-top:1px solid var(--line)">
+          <p class="z-body" style="font-size:0.85rem;color:var(--text-muted)">
+            <strong style="color:var(--text-secondary)">Not legal advice.</strong> Check with your carrier and counsel. EPI Labs is not affiliated with the NAIC. Item numbers are cited from version 6.0 of the AI Risk Evaluation Supplement and may change in version 7.0; the question text is what matters.
+          </p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>

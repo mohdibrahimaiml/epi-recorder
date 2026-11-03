@@ -30,7 +30,14 @@ RATIONALE = "Flood exclusion HO3-4.2 applies; the peril is excluded under the po
 SERVED_MODEL = "gpt-4o-2024-08-06"
 
 
-def _seal(tmp_path: Path, *, with_approval: bool, name: str = "claim.epi") -> Path:
+def _seal(
+    tmp_path: Path,
+    *,
+    with_approval: bool,
+    name: str = "claim.epi",
+    decision: str = "deny_claim",
+    output: dict | None = None,
+) -> Path:
     source = tmp_path / "src"
     source.mkdir(parents=True, exist_ok=True)
     steps = [
@@ -73,7 +80,8 @@ def _seal(tmp_path: Path, *, with_approval: bool, name: str = "claim.epi") -> Pa
             "index": 2,
             "kind": "agent.decision",
             "content": {
-                "decision": "deny_claim",
+                "decision": decision,
+                **({"output": output} if output is not None else {}),
                 "rationale": RATIONALE,
                 "basis": {
                     "policy": "HO3-4.2",
@@ -176,6 +184,36 @@ def test_the_document_says_how_to_check_it(tmp_path):
     assert digest in html
     assert "--require-human-approval" in html
     assert "https://epilabs.org/verify" in html
+
+
+def test_a_recorded_decision_is_shown_as_written_with_its_amount(tmp_path):
+    """A partial payment must not be rounded up to "Approved" in the headline.
+
+    The outcome is the fact a claim file has to preserve. If the agent recorded
+    "partial payment" and the output carried $8,400, the record says so rather
+    than inferring a category from the word "pay".
+    """
+    epi = _seal(
+        tmp_path,
+        with_approval=True,
+        name="override.epi",
+        decision="partial payment",
+        output={"claim_id": "CLM-1001", "payable_usd": 8400},
+    )
+    html = _export(epi, tmp_path / "summary.html")
+    text = runner.invoke(
+        app, ["export-summary", "summary", str(epi), "--text"]
+    ).stdout
+
+    assert "Partial payment, $8,400" in html
+    assert "Partial payment, $8,400" in text
+    assert "Approved" not in html, "the headline must not invent a category"
+
+
+def test_a_machine_decision_name_is_still_made_readable(tmp_path):
+    epi = _seal(tmp_path, with_approval=True)
+    html = _export(epi, tmp_path / "summary.html")
+    assert "Denied" in html, "deny_claim still reads as Denied"
 
 
 def test_without_an_approval_the_summary_says_so(tmp_path):

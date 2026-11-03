@@ -77,10 +77,10 @@
             </p>
             <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
               <a href="/assets/demo/decision-record-example.html" target="_blank" rel="noopener" class="z-btn-primary">Open a real Decision Record</a>
-              <a href="/assets/decision-record-checklist.txt" download class="z-btn-ghost">Download the checklist</a>
+              <a href="/checklist" class="z-btn-ghost">Open the checklist</a>
             </div>
             <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:33rem">
-              No account. The sample opens in your browser. The checklist is a plain-text one-pager.
+              No account. The sample opens in your browser. The checklist is one page, with a PDF version.
             </p>
           </div>
           <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
@@ -161,22 +161,12 @@
               <h2 class="z-h2" style="margin-top:1rem">The ten-question completeness checklist.</h2>
               <p class="z-body" style="margin-top:1rem;max-width:30rem">Score one point per question you can answer <strong>from the record itself</strong>, without asking the vendor to log in or search another system.</p>
               <p class="z-body" style="margin-top:1rem;font-size:0.9rem"><strong>9–10:</strong> a Decision Record. <strong>6–8:</strong> close, but reasons, approval or outcome are incomplete. <strong>3–5:</strong> observability data. <strong>0–2:</strong> logs.</p>
-              <p style="margin-top:1.5rem"><a href="/assets/decision-record-checklist.txt" download class="z-btn-ghost">Download the checklist (.txt)</a></p>
+              <p style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap"><a href="/checklist" class="z-btn-ghost">Open the checklist</a><a href="/assets/checklist.pdf" download class="z-btn-ghost">Download the PDF</a></p>
             </div>
             <div class="z-intro-grid__aside">
               <div class="z-tri-card" style="padding:1.5rem 1.6rem">
-                <ol style="margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:0.7rem;font-size:0.9rem;color:var(--text-secondary)">
-                  <li>What was decided, in plain language?</li>
-                  <li>What outcome was recorded, and when?</li>
-                  <li>What inputs and data did the model rely on?</li>
-                  <li>Which model and version answered?</li>
-                  <li>What rules, policy or limit applied?</li>
-                  <li>What reasons were recorded for the decision?</li>
-                  <li>Who or what approved it, and when?</li>
-                  <li>If a human approval was required, is it attached?</li>
-                  <li>What happened next — the action or the customer outcome?</li>
-                  <li>Can the reviewer read this without the vendor's system?</li>
-                </ol>
+                <p class="z-body" style="margin:0">The ten questions, and four more for insurance, live on one page so there is only one version to cite. Every no is a gap.</p>
+                <p style="margin-top:1.25rem;font-family:var(--font-mono);font-size:0.85rem;color:var(--acc-envelope)">epilabs.org/checklist</p>
               </div>
             </div>
           </div>
@@ -198,6 +188,7 @@
           <h2 class="z-h2" style="margin-top:1rem">A record is the product. The review is the service.</h2>
           <p class="z-body" style="margin-top:1rem">If a customer is asking for the record behind a decision, that is the <a href="/plans" style="color:var(--acc)">AI vendor review engagement</a>: one workflow, thirty days, a Decision Record per case, and a review pack. If you only want to produce and read records yourself, the recorder and verifier are free and open source.</p>
           <p class="z-body" style="margin-top:1rem">Technical details — sealing, keys, the customer witness and offline verification — live on the <a href="/trust" style="color:var(--acc)">trust model</a> page.</p>
+          <p class="z-body" style="margin-top:1rem">Working in insurance? The NAIC's questions to insurers and these eight fields line up closely. See <a href="/insurance/ai-vendor-decision-record" style="color:var(--acc)">the minimum AI decision record for insurance AI vendors</a>.</p>
         </div>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
