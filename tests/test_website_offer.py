@@ -10,6 +10,8 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SITE = REPO / "website"
 PRICE = "\u20ac4,500"
+FULL = "\u20ac9,500"
+STANDARD = "\u20ac12,000"
 
 
 def _pyproject_version() -> str:
@@ -47,10 +49,11 @@ def test_insurability_claim_is_gone():
 def test_there_is_one_paid_offer_and_it_has_a_price():
     index = _html("index.html")
     plans = _html("plans.html")
-    assert "Decision File pilot" in index and PRICE in index
-    assert "Decision File pilot" in plans and PRICE in plans
-    assert "one of your AI workflows" in plans
-    assert "your customer keeps their own copy" in plans.lower()
+    assert "AI vendor review" in index and PRICE in index
+    assert "AI vendor review" in plans and PRICE in plans
+    assert FULL in plans and STANDARD in plans
+    assert "one workflow" in plans.lower()
+    assert "your customer keeps their own witness log" in plans.lower()
 
 
 def test_the_footer_shows_the_version_once():

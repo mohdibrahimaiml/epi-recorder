@@ -1,8 +1,9 @@
 """WP-PRICING-0: the public site sells one offer, not a hosted $199/$799 plan.
 
 Originally this test pinned the Design Partner Program. That programme is gone:
-the site now sells one Decision File pilot at a fixed price, and the assertions moved
-with it, so the guard against hosted-verification checkout survives.
+the site now sells a readiness assessment and a full AI vendor review engagement,
+and the assertions moved with it, so the guard against hosted-verification checkout
+survives.
 """
 
 from __future__ import annotations
@@ -21,9 +22,10 @@ def test_plans_does_not_sell_hosted_199_799():
     assert "$799" not in text
     assert "Hosted Plan" not in text
     assert "Team Plan" not in text
-    assert "Decision File pilot" in text
+    assert "AI vendor review" in text
     assert PRICE in text
-    assert "one of your AI workflows" in text
+    assert "9,500" in text and "12,000" in text
+    assert "one workflow" in text.lower()
     assert "create a free workspace" in text.lower()
     assert "request beta access" not in text.lower()
     assert "EPI Cloud" in text
@@ -40,6 +42,6 @@ def test_home_teaser_is_not_hosted_team_checkout():
     assert "Hosted \u00b7 Team" not in text
     assert "$199" not in text
     assert "$799" not in text
-    assert "Decision File pilot" in text
+    assert "AI vendor review" in text
     assert PRICE in text
     assert "free workspace" in text.lower()
