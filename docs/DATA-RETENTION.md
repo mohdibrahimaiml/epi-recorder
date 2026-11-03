@@ -34,7 +34,10 @@ back. A legal hold pauses deletion for that file until released.
   customer frees its plan slot but does not rewrite history; the chain
   anchors remain, containing hashes only, never content. Full account removal
   is a written request (below), not a button.
-- **Login data:** OAuth identifiers are deleted with the account.
+- **Activation metrics:** the first time an account signs in, creates a workspace,
+  connects a computer, uploads a run and creates a share link is recorded as a
+  pseudonymous user id, event name and timestamp. No email, prompt, model output
+  or artifact content is stored, and the rows are deleted with the account.
 - **Share uploads:** `epi share` links (EPI Cloud by default, legacy portal as
   fallback) honor `--expires`, capped at 30 days. Ask for early deletion any time.
 
