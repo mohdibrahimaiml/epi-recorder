@@ -56,6 +56,20 @@ def test_there_is_one_paid_offer_and_it_has_a_price():
     assert "your customer keeps their own witness log" in plans.lower()
 
 
+def test_the_three_offers_are_distinct():
+    plans = _html("plans.html")
+    for name in ("Open Source", "EPI Cloud", "AI vendor review"):
+        assert name in plans, name
+    # Open Source is complete, not a trial; Cloud is optional; the engagement is a service.
+    assert "not a trial" in plans.lower()
+    assert "Not required to record or verify" in plans
+    assert "A service, not software access" in plans
+    assert "Verification" in plans
+    # The at-a-glance table must state the price of each layer.
+    assert "€0 forever" in plans
+    assert "€4,500 assessment" in plans
+
+
 def test_the_footer_shows_the_version_once():
     index = _html("index.html")
     footer = index[index.rindex("<footer"): index.rindex("</footer>")]
