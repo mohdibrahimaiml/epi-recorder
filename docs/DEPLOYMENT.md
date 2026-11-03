@@ -9,6 +9,7 @@ target; pick the surface below.
 | `epilabs.org` (marketing, `/verify`, `/t/`) | `website/` | `npm run build` copies it to `site/` and the `.well-known` files | Cloudflare Pages project `epilabs`, config `wrangler.toml` (`pages_build_output_dir = "site"`) |
 | `cloud.epilabs.org` (accounts, witness, share) | `PRIVATE-EPI/cloud/` | `npm run typecheck && npx vitest run` | Cloudflare Worker `epi-cloud`, config in that repository |
 | Legacy verify portal | `verify_portal/` | `pip install -e ".[gateway]"` | Render (`render.yaml`) or Railway (`railway.toml`); being retired |
+| `verify.epilabs.org` | `PRIVATE-EPI/cloud/src/index.ts` | same Worker build as Cloud | Route on the `epi-cloud` Worker: browsers get **301** to `epilabs.org/verify/`; legacy API paths proxy to Render until sunset |
 
 ## Rules
 
@@ -23,9 +24,17 @@ target; pick the surface below.
    live in `website/.well-known/` and are copied to every mirror.
 4. **Cloud changes are deployed from `PRIVATE-EPI`, not from this repo.**
    `cloud/src` is not present here; a public deploy cannot touch the Worker.
+   Merges to `PRIVATE-EPI/main` apply D1 migrations and deploy through
+   `.github/workflows/cloud.yml` using the scoped `CLOUDFLARE_API_TOKEN`.
 5. **The legacy portal is not the account system.** Sign-in, witness and share
    links are Cloud. The portal remains only for old `epi share` fallbacks,
    MCP hosting and opt-in telemetry until those links are retired.
+
+## Daily checks
+
+`.github/workflows/production-smoke.yml` runs at 06:17 UTC and checks the live
+Pages pages, the trust anchors, Cloud health, and the `verify.epilabs.org`
+redirect. A failure is a real outage signal, not a build warning.
 
 ## Checking what is deployed
 
