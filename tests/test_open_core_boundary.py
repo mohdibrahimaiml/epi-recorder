@@ -220,3 +220,12 @@ def test_verify_keeps_the_free_human_approval_checks():
     text = VERIFIER.read_text(encoding="utf-8")
     for option in ("--require-human-approval", "--witness-log", "--policy"):
         assert option in text, f"epi verify lost {option}"
+
+def test_licensing_document_states_the_boundary():
+    text = (REPO / "LICENSING.md").read_text(encoding="utf-8")
+    assert "MIT" in text
+    assert "epi-enterprise" in text
+    assert "proprietary" in text.lower()
+    # Published MIT versions cannot be un-licensed by a later change.
+    assert "4.9.0" in text
+

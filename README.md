@@ -46,6 +46,8 @@ the recorder and its integrations, the gateway, the customer-side witness receiv
 `epi oversight report`, `epi org bundle` (the customer's own key history), and every
 offline proof check.
 
+See [LICENSING.md](./LICENSING.md) for the exact boundary.
+
 **Paid, and not in this repository:** two products.
 
 - **EPI Enterprise** (`epi-enterprise`, private): `epi audit`, `epi annex`,
