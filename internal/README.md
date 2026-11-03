@@ -15,5 +15,9 @@ doc links in here.
 
 | Doc | What it is | Moved from |
 |-----|------------|------------|
-| [SALES-QUESTIONS.md](./SALES-QUESTIONS.md) | Ten qualification questions, buyer order, channels, kill test (not customer-facing) | new, 2026-11-03 |
 | [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Org trust bundle v0 build spec (referenced by `epi_core/org_bundle.py`) | `docs/design/` |
+
+Sales qualification questions and the kill test are no longer in this repo. They
+live in `PRIVATE-EPI/SALES-QUESTIONS.md`, which is git-ignored: everything under
+`internal/` is still world-readable on GitHub, so private material goes outside
+the tree entirely.
