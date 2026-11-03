@@ -8,6 +8,7 @@ version = "4.9.0"
 description = "Tamper-evident evidence infrastructure for AI agents. Capture, seal, verify, and audit AI decisions in a single portable file."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
+license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     {name = "Mohd Ibrahim Afridi", email = "mohdibrahim@epilabs.org"}
