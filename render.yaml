@@ -1,3 +1,7 @@
+# LEGACY hosted portal - not the product surface.
+# Sign-in, witness and share links live on EPI Cloud (cloud.epilabs.org).
+# Human verify.epilabs.org traffic now 301s to epilabs.org/verify.
+# Sunset: 2027-02-01. See PRIVATE-EPI/docs/RENDER-SUNSET.md.
 services:
   - type: web
     name: epi-verify

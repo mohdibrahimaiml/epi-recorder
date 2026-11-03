@@ -1,0 +1,57 @@
+# Production smoke: the public surfaces must answer, once a day.
+#
+# This is not a unit test. It checks the deployed product the way a visitor
+# reaches it: Pages, the verifier, pricing, Cloud health, and the retired
+# verify host. A failed run wakes the maintainer through GitHub notifications.
+name: Production smoke
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pages pages
+        run: |
+          set -euo pipefail
+          curl -fsS https://epilabs.org/ | grep -q "Decision records"
+          curl -fsS https://epilabs.org/verify/ | grep -q "Verify a .epi file"
+          curl -fsS https://epilabs.org/plans | grep -q "Create a free workspace"
+          curl -fsS https://epilabs.org/reviewers | grep -q "4.9.0"
+
+      - name: Trust anchors
+        run: |
+          set -euo pipefail
+          curl -fsS https://epilabs.org/.well-known/did.json | grep -q '"id"'
+          curl -fsS https://epilabs.org/.well-known/security.txt | grep -q "Contact:"
+
+      - name: Cloud health
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://cloud.epilabs.org/health)
+          test "$code" = "200"
+          curl -fsS https://cloud.epilabs.org/ | grep -q "no approval step"
+
+      - name: Legacy verify host redirects
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://verify.epilabs.org/)
+          location=$(curl -sI https://verify.epilabs.org/ | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}')
+          test "$code" = "301"
+          test "$location" = "https://epilabs.org/verify/"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Production smoke passed"
+            echo "- epilabs.org, /verify, /plans, /reviewers"
+            echo "- .well-known/did.json and security.txt"
+            echo "- cloud.epilabs.org/health"
+            echo "- verify.epilabs.org -> epilabs.org/verify (301)"
+          } >> "$GITHUB_STEP_SUMMARY"
