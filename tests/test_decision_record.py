@@ -14,10 +14,10 @@ DEMO = SITE / "assets" / "demo" / "decision-record-example.html"
 
 def test_the_page_exists_and_names_the_category():
     text = PAGE.read_text(encoding="utf-8")
-    assert "Every AI decision needs a Decision Record." in text
+    assert "Every AI decision needs a" in text
+    assert "Decision Record" in text
     assert "Not a log. Not a trace. Not a dashboard." in text
     assert "ten-question completeness checklist" in text.lower()
-    assert "Decision Record" in text
 
 
 def test_checklist_has_ten_questions_and_a_download_link():

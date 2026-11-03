@@ -1,166 +1,217 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>The Decision Record - EPI Labs</title>
-<meta name="description" content="Every AI decision needs a Decision Record: one readable record of what the model saw, what it decided, why, which model answered and who approved it. Plus a ten-question completeness checklist.">
-<link rel="canonical" href="https://epilabs.org/decision-record">
-<meta property="og:title" content="The Decision Record - EPI Labs">
-<meta property="og:description" content="A Decision Record is one readable record per AI decision. Not a log, not a trace, not a dashboard. Ten questions to check whether yours is complete.">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Decision Record | EPI Labs</title>
+  <meta name="description" content="Every AI decision needs a Decision Record: one readable record of what the model saw, what it decided and why, which model answered and who approved it. Includes a ten-question completeness checklist and a real CLI-generated example.">
+  <link rel="canonical" href="https://epilabs.org/decision-record">
+  <meta property="og:title" content="Every AI decision needs a Decision Record | EPI Labs">
+  <meta property="og:description" content="Not a log. Not a trace. Not a dashboard. One readable record per AI decision, plus a ten-question completeness checklist.">
+  <meta property="og:url" content="https://epilabs.org/decision-record">
+  <meta name="theme-color" content="#0D1117">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li><a href="/how-it-works">How it works</a></li>
-      <li><a href="/decision-record">Decision Record</a></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <a href="/how-it-works" class="z-nav__link">Architecture</a>
+        <a href="/decision-record" class="z-nav__link" aria-current="page">Decision Record</a>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <a href="/how-it-works">Architecture</a>
+    <a href="/decision-record" style="color:var(--foreground)">Decision Record</a>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <a href="/how-it-works">How it works</a>
-  <a href="/decision-record">Decision Record</a>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main id="main">
-<div class="page">
-<span class="tag">Decision Record</span>
-<h1>Every AI decision needs a Decision Record.</h1>
-<p class="lede">One readable record per decision: what the model saw, what it decided and why, which model answered, who approved it, and what happened next. Not a log. Not a trace. Not a dashboard.</p>
 
-<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin:1.75rem 0 0.5rem">
-  <a class="btn btn-pri" href="/assets/demo/decision-record-example.html" target="_blank" rel="noopener">Open a real Decision Record</a>
-  <a class="btn btn-sec" href="/assets/decision-record-checklist.txt" download>Download the checklist</a>
-</div>
-<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">No account &middot; opens in the browser &middot; the checklist is a plain-text one-pager</p>
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="dr-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">Decision Record · free and open source</span>
+            <h1 id="dr-heading" class="z-h1" style="margin-top:1rem">
+              Every AI decision needs a <span style="color:var(--acc-envelope)">Decision Record</span>.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
+              One readable record per decision: what the model saw, what it decided and why, which model answered, who approved it, and what happened next.
+            </p>
+            <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="/assets/demo/decision-record-example.html" target="_blank" rel="noopener" class="z-btn-primary">Open a real Decision Record</a>
+              <a href="/assets/decision-record-checklist.txt" download class="z-btn-ghost">Download the checklist</a>
+            </div>
+            <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:33rem">
+              No account. The sample opens in your browser. The checklist is a plain-text one-pager.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <p class="z-body">
+              Logs answer what the system did. Traces answer where time went. Dashboards answer whether a control exists. A Decision Record answers the question a customer, auditor or insurer actually asks.
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-family:var(--font-mono);font-size:0.85rem;color:var(--acc-envelope)">
+              “Why was this case decided this way, and who approved it?”
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+              Technical trust details live on the <a href="/trust" style="color:var(--acc)">trust model</a> page.
+            </p>
+          </div>
+        </div>
 
-<h2>Why not a log?</h2>
-<p>Logs are written for the system. Decision Records are written for the person who has to answer for the decision.</p>
+        <div style="margin-top:4rem">
+          <span class="z-eyebrow">At a glance</span>
+          <h2 class="z-h2" style="margin-top:1rem">Not a log. Not a trace. Not a dashboard.</h2>
+          <div style="overflow-x:auto;margin-top:1.75rem">
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary)">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--line)">
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">What you have</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">Who it serves</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">The question it answers</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">What it cannot do</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem">Logs</td>
+                  <td style="padding:0.7rem 0.6rem">Engineers</td>
+                  <td style="padding:0.7rem 0.6rem">What did the system do?</td>
+                  <td style="padding:0.7rem 0.6rem">Explain one decision to a customer</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem">Traces</td>
+                  <td style="padding:0.7rem 0.6rem">Engineers</td>
+                  <td style="padding:0.7rem 0.6rem">Where did time and tokens go?</td>
+                  <td style="padding:0.7rem 0.6rem">Show reasons and approval per case</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:0.7rem 0.6rem">Governance dashboards</td>
+                  <td style="padding:0.7rem 0.6rem">Risk and compliance</td>
+                  <td style="padding:0.7rem 0.6rem">Do we have the policy and inventory?</td>
+                  <td style="padding:0.7rem 0.6rem">Produce the record of a specific decision</td>
+                </tr>
+                <tr>
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Decision Record</strong></td>
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">The customer, reviewer, auditor</strong></td>
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Why was this case decided this way, and who approved it?</strong></td>
+                  <td style="padding:0.7rem 0.6rem">Replace your observability stack</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-<table style="width:100%;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary);margin-top:1.25rem">
-  <thead>
-    <tr style="text-align:left;border-bottom:1px solid var(--line)">
-      <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">What you have</th>
-      <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">Who it serves</th>
-      <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">The question it answers</th>
-      <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">What it cannot do</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="border-bottom:1px solid var(--line)">
-      <td style="padding:0.7rem 0.6rem">Logs</td>
-      <td style="padding:0.7rem 0.6rem">Engineers</td>
-      <td style="padding:0.7rem 0.6rem">What did the system do?</td>
-      <td style="padding:0.7rem 0.6rem">Explain one decision to a customer</td>
-    </tr>
-    <tr style="border-bottom:1px solid var(--line)">
-      <td style="padding:0.7rem 0.6rem">Traces</td>
-      <td style="padding:0.7rem 0.6rem">Engineers</td>
-      <td style="padding:0.7rem 0.6rem">Where did time and tokens go?</td>
-      <td style="padding:0.7rem 0.6rem">Show reasons and approval per case</td>
-    </tr>
-    <tr style="border-bottom:1px solid var(--line)">
-      <td style="padding:0.7rem 0.6rem">Governance dashboards</td>
-      <td style="padding:0.7rem 0.6rem">Risk and compliance</td>
-      <td style="padding:0.7rem 0.6rem">Do we have the policy and the inventory?</td>
-      <td style="padding:0.7rem 0.6rem">Produce the record of a specific decision</td>
-    </tr>
-    <tr>
-      <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Decision Record</strong></td>
-      <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">The customer, reviewer, auditor</strong></td>
-      <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">Why was this case decided this way, and who approved it?</strong></td>
-      <td style="padding:0.7rem 0.6rem">Replace your observability stack</td>
-    </tr>
-  </tbody>
-</table>
+        <div style="margin-top:4rem">
+          <span class="z-eyebrow">What is inside</span>
+          <h2 class="z-h2" style="margin-top:1rem">Eight fields a reviewer can use.</h2>
+          <div class="z-tri-grid" style="margin-top:2rem">
+            <div class="z-tri-card"><div class="z-tri-card__step">01 · Goal</div><h3 class="z-h3-card" style="margin-top:0.5rem">The case</h3><p class="z-body" style="margin-top:0.75rem">What the agent was asked to do, for whom.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">02 · Steps</div><h3 class="z-h3-card" style="margin-top:0.5rem">What it saw</h3><p class="z-body" style="margin-top:0.75rem">The inputs, tool calls and results along the way.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">03 · Decision</div><h3 class="z-h3-card" style="margin-top:0.5rem">The outcome</h3><p class="z-body" style="margin-top:0.75rem">What was decided, in plain language.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">04 · Reasons</div><h3 class="z-h3-card" style="margin-top:0.5rem">Why</h3><p class="z-body" style="margin-top:0.75rem">The rationale recorded at the time, not reconstructed later.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">05 · Rules</div><h3 class="z-h3-card" style="margin-top:0.5rem">What applied</h3><p class="z-body" style="margin-top:0.75rem">The policy, limit or eligibility rule behind the decision.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">06 · Model</div><h3 class="z-h3-card" style="margin-top:0.5rem">Who answered</h3><p class="z-body" style="margin-top:0.75rem">Which model and version responded, and when.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">07 · Approval</div><h3 class="z-h3-card" style="margin-top:0.5rem">Who signed off</h3><p class="z-body" style="margin-top:0.75rem">The human approval, with their key and timestamp — or that none was required.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">08 · Outcome</div><h3 class="z-h3-card" style="margin-top:0.5rem">What happened next</h3><p class="z-body" style="margin-top:0.75rem">The action taken or the customer result.</p></div>
+          </div>
+        </div>
 
-<h2>What is inside</h2>
-<ul>
-  <li><strong>The goal and the case.</strong> What the agent was asked to do, for whom.</li>
-  <li><strong>The steps.</strong> What the model saw, which tools it called, what came back.</li>
-  <li><strong>The decision.</strong> The outcome recorded in plain language, with the reasons.</li>
-  <li><strong>The rules.</strong> The policy, limit or eligibility rule that applied.</li>
-  <li><strong>The model.</strong> Which model and version answered, and when.</li>
-  <li><strong>The approval.</strong> Who signed off, with which key, and when — or that none was required.</li>
-  <li><strong>The outcome.</strong> What happened next: the action taken or the customer result.</li>
-</ul>
+        <div style="margin-top:4rem" id="checklist">
+          <div class="z-intro-grid">
+            <div class="z-intro-grid__title">
+              <span class="z-eyebrow">Completeness</span>
+              <h2 class="z-h2" style="margin-top:1rem">The ten-question completeness checklist.</h2>
+              <p class="z-body" style="margin-top:1rem;max-width:30rem">Score one point per question you can answer <strong>from the record itself</strong>, without asking the vendor to log in or search another system.</p>
+              <p class="z-body" style="margin-top:1rem;font-size:0.9rem"><strong>9–10:</strong> a Decision Record. <strong>6–8:</strong> close, but reasons, approval or outcome are incomplete. <strong>3–5:</strong> observability data. <strong>0–2:</strong> logs.</p>
+              <p style="margin-top:1.5rem"><a href="/assets/decision-record-checklist.txt" download class="z-btn-ghost">Download the checklist (.txt)</a></p>
+            </div>
+            <div class="z-intro-grid__aside">
+              <div class="z-tri-card" style="padding:1.5rem 1.6rem">
+                <ol style="margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:0.7rem;font-size:0.9rem;color:var(--text-secondary)">
+                  <li>What was decided, in plain language?</li>
+                  <li>What outcome was recorded, and when?</li>
+                  <li>What inputs and data did the model rely on?</li>
+                  <li>Which model and version answered?</li>
+                  <li>What rules, policy or limit applied?</li>
+                  <li>What reasons were recorded for the decision?</li>
+                  <li>Who or what approved it, and when?</li>
+                  <li>If a human approval was required, is it attached?</li>
+                  <li>What happened next — the action or the customer outcome?</li>
+                  <li>Can the reviewer read this without the vendor's system?</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
 
-<h2>The ten-question completeness checklist</h2>
-<p>Score one point per question you can answer <strong>from the record itself</strong>, without asking the vendor to log in or search another system.</p>
-<ol>
-  <li>What was decided, in plain language?</li>
-  <li>What outcome was recorded, and when?</li>
-  <li>What inputs and data did the model rely on?</li>
-  <li>Which model and version answered?</li>
-  <li>What rules, policy or limit applied?</li>
-  <li>What reasons were recorded for the decision?</li>
-  <li>Who or what approved it, and when?</li>
-  <li>If a human approval was required, is it attached to this record?</li>
-  <li>What happened next — the action taken or the customer outcome?</li>
-  <li>Can the customer or reviewer read this record without the vendor's system?</li>
-</ol>
-<p><strong>9–10:</strong> a Decision Record. <strong>6–8:</strong> close, but reasons, approval or outcome are incomplete. <strong>3–5:</strong> observability data. <strong>0–2:</strong> logs.</p>
-<p><a class="btn btn-sec" href="/assets/decision-record-checklist.txt" download>Download the checklist (.txt)</a></p>
+        <div style="margin-top:4rem">
+          <span class="z-eyebrow">See a real one</span>
+          <h2 class="z-h2" style="margin-top:1rem">Generated by the CLI, not written for the page.</h2>
+          <p class="z-body" style="margin-top:1rem;max-width:38rem">The record below is the plain-language summary produced from an actual recorded run. Open it, read it, then download the underlying <code style="font-family:var(--font-mono)">.epi</code> file if you want to check it yourself.</p>
+          <div class="z-tri-grid" style="margin-top:2rem">
+            <div class="z-tri-card"><div class="z-tri-card__step">Open</div><h3 class="z-h3-card" style="margin-top:0.5rem">Read the record</h3><p class="z-body" style="margin-top:0.75rem">The one-page summary in your browser.</p><p style="margin-top:1.25rem"><a href="/assets/demo/decision-record-example.html" target="_blank" rel="noopener" class="z-btn-primary">Open summary</a></p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">Download</div><h3 class="z-h3-card" style="margin-top:0.5rem">Take the file</h3><p class="z-body" style="margin-top:0.75rem">The <code style="font-family:var(--font-mono)">.epi</code> file the summary came from.</p><p style="margin-top:1.25rem"><a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download .epi</a></p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">Check</div><h3 class="z-h3-card" style="margin-top:0.5rem">Verify it</h3><p class="z-body" style="margin-top:0.75rem">Drop it into the browser verifier, no account.</p><p style="margin-top:1.25rem"><a href="/verify/" class="z-btn-ghost">Open verifier</a></p></div>
+          </div>
+        </div>
 
-<h2>See a real one</h2>
-<p>This is the plain-language summary produced from an actual recorded run. Open it, read it, then download the underlying <code class="k">.epi</code> file if you want to check it yourself.</p>
-<ul>
-  <li><a href="/assets/demo/decision-record-example.html" target="_blank" rel="noopener">Open the Decision Record</a></li>
-  <li><a href="/assets/demo/decision-example.epi" download>Download the <code class="k">.epi</code> file</a></li>
-  <li><a href="/verify/">Check a file in your browser</a></li>
-</ul>
+        <div style="margin-top:4rem;max-width:44rem">
+          <span class="z-eyebrow">Where this fits</span>
+          <h2 class="z-h2" style="margin-top:1rem">A record is the product. The review is the service.</h2>
+          <p class="z-body" style="margin-top:1rem">If a customer is asking for the record behind a decision, that is the <a href="/plans" style="color:var(--acc)">AI vendor review engagement</a>: one workflow, thirty days, a Decision Record per case, and a review pack. If you only want to produce and read records yourself, the recorder and verifier are free and open source.</p>
+          <p class="z-body" style="margin-top:1rem">Technical details — sealing, keys, the customer witness and offline verification — live on the <a href="/trust" style="color:var(--acc)">trust model</a> page.</p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
 
-<h2>Where this fits</h2>
-<p>If a customer is asking for the record behind a decision, that is the <a href="/plans">AI vendor review engagement</a>: one workflow, thirty days, a Decision Record per case, and a review pack. If you only want to produce and read records yourself, the recorder and verifier are free and open source.</p>
-<p>Technical details — sealing, keys, witness and offline verification — live on the <a href="/trust">trust model</a> page.</p>
-
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; v4.9.0</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> &middot; <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
-</footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>
