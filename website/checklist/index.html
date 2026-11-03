@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The AI decision record checklist | EPI Labs</title>
+  <meta name="description" content="Ten questions for any AI decision record, then four more for insurance. One page, one PDF, scored from the record itself. Every no is a gap.">
+  <link rel="canonical" href="https://epilabs.org/checklist">
+  <meta property="og:title" content="The AI decision record checklist | EPI Labs">
+  <meta property="og:description" content="Ten questions for any AI decision, then four more for insurance. Answer from the record itself. Every no is a gap.">
+  <meta property="og:url" content="https://epilabs.org/checklist">
+  <meta name="theme-color" content="#0D1117">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <style>
+    .cl-block { padding-left: 1.5rem; padding-right: 1.5rem; }
+    @media (min-width: 40rem) { .cl-block { padding-left: 2.5rem; padding-right: 2.5rem; } }
+    @media (min-width: 64rem) { .cl-block { padding-left: 3rem; padding-right: 3rem; } }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/checklist" aria-current="page">Checklist</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/checklist">Checklist</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="cl-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">One record per decision</span>
+            <h1 id="cl-heading" class="z-h1" style="margin-top:1rem">
+              The AI decision record <span style="color:var(--acc-envelope)">checklist</span>.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:37rem">
+              Ten questions for any AI decision, then four more for insurance. Pick one real decision, answer from the record itself, and count the noes.
+            </p>
+            <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="/assets/checklist.pdf" download class="z-btn-primary">Download the one-page PDF</a>
+              <a href="/assets/checklist.txt" download class="z-btn-ghost">Plain text</a>
+            </div>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <p class="z-body">
+              A record you can answer these questions from is a decision record. One you cannot is a log, a trace or a dashboard wearing a governance badge.
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-family:var(--font-mono);font-size:0.85rem;color:var(--acc-envelope)">
+              Every no is a gap.
+            </p>
+          </div>
+        </div>
+
+        <div class="cl-block" style="margin-top:4rem;max-width:50rem">
+          <span class="z-eyebrow">The ten questions</span>
+          <h2 class="z-h2" style="margin-top:1rem">Any AI decision.</h2>
+          <div class="z-tri-card" style="padding:1.6rem 1.8rem;margin-top:1.75rem">
+            <ol style="margin:0;padding-left:1.4rem;list-style:decimal outside;display:flex;flex-direction:column;gap:0.85rem;font-size:0.95rem;color:var(--text-secondary)">
+              <li>What was decided, in plain language?</li>
+              <li>What outcome was recorded, and when?</li>
+              <li>What inputs and data did the model rely on?</li>
+              <li>Which model and version answered?</li>
+              <li>What rules, policy or limit applied?</li>
+              <li>What reasons were recorded for the decision?</li>
+              <li>Who or what approved it, and when?</li>
+              <li>If a human approval was required, is it attached to this record?</li>
+              <li>What happened next — the action taken or the customer outcome?</li>
+              <li>Can the reviewer read this without the vendor's system?</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="cl-block" style="margin-top:4rem;max-width:50rem" id="insurance">
+          <span class="z-eyebrow">For insurance</span>
+          <h2 class="z-h2" style="margin-top:1rem">Four more questions.</h2>
+          <p class="z-body" style="margin-top:1rem;max-width:40rem">
+            Carriers answering the NAIC's AI Risk Evaluation Supplement get asked a further four things that the general ten do not cover. The supplement is a draft; these are our questions, not its requirements.
+          </p>
+          <div class="z-tri-card" style="padding:1.6rem 1.8rem;margin-top:1.75rem">
+            <ol start="11" style="margin:0;padding-left:1.4rem;list-style:decimal outside;display:flex;flex-direction:column;gap:0.85rem;font-size:0.95rem;color:var(--text-secondary)">
+              <li>Did the reviewer agree with the AI, change it, or override it?</li>
+              <li>Which version of the policy or rule was in force on the day of the decision?</li>
+              <li>Was the record made at the time of the decision, not assembled later for an exam?</li>
+              <li>Would the carrier notice if the record were changed after it was handed over?</li>
+            </ol>
+          </div>
+          <p class="z-body" style="margin-top:1.5rem;max-width:40rem">
+            Also worth asking, and not a question the vendor can answer alone: which decisions should have a record and do not? That list is usually the gap an examiner finds first. Read the <a href="/insurance/ai-vendor-decision-record" style="color:var(--acc)">insurance page</a> for where each question comes from, or see a <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" style="color:var(--acc)">worked claim example</a>.
+          </p>
+        </div>
+
+        <div class="cl-block" style="margin-top:3.5rem;max-width:50rem">
+          <span class="z-eyebrow">How to score</span>
+          <h2 class="z-h2" style="margin-top:1rem">One point per question answered from the record.</h2>
+          <div style="overflow-x:auto;margin-top:1.75rem">
+            <table style="width:100%;min-width:34rem;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary)">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--line)">
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text);width:22%">Score</th>
+                  <th style="padding:0.7rem 0.6rem;font-weight:600;color:var(--text)">What it means</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--line)"><td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">12–14</strong></td><td style="padding:0.7rem 0.6rem">A decision record a carrier can rely on.</td></tr>
+                <tr style="border-bottom:1px solid var(--line)"><td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">8–11</strong></td><td style="padding:0.7rem 0.6rem">Close. Reasons, review or timing are incomplete.</td></tr>
+                <tr style="border-bottom:1px solid var(--line)"><td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">4–7</strong></td><td style="padding:0.7rem 0.6rem">Observability data. You can debug it; a carrier cannot read it.</td></tr>
+                <tr><td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">0–3</strong></td><td style="padding:0.7rem 0.6rem">Logs. The decision has to be reconstructed after the fact.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cl-block" style="margin-top:4rem;max-width:44rem">
+          <span class="z-eyebrow">If you want it checked</span>
+          <h2 class="z-h2" style="margin-top:1rem">Run the checklist against one workflow.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The readiness assessment takes one AI workflow, answers every question against a real decision, and gives you the gaps in writing. €4,500, delivered in five days, credited toward the full <a href="/plans" style="color:var(--acc)">AI vendor review engagement</a>.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            To produce and read records yourself, the recorder and checker are free and open source. The <a href="/decision-record" style="color:var(--acc)">Decision Record</a> page explains the fields behind the questions.
+          </p>
+        </div>
+
+        <div class="cl-block" style="margin-top:3.5rem;max-width:46rem;padding-top:1.5rem;border-top:1px solid var(--line)">
+          <p class="z-body" style="font-size:0.85rem;color:var(--text-muted)">
+            <strong style="color:var(--text-secondary)">Not legal advice.</strong> Check with your carrier and counsel. EPI Labs is not affiliated with the NAIC. The insurance questions are ours; they help you answer the NAIC's supplement, which is a draft and does not require them.
+          </p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>

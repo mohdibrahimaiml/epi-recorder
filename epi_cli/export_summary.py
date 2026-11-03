@@ -96,6 +96,47 @@ def _decision_label(value: str | None) -> str:
     return _titleize(text)
 
 
+_AMOUNT_KEYS = (
+    "payable_usd",
+    "net_payable_usd",
+    "amount_usd",
+    "settlement_usd",
+    "payout_usd",
+    "total_usd",
+    "amount",
+)
+
+
+def _amount_from_output(output: Any) -> float | None:
+    if not isinstance(output, dict):
+        return None
+    for key in _AMOUNT_KEYS:
+        value = output.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+            return float(value)
+    return None
+
+
+def _decision_headline(value: str | None, output: Any = None) -> str:
+    """The decision exactly as it was recorded, not a category inferred from it.
+
+    A machine identifier such as ``deny_claim`` is still normalised, because no
+    reviewer can read it. A phrase the agent recorded — "partial payment" — is
+    shown as written, and the amount is carried through, so the headline cannot
+    say "Approved" when the decision that took effect was a partial payment.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return "Decision not stated"
+    if " " not in raw:
+        return _decision_label(raw)
+    label = raw[:1].upper() + raw[1:]
+    amount = _amount_from_output(output)
+    if amount is not None and f"{amount:,.0f}" not in label:
+        label = f"{label}, ${amount:,.0f}"
+    return label
+
+
 def _review_outcome_label(
     value: str | None, *, human_signed: bool = False, signed: bool = False
 ) -> str:
@@ -240,6 +281,7 @@ def _decision_detail(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "outcome": outcome,
+        "output": decision.get("output"),
         "rationale": rationale,
         "basis": basis,
         "served_model": served_model,
@@ -378,7 +420,7 @@ def _derive_outcome(
     decision = _decision_detail(steps)
     if decision.get("outcome"):
         state = "human-reviewed" if (human_signed or signed) else "system-recorded"
-        return _decision_label(str(decision["outcome"])), state
+        return _decision_headline(str(decision["outcome"]), decision.get("output")), state
 
     latest_review = None
     if review_info and isinstance(review_info.get("reviews"), list) and review_info["reviews"]:
@@ -502,7 +544,7 @@ def _describe_step(step: dict[str, Any]) -> str:
         )
 
     if kind == "agent.decision":
-        return f"Final decision recorded: {_decision_label(content.get('decision') or content.get('action'))}."
+        return f"Final decision recorded: {_decision_headline(content.get('decision') or content.get('action'), content.get('output'))}."
 
     if kind.endswith(".end"):
         return "Workflow completed."
@@ -579,7 +621,7 @@ def _build_text_summary(
         "",
         "DECISION AND REASONS",
         "-" * 21,
-        f"Outcome: {_decision_label(str(decision.get('outcome') or '')) or outcome}",
+        f"Outcome: {outcome}",
         f"Principal reasons: {decision.get('rationale') or 'Not recorded'}",
         f"Data and rules relied on: {_basis_text(decision.get('basis') or {}) if decision.get('basis') else _policy_basis_text(policy_eval)}",
         f"Model: {_model_line(decision)}",
@@ -1006,7 +1048,7 @@ def _build_html_summary(
       <div class="detail-list">
         <div class="detail-row"><dt>Goal</dt><dd>{_html.escape(_render_value(manifest.goal))}</dd></div>
         <div class="detail-row"><dt>Notes</dt><dd>{_html.escape(_render_value(manifest.notes))}</dd></div>
-        <div class="detail-row"><dt>Decision</dt><dd>{_html.escape(_decision_label(((decision_step or {}).get("content") or {}).get("decision") if decision_step else None))}</dd></div>
+        <div class="detail-row"><dt>Decision</dt><dd>{_html.escape(_decision_headline(((decision_step or {}).get("content") or {}).get("decision"), ((decision_step or {}).get("content") or {}).get("output")))}</dd></div>
         <div class="detail-row"><dt>Headline</dt><dd>{_html.escape(_analysis_headline(analysis))}</dd></div>
       </div>
     </section>

@@ -13,8 +13,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "website"
 PAGE = SITE / "insurance" / "ai-vendor-decision-record" / "index.html"
-CHECKLIST_TXT = SITE / "assets" / "naic-ai-decision-record-checklist.txt"
-CHECKLIST_PDF = SITE / "assets" / "naic-ai-decision-record-checklist.pdf"
+CHECKLIST_TXT = SITE / "assets" / "checklist.txt"
+CHECKLIST_PDF = SITE / "assets" / "checklist.pdf"
 SAMPLE = SITE / "assets" / "demo" / "naic-claim-override.html"
 SAMPLE_EPI = SITE / "assets" / "demo" / "naic-claim-override.epi"
 CANONICAL_CHECKLIST = SITE / "assets" / "decision-record-checklist.txt"
@@ -101,18 +101,17 @@ def test_states_what_the_record_leaves_out():
     assert "no model weights" in lowered
 
 
-def test_page_carries_all_ten_questions():
+def test_page_points_at_the_one_checklist():
     text = _page()
-    for question in QUESTIONS:
-        assert question in text, question
+    assert 'href="/checklist"' in text
+    assert 'href="/assets/checklist.pdf"' in text
+    # The four insurance additions are summarised in prose, not re-listed.
+    assert "Did the reviewer agree with the AI" not in text
 
 
-def test_checklist_text_carries_all_ten_questions_and_scores():
+def test_checklist_text_carries_all_fourteen_questions():
     text = CHECKLIST_TXT.read_text(encoding="utf-8")
-    questions = re.findall(r"^\d+\.\s", text, re.M)
-    assert len(questions) == 10, questions
-    for question in QUESTIONS:
-        assert question in text, question
+    assert len(re.findall(r"^\d+\.\s", text, re.M)) == 14
     assert "Every no is a gap" in text
 
 
@@ -122,12 +121,22 @@ def test_checklist_avoids_cryptography_vocabulary():
         assert term not in text, term
 
 
-def test_links_to_the_sample_checklist_and_canonical_page():
+def test_links_to_the_sample_the_checklist_and_the_record_page():
     text = _page()
     assert 'href="/assets/demo/naic-claim-override.html"' in text
     assert 'href="/assets/demo/naic-claim-override.epi"' in text
-    assert 'href="/assets/naic-ai-decision-record-checklist.pdf"' in text
+    assert 'href="/checklist"' in text
     assert 'href="/decision-record"' in text
+
+
+def test_quotes_the_nyfs_audit_right_clause_verbatim():
+    """CL7 paragraph 37, quoted exactly: "qualified auditing entities", not auditors."""
+    text = _page()
+    assert "provide audit rights or entitle the insurer to receive audit reports by qualified auditing entities" in text
+    assert "require the third-party vendor to cooperate with the insurer regarding regulatory inquiries and investigations" in text
+    assert "https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07" in text
+    # The scope caveat must survive: it is underwriting and pricing, in New York.
+    assert "underwriting and pricing" in text
 
 
 def test_sample_artifact_is_committable():
@@ -144,13 +153,15 @@ def test_sample_is_labelled_invented():
     assert "CLM-2026-04417" in html
 
 
-def test_homepage_and_canonical_checklist_link_to_the_insurance_page():
+def test_the_checklist_two_paths_reach_the_insurance_page():
+    # The one checklist page links to the insurance argument; the legacy text
+    # file is generated from the same source and must not drift.
+    checklist_page = (SITE / "checklist" / "index.html").read_text(encoding="utf-8")
+    assert 'href="/insurance/ai-vendor-decision-record"' in checklist_page
     canonical = CANONICAL_CHECKLIST.read_text(encoding="utf-8")
-    assert "/insurance/ai-vendor-decision-record" in canonical
-    # The canonical checklist must still have exactly ten numbered questions.
-    assert len(re.findall(r"^\d+\.\s", canonical, re.M)) == 10
+    assert canonical == (SITE / "assets" / "checklist.txt").read_text(encoding="utf-8")
     record_page = (SITE / "decision-record" / "index.html").read_text(encoding="utf-8")
-    assert 'href="/insurance/ai-vendor-decision-record"' in record_page
+    assert 'href="/checklist"' in record_page
 
 
 def test_sitemap_lists_the_page():

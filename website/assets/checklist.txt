@@ -1,0 +1,66 @@
+# The AI decision record checklist
+
+Ten questions for any AI decision, then four more for insurance
+
+Pick one real decision the AI touched. Answer from the record itself, not from what the vendor could assemble for an exam. Every no is a gap.
+
+## The ten questions
+
+1. What was decided, in plain language?
+   Field: The decision
+
+2. What outcome was recorded, and when?
+   Field: Timing
+
+3. What inputs and data did the model rely on?
+   Field: Inputs
+
+4. Which model and version answered?
+   Field: Model
+
+5. What rules, policy or limit applied?
+   Field: Rules
+
+6. What reasons were recorded for the decision?
+   Field: Reasons
+
+7. Who or what approved it, and when?
+   Field: Approval
+
+8. If a human approval was required, is it attached to this record?
+   Field: Sign-off
+
+9. What happened next — the action taken or the customer outcome?
+   Field: Outcome
+
+10. Can the reviewer read this without the vendor's system?
+   Field: Portability
+
+## For insurance: four more questions
+
+11. Did the reviewer agree with the AI, change it, or override it?
+   Field: Human review
+
+12. Which version of the policy or rule was in force on the day of the decision?
+   Field: Version in force
+
+13. Was the record made at the time of the decision, not assembled later for an exam?
+   Field: Contemporaneous
+
+14. Would the carrier notice if the record were changed after it was handed over?
+   Field: Tamper-evident
+
+## How to score
+
+One point per question you can answer from the record itself.
+
+| Score | What it means |
+|---|---|
+| 12-14 | A decision record a carrier can rely on. |
+| 8-11  | Close. Reasons, review or timing are incomplete. |
+| 4-7   | Observability data. You can debug it; a carrier cannot read it. |
+| 0-3   | Logs. The decision has to be reconstructed after the fact. |
+
+Start with the decisions that should have a record and do not. That list is usually the gap an examiner finds first, and the one a carrier cannot answer from the vendor's dashboard.
+
+epilabs.org/checklist  |  Not legal advice. Check with your carrier and counsel.
