@@ -34,3 +34,18 @@ def test_no_polyglot_by_default_claim():
         assert "is a valid HTML+ZIP polyglot binary" not in text, name
         assert "is a self-contained HTML+ZIP polyglot binary" not in text, name
         assert "data-only" in text.lower(), name
+
+def test_sample_is_labelled_integrity_only():
+    """The demo sample must not imply a PASS: its signer is not pinned."""
+    home = _read("index.html")
+    verify = _read("verify/index.html")
+    assert "signer unknown" in home
+    assert "signer unknown" in verify
+    # The honest PASS path is the local demo, not the downloadable sample.
+    assert "epi demo" in home
+
+
+def test_sample_files_exist():
+    assert (SITE / "assets" / "sample.epi").is_file()
+    assert (SITE / "assets" / "demo" / "decision-example.epi").is_file()
+
