@@ -229,3 +229,10 @@ def test_licensing_document_states_the_boundary():
     # Published MIT versions cannot be un-licensed by a later change.
     assert "4.9.0" in text
 
+def test_public_package_declares_mit_and_paid_package_does_not():
+    import tomllib
+
+    data = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    assert data["project"]["license"] == "MIT"
+    assert "LICENSE" in data["project"]["license-files"]
+
