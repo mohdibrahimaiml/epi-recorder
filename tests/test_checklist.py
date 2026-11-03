@@ -46,11 +46,14 @@ def test_page_and_assets_exist():
 
 
 def test_pdf_is_one_page():
+    # No optional PDF library: the release gate does not install one, and a test
+    # that needs pypdf fails the build instead of checking the page count.
     data = PDF.read_bytes()
     assert data[:5] == b"%PDF-"
-    from pypdf import PdfReader
-
-    assert len(PdfReader(str(PDF)).pages) == 1
+    counts = [int(n) for n in re.findall(rb"/Count\s+(\d+)", data)]
+    assert counts, "the page tree should declare a page count"
+    assert counts[0] == 1, counts
+    assert len(re.findall(rb"/Type\s*/Page[^s]", data)) == 1
 
 
 def test_page_lists_the_ten_then_the_four():
