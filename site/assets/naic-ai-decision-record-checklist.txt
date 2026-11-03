@@ -1,0 +1,50 @@
+# The minimum AI decision record
+
+Ten questions for an insurance AI vendor, per decision
+
+Pick one real decision the AI touched. Answer from the record itself, not from what the vendor could assemble for an exam. Every no is a gap.
+
+1. For one specific decision, can you show what data the AI saw?
+   Field: Inputs
+
+2. Can you show what it recommended or decided, and why?
+   Field: Decision and reasons
+
+3. Which policy provisions or rules did it rely on, and which version was in force that day?
+   Field: Policy and version
+
+4. Which model and version answered, and would the record show if it changed later?
+   Field: Model and version
+
+5. Who reviewed it, and did they agree, change or override the AI?
+   Field: Human review
+
+6. When did each step happen?
+   Field: Time
+
+7. Was the record made at the time of the decision, not assembled later for an exam?
+   Field: Contemporaneous
+
+8. Can the carrier open it without logging into the vendor's system?
+   Field: Portable
+
+9. Would the carrier notice if the record were changed after it was handed over?
+   Field: Tamper-evident
+
+10. Can you list decisions that should have a record but don't?
+   Field: Coverage
+
+## How to score
+
+One point per question you can answer from the record itself.
+
+| Score | What it means |
+|---|---|
+| 9-10 | A decision record a carrier can rely on. |
+| 6-8  | Close. Reasons, review or timing are incomplete. |
+| 3-5  | Observability data. You can debug it; a carrier cannot read it. |
+| 0-2  | Logs. The decision has to be reconstructed after the fact. |
+
+Every no is a gap. The readiness assessment closes them.
+
+epilabs.org/insurance/ai-vendor-decision-record  |  Not legal advice. Check with your carrier and counsel.  |  Not affiliated with the NAIC.

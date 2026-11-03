@@ -37,3 +37,6 @@ the rules, the reasons, the approval and the outcome, readable in a browser and
 checkable offline.
 
 See a real one: https://epilabs.org/decision-record
+
+Working in insurance? The same record, asked in the NAIC's terms, with a
+worked claim example: https://epilabs.org/insurance/ai-vendor-decision-record
