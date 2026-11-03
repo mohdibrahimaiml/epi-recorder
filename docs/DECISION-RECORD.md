@@ -11,7 +11,7 @@ customer, auditor or insurer asks:
 > "Why was this case decided this way, and who approved it?"
 
 Live page: <https://epilabs.org/decision-record>  
-Download the checklist: <https://epilabs.org/assets/decision-record-checklist.md>  
+Download the checklist: <https://epilabs.org/assets/decision-record-checklist.txt>  
 See real output: <https://epilabs.org/assets/demo/decision-record-example.html>
 
 ## What is inside

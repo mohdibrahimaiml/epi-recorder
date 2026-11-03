@@ -1,0 +1,39 @@
+# The Decision Record completeness checklist
+
+Ten questions a reviewer should be able to answer from one AI decision record.
+Score one point per question you can answer **from the record itself**, without
+asking the vendor to log in or search another system.
+
+1. **What was decided, in plain language?**
+2. **What outcome was recorded, and when?**
+3. **What inputs and data did the model rely on?**
+4. **Which model and version answered?**
+5. **What rules, policy or limit applied?**
+6. **What reasons were recorded for the decision?**
+7. **Who or what approved it, and when?**
+8. **If a human approval was required, is it attached to this record?**
+9. **What happened next — the action taken or the customer outcome?**
+10. **Can the customer or reviewer read this record without the vendor's system?**
+
+## How to read the score
+
+| Score | What it means |
+|---|---|
+| **9–10** | A Decision Record. A reviewer can understand and check the case. |
+| **6–8** | Close. The decision is visible, but reasons, approval or outcome are incomplete. |
+| **3–5** | Observability data, not a decision record. You can debug it; a customer cannot. |
+| **0–2** | Logs. The decision has to be reconstructed after the fact. |
+
+## Why this matters
+
+Logs answer "what did the system do?" Traces answer "where did time go?"
+Dashboards answer "is the control in place?" A Decision Record answers the
+question a customer, auditor or insurer actually asks:
+
+> "Why was this case decided this way, and who approved it?"
+
+EPI produces one Decision Record per decision: the goal, the steps, the model,
+the rules, the reasons, the approval and the outcome, readable in a browser and
+checkable offline.
+
+See a real one: https://epilabs.org/decision-record
