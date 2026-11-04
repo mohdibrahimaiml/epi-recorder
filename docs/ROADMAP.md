@@ -52,6 +52,18 @@ and the standing rule for everything else.
 - **Account linking.** GitHub and Google are separate identities today. Link
   them only when both emails are verified, or show the provider clearly enough
   that an empty workspace is never a surprise.
+- **Decouple the envelope spec version from the package version.** Before any
+  5.0 rename. `spec_version` currently defaults to `get_version()` in
+  `epi_core/schemas.py`, and `epi_core/serialize.py` treats any version below
+  4.4.1 — including every `0.x` — as the legacy `cbor` format. So a package
+  renumber would silently change the signature canonicalization of every newly
+  sealed record, and the browser verifier's dispatch (matched to the 4.4.1
+  tuple) would read them differently. Fix: a frozen `ENVELOPE_SPEC_VERSION`
+  that `spec_version` defaults to, with `producer_version` carrying the package
+  version, plus a test that a `0.x` and a `5.x` package both write the frozen
+  spec and verify offline. Filed 4 November 2026 during the 4.9.0-only PyPI
+  cleanup; deliberately deferred so it is not done in the same breath as a
+  version change.
 
 ## Everything else
 
