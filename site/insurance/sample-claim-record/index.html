@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A worked claim record | EPI Labs</title>
+  <meta name="description" content="One invented homeowners claim, recorded end to end: the AI recommends a denial under an exclusion, the adjuster overrides it to a partial payment of $8,400. This is the document a carrier receives.">
+  <link rel="canonical" href="https://epilabs.org/insurance/sample-claim-record">
+  <meta property="og:title" content="A worked claim record | EPI Labs">
+  <meta property="og:description" content="The AI recommends denial. The adjuster overrides it to a partial payment. One record, invented data, every step timestamped.">
+  <meta property="og:url" content="https://epilabs.org/insurance/sample-claim-record">
+  <meta name="theme-color" content="#0D1117">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <style>
+    .sc-block { padding-left: 1.5rem; padding-right: 1.5rem; }
+    @media (min-width: 40rem) { .sc-block { padding-left: 2.5rem; padding-right: 2.5rem; } }
+    @media (min-width: 64rem) { .sc-block { padding-left: 3rem; padding-right: 3rem; } }
+    .sc-paper { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #f5f1ea; }
+    .sc-paper img { display: block; width: 100%; height: auto; }
+    .sc-paper__fade { position: absolute; inset: auto 0 0 0; height: 9rem;
+      background: linear-gradient(to bottom, rgba(245,241,234,0) 0%, rgba(245,241,234,0.92) 55%, #f5f1ea 100%); }
+    .sc-paper__cta { position: absolute; inset: auto 0 1.5rem 0; display: flex; justify-content: center; }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/checklist">Checklist</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/checklist">Checklist</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="sc-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
+            <span class="z-eyebrow">Worked example &middot; invented data</span>
+            <h1 id="sc-heading" class="z-h1" style="margin-top:1rem">
+              The AI says deny. The adjuster <span style="color:var(--acc-envelope)">pays $8,400</span>.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:38rem">
+              One homeowners claim, recorded as it happened: the model recommends a denial under exclusion E.2(c), the adjuster reads the same file, disagrees, and signs an override approving a partial payment. Every step is timestamped and every reason is recorded.
+            </p>
+            <div style="margin-top:1.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" class="z-btn-primary">Open the record full screen</a>
+              <a href="/assets/demo/naic-claim-override.epi" download class="z-btn-ghost">Download the .epi file</a>
+            </div>
+            <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:34rem">
+              Claim CLM-2026-04417, policy HO3-5510287. Invented claim, invented people, invented policy wording. The structure, timestamps and review are real.
+            </p>
+          </div>
+          <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
+            <p class="z-body">
+              This is the document your customer, auditor or examiner actually receives. It is not a dashboard and not a log export: it is one readable page per decision.
+            </p>
+            <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+              Why it looks like paper: <a href="#why-paper" style="color:var(--acc)">the record is a document, not a web page</a>.
+            </p>
+          </div>
+        </div>
+
+        <div class="sc-block" style="margin-top:3rem;max-width:64rem">
+          <div class="sc-paper">
+            <img src="/assets/demo/naic-claim-override-preview.jpg" width="1200" height="860" loading="lazy"
+                 alt="Top of the decision record for claim CLM-2026-04417: the heading reads Partial payment, $8,400, followed by case overview and the decision and reasons.">
+            <div class="sc-paper__fade" aria-hidden="true"></div>
+            <div class="sc-paper__cta">
+              <a href="/assets/demo/naic-claim-override.html" target="_blank" rel="noopener" class="z-btn-primary">Read the whole record</a>
+            </div>
+          </div>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted);max-width:44rem">
+            A screenshot of the recorder's own output, not a mock-up. The full record opens on its own page and prints cleanly.
+          </p>
+        </div>
+
+        <div class="sc-block" style="margin-top:4rem;max-width:50rem">
+          <span class="z-eyebrow">What to look at</span>
+          <h2 class="z-h2" style="margin-top:1rem">Four things a carrier checks.</h2>
+          <div class="z-tri-grid" style="margin-top:2rem">
+            <div class="z-tri-card"><div class="z-tri-card__step">01 &middot; Inputs</div><h3 class="z-h3-card" style="margin-top:0.5rem">What the model saw</h3><p class="z-body" style="margin-top:0.75rem">The claim lookup, clause E.2(c), form revision rev-2024-07, and the adjuster's report — each with a timestamp.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">02 &middot; Decision</div><h3 class="z-h3-card" style="margin-top:0.5rem">The denial, and why</h3><p class="z-body" style="margin-top:0.75rem">Model gpt-4o-2024-08-06 recommends denial, records its reason, and cites the clause it relied on.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">03 &middot; Override</div><h3 class="z-h3-card" style="margin-top:0.5rem">The person who disagreed</h3><p class="z-body" style="margin-top:0.75rem">The adjuster signs an override at 16:04:59, with the reason: the supply line ruptured suddenly, so the 14-day seepage exclusion does not cover the whole loss.</p></div>
+            <div class="z-tri-card"><div class="z-tri-card__step">04 &middot; Outcome</div><h3 class="z-h3-card" style="margin-top:0.5rem">What was actually paid</h3><p class="z-body" style="margin-top:0.75rem">The headline reads <strong style="color:var(--text)">Partial payment, $8,400</strong> — the recorded decision, not a category inferred from the word "pay".</p></div>
+          </div>
+        </div>
+
+        <div class="sc-block" style="margin-top:4rem;max-width:46rem" id="why-paper">
+          <span class="z-eyebrow">Why it looks like that</span>
+          <h2 class="z-h2" style="margin-top:1rem">The record is a document, not a web page.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The record keeps its own paper style on purpose. It is the thing a carrier attaches to a claim file or hands to an examiner, and it has to read the same whether it is opened today, printed, or read five years from now. Dressing it in the marketing site's theme would tie the evidence to a brand that can change.
+          </p>
+          <p class="z-body" style="margin-top:1rem">
+            This page is the wrapper: site navigation, context and the downloads. What sits inside the frame is the artifact itself. The same applies to the <a href="/decision-record" style="color:var(--acc)">Decision Record</a> and its sample.
+          </p>
+        </div>
+
+        <div class="sc-block" style="margin-top:3.5rem;max-width:44rem">
+          <span class="z-eyebrow">Use it</span>
+          <h2 class="z-h2" style="margin-top:1rem">Check your own decisions against it.</h2>
+          <p class="z-body" style="margin-top:1rem">
+            The <a href="/checklist" style="color:var(--acc)">checklist</a> has ten questions for any AI decision plus four more for insurance. Answer them from one real record and every no is a gap. For where these fields come from in the NAIC's draft supplement, read the <a href="/insurance/ai-vendor-decision-record" style="color:var(--acc)">insurance page</a>.
+          </p>
+          <p style="margin-top:1.75rem"><a href="/checklist" class="z-btn-primary">Open the checklist</a></p>
+        </div>
+
+        <div class="sc-block" style="margin-top:3.5rem;max-width:46rem;padding-top:1.5rem;border-top:1px solid var(--line)">
+          <p class="z-body" style="font-size:0.85rem;color:var(--text-muted)">
+            <strong style="color:var(--text-secondary)">Invented example.</strong> Claim CLM-2026-04417, policy HO3-5510287 and the people named in the record do not exist. The model response is scripted; the record format, timestamps, signature and review are real. <strong style="color:var(--text-secondary)">Not legal advice.</strong> EPI Labs is not affiliated with the NAIC.
+          </p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>

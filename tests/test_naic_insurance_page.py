@@ -123,7 +123,9 @@ def test_checklist_avoids_cryptography_vocabulary():
 
 def test_links_to_the_sample_the_checklist_and_the_record_page():
     text = _page()
-    assert 'href="/assets/demo/naic-claim-override.html"' in text
+    # The entry point is the framed page, not the raw artifact, so a reader
+    # lands on something with site navigation and context.
+    assert 'href="/insurance/sample-claim-record"' in text
     assert 'href="/assets/demo/naic-claim-override.epi"' in text
     assert 'href="/checklist"' in text
     assert 'href="/decision-record"' in text
