@@ -70,6 +70,11 @@ class ManifestModel(BaseModel):
     Contains metadata, file hashes, and cryptographic signature.
     """
     
+    # NOTE: this defaults to the *package* version, and serialize.py treats any
+    # version below 4.4.1 (including every 0.x) as the legacy cbor format. So
+    # renumbering the package silently changes the signature canonicalization of
+    # every new record. Freeze this to a constant before the 5.0 rename; see
+    # "Decouple the envelope spec version from the package version" in ROADMAP.md.
     spec_version: str = Field(
         default_factory=get_version,
         description="EPI envelope/canonicalization version (selects legacy json vs JCS vs CBOR)"
