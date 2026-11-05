@@ -4,6 +4,21 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The case number is sealed into the record.** `record(case_id="ORD-9001")`
+  was accepted and then dropped: `ManifestModel` had no `case_id`, so a reviewer
+  could not find an artifact by claim or order number without opening the steps.
+  The field is optional, omitted from the signature preimage when unset, so
+  artifacts sealed before it still verify unchanged.
+- **A review handoff no longer reads as a constraint violation.** `epi demo`
+  approves a $900 refund and hands it to a manager, because the policy requires
+  review above $500. The analyzer read the $900 as a breach of the $500 limit
+  and the summary led with "P2 (Constraint Violation)" and "Controls failed: 1"
+  on the first file a new user opens. A commitment followed by a
+  `review.handoff` or `agent.approval.request` is now treated as the control
+  working, not as an unapproved breach.
+
 ### Changed
 
 - **EPI Cloud has one access model: a free, self-serve workspace.** Signing in

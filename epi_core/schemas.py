@@ -91,6 +91,17 @@ class ManifestModel(BaseModel):
             "when None so old signatures still verify."
         ),
     )
+
+    case_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The business case this run decided, such as a claim or order "
+            "number. Sealed into the signed header so a reviewer can find the "
+            "record without opening the steps. Absent (None) on artifacts sealed "
+            "before this field existed; omitted from the signature preimage when "
+            "None so old signatures still verify."
+        ),
+    )
     
     workflow_id: UUID = Field(
         default_factory=uuid4,
