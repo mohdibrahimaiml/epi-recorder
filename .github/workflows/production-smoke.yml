@@ -22,12 +22,28 @@ jobs:
       - name: Pages and trust anchors
         run: |
           set -euo pipefail
+
+          # Say WHICH check failed and why. The old version was silent under
+          # `set -e`, so a single stale anchor failed the run with no clue
+          # beyond "exit code 1".
           check() {
-            local body
-            body=$(curl -fsS "$1")
-            grep -qF "$2" <<<"$body"
+            local url="$1" needle="$2" body
+            if ! body=$(curl -fsS --max-time 30 "$url"); then
+              echo "FAIL: could not fetch $url" >&2
+              return 1
+            fi
+            if ! grep -qF "$needle" <<<"$body"; then
+              echo "FAIL: $url does not contain '$needle'" >&2
+              echo "      (page returned $(wc -c <<<"$body") bytes)" >&2
+              return 1
+            fi
+            echo "ok: $url contains '$needle'"
           }
-          check https://epilabs.org/ "Decision records"
+
+          # Anchors are product claims, not marketing copy. The homepage line
+          # moved from "Decision records" to "Decision Record" in the Nov 2026
+          # site rewrite; #[259] changed the page, this check had not caught up.
+          check https://epilabs.org/ "Decision Record"
           check https://epilabs.org/verify/ "Verify a .epi file"
           check https://epilabs.org/plans "Create a free workspace"
           check https://epilabs.org/reviewers "4.9.0"
