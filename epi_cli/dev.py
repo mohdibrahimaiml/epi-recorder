@@ -107,6 +107,9 @@ def run_refund_agent():
         notes=DEMO_NOTES,
         metrics=DEMO_METRICS,
         metadata_tags=DEMO_TAGS,
+        # Seal the case number into the signed manifest so a reviewer can find
+        # the record by order id without opening the steps.
+        case_id="ORD-9001",
     ):
         from epi_recorder import get_current_session
         session = get_current_session()

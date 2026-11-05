@@ -1046,6 +1046,7 @@ class EpiRecorderSession:
                 metrics=self.metrics,
                 approved_by=self.approved_by,
                 tags=self.metadata_tags,
+                case_id=self.case_id,
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 
@@ -1183,6 +1184,7 @@ class EpiRecorderSession:
                 metrics=self.metrics,
                 approved_by=self.approved_by,
                 tags=self.metadata_tags,
+                case_id=self.case_id,
                 governance={"org_root": self.org_root} if self.org_root else None,
             )
 

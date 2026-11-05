@@ -18,6 +18,7 @@ FROZEN_MANIFEST_FIELDS = {
     "analysis_status",
     "analysis_error",
     "goal",
+    "case_id",
     "notes",
     "metrics",
     "source",

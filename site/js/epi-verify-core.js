@@ -238,6 +238,9 @@
     if (copy.producer_version === null || copy.producer_version === undefined) {
       delete copy.producer_version;
     }
+    if (copy.case_id === null || copy.case_id === undefined) {
+      delete copy.case_id;
+    }
     return copy;
   }
 

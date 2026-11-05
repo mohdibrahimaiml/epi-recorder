@@ -881,6 +881,23 @@ def _is_error_value(value: object) -> bool:
     return True
 
 
+def _review_handoff_after(steps: list[dict], after_index: int) -> bool:
+    """True when the run hands this decision to a person after the commitment.
+
+    A threshold such as "refunds above $500 need manager review" is satisfied by
+    requesting that review, not only by staying under the number. The handoff
+    has to come after the commitment, so an approval recorded before the agent
+    acted still does not rescue an unapproved commitment.
+    """
+    for later in steps:
+        if later.get("index", 0) <= after_index:
+            continue
+        kind = str(later.get("kind") or "").lower()
+        if kind in ("review.handoff", "agent.approval.request"):
+            return True
+    return False
+
+
 def _has_error(step: dict) -> bool:
     """Determine if a step contains an error signal.
 
@@ -1415,6 +1432,14 @@ class FaultAnalyzer:
                 c_key_path = breach["key_path"]
                 policy_rule = breach["policy_rule"]
                 c_step_num = c_step_idx + 1
+
+                # A commitment above a threshold is not a violation when the
+                # run hands the decision to a person afterwards: the threshold
+                # asked for review, and the review request is in the record.
+                # Without this, the starter demo (approve $900, then hand off to
+                # a refund manager) was reported as a failed control.
+                if not policy_rule and _review_handoff_after(steps, step_idx):
+                    continue
 
                 rule_id = policy_rule.id if policy_rule else None
                 rule_name = policy_rule.name if policy_rule else None
