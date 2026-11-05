@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>About — EPI Labs</title>
+<meta name="description" content="EPI Labs is run by Mohd Ibrahim Afridi. We build open-source decision records for AI agents.">
+<link rel="canonical" href="https://epilabs.org/about">
+<meta property="og:title" content="About — EPI Labs">
+<meta property="og:description" content="EPI Labs is run by Mohd Ibrahim Afridi. We build open-source decision records for AI agents.">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+<main id="main">
+<div class="page">
+<span class="tag">About</span>
+<h1>About EPI Labs</h1>
+<p class="lede">We build decision records for AI agents: one signed file per decision, which the vendor&rsquo;s customer can check for themselves.</p>
+
+<h2>Why it exists</h2>
+<p>AI companies now sell decision-making agents to insurers, lenders and banks. Sooner or later the customer asks: what did your AI decide in this case, why, which model answered, and who approved it? And can we check that the answer was not rewritten afterwards? Logs and dashboards are kept by the vendor, so they cannot settle that. A sealed record that the customer keeps a copy of can.</p>
+
+<h2>Who is behind it</h2>
+<p><strong>Mohd Ibrahim Afridi</strong>, founder. EPI Labs is a founder-run company. Mohd Ibrahim writes the code, runs the engagements, and answers every email himself.</p>
+<p>Contact: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a> &middot; <a href="https://github.com/mohdibrahimaiml" target="_blank" rel="noopener" style="color:var(--acc)">GitHub</a></p>
+
+<h2>How we work</h2>
+<ul>
+<li><strong>Open source first.</strong> Recording, sealing and checking are MIT-licensed and free. Your customer never needs an account with us.</li>
+<li><strong>Honest limits.</strong> A seal proves a record has not changed and who sealed it. It does not prove everything was captured, and it does not make anyone compliant. We publish our <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--acc)">known limitations</a>.</li>
+<li><strong>Checkable releases.</strong> Releases are published to PyPI through Trusted Publishing, with build attestations and signed tags.</li>
+</ul>
+
+<h2>Standards work</h2>
+<p>EPI Recorder is listed as a community implementation in the <a href="https://github.com/aaif/project-proposals/issues/42" target="_blank" rel="noopener" style="color:var(--acc)">AAIF TRACE specification proposal</a>, and independent JCS conformance vectors cover EPI manifests (<a href="https://github.com/chopmob-cloud/algovoi-jcs-conformance-vectors" target="_blank" rel="noopener" style="color:var(--acc)">AlgoVoi</a>). See <a href="/standards" style="color:var(--acc)">Standards</a>.</p>
+
+<h2>Work with us</h2>
+<p>Start with a readiness assessment or the full engagement on <a href="/plans" style="color:var(--acc)">Plans</a>, or just try the tool: <code class="k">pip install epi-recorder</code>.</p>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS · MIT License · v4.9.0</span>
+    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
+  addEventListener('scroll',onS,{passive:true});onS();
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

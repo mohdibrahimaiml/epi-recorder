@@ -82,7 +82,7 @@
                   </a>
                 </li>
                 <li>
-                  <a href="#mod-envelope" role="menuitem" class="z-popover__item">
+                  <a href="/how-it-works" role="menuitem" class="z-popover__item">
                     <span class="z-popover__dot" style="background-color:#10b981" aria-hidden="true"></span>
                     <span>
                       <span class="z-popover__title">Envelope v2 Container</span>
@@ -91,7 +91,7 @@
                   </a>
                 </li>
                 <li>
-                  <a href="#mod-trust" role="menuitem" class="z-popover__item">
+                  <a href="/trust" role="menuitem" class="z-popover__item">
                     <span class="z-popover__dot" style="background-color:#f59e0b" aria-hidden="true"></span>
                     <span>
                       <span class="z-popover__title">Three-Layer Trust</span>
@@ -100,7 +100,7 @@
                   </a>
                 </li>
                 <li>
-                  <a href="#mod-capture" role="menuitem" class="z-popover__item">
+                  <a href="/integrations" role="menuitem" class="z-popover__item">
                     <span class="z-popover__dot" style="background-color:#8b5cf6" aria-hidden="true"></span>
                     <span>
                       <span class="z-popover__title">Stack &amp; Gateway Capture</span>
@@ -109,7 +109,7 @@
                   </a>
                 </li>
                 <li>
-                  <a href="#mod-witness" role="menuitem" class="z-popover__item">
+                  <a href="/trust#witness" role="menuitem" class="z-popover__item">
                     <span class="z-popover__dot" style="background-color:#06b6d4" aria-hidden="true"></span>
                     <span>
                       <span class="z-popover__title">EPI Cloud Witness</span>
@@ -118,7 +118,7 @@
                   </a>
                 </li>
                 <li>
-                  <a href="#mod-policy" role="menuitem" class="z-popover__item">
+                  <a href="/how-it-works#policy" role="menuitem" class="z-popover__item">
                     <span class="z-popover__dot" style="background-color:#f43f5e" aria-hidden="true"></span>
                     <span>
                       <span class="z-popover__title">Policy &amp; Fault Analyzer</span>
@@ -153,11 +153,11 @@
     <a href="/" style="color:var(--foreground)">Platform</a>
     <a href="/how-it-works">Architecture</a>
     <a href="/decision-record" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#10b981;margin:0"></span>Decision Record</a>
-    <a href="#mod-envelope" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#10b981;margin:0"></span> Envelope v2 Container</a>
-    <a href="#mod-trust" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f59e0b;margin:0"></span> Three-Layer Trust</a>
-    <a href="#mod-capture" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#8b5cf6;margin:0"></span> Stack &amp; Gateway Capture</a>
-    <a href="#mod-witness" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#06b6d4;margin:0"></span> EPI Cloud Witness</a>
-    <a href="#mod-policy" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f43f5e;margin:0"></span> Policy &amp; Fault Analyzer</a>
+    <a href="/how-it-works" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#10b981;margin:0"></span> Envelope v2 Container</a>
+    <a href="/trust" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f59e0b;margin:0"></span> Three-Layer Trust</a>
+    <a href="/integrations" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#8b5cf6;margin:0"></span> Stack &amp; Gateway Capture</a>
+    <a href="/trust#witness" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#06b6d4;margin:0"></span> EPI Cloud Witness</a>
+    <a href="/how-it-works#policy" class="z-mobile-menu__sub"><span class="z-popover__dot" style="background:#f43f5e;margin:0"></span> Policy &amp; Fault Analyzer</a>
     <a href="/verify/">Verify a .epi file</a>
     <a href="/trust">Trust model</a>
     <a href="/plans">Pricing</a>
@@ -394,7 +394,7 @@
             <div class="z-tri-card__step">New York insurance</div>
             <h3 class="z-h3-card" style="margin-top:0.5rem">The vendor&rsquo;s secrecy is not a defence</h3>
             <p class="z-body" style="margin-top:0.875rem">
-              Insurers must keep documentation of the AI systems they use, including vendors&rsquo;, and give the specific information behind a declination. They may not rely on a vendor&rsquo;s proprietary algorithm to avoid being specific.
+              For underwriting and pricing, insurers must keep documentation of the AI systems they use, including vendors&rsquo;, and give the specific reasons behind an adverse decision. They may not rely on a vendor&rsquo;s proprietary algorithm to avoid being specific.
             </p>
             <p class="z-body" style="margin-top:0.875rem;font-size:0.8rem">
               <a href="https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07" target="_blank" rel="noopener" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">NYDFS Insurance Circular Letter No. 7 (2024)</a>
@@ -719,7 +719,7 @@
             <div id="tamperLabBar" class="z-tamper-lab" role="region" aria-label="Tamper simulation lab for loaded file">
               <div class="z-tamper-lab__head">
                 <span>LOADED FILE: <strong id="tamperFileName" style="color:var(--foreground)">—</strong></span>
-                <span style="color:var(--text-muted)">Interactive Tamper Test</span>
+                <span style="color:var(--text-muted)">Try changing one byte</span>
               </div>
               <p style="margin-top:0.35rem;color:var(--text-body);font-family:var(--font-sans);font-size:0.8125rem">
                 Want to verify that a single modified byte breaks the seal? Flip 1 byte in this loaded file in memory and re-run WebCrypto:
@@ -768,7 +768,7 @@
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              Every guarantee in the <code style="font-family:var(--font-mono)">.epi</code> column is a mathematical property of the open container format — not a promise from EPI Labs.
+              The first three rows of the <code style="font-family:var(--font-mono)">.epi</code> column follow from the open file format and its signatures, so anyone can check them without trusting EPI Labs. The last row is how we price the verifier: free and open source.
             </p>
           </div>
         </div>
@@ -791,7 +791,7 @@
                 <td class="is-epi">&#10003; Offline CLI &amp; browser (MIT)</td>
               </tr>
               <tr>
-                <td>Tamper-evident after the fact</td>
+                <td>A changed record is caught</td>
                 <td>&#10007; No signature to check</td>
                 <td>&#9888; Controlled by host</td>
                 <td class="is-epi">&#10003; 1 altered byte breaks Ed25519</td>
@@ -800,7 +800,7 @@
                 <td>Survives if the vendor disappears</td>
                 <td>Partial</td>
                 <td>&#10007; Dies with SaaS</td>
-                <td class="is-epi">&#10003; Self-contained HTML+ZIP forever</td>
+                <td class="is-epi">&#10003; Open ZIP format, MIT verifier (optional browser-openable copy with <code>--with-viewer</code>)</td>
               </tr>
               <tr>
                 <td>Separates Seal vs. Identity vs. Policy</td>
@@ -809,10 +809,10 @@
                 <td class="is-epi">&#10003; Enforced in code (--policy strict)</td>
               </tr>
               <tr>
-                <td>Auditor or insurer needs an account</td>
+                <td>Your customer or auditor needs an account</td>
                 <td>Sometimes</td>
                 <td>Always</td>
-                <td class="is-epi">&#10003; Never ($0 forever)</td>
+                <td class="is-epi">&#10003; Never (verifier is free, €0)</td>
               </tr>
             </tbody>
           </table>
@@ -912,7 +912,7 @@
                 </h3>
                 <div id="faq-p5" role="region" aria-labelledby="faq-b5" class="z-faq-panel">
                   <div class="z-faq-panel__inner">
-                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal and verify your first decision offline in 60 seconds — or start with an <strong style="color:var(--foreground);font-weight:500">AI vendor review engagement (from €4,500)</strong>: one workflow, a record per decision, and a copy your customer can check without asking you to log in.
+                    Run <code>pip install epi-recorder &amp;&amp; epi demo --no-browser</code> to record, seal and verify your first decision offline in 60 seconds — or start with the <strong style="color:var(--foreground);font-weight:500">AI vendor review engagement</strong>, beginning with a readiness assessment (€4,500, 5 days, credited toward the full engagement): we map one workflow, show a record per decision, and a copy your customer can check without asking you to log in. See <a href="/plans" style="color:var(--acc-envelope);text-decoration:underline">Plans</a>.
                   </div>
                 </div>
               </li>
@@ -957,11 +957,11 @@
         <div class="z-footer-col">
           <p class="z-footer-col__heading">Modules</p>
           <ul class="z-footer-col__list">
-            <li><a href="#mod-envelope" class="z-footer-col__link">Envelope v2</a></li>
-            <li><a href="#mod-trust" class="z-footer-col__link">Identity Pinning</a></li>
-            <li><a href="#mod-capture" class="z-footer-col__link">Gateway Proxy</a></li>
-            <li><a href="#mod-witness" class="z-footer-col__link">Cloud Witness</a></li>
-            <li><a href="#mod-policy" class="z-footer-col__link">Policy Analyzer</a></li>
+            <li><a href="/how-it-works" class="z-footer-col__link">Envelope v2</a></li>
+            <li><a href="/trust" class="z-footer-col__link">Identity Pinning</a></li>
+            <li><a href="/integrations" class="z-footer-col__link">Gateway Proxy</a></li>
+            <li><a href="/trust#witness" class="z-footer-col__link">Cloud Witness</a></li>
+            <li><a href="/how-it-works#policy" class="z-footer-col__link">Policy Analyzer</a></li>
           </ul>
         </div>
 
@@ -987,7 +987,8 @@
         </div>
       </div>
       <div style="font-size:.7rem;color:var(--text-muted);margin-top:0.5rem">v4.9.0 on PyPI</div>
-    </footer>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+</footer>
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
 
