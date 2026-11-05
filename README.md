@@ -198,7 +198,7 @@ demo.epi
 ├── policy.json                # Sealed rulebook copy (when policy ran)
 ├── policy_evaluation.json     # Control results (when policy ran)
 ├── analysis.json              # Fault / policy analysis (when generated at seal)
-├── viewer.html                # Offline forensic UI
+├── viewer.html                # Offline viewer (only with --with-viewer)
 ├── VERIFY.txt                 # Plain-text auditor instructions
 └── artifacts/notarization/    # RFC 3161 tokens (when a TSA answered)
 ```
