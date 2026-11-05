@@ -126,6 +126,12 @@ def witness_content_digest(manifest: Any) -> str:
     import rfc8785
 
     data = manifest.model_dump(mode="json") if hasattr(manifest, "model_dump") else dict(manifest)
+    # Match the browser and the signature preimage: an absent optional field is
+    # omitted, not hashed as null. Without this, adding `case_id` (None on most
+    # records) changed the digest of every existing artifact.
+    from epi_core.serialize import omit_absent_optional_hash_fields
+
+    omit_absent_optional_hash_fields(data, "ManifestModel")
     data.pop("signature", None)
     for _field in _PRESENTATION_FIELDS:
         data.pop(_field, None)

@@ -604,6 +604,9 @@ function prepareManifestCopy(manifest) {
     if (copy.producer_version === null || copy.producer_version === undefined) {
         delete copy.producer_version;
     }
+    if (copy.case_id === null || copy.case_id === undefined) {
+        delete copy.case_id;
+    }
     return copy;
 }
 
@@ -713,6 +716,7 @@ async function verifyManifestSignature(manifest, rawManifestText) {
             if (parsed.content_truncated === null || parsed.content_truncated === undefined) delete parsed.content_truncated;
             if (parsed.policy_load_status === null || parsed.policy_load_status === undefined) delete parsed.policy_load_status;
             if (parsed.producer_version === null || parsed.producer_version === undefined) delete parsed.producer_version;
+        if (parsed.case_id === null || parsed.case_id === undefined) delete parsed.case_id;
             // normalize datetimes
             _normalizeDatetimeRec(parsed);
             // sorted JSON preserving __num raw text
