@@ -33,6 +33,9 @@ Current release: **v4.9.0** · [changelog](https://github.com/mohdibrahimaiml/ep
 > since it was sealed, and that it was signed by the key you pinned. It does **not** prove the agent
 > captured everything it did, that the decision was correct, or that you are compliant. It is
 > evidence input, not a certificate.
+>
+> EPI is **not a compliance guarantee** and **does not provide legal advice**. Whether evidence
+> satisfies a specific regulatory threshold is for your auditor or notified body to decide.
 
 ---
 
