@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Privacy Policy — EPI Labs</title>
-<meta name="description" content="EPI Labs privacy policy. The CLI is offline-first; no telemetry. Minimal data for hosted services.">
+<meta name="description" content="What EPI Labs collects, why, who processes it, and how to have it deleted.">
 <link rel="canonical" href="https://epilabs.org/privacy">
-<meta property="og:title" content="How it works — EPI Labs">
-<meta property="og:description" content="How EPI seals AI agent runs into portable .epi files. Seal, identity, and policy are three different questions. Offline verify.">
+<meta property="og:title" content="Privacy Policy — EPI Labs">
+<meta property="og:description" content="What EPI Labs collects, why, who processes it, and how to have it deleted.">
 <meta name="theme-color" content="#F7F5F0">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
@@ -59,20 +59,42 @@
 </div>
 <main id="main">
 <div class="page">
-<span class="tag">Privacy Policy</span>
+<span class="tag">Privacy</span>
 <h1>Privacy Policy</h1>
-<p class="lede">EPI Labs privacy policy. The CLI is offline-first; no telemetry. Minimal data for hosted services.</p>
+<p class="lede">The open-source tool runs on your machine and sends us nothing. The website and EPI Cloud collect only what they need to answer you and run the service.</p>
+<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">LAST UPDATED: 5 NOVEMBER 2026</p>
 
-<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">LAST UPDATED: AUGUST 2026</p>
-<h2>The short version</h2>
-<p>The CLI is offline-first: recording, sealing, and verifying happen on your machine. The CLI collects no telemetry. Your .epi files never leave your machine unless you explicitly share them (<code class="k">epi share</code>) or upload them yourself for a hosted report.</p>
-<h2>Browser verification</h2>
-<p>The private check at /verify/ runs entirely in your browser tab. Evidence files are processed locally in JavaScript and are not uploaded — this is enforced architecturally, not by policy.</p>
-<h2>Hosted services</h2>
-<p>If you create an account or purchase a sprint, we process the contact information you give us to deliver the service. We do not sell data. Analytics on the public website are aggregate and privacy-respecting (Plausible).</p>
-<h2>Contact</h2>
-<p><a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a></p>
+<h2>Who we are</h2>
+<p>EPI Labs is run by its founder, Mohd Ibrahim Afridi, who is responsible for the personal data described here. Contact: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>. See <a href="/about" style="color:var(--acc)">About</a>.</p>
 
+<h2>The open-source tool (epi-recorder)</h2>
+<ul>
+<li>Recording, sealing and checking happen on your machine. Your <code class="k">.epi</code> files are not sent to us.</li>
+<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>).</li>
+<li>When sealing, the tool asks a public timestamp service (by default freetsa.org, then DigiCert) to timestamp the file. Only a hash of the record is sent, never its contents. Turn this off with <code class="k">EPI_NOTARIZE=0</code>.</li>
+<li>If you set up a witness or EPI Cloud, a hash-only fingerprint of each sealed record goes to the log you configured.</li>
+</ul>
+
+<h2>Checking a file in your browser</h2>
+<p>The check at <a href="/verify/" style="color:var(--acc)">/verify</a> runs in your browser tab. The file you drop in is not uploaded.</p>
+
+<h2>The website</h2>
+<p>The website uses no analytics, advertising or tracking cookies. Our host (Cloudflare) keeps standard server logs, such as IP address and pages requested, for security and reliability.</p>
+
+<h2>The contact form</h2>
+<p>When you send the form on <a href="/plans" style="color:var(--acc)">Plans</a>, we receive your name, work email, company and message, and use them only to reply and to discuss the engagement you asked about. The form is processed by our server on Render. We keep messages while we are in contact with you and for up to 24 months after, then delete them. If the form fails, it opens your own email program instead.</p>
+
+<h2>EPI Cloud (private beta)</h2>
+<p>If you sign in to <a href="https://cloud.epilabs.org/" style="color:var(--acc)">cloud.epilabs.org</a>, we store your account details from your sign-in provider (your name, email and account ID), your workspace, the records you choose to upload or witness, and the share links you create. We use them only to run the service for you. Hosting is on Cloudflare.</p>
+
+<h2>What we never do</h2>
+<p>We do not sell personal data, use it for advertising, or train AI models on your records.</p>
+
+<h2>Your rights</h2>
+<p>You can ask us for a copy of your data, to correct it, or to delete it, and you can object to how we use it. Email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>; we answer within 30 days. If you are in the EU or UK, you can also complain to your data protection authority.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, we update the date above and describe the change here.</p>
 </div>
 </main>
 <footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
@@ -80,6 +102,7 @@
     <span>&copy; 2026 EPI LABS · MIT License · v4.9.0</span>
     <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
   </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
 </footer>
 <script src="/js/theme.js"></script>
 <script>

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "epi-recorder"
 version = "4.9.0"
-description = "Tamper-evident evidence infrastructure for AI agents. Capture, seal, verify, and audit AI decisions in a single portable file."
+description = "Decision records for AI agents: one signed .epi file per decision that your customer, auditor or regulator can check offline."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
 license = "MIT"
@@ -33,7 +33,7 @@ keywords = [
     "ci",
     "execution-trace",
     "reproducibility",
-    "tamper-evident",
+    "decision-records",
     "aiuc-1",
     "aiuc"
 ]
