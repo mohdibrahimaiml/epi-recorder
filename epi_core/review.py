@@ -811,6 +811,38 @@ def make_approval_entry(
     return entry
 
 
+def make_release_approval_entry(
+    *,
+    release_id: str,
+    release_digest: str,
+    decision: str,
+    approver_name: str,
+    key_fingerprint_hex: str,
+    reason: str | None = None,
+    signed_at: str | None = None,
+) -> dict[str, Any]:
+    """The ``reviews[]`` entry that signs one release version.
+
+    ``release_digest`` is inside the signed review content, so an approval
+    cannot be moved to another release version: its signature stops matching.
+    ``entry_type`` is not ``approval``, so decision-level human-approval
+    verification never mistakes it for an approval of a run.
+    """
+    return {
+        "entry_type": "release_approval",
+        "approval_version": "1.0.0",
+        "release_id": str(release_id),
+        "release_digest": str(release_digest),
+        "decision": str(decision),
+        "reason": str(reason or ""),
+        "signed_at": str(signed_at or _utc_now()),
+        "approver": {
+            "name": str(approver_name or ""),
+            "key_fingerprint": str(key_fingerprint_hex or ""),
+        },
+    }
+
+
 def approval_entry_of(record: ReviewRecord) -> dict[str, Any] | None:
     """The approval entry *record* carries, or ``None`` if it is not one."""
     entries = record.reviews if isinstance(record.reviews, list) else []

@@ -144,7 +144,7 @@ def flush(
             error,
             cloud_login=_cloud,
             customer=_saved_customer,
-            kind="heartbeat" if _url_to_kind.get(url) == "epi.heartbeat" else None,
+            kind=_url_to_kind.get(url) or None,
         )
         _plain(f"  Not delivered: {info['reason']} — {info['fix']}")
         if info["status"] == 410:
@@ -244,7 +244,11 @@ def _load_witness_entries(
         return [], f"{log_path} could not be read ({exc})"
 
     def _is_heartbeat(item: dict) -> bool:
-        return str(item.get("type") or "") == "epi.heartbeat"
+        return str(item.get("type") or "") in (
+            "epi.heartbeat",
+            "epi.release",
+            "epi.release_approval",
+        )
 
     def _from_item(item: dict) -> dict | None:
         payload_raw = item.get("payload_raw")
@@ -1327,7 +1331,7 @@ def heartbeat(
         failed = True
         error = next(iter((outcome.get("failed") or {}).values()), None) or outcome.get("error")
         if error:
-            info = describe_witness_failure(error, kind="heartbeat")
+            info = describe_witness_failure(error, kind="epi.heartbeat")
             _plain(f"{key_name}: not delivered — {info['reason']}. {info['fix']}")
         else:
             _plain(

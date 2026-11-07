@@ -64,6 +64,36 @@ class SealChainModel(BaseModel):
     prev_content_digest: str = Field(default="genesis", description="Content digest of prev_seq")
 
 
+class ReleaseComponentModel(BaseModel):
+    """One pinned piece of a release: a file hash or an exact identifier."""
+
+    type: Literal["policy", "prompt", "model", "tool_schema", "code", "config"]
+    name: str = Field(..., min_length=1, description="Logical name used for matching")
+    sha256: Optional[str] = Field(None, description="File digest (files)")
+    identifier: Optional[str] = Field(None, description="Exact identifier (models, code, tools)")
+    path: Optional[str] = Field(None, description="Where the file was read; info only, not in the digest")
+    dirty: Optional[bool] = Field(None, description="code: built from an uncommitted tree")
+
+
+class ReleaseModel(BaseModel):
+    """The signed release record: what version of the decision logic was approved."""
+
+    release_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    version: str = Field(..., min_length=1)
+    created_at: str
+    required_approvals: int = Field(default=1, ge=1)
+    components: List[ReleaseComponentModel] = Field(default_factory=list)
+    release_digest: str = Field(..., min_length=1)
+
+
+class ReleaseRefModel(BaseModel):
+    """What a decision record points at."""
+
+    release_id: str = Field(..., min_length=1)
+    release_digest: str = Field(..., min_length=1)
+
+
 class ManifestModel(BaseModel):
 
     @model_validator(mode="before")
@@ -128,6 +158,41 @@ class ManifestModel(BaseModel):
             "Lets the customer detect a seal the vendor never reported. Absent "
             "(None) on artifacts sealed before this field existed; omitted from "
             "the signature preimage when None so old signatures still verify."
+        ),
+    )
+
+    record_kind: Optional[Literal["decision", "release"]] = Field(
+        default=None,
+        description=(
+            "'release' on a signed release record; None on ordinary decision "
+            "artifacts (including every artifact sealed before this field). "
+            "Omitted from the signature preimage when None."
+        ),
+    )
+
+    release: Optional[ReleaseModel] = Field(
+        default=None,
+        description=(
+            "On a release artifact: the exact components approved for one "
+            "version of the decision logic. Omitted from the signature preimage "
+            "when None so old signatures still verify."
+        ),
+    )
+
+    release_ref: Optional[ReleaseRefModel] = Field(
+        default=None,
+        description=(
+            "On a decision artifact: the release it was produced under. Written "
+            "before signing. Omitted from the signature preimage when None."
+        ),
+    )
+
+    runtime_components: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description=(
+            "What EPI actually observed at run time (policy file loaded, served "
+            "model ids, declared prompt/tool/config files). Compared with the "
+            "release at verify time. Omitted from the signature preimage when None."
         ),
     )
     

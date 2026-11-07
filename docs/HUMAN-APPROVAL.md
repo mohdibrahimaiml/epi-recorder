@@ -187,6 +187,31 @@ a human decision.
 
 ---
 
+## Verifying a release approval
+
+A release record uses the same approver keys and registry, with one difference:
+the signed review content includes the release digest.
+
+```bash
+epi release approve releases/credit-policy-3.2.epi --as alice@bank.com
+epi verify claim.epi --release releases/credit-policy-3.2.epi
+```
+
+An approval for one version cannot satisfy another: the digest changes, so the
+signature no longer matches. As with a run approval, the verifier decides
+against **its own** approver registry; a key that is not pinned is reported as
+unpinned and does not count toward the threshold. The verifier's
+`--min-approvals` wins when higher than the release's `required_approvals`.
+
+Approvals are still added **after** the release is sealed, because the
+signature covers the sealed bytes. `epi verify` therefore checks *when* the
+approval happened using independent evidence where it exists (the approval's
+own RFC 3161 token, or the `received_at` of its `epi.release_approval` witness
+report) and reports `APPROVED AFTER USE` when the threshold was only reached
+after the decision was sealed. It never calls that a clean match.
+
+---
+
 ## What an approval does NOT prove
 
 - **Not that the approval came *before* the action.** A signed approval is added

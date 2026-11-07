@@ -187,6 +187,18 @@
         if (typeof o[k] === 'string') o[k] = epiUtcZ(o[k]); else walk(o[k]);
       }
     })(manifest);
+    if (manifest.record_kind === null || manifest.record_kind === undefined) {
+      delete manifest.record_kind;
+    }
+    if (manifest.release === null || manifest.release === undefined) {
+      delete manifest.release;
+    }
+    if (manifest.release_ref === null || manifest.release_ref === undefined) {
+      delete manifest.release_ref;
+    }
+    if (manifest.runtime_components === null || manifest.runtime_components === undefined) {
+      delete manifest.runtime_components;
+    }
     return manifest;
   }
 

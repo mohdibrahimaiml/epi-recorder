@@ -610,6 +610,18 @@ function prepareManifestCopy(manifest) {
     if (copy.seal_chain === null || copy.seal_chain === undefined) {
         delete copy.seal_chain;
     }
+    if (copy.record_kind === null || copy.record_kind === undefined) {
+        delete copy.record_kind;
+    }
+    if (copy.release === null || copy.release === undefined) {
+        delete copy.release;
+    }
+    if (copy.release_ref === null || copy.release_ref === undefined) {
+        delete copy.release_ref;
+    }
+    if (copy.runtime_components === null || copy.runtime_components === undefined) {
+        delete copy.runtime_components;
+    }
     return copy;
 }
 
@@ -720,6 +732,10 @@ async function verifyManifestSignature(manifest, rawManifestText) {
             if (parsed.policy_load_status === null || parsed.policy_load_status === undefined) delete parsed.policy_load_status;
             if (parsed.producer_version === null || parsed.producer_version === undefined) delete parsed.producer_version;
         if (parsed.case_id === null || parsed.case_id === undefined) delete parsed.case_id;
+            if (parsed.record_kind === null || parsed.record_kind === undefined) delete parsed.record_kind;
+            if (parsed.release === null || parsed.release === undefined) delete parsed.release;
+            if (parsed.release_ref === null || parsed.release_ref === undefined) delete parsed.release_ref;
+            if (parsed.runtime_components === null || parsed.runtime_components === undefined) delete parsed.runtime_components;
             if (parsed.seal_chain === null || parsed.seal_chain === undefined) delete parsed.seal_chain;
             // normalize datetimes
             _normalizeDatetimeRec(parsed);

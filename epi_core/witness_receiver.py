@@ -44,7 +44,7 @@ def _log(message: str) -> None:
     print(f"[{stamp}] {message}", file=sys.stderr, flush=True)
 
 
-_ACCEPTED_TYPES = ("epi.sealed", "epi.heartbeat")
+_ACCEPTED_TYPES = ("epi.sealed", "epi.heartbeat", "epi.release", "epi.release_approval")
 
 
 def make_handler(

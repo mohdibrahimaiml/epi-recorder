@@ -6,6 +6,21 @@ All notable changes to EPI Recorder are documented here.
 
 ### Added
 
+- **Signed release records tied to decisions.** `epi release create` seals a
+  release record pinning the policy file, prompts, model ids, tool schemas,
+  code commit and config by hash or exact identifier; `required_approvals` is
+  inside the digest. `epi release approve` adds an approval signed with the
+  approver's own key and reports it to the witness as `epi.release_approval`
+  (so approval time is independently observed). `record(..., release=...)`
+  writes `release_ref` before signing and records the components EPI actually
+  observed (`runtime_components`); `epi verify --release` reports MATCHES,
+  DRIFT, UNDECLARED, UNAPPROVED RELEASE, APPROVED AFTER USE, DIRTY RELEASE,
+  RELEASE NOT FOUND or AMBIGUOUS RELEASE. `epi verify --min-approvals N` lets
+  the verifier's threshold win; `--require-release` turns a mismatch into a
+  failure; `epi release history` lists versions in seal order. See
+  `docs/RELEASES.md`. Old artifacts keep their exact verdict (all new manifest
+  fields are omitted from the signature preimage when absent).
+
 - **Seal sequence numbers and gap detection.** Every seal made with a signing
   key now carries `seal_chain` (`ledger_id`, `key_fingerprint`, `seq`,
   `prev_seq`, `prev_content_digest`) inside the signed manifest, and the

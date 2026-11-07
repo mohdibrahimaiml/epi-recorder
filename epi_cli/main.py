@@ -636,6 +636,26 @@ def verify(
             "(or a case-level approval)."
         ),
     ),
+    release: Path | None = typer.Option(
+        None,
+        "--release",
+        help="The signed release .epi this decision was produced under.",
+    ),
+    release_dir: Path | None = typer.Option(
+        None,
+        "--release-dir",
+        help="Directory to resolve release_ref by id (never guesses between two matches).",
+    ),
+    min_approvals: int | None = typer.Option(
+        None,
+        "--min-approvals",
+        help="Verifier's minimum release approvals; wins when higher than the release's.",
+    ),
+    require_release: bool = typer.Option(
+        False,
+        "--require-release",
+        help="FAIL when no release is declared, or the release does not match.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -670,6 +690,10 @@ def verify(
         witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
         require_human_approval=require_human_approval,
+        release=release,
+        release_dir=release_dir,
+        min_approvals=min_approvals,
+        require_release=require_release,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -1000,6 +1024,14 @@ app.add_typer(
     witness_app,
     name="witness",
     help="Customer witness: seal reports (status/flush/drop), gap audit, heartbeat, and the receiver (serve)",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.release import app as release_app
+app.add_typer(
+    release_app,
+    name="release",
+    help="Signed release records: pin policy/prompts/models/code, approve, and list versions",
     rich_help_panel="Everyday",
 )
 

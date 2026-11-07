@@ -171,12 +171,15 @@ def test_gateway_share_enforces_rate_limit(tmp_path):
 
 def test_gateway_share_enforces_quota(tmp_path):
     artifact = _make_epi(tmp_path, name="quota.epi")
+    size = artifact.stat().st_size
+    max_upload = max(1024, size + 1)
+    quota = max(max_upload, size * 2 + 50)
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     settings = _share_settings(
         tmp_path / "share",
-        share_max_upload_bytes=2500,
+        share_max_upload_bytes=max_upload,
         share_rate_limit_per_hour=20,
-        share_quota_bytes_per_30d=2500,
+        share_quota_bytes_per_30d=quota,
     )
     app = create_app(worker=worker, settings=settings)
 

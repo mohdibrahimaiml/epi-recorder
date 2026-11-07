@@ -450,6 +450,7 @@ session-only seed, passphrase wrapping) are tracked in
 | Silent re-seal after the fact | Yes, with customer witness configured | Independent witness log + `--witness-log` |
 | Withheld middle seal / reordered chain | Yes, with sequence numbers | Signed `seal_chain` + `epi witness audit` |
 | Withheld tail of the chain | Yes, when `epi witness heartbeat` runs | Signed heartbeat vs. received log |
+| Decision logic drifted from what was approved | Yes, for observed components | Signed release record + `epi verify --release` |
 | Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |

@@ -813,6 +813,126 @@ def _members_match_manifest(epi_file: Path) -> bool:
         return False
 
 
+def _sealed_tsa_time(epi_path: Path, manifest) -> str | None:
+    """Earliest validated RFC 3161 gen_time for this artifact, or None."""
+    try:
+        block = _build_timestamps_block(Path(epi_path), manifest, [])
+    except Exception:
+        return None
+    times = [
+        str(entry.get("gen_time"))
+        for entry in block.get("seal") or []
+        if entry.get("status") == "valid" and entry.get("gen_time")
+    ]
+    return min(times) if times else None
+
+
+def _check_release_report(
+    epi_file: Path,
+    manifest,
+    *,
+    release: Path | None,
+    release_dir: Path | None,
+    min_approvals: int | None,
+    witness_log: Path | None,
+) -> dict:
+    """Compare a decision with its release. Never raises."""
+    from epi_core.release import check_decision_release, resolve_release
+
+    entries: list[dict] = []
+    if witness_log:
+        try:
+            from epi_cli.witness import _load_witness_entries
+
+            entries, _error = _load_witness_entries(
+                Path(witness_log), include_heartbeats=True
+            )
+        except Exception:
+            entries = []
+
+    release_tsa = None
+    try:
+        resolved = resolve_release(
+            getattr(manifest, "release_ref", None),
+            release_path=release,
+            release_dir=release_dir,
+        )
+        if resolved.get("status") == "found":
+            release_tsa = _sealed_tsa_time(resolved["path"], resolved["manifest"])
+    except Exception:
+        pass
+
+    return check_decision_release(
+        decision_manifest=manifest,
+        release_path=release,
+        release_dir=release_dir,
+        min_approvals=min_approvals,
+        witness_entries=entries,
+        decision_tsa_time=_sealed_tsa_time(epi_file, manifest),
+        release_tsa_time=release_tsa,
+    )
+
+
+_RELEASE_FAIL_STATUSES = {
+    "drift",
+    "undeclared",
+    "unapproved",
+    "not_found",
+    "ambiguous",
+    "dirty",
+    "verification_failed",
+}
+_RELEASE_WARN_STATUSES = {
+    "not_observed",
+    "approved_after_use",
+    "release_after_decision",
+}
+
+
+def _format_release_lines(info: dict) -> list[str]:
+    if not info or info.get("status") == "not_declared":
+        return [
+            "  [dim]- Release:      not declared (this decision has no release_ref)[/dim]"
+        ]
+    status = str(info.get("status") or "")
+    approvals = info.get("approvals") or {}
+    label = f"{info.get('name') or info.get('release_id') or 'release'} {info.get('version') or ''}".strip()
+    text = {
+        "match": "MATCHES",
+        "drift": "DRIFT",
+        "undeclared": "UNDECLARED",
+        "unapproved": "UNAPPROVED RELEASE",
+        "not_found": "RELEASE NOT FOUND",
+        "ambiguous": "AMBIGUOUS RELEASE",
+        "dirty": "DIRTY RELEASE",
+        "approved_after_use": "APPROVED AFTER USE",
+        "release_after_decision": "RELEASE SEALED AFTER DECISION",
+        "not_observed": "NOT FULLY OBSERVED",
+        "verification_failed": "RELEASE DOES NOT VERIFY",
+    }.get(status, status.upper() or "UNKNOWN")
+    color = (
+        "green"
+        if status == "match"
+        else ("red" if status in _RELEASE_FAIL_STATUSES else "yellow")
+    )
+    detail = str(info.get("detail") or "")
+    line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
+    line += f"\n  [dim]                approved by {approvals.get('have', 0)}/{approvals.get('required', 0)}[/dim]"
+    if detail and status != "match":
+        line += f"\n  [dim]                {detail}[/dim]"
+    if status == "dirty" and not detail:
+        line += "\n  [dim]                built from uncommitted code[/dim]"
+    order = info.get("order") or {}
+    if order:
+        basis = order.get("basis") or "vendor clock"
+        independent = "" if order.get("independent") else ", not independent"
+        line += (
+            f"\n  [dim]- Order:        {str(order.get('status') or '').replace('_', ' ')} "
+            f"(basis: {basis}{independent})[/dim]"
+        )
+    return [line]
+
+
 def _format_sequence_line(info: dict) -> str:
     """One display line for the seal's chain position (never a verdict)."""
     if not info or not info.get("present"):
@@ -1611,6 +1731,10 @@ def verify_command(
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
     require_human_approval: bool = False,
+    release: Path | None = None,
+    release_dir: Path | None = None,
+    min_approvals: int | None = None,
+    require_release: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -2282,6 +2406,28 @@ def verify_command(
         except Exception:
             pass
 
+        # ========== STEP 4.96: SIGNED RELEASE RECORD ==========
+        # Compare the decision with the release it names. Display/JSON only
+        # unless --require-release turns a mismatch into a failure.
+        try:
+            report["release"] = _check_release_report(
+                epi_file,
+                manifest,
+                release=release,
+                release_dir=release_dir,
+                min_approvals=min_approvals,
+                witness_log=witness_log,
+            )
+            report["release"]["requested"] = bool(
+                release or release_dir or require_release
+            )
+        except Exception as _rel_err:
+            report["release"] = {
+                "status": "verification_failed",
+                "present": True,
+                "detail": f"release check crashed: {_rel_err}",
+            }
+
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
         apply_policy(report, active_policy)
@@ -2303,6 +2449,31 @@ def verify_command(
                 _cc_first = _cc_messages[0] if _cc_messages else "capture checkpoint verification failed"
                 if _cc_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cc_first}".strip()
+            except Exception:
+                pass
+        # Signed release: MATCHES never changes a verdict. A mismatch is a
+        # warning by default and a FAIL with --require-release (one consistent
+        # exit-code rule for drift, undeclared, unapproved, after-use, etc.).
+        _rel_status = str((report.get("release") or {}).get("status") or "")
+        if _rel_status and _rel_status != "match":
+            try:
+                if _rel_status == "not_declared":
+                    if require_release:
+                        report["decision"]["status"] = "FAIL"
+                        report["decision"]["reason"] = (
+                            "no signed release was declared for this decision "
+                            "(--require-release)"
+                        )
+                elif require_release:
+                    report["decision"]["status"] = "FAIL"
+                    report["decision"]["reason"] = (
+                        f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
+                    )
+                elif report["decision"].get("status") == "PASS":
+                    report["decision"]["status"] = "WARN"
+                    report["decision"]["reason"] = (
+                        f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
+                    )
             except Exception:
                 pass
         # A new-scheme seal token that fails validation means tampering: FAIL
@@ -3098,6 +3269,15 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
     _wit_sequence = _wit.get("sequence")
     if _wit_sequence is not None:
         content_lines.append(_format_sequence_line(_wit_sequence))
+
+    # Signed release record, when the decision declares one (or the caller
+    # asked for the check).
+    _release_block = report.get("release")
+    if isinstance(_release_block, dict) and (
+        _release_block.get("requested")
+        or _release_block.get("status") not in (None, "not_declared")
+    ):
+        content_lines.extend(_format_release_lines(_release_block))
 
     # Human approval (step 3a). One line, and only when the run carries reviews
     # or approval steps, or the operator asked with --require-human-approval.

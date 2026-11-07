@@ -920,6 +920,19 @@ def create_verification_report(
             "detail": "no witness log supplied (--witness-log)",
         },
     )
+    # Signed release surface: verify_command overwrites this with the real
+    # comparison; direct factory consumers get an honest "not declared" default.
+    report.setdefault(
+        "release",
+        {
+            "status": "not_declared",
+            "present": False,
+            "detail": "this decision declares no release (`release=` was not used)",
+            "components": [],
+            "undeclared": [],
+            "approvals": {"have": 0, "required": 0, "approvers": []},
+        },
+    )
     # Timestamp surface: verify_command overwrites this with validated data;
     # direct factory consumers get an honest "not evaluated" default so the
     # human report never implies validation happened.

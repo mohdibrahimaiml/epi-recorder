@@ -507,6 +507,31 @@ for a case the customer knows happened is itself evidence — ask the vendor why
 The payload is hashes and counts only (no content); the goal is included
 only with `witness_include_goal=True`.
 
+## Signed release limits
+
+A signed release record (`docs/RELEASES.md`) pins the components a decision
+may use and `epi verify --release` compares what EPI observed. It does not
+prove the decision was correct, and it cannot see everything:
+
+- **Only observed components are compared.** Code that runs outside the
+  instrumented path, an unobserved prompt, retrieval data, a feature flag or a
+  model alias can differ from the release without being noticed. Anything EPI
+  did not see is shown as "not observed (declared only)", never as a match.
+- The runtime **`policy` component is the `epi_policy.json` EPI loaded**, not
+  the vendor's business logic, weights or prompts unless they are passed in.
+- A matching **model id** is a label, not proof the provider served the same
+  weights or that the same model answered every call.
+- **Ordering** uses an RFC 3161 time, the customer witness `received_at`, the
+  seal sequence, then the vendor clock, in that order, and prints which one it
+  used. Only the first two are independent of the vendor.
+- An **approval** proves a pinned key signed this exact release digest; it
+  does not prove the person saw the truth. Approvals are added after sealing,
+  so a decision whose threshold was only met later is reported as `APPROVED
+  AFTER USE`, never as a clean match.
+- A **dirty** release (uncommitted code) can never match. A release is not a
+  deployment record: it does not prove the matching build is what production
+  actually runs.
+
 ---
 
 ## Last updated

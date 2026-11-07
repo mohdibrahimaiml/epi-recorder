@@ -24,8 +24,14 @@ See real output: <https://epilabs.org/assets/demo/decision-record-example.html>
 | Reasons | Why that outcome was chosen |
 | Rules | The policy, limit or eligibility rule that applied |
 | Model | Which model and version answered, and when |
+| Release | Which approved version of the decision logic produced this record |
 | Approval | Who signed off, with which key — or that none was required |
 | Outcome | The action taken or the customer result |
+
+A decision can name a **signed release record** (`release_ref`): the pinned
+policy file, prompts, models, tool schemas, code commit and config a version
+was approved to use. `epi verify --release release.epi` then compares what EPI
+actually observed with what was approved. See [RELEASES.md](./RELEASES.md).
 
 ## Why not a log
 
