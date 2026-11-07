@@ -917,7 +917,15 @@ def _format_release_lines(info: dict) -> list[str]:
     )
     detail = str(info.get("detail") or "")
     line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
-    line += f"\n  [dim]                approved by {approvals.get('have', 0)}/{approvals.get('required', 0)}[/dim]"
+    # No release was chosen for these, so an "approved by 0/0" count would be
+    # misleading. Show the approval count only once a release was resolved.
+    if status not in ("ambiguous", "not_found", "verification_failed") and int(
+        approvals.get("required") or 0
+    ) > 0:
+        line += (
+            f"\n  [dim]                approved by "
+            f"{approvals.get('have', 0)}/{approvals.get('required', 0)}[/dim]"
+        )
     if detail and status != "match":
         line += f"\n  [dim]                {detail}[/dim]"
     if status == "dirty" and not detail:

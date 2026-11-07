@@ -262,6 +262,7 @@ def test_two_releases_with_the_same_id_are_ambiguous(monkeypatch, tmp_path: Path
         cli_app, ["verify", str(decision), "--release-dir", str(tmp_path)]
     )
     assert "AMBIGUOUS RELEASE" in human.output
+    assert "approved by" not in human.output  # no release was chosen
 
 
 def test_required_approvals_is_inside_the_digest(monkeypatch, tmp_path: Path) -> None:

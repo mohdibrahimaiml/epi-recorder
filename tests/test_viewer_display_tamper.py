@@ -89,7 +89,9 @@ def _render(html, tmp_path):
         browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         page = browser.new_page()
         page.goto(path.as_uri())
-        page.wait_for_timeout(3500)
+        # The viewer hides its boot overlay only after the verification pass;
+        # read the verdict then, never on a fixed sleep.
+        page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
         text = page.inner_text("body")
         browser.close()
     return text

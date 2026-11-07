@@ -57,7 +57,7 @@ def test_browser_viewer_shows_valid_signature_for_non_ascii_goal(goal, monkeypat
         browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         page = browser.new_page()
         page.goto(html.as_uri())
-        page.wait_for_timeout(3500)
+        page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
         text = page.inner_text("body")
         browser.close()
     assert re.search(r"SIGNATURE VALID", text), text[:400]
@@ -75,7 +75,9 @@ def _render(html_bytes, tmp_path):
         browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         page = browser.new_page()
         page.goto(html.as_uri())
-        page.wait_for_timeout(3500)
+        # A clean file legitimately has no #evidence-notice, so wait for the
+        # viewer to finish booting (it hides the overlay after verification).
+        page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
         notice = page.query_selector("#evidence-notice")
         text = notice.inner_text() if notice else None
         browser.close()
