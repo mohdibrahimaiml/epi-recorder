@@ -1811,6 +1811,22 @@ class EPIContainer:
                     manifest=manifest,
                     viewer_html=viewer_html # Pass the inlined viewer HTML for polyglot support
                 )
+                # Seal ledger: the signature is written, so this number can
+                # never be handed to another seal. Re-signing an existing seal
+                # (viewer refresh, transparency receipt) finds no reservation
+                # and is a no-op. A ledger failure never fails the seal.
+                try:
+                    from epi_core.seal_ledger import commit_from_manifest
+                    from epi_core.webhook import witness_content_digest
+
+                    final_manifest = EPIContainer.read_manifest(output_path)
+                    if getattr(final_manifest, "seal_chain", None) is not None:
+                        commit_from_manifest(
+                            final_manifest.seal_chain,
+                            witness_content_digest(final_manifest),
+                        )
+                except Exception:
+                    pass
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
 

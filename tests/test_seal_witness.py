@@ -404,3 +404,387 @@ def test_edited_evidence_against_the_customers_log_is_not_called_repackaged(
         assert "altered after the report" in report["witness"]["detail"]
     finally:
         server.shutdown()
+
+# ---------------------------------------------------------------------------
+# Step 1: seal sequence numbers, audit, heartbeat, re-sign rules
+# ---------------------------------------------------------------------------
+import zipfile  # noqa: E402
+
+def _payload_at(index: int) -> dict:
+
+    return json.loads(CaptureHandler.received[index]["body"].decode("utf-8"))
+
+
+def _write_log(path: Path, payloads: list[dict]) -> None:
+    path.write_text(
+        "".join(
+            json.dumps({**payload, "received_at": "2026-11-01T00:00:0%d+00:00" % i})
+            + "\n"
+            for i, payload in enumerate(payloads)
+        ),
+        encoding="utf-8",
+    )
+
+
+def _resign_with_other_key(tmp_path: Path, source: Path, key_name: str) -> Path:
+    from epi_core.container import EPIContainer
+    from epi_core.keys import KeyManager
+    from epi_core.trust import sign_manifest
+
+    km = KeyManager()
+    if not km.has_key(key_name):
+        km.generate_keypair(key_name)
+    manifest = EPIContainer.read_manifest(source)
+    workspace = tmp_path / f"ws-{key_name}"
+    EPIContainer.unpack(source, workspace)
+    target = tmp_path / f"resigned-{key_name}.epi"
+    EPIContainer.pack(
+        workspace,
+        manifest,
+        target,
+        signer_function=lambda current: sign_manifest(
+            current, km.load_private_key(key_name), key_name
+        ),
+        preserve_generated=True,
+    )
+    return target
+
+
+def _edit_seal_chain(epi_path: Path) -> None:
+    from epi_core.container import EPIContainer
+
+    original = EPIContainer.read_manifest(epi_path)
+    inner = epi_path.with_suffix(".inner.zip")
+    EPIContainer.extract_inner_payload(epi_path, inner)
+    with zipfile.ZipFile(inner, "r") as archive:
+        order = [info.filename for info in archive.infolist()]
+        members = {name: archive.read(name) for name in order}
+    manifest = json.loads(members["manifest.json"])
+    manifest["seal_chain"]["seq"] = int(manifest["seal_chain"]["seq"]) + 1
+    members["manifest.json"] = json.dumps(manifest, indent=2).encode("utf-8")
+    with zipfile.ZipFile(inner, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in order:
+            compress = (
+                zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+            )
+            archive.writestr(name, members[name], compress_type=compress)
+    EPIContainer._write_envelope_from_payload(inner, epi_path, manifest=original)
+
+
+def test_payload_carries_seal_chain_fields(monkeypatch, tmp_path: Path) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        first = _seal(
+            monkeypatch, tmp_path, tmp_path / "one.epi",
+            witness_url=url, witness_secret=SECRET,
+        )
+        second = _seal(
+            monkeypatch, tmp_path, tmp_path / "two.epi",
+            witness_url=url, witness_secret=SECRET,
+        )
+        one = _payload_at(0)
+        two = _payload_at(1)
+
+        from epi_core.container import EPIContainer
+
+        manifest = EPIContainer.read_manifest(first)
+        assert manifest.seal_chain is not None
+        assert one["seal_seq"] == manifest.seal_chain.seq == 1
+        assert one["ledger_id"] == manifest.seal_chain.ledger_id
+        assert one["prev_seq"] == 0
+        assert one["prev_content_digest"] == "genesis"
+
+        manifest_two = EPIContainer.read_manifest(second)
+        assert two["seal_seq"] == manifest_two.seal_chain.seq == 2
+        assert two["ledger_id"] == one["ledger_id"]
+        assert two["prev_seq"] == 1
+        assert two["prev_content_digest"] == one["content_digest"]
+    finally:
+        server.shutdown()
+
+
+def test_editing_seal_chain_breaks_the_signature(monkeypatch, tmp_path: Path) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    sealed = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+    _edit_seal_chain(sealed)
+
+    from epi_core.container import EPIContainer
+    from epi_core.trust import verify_embedded_manifest_signature
+
+    manifest = EPIContainer.read_manifest(sealed)
+    valid, _name, _message = verify_embedded_manifest_signature(manifest)
+    assert valid is False
+
+
+def test_audit_reports_a_missing_number_and_exits_1(
+    monkeypatch, tmp_path: Path
+) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        for name in ("one.epi", "two.epi", "three.epi"):
+            _seal(
+                monkeypatch, tmp_path, tmp_path / name,
+                witness_url=url, witness_secret=SECRET,
+            )
+        log = tmp_path / "received.jsonl"
+        _write_log(log, [_payload_at(0), _payload_at(1), _payload_at(2)])
+
+        clean = runner.invoke(cli_app, ["witness", "audit", str(log)])
+        assert clean.exit_code == 0, clean.output
+        assert "MISSING" not in clean.output
+
+        lines = log.read_text(encoding="utf-8").splitlines()
+        log.write_text("\n".join([lines[0], lines[2]]) + "\n", encoding="utf-8")
+
+        result = runner.invoke(cli_app, ["witness", "audit", str(log)])
+        assert result.exit_code == 1, result.output
+        assert "MISSING #2" in result.output
+    finally:
+        server.shutdown()
+
+
+def test_verify_shows_the_sequence_and_old_files_are_unsequenced(
+    monkeypatch, tmp_path: Path
+) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        sealed = _seal(
+            monkeypatch, tmp_path, tmp_path / "run.epi",
+            witness_url=url, witness_secret=SECRET,
+        )
+        log = tmp_path / "received.jsonl"
+        _write_log(log, [_payload_at(0)])
+
+        result = runner.invoke(
+            cli_app, ["verify", str(sealed), "--json", "--witness-log", str(log)]
+        )
+        assert result.exit_code == 0, result.output
+        sequence = json.loads(result.output)["witness"]["sequence"]
+        assert sequence["present"] is True
+        assert sequence["seq"] == 1
+        assert sequence["in_log"] is True
+        assert sequence["contiguous"] is True
+
+        human = runner.invoke(
+            cli_app, ["verify", str(sealed), "--witness-log", str(log)]
+        )
+        assert "Sequence:" in human.output
+        assert "#1 of chain" in human.output
+
+        # An old artifact has no chain: display says so, verdict is unchanged.
+        from epi_cli.verify import _check_witness_log, _format_sequence_line
+        from epi_core.container import EPIContainer
+
+        golden = (
+            Path(__file__).resolve().parent / "goldens" / "legacy-spec-4.4.0.epi"
+        )
+        golden_manifest = EPIContainer.read_manifest(golden)
+        check = _check_witness_log(golden, golden_manifest, log)
+        assert check["sequence"]["present"] is False
+        assert "not present" in _format_sequence_line(check["sequence"])
+        assert check["status"] == "NOT IN WITNESS LOG"
+    finally:
+        server.shutdown()
+
+
+def test_heartbeat_is_signed_accepted_and_reveals_a_tail_gap(
+    monkeypatch, tmp_path: Path
+) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        _seal(
+            monkeypatch, tmp_path, tmp_path / "run.epi",
+            witness_url=url, witness_secret=SECRET,
+        )
+        monkeypatch.setenv("EPI_WITNESS_URL", url)
+        monkeypatch.setenv("EPI_WITNESS_SECRET", SECRET)
+
+        result = runner.invoke(cli_app, ["witness", "heartbeat", "--key", "default"])
+        assert result.exit_code == 0, result.output
+        payloads = [_payload_at(i) for i in range(len(CaptureHandler.received))]
+        heartbeat = next(p for p in payloads if p.get("type") == "epi.heartbeat")
+        assert heartbeat["schema"] == "epi-witness/v1"
+        assert heartbeat["last_seq"] == 1
+        assert heartbeat["ledger_id"]
+        assert heartbeat["key_fingerprint"]
+
+        seal_report = next(p for p in payloads if p.get("type") == "epi.sealed")
+        # The heartbeat alone reveals a tail the customer never received.
+        heartbeat["last_seq"] = 3
+        log = tmp_path / "received.jsonl"
+        _write_log(log, [seal_report, heartbeat])
+        audit = runner.invoke(cli_app, ["witness", "audit", str(log)])
+        assert audit.exit_code == 1, audit.output
+        assert "TAIL GAP" in audit.output
+    finally:
+        server.shutdown()
+
+
+def _received_bodies() -> list:
+
+    return CaptureHandler.received
+
+
+def test_heartbeat_to_an_older_receiver_is_not_retried_forever(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from tests.test_seal_witness import SECRET, _hermetic, _seal
+
+    _hermetic(monkeypatch, tmp_path)
+    _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+
+    class OldReceiver(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802 (http.server convention)
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            self.send_response(400)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), OldReceiver)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/witness"
+        result = runner.invoke(
+            cli_app,
+            ["witness", "heartbeat", "--url", url, "--secret", SECRET, "--timeout", "5"],
+        )
+        assert result.exit_code == 1, result.output
+        assert "doesn't accept heartbeats yet" in result.output
+
+        from epi_core.webhook import read_outbox
+
+        assert not [entry for entry in read_outbox() if entry.get("pending")]
+    finally:
+        server.shutdown()
+
+
+def test_resigning_with_a_different_key_allocates_a_new_chain(
+    monkeypatch, tmp_path: Path
+) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    sealed = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
+
+    from epi_core.container import EPIContainer
+    from epi_core.keys import KeyManager, key_fingerprint
+
+    original = EPIContainer.read_manifest(sealed)
+    resigned = _resign_with_other_key(tmp_path, sealed, "other")
+    manifest = EPIContainer.read_manifest(resigned)
+    fingerprint = key_fingerprint(
+        KeyManager().load_public_key("other").hex(), grouped=False
+    )
+
+    assert manifest.seal_chain is not None
+    assert original.seal_chain is not None
+    assert manifest.seal_chain.key_fingerprint == fingerprint
+    assert manifest.seal_chain.key_fingerprint != original.seal_chain.key_fingerprint
+    assert manifest.seal_chain.ledger_id != original.seal_chain.ledger_id
+    assert manifest.seal_chain.seq == 1
+
+
+def test_same_key_reseal_of_altered_content_surfaces_as_fork(
+    monkeypatch, tmp_path: Path
+) -> None:
+
+    _hermetic(monkeypatch, tmp_path)
+    server, url = _serve()
+    try:
+        sealed = _seal(
+            monkeypatch, tmp_path, tmp_path / "run.epi",
+            witness_url=url, witness_secret=SECRET,
+        )
+        genuine = _payload_at(0)
+
+        from epi_core.container import EPIContainer
+        from epi_core.keys import KeyManager
+        from epi_core.trust import sign_manifest
+        from epi_core.webhook import report_seal
+
+        km = KeyManager()
+        manifest = EPIContainer.read_manifest(sealed)
+        manifest.goal = "a different decision"
+        workspace = tmp_path / "ws-fork"
+        EPIContainer.unpack(sealed, workspace)
+        altered = tmp_path / "altered.epi"
+        EPIContainer.pack(
+            workspace,
+            manifest,
+            altered,
+            signer_function=lambda current: sign_manifest(
+                current, km.load_private_key("default"), "default"
+            ),
+            preserve_generated=True,
+        )
+        # Same key, same seal number, different content: reported as a seal.
+        report_seal(
+            altered,
+            urls=[url],
+            secret=SECRET,
+            key_name="default",
+            signer=km.load_private_key("default"),
+        )
+        altered_report = _payload_at(1)
+        assert altered_report["seal_seq"] == genuine["seal_seq"]
+        assert altered_report["content_digest"] != genuine["content_digest"]
+
+        log = tmp_path / "received.jsonl"
+        _write_log(log, [genuine, altered_report])
+        audit = runner.invoke(cli_app, ["witness", "audit", str(log)])
+        assert audit.exit_code == 1, audit.output
+        assert "FORK at #1" in audit.output
+    finally:
+        server.shutdown()
+
+
+def test_audit_json_and_strict_burn_exit_codes(monkeypatch, tmp_path: Path) -> None:
+    log = tmp_path / "received.jsonl"
+    report = {
+        "schema": "epi-witness/v1",
+        "type": "epi.sealed",
+        "seal_seq": 1,
+        "ledger_id": "led-1",
+        "key_fingerprint": "kf",
+        "prev_seq": 0,
+        "prev_content_digest": "genesis",
+        "content_digest": "d1",
+        "workflow_id": "w1",
+    }
+    heartbeat = {
+        "schema": "epi-witness/v1",
+        "type": "epi.heartbeat",
+        "ledger_id": "led-1",
+        "key_fingerprint": "kf",
+        "last_seq": 2,
+        "burned_seqs": [2],
+    }
+    log.write_text(
+        json.dumps(report) + "\n" + json.dumps(heartbeat) + "\n", encoding="utf-8"
+    )
+
+    default = runner.invoke(cli_app, ["witness", "audit", str(log)])
+    assert default.exit_code == 0, default.output
+    assert "BURNED #2" in default.output
+
+    strict = runner.invoke(cli_app, ["witness", "audit", str(log), "--strict"])
+    assert strict.exit_code == 1, strict.output
+
+    machine = runner.invoke(cli_app, ["witness", "audit", str(log), "--json"])
+    assert machine.exit_code == 0, machine.output
+    parsed = json.loads(machine.output)
+    assert parsed["warnings"]["burned"] == 1
+    assert parsed["chains"][0]["burned"] == [2]

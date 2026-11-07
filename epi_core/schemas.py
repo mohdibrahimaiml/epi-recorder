@@ -46,6 +46,24 @@ class PolicyModel(BaseModel):
     remediation: Optional[str] = Field(None, description="Suggested fix if violation occurred")
 
 
+class SealChainModel(BaseModel):
+    """This seal's position in its signing key's seal chain.
+
+    Written into the manifest BEFORE signing, so the Ed25519 signature covers
+    it and the witness content digest covers it too. ``prev_seq`` names the
+    last *committed* seal at allocation time (it is not necessarily
+    ``seq - 1``: two seals can be allocated concurrently), and
+    ``prev_content_digest`` is that seal's content digest ("genesis" when the
+    chain is new).
+    """
+
+    ledger_id: str = Field(..., min_length=1, description="Random id for this machine's chain")
+    key_fingerprint: str = Field(..., min_length=1, description="Fingerprint of the signing key")
+    seq: int = Field(..., ge=1, description="Monotonic sequence number for this key")
+    prev_seq: int = Field(default=0, ge=0, description="Sequence number this seal links back to")
+    prev_content_digest: str = Field(default="genesis", description="Content digest of prev_seq")
+
+
 class ManifestModel(BaseModel):
 
     @model_validator(mode="before")
@@ -100,6 +118,16 @@ class ManifestModel(BaseModel):
             "record without opening the steps. Absent (None) on artifacts sealed "
             "before this field existed; omitted from the signature preimage when "
             "None so old signatures still verify."
+        ),
+    )
+
+    seal_chain: Optional[SealChainModel] = Field(
+        default=None,
+        description=(
+            "Sequence number and previous-seal link inside the signed header. "
+            "Lets the customer detect a seal the vendor never reported. Absent "
+            "(None) on artifacts sealed before this field existed; omitted from "
+            "the signature preimage when None so old signatures still verify."
         ),
     )
     

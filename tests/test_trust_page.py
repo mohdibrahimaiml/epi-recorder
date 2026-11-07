@@ -311,7 +311,7 @@ def _make_stub(state: StubState) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def browser():
     import glob
     import os

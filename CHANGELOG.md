@@ -4,6 +4,23 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Seal sequence numbers and gap detection.** Every seal made with a signing
+  key now carries `seal_chain` (`ledger_id`, `key_fingerprint`, `seq`,
+  `prev_seq`, `prev_content_digest`) inside the signed manifest, and the
+  witness report carries `seal_seq`, `ledger_id`, `prev_seq` and
+  `prev_content_digest`. `epi witness audit received.jsonl` reports MISSING,
+  FORK, CHAIN BREAK and TAIL GAP, plus vendor-declared BURNED numbers (warning
+  by default, `--strict` fails) and NEW CHAIN warnings. `epi witness
+  heartbeat` sends a signed "sealed through #N" report through the same
+  outbox, so a withheld tail is visible when run from cron. `epi verify
+  --witness-log` shows the file's chain position in one display-only line.
+  Allocation is cross-process and links to the last *committed* seal, so
+  concurrent seals never duplicate a number. Old artifacts and old witness
+  logs verify exactly as before; browser-signed seals are listed as
+  unsequenced. See `docs/WITNESS.md`.
+
 ### Fixed
 
 - **The case number is sealed into the record.** `record(case_id="ORD-9001")`

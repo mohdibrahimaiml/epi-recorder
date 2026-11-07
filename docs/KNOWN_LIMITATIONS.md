@@ -479,10 +479,31 @@ Recording gaps that survive this rule (no silent completeness claim):
 ## Customer witness limits
 
 With `EPI_WITNESS_URL` (or `witness_url=`) configured, every seal is reported
-at seal time to endpoint(s) the customer controls (`docs/WITNESS.md`). The
-witness only proves **what was sent**: the vendor can choose not to send a
-seal, and a seal covers only what was recorded. A missing witness entry for
-a case the customer knows happened is itself evidence — ask the vendor why.
+at seal time to endpoint(s) the customer controls (`docs/WITNESS.md`). Every
+seal also carries a signed sequence number and a link to the previous seal, so
+`epi witness audit received.jsonl` can show a missing number, a fork (two
+different seals with one number), a broken link, or a tail gap against a
+signed heartbeat.
+
+What this still does **not** prove:
+
+- A decision that was **never sealed at all** is invisible, except through the
+  heartbeat's count and what the customer already knows happened.
+- A vendor who **never runs `epi witness heartbeat`** can hide the final seals
+  of a chain; the middle of a chain is still visible.
+- A **vendor-declared burn** ("number 57 was allocated but never sealed") is
+  not verifiable. `epi witness audit` reports it as a warning, never as clean,
+  and `--strict` fails it; a high or rising burn rate is a question for the
+  vendor, not a proof.
+- A key used on a second machine (or a wiped ledger) starts a **new chain**.
+  That is shown as a warning, not hidden — but two chains are not merged into
+  one history.
+- Seals made in the **browser** ("Sign & seal") have no local ledger and are
+  **unsequenced**; they are listed as such, never as errors.
+
+The witness still only proves **what was sent**: the vendor can choose not to
+send a seal, and a seal covers only what was recorded. A missing witness entry
+for a case the customer knows happened is itself evidence — ask the vendor why.
 The payload is hashes and counts only (no content); the goal is included
 only with `witness_include_goal=True`.
 

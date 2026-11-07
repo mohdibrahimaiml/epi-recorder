@@ -37,6 +37,7 @@ FROZEN_MANIFEST_FIELDS = {
     "content_truncated",
     "policy_load_status",
     "producer_version",
+    "seal_chain",
 }
 
 

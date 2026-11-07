@@ -44,6 +44,9 @@ def _log(message: str) -> None:
     print(f"[{stamp}] {message}", file=sys.stderr, flush=True)
 
 
+_ACCEPTED_TYPES = ("epi.sealed", "epi.heartbeat")
+
+
 def make_handler(
     out: Path,
     secret: str | None,
@@ -67,7 +70,7 @@ def make_handler(
             if (
                 not isinstance(payload, dict)
                 or payload.get("schema") != WITNESS_SCHEMA
-                or payload.get("type") != "epi.sealed"
+                or payload.get("type") not in _ACCEPTED_TYPES
             ):
                 self._reply(400)
                 return
@@ -92,7 +95,7 @@ def make_handler(
                 log(f"error: cannot append to {out_path}: {exc}")
                 self._reply(500)
                 return
-            log(f"accepted: workflow {payload.get('workflow_id')} -> {out_path}")
+            log(f"accepted: {payload.get('type')} {payload.get('workflow_id') or payload.get('ledger_id')} -> {out_path}")
             self._reply(200)
 
         def _reply(self, code: int) -> None:

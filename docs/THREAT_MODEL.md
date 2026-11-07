@@ -74,9 +74,20 @@ EPI's security guarantees depend on these assumptions being true:
 
 **Prevention (only with a customer witness configured):** every seal is reported at seal time to an endpoint the customer controls (`epi-witness/v1`: workflow id, manifest and file hashes). `epi verify --witness-log` compares the handed-over file against the customer's independent record: a re-sealed copy that reuses a reported workflow id reports `DIFFERENT VERSION` and FAILs; one that was never reported shows `NOT IN WITNESS LOG` (WARN, FAIL under `--policy strict`).
 
-**Limitation:** the witness only proves what was sent — the vendor can choose not to send a seal. A missing entry for a case the customer knows happened is itself evidence.
+**Limitation:** the witness only proves what was sent. Sequence numbers close
+part of that: every seal carries a signed number and a link to the previous
+seal, so a **withheld middle seal** shows up as a missing number, a renumbering
+or two different seals with one number shows up as a fork, and a signed
+heartbeat (`epi witness heartbeat`, hourly from cron) makes a **withheld tail**
+visible. Still not detected: decisions that were never sealed at all (they are
+invisible except through the heartbeat's count and what the customer knows
+happened), a vendor who never runs the heartbeat, and a vendor-declared
+"burn" — a number called allocated-but-not-sealed — which `epi witness audit`
+reports as an unverifiable warning and `--strict` fails.
 
-**Test:** `tests/test_seal_witness.py` (altered + re-signed file → `MISMATCH` → FAIL).
+**Test:** `tests/test_seal_witness.py` (altered + re-signed file → `MISMATCH`
+→ FAIL), `tests/test_seal_ledger.py` (missing/fork/chain break/tail gap,
+concurrent seals across processes).
 
 ---
 
@@ -437,6 +448,8 @@ session-only seed, passphrase wrapping) are tracked in
 | Post-seal timestamp tampering | Yes | Signed `created_at` (pre-seal honesty NOT covered — see item 4) |
 | Backdating / fabrication after the fact | Yes, when a valid RFC 3161 token is present | Offline TSA validation against pinned roots |
 | Silent re-seal after the fact | Yes, with customer witness configured | Independent witness log + `--witness-log` |
+| Withheld middle seal / reordered chain | Yes, with sequence numbers | Signed `seal_chain` + `epi witness audit` |
+| Withheld tail of the chain | Yes, when `epi witness heartbeat` runs | Signed heartbeat vs. received log |
 | Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |

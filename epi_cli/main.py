@@ -999,7 +999,7 @@ from epi_cli.witness import app as witness_app
 app.add_typer(
     witness_app,
     name="witness",
-    help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
+    help="Customer witness: seal reports (status/flush/drop), gap audit, heartbeat, and the receiver (serve)",
     rich_help_panel="Everyday",
 )
 

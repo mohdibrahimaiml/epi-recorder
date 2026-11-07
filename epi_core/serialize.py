@@ -23,7 +23,7 @@ CanonicalFormat = Literal["cbor", "legacy", "jcs"]
 # Any new Optional field that is absent from tests/goldens/legacy-spec-4.3.0.epi
 # must be listed here — test_legacy_preimage.py enforces it.
 MANIFEST_OMIT_NONE_FROM_HASH: frozenset[str] = frozenset(
-    {"content_truncated", "policy_load_status", "producer_version", "case_id"}
+    {"content_truncated", "policy_load_status", "producer_version", "case_id", "seal_chain"}
 )
 
 

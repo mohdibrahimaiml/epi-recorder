@@ -44,61 +44,7 @@ def _user_agent() -> str:
     return user_agent()
 
 
-class _OutboxFileLock:
-    """Cross-process exclusive lock for the outbox file (stdlib only).
-
-    Windows has no atomic O_APPEND (CPython emulates it as seek+write, so
-    concurrent seals overwrite each other). The lock is an adjacent
-    `<outbox>.lock` file created with O_CREAT|O_EXCL, which IS atomic on
-    Windows and POSIX. Stale locks (crashed holder) are reaped by mtime.
-    Never raises: on timeout the caller proceeds unlocked with a warning
-    (availability over perfection; contention windows are milliseconds).
-    """
-
-    def __init__(
-        self, outbox: Path, *, timeout: float = 10.0, stale_after: float = 30.0
-    ) -> None:
-        self._lock_path = Path(str(outbox) + ".lock")
-        self._timeout = max(0.5, float(timeout))
-        self._stale_after = max(1.0, float(stale_after))
-        self._locked = False
-
-    def __enter__(self) -> bool:
-        import time as _time
-
-        deadline = _time.monotonic() + self._timeout
-        try:
-            self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            return False
-        while True:
-            try:
-                fd = os.open(str(self._lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.close(fd)
-                self._locked = True
-                return True
-            except FileExistsError:
-                try:
-                    age = _time.time() - self._lock_path.stat().st_mtime
-                    if age > self._stale_after:
-                        self._lock_path.unlink(missing_ok=True)
-                        continue
-                except OSError:
-                    pass
-            except OSError:
-                return False
-            if _time.monotonic() >= deadline:
-                logger.warning("Witness outbox lock timed out; proceeding unlocked")
-                return False
-            _time.sleep(0.01)
-
-    def __exit__(self, *exc) -> None:
-        if self._locked:
-            try:
-                self._lock_path.unlink(missing_ok=True)
-            except OSError:
-                pass
-            self._locked = False
+from epi_core.filelock import FileLock as _OutboxFileLock  # noqa: E402  (same lock)
 
 
 WITNESS_SCHEMA = "epi-witness/v1"
@@ -404,6 +350,7 @@ def describe_witness_failure(
     *,
     cloud_login: bool = False,
     customer: str | None = None,
+    kind: str | None = None,
 ) -> dict[str, Any]:
     """Plain-words reason + exact fix for one failed witness delivery.
 
@@ -451,6 +398,17 @@ def describe_witness_failure(
             "retry_helps": True,
         }
     if status == 400:
+        if kind == "heartbeat":
+            return {
+                "status": 400,
+                "reason": "this receiver doesn't accept heartbeats yet",
+                "fix": (
+                    "ask the customer to upgrade their witness receiver "
+                    "(`epi witness serve`, or EPI Cloud); the report is kept "
+                    "locally and is not retried in the meantime"
+                ),
+                "retry_helps": False,
+            }
         return {
             "status": 400,
             "reason": f"{where} refused the report as malformed",
@@ -528,8 +486,11 @@ def deliver_entry(
             )
         except Exception as exc:
             failed[url] = str(exc)[:300]
-            if witness_http_status(exc) == 410:
-                # Closed for good: never retried, so flush can't loop on it.
+            status = witness_http_status(exc)
+            kind = str((entry.get("payload") or {}).get("type") or "")
+            if status == 410 or (status == 400 and kind == "epi.heartbeat"):
+                # Permanently undeliverable: closed customer, or a receiver
+                # that predates heartbeats. Never retried, so flush can't loop.
                 _mark_gone(target, str(entry.get("id")), url, str(exc))
             else:
                 _mark_error(target, str(entry.get("id")), f"{url}: {exc}")
@@ -622,12 +583,17 @@ def build_witness_payload(
     seal_timestamp: dict[str, Any],
     goal: str | None = None,
     case_id: str | None = None,
+    seal_seq: int | None = None,
+    ledger_id: str | None = None,
+    prev_seq: int | None = None,
+    prev_content_digest: str | None = None,
 ) -> dict[str, Any]:
     """Hash-only seal report. No content and no step data — hashes and counts only.
 
     Keys with a None value are omitted entirely: the Worker's report schema
     rejects present-but-null fields, and retrying a malformed stamp can
-    never succeed.
+    never succeed. The seal-chain fields are additive (``epi-witness/v1``
+    receiver versions ignore what they do not know).
     """
     payload: dict[str, Any] = {
         "schema": WITNESS_SCHEMA,
@@ -651,7 +617,72 @@ def build_witness_payload(
         # Gateway exports: the case identifier, so the customer can group
         # every reported export of one case. An id, never case content.
         payload["case_id"] = case_id
+    if seal_seq is not None:
+        payload["seal_seq"] = int(seal_seq)
+    if ledger_id is not None:
+        payload["ledger_id"] = ledger_id
+    if prev_seq is not None:
+        payload["prev_seq"] = int(prev_seq)
+    if prev_content_digest is not None:
+        payload["prev_content_digest"] = prev_content_digest
     return payload
+
+
+def build_heartbeat_payload(
+    *,
+    ledger_id: str,
+    key_fingerprint: str,
+    last_seq: int,
+    last_content_digest: str | None,
+    burned_seqs: list[int] | None = None,
+    public_key: str | None = None,
+    at: str | None = None,
+) -> dict[str, Any]:
+    """Signed "I have sealed up to #N" report (``epi.heartbeat``).
+
+    Same schema and same outbox as seal reports. Additive: an older receiver
+    that only knows ``epi.sealed`` should refuse it with HTTP 400 rather than
+    corrupt the log, and the vendor sees a plain "receiver is older" message.
+    """
+    payload: dict[str, Any] = {
+        "schema": WITNESS_SCHEMA,
+        "type": "epi.heartbeat",
+        "ledger_id": ledger_id,
+        "key_fingerprint": key_fingerprint,
+        "last_seq": int(last_seq),
+        "at": at or _utc_now_iso(),
+    }
+    if last_content_digest is not None:
+        payload["last_content_digest"] = last_content_digest
+    if burned_seqs:
+        payload["burned_seqs"] = sorted({int(s) for s in burned_seqs})
+    if public_key is not None:
+        payload["public_key"] = public_key
+    return payload
+
+
+def _seal_chain_kwargs(manifest: Any) -> dict[str, Any]:
+    """Witness fields from ``manifest.seal_chain``, if this seal has one."""
+    chain = getattr(manifest, "seal_chain", None)
+    if chain is None:
+        return {}
+    if hasattr(chain, "model_dump"):
+        try:
+            chain = chain.model_dump()
+        except Exception:
+            return {}
+    if not isinstance(chain, dict):
+        return {}
+    fields: dict[str, Any] = {}
+    if chain.get("seq") is not None:
+        fields["seal_seq"] = int(chain["seq"])
+    if chain.get("ledger_id"):
+        fields["ledger_id"] = str(chain["ledger_id"])
+    if chain.get("prev_seq") is not None:
+        fields["prev_seq"] = int(chain["prev_seq"])
+    if chain.get("prev_content_digest"):
+        fields["prev_content_digest"] = str(chain["prev_content_digest"])
+    return fields
 
 
 def stage_seal_report(
@@ -717,6 +748,7 @@ def stage_seal_report(
             seal_timestamp=seal_ts,
             goal=goal,
             case_id=case_id,
+            **_seal_chain_kwargs(manifest),
         )
         headers: dict[str, str] = {}
         signing_key = signer if signer is not None else private_key_bytes
@@ -749,6 +781,102 @@ def stage_seal_report(
     except Exception as exc:
         logger.warning("Witness staging failed: %s", exc)
         return None
+
+
+def stage_heartbeat(
+    *,
+    urls: list[str],
+    ledger_id: str,
+    key_fingerprint: str,
+    last_seq: int,
+    last_content_digest: str | None,
+    burned_seqs: list[int] | None = None,
+    public_key: str | None = None,
+    key_name: str | None = None,
+    signer: Any = None,
+    path: Path | None = None,
+) -> dict[str, Any] | None:
+    """Build, sign and queue one heartbeat. Returns the outbox entry or None."""
+    targets = [u for u in (urls or []) if str(u or "").strip()]
+    if not targets:
+        return None
+    payload = build_heartbeat_payload(
+        ledger_id=ledger_id,
+        key_fingerprint=key_fingerprint,
+        last_seq=last_seq,
+        last_content_digest=last_content_digest,
+        burned_seqs=burned_seqs,
+        public_key=public_key,
+    )
+    headers: dict[str, str] = {}
+    if signer is not None and key_name:
+        try:
+            headers["X-EPI-Seal-Signature"] = seal_signature_header(
+                json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                signer,
+                key_name,
+            )
+        except Exception as exc:
+            logger.warning("Heartbeat signature failed: %s", exc)
+    return append_outbox_entry(payload, targets, headers=headers, path=path)
+
+
+def report_heartbeat(
+    *,
+    urls: list[str],
+    ledger_id: str,
+    key_fingerprint: str,
+    last_seq: int,
+    last_content_digest: str | None,
+    burned_seqs: list[int] | None = None,
+    public_key: str | None = None,
+    key_name: str | None = None,
+    signer: Any = None,
+    secret: str | None = None,
+    timeout_seconds: float | None = None,
+    path: Path | None = None,
+) -> dict[str, Any] | None:
+    """Stage and attempt delivery of one heartbeat. Never raises."""
+    entry = stage_heartbeat(
+        urls=urls,
+        ledger_id=ledger_id,
+        key_fingerprint=key_fingerprint,
+        last_seq=last_seq,
+        last_content_digest=last_content_digest,
+        burned_seqs=burned_seqs,
+        public_key=public_key,
+        key_name=key_name,
+        signer=signer,
+        path=path,
+    )
+    if entry is None:
+        return None
+    try:
+        budget = witness_timeout() if timeout_seconds is None else max(
+            0.5, float(timeout_seconds)
+        )
+    except (TypeError, ValueError):
+        budget = 5.0
+    outcome: dict[str, Any] = {}
+
+    def _run() -> None:
+        try:
+            outcome.update(
+                deliver_entry(
+                    entry,
+                    secret=secret,
+                    timeout_seconds=max(1, int(min(10, budget))),
+                    path=path,
+                )
+            )
+        except Exception as exc:
+            outcome["error"] = str(exc)[:300]
+
+    thread = threading.Thread(target=_run, name="epi-witness-heartbeat", daemon=True)
+    thread.start()
+    thread.join(timeout=budget)
+    entry["_outcome"] = dict(outcome) if outcome else {"pending": True}
+    return entry
 
 
 def report_seal(

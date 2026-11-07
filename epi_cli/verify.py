@@ -813,6 +813,28 @@ def _members_match_manifest(epi_file: Path) -> bool:
         return False
 
 
+def _format_sequence_line(info: dict) -> str:
+    """One display line for the seal's chain position (never a verdict)."""
+    if not info or not info.get("present"):
+        return "  [dim]- Sequence:     not present (sealed before seal sequence numbers)[/dim]"
+    seq = info.get("seq")
+    chain = str(info.get("ledger_id") or "")[:4]
+    if not info.get("in_log"):
+        return (
+            f"  [yellow]- Sequence:     #{seq} of chain {chain}… — this seal is "
+            "not in the log[/yellow]"
+        )
+    if info.get("contiguous"):
+        return (
+            f"  [green]- Sequence:     #{seq} of chain {chain}…, log contiguous "
+            f"{info.get('range')}[/green]"
+        )
+    return (
+        f"  [yellow]- Sequence:     #{seq} — log has gaps "
+        "(see epi witness audit)[/yellow]"
+    )
+
+
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
@@ -926,6 +948,62 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             )
             return result
         _reports_count = len(_reports) + len(signed_items)
+    # --- Seal-chain position (display/inspection only; NEVER changes the
+    # verdict). Files sealed before sequence numbers simply have no chain.
+    try:
+        from epi_core.seal_ledger import analyze
+
+        _seq_records: list[dict] = list(legacy_entries)
+        _seq_records += [
+            item["inner"]
+            for item in signed_items
+            if isinstance(item.get("inner"), dict)
+        ]
+        _sequence: dict = {"present": False}
+        _seal_chain = getattr(manifest, "seal_chain", None)
+        if _seal_chain is not None:
+            _chain = (
+                _seal_chain.model_dump()
+                if hasattr(_seal_chain, "model_dump")
+                else dict(_seal_chain)
+            )
+            _sequence = {
+                "present": True,
+                "seq": _chain.get("seq"),
+                "ledger_id": _chain.get("ledger_id"),
+                "key_fingerprint": _chain.get("key_fingerprint"),
+                "contiguous": None,
+                "in_log": False,
+                "range": None,
+            }
+            _group = next(
+                (
+                    chain
+                    for chain in analyze(_seq_records).get("chains") or []
+                    if chain.get("ledger_id") == _sequence["ledger_id"]
+                ),
+                None,
+            )
+            if _group:
+                _sequence["range"] = (
+                    f"{_group['first_seq']}..{_group['last_seq']}"
+                )
+                _sequence["contiguous"] = bool(
+                    not _group["missing_all"]
+                    and not _group["forks"]
+                    and not _group["chain_breaks"]
+                )
+            _workflow = str(getattr(manifest, "workflow_id", "") or "")
+            _sequence["in_log"] = any(
+                str(entry.get("workflow_id") or "") == _workflow
+                and str(entry.get("seal_seq")) == str(_sequence.get("seq"))
+                for entry in _seq_records
+                if entry.get("seal_seq") is not None
+            )
+        result["sequence"] = _sequence
+    except Exception:
+        result["sequence"] = {"present": getattr(manifest, "seal_chain", None) is not None}
+
     # --- Trusted keys: --witness-pubkey flag > EPI_WITNESS_PUBKEY env >
     # package-pinned keys (epi_core/witness_keys.py). The witness_pubkey
     # shipped INSIDE the file (witness.json) is NEVER trust: a forger
@@ -3015,6 +3093,11 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
         )
+
+    # Seal-chain position, only when a witness log was checked (or attempted).
+    _wit_sequence = _wit.get("sequence")
+    if _wit_sequence is not None:
+        content_lines.append(_format_sequence_line(_wit_sequence))
 
     # Human approval (step 3a). One line, and only when the run carries reviews
     # or approval steps, or the operator asked with --require-human-approval.
