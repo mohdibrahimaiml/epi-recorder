@@ -77,6 +77,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share (includes the command cheat sheet) |
 | [DECISION-RECORD.md](./DECISION-RECORD.md) | The category: what a Decision Record is, why not a log, ten-question checklist |
 | [RELEASES.md](./RELEASES.md) | Signed release records: pin the logic version, approve it, verify a decision against it |
+| [DORA-VENDOR-EVIDENCE.md](./DORA-VENDOR-EVIDENCE.md) | DORA Art. 28/30 evidence an AI vendor can hand an EU bank, with a draft contract schedule |
 | Root [README.md](../README.md) | 60-second path |
 | [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
