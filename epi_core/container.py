@@ -2185,6 +2185,25 @@ class EPIContainer:
             raise ValueError(f"Invalid JSON in {member_name}: {exc}") from exc
 
     @staticmethod
+    def read_members_json(epi_path: Path, member_names: list[str]) -> dict[str, Any]:
+        """Read several JSON members with one ZIP open (manifest hydration).
+
+        ``read_manifest`` used to open the payload once for manifest.json and
+        then once per member, which showed up as a measurable verify-time
+        regression on large runs. Missing/invalid members are simply absent.
+        """
+        out: dict[str, Any] = {}
+        with EPIContainer._payload_zip_path(epi_path) as payload_zip:
+            with zipfile.ZipFile(payload_zip, "r") as zf:
+                EPIContainer._check_expansion_budget(zf)
+                for name in member_names:
+                    try:
+                        out[name] = json.loads(zf.read(name))
+                    except (KeyError, json.JSONDecodeError):
+                        continue
+        return out
+
+    @staticmethod
     def read_steps(epi_path: Path) -> list[dict[str, Any]]:
         try:
             raw_steps = EPIContainer.read_member_text(epi_path, "steps.jsonl")

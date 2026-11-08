@@ -136,25 +136,21 @@ def manifest_storage_json(manifest: Any, *, indent: int = 2) -> str:
     )
 
 
-def _read_member(epi_path: Path, rel_path: str) -> dict[str, Any] | None:
-    from epi_core.container import EPIContainer
-
-    try:
-        payload = EPIContainer.read_member_json(epi_path, rel_path)
-    except (ValueError, FileNotFoundError):
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
 def load_manifest_members(epi_path: Path, manifest_dict: dict[str, Any]) -> dict[str, Any]:
     """Rehydrate member-backed fields from the archive into ``manifest_dict``.
 
     Missing members are simply absent: that is every artifact sealed before
     this format, and every artifact whose optional field was None.
     """
+    from epi_core.container import EPIContainer
+
+    try:
+        payloads = EPIContainer.read_members_json(epi_path, list(_MEMBER_KEYS))
+    except (ValueError, FileNotFoundError):
+        return manifest_dict
     for rel_path, keys in _MEMBER_KEYS.items():
-        payload = _read_member(epi_path, rel_path)
-        if payload is None:
+        payload = payloads.get(rel_path)
+        if not isinstance(payload, dict):
             continue
         for key in keys:
             if key in payload and payload[key] is not None:
