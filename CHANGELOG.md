@@ -20,6 +20,19 @@ All notable changes to EPI Recorder are documented here.
   failure; `epi release history` lists versions in seal order. See
   `docs/RELEASES.md`. Old artifacts keep their exact verdict (all new manifest
   fields are omitted from the signature preimage when absent).
+- **Signed pre-action approvals.** `ApprovalGate` now builds a request that
+  binds one exact tool call (tool, canonical `args_digest`, nonce, expiry,
+  redacted `args_display` and `redacted_fields`), waits for a pinned approver's
+  signature, and blocks deny/timeout/expiry/argument changes/nonce reuse/the
+  sealing key/an unpinned key. The gate reports `epi.approval_executed` to the
+  customer's witness before the tool runs, so order is anchored outside the
+  vendor's chain; `epi verify --witness-log --require-pre-action-approval`
+  reports `APPROVED BEFORE ACTION` only when the received order is request <
+  response < executed, otherwise `ACTION BEFORE APPROVAL` and the other
+  statuses. `epi approval list/export/sign/import` lets the approver sign on a
+  different machine; a key readable from the agent host is flagged as not
+  independent. `EPI_AUTO_APPROVE` is recorded as `auto (not a person)` and never
+  counts as human. See `docs/HUMAN-APPROVAL.md`.
 
 - **Seal sequence numbers and gap detection.** Every seal made with a signing
   key now carries `seal_chain` (`ledger_id`, `key_fingerprint`, `seq`,

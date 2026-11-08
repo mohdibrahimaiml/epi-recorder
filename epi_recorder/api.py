@@ -1007,6 +1007,14 @@ class EpiRecorderSession:
         # Set as active recording context
         set_recording_context(self.recording_context)
         _thread_local.active_session = self
+        try:
+            from epi_recorder.trust.approval import warn_auto_approve
+            from epi_recorder.trust.context import set_step_sink
+
+            warn_auto_approve()
+            self._step_sink_token = set_step_sink(self)
+        except Exception:
+            self._step_sink_token = None
         
         # Only patch LLM libraries if legacy mode is enabled (deprecated)
         if self.legacy_patching:
@@ -1039,6 +1047,12 @@ class EpiRecorderSession:
         Finalizes recording, captures environment, packs .epi file,
         and signs it if auto_sign is enabled.
         """
+        try:
+            from epi_recorder.trust.context import reset_step_sink
+
+            reset_step_sink(getattr(self, "_step_sink_token", None))
+        except Exception:
+            pass
         try:
             # Capture environment snapshot BEFORE session.end
             self._capture_environment()
@@ -1180,6 +1194,12 @@ class EpiRecorderSession:
         Uses run_in_executor for I/O operations to avoid blocking.
         """
         try:
+            from epi_recorder.trust.context import reset_step_sink
+
+            reset_step_sink(getattr(self, "_step_sink_token", None))
+        except Exception:
+            pass
+        try:
             loop = asyncio.get_running_loop()
 
             # Capture environment snapshot BEFORE session.end
@@ -1295,6 +1315,32 @@ class EpiRecorderSession:
         self._original_stdout = None
         self._original_stderr = None
     
+    def chain_head(self) -> str:
+        """Hash of the latest sealed step (used by pre-action approval)."""
+        if self.recording_context is None:
+            return "CHAIN_START"
+        return self.recording_context.chain_head()
+
+    @property
+    def release_ref(self) -> Dict[str, str] | None:
+        if not self.release_document:
+            return None
+        return {
+            "release_id": str(self.release_document.get("release_id") or ""),
+            "release_digest": str(self.release_document.get("release_digest") or ""),
+        }
+
+    def log_step_unredacted(self, kind: str, content: Dict[str, Any]) -> None:
+        """Log evidence that must survive byte-exact (signed approvals).
+
+        Only used for pre-action approval steps: their contents are already
+        redacted/secret-free, and redacting them would break the approver's
+        signature over the response.
+        """
+        if self.recording_context is None:
+            raise RuntimeError("recording context is not active")
+        self.recording_context.add_step(kind, content, redact=False)
+
     def log_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Manually log a custom step.

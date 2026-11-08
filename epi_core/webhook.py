@@ -398,11 +398,21 @@ def describe_witness_failure(
             "retry_helps": True,
         }
     if status == 400:
-        if kind in ("epi.heartbeat", "epi.release", "epi.release_approval"):
+        if kind in (
+            "epi.heartbeat",
+            "epi.release",
+            "epi.release_approval",
+            "epi.approval_request",
+            "epi.approval_response",
+            "epi.approval_executed",
+        ):
             label = {
                 "epi.heartbeat": "heartbeats",
                 "epi.release": "release reports",
                 "epi.release_approval": "release approvals",
+                "epi.approval_request": "pre-action approval requests",
+                "epi.approval_response": "pre-action approval responses",
+                "epi.approval_executed": "pre-action execution reports",
             }[kind]
             return {
                 "status": 400,
@@ -495,7 +505,14 @@ def deliver_entry(
             kind = str((entry.get("payload") or {}).get("type") or "")
             if status == 410 or (
                 status == 400
-                and kind in ("epi.heartbeat", "epi.release", "epi.release_approval")
+                and kind in (
+                    "epi.heartbeat",
+                    "epi.release",
+                    "epi.release_approval",
+                    "epi.approval_request",
+                    "epi.approval_response",
+                    "epi.approval_executed",
+                )
             ):
                 # Permanently undeliverable: closed customer, or a receiver
                 # that predates heartbeats. Never retried, so flush can't loop.
@@ -1100,6 +1117,153 @@ def report_release(
     thread.join(timeout=budget)
     entry["_outcome"] = dict(outcome) if outcome else {"pending": True}
     return entry
+
+
+def build_approval_request_payload(request: dict[str, Any]) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema": WITNESS_SCHEMA,
+        "type": "epi.approval_request",
+        "request_id": str(request.get("request_id") or ""),
+        "request_digest": str(request.get("request_digest") or ""),
+        "tool": str(request.get("tool") or ""),
+        "args_digest": str(request.get("args_digest") or ""),
+        "requested_at": request.get("requested_at"),
+        "expires_at": request.get("expires_at"),
+    }
+    if request.get("release_ref"):
+        payload["release_ref"] = request.get("release_ref")
+    return payload
+
+
+def build_approval_response_payload(request: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    import hashlib
+
+    return {
+        "schema": WITNESS_SCHEMA,
+        "type": "epi.approval_response",
+        "request_id": str(request.get("request_id") or ""),
+        "request_digest": str(request.get("request_digest") or ""),
+        "decision": str(response.get("decision") or ""),
+        "approver": str(response.get("approver") or ""),
+        "approver_key_fingerprint": str(response.get("key_fingerprint") or ""),
+        "signed_at": response.get("signed_at"),
+        "signature_hash": hashlib.sha256(
+            str(response.get("signature") or "").encode("utf-8")
+        ).hexdigest(),
+        "auto": bool(response.get("auto")),
+    }
+
+
+def build_approval_executed_payload(
+    request: dict[str, Any],
+    response: dict[str, Any],
+    *,
+    chain_head: str | None = None,
+) -> dict[str, Any]:
+    import hashlib
+
+    return {
+        "schema": WITNESS_SCHEMA,
+        "type": "epi.approval_executed",
+        "request_id": str(request.get("request_id") or ""),
+        "request_digest": str(request.get("request_digest") or ""),
+        "tool": str(request.get("tool") or ""),
+        "args_digest": str(request.get("args_digest") or ""),
+        "response_signature_hash": hashlib.sha256(
+            str(response.get("signature") or "").encode("utf-8")
+        ).hexdigest(),
+        "chain_head": chain_head,
+        "executed_at": _utc_now_iso(),
+    }
+
+
+def _stage_and_deliver(
+    payload: dict[str, Any],
+    urls: list[str],
+    *,
+    secret: str | None,
+    headers: dict[str, str] | None,
+    timeout_seconds: float,
+    path: Path | None,
+) -> dict[str, Any] | None:
+    targets = [u for u in (urls or []) if str(u or "").strip()]
+    if not targets:
+        return None
+    entry = append_outbox_entry(payload, targets, headers=headers, path=path)
+    try:
+        deliver_entry(
+            entry,
+            secret=secret,
+            timeout_seconds=max(1, int(min(10, max(0.5, timeout_seconds)))),
+            path=path,
+        )
+    except Exception as exc:
+        logger.warning("Approval witness delivery failed (queued): %s", exc)
+    return entry
+
+
+def report_approval_request(
+    request: dict[str, Any],
+    *,
+    urls: list[str],
+    secret: str | None = None,
+    signer: Any = None,
+    key_name: str | None = None,
+    timeout_seconds: float = 2.0,
+    path: Path | None = None,
+) -> dict[str, Any] | None:
+    payload = build_approval_request_payload(request)
+    return _stage_and_deliver(
+        payload,
+        urls,
+        secret=secret,
+        headers=_signed_headers(payload, signer, key_name),
+        timeout_seconds=timeout_seconds,
+        path=path,
+    )
+
+
+def report_approval_response(
+    request: dict[str, Any],
+    response: dict[str, Any],
+    *,
+    urls: list[str],
+    secret: str | None = None,
+    timeout_seconds: float = 2.0,
+    path: Path | None = None,
+) -> dict[str, Any] | None:
+    payload = build_approval_response_payload(request, response)
+    return _stage_and_deliver(
+        payload,
+        urls,
+        secret=secret,
+        headers={},
+        timeout_seconds=timeout_seconds,
+        path=path,
+    )
+
+
+def report_approval_executed(
+    request: dict[str, Any],
+    response: dict[str, Any],
+    *,
+    chain_head: str | None = None,
+    urls: list[str],
+    secret: str | None = None,
+    timeout_seconds: float = 2.0,
+    path: Path | None = None,
+) -> dict[str, Any] | None:
+    payload = build_approval_executed_payload(
+        request, response, chain_head=chain_head
+    )
+    return _stage_and_deliver(
+        payload,
+        urls,
+        secret=secret,
+        headers={},
+        timeout_seconds=timeout_seconds,
+        path=path,
+    )
 
 
 def report_seal(

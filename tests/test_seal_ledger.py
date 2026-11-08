@@ -90,6 +90,7 @@ def test_overlapping_reservations_both_commit_and_audit_clean(ledger: Path) -> N
         "forks": 0,
         "chain_breaks": 0,
         "tail_gaps": 0,
+        "approval_reuse": 0,
     }
 
 

@@ -52,6 +52,8 @@ FROZEN_REPORT_KEYS = {
     # Added for signed release records: verify_command attaches the release
     # comparison to every success report. Additive only.
     "release",
+    # Added for pre-action approvals.
+    "pre_action_approval",
     # Added for offline RFC 3161 validation: verify_command attaches the
     # timestamps block to every success report. Additive only.
     "timestamps",

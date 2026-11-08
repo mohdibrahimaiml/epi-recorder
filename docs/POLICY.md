@@ -242,6 +242,34 @@ Example shape:
 }
 ```
 
+#### Wiring `approval_guard` to a pre-action gate
+
+An `approval_guard` rule becomes evidence only when the action runs through the
+interceptor with an approval gate:
+
+```python
+from epi_recorder import record
+from epi_recorder.trust import ApprovalGate, RuntimePolicyEngine, TrustInterceptor
+
+with record("run.epi") as epi:
+    engine = RuntimePolicyEngine("epi_policy.json", enable_blocking=True)
+    gate = ApprovalGate(default_timeout=900)      # 15 minutes
+    safe_refund = TrustInterceptor(engine, gate=gate).wrap_tool(refund, "refund")
+    safe_refund(amount=5000, customer="CUST-1")
+```
+
+The gate writes a request to `$EPI_HOME/approvals/inbox` (override with
+`EPI_APPROVAL_INBOX_DIR`), records `approval.request`, waits for a response
+signed by a pinned approver, records `approval.response`, and reports
+`epi.approval_executed` to the customer's witness before the tool runs. Without a
+gate, `REQUIRE_APPROVAL` still raises and the tool does not run. `EPI_AUTO_APPROVE=1`
+is for tests only and is recorded as `auto (not a person)`.
+
+Approver workflow: `epi approval list`, `epi approval export <id> --out req.json`,
+`epi approval sign req.json --as <approver> --out resp.json`, `epi approval import
+resp.json`. The key comes from `EPI_APPROVER_KEYS_DIR` only. Verification:
+`epi verify run.epi --witness-log received.jsonl --require-pre-action-approval`.
+
 ### `tool_permission_guard`
 
 Use this when a workflow should only be allowed to call certain tools.

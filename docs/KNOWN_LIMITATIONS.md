@@ -507,6 +507,34 @@ for a case the customer knows happened is itself evidence — ask the vendor why
 The payload is hashes and counts only (no content); the goal is included
 only with `witness_include_goal=True`.
 
+## Pre-action approval limits
+
+A signed pre-action approval (`docs/HUMAN-APPROVAL.md`) proves that a pinned
+approver signed one exact tool call, and — with `--witness-log` — that the
+customer received the request, approval and execution receipts in that order.
+
+What it does **not** prove:
+
+- **Only gated actions are covered.** The gate only sees calls routed through the
+  interceptor. Code that calls the tool directly, or a tool wrapped without a
+  gate, is invisible. Gating at a chokepoint narrows this; it does not close it.
+- **The approver approves `args_display`.** Secret fields are redacted and listed
+  under `redacted_fields`; their exact values are approved blind. A free-text
+  `vendor_description` is a vendor claim, labelled as such, never the approved
+  arguments.
+- **The gate proves what the gate saw.** Arguments passed to the underlying
+  function by code outside the interceptor are not covered; the approval binds
+  the normalized arguments the gate evaluated.
+- **A colocated key is flagged, not prevented.** If the approver's private key is
+  readable from the agent host, verification labels the result "approver key on
+  agent host — not independent" and `--require-pre-action-approval` fails it.
+  A dishonest vendor could hide that flag in its own steps; signing on a host the
+  agent cannot read is the real separation.
+- **`EPI_AUTO_APPROVE=1` is not a person.** It is recorded as
+  `auto (not a person)` and never satisfies human verification.
+- **The approver's clock is not independent** unless the response is witnessed
+  or carries an RFC 3161 timestamp; verification prints the basis.
+
 ## Signed release limits
 
 A signed release record (`docs/RELEASES.md`) pins the components a decision

@@ -50,6 +50,30 @@ EPI does not provide:
 
 An `.epi` artifact can support an evidence process, but the organization remains responsible for policy, review, retention, governance, and legal interpretation.
 
+## Article 14 (human oversight): evidence support, not a compliance claim
+
+For high-risk AI systems, Article 14 requires effective human oversight. EPI can
+produce **evidence that specific oversight happened**; it does not decide whether
+the oversight was adequate, timely, or independent enough for the regulation.
+
+What the evidence can show:
+
+- a **pre-action approval** request for one exact tool call (tool, canonical
+  arguments digest, nonce, expiry, redacted display), signed by a pinned
+  approver key, before the action ran;
+- the execution report the gate sent to the **customer's** witness at release,
+  so the customer's own log holds request, approval and execution receipts in
+  order — not just the vendor's chain;
+- a sealed `approval.response` step inside the run's hash chain, with the
+  approval embedded;
+- `APPROVED BEFORE ACTION` only when the customer's received order is request <
+  response < executed and the approver key is not on the agent host.
+
+What it does **not** show: that the approver read the underlying case, that the
+approval was wise, or that every action was routed through the gate. A control
+outside the interceptor is invisible. See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md)
+and [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
+
 ## How to use EPI with AGT
 
 When AGT evidence is available:

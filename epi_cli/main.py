@@ -656,6 +656,11 @@ def verify(
         "--require-release",
         help="FAIL when no release is declared, or the release does not match.",
     ),
+    require_pre_action_approval: bool = typer.Option(
+        False,
+        "--require-pre-action-approval",
+        help="FAIL unless every gated action has an independent, pre-action approval.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -694,6 +699,7 @@ def verify(
         release_dir=release_dir,
         min_approvals=min_approvals,
         require_release=require_release,
+        require_pre_action_approval=require_pre_action_approval,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -1032,6 +1038,14 @@ app.add_typer(
     release_app,
     name="release",
     help="Signed release records: pin policy/prompts/models/code, approve, and list versions",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approval import app as approval_app
+app.add_typer(
+    approval_app,
+    name="approval",
+    help="Pre-action approvals: list requests, sign on the approver's machine, export/import",
     rich_help_panel="Everyday",
 )
 

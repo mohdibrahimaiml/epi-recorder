@@ -941,6 +941,77 @@ def _format_release_lines(info: dict) -> list[str]:
     return [line]
 
 
+def _check_pre_action_approval(
+    epi_file: Path, manifest, witness_log: Path | None
+) -> dict:
+    """Verify pre-action approvals. Never raises."""
+    from epi_core.approvers import ApproverRegistry
+    from epi_core.container import EPIContainer
+    from epi_core.pre_action import analyze
+
+    steps = EPIContainer.read_steps(epi_file)
+    entries = None
+    if witness_log:
+        try:
+            from epi_cli.witness import _load_witness_entries
+
+            entries, _error = _load_witness_entries(
+                Path(witness_log), include_heartbeats=True
+            )
+        except Exception:
+            entries = []
+    return analyze(
+        steps,
+        entries,
+        registry=ApproverRegistry(),
+        sealing_key=getattr(manifest, "public_key", None),
+    )
+
+
+_PRE_ACTION_LABELS = {
+    "approved_before_action": "APPROVED BEFORE ACTION",
+    "action_before_approval": "ACTION BEFORE APPROVAL",
+    "action_without_approval": "ACTION WITHOUT APPROVAL",
+    "denied_but_executed": "DENIED BUT EXECUTED",
+    "args_changed_after_approval": "ARGS CHANGED AFTER APPROVAL",
+    "approval_expired": "APPROVAL EXPIRED",
+    "approval_reused": "APPROVAL REUSED",
+    "signed_by_sealing_key": "SIGNED BY SEALING KEY",
+    "unknown_approver": "UNKNOWN APPROVER",
+    "auto_approved": "AUTO-APPROVED (NOT HUMAN)",
+    "execution_not_witnessed": "EXECUTION NOT WITNESSED",
+    "not_used": "not used",
+}
+
+
+def _format_pre_action_lines(info: dict) -> list[str]:
+    if not info or info.get("status") == "not_used":
+        return ["  [dim]- Pre-action:  not used[/dim]"]
+    lines: list[str] = []
+    for item in info.get("requests") or []:
+        status = str(item.get("status") or "")
+        label = _PRE_ACTION_LABELS.get(status, status.upper() or "UNKNOWN")
+        if status == "approved_before_action" and item.get("approver_key_colocated"):
+            label = "APPROVED BEFORE ACTION (approver key on agent host — not independent)"
+        color = (
+            "green"
+            if status == "approved_before_action"
+            and item.get("independent")
+            and not item.get("approver_key_colocated")
+            else ("red" if status not in ("approved_before_action", "not_used") else "yellow")
+        )
+        approver = item.get("approver") or "unknown approver"
+        lines.append(
+            f"  [{color}]- Pre-action:  {label} ({approver})[/{color}]"
+        )
+        lines.append(
+            f"  [dim]                basis: {item.get('basis')}[/dim]"
+        )
+        for finding in item.get("findings") or []:
+            lines.append(f"  [dim]                {finding}[/dim]")
+    return lines
+
+
 def _format_sequence_line(info: dict) -> str:
     """One display line for the seal's chain position (never a verdict)."""
     if not info or not info.get("present"):
@@ -1743,6 +1814,7 @@ def verify_command(
     release_dir: Path | None = None,
     min_approvals: int | None = None,
     require_release: bool = False,
+    require_pre_action_approval: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -2436,6 +2508,23 @@ def verify_command(
                 "detail": f"release check crashed: {_rel_err}",
             }
 
+        # ========== STEP 4.97: PRE-ACTION APPROVAL ==========
+        try:
+            report["pre_action_approval"] = _check_pre_action_approval(
+                epi_file, manifest, witness_log
+            )
+            report["pre_action_approval"]["requested"] = bool(
+                require_pre_action_approval
+            )
+        except Exception as _pre_err:
+            report["pre_action_approval"] = {
+                "status": "error",
+                "requests": [],
+                "problems": 0,
+                "detail": f"pre-action check crashed: {_pre_err}",
+                "requested": bool(require_pre_action_approval),
+            }
+
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
         apply_policy(report, active_policy)
@@ -2481,6 +2570,48 @@ def verify_command(
                     report["decision"]["status"] = "WARN"
                     report["decision"]["reason"] = (
                         f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
+                    )
+            except Exception:
+                pass
+        # Pre-action approval: only an independent, non-colocated approval that
+        # precedes the action is clean. Default WARN; FAIL with the flag.
+        _pre = report.get("pre_action_approval") or {}
+        _pre_requests = _pre.get("requests") or []
+        _pre_bad = [
+            item
+            for item in _pre_requests
+            if item.get("status") != "approved_before_action"
+        ]
+        _pre_colocated = [
+            item for item in _pre_requests if item.get("approver_key_colocated")
+        ]
+        _pre_chain_only = [
+            item
+            for item in _pre_requests
+            if item.get("status") == "approved_before_action"
+            and not item.get("independent")
+        ]
+        if _pre_bad or _pre_colocated or _pre_chain_only:
+            try:
+                if require_pre_action_approval:
+                    report["decision"]["status"] = "FAIL"
+                    first = (_pre_bad or _pre_colocated or _pre_chain_only)[0]
+                    report["decision"]["reason"] = (
+                        "pre-action approval: "
+                        + (
+                            "; ".join(first.get("findings") or [])
+                            or first.get("status")
+                        )
+                    )
+                elif report["decision"].get("status") == "PASS":
+                    report["decision"]["status"] = "WARN"
+                    first = (_pre_bad or _pre_colocated or _pre_chain_only)[0]
+                    report["decision"]["reason"] = (
+                        "pre-action approval: "
+                        + (
+                            "; ".join(first.get("findings") or [])
+                            or first.get("status")
+                        )
                     )
             except Exception:
                 pass
@@ -3286,6 +3417,13 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         or _release_block.get("status") not in (None, "not_declared")
     ):
         content_lines.extend(_format_release_lines(_release_block))
+
+    # Pre-action approvals, when the run recorded any (or the caller asked).
+    _pre_block = report.get("pre_action_approval")
+    if isinstance(_pre_block, dict) and (
+        _pre_block.get("requested") or _pre_block.get("requests")
+    ):
+        content_lines.extend(_format_pre_action_lines(_pre_block))
 
     # Human approval (step 3a). One line, and only when the run carries reviews
     # or approval steps, or the operator asked with --require-human-approval.

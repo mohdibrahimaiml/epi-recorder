@@ -248,6 +248,9 @@ def _load_witness_entries(
             "epi.heartbeat",
             "epi.release",
             "epi.release_approval",
+            "epi.approval_request",
+            "epi.approval_response",
+            "epi.approval_executed",
         )
 
     def _from_item(item: dict) -> dict | None:
@@ -1129,6 +1132,12 @@ def _render_audit(log_path: Path, result: dict) -> None:
             _plain("  clean")
 
     unsequenced = int(result.get("unsequenced") or 0)
+    reuse = result.get("approval_reuse") or []
+    for item in reuse:
+        _plain(
+            f"\nAPPROVAL REUSED: request {item.get('request_id')} was executed "
+            f"{item.get('count')} times in this log"
+        )
     if unsequenced:
         _plain(
             f"\nUnsequenced: {unsequenced} report(s) from before sequence numbers "
@@ -1144,7 +1153,8 @@ def _render_audit(log_path: Path, result: dict) -> None:
             "\nProblems found: "
             f"{problems.get('missing', 0)} missing, {problems.get('forks', 0)} fork(s), "
             f"{problems.get('chain_breaks', 0)} chain break(s), "
-            f"{problems.get('tail_gaps', 0)} tail gap(s)."
+            f"{problems.get('tail_gaps', 0)} tail gap(s), "
+            f"{problems.get('approval_reuse', 0)} approval reuse."
         )
     if any(warnings.values()):
         _plain(

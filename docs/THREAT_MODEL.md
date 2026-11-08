@@ -167,6 +167,26 @@ when a logged-in user made the click — and 3a never classifies either as
 clicked, which is why it is labelled an unsigned link click and never a signed
 approval. A person who forwards their link hands over that click.
 
+### 10c. Action executed without the approval it required (mitigated when gated)
+
+**Attack:** run a risky tool first and obtain the approval afterwards, then write
+the steps in the "right" order before sealing. The vendor's own hash chain cannot
+distinguish that from an honest run.
+
+**Defence:** a pre-action gate signs the exact tool call (tool, canonical args
+digest, nonce, expiry, redacted display), verifies a pinned approver's signature
+before running, and reports `epi.approval_executed` to the **customer's** witness
+at release. `epi verify --witness-log --require-pre-action-approval` requires the
+customer's received order request < response < executed, so a vendor-written
+chain that claims the right order is caught as `ACTION BEFORE APPROVAL`. The gate
+also blocks deny, timeout, expiry, argument changes, a reused nonce, the sealing
+key, and an unpinned approver.
+
+**Residual:** only actions routed through the interceptor are gated; code that
+calls the tool directly is not covered. An approver key readable from the agent
+host is flagged but not prevented. Redacted argument fields are approved blind.
+See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
+
 ### 11. Step Reordering / Timeline Tampering
 **Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
 or drops one, so the evidence no longer reflects what actually happened.
@@ -456,6 +476,7 @@ session-only seed, passphrase wrapping) are tracked in
 | Revoked key reuse | Yes | Revocation list |
 | Agent self-approval | Yes | Approver registry (`epi approvers add`) + sealing-key rule + `--require-human-approval` |
 | Forged / replayed gateway approval link | Yes | Single-use expiring token (hash-only) + GET records nothing + POST-only + no query-string reviewer (10b) |
+| Action executed without its required approval | Yes, for gated actions | Signed pre-action request/response + customer witness execution receipt (`--require-pre-action-approval`) |
 | Compromised key | No | Out of scope |
 | Malicious signer | No | Out of scope |
 | DID server compromise | Partial | Local fallback |

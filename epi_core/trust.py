@@ -933,6 +933,11 @@ def create_verification_report(
             "approvals": {"have": 0, "required": 0, "approvers": []},
         },
     )
+    # Pre-action approval surface: verify_command overwrites this.
+    report.setdefault(
+        "pre_action_approval",
+        {"status": "not_used", "requests": [], "problems": 0},
+    )
     # Timestamp surface: verify_command overwrites this with validated data;
     # direct factory consumers get an honest "not evaluated" default so the
     # human report never implies validation happened.

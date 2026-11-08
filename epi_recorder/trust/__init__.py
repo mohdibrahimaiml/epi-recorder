@@ -15,9 +15,29 @@ from __future__ import annotations
 
 from epi_recorder.trust.engine import EnforcementAction, RuntimePolicyEngine
 from epi_recorder.trust.interceptor import TrustInterceptor
+from epi_recorder.trust.approval import (
+    ApprovalGate,
+    ApprovalRequiredError,
+    ApprovalTicket,
+    PreActionApprovalBlocked,
+    PreActionGrant,
+)
+from epi_recorder.trust.context import (
+    current_step_sink,
+    reset_step_sink,
+    set_step_sink,
+)
 
 __all__ = [
     "EnforcementAction",
     "RuntimePolicyEngine",
     "TrustInterceptor",
+    "ApprovalGate",
+    "ApprovalRequiredError",
+    "ApprovalTicket",
+    "PreActionApprovalBlocked",
+    "PreActionGrant",
+    "current_step_sink",
+    "set_step_sink",
+    "reset_step_sink",
 ]

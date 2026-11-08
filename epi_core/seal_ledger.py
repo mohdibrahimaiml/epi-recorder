@@ -509,6 +509,7 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """
     seals: list[dict[str, Any]] = []
     heartbeats: list[dict[str, Any]] = []
+    approval_executed: list[dict[str, Any]] = []
     unsequenced: list[dict[str, Any]] = []
     for entry in entries or []:
         if not isinstance(entry, dict):
@@ -516,6 +517,9 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         kind = str(entry.get("type") or "")
         if kind == "epi.heartbeat":
             heartbeats.append(entry)
+            continue
+        if kind == "epi.approval_executed":
+            approval_executed.append(entry)
             continue
         seq = _int_or_none(entry.get("seal_seq"))
         if seq is None or seq < 1:
@@ -685,7 +689,25 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "forks": sum(len(c["forks"]) for c in chains),
         "chain_breaks": sum(len(c["chain_breaks"]) for c in chains),
         "tail_gaps": sum(1 for c in chains if c["tail_gap"]),
+        "approval_reuse": 0,
     }
+    by_request: dict[str, list[dict[str, Any]]] = {}
+    for entry in approval_executed:
+        request_id = str(entry.get("request_id") or "")
+        if request_id:
+            by_request.setdefault(request_id, []).append(entry)
+    approval_reuse = [
+        {
+            "request_id": request_id,
+            "count": len(items),
+            "received_at": sorted(
+                str(item.get("received_at") or "") for item in items
+            ),
+        }
+        for request_id, items in by_request.items()
+        if len(items) > 1
+    ]
+    problems["approval_reuse"] = len(approval_reuse)
     warnings = {
         "burned": sum(len(c["burned"]) for c in chains),
         "new_chains": sum(1 for c in chains if c["new_chain"]),
@@ -697,6 +719,8 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "heartbeats": len(heartbeats),
         "chains": chains,
         "unsequenced": len(unsequenced),
+        "approval_executed": len(approval_executed),
+        "approval_reuse": approval_reuse,
         "problems": problems,
         "warnings": warnings,
         "ok": all(value == 0 for value in problems.values()),
