@@ -14,6 +14,7 @@ import cbor2
 from pydantic import BaseModel
 
 from epi_core._version import JCS_INTRODUCED_TUPLE
+from epi_core.manifest_members import MANIFEST_MEMBER_FIELDS
 
 CanonicalFormat = Literal["cbor", "legacy", "jcs"]
 
@@ -121,6 +122,13 @@ def model_dict_for_hash(model: BaseModel) -> dict[str, Any]:
     if model.__class__.__name__ == "StepModel":
         model_dict.pop("source_type", None)
         model_dict.pop("verification_class", None)
+
+    # Member-backed fields are not stored at the manifest top level. Drop them
+    # unconditionally (not just when None) so the sign path and the verifier
+    # hash the bytes that are actually in manifest.json. See manifest_members.
+    if model.__class__.__name__ == "ManifestModel":
+        for key in MANIFEST_MEMBER_FIELDS:
+            model_dict.pop(key, None)
 
     omit_absent_optional_hash_fields(model_dict, model.__class__.__name__)
     return normalize_model_dict(model_dict)

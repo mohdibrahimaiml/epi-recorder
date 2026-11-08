@@ -24,6 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from epi_core.manifest_members import (
+    load_manifest_members,
+    manifest_storage_dict,
+    manifest_storage_json,
+    member_path,
+    write_manifest_members,
+)
 from epi_core.schemas import ManifestModel
 from epi_core.viewer_assets import inline_viewer_assets, load_viewer_assets
 from epi_core.workspace import RecordingWorkspaceError, create_recording_workspace
@@ -353,7 +360,9 @@ class EPIContainer:
                 # Sign & Seal (mirrors Python's add_review behavior).
                 "manifest.json": base64.b64encode(
                     json.dumps(
-                        manifest.model_dump(mode="json"), indent=2, ensure_ascii=False,
+                        manifest_storage_dict(manifest),
+                        indent=2,
+                        ensure_ascii=False,
                     ).encode("utf-8")
                 ).decode("ascii"),
                 # viewer.html is generated after this function returns, so
@@ -934,7 +943,27 @@ class EPIContainer:
         try:
             with zipfile.ZipFile(payload_path, "r") as zf:
                 raw = zf.read("manifest.json")
-            return ManifestModel.model_validate_json(raw)
+                data = json.loads(raw)
+                if isinstance(data, dict):
+                    for rel_path, keys in (
+                        ("artifacts/seal_chain.json", ("seal_chain",)),
+                        ("artifacts/case_id.json", ("case_id",)),
+                        ("artifacts/record_kind.json", ("record_kind",)),
+                        (
+                            "artifacts/release_ref.json",
+                            ("release_ref", "runtime_components"),
+                        ),
+                        ("release.json", ("release",)),
+                    ):
+                        try:
+                            member = json.loads(zf.read(rel_path))
+                        except (KeyError, ValueError, TypeError):
+                            continue
+                        if isinstance(member, dict):
+                            for key in keys:
+                                if member.get(key) is not None:
+                                    data[key] = member[key]
+            return ManifestModel(**data)
         except Exception:
             return None
 
@@ -973,6 +1002,7 @@ class EPIContainer:
         output_path: Path | str | None = None,
         notarize: bool | None = None,
         embed_viewer: bool = True,
+        seal_fingerprint: str | None = None,
         **kwargs,
     ) -> str | None:
         if not source_dir.exists():
@@ -1314,6 +1344,32 @@ class EPIContainer:
         file_manifest: dict[str, str] = {}
         files_to_pack: list[tuple[Path, str]] = []
 
+        # ── Member-backed signed data (4.10 format) ──
+        # Anything 4.9.0's ManifestModel does not know is written as a normal
+        # archive member before the walk, so it is listed in file_manifest and
+        # covered by the signature and the witness content digest. The manifest
+        # top level stays inside the 4.9.0 field set.
+        from epi_core.manifest_members import write_manifest_members
+
+        if (
+            seal_fingerprint
+            and getattr(manifest, "seal_chain", None) is None
+            and not getattr(manifest, "signature", None)
+        ):
+            # Allocate once per pack, before the walk, so the chain member is
+            # covered from the first signature. _attach_seal_chain in the
+            # signer reuses this reservation for the same key.
+            try:
+                from epi_core.seal_ledger import allocate
+                from epi_core.schemas import SealChainModel
+
+                _chain = allocate(seal_fingerprint)
+                if _chain:
+                    manifest.seal_chain = SealChainModel(**_chain)
+            except Exception:
+                pass
+        write_manifest_members(source_dir, manifest)
+
         for file_path in sorted(source_dir.rglob("*")):
             if file_path.is_file():
                 rel_path = file_path.relative_to(source_dir)
@@ -1357,6 +1413,25 @@ class EPIContainer:
 
         if signer_function:
             manifest = signer_function(manifest)
+
+        # Fallback for callers that did not pre-allocate a seal number: the
+        # signer attached one, so write its member now and add it to the
+        # signed file_manifest before notarization and the final re-sign.
+        if getattr(manifest, "seal_chain", None) is not None:
+            from epi_core.manifest_members import member_path
+
+            _chain_member = member_path("seal_chain") or "artifacts/seal_chain.json"
+            _chain_path = source_dir / _chain_member
+            # Always rewrite: a re-sign with a different key replaces the chain,
+            # and the member (not the manifest top level) is what readers load.
+            write_manifest_members(source_dir, manifest, include={"seal_chain"})
+            if _chain_path.exists():
+                manifest.file_manifest[_chain_member] = EPIContainer._compute_file_hash(
+                    _chain_path
+                )
+                if not any(item[1] == _chain_member for item in files_to_pack):
+                    files_to_pack.append((_chain_path, _chain_member))
+                files_to_pack.sort(key=lambda item: item[1])
 
         # ── Notarization (Tier 1: RFC 3161, Tier 2: OpenTimestamps/Bitcoin) ──
         # ``notarize`` lets the caller defer stamping to a later pack: record()
@@ -1557,7 +1632,7 @@ class EPIContainer:
             if signer_function:
                 manifest = signer_function(manifest)
 
-            manifest_json = manifest.model_dump_json(indent=2)
+            manifest_json = manifest_storage_json(manifest)
             zf.writestr("manifest.json", manifest_json, compress_type=zipfile.ZIP_DEFLATED)
 
         return viewer_html
@@ -1757,6 +1832,7 @@ class EPIContainer:
         embed_agt: bool = False,
         notarize: bool | None = None,
         embed_viewer: bool = True,
+        seal_fingerprint: str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -1802,6 +1878,7 @@ class EPIContainer:
                     output_path=output_path,
                     notarize=notarize,
                     embed_viewer=embed_viewer,
+                    seal_fingerprint=seal_fingerprint,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
@@ -1888,7 +1965,7 @@ class EPIContainer:
 
             zf.writestr(
                 "manifest.json",
-                manifest.model_dump_json(indent=2),
+                manifest_storage_json(manifest),
                 compress_type=zipfile.ZIP_DEFLATED,
             )
 
@@ -2150,6 +2227,9 @@ class EPIContainer:
         # Backward compatibility: old browser viewer wrote 'legacy' before 'legacy-zip'
         if manifest_dict.get("container_format") == "legacy":
             manifest_dict["container_format"] = "legacy-zip"
+        # 4.10 format: new signed data lives in normal members listed in
+        # file_manifest, not at the manifest top level (4.9.0 compatibility).
+        load_manifest_members(epi_path, manifest_dict)
         return ManifestModel(**manifest_dict)
 
     @staticmethod

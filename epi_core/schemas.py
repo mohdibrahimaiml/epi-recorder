@@ -333,6 +333,11 @@ class ManifestModel(BaseModel):
     )
     
     model_config = ConfigDict(
+        # Keep unknown fields instead of silently dropping them. From 4.10 the
+        # verifier hashes the manifest as stored, so a field written by a
+        # future version must survive the round-trip; dropping it would repeat
+        # the 4.9.0 forward-compatibility failure in reverse.
+        extra="allow",
         json_schema_extra={
             "example": {
                 "spec_version": "1.0-keystone",

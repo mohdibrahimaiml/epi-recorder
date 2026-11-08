@@ -95,25 +95,27 @@
 
         <div class="z-verifier-grid">
           <div class="z-drop-cell">
-            <div class="drop" id="dropZoneEl" role="button" tabindex="0" aria-label="Drop or choose a .epi file to verify offline">
+            <div class="drop" id="dropZoneEl" aria-label="Drop or choose a .epi file to verify offline">
               <svg style="width:2.25rem;height:2.25rem;margin:0 auto 0.75rem;color:var(--acc-envelope)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              <h3>Drop .epi file here</h3>
+              <p class="drop-title">Drop .epi file here</p>
               <p>or click to browse · file will not be uploaded · <a href="/assets/sample.epi" download style="color:var(--acc-envelope);text-decoration:underline">download sample.epi</a></p>
+              <button type="button" id="dropChooseFileBtn" class="z-btn-primary" style="margin-top:0.75rem;padding:0.55rem 1rem;font-size:0.75rem">Choose a file</button>
               <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
               <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
             </div>
 
-            <div class="drop" id="witnessZoneEl" role="button" tabindex="0" aria-label="Drop your witness log (received.jsonl) to check the file against your own record"
+            <div class="drop" id="witnessZoneEl"
                  style="margin-top:0.75rem;padding:1rem 1.25rem;text-align:left">
-              <h3 style="font-size:0.9rem;margin:0">Drop your witness log <span style="color:var(--ink-muted);font-weight:400">(optional)</span></h3>
+              <p class="drop-title" id="witnessHeading" style="font-size:0.9rem;margin:0">Drop your witness log <span style="color:var(--ink-muted);font-weight:400">(optional)</span></p>
               <p style="margin:0.35rem 0 0;font-size:0.75rem">
                 <code style="font-family:var(--font-mono)">received.jsonl</code> from your own
                 <code style="font-family:var(--font-mono)">epi witness serve</code>. The file proves it was not
                 edited; your log proves the vendor reported <em>this</em> case. A re-sealed forgery is a valid
                 file — only your log catches it.
               </p>
+              <button type="button" id="witnessChooseFileBtn" class="z-btn-primary" style="margin-top:0.6rem;padding:0.45rem 0.9rem;font-size:0.72rem">Choose a witness log</button>
               <input type="file" id="witnessInput" accept=".jsonl,.json,.txt" style="display:none">
               <div id="witnessStatus" style="display:none;margin-top:0.55rem;font-size:0.72rem;line-height:1.5" aria-live="polite" role="status"></div>
             </div>
@@ -156,6 +158,7 @@
         </div>
 
         <div class="z-tri-grid">
+          <h2 class="sr-only">What the verification result means</h2>
           <div class="z-tri-card">
             <div class="z-tri-card__step" style="margin-top:0">Why Amber is Normal</div>
             <h3 class="z-h3-card" style="margin-top:0.5rem">SEAL VALID · IDENTITY NOT PINNED</h3>

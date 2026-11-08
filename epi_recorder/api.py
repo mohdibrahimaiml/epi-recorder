@@ -2226,6 +2226,7 @@ class EpiRecorderSession:
             from epi_core.keys import (
                 KeyManager,
                 external_key_required,
+                fingerprint_for_private_key,
                 no_vault_key_message,
             )
             from epi_core.trust import sign_manifest
@@ -2303,6 +2304,7 @@ class EpiRecorderSession:
                         container_format=current_format,
                         embed_viewer=(current_format == EPI_CONTAINER_FORMAT_ENVELOPE),
                         generate_analysis=False,
+                        seal_fingerprint=fingerprint_for_private_key(private_key),
                     )
                 finally:
                     if old_checkpoints is None:

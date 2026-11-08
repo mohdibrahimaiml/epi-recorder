@@ -193,7 +193,7 @@
               <a href="/assets/demo/decision-example.epi" download class="z-btn-ghost">Download a sample .epi</a>
             </div>
             <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted);max-width:33rem">
-              The sample is a real Decision Record. Open the summary, or download the <code style="font-family:var(--font-mono)">.epi</code> file and check it offline. Technical trust details live on the <a href="/trust" style="color:var(--acc)">trust model</a> page.
+              The sample is a real Decision Record. Open the summary, or download the <code style="font-family:var(--font-mono)">.epi</code> file and check it offline. Technical trust details live on the <a href="/trust" style="color:var(--acc);text-decoration:underline;text-underline-offset:2px">trust model</a> page.
             </p>
 
             <div class="z-cli-pill z-blur-in z-blur-in--d4">
@@ -212,10 +212,12 @@
             <div class="z-hero-scrim-t" aria-hidden="true"></div>
 
             <div id="decisionCard" class="z-hero-monolith" role="region" aria-label="Three example decision records produced by EPI from sealed files">
-              <div class="z-decision-tabs" role="tablist" aria-label="Example decision outcomes">
+              <div class="z-decision-tabs">
+                <div role="tablist" aria-label="Example decision outcomes" style="display:contents">
                 <button type="button" class="z-decision-tab" role="tab" id="tab-denied" aria-controls="panel-denied" aria-selected="true" data-panel="panel-denied">Denied</button>
                 <button type="button" class="z-decision-tab" role="tab" id="tab-approved" aria-controls="panel-approved" aria-selected="false" data-panel="panel-approved">Approved</button>
                 <button type="button" class="z-decision-tab" role="tab" id="tab-escalated" aria-controls="panel-escalated" aria-selected="false" data-panel="panel-escalated">Escalated</button>
+                </div>
                 <button type="button" class="z-decision-pause" id="decisionPause" aria-pressed="false" aria-label="Pause the example rotation">Pause</button>
               </div>
 
@@ -689,7 +691,7 @@ Pre-action: <span style="color:#ef4444">ACTION BEFORE APPROVAL</span></div>
             <source src="/assets/epi-walkthrough.mp4?v=5" type="video/mp4">
             <track kind="captions" src="/assets/epi-launch.vtt" srclang="en" label="English" />
           </video>
-          <button type="button" id="walkthroughPlayBtn" class="z-video-overlay">
+          <button type="button" id="walkthroughPlayBtn" class="z-video-overlay" aria-label="Play walkthrough film">
             <span class="z-video-play-circle" aria-hidden="true">
               <svg viewBox="0 0 24 24" style="width:1.75rem;height:1.75rem;margin-left:3px" fill="currentColor">
                 <polygon points="8,5 19,12 8,19"/>
@@ -793,12 +795,13 @@ Pre-action: <span style="color:#ef4444">ACTION BEFORE APPROVAL</span></div>
 
         <div class="z-verifier-grid">
           <div class="z-drop-cell">
-            <div class="drop" id="dropZoneEl" role="button" tabindex="0" aria-label="Drop or choose a .epi file to verify offline in this browser">
+            <div class="drop" id="dropZoneEl" aria-label="Drop or choose a .epi file to verify offline in this browser">
               <svg style="width:2rem;height:2rem;margin:0 auto 0.75rem;color:var(--acc-envelope)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              <h3>Drop a .epi file here</h3>
+              <p class="drop-title">Drop a .epi file here</p>
               <p>or click to browse · verified locally via WebCrypto · <a href="/assets/sample.epi" download style="color:var(--acc-envelope);text-decoration:underline">download sample.epi</a></p>
+              <button type="button" id="dropChooseFileBtn" class="z-btn-primary" style="margin-top:0.75rem;padding:0.55rem 1rem;font-size:0.75rem">Choose a file</button>
               <input type="file" id="fileInput" accept=".epi,.zip" style="display:none">
               <div id="dropResult" style="display:none" aria-live="polite" role="status"></div>
             </div>

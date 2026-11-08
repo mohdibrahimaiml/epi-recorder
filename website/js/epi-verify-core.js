@@ -238,9 +238,12 @@
     if (copy.producer_version === null || copy.producer_version === undefined) {
       delete copy.producer_version;
     }
-    if (copy.case_id === null || copy.case_id === undefined) {
-      delete copy.case_id;
-    }
+    delete copy.case_id;
+    delete copy.seal_chain;
+    delete copy.record_kind;
+    delete copy.release;
+    delete copy.release_ref;
+    delete copy.runtime_components;
     return copy;
   }
 

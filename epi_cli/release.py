@@ -26,7 +26,7 @@ def _plain(text: str) -> None:
 
 
 def _key(key_name: str):
-    from epi_core.keys import KeyManager
+    from epi_core.keys import KeyManager, fingerprint_for_private_key
 
     km = KeyManager()
     if not km.has_key(key_name):
@@ -109,6 +109,8 @@ def create(
         raise typer.Exit(2) from exc
 
     km, private_key = _key(key)
+    from epi_core.keys import fingerprint_for_private_key
+
     workspace = create_recording_workspace("epi_release_")
     try:
         (workspace / "release.json").write_text(
@@ -128,6 +130,7 @@ def create(
             signer_function=lambda current: sign_manifest(current, private_key, key),
             generate_analysis=False,
             embed_viewer=False,
+            seal_fingerprint=fingerprint_for_private_key(private_key),
         )
     finally:
         import shutil

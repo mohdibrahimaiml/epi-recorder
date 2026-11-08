@@ -2558,6 +2558,23 @@ def doctor(
     except Exception as e:
         _fail(f"Key system error: {e}", "Run: epi keys generate")
 
+    # Owner-only private key files. Windows inherits the profile ACL, so a key
+    # can be readable by unrelated SIDs even though chmod 0600 would be enough
+    # on Unix. Report old keys rather than silently leaving them exposed.
+    try:
+        from epi_core.approvers import _resolve_default_approver_keys_dir
+        from epi_core.keys import key_acl_advice
+
+        for label, directory in (
+            ("signing keys", km.keys_dir),
+            ("approver keys", _resolve_default_approver_keys_dir()),
+        ):
+            advice = key_acl_advice(directory)
+            if advice:
+                _warn(f"{label}: {advice}")
+    except Exception:
+        pass
+
     # ── 2. Disk space ─────────────────────────────────────────────────────
     console.print()
     console.print("[bold]Storage & Disk[/bold]")

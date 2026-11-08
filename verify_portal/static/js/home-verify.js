@@ -649,6 +649,9 @@ async function verifyApprovalRecords(zip,manifest,rawManifestBytes,containerFmt)
 async function processFile(f){
   var nm=(f&&f.name?f.name:'').toLowerCase();
   lastFile=f||lastFile;
+  // Every run starts from the neutral labels. A previous PASS/VALID must never
+  // stay on screen under the result of a different (or tampered) file.
+  resetChecks();
   if(f&&f.size>25*1024*1024){showResult('fail','<strong>This file is too large to check in the browser</strong><br>Files over 25 MB cannot be checked here — use <code style="font-size:0.75em">epi verify</code> on your own machine.');return}
   showResult('warn','<em>Reading '+esc(f.name||'file')+'...</em>');
 
@@ -676,23 +679,14 @@ async function processFile(f){
     }
 
     // Check 1b: outer polyglot viewer HTML (reserved_tail[0:32]). A byte
-    // flipped in the display layer fails exactly like the CLI.
-    var viewerNote=null;
+    // flipped in the display layer fails exactly like the CLI. Carry the
+    // failure into the report instead of returning early: every detail line
+    // below must re-render from this result.
+    var viewerNote=null, viewerFail=false, viewerDetail=null;
     if(containerFmt==='envelope-v2'){
       var vw=await verifyPolyglotViewer(u8);
-      if(vw.fail){
-        // Still show what the file claims (labelled as possibly forged), so a
-        // reviewer sees what was altered; the verdict stays a red fail.
-        var claims='';
-        try{
-          var tz=await JSZip.loadAsync(extractZIPPayload(u8,containerFmt));
-          var tm=tz.file('manifest.json')?parseJSONPreserveNumbers(await tz.file('manifest.json').async('string')):{};
-          var ts=[],tf=tz.file('steps.jsonl');
-          if(tf){(await tf.async('string')).split('\n').forEach(function(l){l=l.trim();if(l){try{ts.push(parseJSONPreserveNumbers(l))}catch(e){}}})}
-          claims=storyHTML(buildStory(ts,tm),true);
-        }catch(e){claims=''}
-        showResult('fail','<strong>This file was changed after it was sealed. Don\'t rely on it.</strong><br><span style="font-size:0.68rem;opacity:.85">'+esc(vw.detail)+'</span>'+claims);return}
-      viewerNote=vw.note;
+      if(vw.fail){viewerFail=true;viewerDetail=vw.detail}
+      else viewerNote=vw.note;
     }
 
     var zipBuf;
@@ -825,6 +819,20 @@ async function processFile(f){
     else{report.trust_level='NONE';report.trust_message='Verification incomplete in browser — not verified, use epi verify --policy strict offline for claim audit'}
 
     try{report.witness=await witnessForFile(manifest,manifestHashForWitness,u8,report.facts.integrity_ok);}catch(e){report.witness={status:'NOT CHECKED'}}
+
+    // A changed display layer is a changed file. The inner ZIP may still hash
+    // and its manifest signature may still verify, but the artifact as a whole
+    // does not: force every detail line to the fail verdict.
+    if(viewerFail){
+      report.facts.display_layer_ok=false;
+      report.facts.integrity_ok=false;
+      report.facts.signature_valid=false;
+      report.facts.mismatches=Object.assign({},report.facts.mismatches,{
+        'viewer (outer polyglot HTML)':viewerDetail||'display layer changed after sealing'
+      });
+      report.trust_level='NONE';
+      report.trust_message='The file was changed after it was sealed — do not rely on it.';
+    }
     showReport(report,'');
   }catch(e){showResult('fail','<strong>Verification error</strong><br>'+esc(e.message))}
 }
@@ -1168,6 +1176,8 @@ function resetChecks(){
 }
 
 if(dz&&fi&&dr){
+  var chooseBtn=document.getElementById('dropChooseFileBtn');
+  if(chooseBtn){chooseBtn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();fi.click()})}
   dz.addEventListener('click',function(){fi.click()});
   dz.addEventListener('keydown',function(e){
     if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click()}
@@ -1179,6 +1189,8 @@ if(dz&&fi&&dr){
   fi.addEventListener('change',function(){if(fi.files[0]){resetChecks();lastFile=fi.files[0];processFile(fi.files[0])}});
 }
 if(wz&&wi){
+  var witnessChooseBtn=document.getElementById('witnessChooseFileBtn');
+  if(witnessChooseBtn){witnessChooseBtn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();wi.click()})}
   wz.addEventListener('click',function(){wi.click()});
   wz.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();wi.click()}});
   ['dragenter','dragover','dragleave','drop'].forEach(function(ev){wz.addEventListener(ev,function(e){e.preventDefault()})});

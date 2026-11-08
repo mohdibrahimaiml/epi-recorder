@@ -115,14 +115,17 @@ html[data-theme="light"] {
   --cta-fg: #fafafa;
   --cta-hover: #27272a;
 
-  --acc-envelope: #059669;
-  --acc-trust: #d97706;
+  --acc-envelope: #047857;
+  --acc-trust: #b45309;
   --acc-capture: #7c3aed;
   --acc-witness: #0891b2;
   --acc-policy: #e11d48;
   --acc-audit: #4f46e5;
 
-  --verified: #059669;
+  --acc: #047857;
+  --acc-hi: #059669;
+  --ok: #047857;
+  --verified: #047857;
   --verified-bg: rgba(5, 150, 105, 0.08);
   --warn: #b45309;
   --warn-bg: rgba(180, 83, 9, 0.08);
@@ -864,6 +867,13 @@ html[data-theme="light"] .z-brand__img--light {
   line-height: 1.65;
   color: var(--text-body);
   text-wrap: pretty;
+}
+
+/* Links inside body text must not rely on colour alone (WCAG 1.4.1). */
+.z-body a:not(.z-btn-primary):not(.z-btn-ghost):not(.z-footer-col__link) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 @media (min-width: 40rem) {
@@ -1829,6 +1839,12 @@ html[data-theme="light"] .z-stage__pill {
 }
 
 .drop h3 {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.drop .drop-title {
   font-size: 1.0625rem;
   font-weight: 500;
   color: var(--foreground);

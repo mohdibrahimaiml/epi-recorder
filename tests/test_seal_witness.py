@@ -460,8 +460,9 @@ def _edit_seal_chain(epi_path: Path) -> None:
         order = [info.filename for info in archive.infolist()]
         members = {name: archive.read(name) for name in order}
     manifest = json.loads(members["manifest.json"])
-    manifest["seal_chain"]["seq"] = int(manifest["seal_chain"]["seq"]) + 1
-    members["manifest.json"] = json.dumps(manifest, indent=2).encode("utf-8")
+    chain = json.loads(members["artifacts/seal_chain.json"])
+    chain["seal_chain"]["seq"] = int(chain["seal_chain"]["seq"]) + 1
+    members["artifacts/seal_chain.json"] = json.dumps(chain, indent=2).encode("utf-8")
     with zipfile.ZipFile(inner, "w", zipfile.ZIP_DEFLATED) as archive:
         for name in order:
             compress = (
@@ -505,18 +506,20 @@ def test_payload_carries_seal_chain_fields(monkeypatch, tmp_path: Path) -> None:
         server.shutdown()
 
 
-def test_editing_seal_chain_breaks_the_signature(monkeypatch, tmp_path: Path) -> None:
+def test_editing_seal_chain_breaks_integrity(monkeypatch, tmp_path: Path) -> None:
 
     _hermetic(monkeypatch, tmp_path)
     sealed = _seal(monkeypatch, tmp_path, tmp_path / "run.epi")
     _edit_seal_chain(sealed)
 
     from epi_core.container import EPIContainer
-    from epi_core.trust import verify_embedded_manifest_signature
 
-    manifest = EPIContainer.read_manifest(sealed)
-    valid, _name, _message = verify_embedded_manifest_signature(manifest)
-    assert valid is False
+    # The chain is a member listed in file_manifest. Editing it changes the
+    # member hash, so integrity fails even though the manifest signature (over
+    # file_manifest) is unchanged. Both old and new verifiers must catch it.
+    ok, mismatches = EPIContainer.verify_integrity(sealed)
+    assert ok is False
+    assert "artifacts/seal_chain.json" in mismatches
 
 
 def test_audit_reports_a_missing_number_and_exits_1(

@@ -353,6 +353,12 @@ def allocate(key_fingerprint: str) -> dict[str, Any] | None:
             }
             state["updated_at"] = _now()
             _write_state(path, state)
+            # Test-only crash hook: die with the reservation persisted and no
+            # commit. This is exactly a seal process killed between allocate and
+            # commit; the next allocation must reap it as a burn, never reuse
+            # the number silently.
+            if os.environ.get("EPI_TEST_CRASH_AFTER_SEAL_ALLOCATE") == "1":
+                os._exit(99)
             prev_seq = int(state.get("last_committed_seq") or 0)
             prev_digest = state.get("last_content_digest")
             return {
