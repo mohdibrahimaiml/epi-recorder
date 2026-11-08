@@ -80,7 +80,7 @@ def _pip_install(python: Path, *args: str) -> None:
 
 def _plain_seal(head_python: Path, work: Path) -> Path:
     home = work / "plain-home"
-    (home / "keys").mkdir(parents=True)
+    (home / "keys").mkdir(parents=True, exist_ok=True)
     out = work / "plain.epi"
     code = f"""
 from pathlib import Path
@@ -96,6 +96,7 @@ with record(r"{out}", goal="compat plain", with_viewer=False) as epi:
             "EPI_NOTARIZE": "0",
             "EPI_QUIET": "1",
             "EPI_WITNESS_URL": "",
+            "EPI_OVERWRITE": "1",
             "PYTHONIOENCODING": "utf-8",
         }
     )
@@ -108,8 +109,8 @@ with record(r"{out}", goal="compat plain", with_viewer=False) as epi:
 def _demo_seals(head_python: Path, work: Path) -> list[Path]:
     """Run the shipped demo generator in a temp skeleton (no repo writes)."""
     skeleton = work / "demo-repo"
-    (skeleton / "scripts").mkdir(parents=True)
-    (skeleton / "website" / "assets" / "demo").mkdir(parents=True)
+    (skeleton / "scripts").mkdir(parents=True, exist_ok=True)
+    (skeleton / "website" / "assets" / "demo").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(
         ROOT / "scripts" / "make_decision_example.py",
         skeleton / "scripts" / "make_decision_example.py",
@@ -143,14 +144,24 @@ def _last_cli_verify(last_python: Path, files: list[Path]) -> list[str]:
             [str(last_python), "-m", "epi_cli", "verify", str(path), "--json"],
             timeout=300,
         )
-        output = (result.stdout or "") + (result.stderr or "")
+        output = result.stdout or ""
+        stderr = result.stderr or ""
         if result.returncode not in (0, 1):
-            failures.append(f"{path.name}: last-release CLI exited {result.returncode}\n{output[-1500:]}")
+            failures.append(
+                f"{path.name}: last-release CLI exited {result.returncode}\n"
+                f"{(output + stderr)[-1500:]}"
+            )
             continue
         try:
+            # --json writes pure JSON to stdout; warnings go to stderr. Never
+            # concatenate them before parsing (a warning after the object makes
+            # json.loads fail).
             payload = json.loads(output[output.index("{") :])
         except Exception:
-            failures.append(f"{path.name}: last-release CLI did not emit JSON\n{output[-1500:]}")
+            failures.append(
+                f"{path.name}: last-release CLI did not emit JSON\n"
+                f"stdout: {output[-800:]}\nstderr: {stderr[-800:]}"
+            )
             continue
         facts = payload.get("facts") or {}
         if facts.get("signature_valid") is not True:
@@ -196,11 +207,15 @@ def _browser_preimage_checks(
             [node, str(harness), str(preimage), str(manifest_path)],
             timeout=120,
         )
-        output = (result.stdout or "") + (result.stderr or "")
+        output = result.stdout or ""
+        stderr = result.stderr or ""
         try:
             payload = json.loads(output[output.index("{") :])
         except Exception:
-            failures.append(f"{path.name}: browser preimage harness failed\n{output[-1500:]}")
+            failures.append(
+                f"{path.name}: browser preimage harness failed\n"
+                f"stdout: {output[-800:]}\nstderr: {stderr[-800:]}"
+            )
             continue
         if payload.get("valid") is not True:
             failures.append(
