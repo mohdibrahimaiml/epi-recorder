@@ -299,3 +299,161 @@ python -m venv /tmp/epi-490
 ```
 
 The same file on the 4.10.0 verifier is `Signature: Valid`.
+
+---
+
+## Round 2 — fix round after the 4.10.0 NO-GO
+
+**Date:** 9 November 2026  
+**Fix branch:** `release/4.10.0-site`  
+**Fix commits:** `d92f907f` (format/tests/UI), `57c9f417` (CI gate stdout parsing), `647ea069` (Windows ACL principal matching), `11915ce4` (TSA imprint compatibility), `28f792c6` (demo hashes/CI hygiene), `c03912a0` (single-open manifest member hydration)  
+**Report branch:** `qa/4.10.0`  
+**Test-only changes:** none; the product changes are on the release branch.
+
+### Verdict
+
+**P0-1 is fixed and proven.** A 4.10.0 file now verifies as `Signature VALID` on the 4.9.0 CLI and on the live 4.9.0 browser verifier (`https://epilabs.org/verify/`). The new permanent CI gate passes against the last PyPI release, including the last release's browser preimage.
+
+**Launch is still blocked on the Cloud journey (`C5–C12`).** Those steps need the dedicated TEST Cloud account and a human sign-in at `cloud.epilabs.org`. No tag, PyPI upload, GitHub release, merge of PR #263, or `main` push was made.
+
+### P0-1 — forward compatibility — PASS
+
+**Root cause confirmed.** 4.9.0 parses `manifest.json` through its own `ManifestModel`, drops unknown top-level fields, and re-hashes. The new fields (`seal_chain`, `record_kind`, `release`, `release_ref`, `runtime_components`) and `case_id` were outside that model, so genuine files read as tampered.
+
+**Fix (format, not verifier special-case):**
+
+- New `epi_core/manifest_members.py`. The new data is written before the `file_manifest` walk as normal archive members and is therefore listed in `file_manifest`, covered by the Ed25519 signature and the witness content digest:
+  - `artifacts/seal_chain.json`
+  - `artifacts/case_id.json`
+  - `artifacts/record_kind.json`
+  - `artifacts/release_ref.json` (contains `release_ref` and `runtime_components`)
+  - `release.json` (the release document, already a member)
+- The manifest top level now contains only the 4.9.0 field set. `tests/compatibility/test_manifest_schema.py` freezes the 4.9.0 field list and asserts every field added since is member-backed.
+- Seal-number allocation happens once per pack, before the walk, for the main record/release paths; the generic fallback writes the member after the first sign but still before the final signature, and always rewrites it when a re-sign changes the key.
+- `read_manifest` rehydrates the member fields. `manifest_storage_json` writes the top level without them.
+- From 4.10 the Python and JavaScript verifiers hash the manifest as stored and keep unknown fields (`ManifestModel(extra="allow")`; the browser preimage deletes only the member fields, never unknown ones).
+- Tests:
+  - `tests/test_forward_compat_manifest.py` — unknown extra field survives signing, packing, CLI verification, and hashing.
+  - `tests/browser/test_forward_compat_manifest_browser.py` — the browser preimage computes the same hash as Python for a manifest with an unknown field.
+  - `tests/compatibility/test_manifest_schema.py` — 4.9.0 field freeze and member classification.
+
+**Re-sealed demo files.** All 4.10.0 demo/site `.epi` files were regenerated or re-sealed with the new format. The old 4.9.0/4.8.0 `docs/assets` samples were left untouched: they are historical and still verify.
+
+**A5 re-run by hand:**
+
+| Verifier | File | Result |
+|---|---|---|
+| 4.9.0 CLI (PyPI) | all 16 `website/assets/**/*.epi` | `signature_valid=True`, `integrity_ok=True` |
+| Live `https://epilabs.org/verify/` (4.9.0 code) | `decision-example.epi` | `02 Integrity PASS`, `03 Signature VALID`, `SEAL VALID` |
+| Live `https://epilabs.org/verify/` | `claims-policy-1.4.epi` | `02 Integrity PASS`, `03 Signature VALID`, `SEAL VALID` |
+| Live `https://epilabs.org/verify/` | `sample.epi` | `02 Integrity PASS`, `03 Signature VALID`, `SEAL VALID` |
+
+The 4.9.0 CLI exits 1 on these files only for the expected “local sealer not org-pinned” identity warning; the signature is valid.
+
+**Permanent CI gate.** `.github/workflows/release-gate.yml` has a blocking `compatibility-gate` job; `release-gate` now `needs` it. The job installs the last released `epi-recorder` from PyPI, checks out its tag, seals plain/witness/release/pre-action files with HEAD, runs the last release's CLI on every file, and runs the last release's browser preimage (`website/js/`) in Node. On PR #263 at `28f792c6` the whole CI is green: `Last-release compatibility (blocking)` pass (53s), `Full test, build, and wheel audit` pass on Ubuntu (6m41s) and Windows (14m19s). Local run:
+
+```
+backward-compatibility gate: HEAD vs epi-recorder 4.9.0
+sealed plain: plain.epi
+sealed demo: claims-policy-1.4.epi, decision-example-approved.epi,
+             decision-example-escalated.epi, decision-example.epi
+PASS: 5 HEAD-sealed file(s) verify on epi-recorder 4.9.0
+```
+
+### Must-fix 1 — `/verify` tamper display — PASS
+
+`website/js/home-verify.js` now carries an outer-display-layer failure into the report instead of returning before the six check rows are re-rendered. On a flipped byte it forces `integrity_ok=false`, `signature_valid=false`, trust `NONE`, and adds the display-layer mismatch. `processFile` also calls `resetChecks()` first, so a previous PASS/VALID can never linger.
+
+Browser test `tests/browser/test_verify_tamper_rerender.py` loads the sample, flips 1 byte, asserts `02 Integrity FAIL` and `03 Signature INVALID`, restores, and asserts `02 PASS` and `03 VALID` again. Passed.
+
+Screenshots: `screens/verify-tamper-fail.png`, `screens/verify-tamper-restored.png`.
+
+### Must-fix 2 — killed seal / burns — PASS (earlier evidence explained)
+
+The earlier A7 kill landed **before allocation**: the process was killed inside `with record():` before `__exit__`, so no seal number had been spent. A contiguous `#1..#51` audit was correct for that kill.
+
+New test-only hook `EPI_TEST_CRASH_AFTER_SEAL_ALLOCATE=1` exits immediately after the pending reservation is persisted. `tests/test_seal_burn_crash.py` then proves:
+
+1. the crashed process leaves reservation `#1` pending;
+2. the next seal reaps it as a burn and allocates `#2`;
+3. a heartbeat reports the burn;
+4. `epi witness audit --json` reports `contiguous=false` and `#1` in `burned` or `missing` — never a clean `#1..#2` chain.
+
+Passed.
+
+### Must-fix 3 — Windows key permissions — PASS
+
+- `epi_core.keys.secure_private_file` removes inheritance and grants only the current user with `icacls /inheritance:r /grant:r "<user>:(R,W)"` (no new dependency). It is called by `KeyManager.generate_keypair`, `import_hex_seed`, and the local SCITT service key writer.
+- `key_acl_advice` checks existing key files. `epi doctor` now reports broad permissions and prints the exact `icacls` fix.
+- `tests/test_key_acl.py` asserts a generated private key has no extra principals (Windows) and mode `0600` (POSIX).
+
+Existing keys on this machine still have two inherited SIDs; `epi doctor` now reports them with the repair command. New keys are owner-only.
+
+### Must-fix 4 — accessibility — PASS
+
+Fixed in the changed sections:
+
+- `.z-decision-tabs`: the three `role="tab"` buttons are now inside a `role="tablist"`; the Pause button is outside it (fixes `aria-required-children`).
+- Drop zones: removed `role="button"` from the containers and added real `Choose a file` / `Choose a witness log` buttons (fixes `nested-interactive`).
+- Light theme: darker green (`#047857`) and amber (`#b45309`) for text; body links underlined (fixes contrast and `link-in-text-block`).
+- `/reviewers` content links are underlined (`site.css`).
+- `/verify`: drop-zone headings are paragraphs instead of skipped `h3`s; the witness zone has a real button; a hidden `h2` gives the result cards a correct heading order.
+
+Axe-core WCAG 2 A/AA (Chromium, Firefox, WebKit; light and dark; `/`, `/reviewers`, `/verify/`, `/decision-record`): **0 violations in every run.**
+
+Lighthouse accessibility: `/` 100, `/reviewers` 100, `/verify/` 100, blog post 100. Remaining Lighthouse scores are recorded under C14 below.
+
+### Must-fix 5 — `naic-claim-override.html` version — PASS
+
+`website/assets/demo/naic-claim-override.epi` was re-sealed at 4.10.0 and `naic-claim-override.html` was regenerated with `epi export-summary`. The embedded `spec_version` and `producer_version` are now `4.10.0`; the artifact verifies on 4.9.0 and the live browser verifier.
+
+### Must-fix 6 — A10 docs commands — COMPLETED WITH FINDINGS
+
+All **164** `epi`/`pip`/`python scripts/` commands were extracted from `README.md`, `docs/*.md` and `blog/posts/*.md` and run in a fresh temp working directory with an isolated `EPI_HOME`. Result: **27 PASS, 46 SKIP, 91 FAIL** in a bare sandbox.
+
+The 91 failures were reviewed one by one. They are not new product defects:
+
+- 55 assume an input created by an earlier step or shipped example (`case.epi`, `received.jsonl`, `decision.epi`, `run.epi`, `sample.epi`, `policies/credit.yaml`, `examples/agt/...`).
+- 9 use placeholders (`<fingerprint>`, `path/to/run.epi`, `my_agent.py`, `my_run.epi`).
+- 14 look like syntax errors. 10 are `epi annex ...` and 2 are `epi enterprise ...`: **paid/closed-source commands**, explicitly labelled “Paid, and not in this repository” in `README.md` and `docs/CLI.md`. `docs/ANNEX-IV.md` does not repeat that label at the top; a reader can hit `No such command 'annex'`. **P2 doc fix.** One is a diagram fragment (`epi verify / browser viewer ←───────┘`), and one is a multi-line `epi oversight report` block whose backslash is followed by a comment line.
+- 6 need Cloud credentials or a signed-in session.
+- 2 need a key file that the example assumes.
+- 5 are interactive or need cloud-provider credentials (`epi init`, `epi policy init`, `epi telemetry enable`, `epi approvers keygen`, AWS KMS).
+- `epi cloud use` in `docs/CLI.md` shows no customer argument, but the CLI requires one. **P2 doc omission.**
+
+One minor UX finding: `epi keys trust case.epi` on a missing file says `Public key 'case.epi' not found` rather than `File not found` (**P2**). No command that had its real inputs contradicted the documented syntax.
+
+### Re-run of the remaining failed checks
+
+| Check | Result |
+|---|---|
+| Full suite (`pytest -q`) | **2637 passed, 58 skipped** in 43:46 (`28f792c6`) |
+| A6 tamper suites | **72 passed** (byte flip, re-sign, chain break, forged approval, backdate, reuse, args-after-approval, before-approval, duplicate release) |
+| A7 50 parallel seals | `50 seal report(s)`, `#1..#50 contiguous`, `clean` |
+| A8 read-only HOME | seal succeeds, verify `WARN` local-sealer, no crash |
+| A11 performance | wall-clock verify is +37%, but process startup alone is +0.43s; profile shows canonical-hash work 0.547s (4.10) vs 0.611s (4.9). **WARN, not a blocker.** |
+| C13 accessibility | 0 axe violations in Chromium, Firefox and WebKit, light and dark |
+| C14 Lighthouse (mobile) | `/` perf 45, a11y 100, BP 96, SEO 100; `/verify/` 84/100/96/100; `/reviewers` 79/100/96/100; blog 94/100/96/100 |
+| C14 Firefox/WebKit | pages load and axe passes in both; no browser-only failures found |
+| C5-C12 Cloud | **still blocked** on the TEST Cloud account and human sign-in |
+
+**A11 detail.** 1,000-step run, three repetitions:
+
+| Version | Seal (s) | Verify, wall clock (s) | Process startup (s) |
+|---|---|---|---|
+| 4.9.0 | 14.70 / 14.71 / 15.37 | 1.60 / 1.63 / 1.84 | 1.00 |
+| 4.10.0 | 15.18 / 15.23 / 15.53 | 2.20 / 2.25 / 2.25 | 1.43 (first run 2.23) |
+
+Seal is +2%. Verify wall clock is +37%, but the 1,000-step canonical-hash work is not slower (4.10 0.547s vs 4.9 0.611s). The extra time is the larger 4.10 CLI import/startup. A final change (`c03912a0`) reads all manifest members with one ZIP open; the 114 focused container/verify/TSA/manifest tests passed after it. **P2 performance note, not a launch blocker.**
+
+Lighthouse performance on `/` is 45 (mobile). That is a pre-existing page-weight/animation cost, not an accessibility or correctness failure; the report records it rather than hiding it.
+
+### What is still needed before launch
+
+1. **Cloud C5–C12.** Sign in to the dedicated TEST Cloud account. The agent must pause for the human sign-in, then test device login, `epi cloud push`, the Cloud witness (especially whether it accepts the new 4.10 report types), share/trust links, plan limits, sign-out and re-login, and clean up the test data.
+2. **`/reviewers` install floor.** The A5 re-run proves the sentence is true. At launch, change the floor to 4.10.0 with: “Files from 4.10.0 also verify with 4.9.0; the new checks need 4.10.0.”
+3. **Human review of Round 2** before any tag, PyPI upload, GitHub release, merge or `main` push.
+
+### Cleanup
+
+All test artifacts remain under `C:\epi-temp\opencode\`. No Cloud data was created. No product state was published. The only repository changes are the fixes on `release/4.10.0-site` and this report on `qa/4.10.0`.
