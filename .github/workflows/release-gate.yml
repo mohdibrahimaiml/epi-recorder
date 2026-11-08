@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(python -c "import json,urllib.request; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/epi-recorder/json', timeout=30))['info']['version'])")
-          echo "LAST_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo LAST_VERSION=$VERSION >> "$GITHUB_ENV"
           git fetch --depth=1 origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
           git worktree add "$RUNNER_TEMP/last-release" "v${VERSION}"
 
