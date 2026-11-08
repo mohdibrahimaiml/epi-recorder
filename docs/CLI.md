@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.9.0)
+# EPI CLI Reference (v4.10.0)
 
-**Version:** 4.9.0  
+**Version:** 4.10.0  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
@@ -464,7 +464,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud does not serve the upload route yet, or is unreachable, the command retries once against the legacy Render portal and says so. Pinning `--api-base-url` or `EPI_SHARE_API_URL` disables the fallback. CLIs older than 4.9.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
+The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud does not serve the upload route yet, or is unreachable, the command retries once against the legacy Render portal and says so. Pinning `--api-base-url` or `EPI_SHARE_API_URL` disables the fallback. CLIs older than 4.10.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
 
 ```bash
 epi share demo.epi

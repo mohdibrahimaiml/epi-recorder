@@ -1,6 +1,6 @@
 # DORA evidence for AI vendors serving EU banks
 
-**Product version:** 4.9.0. Related: [WITNESS.md](./WITNESS.md),
+**Product version:** 4.10.0. Related: [WITNESS.md](./WITNESS.md),
 [RELEASES.md](./RELEASES.md), [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md),
 [OVERSIGHT.md](./OVERSIGHT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 

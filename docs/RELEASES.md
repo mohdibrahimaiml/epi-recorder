@@ -1,6 +1,6 @@
 # Signed release records
 
-**Product version:** 4.9.0. Product map: [README.md](./README.md).
+**Product version:** 4.10.0. Product map: [README.md](./README.md).
 
 A **release record** is a sealed `.epi` that pins one version of the decision
 logic: the policy file, prompt templates, model ids, tool schemas, code commit

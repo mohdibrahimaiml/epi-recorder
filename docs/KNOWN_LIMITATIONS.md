@@ -1,6 +1,6 @@
 # Known Limitations
 
-**Product version:** 4.9.0. Docs map: [README.md](./README.md).
+**Product version:** 4.10.0. Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as
@@ -355,18 +355,21 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.9.0**, published on PyPI: **4.9.0**. It goes up through
-**Trusted Publishing** after the signed tag, as 4.8.0 did, so both files carry
-**PEP 740 attestations** — check with
-`https://pypi.org/integrity/epi-recorder/4.9.0/<file>/provenance`
-(HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
-uploaded with the project API token; its provenance endpoint returns HTTP 404. It
-added signed display-layer verification, the viewer fail-closed fix (#141/#143),
-and the pack-time viewer / prohibition-guard fix (#145). The published
-**4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
-on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
-**4.4.2** never reached PyPI. **4.4.3+** seals full payloads
-(`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current release line: **4.10.0**, published on PyPI: **4.9.0** — 4.10.0 is
+prepared and its upload is pending. Once it goes up through **Trusted
+Publishing** after the signed tag (the same path as 4.9.0), both files carry
+**PEP 740 attestations**; check with
+`https://pypi.org/integrity/epi-recorder/4.10.0/<file>/provenance`
+(HTTP 200). Until then, `pip install epi-recorder` still installs 4.9.0, so the
+site must not claim 4.10.0 commands are available. The **4.6.3** wheel has **no
+PEP 740 attestations** because it was uploaded with the project API token; its
+provenance endpoint returns HTTP 404. It added signed display-layer
+verification, the viewer fail-closed fix (#141/#143), and the pack-time viewer
+/ prohibition-guard fix (#145). The published **4.6.2** wheel does **not**
+include the 4.6.3 verifier fixes. **4.4.1** remains on PyPI (not yanked) and
+still truncates sealed strings at 2000 characters. **4.4.2** never reached
+PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs
+when `true`, WARNs when absent).
 
 ---
 

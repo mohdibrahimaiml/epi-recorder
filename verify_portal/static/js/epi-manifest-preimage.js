@@ -3,7 +3,8 @@
  * Dispatch matches epi_core._version.JCS_INTRODUCED_TUPLE (4, 4, 1):
  *   spec < 4.4.1 → json.dumps(sort_keys) with preserved float text (900.0)
  *   spec >= 4.4.1 → JCS-equivalent JSON.parse numbers (900.0 → 900)
- * Omit null content_truncated, policy_load_status, producer_version, case_id (MANIFEST_OMIT_NONE_FROM_HASH).
+ * Omit null content_truncated, policy_load_status, producer_version, case_id, seal_chain
+ * (MANIFEST_OMIT_NONE_FROM_HASH).
  */
 (function (global) {
   'use strict';
@@ -186,6 +187,18 @@
         if (typeof o[k] === 'string') o[k] = epiUtcZ(o[k]); else walk(o[k]);
       }
     })(manifest);
+    if (manifest.record_kind === null || manifest.record_kind === undefined) {
+      delete manifest.record_kind;
+    }
+    if (manifest.release === null || manifest.release === undefined) {
+      delete manifest.release;
+    }
+    if (manifest.release_ref === null || manifest.release_ref === undefined) {
+      delete manifest.release_ref;
+    }
+    if (manifest.runtime_components === null || manifest.runtime_components === undefined) {
+      delete manifest.runtime_components;
+    }
     return manifest;
   }
 
@@ -202,6 +215,9 @@
     }
     if (manifest.case_id === null || manifest.case_id === undefined) {
       delete manifest.case_id;
+    }
+    if (manifest.seal_chain === null || manifest.seal_chain === undefined) {
+      delete manifest.seal_chain;
     }
     return manifest;
   }

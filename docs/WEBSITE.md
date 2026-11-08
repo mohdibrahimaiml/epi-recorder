@@ -3,7 +3,7 @@
 **Source of truth:** the `website/` folder in this repo.  
 **Live site:** https://epilabs.org, served by **Cloudflare Pages** from the
 generated `site/` directory (`wrangler.toml`: `pages_build_output_dir = "site"`).  
-**Version shown on the banner must match `pyproject.toml` (currently 4.9.0).**
+**Version shown on the banner must match `pyproject.toml` (currently 4.10.0).**
 
 This is the marketing and in-browser verify surface. It is **not** a substitute for the technical docs in this folder. Sign-in on the site is **EPI Cloud** (`cloud.epilabs.org`), not the old Render portal.
 
@@ -15,6 +15,7 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
 | `/decision-record` | The category page: what a Decision Record is, why not a log, ten-question checklist, real CLI output |
+| `/blog/` | Articles generated from `blog/posts/*.md` into `website/blog/`; rebuilt by `scripts/build_blog.py` on every Cloudflare build |
 | `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud free workspace (1 customer, 1 share link, 50 runs, 30 days) |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
@@ -52,5 +53,16 @@ Match these or the page is wrong:
 - EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall.
 - The seal proves integrity **after sealing**, not completeness of capture.
 - Accounts live on EPI Cloud.
+- Seals are numbered. A customer's witness audit reports a seal that exists but
+  was not reported to them (`MISSING #n`), using heartbeats for the latest
+  seals; burned numbers are listed separately, not counted as clean.
+- A decision can be tied to a signed, approved release. `epi verify --release`
+  reports **MATCHES**, **DRIFT**, **UNDECLARED**, or **APPROVED AFTER USE**
+  (and the other release statuses) for the components EPI observed.
+- A pre-action approval is a pinned person signing the exact action before it
+  runs. With the customer's witness log, the order is proven on the customer's
+  clock (`APPROVED BEFORE ACTION`), not the vendor's hash chain.
+- Never claim completeness of capture, "compliant", "tamper-proof", or that
+  unobserved components were checked.
 
 Details next to the HTML: [`website/README.md`](../website/README.md).

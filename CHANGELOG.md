@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.10.0] - 2026-11-08
 
 ### Added
 
@@ -48,6 +48,16 @@ All notable changes to EPI Recorder are documented here.
   concurrent seals never duplicate a number. Old artifacts and old witness
   logs verify exactly as before; browser-signed seals are listed as
   unsequenced. See `docs/WITNESS.md`.
+
+- **DORA evidence guide for AI vendors.** `docs/DORA-VENDOR-EVIDENCE.md` maps
+  DORA Article 28/30 questions to evidence an EU bank can check itself, gives
+  five reviewer commands, and includes a draft contract schedule. It is
+  evidence support, not a compliance claim.
+- **Blog on epilabs.org.** `scripts/build_blog.py` renders `blog/posts/*.md`
+  into `website/blog/` (index and `posts/<slug>.html`) as well as the legacy
+  portal, using the site's CSS, nav and footer, with canonical, Open Graph,
+  Twitter and Article JSON-LD metadata. The Cloudflare build regenerates it.
+  "Verifiable, Not Just Immutable" is the first post on the live site.
 
 ### Fixed
 
