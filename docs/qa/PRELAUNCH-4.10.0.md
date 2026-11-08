@@ -427,7 +427,7 @@ One minor UX finding: `epi keys trust case.epi` on a missing file says `Public k
 
 | Check | Result |
 |---|---|
-| Full suite (`pytest -q`) | **2637 passed, 58 skipped** in 43:46 (`28f792c6`); the final `c03912a0` read-path change was covered by 114 focused tests and full CI |
+| Full suite (`pytest -q`) | **2637 passed, 58 skipped** in 43:46 (`28f792c6`); rerun on final `c03912a0`: **2636 passed, 59 skipped** in 31:22 |
 | A6 tamper suites | **72 passed** (byte flip, re-sign, chain break, forged approval, backdate, reuse, args-after-approval, before-approval, duplicate release) |
 | A7 50 parallel seals | `50 seal report(s)`, `#1..#50 contiguous`, `clean` |
 | A8 read-only HOME | seal succeeds, verify `WARN` local-sealer, no crash |
