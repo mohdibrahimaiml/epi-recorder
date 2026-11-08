@@ -88,7 +88,20 @@ class NotarizationResult:
 # ---------------------------------------------------------------------------
 
 IMPRINT_SCHEME = "epi-tsa-imprint/v1"
-_IMPRINT_EXCLUDED_EXACT = {"viewer.html", "VERIFY.txt", "manifest.json", "mimetype"}
+_IMPRINT_EXCLUDED_EXACT = {
+    "viewer.html",
+    "VERIFY.txt",
+    "manifest.json",
+    "mimetype",
+    # 4.10 member-backed bookkeeping. The timestamp binds the decision
+    # payload, not the seal ledger/case/release pointers. Keeping these out
+    # also lets a contents-only timestamp taken before the 4.10 re-seal stay
+    # valid (the payload bytes did not change).
+    "artifacts/seal_chain.json",
+    "artifacts/case_id.json",
+    "artifacts/record_kind.json",
+    "artifacts/release_ref.json",
+}
 _IMPRINT_EXCLUDED_PREFIXES = (
     "artifacts/notarization/",
     "artifacts/scitt/",
