@@ -129,7 +129,9 @@ def _icacls_extra_principals(path: Path) -> list[str]:
     if result.returncode != 0:
         return []
     me = (_windows_user() or "").lower()
-    allowed = {me, "nt authority\\system", "builtin\\administrators"}
+    # icacls may print the principal with or without the domain prefix.
+    me_bare = me.split("\\")[-1]
+    allowed = {me, me_bare, "nt authority\\system", "builtin\\administrators"}
     extras: list[str] = []
     path_text = str(path)
     for line in result.stdout.splitlines():
