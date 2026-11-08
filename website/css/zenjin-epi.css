@@ -2058,9 +2058,24 @@ html[data-theme="light"] .z-stage__pill {
     z-index: 2;
     background: var(--stage);
     border-right: 1px solid var(--border-grid);
-    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18);
+    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18), 22px 0 0 var(--stage);
   }
   .z-table--compare td:first-child {
+    background: var(--background);
+    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18), 22px 0 0 var(--background);
+  }
+  .z-table--compare th:first-child::after,
+  .z-table--compare td:first-child::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -22px;
+    width: 22px;
+    background: var(--stage);
+    pointer-events: none;
+  }
+  .z-table--compare td:first-child::after {
     background: var(--background);
   }
   .z-table--compare th:last-child,

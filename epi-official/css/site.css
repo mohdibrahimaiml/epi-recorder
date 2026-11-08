@@ -122,6 +122,9 @@ code.k{
   font-family:var(--mono);font-size:.82em;background:var(--bg);
   border:1px solid var(--edge);padding:1px 6px;color:var(--acc-hi);white-space:nowrap;
 }
+code.k.badge-pass{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+code.k.badge-warn{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+code.k.badge-fail{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 [data-theme="dark"] code.k{background:var(--well)}
 
 /* Black section-label chip — straight from the viewer */
