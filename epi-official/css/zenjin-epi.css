@@ -1440,6 +1440,24 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
   }
 }
 
+/* Four-card variant used by the reviewer-questions section (2x2 on desktop). */
+.z-quad-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-quad-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .z-quad-grid .z-tri-card {
+    border-right: 1px solid var(--border-grid);
+  }
+  .z-quad-grid .z-tri-card:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
 .z-tri-card {
   border-bottom: 1px solid var(--border-grid);
   padding: 2.75rem 1.5rem;
@@ -1990,6 +2008,23 @@ html[data-theme="light"] .z-stage__pill {
   color: var(--foreground);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+}
+
+/* Five-column comparison: scroll on mobile, keep the property column visible. */
+@media (max-width: 40rem) {
+  .z-table--compare {
+    min-width: 54rem;
+  }
+  .z-table--compare th:first-child,
+  .z-table--compare td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--stage);
+  }
+  .z-table--compare td:first-child {
+    background: var(--background);
+  }
 }
 
 /* ── FAQ Accordion (Matches Zenjin 12-Col Layout) ────────────────── */

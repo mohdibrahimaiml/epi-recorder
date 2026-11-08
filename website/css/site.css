@@ -533,6 +533,9 @@ footer{border-top:1px solid var(--edge);padding:56px 0 36px;background:var(--bg)
 .page table{width:100%;border-collapse:collapse;font-size:.87rem;margin:16px 0}
 .page th{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);text-align:left;padding:11px 14px;border-bottom:1.5px solid var(--ink)}
 .page td{padding:12px 14px;border-bottom:1px solid var(--edge);color:var(--body);vertical-align:top}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+.table-wrap table{min-width:36rem;margin:0}
+@media(min-width:640px){.table-wrap table{min-width:0}}
 
 /* ── Reveal motion — handled by AOS (see css/aos.css) ──────────── */
 /* Hero content entrance — kept as a subtle non-AOS intro */

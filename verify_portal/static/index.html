@@ -185,7 +185,7 @@
             </h1>
 
             <p class="z-body z-blur-in z-blur-in--d2" style="margin-top:1.5rem;max-width:32rem">
-              EPI records what your agent saw, what it decided and why, which model answered, and who approved it. Your customer gets one readable <strong style="color:var(--foreground);font-weight:500">Decision Record</strong> they can open and check without asking you to log in.
+              EPI records what your agent saw, what it decided and why, which approved version of your logic made the call, and who signed off before it ran. Your customer gets one readable <strong style="color:var(--foreground);font-weight:500">Decision Record</strong> they can open and check without asking you to log in.
             </p>
 
             <div class="z-hero-actions z-blur-in z-blur-in--d3">
@@ -428,7 +428,7 @@
           <div class="z-intro-grid__title z-reveal">
             <span class="z-eyebrow">What&rsquo;s in a Decision Record</span>
             <h2 id="decision-record-heading" class="z-h2" style="margin-top:1rem">
-              Six answers in <span class="z-serif-accent" style="color:var(--acc-envelope)">one Decision Record</span>.
+              Seven answers in <span class="z-serif-accent" style="color:var(--acc-envelope)">one Decision Record</span>.
             </h2>
           </div>
           <div class="z-intro-grid__aside z-reveal">
@@ -470,8 +470,13 @@
           </div>
           <div class="z-tri-card z-reveal">
             <div class="z-tri-card__step">06 &middot; Approval</div>
-            <h3 class="z-h3-card" style="margin-top:0.5rem">Who approved it</h3>
-            <p class="z-body" style="margin-top:0.875rem">A person&rsquo;s approval, signed with their own key &mdash; or plainly marked as missing. If the agent claims an approval itself, it is labelled as just that.</p>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Who approved it, and when</h3>
+            <p class="z-body" style="margin-top:0.875rem">A person&rsquo;s approval, signed with their own key. For risky actions, the approval is signed <em>before</em> the action runs, for that exact action, and your customer&rsquo;s own log shows it came first. If the agent claims an approval itself, it is labelled as just that.</p>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">07 &middot; Release</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">Which approved version decided it</h3>
+            <p class="z-body" style="margin-top:0.875rem">The exact policy, prompts, model and tools your team approved, pinned in a signed release. The check says whether what ran <strong style="color:var(--foreground);font-weight:500">matches</strong> it, or names what <strong style="color:var(--foreground);font-weight:500">drifted</strong>.</p>
           </div>
         </div>
       </section>
@@ -496,13 +501,16 @@
             <p class="z-body" style="margin-top:1rem">
               If a record is ever rewritten and signed again, the signature still checks out &mdash; but it no longer matches what your customer recorded on the day.
             </p>
+            <p class="z-body" style="margin-top:1rem">
+              Every sealed record is also numbered. If one is sealed but never reported, your customer&rsquo;s log shows the gap: <strong style="color:var(--foreground);font-weight:500">MISSING #42</strong>.
+            </p>
             <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
               Your customer can run the log themselves, or use EPI Cloud&rsquo;s hosted witness and share links (free workspace: 1 customer, 1 share link, 50 runs, 30 days).
             </p>
           </div>
         </div>
 
-        <div class="z-tri-grid">
+        <div class="z-quad-grid">
           <div class="z-tri-card z-reveal">
             <div class="z-tri-card__step">On the day</div>
             <h3 class="z-h3-card" style="margin-top:0.5rem">The case is sealed</h3>
@@ -518,7 +526,63 @@
             <h3 class="z-h3-card" style="margin-top:0.5rem">The forgery is caught</h3>
             <p class="z-body" style="margin-top:0.875rem">Your customer drops the file and their log on <a href="/verify" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">/verify</a>: <strong style="color:var(--foreground);font-weight:500">&ldquo;This is not the version your witness recorded.&rdquo;</strong></p>
           </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">Any day</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">A record goes missing</h3>
+            <p class="z-body" style="margin-top:0.875rem">Seal #42 is never reported. Your customer runs <code style="font-family:var(--font-mono);color:var(--text-secondary)">epi witness audit</code> on their own log: <em>&ldquo;MISSING #42.&rdquo;</em></p>
+          </div>
         </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+
+    <!-- 4b. WHAT YOUR CUSTOMER'S REVIEWER WILL ASK -->
+    <div class="z-shell" id="verifiable">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="reviewer-questions-heading">
+        <div class="z-intro-grid">
+          <div class="z-intro-grid__title z-reveal">
+            <span class="z-eyebrow">What your customer&rsquo;s reviewer will ask</span>
+            <h2 id="reviewer-questions-heading" class="z-h2" style="margin-top:1rem">
+              &ldquo;Immutable&rdquo; is a promise. <span class="z-serif-accent" style="color:var(--acc-envelope)">Verifiable</span> is a check.
+            </h2>
+          </div>
+          <div class="z-intro-grid__aside z-reveal">
+            <p class="z-body">
+              Any vendor can say its audit trail can&rsquo;t be changed. Your customer&rsquo;s reviewer will ask four questions that a promise can&rsquo;t answer. EPI answers each one with a check they run themselves, on their own machine, against their own log.
+            </p>
+          </div>
+        </div>
+
+        <div class="z-quad-grid">
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">1 &middot; Can I check it without you?</div>
+            <p class="z-body" style="margin-top:0.875rem">Every record is a signed file. It verifies offline with the open-source verifier: no account, no login, no call to the vendor.</p>
+            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap"><span style="color:var(--text-muted)">$</span> epi verify decision.epi --policy strict</div>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">2 &middot; If you held one back, would I know?</div>
+            <p class="z-body" style="margin-top:0.875rem">Records are numbered and reported to your customer&rsquo;s log when sealed. A signed heartbeat covers the most recent ones.</p>
+            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap"><span style="color:var(--text-muted)">$</span> epi witness audit received.jsonl
+<span style="color:#f59e0b">MISSING #42</span></div>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">3 &middot; Was this the version we approved?</div>
+            <p class="z-body" style="margin-top:0.875rem">Each decision points to a signed release of your logic. Approvals made after the decision never count.</p>
+            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">Release: credit-policy 3.2  <span style="color:#10b981">MATCHES</span>
+Release: credit-policy 3.2  <span style="color:#f59e0b">APPROVED AFTER USE</span></div>
+          </div>
+          <div class="z-tri-card z-reveal">
+            <div class="z-tri-card__step">4 &middot; Did a person approve it before it ran?</div>
+            <p class="z-body" style="margin-top:0.875rem">The approver signs the exact action on their own machine. Your customer&rsquo;s log records request, approval and execution in that order. Run first and approve later, and the check says so.</p>
+            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">Pre-action: <span style="color:#10b981">APPROVED BEFORE ACTION</span> (carol@bank.com)
+Pre-action: <span style="color:#f59e0b">ACTION BEFORE APPROVAL</span></div>
+          </div>
+        </div>
+
+        <p class="z-body" style="margin-top:2rem">
+          Read the full argument: <a href="/blog/posts/verifiable-not-just-immutable.html" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Verifiable, Not Just Immutable &rarr;</a>
+        </p>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
@@ -768,18 +832,19 @@
           </div>
           <div class="z-intro-grid__aside z-reveal">
             <p class="z-body">
-              The first three rows of the <code style="font-family:var(--font-mono)">.epi</code> column follow from the open file format and its signatures, so anyone can check them without trusting EPI Labs. The last row is how we price the verifier: free and open source.
+              The <code style="font-family:var(--font-mono)">.epi</code> column follows from the open file format, its signatures and your customer&rsquo;s own log, so anyone can check it without trusting EPI Labs or the vendor.
             </p>
           </div>
         </div>
 
         <div class="z-table-wrap z-reveal">
-          <table class="z-table">
+          <table class="z-table z-table--compare">
             <thead>
               <tr>
                 <th>Verification Property</th>
                 <th>Application Logs</th>
                 <th>Vendor Observability Dashboard</th>
+                <th>Vendor &ldquo;Immutable&rdquo; Audit Trail</th>
                 <th>Sealed .epi Artifact</th>
               </tr>
             </thead>
@@ -788,31 +853,64 @@
                 <td>Independent offline verification</td>
                 <td>&#10007; No</td>
                 <td>&#10007; Requires vendor login</td>
+                <td>&#10007; Inside the vendor&rsquo;s platform</td>
                 <td class="is-epi">&#10003; Offline CLI &amp; browser (MIT)</td>
               </tr>
               <tr>
                 <td>A changed record is caught</td>
                 <td>&#10007; No signature to check</td>
                 <td>&#9888; Controlled by host</td>
+                <td>&#9888; The vendor says so</td>
                 <td class="is-epi">&#10003; 1 altered byte breaks Ed25519</td>
               </tr>
               <tr>
                 <td>Survives if the vendor disappears</td>
                 <td>Partial</td>
                 <td>&#10007; Dies with SaaS</td>
+                <td>&#10007; Lives in the vendor&rsquo;s system</td>
                 <td class="is-epi">&#10003; Open ZIP format, MIT verifier (optional browser-openable copy with <code>--with-viewer</code>)</td>
               </tr>
               <tr>
                 <td>Separates Seal vs. Identity vs. Policy</td>
                 <td>&#10007; None</td>
                 <td>&#10007; Single status badge</td>
+                <td>&#9888; Varies</td>
                 <td class="is-epi">&#10003; Enforced in code (--policy strict)</td>
               </tr>
               <tr>
                 <td>Your customer or auditor needs an account</td>
                 <td>Sometimes</td>
                 <td>Always</td>
+                <td>Usually</td>
                 <td class="is-epi">&#10003; Never (verifier is free, €0)</td>
+              </tr>
+              <tr>
+                <td>A sealed record that was withheld shows up</td>
+                <td>&#10007; No</td>
+                <td>&#10007; No</td>
+                <td>&#10007; Only the vendor can tell</td>
+                <td class="is-epi">&#10003; Numbered seals, your customer&rsquo;s log</td>
+              </tr>
+              <tr>
+                <td>Each decision tied to an approved version</td>
+                <td>&#10007; No</td>
+                <td>&#9888; Sometimes</td>
+                <td>&#9888; Inside the vendor&rsquo;s platform</td>
+                <td class="is-epi">&#10003; Signed release, checked offline</td>
+              </tr>
+              <tr>
+                <td>Proves approval came before the action</td>
+                <td>&#10007; No</td>
+                <td>&#10007; No</td>
+                <td>&#9888; Vendor&rsquo;s own timestamps</td>
+                <td class="is-epi">&#10003; Order on your customer&rsquo;s clock</td>
+              </tr>
+              <tr>
+                <td>Time from a clock the vendor doesn&rsquo;t control</td>
+                <td>&#10007; No</td>
+                <td>&#10007; No</td>
+                <td>&#10007; No</td>
+                <td class="is-epi">&#10003; Customer witness or timestamp authority</td>
               </tr>
             </tbody>
           </table>
@@ -825,7 +923,7 @@
               Honest Trust Boundary · Read Before Production
             </div>
             <p class="z-body" style="margin-top:0.35rem">
-              <strong style="color:var(--foreground);font-weight:500">The seal proves integrity after sealing, not completeness of capture.</strong> In-process <code style="font-family:var(--font-mono)">record()</code> is self-attestation; use <code style="font-family:var(--font-mono)">epi gateway serve</code> for proxy-level capture. A <code style="font-family:var(--font-mono)">.epi</code> file is evidence input, not a regulatory certificate.
+              <strong style="color:var(--foreground);font-weight:500">The seal proves integrity after sealing, not completeness of capture.</strong> Numbered seals reveal records that were sealed and withheld, not decisions that were never recorded. Release checks cover only the components EPI observes at runtime; anything else is shown as &ldquo;not observed&rdquo;, never as a match. In-process <code style="font-family:var(--font-mono)">record()</code> is self-attestation; use <code style="font-family:var(--font-mono)">epi gateway serve</code> for proxy-level capture. A <code style="font-family:var(--font-mono)">.epi</code> file is evidence input, not a regulatory certificate.
             </p>
           </div>
           <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" class="z-btn-ghost" style="border-color:rgba(245,158,11,0.5);color:var(--acc-trust)">
@@ -899,6 +997,34 @@
                 <div id="faq-p4" role="region" aria-labelledby="faq-b4" class="z-faq-panel">
                   <div class="z-faq-panel__inner">
                     Observability dashboards are hosted by the party being audited and require a login. EPI produces a portable, cryptographically sealed file that leaves your infrastructure and can be verified offline five years later by an insurer, bank reviewer, or regulator with open-source MIT tooling.
+                  </div>
+                </div>
+              </li>
+
+              <li class="z-faq-item">
+                <h3>
+                  <button type="button" class="z-faq-btn" aria-expanded="false" aria-controls="faq-p4b" id="faq-b4b">
+                    <span>How is this different from an &ldquo;immutable&rdquo; audit trail in a decision platform?</span>
+                    <svg class="z-faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </h3>
+                <div id="faq-p4b" role="region" aria-labelledby="faq-b4b" class="z-faq-panel">
+                  <div class="z-faq-panel__inner">
+                    An immutable audit trail is kept inside the vendor&rsquo;s platform, so only the vendor can vouch for it. EPI gives your customer a signed file and their own log of every seal, so they can check, without you, that no sealed record was changed or withheld, that the decision came from an approved version, and that a person approved risky actions before they ran.
+                  </div>
+                </div>
+              </li>
+
+              <li class="z-faq-item">
+                <h3>
+                  <button type="button" class="z-faq-btn" aria-expanded="false" aria-controls="faq-p4c" id="faq-b4c">
+                    <span>Can EPI prove a person approved an action before the AI took it?</span>
+                    <svg class="z-faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </h3>
+                <div id="faq-p4c" role="region" aria-labelledby="faq-b4c" class="z-faq-panel">
+                  <div class="z-faq-panel__inner">
+                    Yes, for actions routed through EPI&rsquo;s approval gate. The approver signs the exact action, including its arguments, with their own key on their own machine. The request, the approval and the execution are each reported to your customer&rsquo;s log, so the order is on their clock, not yours. Actions that bypass the gate are not covered.
                   </div>
                 </div>
               </li>
