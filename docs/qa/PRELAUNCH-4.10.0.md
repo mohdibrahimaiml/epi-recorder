@@ -350,7 +350,7 @@ The same file on the 4.10.0 verifier is `Signature: Valid`.
 
 The 4.9.0 CLI exits 1 on these files only for the expected “local sealer not org-pinned” identity warning; the signature is valid.
 
-**Permanent CI gate.** `.github/workflows/release-gate.yml` has a blocking `compatibility-gate` job; `release-gate` now `needs` it. The job installs the last released `epi-recorder` from PyPI, checks out its tag, seals plain/witness/release/pre-action files with HEAD, runs the last release's CLI on every file, and runs the last release's browser preimage (`website/js/`) in Node. On PR #263 at `28f792c6` the whole CI is green: `Last-release compatibility (blocking)` pass (53s), `Full test, build, and wheel audit` pass on Ubuntu (6m41s) and Windows (14m19s). Local run:
+**Permanent CI gate.** `.github/workflows/release-gate.yml` has a blocking `compatibility-gate` job; `release-gate` now `needs` it. The job installs the last released `epi-recorder` from PyPI, checks out its tag, seals plain/witness/release/pre-action files with HEAD, runs the last release's CLI on every file, and runs the last release's browser preimage (`website/js/`) in Node. On PR #263 at `c03912a0` the whole CI is green: `Last-release compatibility (blocking)` pass (52s), `Full test, build, and wheel audit` pass on Ubuntu (9m55s) and Windows (10m10s). Local run:
 
 ```
 backward-compatibility gate: HEAD vs epi-recorder 4.9.0
@@ -427,7 +427,7 @@ One minor UX finding: `epi keys trust case.epi` on a missing file says `Public k
 
 | Check | Result |
 |---|---|
-| Full suite (`pytest -q`) | **2637 passed, 58 skipped** in 43:46 (`28f792c6`) |
+| Full suite (`pytest -q`) | **2637 passed, 58 skipped** in 43:46 (`28f792c6`); the final `c03912a0` read-path change was covered by 114 focused tests and full CI |
 | A6 tamper suites | **72 passed** (byte flip, re-sign, chain break, forged approval, backdate, reuse, args-after-approval, before-approval, duplicate release) |
 | A7 50 parallel seals | `50 seal report(s)`, `#1..#50 contiguous`, `clean` |
 | A8 read-only HOME | seal succeeds, verify `WARN` local-sealer, no crash |
