@@ -72,7 +72,7 @@ def test_no_divergent_copies():
     for path in ROOT.rglob("epi-verify-core.js"):
         # ignore hidden/venv/build dirs
         parts = {part for part in path.relative_to(ROOT).parts}
-        if any(x in parts for x in {".git", ".venv", ".venv-311-test", "node_modules", "__pycache__", ".pytest_cache", "htmlcov"}):
+        if any(x in parts for x in {".git", ".venv", ".venv-311-test", "node_modules", "__pycache__", ".pytest_cache", "htmlcov", "dist", "dist-test", "dist-verifier"}):
             continue
         if path == CANONICAL:
             continue

@@ -10,9 +10,47 @@
  */
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const SRC = "website";
 const DESTINATIONS = ["site", "dist"];
+const BLOG_BUILDER = "scripts/build_blog.py";
+
+// Regenerate website/blog/ before the copy. The generator is standard-library
+// Python only, so it runs on the Cloudflare build image without extra packages.
+// If Python is unavailable, the committed output is still valid; refuse only
+// when there is no output at all.
+function buildBlog() {
+  const candidates = process.env.PYTHON
+    ? [process.env.PYTHON]
+    : process.platform === "win32"
+      ? ["python", "py"]
+      : ["python3", "python"];
+  for (const exe of candidates) {
+    const result = spawnSync(exe, [BLOG_BUILDER], { stdio: "inherit" });
+    if (result.error) continue;
+    if (result.status !== 0) {
+      console.error(`ERROR: ${BLOG_BUILDER} failed with exit code ${result.status}`);
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+if (!buildBlog()) {
+  if (!existsSync(join(SRC, "blog", "index.html"))) {
+    console.error(
+      `ERROR: could not run Python and ${SRC}/blog/index.html is missing. ` +
+        "Generate it with: python scripts/build_blog.py",
+    );
+    process.exit(1);
+  }
+  console.warn(
+    `WARNING: Python not available; using the committed ${SRC}/blog output. ` +
+      "Regenerate before committing post changes.",
+  );
+}
 
 // Internal Markdown (sales templates such as outreach.md, etc.) must never
 // ship to public output. Only README.md is allowed through — mirrors the
@@ -76,6 +114,12 @@ for (const DEST of DESTINATIONS) {
       2,
     ),
   );
+
+  const blogIndex = join(DEST, "blog", "index.html");
+  if (!existsSync(blogIndex)) {
+    console.error(`ERROR: ${blogIndex} is missing after the build.`);
+    process.exit(1);
+  }
 
   const count = (() => {
     try {

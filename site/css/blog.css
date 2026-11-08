@@ -1,0 +1,94 @@
+/* Blog pages. Uses the tokens in site.css; nothing here changes the rest of the site. */
+
+.blog-index .lede,
+.blog-post .lede{max-width:720px}
+
+.blog-list{display:grid;gap:0;margin-top:12px}
+
+.blog-card{
+  padding:30px 0;
+  border-top:1px solid var(--edge);
+}
+.blog-card:last-child{border-bottom:1px solid var(--edge)}
+
+.blog-date{
+  display:block;
+  font-family:var(--mono);
+  font-size:.68rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--dim);
+  margin-bottom:10px;
+}
+
+.blog-card h2{
+  font-size:clamp(1.25rem,2.4vw,1.6rem);
+  line-height:1.25;
+  margin:0 0 10px;
+}
+.blog-card h2 a{color:var(--ink);text-decoration:none}
+.blog-card h2 a:hover{color:var(--acc-hi)}
+
+.blog-card p{
+  margin:0 0 14px;
+  max-width:680px;
+  color:var(--mut);
+}
+
+.blog-more{
+  font-family:var(--mono);
+  font-size:.76rem;
+  letter-spacing:.04em;
+  color:var(--acc-hi);
+  text-decoration:none;
+}
+.blog-more:hover{text-decoration:underline}
+
+.blog-back{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:.76rem;
+  color:var(--mut);
+  text-decoration:none;
+  margin-bottom:18px;
+}
+.blog-back:hover{color:var(--acc-hi)}
+
+.blog-post h1{margin-top:10px;max-width:760px}
+.blog-post .tag{margin-top:4px}
+.blog-post .tag .n{color:inherit;font-family:inherit}
+
+.blog-body{max-width:760px;margin-top:8px}
+.blog-body h2{font-size:clamp(1.25rem,2.2vw,1.5rem);margin:46px 0 14px}
+.blog-body h3{font-size:1.08rem;margin:34px 0 10px}
+.blog-body p,
+.blog-body li{font-size:.98rem;line-height:1.8;color:var(--body)}
+.blog-body p{margin:0 0 18px}
+.blog-body ul,
+.blog-body ol{padding-left:23px;margin:0 0 20px}
+.blog-body li{margin:8px 0}
+.blog-body a{color:var(--acc-hi)}
+.blog-body code.k{font-size:.86em}
+.blog-body pre{margin:20px 0}
+.blog-body blockquote{
+  margin:22px 0;
+  padding:2px 0 2px 18px;
+  border-left:3px solid var(--acc);
+  color:var(--mut);
+}
+.blog-body blockquote p{margin:0;color:var(--mut)}
+
+.blog-cta{
+  max-width:760px;
+  margin-top:56px;
+  padding:24px 26px;
+  border:1px solid var(--edge);
+  background:var(--bg-2);
+}
+.blog-cta p{margin:0 0 14px;color:var(--mut)}
+.blog-cta p:last-child{margin:0;display:flex;gap:12px;flex-wrap:wrap}
+
+@media(max-width:520px){
+  .blog-card{padding:24px 0}
+  .blog-cta{padding:20px}
+}
