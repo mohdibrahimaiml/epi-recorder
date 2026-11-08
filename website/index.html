@@ -248,9 +248,13 @@
                       <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
                     </div>
                     <div>
-                      <span style="color:var(--text-muted)">Approved by</span><br>
-                      DEMO KEY &middot; Claims Adjuster
-                      <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">signed &middot; 2026-11-01</span>
+                      <span style="color:var(--text-muted)">Release</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">claims-policy 1.4 <span style="color:#10b981">MATCHES</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Approved</span><br>
+                      DEMO APPROVER
+                      <span style="color:#10b981;font-family:var(--font-mono);font-size:0.68rem">before the action</span>
                     </div>
                   </div>
 
@@ -291,6 +295,10 @@
                     <div>
                       <span style="color:var(--text-muted)">Model</span><br>
                       <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Release</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">claims-policy 1.4 <span style="color:#10b981">MATCHES</span></span>
                     </div>
                     <div>
                       <span style="color:var(--text-muted)">Approved by</span><br>
@@ -336,6 +344,10 @@
                     <div>
                       <span style="color:var(--text-muted)">Model</span><br>
                       <span style="font-family:var(--font-mono);font-size:0.72rem">gpt-4o-2024-08-06 <span style="color:var(--text-muted)">(requested gpt-4o)</span></span>
+                    </div>
+                    <div>
+                      <span style="color:var(--text-muted)">Release</span><br>
+                      <span style="font-family:var(--font-mono);font-size:0.72rem">claims-policy 1.4 <span style="color:#10b981">MATCHES</span></span>
                     </div>
                     <div>
                       <span style="color:var(--text-muted)">Approved by</span><br>
@@ -478,6 +490,16 @@
             <h3 class="z-h3-card" style="margin-top:0.5rem">Which approved version decided it</h3>
             <p class="z-body" style="margin-top:0.875rem">The exact policy, prompts, model and tools your team approved, pinned in a signed release. The check says whether what ran <strong style="color:var(--foreground);font-weight:500">matches</strong> it, or names what <strong style="color:var(--foreground);font-weight:500">drifted</strong>.</p>
           </div>
+          <div class="z-tri-card z-reveal z-answers-cta">
+            <div class="z-tri-card__step">Next</div>
+            <h3 class="z-h3-card" style="margin-top:0.5rem">See the checks for yourself</h3>
+            <p class="z-body" style="margin-top:0.875rem">
+              <a href="/reviewers" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">See what a reviewer runs &rarr;</a>
+            </p>
+            <p class="z-body" style="margin-top:0.75rem">
+              <a href="/blog/posts/verifiable-not-just-immutable.html" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Why &ldquo;immutable&rdquo; isn&rsquo;t enough &rarr;</a>
+            </p>
+          </div>
         </div>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
@@ -558,7 +580,9 @@
           <div class="z-tri-card z-reveal">
             <div class="z-tri-card__step">1 &middot; Can I check it without you?</div>
             <p class="z-body" style="margin-top:0.875rem">Every record is a signed file. It verifies offline with the open-source verifier: no account, no login, no call to the vendor.</p>
-            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap"><span style="color:var(--text-muted)">$</span> epi verify decision.epi --policy strict</div>
+            <div style="margin-top:1rem;background:#080b0d;border:1px solid var(--border-grid);border-left:3px solid var(--acc-envelope);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap"><span style="color:var(--text-muted)">$</span> epi verify decision.epi
+<span style="color:#10b981">Integrity:    Verified</span>
+<span style="color:#10b981">Signature:    Valid</span></div>
           </div>
           <div class="z-tri-card z-reveal">
             <div class="z-tri-card__step">2 &middot; If you held one back, would I know?</div>
@@ -580,7 +604,7 @@ Pre-action: <span style="color:#f59e0b">ACTION BEFORE APPROVAL</span></div>
           </div>
         </div>
 
-        <p class="z-body" style="margin-top:2rem">
+        <p class="z-body section-link">
           Read the full argument: <a href="/blog/posts/verifiable-not-just-immutable.html" style="color:var(--acc-envelope);text-decoration:underline;text-underline-offset:3px">Verifiable, Not Just Immutable &rarr;</a>
         </p>
       </section>
@@ -923,7 +947,7 @@ Pre-action: <span style="color:#f59e0b">ACTION BEFORE APPROVAL</span></div>
               Honest Trust Boundary · Read Before Production
             </div>
             <p class="z-body" style="margin-top:0.35rem">
-              <strong style="color:var(--foreground);font-weight:500">The seal proves integrity after sealing, not completeness of capture.</strong> Numbered seals reveal records that were sealed and withheld, not decisions that were never recorded. Release checks cover only the components EPI observes at runtime; anything else is shown as &ldquo;not observed&rdquo;, never as a match. In-process <code style="font-family:var(--font-mono)">record()</code> is self-attestation; use <code style="font-family:var(--font-mono)">epi gateway serve</code> for proxy-level capture. A <code style="font-family:var(--font-mono)">.epi</code> file is evidence input, not a regulatory certificate.
+              <strong style="color:var(--foreground);font-weight:500">The seal proves integrity after sealing, not completeness of capture.</strong> Numbered seals reveal records that were sealed and withheld, not decisions that were never recorded. Release checks cover only the components EPI observes at runtime; anything else is shown as &ldquo;NOT FULLY OBSERVED&rdquo;, never as a match. In-process <code style="font-family:var(--font-mono)">record()</code> is self-attestation; use <code style="font-family:var(--font-mono)">epi gateway serve</code> for proxy-level capture. A <code style="font-family:var(--font-mono)">.epi</code> file is evidence input, not a regulatory certificate.
             </p>
           </div>
           <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" class="z-btn-ghost" style="border-color:rgba(245,158,11,0.5);color:var(--acc-trust)">

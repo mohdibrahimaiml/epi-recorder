@@ -178,6 +178,27 @@
             </p>
           </div>
         </div>
+
+        <div class="z-tri-card" style="margin-top:1.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">Release + pre-action demo</div>
+          <h3 class="z-h3-card" style="margin-top:0.5rem">Check the release and the approval order</h3>
+          <p class="z-body" style="margin-top:0.75rem">
+            The browser check above covers the seal. The demo ships the release, the witness log and the demo approver keys next to the record; check them with the CLI:
+          </p>
+          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid var(--acc-envelope);font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "0f2f ff48 bff3 fec9"
+epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "5b7b 6613 a75c 5102"
+epi verify decision-example.epi --release claims-policy-1.4.epi \
+  --witness-log witness.jsonl --require-release --min-approvals 1 \
+  --require-pre-action-approval</pre>
+          <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem">
+            <a href="/assets/demo/decision-example.epi" download style="color:var(--acc-envelope)">decision-example.epi</a> &middot;
+            <a href="/assets/demo/claims-policy-1.4.epi" download style="color:var(--acc-envelope)">claims-policy-1.4.epi</a> &middot;
+            <a href="/assets/demo/witness.jsonl" download style="color:var(--acc-envelope)">witness.jsonl</a> &middot;
+            <a href="/assets/demo/demo-key.pub" download style="color:var(--acc-envelope)">demo-key.pub</a> &middot;
+            <a href="/assets/demo/demo-approver.pub" download style="color:var(--acc-envelope)">demo-approver.pub</a> &middot;
+            <a href="/assets/demo/demo-keys.txt" download style="color:var(--acc-envelope)">demo-keys.txt</a>
+          </p>
+        </div>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>

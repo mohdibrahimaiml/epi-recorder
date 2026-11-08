@@ -1,0 +1,19 @@
+{
+  "policy_format_version": "2.0",
+  "policy_id": "claims-approval",
+  "system_name": "claims",
+  "system_version": "1.0",
+  "policy_version": "1.4",
+  "rules": [
+    {
+      "id": "R-DENY",
+      "name": "Denial needs a person",
+      "severity": "critical",
+      "description": "A denial needs a person to approve that exact action first.",
+      "type": "approval_guard",
+      "mode": "require_approval",
+      "approval_action": "deny_claim",
+      "approval_policy_ref": "deny-approval"
+    }
+  ]
+}

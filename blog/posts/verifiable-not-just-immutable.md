@@ -117,7 +117,7 @@ Overclaiming is the fastest way to lose an auditor's trust, so here are the limi
 
 - **A decision that was never recorded at all is invisible.** Sequence numbers reveal seals that were withheld, not decisions that never went through the recorder. Capture at a chokepoint (such as EPI's gateway) narrows that gap; it doesn't close it.
 - **Tail gaps need heartbeats.** A vendor that never sends heartbeats can hide its most recent seals.
-- **EPI compares only what it observes.** Code that runs outside the instrumented path can differ from the release without EPI seeing it. The release check reports unobserved components as "not observed", never as a match.
+- **EPI compares only what it observes.** Code that runs outside the instrumented path can differ from the release without EPI seeing it. The release check reports unobserved components as `NOT FULLY OBSERVED`, never as a match.
 - **A signature proves a record wasn't altered, not that the decision was right.**
 
 ## The question to ask

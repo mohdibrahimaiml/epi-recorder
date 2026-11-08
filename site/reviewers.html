@@ -126,7 +126,7 @@ $ epi verify case.epi --policy strict --require-human-approval --witness-log rec
 <tr><td><code class="k">AMBIGUOUS RELEASE</code></td><td>Two release files claim the same id. EPI won&rsquo;t pick one.</td></tr>
 </tbody>
 </table></div>
-<p>Default: warnings. With <code class="k">--require-release</code>: any answer other than <code class="k">MATCHES</code> fails.</p>
+<p class="note">Default: warnings. With <code class="k">--require-release</code>: any answer other than <code class="k">MATCHES</code> fails.</p>
 
 <h3>3. Did a person approve before it ran?</h3>
 <pre>epi verify decision.epi --witness-log received.jsonl --require-pre-action-approval</pre>

@@ -537,6 +537,22 @@ footer{border-top:1px solid var(--edge);padding:56px 0 36px;background:var(--bg)
 .table-wrap table{min-width:36rem;margin:0}
 @media(min-width:640px){.table-wrap table{min-width:0}}
 
+/* On a phone these answer tables stack: badge, meaning, exit code. */
+@media(max-width:639px){
+  .table-wrap{overflow:visible}
+  .table-wrap table{display:block;min-width:0;font-size:.9rem}
+  .table-wrap thead{display:none}
+  .table-wrap tbody,.table-wrap tr,.table-wrap td{display:block;width:100%}
+  .table-wrap tr{padding:14px 0;border-bottom:1px solid var(--edge)}
+  .table-wrap td{border:0;padding:2px 0}
+  .table-wrap td:first-child{font-family:var(--mono);font-size:.78rem;color:var(--ink);word-break:break-word}
+  .table-wrap td:nth-child(2){margin-top:6px}
+  .table-wrap td:nth-child(3){margin-top:4px;font-family:var(--mono);font-size:.72rem;color:var(--mut)}
+  .table-wrap td:nth-child(3)::before{content:"Exit: ";text-transform:uppercase;letter-spacing:.08em}
+}
+.page h3{font-family:var(--serif);font-size:1.05rem;margin:34px 0 12px;color:var(--ink)}
+.page p.note{margin:14px 0 32px}
+
 /* ── Reveal motion — handled by AOS (see css/aos.css) ──────────── */
 /* Hero content entrance — kept as a subtle non-AOS intro */
 .hero .hero-g > *{opacity:0;transform:translateY(22px) scale(.99);animation:heroIn .9s cubic-bezier(.22,1,.36,1) forwards;will-change:opacity,transform}

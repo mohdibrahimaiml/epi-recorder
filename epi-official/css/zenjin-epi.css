@@ -1456,6 +1456,27 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
   .z-quad-grid .z-tri-card:nth-child(2n) {
     border-right: 0;
   }
+  .z-answers-cta {
+    grid-column: span 2;
+  }
+}
+
+/* In-card body copy needs the same gutter as the cards on narrow screens. */
+.section-link {
+  margin-top: 2rem;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 40rem) {
+  .section-link {
+    padding: 0 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .section-link {
+    padding: 0 3rem;
+  }
 }
 
 .z-tri-card {
@@ -2013,17 +2034,41 @@ html[data-theme="light"] .z-stage__pill {
 /* Five-column comparison: scroll on mobile, keep the property column visible. */
 @media (max-width: 40rem) {
   .z-table--compare {
-    min-width: 54rem;
+    min-width: 64rem;
+    table-layout: fixed;
+  }
+  .z-table--compare th,
+  .z-table--compare td {
+    min-width: 9rem;
+  }
+  .z-table--compare th:first-child,
+  .z-table--compare td:first-child {
+    width: 9rem;
+    max-width: 9rem;
+    overflow-wrap: anywhere;
+  }
+  .z-table--compare th:not(:first-child),
+  .z-table--compare td:not(:first-child) {
+    padding-left: 1.25rem;
   }
   .z-table--compare th:first-child,
   .z-table--compare td:first-child {
     position: sticky;
     left: 0;
-    z-index: 1;
+    z-index: 2;
     background: var(--stage);
+    border-right: 1px solid var(--border-grid);
+    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18);
   }
   .z-table--compare td:first-child {
     background: var(--background);
+  }
+  .z-table--compare th:last-child,
+  .z-table--compare td:last-child {
+    min-width: 13rem;
+    width: 13rem;
+    max-width: 15rem;
+    padding-right: 1rem;
   }
 }
 
