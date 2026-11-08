@@ -89,6 +89,8 @@ def parse_component_specs(
     caller must name them (``--prompt system_a=...``).
     """
     specs: list[tuple[str, str]] = []
+    if isinstance(values, str):
+        values = [values]
     if isinstance(values, dict):
         specs = [(str(name), str(path)) for name, path in values.items()]
     else:
@@ -134,6 +136,8 @@ def model_components(values: Iterable[str] | None) -> list[dict[str, Any]]:
     """``anthropic:claude-x`` is both the identifier and the logical name."""
     components: list[dict[str, Any]] = []
     seen: set[str] = set()
+    if isinstance(values, str):
+        values = [values]
     for raw in values or []:
         identifier = str(raw or "").strip()
         if not identifier:

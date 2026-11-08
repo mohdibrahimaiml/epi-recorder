@@ -519,6 +519,19 @@ def test_approval_witness_time_beats_a_backdated_signed_at(
     assert report["release"]["status"] == "approved_after_use", report["release"]
 
 
+def test_single_string_component_spec_is_not_iterated_as_characters(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _env(monkeypatch, tmp_path)
+    components = release_core.parse_component_specs(
+        "system=prompts/sys.txt", "prompt", base_dir=tmp_path
+    )
+    assert components[0]["name"] == "system"
+    assert components[0]["sha256"]
+    models = release_core.model_components("anthropic:claude-x")
+    assert models[0]["identifier"] == "anthropic:claude-x"
+
+
 def test_release_history_lists_versions(monkeypatch, tmp_path: Path) -> None:
     _env(monkeypatch, tmp_path)
     _seal_release(tmp_path, _document(tmp_path, version="1.0"), name="v1.epi")
