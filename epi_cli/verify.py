@@ -856,6 +856,7 @@ def _check_release_report(
             getattr(manifest, "release_ref", None),
             release_path=release,
             release_dir=release_dir,
+            decision_path=epi_file,
         )
         if resolved.get("status") == "found":
             release_tsa = _sealed_tsa_time(resolved["path"], resolved["manifest"])
@@ -866,6 +867,7 @@ def _check_release_report(
         decision_manifest=manifest,
         release_path=release,
         release_dir=release_dir,
+        decision_path=epi_file,
         min_approvals=min_approvals,
         witness_entries=entries,
         decision_tsa_time=_sealed_tsa_time(epi_file, manifest),
@@ -902,6 +904,7 @@ def _format_release_lines(info: dict) -> list[str]:
         "drift": "DRIFT",
         "undeclared": "UNDECLARED",
         "unapproved": "UNAPPROVED RELEASE",
+        "approver_not_pinned": "APPROVER NOT PINNED",
         "not_found": "RELEASE DECLARED - NOT SUPPLIED",
         "ambiguous": "AMBIGUOUS RELEASE",
         "dirty": "DIRTY RELEASE",
@@ -917,6 +920,16 @@ def _format_release_lines(info: dict) -> list[str]:
     )
     detail = str(info.get("detail") or "")
     line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
+    if info.get("release_discovery") == "next_to_decision" and info.get("path"):
+        line += (
+            "\n  [dim]                using release file next to the decision: "
+            f"{Path(str(info['path'])).name}[/dim]"
+        )
+    if int(info.get("release_duplicates_skipped") or 0) > 0:
+        line += (
+            "\n  [dim]                ignored "
+            f"{int(info['release_duplicates_skipped'])} identical copy(ies) of the release file[/dim]"
+        )
     if status == "not_found":
         line += (
             "\n  [dim]                the release file was not supplied (not a tamper "
@@ -924,9 +937,12 @@ def _format_release_lines(info: dict) -> list[str]:
         )
     # No release was chosen for these, so an "approved by 0/0" count would be
     # misleading. Show the approval count only once a release was resolved.
-    if status not in ("ambiguous", "not_found", "verification_failed") and int(
-        approvals.get("required") or 0
-    ) > 0:
+    if status not in (
+        "ambiguous",
+        "not_found",
+        "verification_failed",
+        "approver_not_pinned",
+    ) and int(approvals.get("required") or 0) > 0:
         line += (
             f"\n  [dim]                approved by "
             f"{approvals.get('have', 0)}/{approvals.get('required', 0)}[/dim]"

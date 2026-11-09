@@ -350,9 +350,11 @@ class ReleaseError(RuntimeError):
     pass
 
 
-def _release_candidates(directory: Path) -> list[Path]:
+def _release_candidates(directory: Path, *, recursive: bool = True) -> list[Path]:
     try:
-        return sorted(path for path in Path(directory).rglob("*.epi") if path.is_file())
+        base = Path(directory)
+        paths = base.rglob("*.epi") if recursive else base.glob("*.epi")
+        return sorted(path for path in paths if path.is_file())
     except OSError:
         return []
 
@@ -362,8 +364,22 @@ def resolve_release(
     *,
     release_path: Path | str | None = None,
     release_dir: Path | str | None = None,
+    decision_path: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Find the release named by ``release_ref``. Never guesses."""
+    """Find the release named by ``release_ref``. Never guesses.
+
+    Discovery rules:
+      * an explicit ``release_path`` is the only candidate;
+      * an explicit ``release_dir`` / ``EPI_RELEASE_DIR`` is searched
+        recursively (the operator chose that directory);
+      * otherwise, only the directory that holds the decision file is
+        searched, non-recursively. A reviewer's Downloads folder is not a
+        repository tree, and a recursive walk can find unrelated copies.
+
+    Identical copies (same signed ``release_digest``) are one release.
+    ``ambiguous`` is reserved for the same id with *different* release
+    content.
+    """
     if release_ref is None:
         return {"status": "not_declared", "detail": "this decision declares no release"}
     if hasattr(release_ref, "model_dump"):
@@ -371,14 +387,31 @@ def resolve_release(
     want_id = str(release_ref.get("release_id") or "")
     want_digest = str(release_ref.get("release_digest") or "")
 
+    duplicates_skipped = 0
     if release_path:
+        base = Path(release_path).parent
         candidates = [Path(release_path)]
+        discovery = "explicit"
+        recursive = False
     else:
-        base = Path(release_dir or os.environ.get("EPI_RELEASE_DIR") or ".")
-        candidates = _release_candidates(base)
+        explicit_dir = release_dir or os.environ.get("EPI_RELEASE_DIR")
+        if explicit_dir:
+            base = Path(explicit_dir)
+            discovery = "release_dir"
+            recursive = True
+        elif decision_path:
+            base = Path(decision_path).parent
+            discovery = "next_to_decision"
+            recursive = False
+        else:
+            base = Path(".")
+            discovery = "cwd"
+            recursive = False
+        candidates = _release_candidates(base, recursive=recursive)
 
     matches: list[dict[str, Any]] = []
     mismatched: list[str] = []
+    seen_digests: set[str] = set()
     for path in candidates:
         try:
             loaded = load_release(path)
@@ -386,26 +419,40 @@ def resolve_release(
             continue
         if loaded["release_id"] != want_id:
             continue
-        if want_digest and loaded["release_digest"] != want_digest:
+        digest = str(loaded["release_digest"])
+        if want_digest and digest != want_digest:
             mismatched.append(str(path))
             continue
+        if digest in seen_digests:
+            # Byte-identical (or same signed content) copies are one release.
+            duplicates_skipped += 1
+            continue
+        seen_digests.add(digest)
         matches.append(loaded)
 
+    common = {
+        "discovery": discovery,
+        "search_dir": str(base),
+        "recursive": recursive,
+        "duplicates_skipped": duplicates_skipped,
+    }
     if not matches:
         detail = f"no release {want_id or '(no id)'} with the pinned digest was supplied"
         if mismatched:
             detail += f"; {len(mismatched)} file(s) share the id but not the digest"
-        return {"status": "not_found", "detail": detail}
+        return {"status": "not_found", "detail": detail, **common}
     if len(matches) > 1:
         return {
             "status": "ambiguous",
             "detail": (
-                f"{len(matches)} release artifacts have id {want_id}; refusing to "
-                "pick one: " + ", ".join(str(item["path"]) for item in matches)
+                f"{len(matches)} release artifacts have id {want_id} with different "
+                "content; refusing to pick one: "
+                + ", ".join(str(item["path"]) for item in matches)
             ),
             "paths": [str(item["path"]) for item in matches],
+            **common,
         }
-    return {"status": "found", **matches[0]}
+    return {"status": "found", **common, **matches[0]}
 
 
 # ---------------------------------------------------------------------------
@@ -672,6 +719,7 @@ def check_decision_release(
     decision_manifest: Any,
     release_path: Path | str | None = None,
     release_dir: Path | str | None = None,
+    decision_path: Path | str | None = None,
     min_approvals: int | None = None,
     witness_entries: Iterable[dict[str, Any]] | None = None,
     registry: Any = None,
@@ -695,9 +743,14 @@ def check_decision_release(
     report["release_digest"] = getattr(release_ref, "release_digest", None)
 
     resolved = resolve_release(
-        release_ref, release_path=release_path, release_dir=release_dir
+        release_ref,
+        release_path=release_path,
+        release_dir=release_dir,
+        decision_path=decision_path,
     )
     report["resolution"] = resolved.get("status")
+    report["release_discovery"] = resolved.get("discovery")
+    report["release_duplicates_skipped"] = int(resolved.get("duplicates_skipped") or 0)
     if resolved["status"] != "found":
         report["status"] = resolved["status"]
         report["detail"] = resolved.get("detail")
@@ -726,13 +779,14 @@ def check_decision_release(
     effective_required = max(
         int(document.get("required_approvals") or 1), int(min_approvals or 0)
     )
-    approvals = release_approvals(
+    valid_approvals = release_approvals(
         resolved["path"], resolved["release_digest"], registry=registry
     )
-    approvals = [approval for approval in approvals if approval.get("pinned")]
+    pinned_approvals = [item for item in valid_approvals if item.get("pinned")]
     report["approvals"] = {
-        "have": len(approvals),
+        "have": len(pinned_approvals),
         "required": effective_required,
+        "valid": len(valid_approvals),
         "vendor_required": int(document.get("required_approvals") or 1),
         "verifier_minimum": int(min_approvals or 0),
         "approvers": [
@@ -740,8 +794,18 @@ def check_decision_release(
                 "name": item.get("approver"),
                 "key_fingerprint": item.get("key_fingerprint"),
                 "signed_at": item.get("signed_at"),
+                "pinned": bool(item.get("pinned")),
             }
-            for item in approvals
+            for item in valid_approvals
+        ],
+        "unpinned": [
+            {
+                "name": item.get("approver"),
+                "key_fingerprint": item.get("key_fingerprint"),
+                "signed_at": item.get("signed_at"),
+            }
+            for item in valid_approvals
+            if not item.get("pinned")
         ],
     }
 
@@ -776,18 +840,40 @@ def check_decision_release(
             "built from uncommitted code (the release pins a dirty git tree)"
         )
 
-    if len(approvals) < effective_required:
-        report["status"] = "unapproved"
-        report["detail"] = (
-            f"approved by {len(approvals)}/{effective_required}"
-            + (
-                f" (release required {document.get('required_approvals')}, "
-                f"verifier minimum {int(min_approvals or 0)})"
-                if min_approvals and int(min_approvals) > int(document.get("required_approvals") or 1)
-                else ""
+    if len(pinned_approvals) < effective_required:
+        if len(valid_approvals) >= effective_required:
+            # Enough valid signatures, but the verifier has not pinned the
+            # approver key(s). The release is not "unapproved"; the identity
+            # check is what is missing. Say so plainly and give the pin step.
+            report["status"] = "approver_not_pinned"
+            unpinned_names = [
+                str(item.get("approver") or "an unknown approver")
+                for item in valid_approvals
+                if not item.get("pinned")
+            ]
+            names = ", ".join(unpinned_names) or "an unpinned approver"
+            report["detail"] = (
+                f"approved by {names} - APPROVER NOT PINNED "
+                f"({len(pinned_approvals)}/{effective_required} pinned); pin with: "
+                f"epi approvers add <their-key-file> --name '{unpinned_names[0] if unpinned_names else 'approver'}'"
             )
-        )
+        else:
+            report["status"] = "unapproved"
+            report["detail"] = (
+                f"approved by {len(pinned_approvals)}/{effective_required}"
+                + (
+                    f" (release required {document.get('required_approvals')}, "
+                    f"verifier minimum {int(min_approvals or 0)})"
+                    if min_approvals and int(min_approvals) > int(document.get("required_approvals") or 1)
+                    else ""
+                )
+            )
+            if valid_approvals:
+                report["detail"] += (
+                    f"; {len(valid_approvals)} valid signature(s) not pinned"
+                )
         return report
+    approvals = pinned_approvals
 
     if report["status"] == "not_declared":
         # Resolution, components and approvals all passed: start from MATCH.

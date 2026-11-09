@@ -182,6 +182,8 @@ def test_release_approve_and_decision_matches(monkeypatch, tmp_path: Path) -> No
     assert report["release"]["approvals"] == {
         "have": 1,
         "required": 1,
+        "valid": 1,
+        "unpinned": [],
         "vendor_required": 1,
         "verifier_minimum": 0,
         "approvers": report["release"]["approvals"]["approvers"],
@@ -229,7 +231,8 @@ def test_second_unpinned_model_is_undeclared(monkeypatch, tmp_path: Path) -> Non
     assert "UNDECLARED" in human.output
 
 
-def test_two_releases_with_the_same_id_are_ambiguous(monkeypatch, tmp_path: Path) -> None:
+def test_identical_release_copies_are_not_ambiguous(monkeypatch, tmp_path: Path) -> None:
+    """A browser download duplicate is the same release, not a fork."""
     _env(monkeypatch, tmp_path)
     document = _document(tmp_path)
     first = _seal_release(tmp_path, document, name="one.epi")
@@ -239,9 +242,9 @@ def test_two_releases_with_the_same_id_are_ambiguous(monkeypatch, tmp_path: Path
     decision = _decision(tmp_path, first)
 
     report, _code = _verify(decision)
-    # Without an explicit path the resolver scans the cwd; two copies with the
-    # same id are ambiguous, never a silent pick.
-    assert report["release"]["status"] == "ambiguous", report["release"]
+    # The resolver scans the cwd; two byte-identical copies are one release.
+    assert report["release"]["status"] == "match", report["release"]
+    assert report["release"]["release_duplicates_skipped"] == 1, report["release"]
 
     result = runner.invoke(
         cli_app,
@@ -254,15 +257,37 @@ def test_two_releases_with_the_same_id_are_ambiguous(monkeypatch, tmp_path: Path
         ],
     )
     parsed = json.loads(result.output)
-    assert parsed["release"]["status"] in ("ambiguous", "not_found")
-    # The two files share the id, so a directory scan must report ambiguity.
-    assert parsed["release"]["status"] == "ambiguous", parsed["release"]
+    assert parsed["release"]["status"] == "match", parsed["release"]
+    assert parsed["release"]["release_duplicates_skipped"] == 1
 
     human = runner.invoke(
         cli_app, ["verify", str(decision), "--release-dir", str(tmp_path)]
     )
-    assert "AMBIGUOUS RELEASE" in human.output
-    assert "approved by" not in human.output  # no release was chosen
+    assert "MATCHES" in human.output
+    assert "ignored 1 identical copy" in human.output
+    assert "AMBIGUOUS RELEASE" not in human.output
+
+
+def test_two_different_releases_with_the_same_id_are_ambiguous(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from epi_core.release import resolve_release
+
+    _env(monkeypatch, tmp_path)
+    document = _document(tmp_path)
+    _seal_release(tmp_path, document, name="one.epi")
+
+    other = json.loads(json.dumps(document))
+    other["components"][0]["sha256"] = "b" * 64
+    other["release_digest"] = release_core.document_digest(other)
+    _seal_release(tmp_path, other, name="two.epi")
+
+    resolved = resolve_release(
+        {"release_id": document["release_id"], "release_digest": ""},
+        release_dir=tmp_path,
+    )
+    assert resolved["status"] == "ambiguous", resolved
+    assert len(resolved["paths"]) == 2, resolved
 
 
 def test_required_approvals_is_inside_the_digest(monkeypatch, tmp_path: Path) -> None:
