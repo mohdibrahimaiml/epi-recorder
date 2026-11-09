@@ -457,3 +457,43 @@ Lighthouse performance on `/` is 45 (mobile). That is a pre-existing page-weight
 ### Cleanup
 
 All test artifacts remain under `C:\epi-temp\opencode\`. No Cloud data was created. No product state was published. The only repository changes are the fixes on `release/4.10.0-site` and this report on `qa/4.10.0`.
+
+---
+
+## Round 3 — Cloud QA and the false `MISSING #N`
+
+Full Cloud run: `docs/qa/CLOUD-QA-4.10.0.md` (commit `052051fb`). Summary:
+
+- C6 (device login, `epi cloud status`, 3 seals to the Cloud witness, `epi cloud push`): PASS.
+- C8 (anonymous share link, open signed out, download, verify on 4.10.0 and 4.9.0): PASS.
+- C7a/C7b (heartbeat and release reports to the Cloud witness): FAIL, HTTP 400.
+- C7c (customer audit of what Cloud accepted): **P0**, `MISSING #4`, exit 1. The release took seal #4 but was reported only as `epi.release`, which Cloud rejected, so the customer log had a hole and the audit accused the vendor of hiding a record.
+- P1: a reviewer verifying a shared file on its own saw `RELEASE NOT FOUND` and `UNKNOWN APPROVER`; both read as failures but mean "not supplied" and "not pinned".
+- P2: `epi cloud login` printed no code without a TTY; workspace/customer names kept a leading space.
+
+### Client fix in `bed20ba6` (this repo)
+
+1. **Every release also sends a normal `epi.sealed` report.** `report_release` stages and delivers the seal first (with the release's `seal_seq`, `ledger_id`, `prev_seq` and `prev_content_digest`), then the `epi.release` detail as an extra. Old receivers and the current Cloud accept the seal, so the number is never a hole. If the receiver rejects the extra, the CLI says: "seal delivered; this receiver doesn't accept release detail yet (the seal number is reported)".
+2. **No fork when both are accepted.** `epi_core.seal_ledger.analyze` ignores an `epi.release` entry when an `epi.sealed` entry for the same key/ledger/seq is already present. A release-only log from an older client is still counted as its seal, so old numbers stay covered.
+3. **Heartbeat absence is not an alarm.** `epi witness audit` now prints "Tail-gap check not available on this receiver: no heartbeat reports in this log. The seal numbers above are still checked." JSON gets `heartbeat_check: not_available`.
+4. **Capability line.** `epi witness status` and `epi cloud status` show "This witness accepts: seals ✓, heartbeats ✗, releases ✗, approvals ?", inferred from the outbox delivery history.
+5. **P1 wording.** `Release: rel_… RELEASE DECLARED - NOT SUPPLIED` plus "not a failure … add --release-dir". `Pre-action: signed by DEMO APPROVER - APPROVER NOT PINNED` plus "signature is valid; pin the approver to count it: epi approvers add …".
+6. **P2.** `epi cloud login` flushes the device code even when stdout is a pipe; workspace and customer labels are stripped before saving.
+
+### Tests
+
+- `tests/test_release_witness_compat.py`: a receiver that accepts only `epi.sealed` gets the release seal #1 and normal seals #2/#3; `analyze` is clean and contiguous. A second case proves the release extra does not fork #1 when both reports are accepted.
+- `tests/test_verify_wording.py`: the missing-release and unpinned-approver lines contain the new wording and hints, not `RELEASE NOT FOUND`/`UNKNOWN APPROVER`.
+- `tests/test_cloud_login_device.py`: a server label with leading spaces is trimmed on save.
+- Focused suites: 136 passed (witness/release/verify/pre-action/cloud); demo/site/packaging: 51 passed.
+- Full suite on `bed20ba6`: result recorded below after the run.
+
+### Still needed for full C7
+
+The Cloud service is a separate hosted codebase, **not this repository**. It still returns HTTP 400 for `epi.heartbeat`, `epi.release`, `epi.release_approval` and `epi.approval_*`. The client fix removes the false accusation and keeps every seal number; full release/heartbeat/approval detail in Cloud waits for that service to accept and store the extra types (fix plan item 2). If the private Cloud repo is added to this session, item 2 can be implemented there.
+
+### Cleanup still to do in the Cloud dashboard
+
+- Delete test runs `art_5f9be6d229ecca1795eb9df3` and `art_29152f4cee6d031d02df1375`.
+- Disconnect this test computer's device key.
+- The anonymous share `923c97a432af3c715cd8ffe9` expires on its own 2026-11-10.
