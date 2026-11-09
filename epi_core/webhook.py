@@ -445,6 +445,45 @@ def describe_witness_failure(
     }
 
 
+def _witness_type_supported(entries: list[dict[str, Any]], match) -> str:
+    """'✓' delivered, '✗' rejected with HTTP 400, '?' not tried yet."""
+    delivered = False
+    rejected = False
+    for entry in entries:
+        payload = entry.get("payload") or {}
+        if not match(str(payload.get("type") or "")):
+            continue
+        if entry.get("delivered"):
+            delivered = True
+        for info in (entry.get("gone") or {}).values():
+            if witness_http_status((info or {}).get("error")) == 400:
+                rejected = True
+    if delivered and not rejected:
+        return "✓"
+    if rejected:
+        return "✗"
+    return "?"
+
+
+def witness_capabilities(entries: list[dict[str, Any]] | None = None) -> dict[str, str]:
+    """What this outbox says the receiver accepted (seals/heartbeats/releases/approvals)."""
+    items = read_outbox() if entries is None else entries
+    return {
+        "seals": _witness_type_supported(items, lambda t: t == "epi.sealed"),
+        "heartbeats": _witness_type_supported(items, lambda t: t == "epi.heartbeat"),
+        "releases": _witness_type_supported(items, lambda t: t == "epi.release"),
+        "approvals": _witness_type_supported(
+            items,
+            lambda t: t == "epi.release_approval" or t.startswith("epi.approval"),
+        ),
+    }
+
+
+def format_witness_capabilities(caps: dict[str, str]) -> str:
+    """One line for `epi witness status` / `epi cloud status`."""
+    return ", ".join(f"{label} {caps.get(label, '?')}" for label in ("seals", "heartbeats", "releases", "approvals"))
+
+
 def _post_once(
     url: str,
     payload: dict[str, Any],
@@ -1082,31 +1121,51 @@ def report_release(
     timeout_seconds: float | None = None,
     path: Path | None = None,
 ) -> dict[str, Any] | None:
-    """Stage and attempt delivery of a release report. Never raises."""
-    entry = stage_release_report(
+    """Stage and deliver a release report. Never raises.
+
+    A release is a numbered seal. Older receivers (and EPI Cloud before the
+    new report types were deployed) only accept ``epi.sealed``; sending only
+    ``epi.release`` left a hole at the release's seal number, so the customer's
+    audit falsely reported ``MISSING #N``. Send the normal seal report first,
+    then the release detail as an extra. If the receiver rejects the extra, the
+    seal number is still recorded and the audit stays clean.
+    """
+    seal_entry = stage_seal_report(
         epi_path,
         urls=urls,
         key_name=key_name,
         signer=signer,
         path=path,
     )
-    if entry is None:
+    release_entry = stage_release_report(
+        epi_path,
+        urls=urls,
+        key_name=key_name,
+        signer=signer,
+        path=path,
+    )
+    entries = [entry for entry in (seal_entry, release_entry) if entry is not None]
+    if not entries:
         return None
     budget = witness_timeout() if timeout_seconds is None else max(0.5, float(timeout_seconds))
-    outcome: dict[str, Any] = {}
+    outcomes: dict[str, dict[str, Any]] = {}
 
     def _deliver() -> None:
-        try:
-            outcome.update(
-                deliver_entry(
+        # Sequential, not parallel: both deliveries rewrite the same outbox
+        # file, and read-modify-write is not safe across concurrent writers.
+        per_entry = max(1, int(min(10, max(1.0, budget / max(1, len(entries))))))
+        for label, entry in (("seal", seal_entry), ("release", release_entry)):
+            if entry is None:
+                continue
+            try:
+                outcomes[label] = deliver_entry(
                     entry,
                     secret=secret,
-                    timeout_seconds=max(1, int(min(10, budget))),
+                    timeout_seconds=per_entry,
                     path=path,
                 )
-            )
-        except Exception as exc:  # noqa: BLE001
-            outcome["error"] = str(exc)[:300]
+            except Exception as exc:  # noqa: BLE001
+                outcomes[label] = {"delivered": [], "failed": {"": str(exc)[:300]}}
 
     thread = threading.Thread(
         target=_deliver,
@@ -1115,7 +1174,30 @@ def report_release(
     )
     thread.start()
     thread.join(timeout=budget)
-    entry["_outcome"] = dict(outcome) if outcome else {"pending": True}
+    if not outcomes:
+        outcomes = {"pending": True}
+
+    seal_outcome = outcomes.get("seal") or {}
+    release_outcome = outcomes.get("release") or {}
+    delivered = list(
+        dict.fromkeys(
+            list(seal_outcome.get("delivered") or [])
+            + list(release_outcome.get("delivered") or [])
+        )
+    )
+    failed: dict[str, str] = {}
+    failed.update(seal_outcome.get("failed") or {})
+    failed.update(release_outcome.get("failed") or {})
+    entry = release_entry or seal_entry
+    assert entry is not None
+    entry["_outcome"] = {
+        "delivered": delivered,
+        "failed": failed,
+        "seal": seal_outcome,
+        "release": release_outcome,
+    }
+    entry["_seal_outcome"] = seal_outcome
+    entry["_release_outcome"] = release_outcome
     return entry
 
 

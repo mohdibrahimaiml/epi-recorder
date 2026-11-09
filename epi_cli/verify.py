@@ -877,11 +877,11 @@ _RELEASE_FAIL_STATUSES = {
     "drift",
     "undeclared",
     "unapproved",
-    "not_found",
     "ambiguous",
     "dirty",
     "verification_failed",
 }
+_RELEASE_NEUTRAL_STATUSES = {"not_declared", "not_found"}
 _RELEASE_WARN_STATUSES = {
     "not_observed",
     "approved_after_use",
@@ -902,7 +902,7 @@ def _format_release_lines(info: dict) -> list[str]:
         "drift": "DRIFT",
         "undeclared": "UNDECLARED",
         "unapproved": "UNAPPROVED RELEASE",
-        "not_found": "RELEASE NOT FOUND",
+        "not_found": "RELEASE DECLARED - NOT SUPPLIED",
         "ambiguous": "AMBIGUOUS RELEASE",
         "dirty": "DIRTY RELEASE",
         "approved_after_use": "APPROVED AFTER USE",
@@ -913,10 +913,15 @@ def _format_release_lines(info: dict) -> list[str]:
     color = (
         "green"
         if status == "match"
-        else ("red" if status in _RELEASE_FAIL_STATUSES else "yellow")
+        else ("dim" if status in _RELEASE_NEUTRAL_STATUSES else ("red" if status in _RELEASE_FAIL_STATUSES else "yellow"))
     )
     detail = str(info.get("detail") or "")
     line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
+    if status == "not_found":
+        line += (
+            "\n  [dim]                not a failure: the release file was not supplied. "
+            "Add --release-dir <dir> (or --release <file>) to check it.[/dim]"
+        )
     # No release was chosen for these, so an "approved by 0/0" count would be
     # misleading. Show the approval count only once a release was resolved.
     if status not in ("ambiguous", "not_found", "verification_failed") and int(
@@ -977,7 +982,7 @@ _PRE_ACTION_LABELS = {
     "approval_expired": "APPROVAL EXPIRED",
     "approval_reused": "APPROVAL REUSED",
     "signed_by_sealing_key": "SIGNED BY SEALING KEY",
-    "unknown_approver": "UNKNOWN APPROVER",
+    "unknown_approver": "APPROVER NOT PINNED",
     "auto_approved": "AUTO-APPROVED (NOT HUMAN)",
     "execution_not_witnessed": "EXECUTION NOT WITNESSED",
     "not_used": "not used",
@@ -1000,10 +1005,20 @@ def _format_pre_action_lines(info: dict) -> list[str]:
             and not item.get("approver_key_colocated")
             else ("red" if status not in ("approved_before_action", "not_used") else "yellow")
         )
-        approver = item.get("approver") or "unknown approver"
-        lines.append(
-            f"  [{color}]- Pre-action:  {label} ({approver})[/{color}]"
-        )
+        approver = item.get("approver") or "an unknown approver"
+        if status == "unknown_approver":
+            lines.append(
+                f"  [{color}]- Pre-action:  signed by {approver} - APPROVER NOT PINNED[/{color}]"
+            )
+            lines.append(
+                "  [dim]                signature is valid; pin the approver to count it: "
+                "epi approvers add <their-key-file> --name '"
+                f"{approver}'[/dim]"
+            )
+        else:
+            lines.append(
+                f"  [{color}]- Pre-action:  {label} ({approver})[/{color}]"
+            )
         lines.append(
             f"  [dim]                basis: {item.get('basis')}[/dim]"
         )

@@ -84,7 +84,7 @@ def create(
     )
     from epi_core.schemas import ManifestModel, ReleaseModel
     from epi_core.trust import sign_manifest
-    from epi_core.webhook import report_release
+    from epi_core.webhook import report_release, witness_http_status
     from epi_core.workspace import create_recording_workspace
 
     try:
@@ -154,9 +154,20 @@ def create(
         entry = report_release(
             out, urls=urls, secret=secret, key_name=key, signer=private_key
         )
-        outcome = (entry or {}).get("_outcome") or {}
-        if outcome.get("delivered") and not outcome.get("failed"):
-            _plain("  Witness:   release report delivered")
+        seal = (entry or {}).get("_seal_outcome") or {}
+        release = (entry or {}).get("_release_outcome") or {}
+        seal_ok = bool(seal.get("delivered")) and not seal.get("failed")
+        release_ok = bool(release.get("delivered")) and not release.get("failed")
+        release_err = next(iter((release.get("failed") or {}).values()), None)
+        if seal_ok and release_ok:
+            _plain("  Witness:   seal and release detail delivered")
+        elif seal_ok and witness_http_status(release_err) == 400:
+            _plain(
+                "  Witness:   seal delivered; this receiver doesn't accept release "
+                "detail yet (the seal number is reported)"
+            )
+        elif seal_ok:
+            _plain("  Witness:   seal delivered; release detail queued (epi witness flush)")
         else:
             _plain("  Witness:   queued (epi witness flush)")
 

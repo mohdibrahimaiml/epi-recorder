@@ -208,6 +208,18 @@ def status() -> None:
     console.print(table)
     pending = sum(len(e.get("pending") or []) for e in entries)
     console.print(f"[dim]{len(entries)} entries, {pending} URLs pending.[/dim]")
+    try:
+        from epi_core.webhook import (
+            format_witness_capabilities,
+            witness_capabilities,
+        )
+
+        console.print(
+            "[dim]This witness accepts: "
+            f"{format_witness_capabilities(witness_capabilities(entries))}[/dim]"
+        )
+    except Exception:
+        pass
     if pending:
         console.print(
             "[dim]Retry with `epi witness flush`; remove an undeliverable entry with "
@@ -1132,6 +1144,11 @@ def _render_audit(log_path: Path, result: dict) -> None:
             _plain("  clean")
 
     unsequenced = int(result.get("unsequenced") or 0)
+    if result.get("reports") and not result.get("heartbeats"):
+        _plain(
+            "\nTail-gap check not available on this receiver: no heartbeat reports "
+            "in this log. The seal numbers above are still checked."
+        )
     reuse = result.get("approval_reuse") or []
     for item in reuse:
         _plain(
@@ -1193,6 +1210,11 @@ def audit(
         _plain(error)
         raise typer.Exit(2)
     result = analyze(entries)
+    result["heartbeat_check"] = (
+        "present"
+        if result.get("heartbeats")
+        else ("not_available" if result.get("reports") else "no_seals")
+    )
 
     if as_json:
         payload = {"log": str(log), **result}

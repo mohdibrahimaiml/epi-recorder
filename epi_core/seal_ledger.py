@@ -535,6 +535,32 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     order: list[tuple[str, str]] = []
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    # A release is reported twice from 4.10: ``epi.sealed`` (the numbered
+    # seal) and ``epi.release`` (the detail). Count the seal for sequence and
+    # fork checks; ignore the extra when the same number is already present.
+    # A release-only log (older client) keeps the release as its seal so the
+    # number is still covered.
+    sealed_keys = {
+        (
+            str(entry.get("key_fingerprint") or ""),
+            str(entry.get("ledger_id") or ""),
+            _int_or_none(entry.get("seal_seq")),
+        )
+        for entry in seals
+        if str(entry.get("type") or "") == "epi.sealed"
+    }
+    filtered_seals: list[dict[str, Any]] = []
+    for entry in seals:
+        if str(entry.get("type") or "") == "epi.release":
+            key = (
+                str(entry.get("key_fingerprint") or ""),
+                str(entry.get("ledger_id") or ""),
+                _int_or_none(entry.get("seal_seq")),
+            )
+            if key in sealed_keys:
+                continue
+        filtered_seals.append(entry)
+    seals = filtered_seals
     for entry in seals:
         group_key = (
             str(entry.get("key_fingerprint") or ""),
