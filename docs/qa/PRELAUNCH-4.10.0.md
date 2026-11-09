@@ -505,7 +505,7 @@ The Cloud service is a separate hosted codebase, **not this repository**. It sti
 
 The Cloud re-test of `45864b8b` passed C7: the release was sealed as #3, Cloud accepted seals #1–#4, the customer audit was `#1..#4 — contiguous · clean` (exit 0), `epi cloud push` showed `Witness: witnessed`, and a 4.9.0 verifier still read the demo as `Integrity Verified · Signature Valid`.
 
-Reviewing the demo as a normal person then found two new bugs, now fixed in `9a3091d6`.
+Reviewing the demo as a normal person then found two new bugs, now fixed in `9a3091d6` (page fingerprint tweak in `ab177eb8`).
 
 ### 1. Identical download copies made the release AMBIGUOUS
 
@@ -561,8 +561,8 @@ Using the demo files as the stand-ins for `vendor.pub`, `approver.pub`, `case.ep
 ### Test status
 
 - Focused suites: 99 passed (release/verify/pre-action/witness), plus 4 reviewer-bug tests and 3 wording tests.
-- Full suite on `9a3091d6`: result recorded below after the run.
-- CI on `9a3091d6`: result recorded below after the run.
+- Full suite on `9a3091d6`: **2647 passed, 59 skipped** in 35:16. The final `ab177eb8` is the page fingerprint tweak; full CI is green on it.
+- CI on `ab177eb8`: compatibility gate pass (50s), Ubuntu release-gate pass (9m6s), Windows release-gate pass (13m50s).
 
 ### Cloud service side
 
