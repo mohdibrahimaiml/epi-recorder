@@ -471,7 +471,7 @@ Full Cloud run: `docs/qa/CLOUD-QA-4.10.0.md` (commit `052051fb`). Summary:
 - P1: a reviewer verifying a shared file on its own saw `RELEASE NOT FOUND` and `UNKNOWN APPROVER`; both read as failures but mean "not supplied" and "not pinned".
 - P2: `epi cloud login` printed no code without a TTY; workspace/customer names kept a leading space.
 
-### Client fix in `bed20ba6` (this repo)
+### Client fix in `bed20ba6` (final wording tweak `45864b8b`)
 
 1. **Every release also sends a normal `epi.sealed` report.** `report_release` stages and delivers the seal first (with the release's `seal_seq`, `ledger_id`, `prev_seq` and `prev_content_digest`), then the `epi.release` detail as an extra. Old receivers and the current Cloud accept the seal, so the number is never a hole. If the receiver rejects the extra, the CLI says: "seal delivered; this receiver doesn't accept release detail yet (the seal number is reported)".
 2. **No fork when both are accepted.** `epi_core.seal_ledger.analyze` ignores an `epi.release` entry when an `epi.sealed` entry for the same key/ledger/seq is already present. A release-only log from an older client is still counted as its seal, so old numbers stay covered.
@@ -486,7 +486,8 @@ Full Cloud run: `docs/qa/CLOUD-QA-4.10.0.md` (commit `052051fb`). Summary:
 - `tests/test_verify_wording.py`: the missing-release and unpinned-approver lines contain the new wording and hints, not `RELEASE NOT FOUND`/`UNKNOWN APPROVER`.
 - `tests/test_cloud_login_device.py`: a server label with leading spaces is trimmed on save.
 - Focused suites: 136 passed (witness/release/verify/pre-action/cloud); demo/site/packaging: 51 passed.
-- Full suite on `bed20ba6`: result recorded below after the run.
+- Full suite on `bed20ba6`: **2641 passed, 59 skipped** in 31:47. The final `45864b8b` is the missing-release wording tweak, covered by `tests/test_verify_wording.py`.
+- CI on `45864b8b`: compatibility gate pass (47s), Ubuntu release-gate pass (7m9s), Windows release-gate pass (13m47s).
 
 ### Still needed for full C7
 
