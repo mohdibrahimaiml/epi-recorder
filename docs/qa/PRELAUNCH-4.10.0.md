@@ -498,3 +498,78 @@ The Cloud service is a separate hosted codebase, **not this repository**. It sti
 - Delete test runs `art_5f9be6d229ecca1795eb9df3` and `art_29152f4cee6d031d02df1375`.
 - Disconnect this test computer's device key.
 - The anonymous share `923c97a432af3c715cd8ffe9` expires on its own 2026-11-10.
+
+---
+
+## Round 4 — reviewer-facing release bugs found in the Cloud re-test
+
+The Cloud re-test of `45864b8b` passed C7: the release was sealed as #3, Cloud accepted seals #1–#4, the customer audit was `#1..#4 — contiguous · clean` (exit 0), `epi cloud push` showed `Witness: witnessed`, and a 4.9.0 verifier still read the demo as `Integrity Verified · Signature Valid`.
+
+Reviewing the demo as a normal person then found two new bugs, now fixed in `9a3091d6`.
+
+### 1. Identical download copies made the release AMBIGUOUS
+
+A browser saves a second copy as `claims-policy-1.4 (1).epi`. The two files were byte-identical, but `epi verify` said “2 release artifacts have id …; refusing to pick one”.
+
+`resolve_release` now dedupes candidates by the signed `release_digest` (the release content) and skips identical copies. `AMBIGUOUS RELEASE` is reserved for the same id with **different** content. The CLI reports `ignored N identical copy(ies) of the release file`. Tests: `tests/test_release_reviewer_bugs.py`, and the updated `test_identical_release_copies_are_not_ambiguous` in `tests/test_release_records.py`.
+
+### 2. A valid but unpinned approval read as UNAPPROVED
+
+A release with a valid `DEMO KEY` approval, on a verifier that had not pinned that key, said `UNAPPROVED RELEASE · approved by 0/1`. The signature was valid; only the identity pin was missing.
+
+The release report now distinguishes:
+
+- `approvals.valid` — valid approval signatures found;
+- `approvals.have` — those whose keys are pinned;
+- `approver_not_pinned` — enough valid signatures, but not enough pinned. The line is `Release: claims-policy 1.4  APPROVER NOT PINNED`, with “approved by DEMO KEY - APPROVER NOT PINNED (0/1 pinned); pin with: epi approvers add <their-key-file> --name 'DEMO KEY'”.
+- `UNAPPROVED RELEASE` remains for a release with no valid approval signature.
+
+`tests/test_verify_wording.py` and `tests/test_release_reviewer_bugs.py` cover both paths.
+
+### 3. Release auto-discovery searched the whole tree
+
+Without `--release-dir`, the resolver recursively searched from the current directory. From the repo root it found four copies under `site/`, `epi-official/` and `verify_portal/`; in a large Downloads folder that is a slow, surprising search.
+
+Discovery now:
+
+- uses an explicit `--release`/`--release-dir` if given (the operator chose it);
+- otherwise searches **only the decision file’s own folder, non-recursively**;
+- prints `using release file next to the decision: claims-policy-1.4.epi`;
+- prints how many identical copies it ignored.
+
+`tests/test_release_reviewer_bugs.py::test_auto_discovery_is_next_to_the_decision_and_not_recursive` puts an identical copy in a nested folder and proves it is not scanned. A `--release-dir` still searches recursively by design.
+
+### 4. /verify demo panel refreshed
+
+The page’s demo fingerprints changed when the demo was re-sealed, and the panel did not pin the sealer, so its commands ended in an identity FAIL. The panel now reads:
+
+```
+epi keys trust demo-sealer.pub --name demo-sealer
+epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "7192 6c38 f452 feee"
+epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "0406 2aa9 a53e 3031"
+epi verify decision-example.epi --release claims-policy-1.4.epi \
+  --witness-log witness.jsonl --require-release --min-approvals 1 \
+  --require-pre-action-approval
+```
+
+Run exactly as written in a fresh folder, this returns `DECISION: PASS`, `Release: claims-policy 1.4 MATCHES`, `Order: release before decision (basis: witness received_at)` and `Pre-action: APPROVED BEFORE ACTION (basis: witness received_at)`. The `demo-sealer.pub` link is on the page. Screenshot refreshed: `screens/verify-demo-desktop-light.png`.
+
+### /reviewers commands re-run
+
+Using the demo files as the stand-ins for `vendor.pub`, `approver.pub`, `case.epi` and `received.jsonl`, the page’s commands return `SIGNER PINNED`, `Human approval: VERIFIED`, and the new release wording `RELEASE DECLARED - NOT SUPPLIED` (the reviewer was not given the release file, so that is a warning, not a tamper finding). The DID command still needs a real `did:web` document; it is not runnable offline.
+
+### Test status
+
+- Focused suites: 99 passed (release/verify/pre-action/witness), plus 4 reviewer-bug tests and 3 wording tests.
+- Full suite on `9a3091d6`: result recorded below after the run.
+- CI on `9a3091d6`: result recorded below after the run.
+
+### Cloud service side
+
+The client fix means launch no longer depends on the Cloud update. Cloud users get correct seals and a clean audit now; heartbeat/release/approval *detail* still waits for the hosted service to accept the extra report types (fix plan item 2). The status line says exactly what the receiver accepts.
+
+### Cleanup still to do in the Cloud dashboard
+
+- Delete test runs `art_5f9be6d229ecca1795eb9df3`, `art_29152f4cee6d031d02df1375` and `art_0141e7d256024abba641164a`.
+- Disconnect the test computer’s device key when re-testing is no longer needed.
+- The anonymous share expires on its own on 2026-11-10.
