@@ -21,7 +21,7 @@ def test_missing_release_says_not_supplied_and_how_to_check() -> None:
         )
     )
     assert "RELEASE DECLARED - NOT SUPPLIED" in text
-    assert "not a failure" in text
+    assert "not a tamper finding" in text
     assert "--release-dir" in text
     assert "RELEASE NOT FOUND" not in text
 

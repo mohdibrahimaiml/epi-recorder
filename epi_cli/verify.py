@@ -919,8 +919,8 @@ def _format_release_lines(info: dict) -> list[str]:
     line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
     if status == "not_found":
         line += (
-            "\n  [dim]                not a failure: the release file was not supplied. "
-            "Add --release-dir <dir> (or --release <file>) to check it.[/dim]"
+            "\n  [dim]                the release file was not supplied (not a tamper "
+            "finding). Add --release-dir <dir> (or --release <file>) to check it.[/dim]"
         )
     # No release was chosen for these, so an "approved by 0/0" count would be
     # misleading. Show the approval count only once a release was resolved.
