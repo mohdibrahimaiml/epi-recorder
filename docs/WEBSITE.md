@@ -15,7 +15,7 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
 | `/decision-record` | The category page: what a Decision Record is, why not a log, ten-question checklist, real CLI output |
-| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud free workspace (1 customer, 1 share link, 50 runs, 50 witnessed runs/month, 30 days), Team EUR 149/month (EUR 1,490/year), Business EUR 499/month (EUR 4,990/year), upgraded in the dashboard; Enterprise by quote |
+| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud (USD): free workspace (1 customer relationship, 50 files/year, 30 days), Design Partner $750/month or $7,500 upfront (first 5, invoiced), Startup $500/month or $5,000/year, Growth $2,000/month or $20,000/year (upgraded in the dashboard), Enterprise from $40,000/year |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |
@@ -49,8 +49,8 @@ Match these or the page is wrong:
 
 - Open-source record / seal / verify is MIT and free. No account required.
 - Verification is never charged.
-- EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall. Team and Business are self-serve upgrades in the dashboard; Enterprise is by quote.
-- The paid limits are customers, witnessed runs per month, stored runs, retention and share links. A workspace over its witnessed-run allowance gets 7 days of grace, then new customers, runs and share links pause until upgrade or the next month; evidence is never rejected and existing links/exports keep working.
+- EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall. Startup and Growth are self-serve upgrades in the dashboard; Design Partner and Enterprise are invoiced directly.
+- Cloud is priced per **customer relationship**, not per agent. Agents are fair use. The paid limits are customer relationships, Evidence Room files per year, retention and share links. Usage is not metered or blocked. Retention lasts while subscribed, and after cancelling the customer has 90 days to export everything.
 - The seal proves integrity **after sealing**, not completeness of capture.
 - Accounts live on EPI Cloud.
 
