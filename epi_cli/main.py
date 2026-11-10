@@ -2682,6 +2682,53 @@ def doctor(
 
 
 # Entry point for CLI
+PAID_COMMANDS: dict[str, str] = {
+    # A command that moved into the paid package explains itself instead of
+    # disappearing behind Click's bare "No such command". When the
+    # epi-enterprise plugin is installed the real command is registered and
+    # this hook never fires.
+    "enterprise": "EPI Enterprise",
+    "gateway": "EPI Enterprise",
+    "connect": "EPI Enterprise",
+    "integrate": "EPI Enterprise",
+    "debug": "EPI Enterprise",
+    "analyze": "EPI Enterprise",
+    "export-summary": "EPI Enterprise",
+}
+
+PAID_COMMAND_HINT = "is part of {plan} and above. See https://epilabs.org/plans"
+
+
+def _registered_names() -> set[str]:
+    """Every top-level command and group currently on the Typer app."""
+    names: set[str] = set()
+    for cmd in getattr(app, "registered_commands", []):
+        if cmd.name:
+            names.add(cmd.name)
+        elif cmd.callback is not None:
+            names.add(cmd.callback.__name__.replace("_", "-"))
+    for grp in getattr(app, "registered_groups", []):
+        if grp.name:
+            names.add(grp.name)
+    return names
+
+
+def _paid_command_hint(argv: list[str], known: set[str] | None = None) -> None:
+    """Explain a moved command, then exit non-zero.
+
+    Silence plus a generic parse error is the one thing a paying-or-deciding
+    user should never get: they typed a command that used to work.
+    """
+    first = next((a for a in argv if not a.startswith("-")), "")
+    plan = PAID_COMMANDS.get(first)
+    if plan is None:
+        return
+    if first in (known if known is not None else _registered_names()):
+        return
+    console.print(f"[yellow]{first}[/yellow] {PAID_COMMAND_HINT.format(plan=plan)}")
+    raise SystemExit(2)
+
+
 def _register_optional_plugins() -> None:
     """Attach paid/enterprise command groups when a plugin is installed.
 
@@ -2756,6 +2803,7 @@ def cli_main():
     except Exception:
         pass
 
+    _paid_command_hint(_sys.argv[1:])
     app()
 
 
