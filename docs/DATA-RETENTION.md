@@ -12,7 +12,7 @@ wherever you put them, and `epi verify` runs offline.
 
 | Plan | Customers | Stored runs | Retention | Share links |
 |------|-----------|-------------|-----------|-------------|
-| Free | 1 | 50 | 30 days | 1 |
+| Free | 1 | 10 | 30 days | 1 (7 days) |
 | Team | 5 | 5,000 / month | 1 year | 10 |
 | Business | 15 | 25,000 / month | 7 years | unlimited |
 | Enterprise | as entitled | as entitled | as entitled | as entitled |

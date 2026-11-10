@@ -34,7 +34,7 @@ relationship**, not per AI agent: agents are fair use on every plan.
 
 | Plan | Price | Customer relationships | Evidence Room files | Retention | How |
 |------|-------|------------------------|---------------------|-----------|-----|
-| Free | $0 | 1 | 50 / year | 30 days | self-serve |
+| Free | $0 | 1 | 10 / year | 30 days | self-serve, 7-day share links |
 | Design Partner (first 5) | $750 / month, locked 24 months, or $7,500 upfront | 5 | 2,000 / year | 7 years while subscribed | invoiced |
 | Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | Paddle |
 | Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | Paddle |
