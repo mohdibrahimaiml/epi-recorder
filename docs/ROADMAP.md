@@ -23,7 +23,7 @@ and the standing rule for everything else.
 
 - **Open core, corrected.** The checker and approver stay free:
   `epi approvers`, `epi review`, single-user `epi oversight report` and
-  `epi org bundle` are in the public MIT package. `epi audit`, `epi annex`,
+  `epi org bundle` are in the public Apache-2.0 package. `epi audit`, `epi annex`,
   `epi notify`, `epi chat` and the `epi enterprise` kit are the paid layer.
 - **Cloud share is live.** `epi share` defaults to `https://cloud.epilabs.org`
   and `POST /api/share` is verified end to end.

@@ -47,7 +47,7 @@ Portal-only extras that are **not** in `website/`:
 
 Match these or the page is wrong:
 
-- Open-source record / seal / verify is MIT and free. No account required.
+- Open-source record / seal / verify is Apache-2.0 from 4.10.0 and free (4.9.0 and earlier are MIT). No account required.
 - Verification is never charged.
 - EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall. Startup and Growth are self-serve upgrades in the dashboard; Enterprise is invoiced directly.
 - Cloud is priced per **customer relationship**, not per agent. Agents are fair use. The paid limits are customer relationships, Evidence Room files per year, retention and share links. Usage is not metered or blocked. Retention lasts while subscribed, and after cancelling the customer has 90 days to export everything.

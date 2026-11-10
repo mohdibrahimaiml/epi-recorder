@@ -11,7 +11,7 @@ required if they use the browser verifier.
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://pypi.org/project/epi-recorder/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
 [![Release Gate](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml/badge.svg?branch=main)](https://github.com/mohdibrahimaiml/epi-recorder/actions/workflows/release-gate.yml)
 
 ```bash
@@ -212,7 +212,7 @@ not a Cedar bundle. Details:
 
 ## Open core: what is free, what is paid
 
-**Free forever, MIT, in this repository:** the `.epi` format, `epi verify`, the viewer, the recorder
+**Free forever, Apache-2.0, in this repository:** the `.epi` format, `epi verify`, the viewer, the recorder
 and its integrations, the gateway, the customer-side witness (`epi witness serve` / `report`), the
 policy engine, `epi approvers`, `epi review`, single-user `epi oversight report`, `epi org bundle`,
 and every offline proof check.
@@ -295,7 +295,7 @@ Runnable examples — pytest plugin, gateway, witness, AGT and TRACE:
 - **Contributing:** [CONTRIBUTING.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CODE_OF_CONDUCT.md)
 - **Security reports:** [SECURITY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/SECURITY.md) — please do not open a public issue
 - **Support and scope:** [SUPPORT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/SUPPORT.md)
-- **License:** MIT — [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE)
+- **License:** Apache-2.0 from 4.10.0 - [LICENSE](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/LICENSE) and [NOTICE](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/NOTICE). Versions up to and including 4.9.0 are MIT and stay MIT.
 
 Built by [Mohd Ibrahim Afridi](https://epilabs.org/about) at EPI Labs ·
 [epilabs.org](https://epilabs.org) · [Issues](https://github.com/mohdibrahimaiml/epi-recorder/issues)

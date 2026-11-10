@@ -4,6 +4,17 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Licensing
+
+- **The public tool is Apache-2.0 from 4.10.0.** Every adopter now gets an
+  explicit patent grant, not just a copyright licence, and patent litigation
+  against other users terminates that grant. Two new obligations, both trivial:
+  carry `NOTICE` forward, and mark files you modified. Nothing about the free
+  tier changes - recording and verification stay free, and verification still
+  never requires an account, a licence or a network call.
+- **Versions up to and including 4.9.0 are MIT and stay MIT.** That grant is
+  permanent and is not withdrawn by this release.
+
 ### Fixed
 
 - **The case number is sealed into the record.** `record(case_id="ORD-9001")`

@@ -3,7 +3,7 @@
 **Product version in this repo: 4.9.0** (see `pyproject.toml`).  
 PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
-**License:** MIT (root `LICENSE`).  
+**License:** Apache-2.0 from 4.10.0; versions up to 4.9.0 are MIT (root `LICENSE`, `NOTICE`).  
 **Not legal advice. Not a certificate.** A `.epi` file is evidence a third party can re-check. It does not, by itself, certify EU AI Act conformity, SOC 2, ISO 27001, or any other regulatory outcome.
 
 **Normal user (install, record, verify, share a file):** [USER-GUIDE.md](./USER-GUIDE.md).
@@ -32,7 +32,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 
 | Product | What it is | Canonical docs |
 |---------|------------|----------------|
-| **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. MIT. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
+| **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. Apache-2.0. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
 | **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Free self-serve beta** - sign-in creates a workspace, no approval step; not a hosted-verification paywall. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
 | **Website** | Public site `https://epilabs.org`. Marketing, in-browser verify, plans, legal. Source of truth is `website/` only. | [WEBSITE.md](./WEBSITE.md) |
 

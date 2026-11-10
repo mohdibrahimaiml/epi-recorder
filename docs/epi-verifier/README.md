@@ -67,7 +67,7 @@ and `tests/compatibility/golden/canonical_hash_vectors.json`.
 
 ## License
 
-MIT — same license as the rest of `epi-recorder` (see the repository
-[`LICENSE`](../../LICENSE)). Contains bundled noble-ed25519 (MIT) for
-zero-dependency operation; the bundled code remains under its original MIT
-terms.
+Apache-2.0 from 4.10.0 - same license as the rest of `epi-recorder` (see the
+repository [`LICENSE`](../../LICENSE)); 4.9.0 and earlier are MIT. Contains
+bundled noble-ed25519 (MIT) for zero-dependency operation; the bundled code
+remains under its original MIT terms.
