@@ -15,7 +15,7 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
 | `/decision-record` | The category page: what a Decision Record is, why not a log, ten-question checklist, real CLI output |
-| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud free workspace (1 customer, 1 share link, 50 runs, 30 days) |
+| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud free workspace (1 customer, 1 share link, 50 runs, 50 witnessed runs/month, 30 days), Team EUR 149/month (EUR 1,490/year), Business EUR 499/month (EUR 4,990/year), upgraded in the dashboard; Enterprise by quote |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |
@@ -49,7 +49,8 @@ Match these or the page is wrong:
 
 - Open-source record / seal / verify is MIT and free. No account required.
 - Verification is never charged.
-- EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall.
+- EPI Cloud is a **free self-serve beta** (sign-in creates a workspace, no approval step), not a hosted-verification paywall. Team and Business are self-serve upgrades in the dashboard; Enterprise is by quote.
+- The paid limits are customers, witnessed runs per month, stored runs, retention and share links. A workspace over its witnessed-run allowance gets 7 days of grace, then new customers, runs and share links pause until upgrade or the next month; evidence is never rejected and existing links/exports keep working.
 - The seal proves integrity **after sealing**, not completeness of capture.
 - Accounts live on EPI Cloud.
 
