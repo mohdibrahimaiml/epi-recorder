@@ -26,24 +26,35 @@ The Worker never unzips an upload, never hashes a whole file in memory, and neve
 
 Commands: [CLI.md](./CLI.md) (`epi cloud login|use|push|status`, `epi cloud keys …`, `epi cloud storage …`). Witness semantics: [WITNESS.md](./WITNESS.md).
 
-## Plans (product, not a public checkout)
+## Plans (pricing note v3)
 
-Public site: Cloud has a free self-serve workspace ([epilabs.org/plans](https://epilabs.org/plans)).
-Signing in creates it; there is no approval step. Free is 1 customer, 1 share
-link, 50 stored runs and 30 days of retention.
-Entitlements are part of the hosted service, not this repository; what a plan
-includes is stated in product words below.
+Public site: [epilabs.org/plans](https://epilabs.org/plans). Signing in creates
+a free workspace; there is no approval step. We charge per **customer
+relationship**, not per AI agent: agents are fair use on every plan.
 
-| Plan | Customer relationships | Witnessed runs | Retention | Share links |
-|------|------------------------|----------------|-----------|-------------|
-| Free | 1 | 50 | 30 days | 1 |
-| Team | 5 | 5,000 / month | 1 year | 10 |
-| Business | 15 | 25,000 / month | 7 years | unlimited |
-| Enterprise | as entitled | as entitled | as entitled | as entitled |
+| Plan | Price | Customer relationships | Evidence Room files | Retention | How |
+|------|-------|------------------------|---------------------|-----------|-----|
+| Free | $0 | 1 | 50 / year | 30 days | self-serve |
+| Design Partner (first 5) | $750 / month, locked 24 months, or $7,500 upfront | 5 | 2,000 / year | 7 years while subscribed | invoiced |
+| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | Paddle |
+| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | Paddle |
+| Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
 
-Limits are per workspace. A share link is a reviewer trust link, and expired
-links do not count toward the limit. Verification is never limited or charged.
-Speak in **customers**, not internal metric names.
+Prices are USD and exclude taxes. Startup and Growth are paid by card in
+**Billing** in the dashboard (Paddle); Design Partner, Enterprise and add-on
+relationships are invoiced directly. Limits are per workspace. A share link is
+a reviewer trust link and does not count toward the relationship limit.
+
+Retention lasts while the subscription is active. After cancelling, the customer
+has **90 days to export everything**; downgrading to Free applies that 90-day
+window to existing files and never deletes them immediately. Evidence Room files
+are counted per rolling year.
+
+Usage is fair use: witnessed runs are reported in the dashboard and founder
+usage, but there is no per-run limit and no 402 for usage. The witness route is
+never gated; a report is always accepted and chained.
+
+Verification is never limited or charged, and reviewers never pay.
 
 The entitlement code lives with the hosted service. It is deliberately not in
 this repository, so plan names, limits and pricing can change without a public
