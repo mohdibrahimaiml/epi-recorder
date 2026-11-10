@@ -9,7 +9,7 @@ and the standing rule for everything else.
 
 - **Cloud funnel coherence.** The public site and the Cloud app must describe
   the same access model: a free, self-serve workspace with visible limits
-  (1 customer, 1 share link, 50 runs, 30 days), an optional onboarding
+  (1 customer relationship, 1 share link, 10 files a year, 30 days), an optional onboarding
   checklist, and paid Team/Business tiers that are not sold through a public
   checkout yet.
 - **One plan ladder.** Free / Team / Business / Enterprise in `plans.ts`,

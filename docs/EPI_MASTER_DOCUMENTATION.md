@@ -136,7 +136,7 @@ Then create a **customer-scoped** share/trust link on the Cloud dashboard. The r
 
 Witness receipts are hash-only. Full files in the Evidence Room are only what the vendor uploaded. Customer-bucket credentials never go to EPI Cloud ([STORAGE.md](./STORAGE.md), [CLOUD.md](./CLOUD.md)).
 
-Free Cloud plan: **1 customer, 1 share link, 50 stored runs, 30 days**. Paid plan numbers (when entitled): Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000 (7-year); Enterprise as agreed. Verification is not metered. Cloud checkout is not self-serve on the public site.
+Free Cloud plan: **1 customer relationship, 10 stored files a year, 30 days of storage, one 7-day share link**. Paid plan numbers (when entitled): Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000 (7-year); Enterprise as agreed. Verification is not metered. Cloud checkout is not self-serve on the public site.
 
 ---
 
