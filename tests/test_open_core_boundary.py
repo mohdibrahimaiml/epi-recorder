@@ -223,16 +223,22 @@ def test_verify_keeps_the_free_human_approval_checks():
 
 def test_licensing_document_states_the_boundary():
     text = (REPO / "LICENSING.md").read_text(encoding="utf-8")
-    assert "MIT" in text
+    assert "Apache-2.0" in text
     assert "epi-enterprise" in text
     assert "proprietary" in text.lower()
     # Published MIT versions cannot be un-licensed by a later change.
     assert "4.9.0" in text
+    assert "MIT" in text
 
-def test_public_package_declares_mit_and_paid_package_does_not():
+def test_public_package_declares_apache_and_paid_package_does_not():
     import tomllib
 
     data = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    assert data["project"]["license"] == "MIT"
+    assert data["project"]["license"] == "Apache-2.0"
     assert "LICENSE" in data["project"]["license-files"]
+    assert "NOTICE" in data["project"]["license-files"]
+    # The patent grant is the reason for the change; keep a real NOTICE file.
+    notice = (REPO / "NOTICE").read_text(encoding="utf-8")
+    assert "EPI Labs" in notice
+    assert "Apache" in notice
 

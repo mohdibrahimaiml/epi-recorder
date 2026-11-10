@@ -173,7 +173,7 @@ We especially welcome contributions in:
 
 ## 📄 License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Apache License, Version 2.0, and you confirm you have the right to license them that way. Do not contribute code you cannot license under those terms (this includes GPLv2-only code, which Apache-2.0 cannot absorb).
 
 ---
 
