@@ -72,3 +72,15 @@ def test_framework_adapters_ship_as_stubs_only():
         assert (root / free / "__init__.py").exists(), f"{free} must stay free"
     assert (root / "trace_exporter.py").stat().st_size > 1000
 
+
+def test_guardrails_runtime_ships_as_a_stub():
+    from pathlib import Path
+
+    pkg = Path(__file__).resolve().parents[1] / "epi_guardrails"
+    files = sorted(p.name for p in pkg.glob("*.py"))
+    assert files == ["__init__.py"], f"the guardrails runtime is still in the free wheel: {files}"
+    text = (pkg / "__init__.py").read_text(encoding="utf-8")
+    assert "raise ImportError" in text
+    assert "epi_enterprise.guardrails" in text
+
+

@@ -182,7 +182,7 @@ epi view agt-case.epi
         return (
             "guardrails_epi_example.py",
             '''from guardrails import Guard
-from epi_guardrails import instrument, uninstrument
+from epi_enterprise.guardrails import instrument, uninstrument
 
 # 1. Start recording to an .epi artifact
 instrument(output_path="guardrails_run.epi")
