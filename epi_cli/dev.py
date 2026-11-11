@@ -756,7 +756,9 @@ def _demo_push_if_logged_in(epi_path: Path) -> bool:
         if customer:
             console.print(f"  [green]✓[/green] Pushed to EPI Cloud   your workspace, customer: {escape(customer)}")
         else:
-            console.print("  [green]✓[/green] Pushed to EPI Cloud   your workspace (no customer set yet)")
+            # The server may still tag the run from the key's customer even
+            # when this machine has no saved name, so do not claim there is none.
+            console.print("  [green]✓[/green] Pushed to EPI Cloud   your workspace")
         try:
             from epi_cli.cloud import register_signing_key
 

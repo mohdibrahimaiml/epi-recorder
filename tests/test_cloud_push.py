@@ -120,6 +120,7 @@ def test_push_happy_path(fake_transport, home):
                 "put_url": "/v1/orgs/o1/artifacts/art_1/content",
                 "witness_status": "witnessed",
                 "signature_check": "valid",
+                "agent": "loans",
             },
         ),
         ("PUT", "content"): FakeResponse(200, {"stored": True}),
@@ -149,6 +150,37 @@ def test_push_happy_path(fake_transport, home):
     assert put_call["headers"]["Content-Length"] == str(len(raw))
     assert put_call["content_bytes"] == raw
     assert "art_1" in result.output and "witnessed" in result.output
+    assert "Customer: loans" in result.output
+
+
+def test_push_reports_the_customer_the_server_tagged(fake_transport, home):
+    # A key connected for a customer tags the run server-side even though the
+    # request carries no agent; the CLI must report that, not its local config.
+    routes = {
+        ("POST", "init"): FakeResponse(
+            201,
+            {
+                "id": "art_2",
+                "put_url": "/v1/orgs/o1/artifacts/art_2/content",
+                "witness_status": "witnessed",
+                "signature_check": "valid",
+                "agent": "First Bank",
+            },
+        ),
+        ("PUT", "content"): FakeResponse(200, {"stored": True}),
+    }
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        result = _invoke(
+            ["push", str(SAMPLE), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_x"]
+        )
+    assert result.exit_code == 0, result.output
+    client = FakeClient.instances[-1]
+    init_call = next(c for c in client.calls if c["method"] == "POST")
+    assert init_call["json"]["agent"] is None
+    assert "Customer: First Bank" in result.output
 
 
 def test_push_deduped_skips_upload(fake_transport, home):
